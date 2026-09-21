@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   app: {
     Tables: {
+      assistant_readable_columns: {
+        Row: {
+          column_name: string
+          data_type: string | null
+          is_default: boolean
+          kind: string
+          note: string | null
+          ordinal: number | null
+          table_name: string
+        }
+        Insert: {
+          column_name: string
+          data_type?: string | null
+          is_default?: boolean
+          kind: string
+          note?: string | null
+          ordinal?: number | null
+          table_name: string
+        }
+        Update: {
+          column_name?: string
+          data_type?: string | null
+          is_default?: boolean
+          kind?: string
+          note?: string | null
+          ordinal?: number | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       pin_attempts: {
         Row: {
           attempted_at: string
@@ -24,6 +54,33 @@ export type Database = {
           attempted_at?: string
           device_id?: string
           success?: boolean
+        }
+        Relationships: []
+      }
+      pin_grants: {
+        Row: {
+          authorizer_id: string
+          caller_id: string
+          consumed_at: string | null
+          created_at: string
+          device_id: string | null
+          id: number
+        }
+        Insert: {
+          authorizer_id: string
+          caller_id: string
+          consumed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: never
+        }
+        Update: {
+          authorizer_id?: string
+          caller_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: never
         }
         Relationships: []
       }
@@ -311,6 +368,164 @@ export type Database = {
         Args: { p_start_at: string }
         Returns: undefined
       }
+      assistant_archive_conversation: { Args: { p_id: string }; Returns: Json }
+      assistant_audit_page: {
+        Args: {
+          p_action_prefix?: string
+          p_actor_id?: string
+          p_count_only?: boolean
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_text?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_bookings_list: {
+        Args: {
+          p_count_only?: boolean
+          p_court_id?: string
+          p_customer_id?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_status?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_break_history: {
+        Args: {
+          p_count_only?: boolean
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_staff_id?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_chunk_source: {
+        Args: { p_kind: string; p_ref: string }
+        Returns: Json
+      }
+      assistant_count: {
+        Args: { p_args?: Json; p_tool: string }
+        Returns: number
+      }
+      assistant_courts_and_rates: { Args: never; Returns: Json }
+      assistant_delete_chunk: {
+        Args: { p_kind: string; p_ref: string }
+        Returns: number
+      }
+      assistant_in_list: {
+        Args: { p_col: string; p_values: Json }
+        Returns: string
+      }
+      assistant_index_done: { Args: { p_ids: number[] }; Returns: number }
+      assistant_index_fail: {
+        Args: { p_error: string; p_id: number }
+        Returns: undefined
+      }
+      assistant_index_nudge: { Args: never; Returns: undefined }
+      assistant_job_allowed: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
+      }
+      assistant_job_cancel: {
+        Args: { p_id: string }
+        Returns: Database["public"]["Tables"]["assistant_jobs"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assistant_job_tick_nudge: { Args: never; Returns: undefined }
+      assistant_job_transition: {
+        Args: { p_id: string; p_patch?: Json; p_status: string }
+        Returns: Database["public"]["Tables"]["assistant_jobs"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assistant_page: {
+        Args: { p_limit: number; p_offset: number }
+        Returns: Record<string, unknown>
+      }
+      assistant_payments_list: {
+        Args: {
+          p_count_only?: boolean
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_offset?: number
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_run_tool: {
+        Args: { p_args?: Json; p_tool: string }
+        Returns: Json
+      }
+      assistant_search: {
+        Args: {
+          p_embedding?: string
+          p_kinds?: string[]
+          p_limit?: number
+          p_query: string
+        }
+        Returns: Json
+      }
+      assistant_set_scopes: {
+        Args: { p_id: string; p_range?: Json; p_scopes: string[] }
+        Returns: Database["public"]["Tables"]["assistant_conversations"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_conversations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assistant_settings_read: { Args: never; Returns: Json }
+      assistant_stock_view: {
+        Args: { p_limit?: number; p_offset?: number; p_view: string }
+        Returns: Json
+      }
+      assistant_system_status: { Args: never; Returns: Json }
+      assistant_table_read: {
+        Args: {
+          p_columns?: string[]
+          p_count_only?: boolean
+          p_filters?: Json
+          p_limit?: number
+          p_offset?: number
+          p_order?: string
+          p_table: string
+        }
+        Returns: Json
+      }
+      assistant_tabs_list: {
+        Args: {
+          p_count_only?: boolean
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_status?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_upsert_chunk: { Args: { p: Json }; Returns: number }
+      assistant_usage: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       audit_log_page: {
         Args: {
           p_action_prefix?: string
@@ -422,8 +637,23 @@ export type Database = {
         Returns: Json
       }
       cancel_tab: {
-        Args: { p_reason_code?: string; p_tab_id: string }
+        Args: {
+          p_device_id?: string
+          p_idempotency_key?: string
+          p_reason_code?: string
+          p_tab_id: string
+        }
         Returns: Json
+      }
+      claim_due_index: {
+        Args: { p_limit?: number }
+        Returns: Database["public"]["Tables"]["assistant_index_queue"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_index_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       claim_due_notifications: {
         Args: { p_limit?: number }
@@ -494,6 +724,7 @@ export type Database = {
         Args: { p_order_item_id: string; p_ticket_id?: string }
         Returns: undefined
       }
+      consume_pin_grant: { Args: { p_device_id?: string }; Returns: string }
       court_fee_paid: {
         Args: { p_exclude_tab_id?: string; p_reservation_id: string }
         Returns: number
@@ -540,6 +771,8 @@ export type Database = {
         Args: { p_item_id: string; p_variant_id: string }
         Returns: number
       }
+      current_venue: { Args: { p_station_id?: string }; Returns: string }
+      current_venue_or_default: { Args: never; Returns: string }
       customer_counts: { Args: { p_customer_id: string }; Returns: Json }
       customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_record: { Args: { p_customer_id: string }; Returns: Json }
@@ -558,6 +791,7 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
         Returns: Json
       }
+      default_venue: { Args: never; Returns: string }
       delete_court: { Args: { p_id: string }; Returns: Json }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
       desk_register_customer: {
@@ -629,11 +863,20 @@ export type Database = {
         Returns: Json
       }
       ingredient_on_hand: { Args: { p_ingredient: string }; Returns: number }
-      is_degraded: { Args: never; Returns: boolean }
+      is_degraded:
+        | { Args: never; Returns: boolean }
+        | { Args: { p_venue: string }; Returns: boolean }
       is_media_path: { Args: { p: string }; Returns: boolean }
       is_own_session: { Args: { p_session_id: string }; Returns: boolean }
       is_staff: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
+        Returns: boolean
+      }
+      is_staff_at: {
+        Args: {
+          p_venue: string
+          roles: Database["public"]["Enums"]["staff_role"][]
+        }
         Returns: boolean
       }
       item_active_groups: {
@@ -647,6 +890,7 @@ export type Database = {
           qty: number
         }[]
       }
+      jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
       like_escape: { Args: { p_text: string }; Returns: string }
       link_item_modifier_group: {
         Args: {
@@ -668,26 +912,49 @@ export type Database = {
         }[]
       }
       llm_begin_request: { Args: never; Returns: Json }
-      llm_record_usage: {
+      llm_price_calc: {
         Args: {
-          p_completion_tokens: number
-          p_model_calls: number
-          p_prompt_tokens: number
+          p_cache_read: number
+          p_cache_write: number
+          p_input: number
+          p_model: string
+          p_output: number
         }
-        Returns: undefined
+        Returns: number
       }
+      llm_price_micros: {
+        Args: {
+          p_cache_read: number
+          p_cache_write: number
+          p_input: number
+          p_model: string
+          p_output: number
+        }
+        Returns: number
+      }
+      llm_record_usage:
+        | {
+            Args: {
+              p_cache_read: number
+              p_cache_write: number
+              p_input: number
+              p_model: string
+              p_model_calls: number
+              p_output: number
+              p_surface?: string
+            }
+            Returns: number
+          }
+        | {
+            Args: {
+              p_completion_tokens: number
+              p_model_calls: number
+              p_prompt_tokens: number
+            }
+            Returns: undefined
+          }
       llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
-      log_replay: {
-        Args: {
-          p_conflict_detail?: Json
-          p_device_id: string
-          p_entity: string
-          p_idempotency_key: string
-          p_result: string
-        }
-        Returns: Json
-      }
       mark_reservation: {
         Args: {
           p_reason?: string
@@ -771,6 +1038,7 @@ export type Database = {
       phone_canon: { Args: { p_phone: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
       pin_delay_floor: { Args: never; Returns: string }
+      pin_grant_ttl: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
       pin_pad_to_floor: { Args: { p_started: string }; Returns: undefined }
       preview_series: {
@@ -843,6 +1111,7 @@ export type Database = {
         Args: {
           p_amount_iqd: number
           p_device_id?: string
+          p_idempotency_key?: string
           p_items?: Json
           p_payment_id: string
           p_pin: string
@@ -926,7 +1195,9 @@ export type Database = {
         Args: { p_text: string }
         Returns: Record<string, unknown>
       }
+      resolve_venue: { Args: { p_station_id?: string }; Returns: string }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
+      retire_device: { Args: { p_device_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
@@ -1136,7 +1407,12 @@ export type Database = {
         Returns: Json
       }
       settle_zero_tab: {
-        Args: { p_device_id?: string; p_reason_code: string; p_tab_id: string }
+        Args: {
+          p_device_id?: string
+          p_idempotency_key?: string
+          p_reason_code: string
+          p_tab_id: string
+        }
         Returns: Json
       }
       sms_send_gate: {
@@ -1189,6 +1465,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
       }
+      staff_venue_ids: { Args: never; Returns: string[] }
       start_break: {
         Args: { p_device_id: string; p_pin: string }
         Returns: Json
@@ -1408,7 +1685,9 @@ export type Database = {
         Args: { p_jtype: string; p_key: string; p_value: Json }
         Returns: undefined
       }
-      venue_mode: { Args: never; Returns: Json }
+      venue_mode:
+        | { Args: never; Returns: Json }
+        | { Args: { p_venue: string }; Returns: Json }
       venue_patch_int: {
         Args: { p_key: string; p_max: number; p_min: number; p_patch: Json }
         Returns: number
@@ -1558,6 +1837,7 @@ export type Database = {
           reason: string | null
           text: string
           text_key: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1566,6 +1846,7 @@ export type Database = {
           reason?: string | null
           text: string
           text_key: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1574,6 +1855,7 @@ export type Database = {
           reason?: string | null
           text?: string
           text_key?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1581,6 +1863,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_insight_rejections_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -1597,6 +1886,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope: string
+          venue_id: string | null
         }
         Insert: {
           compare_basis?: string
@@ -1609,6 +1899,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope?: string
+          venue_id?: string | null
         }
         Update: {
           compare_basis?: string
@@ -1621,6 +1912,7 @@ export type Database = {
           range_from?: string
           range_to?: string
           scope?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1637,6 +1929,13 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "analytics_insights_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       analytics_patterns: {
@@ -1650,6 +1949,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope: string
+          venue_id: string | null
         }
         Insert: {
           court_id?: string | null
@@ -1661,6 +1961,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope?: string
+          venue_id?: string | null
         }
         Update: {
           court_id?: string | null
@@ -1672,6 +1973,7 @@ export type Database = {
           range_from?: string
           range_to?: string
           scope?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1686,6 +1988,304 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_patterns_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_calls: {
+        Row: {
+          cache_read_tokens: number
+          cache_write_tokens: number
+          call_no: number
+          cost_micros: number
+          created_at: string
+          id: number
+          input_tokens: number
+          message_id: string
+          model: string
+          ms: number | null
+          output_tokens: number
+          stop_reason: string | null
+        }
+        Insert: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
+          call_no: number
+          cost_micros?: number
+          created_at?: string
+          id?: never
+          input_tokens?: number
+          message_id: string
+          model: string
+          ms?: number | null
+          output_tokens?: number
+          stop_reason?: string | null
+        }
+        Update: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
+          call_no?: number
+          cost_micros?: number
+          created_at?: string
+          id?: never
+          input_tokens?: number
+          message_id?: string
+          model?: string
+          ms?: number | null
+          output_tokens?: number
+          stop_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_calls_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_chunks: {
+        Row: {
+          body: string
+          embedding: string | null
+          id: number
+          indexed_at: string
+          kind: string
+          lang: string
+          ref: string
+          route: string | null
+          source_updated_at: string | null
+          title: string | null
+          tsv: unknown
+        }
+        Insert: {
+          body: string
+          embedding?: string | null
+          id?: never
+          indexed_at?: string
+          kind: string
+          lang: string
+          ref: string
+          route?: string | null
+          source_updated_at?: string | null
+          title?: string | null
+          tsv?: unknown
+        }
+        Update: {
+          body?: string
+          embedding?: string | null
+          id?: never
+          indexed_at?: string
+          kind?: string
+          lang?: string
+          ref?: string
+          route?: string | null
+          source_updated_at?: string | null
+          title?: string | null
+          tsv?: unknown
+        }
+        Relationships: []
+      }
+      assistant_conversations: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          handles: Json
+          id: string
+          owner_id: string
+          range: Json | null
+          scopes: string[]
+          title: string | null
+          tokens: Json
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          handles?: Json
+          id?: string
+          owner_id: string
+          range?: Json | null
+          scopes?: string[]
+          title?: string | null
+          tokens?: Json
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          handles?: Json
+          id?: string
+          owner_id?: string
+          range?: Json | null
+          scopes?: string[]
+          title?: string | null
+          tokens?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_conversations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_index_queue: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          enqueued_at: string
+          id: number
+          kind: string
+          last_error: string | null
+          op: string
+          ref: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          enqueued_at?: string
+          id?: never
+          kind: string
+          last_error?: string | null
+          op: string
+          ref: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          enqueued_at?: string
+          id?: never
+          kind?: string
+          last_error?: string | null
+          op?: string
+          ref?: string
+        }
+        Relationships: []
+      }
+      assistant_jobs: {
+        Row: {
+          batch_id: string | null
+          chunks_done: number
+          chunks_total: number | null
+          conversation_id: string | null
+          created_at: string
+          error: string | null
+          estimate: Json
+          finished_at: string | null
+          id: string
+          message_id: string | null
+          mode: string | null
+          plan: Json
+          result: Json | null
+          started_at: string | null
+          status: string
+          tokens: Json
+        }
+        Insert: {
+          batch_id?: string | null
+          chunks_done?: number
+          chunks_total?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          estimate: Json
+          finished_at?: string | null
+          id?: string
+          message_id?: string | null
+          mode?: string | null
+          plan: Json
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          tokens?: Json
+        }
+        Update: {
+          batch_id?: string | null
+          chunks_done?: number
+          chunks_total?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          estimate?: Json
+          finished_at?: string | null
+          id?: string
+          message_id?: string | null
+          mode?: string | null
+          plan?: Json
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          tokens?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_jobs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assistant_jobs_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_messages: {
+        Row: {
+          content: Json
+          conversation_id: string
+          created_at: string
+          gate: Json | null
+          id: string
+          role: string
+          seq: number
+          sources: Json
+          tokens: Json
+        }
+        Insert: {
+          content: Json
+          conversation_id: string
+          created_at?: string
+          gate?: Json | null
+          id?: string
+          role: string
+          seq: number
+          sources?: Json
+          tokens?: Json
+        }
+        Update: {
+          content?: Json
+          conversation_id?: string
+          created_at?: string
+          gate?: Json | null
+          id?: string
+          role?: string
+          seq?: number
+          sources?: Json
+          tokens?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -1704,6 +2304,8 @@ export type Database = {
           entity_id: string
           id: number
           reason_code: string | null
+          search_text: unknown
+          venue_id: string | null
         }
         Insert: {
           action: string
@@ -1718,6 +2320,8 @@ export type Database = {
           entity_id: string
           id?: never
           reason_code?: string | null
+          search_text?: unknown
+          venue_id?: string | null
         }
         Update: {
           action?: string
@@ -1732,8 +2336,18 @@ export type Database = {
           entity_id?: string
           id?: never
           reason_code?: string | null
+          search_text?: unknown
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cafe_settings: {
         Row: {
@@ -1775,6 +2389,7 @@ export type Database = {
           is_active: boolean
           table_number: string
           token_version: number
+          venue_id: string | null
           zone: string | null
         }
         Insert: {
@@ -1784,6 +2399,7 @@ export type Database = {
           is_active?: boolean
           table_number: string
           token_version?: number
+          venue_id?: string | null
           zone?: string | null
         }
         Update: {
@@ -1793,9 +2409,18 @@ export type Database = {
           is_active?: boolean
           table_number?: string
           token_version?: number
+          venue_id?: string | null
           zone?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cafe_tables_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       courts: {
         Row: {
@@ -1811,6 +2436,7 @@ export type Database = {
           name_en: string
           photo_path: string | null
           sort_order: number
+          venue_id: string | null
         }
         Insert: {
           active_from?: string | null
@@ -1825,6 +2451,7 @@ export type Database = {
           name_en: string
           photo_path?: string | null
           sort_order?: number
+          venue_id?: string | null
         }
         Update: {
           active_from?: string | null
@@ -1839,8 +2466,17 @@ export type Database = {
           name_en?: string
           photo_path?: string | null
           sort_order?: number
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "courts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_flags: {
         Row: {
@@ -1949,6 +2585,7 @@ export type Database = {
           opened_by: string
           opening_float_iqd: number
           status: Database["public"]["Enums"]["day_status"]
+          venue_id: string | null
         }
         Insert: {
           business_date: string
@@ -1965,6 +2602,7 @@ export type Database = {
           opened_by: string
           opening_float_iqd: number
           status?: Database["public"]["Enums"]["day_status"]
+          venue_id?: string | null
         }
         Update: {
           business_date?: string
@@ -1981,6 +2619,7 @@ export type Database = {
           opened_by?: string
           opening_float_iqd?: number
           status?: Database["public"]["Enums"]["day_status"]
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1997,6 +2636,13 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "day_sessions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       degraded_periods: {
@@ -2005,20 +2651,31 @@ export type Database = {
           ended_at: string | null
           id: string
           started_at: string
+          venue_id: string | null
         }
         Insert: {
           detected_by?: string
           ended_at?: string | null
           id?: string
           started_at: string
+          venue_id?: string | null
         }
         Update: {
           detected_by?: string
           ended_at?: string | null
           id?: string
           started_at?: string
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "degraded_periods_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deliveries: {
         Row: {
@@ -2027,6 +2684,7 @@ export type Database = {
           received_at: string
           received_by: string
           supplier_name: string | null
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -2034,6 +2692,7 @@ export type Database = {
           received_at?: string
           received_by: string
           supplier_name?: string | null
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -2041,6 +2700,7 @@ export type Database = {
           received_at?: string
           received_by?: string
           supplier_name?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2048,6 +2708,13 @@ export type Database = {
             columns: ["received_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2112,6 +2779,7 @@ export type Database = {
           last_seen_at: string
           queue_depth: number
           staff_id: string | null
+          venue_id: string | null
         }
         Insert: {
           app_version?: string | null
@@ -2120,6 +2788,7 @@ export type Database = {
           last_seen_at?: string
           queue_depth?: number
           staff_id?: string | null
+          venue_id?: string | null
         }
         Update: {
           app_version?: string | null
@@ -2128,13 +2797,35 @@ export type Database = {
           last_seen_at?: string
           queue_depth?: number
           staff_id?: string | null
+          venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "device_heartbeats_device_venue_fkey"
+            columns: ["device_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id", "venue_id"]
+          },
           {
             foreignKeyName: "device_heartbeats_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_heartbeats_station_fkey"
+            columns: ["device_id"]
+            isOneToOne: true
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_heartbeats_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2149,6 +2840,7 @@ export type Database = {
           last_activity_at: string
           linked_profile_id: string | null
           table_id: string
+          venue_id: string | null
         }
         Insert: {
           auth_user_id: string
@@ -2159,6 +2851,7 @@ export type Database = {
           last_activity_at?: string
           linked_profile_id?: string | null
           table_id: string
+          venue_id?: string | null
         }
         Update: {
           auth_user_id?: string
@@ -2169,6 +2862,7 @@ export type Database = {
           last_activity_at?: string
           linked_profile_id?: string | null
           table_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2183,6 +2877,20 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sessions_table_venue_fkey"
+            columns: ["table_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "cafe_tables"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
+            foreignKeyName: "guest_sessions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2201,6 +2909,7 @@ export type Database = {
           shelf_life_days: number | null
           supplier_name: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
+          venue_id: string | null
           waste_allowance_percent: number
           yield_percent: number
         }
@@ -2217,6 +2926,7 @@ export type Database = {
           shelf_life_days?: number | null
           supplier_name?: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
+          venue_id?: string | null
           waste_allowance_percent?: number
           yield_percent?: number
         }
@@ -2233,13 +2943,24 @@ export type Database = {
           shelf_life_days?: number | null
           supplier_name?: string | null
           unit?: Database["public"]["Enums"]["stock_unit"]
+          venue_id?: string | null
           waste_allowance_percent?: number
           yield_percent?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       llm_usage: {
         Row: {
+          cache_read_tokens: number
+          cache_write_tokens: number
           completion_tokens: number
           cost_micros: number
           model_calls: number
@@ -2249,6 +2970,8 @@ export type Database = {
           usage_date: string
         }
         Insert: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
           completion_tokens?: number
           cost_micros?: number
           model_calls?: number
@@ -2258,6 +2981,8 @@ export type Database = {
           usage_date: string
         }
         Update: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
           completion_tokens?: number
           cost_micros?: number
           model_calls?: number
@@ -2276,6 +3001,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["alert_kind"]
           payload: Json
+          venue_id: string | null
         }
         Insert: {
           acknowledged_at?: string | null
@@ -2284,6 +3010,7 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["alert_kind"]
           payload: Json
+          venue_id?: string | null
         }
         Update: {
           acknowledged_at?: string | null
@@ -2292,6 +3019,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["alert_kind"]
           payload?: Json
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2299,6 +3027,13 @@ export type Database = {
             columns: ["acknowledged_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_alerts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2312,6 +3047,7 @@ export type Database = {
           name_en: string
           rule: Json
           updated_at: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2321,6 +3057,7 @@ export type Database = {
           name_en: string
           rule?: Json
           updated_at?: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2330,6 +3067,7 @@ export type Database = {
           name_en?: string
           rule?: Json
           updated_at?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2337,6 +3075,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_audiences_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2357,6 +3102,7 @@ export type Database = {
           starts_at: string | null
           status: Database["public"]["Enums"]["campaign_status"]
           updated_at: string
+          venue_id: string | null
         }
         Insert: {
           audience_id?: string | null
@@ -2373,6 +3119,7 @@ export type Database = {
           starts_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           updated_at?: string
+          venue_id?: string | null
         }
         Update: {
           audience_id?: string | null
@@ -2389,6 +3136,7 @@ export type Database = {
           starts_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           updated_at?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2410,6 +3158,13 @@ export type Database = {
             columns: ["promotion_id"]
             isOneToOne: false
             referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2463,6 +3218,7 @@ export type Database = {
           serve_temp: string
           sort_order: number
           tax_group_id: string
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -2474,6 +3230,7 @@ export type Database = {
           serve_temp?: string
           sort_order?: number
           tax_group_id: string
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -2485,6 +3242,7 @@ export type Database = {
           serve_temp?: string
           sort_order?: number
           tax_group_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2492,6 +3250,13 @@ export type Database = {
             columns: ["tax_group_id"]
             isOneToOne: false
             referencedRelation: "tax_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_categories_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2651,6 +3416,7 @@ export type Database = {
           sold_out: boolean
           sort_order: number
           unavailable_on: string | null
+          venue_id: string | null
         }
         Insert: {
           category_id: string
@@ -2669,6 +3435,7 @@ export type Database = {
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null
+          venue_id?: string | null
         }
         Update: {
           category_id?: string
@@ -2687,6 +3454,7 @@ export type Database = {
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2694,6 +3462,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "menu_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2705,6 +3480,7 @@ export type Database = {
           min_select: number
           name_ar: string
           name_en: string
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -2712,6 +3488,7 @@ export type Database = {
           min_select?: number
           name_ar: string
           name_en: string
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -2719,8 +3496,17 @@ export type Database = {
           min_select?: number
           name_ar?: string
           name_en?: string
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "modifier_groups_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       modifier_reveals: {
         Row: {
@@ -2980,6 +3766,7 @@ export type Database = {
           source: Database["public"]["Enums"]["order_source"]
           status: Database["public"]["Enums"]["order_status"]
           tab_id: string
+          venue_id: string | null
         }
         Insert: {
           device_id?: string | null
@@ -2991,6 +3778,7 @@ export type Database = {
           source: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id: string
+          venue_id?: string | null
         }
         Update: {
           device_id?: string | null
@@ -3002,6 +3790,7 @@ export type Database = {
           source?: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3025,6 +3814,20 @@ export type Database = {
             referencedRelation: "tabs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orders_tab_venue_fkey"
+            columns: ["tab_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
+            foreignKeyName: "orders_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payments: {
@@ -3040,6 +3843,7 @@ export type Database = {
           recorded_by: string
           tab_id: string
           tendered_iqd: number | null
+          venue_id: string | null
         }
         Insert: {
           amount_iqd: number
@@ -3053,6 +3857,7 @@ export type Database = {
           recorded_by: string
           tab_id: string
           tendered_iqd?: number | null
+          venue_id?: string | null
         }
         Update: {
           amount_iqd?: number
@@ -3066,6 +3871,7 @@ export type Database = {
           recorded_by?: string
           tab_id?: string
           tendered_iqd?: number | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3094,6 +3900,13 @@ export type Database = {
             columns: ["tab_id"]
             isOneToOne: false
             referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3322,6 +4135,7 @@ export type Database = {
           start_time: string
           valid_from: string | null
           valid_to: string | null
+          venue_id: string | null
         }
         Insert: {
           court_id?: string | null
@@ -3334,6 +4148,7 @@ export type Database = {
           start_time: string
           valid_from?: string | null
           valid_to?: string | null
+          venue_id?: string | null
         }
         Update: {
           court_id?: string | null
@@ -3346,6 +4161,7 @@ export type Database = {
           start_time?: string
           valid_from?: string | null
           valid_to?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3353,6 +4169,13 @@ export type Database = {
             columns: ["court_id"]
             isOneToOne: false
             referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rate_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3482,6 +4305,7 @@ export type Database = {
           payment_id: string
           reason_code: string
           refunded_by: string
+          venue_id: string | null
         }
         Insert: {
           amount_iqd: number
@@ -3490,6 +4314,7 @@ export type Database = {
           payment_id: string
           reason_code: string
           refunded_by: string
+          venue_id?: string | null
         }
         Update: {
           amount_iqd?: number
@@ -3498,6 +4323,7 @@ export type Database = {
           payment_id?: string
           reason_code?: string
           refunded_by?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3512,6 +4338,13 @@ export type Database = {
             columns: ["refunded_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3535,6 +4368,7 @@ export type Database = {
           players: number | null
           start_time: string
           starts_on: string
+          venue_id: string | null
           weekdays: number[]
         }
         Insert: {
@@ -3555,6 +4389,7 @@ export type Database = {
           players?: number | null
           start_time: string
           starts_on: string
+          venue_id?: string | null
           weekdays?: number[]
         }
         Update: {
@@ -3575,6 +4410,7 @@ export type Database = {
           players?: number | null
           start_time?: string
           starts_on?: string
+          venue_id?: string | null
           weekdays?: number[]
         }
         Relationships: [
@@ -3597,6 +4433,13 @@ export type Database = {
             columns: ["guest_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_series_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3628,6 +4471,7 @@ export type Database = {
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
+          venue_id: string | null
         }
         Insert: {
           cancellation_reason?: string | null
@@ -3657,6 +4501,7 @@ export type Database = {
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status?: Database["public"]["Enums"]["reservation_status"]
+          venue_id?: string | null
         }
         Update: {
           cancellation_reason?: string | null
@@ -3686,6 +4531,7 @@ export type Database = {
           source?: Database["public"]["Enums"]["reservation_source"]
           start_at?: string
           status?: Database["public"]["Enums"]["reservation_status"]
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3694,6 +4540,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "courts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_court_venue_fkey"
+            columns: ["court_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id", "venue_id"]
           },
           {
             foreignKeyName: "reservations_created_by_staff_id_fkey"
@@ -3721,6 +4574,13 @@ export type Database = {
             columns: ["series_id"]
             isOneToOne: false
             referencedRelation: "reservation_series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3773,6 +4633,7 @@ export type Database = {
           staff_id: string
           started_at: string
           station_id: string
+          venue_id: string | null
         }
         Insert: {
           business_date: string
@@ -3783,6 +4644,7 @@ export type Database = {
           staff_id: string
           started_at?: string
           station_id: string
+          venue_id?: string | null
         }
         Update: {
           business_date?: string
@@ -3793,6 +4655,7 @@ export type Database = {
           staff_id?: string
           started_at?: string
           station_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3807,6 +4670,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_breaks_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3871,24 +4741,73 @@ export type Database = {
           },
         ]
       }
+      staff_venues: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
+          staff_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_venues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_venues_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_venues_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       station_staff: {
         Row: {
           created_at: string
           created_by: string | null
           staff_id: string
           station_id: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           staff_id: string
           station_id: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           staff_id?: string
           station_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3905,6 +4824,69 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "station_staff_station_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "station_staff_station_venue_fkey"
+            columns: ["station_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
+            foreignKeyName: "station_staff_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stations: {
+        Row: {
+          id: string
+          is_till: boolean
+          registered_at: string
+          registered_by: string | null
+          retired_at: string | null
+          venue_id: string
+        }
+        Insert: {
+          id: string
+          is_till?: boolean
+          registered_at?: string
+          registered_by?: string | null
+          retired_at?: string | null
+          venue_id: string
+        }
+        Update: {
+          id?: string
+          is_till?: boolean
+          registered_at?: string
+          registered_by?: string | null
+          retired_at?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stations_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       stock_batches: {
@@ -3917,6 +4899,7 @@ export type Database = {
           qty_remaining: number
           received_at: string
           unit_cost_iqd: number
+          venue_id: string | null
         }
         Insert: {
           delivery_line_id?: string | null
@@ -3927,6 +4910,7 @@ export type Database = {
           qty_remaining: number
           received_at?: string
           unit_cost_iqd: number
+          venue_id?: string | null
         }
         Update: {
           delivery_line_id?: string | null
@@ -3937,6 +4921,7 @@ export type Database = {
           qty_remaining?: number
           received_at?: string
           unit_cost_iqd?: number
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3959,6 +4944,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
             referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4018,18 +5010,21 @@ export type Database = {
           finalized_at: string | null
           id: string
           started_at: string
+          venue_id: string | null
         }
         Insert: {
           counted_by: string
           finalized_at?: string | null
           id?: string
           started_at?: string
+          venue_id?: string | null
         }
         Update: {
           counted_by?: string
           finalized_at?: string | null
           id?: string
           started_at?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4037,6 +5032,13 @@ export type Database = {
             columns: ["counted_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_counts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4058,6 +5060,7 @@ export type Database = {
           staff_id: string | null
           ticket_id: string | null
           unit_cost_iqd: number | null
+          venue_id: string | null
         }
         Insert: {
           at?: string
@@ -4075,6 +5078,7 @@ export type Database = {
           staff_id?: string | null
           ticket_id?: string | null
           unit_cost_iqd?: number | null
+          venue_id?: string | null
         }
         Update: {
           at?: string
@@ -4092,6 +5096,7 @@ export type Database = {
           staff_id?: string | null
           ticket_id?: string | null
           unit_cost_iqd?: number | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4176,6 +5181,13 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4307,6 +5319,7 @@ export type Database = {
           table_id: string | null
           tax_iqd: number | null
           total_iqd: number | null
+          venue_id: string | null
         }
         Insert: {
           court_iqd?: number
@@ -4326,6 +5339,7 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
+          venue_id?: string | null
         }
         Update: {
           court_iqd?: number
@@ -4345,6 +5359,7 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4383,10 +5398,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tabs_reservation_venue_fkey"
+            columns: ["reservation_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
             foreignKeyName: "tabs_table_id_fkey"
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tabs_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4398,6 +5427,7 @@ export type Database = {
           name_ar: string
           name_en: string
           rate_bp: number
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -4405,6 +5435,7 @@ export type Database = {
           name_ar: string
           name_en: string
           rate_bp?: number
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -4412,8 +5443,17 @@ export type Database = {
           name_ar?: string
           name_en?: string
           rate_bp?: number
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tax_groups_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_actions: {
         Row: {
@@ -4426,6 +5466,7 @@ export type Database = {
           tg_first_name: string
           tg_user_id: number
           tg_username: string | null
+          venue_id: string | null
         }
         Insert: {
           action: string
@@ -4437,6 +5478,7 @@ export type Database = {
           tg_first_name: string
           tg_user_id: number
           tg_username?: string | null
+          venue_id?: string | null
         }
         Update: {
           action?: string
@@ -4448,8 +5490,17 @@ export type Database = {
           tg_first_name?: string
           tg_user_id?: number
           tg_username?: string | null
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "telegram_actions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_chats: {
         Row: {
@@ -4491,6 +5542,7 @@ export type Database = {
           status: string
           telegram_message_id: number | null
           text: string | null
+          venue_id: string | null
         }
         Insert: {
           attempts?: number
@@ -4507,6 +5559,7 @@ export type Database = {
           status?: string
           telegram_message_id?: number | null
           text?: string | null
+          venue_id?: string | null
         }
         Update: {
           attempts?: number
@@ -4523,8 +5576,17 @@ export type Database = {
           status?: string
           telegram_message_id?: number | null
           text?: string | null
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "telegram_outbox_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_staff: {
         Row: {
@@ -4585,6 +5647,7 @@ export type Database = {
           started_at: string | null
           status: Database["public"]["Enums"]["ticket_status"]
           target_seconds: number
+          venue_id: string | null
         }
         Insert: {
           actual_prep_seconds?: number | null
@@ -4599,6 +5662,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           target_seconds?: number
+          venue_id?: string | null
         }
         Update: {
           actual_prep_seconds?: number | null
@@ -4613,6 +5677,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           target_seconds?: number
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4620,6 +5685,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: true
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4639,6 +5711,7 @@ export type Database = {
           llm_cost_micros_per_mtok: number
           llm_daily_request_limit: number
           llm_monthly_cost_cap_micros: number
+          llm_pricing: Json
           max_booking_horizon_days: number
           max_live_holds_per_guest: number
           opening_hours: Json
@@ -4648,6 +5721,7 @@ export type Database = {
           table_token_ttl_minutes: number
           tax_inclusive: boolean
           timezone: string
+          venue_id: string | null
           venue_name: string
           waiter_call_cooldown_seconds: number
         }
@@ -4665,6 +5739,7 @@ export type Database = {
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_monthly_cost_cap_micros?: number
+          llm_pricing?: Json
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours: Json
@@ -4674,6 +5749,7 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
+          venue_id?: string | null
           venue_name: string
           waiter_call_cooldown_seconds?: number
         }
@@ -4691,6 +5767,7 @@ export type Database = {
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_monthly_cost_cap_micros?: number
+          llm_pricing?: Json
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours?: Json
@@ -4700,8 +5777,42 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
+          venue_id?: string | null
           venue_name?: string
           waiter_call_cooldown_seconds?: number
+        }
+        Relationships: []
+      }
+      venues: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          name_en: string
+          phone: string | null
+          slug: string
+          timezone: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          name_en: string
+          phone?: string | null
+          slug: string
+          timezone?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          name_en?: string
+          phone?: string | null
+          slug?: string
+          timezone?: string
         }
         Relationships: []
       }
@@ -4719,6 +5830,7 @@ export type Database = {
           resolved_label: string | null
           status: Database["public"]["Enums"]["waiter_call_status"]
           table_id: string
+          venue_id: string | null
         }
         Insert: {
           acknowledged_at?: string | null
@@ -4733,6 +5845,7 @@ export type Database = {
           resolved_label?: string | null
           status?: Database["public"]["Enums"]["waiter_call_status"]
           table_id: string
+          venue_id?: string | null
         }
         Update: {
           acknowledged_at?: string | null
@@ -4747,6 +5860,7 @@ export type Database = {
           resolved_label?: string | null
           status?: Database["public"]["Enums"]["waiter_call_status"]
           table_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4775,6 +5889,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiter_calls_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]

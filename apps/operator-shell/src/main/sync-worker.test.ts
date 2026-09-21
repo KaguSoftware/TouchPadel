@@ -134,6 +134,49 @@ describe('startSyncWorker', () => {
     expect(results[0]!.state).toBe('acked');
   });
 
+  it('a 200 duplicate whose prior result is a CONFLICT is a conflict, never an ack', async () => {
+    // C1 regression: the first attempt hit a terminal refusal and the server
+    // recorded it; the retry sees 200 {duplicate, prior_result: conflict}. Acking
+    // that would report money as settled that never was.
+    const m = envelope();
+    const next = envelope();
+    enqueue(m);
+    enqueue(next);
+    const { fetchImpl } = makeFetch([
+      { status: 200, body: { result: 'duplicate', prior_result: 'conflict', echo: { code: 'PIN_INVALID' } } },
+      { status: 200, body: { result: 'applied' } },
+    ]);
+    const w = start(fetchImpl);
+    w.kick();
+    await w.idle();
+    const blocking = listBlockingRows();
+    expect(blocking).toHaveLength(1);
+    expect(blocking[0]!.state).toBe('conflict');
+    expect(results.map((r) => r.state)).toEqual(['conflict', 'acked']);
+    expect(queueStatus().conflicts).toBe(1);
+  });
+
+  it('releases a 503 retry answer back to pending with backoff — the server never judged it', async () => {
+    const m = envelope();
+    enqueue(m);
+    const { fetchImpl, calls } = makeFetch([
+      { status: 503, body: { result: 'retry', code: 'RETRY_LATER', message: 'deadlock detected' } },
+    ]);
+    const w = start(fetchImpl);
+    w.kick();
+    await w.idle();
+    expect(calls).toHaveLength(1);
+    // Back to pending (still blocking day close, as any unacked row is), never
+    // conflict or failed, and no result reached the renderer.
+    const rows = listBlockingRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.state).toBe('pending');
+    expect(rows[0]!.attempts).toBe(1);
+    expect(rows[0]!.lastError).toBe('server 503');
+    expect(results).toEqual([]);
+    expect(peekNext()?.idempotencyKey).toBe(m.idempotencyKey);
+  });
+
   it('re-sends an inflight row first on boot — a power cut mid-POST', async () => {
     const interrupted = envelope();
     const later = envelope();

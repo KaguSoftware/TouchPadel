@@ -267,6 +267,7 @@ export function HeldSlotCard({
   busy,
   onResume,
   onRelease,
+  testID,
 }: {
   courtName: string;
   when: string;
@@ -276,6 +277,12 @@ export function HeldSlotCard({
   busy: boolean;
   onResume: () => void;
   onRelease: () => void;
+  /**
+   * `bookings.held.<reservationId>`. The two actions derive `.resume` and
+   * `.release` from it: a hold is identified by WHICH hold it is, and its
+   * buttons by what they do to that one.
+   */
+  testID?: string;
 }) {
   const { colors, fonts, tracking } = useTheme();
   const { t } = useLocale();
@@ -292,6 +299,7 @@ export function HeldSlotCard({
         paddingTop: space.sm,
         paddingBottom: space.sm,
       }}
+      testID={testID}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -338,6 +346,7 @@ export function HeldSlotCard({
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
         <Button
+          testID={testID ? `${testID}.resume` : undefined}
           label={t('booking.finishBooking')}
           onPress={onResume}
           variant="cta"
@@ -346,6 +355,7 @@ export function HeldSlotCard({
           style={{ flex: 1 }}
         />
         <Button
+          testID={testID ? `${testID}.release` : undefined}
           label={t('booking.releaseHold')}
           onPress={onRelease}
           variant="secondary"
@@ -448,6 +458,7 @@ export function NextUpCard({
   imminent,
   ctaLabel,
   onPress,
+  testID,
 }: {
   /** "Next up". */
   label: string;
@@ -465,6 +476,8 @@ export function NextUpCard({
   imminent: boolean;
   ctaLabel: string;
   onPress: () => void;
+  /** `bookings.next-up` — there is only ever one of these on the tab. */
+  testID?: string;
 }) {
   const { appearance, fonts, tracking } = useTheme();
   const { t, dir } = useLocale();
@@ -539,6 +552,7 @@ export function NextUpCard({
     status === 'confirmed' ? label : `${label} · ${t(STATUS_KEY[status] ?? 'booking.statusPending')}`;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => ({
@@ -707,16 +721,20 @@ export function FilterChip({
   label,
   selected,
   onPress,
+  testID,
 }: {
   icon: ComponentType<IconProps>;
   label: string;
   /** The tab whose list is on screen: solid brand fill, and announced as selected. */
   selected: boolean;
   onPress: () => void;
+  /** `bookings.filter.<upcoming|past|cancelled>` — named by the list it picks. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="tab"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
@@ -765,6 +783,7 @@ export function UpcomingBookingRow({
   price,
   status,
   onPress,
+  testID,
 }: {
   date: Date;
   courtName: string;
@@ -773,10 +792,13 @@ export function UpcomingBookingRow({
   price: string | null;
   status: string;
   onPress: () => void;
+  /** `bookings.upcoming.<reservationId>` — a list row is named by its entity. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => ({
@@ -846,6 +868,7 @@ export function PastBookingRow({
   first,
   last,
   onPress,
+  testID,
 }: {
   courtName: string;
   when: string;
@@ -862,6 +885,11 @@ export function PastBookingRow({
   first: boolean;
   last: boolean;
   onPress: () => void;
+  /**
+   * `bookings.past.<reservationId>` (and `booking-history.past.<id>` on the
+   * history screen) — the row, not the rail it hangs off, which is a drawing.
+   */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   const node =
@@ -882,6 +910,7 @@ export function PastBookingRow({
         />
       </View>
       <Pressable
+        testID={testID}
         accessibilityRole="button"
         onPress={onPress}
         style={({ pressed }) => ({
@@ -958,6 +987,7 @@ export function DegradedBanner({
   tight = false,
   blockLead = false,
   onDismiss,
+  testID,
 }: {
   lead?: string;
   message: string;
@@ -972,6 +1002,8 @@ export function DegradedBanner({
   blockLead?: boolean;
   /** When given, renders the close button; the notice never self-dismisses. */
   onDismiss?: () => void;
+  /** `<route>.degraded`; the close button takes `${testID}.dismiss`. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t } = useLocale();
@@ -991,6 +1023,7 @@ export function DegradedBanner({
   }
   return (
     <View
+      testID={testID}
       accessibilityRole="alert"
       style={{
         backgroundColor: colors.amb,
@@ -1017,6 +1050,7 @@ export function DegradedBanner({
       </Text>
       {onDismiss ? (
         <Pressable
+          testID={testID ? `${testID}.dismiss` : undefined}
           accessibilityRole="button"
           accessibilityLabel={t('common.close')}
           onPress={onDismiss}
@@ -1042,6 +1076,7 @@ export function DayChip({
   closedLabel,
   onPress,
   compact = false,
+  testID,
 }: {
   dow: string;
   dayNum: string;
@@ -1049,6 +1084,8 @@ export function DayChip({
   closed: boolean;
   closedLabel: string;
   onPress: () => void;
+  /** `availability.day.<yyyy-mm-dd>` — a strip entry is named by its date. */
+  testID?: string;
   /**
    * The booking sheet's pill (court → booking transition, 2026-09-01): 46 wide,
    * radius 12, 6×5 padding, 10 pt weekday + 16 pt day in Black — about five fit
@@ -1061,6 +1098,7 @@ export function DayChip({
   const { colors, fonts, tracking } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
@@ -1120,6 +1158,21 @@ export function DayChip({
 // ── Merged slot cell (availability grid) ────────────────────────────────────
 
 /**
+ * One cell's test id: `<prefix>.<courtId>-<startMin>`.
+ *
+ * `MergedCell` carries no `startMin` of its own — a grid is built for ONE day,
+ * so the `Date` is the key — and `courtId` is null on a cell with nothing
+ * free. Minutes past the epoch rather than milliseconds keeps the id short and
+ * still unique: the finest grid this app draws is 15 minutes.
+ *
+ * Shared by the availability screen and the Book tab's sheet so the two cannot
+ * spell the same cell two ways.
+ */
+export function slotTestID(prefix: string, cell: MergedCell): string {
+  return `${prefix}.${cell.courtId ?? 'none'}-${Math.floor(cell.startAt.getTime() / 60000)}`;
+}
+
+/**
  * One cell of the two-column grid. The PARENT lays cells out in rows of two
  * (each `flex: 1`); a wrapping row with `flexGrow` stretched an odd last cell
  * to the full width, which the design's `repeat(2, 1fr)` never does.
@@ -1146,6 +1199,7 @@ export const SlotCell = memo(function SlotCell({
   capacityLine,
   onPress,
   compact = false,
+  testID,
 }: {
   cell: MergedCell;
   /** Locale-formatted start time. */
@@ -1165,12 +1219,19 @@ export const SlotCell = memo(function SlotCell({
    * card's own heading moved out to the screen title to pay for it.
    */
   compact?: boolean;
+  /**
+   * `availability.slot.<courtId>-<startMin>` (`book.slot.…` in the sheet). A
+   * STRING, so `memo`'s shallow compare still holds by value — an id built
+   * from the cell at the call site costs this component nothing.
+   */
+  testID?: string;
 }) {
   const { colors, fonts, tracking } = useTheme();
   const visual = slotStateStyles(colors)[cell.state === 'free' ? 'available' : cell.state];
   const tappable = cell.state === 'free' || cell.state === 'blocked' || cell.state === 'horizon';
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !tappable }}
       disabled={!tappable}
@@ -1238,6 +1299,7 @@ export function MenuRow({
   onPress,
   last,
   disabled,
+  testID,
 }: {
   icon: ReactNode;
   /**
@@ -1251,10 +1313,13 @@ export function MenuRow({
   onPress: () => void;
   last?: boolean;
   disabled?: boolean;
+  /** `profile.<destination>` — the row is named by where it goes. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}

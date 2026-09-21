@@ -59,6 +59,7 @@ export function PhoneField({
   error,
   dense,
   placeholder,
+  testID,
 }: {
   iso: string;
   onChangeIso: (iso: string) => void;
@@ -70,6 +71,13 @@ export function PhoneField({
   error?: string | null;
   dense?: boolean;
   placeholder?: string;
+  /**
+   * `<route>.phone` for the digits input. The country chip that opens the
+   * picker takes `${testID}.country`, and each row of the picker
+   * `${testID}.country.<iso>` — a test picks Iraq by name, not by scroll
+   * offset in a 66-row list.
+   */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t } = useLocale();
@@ -146,6 +154,7 @@ export function PhoneField({
        * both languages, only the label moves.
        */}
       <Field
+        testID={testID}
         ltrBox
         label={label}
         // The VALUE shown is grouped for the country; the value stored stays
@@ -183,6 +192,7 @@ export function PhoneField({
         error={error}
         lead={
           <Pressable
+            testID={testID ? `${testID}.country` : undefined}
             accessibilityRole="button"
             accessibilityLabel={t('auth.countryCode')}
             accessibilityValue={{ text: `+${country.dial}` }}
@@ -265,6 +275,7 @@ export function PhoneField({
       />
 
       <CountryPicker
+        testID={testID ? `${testID}.country` : undefined}
         visible={pickerOpen}
         selected={iso}
         onSelect={(next) => {
@@ -356,11 +367,16 @@ function Chevron({ color }: { color: string }) {
  * cannot drift: `Intl.DisplayNames` is the platform's own CLDR data, with the
  * English name as the fallback on a runtime built without full ICU.
  */
-function CountryPicker(props: {
+function CountryPicker({
+  testID,
+  ...props
+}: {
   visible: boolean;
   selected: string;
   onSelect: (iso: string) => void;
   onClose: () => void;
+  /** `<route>.phone.country`; each JS row becomes `${testID}.<iso>`. */
+  testID?: string;
 }) {
   const { locale } = useLocale();
   const display = useMemo(() => {
@@ -380,10 +396,13 @@ function CountryPicker(props: {
     },
     [display],
   );
+  // The iOS sheet is SwiftUI (@expo/ui), drawn by UIKit out of the RN tree —
+  // there is no RN node on it to hang a testID from, exactly as with
+  // NativeTabs.Trigger. It takes no id; the chip that opens it carries one.
   return Platform.OS === 'ios' ? (
     <CountryPickerIOS {...props} nameOf={nameOf} />
   ) : (
-    <CountryPickerJS {...props} nameOf={nameOf} />
+    <CountryPickerJS {...props} testID={testID} nameOf={nameOf} />
   );
 }
 
@@ -443,6 +462,7 @@ function CountryPickerJS({
   onSelect,
   onClose,
   nameOf,
+  testID,
 }: {
   visible: boolean;
   selected: string;
@@ -450,6 +470,8 @@ function CountryPickerJS({
   onClose: () => void;
   /** Shared with the iOS sheet by the dispatcher, so the two cannot drift. */
   nameOf: (c: Country) => string;
+  /** `<route>.phone.country`; the search field, the scrim and each row hang off it. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t, dir } = useLocale();
@@ -516,6 +538,7 @@ function CountryPickerJS({
           }}
         >
           <Pressable
+            testID={testID ? `${testID}.scrim` : undefined}
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}
             onPress={onClose}
@@ -570,6 +593,7 @@ function CountryPickerJS({
               {t('auth.countryCode')}
             </Text>
             <Field
+              testID={testID ? `${testID}.search` : undefined}
               value={query}
               onChangeText={setQuery}
               placeholder={t('auth.countryCodeSearch')}
@@ -639,6 +663,7 @@ function CountryPickerJS({
             }
             renderItem={({ item }) => (
               <CountryRow
+                testID={testID ? `${testID}.${item.iso.toLowerCase()}` : undefined}
                 country={item}
                 name={nameOf(item)}
                 active={item.iso === selected}
@@ -891,15 +916,19 @@ const CountryRow = memo(function CountryRow({
   name,
   active,
   onSelect,
+  testID,
 }: {
   country: Country;
   name: string;
   active: boolean;
   onSelect: (iso: string) => void;
+  /** `<route>.phone.country.<iso>` — the row is named by WHICH country it is. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={() => onSelect(country.iso)}

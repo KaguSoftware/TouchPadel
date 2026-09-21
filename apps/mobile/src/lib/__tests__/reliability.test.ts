@@ -151,7 +151,20 @@ describe('social sign-in library boundary', () => {
   // iOS-suffixed files so Android never bundles it (owner decision D2).
   const walk = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      if (entry.name === '__tests__' || entry.name === 'node_modules') return [];
+      // `smoke` and `test` join `__tests__` on this list for the same reason:
+      // they are TEST code, and these boundaries are about what the SHIPPED
+      // app reaches for. `src/smoke/auth.smoke.test.tsx` sets
+      // EXPO_PUBLIC_PHONE_OTP because the two screens behind that flag have to
+      // be rendered to be smoked, which is not the flag leaking into a second
+      // place — it is the one place being exercised.
+      if (
+        entry.name === '__tests__' ||
+        entry.name === 'smoke' ||
+        entry.name === 'test' ||
+        entry.name === 'node_modules'
+      ) {
+        return [];
+      }
       const path = join(dir, entry.name);
       if (entry.isDirectory()) return walk(path);
       return /\.tsx?$/.test(entry.name) ? [path] : [];

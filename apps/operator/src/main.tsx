@@ -24,11 +24,14 @@ import { financialRoute } from './routes/financial';
 import { observationRoute } from './routes/observation';
 import { observationChildren } from './routes/observation/_children';
 import { marketingRoute } from './routes/marketing';
+import { assistantRoute } from './routes/assistant';
+import { assistantChildren } from './routes/assistant/_children';
 import { workspacesRoute } from './routes/workspaces';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
 import { LocaleProvider, useLocale } from './lib/i18n';
+import { ThemeModeProvider, useThemeMode } from './lib/themeMode';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
@@ -50,6 +53,7 @@ const routeTree = rootRoute.addChildren([
   financialRoute,
   observationRoute.addChildren([...observationChildren]),
   marketingRoute,
+  assistantRoute.addChildren([...assistantChildren]),
   reportsRoute.addChildren([...reportsChildren]),
   stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),
@@ -125,9 +129,11 @@ function ShellCrash({ error, reset }: { error: unknown; reset: () => void }) {
 
 function ThemedApp() {
   const { dir } = useLocale();
-  // Operator surfaces use the padel theme (cafe theme is for guest cafe pages).
+  // Operator surfaces use the operator theme (cafe theme is for guest cafe
+  // pages), in whichever appearance this station chose — paper, or blue mode.
+  const { mode } = useThemeMode();
   return (
-    <ThemeProvider theme="operator" dir={dir}>
+    <ThemeProvider theme="operator" dir={dir} mode={mode}>
       <AppErrorBoundary fallback={(error, reset) => <ShellCrash error={error} reset={reset} />}>
         <AuthProvider>
           <PersistQueryClientProvider
@@ -157,7 +163,9 @@ if (!rootEl) throw new Error('#root missing in index.html');
 createRoot(rootEl).render(
   <StrictMode>
     <LocaleProvider>
-      <ThemedApp />
+      <ThemeModeProvider>
+        <ThemedApp />
+      </ThemeModeProvider>
     </LocaleProvider>
   </StrictMode>,
 );

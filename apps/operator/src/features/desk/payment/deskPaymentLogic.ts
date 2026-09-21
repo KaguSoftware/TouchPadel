@@ -115,18 +115,19 @@ export function canAddCafeBill(bill: BookingBill): boolean {
 }
 
 /**
- * Closing a bill that owes nothing: an empty one is removed (app.cancel_tab),
- * one that ever held anything is closed at zero (app.settle_zero_tab). The
- * reason is the booking's own state — the desk is not asked for what the
- * system already knows.
+ * Closing a bill that owes nothing: an empty one is removed (tab.cancel →
+ * app.cancel_tab), one that ever held anything is closed at zero
+ * (tab.settle_zero → app.settle_zero_tab). Both are queued mutation types since
+ * item 9 (0120), so the desk closes a bill offline too. The reason is the
+ * booking's own state — the desk is not asked for what the system already knows.
  */
-export function closeBillPlan(bill: BookingBill): { rpc: 'cancel_tab' | 'settle_zero_tab'; reason: string } | null {
+export function closeBillPlan(bill: BookingBill): { mutation: 'tab.cancel' | 'tab.settle_zero'; reason: string } | null {
   const tab = bill.live_tab;
   if (!tab || tab.due_iqd > 0 || tab.over_paid_iqd > 0) return null;
   const everUsed = tab.has_orders || tab.has_payments || tab.has_adjustments;
   const status = bill.reservation.status;
   const reason = status === 'cancelled' || status === 'no_show' || status === 'expired' ? `booking_${status}` : 'nothing_owed';
-  return { rpc: everUsed ? 'settle_zero_tab' : 'cancel_tab', reason };
+  return { mutation: everUsed ? 'tab.settle_zero' : 'tab.cancel', reason };
 }
 
 /** The board's payment cell: tone, sentence key, and the one figure it quotes. */

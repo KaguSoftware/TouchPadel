@@ -17,13 +17,12 @@
  * added at the till, the booking extended) the server refuses with
  * TOTAL_CHANGED and the panel shows the new figure instead of taking the old.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatIQD, formatNumber, formatTime, VENUE_TZ } from '@touch/i18n';
 import { mutate } from '../../../lib/mutate';
-import { AppRpcError, appRpc } from '../../../lib/appRpc';
-import { deviceId } from '../../../lib/idem';
+import { AppRpcError } from '../../../lib/appRpc';
 import { canAccess, permissionsFor, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
@@ -77,6 +76,13 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [addingCafe, setAddingCafe] = useState(false);
+  /**
+   * A close that went onto the durable queue (item 9, 0120) and has not been
+   * answered yet. The Close button stays off until the bill itself moves —
+   * the server's ack refetches it, a refusal arrives as a queue row.
+   */
+  const [closePending, setClosePending] = useState(false);
+  useEffect(() => setClosePending(false), [bill.live_tab?.id, bill.live_tab?.due_iqd, bill.live_tab?.status]);
 
   const state = panelStateOf(bill);
   const tab = bill.live_tab;
@@ -152,10 +158,18 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
     setBusy(true);
     setError(null);
     try {
-      if (plan.rpc === 'cancel_tab') await appRpc('cancel_tab', { p_tab_id: tab.id, p_reason_code: plan.reason });
-      else await appRpc('settle_zero_tab', { p_tab_id: tab.id, p_reason_code: plan.reason, p_device_id: deviceId() });
+      // Item 9 (0120): both closes ride the durable queue, as the payment does.
+      // Online the server answers inside the call and a refusal throws here;
+      // offline the close is safe on disk and the panel waits for the ack.
+      const out = await mutate(plan.mutation, { tabId: tab.id, reasonCode: plan.reason });
       setConfirmClose(false);
-      toast.ok(tr('ws.courtDesk.payment.closedToast'));
+      if (out.queued) {
+        setClosePending(true);
+        setNotice(tr('ws.courtDesk.payment.closeQueued'));
+        toast.info(tr('ws.courtDesk.payment.closeQueuedToast'));
+      } else {
+        toast.ok(tr('ws.courtDesk.payment.closedToast'));
+      }
       invalidate();
     } catch (e) {
       setError(e);
@@ -229,7 +243,13 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
               </>
             )}
             {state === 'closeBill' && (
-              <Button kind="primary" icon="checkCircle" disabled={dayBlocked || busy} disabledReason={tr('ws.courtDesk.payment.dayClosedReason')} onClick={() => setConfirmClose(true)}>
+              <Button
+                kind="primary"
+                icon="checkCircle"
+                disabled={dayBlocked || busy || closePending}
+                disabledReason={closePending ? tr('ws.courtDesk.payment.closeQueued') : tr('ws.courtDesk.payment.dayClosedReason')}
+                onClick={() => setConfirmClose(true)}
+              >
                 {tr('ws.courtDesk.payment.closeBillAction')}
               </Button>
             )}

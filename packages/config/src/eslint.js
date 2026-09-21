@@ -5,6 +5,11 @@
 //   import { base, react, clientSecrets } from '@touch/config/eslint';
 //   export default [...base, ...react, ...clientSecrets];
 //
+// `no-restricted-syntax` is NOT merged by ESLint — the last entry to define it
+// wins outright — so a package wanting several of these guards at once composes
+// ONE array with `composeRestrictedSyntax(rtlGuardRules, clientSecretRules,
+// testIdRules)` inside a single config object, never one object per guard.
+//
 // `rtlGuard` is already included in `base`. `clientSecrets` is opt-in and belongs
 // on every package that ships to a browser, a phone or a renderer process.
 //
@@ -140,6 +145,114 @@ export const clientSecretRules = {
 };
 
 /**
+ * Test-ID guard — every interactive element carries a `testID`.
+ *
+ * apps/mobile had ZERO testIDs and zero component tests until 2026-09-21
+ * (Phase 2 Milestone 0 item 11). The smoke tests added with them find a screen's
+ * primary action by id, so an id that is quietly dropped in a refactor does not
+ * fail loudly — the test just stops asserting anything real, and the next one
+ * written copies the omission. This makes the omission a lint error at the
+ * moment it is typed.
+ *
+ * WHAT IS LISTED. The React Native primitives that take a press or hold text
+ * (`Pressable`, the three `Touchable*`, `TextInput`, `Switch`) plus the app's
+ * own wrappers around them. Every wrapper on the list forwards `testID`
+ * EXPLICITLY to the element underneath (`testID={testID}`), never via a
+ * `{...props}` spread — this rule reads the JSX, so a spread satisfies nothing
+ * and a component that relied on one would ship id-less.
+ *
+ * WHAT IS NOT, and why:
+ *  - Alerts that `return null` (`ConfirmAlert`, `ErrorAlert`, `NoticeSheet`):
+ *    they render no node, they ask the OS to present one.
+ *  - `NativeTabs.Trigger` and the SwiftUI country sheet: configuration for a
+ *    control UIKit draws outside the React tree — no node, nothing to name.
+ *  - Containers (`ScrollView`, `FlatList`, `RefreshControl`) and drawings
+ *    (icons, `Court3D`, `CourtIllustration`, `BrandPattern`, `LogoMark`,
+ *    `SmileyBall`): a test presses actions, not scenery.
+ *
+ * THE CHILD COMBINATOR IS LOAD-BEARING. `:has(> JSXAttribute…)` means an id on
+ * THIS element. Plain `:has(…)` is a descendant match, so
+ * `<Field lead={<Chip testID="x" />} />` would satisfy the Field — the parent
+ * would pass on its child's id and the field itself would have none.
+ */
+const testIdElements = [
+  // react-native primitives
+  'Pressable',
+  'TouchableOpacity',
+  'TouchableHighlight',
+  'TouchableWithoutFeedback',
+  'TextInput',
+  'Switch',
+  // apps/mobile wrappers (src/components/**, and the route-local ones)
+  'Button',
+  'Field',
+  'LinkText',
+  'FooterLink',
+  'SegmentedControl',
+  'CodeInput',
+  'PhoneField',
+  'GoogleButton',
+  'AppleButton',
+  'SocialSignInBlock',
+  'MenuRow',
+  'FilterChip',
+  'DayChip',
+  'SlotCell',
+  'UpcomingBookingRow',
+  'PastBookingRow',
+  'NextUpCard',
+  'HeldSlotCard',
+  'ErrorState',
+  'EmptyState',
+  'BookingSheet',
+  'DegradedBanner',
+  'CapsuleControl',
+  'PlayersChip',
+].join('|');
+
+const TEST_ID_MESSAGE =
+  'Interactive element without a testID. Name it `<route>.<element>` (kebab-case, dots between ' +
+  'segments — `sign-in.submit`, `bookings.filter.upcoming`); a list row appends its entity id. ' +
+  'A shared component takes `testID?: string` and forwards it explicitly — a {...spread} does not count.';
+
+export const testIdRules = {
+  'no-restricted-syntax': [
+    'error',
+    {
+      selector:
+        `JSXOpeningElement[name.name=/^(${testIdElements})$/]` +
+        `:not(:has(> JSXAttribute[name.name="testID"]))`,
+      message: TEST_ID_MESSAGE,
+    },
+    {
+      // `<AppleAuthentication.AppleAuthenticationButton …>` — a member
+      // expression, so `name.name` does not exist on it.
+      selector:
+        'JSXOpeningElement[name.type="JSXMemberExpression"][name.property.name="AppleAuthenticationButton"]' +
+        ':not(:has(> JSXAttribute[name.name="testID"]))',
+      message: TEST_ID_MESSAGE,
+    },
+  ],
+};
+
+/**
+ * Compose several `no-restricted-syntax` rule sets into ONE array.
+ *
+ * ESLint does not merge this rule: the last config entry to define it wins
+ * outright (see the note on `clientSecrets` below). Every set here is shaped
+ * `['error', …selectors]`, so composing means taking the severity once and
+ * every set's selectors after it.
+ */
+export function composeRestrictedSyntax(...ruleSets) {
+  return {
+    'no-restricted-syntax': [
+      'error',
+      ...ruleSets.flatMap((set) => set['no-restricted-syntax'].slice(1)),
+    ],
+  };
+}
+
+/**
  * The client-secret guard as a standalone config entry.
  *
  * Wired explicitly into each client app rather than folded into `base`, because
@@ -182,7 +295,20 @@ export const base = [
   },
   {
     name: '@touch/ignores',
-    ignores: ['**/dist/**', '**/build/**', '**/.next/**', '**/.expo/**', '**/node_modules/**'],
+    // `*.timestamp-*.mjs`: vite/vitest transpile their config to a temp file
+    // NEXT TO it (vitest.config.ts.timestamp-<ms>-<rand>.mjs) and delete it as
+    // soon as the config is loaded. `turbo lint` and `turbo test` run
+    // concurrently in the same package (lint has no dependsOn), so eslint can
+    // glob that file and then fail reading it — ENOENT, exit 2, a red CI on a
+    // commit that changed nothing relevant. Seen on @touch/i18n 2026-09-21.
+    ignores: [
+      '**/dist/**',
+      '**/build/**',
+      '**/.next/**',
+      '**/.expo/**',
+      '**/node_modules/**',
+      '**/*.timestamp-*.mjs',
+    ],
   },
 ];
 

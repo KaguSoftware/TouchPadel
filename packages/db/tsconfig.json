@@ -15,6 +15,7 @@
   "include": [
     "src/**/*.ts",
     "tests/**/*.ts",
+    "bench/**/*.ts",
     "vitest.config.ts",
     // Those builders reach apps/operator/src/lib/supabase.ts, which reads import.meta.env.
     "../../apps/operator/src/vite-env.d.ts"

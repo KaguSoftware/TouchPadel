@@ -68,6 +68,8 @@ const PATHS = {
   qr: 'M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 15h2v2h-2zM15 19h2v2h-2zM19 19h2v2h-2z',
   court: 'M3 4h18v16H3zM12 4v16M3 10h4M17 10h4M3 14h4M17 14h4',
   sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+  /** The appearance switch into blue mode; `sun` is the way back. */
+  moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
   play: 'M5 3l14 9-14 9V3z',
   keyboard: 'M2 6h20a0 0 0 0 1 0 0v12a0 0 0 0 1 0 0H2a0 0 0 0 1 0 0V6a0 0 0 0 1 0 0zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8',
   eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',

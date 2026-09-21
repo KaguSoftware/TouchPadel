@@ -21,6 +21,7 @@ import {
   ensureCustomerProbeData,
   ensurePromotionProbeData,
   ensureTillFresh,
+  ensureStationProbe,
   appRpc,
   SEED_STAFF,
   DEV_PINS,
@@ -61,6 +62,8 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   menu_item_costs: ['item_id', '00000000-0000-4000-8000-000000000000'],
   // drop 5 (0065) — customer_flags has a composite pk, no `id`
   customer_flags: ['customer_id', '00000000-0000-4000-8000-000000000000'],
+  // drop 13 (0123) — staff_venues has a composite pk, no `id`
+  staff_venues: ['staff_id', '00000000-0000-4000-8000-000000000000'],
 };
 
 describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface bar three)', () => {
@@ -76,6 +79,7 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
     await ensureCustomerProbeData(svc); // drop 5 (0065) probe note + flag
     await ensurePromotionProbeData(svc); // drop 5 (0067) disabled probe promotion + redemption
     await ensureTillFresh(svc); // degraded mode would corrupt guest-RPC guard outcomes
+    await ensureStationProbe(svc); // drop 13 (0124): a registered till at venue A
     const probeCourt = await createTestCourt(svc, 'RLS-probe');
     const { error: resErr } = await svc.from('reservations').insert({
       court_id: probeCourt,

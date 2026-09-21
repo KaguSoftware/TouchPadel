@@ -20,6 +20,8 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
+import { mutate } from '../../lib/mutate';
+import { QK } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
@@ -74,16 +76,19 @@ function WasteForm() {
     setBusy(true);
     setError(null);
     try {
-      await appRpc('record_waste', {
-        p_ingredient_id: ingredientId,
-        p_qty: Number(qty),
-        p_movement_type: movementType,
-        p_reason_code: reason.trim(),
+      // Item 9 (0120): waste rides the durable queue like every other stock
+      // write — record_waste has carried an idempotency key since 0049, but
+      // this screen called it direct, without key or device, until now.
+      const outcome = await mutate('stock.waste', {
+        ingredientId,
+        qty: Number(qty),
+        movementType,
+        reasonCode: reason.trim(),
       });
-      toast.ok(tr('ws.manager.stock.waste.recorded'));
+      toast.ok(tr(outcome.queued ? 'ws.manager.stock.waste.queued' : 'ws.manager.stock.waste.recorded'));
       setQty('');
       setReason('');
-      void queryClient.invalidateQueries({ queryKey: ['stock'] });
+      void queryClient.invalidateQueries({ queryKey: [...QK.stock.all] });
     } catch (e) {
       setError(e);
     } finally {
@@ -117,7 +122,7 @@ function WasteForm() {
         </select>
       </Field>
       <Field label={tr('ws.manager.stock.waste.note')} required hint={tr('ws.manager.stock.waste.noteHint')}>
-        <input style={inputStyle} value={reason} disabled={busy} placeholder={tr('ws.manager.stock.waste.notePlaceholder')} onChange={(e) => setReason(e.target.value)} />
+        <input style={inputStyle} value={reason} disabled={busy} maxLength={300} placeholder={tr('ws.manager.stock.waste.notePlaceholder')} onChange={(e) => setReason(e.target.value)} />
       </Field>
       <ErrorText error={error} />
       <Button kind="primary" icon="ban" busy={busy} disabled={!ready} disabledReason={tr('ws.manager.stock.waste.recordDisabled')} onClick={() => void submit()}>

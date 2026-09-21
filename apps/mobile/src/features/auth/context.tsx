@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { clearAllCaches } from '../../lib/queryClient';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { googleSignOut } from './providers/google';
+import { clearRecoverySession, markRecoverySession } from './recovery';
 
 export interface AuthContextValue {
   session: Session | null;
@@ -55,6 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       addBreadcrumb('auth.' + event);
       // Private realtime channels ('courts') authorize via the user's JWT.
       if (next?.access_token) supabase.realtime.setAuth(next.access_token);
+      // supabase-js raises this right after a PKCE exchange whose verifier was
+      // minted by resetPasswordForEmail: the one signal from the library itself
+      // that the session on hand is a recovery session (S6, 2026-09-20).
+      if (event === 'PASSWORD_RECOVERY') markRecoverySession();
       // Wipe every cache on sign-out. Without this, account B signing in on the
       // same device read account A's cached `my-bookings` until staleTime
       // expired — and the disk persister made it survive a restart. Handled
@@ -62,6 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // covered, including a refresh-token failure we did not initiate.
       if (event === 'SIGNED_OUT') {
         void clearAllCaches();
+        // A recovery session that is gone can no longer set a password.
+        clearRecoverySession();
         // Also forget the Google SDK's remembered account, so the next Continue
         // with Google shows the picker instead of auto-selecting. Here for the
         // same reason as the cache wipe: every sign-out path, including a

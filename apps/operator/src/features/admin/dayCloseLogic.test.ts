@@ -11,7 +11,9 @@ import {
   varianceSign,
   unpaidPlayedRows,
   type CsvLabels,
+  QUEUE_WRITE_KEY,
 } from './dayCloseLogic';
+import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
 
 const base = { dayLoaded: true, dayOpen: true, openTabCount: 0, queuedCount: 0, busy: false, closed: false, error: null };
 
@@ -132,8 +134,15 @@ describe('plain words for stored codes', () => {
     expect(queueWriteKey('future.thing')).toBe('other');
   });
 
-  it('pulls the error code off a queue row error', () => {
+  it('has a word for EVERY queued mutation type — the sixth copy of the contract (item 9)', () => {
+    expect(Object.keys(QUEUE_WRITE_KEY).sort()).toEqual([...MUTATION_TYPES].sort());
+  });
+
+  it('pulls the error code off a queue row error, leading or after the worker’s HTTP status', () => {
     expect(queueErrorCode('ITEM_UNAVAILABLE: the item is sold out')).toBe('ITEM_UNAVAILABLE');
+    // sync-worker.ts markFailed stores `${status}: ${detail}`; the code sits after the status.
+    expect(queueErrorCode('400: TAB_NOT_EMPTY')).toBe('TAB_NOT_EMPTY');
+    expect(queueErrorCode('400: the server said no')).toBeNull();
     expect(queueErrorCode('network down')).toBeNull();
     expect(queueErrorCode(null)).toBeNull();
   });

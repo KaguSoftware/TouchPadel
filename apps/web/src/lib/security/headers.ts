@@ -79,8 +79,8 @@ export const STATIC_SECURITY_HEADERS: ReadonlyArray<{ key: string; value: string
  *
  * Even after the cookie exchange strips the token from the address bar, a QR
  * card printed earlier still puts it in the first request's URL. `no-referrer`
- * guarantees that URL is never handed to Google Fonts, to the image CDN, or to
- * PostHog in a `Referer` header.
+ * guarantees that URL is never handed to the image CDN or to PostHog in a
+ * `Referer` header.
  */
 export const TABLE_ROUTE_HEADERS: ReadonlyArray<{ key: string; value: string }> = [
   { key: 'Referrer-Policy', value: 'no-referrer' },
@@ -108,11 +108,20 @@ export const TABLE_ROUTE_HEADERS: ReadonlyArray<{ key: string; value: string }> 
  *
  * KNOWN LOOSENESS, deliberate and documented:
  *  - `style-src 'unsafe-inline'`. The layout inlines the theme + cafe
- *    stylesheets via dangerouslySetInnerHTML, and Google Fonts injects its own
- *    styles. The box requires "no unsafe-inline FOR SCRIPTS", which this
- *    honours; inline CSS is not a script-execution vector here.
+ *    stylesheets via dangerouslySetInnerHTML (nonced, but React also emits
+ *    style attributes). The box requires "no unsafe-inline FOR SCRIPTS",
+ *    which this honours; inline CSS is not a script-execution vector here.
  *  - dev adds 'unsafe-eval' because React Refresh needs it. It is branch-gated
  *    on NODE_ENV so it can never reach a production response.
+ *
+ * FONTS ARE FIRST-PARTY. The brand family is self-hosted from /fonts/lama
+ * (@touch/ui fontFace.ts, synced into public/). A grep of apps/web on
+ * 2026-09-20 found no reference to fonts.googleapis.com or fonts.gstatic.com
+ * outside this file, yet both origins were still allowed in style-src and
+ * font-src (S8). An allowance nothing uses is only ever useful to an attacker
+ * — a fetch to a permitted origin is one the policy will not report — so they
+ * are gone. `data:` in font-src predates this change and is left as found;
+ * dropping it is a separate change that wants a measurement first.
  */
 export function buildCsp(nonce: string, opts: { isDev: boolean; supabaseUrl?: string | undefined }): string {
   const { isDev, supabaseUrl } = opts;
@@ -149,8 +158,8 @@ export function buildCsp(nonce: string, opts: { isDev: boolean; supabaseUrl?: st
       "'self'",
       isDev ? "'unsafe-eval'" : null,
     ],
-    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-    'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
+    'style-src': ["'self'", "'unsafe-inline'"],
+    'font-src': ["'self'", 'data:'],
     // blob: is Next's image optimizer; data: is the blurred placeholder layers.
     'img-src': ["'self'", 'data:', 'blob:', supabaseOrigin],
     'connect-src': connect,

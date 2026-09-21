@@ -10,11 +10,12 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import type { SalesVsEngagementDay } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
-import { AXIS, BAR_CURSOR, GRID, SERIES_1 } from './colors';
+import { useChartColors } from './colors';
 
 export const TREND_SYNC_ID = 'cafeTrend';
 
 export function SalesTrendChart({ rows, f }: { rows: readonly SalesVsEngagementDay[]; f: Formatters }) {
+  const { AXIS, BAR_CURSOR, GRID, SERIES_1 } = useChartColors();
   const { tr, dir } = useLocale();
   const data = rows.map((r) => ({ label: f.date(r.date), revenue: r.revenue }));
   return (

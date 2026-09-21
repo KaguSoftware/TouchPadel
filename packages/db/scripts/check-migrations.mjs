@@ -139,9 +139,24 @@ function untrackedMigrations() {
  * already present on the merge base. A duplicate version (the 0058 collision,
  * which no environment could apply) fails the same way. These are ledger
  * facts, not risk assessments — MIGRATION-RISK-ACCEPTED does not waive them.
+ *
+ * The ORDINAL rules (2026-09-20, C9) sit under the version rule. A version is
+ * DATE + ORDINAL (20260920 + 000114), and the version rule compares the whole
+ * thing, so a file dated later with a stale ordinal sails through it. That is
+ * how 0069 and 0071 each came to name two migrations, and how a file whose
+ * header calls itself "0058" lives at 0060. People, docs and `grep 0071` find
+ * migrations by ordinal; a doubled one is two files nobody can tell apart, and
+ * the 0071 pair hid the five-day hosted stall above. Holes (0023, 0040, 0101)
+ * are fine: the requirement is "past the current max", never "contiguous".
  */
 const VERSION_RE = /^(\d{14})_/;
 const versionOf = (file) => path.basename(file).match(VERSION_RE)?.[1] ?? null;
+/** The digits after the 8-digit date, as a number: 20260920000114 → 114. */
+const ordinalOf = (file) => {
+  const v = versionOf(file);
+  return v ? Number(v.slice(8)) : null;
+};
+const pad4 = (n) => String(n).padStart(4, '0');
 
 function versionOrderFindings() {
   const out = [];
@@ -149,8 +164,9 @@ function versionOrderFindings() {
   // Duplicate versions across the whole directory — the working tree, so an
   // uncommitted file is judged too.
   const dir = path.join(ROOT, MIG_DIR);
+  const dirNames = readdirSync(dir).filter((n) => n.endsWith('.sql')).sort();
   const seen = new Map();
-  for (const name of readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
+  for (const name of dirNames) {
     const v = versionOf(name);
     if (!v) continue;
     if (seen.has(v)) {
@@ -176,16 +192,13 @@ function versionOrderFindings() {
 
   if (!range) return out;
 
-  const baseVersions = git(['ls-tree', '-r', '--name-only', range, '--', MIG_DIR])
+  const baseFiles = git(['ls-tree', '-r', '--name-only', range, '--', MIG_DIR])
     .split('\n')
-    .map(versionOf)
-    .filter(Boolean)
-    .sort();
+    .filter((f) => f.endsWith('.sql'));
+  const baseVersions = baseFiles.map(versionOf).filter(Boolean).sort();
   const baseMax = baseVersions.at(-1);
   if (!baseMax) return out;
-  const baseMaxFile = git(['ls-tree', '-r', '--name-only', range, '--', MIG_DIR])
-    .split('\n')
-    .find((f) => versionOf(f) === baseMax);
+  const baseMaxFile = baseFiles.find((f) => versionOf(f) === baseMax);
 
   const added = [
     ...git(['diff', '--name-only', '--diff-filter=AR', range, '--', MIG_DIR])
@@ -213,6 +226,61 @@ function versionOrderFindings() {
       },
       snippet: path.basename(file),
     });
+  }
+
+  // Ordinal rules — ADDED files only. The historical doubles are applied and
+  // immutable, so judging the whole directory would be red forever; judging
+  // the new file against everything else catches exactly the next double.
+  const dirFiles = dirNames.map((n) => `${MIG_DIR}/${n}`);
+  const ordinals = (files) => files.map(ordinalOf).filter((o) => o !== null);
+  // "Exceed the max" is measured against the merge base, not against the other
+  // files this PR adds — a PR that adds 0115 and 0116 together is fine. The
+  // suggested rename counts the whole directory, so it is free today.
+  const baseMaxOrdinal = Math.max(0, ...ordinals(baseFiles));
+  const next = pad4(Math.max(baseMaxOrdinal, ...ordinals(dirFiles)) + 1);
+  const fix = `FIX: rename it to ${next} — <today>${next.padStart(6, '0')}_<name>.sql.`;
+  // The report groups sites by rule and prints one `what`/`why` per rule, so
+  // the per-file facts (which twin, which ordinal) go in the snippet.
+  for (const file of added) {
+    const o = ordinalOf(file);
+    if (o === null) continue;
+    const twin = dirFiles.find((f) => f !== file && ordinalOf(f) === o);
+    if (twin) {
+      out.push({
+        file,
+        line: 1,
+        hard: true,
+        rule: {
+          id: 'migration-duplicate-ordinal',
+          what: 'new migration reuses an ordinal another file already carries',
+          why:
+            'The dates differ, so the ledger accepts both — which is the problem: every doc,\n' +
+            '        commit and `grep` names a migration by its ordinal, and a doubled one is two\n' +
+            '        files nobody can tell apart (0069 and 0071 are already doubled; the 0071\n' +
+            '        pair hid a five-day hosted stall).\n' +
+            `        ${fix}`,
+        },
+        snippet: `${path.basename(file)}  (${pad4(o)} is also ${path.basename(twin)})`,
+      });
+    }
+    if (o <= baseMaxOrdinal) {
+      out.push({
+        file,
+        line: 1,
+        hard: true,
+        rule: {
+          id: 'migration-ordinal-not-max',
+          what: `new migration ordinal does not exceed ${pad4(baseMaxOrdinal)}, the highest on main`,
+          why:
+            'A later date with an older ordinal passes the version check, then files the\n' +
+            '        migration BEFORE the ones it depends on in every ordinal-sorted listing, and\n' +
+            '        the next author counts from the wrong "latest". Holes are fine; going\n' +
+            '        backwards is not.\n' +
+            `        ${fix}`,
+        },
+        snippet: `${path.basename(file)}  (ordinal ${pad4(o)})`,
+      });
+    }
   }
   return out;
 }
@@ -546,8 +614,8 @@ for (const { rule, sites } of byRule.values()) {
 }
 
 if (hard.length > 0) {
-  console.error('Version-order and duplicate-version findings cannot be accepted in writing: the remote');
-  console.error('ledger applies files by version and does not read the pull request. Rename the file.');
+  console.error('Version-order, duplicate-version and ordinal findings cannot be accepted in writing: the');
+  console.error('remote ledger applies files by version and does not read the pull request. Rename the file.');
   process.exit(1);
 }
 

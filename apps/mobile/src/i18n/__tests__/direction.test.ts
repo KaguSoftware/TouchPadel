@@ -49,7 +49,13 @@ describe('DirectionRoot', () => {
     const root = DIRECTION.slice(DIRECTION.indexOf('export function DirectionRoot('), DIRECTION.indexOf('export function LtrIsland('));
     expect(root).toContain('useLocaleSwitch()');
     expect(root.indexOf('{children}')).toBeLessThan(root.indexOf('opacity: cover'));
-    expect(root).toMatch(/<View style=\{\{ flex: 1, direction: dir \}\}>/);
+    // The Yoga `direction` and the smoke tests' anchor are the SAME node: the
+    // helper reads the resolved direction off `app.direction-root`, so an id
+    // moved to a wrapper would have it reading a view that carries no
+    // direction at all and every AR assertion would pass on an LTR tree.
+    expect(root).toMatch(
+      /<View testID="app.direction-root" style=\{\{ flex: 1, direction: dir \}\}>/,
+    );
   });
 
   it('wraps the navigator, the offline banner and the toast host', () => {

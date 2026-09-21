@@ -6,15 +6,13 @@
  * A segment is labelled inline only when it is wide enough to hold the label;
  * every value is always in the legend, so nothing is gated on hover.
  */
-import { HEAT_RAMP } from './colors';
+import { useChartColors } from './colors';
 
 export interface ShareSegment {
   key: string;
   label: string;
   value: number;
 }
-
-const STEPS = [HEAT_RAMP[1], HEAT_RAMP[2], HEAT_RAMP[3], HEAT_RAMP[4], HEAT_RAMP[5], HEAT_RAMP[5]] as const;
 
 export function ShareBars({
   segments,
@@ -26,6 +24,9 @@ export function ShareBars({
   /** Percent formatter (already localised). */
   pct: (n: number) => string;
 }) {
+  const { HEAT_RAMP } = useChartColors();
+  // Six ramp steps for up to six segments; the sixth repeats so a seventh segment stays legible.
+  const STEPS = [HEAT_RAMP[1], HEAT_RAMP[2], HEAT_RAMP[3], HEAT_RAMP[4], HEAT_RAMP[5], HEAT_RAMP[5]] as const;
   const total = segments.reduce((s, seg) => s + Math.max(0, seg.value), 0);
   const shares = segments.map((seg, i) => ({
     ...seg,

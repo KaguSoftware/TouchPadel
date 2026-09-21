@@ -41,6 +41,9 @@ const CODE_TO_KEY = {
   PHONE_REQUIRED: 'auth.profileIncompleteNotice',
   SLOT_IN_PAST: 'booking.slotInPast',
   NO_RATE: 'booking.noRate',
+  // 0117 (C5): the hold carries the quoted price; a rule edited underneath it
+  // refuses the confirm instead of charging an amount the guest never saw.
+  PRICE_CHANGED: 'booking.priceChanged',
   AUTH_REQUIRED: 'auth.sessionExpired',
   FORBIDDEN: 'errors.forbidden',
   PIN_INVALID: 'auth.pinInvalid',

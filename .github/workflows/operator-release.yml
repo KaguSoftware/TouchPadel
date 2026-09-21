@@ -185,7 +185,9 @@ jobs:
   macos:
     needs: prepare
     if: needs.prepare.outputs.mac_enabled == 'true'
-    # arm64 host, arm64 output only (see the mac target in electron-builder.config.cjs).
+    # arm64 host; ships BOTH arm64 (Apple silicon) and x64 (Intel) dmg + zip.
+    # electron-builder downloads the x64 Electron itself and never has to run
+    # it; the per-arch better-sqlite3 swap is scripts/before-pack.cjs.
     runs-on: macos-latest
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
@@ -221,8 +223,11 @@ jobs:
       - name: Bundle main + preload
         run: pnpm --filter @touch/operator-shell build
 
-      # Same as the Windows job. Host arch only (arm64), which is why the mac
-      # target in electron-builder.config.cjs is Apple silicon only.
+      # Same as the Windows job: the host-arch (arm64) load proof, which fails
+      # the run early if the prebuild host is down or the ABI is wrong. The
+      # beforePack hook re-fetches per arch during the electron-builder step,
+      # so the x64 dmg gets an x64 binary (header-checked, since an arm64 host
+      # cannot load it).
       - name: Rebuild better-sqlite3 for Electron (and prove it loads)
         run: pnpm --filter @touch/operator-shell native:electron
 
@@ -254,7 +259,7 @@ jobs:
           security find-identity -v -p codesigning "$keychain"
           echo "CSC_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
 
-      - name: Build dmg + zip, sign, notarize, publish
+      - name: Build dmg + zip for arm64 and x64, sign, notarize, publish
         working-directory: apps/operator-shell
         env:
           GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
@@ -292,16 +297,47 @@ jobs:
       && needs.windows.result == 'success'
       && (needs.macos.result == 'success' || needs.macos.result == 'skipped')
     runs-on: ubuntu-latest
+
+    # Security audit H1 / plan S4 (added 2026-09-20). Any operator-v* tag builds
+    # an installer that is unsigned until a certificate exists (§4 of the
+    # download runbook) and auto-installs on every till within six hours of
+    # going live — and until now the only thing between a tag push and that
+    # rollout was push rights on the tag. Binding this job to the `release`
+    # GitHub Environment (required reviewers; owner steps in
+    # docs/client/release-gate-2026-09-20.md) puts a human approval between
+    # "assets are in the draft" and "the updater feed serves them". Same pattern
+    # as the `staging` gate in db-migrate.yml, and like it a no-op until the
+    # environment exists with a reviewer.
+    #
+    # Only this job is gated: a draft and its uploads are invisible to
+    # electron-updater, and gating `prepare` would make the reviewer approve
+    # before anyone knows whether the build even succeeds. No job-level
+    # `permissions:` either — the write goes to the PUBLIC repo through
+    # RELEASES_GH_TOKEN, so this repo's GITHUB_TOKEN stays `contents: read`.
+    environment: release
+
     env:
       GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
       VERSION: ${{ needs.prepare.outputs.version }}
       RELEASES_REPO: KaguSoftware/touchpadel-releases
     steps:
-      - name: Assert the Windows assets are all there
+      # The mac list is checked only when the mac job ran: both arches, since
+      # the download page links the arm64 and the x64 dmg by name and the
+      # updater feed (latest-mac.yml) names both zips.
+      - name: Assert the assets are all there
+        env:
+          MAC_BUILT: ${{ needs.macos.result == 'success' }}
         run: |
           assets=$(gh release view "v$VERSION" -R "$RELEASES_REPO" --json assets -q '.assets[].name')
           echo "$assets"
-          for f in Touch-Padel-Operator-Setup.exe Touch-Padel-Operator-Setup.exe.blockmap latest.yml; do
+          need="Touch-Padel-Operator-Setup.exe Touch-Padel-Operator-Setup.exe.blockmap latest.yml"
+          if [ "$MAC_BUILT" = "true" ]; then
+            need="$need latest-mac.yml"
+            for arch in arm64 x64; do
+              need="$need Touch-Padel-Operator-$arch.dmg Touch-Padel-Operator-$arch.zip Touch-Padel-Operator-$arch.zip.blockmap"
+            done
+          fi
+          for f in $need; do
             if ! grep -qx "$f" <<<"$assets"; then
               echo "::error::$f is missing from release v$VERSION — not publishing"
               exit 1

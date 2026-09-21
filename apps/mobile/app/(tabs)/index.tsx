@@ -360,6 +360,7 @@ function NetCta({
       }}
     >
       <Pressable
+        testID="book.view-availability"
         accessibilityRole="button"
         accessibilityState={{ disabled: hidden }}
         disabled={hidden}
@@ -444,11 +445,21 @@ function NetCta({
 function CapsuleControl({
   style,
   children,
+  testID,
   ...props
 }: Omit<PressableProps, 'style'> & { style: (state: { pressed: boolean }) => ViewStyle }) {
-  if (android) return <View style={style({ pressed: false })}>{children as ReactNode}</View>;
+  // The id is forwarded to BOTH branches and stated EXPLICITLY rather than
+  // left to `{...props}` (which carries it — `testID` is a PressableProps):
+  // the lint rule reads the JSX, and the Android branch is a plain View that
+  // the spread never reaches at all.
+  if (android)
+    return (
+      <View testID={testID} style={style({ pressed: false })}>
+        {children as ReactNode}
+      </View>
+    );
   return (
-    <Pressable {...props} style={style}>
+    <Pressable {...props} testID={testID} style={style}>
       {children as ReactNode}
     </Pressable>
   );
@@ -904,6 +915,7 @@ export default function BookHomeScreen() {
                     animates its alpha. */}
                 <View>
                   <CapsuleControl
+                    testID="book.court-title"
                     // iOS ONLY. On Android these all land on a plain View (see
                     // CapsuleControl): the capsule is inert there and the icon
                     // button below takes the press, because a tappable heading
@@ -1106,6 +1118,7 @@ export default function BookHomeScreen() {
                         }}
                       >
                         <Pressable
+                          testID="book.back-to-court"
                           accessibilityRole="button"
                           accessibilityLabel={t('booking.backToCourt')}
                           accessibilityState={{ disabled: !isOpen || sheetBusy, busy: sheetBusy }}
@@ -1355,6 +1368,7 @@ export default function BookHomeScreen() {
 
         {sheetMounted || sheetPrewarmed ? (
           <BookingSheet
+            testID="book.sheet"
             progress={progress}
             direction={direction}
             bottomInset={tabBarHeight}

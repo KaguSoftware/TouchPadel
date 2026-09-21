@@ -46,6 +46,8 @@ export const ar: Messages = {
     verifyEmailSent: 'أرسلنا رابط التفعيل إلى {email}. تحقق من بريدك الوارد.',
     resetEmailSent: 'أرسلنا رابط إعادة تعيين كلمة المرور إلى {email}.',
     invalidCredentials: 'رقم الهاتف أو كلمة المرور غير صحيحة.',
+    // 2026-09-20: عاد الدخول بالبريد الإلكتروني إلى جانب الهاتف على الشاشات نفسها.
+    invalidEmailCredentials: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
     pinPrompt: 'مطلوب الرمز السري للمدير',
     pinInvalid: 'الرمز السري غير صحيح.',
     sessionExpired: 'انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى.',
@@ -64,7 +66,10 @@ export const ar: Messages = {
     firstNameRequired: 'أدخل اسمك الأول.',
     lastNameRequired: 'أدخل اسم العائلة.',
     passwordRequired: 'أدخل كلمة المرور.',
+    emailRequired: 'أدخل بريدك الإلكتروني.',
+    emailInvalid: 'أدخل بريدًا إلكترونيًا صالحًا.',
     phoneTaken: 'هذا الرقم مسجّل بحساب بالفعل. سجّل الدخول بدلاً من ذلك.',
+    emailTaken: 'هذا البريد مسجّل بحساب بالفعل. سجّل الدخول بدلاً من ذلك.',
     phoneRequired: 'أدخل رقم هاتفك.',
     phoneInvalid: 'لا يبدو هذا رقم هاتف صالح.',
     countryCode: 'رمز الدولة',
@@ -79,6 +84,8 @@ export const ar: Messages = {
     resendEmail: 'إعادة إرسال رابط التفعيل',
     resendEmailDone: 'أُعيد إرسال رسالة التفعيل.',
     resetPasswordTitle: 'إعادة تعيين كلمة المرور',
+    sendResetLink: 'إرسال رابط إعادة التعيين',
+    backToSignIn: 'العودة إلى تسجيل الدخول',
     newPasswordLabel: 'كلمة المرور الجديدة',
     passwordUpdated: 'تم تحديث كلمة المرور.',
     passwordMismatch: 'كلمتا المرور غير متطابقتين.',
@@ -101,7 +108,9 @@ export const ar: Messages = {
     continueCta: 'متابعة',
     forgotIntro: 'أدخل رقم هاتف حسابك وسنرسل رمزًا إليه عبر واتساب أو برسالة نصية.',
     resetNoAccount: 'لا يوجد حساب بهذا الرقم. تحقّق من رمز الدولة، أو أنشئ حسابًا.',
+    forgotIntroEmail: 'أدخل بريد حسابك وسنرسل لك رابط إعادة التعيين.',
     // Deliberately does not disclose whether the account exists (spec 05.7).
+    resetSubmitted: 'إن وُجد حساب بهذا البريد فرابط إعادة التعيين في طريقه إليك. تحقّق من بريدك.',
     welcomeBack: 'أهلاً بعودتك',
     welcomeToApp: 'أهلاً بك في تتش بادل',
     // تسجيل الدخول عبر Apple / Google (إضافة من المورّد 2026-09-01) — أسماء العلامات تبقى بالحروف اللاتينية.
@@ -118,6 +127,7 @@ export const ar: Messages = {
     appleUnavailable: 'تسجيل الدخول باستخدام Apple غير متوفر على هذا الجهاز.',
     // الدخول برقم الهاتف (هيكل خامل 2026-09-05؛ يظهر فقط مع EXPO_PUBLIC_PHONE_OTP=on).
     orContinueWithPhone: 'أو تابع برقم هاتفك',
+    orContinueWithPassword: 'أو تابع بكلمة مرور',
     phoneSignInTitle: 'رقم هاتفك',
     phoneLinkBody: 'سنرسل رمزًا من 6 أرقام إلى هذا الرقم عبر واتساب أو برسالة نصية للتأكد من أنه يخصّك.',
     phoneOtpInvalid: 'أدخل رقم هاتف صحيحًا، وتحقّق من رمز الدولة.',
@@ -437,6 +447,7 @@ export const ar: Messages = {
     cancellationWindow: 'اقترب موعد البدء ولا يمكن الإلغاء عبر التطبيق. يرجى الاتصال بالنادي.',
     notCancellable: 'لم يعد بالإمكان إلغاء هذا الحجز.',
     noRate: 'لا يمكن حجز هذه الفترة عبر الإنترنت.',
+    priceChanged: 'تغيّر سعر هذه الفترة أثناء الحجز. احجزها مجددًا لترى السعر الجديد.',
     slotInPast: 'هذا الوقت قد مضى بالفعل.',
     upcoming: 'القادمة',
     past: 'السابقة',
@@ -774,7 +785,10 @@ export const ar: Messages = {
     title: 'Touch Padel Operator',
     lead: 'تطبيق الكاشير والمكتب وشاشة المطبخ لموظفي Touch Padel. يُثبَّت ويحدّث نفسه.',
     windowsButton: 'تنزيل لويندوز',
-    macButton: 'تنزيل لماك',
+    macArmButton: 'تنزيل لماك (Apple silicon)',
+    macIntelButton: 'تنزيل لماك (Intel)',
+    macWhichNote:
+      'لا تعرف أي ماك لديك؟ من قائمة Apple اختر About This Mac: إذا كانت الشريحة "Apple M1/M2/M3/M4" فهو Apple silicon، وإذا كان المعالج "Intel" فهو Intel.',
     macSoon: 'ماك: قريبًا',
     smartScreenNote:
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',
@@ -1012,6 +1026,8 @@ export const ar: Messages = {
         conflict: 'تعارض — يُحل من المكتب',
         failed: 'فشل — لن يُعاد',
       },
+      refused: '{write} لم يُزامَن — {reason}',
+      refusedGeneric: '{write} لم يُزامَن. راجع شاشة إغلاق اليوم.',
     },
     common: {
       forbidden: 'لا تملك صلاحية الوصول إلى هذه الشاشة.',
@@ -1718,6 +1734,7 @@ export const ar: Messages = {
       DEGRADED_LOCKOUT: 'النادي في وضع عدم الاتصال — هذا الإجراء محظور حاليًا.',
       PIN_INVALID: 'الرمز السري غير صحيح.',
       PIN_LOCKED: 'محاولات خاطئة كثيرة — تم القفل لعدة دقائق.',
+      PIN_GRANT_REQUIRED: 'انتهت صلاحية تفويض المدير — أدخل الرمز السري مرة أخرى.',
       FORBIDDEN: 'لا تملك صلاحية لهذا الإجراء.',
       AUTH_REQUIRED: 'يجب تسجيل الدخول.',
       ALREADY_NOTIFIED: 'تم إشعار الموظفين لهذه الطاولة مسبقًا.',
@@ -1791,6 +1808,10 @@ export const ar: Messages = {
       BREAK_NOT_OPEN: 'لا توجد استراحة لإنهائها.',
       COVER_NOT_ALLOWED: 'لا يستطيع هذا الشخص تغطية هذه المحطة.',
       INVALID_STATION: 'لا اسم صالحًا لهذه المحطة. أعد إعداد المحطة.',
+      // Multi-venue (0125/0130).
+      VENUE_REQUIRED: 'هذا الإجراء يحتاج إلى تحديد الفرع الذي يخصّه.',
+      STATION_UNKNOWN:
+        'هذه المحطة غير مسجّلة في أي فرع. يسجّلها المدير من الإعدادات ← الأجهزة.',
       NO_PIN_SET: 'لا يوجد رمز سري لهذا الحساب بعد. اطلب من المالك تحديده.',
       BOOKING_TAB_OPEN: 'لهذا الحجز فاتورة مفتوحة بالفعل. أضف إلى تلك الفاتورة.',
       BOOKING_TAB_DONOR: 'لا يمكن نقل فاتورة الحجز إلى فاتورة أخرى. انقل الفاتورة الأخرى إلى الحجز.',
@@ -1863,6 +1884,10 @@ export const ar: Messages = {
       VOID_REQUIRES_REFUND: 'هذا الحساب يحتوي على دفعات — أعد المبلغ قبل الإلغاء.',
       INVALID_ARGUMENT: 'إدخال غير صالح — تحقق من القيم وحاول مجددًا.',
       REJECTION_NOT_FOUND: 'الاستنتاج المرفوض لم يعد موجودًا.',
+      REFUND_EXCEEDS_PAYMENT: 'المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.',
+      PAYMENT_NOT_FOUND: 'لم يتم العثور على هذه الدفعة.',
+      ITEM_NOT_ON_TAB: 'هذا السطر ليس على هذا الحساب.',
+      IDEMPOTENCY_CONFLICT: 'سُجّل هذا الإجراء من جلسة أخرى. حدّث الصفحة وتحقق من الحساب.',
     },
   },
 };

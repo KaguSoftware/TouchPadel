@@ -23,6 +23,12 @@ concurrency:
   group: functions-deploy
   cancel-in-progress: false
 
+# Security audit S9 (2026-09-20): read-only GITHUB_TOKEN. The deploy goes to
+# the hosted project through SUPABASE_ACCESS_TOKEN; nothing here writes to the
+# repository.
+permissions:
+  contents: read
+
 jobs:
   staging:
     name: Deploy edge functions to staging
@@ -38,7 +44,12 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned 2026-09-20 (audit S9): a `latest` CLI that deploys to the
+          # hosted project changes under the workflow with no review. 2.116.0 is
+          # what ci.yml's db and e2e jobs have run green on since 2026-09-07, so
+          # every workflow now uses one version; the lockfile's 2.115.0 is the
+          # developer copy. Bump all five workflows together.
+          version: 2.116.0
 
       # Mirrors db-migrate.yml: an unconfigured repo skips with a notice rather
       # than failing every function commit red.

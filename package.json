@@ -17,6 +17,7 @@
     "db:types": "pnpm --filter @touch/db db:types",
     "db:fixtures": "pnpm --filter @touch/db db:fixtures",
     "db:clear-dev-till": "pnpm --filter @touch/db db:clear-dev-till",
+    "bench": "pnpm --filter @touch/db bench",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
     "format": "prettier --write .",
@@ -28,7 +29,8 @@
     "security:data": "node scripts/security/check-data-hygiene.mjs",
     "security:web": "node scripts/security/check-web-security.mjs",
     "security:quiet-errors": "node scripts/security/check-quiet-errors.mjs",
-    "security": "pnpm security:env-names && pnpm security:history && pnpm security:audit && pnpm security:data && pnpm security:web && pnpm security:quiet-errors && pnpm --filter @touch/operator-shell check:electron && pnpm --filter @touch/db check:rpc-registry"
+    "security:config-push": "node scripts/security/check-no-config-push.mjs",
+    "security": "pnpm security:env-names && pnpm security:history && pnpm security:audit && pnpm security:data && pnpm security:web && pnpm security:quiet-errors && pnpm security:config-push && pnpm --filter @touch/operator-shell check:electron && pnpm --filter @touch/db check:rpc-registry && pnpm --filter @touch/db check:assistant-coverage && pnpm --filter @touch/db check:config-env"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

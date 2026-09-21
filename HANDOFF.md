@@ -1,10 +1,17 @@
 # Touch Padel — Handoff
 
-> Read this first when starting a fresh chat. Companions: `docs/scope/` (signed SOW + diagrams),
-> `docs/design/` (architecture · data model · delivery · critique), **`docs/design/cafe-rebuild/`**
-> (the current slice: db/web/operator design + the UpperDeck reference spec + owner decisions), and
-> the approved plans at `~/.claude/plans/read-the-pdfs-in-mutable-perlis.md` (platform) and
-> `~/.claude/plans/this-system-has-three-cuddly-moon.md` (cafe rebuild).
+> **Last reconciled 2026-09-21 (Day 31).** Dated entries run to Day 25 (2026-09-13); Days 26–31 are
+> the section after Day 25. Phase 2 is approved and building, Milestone 0 first.
+
+> Read this first when starting a fresh chat. Companions: **`PHASE-2-PLAN.md`** (the 2026-09-19
+> audit and the Phase 2 scope; its 2026-09-20 status section is the live state) and
+> **`PHASE-2-CHECKLIST.md`** (what is done and what is left, short), then `docs/scope/` (signed SOW
+> + diagrams), `docs/design/` (architecture · data model · delivery · critique),
+> **`docs/design/cafe-rebuild/`** (db/web/operator design + the UpperDeck reference spec + owner
+> decisions), and the approved plans at `~/.claude/plans/read-the-pdfs-in-mutable-perlis.md`
+> (platform), `~/.claude/plans/this-system-has-three-cuddly-moon.md` (cafe rebuild) and
+> `~/.claude/plans/i-got-this-scope-binary-piglet.md` (Phase 2 decisions and per-milestone design;
+> where it and `PHASE-2-PLAN.md` disagree, it wins).
 
 ## Working style
 - **Git: NO AI co-author trailers, ever. Commits are authored by Parsa alone.** Pushing to
@@ -32,8 +39,11 @@ desk calendar, KDS, stock, admin), all on one Supabase Postgres with RLS. Biling
 Desk payment only. Degraded offline mode (till keeps trading through outages). The signed SOW in
 `docs/scope/` is the contract — anything not written there is out of scope.
 
-**The clock is running**: signed + paid; week 1 = 2026-08-24→30; build ends 2026-09-20; store
-submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04.
+**The clock**: signed + paid; week 1 = 2026-08-24→30; **the build window closed 2026-09-20**;
+review/handover ends 2026-10-04. Store submission was Wed 2026-09-16 — **deferred by agreement**
+(Parsa, 2026-09-19; `PHASE-2-PLAN.md` O3), so it is no longer a date on this clock. Since
+2026-09-20 the work is **Phase 2 Milestone 0**, the criticals pass that has to land before any
+Phase 2 table is built.
 
 ## Stack & environment
 - pnpm + Turborepo monorepo; TypeScript strict; Node ≥22 (supabase-js needs native WebSocket);
@@ -1315,7 +1325,7 @@ drift, lint/typecheck/test/build, e2e EN+AR)**:
   does NOT count. So the Day 16 "works locally with no vendor" claim was never true — every
   `signInWithOtp` returned `Unsupported phone provider`. `config.toml` now carries a placeholder
   `[auth.sms.twilio]` block; GoTrue resolves `test_otp` numbers BEFORE any provider send, so vitest and
-  dev never reach Twilio. (b) The gate test fed a national shape `0770 999 0069` to
+  dev never reach Twilio. (b) The gate test fed a national shape `0770 000 0005` to
   `sms_send_gate(p_phone_e164)`, whose allow-list checks raw digits → `PHONE_NOT_ALLOWED`. The hook
   only ever passes E.164; the test now uses an E.164 variant.
 - `supabase/setup-cli` pinned to **2.116.0** in both CI jobs (was `latest`) so the types-drift check
@@ -1504,7 +1514,176 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
   consumer (charts use `features/analytics/charts/colors.ts`); `stored-fields.test.ts` still lacks
   `notification_outbox.claimed_at` from another session's 0090.
 
+## Days 26–31 (2026-09-14 → 2026-09-21) — Phase 2 audit and Milestone 0
+
+Eight days with no HANDOFF entry, because the work was an audit and then a criticals pass. In
+order.
+
+**Days 26–28 (09-14 → 09-18): the wave-3 work on `two`.** Analytics rebuilt in four phases (one
+definition per number, honest labels, fewer cards, then the AI reading the same numbers the page
+reads), the Courts analytics tab with its own RPCs (0093, 0094, 0097, 0098), cafe net lines (0095),
+shared cafe reports (0096), revenue net and cafe waste (0099), `cancel_tab` reason (0100), report
+drill words and comparison (0102, 0103), venue-details write (0104), staff breaks (0105), desk
+payment (0106) and heartbeat staff (0107). Phone OTP moved to OTPIQ over WhatsApp with an SMS
+fallback (`f46a3b3`), the App Store submission pack landed (`5d48a0a`, `073163f`), and the three red
+CI jobs on `main` were fixed (`a047e4e`).
+
+**Day 29 (2026-09-19): `two` merged and the repo audited.** `two` was fully merged into `main` at
+**`3d70643`** ("blue mode + pulled from two"), which is where the audit was taken from: clean tree,
+`main` @ `3d70643`. Three Opus audits — backend, frontends, contract and ops — were run and then
+verified against the migrations, the edge functions, the apps, the live deployment and the signed
+SOW, not against this file. The result is **`PHASE-2-PLAN.md`** at the repo root: Part A the repo as
+it is (14 security findings S1–S14, 11 correctness C1–C11, 9 contract and ops O1–O9), Part B the
+criticals pass, Part C the ten requested scope items and the milestone plan, Part C+ the performance
+baseline and the benchmark suite, Part D the decision record. O8 is this file: it listed five fixed
+booking criticals as open, said `check:locks` cannot see advisory locks, said `compute_tab_totals`
+lacks the court fee, and gave contradictory hosted states. All four are corrected above.
+
+**Day 30 (2026-09-20): decisions, and Majed's last two pushes.** Majed's owner assistant (migrations
+**0108–0113**, three edge functions, the operator drawer under `apps/operator/src/features/assistant`)
+and the Qi Card deposit design landed at `9d8c37e`, and **`5958591`** is the merge that joined that
+work to the `main` carrying `PHASE-2-PLAN.md` (`378e57b`). Note for the record: the `two` branch
+itself was already merged at `3d70643` the day before; `5958591` is the assistant/Qi merge.
+The decisions taken that day (`PHASE-2-PLAN.md`, "Decisions since 09-19"):
+
+- **Scope is nine items, not ten.** Item 10, the new AI analysis system, is dropped. The owner
+  assistant stays on `main` **gated and unbilled** — off while `ANTHROPIC_API_KEY` is unset and
+  `venue_settings.llm_daily_request_limit = 0`. It was built single-venue; milestone 1 gives it the
+  venue axis.
+- **Milestone order:** 0 criticals → 1 multi-venue → 2 payment (Qi Card) → 3 Customer 360 and
+  loyalty → 4 shop and AI receipts → 5 coaching → 6 open matches, then tournaments.
+- **PITR and a staging project before the multi-venue push**, reversing the 2026-08-30 decline.
+- **S12 accepted:** Quit-to-desktop on the till takes no manager PIN, by decision.
+- Payment is **Qi Card**, hosted page first, deposit defaults 50 % with a 10 000 IQD floor.
+- Store submission stays deferred by agreement (O3).
+
+**Days 30–31 (09-20 → 09-21): Milestone 0 built.** Migrations **0114–0121**, one commit per slice,
+all gates green:
+
+| Migration | What |
+|---|---|
+| `0114` | Replay: retryable versus terminal classification, PIN redaction, `app.log_replay` dropped, duplicate-of-conflict treated as a conflict (C1, S2, S5, C4) |
+| `0115` | Manager-PIN grant minted by `verify_manager_pin` and consumed once by the five money RPCs (`PIN_GRANT_REQUIRED` without one); a correct-but-weak PIN is refused like a wrong one (S3) |
+| `0116` | CHECK constraints on the guest-writable `profiles` columns: name, phone, push token (S7) |
+| `0117` | Quote equals charge: the hold stamps its price, `confirm_booking` raises `PRICE_CHANGED`, mobile maps it (C5) |
+| `0118` | `retire_device`, editable offline thresholds, the Devices panel in Settings (C2) |
+| `0119` | Drops the stray `apply_discount` / `override_price` overloads 0115 created and re-issues both from 0049 |
+| `0120` | Queued money corrections: `refund`, `settle_zero_tab`, `cancel_tab` gain `p_idempotency_key` + `app.claim_replay`; four new queued mutation types; `stock.waste` gets a real schema (C3) |
+| `0121` | Grants `app.phone_digits` to `service_role` so 0116's CHECK stops failing service-role writes |
+
+Alongside the migrations: the release gate code half (`environment: release` on publish,
+`permissions: contents: read` on every workflow, the CLI pinned to 2.116.0, the pre-push dump cut to
+the five public ledgers), mobile S6 plus **email sign-up / sign-in / verify / reset restored beside
+phone** (O2), web S8 (CSP matcher, `requireLocale()`, `/t/[token]` as a route handler), the gate work
+(ordinal rules, one RPC allowlist, `QK` registry, grant and signature replay), and the four rules
+files `packages/db/CLAUDE.md`, `apps/operator/CLAUDE.md`, `apps/mobile/CLAUDE.md`,
+`apps/web/CLAUDE.md`.
+
+**2026-09-21 — the first local run of the db suite with Docker, and the two defects it found.**
+Until that day the Milestone 0 migrations had never been run against a real stack on this machine.
+Both defects were in `1daa960` and both were fixed in `2b9adf7`; **neither reached hosted.**
+
+1. **0115 created stray overloads.** The "latest body" search matched `create or replace function`
+   only, but 0049 had used a plain `create function`, so 0115 re-issued `apply_discount` and
+   `override_price` at an arity 0049 had dropped. Two live overloads of each then coexisted: keyed
+   callers ran the OLD body and never consumed the PIN grant, keyless callers got `PGRST203`.
+   `0119` drops the strays and re-issues from 0049. `scripts/check-rpc-registry.mjs` now replays
+   every function signature across the migrations and fails the build on a second live signature
+   unless `fixtures/rpc-overloads.json` allows it (`business_date` and `llm_record_usage` today);
+   `tests/rpc-overloads.test.ts` proves the same list against `pg_proc`.
+2. **0116's CHECK ran as the writing role.** It granted `app.phone_digits` to anon and authenticated
+   only, so every **service-role** UPDATE on `profiles` failed "permission denied for function
+   phone_digits" — which is why analytics-courts, no-show and account-deletion went red. `0121`
+   grants `service_role`. The rule is now written down in `packages/db/CLAUDE.md`.
+
+Item 9 landed the same day (`8616549`, 0120), the checklist was written (`c2793ae`), and
+`types.gen.ts` was regenerated from the local stack — the 09-20 hand patch had missed `pin_grants`
+and `assistant_job_tick_nudge`. **Next migration ordinal: 0122.**
+
+**Release gate and rules-file work.** The code half of S4/S9 is done; the owner half is four GitHub
+settings and is written up step by step in **`docs/client/release-gate-2026-09-20.md`** (§1 the
+`release` environment with a required reviewer, §2 swap and revoke `RELEASES_GH_TOKEN` for a
+fine-grained PAT, §3 the `operator-v*` tag ruleset, §4 delete the pre-fix `ledger-snapshot-*`
+artifacts and decide on the table-token secret, §5 verify by cutting `operator-v0.2.14`). Do §4
+before §2, because §2 revokes the `gh` session §4 uses. The four `CLAUDE.md` rules files are the
+other half of item 12: read the one for the package you are editing before changing anything in it.
+
+**What is left.** Do not duplicate it here — **`PHASE-2-CHECKLIST.md`** is the list, and it is
+updated in the same commit as the work it describes. In short: item 11 (web jsdom smoke renders,
+mobile `testID`s and jest-expo, `packages/db/bench`), S10 (the committed test-OTP code leaves the
+repo), the docs remainder of item 12, and the owner steps — for which the ordered runbook is
+**`docs/client/hosted-push-milestone0-2026-09-21.md`**. Client-facing paperwork:
+**`docs/scope/phase2-change-order-2026-09-21.md`** (bilingual, for Mustafa's signature) and the
+deviation table in `docs/security/security-general.md` §01, now D1–D10.
+
+**Day 32 (2026-09-21, night): Milestone 1 slice 1 — the multi-venue schema foundation.**
+Migrations **0122–0138**, built by three Opus agents from an approved plan and green locally
+(`db:reset`, the six stack gates, `check:rpc-registry`, `check:assistant-coverage`, the whole db
+suite, typecheck, lint). **Committed, not pushed**: Parsa's decision is to buy PITR, create the
+staging project from a backup and rehearse 0122–0138 there first (D3). The design note is
+`docs/design/multi-venue/slice-1-2026-09-21.md`; the tick list is in `PHASE-2-CHECKLIST.md`. The
+calls worth knowing before touching anything venue-shaped:
+
+- `venue_id` defaults to `app.current_venue()` (station → the caller's only `staff_venues` row →
+  the single active venue → `VENUE_REQUIRED`), never to the default venue, so a row is filed where
+  the caller belongs or refused loudly. The eight cron-/service-written tables use
+  `current_venue_or_default()`. Functions referenced by a default or a policy are granted to
+  `anon`, `authenticated` and `service_role` (the 0121 lesson).
+- `heartbeat` refuses a station (`STATION_UNKNOWN`) only when the caller's venue is ambiguous, not
+  because two venues exist — the literal rule would have broken every venue-A till the day venue B
+  appeared. Direct service-role writers of `device_heartbeats` (e2e `TILL-E2E`, the degraded
+  suite) register through a `before insert` trigger; the first run of the suite found that.
+- `staff_venues` comes from a trigger on `staff`, because migrations run before `seed.sql`.
+- `NOT NULL` is a validated CHECK: the gate blocks `set not null`, and this keeps `types.gen.ts`
+  nullable so no client type moved.
+- The RLS matrix keeps 8 principals (a ninth is auto-filled with each rule's default and the loop
+  cannot prove isolation); cross-venue reads are named cases in `tests/multi-venue.test.ts`,
+  which builds a venue B and DEACTIVATES it in `afterAll` (append-only rows make deletion
+  impossible, and a second active venue makes every venue-less service-role insert raise).
+- `venue_settings` stays one row; the seven client `.single()` reads are untouched. Slice 2.
+- `check:migrations` judges zero files on a direct push to `main` (it diffs against the merge
+  base, which is HEAD); run it locally with `--base=<pre-slice sha>`. Three index files (0132,
+  0134, 0135) carry `MIGRATION_RISK_ACCEPTED` locally.
+- One defect found by the stack, not by the agents: `min(uuid)` does not exist in Postgres; the
+  resolver casts through `text`.
+
 ## File map (key files)
+- **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
+  it is, Part B the criticals pass, Part C the scope items and the milestone plan, Part C+ the
+  performance baseline and benchmark suite, Part D the decision record. The **"Status 2026-09-20"**
+  section at the top is the live state and corrects Parts A–C where they disagree.
+- **`PHASE-2-CHECKLIST.md`** (repo root) — the short list: Milestone 0 done, Milestone 0 left (code),
+  Milestone 0 left (owner), inputs owed by the client, milestones 1–6. Updated in the same commit as
+  the work it describes.
+- **`docs/scope/phase2-change-order-2026-09-21.md`** — the bilingual Phase 2 change order for
+  Mustafa's signature (English, then Arabic under a `---`): the nine scope items, milestones 0–6
+  with dependencies and sizes, what each needs from the client, acceptance, payment blanks for
+  Parsa, the Phase 1 close-out preconditions, and the PITR/staging decision.
+- **`docs/client/hosted-push-milestone0-2026-09-21.md`** — the owner runbook for the Milestone 0
+  hosted push: nine ordered steps, each with its command, its expected output, what to do when the
+  output differs, and which `PHASE-2-CHECKLIST.md` line it closes.
+- **The four rules files** — `packages/db/CLAUDE.md` (migrations, tables, RPCs, the offline mutation
+  contract's six copies, edge functions, what to verify before reporting), `apps/operator/CLAUDE.md`,
+  `apps/mobile/CLAUDE.md`, `apps/web/CLAUDE.md`. Read the one for the package you are editing; the
+  root `CLAUDE.md` carries the git-authorship rule.
+- `packages/db/fixtures/rpc-overloads.json` — the only `app.*` function names allowed to end the
+  migration replay with more than one live signature (`business_date`, `llm_record_usage`), each
+  with its reason. Exists because of the 0115 → 0119 stray-overload defect.
+- `packages/db/scripts/check-rpc-registry.mjs` (+ `scripts/lib/fn-signatures.mjs`) — replays every
+  `create [or replace] function` / `drop function` / GRANT / REVOKE across the migrations in file
+  order, so a missing re-grant or an accidental overload fails the build. `tests/rpc-overloads.test.ts`
+  proves the same list against `pg_proc` when Docker is up.
+- `packages/db/bench/` — **being built** (Milestone 0 item 11): the benchmark suite (booking, cafe,
+  analytics, replay) with a committed baseline JSON from the CI runner and a nightly `bench.yml`,
+  compared with a 10 % regression rule. Targets are in `PHASE-2-PLAN.md` Part C+.
+- `apps/operator/src/features/admin/settings/DevicesPanel.tsx` — the Devices panel added by 0118
+  (retire a device, editable offline thresholds), under Settings → Venue details → "Offline mode".
+- `apps/operator-shell/src/main/ipc-validate.ts` and `apps/operator/src/lib/queueResults.ts` — two of
+  the **six** copies of the queued-mutation contract that must be appended in the same order; the one
+  list is `packages/db/supabase/functions/_shared/mutation-types.json`, asserted at replay boot. The
+  full six are listed in `packages/db/CLAUDE.md` under "Offline mutation contract".
+- `scripts/create-operator-owner.mjs` (repo ROOT `scripts/`, not `packages/db/scripts/`) — creates
+  the real owner account. Its default credentials are deleted as part of the S1 rotation.
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
   PostHog `bau.se.engineers@gmail.com`). Check it before concluding an account "has no access".
@@ -1535,15 +1714,24 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
   Developer, Supabase providers, Play SHA-1 — device matrix, store notes, gotchas).
 - `packages/db/client-data/` — both intake pack JSONs (clean originals, committed 2026-08-30) +
   `courts.sql` + the pack ledger in its README.
+- `packages/db/fixtures/venue-b.sql` — the invented second venue (f1f7 `…be**`), loaded only by
+  `db:fixtures:venue-b`, never by the default `db:fixtures` (e2e grid indices, a `table_number`
+  `.single()`, the bench court count).
 - `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)** + …
   + 0058–0059 (2026-09-01: OAuth profile bootstrap + phone rule) + 0060–0064 (2026-09-03:
   release_hold rename, kds_item_ready, courts_admin, stock_admin_writes, idle_lock) + 0065–0070
   (phone OTP base, test push) + 0071–0075 (2026-09-07, Majed: compact QR, staff_requests,
-  marketing, court_delete, no_show_terminates). **Hosted at 0075 as of 2026-09-07** (0 pending).
+  marketing, court_delete, no_show_terminates) + 0076–0107 + **0108–0113 (2026-09-20, Majed: the
+  owner assistant)** + **0114–0121 (2026-09-20/21: Milestone 0 criticals)** + **0122–0138
+  (2026-09-21: multi-venue slice 1 — committed, NOT pushed)**. Next ordinal **0139**;
+  `0023`, `0040` and `0101` have no file and `0069`/`0071` are doubled — leave the gaps
+  (`packages/db/CLAUDE.md`). ~~Hosted at 0075 as of 2026-09-07 (0 pending)~~ — historic; the HOSTED
+  STATE line under Gotchas is the only current answer.
 - `packages/db/supabase/functions/` — `replay`, `send-push`, `telegram-send`, `telegram-callback`,
   `analytics-posthog`, `analytics-insights`, `_shared/`, `SETUP-telegram.md`.
 - `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded,
   hardening, cafe-menu-ext, telegram, analytics, **oauth-profiles** (0058/0059, 8 cases),
+  **multi-venue** (0122–0138, 12 cases; builds and deactivates its own venue B),
   + two pure suites).
 - `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
 - `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
@@ -1604,7 +1792,8 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
    `host.exp.Exponent` in release week. Still open: icon/splash, push end-to-end, account
    deletion + privacy/deletion pages (store gate — now also Apple token revocation, and the Google consent
    screen cannot leave Testing without a privacy + home-page URL on an authorized domain), Sentry in a
-   build, the padel-backend audit fixes. Store submission Wed 2026-09-16.
+   build, the padel-backend audit fixes. ~~Store submission Wed 2026-09-16.~~ **Deferred by
+   agreement** (Parsa, 2026-09-19; `PHASE-2-PLAN.md` O3) — see item 10.
 8. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
    the Telegram allowlist currently points at `Dev Owner`. Create the venue's real staff, repoint
    the allowlist in the same session, and rotate the seeded dev PINs. Then place a live order and
@@ -1618,7 +1807,32 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
    table cards **cannot be printed** — the operator refuses a `vercel.app` URL by design.
 10. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
    calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
-   sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
+   sessions, Electron queue wiring + LAN KDS, printing pipeline. ~~Store submission Wed
+   2026-09-16.~~ **Deferred by agreement** (Parsa, 2026-09-19; `PHASE-2-PLAN.md` O3): every App
+   Store Connect build is still 0.1.0 and there is no Play record. It is out of Milestone 0 and is
+   not a date on the clock any more; it comes back as its own piece of work when Parsa says so.
+11. **Phase 2, from 2026-09-20.** Approved and building on `main`, Parsa plus agents, criticals
+   first. Sizes are agent-weeks from `PHASE-2-PLAN.md` (Part C and the milestone table);
+   `PHASE-2-CHECKLIST.md` is the live progress list and each milestone is separately accepted and
+   paid. Every one of them also carries: enum widenings as their own migrations, migrations on
+   hosted before any client build, an internal mobile build when guest screens change, Arabic
+   drafted with the English and reviewed by the client, `types.gen.ts` regenerated, both i18n
+   catalogs, RLS-matrix rows, an e2e acceptance script in EN and AR, and a written sign-off.
+   - **0 — Phase 1 close-out / criticals.** 3 weeks; about 75 % done. Left: item 11 (web and mobile
+     smoke tests, `testID`s, `packages/db/bench`), S10, the docs remainder of item 12, and the owner
+     steps in `docs/client/hosted-push-milestone0-2026-09-21.md`.
+   - **1 — Multi-venue.** 6 to 7 weeks. `venues`, `venue_id` on every scoped table, a stations
+     registry, `staff_venues`, the `platform_settings` split, per-venue degraded mode and realtime,
+     owner venue switcher, mobile venue picker, the assistant's venue axis. Depends on 0. Nothing
+     else can start first: there is no `venue_id` anywhere in the schema today.
+   - **2 — Online payment (Qi Card deposits).** 3 to 4 weeks plus Qi lead time. Depends on 1 and on
+     the client's Qi credentials.
+   - **3 — Customers 360 and loyalty.** 6 to 7 weeks, includes web sign-in at checkout. Depends on 1.
+   - **4 — Shop and AI receipts.** 5 to 6 weeks. Depends on 1.
+   - **5 — Coaching (phone-app coach mode).** 4 to 5 weeks. Depends on 1 and 2.
+   - **6 — Open matches, then tournaments.** 8 to 9 weeks. Depends on 1, 2 and 5.
+   Item 10 (the new AI analysis system) is **dropped** as of 2026-09-20; the built owner assistant
+   stays gated and unbilled. Sequential total roughly 35 to 41 agent-weeks, about 2.5 of them done.
 
 ## Deliberately partial — grows later (scope ledger)
 | Area | What ships now | Intended full shape | Grows in |
@@ -1626,13 +1840,15 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
 | Business data | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client` | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked | Blocked on the client (rates, menu, recipes, staff) |
 | Fonts | ◐ **Lama Sans** landed 2026-09-05 — supplied by Touch and now rendered by every surface. **Provenance unreconciled:** the decks' typography boards (`full-brand2.pdf` p11, `identity.pdf` p10) specify Next Art + Frutiger LT Arabic, "Lama" appears nowhere in either deck's 52 pages, and the decks embed those two alongside Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe Arabic — a two-face board over a seven-face document. Nothing here establishes which face is the brand's or who holds which licence; ask Touch. If Lama Sans supersedes the deck, re-typesetting the decks is a designer handover item. Dual-script (Latin + Arabic in the same faces, `fsType` 0 so embedding is permitted), which collapsed the two-stack Latin/Arabic architecture to one. Seven faces ship — 400/500/600/700/800/900 roman + 400 italic, standard width, woff2 for web and ttf for mobile — canonical at `packages/ui/fonts/lama/`, distributed by `pnpm fonts:sync` | The drop was 29 MB: 3 widths × 9 weights × roman/italic × otf/ttf/woff/woff2. Cut to 1.4 MB deliberately — condensed and expanded widths, 100/200/300, and every italic but Regular have no call site anywhere in the UI. They are not lost, they are unimported | A weight comes back the same way it went: file into `packages/ui/fonts/lama/{woff2,ttf}/`, spec into `FONT_FACES`, `pnpm fonts:sync` (`docs/brand/lama-sans/README.md`) |
 | Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork — sent via WhatsApp per pack 2, not yet in the build; re-send requested | When the files reach the repo |
-| Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR — owner declined it 2026-08-30 (~$100/mo). Deviation recorded; Mustafa's written acknowledgment pending (doc 07 §4) | Restore rehearsal W6 |
+| Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR. ~~Owner declined it 2026-08-30 (~$100/mo)~~ — **reversed 2026-09-20: the client buys the PITR tier, and a staging project is created from the latest backup before the multi-venue push** (`PHASE-2-PLAN.md`; deviation D3 in `docs/security/security-general.md` §01). Not bought yet | Milestone 0 owner step, before Milestone 1 |
 | Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |
 | Telegram allowlist | One row: Parsa → `Dev Owner`, `can_void` | Every real staff member mapped to a real `staff` row | When real staff exist (roadmap 6) |
 | Analytics | Vendor-added (SOW excludes it) — sales side from our till data, engagement via PostHog | Same; engagement floor still provisional | Go-live day |
 | Social sign-in | **Vendor addition 2026-09-01** — SOW L259-260 excludes it, spec §10 says do-not-build. Sign in with Apple (iOS only, native `expo-apple-authentication`) + Google (native SDK, `react-native-nitro-google-signin`) on sign-in/sign-up; complete-profile step when the phone is blank; migrations 0058/0059. Email/password stays the contractual path; acceptance never hinges on this. Code only — no console account, no device run | Live: Google Cloud clients + Supabase provider lists set, dev builds verified on both platforms, `host.exp.Exponent` removed for the store build, the Android **Play App Signing** OAuth client added before the first Play upload | Roadmap 7 (day-zero sequence, `docs/client/social-auth-setup-2026-09-01.md`) |
 | Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
+| `venue_settings` | One row with a boolean PK through milestone 1 slice 1, by decision; it gained `venue_id` (0126) but the seven client `.single()` reads (`apps/mobile/src/features/availability/api.ts:22`, four operator files, `apps/web/src/lib/menu.ts:512`, two edge functions) and the 35 `app.*` readers are untouched | One `venue_settings` row per venue plus a `platform_settings` table for the LLM caps | Milestone 1 slice 2 |
+| Till online-only ops | `merge_tabs`, `record_drawer_open`, `open_day` and `close_day` stay direct `appRpc` calls by decision (Parsa 2026-09-20, Phase 2 finding C3): a merge re-checks two tabs under lock, and the day boundary must be authoritative when it is written. `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send` and `record_waste` are queued mutation types since Milestone 0 item 9 (`payment.refund`, `tab.cancel`, `tab.settle_zero`, `order_item.void`, `stock.waste`; migration 0120 gave the first three `p_idempotency_key` + `app.claim_replay`) | Every till write on the durable queue | Later phase (full offline DB, SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
 | Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
@@ -1677,6 +1893,17 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
+- **HOSTED STATE — read this line and ignore every other one in this file (2026-09-21).** Hosted
+  is at **0121, complete, 0 pending** — verified 2026-09-21 09:28 UTC from the `db-migrate.yml` run
+  35583475145: the 09-20 pushes applied 0108–0119 and 0121, and 0120 (which sorts before 0121)
+  was applied by a dispatch with `include_all` on 2026-09-21. Local head is **0121**. The source of truth is
+  one command, run from `packages/db` and nowhere else:
+  `cd packages/db && npx supabase migration list --linked`. Expect **0 pending**. **Never**
+  accept the CLI's `migration repair --status reverted` offer. History, for the record: before the 09-20 runs the last position this repository proved was **0089** (ledger 89/89,
+  `docs/client/hosted-catchup-2026-09-12.md`), and on 2026-09-13 migrations 0090 and 0091 were
+  queued behind the `staging` approval (Day 20 below). Nothing here records 0090–0107 being
+  approved, so "0108–0121 pending" holds only if that batch went through; if the list shows more,
+  the list is right and this line is stale. Every other dated hosted figure in this file is history.
 - ~~HOSTED IS BEHIND AGAIN (2026-09-12)~~ **CAUGHT UP 2026-09-12: 89/89 migrations, all 10 edge
   functions deployed, `is_degraded()` false** (it had been at 0075 + 0088 with 20260904000069,
   20260906000071, 0076–0087 stranded and three functions never deployed). Cause: an out-of-order migration
@@ -1734,22 +1961,49 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
   anonymous signup + no hold quota + no booking horizon = a repeatable denial primitive, with no
   audit row to attribute it. **Every guard blesses it**: `rls-matrix.ts:301` expects it to succeed
   and `check-rpc-authz.mjs:48` exempts `hold_slot` under `PUBLIC_BY_DESIGN`.
+  → **FIXED by 0048 (C1) and 0071 (SEC-07)** — re-checked against both migration files 2026-09-21.
+  0048 refuses an anonymous identity outright (`ACCOUNT_REQUIRED`), caps live holds per caller,
+  enforces a booking horizon and audits hold creation. 0071 expires the orphans already in the
+  table and adds the constraint `reservations_live_hold_has_guest`, so a live hold with no guest is
+  no longer representable. The paragraph above is the 2026-08-27 audit record, not today's
+  behaviour.
 - **PADEL BACKEND: `move_reservation`/`extend_reservation` neither re-price nor re-validate**
   (reproduced). Off-peak → peak keeps the off-peak price *and* the off-peak `rate_rule_id`; extend
   60→90 keeps the 60-min price; both bypass `assert_bookable`, so a booking can be moved past
   closing or extended onto a closed date. Creating on a closed date is correctly refused — the guard
   exists, it is just absent from the mutate paths.
+  → **FIXED by 0048 (H1, H2)** — re-checked 2026-09-21. Both RPCs re-resolve `app.price_slot` over
+  the written range (a manual price override, `rate_rule_id` null with `price_iqd` set, is
+  deliberately preserved) and both now call `app.assert_bookable`, so a move past closing or onto a
+  closed date is refused. 0071 (SEC-09) adds the rule that a move or extend which CHANGES the price
+  needs a reason, and puts both prices on the audit row as first-class fields.
 - **PADEL BACKEND: an overnight rate rule diverges SQL from `@touch/core`** (reproduced: SQL charges
   90 000, the app displays 60 000). `rate_rules` has **zero CHECK constraints**, so
   `start_time > end_time` is creatable; SQL wraps such a window, `rateRules.ts:79` refuses it. Pick
   one semantic before a rate is ever configured that way.
+  → **FIXED by 0048 (H4)** — re-checked 2026-09-21. The semantic picked is the one `rateRules.ts`
+  already assumed: `rate_rules` now carries `start_time < end_time` as a constraint, validated at
+  the RPC too, so the wrapping window is not creatable and the 30 000 IQD quote-versus-charge gap
+  cannot be configured. 0071 (SEC-10) adds the positive-price and sane-minutes checks on
+  `rate_rule_prices`. **Still open, cosmetically:** `app.price_slot` keeps a now-unreachable
+  overnight-wrapping branch (`PHASE-2-PLAN.md` C7) — dead code, not a divergence.
 - **PADEL BACKEND: the account-guest journey has never been executed by any test.** It *works* —
   verified 2026-08-27 — but every padel test uses anonymous sessions, and `concurrency.test.ts:197`
   routes the confirm through the desk client to dodge the NULL-guest `FORBIDDEN`. There is no
   happy-path `confirm_booking` test at all.
-- **`check:locks` cannot see advisory locks.** Its detector matches only `FOR UPDATE` and `app.x(`
-  calls, so 0042's entire `pg_advisory_xact_lock` fix — including the cross-court
-  `least()/greatest()` ordering — is unguarded by the guard CI runs to protect it.
+  → **FIXED by 0048 plus the suites that followed it** — re-checked 2026-09-21. Once 0048 refused
+  anonymous holds the tests had to change: `guestClient()` (`packages/db/tests/helpers.ts:70`)
+  creates a real account guest with a phone, and 22 suites use it. `tests/booking-quote.test.ts`
+  (0117) and `tests/hold-release.test.ts` both run `hold_slot` → `confirm_booking` as that account
+  guest, which is exactly the happy path this line said did not exist.
+- ~~**`check:locks` cannot see advisory locks.**~~ **WRONG — corrected 2026-09-21.** It can, and
+  does. `packages/db/scripts/check-lock-order.mjs` emits a `court_advisory` lock for every
+  `app.lock_court(` call (`:40`, `:126-132`), and the walker fails any reservation writer that
+  writes before that lock or never takes it at all (`:254-260`), with an explicit exemption list
+  for the status-only writers (`:198`). `court_advisory` sits in the declared order between
+  `stock_batches` and `reservations` (`packages/db/CLAUDE.md`). So 0042's `pg_advisory_xact_lock`
+  fix, cross-court `least()/greatest()` ordering included, IS guarded by the gate that exists to
+  protect it. The original line described an older detector.
 - **RUNNING THE OPERATOR AGAINST HOSTED PUTS PRODUCTION INTO DEGRADED MODE WHEN YOU CLOSE
   IT.** `app.is_degraded()` = "a till row exists in `device_heartbeats` AND none is fresh
   (45 s)". A dev session of the operator app heartbeats as a till; 45 s after it exits every
@@ -1985,8 +2239,12 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
   `supabase db reset`.
 - **The hosted Supabase project is the client's future production.** Additive migrations only;
   rotate the seeded dev staff accounts/PINs and revisit the 300/hr anonymous rate limit before
-  launch. Hosted is at **0056 as of 2026-08-30** (`supabase migration list --linked` → 0 pending);
-  secrets, all four edge functions, Vault, `pg_net`/`pg_cron` and the Telegram webhook are all done.
+  launch. ~~Hosted is at **0056 as of 2026-08-30** (`supabase migration list --linked` → 0
+  pending)~~ — **historic; see the HOSTED STATE line above for the only current answer.** Secrets,
+  the edge functions, Vault, `pg_net`/`pg_cron` and the Telegram webhook were all done that day.
+  The seeded dev staff accounts are STILL live on hosted as of 2026-09-21 (`PHASE-2-PLAN.md` S1)
+  and rotating them is Milestone 0's first owner step —
+  `docs/client/hosted-push-milestone0-2026-09-21.md` step 4.
 - **`app.set_telegram_staff` cannot be called the way `SETUP-telegram.md` §8b describes.** The
   function opens with `if not app.is_staff('owner')`, and `app.staff_role()` reads the caller's JWT
   — which the Supabase SQL editor and the CLI do not have, so it raises `FORBIDDEN` there. There is
@@ -2016,8 +2274,13 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
   running the web app against the local stack.
 - Migration numbering: **0023 intentionally unused** (0024 = push outbox). Not a lost file.
 - **KDS item-level ready marks are local component state only** (whole-ticket status is real).
-- Charge-to-booking: `compute_tab_totals` still does **not** add the court price to the bill —
-  the "one payment" SOW promise needs that in the till drop (W3).
+- ~~Charge-to-booking: `compute_tab_totals` still does **not** add the court price to the bill.~~
+  **FIXED by 0053, refined by 0106 — corrected 2026-09-21.** 0053 added `tabs.court_iqd`, made
+  `app.compute_tab_totals` return it and include it in `total_iqd`, and made `app.settle_tab` stamp
+  it; the court fee is deliberately EXCLUDED from the discount base, so "10 % off the drinks" does
+  not discount the court. 0106 changed the amount taken from the reservation's full price to
+  `app.court_fee_remaining(reservation, tab)`, so a court already part-paid on another tab is not
+  charged twice. The "one payment" SOW promise (L131, L445-446) is met.
 - **Client inputs: SECOND PACK RECEIVED 2026-08-30** (16/21 answered, `submittedAt: null`; both
   pack JSONs now committed clean in `packages/db/client-data/`). Pack 2 is a decisions pack —
   every pack-1 answer unchanged, plus domain/backups/assets/printer/UPS/training/floor-count.
@@ -2038,10 +2301,18 @@ params (`range, from, to, cmp, court`) are validated once on the layout and surv
   confirm with Mustafa before go-live.
 - **Currency: CONFIRMED.** IQD-only, in writing via both packs (`currency.mode = confirmed`).
   Tax zero likewise. The old "get written confirmation at call #1" chase is closed.
-- **Backups: PITR DECLINED (owner, 2026-08-30) — daily Supabase backups only.** Supersedes the
-  pack's own `pitr.mode = "pitr"` answer. A written deviation from SOW L258; Mustafa's
-  acknowledgment requested in doc 07 §4. Worst case = up to one day of data since the last
-  backup. W4 "backup restore verification" + W6 restore rehearsal updated accordingly.
+- **Backups: PITR IS BACK ON (decision 2026-09-20, reverses 2026-08-30).** The client buys the PITR
+  tier on the production project, and a **staging project is created from the latest backup before
+  the multi-venue push** (`PHASE-2-PLAN.md`, "Decisions since 09-19"; Milestone 0 owner step,
+  `PHASE-2-CHECKLIST.md` L43). Every hosted push is rehearsed on staging first. This also closes the
+  SOW L258 gap and the D1 "two environments" gap (`docs/security/security-general.md` §01 D1, D3) —
+  both are recorded there, and the change order `docs/scope/phase2-change-order-2026-09-21.md`
+  carries it to the client. Buying the tier is an owner action, still open.
+  *History:* ~~PITR DECLINED (owner, 2026-08-30) — daily Supabase backups only; superseded the
+  pack's own `pitr.mode = "pitr"` answer; a written deviation from SOW L258 with Mustafa's
+  acknowledgment requested in doc 07 §4; worst case up to one day of data since the last backup.~~
+  Until the tier is actually bought, that worst case is still the live one, and W4 "backup restore
+  verification" + the W6 restore rehearsal still run against daily backups.
 - **TypeScript 6 in the editor vs 5.9.3 in the workspace** (2026-09-01). VS Code ships TS 6.0.x
   and reports 6.0 deprecations the CLI gate cannot see; 5.9.3 rejects `ignoreDeprecations:
   "6.0"`, so migrate, don't silence. The shell moved off `node10` (`module: node18` +

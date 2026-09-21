@@ -127,6 +127,7 @@ function BookingDetailScreen() {
         <SkeletonList rows={2} height={140} />
       ) : reservation.isError ? (
         <ErrorState
+          testID="booking-detail.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(reservation.error))}
           retryLabel={t('common.retry')}
@@ -135,6 +136,7 @@ function BookingDetailScreen() {
         />
       ) : !booking ? (
         <ErrorState
+          testID="booking-detail.not-found"
           title={t('errors.notFound')}
           message={t('booking.notFound')}
           retryLabel={t('common.back')}
@@ -259,6 +261,7 @@ function BookingDetailScreen() {
                 </Text>
               ) : null}
               <Button
+                testID="booking-detail.cancel"
                 label={t('booking.cancelBooking')}
                 variant="dangerOutline"
                 size="compact"
@@ -308,6 +311,7 @@ function BookingDetailScreen() {
                 })}
               </Text>
               <Button
+                testID="booking-detail.call-venue"
                 label={t('booking.callVenue')}
                 variant="danger"
                 size="compact"

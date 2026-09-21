@@ -10,12 +10,13 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "db:start": "supabase start",
+    "db:start": "node scripts/check-config-env.mjs --require-values && supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
     "gen:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
     "db:fixtures": "node scripts/db-fixtures.mjs",
+    "db:fixtures:venue-b": "node scripts/db-fixtures.mjs fixtures/venue-b.sql",
     "db:menu": "node scripts/db-menu.mjs",
     "db:client": "node scripts/db-client.mjs",
     "db:placeholders": "node scripts/make-placeholders.mjs",
@@ -24,6 +25,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:concurrency": "vitest run tests/concurrency.test.ts",
+    "bench": "node --experimental-strip-types bench/run.ts",
+    "bench:seed": "node scripts/db-fixtures.mjs bench/seed.sql",
+    "bench:teardown": "node scripts/db-fixtures.mjs bench/teardown.sql",
+    "bench:compare": "node --experimental-strip-types bench/compare.ts",
+    "bench:baseline": "node --experimental-strip-types bench/compare.ts --update-baseline",
     "check:locks": "node scripts/check-lock-order.mjs",
     "check:authz": "node scripts/check-rpc-authz.mjs",
     "check:safeupdate": "node scripts/check-safe-update.mjs",
@@ -32,7 +38,12 @@
     "check:rpc-registry": "node scripts/check-rpc-registry.mjs",
     "check:broadcast": "node scripts/check-broadcast-payloads.mjs",
     "check:analytics": "node scripts/check-analytics-payload.mjs",
-    "lint": "eslint ."
+    "check:assistant-coverage": "node --experimental-strip-types scripts/check-assistant-coverage.mjs",
+    "check:config-env": "node scripts/check-config-env.mjs",
+    "assistant:map": "node --experimental-strip-types scripts/build-assistant-map.mjs",
+    "assistant:measure": "node --experimental-strip-types scripts/measure-assistant-tokens.mjs",
+    "lint": "eslint .",
+    "assistant:index-map": "node --experimental-strip-types scripts/assistant-index-map.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.47.0",

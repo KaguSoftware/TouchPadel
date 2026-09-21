@@ -17,6 +17,23 @@
     <link rel="preload" as="font" type="font/woff2" href="/fonts/lama/LamaSans-Regular.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/lama/LamaSans-Bold.woff2" crossorigin />
     <title>Touch Padel Operator</title>
+    <!-- Blue mode is chosen per station (src/lib/themeMode.tsx writes this same key).
+         ThemeProvider sets data-mode once React mounts; without this the first frame
+         paints paper-white and then jumps to blue under the cashier's hands. The one
+         colour below is the brand blue, blue mode's --tp-bg (packages/ui/src/tokens/
+         operatorBlue.ts), here only because no token sheet exists yet at this point. -->
+    <script>
+      try {
+        if (localStorage.getItem('touch-operator-theme') === 'blue') {
+          document.documentElement.setAttribute('data-mode', 'blue');
+        }
+      } catch (e) {
+        /* storage blocked: boot in light, React decides from here */
+      }
+    </script>
+    <style>
+      html[data-mode='blue'] { background: #3360AB; color-scheme: dark; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

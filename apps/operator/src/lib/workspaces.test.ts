@@ -122,7 +122,7 @@ describe('sections', () => {
     expect(owner.groups).toHaveLength(1);
     // Reports live in the sections that own the question they answer; analytics
     // spans courts and cafe, so it is back on the rail (owner call, 2026-09-13).
-    expect(owner.groups[0]!.items.map((i) => i.to)).toEqual(['/panel', '/analytics']);
+    expect(owner.groups[0]!.items.map((i) => i.to)).toEqual(['/panel', '/analytics', '/assistant']);
     expect(owner.sections?.map((s) => s.key)).toEqual(['financial', 'observation', 'stock', 'setup']);
   });
 

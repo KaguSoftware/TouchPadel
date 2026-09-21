@@ -127,6 +127,115 @@ test.describe('web security headers', () => {
     expect(n(first)).not.toBe(n(second));
   });
 
+  /**
+   * M3 (security-audit-2026-09-13.md): the matcher used to skip every path
+   * beginning `api` and every path containing a dot, and `[locale]` accepted
+   * both as a locale — so `/api/t` and `/x.y/t` served the table page with
+   * the cookie's token in it and NO CSP. Measured on production. Two layers
+   * now close it and both are asserted here, separately, because either one
+   * alone can be edited away without the other noticing:
+   *
+   *   proxy    every non-file path is matched, so the hop itself carries the
+   *            policy and a bad first segment is sent to a real locale;
+   *   page     requireLocale() refuses the segment, so the landing is a 404
+   *            and never the table page — including on paths the proxy still
+   *            does not see (a dotted last segment, `_next/`).
+   */
+  test('paths that used to escape the matcher carry the CSP and never render the table page', async ({
+    request,
+  }) => {
+    for (const path of ['/api/t', '/x.y/t', '/apifoo/t']) {
+      // The proxy's own response: the redirect hop, with the policy on it.
+      const hop = await request.get(path, { maxRedirects: 0 });
+      expect(hop.status(), `${path} must be redirected, not rendered`).toBe(307);
+      expect(new URL(hop.headers()['location'] ?? '', hop.url()).pathname, path).toMatch(
+        new RegExp(`^/(en|ar)${path.replace(/[.]/g, '\\$&')}$`),
+      );
+      expect(hop.headers()['content-security-policy'], `${path}: CSP on the hop`).toMatch(/'nonce-/);
+
+      // Where the hop lands: a 404, still under the policy.
+      const landing = await request.get(path);
+      expect(landing.status(), `${path} must land on a 404`).toBe(404);
+      expect(landing.headers()['content-security-policy'], `${path}: CSP on the 404`).toMatch(/'nonce-/);
+    }
+  });
+
+  test('a bad locale is refused by the page even when the proxy never ran', async ({ request }) => {
+    /**
+     * `/.well-known/*` is proxied but passed through untouched (Apple fetches
+     * the association file at a fixed path), so `.well-known` reaches
+     * `[locale]` as a locale. A dotted last segment is skipped by the matcher
+     * altogether, so `xx` reaches `[locale]` with no proxy at all. Neither
+     * may render anything but a 404.
+     *
+     * THE MARKER IS A SERIALISED PROP, NOT A CLASS NAME (2026-09-21).
+     *
+     * This read `.not.toContain('tp-cafe__table')` and was red on the
+     * production build from the day it was written, while passing under `next
+     * dev` — so it looked like a prod-only rendering bug and was not one.
+     * Measured on the built app: `/.well-known/t` is a 404, its body is
+     * `app/[locale]/not-found.tsx`, and `app/[locale]/layout.tsx` inlines the
+     * whole cafe stylesheet into it — `.tp-cafe__table` among ~7 occurrences of
+     * CSS text. The class was in the 404's <style>, not in any element. It
+     * never appeared as an element either: the chip is rendered by
+     * `TableChip` after hydration, so `class="tp-cafe__table"` is absent even
+     * from a real /en/t. `next dev` answers a 404 with a bare shell carrying
+     * none of the app's markup, which is the only reason it ever passed.
+     *
+     * `initialMenu` is the prop `<CafeApp>` is given the menu in, so it appears
+     * in the RSC flight payload exactly when the page component actually ran —
+     * in dev and in a production build alike, and never on a 404.
+     */
+    const control = await request.get('/en/t');
+    expect(control.status(), 'the control must be the real table page').toBe(200);
+    expect(
+      await control.text(),
+      'the marker must be present where the app DOES render, or the assertions below are vacuous',
+    ).toContain('initialMenu');
+
+    for (const path of ['/.well-known/t', '/xx/t/tok.x', '/xx.y']) {
+      const res = await request.get(path);
+      expect(res.status(), `${path} must be a 404, not Arabic`).toBe(404);
+      expect(await res.text(), `${path} must not render the app`).not.toContain('initialMenu');
+    }
+  });
+
+  test('the exchange still happens when the proxy is bypassed', async ({ request }) => {
+    // A dotted last segment is skipped by the matcher, so this request reaches
+    // app/[locale]/t/[token]/route.ts with no proxy in front of it. Until
+    // 2026-09-20 that copy of the exchange was a page setting a cookie during
+    // render, which Next 16 refuses (L1): it rendered the error boundary, no
+    // cookie, no redirect, status 200.
+    const token = 'e2e.dotted';
+    const res = await request.get(`/en/t/${token}`, { maxRedirects: 0 });
+    expect(res.status(), 'the fallback must redirect, not render').toBe(307);
+    expect(new URL(res.headers()['location'] ?? '', res.url()).pathname).toBe('/en/t');
+    expect(res.headers()['set-cookie'], 'the fallback must set the table cookie').toMatch(
+      new RegExp(`^tp-table=${token.replace('.', '\\.')};.*HttpOnly`, 'i'),
+    );
+    expect(res.headers()['cache-control']).toMatch(/no-store/i);
+  });
+
+  test('/.well-known/apple-app-site-association is served at its fixed path, headers on', async ({
+    request,
+  }) => {
+    const res = await request.get('/.well-known/apple-app-site-association', { maxRedirects: 0 });
+    expect(res.status(), 'a 307 here is a failed iOS link verification').toBe(200);
+    expect(res.headers()['content-type']).toMatch(/application\/json/);
+    expect(res.headers()['content-security-policy'], 'proxied, not skipped').toMatch(/'nonce-/);
+    expect(res.headers()['x-content-type-options']).toMatch(/nosniff/i);
+  });
+
+  test('the CSP names no font CDN', async ({ page }) => {
+    // Lama Sans is self-hosted from /fonts/lama (@touch/ui fontFace.ts). The
+    // Google Fonts origins outlived the move by two weeks in style-src and
+    // font-src (S8); an allowed origin nothing uses is a reporting blind spot.
+    const res = await page.goto('/en');
+    const csp = res!.headers()['content-security-policy'];
+    expect(csp).not.toMatch(/fonts\.googleapis\.com|fonts\.gstatic\.com/);
+    expect(csp).toMatch(/font-src 'self'/);
+  });
+
   test('/t/{token} exchanges the token for an HttpOnly cookie and leaves the URL', async ({
     page,
     context,

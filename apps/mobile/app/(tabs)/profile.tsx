@@ -122,12 +122,14 @@ export default function ProfileScreen() {
             {t('auth.signedOutPitch')}
           </Text>
           <Button
+            testID="profile.sign-in"
             label={t('auth.signIn')}
             variant="primary"
             onPress={() => router.push('/sign-in')}
             style={{ alignSelf: 'stretch', marginTop: space.xl }}
           />
           <Button
+            testID="profile.sign-up"
             label={t('auth.signUp')}
             variant="cta"
             onPress={() => router.push('/sign-up')}
@@ -167,6 +169,7 @@ export default function ProfileScreen() {
         <SkeletonList rows={2} height={90} />
       ) : profile.isError ? (
         <ErrorState
+          testID="profile.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(profile.error))}
           retryLabel={t('common.retry')}
@@ -252,6 +255,7 @@ export default function ProfileScreen() {
                 {t(profile.data?.phone ? 'profile.completeNameNudge' : 'profile.completeProfileNudge')}
               </Text>
               <Button
+                testID="profile.complete-profile"
                 label={t(profile.data?.phone ? 'auth.addNameLink' : 'auth.addPhoneLink')}
                 variant="secondary"
                 size="compact"
@@ -273,6 +277,7 @@ export default function ProfileScreen() {
             }}
           >
             <MenuRow
+              testID="profile.edit-profile"
               icon={<PencilIcon size={15} color={colors.gstrong} />}
               label={t('profile.editProfile')}
               onPress={() => router.push('/profile-edit')}
@@ -284,6 +289,7 @@ export default function ProfileScreen() {
               address has nothing to prove either. */}
             {passwordProofOf(session?.user) ? (
               <MenuRow
+                testID="profile.change-password"
                 icon={<LockIcon size={15} color={colors.gstrong} />}
                 label={t('profile.changePassword')}
                 onPress={() => router.push('/change-password')}
@@ -292,17 +298,20 @@ export default function ProfileScreen() {
             {/* A social account with no verified number proves one here. */}
             {phoneOtpEnabled() && !session?.user.phone ? (
               <MenuRow
+                testID="profile.verify-phone"
                 icon={<PhoneIcon size={15} color={colors.gstrong} />}
                 label={t('auth.verifyPhoneRow')}
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
             <MenuRow
+              testID="profile.settings"
               icon={<SlidersIcon size={15} color={colors.gstrong} />}
               label={t('settings.title')}
               onPress={() => router.push('/settings')}
             />
             <MenuRow
+              testID="profile.call-venue"
               icon={<PhoneIcon size={15} color={colors.gstrong} />}
               label={t('profile.callVenue')}
               onPress={onCallVenue}
@@ -314,6 +323,7 @@ export default function ProfileScreen() {
               confirmation rather than opening a dialog — the act is not
               undoable, and an Alert is what a mis-tap dismisses by habit. */}
             <MenuRow
+              testID="profile.delete-account"
               icon={<TrashIcon size={15} color={colors.redtext} />}
               iconBg={colors.redtint}
               label={t('profile.deleteAccount')}
@@ -330,6 +340,7 @@ export default function ProfileScreen() {
               text in a blue outline on navy did not read as anything (owner,
               2026-09-11). The one red on this screen is the row that earns it. */}
           <Button
+            testID="profile.sign-out"
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"

@@ -42,7 +42,11 @@ const DATA_GLOBS = [
  * Iraqi mobile, in every shape people actually write it:
  *   +9647XXXXXXXX   9647XXXXXXXX   07XXXXXXXX   07XX XXX XXXX
  */
-const IQ_MOBILE = /(?:\+?964[\s-]?|0)7[\s-]?(\d[\s-]?){8,9}/g;
+// Digit boundaries on both sides (2026-09-20): a migration version such as
+// 20260720000001 contains "0720000001", which read as a phone number and turned
+// the gate red on a document that only named a file. A phone number never sits
+// inside a longer run of digits.
+const IQ_MOBILE = /(?<!\d)(?:\+?964[\s-]?|0)7[\s-]?(\d[\s-]?){8,9}(?!\d)/g;
 
 /** Reserved-for-testing: 7XX then six zeros then two free digits. */
 function isReservedTestNumber(digits) {

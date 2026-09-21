@@ -98,6 +98,7 @@ function BookingHistoryScreen() {
       <Screen edges={[]}>
         {header}
         <ErrorState
+          testID="booking-history.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(bookings.error))}
           retryLabel={t('common.retry')}
@@ -116,6 +117,7 @@ function BookingHistoryScreen() {
     const actor = cancelActorLabel(item);
     return (
       <PastBookingRow
+        testID={`booking-history.past.${item.id}`}
         courtName={courtNames.get(item.court_id) ?? ''}
         when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
         price={formatPrice(item.price_iqd, locale)}
@@ -154,13 +156,19 @@ function BookingHistoryScreen() {
           ) : null
         }
         ListEmptyComponent={
-          <EmptyState fill title={t('booking.noHistoryTitle')} message={t('booking.noHistoryBody')} />
+          <EmptyState
+            testID="booking-history.empty"
+            fill
+            title={t('booking.noHistoryTitle')}
+            message={t('booking.noHistoryBody')}
+          />
         }
         renderItem={({ item, index }) => renderRow(item, index)}
         ListFooterComponent={
           history.length > 0 ? (
             <View style={{ marginTop: space.l }}>
               <Button
+                testID="booking-history.clear"
                 label={t('booking.clearHistory')}
                 variant="dangerOutline"
                 size="compact"

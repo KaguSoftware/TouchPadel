@@ -9,6 +9,7 @@ import {
   mapSocialError,
   needsProfileCompletion,
   nextGoogleStep,
+  postSignInStep,
   prefillDisplayName,
   profileGateState,
 } from '../social';
@@ -254,5 +255,31 @@ describe('nextGoogleStep', () => {
     expect(nextGoogleStep('success', 'signIn')).toBe('done');
     expect(nextGoogleStep('success', 'explicit')).toBe('done');
     expect(nextGoogleStep('cancelled', 'createAccount')).toBe('cancelled');
+  });
+});
+
+describe('postSignInStep', () => {
+  // One decision for social and email sign-in (2026-09-20), so the D3 phone
+  // gate cannot differ between them: an account without a phone owes
+  // complete-profile before anything else.
+  it('continues when the profile is complete', () => {
+    expect(postSignInStep({ phone: '+9647701234567', full_name: 'Sara' }, false)).toBe('continue');
+    expect(postSignInStep({ phone: '+9647701234567', full_name: 'Sara' }, true)).toBe('continue');
+  });
+
+  it('navigates to complete-profile itself only while a slot is pending', () => {
+    // RequireNoSession is exempt from redirecting while the slot exists, so
+    // nothing else would route the guest.
+    expect(postSignInStep({ phone: null, full_name: 'Sara' }, true)).toBe('complete-profile');
+  });
+
+  it('leaves the no-slot case to RequireNoSession, which already routes it', () => {
+    // A second replace would re-key the route and remount the form.
+    expect(postSignInStep({ phone: '', full_name: 'Sara' }, false)).toBe('await-gate');
+  });
+
+  it('fails open when there is no row to judge', () => {
+    expect(postSignInStep(null, false)).toBe('continue');
+    expect(postSignInStep(undefined, true)).toBe('continue');
   });
 });

@@ -32,29 +32,70 @@
  */
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { replaySignatures } from './lib/fn-signatures.mjs';
 
 const DB = path.resolve(import.meta.dirname, '..');
 const MIGRATIONS = path.join(DB, 'supabase/migrations');
 const REGISTRY = path.join(DB, 'fixtures/rpc-allowlist.json');
 const MATRIX = path.join(DB, 'tests/rls-matrix.ts');
 const FLOOR_FILE = path.join(DB, 'fixtures/rpc-coverage-floor.json');
+const OVERLOADS_FILE = path.join(DB, 'fixtures/rpc-overloads.json');
 
 const UPDATE_FLOOR = process.argv.includes('--update-floor');
 
 // ── the exposed surface, from the grants themselves ───────────────────────────
+// GRANT, REVOKE and DROP FUNCTION are replayed in migration order (files sorted,
+// statements in file order) so the derived surface is the FINAL grant state,
+// not "was ever granted". Before 0114 this loop read grants only, so a function
+// revoked or dropped in a later migration still counted as client-callable and
+// could never leave the registry.
 const GRANT = /grant\s+execute\s+on\s+function\s+app\.([a-z0-9_]+)\s*\(([^)]*)\)\s*to\s+([a-z_,\s]+);/gi;
+const REVOKE = /revoke\s+(?:all|execute)(?:\s+privileges)?\s+on\s+function\s+app\.([a-z0-9_]+)\s*\(([^)]*)\)\s*from\s+([a-z_,\s]+);/gi;
+const DROP = /drop\s+function\s+(?:if\s+exists\s+)?app\.([a-z0-9_]+)\s*\(([^)]*)\)/gi;
 
 const grantedTo = new Map();
+const roleList = (txt) => txt.split(',').map((r) => r.trim().toLowerCase()).filter(Boolean);
 for (const file of readdirSync(MIGRATIONS).sort()) {
   if (!file.endsWith('.sql')) continue;
   const sql = readFileSync(path.join(MIGRATIONS, file), 'utf8');
-  for (const m of sql.matchAll(GRANT)) {
-    const name = m[1].toLowerCase();
-    const roles = m[3].split(',').map((r) => r.trim().toLowerCase()).filter(Boolean);
-    if (!grantedTo.has(name)) grantedTo.set(name, new Set());
-    for (const r of roles) grantedTo.get(name).add(r);
+  const events = [];
+  for (const m of sql.matchAll(GRANT)) events.push({ at: m.index, op: 'grant', name: m[1].toLowerCase(), roles: roleList(m[3]) });
+  for (const m of sql.matchAll(REVOKE)) events.push({ at: m.index, op: 'revoke', name: m[1].toLowerCase(), roles: roleList(m[3]) });
+  for (const m of sql.matchAll(DROP)) events.push({ at: m.index, op: 'drop', name: m[1].toLowerCase(), roles: [] });
+  events.sort((x, y) => x.at - y.at);
+  for (const e of events) {
+    if (e.op === 'drop') {
+      grantedTo.delete(e.name);
+      continue;
+    }
+    if (!grantedTo.has(e.name)) grantedTo.set(e.name, new Set());
+    const roles = grantedTo.get(e.name);
+    for (const r of e.roles) {
+      if (e.op === 'grant') roles.add(r);
+      else if (r === 'public') roles.clear();
+      else roles.delete(r);
+    }
   }
 }
+
+// ── 3. NO ACCIDENTAL OVERLOADS (0119) ─────────────────────────────────────────
+// Postgres overloads by argument types. A `create or replace function` at an
+// arity an earlier file DROPPED creates a second function instead of replacing
+// the first: 0115 did exactly that to apply_discount and override_price, and
+// because the strays carried no grant (0003 default privileges) the two
+// grant-driven gates never saw them, while keyless callers got PGRST203. Every
+// `create [or replace] function app.X(...)` and `drop function app.X(...)` is
+// replayed here in file order; a name that ends with more than one signature
+// fails unless fixtures/rpc-overloads.json says the pair is deliberate.
+const migrationFiles = readdirSync(MIGRATIONS)
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((file) => ({ file, sql: readFileSync(path.join(MIGRATIONS, file), 'utf8') }));
+const { live: liveSigs, misses: dropMisses } = replaySignatures(migrationFiles);
+const overloadAllow = JSON.parse(readFileSync(OVERLOADS_FILE, 'utf8')).allowed ?? {};
+const overloaded = [...liveSigs.entries()].filter(([, sigs]) => sigs.size > 1);
+const strayOverloads = overloaded.filter(([name]) => !(name in overloadAllow));
+const staleOverloadAllow = Object.keys(overloadAllow).filter((n) => (liveSigs.get(n)?.size ?? 0) <= 1);
 
 // `anon` and `authenticated` are both reachable by anyone who scans a table QR:
 // an anonymous sign-in makes a guest `authenticated`, exactly as staff are.
@@ -100,9 +141,52 @@ console.log(
   `  covered by rls-matrix  ${coveredHere.length}/${clientCallable.length}` +
     `  (floor: ${floor.covered}/${floor.total})`,
 );
+console.log(
+  `  live app.* functions   ${liveSigs.size}  (${overloaded.length} with a deliberate second signature` +
+    (overloaded.length ? `: ${overloaded.map(([n]) => n).join(', ')}` : '') +
+    ')',
+);
 console.log('');
 
 const problems = [];
+
+if (strayOverloads.length > 0) {
+  problems.push(
+    `${strayOverloads.length} app function(s) end the migration replay with MORE THAN ONE signature:\n` +
+      strayOverloads
+        .map(
+          ([name, sigs]) =>
+            `        app.${name}\n` +
+            [...sigs.entries()].map(([sig, file]) => `            (${sig})  ← ${file}`).join('\n'),
+        )
+        .join('\n') +
+      '\n\n' +
+      '      A `create or replace function` at an arity an earlier file dropped CREATES a\n' +
+      '      second function (0115 did this to apply_discount and override_price; 0119\n' +
+      '      cleaned up). Keyed callers run one body, keyless callers get PGRST203.\n' +
+      '      FIX: re-issue from the LATEST body — `grep -n "function app.<name>(" migrations/*.sql`,\n' +
+      '      a plain `create function` counts — with `drop function app.<name>(<exact prior types>)`\n' +
+      '      first and the grants re-issued after; or, if both signatures are meant to coexist,\n' +
+      '      add the name to fixtures/rpc-overloads.json with the reason.',
+  );
+}
+
+if (staleOverloadAllow.length > 0) {
+  console.log('Stale overload allowlist entries — the name has at most one live signature:');
+  for (const n of staleOverloadAllow) console.log(`        app.${n}`);
+  console.log('  (harmless; remove them from fixtures/rpc-overloads.json.)\n');
+}
+
+// A drop that matched nothing is only worth a line when it could explain a live
+// overload; five such drops in 0026 were harmless (`if exists`, then a create at
+// the arity that already existed) and would otherwise print on every run.
+const relevantMisses = dropMisses.filter((m) => strayOverloads.some(([name]) => name === m.name));
+if (relevantMisses.length > 0) {
+  console.log('Drops that matched no live signature of an overloaded name (check the arity):');
+  for (const m of relevantMisses.slice(0, 8)) console.log(`        ${m.file}: drop function app.${m.name}(${m.sig})`);
+  if (relevantMisses.length > 8) console.log(`        … and ${relevantMisses.length - 8} more`);
+  console.log('');
+}
 
 if (unclassified.length > 0) {
   problems.push(
@@ -165,7 +249,7 @@ if (UPDATE_FLOOR) {
 }
 
 if (problems.length === 0) {
-  console.log(`PASS  every client-callable RPC is classified; coverage has not regressed.`);
+  console.log(`PASS  every client-callable RPC is classified; coverage has not regressed; no stray overload.`);
   if (uncovered.length > 0) {
     console.log('');
     console.log(`      ${uncovered.length} RPC(s) still have no rls-matrix rule. Not a failure —`);

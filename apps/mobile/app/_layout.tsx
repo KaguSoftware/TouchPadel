@@ -123,6 +123,7 @@ function CrashScreen({ error, retry }: ErrorBoundaryProps) {
   return (
     <View style={styles.fill}>
       <ErrorState
+        testID="app.crash"
         title={t('errors.crashTitle')}
         message={t('errors.crashBody')}
         retryLabel={t('common.retry')}
@@ -147,7 +148,12 @@ function ConfigErrorBody() {
   const { t } = useLocale();
   return (
     <View style={styles.fill}>
-      <ErrorState title={t('errors.configTitle')} message={t('errors.configBody')} retryLabel="" />
+      <ErrorState
+        testID="app.config-error"
+        title={t('errors.configTitle')}
+        message={t('errors.configBody')}
+        retryLabel=""
+      />
       {__DEV__ ? <Text style={styles.devDetail}>{configError}</Text> : null}
     </View>
   );

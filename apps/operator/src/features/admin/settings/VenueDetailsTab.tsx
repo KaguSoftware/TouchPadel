@@ -25,6 +25,7 @@ import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { TAX_GROUPS_KEY, VENUE_ADMIN_KEY, bpToPercent, fetchTaxGroups, fetchVenueAdmin, type TaxGroupRow, type VenueAdminRow } from './venueQueries';
+import { DevicesPanel } from './DevicesPanel';
 import {
   VENUE_RANGES,
   draftFromVenue,
@@ -45,6 +46,8 @@ const SERVER_FIELD: Record<string, VenueField> = {
   hold_ttl_seconds: 'holdMinutes',
   max_booking_horizon_days: 'horizonDays',
   max_live_holds_per_guest: 'maxHolds',
+  protected_horizon_hours: 'protectedHours',
+  heartbeat_stale_seconds: 'staleSeconds',
 };
 
 export function VenueDetailsTab() {
@@ -116,8 +119,18 @@ export function VenueDetailsTab() {
                   ]}
                 />
               </Panel>
+              <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
+                <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
+                <Facts
+                  rows={[
+                    { label: tr('ws.owner.settings.trading.heartbeatStale'), value: span(venueQ.data.heartbeat_stale_seconds), hint: tr('ws.owner.settings.details.staleHint') },
+                    { label: tr('ws.owner.settings.trading.protectedHorizon'), value: span(venueQ.data.protected_horizon_hours * 3600, 'hours'), hint: tr('ws.owner.settings.details.protectedHint') },
+                  ]}
+                />
+              </Panel>
             </>
           ))}
+        {venueQ.data && <DevicesPanel staleSeconds={venueQ.data.heartbeat_stale_seconds} />}
         {venueQ.data && (
           <Panel title={tr('ws.owner.settings.details.fixedTitle')}>
             <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.fixedNote')}</p>
@@ -126,11 +139,6 @@ export function VenueDetailsTab() {
                 { label: tr('ws.owner.settings.contact.timezone'), value: <span dir="ltr">{venueQ.data.timezone}</span>, hint: tr('ws.owner.settings.details.timezoneHint') },
                 { label: tr('ws.owner.settings.trading.currency'), value: <span dir="ltr">{venueQ.data.currency}</span>, hint: tr('ws.owner.settings.trading.currencyHint') },
                 { label: tr('ws.owner.settings.trading.taxInclusive'), value: venueQ.data.tax_inclusive ? tr('ws.owner.settings.details.yes') : tr('ws.owner.settings.details.no') },
-                {
-                  label: tr('ws.owner.settings.trading.protectedHorizon'),
-                  value: span(venueQ.data.protected_horizon_hours * 3600, 'hours'),
-                  hint: tr('ws.owner.settings.trading.protectedHorizonHint'),
-                },
                 { label: tr('ws.owner.settings.trading.noShow'), value: tr('ws.owner.settings.trading.noShowValue'), hint: tr('ws.owner.settings.trading.noShowBody') },
               ]}
             />
@@ -256,6 +264,28 @@ function VenueForm({ saved }: { saved: VenueAdminRow }) {
             value={draft.maxHolds}
             onChange={set('maxHolds')}
             error={errorFor('maxHolds')}
+          />
+        </div>
+      </Panel>
+
+      <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))' }}>
+          <NumberField
+            label={tr('ws.owner.settings.trading.heartbeatStale')}
+            hint={tr('ws.owner.settings.details.staleHint')}
+            unit={tr('ws.owner.settings.details.units.seconds')}
+            value={draft.staleSeconds}
+            onChange={set('staleSeconds')}
+            error={errorFor('staleSeconds')}
+          />
+          <NumberField
+            label={tr('ws.owner.settings.trading.protectedHorizon')}
+            hint={tr('ws.owner.settings.details.protectedHint')}
+            unit={tr('ws.owner.settings.details.units.hours')}
+            value={draft.protectedHours}
+            onChange={set('protectedHours')}
+            error={errorFor('protectedHours')}
           />
         </div>
       </Panel>

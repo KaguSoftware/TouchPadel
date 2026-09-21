@@ -12,6 +12,14 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'DEGRADED_LOCKOUT',
   'PIN_INVALID',
   'PIN_LOCKED',
+  // 0115: a money RPC reached without a fresh verify_manager_pin grant. appRpc
+  // verifies first, so a user sees this only after a very slow round trip.
+  'PIN_GRANT_REQUIRED',
+  // 0120: refunds and the other queued money corrections (item 9 / C3).
+  'REFUND_EXCEEDS_PAYMENT',
+  'PAYMENT_NOT_FOUND',
+  'ITEM_NOT_ON_TAB',
+  'IDEMPOTENCY_CONFLICT',
   'FORBIDDEN',
   'AUTH_REQUIRED',
   'ALREADY_NOTIFIED',
@@ -146,6 +154,12 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'COVER_NOT_ALLOWED',
   'INVALID_STATION',
   'NO_PIN_SET',
+  // 0125/0130 (multi-venue slice 1) — the venue could not be resolved for this
+  // write, and a station beat in that could not be filed to any venue. Both are
+  // unreachable on a one-venue project; the mapping lands with the migration so
+  // the first two-venue day is not the day the operator shows errors.generic.
+  'VENUE_REQUIRED',
+  'STATION_UNKNOWN',
   // Desk payment (0106).
   'BOOKING_TAB_OPEN',
   'BOOKING_TAB_DONOR',

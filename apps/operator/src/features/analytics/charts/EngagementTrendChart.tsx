@@ -11,10 +11,11 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import type { SalesVsEngagementDay } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
-import { AXIS, GRID, SERIES_2, SERIES_3 } from './colors';
+import { useChartColors } from './colors';
 import { TREND_SYNC_ID } from './SalesTrendChart';
 
 export function EngagementTrendChart({ rows, f, showViews = true }: { rows: readonly SalesVsEngagementDay[]; f: Formatters; showViews?: boolean }) {
+  const { AXIS, GRID, SERIES_2, SERIES_3 } = useChartColors();
   const { tr, dir } = useLocale();
   const data = rows.map((r) => ({ label: f.date(r.date), views: r.views, waiterCalls: r.waiterCalls }));
   return (

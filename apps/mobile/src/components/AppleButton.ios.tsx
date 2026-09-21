@@ -12,7 +12,7 @@ import type { AppleButtonProps } from './AppleButton';
 
 export type { AppleButtonProps } from './AppleButton';
 
-export function AppleButton({ label, onPress, busy, disabled, height }: AppleButtonProps) {
+export function AppleButton({ label, onPress, busy, disabled, height, testID }: AppleButtonProps) {
   const { appearance } = useTheme();
   const dark = appearance === 'dark';
   if (busy) {
@@ -20,6 +20,10 @@ export function AppleButton({ label, onPress, busy, disabled, height }: AppleBut
     // avoids any layout shift while the Apple sheet / Supabase call runs.
     return (
       <View
+        // The SAME id the native control carries below: busy or not, the Apple
+        // button is one thing to a test, and swapping ids as a request flies
+        // would make every assertion about it race the network.
+        testID={testID}
         accessible
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -49,6 +53,7 @@ export function AppleButton({ label, onPress, busy, disabled, height }: AppleBut
       style={{ alignSelf: 'stretch', opacity: disabled ? 0.55 : 1, pointerEvents: disabled ? 'none' : 'auto' }}
     >
       <AppleAuthentication.AppleAuthenticationButton
+        testID={testID}
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
         buttonStyle={
           dark

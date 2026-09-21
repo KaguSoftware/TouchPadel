@@ -4,6 +4,7 @@
  * `v_day_close_summary` view; this file only decides which state to render
  * and how to lay the server figures out for a CSV.
  */
+import type { MutationType } from '@touch/core/schemas/mutations';
 import type { CsvCell } from '../analytics/csv';
 
 export type DayCloseState =
@@ -246,17 +247,28 @@ export const QUEUE_WRITE_KEY = {
   'tab.open': 'tab',
   'tab.settle': 'payment',
   'adjustment.apply': 'discount',
-} as const satisfies Record<string, string>;
+  // Item 9 / C3 (0120)
+  'tab.cancel': 'tabRemoval',
+  'tab.settle_zero': 'billClose',
+  'payment.refund': 'refund',
+  'order_item.void': 'voidLine',
+  // `satisfies Record<MutationType, string>`: a queued type without a word here
+  // fails typecheck instead of reading as "Change" on the day-close list.
+} as const satisfies Record<MutationType, string>;
 export type QueueWriteKey = (typeof QUEUE_WRITE_KEY)[keyof typeof QUEUE_WRITE_KEY] | 'other';
 
 export function queueWriteKey(mutationType: string): QueueWriteKey {
   return (QUEUE_WRITE_KEY as Record<string, QueueWriteKey>)[mutationType] ?? 'other';
 }
 
-/** The leading error code of a queue row's last error ("ITEM_UNAVAILABLE: …"), if it has one. */
+/**
+ * The error code of a queue row's last error, if it has one: either leading
+ * ("ITEM_UNAVAILABLE: …") or after the HTTP status the sync worker prefixes
+ * ("400: ITEM_UNAVAILABLE", sync-worker.ts markFailed).
+ */
 export function queueErrorCode(lastError: string | null): string | null {
-  const m = lastError?.match(/^[A-Z][A-Z0-9_]+/);
-  return m ? m[0] : null;
+  const m = lastError?.match(/(?:^|:\s*)([A-Z][A-Z0-9_]+)/);
+  return m ? m[1]! : null;
 }
 
 /** One row of app.unpaid_played_bookings (0106): played on this business day, court fee still owed. */

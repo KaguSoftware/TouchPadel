@@ -72,6 +72,13 @@ function orderItems(p: any): unknown[] {
   }));
 }
 
+/** payment.refund items -> app.refund's p_items jsonb ([{order_item_id, qty}]) or null for money only. */
+function refundItems(p: any): unknown[] | null {
+  const items = Array.isArray(p?.items) ? p.items : [];
+  if (items.length === 0) return null;
+  return items.map((it: any) => ({ order_item_id: it?.orderItemId, qty: it?.qty }));
+}
+
 export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
   'order.create': (p, key, device) => ({
     fn: 'till_add_items',
@@ -219,6 +226,33 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_idempotency_key: key,
       p_device_id: device,
     },
+  }),
+  // --- Item 9 / C3 (0120): the money corrections -------------------------------
+  'tab.cancel': (p, key, device) => ({
+    fn: 'cancel_tab',
+    args: { p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, p_idempotency_key: key, p_device_id: device },
+  }),
+  'tab.settle_zero': (p, key, device) => ({
+    fn: 'settle_zero_tab',
+    args: { p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, p_idempotency_key: key, p_device_id: device },
+  }),
+  'payment.refund': (p, key, device) => ({
+    fn: 'refund',
+    args: {
+      p_payment_id: p?.paymentId,
+      p_amount_iqd: p?.amountIqd,
+      p_pin: p?.pin,
+      p_reason_code: p?.reasonCode,
+      p_items: refundItems(p),
+      p_idempotency_key: key,
+      p_device_id: device,
+    },
+  }),
+  'order_item.void': (p, _key, device) => ({
+    // void_order_item_internal answers a repeat with {duplicate:true} (0039), so
+    // void_after_send declares NO p_idempotency_key — like set_ticket_status.
+    fn: 'void_after_send',
+    args: { p_order_item_id: p?.orderItemId, p_pin: p?.pin, p_reason_code: p?.reasonCode, p_device_id: device },
   }),
 };
 /* eslint-enable @typescript-eslint/no-explicit-any */

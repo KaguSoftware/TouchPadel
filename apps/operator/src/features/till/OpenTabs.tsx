@@ -39,8 +39,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { appRpc } from '../../lib/appRpc';
 import { AppRpcError } from '../../lib/appRpc';
+import { mutate } from '../../lib/mutate';
+import { onFailedResult, resultErrorCode } from '../../lib/queueResults';
 import { errorToMessageKey } from '../../lib/errors';
 import { compareTableNumbers } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
@@ -251,6 +252,7 @@ export function OpenTabsBoard({
   removingId,
   removeError,
   onDismissRemoveError,
+  pendingIds,
 }: {
   status: AsyncStatus;
   rows: readonly BoardRow[];
@@ -281,6 +283,8 @@ export function OpenTabsBoard({
    * tab refused once wore the message for the rest of the shift.
    */
   onDismissRemoveError: () => void;
+  /** Tabs whose removal is on the durable queue, unanswered (item 9): badge, no control. */
+  pendingIds?: ReadonlyMap<string, unknown> | ReadonlySet<string>;
 }) {
   const { tr, locale } = useLocale();
   const visible = useMemo(() => filterBoardRows(rows, filter, query), [rows, filter, query]);
@@ -308,11 +312,11 @@ export function OpenTabsBoard({
    * server's message inside it) when the removal was refused.
    */
   useEffect(() => {
-    if (reasonFor !== null && !rows.some((r) => r.id === reasonFor)) {
+    if (reasonFor !== null && (!rows.some((r) => r.id === reasonFor) || pendingIds?.has(reasonFor))) {
       setReasonFor(null);
       setArmedId(null);
     }
-  }, [rows, reasonFor]);
+  }, [rows, reasonFor, pendingIds]);
 
   const nowDate = new Date(now);
   const hasBookingTabs = rows.some((r) => r.court !== null);
@@ -379,18 +383,22 @@ export function OpenTabsBoard({
       // Enter — so arming a removal cannot also open the tab it is removing.
       render: (r) => (
         <span style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <RemoveTabControl
-            row={r}
-            armed={armedId === r.id}
-            busy={removingId === r.id}
-            error={removeError?.id === r.id ? removeError.error : null}
-            onArm={(next) => {
-              setArmedId(next ? r.id : null);
-              setReasonFor(null);
-              onDismissRemoveError();
-            }}
-            onConfirm={() => setReasonFor(r.id)}
-          />
+          {pendingIds?.has(r.id) ? (
+            <StatusBadge tone="info" icon="wifiOff" size="sm" label={tr('ws.cashier.tabs.removalQueued')} />
+          ) : (
+            <RemoveTabControl
+              row={r}
+              armed={armedId === r.id}
+              busy={removingId === r.id}
+              error={removeError?.id === r.id ? removeError.error : null}
+              onArm={(next) => {
+                setArmedId(next ? r.id : null);
+                setReasonFor(null);
+                onDismissRemoveError();
+              }}
+              onConfirm={() => setReasonFor(r.id)}
+            />
+          )}
           {armedId !== r.id && (
             <>
               <Button size="sm" kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
@@ -497,6 +505,8 @@ export function OpenTabsScreen() {
   const [now, setNow] = useState(() => Date.now());
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<{ id: string; error: unknown } | null>(null);
+  /** Removals on the durable queue, unanswered: tab id -> the envelope's localId (item 9). */
+  const [pendingRemovals, setPendingRemovals] = useState<ReadonlyMap<string, string>>(new Map());
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -504,6 +514,38 @@ export function OpenTabsScreen() {
   }, []);
 
   const tabsQ = useQuery({ ...OPEN_TABS_QUERY });
+
+  // The ack: the refetch no longer lists the tab, so its pending entry goes.
+  useEffect(() => {
+    if (pendingRemovals.size === 0 || !tabsQ.data) return;
+    const live = new Set(tabsQ.data.map((t) => t.id));
+    const gone = [...pendingRemovals.keys()].filter((id) => !live.has(id));
+    if (gone.length === 0) return;
+    setPendingRemovals((m) => {
+      const next = new Map(m);
+      for (const id of gone) next.delete(id);
+      return next;
+    });
+  }, [tabsQ.data, pendingRemovals]);
+
+  // The refusal: a queued removal the server turned down lands back in the row,
+  // exactly where a synchronous refusal would have. (The root also toasts it.)
+  useEffect(
+    () =>
+      onFailedResult((r) => {
+        const id = [...pendingRemovals].find(([, localId]) => localId === r.localId)?.[0];
+        if (!id) return;
+        setPendingRemovals((m) => {
+          const next = new Map(m);
+          next.delete(id);
+          return next;
+        });
+        const code = resultErrorCode(r) ?? 'UNKNOWN';
+        const detail = (r.serverResult as { details?: unknown } | null)?.details;
+        setRemoveError({ id, error: new AppRpcError(code, code, undefined, typeof detail === 'string' ? detail : undefined) });
+      }),
+    [pendingRemovals],
+  );
   const menuQ = useQuery({ ...TILL_MENU_QUERY });
   const taxInclusiveQ = useQuery({
     queryKey: ['taxInclusive'],
@@ -557,16 +599,24 @@ export function OpenTabsScreen() {
   }
 
   /**
-   * app.cancel_tab, not mutate(): removing a tab is an online-only correction
-   * (the server re-checks emptiness under the row lock, which a queued replay
-   * minutes later cannot do meaningfully) and it takes the same direct-RPC
-   * route as merge_tabs, the other tab-shape change on this screen.
+   * tab.cancel on the durable queue (item 9 / C3, 0120; before it, a direct
+   * app.cancel_tab call that only worked online). The server still re-checks
+   * emptiness under the row lock at replay time, so a removal that lands after
+   * the tab gained an order is refused TAB_NOT_EMPTY — as a queue row, which
+   * onFailedResult below turns back into the per-row message. merge_tabs, the
+   * other tab-shape change on this screen, stays a direct RPC by decision.
    */
   async function removeTab(id: string, reason: string) {
     setRemovingId(id);
     setRemoveError(null);
     try {
-      await appRpc('cancel_tab', { p_tab_id: id, p_reason_code: reason });
+      const outcome = await mutate('tab.cancel', { tabId: id, reasonCode: reason });
+      if (outcome.queued) {
+        // Safe on disk, unanswered: the row wears its badge until the ack
+        // (the refetch drops it) or the refusal (the row shows it).
+        setPendingRemovals((m) => new Map(m).set(id, outcome.localId));
+        return;
+      }
       // Awaited on purpose: ['tabs'] is mounted here, so this resolves only
       // once the board has refetched without the cancelled tab — which is the
       // signal the reason prompt closes on, and the reason `removingId` must
@@ -600,6 +650,7 @@ export function OpenTabsScreen() {
         removingId={removingId}
         removeError={removeError}
         onDismissRemoveError={() => setRemoveError(null)}
+        pendingIds={pendingRemovals}
       />
       <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <StartShiftBanner />

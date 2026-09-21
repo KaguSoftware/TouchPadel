@@ -17,7 +17,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatIQD } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
-import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { supabase } from '../../lib/supabase';
@@ -56,7 +55,8 @@ export function RefundDialog({
   lines: readonly RefundableLine[];
   /** `can.refund` — false renders the `refused` state; the controls stay visible. */
   canRefund: boolean;
-  onDone(): void;
+  /** `queued`: the refund is safe on the durable queue but the server has not answered yet (item 9). */
+  onDone(queued: boolean): void;
   onClose(): void;
 }) {
   const { tr, locale } = useLocale();
@@ -90,19 +90,23 @@ export function RefundDialog({
     try {
       const chosen = Object.entries(items)
         .filter(([, qty]) => qty > 0)
-        .map(([order_item_id, qty]) => ({ order_item_id, qty }));
-      await appRpc('refund', {
-        p_payment_id: paymentId,
-        p_amount_iqd: amount,
-        p_pin: pin,
-        p_reason_code: reasonCode,
+        .map(([orderItemId, qty]) => ({ orderItemId, qty }));
+      // Item 9 (0120): the refund rides the durable queue like a discount. The
+      // PIN travels in the payload and is proved to verify_manager_pin at
+      // replay; online, the server answers inside the call and a refusal
+      // throws here exactly as the direct RPC did.
+      const outcome = await mutate('payment.refund', {
+        paymentId,
+        amountIqd: amount,
+        pin,
+        reasonCode,
         // Naming the items is what reverses the stock movement (L453).
-        p_items: chosen.length > 0 ? chosen : null,
-        p_device_id: deviceId(),
+        ...(chosen.length > 0 ? { items: chosen } : {}),
       });
-      touch.pinObserved(pin); // server just verified it — cache for offline unlock
+      // Cache for the offline unlock only once the server has verified it.
+      if (!outcome.queued) touch.pinObserved(pin);
       setPinOpen(false);
-      onDone();
+      onDone(outcome.queued);
     } catch (e) {
       setError(e);
       setPinOpen(false);

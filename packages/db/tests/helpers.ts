@@ -24,11 +24,35 @@ export const SEED_STAFF = {
   cashier: 'cashier@dev.touch.local',
   prep: 'prep@dev.touch.local',
   court_desk: 'desk@dev.touch.local',
+  // Multi-venue slice 1: seeded at venue A by the 0123 staff trigger like every
+  // other non-owner. tests/multi-venue.test.ts re-points these two to venue B
+  // for the length of that file and puts them back in its afterAll.
+  manager_b: 'manager-b@dev.touch.local',
+  cashier_b: 'cashier-b@dev.touch.local',
 } as const;
 // 0078/SEC-13: six digits, no repeated digit and no sequential run. The old
 // 111111 / 222222 are both refused by app.set_staff_pin now, so seeding them
 // would have left the dev environment demonstrating a rule the product rejects.
-export const DEV_PINS = { owner: '719264', manager: '380517' } as const;
+export const DEV_PINS = { owner: '719264', manager: '380517', manager_b: '492738' } as const;
+
+/**
+ * The default venue, written by migration 0122 — a fixed constant, not an ee57
+ * probe id, because every pre-multi-venue row in the database was backfilled to
+ * it. The helpers below default their `venueId` argument to it, so a suite that
+ * knows nothing about venues keeps planting its rows exactly where it always
+ * did.
+ */
+export const VENUE_A_ID = 'c0000000-0000-4000-8000-000000000001';
+
+/**
+ * The second venue, created and then DEACTIVATED inside
+ * tests/multi-venue.test.ts (ensureVenueBProbeData / deactivateVenueBProbeData).
+ * It must never be ACTIVE outside that file: the suite runs singleFork against
+ * one shared database, and a second active venue makes app.current_venue()
+ * ambiguous, so every venue-less service_role insert in every other suite would
+ * raise VENUE_REQUIRED.
+ */
+export const VENUE_B_ID = probeId('be00');
 
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false } } as const;
 
@@ -109,8 +133,34 @@ export async function shapedGuest(
   return { id: data.user.id, email, client: await signedInClient(email) };
 }
 
-/** Call an app-schema RPC. */
-export function appRpc(c: SupabaseClient, fn: string, args: Record<string, unknown>) {
+/**
+ * RPCs that consume a manager-PIN grant since 0115 (mirrors packages/core
+ * PIN_GATED_RPCS; the operator wrapper does the same). A suite that wants the
+ * RAW behaviour — no grant, PIN_GRANT_REQUIRED — calls c.schema('app').rpc
+ * directly, as pin-grants.test.ts does.
+ */
+const PIN_GATED_RPCS = new Set(['apply_discount', 'override_price', 'refund', 'void_after_send', 'write_off_expired']);
+
+/**
+ * Call an app-schema RPC. For a PIN-gated RPC carrying p_pin it proves the PIN
+ * to app.verify_manager_pin first (its own round trip, so the attempt commits
+ * and the lockout counts — 0115), exactly as every production client does; a
+ * refusal there is returned in the same { data, error } shape.
+ */
+export async function appRpc(c: SupabaseClient, fn: string, args: Record<string, unknown>) {
+  if (PIN_GATED_RPCS.has(fn) && typeof args.p_pin === 'string') {
+    const verified = await c.schema('app').rpc('verify_manager_pin', {
+      p_pin: args.p_pin,
+      p_device_id: typeof args.p_device_id === 'string' ? args.p_device_id : null,
+    });
+    if (verified.error) return verified;
+    // A wrong PIN RETURNS null; hand back the refusal the RPC used to raise, in
+    // the same { data, error } shape the suites destructure.
+    if (verified.data === null) {
+      const refused = { data: null, error: { message: 'PIN_INVALID', code: 'P0001', details: null, hint: null } };
+      return refused as unknown as typeof verified;
+    }
+  }
   return c.schema('app').rpc(fn, args);
 }
 
@@ -121,7 +171,11 @@ export function testIdemKey(mutationType: string): string {
 }
 
 /** Create an isolated active court (service role bypasses RLS). */
-export async function createTestCourt(svc: SupabaseClient, name: string): Promise<string> {
+export async function createTestCourt(
+  svc: SupabaseClient,
+  name: string,
+  venueId: string = VENUE_A_ID,
+): Promise<string> {
   const { data, error } = await svc
     .from('courts')
     .insert({
@@ -130,6 +184,7 @@ export async function createTestCourt(svc: SupabaseClient, name: string): Promis
       indoor: true,
       duration_options: [60, 90, 120],
       is_active: true,
+      venue_id: venueId,
     })
     .select('id')
     .single();
@@ -150,8 +205,16 @@ export async function createTestCourt(svc: SupabaseClient, name: string): Promis
  * invisible. Every suite that calls this books in the FUTURE, so a lower bound
  * of yesterday costs nothing.
  */
-export async function ensureTestRateRule(svc: SupabaseClient): Promise<void> {
-  const { data } = await svc.from('rate_rules').select('id').eq('name', 'TEST all-day').limit(1);
+export async function ensureTestRateRule(
+  svc: SupabaseClient,
+  venueId: string = VENUE_A_ID,
+): Promise<void> {
+  const { data } = await svc
+    .from('rate_rules')
+    .select('id')
+    .eq('name', 'TEST all-day')
+    .eq('venue_id', venueId)
+    .limit(1);
   if (data && data.length > 0) return;
   const yesterday = new Date(Date.now() - 24 * 60 * 60_000).toISOString().slice(0, 10);
   const { data: rule, error } = await svc
@@ -165,6 +228,7 @@ export async function ensureTestRateRule(svc: SupabaseClient): Promise<void> {
       priority: -100, // never beats a real fixture rule
       valid_from: yesterday,
       is_active: true,
+      venue_id: venueId,
     })
     .select('id')
     .single();
@@ -220,6 +284,8 @@ export const SEED_STAFF_IDS = {
   cashier: 'a0000000-0000-4000-8000-000000000003',
   prep: 'a0000000-0000-4000-8000-000000000004',
   court_desk: 'a0000000-0000-4000-8000-000000000005',
+  manager_b: 'a0000000-0000-4000-8000-000000000006',
+  cashier_b: 'a0000000-0000-4000-8000-000000000007',
 } as const;
 
 /** Seeded 'Standard' (0%) tax group (supabase/seed.sql). */
@@ -248,6 +314,7 @@ export async function createTestMenuItem(
   svc: SupabaseClient,
   tag: string,
   priceIqd: number,
+  venueId: string = VENUE_A_ID,
 ): Promise<TestMenuItem> {
   const n = cafeCounter++;
   const { data: cat, error: cErr } = await svc
@@ -257,6 +324,7 @@ export async function createTestMenuItem(
       name_ar: `تصنيف اختبار ${tag}-${n}`,
       tax_group_id: SEED_TAX_GROUP_STANDARD,
       is_active: true,
+      venue_id: venueId,
     })
     .select('id')
     .single();
@@ -270,6 +338,7 @@ export async function createTestMenuItem(
       name_en: `Test Item ${tag}-${n}`,
       name_ar: `صنف اختبار ${tag}-${n}`,
       is_active: true,
+      venue_id: venueId,
     })
     .select('id')
     .single();
@@ -331,11 +400,19 @@ export async function createTestIngredient(
   svc: SupabaseClient,
   nameAr: string,
   unit: 'g' | 'ml' | 'pc',
+  venueId: string = VENUE_A_ID,
 ): Promise<string> {
   const n = cafeCounter++;
   const { data, error } = await svc
     .from('ingredients')
-    .insert({ kind: 'purchased', name_en: `Test Ingredient ${n}`, name_ar: nameAr, unit, is_active: true })
+    .insert({
+      kind: 'purchased',
+      name_en: `Test Ingredient ${n}`,
+      name_ar: nameAr,
+      unit,
+      is_active: true,
+      venue_id: venueId,
+    })
     .select('id')
     .single();
   if (error) throw new Error(`createTestIngredient failed: ${error.message}`);
@@ -365,6 +442,7 @@ export async function addStockBatch(
   qty: number,
   unitCostIqd: number,
   expiryDaysFromNow?: number,
+  venueId: string = VENUE_A_ID,
 ): Promise<string> {
   const expiry =
     expiryDaysFromNow === undefined
@@ -378,6 +456,7 @@ export async function addStockBatch(
       qty_received: qty,
       qty_remaining: qty,
       unit_cost_iqd: unitCostIqd,
+      venue_id: venueId,
     })
     .select('id')
     .single();
@@ -385,7 +464,11 @@ export async function addStockBatch(
   return (data as { id: string }).id;
 }
 
-export async function createTestCafeTable(svc: SupabaseClient, tag: string): Promise<string> {
+export async function createTestCafeTable(
+  svc: SupabaseClient,
+  tag: string,
+  venueId: string = VENUE_A_ID,
+): Promise<string> {
   const { data, error } = await svc
     .from('cafe_tables')
     .insert({
@@ -393,6 +476,7 @@ export async function createTestCafeTable(svc: SupabaseClient, tag: string): Pro
       zone: 'اختبار',
       capacity: 4,
       is_active: true,
+      venue_id: venueId,
     })
     .select('id')
     .single();
@@ -435,10 +519,12 @@ export async function ensureOpenDay(
   manager: SupabaseClient,
   svc: SupabaseClient,
   openingFloatIqd = 100_000,
+  venueId: string = VENUE_A_ID,
 ): Promise<string> {
   const { data: open, error } = await svc
     .from('day_sessions')
     .select('id')
+    .eq('venue_id', venueId)
     .in('status', ['open', 'closing'])
     .limit(1);
   if (error) throw new Error(`ensureOpenDay probe failed: ${error.message}`);
@@ -470,15 +556,20 @@ export async function openFreshDay(
  * Force-close any open day and void its open tabs (service role, direct
  * writes) so a test that needs a pristine day can open one deterministically.
  */
-export async function forceCloseAllDays(svc: SupabaseClient): Promise<void> {
+export async function forceCloseAllDays(
+  svc: SupabaseClient,
+  venueId: string = VENUE_A_ID,
+): Promise<void> {
   const { error: tErr } = await svc
     .from('tabs')
     .update({ status: 'void' })
+    .eq('venue_id', venueId)
     .in('status', ['open', 'awaiting_payment']);
   if (tErr) throw new Error(`forceCloseAllDays tabs failed: ${tErr.message}`);
   const { error: dErr } = await svc
     .from('day_sessions')
     .update({ status: 'closed', closed_at: new Date().toISOString() })
+    .eq('venue_id', venueId)
     .in('status', ['open', 'closing']);
   if (dErr) throw new Error(`forceCloseAllDays days failed: ${dErr.message}`);
 }
@@ -487,11 +578,19 @@ export async function forceCloseAllDays(svc: SupabaseClient): Promise<void> {
  * Un-degrade the venue: refresh every till heartbeat — flagged via is_till
  * (0026) or named 'TILL%' (legacy prefix) — so a previous aborted
  * degraded-mode test never poisons unrelated suites.
+ *
+ * Scoped to ONE venue since slice 1: multi-venue.test.ts keeps venue B
+ * deliberately degraded (a stale till) while venue A must stay fresh, and an
+ * unscoped update here would wipe that fixture out from under it.
  */
-export async function ensureTillFresh(svc: SupabaseClient): Promise<void> {
+export async function ensureTillFresh(
+  svc: SupabaseClient,
+  venueId: string = VENUE_A_ID,
+): Promise<void> {
   const { error } = await svc
     .from('device_heartbeats')
     .update({ last_seen_at: new Date().toISOString(), queue_depth: 0 })
+    .eq('venue_id', venueId)
     .or('is_till.eq.true,device_id.like.TILL*');
   if (error) throw new Error(`ensureTillFresh failed: ${error.message}`);
 }
@@ -500,6 +599,11 @@ export async function ensureTillFresh(svc: SupabaseClient): Promise<void> {
  * Deterministic probe rows for the Drop 2+3 RLS matrix 'rows' expectations —
  * idempotent (fixed ee57-prefixed ids + ignoreDuplicates), created with the
  * service client so the matrix never depends on fixtures being applied.
+ *
+ * Venues (slice 1): only the rows the multi-venue suite reads back by venue
+ * name `venue_id` explicitly. Everything else relies on the column default —
+ * app.current_venue() resolves to the single active venue while venue B is
+ * inactive, which is the only state any suite but multi-venue.test.ts sees.
  */
 export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
   const up = async (table: string, row: Record<string, unknown>, onConflict = 'id') => {
@@ -543,6 +647,7 @@ export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
   // working guest context and change RPC guard outcomes).
   await up('cafe_tables', {
     id: probeId('201'), table_number: 'PROBE-1', zone: 'فحص', is_active: true,
+    venue_id: VENUE_A_ID,
   });
   await up('guest_sessions', {
     id: probeId('202'), table_id: probeId('201'), auth_user_id: SEED_STAFF_IDS.owner,
@@ -553,7 +658,7 @@ export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
   await up('day_sessions', {
     id: probeId('301'), business_date: '2001-01-01', status: 'closed',
     opened_at: past, opened_by: SEED_STAFF_IDS.manager, opening_float_iqd: 0,
-    closed_at: past, closed_by: SEED_STAFF_IDS.manager,
+    closed_at: past, closed_by: SEED_STAFF_IDS.manager, venue_id: VENUE_A_ID,
   });
   await up('tabs', {
     id: probeId('302'), day_session_id: probeId('301'), status: 'settled',
@@ -617,7 +722,14 @@ export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
   });
 
   // Heartbeat + replay bookkeeping (non-TILL device: never flips degraded mode).
-  await up('device_heartbeats', { device_id: 'PROBE-RLS', queue_depth: 0 }, 'device_id');
+  // Since 0131 device_heartbeats.device_id is an FK to stations(id), so the
+  // station has to exist before its heartbeat does.
+  await up('stations', { id: 'PROBE-RLS', venue_id: VENUE_A_ID, is_till: false });
+  await up(
+    'device_heartbeats',
+    { device_id: 'PROBE-RLS', queue_depth: 0, venue_id: VENUE_A_ID },
+    'device_id',
+  );
   await up(
     'sync_replays',
     {
@@ -976,4 +1088,194 @@ export async function ensurePromotionProbeData(svc: SupabaseClient): Promise<voi
     adjustment_id: probeId('703'), amount_iqd: 500, redeemed_by: SEED_STAFF_IDS.cashier,
     redeemed_at: past,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 0122-0138 multi-venue — probe rows for the RLS matrix (drop 13) and for
+// tests/multi-venue.test.ts
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One registered till at venue A, with a FRESH heartbeat.
+ *
+ * The drop-13 `stations` select rule needs a row to see, and every heartbeat
+ * row needs its station to exist first (0131 FK). Fresh on purpose: the station
+ * is a till, and a stale one would put venue A into degraded mode and change
+ * the guard outcome of every guest RPC in the matrix.
+ */
+export async function ensureStationProbe(svc: SupabaseClient): Promise<void> {
+  const { error: sErr } = await svc
+    .from('stations')
+    .upsert(
+      { id: 'TILL-PROBE-A', venue_id: VENUE_A_ID, is_till: true, registered_by: SEED_STAFF_IDS.manager },
+      { onConflict: 'id', ignoreDuplicates: true },
+    );
+  if (sErr) throw new Error(`ensureStationProbe station failed: ${sErr.message}`);
+  const { error: hErr } = await svc.from('device_heartbeats').upsert(
+    {
+      device_id: 'TILL-PROBE-A',
+      venue_id: VENUE_A_ID,
+      is_till: true,
+      queue_depth: 0,
+      last_seen_at: new Date().toISOString(),
+    },
+    { onConflict: 'device_id' },
+  );
+  if (hErr) throw new Error(`ensureStationProbe heartbeat failed: ${hErr.message}`);
+}
+
+export interface VenueBProbe {
+  venueId: string;
+  /** Two active courts at B, sort_order 101/102 (never courts 1-2 of venue A). */
+  courtIds: [string, string];
+  /** Two cafe tables at B numbered 'T1'/'T2' — a deliberate collision with A. */
+  tableIds: [string, string];
+  /** A registered till at B whose heartbeat is a day old (B reads degraded). */
+  stationId: string;
+}
+
+/**
+ * Create — and ACTIVATE — the second venue. Only tests/multi-venue.test.ts may
+ * call this, and only with deactivateVenueBProbeData in its afterAll: while two
+ * venues are active app.current_venue() is ambiguous for a caller with no
+ * station and no single membership, so every venue-less service_role insert
+ * anywhere else in the suite would raise VENUE_REQUIRED.
+ *
+ * Idempotent (fixed ee57 'be' ids + upserts), and EVERY insert names venue_id
+ * rather than leaning on the column default — the default is exactly what this
+ * fixture makes ambiguous.
+ */
+export async function ensureVenueBProbeData(svc: SupabaseClient): Promise<VenueBProbe> {
+  const courtIds: [string, string] = [probeId('be11'), probeId('be12')];
+  const tableIds: [string, string] = [probeId('be31'), probeId('be32')];
+  const ruleId = probeId('be21');
+  const stationId = 'TILL-B1-PROBE';
+  const up = async (table: string, row: Record<string, unknown>, onConflict = 'id') => {
+    const { error } = await svc.from(table).upsert(row, { onConflict, ignoreDuplicates: true });
+    if (error) throw new Error(`venue B probe ${table} failed: ${error.message}`);
+  };
+
+  // The venue itself, active — everything below hangs off it.
+  const { error: vErr } = await svc.from('venues').upsert(
+    {
+      id: VENUE_B_ID,
+      slug: 'probe-venue-b',
+      name_en: 'Probe Venue B',
+      name_ar: 'فرع تجريبي ب',
+      timezone: 'Asia/Baghdad',
+      is_active: true,
+    },
+    { onConflict: 'id' },
+  );
+  if (vErr) throw new Error(`venue B probe venues failed: ${vErr.message}`);
+
+  // Courts sorted after venue A's two, so any "first court" lookup elsewhere
+  // keeps picking A's court 1.
+  await up('courts', {
+    id: courtIds[0], venue_id: VENUE_B_ID, name_en: 'Probe B Court 1',
+    name_ar: 'ملعب ب ١', indoor: true, duration_options: [60, 90, 120],
+    sort_order: 101, is_active: true,
+  });
+  await up('courts', {
+    id: courtIds[1], venue_id: VENUE_B_ID, name_en: 'Probe B Court 2',
+    name_ar: 'ملعب ب ٢', indoor: true, duration_options: [60, 90, 120],
+    sort_order: 102, is_active: true,
+  });
+
+  // Same shape ensureTestRateRule plants at A, so a B slot prices too.
+  const yesterday = new Date(Date.now() - 24 * 60 * 60_000).toISOString().slice(0, 10);
+  await up('rate_rules', {
+    id: ruleId, venue_id: VENUE_B_ID, name: 'TEST all-day', court_id: null,
+    days_of_week: [0, 1, 2, 3, 4, 5, 6], start_time: '00:00', end_time: '23:59:59',
+    priority: -100, valid_from: yesterday, is_active: true,
+  });
+  const { error: pErr } = await svc.from('rate_rule_prices').upsert(
+    [60, 90, 120].map((d) => ({ rule_id: ruleId, duration_min: d, price_iqd: 40_000 })),
+    { onConflict: 'rule_id,duration_min', ignoreDuplicates: true },
+  );
+  if (pErr) throw new Error(`venue B probe rate_rule_prices failed: ${pErr.message}`);
+
+  // 'T1'/'T2' already exist at venue A (fixtures/tables.sql). The collision is
+  // the point: it proves 0134's (venue_id, table_number) unique replaced the
+  // global one.
+  await up('cafe_tables', {
+    id: tableIds[0], venue_id: VENUE_B_ID, table_number: 'T1', zone: 'فحص ب',
+    capacity: 4, is_active: true,
+  });
+  await up('cafe_tables', {
+    id: tableIds[1], venue_id: VENUE_B_ID, table_number: 'T2', zone: 'فحص ب',
+    capacity: 4, is_active: true,
+  });
+
+  // A till at B with a DAY-OLD heartbeat: app.is_degraded(B) is true while
+  // app.is_degraded(A) stays false, which is how the per-venue overload is
+  // proved (0137).
+  await up('stations', {
+    id: stationId, venue_id: VENUE_B_ID, is_till: true,
+    registered_by: SEED_STAFF_IDS.manager_b,
+  });
+  const { error: hErr } = await svc.from('device_heartbeats').upsert(
+    {
+      device_id: stationId,
+      venue_id: VENUE_B_ID,
+      is_till: true,
+      queue_depth: 0,
+      last_seen_at: new Date(Date.now() - 24 * 3600_000).toISOString(),
+    },
+    { onConflict: 'device_id' },
+  );
+  if (hErr) throw new Error(`venue B probe heartbeat failed: ${hErr.message}`);
+
+  // Re-point the two B staff. Delete first: the 0123 trigger gave each of them
+  // a venue-A row on insert, and a caller with TWO memberships resolves to
+  // nothing (VENUE_REQUIRED) rather than to B.
+  const bStaff = [SEED_STAFF_IDS.manager_b, SEED_STAFF_IDS.cashier_b];
+  const { error: dErr } = await svc.from('staff_venues').delete().in('staff_id', bStaff);
+  if (dErr) throw new Error(`venue B probe staff_venues delete failed: ${dErr.message}`);
+  const { error: svErr } = await svc.from('staff_venues').insert([
+    { staff_id: SEED_STAFF_IDS.manager_b, venue_id: VENUE_B_ID, role: 'manager' },
+    { staff_id: SEED_STAFF_IDS.cashier_b, venue_id: VENUE_B_ID, role: 'cashier' },
+  ]);
+  if (svErr) throw new Error(`venue B probe staff_venues insert failed: ${svErr.message}`);
+
+  return { venueId: VENUE_B_ID, courtIds, tableIds, stationId };
+}
+
+/**
+ * Put the database back the way every other suite expects to find it: venue B
+ * inactive (invisible to app.resolve_venue, app.staff_venue_ids and the venue
+ * axis of every policy) and the two B staff back at venue A.
+ *
+ * Deactivation, never deletion — once B carries an audit_log or payments row it
+ * cannot be deleted at all (append-only triggers plus FKs), and a half-deleted
+ * venue is worse than an inactive one. The station row is left behind
+ * deliberately: staff_breaks keeps its history and points at station ids.
+ */
+export async function deactivateVenueBProbeData(svc: SupabaseClient): Promise<void> {
+  const { error: vErr } = await svc
+    .from('venues')
+    .update({ is_active: false })
+    .eq('id', VENUE_B_ID);
+  if (vErr) throw new Error(`deactivateVenueBProbeData venue failed: ${vErr.message}`);
+
+  const { error: cErr } = await svc
+    .from('courts')
+    .update({ is_active: false })
+    .eq('venue_id', VENUE_B_ID);
+  if (cErr) throw new Error(`deactivateVenueBProbeData courts failed: ${cErr.message}`);
+
+  const { error: tErr } = await svc
+    .from('cafe_tables')
+    .update({ is_active: false })
+    .eq('venue_id', VENUE_B_ID);
+  if (tErr) throw new Error(`deactivateVenueBProbeData tables failed: ${tErr.message}`);
+
+  const bStaff = [SEED_STAFF_IDS.manager_b, SEED_STAFF_IDS.cashier_b];
+  const { error: dErr } = await svc.from('staff_venues').delete().in('staff_id', bStaff);
+  if (dErr) throw new Error(`deactivateVenueBProbeData staff_venues delete failed: ${dErr.message}`);
+  const { error: svErr } = await svc.from('staff_venues').insert([
+    { staff_id: SEED_STAFF_IDS.manager_b, venue_id: VENUE_A_ID, role: 'manager' },
+    { staff_id: SEED_STAFF_IDS.cashier_b, venue_id: VENUE_A_ID, role: 'cashier' },
+  ]);
+  if (svErr) throw new Error(`deactivateVenueBProbeData staff_venues insert failed: ${svErr.message}`);
 }

@@ -8,7 +8,7 @@
  */
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLocale } from '../../../lib/i18n';
-import { AXIS, BAR_CURSOR, GRID, SERIES, SURFACE } from './colors';
+import { useChartColors } from './colors';
 
 export interface StackedSeries {
   key: string;
@@ -34,6 +34,7 @@ export function StackedBars({
   /** A boolean row field: rows where it is true are painted muted (a thin sample, not a small value). */
   thinKey?: string;
 }) {
+  const { AXIS, BAR_CURSOR, GRID, SERIES, SURFACE } = useChartColors();
   const { dir } = useLocale();
   return (
     <ResponsiveContainer width="100%" height="100%">

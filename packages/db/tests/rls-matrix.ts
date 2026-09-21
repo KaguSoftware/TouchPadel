@@ -89,6 +89,8 @@ export function ex<T extends string>(
 }
 
 const NIL_UUID = '00000000-0000-4000-8000-000000000000';
+/** The default venue (migration 0122) — the only ACTIVE venue while this file runs. */
+const VENUE_A = 'c0000000-0000-4000-8000-000000000001';
 const FUTURE = new Date(Date.now() + 14 * 24 * 3600_000).toISOString();
 
 // Drop 7. A settled date range in the past: the reports and analytics family
@@ -1022,7 +1024,9 @@ export const matrix: MatrixRule[] = [
       p_tab_id: NIL_UUID,
       p_kind: 'discount_percent',
       p_value: 100,
-      p_pin: '000000',
+      // 0115: the helper proves the PIN to verify_manager_pin BEFORE the call, so
+      // a placeholder PIN never reaches the role guard (PIN_INVALID for everyone).
+      p_pin: MANAGER_PIN,
       p_reason_code: '',
     },
     expect: ex<RpcExpectation>('guarded', {
@@ -1038,13 +1042,13 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc',
     schema: 'app',
     name: 'refund',
-    args: { p_payment_id: NIL_UUID, p_amount_iqd: 1, p_pin: '000000', p_reason_code: '' },
+    args: { p_payment_id: NIL_UUID, p_amount_iqd: 1, p_pin: MANAGER_PIN, p_reason_code: '' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
     }),
-    note: 'cashiers can NOT refund (manager/owner only); reason check precedes PIN',
+    note: 'cashiers can NOT refund (manager/owner only); the helper proves the PIN first (0115), then the role guard, then the reason check',
     drop: 2,
   },
   {
@@ -1136,27 +1140,8 @@ export const matrix: MatrixRule[] = [
     note: 'staff devices only; PROBE device id never flips degraded mode',
     drop: 3,
   },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'log_replay',
-    args: {
-      p_device_id: 'PROBE-RLS',
-      p_idempotency_key: 'PROBE:never-inserted',
-      p_entity: 'order',
-      p_result: 'not-a-result',
-    },
-    expect: ex<RpcExpectation>('guarded', {
-      anon: 'denied',
-      cashier: 'execute',
-      prep: 'execute',
-      court_desk: 'execute',
-      manager: 'execute',
-      owner: 'execute',
-    }),
-    note: 'invalid result fails INVALID_RESULT past the guard — nothing is inserted',
-    drop: 3,
-  },
+  // app.log_replay: dropped in 0114 (S5) — sync_replays is written only by the
+  // replay edge function as the service role; no client-callable rule remains.
   {
     kind: 'rpc',
     schema: 'app',
@@ -2463,4 +2448,159 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'booking_bill', args: { p_reservation_id: NIL_UUID }, expect: CASHIER_DESK_UP, drop: 10 },
   { kind: 'rpc', schema: 'app', name: 'booking_bill_states', args: { p_reservation_ids: [] }, expect: CASHIER_DESK_UP, drop: 10 },
   { kind: 'rpc', schema: 'app', name: 'unpaid_played_bookings', args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP, drop: 10 },
+
+  // ── 0108–0112: the owner assistant ───────────────────────────────────────
+  // Owner-only by decision (plan §12 DECIDE 5). Nil ids and an unknown tool
+  // name stop the owner past the guard with nothing written: CONVERSATION_NOT_FOUND,
+  // ASSISTANT_UNKNOWN_TOOL / ASSISTANT_NOT_COUNTABLE, JOB_NOT_FOUND; search,
+  // pricing and the meter are pure reads.
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_archive_conversation',
+    args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_set_scopes',
+    args: { p_id: NIL_UUID, p_scopes: ['howto'] }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_run_tool',
+    args: { p_tool: 'matrix_probe', p_args: {} }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_count',
+    args: { p_tool: 'matrix_probe', p_args: {} }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_search',
+    args: { p_query: 'matrix probe', p_embedding: null, p_kinds: null, p_limit: 1 }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'llm_price_micros',
+    args: { p_model: 'matrix', p_input: 0, p_cache_write: 0, p_cache_read: 0, p_output: 0 }, expect: OWNER_ONLY, drop: 11,
+  },
+  { kind: 'rpc', schema: 'app', name: 'assistant_usage', args: {}, expect: OWNER_ONLY, drop: 11 },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_job_cancel',
+    args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 11,
+  },
+
+  // ── drop 12 · Phase 2 milestone 0 (criticals) ───────────────────────────────
+  {
+    kind: 'rpc', schema: 'app', name: 'phone_digits',
+    args: { p_phone: '٠٧٧٠ ١٢٣ ٤٥٦٧' },
+    expect: ex<RpcExpectation>('execute'),
+    note: '0116/S7: pure text folding, granted to anon+authenticated because the profiles_phone_format CHECK evaluates it as the writing role',
+    drop: 12,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'retire_device',
+    args: { p_device_id: 'PROBE-RLS-NEVER' }, expect: OWNER_ONLY,
+    note: '0118/C2: owner ends a stale till hold on degraded mode; an unknown id fails DEVICE_NOT_FOUND past the guard',
+    drop: 12,
+  },
+
+  // ── drop 13 · Phase 2 milestone 1 slice 1 (multi-venue foundation) ─────────
+  // Only ONE venue is active while this file runs; venue B lives and dies
+  // inside tests/multi-venue.test.ts. Cross-venue isolation is proved there,
+  // with two real B principals — this declarative loop selects with no filter
+  // and could not tell A's rows from B's.
+  {
+    kind: 'select',
+    name: 'venues',
+    note: '0122: the venue list is public — the guest menu and the booking app name the venue before any identity exists, so venues_read admits everyone while is_active',
+    expect: ex<SelectExpectation>('rows'),
+    drop: 13,
+  },
+  {
+    kind: 'select',
+    name: 'staff_venues',
+    note: '0123: granted to authenticated only. A staffer reads their own membership (staff_venues_read_own); manager/owner read every row; a guest sees nothing rather than an error',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
+    }),
+    drop: 13,
+  },
+  {
+    kind: 'select',
+    name: 'stations',
+    note: '0124: the device registry is staff-only (stations_read_staff). ensureStationProbe plants TILL-PROBE-A at venue A so the five staff have a row to see',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
+    }),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'venues',
+    op: 'insert',
+    payload: { id: NIL_UUID, slug: 'matrix-probe', name_en: 'Matrix probe', name_ar: 'فحص المصفوفة' },
+    note: '0122: venues are migration-written. A second ACTIVE venue before slice 3 makes every guest insert raise VENUE_REQUIRED, so no client may create one',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'staff_venues',
+    op: 'insert',
+    payload: { staff_id: NIL_UUID, venue_id: VENUE_A, role: 'cashier' },
+    note: '0123: membership is written by the staff trigger and by app.register_staff, never by a client — granting yourself a venue is granting yourself its data',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'staff_venues',
+    op: 'update',
+    payload: { role: 'owner' },
+    note: '0123: the same argument for the role column — an editable membership row is a role escalation',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'stations',
+    op: 'insert',
+    payload: { id: 'MATRIX-PROBE-NEVER', venue_id: VENUE_A, is_till: false },
+    note: '0124/0130: a station registers itself through app.heartbeat, which resolves the venue and audits the registration; a direct insert would file a device wherever it liked',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  // The venue resolvers. Every one is granted to anon as well as authenticated
+  // (0125/0123/0137): each is named by a column default, a policy or a CHECK,
+  // and those evaluate as the WRITING role — the 0121 trap. None of them
+  // answers about anything but the caller's own context.
+  {
+    kind: 'rpc', schema: 'app', name: 'current_venue',
+    note: '0125: resolves station -> single membership -> single active venue, else raises VENUE_REQUIRED. A refusal is still an execute: it is a business answer, not a permission one',
+    args: { p_station_id: null }, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'current_venue_or_default',
+    note: '0125: the cron/service_role shape — falls back to the default venue rather than raising, and is the default on the eight D tables',
+    args: {}, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_venue_ids',
+    note: '0123: the caller\'s own active memberships (every active venue for an owner). A guest gets an empty array, not a refusal',
+    args: {}, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'is_staff_at',
+    // VARIADIC roles staff_role[] after a named argument — same shape as the
+    // is_staff rule in drop 7: PostgREST needs the array under its real name.
+    note: '0123: "is the caller one of these roles AT this venue" — the venue axis of every policy written in 0136',
+    args: { p_venue: VENUE_A, roles: ['owner'] }, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'is_degraded',
+    note: '0137: the per-venue overload. The zero-arg form (drop 1) delegates through current_venue_or_default so the pre-identity guest menu can never be made to raise',
+    args: { p_venue: VENUE_A }, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_mode',
+    note: '0137: the per-venue overload of the mode banner the guest app polls before sign-in',
+    args: { p_venue: VENUE_A }, expect: SELF_ANON_OK, drop: 13,
+  },
 ];

@@ -169,6 +169,11 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
 });
 
 // ── pure: payload + template + error contract ───────────────────────────────
+// The '123456' literals below are ARGUMENTS to renderTemplate / parseHookPayload
+// — any six digits would do, and these functions never read the configuration.
+// They are not the configured test_otp pair, which since S10 lives only in
+// SUPABASE_AUTH_SMS_TEST_OTP_CODE (packages/db/.env, or a CI repository
+// variable) and is read below by the stack block.
 describe('send-sms-otp otp.ts', () => {
   it('parses the GoTrue Send SMS payload', () => {
     expect(
@@ -209,14 +214,18 @@ describe('send-sms-otp otp.ts', () => {
 });
 
 // ── stack: the gate, the result stamp, the grants, the trigger ──────────────
-const TEST_NUMBER = '+9647700000001'; // config.toml [auth.sms.test_otp]
-const TEST_CODE = '123456';
+// config.toml [auth.sms.test_otp]. The CODE is not in the repository (S10): the
+// CLI substitutes env(SUPABASE_AUTH_SMS_TEST_OTP_CODE) at `supabase start`, so
+// the value that started the stack is the one this file has to send. Without it
+// the stack block skips rather than failing on a wrong code.
+const TEST_NUMBER = process.env.SUPABASE_AUTH_SMS_TEST_OTP_NUMBER ?? '+9647700000001';
+const TEST_CODE = process.env.SUPABASE_AUTH_SMS_TEST_OTP_CODE ?? '';
 const GATE_PHONE = '+9647709990069';
 const GATE_CANONS = ['7709990069', '995419010203'];
 
 type Decision = { allowed: boolean; reason?: string; send_id: number };
 
-describe.skipIf(!up)('0069 sms_send_gate / sms_send_result / phone sign-up (stack)', () => {
+describe.skipIf(!up || !TEST_CODE)('0069 sms_send_gate / sms_send_result / phone sign-up (stack)', () => {
   let svc: SupabaseClient;
   const limits = () => svc.schema('app').from('sms_limits');
   const sends = () => svc.schema('app').from('sms_sends');
