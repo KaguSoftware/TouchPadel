@@ -63,7 +63,20 @@ export default async function TableSessionPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const { locale: rawLocale } = await params;
+  /**
+   * FIRST STATEMENT, BEFORE ANY await ON DATA (2026-09-21).
+   *
+   * This was `requireLocale(rawLocale)` down in the JSX, after the cookie read
+   * and the three cached reads. It still 404'd — measured on the 16.3.4
+   * production build, `/.well-known/t` comes back 404 either way — but it made
+   * src/lib/locales.ts's own claim ("a 404 before anything under `[locale]`
+   * renders") false for this one page: every unknown first segment paid for a
+   * cookie read and three read-model reads first, and any of those throwing
+   * would have rendered the error boundary instead of the 404. Every other page
+   * under `[locale]` already resolves its locale on line one; this one now does
+   * too.
+   */
+  const locale = requireLocale((await params).locale);
   const token = (await cookies()).get(TABLE_COOKIE)?.value ?? null;
 
   const [menuResult, settings, venue] = await Promise.all([
@@ -74,7 +87,7 @@ export default async function TableSessionPage({
 
   return (
     <CafeApp
-      locale={requireLocale(rawLocale)}
+      locale={locale}
       token={token}
       initialMenu={menuResult.categories}
       menuStatus={menuResult.status}

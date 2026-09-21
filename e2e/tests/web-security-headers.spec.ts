@@ -161,15 +161,42 @@ test.describe('web security headers', () => {
   });
 
   test('a bad locale is refused by the page even when the proxy never ran', async ({ request }) => {
-    // `/.well-known/*` is proxied but passed through untouched (Apple fetches
-    // the association file at a fixed path), so `.well-known` reaches
-    // `[locale]` as a locale. A dotted last segment is skipped by the matcher
-    // altogether, so `xx` reaches `[locale]` with no proxy at all. Neither
-    // may render anything but a 404.
+    /**
+     * `/.well-known/*` is proxied but passed through untouched (Apple fetches
+     * the association file at a fixed path), so `.well-known` reaches
+     * `[locale]` as a locale. A dotted last segment is skipped by the matcher
+     * altogether, so `xx` reaches `[locale]` with no proxy at all. Neither
+     * may render anything but a 404.
+     *
+     * THE MARKER IS A SERIALISED PROP, NOT A CLASS NAME (2026-09-21).
+     *
+     * This read `.not.toContain('tp-cafe__table')` and was red on the
+     * production build from the day it was written, while passing under `next
+     * dev` — so it looked like a prod-only rendering bug and was not one.
+     * Measured on the built app: `/.well-known/t` is a 404, its body is
+     * `app/[locale]/not-found.tsx`, and `app/[locale]/layout.tsx` inlines the
+     * whole cafe stylesheet into it — `.tp-cafe__table` among ~7 occurrences of
+     * CSS text. The class was in the 404's <style>, not in any element. It
+     * never appeared as an element either: the chip is rendered by
+     * `TableChip` after hydration, so `class="tp-cafe__table"` is absent even
+     * from a real /en/t. `next dev` answers a 404 with a bare shell carrying
+     * none of the app's markup, which is the only reason it ever passed.
+     *
+     * `initialMenu` is the prop `<CafeApp>` is given the menu in, so it appears
+     * in the RSC flight payload exactly when the page component actually ran —
+     * in dev and in a production build alike, and never on a 404.
+     */
+    const control = await request.get('/en/t');
+    expect(control.status(), 'the control must be the real table page').toBe(200);
+    expect(
+      await control.text(),
+      'the marker must be present where the app DOES render, or the assertions below are vacuous',
+    ).toContain('initialMenu');
+
     for (const path of ['/.well-known/t', '/xx/t/tok.x', '/xx.y']) {
       const res = await request.get(path);
       expect(res.status(), `${path} must be a 404, not Arabic`).toBe(404);
-      expect(await res.text(), `${path} must not render the app`).not.toContain('tp-cafe__table');
+      expect(await res.text(), `${path} must not render the app`).not.toContain('initialMenu');
     }
   });
 
