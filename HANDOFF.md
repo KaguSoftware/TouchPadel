@@ -1614,7 +1614,9 @@ mobile `testID`s and jest-expo, `packages/db/bench`), S10 (the committed test-OT
 repo), the docs remainder of item 12, and the owner steps — for which the ordered runbook is
 **`docs/client/hosted-push-milestone0-2026-09-21.md`**. Client-facing paperwork:
 **`docs/scope/phase2-change-order-2026-09-21.md`** (bilingual, for Mustafa's signature) and the
-deviation table in `docs/security/security-general.md` §01, now D1–D10.
+deviation table in `docs/security/security-general.md` §01, now D1–D11.
+
+**Day 32 (2026-09-21, later): the GitHub gates came off.** Earlier that day the release-gate runbook was applied (the `release` environment with a required reviewer and an `operator-v*` tag pattern, the `operator release tags` ruleset with an admin bypass, `SUPABASE_AUTH_SMS_TEST_OTP_CODE`, the `RELEASES_GH_TOKEN` swap); the ruleset stopped Parsa's own `operator-v0.2.14` push (admin override in the org audit log). **Owner decision: no protection rules.** Everyone with write access pushes branches and tags; releases have no approval stop. Removed: the ruleset, the `release` environment, any main protection, reviewers on `staging`, `.github/CODEOWNERS`, and `environment: release` in `operator-release.yml`. Kept: the fine-grained token and the OTP variable. Recorded as **D11** in `docs/security/security-general.md` §01; the runbook `docs/client/release-gate-2026-09-20.md` carries a withdrawn header. Do not re-add any of these without asking Parsa.
 
 **Day 32 (2026-09-21, night): Milestone 1 slice 1 — the multi-venue schema foundation.**
 Migrations **0122–0138**, built by three Opus agents from an approved plan and green locally
