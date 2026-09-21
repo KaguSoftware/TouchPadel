@@ -16,6 +16,7 @@
     "db:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
     "gen:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
     "db:fixtures": "node scripts/db-fixtures.mjs",
+    "db:fixtures:venue-b": "node scripts/db-fixtures.mjs fixtures/venue-b.sql",
     "db:menu": "node scripts/db-menu.mjs",
     "db:client": "node scripts/db-client.mjs",
     "db:placeholders": "node scripts/make-placeholders.mjs",
