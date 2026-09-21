@@ -37,15 +37,15 @@ done and what is left. Update it in the same commit as the work it describes.
 
 ## Milestone 0 — left (owner, Parsa)
 
-- [ ] Check the GitHub Actions runs for `2b9adf7` and `8616549`.
-- [ ] `cd packages/db && npx supabase migration list --linked`; expect 0108–0121 pending; never `migration repair --status reverted`.
-- [ ] Before pushing: create the real owner, deactivate the five `@dev.touch.local` staff, rotate every PIN with `app.set_staff_pin` (0115 refuses weak PINs), repoint `telegram_staff`, delete the defaults in `scripts/create-operator-owner.mjs`.
+- [x] GitHub Actions runs for `2b9adf7` and `8616549` checked 2026-09-21: `2b9adf7` applied 0119 and 0121 to the client's project; `8616549` was refused because 0120 sorts before 0121 (`db push` needs `--include-all`). 0120 applied 2026-09-21 09:31 UTC by `workflow_dispatch` with `include_all=true` (run 35583475145).
+- [x] Hosted ledger read from the CI run of 2026-09-21 (`Show pending migrations`): 0001–0121 on both sides, **0 pending**. The 09-20 pushes had already applied 0108–0119 and 0121 (the `staging` environment carries no reviewer, so a push to `main` touching migrations applies immediately). Local `migration list --linked` still needs `npx supabase login` on the Kagu account; the dev machine's CLI is logged in as another client. Never `migration repair --status reverted`.
+- [ ] **Urgent, no longer preparatory:** 0115 has been on the client's project since 2026-09-20 21:53 UTC, so a weak PIN already authorises nothing there. Create the real owner, deactivate the five `@dev.touch.local` staff, rotate every PIN with `app.set_staff_pin` (0115 refuses weak PINs), repoint `telegram_staff`, delete the defaults in `scripts/create-operator-owner.mjs`.
 - [ ] Buy PITR on the production project; create the staging project from the latest backup; rehearse every push there first.
-- [ ] Run `db-migrate.yml` (staging, then production), then `functions-deploy.yml` for `replay`; the assistant functions stay gated.
+- [x] `db-migrate.yml` and `functions-deploy.yml` have run green on every push since 09-20 and on the 09-21 dispatch: 0108–0121 and every edge function (`replay` v2 with the 0114 and 0120 changes) are on the client's project; the assistant functions stay gated while `ANTHROPIC_API_KEY` is unset. Open decision: the `staging` environment has no required reviewer, so merges deploy without a stop; restore one or accept it in writing.
 - [ ] Post-push checks: no unexpected overloads in `pg_proc`, `cron.job` rows, `pg_extension` (`pg_cron`, `pg_net`, `vector`), migration list at 0 pending, CI types-drift step clean.
 - [ ] Supabase Auth: email confirmations on, secure password change on, redirect allow-list for web and the mobile scheme.
 - [x] GitHub: the repository variable `SUPABASE_AUTH_SMS_TEST_OTP_CODE` (created 2026-09-21, S10). The `db` and `e2e` jobs read it at job level; the `db` job fails with a named `::error::` when it is empty, and a fork PR skips that step because forks cannot read repository variables.
-- [ ] GitHub: `docs/client/release-gate-2026-09-20.md` §1–§5 (release environment, PAT swap, tag ruleset, old artifacts), cut `operator-v0.2.14`.
+- [ ] GitHub, `docs/client/release-gate-2026-09-20.md`: §1 DONE 2026-09-21 (`release` environment, required reviewer Parsa-Mansouri, tag policy `operator-v*`); §4 DONE 2026-09-21 (the four unexpired `ledger-snapshot-*` artifacts deleted; the `app.secrets` query still to run after `supabase login`). Left: §2 PAT swap (browser), §3 tag ruleset (the agent's permission classifier refused the API call; UI or `gh api` by Parsa), §5 cut `operator-v0.2.14` and approve it at `publish`.
 
 ## Inputs owed (client)
 

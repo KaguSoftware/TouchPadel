@@ -21,12 +21,12 @@ Do the database steps **outside service hours**. Steps 2 and 3 are the long ones
 | Step | What | Closes | Done? |
 |---|---|---|---|
 | 0 | CI is green on `main` for the latest commit | L40 | [ ] |
-| 1 | Read the hosted ledger | L41 | [ ] |
+| 1 | Read the hosted ledger (done from CI 2026-09-21: 0121 complete, 0 pending) | L41 | [x] |
 | 2 | Buy PITR on production, create the staging project | L43 (first half) | [ ] |
 | 3 | Rehearse the whole push on staging | L43 (second half) | [ ] |
-| 4 | S1: rotate the seeded staff, before 0115 reaches production | L42 | [ ] |
-| 5 | Run `db-migrate.yml`: staging, then production | L44 (first half) | [ ] |
-| 6 | Deploy `replay`; the assistant functions stay gated | L44 (second half) | [ ] |
+| 4 | S1: rotate the seeded staff. 0115 is ALREADY on production, so this is urgent | L42 | [ ] |
+| 5 | Run `db-migrate.yml` (ran on push 09-20 and by dispatch 09-21; 0108–0121 applied) | L44 (first half) | [x] |
+| 6 | Deploy `replay` (functions-deploy ran green on every push; assistant functions gated) | L44 (second half) | [x] |
 | 7 | Post-push checks | L45 | [ ] |
 | 8 | Supabase Auth dashboard settings | L46 | [ ] |
 | 9 | GitHub: release gate, `operator-v0.2.14`, the OTP repository variable | L47 | [ ] |
@@ -73,8 +73,9 @@ npx supabase projects list          # the touch padel org's project must be list
 npx supabase migration list --linked
 ```
 
-**Expect:** local and remote agree up to the last applied version, and **0108–0121 pending** as
-local-only.
+**Expect (verified 2026-09-21 09:28 UTC, `db-migrate.yml` run 35583475145):** 0001–0121 on both
+sides, **0 pending**. The 09-20 pushes applied 0108–0119 and 0121; 0120 sorts before 0121, was
+refused by `db push`, and was applied on 2026-09-21 with the workflow's `include_all` input.
 
 **If it differs.**
 
@@ -153,13 +154,14 @@ Relink to production before step 5: `npx supabase link --project-ref <production
 
 ---
 
-## Step 4. S1, rotate the seeded staff, BEFORE 0115 reaches production
+## Step 4. S1, rotate the seeded staff. 0115 is ALREADY on production, so this is urgent
 
 Five `@dev.touch.local` staff accounts with a repo-committed shared password are live on the hosted
-project, and pre-0078 short PINs still verify (`PHASE-2-PLAN.md` S1). **This has to be finished
-before 0115 lands on production**, because 0115 makes `verify_manager_pin` treat a correct-but-weak
+project, and pre-0078 short PINs still verify (`PHASE-2-PLAN.md` S1). **0115 landed on production on 2026-09-20 21:53 UTC** (the `staging` environment carries no reviewer,
+so the push applied on merge), and it makes `verify_manager_pin` treat a correct-but-weak
 PIN exactly like a wrong one: a manager whose PIN is weak can authorise nothing until it is reset.
-If you migrate first you lock the venue out of its own money operations.
+Until this step is done, every seeded manager whose PIN fails the 0115 rule is already locked out of
+money operations on the client's project. Do this step first, today.
 
 **The PIN rule, so you can pick before you start.** `app.set_staff_pin` (0078, re-issued by 0105)
 refuses anything that is not **6 to 12 digits** (`PIN_FORMAT`), and then refuses the weak shapes
@@ -205,7 +207,10 @@ Order, outside service hours:
 
 **Read this warning first.** Both `db-migrate.yml` and `functions-deploy.yml` use a single
 concurrency group (`db-migrate`, `functions-deploy`) and are bound to the `staging` GitHub
-Environment, so every run stops for an approval. GitHub keeps **one** pending run per group: while an
+Environment, which on 2026-09-21 had **no required reviewer**: a push to `main` that touches
+migrations or functions applies to the client's project immediately, and that is how 0108–0121 got
+there. If you want the stop back, add a reviewer to the environment; then the rest of this warning
+applies. GitHub keeps **one** pending run per group: while an
 unapproved run sits there `waiting`, the next run you start replaces it and the older one is
 cancelled, and if you queue a third, the second goes the same way, quietly. **Approve or cancel the
 waiting run before you start the next one**, and check `gh run list --workflow db-migrate.yml

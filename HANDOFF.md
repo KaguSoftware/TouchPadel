@@ -1857,11 +1857,12 @@ deviation table in `docs/security/security-general.md` §01, now D1–D10.
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
 - **HOSTED STATE — read this line and ignore every other one in this file (2026-09-21).** Hosted
-  was last recorded in the 0107 area on 2026-09-12; local head is **0121**. The source of truth is
+  is at **0121, complete, 0 pending** — verified 2026-09-21 09:28 UTC from the `db-migrate.yml` run
+  35583475145: the 09-20 pushes applied 0108–0119 and 0121, and 0120 (which sorts before 0121)
+  was applied by a dispatch with `include_all` on 2026-09-21. Local head is **0121**. The source of truth is
   one command, run from `packages/db` and nowhere else:
-  `cd packages/db && npx supabase migration list --linked`. Expect **0108–0121 pending**. **Never**
-  accept the CLI's `migration repair --status reverted` offer. Caveat, because the file must not
-  overstate it: the last position this repository actually *proves* is **0089** (ledger 89/89,
+  `cd packages/db && npx supabase migration list --linked`. Expect **0 pending**. **Never**
+  accept the CLI's `migration repair --status reverted` offer. History, for the record: before the 09-20 runs the last position this repository proved was **0089** (ledger 89/89,
   `docs/client/hosted-catchup-2026-09-12.md`), and on 2026-09-13 migrations 0090 and 0091 were
   queued behind the `staging` approval (Day 20 below). Nothing here records 0090–0107 being
   approved, so "0108–0121 pending" holds only if that batch went through; if the list shows more,
