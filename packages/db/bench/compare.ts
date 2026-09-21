@@ -138,17 +138,7 @@ function compare(args: Args): number {
     }
 
     if (row.outcome !== base.outcome) {
-      // The named case. PHASE-2-CHECKLIST.md carries the 400-day statement
-      // timeout as an open finding; the day it stops timing out is the day the
-      // finding is fixed, and this message is how that reaches whoever is
-      // reading a red nightly at 02:00.
-      if (base.outcome === 'timeout' && row.outcome === 'ok') {
-        failures.push(
-          `${id}: the 400-day timeout is fixed: update the baseline and close the checklist finding`,
-        );
-      } else {
-        failures.push(`${id}: outcome changed ${base.outcome} -> ${row.outcome}`);
-      }
+      failures.push(`${id}: outcome changed ${base.outcome} -> ${row.outcome}`);
     }
 
     const hadErrors = Object.keys(row.errors).length > 0;
@@ -182,13 +172,6 @@ function compare(args: Args): number {
     `\n[bench:compare] baseline from ${baseline.meta.runner} @ ${baseline.meta.sha.slice(0, 8)}; ` +
       `run from ${results.meta.runner} @ ${results.meta.sha.slice(0, 8)} (repeat ${results.meta.repeat})`,
   );
-  if (baseline.meta.runner === 'local-placeholder') {
-    console.log(
-      '[bench:compare] NOTE: this baseline is a local PLACEHOLDER. Replace it with the first\n' +
-        '                mode: baseline run from the CI runner before trusting a comparison.',
-    );
-  }
-
   if (failures.length === 0) {
     console.log(`[bench:compare] ${Object.keys(baseline.rows).length} rows, no regressions.`);
     return EXIT_CLEAN;
