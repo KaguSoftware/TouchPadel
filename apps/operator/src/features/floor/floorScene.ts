@@ -25,13 +25,17 @@
  * is still arriving, or the camera is easing — an idle plan costs nothing on a
  * laptop reading numbers after hours.
  *
- * Wheel zoom is off on purpose: the plan sits inside a page that scrolls, and
- * a canvas that eats the wheel traps the owner on it. Closer is a click on a
- * court, a table or a room; back is "Show whole floor".
+ * The wheel zooms, over the canvas and nowhere else: the handler is bound to
+ * the canvas, so the plan takes the wheel while the pointer is on it — at the
+ * ends of the zoom too, where it simply stops rather than letting the page
+ * scroll out from under the owner — and the wheel means what it always meant
+ * everywhere else on the page. Closer is also a click on a court, a table or
+ * a room, the two step buttons or the upright track between them; back is
+ * "Show whole floor".
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { FloorSnapshot, FloorTarget, Room } from './floorModel';
+import { ZOOM_MIN_DIST, zoomDistanceAt, zoomLevelOf, type FloorSnapshot, type FloorTarget, type Room } from './floorModel';
 import { buildRacketKit, type RacketKit, type RacketRig } from './rally/racket';
 import { BALL_RADIUS, PLAYERS, layAngle, nextLegStart, rallyAt } from './rally/rally';
 
@@ -40,6 +44,14 @@ export interface FloorSceneEvents {
   onPick: (target: FloorTarget) => void;
   /** The owner dragged or wheeled the view away from the whole floor. */
   onMoved: () => void;
+  /**
+   * How close the camera now stands, 0 at the whole floor and 1 at the nearest
+   * the plan allows. Fires whenever anything moves the camera — the slider
+   * itself, the two buttons, a click on a court, the wheel, a drag, or a
+   * resize that re-frames the floor — so a control bound to it never drifts
+   * out of step with what is drawn.
+   */
+  onZoom: (level: number) => void;
 }
 
 export interface FloorSceneHandle {
@@ -49,9 +61,15 @@ export interface FloorSceneHandle {
   /** One step closer ('in') or further ('out') along the line of sight. */
   zoom: (direction: 'in' | 'out') => void;
   /**
-   * Let the wheel zoom. Off inside a scrolling page, where a canvas that eats
-   * the wheel traps the reader; on in full screen, where there is nothing
-   * else the wheel could mean.
+   * Stand at a point on the same line the buttons walk: 0 the whole floor,
+   * 1 the closest the plan allows. Dragged, so it arrives without the 240 ms
+   * ease the buttons and the focus moves use — the view must follow the thumb.
+   */
+  setZoomLevel: (level: number) => void;
+  /**
+   * Let the wheel over the canvas zoom the plan. On everywhere today; the
+   * switch stays because the handler is the one thing that can take the wheel
+   * away from the page, so turning it off must remain one call.
    */
   setWheelZoom: (on: boolean) => void;
   dispose: () => void;
@@ -59,8 +77,6 @@ export interface FloorSceneHandle {
 
 /** One zoom step multiplies the camera's distance by this (or its inverse). */
 const ZOOM_STEP = 0.7;
-/** Never closer than this to what the camera looks at (metres). */
-const ZOOM_MIN_DIST = 6;
 
 /** The five brand colours plus the two functional ones (DESIGN.md). */
 const BLUE = 0x3360ab;
@@ -791,6 +807,45 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     moveCamera(controls.target.clone().add(dir.multiplyScalar(next)), controls.target.clone());
   }
 
+  /**
+   * Distance and slider position are LOGARITHMIC in each other, because a zoom
+   * step multiplies the distance rather than subtracting from it: halving the
+   * distance must be the same length of travel wherever the thumb starts, or
+   * the far half of the track would do almost nothing and the near half would
+   * fly. Same reason the buttons multiply by ZOOM_STEP.
+   *
+   * The far end is the whole-floor distance, which fit() recomputes for the
+   * box the panel gives the plan, so the track is re-read rather than cached:
+   * the same level means "as far out as this panel goes" at any size.
+   */
+  const currentZoomLevel = () => zoomLevelOf(camera.position.distanceTo(controls.target), homePosition().distanceTo(HOME_TARGET));
+
+  /** Tell the page where the camera stands, but only when the answer changed. */
+  let reportedZoom = -1;
+  const reportZoom = () => {
+    const level = currentZoomLevel();
+    if (Math.abs(level - reportedZoom) < 0.001) return;
+    reportedZoom = level;
+    events.onZoom(level);
+  };
+
+  function setZoomLevel(level: number) {
+    const home = homePosition().distanceTo(HOME_TARGET);
+    if (home <= ZOOM_MIN_DIST) return;
+    const t = Math.min(1, Math.max(0, level));
+    const want = zoomDistanceAt(t, home);
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    // Straight to the spot, no ease: this is a drag, and easing a drag makes
+    // the plan lag the thumb. atHome stays true at the far end so a resize
+    // still re-frames the floor and "Show whole floor" stays hidden.
+    camera.position.copy(controls.target.clone().add(dir.multiplyScalar(want)));
+    atHome = t <= 0.001;
+    ease = null;
+    controls.update();
+    dirty = true;
+    reportZoom();
+  }
+
   // ---- pointer ------------------------------------------------------------
   const ray = new THREE.Raycaster();
   const ptr = new THREE.Vector2();
@@ -840,8 +895,67 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     atHome = false;
     events.onMoved();
   });
+  /**
+   * The wheel zooms the plan whenever the pointer is over it.
+   *
+   * It is OUR handler rather than OrbitControls' own zoom (which stays off)
+   * because this one is bound to the canvas: the wheel is taken only over the
+   * plan, and everywhere else on the page it still scrolls. OrbitControls
+   * would also work here, but it owns its own limits and easing, and the two
+   * step buttons, the upright track and this handler must all walk the same
+   * line between ZOOM_MIN_DIST and the whole-floor distance.
+   *
+   * The event is ALWAYS consumed, including at both ends of the zoom. Handing
+   * it back there meant an owner who kept scrolling at the whole floor had the
+   * page jump out from under them mid-look; on the plan the wheel means zoom,
+   * and at the end of the zoom it means nothing — as on a map.
+   */
+  let wheelZoom = false;
+  const onWheel = (ev: WheelEvent) => {
+    if (!wheelZoom || ev.ctrlKey) return;
+    // The wheel belongs to the plan for as long as the pointer is on it, at
+    // the ends of the zoom too (owner call, 2026-09-21). Reaching the whole
+    // floor used to hand the wheel back, and the page jumped out from under
+    // the owner mid-look — the plan is what they are pointing at, so it keeps
+    // the event and simply stops moving, the way a map does.
+    ev.preventDefault();
+    const home = homePosition().distanceTo(HOME_TARGET);
+    const current = camera.position.distanceTo(controls.target);
+    // Trackpads send a stream of small deltas and a mouse sends few large
+    // ones; scaling by the delta keeps both feeling like the same gesture,
+    // and the clamp stops one violent flick crossing the whole range.
+    const factor = Math.exp(Math.max(-0.5, Math.min(0.5, ev.deltaY * 0.002)));
+    const next = Math.min(home, Math.max(ZOOM_MIN_DIST, current * factor));
+    if (Math.abs(next - current) < 0.001) return;
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    // No ease: a wheel turn is a direct manipulation, like the slider drag.
+    camera.position.copy(controls.target.clone().add(dir.multiplyScalar(next)));
+    atHome = next >= home - 0.01;
+    ease = null;
+    controls.update();
+    dirty = true;
+    reportZoom();
+    if (!atHome) events.onMoved();
+  };
+  /**
+   * Bound to the STAGE, not the canvas. The buttons, the zoom track, the hint
+   * and the tooltip are siblings stacked over the canvas, so a wheel turn with
+   * the pointer over any of them never touches the canvas at all — and the
+   * page scrolled out from under the owner, most obviously over the zoom-out
+   * button, which is exactly where a hand already is when it wants to zoom
+   * out. The stage is the whole plan as the owner sees it, overlays included,
+   * so that is what the wheel belongs to.
+   *
+   * Falls back to the canvas if the host has no parent (it always does in the
+   * app; this keeps the scene constructible on a bare element in a test).
+   *
+   * Not passive: the whole point is that it may call preventDefault.
+   */
+  const wheelHost: HTMLElement = host.parentElement ?? canvas;
+  wheelHost.addEventListener('wheel', onWheel, { passive: false });
+
   const setWheelZoom = (on: boolean) => {
-    controls.enableZoom = on;
+    wheelZoom = on;
   };
 
   // ---- size + loop --------------------------------------------------------
@@ -899,6 +1013,9 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     if (moved || dirty) {
       renderer.render(scene, camera);
       dirty = false;
+      // Every way the camera can move ends here — an ease, the wheel, a drag,
+      // a resize — so this is the one place the slider needs to be told.
+      reportZoom();
     }
   };
   raf = requestAnimationFrame(loop);
@@ -910,6 +1027,7 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     canvas.removeEventListener('pointerleave', onLeave);
     canvas.removeEventListener('pointerdown', onDown);
     canvas.removeEventListener('pointerup', onUp);
+    wheelHost.removeEventListener('wheel', onWheel);
     controls.dispose();
     for (const g of geos) g.dispose();
     for (const m of disposables) m.dispose();
@@ -920,5 +1038,5 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     canvas.remove();
   }
 
-  return { apply, focus, zoom, setWheelZoom, dispose };
+  return { apply, focus, zoom, setZoomLevel, setWheelZoom, dispose };
 }

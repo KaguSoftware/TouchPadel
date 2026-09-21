@@ -88,6 +88,15 @@ const PATHS = {
   collapse: 'M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7',
   // Four arrows pointing inward — the OS convention for leaving full screen.
   shrink: 'M8 3v5H3M21 8h-5V3M3 16h5v5M16 21v-5h5',
+  /**
+   * A square frame with its four corners drawn — the picture of the screen
+   * itself, which is what the live floor's full-view toggle means. Reads at
+   * 16px where the diagonal-arrow pair (expand/collapse) turns to mush, and
+   * it is symmetric, so it does not need mirroring under RTL.
+   */
+  frame: 'M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3',
+  /** The same frame with the corners turned in: the way back out. */
+  frameExit: 'M8 3v2a3 3 0 0 1-3 3H3M16 3v2a3 3 0 0 0 3 3h2M21 16h-2a3 3 0 0 0-3 3v2M8 21v-2a3 3 0 0 0-3-3H3',
 } as const;
 
 export type IconName = keyof typeof PATHS;

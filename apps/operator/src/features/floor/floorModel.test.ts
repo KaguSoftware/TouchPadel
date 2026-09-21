@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COURT_SLOTS, HEARTBEAT_STALE_MS, TABLE_SLOTS, composeSnapshot, countsOf, roomForRole, type FloorRaw } from './floorModel';
+import { COURT_SLOTS, HEARTBEAT_STALE_MS, TABLE_SLOTS, ZOOM_MIN_DIST, composeSnapshot, countsOf, roomForRole, zoomDistanceAt, zoomLevelOf, type FloorRaw } from './floorModel';
 
 // Every claim the plan makes is derived here, so every claim is pinned here:
 // what makes a court in play or merely booked, a table occupied, a person at a
@@ -206,5 +206,48 @@ describe('staff', () => {
 
   it('places roles in the rooms of the plan', () => {
     expect(['court_desk', 'cashier', 'prep', 'manager', 'owner', 'other'].map(roomForRole)).toEqual(['reception', 'bar', 'kitchen', 'office', 'office', 'floor']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The zoom track (the slider beside the two step buttons)
+// ---------------------------------------------------------------------------
+
+describe('zoom track', () => {
+  const HOME = 60;
+
+  it('puts the whole floor at 0 and the nearest the plan allows at 1', () => {
+    expect(zoomLevelOf(HOME, HOME)).toBeCloseTo(0, 6);
+    expect(zoomLevelOf(ZOOM_MIN_DIST, HOME)).toBeCloseTo(1, 6);
+  });
+
+  it('is the inverse of the distance it maps to, at every point on the track', () => {
+    for (const level of [0, 0.2, 0.5, 0.75, 1]) {
+      expect(zoomLevelOf(zoomDistanceAt(level, HOME), HOME)).toBeCloseTo(level, 6);
+    }
+  });
+
+  // The reason the track is logarithmic: a step of the same LENGTH must be the
+  // same MULTIPLE of the distance wherever the thumb happens to be, or the far
+  // half of a linear track would barely move and the near half would fly.
+  it('gives equal travel the same ratio of distance anywhere on the track', () => {
+    const ratio = (a: number, b: number) => zoomDistanceAt(a, HOME) / zoomDistanceAt(b, HOME);
+    expect(ratio(0.25, 0)).toBeCloseTo(ratio(0.75, 0.5), 6);
+    expect(ratio(0.5, 0.25)).toBeCloseTo(ratio(1, 0.75), 6);
+  });
+
+  it('never walks past either end, whatever it is handed', () => {
+    expect(zoomLevelOf(HOME * 10, HOME)).toBe(0);
+    expect(zoomLevelOf(0.001, HOME)).toBe(1);
+    expect(zoomDistanceAt(-5, HOME)).toBeCloseTo(HOME, 6);
+    expect(zoomDistanceAt(5, HOME)).toBeCloseTo(ZOOM_MIN_DIST, 6);
+  });
+
+  // A panel so small that the whole floor is already inside the near limit:
+  // there is no track to walk, and the maths must not divide by log(1) = 0.
+  it('stays still when the panel is too small to have a track at all', () => {
+    expect(zoomLevelOf(ZOOM_MIN_DIST, ZOOM_MIN_DIST)).toBe(0);
+    expect(zoomDistanceAt(1, ZOOM_MIN_DIST)).toBe(ZOOM_MIN_DIST);
+    expect(Number.isFinite(zoomLevelOf(3, 4))).toBe(true);
   });
 });

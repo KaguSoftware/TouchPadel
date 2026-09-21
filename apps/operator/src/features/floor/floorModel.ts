@@ -338,3 +338,34 @@ export function countsOf(s: FloorSnapshot): FloorCounts {
 export type FloorTarget = { kind: 'court'; id: string } | { kind: 'table'; id: string } | { kind: 'room'; room: Room };
 
 export const EMPTY_SNAPSHOT: FloorSnapshot = { courts: [], tables: [], staff: [] };
+
+// ---------------------------------------------------------------------------
+// Zoom
+// ---------------------------------------------------------------------------
+
+/** Never closer than this to what the camera looks at (metres). */
+export const ZOOM_MIN_DIST = 6;
+
+/**
+ * The zoom track, as pure arithmetic, so it can be tested without a GPU.
+ *
+ * Distance and slider position are LOGARITHMIC in each other, because zooming
+ * multiplies the distance rather than subtracting from it: halving the
+ * distance is the same length of travel wherever the thumb starts. Linear
+ * would give a track whose far half barely moved and whose near half flew.
+ *
+ * 0 is the whole floor (`home`, which depends on the panel's size) and 1 is
+ * ZOOM_MIN_DIST, the closest the plan allows.
+ */
+export function zoomLevelOf(dist: number, home: number): number {
+  if (home <= ZOOM_MIN_DIST) return 0;
+  const t = Math.log(dist / home) / Math.log(ZOOM_MIN_DIST / home);
+  return Math.min(1, Math.max(0, t));
+}
+
+/** The inverse: where to stand for a point on the track. */
+export function zoomDistanceAt(level: number, home: number): number {
+  if (home <= ZOOM_MIN_DIST) return home;
+  const t = Math.min(1, Math.max(0, level));
+  return home * Math.pow(ZOOM_MIN_DIST / home, t);
+}

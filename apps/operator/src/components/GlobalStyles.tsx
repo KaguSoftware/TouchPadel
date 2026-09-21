@@ -322,6 +322,36 @@ input:disabled, select:disabled, textarea:disabled {
 [data-workspace='prep'] .tp-skel { background: var(--tp-kds-card-2); }
 [data-workspace='prep'] .tp-skel::after { background: linear-gradient(90deg, transparent, var(--tp-kds-border), transparent); }
 
+/* ---- live floor: the zoom track beside the two step buttons ----
+   A native range input keeps the keyboard, touch and slider semantics; only
+   the paint is ours, and the thumb can only be reached from real CSS. The
+   track fill is an inline gradient (it follows the value), so the rule below
+   only has to flip it under RTL, where "closer" sits on the other side. */
+.tp-floor-zoom {
+  -webkit-appearance: none; appearance: none;
+  border-radius: 999px; border: 1px solid var(--tp-border);
+  /* Upright, running 0 at the bottom to 100 at the top. This pair is what
+     tells the BROWSER the slider is vertical — so Up and Right both move
+     toward 100, and the hit box matches the drawn box. A rotate() would do
+     neither. direction:rtl is what puts 100 at the top rather than the
+     bottom; it is the writing mode's own axis, not the page's, so it is
+     identical in Arabic and never mirrors. */
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+.tp-floor-zoom::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%;
+  background: var(--tp-accent); border: 2px solid var(--tp-surface);
+  box-shadow: var(--tp-shadow-raised); cursor: pointer;
+}
+.tp-floor-zoom::-moz-range-thumb {
+  inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%;
+  background: var(--tp-accent); border: 2px solid var(--tp-surface);
+  box-shadow: var(--tp-shadow-raised); cursor: pointer;
+}
+.tp-floor-zoom::-moz-range-track { background: transparent; }
+
 /* ---- keyframes ---- */
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 @keyframes tpSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
