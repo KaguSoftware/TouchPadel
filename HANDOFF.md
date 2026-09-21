@@ -1621,7 +1621,7 @@ deviation table in `docs/security/security-general.md` §01, now D1–D11.
 **Day 32 (2026-09-21, night): Milestone 1 slice 1 — the multi-venue schema foundation.**
 Migrations **0122–0138**, built by three Opus agents from an approved plan and green locally
 (`db:reset`, the six stack gates, `check:rpc-registry`, `check:assistant-coverage`, the whole db
-suite, typecheck, lint). **Committed, not pushed**: Parsa's decision is to buy PITR, create the
+suite, typecheck, lint). **Decision was "committed, not pushed"; the commits reached `origin/main` at 16:34 from the second machine anyway (`b3e7e1e`..`58b5b27`), and `db-migrate.yml` fires on that path — hosted state UNVERIFIED, first owner step below.** The plan was to buy PITR, create the
 staging project from a backup and rehearse 0122–0138 there first (D3). The design note is
 `docs/design/multi-venue/slice-1-2026-09-21.md`; the tick list is in `PHASE-2-CHECKLIST.md`. The
 calls worth knowing before touching anything venue-shaped:
