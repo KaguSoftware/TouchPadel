@@ -1,152 +1,152 @@
 {
   "meta": {
-    "sha": "175f34cd4a0a9478bb1da45b86e62e819a51150b",
-    "node": "v24.15.0",
+    "sha": "c09b7016c88ce6c7cec4a0b746fe78644ba1bc83",
+    "node": "v22.23.2",
     "cli": "2.115.0",
-    "os": "Windows_NT 10.0.26200 (16 GB)",
-    "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz",
-    "cores": 16,
-    "runner": "local-placeholder",
-    "startedAt": "2026-09-21T09:55:18.894Z",
-    "repeat": 1
+    "os": "Linux 6.17.0-1022-azure (16 GB)",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "runner": "github-actions",
+    "startedAt": "2026-09-21T10:16:47.018Z",
+    "repeat": 3
   },
   "rows": {
     "booking.hold_slot@1.one_court": {
-      "p50": 21.42,
-      "p95": 30.1,
+      "p50": 20.88,
+      "p95": 24.59,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "booking.hold_slot@10.one_court": {
-      "p50": 29.91,
-      "p95": 49.69,
+      "p50": 21.01,
+      "p95": 31.59,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 10
     },
     "booking.hold_slot@50.one_court": {
-      "p50": 132.02,
-      "p95": 236.96,
+      "p50": 89.27,
+      "p95": 149.09,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 50
     },
     "booking.hold_slot@10.four_courts": {
-      "p50": 15.89,
-      "p95": 24.06,
+      "p50": 15.56,
+      "p95": 20.49,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 10
     },
     "booking.hold_slot@50.four_courts": {
-      "p50": 60.86,
-      "p95": 97.18,
+      "p50": 63.97,
+      "p95": 103.95,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 50
     },
     "booking.confirm_booking@1": {
-      "p50": 8.5,
-      "p95": 10.85,
+      "p50": 6.43,
+      "p95": 8.61,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "booking.confirm_booking@10": {
-      "p50": 12.74,
-      "p95": 17,
+      "p50": 17.28,
+      "p95": 24.94,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 10
     },
     "booking.confirm_booking@50": {
-      "p50": 53.19,
-      "p95": 82.08,
+      "p50": 63.5,
+      "p95": 95.1,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 50
     },
     "booking.contention@50.same_slot": {
-      "p50": 60.9,
-      "p95": 103.43,
+      "p50": 60.94,
+      "p95": 100.9,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 50
     },
     "cafe.create_guest_order.10lines_3mods": {
-      "p50": 20.51,
-      "p95": 85.11,
+      "p50": 17.79,
+      "p95": 66.02,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "cafe.compute_tab_totals.40lines": {
-      "p50": 6.7,
-      "p95": 12.45,
+      "p50": 4.8,
+      "p95": 6.62,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.courts_summary.12mo": {
-      "p50": 529.56,
-      "p95": 598.2,
+      "p50": 548.27,
+      "p95": 583.97,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.courts_demand.12mo": {
-      "p50": 76.44,
-      "p95": 93.35,
+      "p50": 85.01,
+      "p95": 95.13,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.courts_endings.12mo": {
-      "p50": 8020.55,
-      "p95": 8020.55,
+      "p50": 8012.1,
+      "p95": 8012.1,
       "outcome": "timeout",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.courts_guests.12mo": {
-      "p50": 8030.51,
-      "p95": 8030.51,
+      "p50": 8024.13,
+      "p95": 8024.13,
       "outcome": "timeout",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.courts_cafe.12mo": {
-      "p50": 471.84,
-      "p95": 608.16,
+      "p50": 531.3,
+      "p95": 586.88,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.hourly.12mo": {
-      "p50": 1853.66,
-      "p95": 2024.16,
+      "p50": 1737.61,
+      "p95": 1840.33,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.report_revenue.12mo": {
-      "p50": 33.41,
-      "p95": 37.1,
+      "p50": 37.62,
+      "p95": 40.08,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "analytics.courts_summary.400d": {
-      "p50": 529.72,
-      "p95": 549.18,
+      "p50": 594.95,
+      "p95": 612.01,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
     },
     "replay.drain_500": {
-      "p50": 70.58,
-      "p95": 90.38,
+      "p50": 52.24,
+      "p95": 60.8,
       "outcome": "ok",
       "unit": "ms",
       "concurrency": 1
