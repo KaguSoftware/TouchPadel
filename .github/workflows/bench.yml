@@ -1,0 +1,156 @@
+name: Bench (db)
+
+# The nightly performance gate for packages/db (Phase 2, Milestone 0 item 11).
+#
+# Two modes, one job:
+#
+#   measure (the default, and what the schedule runs) — take the numbers and
+#            diff them against the COMMITTED bench/baseline.json. A row that is
+#            more than 10 % AND more than 10 ms slower than its baseline fails
+#            the run, as does a changed outcome, a failed invariant or a row
+#            that appeared or disappeared. bench/compare.ts is the whole rule.
+#   baseline — take the numbers and WRITE bench/baseline.json, then upload it.
+#            Download that artifact and commit the file. This is the only
+#            honest way to produce a baseline: it has to come from the same
+#            class of machine that will re-measure it, because a laptop and a
+#            hosted runner differ by far more than 10 % on every row.
+#
+# It is deliberately not part of CI. A bench that has to finish before a pull
+# request merges gets tuned until it is fast rather than until it is true, and
+# a 45-minute job on every push would make the whole pipeline hostile.
+
+on:
+  schedule:
+    # 02:00 UTC = 05:00 Asia/Baghdad, well clear of the venue's trading hours
+    # and of the usual working-day pushes.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'measure = diff against the committed baseline; baseline = write a new one'
+        type: choice
+        options: [measure, baseline]
+        default: measure
+      repeat:
+        description: 'Runs of the whole suite; each row keeps the MEDIAN of its p95s'
+        default: '3'
+
+# Never cancel a bench in flight. cancel-in-progress would leave a half-drained
+# replay queue and a seeded database behind, and a partial run has no honest
+# numbers in it anyway.
+concurrency:
+  group: bench
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: bench (booking, cafe, analytics, replay)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # S10: the test OTP code lives in a repository variable, never in the
+      # repo. config.toml reads env(SUPABASE_AUTH_SMS_TEST_OTP_CODE), and
+      # `supabase start` below fails loudly without it.
+      SUPABASE_AUTH_SMS_TEST_OTP_CODE: ${{ vars.SUPABASE_AUTH_SMS_TEST_OTP_CODE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          # Pinned: the types-drift check diffs generated output, and the
+          # generator ships with the CLI. Bump deliberately, regenerating
+          # types.gen.ts in the same commit.
+          version: 2.116.0
+
+      - name: Start local Supabase stack
+        working-directory: packages/db
+        run: supabase start
+
+      - name: Apply migrations from a clean slate
+        working-directory: packages/db
+        run: supabase db reset
+
+      # The bench courts price through the fixture rate rules where those cover
+      # the hour, and analytics_open_minutes multiplies the venue's opening
+      # hours by every court — both live in fixtures, which `db reset` does not
+      # load. Without this the booking rows fail NO_RATE and every occupancy
+      # number is zero.
+      - name: Load fixtures
+        run: pnpm db:fixtures
+
+      # ~12,800 bookings, 1,200 expired holds, 281 closed cafe days and the live
+      # surface the runner writes onto. Idempotent, and removed by bench:teardown.
+      - name: Seed the bench fixture
+        run: pnpm --filter @touch/db bench:seed
+
+      # supabase start does NOT serve edge functions, and replay.drain_500 posts
+      # 500 times to /functions/v1/replay. Without the runtime that row records
+      # outcome: 'skipped' and compare.ts fails on it, which is the correct
+      # signal but a useless nightly.
+      - name: Serve edge functions
+        working-directory: packages/db
+        run: |
+          nohup supabase functions serve > /tmp/functions.log 2>&1 &
+          # Any HTTP status means the runtime is answering; replay refuses an
+          # unauthenticated POST with 401, and that is an answer.
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null --max-time 2 "http://127.0.0.1:54321/functions/v1/replay" && break
+            sleep 2
+          done
+          cat /tmp/functions.log
+
+      # A p95 means nothing without the machine it was taken on. GitHub's hosted
+      # runners are not homogeneous, and a baseline taken on one CPU model and
+      # re-measured on another is the most likely explanation for a surprising
+      # nightly — so the model is in the summary of every run, not only in the
+      # results JSON.
+      - name: Record the runner
+        run: |
+          {
+            echo "### Runner"
+            echo ''
+            echo "- CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"
+            echo "- Cores: $(nproc)"
+            echo "- Memory: $(free -h | awk '/^Mem:/ {print $2}')"
+            echo "- Mode: ${{ inputs.mode || 'measure' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the bench
+        run: pnpm --filter @touch/db bench -- --repeat=${{ inputs.repeat || 3 }}
+
+      - name: Compare against the committed baseline
+        if: ${{ (inputs.mode || 'measure') == 'measure' }}
+        run: pnpm --filter @touch/db bench:compare
+
+      - name: Write a new baseline
+        if: ${{ inputs.mode == 'baseline' }}
+        run: pnpm --filter @touch/db bench:baseline
+
+      # if: always() — a red compare is exactly when somebody needs the numbers.
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ inputs.mode || 'measure' }}-${{ github.run_id }}
+          path: |
+            packages/db/bench/results/
+            packages/db/bench/baseline.json
+          retention-days: 30
+
+      - name: Stop the stack
+        if: always()
+        working-directory: packages/db
+        run: supabase stop --no-backup

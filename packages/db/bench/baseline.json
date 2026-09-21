@@ -1,0 +1,155 @@
+{
+  "meta": {
+    "sha": "c09b7016c88ce6c7cec4a0b746fe78644ba1bc83",
+    "node": "v22.23.2",
+    "cli": "2.115.0",
+    "os": "Linux 6.17.0-1022-azure (16 GB)",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "runner": "github-actions",
+    "startedAt": "2026-09-21T10:16:47.018Z",
+    "repeat": 3
+  },
+  "rows": {
+    "booking.hold_slot@1.one_court": {
+      "p50": 20.88,
+      "p95": 24.59,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "booking.hold_slot@10.one_court": {
+      "p50": 21.01,
+      "p95": 31.59,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 10
+    },
+    "booking.hold_slot@50.one_court": {
+      "p50": 89.27,
+      "p95": 149.09,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "booking.hold_slot@10.four_courts": {
+      "p50": 15.56,
+      "p95": 20.49,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 10
+    },
+    "booking.hold_slot@50.four_courts": {
+      "p50": 63.97,
+      "p95": 103.95,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "booking.confirm_booking@1": {
+      "p50": 6.43,
+      "p95": 8.61,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "booking.confirm_booking@10": {
+      "p50": 17.28,
+      "p95": 24.94,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 10
+    },
+    "booking.confirm_booking@50": {
+      "p50": 63.5,
+      "p95": 95.1,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "booking.contention@50.same_slot": {
+      "p50": 60.94,
+      "p95": 100.9,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "cafe.create_guest_order.10lines_3mods": {
+      "p50": 17.79,
+      "p95": 66.02,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "cafe.compute_tab_totals.40lines": {
+      "p50": 4.8,
+      "p95": 6.62,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_summary.12mo": {
+      "p50": 548.27,
+      "p95": 583.97,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_demand.12mo": {
+      "p50": 85.01,
+      "p95": 95.13,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_endings.12mo": {
+      "p50": 8012.1,
+      "p95": 8012.1,
+      "outcome": "timeout",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_guests.12mo": {
+      "p50": 8024.13,
+      "p95": 8024.13,
+      "outcome": "timeout",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_cafe.12mo": {
+      "p50": 531.3,
+      "p95": 586.88,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.hourly.12mo": {
+      "p50": 1737.61,
+      "p95": 1840.33,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.report_revenue.12mo": {
+      "p50": 37.62,
+      "p95": 40.08,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_summary.400d": {
+      "p50": 594.95,
+      "p95": 612.01,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "replay.drain_500": {
+      "p50": 52.24,
+      "p95": 60.8,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    }
+  }
+}

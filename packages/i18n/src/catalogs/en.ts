@@ -850,7 +850,10 @@ export const en = {
     title: 'Touch Padel Operator',
     lead: 'The till, desk and kitchen-screen app for Touch Padel staff. Installs and updates itself.',
     windowsButton: 'Download for Windows',
-    macButton: 'Download for Mac',
+    macArmButton: 'Download for Mac (Apple silicon)',
+    macIntelButton: 'Download for Mac (Intel)',
+    macWhichNote:
+      'Not sure which Mac? Apple menu → About This Mac: a chip named "Apple M1/M2/M3/M4" is Apple silicon; a processor named "Intel" is Intel.',
     macSoon: 'Mac: coming soon',
     smartScreenNote:
       'Windows may show "Windows protected your PC" the first time. Choose "More info", then "Run anyway".',
@@ -1892,6 +1895,10 @@ export const en = {
       BREAK_NOT_OPEN: 'There is no break to end.',
       COVER_NOT_ALLOWED: 'This person cannot cover this station.',
       INVALID_STATION: 'This station has no valid name. Set the station up again.',
+      // Multi-venue (0125/0130).
+      VENUE_REQUIRED: 'This action needs to know which venue it is for.',
+      STATION_UNKNOWN:
+        'This station is not registered to a venue. A manager registers it in Settings → Devices.',
       NO_PIN_SET: 'This account has no PIN yet. Ask the owner to set one.',
       BOOKING_TAB_OPEN: 'This booking already has an open bill. Add to that bill instead.',
       BOOKING_TAB_DONOR: 'A booking’s bill can’t be moved onto another bill. Move the other bill onto the booking instead.',

@@ -17,13 +17,24 @@
  * Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from apps/web/.env.local.
  * Idempotent: re-running finds the existing user and upserts the staff row.
  *
- *   node scripts/create-operator-owner.mjs [email] [password]
+ *   node scripts/create-operator-owner.mjs <email> <password> <display name>
  */
 import { readFileSync } from 'node:fs';
 
-const EMAIL = process.argv[2] ?? 'owner@touchpadel.local';
-const PASSWORD = process.argv[3] ?? 'TouchOwner!2026';
-const DISPLAY_NAME = 'Owner';
+// No defaults (S1, 2026-09-21). Until then this file shipped a default email and
+// password, which is a committed credential for an OWNER account on the client's
+// project; that account existed on hosted and was deactivated on 2026-09-21.
+// Every argument is required: the real owner's email, a password chosen now and
+// handed over out of band, and the display name the till shows.
+const [EMAIL, PASSWORD, DISPLAY_NAME] = process.argv.slice(2);
+if (!EMAIL || !PASSWORD || !DISPLAY_NAME) {
+  console.error('usage: node scripts/create-operator-owner.mjs <email> <password> <display name>');
+  process.exit(2);
+}
+if (PASSWORD.length < 12) {
+  console.error('password: at least 12 characters');
+  process.exit(2);
+}
 
 function envFromFile(path) {
   const out = {};

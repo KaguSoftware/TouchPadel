@@ -771,6 +771,8 @@ export type Database = {
         Args: { p_item_id: string; p_variant_id: string }
         Returns: number
       }
+      current_venue: { Args: { p_station_id?: string }; Returns: string }
+      current_venue_or_default: { Args: never; Returns: string }
       customer_counts: { Args: { p_customer_id: string }; Returns: Json }
       customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_record: { Args: { p_customer_id: string }; Returns: Json }
@@ -789,6 +791,7 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
         Returns: Json
       }
+      default_venue: { Args: never; Returns: string }
       delete_court: { Args: { p_id: string }; Returns: Json }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
       desk_register_customer: {
@@ -860,11 +863,20 @@ export type Database = {
         Returns: Json
       }
       ingredient_on_hand: { Args: { p_ingredient: string }; Returns: number }
-      is_degraded: { Args: never; Returns: boolean }
+      is_degraded:
+        | { Args: never; Returns: boolean }
+        | { Args: { p_venue: string }; Returns: boolean }
       is_media_path: { Args: { p: string }; Returns: boolean }
       is_own_session: { Args: { p_session_id: string }; Returns: boolean }
       is_staff: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
+        Returns: boolean
+      }
+      is_staff_at: {
+        Args: {
+          p_venue: string
+          roles: Database["public"]["Enums"]["staff_role"][]
+        }
         Returns: boolean
       }
       item_active_groups: {
@@ -1183,6 +1195,7 @@ export type Database = {
         Args: { p_text: string }
         Returns: Record<string, unknown>
       }
+      resolve_venue: { Args: { p_station_id?: string }; Returns: string }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       retire_device: { Args: { p_device_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
@@ -1452,6 +1465,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
       }
+      staff_venue_ids: { Args: never; Returns: string[] }
       start_break: {
         Args: { p_device_id: string; p_pin: string }
         Returns: Json
@@ -1671,7 +1685,9 @@ export type Database = {
         Args: { p_jtype: string; p_key: string; p_value: Json }
         Returns: undefined
       }
-      venue_mode: { Args: never; Returns: Json }
+      venue_mode:
+        | { Args: never; Returns: Json }
+        | { Args: { p_venue: string }; Returns: Json }
       venue_patch_int: {
         Args: { p_key: string; p_max: number; p_min: number; p_patch: Json }
         Returns: number
@@ -1821,6 +1837,7 @@ export type Database = {
           reason: string | null
           text: string
           text_key: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1829,6 +1846,7 @@ export type Database = {
           reason?: string | null
           text: string
           text_key: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1837,6 +1855,7 @@ export type Database = {
           reason?: string | null
           text?: string
           text_key?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1844,6 +1863,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_insight_rejections_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -1860,6 +1886,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope: string
+          venue_id: string | null
         }
         Insert: {
           compare_basis?: string
@@ -1872,6 +1899,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope?: string
+          venue_id?: string | null
         }
         Update: {
           compare_basis?: string
@@ -1884,6 +1912,7 @@ export type Database = {
           range_from?: string
           range_to?: string
           scope?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1900,6 +1929,13 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "analytics_insights_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       analytics_patterns: {
@@ -1913,6 +1949,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope: string
+          venue_id: string | null
         }
         Insert: {
           court_id?: string | null
@@ -1924,6 +1961,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope?: string
+          venue_id?: string | null
         }
         Update: {
           court_id?: string | null
@@ -1935,6 +1973,7 @@ export type Database = {
           range_from?: string
           range_to?: string
           scope?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1949,6 +1988,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_patterns_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2259,6 +2305,7 @@ export type Database = {
           id: number
           reason_code: string | null
           search_text: unknown
+          venue_id: string | null
         }
         Insert: {
           action: string
@@ -2274,6 +2321,7 @@ export type Database = {
           id?: never
           reason_code?: string | null
           search_text?: unknown
+          venue_id?: string | null
         }
         Update: {
           action?: string
@@ -2289,8 +2337,17 @@ export type Database = {
           id?: never
           reason_code?: string | null
           search_text?: unknown
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cafe_settings: {
         Row: {
@@ -2332,6 +2389,7 @@ export type Database = {
           is_active: boolean
           table_number: string
           token_version: number
+          venue_id: string | null
           zone: string | null
         }
         Insert: {
@@ -2341,6 +2399,7 @@ export type Database = {
           is_active?: boolean
           table_number: string
           token_version?: number
+          venue_id?: string | null
           zone?: string | null
         }
         Update: {
@@ -2350,9 +2409,18 @@ export type Database = {
           is_active?: boolean
           table_number?: string
           token_version?: number
+          venue_id?: string | null
           zone?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cafe_tables_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       courts: {
         Row: {
@@ -2368,6 +2436,7 @@ export type Database = {
           name_en: string
           photo_path: string | null
           sort_order: number
+          venue_id: string | null
         }
         Insert: {
           active_from?: string | null
@@ -2382,6 +2451,7 @@ export type Database = {
           name_en: string
           photo_path?: string | null
           sort_order?: number
+          venue_id?: string | null
         }
         Update: {
           active_from?: string | null
@@ -2396,8 +2466,17 @@ export type Database = {
           name_en?: string
           photo_path?: string | null
           sort_order?: number
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "courts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_flags: {
         Row: {
@@ -2506,6 +2585,7 @@ export type Database = {
           opened_by: string
           opening_float_iqd: number
           status: Database["public"]["Enums"]["day_status"]
+          venue_id: string | null
         }
         Insert: {
           business_date: string
@@ -2522,6 +2602,7 @@ export type Database = {
           opened_by: string
           opening_float_iqd: number
           status?: Database["public"]["Enums"]["day_status"]
+          venue_id?: string | null
         }
         Update: {
           business_date?: string
@@ -2538,6 +2619,7 @@ export type Database = {
           opened_by?: string
           opening_float_iqd?: number
           status?: Database["public"]["Enums"]["day_status"]
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2554,6 +2636,13 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "day_sessions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       degraded_periods: {
@@ -2562,20 +2651,31 @@ export type Database = {
           ended_at: string | null
           id: string
           started_at: string
+          venue_id: string | null
         }
         Insert: {
           detected_by?: string
           ended_at?: string | null
           id?: string
           started_at: string
+          venue_id?: string | null
         }
         Update: {
           detected_by?: string
           ended_at?: string | null
           id?: string
           started_at?: string
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "degraded_periods_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deliveries: {
         Row: {
@@ -2584,6 +2684,7 @@ export type Database = {
           received_at: string
           received_by: string
           supplier_name: string | null
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -2591,6 +2692,7 @@ export type Database = {
           received_at?: string
           received_by: string
           supplier_name?: string | null
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -2598,6 +2700,7 @@ export type Database = {
           received_at?: string
           received_by?: string
           supplier_name?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2605,6 +2708,13 @@ export type Database = {
             columns: ["received_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2669,6 +2779,7 @@ export type Database = {
           last_seen_at: string
           queue_depth: number
           staff_id: string | null
+          venue_id: string | null
         }
         Insert: {
           app_version?: string | null
@@ -2677,6 +2788,7 @@ export type Database = {
           last_seen_at?: string
           queue_depth?: number
           staff_id?: string | null
+          venue_id?: string | null
         }
         Update: {
           app_version?: string | null
@@ -2685,13 +2797,35 @@ export type Database = {
           last_seen_at?: string
           queue_depth?: number
           staff_id?: string | null
+          venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "device_heartbeats_device_venue_fkey"
+            columns: ["device_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id", "venue_id"]
+          },
           {
             foreignKeyName: "device_heartbeats_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_heartbeats_station_fkey"
+            columns: ["device_id"]
+            isOneToOne: true
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_heartbeats_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2706,6 +2840,7 @@ export type Database = {
           last_activity_at: string
           linked_profile_id: string | null
           table_id: string
+          venue_id: string | null
         }
         Insert: {
           auth_user_id: string
@@ -2716,6 +2851,7 @@ export type Database = {
           last_activity_at?: string
           linked_profile_id?: string | null
           table_id: string
+          venue_id?: string | null
         }
         Update: {
           auth_user_id?: string
@@ -2726,6 +2862,7 @@ export type Database = {
           last_activity_at?: string
           linked_profile_id?: string | null
           table_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2740,6 +2877,20 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sessions_table_venue_fkey"
+            columns: ["table_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "cafe_tables"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
+            foreignKeyName: "guest_sessions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2758,6 +2909,7 @@ export type Database = {
           shelf_life_days: number | null
           supplier_name: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
+          venue_id: string | null
           waste_allowance_percent: number
           yield_percent: number
         }
@@ -2774,6 +2926,7 @@ export type Database = {
           shelf_life_days?: number | null
           supplier_name?: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
+          venue_id?: string | null
           waste_allowance_percent?: number
           yield_percent?: number
         }
@@ -2790,10 +2943,19 @@ export type Database = {
           shelf_life_days?: number | null
           supplier_name?: string | null
           unit?: Database["public"]["Enums"]["stock_unit"]
+          venue_id?: string | null
           waste_allowance_percent?: number
           yield_percent?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       llm_usage: {
         Row: {
@@ -2839,6 +3001,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["alert_kind"]
           payload: Json
+          venue_id: string | null
         }
         Insert: {
           acknowledged_at?: string | null
@@ -2847,6 +3010,7 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["alert_kind"]
           payload: Json
+          venue_id?: string | null
         }
         Update: {
           acknowledged_at?: string | null
@@ -2855,6 +3019,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["alert_kind"]
           payload?: Json
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2862,6 +3027,13 @@ export type Database = {
             columns: ["acknowledged_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_alerts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2875,6 +3047,7 @@ export type Database = {
           name_en: string
           rule: Json
           updated_at: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2884,6 +3057,7 @@ export type Database = {
           name_en: string
           rule?: Json
           updated_at?: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2893,6 +3067,7 @@ export type Database = {
           name_en?: string
           rule?: Json
           updated_at?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2900,6 +3075,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_audiences_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2920,6 +3102,7 @@ export type Database = {
           starts_at: string | null
           status: Database["public"]["Enums"]["campaign_status"]
           updated_at: string
+          venue_id: string | null
         }
         Insert: {
           audience_id?: string | null
@@ -2936,6 +3119,7 @@ export type Database = {
           starts_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           updated_at?: string
+          venue_id?: string | null
         }
         Update: {
           audience_id?: string | null
@@ -2952,6 +3136,7 @@ export type Database = {
           starts_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
           updated_at?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -2973,6 +3158,13 @@ export type Database = {
             columns: ["promotion_id"]
             isOneToOne: false
             referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3026,6 +3218,7 @@ export type Database = {
           serve_temp: string
           sort_order: number
           tax_group_id: string
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -3037,6 +3230,7 @@ export type Database = {
           serve_temp?: string
           sort_order?: number
           tax_group_id: string
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -3048,6 +3242,7 @@ export type Database = {
           serve_temp?: string
           sort_order?: number
           tax_group_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3055,6 +3250,13 @@ export type Database = {
             columns: ["tax_group_id"]
             isOneToOne: false
             referencedRelation: "tax_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_categories_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3214,6 +3416,7 @@ export type Database = {
           sold_out: boolean
           sort_order: number
           unavailable_on: string | null
+          venue_id: string | null
         }
         Insert: {
           category_id: string
@@ -3232,6 +3435,7 @@ export type Database = {
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null
+          venue_id?: string | null
         }
         Update: {
           category_id?: string
@@ -3250,6 +3454,7 @@ export type Database = {
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3257,6 +3462,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "menu_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3268,6 +3480,7 @@ export type Database = {
           min_select: number
           name_ar: string
           name_en: string
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -3275,6 +3488,7 @@ export type Database = {
           min_select?: number
           name_ar: string
           name_en: string
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -3282,8 +3496,17 @@ export type Database = {
           min_select?: number
           name_ar?: string
           name_en?: string
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "modifier_groups_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       modifier_reveals: {
         Row: {
@@ -3543,6 +3766,7 @@ export type Database = {
           source: Database["public"]["Enums"]["order_source"]
           status: Database["public"]["Enums"]["order_status"]
           tab_id: string
+          venue_id: string | null
         }
         Insert: {
           device_id?: string | null
@@ -3554,6 +3778,7 @@ export type Database = {
           source: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id: string
+          venue_id?: string | null
         }
         Update: {
           device_id?: string | null
@@ -3565,6 +3790,7 @@ export type Database = {
           source?: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3588,6 +3814,20 @@ export type Database = {
             referencedRelation: "tabs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orders_tab_venue_fkey"
+            columns: ["tab_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
+            foreignKeyName: "orders_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payments: {
@@ -3603,6 +3843,7 @@ export type Database = {
           recorded_by: string
           tab_id: string
           tendered_iqd: number | null
+          venue_id: string | null
         }
         Insert: {
           amount_iqd: number
@@ -3616,6 +3857,7 @@ export type Database = {
           recorded_by: string
           tab_id: string
           tendered_iqd?: number | null
+          venue_id?: string | null
         }
         Update: {
           amount_iqd?: number
@@ -3629,6 +3871,7 @@ export type Database = {
           recorded_by?: string
           tab_id?: string
           tendered_iqd?: number | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3657,6 +3900,13 @@ export type Database = {
             columns: ["tab_id"]
             isOneToOne: false
             referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3885,6 +4135,7 @@ export type Database = {
           start_time: string
           valid_from: string | null
           valid_to: string | null
+          venue_id: string | null
         }
         Insert: {
           court_id?: string | null
@@ -3897,6 +4148,7 @@ export type Database = {
           start_time: string
           valid_from?: string | null
           valid_to?: string | null
+          venue_id?: string | null
         }
         Update: {
           court_id?: string | null
@@ -3909,6 +4161,7 @@ export type Database = {
           start_time?: string
           valid_from?: string | null
           valid_to?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -3916,6 +4169,13 @@ export type Database = {
             columns: ["court_id"]
             isOneToOne: false
             referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rate_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4045,6 +4305,7 @@ export type Database = {
           payment_id: string
           reason_code: string
           refunded_by: string
+          venue_id: string | null
         }
         Insert: {
           amount_iqd: number
@@ -4053,6 +4314,7 @@ export type Database = {
           payment_id: string
           reason_code: string
           refunded_by: string
+          venue_id?: string | null
         }
         Update: {
           amount_iqd?: number
@@ -4061,6 +4323,7 @@ export type Database = {
           payment_id?: string
           reason_code?: string
           refunded_by?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4075,6 +4338,13 @@ export type Database = {
             columns: ["refunded_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4098,6 +4368,7 @@ export type Database = {
           players: number | null
           start_time: string
           starts_on: string
+          venue_id: string | null
           weekdays: number[]
         }
         Insert: {
@@ -4118,6 +4389,7 @@ export type Database = {
           players?: number | null
           start_time: string
           starts_on: string
+          venue_id?: string | null
           weekdays?: number[]
         }
         Update: {
@@ -4138,6 +4410,7 @@ export type Database = {
           players?: number | null
           start_time?: string
           starts_on?: string
+          venue_id?: string | null
           weekdays?: number[]
         }
         Relationships: [
@@ -4160,6 +4433,13 @@ export type Database = {
             columns: ["guest_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_series_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4191,6 +4471,7 @@ export type Database = {
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
+          venue_id: string | null
         }
         Insert: {
           cancellation_reason?: string | null
@@ -4220,6 +4501,7 @@ export type Database = {
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status?: Database["public"]["Enums"]["reservation_status"]
+          venue_id?: string | null
         }
         Update: {
           cancellation_reason?: string | null
@@ -4249,6 +4531,7 @@ export type Database = {
           source?: Database["public"]["Enums"]["reservation_source"]
           start_at?: string
           status?: Database["public"]["Enums"]["reservation_status"]
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4257,6 +4540,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "courts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_court_venue_fkey"
+            columns: ["court_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id", "venue_id"]
           },
           {
             foreignKeyName: "reservations_created_by_staff_id_fkey"
@@ -4284,6 +4574,13 @@ export type Database = {
             columns: ["series_id"]
             isOneToOne: false
             referencedRelation: "reservation_series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4336,6 +4633,7 @@ export type Database = {
           staff_id: string
           started_at: string
           station_id: string
+          venue_id: string | null
         }
         Insert: {
           business_date: string
@@ -4346,6 +4644,7 @@ export type Database = {
           staff_id: string
           started_at?: string
           station_id: string
+          venue_id?: string | null
         }
         Update: {
           business_date?: string
@@ -4356,6 +4655,7 @@ export type Database = {
           staff_id?: string
           started_at?: string
           station_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4370,6 +4670,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_breaks_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4434,24 +4741,73 @@ export type Database = {
           },
         ]
       }
+      staff_venues: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
+          staff_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_venues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_venues_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_venues_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       station_staff: {
         Row: {
           created_at: string
           created_by: string | null
           staff_id: string
           station_id: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           staff_id: string
           station_id: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           staff_id?: string
           station_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4468,6 +4824,69 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "station_staff_station_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "station_staff_station_venue_fkey"
+            columns: ["station_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
+            foreignKeyName: "station_staff_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stations: {
+        Row: {
+          id: string
+          is_till: boolean
+          registered_at: string
+          registered_by: string | null
+          retired_at: string | null
+          venue_id: string
+        }
+        Insert: {
+          id: string
+          is_till?: boolean
+          registered_at?: string
+          registered_by?: string | null
+          retired_at?: string | null
+          venue_id: string
+        }
+        Update: {
+          id?: string
+          is_till?: boolean
+          registered_at?: string
+          registered_by?: string | null
+          retired_at?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stations_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       stock_batches: {
@@ -4480,6 +4899,7 @@ export type Database = {
           qty_remaining: number
           received_at: string
           unit_cost_iqd: number
+          venue_id: string | null
         }
         Insert: {
           delivery_line_id?: string | null
@@ -4490,6 +4910,7 @@ export type Database = {
           qty_remaining: number
           received_at?: string
           unit_cost_iqd: number
+          venue_id?: string | null
         }
         Update: {
           delivery_line_id?: string | null
@@ -4500,6 +4921,7 @@ export type Database = {
           qty_remaining?: number
           received_at?: string
           unit_cost_iqd?: number
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4522,6 +4944,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
             referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4581,18 +5010,21 @@ export type Database = {
           finalized_at: string | null
           id: string
           started_at: string
+          venue_id: string | null
         }
         Insert: {
           counted_by: string
           finalized_at?: string | null
           id?: string
           started_at?: string
+          venue_id?: string | null
         }
         Update: {
           counted_by?: string
           finalized_at?: string | null
           id?: string
           started_at?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4600,6 +5032,13 @@ export type Database = {
             columns: ["counted_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_counts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4621,6 +5060,7 @@ export type Database = {
           staff_id: string | null
           ticket_id: string | null
           unit_cost_iqd: number | null
+          venue_id: string | null
         }
         Insert: {
           at?: string
@@ -4638,6 +5078,7 @@ export type Database = {
           staff_id?: string | null
           ticket_id?: string | null
           unit_cost_iqd?: number | null
+          venue_id?: string | null
         }
         Update: {
           at?: string
@@ -4655,6 +5096,7 @@ export type Database = {
           staff_id?: string | null
           ticket_id?: string | null
           unit_cost_iqd?: number | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4739,6 +5181,13 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4870,6 +5319,7 @@ export type Database = {
           table_id: string | null
           tax_iqd: number | null
           total_iqd: number | null
+          venue_id: string | null
         }
         Insert: {
           court_iqd?: number
@@ -4889,6 +5339,7 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
+          venue_id?: string | null
         }
         Update: {
           court_iqd?: number
@@ -4908,6 +5359,7 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -4946,10 +5398,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tabs_reservation_venue_fkey"
+            columns: ["reservation_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
             foreignKeyName: "tabs_table_id_fkey"
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tabs_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4961,6 +5427,7 @@ export type Database = {
           name_ar: string
           name_en: string
           rate_bp: number
+          venue_id: string | null
         }
         Insert: {
           id?: string
@@ -4968,6 +5435,7 @@ export type Database = {
           name_ar: string
           name_en: string
           rate_bp?: number
+          venue_id?: string | null
         }
         Update: {
           id?: string
@@ -4975,8 +5443,17 @@ export type Database = {
           name_ar?: string
           name_en?: string
           rate_bp?: number
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tax_groups_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_actions: {
         Row: {
@@ -4989,6 +5466,7 @@ export type Database = {
           tg_first_name: string
           tg_user_id: number
           tg_username: string | null
+          venue_id: string | null
         }
         Insert: {
           action: string
@@ -5000,6 +5478,7 @@ export type Database = {
           tg_first_name: string
           tg_user_id: number
           tg_username?: string | null
+          venue_id?: string | null
         }
         Update: {
           action?: string
@@ -5011,8 +5490,17 @@ export type Database = {
           tg_first_name?: string
           tg_user_id?: number
           tg_username?: string | null
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "telegram_actions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_chats: {
         Row: {
@@ -5054,6 +5542,7 @@ export type Database = {
           status: string
           telegram_message_id: number | null
           text: string | null
+          venue_id: string | null
         }
         Insert: {
           attempts?: number
@@ -5070,6 +5559,7 @@ export type Database = {
           status?: string
           telegram_message_id?: number | null
           text?: string | null
+          venue_id?: string | null
         }
         Update: {
           attempts?: number
@@ -5086,8 +5576,17 @@ export type Database = {
           status?: string
           telegram_message_id?: number | null
           text?: string | null
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "telegram_outbox_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_staff: {
         Row: {
@@ -5148,6 +5647,7 @@ export type Database = {
           started_at: string | null
           status: Database["public"]["Enums"]["ticket_status"]
           target_seconds: number
+          venue_id: string | null
         }
         Insert: {
           actual_prep_seconds?: number | null
@@ -5162,6 +5662,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           target_seconds?: number
+          venue_id?: string | null
         }
         Update: {
           actual_prep_seconds?: number | null
@@ -5176,6 +5677,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           target_seconds?: number
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -5183,6 +5685,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: true
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -5212,6 +5721,7 @@ export type Database = {
           table_token_ttl_minutes: number
           tax_inclusive: boolean
           timezone: string
+          venue_id: string | null
           venue_name: string
           waiter_call_cooldown_seconds: number
         }
@@ -5239,6 +5749,7 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
+          venue_id?: string | null
           venue_name: string
           waiter_call_cooldown_seconds?: number
         }
@@ -5266,8 +5777,42 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
+          venue_id?: string | null
           venue_name?: string
           waiter_call_cooldown_seconds?: number
+        }
+        Relationships: []
+      }
+      venues: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          name_en: string
+          phone: string | null
+          slug: string
+          timezone: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          name_en: string
+          phone?: string | null
+          slug: string
+          timezone?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          name_en?: string
+          phone?: string | null
+          slug?: string
+          timezone?: string
         }
         Relationships: []
       }
@@ -5285,6 +5830,7 @@ export type Database = {
           resolved_label: string | null
           status: Database["public"]["Enums"]["waiter_call_status"]
           table_id: string
+          venue_id: string | null
         }
         Insert: {
           acknowledged_at?: string | null
@@ -5299,6 +5845,7 @@ export type Database = {
           resolved_label?: string | null
           status?: Database["public"]["Enums"]["waiter_call_status"]
           table_id: string
+          venue_id?: string | null
         }
         Update: {
           acknowledged_at?: string | null
@@ -5313,6 +5860,7 @@ export type Database = {
           resolved_label?: string | null
           status?: Database["public"]["Enums"]["waiter_call_status"]
           table_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -5341,6 +5889,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiter_calls_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]

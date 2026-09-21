@@ -17,6 +17,7 @@
     "db:types": "pnpm --filter @touch/db db:types",
     "db:fixtures": "pnpm --filter @touch/db db:fixtures",
     "db:clear-dev-till": "pnpm --filter @touch/db db:clear-dev-till",
+    "bench": "pnpm --filter @touch/db bench",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
     "format": "prettier --write .",

@@ -295,7 +295,20 @@ export const base = [
   },
   {
     name: '@touch/ignores',
-    ignores: ['**/dist/**', '**/build/**', '**/.next/**', '**/.expo/**', '**/node_modules/**'],
+    // `*.timestamp-*.mjs`: vite/vitest transpile their config to a temp file
+    // NEXT TO it (vitest.config.ts.timestamp-<ms>-<rand>.mjs) and delete it as
+    // soon as the config is loaded. `turbo lint` and `turbo test` run
+    // concurrently in the same package (lint has no dependsOn), so eslint can
+    // glob that file and then fail reading it — ENOENT, exit 2, a red CI on a
+    // commit that changed nothing relevant. Seen on @touch/i18n 2026-09-21.
+    ignores: [
+      '**/dist/**',
+      '**/build/**',
+      '**/.next/**',
+      '**/.expo/**',
+      '**/node_modules/**',
+      '**/*.timestamp-*.mjs',
+    ],
   },
 ];
 

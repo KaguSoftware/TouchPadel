@@ -785,7 +785,10 @@ export const ar: Messages = {
     title: 'Touch Padel Operator',
     lead: 'تطبيق الكاشير والمكتب وشاشة المطبخ لموظفي Touch Padel. يُثبَّت ويحدّث نفسه.',
     windowsButton: 'تنزيل لويندوز',
-    macButton: 'تنزيل لماك',
+    macArmButton: 'تنزيل لماك (Apple silicon)',
+    macIntelButton: 'تنزيل لماك (Intel)',
+    macWhichNote:
+      'لا تعرف أي ماك لديك؟ من قائمة Apple اختر About This Mac: إذا كانت الشريحة "Apple M1/M2/M3/M4" فهو Apple silicon، وإذا كان المعالج "Intel" فهو Intel.',
     macSoon: 'ماك: قريبًا',
     smartScreenNote:
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',
@@ -1805,6 +1808,10 @@ export const ar: Messages = {
       BREAK_NOT_OPEN: 'لا توجد استراحة لإنهائها.',
       COVER_NOT_ALLOWED: 'لا يستطيع هذا الشخص تغطية هذه المحطة.',
       INVALID_STATION: 'لا اسم صالحًا لهذه المحطة. أعد إعداد المحطة.',
+      // Multi-venue (0125/0130).
+      VENUE_REQUIRED: 'هذا الإجراء يحتاج إلى تحديد الفرع الذي يخصّه.',
+      STATION_UNKNOWN:
+        'هذه المحطة غير مسجّلة في أي فرع. يسجّلها المدير من الإعدادات ← الأجهزة.',
       NO_PIN_SET: 'لا يوجد رمز سري لهذا الحساب بعد. اطلب من المالك تحديده.',
       BOOKING_TAB_OPEN: 'لهذا الحجز فاتورة مفتوحة بالفعل. أضف إلى تلك الفاتورة.',
       BOOKING_TAB_DONOR: 'لا يمكن نقل فاتورة الحجز إلى فاتورة أخرى. انقل الفاتورة الأخرى إلى الحجز.',

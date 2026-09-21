@@ -57,6 +57,10 @@ const config = {
   // operator-v0.2.0 (app never opened a window). Off, so it can never look like
   // it did the job.
   npmRebuild: false,
+  // …and once more per packaged arch, right before the files are collected:
+  // the mac build ships arm64 AND x64 from one arm64 runner, and each dmg must
+  // carry its own better-sqlite3 slice. See scripts/before-pack.cjs.
+  beforePack: 'scripts/before-pack.cjs',
 
   // The public download host and the electron-updater feed. Publishing needs
   // GH_TOKEN (a PAT with contents:write on THAT repo; the workflow's own
@@ -116,14 +120,18 @@ const config = {
   // once a Developer ID cert + Apple credentials exist: an unsigned mac app is
   // unusable on current macOS (no "Run anyway") and Squirrel.Mac refuses to
   // update it. zip is the updater's format; dmg is what people download.
-  // Apple silicon ONLY: scripts/native-abi.mjs rebuilds better-sqlite3 for the
-  // runner's own arch (arm64), so an x64 slice would ship a binary that cannot
-  // load. No Intel Mac is planned at the venue; add x64 back together with a
-  // per-arch rebuild if that changes.
+  // One dmg + zip per arch, Apple silicon (arm64) and Intel (x64), both from
+  // the arm64 runner: electron-builder only needs to download the x64 Electron
+  // and sign it, and scripts/before-pack.cjs swaps in the x64 better-sqlite3
+  // before that arch's files are collected. Not a universal build: it would
+  // double the download for a venue Mac that only ever runs one of them.
+  // The artifact names carry the arch on purpose — electron-updater picks the
+  // mac zip by whether "arm64" appears in its name (MacUpdater.filterFilesForArch),
+  // so an Intel Mac takes -x64.zip and an Apple-silicon Mac takes -arm64.zip.
   mac: {
     target: [
-      { target: 'dmg', arch: ['arm64'] },
-      { target: 'zip', arch: ['arm64'] },
+      { target: 'dmg', arch: ['arm64', 'x64'] },
+      { target: 'zip', arch: ['arm64', 'x64'] },
     ],
     artifactName: 'Touch-Padel-Operator-${arch}.${ext}',
     category: 'public.app-category.business',

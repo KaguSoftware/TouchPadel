@@ -9,6 +9,10 @@
 --   cashier cashier@dev.touch.local   (no PIN — cashiers escalate via manager PIN)
 --   prep    prep@dev.touch.local
 --   desk    desk@dev.touch.local      (court_desk role)
+--   manager manager-b@dev.touch.local PIN 492738   (0078/SEC-13: 6+ digits, no run)
+--   cashier cashier-b@dev.touch.local (no PIN — multi-venue tests re-point these
+--                                      two to venue B and back; see
+--                                      tests/multi-venue.test.ts)
 --
 -- Staff need auth.users rows. Locally we insert them directly the documented
 -- GoTrue-compatible way (bcrypt via crypt(); identities row per user so email
@@ -135,6 +139,16 @@ values
    'authenticated', 'authenticated', 'desk@dev.touch.local',
    extensions.crypt('touch-dev-password', extensions.gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}', '{"full_name":"Dev Court Desk"}', now(), now(),
+   '', '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-4000-8000-000000000006',
+   'authenticated', 'authenticated', 'manager-b@dev.touch.local',
+   extensions.crypt('touch-dev-password', extensions.gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}', '{"full_name":"Dev Manager B"}', now(), now(),
+   '', '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-4000-8000-000000000007',
+   'authenticated', 'authenticated', 'cashier-b@dev.touch.local',
+   extensions.crypt('touch-dev-password', extensions.gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}', '{"full_name":"Dev Cashier B"}', now(), now(),
    '', '', '', '', '')
 on conflict (id) do nothing;
 
@@ -148,7 +162,9 @@ select u.id::text, u.id,
                 'a0000000-0000-4000-8000-000000000002',
                 'a0000000-0000-4000-8000-000000000003',
                 'a0000000-0000-4000-8000-000000000004',
-                'a0000000-0000-4000-8000-000000000005')
+                'a0000000-0000-4000-8000-000000000005',
+                'a0000000-0000-4000-8000-000000000006',
+                'a0000000-0000-4000-8000-000000000007')
 on conflict (provider_id, provider) do nothing;
 
 insert into staff (id, display_name, role, is_active) values
@@ -156,7 +172,9 @@ insert into staff (id, display_name, role, is_active) values
   ('a0000000-0000-4000-8000-000000000002', 'Dev Manager',    'manager',    true),
   ('a0000000-0000-4000-8000-000000000003', 'Dev Cashier',    'cashier',    true),
   ('a0000000-0000-4000-8000-000000000004', 'Dev Prep',       'prep',       true),
-  ('a0000000-0000-4000-8000-000000000005', 'Dev Court Desk', 'court_desk', true)
+  ('a0000000-0000-4000-8000-000000000005', 'Dev Court Desk', 'court_desk', true),
+  ('a0000000-0000-4000-8000-000000000006', 'Dev Manager B',  'manager',    true),
+  ('a0000000-0000-4000-8000-000000000007', 'Dev Cashier B',  'cashier',    true)
 on conflict (id) do nothing;
 
 -- Dev PINs (bcrypt). In real environments the owner sets PINs via app.set_staff_pin.
@@ -164,3 +182,5 @@ update staff set pin_hash = extensions.crypt('719264', extensions.gen_salt('bf')
  where id = 'a0000000-0000-4000-8000-000000000001';
 update staff set pin_hash = extensions.crypt('380517', extensions.gen_salt('bf'))
  where id = 'a0000000-0000-4000-8000-000000000002';
+update staff set pin_hash = extensions.crypt('492738', extensions.gen_salt('bf'))
+ where id = 'a0000000-0000-4000-8000-000000000006';

@@ -137,7 +137,16 @@ on Parsa's PC (back it up; Apple cannot re-issue the key). The `.p12` must be bu
 26.15/26.16 cannot import CSC_LINK itself (upstream #10066), so the workflow imports into its own
 keychain and passes CSC_KEYCHAIN + CSC_NAME. Notarization is submit-and-continue
 (apps/operator-shell/scripts/notarize-mac.cjs): Apple held two submissions 55 min and 3 h; Gatekeeper
-checks the ticket online, so no stapling is needed. Apple silicon only.
+checks the ticket online, so no stapling is needed.
+
+**2026-09-21: Intel Macs too.** From the next tag push the mac job ships two of everything:
+`Touch-Padel-Operator-arm64.dmg` (Apple silicon) and `Touch-Padel-Operator-x64.dmg` (Intel), each
+with its zip for the updater. Both come off the same arm64 runner; electron-builder downloads the
+Intel Electron and `apps/operator-shell/scripts/before-pack.cjs` swaps the right better-sqlite3 in
+per arch. The `/download` page shows one button per chip with a one-line "which Mac do I have"
+hint. The publish step refuses to go live unless both dmgs, both zips and `latest-mac.yml` are on
+the release. Installed Apple-silicon apps keep updating from the arm64 zip (the updater picks by
+the `arm64` in the file name); an Intel Mac takes the x64 zip.
 
 
 The mac build is scaffolded and runs only when all five secrets below exist.

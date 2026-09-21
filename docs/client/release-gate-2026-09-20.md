@@ -127,6 +127,7 @@ npx supabase db query --linked "select name, created_at from app.secrets"
 ```
 
 - No rows → nothing to rotate; note the date in this file.
+  **Verified 2026-09-21:** `select name from app.secrets` on the client's project returns **no rows**; `vault.secrets` holds `table_token_secret`, `service_role_key`, `functions_base_url`. Nothing to rotate; the dumps held no secret.
 - A `table_token_secret` row → the HMAC secret was in every download. Every
   reader of this repository is on the team, so this is exposure to insiders
   only, but it is still a rotate decision: a new secret invalidates **every
