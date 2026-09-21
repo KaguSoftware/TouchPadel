@@ -75,3 +75,7 @@ apps/mobile/store/out/*
 # Bench results (packages/db/bench). Every nightly run writes a fresh results.json;
 # the committed artefact is bench/baseline.json, taken from the CI runner.
 packages/db/bench/results/
+
+# vite/vitest transpile their config to a temp file next to it and delete it
+# on load; a crashed run can leave one behind.
+*.timestamp-*.mjs
