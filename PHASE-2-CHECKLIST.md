@@ -1,15 +1,15 @@
 # Phase 2 — checklist
 
-Updated 2026-09-21 (commits `1daa960`, `2b9adf7`, `8616549` on `main`). The decision record and
+Updated 2026-09-21 evening (commits `14e1edd` … `c09b701` on `main`; the morning line read `1daa960`, `2b9adf7`, `8616549`). The decision record and
 per-milestone design are `PHASE-2-PLAN.md` (repo) and Parsa's plan file
 (`~/.claude/plans/i-got-this-scope-binary-piglet.md`); this file is the short list of what is
 done and what is left. Update it in the same commit as the work it describes.
 
 | Measure | Now |
 | --- | --- |
-| Milestone 0 (criticals before any Phase 2 table) | about 75 %; about 95 % code-side once item 11, S10 and the docs land |
+| Milestone 0 (criticals before any Phase 2 table) | code side complete (item 11 web/mobile/bench, S10, item 12 docs landed 2026-09-21; CI green on `main` for the first time since 09-20); hosted at 0121 complete. Left: the S1 staff rotation (urgent), PITR + staging project, Auth dashboard settings, release-gate §2/§3/§5, the staging-reviewer decision, the CI-produced bench baseline. About 90 % overall |
 | The nine client-visible Phase 2 items | 0 of 9 |
-| Whole programme by effort (≈ 40 agent-weeks) | about 10 % |
+| Whole programme by effort (≈ 40 agent-weeks) | about 12 % |
 
 ## Milestone 0 — done
 

@@ -41,7 +41,7 @@ Also done: registry gate replays GRANT/REVOKE/DROP and function signatures; data
 
 ### What is left, by milestone
 
-- **0** item 11 (web jsdom, mobile jest-expo smoke renders + `testID`s, `packages/db/bench`), S10 (the committed test-OTP code), the docs remainder of 12 (HANDOFF reconciliation, scope addendum, deviation records incl. S12/PITR/email-auth, owner runbook for the hosted push), and the owner steps above. About a quarter of the milestone.
+- **0** code side done 2026-09-21: item 11 (web jsdom 45 cases, mobile 118 `testID`s + lint rule + 47 jest-expo smoke renders, `packages/db/bench` with a nightly `bench.yml`), S10 (`env()` in `config.toml`, two gates), item 12 docs (HANDOFF reconciled, bilingual change order, D3–D10, hosted-push runbook). Hosted is at 0121 complete (0120 applied by `include_all` on 09-21). Left, all credential-holder steps: the S1 staff rotation (urgent: 0115 already refuses weak PINs on the client's project), PITR + staging, Auth settings, release-gate §2/§3/§5, the staging-reviewer decision, the CI bench baseline. New Milestone 1 input from the bench: `analytics_courts_endings` and `analytics_courts_guests` time out at 12 months (quadratic returning-guest subplan).
 - **1 multi-venue** (6–7 weeks): `venues`, `venue_id` on every scoped parent table with the trigger-aware backfill, `stations` registry replacing the client-asserted station id, `staff_venues`, `platform_settings` split off `venue_settings`, composite uniques, per-venue degraded mode with zero-arg overloads kept, realtime topics per venue, the seven `.single()` client reads converted, owner venue switcher, mobile venue picker, web default venue, venue axis on the assistant tools, matrix principals per venue, two-venue fixture, rehearsal on staging.
 - **2 payment** (3–4 weeks + Qi lead time): Majed's design with `venue_id` + widened `purpose`, `booking_payments` after `reservations` in the lock order, `court_fee_paid` nets online amounts, `expo-web-browser`, `/pay/return` + `/pay/status` + `+not-found`, web return page, four edge functions + fake provider, bulk refund RPC, day-close and report columns, go-live gates.
 - **3 customers + loyalty** (6–7 weeks): `tabs.customer_id`, session re-key RPC, web sign-in (phone OTP + Google + Apple), `customer_identities`, `customer_metrics` table, `customer_360` role-shaped, SEC-29 predicate for `customer_%`, loyalty tables and hooks, `loyalty_redeem` adjustment kind, tier promotions on goods, clawback in `refund`.
@@ -53,9 +53,9 @@ Also done: registry gate replays GRANT/REVOKE/DROP and function signatures; data
 
 | Measure | Value |
 | --- | --- |
-| Milestone 0 (criticals; now sized 4–5 agent-weeks, item 11 and the 0115/0116 fixes added) | about 75 % |
+| Milestone 0 (criticals; now sized 4–5 agent-weeks, item 11 and the 0115/0116 fixes added) | code side complete 2026-09-21 (see `PHASE-2-CHECKLIST.md`); owner steps left; about 90 % |
 | The nine Phase 2 scope items, delivered to the client | 0 % |
-| Whole programme by effort (≈40 agent-weeks mid-estimate; M0 three-quarters done + Qi design) | about 10 % |
+| Whole programme by effort (≈40 agent-weeks mid-estimate; M0 code complete + Qi design) | about 12 % |
 
 ---
 
