@@ -256,6 +256,15 @@ jobs:
     # once packages/db exists with migrations under packages/db/supabase/migrations/.
     # Until then it fails, and that is correct — the pipeline promise is real, not decorative.
     continue-on-error: false
+    # S10: the test-OTP code is not in the repository. The CLI substitutes
+    # env(SUPABASE_AUTH_SMS_TEST_OTP_CODE) in config.toml at `supabase start`,
+    # so it has to be in the environment of every step of this job — `supabase
+    # start` reads it, and tests/phone-otp.test.ts sends it. Job level, not step
+    # level, because both ends need the same value.
+    # No `|| '123456'` fallback anywhere: a constant written into ci.yml is the
+    # code committed to the repository again, under a different filename.
+    env:
+      SUPABASE_AUTH_SMS_TEST_OTP_CODE: ${{ vars.SUPABASE_AUTH_SMS_TEST_OTP_CODE }}
     steps:
       - uses: actions/checkout@v4
 
@@ -275,6 +284,18 @@ jobs:
           # generator ships with the CLI. Bump deliberately, regenerating
           # types.gen.ts in the same commit.
           version: 2.116.0
+
+      # Fail here, with a sentence, rather than six steps later on a phone test
+      # that cannot explain itself. A fork PR cannot read repository variables,
+      # so it is skipped there and the phone stack block skips itself in turn.
+      - name: Test-OTP variable present
+        if: github.event.pull_request.head.repo.fork != true
+        run: |
+          if [ -z "$SUPABASE_AUTH_SMS_TEST_OTP_CODE" ]; then
+            echo "::error::SUPABASE_AUTH_SMS_TEST_OTP_CODE is empty. config.toml resolves the [auth.sms.test_otp] code through env() (see packages/db/.env.example); create the repository variable under Settings → Secrets and variables → Actions → Variables (PHASE-2-CHECKLIST.md:47)."
+            exit 1
+          fi
+          echo "Test-OTP code present (${#SUPABASE_AUTH_SMS_TEST_OTP_CODE} chars)."
 
       - name: Start local Supabase stack
         working-directory: packages/db
@@ -366,6 +387,10 @@ jobs:
   e2e:
     name: e2e (Playwright, EN + AR)
     runs-on: ubuntu-latest
+    # This job also runs `supabase start`, so it needs the same substitution
+    # (S10). No literal fallback: see the db job above.
+    env:
+      SUPABASE_AUTH_SMS_TEST_OTP_CODE: ${{ vars.SUPABASE_AUTH_SMS_TEST_OTP_CODE }}
     steps:
       - uses: actions/checkout@v4
 

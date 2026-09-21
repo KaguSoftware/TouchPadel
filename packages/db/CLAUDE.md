@@ -140,6 +140,20 @@ is a line in that file.
   never computes a number the page did not already have.
 - Secrets come from `supabase secrets set`, never the repo or `config.toml`. `supabase`, `eas` and
   `expo` run from their package directory, never the repo root.
+- **Never run `supabase config push`.** `config.toml` describes the LOCAL stack; hosted auth is
+  dashboard-managed (`docs/client/phone-otp-activation.md`). One push on 2026-08-24 overwrote it and
+  carried the then-committed test-OTP pair to the client's project
+  (`docs/security/security-audit-2026-09-13.md:191`, M8). `[auth.sms.test_otp]` now carries
+  `env(SUPABASE_AUTH_SMS_TEST_OTP_CODE)` and never a literal — locally from `packages/db/.env`, in
+  CI from the repository variable. Two gates fail the build on a regression:
+  `scripts/check-config-env.mjs` (in `db:start` with `--require-values`, static in `pnpm security`
+  as `check:config-env`) and `scripts/security/check-no-config-push.mjs` (root
+  `pnpm security:config-push`). The hosted store-review account is a different thing entirely:
+  `scripts/create-review-account.mjs` provisions a phone-confirmed guest on the hosted project with
+  a run-time-generated number and password, printed once and never committed, so the reviewer signs
+  in with phone + password and needs no code at all. If a hosted test-OTP pair is still wanted, the
+  owner picks a fresh one per review in the dashboard and deletes it after the decision — never a
+  value from this repo.
 
 ## Verify before you report
 

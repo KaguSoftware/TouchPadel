@@ -106,9 +106,16 @@ template = "Touch Padel: {{ .Code }}"
 max_frequency = "60s"
 
 [auth.sms.test_otp]
-# Local dev, vitest and store review: GoTrue accepts this code for this number
-# without sending anything. Keys are E.164 digits WITHOUT the '+'.
-9647700000001 = "123456"
+# S10, 2026-09-21: the code is NOT committed. The CLI substitutes the reference
+# below at `supabase start` — locally from packages/db/.env (the same file
+# vitest.config.ts:1 loads), in CI from the repository variable of the same
+# name. `pnpm db:start` refuses to start without it
+# (scripts/check-config-env.mjs).
+# The hosted store-review pair is a DIFFERENT, fresh pair, its number generated
+# by scripts/create-review-account.mjs and its code picked by the owner per
+# review — never reused from here.
+# Keys are E.164 digits WITHOUT the '+'.
+9647700000001 = "env(SUPABASE_AUTH_SMS_TEST_OTP_CODE)"
 
 # The CLI turns phone login OFF at `supabase start` ("WARN: no SMS provider is
 # enabled. Disabling phone login") unless a provider block is enabled — the
