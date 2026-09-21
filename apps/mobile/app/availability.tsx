@@ -11,7 +11,7 @@ import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
 import { Hint, Screen, SegmentedControl } from '../src/components/ui';
-import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
+import { DayChip, DegradedBanner, SlotCell, slotTestID } from '../src/components/booking';
 import { ErrorAlert, NoticeSheet } from '../src/components/overlays';
 
 const GUTTER = space.l;
@@ -63,6 +63,7 @@ export default function AvailabilityScreen() {
       {a.degraded && !noticeClosed ? (
         <View style={{ marginTop: space.s, marginStart: GUTTER, marginEnd: GUTTER }}>
           <DegradedBanner
+            testID="availability.degraded"
             lead={t('degraded.leadDeskOnly')}
             message={t('degraded.bannerAvailability', { phone: a.phone ?? '' })}
             phone={a.phone}
@@ -109,6 +110,7 @@ export default function AvailabilityScreen() {
             const noon = wallTimeToUtc(d, 12 * 60, a.tz);
             return (
               <DayChip
+                testID={`availability.day.${d}`}
                 key={d}
                 dow={formatWeekdayShort(noon, locale, a.tz)}
                 dayNum={formatDayNumber(noon, locale, a.tz)}
@@ -125,6 +127,7 @@ export default function AvailabilityScreen() {
       {/* Duration segmented control (intrinsic width, per the design) */}
       <View style={{ marginTop: 10, paddingStart: GUTTER, paddingEnd: GUTTER }}>
         <SegmentedControl
+          testID="availability.duration"
           fit
           options={a.durations.map((m) => ({
             value: m,
@@ -145,6 +148,7 @@ export default function AvailabilityScreen() {
         </View>
       ) : a.day.isError ? (
         <ErrorState
+          testID="availability.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(a.day.error))}
           retryLabel={t('common.retry')}
@@ -209,6 +213,7 @@ export default function AvailabilityScreen() {
                 <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
                   {row.map((cell, c) => (
                     <SlotCell
+                      testID={slotTestID('availability.slot', cell)}
                       key={c}
                       cell={cell}
                       time={formatTime(cell.startAt, locale, a.tz)}

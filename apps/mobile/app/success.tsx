@@ -208,6 +208,7 @@ function SuccessScreen() {
         {/* Never route to /booking/ with an empty id. */}
         {reservationId ? (
           <Button
+            testID="success.view-booking"
             label={t('booking.viewBooking')}
             variant="cta"
             onPress={() =>
@@ -216,6 +217,7 @@ function SuccessScreen() {
           />
         ) : null}
         <Button
+          testID="success.done"
           label={t('common.done')}
           variant="secondary"
           size="medium"

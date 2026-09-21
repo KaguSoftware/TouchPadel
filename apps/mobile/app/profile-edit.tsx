@@ -159,6 +159,7 @@ function EditProfileScreen() {
       ) : (
         <FormScreen contentStyle={{ paddingTop: 4 }}>
           <Field
+            testID="profile-edit.name"
             label={t('profile.name')}
             value={name}
             onChangeText={setName}
@@ -167,6 +168,7 @@ function EditProfileScreen() {
             error={nameError}
           />
           <PhoneField
+            testID="profile-edit.phone"
             label={t('auth.phoneLabel')}
             iso={iso}
             onChangeIso={setIso}
@@ -201,6 +203,7 @@ function EditProfileScreen() {
 
           <ErrorText>{error}</ErrorText>
           <Button
+            testID="profile-edit.save"
             label={t('profile.saveChanges')}
             variant="cta"
             busy={update.isPending || sendingCode}

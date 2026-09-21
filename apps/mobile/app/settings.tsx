@@ -196,6 +196,7 @@ export default function SettingsScreen() {
           {groupLabel(<MoonIcon size={13} color={colors.gstrong} />, t('settings.appearance'))}
           <View style={{ marginTop: 8 }}>
             <SegmentedControl<AppearancePreference>
+              testID="settings.appearance"
               options={[
                 { value: 'automatic', label: t('settings.automatic') },
                 { value: 'light', label: t('settings.light') },
@@ -228,6 +229,7 @@ export default function SettingsScreen() {
           {groupLabel(<GlobeIcon size={13} color={colors.gstrong} />, t('settings.language'))}
           <View style={{ marginTop: 8 }}>
             <SegmentedControl<Locale>
+              testID="settings.language"
               options={[
                 { value: 'en', label: t('settings.english') },
                 { value: 'ar', label: t('settings.arabic') },
@@ -266,6 +268,7 @@ export default function SettingsScreen() {
                 ✓ {t('settings.notifGranted')}
               </Text>
               <Button
+                testID="settings.send-test-push"
                 label={t('settings.sendTestPush')}
                 variant="secondary"
                 size="compact"
@@ -288,6 +291,7 @@ export default function SettingsScreen() {
                 {t('settings.notifDenied')}
               </Text>
               <Button
+                testID="settings.open-system-settings"
                 label={t('settings.openSystemSettings')}
                 variant="secondary"
                 size="compact"
@@ -311,6 +315,7 @@ export default function SettingsScreen() {
                 {t('settings.notifBody')}
               </Text>
               <Button
+                testID="settings.enable-push"
                 label={t('settings.enablePush')}
                 variant="cta"
                 size="compact"
@@ -357,6 +362,7 @@ export default function SettingsScreen() {
               ) : null}
             </View>
             <Button
+              testID="settings.call-venue"
               label={t('common.call')}
               variant="primary"
               size="compact"
@@ -379,6 +385,7 @@ export default function SettingsScreen() {
           {groupLabel(<LockIcon size={13} color={colors.gstrong} />, t('settings.about'))}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
             <Button
+              testID="settings.privacy-policy"
               label={t('settings.privacyPolicy')}
               variant="secondary"
               size="compact"
@@ -386,6 +393,7 @@ export default function SettingsScreen() {
               style={{ flexGrow: 1 }}
             />
             <Button
+              testID="settings.support"
               label={t('settings.support')}
               variant="secondary"
               size="compact"
