@@ -785,7 +785,10 @@ export const ar: Messages = {
     title: 'Touch Padel Operator',
     lead: 'تطبيق الكاشير والمكتب وشاشة المطبخ لموظفي Touch Padel. يُثبَّت ويحدّث نفسه.',
     windowsButton: 'تنزيل لويندوز',
-    macButton: 'تنزيل لماك',
+    macArmButton: 'تنزيل لماك (Apple silicon)',
+    macIntelButton: 'تنزيل لماك (Intel)',
+    macWhichNote:
+      'لا تعرف أي ماك لديك؟ من قائمة Apple اختر About This Mac: إذا كانت الشريحة "Apple M1/M2/M3/M4" فهو Apple silicon، وإذا كان المعالج "Intel" فهو Intel.',
     macSoon: 'ماك: قريبًا',
     smartScreenNote:
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',

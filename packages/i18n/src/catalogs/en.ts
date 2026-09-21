@@ -850,7 +850,10 @@ export const en = {
     title: 'Touch Padel Operator',
     lead: 'The till, desk and kitchen-screen app for Touch Padel staff. Installs and updates itself.',
     windowsButton: 'Download for Windows',
-    macButton: 'Download for Mac',
+    macArmButton: 'Download for Mac (Apple silicon)',
+    macIntelButton: 'Download for Mac (Intel)',
+    macWhichNote:
+      'Not sure which Mac? Apple menu → About This Mac: a chip named "Apple M1/M2/M3/M4" is Apple silicon; a processor named "Intel" is Intel.',
     macSoon: 'Mac: coming soon',
     smartScreenNote:
       'Windows may show "Windows protected your PC" the first time. Choose "More info", then "Run anyway".',

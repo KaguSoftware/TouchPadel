@@ -5,7 +5,7 @@ import { renderServerPage } from '@/test/renderPage';
 import DownloadPage from './page';
 
 /**
- * The staff download page. Both buttons must point at the releases repo's
+ * The staff download page. Every button must point at the releases repo's
  * "latest" redirect with VERSION-LESS artifact names — that is the whole
  * contract with apps/operator-shell/electron-builder.config.cjs, and the only
  * reason this page never needs editing at release time. A renamed artifact is
@@ -29,19 +29,27 @@ describe.each(LOCALES)('download page (%s)', (locale: Locale) => {
     expect(screen.getByText(t(locale, 'download.smartScreenNote'))).toBeTruthy();
   });
 
-  it('offers exactly two installers, at stable version-less URLs', async () => {
+  it('offers exactly three installers, at stable version-less URLs', async () => {
     await renderServerPage(DownloadPage, locale);
 
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(2);
+    expect(links).toHaveLength(3);
 
     const windows = screen.getByRole('link', { name: t(locale, 'download.windowsButton') });
     expect(windows.getAttribute('href')).toMatch(/\/Touch-Padel-Operator-Setup\.exe$/);
     expect(windows.getAttribute('href')).toContain('/releases/latest/download/');
 
-    const mac = screen.getByRole('link', { name: t(locale, 'download.macButton') });
-    expect(mac.getAttribute('href')).toMatch(/\/Touch-Padel-Operator-arm64\.dmg$/);
-    expect(mac.getAttribute('href')).toContain('/releases/latest/download/');
+    // One Mac button per chip; the arch in the filename is what the updater
+    // keys on too (MacUpdater.filterFilesForArch), so both are asserted literally.
+    const macArm = screen.getByRole('link', { name: t(locale, 'download.macArmButton') });
+    expect(macArm.getAttribute('href')).toMatch(/\/Touch-Padel-Operator-arm64\.dmg$/);
+    expect(macArm.getAttribute('href')).toContain('/releases/latest/download/');
+
+    const macIntel = screen.getByRole('link', { name: t(locale, 'download.macIntelButton') });
+    expect(macIntel.getAttribute('href')).toMatch(/\/Touch-Padel-Operator-x64\.dmg$/);
+    expect(macIntel.getAttribute('href')).toContain('/releases/latest/download/');
+
+    expect(screen.getByText(t(locale, 'download.macWhichNote'))).toBeTruthy();
   });
 });
 
