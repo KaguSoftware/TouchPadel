@@ -52,6 +52,8 @@ const GLOBS = [
  */
 const CONFIG_PUSH = /\bsupabase\b[^\n]*\bconfig\s+push\b/;
 
+/** A whole-line comment in JS/TS (`//`, `*`, `/*`), YAML or shell (`#`). */
+const COMMENT_LINE = /^\s*(?:\/\/|\*|\/\*|#)/;
 /** This file says the words in order to forbid them. */
 const SELF = 'scripts/security/check-no-config-push.mjs';
 
@@ -93,6 +95,11 @@ for (const file of files) {
   }
 
   for (const [i, line] of text.split('\n').entries()) {
+    // A comment that names the command in order to forbid it is not a command:
+    // check-config-env.mjs's header does exactly that, and so does this file.
+    // Only whole-line comments are skipped; a trailing comment after a real
+    // command still leaves the command on the line.
+    if (COMMENT_LINE.test(line)) continue;
     if (CONFIG_PUSH.test(line)) {
       violations.push({ file, where: `:${i + 1}`, text: line.trim().slice(0, 120) });
     }
