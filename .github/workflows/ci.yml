@@ -233,6 +233,19 @@ jobs:
         working-directory: apps/mobile
         run: npx --yes expo-doctor@latest
 
+      # Mounts all 23 screens, in English AND Arabic, and asserts each one's
+      # primary action is on screen with the label its own catalog gives. The
+      # bundle step below proves every module RESOLVES; this proves the screens
+      # they build actually render — which until 2026-09-21 nothing did.
+      # Runs under jest-expo, beside the vitest suite in `checks` (the two
+      # globs cannot overlap: apps/mobile/jest.config.js says why).
+      - name: Smoke render every screen (EN + AR)
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+        run: pnpm test:smoke
+
       # The decisive one: runs the whole Metro graph for both platforms, so a
       # module that cannot resolve — or a module-scope throw — fails the build
       # instead of shipping.
