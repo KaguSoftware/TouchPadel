@@ -352,7 +352,7 @@ export function MergeTabsDialog({
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, label, table:cafe_tables(table_number), reservation:reservations(guest_name)')
+        .select('id, label, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name)')
         .in('status', ['open', 'awaiting_payment'])
         .is('merged_into_tab_id', null)
         .neq('id', survivorTabId)

@@ -64,7 +64,7 @@ interface DayTabRow extends TabListRow {
 
 const DAY_TAB_COLUMNS = `id, status, label, opened_at, settled_at, total_iqd,
   table:cafe_tables(table_number),
-  reservation:reservations(guest_name, court:courts(name_en, name_ar)),
+  reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
   orders(source, status, order_items(line_total_iqd, voided, menu_item:menu_items(category_id))),
   tab_adjustments(kind, amount_iqd),
   payments(amount_iqd),

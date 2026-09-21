@@ -138,7 +138,7 @@ export function DayClose() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, status, label, reservation_id, table:cafe_tables(table_number), reservation:reservations(guest_name)')
+        .select('id, status, label, reservation_id, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name)')
         .eq('day_session_id', day?.id ?? '')
         .in('status', ['open', 'awaiting_payment']);
       if (err) throw err;

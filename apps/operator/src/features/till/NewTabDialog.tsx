@@ -41,7 +41,7 @@ export function useTodaysOpenReservations(enabled = true) {
       const dayEnd = new Date(dayStart.getTime() + 86_400_000);
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_at, end_at, guest_name, court:courts(name_en, name_ar), tabs(id, status)')
+        .select('id, start_at, end_at, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar), tabs!tabs_reservation_id_fkey(id, status)')
         .in('status', ['confirmed', 'arrived'])
         .gte('start_at', dayStart.toISOString())
         .lt('start_at', dayEnd.toISOString())
