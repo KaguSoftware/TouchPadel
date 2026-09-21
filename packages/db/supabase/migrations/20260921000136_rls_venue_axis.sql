@@ -48,7 +48,8 @@
 -- already scoped by ownership, and a guest has no staff_venues row); every leaf
 -- table that derives its venue through its parent's policy (order_items,
 -- refund_items, rate_rule_prices, …); every `using (true)` table; the global
--- tables (profiles, staff, allergens, promotions, telegram_*, …);
+-- tables (profiles, staff, allergens, promotions, telegram_chats, …; telegram_outbox
+-- and telegram_actions DO carry venue_id since 0126 and are narrowed below);
 -- venue_settings_staff_read and cafe_settings_staff_read (both move in slice 2
 -- with the platform_settings split); the owner-only analytics_* and assistant_*
 -- policies (an owner reads every venue anyway); and realtime.messages, whose

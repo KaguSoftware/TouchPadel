@@ -29,6 +29,7 @@
  * venue axis of every policy, which is all that is needed.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+import { execFileSync } from 'node:child_process';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -38,6 +39,7 @@ import {
   serviceClient,
   signedInClient,
   ensureTillFresh,
+  ensureTestRateRule,
   ensureVenueBProbeData,
   deactivateVenueBProbeData,
   appRpc,
@@ -51,6 +53,23 @@ import {
 } from './helpers';
 
 const up = await stackAvailable();
+const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
+
+/** Catalog reads the REST surface cannot make (pg_trigger); same shape as assistant-wall.test.ts. */
+function psql(sql: string): string {
+  return execFileSync(
+    'docker',
+    ['exec', '-i', CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-At'],
+    { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+  ).trim();
+}
+function dockerReachable(): boolean {
+  try {
+    return psql('select 1') === '1';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * The hand list from the plan's table inventory — 35 scoped tables plus
@@ -264,31 +283,29 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   });
 
   // ── 5 ──────────────────────────────────────────────────────────────────────
-  it('5. the four append-only triggers survived the 0127 backfill', async () => {
+  it.skipIf(!dockerReachable())('5. the four append-only triggers survived the 0127 backfill', () => {
     // The backfill disables audit_log_ao / payments_ao / refunds_ao /
     // stock_movements_ao and re-enables them in the same transaction. A file
     // that forgot the re-enable would leave the money ledger mutable.
     //
-    // These are STATEMENT-level triggers, so a zero-row UPDATE still fires one.
-    // If a future Postgres stops firing them on zero rows, swap the impossible
-    // filter for a real probe row id — everything else here stays as it is.
-    // audit_log / stock_movements key on a bigint identity; payments / refunds
-    // on a uuid. Neither value can match anything.
-    const impossibleBigint = -1;
-    const impossibleUuid = '00000000-0000-4000-8000-000000000000';
-    const appendOnly: [string, unknown][] = [
-      ['audit_log', impossibleBigint],
-      ['payments', impossibleUuid],
-      ['refunds', impossibleUuid],
-      ['stock_movements', impossibleBigint],
-    ];
-    for (const [table, impossible] of appendOnly) {
-      const { error } = await svc
-        .from(table)
-        .update({ venue_id: VENUE_A_ID })
-        .eq('id', impossible as never);
-      expect(error?.message ?? '', `${table} is no longer append-only`).toContain('append-only');
-    }
+    // Read pg_trigger directly (the query 0127's header tells the operator to
+    // run after a hosted push). A zero-row UPDATE was the previous probe; it
+    // proved that SOME statement trigger raised, not that these four are
+    // enabled on these four tables.
+    const rows = psql(`
+      select c.relname || ':' || t.tgname || ':' || t.tgenabled
+        from pg_trigger t
+        join pg_class c on c.oid = t.tgrelid
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public'
+         and t.tgname in ('audit_log_ao', 'payments_ao', 'refunds_ao', 'stock_movements_ao')
+       order by 1`).split('\n').filter(Boolean);
+    expect(rows).toEqual([
+      'audit_log:audit_log_ao:O',
+      'payments:payments_ao:O',
+      'refunds:refunds_ao:O',
+      'stock_movements:stock_movements_ao:O',
+    ]);
   });
 
   // ── 6 ──────────────────────────────────────────────────────────────────────
@@ -493,6 +510,49 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
     expect(managerBSeesHidden.data ?? []).toHaveLength(1);
   });
 
+  it('11b. RLS: the device registry is per venue (stations_read_staff, 0139)', async () => {
+    // Venue B's till is planted by ensureVenueBProbeData; venue A's stations
+    // come from every other suite. Neither cashier sees the other site's tills.
+    const cashierSeesB = await cashier.from('stations').select('id').eq('id', venueB.stationId);
+    expect(cashierSeesB.error).toBeNull();
+    expect(cashierSeesB.data ?? [], "a venue-A cashier must not read venue B's till").toHaveLength(0);
+
+    const cashierBSeesA = await cashierB.from('stations').select('id').eq('venue_id', VENUE_A_ID);
+    expect(cashierBSeesA.error).toBeNull();
+    expect(cashierBSeesA.data ?? []).toHaveLength(0);
+
+    const cashierBSeesB = await cashierB.from('stations').select('id').eq('id', venueB.stationId);
+    expect(cashierBSeesB.error).toBeNull();
+    expect(cashierBSeesB.data ?? []).toHaveLength(1);
+
+    const ownerSees = await owner.from('stations').select('id').eq('id', venueB.stationId);
+    expect(ownerSees.error).toBeNull();
+    expect(ownerSees.data ?? []).toHaveLength(1);
+  });
+
+  it('11c. RLS: a manager reads the roster of their own venues only (staff_venues_read_mgmt, 0139)', async () => {
+    const managerSeesB = await manager.from('staff_venues').select('staff_id').eq('venue_id', VENUE_B_ID);
+    expect(managerSeesB.error).toBeNull();
+    expect(managerSeesB.data ?? [], "a venue-A manager must not read venue B's roster").toHaveLength(0);
+
+    const managerBSeesA = await managerB.from('staff_venues').select('staff_id').eq('venue_id', VENUE_A_ID);
+    expect(managerBSeesA.error).toBeNull();
+    expect(managerBSeesA.data ?? []).toHaveLength(0);
+
+    const managerBSeesB = await managerB.from('staff_venues').select('staff_id').eq('venue_id', VENUE_B_ID);
+    expect(managerBSeesB.error).toBeNull();
+    expect(managerBSeesB.data ?? []).toHaveLength(2);
+
+    // The cashier at B still reads their OWN row through staff_venues_read_own.
+    const cashierBOwn = await cashierB.from('staff_venues').select('venue_id').eq('staff_id', SEED_STAFF_IDS.cashier_b);
+    expect(cashierBOwn.error).toBeNull();
+    expect(cashierBOwn.data ?? []).toHaveLength(1);
+
+    const ownerSees = await owner.from('staff_venues').select('staff_id').eq('venue_id', VENUE_B_ID);
+    expect(ownerSees.error).toBeNull();
+    expect(ownerSees.data ?? []).toHaveLength(2);
+  });
+
   // ── 12 ─────────────────────────────────────────────────────────────────────
   it('12. an RPC writes at the caller\'s venue, and cannot write across venues', async () => {
     // (a) The default inside a SECURITY DEFINER body still resolves from the
@@ -535,5 +595,101 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
     expect(crossVenue.error, 'a booking must never cross venues').not.toBeNull();
     expect(crossVenue.error?.code).toBe('23503');
     expect(crossVenue.error?.message).toContain('reservations_court_venue_fkey');
+  });
+
+  // ── 13 ─────────────────────────────────────────────────────────────────────
+  it("13. app.price_slot prices a court from its own venue's rules only (0139)", async () => {
+    // Both venues carry a venue-wide 'TEST all-day' rule (court_id null,
+    // priority -100). Give B's a price A's does not have: before 0139 the two
+    // were both candidates for an A court and the raw uuid broke the tie.
+    await ensureTestRateRule(svc);
+    const { error: bErr } = await svc
+      .from('rate_rule_prices')
+      .update({ price_iqd: 99_000 })
+      .eq('rule_id', venueB.ruleId);
+    expect(bErr).toBeNull();
+
+    const { data: courtA } = await svc
+      .from('courts')
+      .select('id')
+      .eq('venue_id', VENUE_A_ID)
+      .eq('is_active', true)
+      .order('sort_order')
+      .limit(1)
+      .single();
+    const courtAId = (courtA as { id: string }).id;
+
+    // A far-future weekday morning, inside both all-day windows.
+    const start = new Date(Date.now() + 45 * 24 * 3600_000);
+    start.setUTCHours(8, 0, 0, 0);
+
+    const priceA = await appRpc(anon, 'price_slot', {
+      p_court_id: courtAId, p_start_at: start.toISOString(), p_duration_min: 60,
+    });
+    expect(priceA.error).toBeNull();
+    const rowsA = (priceA.data ?? []) as { rule_id: string; price_iqd: number }[];
+    expect(rowsA).toHaveLength(1);
+    expect(rowsA[0]?.rule_id, "venue B's rule priced a venue-A court").not.toBe(venueB.ruleId);
+    expect(Number(rowsA[0]?.price_iqd)).not.toBe(99_000);
+
+    const priceB = await appRpc(anon, 'price_slot', {
+      p_court_id: venueB.courtIds[0], p_start_at: start.toISOString(), p_duration_min: 60,
+    });
+    expect(priceB.error).toBeNull();
+    const rowsB = (priceB.data ?? []) as { rule_id: string; price_iqd: number }[];
+    expect(rowsB).toHaveLength(1);
+    expect(rowsB[0]?.rule_id).toBe(venueB.ruleId);
+    expect(Number(rowsB[0]?.price_iqd)).toBe(99_000);
+
+    const { error: resetErr } = await svc
+      .from('rate_rule_prices')
+      .update({ price_iqd: 40_000 })
+      .eq('rule_id', venueB.ruleId);
+    expect(resetErr).toBeNull();
+  });
+
+  // ── 14 ─────────────────────────────────────────────────────────────────────
+  it('14. the degraded sweep opens and closes periods per venue (0139)', async () => {
+    // Fixture state: A's tills fresh, B's only till a day old. A beat at A runs
+    // the sweep; before 0139 it read is_degraded() for A (false) and closed
+    // EVERY open period, B's included, and never opened one for B.
+    const stamp = Date.now();
+    const tillA = `MV-SWEEP-${stamp}`;
+    registeredStations.push(tillA);
+    const beat = await appRpc(cashier, 'heartbeat', {
+      p_device_id: tillA, p_queue_depth: 0, p_app_version: 'multi-venue-test', p_is_till: false,
+    });
+    expect(beat.error).toBeNull();
+
+    const openB = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_B_ID).is('ended_at', null);
+    expect(openB.error).toBeNull();
+    expect(openB.data ?? [], 'venue B is degraded, so it has exactly one open period').toHaveLength(1);
+
+    const openA = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_A_ID).is('ended_at', null);
+    expect(openA.error).toBeNull();
+    expect(openA.data ?? [], 'venue A is fresh, so nothing is open there').toHaveLength(0);
+
+    const modeB = await appRpc(anon, 'venue_mode', { p_venue: VENUE_B_ID });
+    expect(modeB.error).toBeNull();
+    expect((modeB.data as { degraded_since: string | null }).degraded_since).not.toBeNull();
+
+    // Recovery at B closes B's period and only B's: freshen its till and beat there.
+    const { error: freshErr } = await svc
+      .from('device_heartbeats')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('device_id', venueB.stationId);
+    expect(freshErr).toBeNull();
+    const beatB = await appRpc(managerB, 'heartbeat', {
+      p_device_id: venueB.stationId, p_queue_depth: 0, p_app_version: 'multi-venue-test', p_is_till: true,
+    });
+    expect(beatB.error).toBeNull();
+    const closedB = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_B_ID).is('ended_at', null);
+    expect(closedB.data ?? []).toHaveLength(0);
+
+    // Put B's till back a day so case order stays irrelevant.
+    await svc
+      .from('device_heartbeats')
+      .update({ last_seen_at: new Date(Date.now() - 24 * 3600_000).toISOString() })
+      .eq('device_id', venueB.stationId);
   });
 });

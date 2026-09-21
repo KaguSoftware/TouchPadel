@@ -17,16 +17,18 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0138`
-  (`20260921000138_assistant_columns_catchup.sql`, multi-venue slice 1 = 0122–0138); the next is
-  `0139`.
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0139`
+  (`20260921000139_venue_axis_fixes.sql`, multi-venue slice 1 = 0122–0139); the next is
+  `0140`.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).
 - Open every file with `set lock_timeout = '3s'; set statement_timeout = '60s';`
   (`check-migrations.mjs:247-248,467-483`).
 - `add constraint … NOT VALID`, then a separate `VALIDATE CONSTRAINT` inside an idempotent
-  `pg_constraint` guard; a `create index` needs its own migration or
+  `pg_constraint` guard that tests `conname` AND `conrelid = '<table>'::regclass` (`conname` is
+  unique per relation, not per database: a same-named constraint elsewhere would skip the add and
+  fail the VALIDATE — 0128–0133 were scoped this way after the 09-21 review); a `create index` needs its own migration or
   `MIGRATION-RISK-ACCEPTED: <reason>` in the PR body (`check-migrations.mjs:36,262,282-288`).
 - Re-issue a function only from its latest body, verbatim:
   `grep -n "function app.<name>(" supabase/migrations/*.sql | tail -1`. **Both spellings count**:

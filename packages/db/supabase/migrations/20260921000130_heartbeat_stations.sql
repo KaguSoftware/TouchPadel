@@ -124,7 +124,10 @@ begin
          -- Sticky (0026): once a device has identified as a till it stays one.
          is_till      = device_heartbeats.is_till or excluded.is_till,
          staff_id     = excluded.staff_id,
-         -- 0130: a device that moved buildings moves its row with it.
+         -- 0130: always equal to stations.venue_id — the resolver above reads
+         -- the station row and the 0131 trigger pins it, so nothing here can
+         -- move a device between venues; that is a manual `update stations`
+         -- until slice 3 gives it an RPC.
          venue_id     = excluded.venue_id;
 
   -- ...and again now that it is fresh, so recovery closes the period above
