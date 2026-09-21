@@ -1616,6 +1616,37 @@ repo), the docs remainder of item 12, and the owner steps — for which the orde
 **`docs/scope/phase2-change-order-2026-09-21.md`** (bilingual, for Mustafa's signature) and the
 deviation table in `docs/security/security-general.md` §01, now D1–D10.
 
+**Day 32 (2026-09-21, night): Milestone 1 slice 1 — the multi-venue schema foundation.**
+Migrations **0122–0138**, built by three Opus agents from an approved plan and green locally
+(`db:reset`, the six stack gates, `check:rpc-registry`, `check:assistant-coverage`, the whole db
+suite, typecheck, lint). **Committed, not pushed**: Parsa's decision is to buy PITR, create the
+staging project from a backup and rehearse 0122–0138 there first (D3). The design note is
+`docs/design/multi-venue/slice-1-2026-09-21.md`; the tick list is in `PHASE-2-CHECKLIST.md`. The
+calls worth knowing before touching anything venue-shaped:
+
+- `venue_id` defaults to `app.current_venue()` (station → the caller's only `staff_venues` row →
+  the single active venue → `VENUE_REQUIRED`), never to the default venue, so a row is filed where
+  the caller belongs or refused loudly. The eight cron-/service-written tables use
+  `current_venue_or_default()`. Functions referenced by a default or a policy are granted to
+  `anon`, `authenticated` and `service_role` (the 0121 lesson).
+- `heartbeat` refuses a station (`STATION_UNKNOWN`) only when the caller's venue is ambiguous, not
+  because two venues exist — the literal rule would have broken every venue-A till the day venue B
+  appeared. Direct service-role writers of `device_heartbeats` (e2e `TILL-E2E`, the degraded
+  suite) register through a `before insert` trigger; the first run of the suite found that.
+- `staff_venues` comes from a trigger on `staff`, because migrations run before `seed.sql`.
+- `NOT NULL` is a validated CHECK: the gate blocks `set not null`, and this keeps `types.gen.ts`
+  nullable so no client type moved.
+- The RLS matrix keeps 8 principals (a ninth is auto-filled with each rule's default and the loop
+  cannot prove isolation); cross-venue reads are named cases in `tests/multi-venue.test.ts`,
+  which builds a venue B and DEACTIVATES it in `afterAll` (append-only rows make deletion
+  impossible, and a second active venue makes every venue-less service-role insert raise).
+- `venue_settings` stays one row; the seven client `.single()` reads are untouched. Slice 2.
+- `check:migrations` judges zero files on a direct push to `main` (it diffs against the merge
+  base, which is HEAD); run it locally with `--base=<pre-slice sha>`. Three index files (0132,
+  0134, 0135) carry `MIGRATION_RISK_ACCEPTED` locally.
+- One defect found by the stack, not by the agents: `min(uuid)` does not exist in Postgres; the
+  resolver casts through `text`.
+
 ## File map (key files)
 - **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
   it is, Part B the criticals pass, Part C the scope items and the milestone plan, Part C+ the
@@ -1683,12 +1714,16 @@ deviation table in `docs/security/security-general.md` §01, now D1–D10.
   Developer, Supabase providers, Play SHA-1 — device matrix, store notes, gotchas).
 - `packages/db/client-data/` — both intake pack JSONs (clean originals, committed 2026-08-30) +
   `courts.sql` + the pack ledger in its README.
+- `packages/db/fixtures/venue-b.sql` — the invented second venue (f1f7 `…be**`), loaded only by
+  `db:fixtures:venue-b`, never by the default `db:fixtures` (e2e grid indices, a `table_number`
+  `.single()`, the bench court count).
 - `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)** + …
   + 0058–0059 (2026-09-01: OAuth profile bootstrap + phone rule) + 0060–0064 (2026-09-03:
   release_hold rename, kds_item_ready, courts_admin, stock_admin_writes, idle_lock) + 0065–0070
   (phone OTP base, test push) + 0071–0075 (2026-09-07, Majed: compact QR, staff_requests,
   marketing, court_delete, no_show_terminates) + 0076–0107 + **0108–0113 (2026-09-20, Majed: the
-  owner assistant)** + **0114–0121 (2026-09-20/21: Milestone 0 criticals)**. Next ordinal **0122**;
+  owner assistant)** + **0114–0121 (2026-09-20/21: Milestone 0 criticals)** + **0122–0138
+  (2026-09-21: multi-venue slice 1 — committed, NOT pushed)**. Next ordinal **0139**;
   `0023`, `0040` and `0101` have no file and `0069`/`0071` are doubled — leave the gaps
   (`packages/db/CLAUDE.md`). ~~Hosted at 0075 as of 2026-09-07 (0 pending)~~ — historic; the HOSTED
   STATE line under Gotchas is the only current answer.
@@ -1696,6 +1731,7 @@ deviation table in `docs/security/security-general.md` §01, now D1–D10.
   `analytics-posthog`, `analytics-insights`, `_shared/`, `SETUP-telegram.md`.
 - `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded,
   hardening, cafe-menu-ext, telegram, analytics, **oauth-profiles** (0058/0059, 8 cases),
+  **multi-venue** (0122–0138, 12 cases; builds and deactivates its own venue B),
   + two pure suites).
 - `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
 - `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
@@ -1811,6 +1847,7 @@ deviation table in `docs/security/security-general.md` §01, now D1–D10.
 | Social sign-in | **Vendor addition 2026-09-01** — SOW L259-260 excludes it, spec §10 says do-not-build. Sign in with Apple (iOS only, native `expo-apple-authentication`) + Google (native SDK, `react-native-nitro-google-signin`) on sign-in/sign-up; complete-profile step when the phone is blank; migrations 0058/0059. Email/password stays the contractual path; acceptance never hinges on this. Code only — no console account, no device run | Live: Google Cloud clients + Supabase provider lists set, dev builds verified on both platforms, `host.exp.Exponent` removed for the store build, the Android **Play App Signing** OAuth client added before the first Play upload | Roadmap 7 (day-zero sequence, `docs/client/social-auth-setup-2026-09-01.md`) |
 | Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
+| `venue_settings` | One row with a boolean PK through milestone 1 slice 1, by decision; it gained `venue_id` (0126) but the seven client `.single()` reads (`apps/mobile/src/features/availability/api.ts:22`, four operator files, `apps/web/src/lib/menu.ts:512`, two edge functions) and the 35 `app.*` readers are untouched | One `venue_settings` row per venue plus a `platform_settings` table for the LLM caps | Milestone 1 slice 2 |
 | Till online-only ops | `merge_tabs`, `record_drawer_open`, `open_day` and `close_day` stay direct `appRpc` calls by decision (Parsa 2026-09-20, Phase 2 finding C3): a merge re-checks two tabs under lock, and the day boundary must be authoritative when it is written. `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send` and `record_waste` are queued mutation types since Milestone 0 item 9 (`payment.refund`, `tab.cancel`, `tab.settle_zero`, `order_item.void`, `stock.waste`; migration 0120 gave the first three `p_idempotency_key` + `app.claim_replay`) | Every till write on the durable queue | Later phase (full offline DB, SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
