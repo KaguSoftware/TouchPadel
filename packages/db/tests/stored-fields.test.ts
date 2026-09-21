@@ -109,6 +109,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     idempotency_key: n, client_ref: n, created_at: n, series_id: n,
     // players (0092) is a group size, 1..8 or unknown; it counts people and names none.
     players: n,
+    venue_id: n,
   },
   reservation_series: {
     id: n, court_id: n, pattern: n, weekdays: n, start_time: n, duration_min: n,
@@ -118,11 +119,13 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     notes: { category: 'User content', why: 'free text about the standing booking', onDelete: 'scrub' },
     created_by_staff_id: n, idempotency_key: n, created_at: n, cancelled_at: n, cancelled_reason: n,
     players: n,
+    venue_id: n,
   },
   guest_sessions: {
     id: n, table_id: n,
     auth_user_id: { category: 'App activity', why: 'which account scanned which table, so the tab is theirs', onDelete: 'auth' },
     linked_profile_id: n, created_at: n, last_activity_at: n, expires_at: n, closed_at: n,
+    venue_id: n,
   },
   customer_notes: {
     id: n, customer_id: n,

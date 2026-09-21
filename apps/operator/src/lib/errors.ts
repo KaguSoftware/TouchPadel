@@ -154,6 +154,12 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'COVER_NOT_ALLOWED',
   'INVALID_STATION',
   'NO_PIN_SET',
+  // 0125/0130 (multi-venue slice 1) — the venue could not be resolved for this
+  // write, and a station beat in that could not be filed to any venue. Both are
+  // unreachable on a one-venue project; the mapping lands with the migration so
+  // the first two-venue day is not the day the operator shows errors.generic.
+  'VENUE_REQUIRED',
+  'STATION_UNKNOWN',
   // Desk payment (0106).
   'BOOKING_TAB_OPEN',
   'BOOKING_TAB_DONOR',

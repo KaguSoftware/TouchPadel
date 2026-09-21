@@ -17,8 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0121`
-  (`20260921000121_phone_digits_service_role.sql`); the next is `0122`.
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0138`
+  (`20260921000138_assistant_columns_catchup.sql`, multi-venue slice 1 = 0122–0138); the next is
+  `0139`.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).
@@ -42,8 +43,8 @@ is a line in that file.
   already existed.
 - No accidental overloads: the same gate replays every `create [or replace] function app.X(...)`
   and `drop function app.X(...)` (`scripts/lib/fn-signatures.mjs`) and fails when a name ends with
-  two signatures unless `fixtures/rpc-overloads.json` says so (`business_date`, `llm_record_usage`
-  today; multi-venue will add `is_degraded`, `venue_mode`). `tests/rpc-overloads.test.ts` proves
+  two signatures unless `fixtures/rpc-overloads.json` says so (`business_date`, `is_degraded`,
+  `llm_record_usage`, `venue_mode` since 0137). `tests/rpc-overloads.test.ts` proves
   the same list against `pg_proc` when Docker is up.
 - Enum widening (`alter type … add value`) is its own migration file, landing strictly before the
   file that uses the value. No migration does this yet; do not put the first one beside its first
@@ -79,9 +80,27 @@ is a line in that file.
   `fixtures/assistant-coverage.json`; `check:assistant-coverage` re-derives the inventory from the
   code and fails on a missing key (`scripts/check-assistant-coverage.mjs`, in `pnpm security`). A
   `table_read` table also gets `app.assistant_readable_columns` rows (`0109:94`).
+- **Venues (0122–0138, milestone 1 slice 1).** Every venue-scoped table carries `venue_id`
+  (`docs/design/multi-venue/slice-1-2026-09-21.md` has the three lists: scoped, FK-derived,
+  global). A new scoped insert either names `venue_id` or relies on the column default,
+  `app.current_venue()`, which resolves station → the caller's only `staff_venues` row → the
+  single active venue and otherwise raises `VENUE_REQUIRED` — it never guesses. Cron- and
+  service-written tables (`audit_log`, `degraded_periods`, `manager_alerts`, `telegram_*`,
+  `analytics_*`) default to `app.current_venue_or_default()` instead. A function referenced by a
+  column default, an RLS policy or a CHECK runs as the writing or reading role, so it is granted
+  to `anon`, `authenticated` AND `service_role` (the 0116→0121 lesson, repeated at 0125). Staff
+  read policies carry `venue_id = any(app.staff_venue_ids())`; the owner is global (no
+  `staff_venues` rows, sees every active venue). `venues` rows are written by migration only in
+  slice 1: a second ACTIVE venue on hosted before slice 3 makes every guest insert raise
+  `VENUE_REQUIRED`. A `service_role` insert while two venues are active must pass `venue_id`
+  (`tests/multi-venue.test.ts` builds and deactivates its own venue B for that reason). Never
+  read `venue_settings` unqualified in new code: it is one row through slice 1 and will not be
+  after slice 2.
 - Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104)
   and `venue_settings_public`; everything else in the `cafe_settings` registry
-  (`app.cafe_setting_specs`, latest 0105).
+  (`app.cafe_setting_specs`, latest 0105). `venue_settings` is still a single row (boolean PK)
+  through milestone 1 slice 1; it gained `venue_id` in 0126 but nothing may assume one row after
+  slice 2.
 
 ## RPCs
 

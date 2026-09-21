@@ -89,6 +89,8 @@ export function ex<T extends string>(
 }
 
 const NIL_UUID = '00000000-0000-4000-8000-000000000000';
+/** The default venue (migration 0122) — the only ACTIVE venue while this file runs. */
+const VENUE_A = 'c0000000-0000-4000-8000-000000000001';
 const FUTURE = new Date(Date.now() + 14 * 24 * 3600_000).toISOString();
 
 // Drop 7. A settled date range in the past: the reports and analytics family
@@ -2495,5 +2497,110 @@ export const matrix: MatrixRule[] = [
     args: { p_device_id: 'PROBE-RLS-NEVER' }, expect: OWNER_ONLY,
     note: '0118/C2: owner ends a stale till hold on degraded mode; an unknown id fails DEVICE_NOT_FOUND past the guard',
     drop: 12,
+  },
+
+  // ── drop 13 · Phase 2 milestone 1 slice 1 (multi-venue foundation) ─────────
+  // Only ONE venue is active while this file runs; venue B lives and dies
+  // inside tests/multi-venue.test.ts. Cross-venue isolation is proved there,
+  // with two real B principals — this declarative loop selects with no filter
+  // and could not tell A's rows from B's.
+  {
+    kind: 'select',
+    name: 'venues',
+    note: '0122: the venue list is public — the guest menu and the booking app name the venue before any identity exists, so venues_read admits everyone while is_active',
+    expect: ex<SelectExpectation>('rows'),
+    drop: 13,
+  },
+  {
+    kind: 'select',
+    name: 'staff_venues',
+    note: '0123: granted to authenticated only. A staffer reads their own membership (staff_venues_read_own); manager/owner read every row; a guest sees nothing rather than an error',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
+    }),
+    drop: 13,
+  },
+  {
+    kind: 'select',
+    name: 'stations',
+    note: '0124: the device registry is staff-only (stations_read_staff). ensureStationProbe plants TILL-PROBE-A at venue A so the five staff have a row to see',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
+    }),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'venues',
+    op: 'insert',
+    payload: { id: NIL_UUID, slug: 'matrix-probe', name_en: 'Matrix probe', name_ar: 'فحص المصفوفة' },
+    note: '0122: venues are migration-written. A second ACTIVE venue before slice 3 makes every guest insert raise VENUE_REQUIRED, so no client may create one',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'staff_venues',
+    op: 'insert',
+    payload: { staff_id: NIL_UUID, venue_id: VENUE_A, role: 'cashier' },
+    note: '0123: membership is written by the staff trigger and by app.register_staff, never by a client — granting yourself a venue is granting yourself its data',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'staff_venues',
+    op: 'update',
+    payload: { role: 'owner' },
+    note: '0123: the same argument for the role column — an editable membership row is a role escalation',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  {
+    kind: 'write',
+    name: 'stations',
+    op: 'insert',
+    payload: { id: 'MATRIX-PROBE-NEVER', venue_id: VENUE_A, is_till: false },
+    note: '0124/0130: a station registers itself through app.heartbeat, which resolves the venue and audits the registration; a direct insert would file a device wherever it liked',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 13,
+  },
+  // The venue resolvers. Every one is granted to anon as well as authenticated
+  // (0125/0123/0137): each is named by a column default, a policy or a CHECK,
+  // and those evaluate as the WRITING role — the 0121 trap. None of them
+  // answers about anything but the caller's own context.
+  {
+    kind: 'rpc', schema: 'app', name: 'current_venue',
+    note: '0125: resolves station -> single membership -> single active venue, else raises VENUE_REQUIRED. A refusal is still an execute: it is a business answer, not a permission one',
+    args: { p_station_id: null }, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'current_venue_or_default',
+    note: '0125: the cron/service_role shape — falls back to the default venue rather than raising, and is the default on the eight D tables',
+    args: {}, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_venue_ids',
+    note: '0123: the caller\'s own active memberships (every active venue for an owner). A guest gets an empty array, not a refusal',
+    args: {}, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'is_staff_at',
+    // VARIADIC roles staff_role[] after a named argument — same shape as the
+    // is_staff rule in drop 7: PostgREST needs the array under its real name.
+    note: '0123: "is the caller one of these roles AT this venue" — the venue axis of every policy written in 0136',
+    args: { p_venue: VENUE_A, roles: ['owner'] }, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'is_degraded',
+    note: '0137: the per-venue overload. The zero-arg form (drop 1) delegates through current_venue_or_default so the pre-identity guest menu can never be made to raise',
+    args: { p_venue: VENUE_A }, expect: SELF_ANON_OK, drop: 13,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'venue_mode',
+    note: '0137: the per-venue overload of the mode banner the guest app polls before sign-in',
+    args: { p_venue: VENUE_A }, expect: SELF_ANON_OK, drop: 13,
   },
 ];
