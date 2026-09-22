@@ -291,22 +291,3 @@ export function visiblePast(past: readonly BookingRow[], clearedAt: string | nul
   if (!Number.isFinite(cutoff)) return [...past];
   return past.filter((r) => new Date(r.end_at).getTime() > cutoff);
 }
-
-/**
- * Group size on Review (0090). The two sizes padel is actually played at are one
- * tap; "other" opens the full 1..8 list. Nothing is preselected: a prefilled 4
- * would be recorded as fact for every guest who never looked at the row.
- */
-export const PLAYER_OPTIONS = [2, 4] as const;
-export const PLAYERS_MIN = 1;
-export const PLAYERS_MAX = 8;
-/** Every count the server accepts, for the "other" list. */
-export const PLAYER_COUNTS: readonly number[] = Array.from(
-  { length: PLAYERS_MAX - PLAYERS_MIN + 1 },
-  (_, i) => PLAYERS_MIN + i,
-);
-
-/** True for an integer the server's check constraint accepts (1..8). */
-export function isPlayers(n: unknown): n is number {
-  return typeof n === 'number' && Number.isInteger(n) && n >= PLAYERS_MIN && n <= PLAYERS_MAX;
-}

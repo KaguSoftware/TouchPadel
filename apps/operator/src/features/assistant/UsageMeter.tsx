@@ -19,9 +19,20 @@ export interface MeterSlot {
 
 const iso = (s: string) => `⁨${s}⁩`;
 
+/** Does the slot have anything to show? The meter skips empty slots. */
+export function slotHasUsage(slot: MeterSlot): boolean {
+  return totalTokens(slot.tokens) > 0 || (slot.costMicros ?? 0) > 0;
+}
+
+/** `20.1k tokens · <$0.01`, the same figure the slot prints, for a folded header. */
+export function slotTotal(slot: MeterSlot, pricing: PricingMap | null | undefined, fallbackMicrosPerMtok: number, tr: ReturnType<typeof useLocale>['tr']): string {
+  const micros = slot.costMicros ?? priceFor({ model: slot.model ?? '', ...slot.tokens }, pricing, fallbackMicrosPerMtok);
+  return `${tr('ws.owner.assistant.meter.tokens', { tokens: iso(formatTokens(totalTokens(slot.tokens))) })} · ${iso(formatUsd(micros))}`;
+}
+
 export function UsageMeter({ slots, pricing, fallbackMicrosPerMtok, compact, hideLabels }: { slots: readonly MeterSlot[]; pricing: PricingMap | null | undefined; fallbackMicrosPerMtok: number; compact?: boolean; /** No slot title (a Disclosure header already names the one slot). */ hideLabels?: boolean }) {
   const { tr, locale } = useLocale();
-  const shown = slots.filter((s) => totalTokens(s.tokens) > 0 || (s.costMicros ?? 0) > 0);
+  const shown = slots.filter(slotHasUsage);
   if (shown.length === 0) return null;
   return (
     <dl

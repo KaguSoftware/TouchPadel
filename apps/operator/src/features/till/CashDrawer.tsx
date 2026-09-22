@@ -15,6 +15,9 @@
  *           cashier gets one sentence instead: a greyed button plus a
  *           four-line "not allowed for your role" box offered them nothing
  *           they could do, on a screen they open every shift.
+ *   cashier  sees the Open drawer action and nothing else: no log, no float,
+ *           no day close (can.viewDrawerLog). The rest is for
+ *           whoever counts the drawer.
  *
  * The subtitle is the day this drawer belongs to ("Day opened 5:09 PM"), not
  * a description of the screen. A cash payment names the tab it was for, so
@@ -127,6 +130,7 @@ async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: str
 export function CashDrawerScreen() {
   const { tr, locale } = useLocale();
   const can = usePermissions();
+  const seesLog = can.viewDrawerLog;
   const queryClient = useQueryClient();
   const [reasonOpen, setReasonOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -137,7 +141,7 @@ export function CashDrawerScreen() {
   const day = dayQ.data ?? null;
   const eventsQ = useQuery({
     queryKey: ['drawerEvents', day?.id ?? null],
-    enabled: Boolean(day),
+    enabled: Boolean(day) && seesLog,
     queryFn: () => fetchDrawerEvents(day!.id, day!.opened_at, tr('op.till.table'), tr('op.till.forReservation')),
     refetchInterval: 30_000,
   });
@@ -207,6 +211,60 @@ export function CashDrawerScreen() {
         ),
     },
   ];
+
+  const reasonPrompt = reasonOpen && (
+    <ReasonCodePrompt action={tr('ws.cashier.drawer.openDrawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={error} withNote={false} onSubmit={(code) => void recordOpen(code)} onCancel={() => setReasonOpen(false)}>
+      <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
+    </ReasonCodePrompt>
+  );
+
+  /*
+   * A cashier gets the one thing they do here: record that they opened the
+   * drawer by hand, and why. The log of every cash payment is for whoever
+   * counts the drawer (viewDrawerLog), and on the cashier's screen it was a
+   * page of other people's money to read past to reach the button.
+   */
+  if (!seesLog) {
+    return (
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', maxInlineSize: 'var(--tp-measure-form)' }}>
+        <PageHeader
+          title={tr('ws.cashier.drawer.title')}
+          subtitle={day ? tr('ws.cashier.drawer.dayOpenedAt', { time: formatTime(new Date(day.opened_at), locale) }) : undefined}
+        />
+        {recorded && <MessagePresenter tone="success" icon="drawer" message={tr('ws.cashier.drawer.recorded')} />}
+        <AsyncStateWrapper
+          status={dayQ.isError && dayQ.data === undefined ? 'error' : dayQ.data === undefined ? 'loading' : 'ready'}
+          onRetry={() => void dayQ.refetch()}
+          error={dayQ.error}
+          compact
+        >
+          {!day ? (
+            <EmptyState icon="sun" title={tr('ws.cashier.drawer.noDay')} body={tr('ws.cashier.drawer.noDayBody')} />
+          ) : (
+            <Panel>
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'start' }}>
+                <p style={muted}>{tr('ws.cashier.drawer.openHint')}</p>
+                <Button
+                  kind="primary"
+                  size="lg"
+                  icon="drawer"
+                  busy={busy}
+                  onClick={() => {
+                    setRecorded(false);
+                    setReasonOpen(true);
+                  }}
+                >
+                  {tr('ws.cashier.drawer.openDrawer')}
+                </Button>
+              </div>
+            </Panel>
+          )}
+        </AsyncStateWrapper>
+        {!reasonOpen && <ErrorText error={error} />}
+        {reasonPrompt}
+      </div>
+    );
+  }
 
   return (
     /*
@@ -304,11 +362,7 @@ export function CashDrawerScreen() {
         </AsyncStateWrapper>
       </div>
 
-      {reasonOpen && (
-        <ReasonCodePrompt action={tr('ws.cashier.drawer.openDrawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={error} withNote={false} onSubmit={(code) => void recordOpen(code)} onCancel={() => setReasonOpen(false)}>
-          <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
-        </ReasonCodePrompt>
-      )}
+      {reasonPrompt}
     </div>
   );
 }

@@ -5,6 +5,7 @@
  * phone come back as codes and land on the field. States: ready · busy · error.
  */
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { callEdge, EdgeError, type EdgeFunctionName } from '../../../lib/edge';
 import { useToast } from '../../../components/toast';
@@ -52,6 +53,7 @@ export function CustomerCreateScreen() {
   const [email, setEmail] = useState('');
   const [lang, setLang] = useState<Lang>(locale);
   const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>(null);
   const [fieldError, setFieldError] = useState<FieldError | null>(null);
   const [touched, setTouched] = useState(false);
@@ -70,6 +72,8 @@ export function CustomerCreateScreen() {
       const body: CreateBody = { fullName: fullName.trim(), phone: phone.trim(), preferredLang: lang, ...(email.trim() ? { email: email.trim() } : {}) };
       const res = await callEdge<CreateBody, { id: string }>(DESK_CUSTOMER_CREATE, body, { ttlMs: 0 });
       toast.ok(tr('ws.courtDesk.createCustomer.created'));
+      // The Customers list is kept in memory; the new record belongs in it now.
+      void queryClient.invalidateQueries({ queryKey: ['customerDirectory'] });
       void navigate({ to: '/desk/customers/$id', params: { id: res.id } });
     } catch (e) {
       const fe = fieldErrorOf(e);

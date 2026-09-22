@@ -60,8 +60,6 @@ describe('parseCourtsSummary', () => {
         mobileBookings: 12,
         deskBookings: 6,
         avgDurationMin: 75,
-        playersKnown: 12,
-        playersAvg: 3.4,
       },
       {
         courtId: COURT_B,
@@ -83,8 +81,6 @@ describe('parseCourtsSummary', () => {
         mobileBookings: 18,
         deskBookings: 12,
         avgDurationMin: 75,
-        playersKnown: 0,
-        playersAvg: null,
       },
     ]);
     expect(s.byDay).toHaveLength(7);
@@ -116,7 +112,7 @@ describe('parseCourtsSummary', () => {
   it('keeps a null rate null and never turns it into 0', () => {
     const s = parseCourtsSummary({
       kpis: { bookings: 3, occupancy_pct: null, rev_per_open_hour_iqd: undefined, cancellation_rate_pct: 'abc', no_show_rate_pct: '12.5' },
-      per_court: [{ court_id: COURT_A, occupancy_pct: null, players_avg: null, avg_duration_min: 'x' }],
+      per_court: [{ court_id: COURT_A, occupancy_pct: null, avg_duration_min: 'x' }],
     });
     expect(s.kpis.bookings).toBe(3);
     expect(s.kpis.occupancyPct).toBeNull();
@@ -125,7 +121,6 @@ describe('parseCourtsSummary', () => {
     // A numeric string is still a number.
     expect(s.kpis.noShowRatePct).toBe(12.5);
     expect(s.perCourt[0]?.occupancyPct).toBeNull();
-    expect(s.perCourt[0]?.playersAvg).toBeNull();
     expect(s.perCourt[0]?.avgDurationMin).toBeNull();
     // A count that is missing or unreadable is 0, never NaN.
     expect(s.perCourt[0]?.bookings).toBe(0);
@@ -151,13 +146,6 @@ describe('parseCourtsDemand', () => {
     expect(d.createdHour).toEqual([{ hour: 20, bookings: 10 }]);
     expect(d.createdDow).toEqual([{ dow: 4, bookings: 12 }]);
     expect(d.holdFunnel).toEqual({ holdsEnded: 5, converted: 25, pending: 1, conversionPct: 83.3 });
-    expect(d.players.known).toBe(20);
-    expect(d.players.unknown).toBe(28);
-    expect(d.players.avg).toBe(3.4);
-    expect(d.playersByCourt).toEqual([
-      { courtId: COURT_A, players: 4, bookings: 12 },
-      { courtId: COURT_B, players: null, bookings: 30 },
-    ]);
     expect(d.series).toEqual({ seriesBookings: 8, singleBookings: 40, seriesPct: 16.7, seriesRevenueIqd: 200000 });
   });
 
@@ -172,12 +160,6 @@ describe('parseCourtsDemand', () => {
       { bucket: '3_7d', bookings: 0, mobile: 0, desk: 0 },
       { bucket: '7d_plus', bookings: 0, mobile: 0, desk: 0 },
     ]);
-  });
-
-  it('sorts players rows ascending with the unknown row last', () => {
-    const d = parseCourtsDemand(demandJson);
-    expect(d.players.rows.map((r) => r.players)).toEqual([2, 4, null]);
-    expect(d.players.rows[2]).toEqual({ players: null, bookings: 28, revenueIqd: 700000, avgDurationMin: 75, mobile: 18, desk: 10 });
   });
 
   it('deduplicates sources, keeping the first row per channel', () => {
@@ -200,8 +182,6 @@ describe('parseCourtsDemand', () => {
     expect(d.createdDow).toEqual([]);
     expect(d.sources).toEqual([]);
     expect(d.holdFunnel).toEqual({ holdsEnded: 0, converted: 0, pending: 0, conversionPct: null });
-    expect(d.players).toEqual({ known: 0, unknown: 0, avg: null, rows: [] });
-    expect(d.playersByCourt).toEqual([]);
     expect(d.series).toEqual({ seriesBookings: 0, singleBookings: 0, seriesPct: null, seriesRevenueIqd: 0 });
   });
 });
@@ -230,7 +210,6 @@ describe('parseCourtsEndings', () => {
       { key: 'returning', n: 3, bookingsTotal: 24 },
       { key: 'unidentified', n: 2, bookingsTotal: 10 },
     ]);
-    expect(e.cancellations.byPlayers).toEqual([]);
     expect(e.noShows.total).toBe(4);
     expect(e.noShows.revenueIqd).toBe(100000);
     // No-shows have no notice or actor: the cancellation-only fields are empty, not missing.
@@ -240,10 +219,6 @@ describe('parseCourtsEndings', () => {
     expect(e.noShows.byNotice).toEqual([]);
     expect(e.noShows.cancelledInPeriod).toEqual({ n: 0, revenueIqd: 0 });
     expect(e.noShows.resold).toEqual({ cancelled: 0, resoldN: 0, recoveredIqd: 0, emptyN: 0, lostIqd: 0 });
-    expect(e.noShows.byPlayers).toEqual([
-      { key: '4', n: 2, bookingsTotal: 12 },
-      { key: '', n: 2, bookingsTotal: 28 },
-    ]);
   });
 
   it('keys by_court rows by the court id and carries both names', () => {
@@ -289,7 +264,6 @@ describe('parseCourtsEndings', () => {
       expect(g.byHour).toEqual([]);
       expect(g.byCourt).toEqual([]);
       expect(g.byActor).toEqual([]);
-      expect(g.byPlayers).toEqual([]);
       expect(g.byNotice).toEqual([]);
       expect(g.resold.cancelled).toBe(0);
     }
@@ -418,11 +392,7 @@ describe('parseCourtsCafe', () => {
       { dow: 5, hour: 20, liveBookings: 2, linkedBookings: 1 },
       { dow: 1, hour: 18, liveBookings: 1, linkedBookings: 0 },
     ]);
-    // Sorted: known group sizes ascending, unknown last; durations ascending.
-    expect(c.byPlayers).toEqual([
-      { players: 4, bookings: 12, linked: 6, cafeIqd: 180000 },
-      { players: null, bookings: 28, linked: 6, cafeIqd: 150000 },
-    ]);
+    // Durations ascending.
     expect(c.byDuration).toEqual([
       { durationMin: 60, bookings: 28, linked: 7, cafeIqd: 180000 },
       { durationMin: 90, bookings: 20, linked: 8, cafeIqd: 240000 },
@@ -462,7 +432,6 @@ describe('parseCourtsCafe', () => {
     expect(c.orderTiming.medianOffsetMin).toBeNull();
     expect(c.orderTiming.buckets).toEqual(TIMING_BUCKETS.map((bucket) => ({ bucket, orders: 0, revenueIqd: 0 })));
     expect(c.attachCells).toEqual([]);
-    expect(c.byPlayers).toEqual([]);
     expect(c.byDuration).toEqual([]);
   });
 });

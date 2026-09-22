@@ -132,6 +132,26 @@ export function ReservationPicker({
   );
 }
 
+/**
+ * app.open_tab through the queue; resolves to the id the till selects. Online
+ * that is the server's tab id. Queued offline the tab.open is durably on disk
+ * and replays on reconnect, and its key is the tab's local identity until the
+ * server id exists. The floor's tap-to-open and this dialog share it.
+ */
+export async function openTabOn(
+  anchor: { tableId?: string; label?: string; reservationId?: string },
+  tableNumber: string | null,
+): Promise<string> {
+  const outcome = await mutate<{ tab_id: string }>('tab.open', {
+    ...(anchor.tableId ? { tableId: anchor.tableId } : {}),
+    ...(anchor.label ? { label: anchor.label } : {}),
+    ...(anchor.reservationId ? { reservationId: anchor.reservationId } : {}),
+  });
+  if (outcome.result) return outcome.result.tab_id;
+  addOfflineTab({ idemKey: outcome.idempotencyKey, localId: outcome.localId, label: anchor.label ?? null, tableNumber });
+  return `${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`;
+}
+
 export function NewTabDialog({
   onClose,
   onOpened,
@@ -177,26 +197,12 @@ export function NewTabDialog({
     setBusy(true);
     setError(null);
     try {
-      const outcome = await mutate<{ tab_id: string }>('tab.open', {
-        ...(tableId ? { tableId } : {}),
-        ...(trimmedLabel ? { label: trimmedLabel } : {}),
-        ...(reservationId ? { reservationId } : {}),
-      });
-      if (outcome.result) {
-        onOpened(outcome.result.tab_id);
-      } else {
-        // Queued offline: durably on disk, replays on reconnect. Its tab.open
-        // key is its local identity until the server id exists.
-        addOfflineTab({
-          idemKey: outcome.idempotencyKey,
-          localId: outcome.localId,
-          label: trimmedLabel || null,
-          tableNumber: tableId
-            ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null)
-            : null,
-        });
-        onOpened(`${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`);
-      }
+      onOpened(
+        await openTabOn(
+          { tableId: tableId || undefined, label: trimmedLabel || undefined, reservationId: reservationId || undefined },
+          tableId ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null) : null,
+        ),
+      );
     } catch (e) {
       setError(e);
     } finally {

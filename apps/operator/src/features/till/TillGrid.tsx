@@ -162,7 +162,7 @@ export function MenuItemGrid({
             : state === 'blockedByStock'
               ? tr('ws.cashier.till.tile.blockedByStockHint')
               : state === 'noTab'
-                ? tr('ws.cashier.till.noActiveTabBody')
+                ? tr('ws.cashier.till.tile.noTab')
                 : quick
                   ? tr('ws.cashier.till.tile.quick')
                   : tr('ws.cashier.till.tile.sheet');

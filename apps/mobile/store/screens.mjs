@@ -426,7 +426,6 @@ function summaryGrid(rows, { iconColor, labelColor, valueColor }) {
 }
 
 function screenReview(t) {
-  const playersChip = (label, on) => `<div class="pchip ${on ? 'on' : ''}">${label}</div>`;
   return `
 <div class="scr bg">
   ${statusBar(t)}
@@ -458,15 +457,6 @@ function screenReview(t) {
     <div class="desk">
       <div class="desk-t">${I.card(14, c.gtext)}<span>${t.payAtDeskTitle}</span></div>
       <div class="desk-b">${t.payAtDeskBody}</div>
-    </div>
-
-    <div class="card players">
-      <div class="pl-head"><span class="pl-t">${t.playersTitle}</span><span class="pl-o">${t.playersOptional}</span></div>
-      <div class="pl-row">
-        ${playersChip('2', t.players === 2)}
-        ${playersChip('4', t.players === 4)}
-        ${playersChip(t.playersOther, false)}
-      </div>
     </div>
 
     <div class="policy">${t.policyLine}</div>
@@ -780,14 +770,6 @@ export const screenCss = `
 .desk-t{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px;font-weight:800;
   letter-spacing:calc(var(--k) * .6px);text-transform:uppercase;color:${c.gtext};}
 .desk-b{font-size:12.5px;line-height:19px;color:${c.gtext2};}
-.players{margin-top:12px;}
-.pl-head{display:flex;align-items:baseline;gap:6px;}
-.pl-t{font-size:11px;font-weight:700;letter-spacing:calc(var(--k) * .66px);text-transform:uppercase;color:${c.mut};}
-.pl-o{font-size:11px;font-weight:400;color:${c.fnt};}
-.pl-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
-.pchip{min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;padding-inline:14px;
-  border-radius:99px;background:${c.sub};border:1px solid ${c.line};font-size:13px;font-weight:700;color:${c.mut};}
-.pchip.on{background:${brand.blue};border-color:${brand.blue};color:${brand.white};}
 .policy{margin-top:12px;padding-inline:4px;font-size:11.5px;line-height:18px;color:${c.fnt};}
 .rv-dock{position:absolute;left:0;right:0;bottom:0;padding:12px 16px ${20 + BOTTOM}px;
   background:linear-gradient(180deg,rgba(28,53,94,0) 0%,${c.bg} 40%);}

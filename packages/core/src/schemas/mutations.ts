@@ -199,7 +199,21 @@ export const paymentRecordPayloadSchema = z
 
 export type PaymentRecordPayload = z.infer<typeof paymentRecordPayloadSchema>;
 
-export const reservationCreatePayloadSchema = z
+/**
+ * 0143 dropped the group size (padel is always four). A payload queued by a
+ * till on an older build may still carry `players`; it is removed here before
+ * the strict shape check, so that row drains instead of being refused. Every
+ * other unknown key (a price, a rate id) is still refused by `.strict()`.
+ */
+function dropLegacyPlayers(raw: unknown): unknown {
+  if (raw !== null && typeof raw === 'object' && !Array.isArray(raw) && 'players' in raw) {
+    const { players: _legacy, ...rest } = raw as Record<string, unknown>;
+    return rest;
+  }
+  return raw;
+}
+
+const reservationCreateShape = z
   .object({
     clientRef: clientRefSchema,
     courtId: uuid,
@@ -210,8 +224,6 @@ export const reservationCreatePayloadSchema = z
     guestName: z.string().min(1).max(200).optional(),
     guestPhone: z.string().min(3).max(30).optional(),
     notes: z.string().max(1000).optional(),
-    /** Group size (0090): optional, 1..8; absent = unknown, never a guessed default. */
-    players: z.number().int().min(1).max(8).optional(),
     // NOTE: no rate_rule_id / price_iqd — the server prices the slot and stamps provenance.
   })
   .strict()
@@ -231,6 +243,8 @@ export const reservationCreatePayloadSchema = z
       });
     }
   });
+
+export const reservationCreatePayloadSchema = z.preprocess(dropLegacyPlayers, reservationCreateShape);
 
 export type ReservationCreatePayload = z.infer<typeof reservationCreatePayloadSchema>;
 

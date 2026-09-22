@@ -37,6 +37,11 @@ export function sortByStart<T extends { start_at: string; court_id: string }>(ro
   return [...rows].sort((a, b) => a.start_at.localeCompare(b.start_at) || a.court_id.localeCompare(b.court_id));
 }
 
+/** Latest start first, courts still in order within a start: the day's list reads newest to oldest. */
+export function sortByStartDesc<T extends { start_at: string; court_id: string }>(rows: readonly T[]): T[] {
+  return [...rows].sort((a, b) => b.start_at.localeCompare(a.start_at) || a.court_id.localeCompare(b.court_id));
+}
+
 export interface TimeGroup<T> {
   /** ISO instant of the first booking in the group — the caller formats it. */
   startAt: string;

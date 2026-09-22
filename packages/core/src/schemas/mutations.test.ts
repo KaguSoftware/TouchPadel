@@ -477,18 +477,16 @@ describe('reservation.create payload', () => {
     ).toBe(true);
   });
 
-  it('players is optional and bounded 1..8 (0090)', () => {
-    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), players: 4 }).success).toBe(true);
-    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), players: 1 }).success).toBe(true);
-    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), players: 8 }).success).toBe(true);
-    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), players: 0 }).success).toBe(false);
-    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), players: 9 }).success).toBe(false);
-    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), players: 2.5 }).success).toBe(
-      false,
-    );
-    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), players: null }).success).toBe(
-      false,
-    );
+  it('a legacy players field from an older till is stripped, never refused (0143)', () => {
+    for (const players of [4, 1, 0, 9, 2.5, null, 'four']) {
+      const r = reservationCreatePayloadSchema.safeParse({ ...valid(), players });
+      expect(r.success).toBe(true);
+      expect(r.success && 'players' in r.data).toBe(false);
+    }
+    // Stripping players does not loosen the shape: other unknown keys still fail.
+    expect(
+      reservationCreatePayloadSchema.safeParse({ ...valid(), players: 4, extra: 1 }).success,
+    ).toBe(false);
   });
 
   it('refuses price/rate fields — the server prices the slot', () => {

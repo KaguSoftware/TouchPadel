@@ -1,17 +1,22 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { LocaleProvider } from '../../lib/i18n';
 import { Message, parseBlocks } from './Message';
 
 // Sources rows link to the page the numbers live on; the router is not
-// mounted in a unit test, so Link is a plain anchor here.
+// mounted in a unit test, so Link is a plain anchor here. The Go to buttons
+// ask the router which paths are pages and navigate through it.
+const router = vi.hoisted(() => ({
+  current: undefined as undefined | { routesByPath: Record<string, unknown>; navigate: (opts: { to: string }) => Promise<void> },
+}));
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children, search, ...rest }: { to: string; children: ReactNode; search?: unknown }) => (
     <a href={to} data-search={JSON.stringify(search ?? null)} {...rest}>
       {children}
     </a>
   ),
+  useRouter: () => router.current,
 }));
 
 function renderIn(ui: ReactNode) {
@@ -105,6 +110,49 @@ describe('Message', () => {
   it('shows the error sentence for a failed turn', () => {
     renderIn(<Message role="assistant" text="" error={{ code: 'LLM_MONTHLY_CAP', message: 'cap' }} />);
     expect(screen.getByRole('alert').textContent).toMatch(/spending cap is reached/);
+  });
+});
+
+describe('Message page links', () => {
+  afterEach(() => {
+    router.current = undefined;
+  });
+
+  function mountRouter() {
+    const navigate = vi.fn(async () => {});
+    // '/desk/' is how the router keys an index route.
+    router.current = { routesByPath: { '/admin/day-close': {}, '/stock/waste': {}, '/desk/': {}, '/desk/customers/$id': {} }, navigate };
+    return navigate;
+  }
+
+  it('turns each page route the answer names into a Go to button that navigates and closes the drawer', () => {
+    const navigate = mountRouter();
+    const onNavigate = vi.fn();
+    renderIn(<Message role="assistant" text="Close the day on /admin/day-close. Waste is logged at `/stock/waste`, and /admin/day-close again." onNavigate={onNavigate} />);
+    const buttons = [...document.querySelectorAll('[data-page-links] button')];
+    expect(buttons.map((b) => b.getAttribute('title'))).toEqual(['/admin/day-close', '/stock/waste']);
+    // A page with a rail row is named by its row.
+    expect(buttons[0]!.textContent).toBe('Go to Day close');
+    fireEvent.click(buttons[1]!);
+    expect(navigate).toHaveBeenCalledWith({ to: '/stock/waste' });
+    expect(onNavigate).toHaveBeenCalledOnce();
+  });
+
+  it('skips paths that are not pages, URLs, dates and dynamic routes', () => {
+    mountRouter();
+    renderIn(<Message role="assistant" text="See /made/up, https://example.com/stock/waste, 2026/09/22 and /desk/customers/$id. The desk is /desk." />);
+    const buttons = [...document.querySelectorAll('[data-page-links] button')];
+    expect(buttons.map((b) => b.getAttribute('title'))).toEqual(['/desk']);
+  });
+
+  it('shows no buttons while the answer streams or outside a router', () => {
+    mountRouter();
+    renderIn(<Message role="assistant" text="Open /stock/waste." streaming />);
+    expect(document.querySelector('[data-page-links]')).toBeNull();
+    cleanup();
+    router.current = undefined;
+    renderIn(<Message role="assistant" text="Open /stock/waste." />);
+    expect(document.querySelector('[data-page-links]')).toBeNull();
   });
 });
 

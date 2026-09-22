@@ -60,7 +60,7 @@ The panel and `report_compare` (migrations 0068, 0103) compare with `previousPer
 
 ## Evidence floors for analytics claims
 
-A figure is stated only when it rests on enough evidence (`packages/core/src/analytics/insightsContract.ts`): a rate is shown as a percentage only on at least 20 booked slots (otherwise "n of N"), a heat-map cell needs 4 open days, guest mix needs 15 identities, a cafe attach rate needs 10 live bookings, a players-per-booking average needs a known count on half the bookings, an ending cluster (cancellations, no-shows) needs 8 endings, and a cafe item claim needs 5 units sold or 5 views. Below the floor the assistant says the evidence is thin instead of quoting the number.
+A figure is stated only when it rests on enough evidence (`packages/core/src/analytics/insightsContract.ts`): a rate is shown as a percentage only on at least 20 booked slots (otherwise "n of N"), a heat-map cell needs 4 open days, guest mix needs 15 identities, a cafe attach rate needs 10 live bookings, an ending cluster (cancellations, no-shows) needs 8 endings, and a cafe item claim needs 5 units sold or 5 views. Below the floor the assistant says the evidence is thin instead of quoting the number.
 
 ## Day close: open tabs and unsynced tills block it, unpaid bookings warn
 

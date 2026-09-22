@@ -61,7 +61,6 @@ export const DATA_KEYS = new Set([
   'vDate',
   'vTimeRange',
   'vPrice',
-  'players',
   'heroWhen',
   'heroCount',
   'bookings',
@@ -143,10 +142,6 @@ const tEn = {
   payAtDeskTitle: 'Pay at the desk',
   payAtDeskBody:
     'Your court is reserved now. You pay at reception when you arrive — there is no online payment in this app.',
-  playersTitle: 'Players',
-  playersOptional: 'Optional',
-  playersOther: 'Other',
-  players: 4,
   policyLine:
     'Free cancellation until 4 hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
   reserveCta: 'Reserve court',
@@ -269,10 +264,6 @@ const tAr = {
   payAtDeskTitle: 'الدفع عند الاستقبال',
   payAtDeskBody:
     'ملعبك محجوز الآن. تدفع في الاستقبال عند وصولك — لا يوجد دفع إلكتروني في هذا التطبيق.',
-  playersTitle: 'اللاعبون',
-  playersOptional: 'اختياري',
-  playersOther: 'أخرى',
-  players: 4,
   policyLine:
     'إلغاء مجاني حتى 4 ساعات قبل موعدك. بعد ذلك تُدار التغييرات عبر الاستقبال. قد يؤدي تكرار عدم الحضور إلى تقييد الحجز من التطبيق.',
   reserveCta: 'حجز الملعب',

@@ -184,7 +184,7 @@ export const QK = {
   conversations: ['assistant', 'conversations'] as const,
   conversation: (id: string) => ['assistant', 'conversation', id] as const,
   /** Pack sizes for every scope over one range (the dry-run call). */
-  packs: (range: string) => ['assistant', 'packs', range] as const,
+  start: (scopes: string, model: string) => ['assistant', 'start', scopes, model] as const,
   messages: (id: string) => ['assistant', 'messages', id] as const,
   job: (id: string) => ['assistant', 'job', id] as const,
   /** Every job of one conversation — the thread needs the running ones. */
@@ -234,7 +234,8 @@ export type AssistantRpcName =
   | 'assistant_archive_conversation'
   | 'assistant_models'
   | 'assistant_set_model'
-  | 'assistant_set_default_model';
+  | 'assistant_set_default_model'
+  | 'assistant_set_monthly_cap';
 
 /** `appRpc` for the assistant RPCs until `types.gen.ts` carries them. */
 export async function assistantRpc<T>(fn: AssistantRpcName, args: Record<string, unknown> = {}): Promise<T> {
@@ -326,6 +327,11 @@ export function setDefaultModel(model: string): Promise<void> {
   return assistantRpc<void>('assistant_set_default_model', { p_model: model });
 }
 
+/** The monthly spend cap in USD micros (0145). Refused with INVALID_ARGUMENT outside (0, USD 10,000]. */
+export function setMonthlyCap(capMicros: number): Promise<{ monthly_cap_micros: number; previous_cap_micros: number }> {
+  return assistantRpc('assistant_set_monthly_cap', { p_cap_micros: capMicros });
+}
+
 export function acceptJob(jobId: string, mode: JobMode): Promise<unknown> {
   return callEdge('assistant-job', { action: 'accept', job_id: jobId, mode }, { ttlMs: 0 });
 }
@@ -393,18 +399,34 @@ export interface PackSize {
 }
 
 /**
- * The size of each scope's context pack for the range, without a model call.
- * The default 30 s edge cache is right here: toggling a box back and forth
- * must not re-run the pack tools.
+ * What any question in the chat sends before a tool runs: system prompt, tool
+ * list and the first turn with the checked scopes' packs. `exact` is false
+ * where the vendor has no count endpoint (Groq), so the figure is bytes/4.
  */
-export async function packSizes(scopes: readonly AssistantScope[], range: DateRange | undefined, signal?: AbortSignal): Promise<PackSize[]> {
-  if (scopes.length === 0) return [];
-  const res = await callEdge<Record<string, unknown>, { packs?: PackSize[] }>(
+export interface StartSize {
+  tokens: number;
+  exact: boolean;
+  model: string;
+}
+
+/**
+ * The start size of a question for these scopes and model (null = the venue
+ * default), without a model call. Null `start` when the model's vendor has no
+ * key. The default 30 s edge cache is right here: toggling a box back and
+ * forth must not re-run the pack tools.
+ */
+export async function startSize(
+  scopes: readonly AssistantScope[],
+  model: string | null,
+  range: DateRange | undefined,
+  signal?: AbortSignal,
+): Promise<{ start: StartSize | null; packs: PackSize[] }> {
+  const res = await callEdge<Record<string, unknown>, { start?: StartSize | null; packs?: PackSize[] }>(
     'assistant-chat',
-    { conversation_id: null, text: '', scopes: [...scopes], range, dry_run: true },
+    { conversation_id: null, text: '', scopes: [...scopes], range, dry_run: true, ...(model ? { model } : {}) },
     { signal },
   );
-  return res.packs ?? [];
+  return { start: res.start ?? null, packs: res.packs ?? [] };
 }
 
 // ---------------------------------------------------------------------------

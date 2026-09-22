@@ -6,7 +6,7 @@
  *
  * `supabase functions serve` runs here without ANTHROPIC_API_KEY, so a real
  * question answers 503 NOT_CONFIGURED and the thread must show the i18n
- * sentence for it — nothing is asked or billed. The `dry_run` pack sizing and
+ * sentence for it — nothing is asked or billed. The `dry_run` start sizing and
  * the usage/models RPCs need no key, so those are asserted for real.
  *
  * Selectors are roles, labels and the app's own data-testids; the strings
@@ -26,8 +26,9 @@ const EN = {
   contextToggle: /^What this chat may read/,
   scopeCafe: /^Cafe\b/,
   scopeHowto: /^Pages and how-to\b/,
-  // "Cafe ≈ 6.7k tokens" once the dry run has answered.
-  cafeWithPack: /^Cafe\s*≈\s*[\d.]+[kM]?\s*tokens$/,
+  // The one start line under the boxes once the dry run has answered: a size
+  // where the model's vendor has a key, the no-key sentence where it has none.
+  startLine: /^(Every question starts at|The starting size cannot be measured)/,
   presetJustHelp: 'Just help',
   presetEverything: 'Everything',
   ask: 'Ask',
@@ -52,7 +53,7 @@ const AR = {
   contextToggle: /^ما يمكن لهذه المحادثة/,
   scopeCafe: /^المقهى/,
   scopeHowto: /^الصفحات وطريقة الاستخدام/,
-  cafeWithPack: /^المقهى\s*≈\s*[\d.]+[kM]?\s*رمز$/,
+  startLine: /^(كل سؤال يبدأ|تعذّر قياس حجم البداية)/,
   ask: 'اسأل',
   stop: 'إيقاف',
   thisMessage: 'هذه الرسالة',
@@ -102,14 +103,14 @@ async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerT
   await page.getByRole('button', { name: s.railButton }).click();
   const dialog = page.getByRole('dialog', { name: s.drawerTitle });
   await expect(dialog).toBeVisible();
-  // The drawer starts with the strip folded behind "Context · n · ≈ … tokens".
+  // The drawer starts with the strip folded behind "Context · n · starts at … tokens".
   const toggle = dialog.getByRole('button', { name: s.contextToggle });
   if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
   return dialog;
 }
 
 test.describe('owner assistant', () => {
-  test('rail button opens the drawer with Cafe + how-to pre-checked and the Cafe pack size', async ({ page }) => {
+  test('rail button opens the drawer with Cafe + how-to pre-checked and the start size', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
@@ -122,8 +123,9 @@ test.describe('owner assistant', () => {
     await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
     expect(await dialog.getByRole('checkbox').count()).toBeGreaterThan(2);
 
-    // The dry run answers a size for Cafe (the label carries "≈ … tokens").
-    await expect(dialog.getByRole('checkbox', { name: EN.cafeWithPack })).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
+    // The dry run answers one start line; the boxes carry no size of their own.
+    await expect(dialog.getByText(EN.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
+    await expect(dialog.getByRole('checkbox', { name: /tokens/ })).toHaveCount(0);
   });
 
   test('Ctrl/⌘ K opens and closes the drawer', async ({ page }) => {
@@ -221,7 +223,8 @@ test.describe('owner assistant', () => {
 
   test('cashier: no rail button, no shortcut, /assistant is refused', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({ timeout: 30_000 });
+    // The till lands on the floor plan.
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({ timeout: 30_000 });
 
     await expect(page.getByRole('button', { name: EN.railButton })).toHaveCount(0);
     await page.keyboard.press('ControlOrMeta+k');
@@ -255,7 +258,7 @@ test.describe('owner assistant @ar', () => {
     await expect(dialog.getByRole('checkbox', { name: AR.scopeCafe })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { name: AR.scopeHowto })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
-    await expect(dialog.getByRole('checkbox', { name: AR.cafeWithPack })).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
+    await expect(dialog.getByText(AR.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
   });
 
   test('a question with no key shows the Arabic not-configured sentence', async ({ page }) => {

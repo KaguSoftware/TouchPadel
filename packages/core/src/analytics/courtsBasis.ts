@@ -14,7 +14,6 @@ import {
   MIN_CELL_OPEN_DAYS,
   MIN_ENDING_N,
   MIN_IDENTITIES,
-  MIN_PLAYERS_KNOWN_SHARE,
   MIN_RATE_DENOM,
 } from './insightsContract';
 import { type FindingBasis, MIN_WEEKDAY_DAYS, THIN_PERIOD_DAYS } from './insightsText';
@@ -22,7 +21,7 @@ import { datesInRange, type DateRange } from './range';
 
 // The floors live in ./insightsContract.ts (shared byte-for-byte with the edge
 // function) and are re-exported here so every court reader keeps one import.
-export { MIN_ATTACH_BOOKINGS, MIN_CELL_OPEN_DAYS, MIN_ENDING_N, MIN_IDENTITIES, MIN_PLAYERS_KNOWN_SHARE, MIN_RATE_DENOM };
+export { MIN_ATTACH_BOOKINGS, MIN_CELL_OPEN_DAYS, MIN_ENDING_N, MIN_IDENTITIES, MIN_RATE_DENOM };
 
 export type CourtsBasis = {
   /** Days in the picked range. */

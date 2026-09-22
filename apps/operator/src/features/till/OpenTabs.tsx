@@ -4,8 +4,8 @@
  * `OpenTabsBoard` is the presentational half (props in, events out) and is
  * what the component test renders in its four states; `OpenTabsScreen` wires
  * the queries, the 'floor' broadcast (with polling as the safety net), the
- * waiter-call region (build plan §0: persistent on the till AND here) and the
- * dialogs. Selecting a tab navigates to /till?tab=<id>.
+ * waiter-call strip (build plan §0: on the till AND here, shown while a call
+ * waits) and the dialogs. Selecting a tab navigates to /till?tab=<id>.
  *
  * WHAT CHANGED, AND WHY
  *
@@ -618,7 +618,15 @@ export function OpenTabsScreen() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(16rem, 18rem)', gap: 'var(--tp-sp-5)', alignItems: 'start' }}>
+    /*
+     * The board takes the full width. Waiter calls used to hold a fixed 18rem
+     * column beside it all shift, empty or not, and the table of tabs gave up
+     * that width to a panel that mostly said "No calls". They are a strip
+     * above the list now, and only while a call is waiting.
+     */
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>
+      <StartShiftBanner />
+      <WaiterCallsPanel status={floorStatus} layout="strip" />
       <OpenTabsBoard
         status={asyncStatus(tabsQ, (d) => d.length === 0)}
         rows={rows}
@@ -638,10 +646,6 @@ export function OpenTabsScreen() {
         onDismissRemoveError={() => setRemoveError(null)}
         pendingIds={pendingRemovals.pending}
       />
-      <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-        <StartShiftBanner />
-        <WaiterCallsPanel status={floorStatus} />
-      </aside>
 
       {newTab && (
         <NewTabDialog

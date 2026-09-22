@@ -24,6 +24,9 @@
  *  2. **Where do I go?** The section's screens as cards, each with one honest
  *     live line: accounts with access, courts open for booking, tables in use,
  *     what the guest home screen shows, when the business day starts.
+ *  3. **Pair a kitchen screen.** Done once per kitchen screen, and only on the
+ *     till computer, so it lives here and not in every till's sidebar
+ *     (KitchenPairing).
  *
  * The old lead ("How the venue is configured. These screens are opened rarely
  * and changed deliberately…") described the screen to the person looking at
@@ -45,6 +48,7 @@ import { CardTitle, MARK, MARK_FG, MARK_SOFT, type MarkTone } from '../ops/OpsVi
 import { STAFF_QUERY_KEY, approvesWithPin, type StaffRow } from './staff/staffModel';
 import { useOutbox } from './telegram/OutboxList';
 import { telegramHealth, type TelegramHealth } from './telegram/telegramStatus';
+import { KitchenPairingPanel } from './KitchenPairing';
 
 type CardKey = 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite';
 
@@ -118,6 +122,8 @@ export function SetupHomeScreen() {
       screensTitle={tr('ws.owner.setupHome.screens')}
     >
       <WorthChecking staffQ={staffQ} outboxQ={outboxQ} cafe={cafe} />
+      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
+      <KitchenPairingPanel />
       <div style={{ blockSize: 'var(--tp-sp-4)' }} />
     </SectionHome>
   );

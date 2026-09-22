@@ -253,7 +253,6 @@ export async function run(): Promise<BenchRow[]> {
             const res = await appRpc(h.client, 'confirm_booking', {
               p_hold_id: h.id,
               p_guest_name: 'bench-guest',
-              p_players: 4,
             });
             if (res.error) codes[r * concurrency + c] = errorCode(res.error);
             return res;

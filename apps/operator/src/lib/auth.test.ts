@@ -180,7 +180,10 @@ describe('permissionsFor (spec §03 can.*)', () => {
     expect(cashier.takePayment).toBe(true);
     expect(cashier.refund).toBe(false);
     expect(cashier.closeDay).toBe(false);
+    // The drawer screen gives a cashier the action, not the log (2026-09-22).
+    expect(cashier.viewDrawerLog).toBe(false);
     const manager = permissionsFor('manager');
+    expect(manager.viewDrawerLog).toBe(true);
     expect(manager.refund).toBe(true);
     expect(manager.manageStaff).toBe(false);
     expect(manager.viewFinancials).toBe(false);

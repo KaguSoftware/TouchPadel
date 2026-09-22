@@ -1,4 +1,4 @@
-/** How people book: length, lead time and group size open; app against desk, standing bookings and app holds one click away. */
+/** How people book: length, lead time and app against desk open; standing bookings and app holds one click away. */
 import { useLocale } from '../../../../lib/i18n';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
@@ -23,12 +23,6 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
   // The lead-time buckets split by channel: how far ahead app bookings are made
   // against desk bookings, from the demand block (one source, no second RPC).
   const sourceRows = (demand?.leadTime.buckets ?? []).map((b) => ({ label: shortBucket(tr, 'byLeadTime', b.bucket), mobile: b.mobile, desk: b.desk }));
-  const playersRows = (demand?.players.rows ?? []).map((p) => ({
-    label: p.players == null ? tr('ws.analytics.courts.buckets.players.unknown') : p.players === 1 ? tr('ws.analytics.courts.buckets.players.one') : tr('ws.analytics.courts.buckets.players.n', { n: f.num(p.players) }),
-    value: p.bookings,
-  }));
-  const playersKnownPct = demand && demand.players.known + demand.players.unknown > 0 ? (demand.players.known / (demand.players.known + demand.players.unknown)) * 100 : 0;
-  const playersEmpty = state === 'ready' && (demand?.players.known ?? 0) === 0;
   const funnel = demand?.holdFunnel;
   // Revenue per booked hour, per length: the twin's third column and the card's note.
   const durationTwin = {
@@ -69,31 +63,19 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
           <CountBars rows={leadRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} />
         </ChartCard>
         <ChartCard
-          title={tr('ws.analytics.courts.cards.players')}
-          tip={tr('ws.analytics.courts.tips.players')}
-          note={demand && !playersEmpty ? tr('ws.analytics.courts.notices.playersKnown', { pct: f.pct(playersKnownPct) }) : undefined}
-          state={playersEmpty ? 'empty' : state}
+          title={tr('ws.analytics.courts.cards.sourceByHour')}
+          tip={tr('ws.analytics.courts.tips.sourceByHour')}
+          state={empty ? 'empty' : state}
           refreshing={refreshing}
-          emptyKey="ws.analytics.courts.empty.players"
+          emptyKey="ws.analytics.courts.empty.bookings"
           height={200}
-          twin={barTwin(playersRows, tr('ws.analytics.courts.cards.players'), tr('ws.analytics.courts.units.bookings'), `players-${rangeLabel}`)}
+          twin={seriesTwin(sourceRows, tr('ws.analytics.courts.cards.leadTime'), series, `channel-by-lead-${rangeLabel}`)}
         >
-          <CountBars rows={playersRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} />
+          <StackedBars rows={sourceRows} series={series} format={(n) => f.num(n)} />
         </ChartCard>
       </ZoneGrid>
-      <MoreCharts id="courts-shape" count={empty ? 0 : 3}>
-        <ZoneGrid columns={3}>
-          <ChartCard
-            title={tr('ws.analytics.courts.cards.sourceByHour')}
-            tip={tr('ws.analytics.courts.tips.sourceByHour')}
-            state={empty ? 'empty' : state}
-            refreshing={refreshing}
-            emptyKey="ws.analytics.courts.empty.bookings"
-            height={200}
-            twin={seriesTwin(sourceRows, tr('ws.analytics.courts.cards.leadTime'), series, `channel-by-lead-${rangeLabel}`)}
-          >
-            <StackedBars rows={sourceRows} series={series} format={(n) => f.num(n)} />
-          </ChartCard>
+      <MoreCharts id="courts-shape" count={empty ? 0 : 2}>
+        <ZoneGrid columns={2}>
           <StatPair
             title={tr('ws.analytics.courts.cards.seriesShare')}
             tip={tr('ws.analytics.courts.tips.seriesShare')}

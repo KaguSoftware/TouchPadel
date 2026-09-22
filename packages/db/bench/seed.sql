@@ -166,7 +166,7 @@ on conflict (id) do nothing;
 -- ---------------------------------------------------------------------------
 insert into reservations (
   id, court_id, kind, status, start_at, end_at, guest_id, guest_name,
-  source, rate_rule_id, price_iqd, players, created_at, cancelled_at,
+  source, rate_rule_id, price_iqd, created_at, cancelled_at,
   cancelled_by, cancellation_reason)
 select
   ('bec40000-0000-4000-8000-1' || lpad(to_hex(s.seq), 11, '0'))::uuid,
@@ -184,7 +184,6 @@ select
   s.source,
   s.rule_id,
   case s.duration_min when 60 then 40000 when 90 then 55000 else 70000 end,
-  case when s.seq % 5 = 0 then null else 2 + (s.seq % 3) * 2 end,
   s.start_at - interval '3 days',
   case when s.status = 'cancelled' then s.start_at - interval '1 day' end,
   case when s.status = 'cancelled' then 'guest'::cancellation_actor end,

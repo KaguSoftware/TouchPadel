@@ -164,7 +164,6 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_guest_phone: p?.guestPhone ?? null,
       p_guest_id: p?.guestId ?? null,
       p_notes: p?.notes ?? null,
-      p_players: p?.players ?? null,
       p_client_ref: p?.clientRef ?? null,
       p_idempotency_key: key,
       p_device_id: device,

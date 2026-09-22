@@ -69,7 +69,6 @@ import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
-import { formatPairingCode } from '@touch/core';
 
 export const rootRoute = createRootRoute({
   component: RootProviders,
@@ -621,9 +620,9 @@ function WorkspaceNav({
   const canSwitch = available.length > 1 && (staff?.role === 'manager' || staff?.role === 'owner');
   const navigate = useNavigate();
   const confirm = useConfirm();
-  // Leaving a workspace, or a section for its workspace, is a move the person
-  // may not have meant — the rail's foot is where fingers rest — so both ask
-  // first, in the same words.
+  // Leaving a section for its workspace is a move the person may not have
+  // meant, so it asks first. Switch workspace does not: it only opens the
+  // picker, and the picker asks when a different workspace is chosen.
   const leaveTo = async (to: string, destination: string) => {
     const ok = await confirm({
       title: tr('ws.shell.nav.leaveTitle', { destination }),
@@ -837,12 +836,14 @@ function WorkspaceNav({
           canSwitch={canSwitch}
           // On the picker the row is lit rather than hidden, so the menu holds
           // the same items on every screen. RailMoreMenu makes the press a no-op
-          // there, which keeps leaveTo from asking permission to leave for where
-          // we already are.
+          // there, so pressing it never reloads the screen already showing.
           onWorkspacePicker={path === '/workspaces'}
-          onSwitchWorkspace={() => void leaveTo('/workspaces', tr('ws.shell.nav.switchWorkspace'))}
+          // Straight to the picker: looking at the list of workspaces moves
+          // nothing. The question is asked on the picker, when a DIFFERENT
+          // workspace is chosen (owner call, 2026-09-22) — that is the step
+          // that changes the whole rail.
+          onSwitchWorkspace={() => void navigate({ to: '/workspaces' })}
         />
-        <PairKitchenScreen />
         {update && (
           <UpdateReadyControl
             variant="rail"
@@ -1609,185 +1610,6 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
         </Modal>
       )}
     </>
-  );
-}
-
-/**
- * "Pair a kitchen screen" — the till's pairing card (design-arch §2.4; SEC-31
- * "a bearer token minted at pairing"). The code IS the LAN secret, so it sits
- * behind the same manager-PIN gate as Quit: verify_manager_pin server-side
- * when online, the offline cache in main otherwise (touch:get-pairing-info
- * re-checks). Till stations only; nothing at all in browser mode.
- */
-function PairKitchenScreen() {
-  const { tr } = useLocale();
-  const [open, setOpen] = useState(false);
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
-  const [info, setInfo] = useState<{ host: string | null; port: number; code: string } | null>(null);
-  const [refusal, setRefusal] = useState<'not-a-till' | 'no-psk' | 'custom-psk' | null>(null);
-  if (!isElectron() || touch.getStation().mode !== 'till') return null;
-
-  function close() {
-    setOpen(false);
-    setPin('');
-    setInfo(null);
-    setRefusal(null);
-    setError(null);
-  }
-
-  async function reveal() {
-    setBusy(true);
-    setError(null);
-    try {
-      try {
-        // verify_manager_pin RETURNS null for a wrong PIN (it raises only for a
-        // lockout or a non-staff caller). Treating that null as success cached the
-        // wrong PIN as observed and the shell's cache check then passed it: any
-        // PIN opened this gate while online. Refuse here, before the cache learns it.
-        const authorizer = await appRpc<string | null>('verify_manager_pin', {
-          p_pin: pin,
-          p_device_id: touch.getStation().stationId,
-        });
-        if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
-        touch.pinObserved(pin);
-      } catch (e) {
-        // Offline: fall through to the cache check in main. A server REFUSAL
-        // (PIN_INVALID / PIN_LOCKED) still surfaces.
-        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
-      }
-      const res = await touch.getPairingInfo(pin);
-      if (!('ok' in res)) throw new Error(res.error);
-      if (!res.ok) {
-        if (res.error === 'pin not recognised') throw new Error(res.error);
-        setRefusal(res.error);
-        return;
-      }
-      setInfo({ host: res.host, port: res.port, code: res.code });
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const refusalKey = { 'not-a-till': 'notTill', 'no-psk': 'noPsk', 'custom-psk': 'customPsk' } as const;
-
-  return (
-    <>
-      <button type="button" className="tp-nav-item" onClick={() => setOpen(true)} style={navButtonStyle}>
-        <Icon name="qr" size={16} />
-        <span>{tr('ws.shell.nav.pairKitchen')}</span>
-      </button>
-      {open && (
-        <Modal
-          title={tr('ws.shell.pair.title')}
-          size="sm"
-          onClose={close}
-          footer={
-            info || refusal ? (
-              <Button kind={info ? 'primary' : 'default'} onClick={close}>
-                {tr(info ? 'ws.shell.pair.done' : 'common.back')}
-              </Button>
-            ) : (
-              <>
-                <Button onClick={close}>{tr('common.back')}</Button>
-                {/* Says what it does. It used to repeat the dialog's title,
-                    "Pair a kitchen screen", which pairs nothing: it shows a code. */}
-                <Button kind="primary" icon="eye" busy={busy} disabled={pin.length < 4} onClick={() => void reveal()}>
-                  {tr('ws.shell.pair.reveal')}
-                </Button>
-              </>
-            )
-          }
-        >
-          {info ? (
-            /*
-             * Two numbered steps with the code between them, in the order they
-             * happen at the kitchen screen. The QR code that sat under the code
-             * is gone: nothing reads it — the kitchen screen's setup has a text
-             * field and no camera — so it was a large square that looked like
-             * the thing to use. The port is gone too: nothing asks for it.
-             */
-            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-              <PairStep n={1}>{tr('ws.shell.pair.step1')}</PairStep>
-              <PairStep n={2}>
-                {tr('ws.shell.pair.step2')}
-                <p
-                  dir="ltr"
-                  aria-label={tr('ws.shell.pair.code')}
-                  style={{
-                    marginBlockStart: 'var(--tp-sp-2)',
-                    paddingBlock: 'var(--tp-sp-3)',
-                    paddingInline: 'var(--tp-sp-3)',
-                    borderRadius: 'var(--tp-radius-ctl)',
-                    background: 'var(--tp-surface-2)',
-                    textAlign: 'center',
-                    fontSize: 'var(--tp-fs-3xl)',
-                    fontWeight: 700,
-                    letterSpacing: '0.18em',
-                    fontVariantNumeric: 'tabular-nums',
-                    color: 'var(--tp-fg)',
-                  }}
-                >
-                  {formatPairingCode(info.code)}
-                </p>
-              </PairStep>
-              <li style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                {info.host ? tr('ws.shell.pair.host', { host: `\u2068${info.host}\u2069`, port: String(info.port) }) : tr('ws.shell.pair.noHost')}
-              </li>
-            </ol>
-          ) : refusal ? (
-            <p role="alert">{tr(`ws.shell.pair.${refusalKey[refusal]}`)}</p>
-          ) : (
-            <>
-              <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.shell.pair.pinLead')}</p>
-              <Field label={tr('op.common.pin')}>
-                <input
-                  style={inputStyle}
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  dir="ltr"
-                  autoFocus
-                  value={pin}
-                  readOnly={busy}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                  onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && void reveal()}
-                />
-              </Field>
-              <ErrorText error={error} />
-            </>
-          )}
-        </Modal>
-      )}
-    </>
-  );
-}
-
-/** One numbered instruction in the pairing card. */
-function PairStep({ n, children }: { n: number; children: ReactNode }) {
-  return (
-    <li style={{ display: 'grid', gridTemplateColumns: '1.5rem 1fr', columnGap: 'var(--tp-sp-2)', alignItems: 'start' }}>
-      <span
-        aria-hidden="true"
-        style={{
-          display: 'grid',
-          placeItems: 'center',
-          inlineSize: '1.375rem',
-          blockSize: '1.375rem',
-          borderRadius: '999px',
-          fontSize: 'var(--tp-fs-xs)',
-          fontWeight: 700,
-          background: 'var(--tp-accent-soft)',
-          color: 'var(--tp-accent-soft-fg)',
-        }}
-      >
-        {n}
-      </span>
-      <div>{children}</div>
-    </li>
   );
 }
 

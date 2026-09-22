@@ -1603,6 +1603,21 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc',
     schema: 'app',
+    name: 'customer_directory',
+    args: { p_limit: 1 },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'the Customers list (0144) is court_desk|cashier|manager|owner, the same roles as customer_search',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
     name: 'customer_record',
     args: { p_customer_id: NIL_UUID },
     expect: ex<RpcExpectation>('guarded', {
@@ -2493,6 +2508,12 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'assistant_set_default_model',
     args: { p_model: 'matrix-probe-model' }, expect: OWNER_ONLY, drop: 11,
+  },
+  // 0145: the monthly cap. A negative figure stops the owner at
+  // INVALID_ARGUMENT, so the probe writes nothing.
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_set_monthly_cap',
+    args: { p_cap_micros: -1 }, expect: OWNER_ONLY, drop: 11,
   },
   // 0141: analytics components. An unknown key stops the owner at
   // COMPONENT_NOT_FOUND; an empty tool list at INVALID_ARGUMENT; nothing written.

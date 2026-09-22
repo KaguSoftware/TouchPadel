@@ -40,7 +40,7 @@ listing slot that predates the consolidation and for Google Play.
 |---|------|-----------------|------|
 | 1 | `1-book` | Book tab, court at rest — `app/(tabs)/index.tsx` | Book a court from your phone |
 | 2 | `2-availability` | Availability — `app/availability.tsx` | See what's free before you drive |
-| 3 | `3-review` | Review & confirm, players picked — `app/review.tsx` | Your slot is held while you decide |
+| 3 | `3-review` | Review & confirm — `app/review.tsx` | Your slot is held while you decide |
 | 4 | `4-success` | Court reserved — `app/success.tsx` | Pay at the desk. That's it. |
 | 5 | `5-bookings` | My reservations, Upcoming tab — `app/(tabs)/bookings.tsx` | Every game in one place |
 | 6 | `6-settings` | Settings — `app/settings.tsx` | Fully Arabic, right to left |

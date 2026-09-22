@@ -1,7 +1,10 @@
 /**
- * The context checkboxes (plan §5.5): what this chat may read, with the size
- * of each scope's pack from the `dry_run` call and the total, so the owner
- * sees the price of context before asking. Three presets sit above the list.
+ * The context checkboxes (plan §5.5): what this chat may read, and under them
+ * one figure: what any question costs to start with these boxes (the system
+ * prompt, tool list and the checked scopes' packs, from the `dry_run` call),
+ * so the owner sees the price of context before asking. The boxes carry no
+ * sizes of their own; the sum of the packs was never the whole start, and a
+ * row of small numbers read as the bill. Three presets sit above the list.
  * The set that applies is stored on the conversation; this strip only edits
  * it, and the server refuses what is not in it.
  */
@@ -9,27 +12,30 @@ import { useId } from 'react';
 import { ASSISTANT_PRESETS, ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
-import { formatTokens } from '../../lib/assistantPricing';
+import { formatTokens, formatUsd, priceFor, type PricingMap } from '../../lib/assistantPricing';
+import type { StartSize } from './api';
 import { normaliseScopes, sameScopes } from './scopes';
-
-export type PackSizes = Partial<Record<AssistantScope, number>>;
 
 const PRESET_KEYS = ['everything', 'moneyAndFloor', 'justHelp'] as const;
 
 export function ScopeStrip({
   scopes,
   onChange,
-  packs,
+  start,
   measuring,
+  pricing,
+  fallbackMicrosPerMtok = 0,
   titleHidden,
   disabled,
   compact,
 }: {
   scopes: readonly AssistantScope[];
   onChange: (next: AssistantScope[]) => void;
-  /** Pack size per scope for the current range; missing = not measured yet. */
-  packs: PackSizes;
+  /** What a question starts at with the checked boxes; null = not measurable (no key), undefined = not measured yet. */
+  start: StartSize | null | undefined;
   measuring?: boolean;
+  pricing?: PricingMap | null;
+  fallbackMicrosPerMtok?: number;
   /** The legend stays for screen readers but is not drawn (a Disclosure header already shows the title). */
   titleHidden?: boolean;
   disabled?: boolean;
@@ -37,8 +43,9 @@ export function ScopeStrip({
 }) {
   const { tr } = useLocale();
   const legendId = useId();
-  const total = scopes.reduce((n, s) => n + (packs[s] ?? 0), 0);
-  const knowsAll = scopes.every((s) => packs[s] !== undefined);
+  // Priced as fresh input: the most it costs. On Claude a repeat within the
+  // cache window pays the cache-read rate for the unchanged prefix.
+  const micros = start ? priceFor({ model: start.model, input: start.tokens }, pricing, fallbackMicrosPerMtok) : 0;
 
   const toggle = (scope: AssistantScope) => {
     const set = new Set(scopes);
@@ -74,31 +81,28 @@ export function ScopeStrip({
       >
         {ASSISTANT_SCOPES.map((scope) => {
           const checked = scopes.includes(scope);
-          const size = packs[scope];
           return (
             <label key={scope} data-scope={scope} style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', cursor: disabled ? 'default' : 'pointer', minInlineSize: 0 }}>
               <input type="checkbox" checked={checked} onChange={() => toggle(scope)} disabled={disabled} style={{ marginBlockStart: '0.2em' }} />
               <span style={{ flex: 1, minInlineSize: 0 }}>{tr(`ws.owner.assistant.scopes.${scope}`)}</span>
-              <span dir="ltr" style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontFamily: 'var(--tp-font-numeric)', whiteSpace: 'nowrap' }}>
-                {size === undefined
-                  ? measuring && checked
-                    ? tr('ws.owner.assistant.scopes.measuring')
-                    : // Measured and absent: the scope has no context pack (how-to, audit, customers, …); say so rather than print nothing.
-                      !measuring && Object.keys(packs).length > 0
-                      ? tr('ws.owner.assistant.scopes.packNone')
-                      : ''
-                  : size > 0
-                    ? tr('ws.owner.assistant.scopes.packSize', { tokens: formatTokens(size) })
-                    : tr('ws.owner.assistant.scopes.packNone')}
-              </span>
             </label>
           );
         })}
       </div>
 
-      <p data-scope-total="" style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-        {measuring && !knowsAll ? tr('ws.owner.assistant.scopes.measuring') : tr('ws.owner.assistant.scopes.total', { tokens: `⁨${formatTokens(total)}⁩` })}
-      </p>
+      <div data-scope-start="" style={{ display: 'grid', gap: '0.15rem' }}>
+        <p style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
+          {measuring || start === undefined
+            ? tr('ws.owner.assistant.scopes.measuring')
+            : start
+              ? tr(start.exact ? 'ws.owner.assistant.scopes.start' : 'ws.owner.assistant.scopes.startEstimated', {
+                  tokens: `⁨${formatTokens(start.tokens)}⁩`,
+                  cost: `⁨${formatUsd(micros)}⁩`,
+                })
+              : tr('ws.owner.assistant.scopes.startUnknown')}
+        </p>
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.scopes.startHint')}</p>
+      </div>
     </fieldset>
   );
 }

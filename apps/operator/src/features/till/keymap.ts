@@ -7,7 +7,7 @@
  *   F4   cash pane              /    focus the filter
  *   F5   card pane              ?    keyboard help
  *   1–9  category               Esc  close sheet / dialog (Modal handles it)
- *   ↑↓   rail (roving focus)    ←→↑↓ grid (roving focus), Enter adds
+ *   ←→↑↓ grid (roving focus), Enter adds
  *
  * Money is NEVER confirmed by a hotkey: F4/F5 only open the pane.
  */
@@ -43,7 +43,6 @@ export const TILL_KEYMAP: readonly { keys: readonly string[]; labelKey: string }
   { keys: ['F6'], labelKey: 'newTab' },
   { keys: ['/'], labelKey: 'filter' },
   { keys: ['1', '…', '9'], labelKey: 'categories' },
-  { keys: ['↑', '↓'], labelKey: 'rail' },
   { keys: ['←', '→', '↑', '↓', 'Enter'], labelKey: 'grid' },
   { keys: ['Enter'], labelKey: 'quickAdd' },
   { keys: ['Esc'], labelKey: 'escape' },

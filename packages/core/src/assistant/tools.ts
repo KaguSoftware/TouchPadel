@@ -479,7 +479,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'analytics_courts_guests',
     scope: 'courts',
     kind: 'aggregate',
-    description: 'Who books: new versus returning guests, players per booking, sources (mobile, desk) over a range.',
+    description: 'Who books: new versus returning guests, sources (mobile, desk) over a range.',
     route: '/analytics/courts',
     rpc: 'analytics_courts_guests',
     args: { ...RANGE, court: COURT },

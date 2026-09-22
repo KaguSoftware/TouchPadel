@@ -17,7 +17,7 @@
  *  2. **Can I put a walk-in on a court now?** Courts now, as tiles: free until
  *     when, or in use until when and by whom. A free tile books that court; a
  *     busy one opens its booking.
- *  3. **What does the whole day look like?** Every booking, in start order,
+ *  3. **What does the whole day look like?** Every booking, latest start first,
  *     with its status and where its court fee stands. Rows that have ended
  *     recede. The whole row opens the booking.
  *
@@ -48,7 +48,7 @@ import { Button, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, StatusBadge, type AsyncStatus } from '../../components/kit';
 import { ChevronForward, Icon, type IconName } from '../../components/icons';
 import { ChargeCell, ReservationBadge } from './deskStatus';
-import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, type CourtAvailability } from './deskLogic';
+import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
 import type { CustomerFlag, ReservationRow } from './deskTypes';
 import { CreateReservationDialog } from './CreateReservationDialog';
 import { todayInTz, tonightInTz, useTradingNight } from './useTradingNight';
@@ -200,7 +200,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortByStart(p.reservations).map((r) => (
+                  {sortByStartDesc(p.reservations).map((r) => (
                     <BoardRow
                       key={r.id}
                       r={r}

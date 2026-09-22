@@ -543,6 +543,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assistant_set_monthly_cap: {
+        Args: { p_cap_micros: number }
+        Returns: Json
+      }
       assistant_set_scopes: {
         Args: { p_id: string; p_range?: Json; p_scopes: string[] }
         Returns: Database["public"]["Tables"]["assistant_conversations"]["Row"]
@@ -835,6 +839,7 @@ export type Database = {
       current_venue: { Args: { p_station_id?: string }; Returns: string }
       current_venue_or_default: { Args: never; Returns: string }
       customer_counts: { Args: { p_customer_id: string }; Returns: Json }
+      customer_directory: { Args: { p_limit?: number }; Returns: Json }
       customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_record: { Args: { p_customer_id: string }; Returns: Json }
       customer_reservation_json: {
@@ -4523,7 +4528,6 @@ export type Database = {
           idempotency_key: string | null
           notes: string | null
           pattern: string
-          players: number | null
           start_time: string
           starts_on: string
           venue_id: string | null
@@ -4544,7 +4548,6 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           pattern: string
-          players?: number | null
           start_time: string
           starts_on: string
           venue_id?: string | null
@@ -4565,7 +4568,6 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           pattern?: string
-          players?: number | null
           start_time?: string
           starts_on?: string
           venue_id?: string | null
@@ -4622,7 +4624,6 @@ export type Database = {
           kind: Database["public"]["Enums"]["reservation_kind"]
           notes: string | null
           period: unknown
-          players: number | null
           price_iqd: number | null
           rate_rule_id: string | null
           series_id: string | null
@@ -4652,7 +4653,6 @@ export type Database = {
           kind: Database["public"]["Enums"]["reservation_kind"]
           notes?: string | null
           period?: unknown
-          players?: number | null
           price_iqd?: number | null
           rate_rule_id?: string | null
           series_id?: string | null
@@ -4682,7 +4682,6 @@ export type Database = {
           kind?: Database["public"]["Enums"]["reservation_kind"]
           notes?: string | null
           period?: unknown
-          players?: number | null
           price_iqd?: number | null
           rate_rule_id?: string | null
           series_id?: string | null

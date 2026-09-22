@@ -1,18 +1,24 @@
 /**
  * TillScreen (spec 06.11) — the cashier's landing screen and the fastest
- * surface in the app. Three regions:
+ * surface in the app. Two views, one after the other:
  *
- *   inline-start  waiter calls (persistent, chimes) + the open-tabs rail
- *   centre        filter, category strip (1–9), item grid, basket
- *   inline-end    the active tab: lines, totals, promotion, payment, actions
+ *   floor   what the till opens on (FloorView): a plan of the café where a
+ *           table with a live tab is green, and the courts behind their own
+ *           button. Tap a green table to add to its tab; tap a free one to open
+ *           a tab there (SpotDialog: a short confirm with an optional name).
+ *           Beside the plan: waiter calls and any open tab the plan does not
+ *           draw, so every live tab is one tap away.
+ *   order   once a tab is chosen: filter, category strip (1–9), item grid and
+ *           basket, and the tab itself (lines, totals, promotion, payment,
+ *           actions). "Floor" goes back. Everything the till could do before
+ *           the plan it still does here, unchanged.
  *
  * Every write is an app.* RPC through mutate(); prices always come back from
  * the server. Offline: tabs opened while disconnected live in the durable
- * queue (lib/offlineTabs) and show in the rail until their open replays.
+ * queue (lib/offlineTabs) and show on the plan until their open replays.
  *
- * States: loading (menu skeleton) · ready · noActiveTab (grid visible, tiles
- * inert, prompt in the end region) · error (menu unreachable, retry) · busy
- * (sending — the basket's button carries it).
+ * States: loading (menu skeleton) · ready · error (menu unreachable, retry) ·
+ * busy (sending — the basket's button carries it).
  *
  * Keymap: keymap.ts (one table feeds the handler and the help popover).
  */
@@ -21,15 +27,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { mutate } from '../../lib/mutate';
 import { LOCAL_TAB_PREFIX, appendOfflineLines, listOfflineTabs, subscribeOfflineTabs } from '../../lib/offlineTabs';
-import { QK, fetchOpenDay } from '../../lib/queries';
+import { QK, fetchActiveCafeTables, fetchOpenDay } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useLocale, pickName } from '../../lib/i18n';
+import { formatTime } from '@touch/i18n';
 import { Button, Skeleton, inputStyle } from '../../components/ui';
 import { AsyncStateWrapper, EmptyState, Kbd } from '../../components/kit';
-import { WaiterCallsPanel } from './WaiterCallsPanel';
-import { TabRail } from './TabRail';
+import { WAITER_CALLS_QUERY, WaiterCallsPanel } from './WaiterCallsPanel';
+import { FloorView, OtherTabsList, useCourtBookings, type FloorMode, type OtherTab } from './FloorView';
+import { SpotDialog, type SpotTarget } from './SpotDialog';
+import { courtBoards, courtTabCount, otherOpenTabs, placeCafe, type BoardBooking, type CafeSpot, type CourtRow } from './floorPlan';
 import { CategoryStrip, MenuItemGrid, TileLegend } from './TillGrid';
 import { Basket } from './Basket';
 import { ItemSheet } from './ItemSheet';
@@ -63,10 +72,12 @@ export function TillScreen() {
   const [sending, setSending] = useState(false);
   const [newTab, setNewTab] = useState<{ reservationId?: string } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [floorMode, setFloorMode] = useState<FloorMode>('cafe');
+  const [spotTarget, setSpotTarget] = useState<SpotTarget | null>(null);
   const filterRef = useRef<HTMLInputElement>(null);
   const today = useMemo(() => localIsoDate(), []);
 
-  // Tabs opened while disconnected — durable in the queue, listed in the rail.
+  // Tabs opened while disconnected — durable in the queue, shown on the plan.
   const offlineTabs = useSyncExternalStore(subscribeOfflineTabs, listOfflineTabs);
 
   // When a selected offline tab's open replays (acked) its entry retires and
@@ -81,6 +92,16 @@ export function TillScreen() {
   const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
   const menuQ = useQuery({ ...TILL_MENU_QUERY });
   const tabsQ = useQuery({ ...OPEN_TABS_QUERY });
+  const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
+  const courtsQ = useCourtBookings();
+  const callsQ = useQuery({ ...WAITER_CALLS_QUERY });
+
+  // Bookings start and end while the plan is on screen; the court boards read the clock.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   useBroadcast({ topic: 'menu', isPrivate: false, events: ['menu_changed'], invalidateKeys: [['menu']] });
   const { status: floorStatus } = useBroadcast({
@@ -166,6 +187,62 @@ export function TillScreen() {
     setSelectedTabId(id);
     setBasket([]);
     setSendError(null);
+  }
+
+  // ---- the floor ------------------------------------------------------------
+  const spots = useMemo(
+    () => placeCafe(tablesQ.data ?? [], tabsQ.data ?? [], offlineTabs, callsQ.data ?? []),
+    [tablesQ.data, tabsQ.data, offlineTabs, callsQ.data],
+  );
+  const boards = useMemo(() => courtBoards(courtsQ.data?.courts ?? [], courtsQ.data?.bookings ?? [], now), [courtsQ.data, now]);
+  const others = useMemo<OtherTab[]>(() => {
+    const ids = otherOpenTabs(tabsQ.data ?? [], offlineTabs, spots, boards);
+    return ids.flatMap((id): OtherTab[] => {
+      if (id.startsWith(LOCAL_TAB_PREFIX)) {
+        const ot = offlineTabs.find((t) => `${LOCAL_TAB_PREFIX}${t.idemKey}` === id);
+        return ot ? [{ id, label: ot.label ?? '—', status: 'open', offline: true }] : [];
+      }
+      const t = (tabsQ.data ?? []).find((x) => x.id === id);
+      return t ? [{ id, label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')), status: t.status, offline: false }] : [];
+    });
+  }, [tabsQ.data, offlineTabs, spots, boards, tr]);
+
+  /** One tab on the table: straight to it. None, or several: the spot dialog asks. */
+  function pressTable(spot: CafeSpot) {
+    if (spot.tabs.length === 1) {
+      const id = spot.tabs[0]!.id;
+      if (!spot.tabs[0]!.offline) prefetchTab(id);
+      void selectTab(id);
+      return;
+    }
+    setSpotTarget({ kind: 'table', spot });
+  }
+
+  function pressBooking(b: BoardBooking, court: CourtRow) {
+    if (b.liveTab) {
+      prefetchTab(b.liveTab.id);
+      void selectTab(b.liveTab.id);
+      return;
+    }
+    setSpotTarget({
+      kind: 'booking',
+      reservationId: b.booking.id,
+      description: tr('ws.cashier.charge.option', {
+        time: formatTime(new Date(b.booking.start_at), locale),
+        court: pickName(locale, court),
+        guest: b.booking.guest_name ?? '—',
+      }),
+    });
+  }
+
+  /** A tab was opened (plan or dialog): go to it, and let the plan catch up. */
+  function openedTab(tabId: string) {
+    setSelectedTabId(tabId);
+    setBasket([]);
+    setSendError(null);
+    void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+    void queryClient.invalidateQueries({ queryKey: ['tillCourts'] });
+    void queryClient.invalidateQueries({ queryKey: ['openTabReservations'] });
   }
 
   function bumpBasketQty(key: string, delta: number) {
@@ -289,10 +366,6 @@ export function TillScreen() {
   const menuStatus = menuQ.isError && !menuQ.data ? 'error' : menuQ.data ? 'ready' : 'loading';
   const filtering = filter.trim().length > 0;
   const selectedIsOffline = selectedTabId?.startsWith(LOCAL_TAB_PREFIX) ?? false;
-  // Rulebook 4.3 — the reason travels with the control, not in a tooltip. The
-  // empty case already says so in the basket's own body, so only the missing
-  // tab needs stating here.
-  const sendBlockedReason = !hasActiveTab ? tr('ws.cashier.till.tile.noTab') : undefined;
   // Derived, not held: removing the line (or clearing the basket, or switching
   // tabs) under an open note dialog closes it rather than leaving a dialog
   // editing a line that no longer exists.
@@ -316,189 +389,8 @@ export function TillScreen() {
     return t ? tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')) : null;
   })();
 
-  return (
-    <div
-      style={{
-        display: 'grid',
-        // Proportional, so the side columns give way with the menu rather than
-        // before it: with fixed 13–15rem / 20–23rem sides the grid filled both
-        // sides first, and at 1100px the menu and basket were left ~280px and
-        // Send ran over the pay column. At 1440px this is the same ~14rem /
-        // ~23rem split as before.
-        gridTemplateColumns: 'minmax(11rem, 0.6fr) minmax(17rem, 1.6fr) minmax(16rem, 1fr)',
-        gap: 'var(--tp-sp-4)',
-        blockSize: '100%',
-        minBlockSize: 0,
-        alignItems: 'stretch',
-      }}
-    >
-      {/*
-        ---- inline-start: waiter calls + rail ----
-        Two scrollers, not one. With a single scroller eight waiter calls
-        pushed the open-tabs rail below the fold, and the rail is what the
-        cashier reaches for on every sale. The calls keep at most about half
-        the column and scroll inside it; the rail always has the rest.
-      */}
-      <aside style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', paddingInlineEnd: 'var(--tp-sp-1)' }}>
-        <StartShiftBanner />
-        <div style={{ flex: '0 1 auto', maxBlockSize: '50%', minBlockSize: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-          <WaiterCallsPanel status={floorStatus} />
-        </div>
-        <div style={{ flex: '1 1 auto', minBlockSize: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-          <TabRail
-          tabs={tabsQ.data ?? []}
-          offlineTabs={offlineTabs}
-          selectedId={selectedTabId}
-          loading={tabsQ.isPending}
-          onSelect={(id) => void selectTab(id)}
-          onNew={() => setNewTab({})}
-          onPrefetch={prefetchTab}
-          />
-        </div>
-      </aside>
-
-      {/* ---- centre: filter, categories, grid, basket ---- */}
-      <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2-5)' }}>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
-          <input
-            ref={filterRef}
-            style={{ ...inputStyle, flex: 1, minBlockSize: 'var(--tp-touch)' }}
-            aria-label={tr('ws.cashier.till.filterLabel')}
-            placeholder={tr('ws.cashier.till.filterPlaceholder')}
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && filter) {
-                e.stopPropagation();
-                setFilter('');
-              }
-            }}
-          />
-          <Button icon="keyboard" onClick={() => setHelpOpen(true)} aria-label={tr('ws.cashier.till.help.open')} title={tr('ws.cashier.till.help.open')} style={{ minBlockSize: 'var(--tp-touch)' }}>
-            <Kbd>?</Kbd>
-          </Button>
-        </div>
-
-        <AsyncStateWrapper
-          status={menuStatus}
-          onRetry={() => void menuQ.refetch()}
-          error={menuQ.error}
-          skeleton={
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }} aria-busy="true">
-              <p style={muted}>{tr('ws.cashier.till.loadingMenu')}</p>
-              {/* The skeleton stands on the same two physical tokens the real
-                  strip and tiles do, so the menu does not resize on arrival. */}
-              <Skeleton lines={1} blockSize="var(--tp-touch)" />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: 'var(--tp-sp-1-5)' }}>
-                {Array.from({ length: 8 }, (_, i) => (
-                  <Skeleton key={i} lines={1} blockSize="var(--tp-tile-min-block)" />
-                ))}
-              </div>
-            </div>
-          }
-        >
-          <CategoryStrip
-            categories={categories}
-            activeId={activeCategory}
-            filtering={filtering}
-            onSelect={(id) => {
-              setCategoryId(id);
-              setFilter('');
-            }}
-          />
-          <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto' }}>
-            <MenuItemGrid
-              items={visibleItems}
-              availability={menuQ.data?.availability ?? {}}
-              hasActiveTab={hasActiveTab}
-              today={today}
-              onPick={addOrOpen}
-              onOpenSheet={setSheetItem}
-              emptyText={filtering ? tr('ws.cashier.till.noMatches', { query: filter.trim() }) : tr('ws.cashier.till.noItems')}
-            />
-            {showLegend && <TileLegend />}
-          </div>
-        </AsyncStateWrapper>
-
-        {/* Reserved, not emergent: see BASKET_BLOCK_SIZE. The grid above keeps
-            exactly the same height from the first item of the shift to the
-            last, so a finger already travelling to a tile still lands on it. */}
-        <div
-          style={{
-            flex: '0 0 auto',
-            blockSize: BASKET_BLOCK_SIZE,
-            borderBlockStart: '1px solid var(--tp-border)',
-            paddingBlockStart: 'var(--tp-sp-2-5)',
-          }}
-        >
-          <Basket
-            lines={basket}
-            forLabel={selectedLabel}
-            sending={sending}
-            error={sendError}
-            canSend={hasActiveTab && basket.length > 0}
-            blockedReason={sendBlockedReason}
-            onBump={bumpBasketQty}
-            onNote={setNoteLineKey}
-            onRemove={(key) => setBasket((b) => b.filter((x) => x.key !== key))}
-            onClear={() => setBasket([])}
-            onSend={() => void sendBasket()}
-          />
-        </div>
-      </section>
-
-      {/*
-        ---- inline-end: the active tab ----
-        The column does NOT scroll: TabDetailPanel scrolls inside itself so its
-        identity header and its pay footer stay pinned (rulebook 5.2 and 11.5).
-        A scroll here would let the Cash button drift with the line count.
-      */}
-      <aside
-        style={{
-          minBlockSize: 0,
-          minInlineSize: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          borderInlineStart: '1px solid var(--tp-border)',
-          paddingInline: 'var(--tp-sp-3)',
-        }}
-      >
-        {!selectedTabId && (
-          <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
-            <EmptyState
-              icon="receipt"
-              title={tr('ws.cashier.till.noActiveTab')}
-              body={tr('ws.cashier.till.noActiveTabBody')}
-              action={
-                <Button kind="primary" icon="plus" onClick={() => setNewTab({})}>
-                  {tr('ws.cashier.till.rail.newTab')} <Kbd>F6</Kbd>
-                </Button>
-              }
-            />
-          </div>
-        )}
-        {selectedTabId && !selectedIsOffline && (
-          <TabDetailPanel
-            tabId={selectedTabId}
-            unsentCount={basket.length}
-            onClosedTab={() => {
-              setSelectedTabId(null);
-              void queryClient.invalidateQueries({ queryKey: ['tabs'] });
-            }}
-            onSwitchTab={(id) => {
-              setSelectedTabId(id);
-              setBasket([]);
-            }}
-          />
-        )}
-        {selectedTabId && selectedIsOffline && (
-          <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
-            <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
-          </div>
-        )}
-      </aside>
-
-      {/* ---- overlays ---- */}
+  const overlays = (
+    <>
       {sheetItem && menuQ.data && (
         <ItemSheet
           item={sheetItem}
@@ -521,6 +413,20 @@ export function TillScreen() {
           }}
         />
       )}
+      {spotTarget && (
+        <SpotDialog
+          target={spotTarget}
+          onClose={() => setSpotTarget(null)}
+          onPickTab={(tabId) => {
+            setSpotTarget(null);
+            void selectTab(tabId);
+          }}
+          onOpened={(tabId) => {
+            setSpotTarget(null);
+            openedTab(tabId);
+          }}
+        />
+      )}
       {newTab && (
         <NewTabDialog
           initialReservationId={newTab.reservationId}
@@ -532,14 +438,201 @@ export function TillScreen() {
           onClose={() => setNewTab(null)}
           onOpened={(tabId) => {
             setNewTab(null);
-            setSelectedTabId(tabId);
-            setBasket([]);
-            void queryClient.invalidateQueries({ queryKey: ['tabs'] });
-            void queryClient.invalidateQueries({ queryKey: ['openTabReservations'] });
+            openedTab(tabId);
           }}
         />
       )}
       {helpOpen && <KeymapHelp onClose={() => setHelpOpen(false)} />}
+    </>
+  );
+
+  // ---- floor view -------------------------------------------------------------
+  if (!selectedTabId) {
+    return (
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(15rem, 21rem)',
+          gap: 'var(--tp-sp-4)',
+          blockSize: '100%',
+          minBlockSize: 0,
+          alignItems: 'stretch',
+        }}
+      >
+        <FloorView
+          mode={floorMode}
+          onMode={setFloorMode}
+          spots={spots}
+          tablesStatus={tablesQ.isError && !tablesQ.data ? 'error' : tablesQ.data ? 'ready' : 'loading'}
+          onRetryTables={() => void tablesQ.refetch()}
+          boards={boards}
+          boardsStatus={courtsQ.isError && !courtsQ.data ? 'error' : courtsQ.data ? 'ready' : 'loading'}
+          boardsError={courtsQ.error}
+          onRetryBoards={() => void courtsQ.refetch()}
+          courtTabs={courtTabCount(boards)}
+          onTable={pressTable}
+          onBooking={pressBooking}
+          onNewTab={() => setNewTab({})}
+        />
+        <aside style={{ minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)' }}>
+          <StartShiftBanner />
+          <WaiterCallsPanel status={floorStatus} />
+          <OtherTabsList tabs={others} onPick={(id) => void selectTab(id)} />
+        </aside>
+        {overlays}
+      </div>
+    );
+  }
+
+  // ---- order view -------------------------------------------------------------
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', blockSize: '100%', minBlockSize: 0 }}>
+      <StartShiftBanner />
+      <WaiterCallsPanel status={floorStatus} layout="strip" />
+      <div
+        style={{
+          display: 'grid',
+          // Proportional, so the tab column gives way with the menu rather than
+          // before it. At 1100px a fixed 20–23rem side left the menu and basket
+          // ~280px and Send ran over the pay column.
+          gridTemplateColumns: 'minmax(17rem, 1.6fr) minmax(16rem, 1fr)',
+          gap: 'var(--tp-sp-4)',
+          flex: 1,
+          minBlockSize: 0,
+          alignItems: 'stretch',
+        }}
+      >
+        {/* ---- menu: back, filter, categories, grid, basket ---- */}
+        <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2-5)' }}>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
+            <Button icon="chevronStart" onClick={() => void selectTab(null)} aria-label={tr('ws.cashier.floor.backLabel')} style={{ minBlockSize: 'var(--tp-touch)', flexShrink: 0 }}>
+              {tr('ws.cashier.floor.back')}
+            </Button>
+            <input
+              ref={filterRef}
+              style={{ ...inputStyle, flex: 1, minBlockSize: 'var(--tp-touch)' }}
+              aria-label={tr('ws.cashier.till.filterLabel')}
+              placeholder={tr('ws.cashier.till.filterPlaceholder')}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && filter) {
+                  e.stopPropagation();
+                  setFilter('');
+                }
+              }}
+            />
+            <Button icon="keyboard" onClick={() => setHelpOpen(true)} aria-label={tr('ws.cashier.till.help.open')} title={tr('ws.cashier.till.help.open')} style={{ minBlockSize: 'var(--tp-touch)' }}>
+              <Kbd>?</Kbd>
+            </Button>
+          </div>
+
+          <AsyncStateWrapper
+            status={menuStatus}
+            onRetry={() => void menuQ.refetch()}
+            error={menuQ.error}
+            skeleton={
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }} aria-busy="true">
+                <p style={muted}>{tr('ws.cashier.till.loadingMenu')}</p>
+                {/* The skeleton stands on the same two physical tokens the real
+                    strip and tiles do, so the menu does not resize on arrival. */}
+                <Skeleton lines={1} blockSize="var(--tp-touch)" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: 'var(--tp-sp-1-5)' }}>
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <Skeleton key={i} lines={1} blockSize="var(--tp-tile-min-block)" />
+                  ))}
+                </div>
+              </div>
+            }
+          >
+            <CategoryStrip
+              categories={categories}
+              activeId={activeCategory}
+              filtering={filtering}
+              onSelect={(id) => {
+                setCategoryId(id);
+                setFilter('');
+              }}
+            />
+            <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto' }}>
+              <MenuItemGrid
+                items={visibleItems}
+                availability={menuQ.data?.availability ?? {}}
+                hasActiveTab={hasActiveTab}
+                today={today}
+                onPick={addOrOpen}
+                onOpenSheet={setSheetItem}
+                emptyText={filtering ? tr('ws.cashier.till.noMatches', { query: filter.trim() }) : tr('ws.cashier.till.noItems')}
+              />
+              {showLegend && <TileLegend />}
+            </div>
+          </AsyncStateWrapper>
+
+          {/* Reserved, not emergent: see BASKET_BLOCK_SIZE. The grid above keeps
+              exactly the same height from the first item of the shift to the
+              last, so a finger already travelling to a tile still lands on it. */}
+          <div
+            style={{
+              flex: '0 0 auto',
+              blockSize: BASKET_BLOCK_SIZE,
+              borderBlockStart: '1px solid var(--tp-border)',
+              paddingBlockStart: 'var(--tp-sp-2-5)',
+            }}
+          >
+            <Basket
+              lines={basket}
+              forLabel={selectedLabel}
+              sending={sending}
+              error={sendError}
+              canSend={basket.length > 0}
+              onBump={bumpBasketQty}
+              onNote={setNoteLineKey}
+              onRemove={(key) => setBasket((b) => b.filter((x) => x.key !== key))}
+              onClear={() => setBasket([])}
+              onSend={() => void sendBasket()}
+            />
+          </div>
+        </section>
+
+        {/*
+          ---- the tab ----
+          The column does NOT scroll: TabDetailPanel scrolls inside itself so its
+          identity header and its pay footer stay pinned (rulebook 5.2 and 11.5).
+          A scroll here would let the Cash button drift with the line count.
+        */}
+        <aside
+          style={{
+            minBlockSize: 0,
+            minInlineSize: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            borderInlineStart: '1px solid var(--tp-border)',
+            paddingInline: 'var(--tp-sp-3)',
+          }}
+        >
+          {!selectedIsOffline && (
+            <TabDetailPanel
+              tabId={selectedTabId}
+              unsentCount={basket.length}
+              onClosedTab={() => {
+                setSelectedTabId(null);
+                void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+                void queryClient.invalidateQueries({ queryKey: ['tillCourts'] });
+              }}
+              onSwitchTab={(id) => {
+                setSelectedTabId(id);
+                setBasket([]);
+              }}
+            />
+          )}
+          {selectedIsOffline && (
+            <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
+              <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
+            </div>
+          )}
+        </aside>
+      </div>
+      {overlays}
     </div>
   );
 }

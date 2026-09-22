@@ -115,16 +115,16 @@ test.describe('operator journeys', () => {
 
   test('cashier: open tab, add items, settle cash with change', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({
+    // The till lands on the floor plan.
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
-    // ---- open a tab on T8 -------------------------------------------------
-    await page.getByRole('button', { name: '+', exact: true }).click();
-    const newTab = page.getByRole('dialog', { name: 'New tab' });
-    const tableSelect = newTab.getByLabel('Table');
-    await expect(tableSelect.locator('option', { hasText: 'T8' })).toHaveCount(1);
-    await tableSelect.selectOption({ label: 'T8' });
+    // ---- open a tab on T8: tap the free table, confirm --------------------
+    // The table's name leads its label ("Table T8, Free"), on the plan or in
+    // the off-plan row when leftover test tables sort ahead of it.
+    await page.getByRole('button', { name: /^Table T8, Free/ }).click();
+    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T8?' });
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
     // exact: the basket's own "Basket for Table T8" heading matches a substring.
@@ -404,13 +404,12 @@ test.describe('operator journeys', () => {
     await signIn(page, SEED_STAFF.manager);
     // A manager lands on the desk (homeRoute), not the till.
     await page.goto(`${OPERATOR_URL}/till`);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
-    await page.getByRole('button', { name: '+', exact: true }).click();
-    const newTab = page.getByRole('dialog', { name: 'New tab' });
-    await newTab.getByLabel('Table').selectOption({ label: 'T7' });
+    await page.getByRole('button', { name: /^Table T7, Free/ }).click();
+    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T7?' });
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
 

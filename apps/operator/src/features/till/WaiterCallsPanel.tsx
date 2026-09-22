@@ -78,6 +78,9 @@ export function splitCalls<T extends Pick<WaiterCallRow, 'raised_at'>>(calls: re
   return { recent, old };
 }
 
+/** Calls side by side, scrolling sideways rather than pushing the screen down. */
+const STRIP_LIST = { gridAutoFlow: 'column', gridAutoColumns: 'minmax(15rem, 19rem)', overflowX: 'auto', paddingBlockEnd: 'var(--tp-sp-1)' } as const;
+
 const URGENCY_INK: Record<Urgency, string> = {
   calm: 'var(--tp-muted-fg)',
   warn: 'var(--tp-warn-fg)',
@@ -89,7 +92,27 @@ const URGENCY_STRIPE: Record<Urgency, string> = {
   late: 'var(--tp-danger-mark)',
 };
 
-export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
+/** Unresolved calls, oldest first. The floor plan reads the same key to mark a calling table. */
+export const WAITER_CALLS_QUERY = {
+  queryKey: ['waiterCalls'] as const,
+  queryFn: async (): Promise<WaiterCallRow[]> => {
+    const { data, error: err } = await supabase
+      .from('waiter_calls')
+      .select('id, reason, status, raised_at, acknowledged_label, resolved_label, table:cafe_tables(table_number)')
+      .in('status', ['raised', 'acknowledged'])
+      .order('raised_at');
+    if (err) throw err;
+    return data as unknown as WaiterCallRow[];
+  },
+  refetchInterval: 60_000,
+};
+
+/**
+ * `strip` is the same panel laid across the top of a wide screen (the till's
+ * order view, the open-tabs board): calls side by side, and nothing at all
+ * while there are none, so a quiet floor costs the list below no height.
+ */
+export function WaiterCallsPanel({ status, layout = 'panel' }: { status?: BroadcastStatus; layout?: 'panel' | 'strip' }) {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -105,21 +128,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
     return () => clearInterval(id);
   }, []);
 
-  const callsQ = useQuery({
-    queryKey: ['waiterCalls'],
-    queryFn: async (): Promise<WaiterCallRow[]> => {
-      const { data, error: err } = await supabase
-        .from('waiter_calls')
-        .select(
-          'id, reason, status, raised_at, acknowledged_label, resolved_label, table:cafe_tables(table_number)',
-        )
-        .in('status', ['raised', 'acknowledged'])
-        .order('raised_at');
-      if (err) throw err;
-      return data as unknown as WaiterCallRow[];
-    },
-    refetchInterval: 60_000,
-  });
+  const callsQ = useQuery({ ...WAITER_CALLS_QUERY });
 
   const calls = callsQ.data ?? [];
 
@@ -180,9 +189,21 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
   // Red only while somebody recent is still waiting for an answer: eight
   // calls left over from yesterday are a chore, not an alarm.
   const waiting = recent.filter((c) => c.status === 'raised').length;
+  const strip = layout === 'strip';
+  if (strip && callsQ.isSuccess && calls.length === 0 && !error) return null;
 
   return (
-    <section aria-labelledby="waiter-calls-title" style={{ ...card, display: 'grid', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+    <section
+      aria-labelledby="waiter-calls-title"
+      style={{
+        ...card,
+        display: 'grid',
+        gap: 'var(--tp-sp-2)',
+        minInlineSize: 0,
+        // The strip puts the heading beside the calls: one row of height, not two.
+        ...(strip ? { gridTemplateColumns: 'auto minmax(0, 1fr)', alignItems: 'center', columnGap: 'var(--tp-sp-4)', paddingBlock: 'var(--tp-sp-2)' } : {}),
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
         <h2 id="waiter-calls-title" style={{ margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
           {tr('op.floor.waiterCalls')}
@@ -212,7 +233,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
       )}
 
       {recent.length > 0 && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)', ...(strip ? STRIP_LIST : {}) }}>
           {recent.map((c) => (
             <CallRow key={c.id} call={c} now={now} stale={stale.has(c.id)} busy={busyId === c.id || clearing} onAct={(a) => void act(c.id, a)} />
           ))}
@@ -220,7 +241,16 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
       )}
 
       {old.length > 0 && (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', borderBlockStart: recent.length > 0 ? '1px solid var(--tp-border)' : undefined, paddingBlockStart: recent.length > 0 ? 'var(--tp-sp-2)' : undefined }}>
+        <div
+          style={{
+            display: 'grid',
+            gap: 'var(--tp-sp-1-5)',
+            borderBlockStart: recent.length > 0 ? '1px solid var(--tp-border)' : undefined,
+            paddingBlockStart: recent.length > 0 ? 'var(--tp-sp-2)' : undefined,
+            // In the strip the fold goes under the live calls, across both columns.
+            gridColumn: strip && recent.length > 0 ? '1 / -1' : undefined,
+          }}
+        >
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
             {tr('op.floor.oldCalls', { count: formatNumber(old.length, locale) })}
           </p>

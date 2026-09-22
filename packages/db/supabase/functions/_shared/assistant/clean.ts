@@ -114,7 +114,7 @@ export const LIST_TOOL_COLUMNS: Readonly<Record<string, { rows_path: string; col
     rows_path: 'rows',
     columns: [
       'id', 'court_id', 'court_name_en', 'court_name_ar', 'kind', 'status', 'start_at', 'end_at', 'guest_id', 'guest_name',
-      'guest_phone', 'players', 'price_iqd', 'source', 'series_id', 'created_by_staff_id', 'created_at', 'cancelled_at',
+      'guest_phone', 'price_iqd', 'source', 'series_id', 'created_by_staff_id', 'created_at', 'cancelled_at',
       'cancellation_reason',
     ],
   },

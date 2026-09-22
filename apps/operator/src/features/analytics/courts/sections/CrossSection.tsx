@@ -2,7 +2,7 @@
  * Court players at the cafe: what bookings buy, from tabs the till linked to
  * a booking (the attach rate is a business metric — it measures the till
  * habit as much as the guests). What each court orders and the court-plus-cafe
- * value of an hour stay open; the six refinements fold behind "Show more".
+ * value of an hour stay open; the five refinements fold behind "Show more".
  *
  * With no linked tab at all the section used to print the same two-sentence
  * explanation in all nine cards. It says it once now, in one card, and the
@@ -70,12 +70,6 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
     value: c.liveBookings > 0 ? (c.linkedBookings / c.liveBookings) * 100 : 0,
     thin: c.liveBookings < MIN_RATE_DENOM,
     label: nOfN(c.linkedBookings, c.liveBookings),
-  }));
-  const playersRows = (cafe?.byPlayers ?? []).map((p) => ({
-    label: p.players == null ? tr('ws.analytics.courts.buckets.players.unknown') : p.players === 1 ? tr('ws.analytics.courts.buckets.players.one') : tr('ws.analytics.courts.buckets.players.n', { n: f.num(p.players) }),
-    value: p.linked > 0 ? Math.round(p.cafeIqd / p.linked) : 0,
-    thin: p.linked < MIN_RATE_DENOM,
-    linked: p.linked,
   }));
   const durationRows = (cafe?.byDuration ?? []).map((d) => ({
     label: tr('ws.analytics.courts.buckets.duration', { n: f.num(d.durationMin) }),
@@ -148,7 +142,7 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
           <StackedBars rows={valueRows} series={valueSeries} format={(n) => f.compact(n)} />
         </ChartCard>
       </ZoneGrid>
-      <MoreCharts id="courts-cafe" count={state === 'ready' ? 6 : 0}>
+      <MoreCharts id="courts-cafe" count={state === 'ready' ? 5 : 0}>
         <ZoneGrid columns={2}>
           <ChartCard
             title={tr('ws.analytics.cross.attachByCourt')}
@@ -175,17 +169,31 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
             <HBarChart rows={spendRows} format={(n) => f.compact(n)} name={tr('ws.analytics.cross.spendPerBooking')} axisWidth={110} />
           </ChartCard>
         </ZoneGrid>
-        <CardShell
-          title={tr('ws.analytics.cross.orderTiming')}
-          tip={tr('ws.analytics.cross.tips.orderTiming')}
-          note={cafe?.orderTiming.medianOffsetMin != null ? `${tr('ws.analytics.courts.cards.medianOffset')}: ${spanText(tr, f, Math.abs(cafe.orderTiming.medianOffsetMin))}` : undefined}
-          state={cardState === 'ready' && timing.every((t) => t.value === 0) ? 'empty' : cardState}
-          refreshing={refreshing}
-          emptyKey={emptyKey}
-          skeletonLines={2}
-        >
-          <ShareBars segments={timing} format={(n) => f.num(n)} pct={(n) => f.pct(n)} />
-        </CardShell>
+        {/* When court guests order, beside what they spend by booking length: both read the booking's shape. */}
+        <ZoneGrid columns={2}>
+          <CardShell
+            title={tr('ws.analytics.cross.orderTiming')}
+            tip={tr('ws.analytics.cross.tips.orderTiming')}
+            note={cafe?.orderTiming.medianOffsetMin != null ? `${tr('ws.analytics.courts.cards.medianOffset')}: ${spanText(tr, f, Math.abs(cafe.orderTiming.medianOffsetMin))}` : undefined}
+            state={cardState === 'ready' && timing.every((t) => t.value === 0) ? 'empty' : cardState}
+            refreshing={refreshing}
+            emptyKey={emptyKey}
+            skeletonLines={2}
+          >
+            <ShareBars segments={timing} format={(n) => f.num(n)} pct={(n) => f.pct(n)} />
+          </CardShell>
+          <ChartCard
+            title={tr('ws.analytics.cross.spendByDuration')}
+            tip={tr('ws.analytics.cross.tips.spendByDuration')}
+            state={cardState}
+            refreshing={refreshing}
+            emptyKey={emptyKey}
+            height={180}
+            twin={spendTwin(durationRows, tr('ws.analytics.courts.cards.duration'), `cafe-spend-by-duration-${rangeLabel}`)}
+          >
+            <CountBars rows={durationRows} format={(n) => f.compact(n)} name={tr('ws.analytics.cross.perLinked')} emphasise="none" />
+          </ChartCard>
+        </ZoneGrid>
         <ChartCard
           title={tr('ws.analytics.cross.attachBySlot')}
           tip={tr('ws.analytics.cross.tips.attachBySlot')}
@@ -203,30 +211,6 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
         >
           <WeekHeatmap cells={attachCells} f={f} format={(n) => f.pct(n)} unit={tr('ws.analytics.courts.kpi.attachRate')} hint={tr('ws.analytics.heatmap.hint')} />
         </ChartCard>
-        <ZoneGrid columns={2}>
-          <ChartCard
-            title={tr('ws.analytics.cross.spendByPlayers')}
-            tip={tr('ws.analytics.cross.tips.spendByPlayers')}
-            state={cardState === 'ready' && playersRows.every((r) => r.value === 0) ? 'empty' : cardState}
-            refreshing={refreshing}
-            emptyKey={cardState === 'ready' && !noLinks && !noBookings ? 'ws.analytics.courts.empty.players' : emptyKey}
-            height={180}
-            twin={spendTwin(playersRows, tr('ws.analytics.courts.cards.players'), `cafe-spend-by-players-${rangeLabel}`)}
-          >
-            <CountBars rows={playersRows} format={(n) => f.compact(n)} name={tr('ws.analytics.cross.perLinked')} emphasise="none" />
-          </ChartCard>
-          <ChartCard
-            title={tr('ws.analytics.cross.spendByDuration')}
-            tip={tr('ws.analytics.cross.tips.spendByDuration')}
-            state={cardState}
-            refreshing={refreshing}
-            emptyKey={emptyKey}
-            height={180}
-            twin={spendTwin(durationRows, tr('ws.analytics.courts.cards.duration'), `cafe-spend-by-duration-${rangeLabel}`)}
-          >
-            <CountBars rows={durationRows} format={(n) => f.compact(n)} name={tr('ws.analytics.cross.perLinked')} emphasise="none" />
-          </ChartCard>
-        </ZoneGrid>
       </MoreCharts>
     </>
   );
