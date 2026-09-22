@@ -78,8 +78,21 @@ async function signIn(page: Page, email: string) {
   await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
 }
 
+/**
+ * The assistant and the language switch live in the rail foot's Options group
+ * (RailMoreMenu, owner call 2026-09-21), which starts shut on every load. A
+ * press on a row inside a shut group lands on the group's own rows instead, so
+ * open it first. Idempotent: an open group is left open.
+ */
+async function openRailOptions(page: Page) {
+  const more = page.getByTestId('rail.more');
+  if ((await more.getAttribute('aria-expanded')) !== 'true') await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+}
+
 /** Open the drawer from the rail and expand the (collapsed-in-compact) scope strip. */
 async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerTitle: string; contextToggle: RegExp }) {
+  await openRailOptions(page);
   await page.getByRole('button', { name: s.railButton }).click();
   const dialog = page.getByRole('dialog', { name: s.drawerTitle });
   await expect(dialog).toBeVisible();
@@ -143,6 +156,7 @@ test.describe('owner assistant', () => {
 
   test('a question with no key shows the not-configured sentence, no usage footer, no Stop', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
+    await openRailOptions(page);
     await page.getByRole('button', { name: EN.railButton }).click();
     const dialog = page.getByRole('dialog', { name: EN.drawerTitle });
     await expect(dialog).toBeVisible();
@@ -220,6 +234,7 @@ test.describe('owner assistant @ar', () => {
   /** Sign in (the form is EN until the station's locale is switched) and flip the rail to Arabic. */
   async function signInArabic(page: Page) {
     await signIn(page, SEED_STAFF.owner);
+    await openRailOptions(page);
     await page.getByRole('button', { name: EN.toArabic }).click();
     await expect(page.getByRole('button', { name: AR.toEnglish })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -239,6 +254,7 @@ test.describe('owner assistant @ar', () => {
 
   test('a question with no key shows the Arabic not-configured sentence', async ({ page }) => {
     await signInArabic(page);
+    await openRailOptions(page);
     await page.getByRole('button', { name: AR.railButton }).click();
     const dialog = page.getByRole('dialog', { name: AR.drawerTitle });
     await expect(dialog).toBeVisible();

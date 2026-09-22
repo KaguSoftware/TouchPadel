@@ -22,6 +22,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stackAvailable, signedInClient, appRpc, outcome, SEED_STAFF, SUPABASE_URL, ANON_KEY } from './helpers';
 import { ASSISTANT_SCOPES, ASSISTANT_TOOLS, isToolAllowed, type AssistantScope } from '../../core/src/assistant/tools';
@@ -44,7 +45,8 @@ interface EvalCase {
   };
 }
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/%20/g, ' '));
+// fileURLToPath, not URL.pathname: on Windows the pathname is '/C:/…' and path.join made it 'C:\C:\…'.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CASES = (JSON.parse(readFileSync(path.join(HERE, 'assistant-eval/cases.json'), 'utf8')) as { cases: EvalCase[] }).cases;
 const FIXTURE = readFileSync(path.join(HERE, 'assistant-eval/fixture.sql'), 'utf8');
 const PAGES = readFileSync(path.resolve(HERE, '../../../docs/design/assistant/pages.md'), 'utf8');
