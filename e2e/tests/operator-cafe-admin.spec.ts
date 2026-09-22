@@ -236,7 +236,10 @@ test.describe('operator cafe admin', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Telegram', exact: true })).toHaveCount(0, {
       timeout: 20_000,
     });
+    // Sign-out is confirmed: the rail button opens the dialog, the dialog signs out.
     await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('dialog', { name: 'Sign out?' }).getByRole('button', { name: 'Sign out' }).click();
+    await expect(page.getByRole('heading', { name: 'Staff sign-in' })).toBeVisible();
 
     await signIn(page, SEED_STAFF.owner);
     await gotoAdmin(page, 'telegram');

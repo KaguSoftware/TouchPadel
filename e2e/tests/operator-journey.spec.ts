@@ -106,7 +106,10 @@ test.describe('operator journeys', () => {
     await expect(actions).toBeHidden();
     await expect(block).toBeHidden();
 
+    // Sign-out is confirmed (ws.shell.nav.signOutTitle): the rail button only
+    // OPENS the dialog, and the dialog's own button is what ends the session.
     await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('dialog', { name: 'Sign out?' }).getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByRole('heading', { name: 'Staff sign-in' })).toBeVisible();
   });
 
