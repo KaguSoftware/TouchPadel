@@ -168,6 +168,16 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'NOT_ZERO',
   'REFUND_DUE',
   'TAB_EMPTY',
+  // Touch Shop (0145/0146).
+  'CATEGORY_NOT_EMPTY',
+  'NOT_SHOP_CATEGORY',
+  'BARCODE_TAKEN',
+  'SKU_TAKEN',
+  'SUPPLIER_EXISTS',
+  'SUPPLIER_NOT_FOUND',
+  'LABEL_REQUIRED',
+  'MIXED_BASKET',
+  'SHOP_ITEM_NOT_ORDERABLE',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',

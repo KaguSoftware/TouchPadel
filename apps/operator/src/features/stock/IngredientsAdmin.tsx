@@ -57,7 +57,8 @@ export function IngredientsAdmin() {
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand });
   const onHandOf = new Map((onHandQ.data ?? []).map((r) => [r.ingredient_id, r]));
 
-  const all = ingredientsQ.data ?? [];
+  // Touch Shop stock rows (kind 'retail') are managed with their product, under Products.
+  const all = (ingredientsQ.data ?? []).filter((r) => r.kind !== 'retail');
   const inactiveCount = all.filter((r) => !r.is_active).length;
   const rows = all.filter((r) => (showInactive || r.is_active) && matchesName(r, search));
   const status = asyncStatus(ingredientsQ, (d) => d.length === 0);
@@ -215,7 +216,7 @@ function IngredientForm({
   const [nameEn, setNameEn] = useState(row?.name_en ?? '');
   const [nameAr, setNameAr] = useState(row?.name_ar ?? '');
   const [unit, setUnit] = useState<'g' | 'ml' | 'pc'>(row?.unit ?? 'g');
-  const [kind, setKind] = useState<'purchased' | 'prepared'>(row?.kind ?? 'purchased');
+  const [kind, setKind] = useState<'purchased' | 'prepared'>(row?.kind === 'prepared' ? 'prepared' : 'purchased');
   const [packSize, setPackSize] = useState(row?.pack_size?.toString() ?? '');
   const [packCost, setPackCost] = useState(row?.pack_cost_iqd?.toString() ?? '');
   const [supplier, setSupplier] = useState(row?.supplier_name ?? '');

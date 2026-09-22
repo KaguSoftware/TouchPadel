@@ -17,8 +17,11 @@
  *    ingredient (its shelf life, or no expiry at all).
  *  - The supplier fills itself from the first ingredient's supplier.
  *
- * The RPC takes no idempotency key, so this stays online-only by design
- * (flagged for the offline architect in the day-14 plan).
+ * Touch Shop (0145): retail stock is received here too, and the supplier is
+ * picked from the supplier list (or typed, for one not on it). Each delivery
+ * carries an idempotency key, so a double tap on Record — or a retry after a
+ * dropped reply — books the delivery once. Still online-only: goods-in is not
+ * a queued mutation type.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,7 +33,7 @@ import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
 import { MessagePresenter, Money, PageHeader, Panel } from '../../components/kit';
 import { useStockFormat } from './stockUi';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
-import { SK, fetchIngredients, type IngredientRow } from './stockKeys';
+import { SK, fetchIngredients, fetchSuppliers, type IngredientRow } from './stockKeys';
 
 export { isShort } from './stockLogic';
 
@@ -53,15 +56,21 @@ export function ReceiveDelivery() {
   const toast = useToast();
   const navigate = useNavigate();
   const [supplier, setSupplier] = useState('');
+  /** A supplier from the list; '' = none picked (the typed name, if any, is used). */
+  const [supplierId, setSupplierId] = useState('');
+  /** One key per delivery: kept across retries, renewed after a recorded one. */
+  const [idemKey, setIdemKey] = useState(() => `receive:${crypto.randomUUID()}`);
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
+  const suppliersQ = useQuery({ queryKey: SK.suppliers, queryFn: fetchSuppliers });
+  const suppliers = (suppliersQ.data ?? []).filter((s) => s.is_active);
   // Prepared items are made in the kitchen, not delivered — they have their
-  // own form under Waste & production.
-  const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active && i.kind === 'purchased');
+  // own form under Waste & production. Shop stock (retail) is delivered.
+  const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active && (i.kind === 'purchased' || i.kind === 'retail'));
   const byId = new Map(ingredients.map((i) => [i.id, i]));
 
   function patch(key: string, part: Partial<DraftLine>) {
@@ -76,7 +85,10 @@ export function ReceiveDelivery() {
       // Prefill only a box the user has not typed into.
       unitCostIqd: line.unitCostIqd.trim() === '' && packUnitCost !== null ? String(packUnitCost) : line.unitCostIqd,
     });
-    if (supplier.trim() === '' && ing?.supplier_name) setSupplier(ing.supplier_name);
+    if (supplierId === '' && supplier.trim() === '') {
+      if (ing?.supplier_id && suppliers.some((s) => s.id === ing.supplier_id)) setSupplierId(ing.supplier_id);
+      else if (ing?.supplier_name) setSupplier(ing.supplier_name);
+    }
   }
 
   const started = lines.filter((l) => !isBlankLine(l));
@@ -96,12 +108,16 @@ export function ReceiveDelivery() {
           unit_cost_iqd: Number(l.unitCostIqd),
           expiry_date: l.expiryDate || null,
         })),
-        p_supplier_name: supplier.trim() || null,
+        p_supplier_name: supplierId ? null : supplier.trim() || null,
+        p_supplier_id: supplierId || null,
         p_notes: notes.trim() || null,
+        p_idempotency_key: idemKey,
       });
       toast.ok(tr('ws.manager.stock.goodsIn.recorded'));
       setLines([emptyLine()]);
       setSupplier('');
+      setSupplierId('');
+      setIdemKey(`receive:${crypto.randomUUID()}`);
       setNotes('');
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
     } catch (e) {
@@ -119,7 +135,25 @@ export function ReceiveDelivery() {
         <Panel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }}>
             <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
-              <input style={inputStyle} value={supplier} disabled={busy} onChange={(e) => setSupplier(e.target.value)} />
+              {suppliers.length > 0 ? (
+                <select style={inputStyle} value={supplierId} disabled={busy} onChange={(e) => setSupplierId(e.target.value)}>
+                  <option value="">{tr('ws.manager.stock.goodsIn.supplierOther')}</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {supplierId === '' && (
+                <input
+                  style={{ ...inputStyle, ...(suppliers.length > 0 ? { marginBlockStart: 'var(--tp-sp-1-5)' } : {}) }}
+                  value={supplier}
+                  disabled={busy}
+                  placeholder={suppliers.length > 0 ? tr('ws.manager.stock.goodsIn.supplierTyped') : undefined}
+                  onChange={(e) => setSupplier(e.target.value)}
+                />
+              )}
             </Field>
             <Field label={tr('ws.manager.stock.goodsIn.notes')} optional>
               <input style={inputStyle} value={notes} disabled={busy} placeholder={tr('ws.manager.stock.goodsIn.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
@@ -228,11 +262,30 @@ function LineEditor({
         <Field label={tr('ws.manager.stock.goodsIn.ingredient')} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: 0 }} error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
           <select style={inputStyle} value={line.ingredientId} disabled={busy} onChange={(e) => onChoose(e.target.value)}>
             <option value="">{tr('ws.manager.stock.goodsIn.choose')}</option>
-            {ingredients.map((i) => (
-              <option key={i.id} value={i.id}>
-                {pickName(locale, i)}
-              </option>
-            ))}
+            {ingredients.some((i) => i.kind === 'retail') ? (
+              <>
+                <optgroup label={tr('ws.manager.stock.goodsIn.groupCafe')}>
+                  {ingredients.filter((i) => i.kind !== 'retail').map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {pickName(locale, i)}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label={tr('ws.manager.stock.goodsIn.groupShop')}>
+                  {ingredients.filter((i) => i.kind === 'retail').map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {pickName(locale, i)}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            ) : (
+              ingredients.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {pickName(locale, i)}
+                </option>
+              ))
+            )}
           </select>
         </Field>
         <Button

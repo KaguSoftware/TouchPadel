@@ -96,6 +96,9 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_reservation_id: p?.reservationId ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      // 0145: sent only for a shop counter sale, so a café tab keeps the call
+      // shape every earlier server accepted.
+      ...(p?.kind === 'shop' ? { p_kind: 'shop' } : {}),
     },
   }),
   'tab.settle': (p, key, device) => ({

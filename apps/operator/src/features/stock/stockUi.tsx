@@ -22,6 +22,7 @@ import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
+import { SegmentedControl } from '../../components/kit';
 import { MARK, MARK_FG, MARK_SOFT, type MarkTone } from '../ops/OpsVisuals';
 
 const UNITS = ['g', 'ml', 'pc'] as const;
@@ -136,5 +137,34 @@ export function Footnote({ children, style }: { children: ReactNode; style?: CSS
       <Icon name="info" size={15} style={{ flex: '0 0 auto', marginBlockStart: '0.15rem' }} />
       <span>{children}</span>
     </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Touch Shop (0143): café stock vs shop stock on the shared stock screens.
+// ---------------------------------------------------------------------------
+
+export type StockKindFilter = 'all' | 'cafe' | 'shop';
+
+/** 'shop' = retail stock rows; 'cafe' = everything else (purchased and prepared). */
+export function matchesKind(kind: string | null | undefined, filter: StockKindFilter): boolean {
+  if (filter === 'all') return true;
+  return filter === 'shop' ? kind === 'retail' : kind !== 'retail';
+}
+
+/** Café / Shop / All. Screens render it only when the venue holds any shop stock. */
+export function KindFilter({ value, onChange }: { value: StockKindFilter; onChange: (v: StockKindFilter) => void }) {
+  const { tr } = useLocale();
+  return (
+    <SegmentedControl<StockKindFilter>
+      value={value}
+      onChange={onChange}
+      aria-label={tr('ws.manager.stock.kindFilter.label')}
+      options={[
+        { value: 'all', label: tr('ws.manager.stock.kindFilter.all') },
+        { value: 'cafe', label: tr('ws.manager.stock.kindFilter.cafe') },
+        { value: 'shop', label: tr('ws.manager.stock.kindFilter.shop') },
+      ]}
+    />
   );
 }

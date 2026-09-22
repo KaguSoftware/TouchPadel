@@ -16,6 +16,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
+import { Switch } from '../../components/Switch';
 import { bookingTakesNewTab, canReadBookings, type TabListRow } from './tillData';
 import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
@@ -138,6 +139,7 @@ export function NewTabDialog({
   initialReservationId,
   openTabs = [],
   onPickExisting,
+  shopEnabled = false,
 }: {
   onClose: () => void;
   onOpened: (tabId: string) => void;
@@ -147,6 +149,8 @@ export function NewTabDialog({
   openTabs?: readonly Pick<TabListRow, 'id' | 'table'>[];
   /** Go to a table's existing tab instead of opening a second one. */
   onPickExisting?: (tabId: string) => void;
+  /** The menu has a Touch Shop section, so a counter sale (no table) is on offer (0145). */
+  shopEnabled?: boolean;
 }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
@@ -157,6 +161,8 @@ export function NewTabDialog({
   const [tableId, setTableId] = useState('');
   const [label, setLabel] = useState('');
   const [reservationId, setReservationId] = useState(initialReservationId ?? '');
+  // A shop counter sale: no table, no booking, a name or a number instead.
+  const [counter, setCounter] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -177,11 +183,16 @@ export function NewTabDialog({
     setBusy(true);
     setError(null);
     try {
-      const outcome = await mutate<{ tab_id: string }>('tab.open', {
-        ...(tableId ? { tableId } : {}),
-        ...(trimmedLabel ? { label: trimmedLabel } : {}),
-        ...(reservationId ? { reservationId } : {}),
-      });
+      const outcome = await mutate<{ tab_id: string }>(
+        'tab.open',
+        counter
+          ? { kind: 'shop', label: trimmedLabel }
+          : {
+              ...(tableId ? { tableId } : {}),
+              ...(trimmedLabel ? { label: trimmedLabel } : {}),
+              ...(reservationId ? { reservationId } : {}),
+            },
+      );
       if (outcome.result) {
         onOpened(outcome.result.tab_id);
       } else {
@@ -191,7 +202,7 @@ export function NewTabDialog({
           idemKey: outcome.idempotencyKey,
           localId: outcome.localId,
           label: trimmedLabel || null,
-          tableNumber: tableId
+          tableNumber: !counter && tableId
             ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null)
             : null,
         });
@@ -212,7 +223,7 @@ export function NewTabDialog({
    * till when it was opened. The name stays as the tab's display label, which
    * is the job it was actually doing. Mirrored by app.open_tab (0084).
    */
-  const anchored = Boolean(tableId || reservationId);
+  const anchored = counter ? trimmedLabel.length > 0 : Boolean(tableId || reservationId);
   const chosenTable = (tablesQ.data ?? []).find((t) => t.id === tableId);
   // Two tabs on one table split its bill in a way nobody asked for; the usual
   // intent is "add to the table's tab". Said, not blocked — a second party at
@@ -235,7 +246,15 @@ export function NewTabDialog({
             kind="primary"
             busy={busy}
             disabled={!anchored}
-            disabledReason={anchored ? undefined : showBookings ? tr('ws.cashier.newTab.needAnchor') : tr('ws.cashier.newTab.needTable')}
+            disabledReason={
+              anchored
+                ? undefined
+                : counter
+                  ? tr('ws.cashier.newTab.needLabel')
+                  : showBookings
+                    ? tr('ws.cashier.newTab.needAnchor')
+                    : tr('ws.cashier.newTab.needTable')
+            }
             onClick={() => void submit()}
           >
             {tr('op.till.openTabBtn')}
@@ -260,6 +279,18 @@ export function NewTabDialog({
       {preboundMissing && (
         <MessagePresenter tone="refused" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} message={tr('ws.cashier.newTab.bookingMissing')} />
       )}
+      {shopEnabled && !initialReservationId && (
+        <div style={{ marginBlockEnd: 'var(--tp-sp-3)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <Switch checked={counter} onChange={setCounter} label={tr('ws.cashier.newTab.counterSale')} />
+          <span style={muted}>{tr('ws.cashier.newTab.counterSaleHint')}</span>
+        </div>
+      )}
+      {counter ? (
+        <Field label={tr('op.till.byName')} required hint={tr('ws.cashier.newTab.counterNameHint')}>
+          <input style={inputStyle} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} autoFocus />
+        </Field>
+      ) : (
+      <>
       <Field label={tr('op.till.table')} required={!reservationId}>
         <select style={inputStyle} value={tableId} onChange={(e) => setTableId(e.target.value)} autoFocus>
           <option value="">{tr('op.till.chooseTable')}</option>
@@ -301,6 +332,8 @@ export function NewTabDialog({
             ))}
           </select>
         </Field>
+      )}
+      </>
       )}
       <ErrorText error={error} />
     </Modal>

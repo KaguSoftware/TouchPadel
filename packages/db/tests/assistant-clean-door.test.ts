@@ -8,7 +8,7 @@
  *   - the pure modules import neither `Deno` nor `npm:` (vitest must load them).
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const FUNCTIONS = join(import.meta.dirname, '..', 'supabase', 'functions');
@@ -27,7 +27,7 @@ const files = [
   ...readdirSync(FUNCTIONS)
     .filter((n) => n.startsWith('assistant-'))
     .flatMap((n) => walk(join(FUNCTIONS, n))),
-].map((p) => ({ path: relative(FUNCTIONS, p), text: readFileSync(p, 'utf8') }));
+].map((p) => ({ path: relative(FUNCTIONS, p).split(sep).join('/'), text: readFileSync(p, 'utf8') })); // POSIX separators on Windows too
 
 const PURE = ['tools', 'clean', 'handles', 'gate', 'estimate', 'sse', 'scopes', 'prompt', 'embed', 'recheck'].map((m) => `_shared/assistant/${m}.ts`);
 const DENO = ['_shared/assistant/provider.ts', '_shared/assistant/map.ts', 'assistant-chat/index.ts', 'assistant-index/index.ts', 'assistant-job/index.ts'];

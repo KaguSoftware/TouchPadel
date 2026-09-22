@@ -1,6 +1,6 @@
 # Phase 2 — checklist
 
-Updated 2026-09-21 late (evening review: 0139 + operator/mobile/gate fixes, local, not pushed; slice 1 itself reached `origin/main` at 16:34 — hosted state unverified; the evening line read `14e1edd` … `c09b701`, the morning line `1daa960`, `2b9adf7`, `8616549`). The decision record and
+Updated 2026-09-22 (Touch Shop built, 0143–0146; Customer 360 dropped by the client; AI receipts deferred). Before that: 2026-09-21 late (evening review: 0139 + operator/mobile/gate fixes, local, not pushed; slice 1 itself reached `origin/main` at 16:34 — hosted state unverified; the evening line read `14e1edd` … `c09b701`, the morning line `1daa960`, `2b9adf7`, `8616549`). The decision record and
 per-milestone design are `PHASE-2-PLAN.md` (repo) and Parsa's plan file
 (`~/.claude/plans/i-got-this-scope-binary-piglet.md`); this file is the short list of what is
 done and what is left. Update it in the same commit as the work it describes.
@@ -8,7 +8,7 @@ done and what is left. Update it in the same commit as the work it describes.
 | Measure | Now |
 | --- | --- |
 | Milestone 0 (criticals before any Phase 2 table) | code side complete (item 11 web/mobile/bench, S10, item 12 docs landed 2026-09-21; CI green on `main` for the first time since 09-20); hosted at 0121 complete. Left: the S1 staff rotation (urgent), PITR + staging project, Auth dashboard settings, release-gate §2/§3/§5, the staging-reviewer decision, the CI-produced bench baseline. About 90 % overall |
-| The nine client-visible Phase 2 items | 0 of 9 |
+| The client-visible Phase 2 items | 1 of 8 built (Touch Shop, 2026-09-22). Customer 360 dropped by the client 2026-09-22; AI receipt scanning deferred by Parsa the same day |
 | Milestone 1 (multi-venue) | slice 1 of 4 (schema foundation, 0122–0138) built and green locally 2026-09-21. **Pushed to `origin/main` at 16:34 the same day from the second machine (`b3e7e1e`..`58b5b27`)**, against the decision to rehearse on staging first; the push matches `db-migrate.yml`'s trigger, so whether 0122–0138 already reached the hosted project is UNVERIFIED (owner: Actions log + `migration list --linked`). Evening review fixes = 0139 (local, not pushed). Slices 2–4 not started |
 | Whole programme by effort (≈ 40 agent-weeks) | about 14 % |
 
@@ -60,7 +60,8 @@ done and what is left. Update it in the same commit as the work it describes.
 - [ ] Second venue: name EN/AR, address, phone, courts, tables, hours, rate rules. Still owed; slice 1 ships an invented venue B (`packages/db/fixtures/venue-b.sql`, f1f7) for tests and the staging rehearsal only.
 - [ ] Loyalty: point value in IQD, tier names EN/AR, thresholds, discount percentages.
 - [ ] Coaching: coach list, lesson types and prices, the 60 % share confirmed.
-- [ ] Receipts: 20–30 real supplier receipts, the Anthropic API key, the ingredient and supplier list.
+- [ ] Shop: the product list (names EN/AR, sizes, prices, barcodes), the suppliers, and which tax group applies to retail.
+- [ ] Receipts (deferred): 20–30 real supplier receipts, the Anthropic API key, the ingredient and supplier list.
 - [ ] Tax: which tax group applies to lessons, seats, entries and retail.
 - [ ] Phase 1 leftovers: rate rules (every real booking is `NO_RATE`), menu, recipes, staff list, floor numbering, printer model, brand files, phone number.
 
@@ -84,7 +85,8 @@ done and what is left. Update it in the same commit as the work it describes.
 - [ ] 1 Multi-venue: slice 1 done (above) — left: slice 2 `platform_settings` split + per-venue `venue_settings` / `cafe_settings` + the 35 reader re-issues + `SET NOT NULL`; slice 3 RPC families with `app.station_id` and cross-venue guards, per-venue day close and `business_date`, the slice-3 index set; slice 4 owner venue switcher, mobile venue picker, station registration screen, per-venue realtime topics (with the SEC-28 gate), assistant venue axis, the venue-create RPC; rehearsal on staging before each push. 6–7 weeks in total.
 - [ ] 2 Online payment (Qi deposits): Majed's design with `venue_id` and a wider `purpose`, `court_fee_paid` nets online amounts, mobile `/pay/return` + `/pay/status`, web return page, four edge functions + fake provider, bulk refund RPC, day-close columns, go-live gates. 3–4 weeks plus Qi lead time.
 - [ ] 3 Customers 360 + loyalty: `tabs.customer_id`, session re-key, web sign-in (phone OTP + Google + Apple), `customer_identities`, `customer_metrics`, `customer_360`, loyalty tables and hooks, `loyalty_redeem` adjustment kind, tiers as goods promotions, clawback in `refund`. 6–7 weeks.
-- [ ] 4 Shop + AI receipts: `retail` ingredient kind, shop categories without kitchen tickets, `retail_variants`, `suppliers`, receipt tables and private bucket, phone camera page, `receipt-parse` on the existing meter, `pg_trgm` matching, idempotent `confirm_receipt`. 5–6 weeks.
+- [x] **4a Touch Shop — built 2026-09-22 (0143–0146).** Operator-side only (no guest front). A product is a menu item in a `menu_categories.kind = 'shop'` section; each size is a variant with `sku` / `barcode` and its own `retail` stock row (`ingredients.variant_id`, unit pc, qty-1 recipe line) made by `app.upsert_retail_variant`; `suppliers` (venue-scoped) + `app.upsert_supplier`; `app.set_category_kind` (empty sections only); `receive_delivery` gains `p_supplier_id` + `p_idempotency_key`; `open_tab` gains `p_kind` (a labelled shop counter sale needs no table); a shop-only order makes NO kitchen ticket (stock taken in `till_add_items`, order served), `order_items_shop_guard` refuses a mixed basket (`MIXED_BASKET`) and a shop line on a guest order (`SHOP_ITEM_NOT_ORDERABLE`); a voided shop line is restocked, not wasted; availability greys an item only when every size is out; `report_revenue` gains `shopIqd` ("of which shop"). Operator: Stock → Shop products and Suppliers, section type on the menu section form, supplier picker + shop stock on goods in, Café/Shop filter on On hand / Count / Count differences, till basket split, USB barcode wedge (`barcodeWedge.ts`), counter sale in New tab, LAN KDS skips shop orders. Web menu filters shop sections out. Proof: `tests/shop.test.ts` (12), `e2e/tests/operator-shop.spec.ts` (4), unit tests for the wedge, the split and the products logic.
+- [ ] 4b AI receipts (deferred 2026-09-22): `retail` ingredient kind, shop categories without kitchen tickets, `retail_variants`, `suppliers`, receipt tables and private bucket, phone camera page, `receipt-parse` on the existing meter, `pg_trgm` matching, idempotent `confirm_receipt`. 5–6 weeks.
 - [ ] 5 Coaching (phone-app coach mode): `lesson` reservation kind, coach tables, generic `event_participants`, `lock_coach`, settlements, lessons masked in `court_availability`. 4–5 weeks.
 - [ ] 6 Open matches, then tournaments: matches on `event_participants`, `lock_match`, definer read RPCs, seat money into `court_fee_paid`, scheduling modules in `packages/core`, atomic multi-court block, entries and standings. 8–9 weeks.
 

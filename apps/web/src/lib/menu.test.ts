@@ -3,6 +3,7 @@ import {
   DEFAULT_CAFE_SETTINGS,
   activeGroups,
   decorateFeatured,
+  fetchMenu,
   foldCafeSettings,
   resolveReveals,
   type MenuCategory,
@@ -179,5 +180,27 @@ describe('foldCafeSettings', () => {
       bell_tutorial_enabled: false,
     });
     expect('telegram_chat_id' in s).toBe(false);
+  });
+});
+
+describe('fetchMenu', () => {
+  it('asks only for café sections: Touch Shop sections never reach the table menu (0144)', async () => {
+    const calls: [string, string, unknown][] = [];
+    const chain = (table: string) => {
+      const q = {
+        select: () => q,
+        order: () => q,
+        eq: (col: string, val: unknown) => {
+          calls.push([table, col, val]);
+          return q;
+        },
+        then: (resolve: (v: { data: unknown[]; error: null }) => void) => resolve({ data: [], error: null }),
+      };
+      return q;
+    };
+    const client = { from: (t: string) => chain(t) } as unknown as Parameters<typeof fetchMenu>[0];
+    await expect(fetchMenu(client)).resolves.toEqual([]);
+    expect(calls).toContainEqual(['menu_categories', 'kind', 'cafe']);
+    expect(calls).toContainEqual(['menu_categories', 'is_active', true]);
   });
 });

@@ -437,7 +437,9 @@ test.describe('operator journeys', () => {
     await expect(async () => {
       const { data } = await svc
         .from('tabs')
-        .select('id, orders(order_items(unit_price_iqd))')
+        // Hinted: 0133 added orders_tab_venue_fkey beside orders_tab_id_fkey, and an
+        // unhinted tabs -> orders embed is ambiguous (PGRST201, data null).
+        .select('id, orders!orders_tab_id_fkey(order_items(unit_price_iqd))')
         .eq('table_id', TABLE)
         .in('status', ['open', 'awaiting_payment'])
         .single();

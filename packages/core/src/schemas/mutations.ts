@@ -261,6 +261,12 @@ export const orderAddItemsPayloadSchema = z
           .strict(),
       )
       .min(1),
+    /**
+     * 0146: every line is a Touch Shop item. The server decides this from the
+     * rows (no ticket for a shop order); the flag only tells the till's LAN KDS
+     * fallback, which knows nothing of the menu, not to show a racket to the kitchen.
+     */
+    shop: z.literal(true).optional(),
     // NOTE: no price fields — unit_price_iqd / line_total_iqd are DB snapshots at send time.
   })
   .strict()
@@ -306,12 +312,20 @@ export const tabOpenPayloadSchema = z
     tableId: uuid.optional(),
     label: z.string().trim().min(1).max(200).optional(),
     reservationId: uuid.optional(),
+    /** 0145: a Touch Shop counter sale — the one tab that needs no table or booking, only a label. */
+    kind: z.enum(['cafe', 'shop']).optional(),
   })
   .strict()
-  .refine((p) => p.tableId !== undefined || p.reservationId !== undefined, {
-    message: 'a tab needs a table or a reservation',
-    path: ['tableId'],
-  });
+  .refine(
+    (p) =>
+      p.tableId !== undefined ||
+      p.reservationId !== undefined ||
+      (p.kind === 'shop' && p.label !== undefined),
+    {
+      message: 'a tab needs a table or a reservation (a shop counter sale needs a label)',
+      path: ['tableId'],
+    },
+  );
 
 export type TabOpenPayload = z.infer<typeof tabOpenPayloadSchema>;
 

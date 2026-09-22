@@ -2629,4 +2629,40 @@ export const matrix: MatrixRule[] = [
     note: '0137: the per-venue overload of the mode banner the guest app polls before sign-in',
     args: { p_venue: VENUE_A }, expect: SELF_ANON_OK, drop: 13,
   },
+
+  // ── drop 14 · Phase 2 item 5 (Touch Shop, 0143–0146) ──────────────────────
+  {
+    kind: 'select',
+    name: 'suppliers',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    note: '0144: suppliers are management data, venue-scoped like ingredients; the till never reads them',
+    drop: 14,
+  },
+  {
+    kind: 'write',
+    name: 'suppliers',
+    op: 'insert',
+    payload: { venue_id: VENUE_A, name: 'MATRIX-PROBE-NEVER' },
+    note: '0144: written only through app.upsert_supplier (duplicate-spelling check, audit)',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 14,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_category_kind',
+    args: { p_id: NIL_UUID, p_kind: 'shop' }, expect: MANAGER_UP,
+    note: '0145: cafe <-> shop on an empty section; an unknown id fails CATEGORY_NOT_FOUND past the guard',
+    drop: 14,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'upsert_supplier',
+    args: { p_name: '' }, expect: MANAGER_UP,
+    note: '0145: a blank name fails INVALID_ARGUMENT past the guard',
+    drop: 14,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'upsert_retail_variant',
+    args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1 }, expect: MANAGER_UP,
+    note: '0145: variant + its own retail stock row in one transaction; an unknown item fails ITEM_NOT_FOUND past the guard',
+    drop: 14,
+  },
 ];
