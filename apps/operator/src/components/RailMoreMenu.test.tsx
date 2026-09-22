@@ -66,7 +66,7 @@ describe('the rail foot group', () => {
     expect(body()?.getAttribute('data-open')).toBe('true');
     expect(body()?.firstElementChild?.hasAttribute('inert')).toBe(false);
     // The body stays a child of the group: nothing is portalled out.
-    expect(screen.getByTestId('rail.more.workspace').closest('#rail-more-body')).toBe(body());
+    expect(screen.getByTestId('rail.more.language').closest('#rail-more-body')).toBe(body());
   });
 
   it('collapses again on a second press', async () => {
@@ -78,11 +78,14 @@ describe('the rail foot group', () => {
     expect(body()?.getAttribute('data-open')).toBeNull();
   });
 
-  it('holds the four station controls for an owner who can switch', async () => {
+  it('holds the three station preferences and keeps the workspace row outside', async () => {
     const user = userEvent.setup();
     renderMenu();
+    // Switch workspace is a destination, not a preference: it is reachable
+    // without opening the group at all.
+    const workspace = screen.getByTestId('rail.more.workspace');
+    expect(workspace.closest('#rail-more-body')).toBeNull();
     await user.click(screen.getByTestId('rail.more'));
-    expect(screen.getByTestId('rail.more.workspace')).toBeTruthy();
     expect(screen.getByTestId('rail.more.assistant')).toBeTruthy();
     expect(screen.getByTestId('rail.more.language')).toBeTruthy();
     expect(screen.getByTestId('rail.more.mode')).toBeTruthy();
@@ -94,20 +97,19 @@ describe('the rail foot group', () => {
     const user = userEvent.setup();
     drawer.allowed = false;
     renderMenu({ canSwitch: false });
-    await user.click(screen.getByTestId('rail.more'));
     expect(screen.queryByTestId('rail.more.workspace')).toBeNull();
+    await user.click(screen.getByTestId('rail.more'));
     expect(screen.queryByTestId('rail.more.assistant')).toBeNull();
     expect(screen.getByTestId('rail.more.language')).toBeTruthy();
     expect(screen.getByTestId('rail.more.mode')).toBeTruthy();
   });
 
-  // The menu holds the same rows on every screen. Dropping this one on the
-  // picker meant Options looked different on exactly one screen, and the row an
-  // owner reaches for had moved up.
+  // The rail holds the same rows on every screen. Dropping this one on the
+  // picker meant the rail looked different on exactly one screen, and the row
+  // an owner reaches for had moved up.
   it('keeps the workspace row on the picker and lights it instead of hiding it', async () => {
     const user = userEvent.setup();
     const { onSwitchWorkspace } = renderMenu({ onWorkspacePicker: true });
-    await user.click(screen.getByTestId('rail.more'));
 
     const row = screen.getByTestId('rail.more.workspace');
     // Still there, and lit the way every other rail row on its own screen is.
@@ -121,10 +123,8 @@ describe('the rail foot group', () => {
     expect(onSwitchWorkspace).not.toHaveBeenCalled();
   });
 
-  it('leaves the workspace row unlit anywhere else', async () => {
-    const user = userEvent.setup();
+  it('leaves the workspace row unlit anywhere else', () => {
     renderMenu();
-    await user.click(screen.getByTestId('rail.more'));
     const row = screen.getByTestId('rail.more.workspace');
     expect(row.getAttribute('data-active')).toBeNull();
     expect(row.getAttribute('aria-current')).toBeNull();
@@ -133,7 +133,6 @@ describe('the rail foot group', () => {
   it('runs the workspace switch', async () => {
     const user = userEvent.setup();
     const { onSwitchWorkspace } = renderMenu();
-    await user.click(screen.getByTestId('rail.more'));
     await user.click(screen.getByTestId('rail.more.workspace'));
     expect(onSwitchWorkspace).toHaveBeenCalledOnce();
   });

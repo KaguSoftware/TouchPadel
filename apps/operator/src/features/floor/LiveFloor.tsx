@@ -546,7 +546,12 @@ function ZoomSlider({ value, onChange }: { value: number; onChange: (v: number) 
         // measured in the same units the thumb actually moves in — half a
         // thumb, plus pct of what is left — which lands on the centre
         // wherever the thumb is, including hard against both ends.
-        background: `linear-gradient(to top, var(--tp-accent) calc(0.75rem + ${pct} * (100% - 1.5rem) / 100), var(--tp-border) calc(0.75rem + ${pct} * (100% - 1.5rem) / 100))`,
+        //
+        // The two colours come from --tp-zoom-fill / --tp-zoom-track
+        // (GlobalStyles), not from --tp-accent / --tp-border, because blue
+        // mode pins this control to the paper theme's paint and those tokens
+        // invert there.
+        background: `linear-gradient(to top, var(--tp-zoom-fill) calc(0.75rem + ${pct} * (100% - 1.5rem) / 100), var(--tp-zoom-track) calc(0.75rem + ${pct} * (100% - 1.5rem) / 100))`,
       }}
     />
   );

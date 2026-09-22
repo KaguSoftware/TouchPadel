@@ -66,6 +66,44 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border-color: var(--tp-accent) !important;
   box-shadow: var(--tp-ring);
 }
+/* The native dropdown arrow is painted by the platform in its OWN fixed
+   gutter, OUTSIDE the author padding box — so padding-inline-end widens the
+   control without ever moving the glyph off the border. The only way to place
+   it is to drop the native control and draw the chevron ourselves.
+
+   The SVG is inlined url-encoded rather than base64, so the markup stays
+   readable and greppable. Its stroke is a fixed slate grey (%2364748b): a
+   background-image cannot read currentColor, and that one grey carries
+   enough contrast against both the light and the blue-mode --tp-surface,
+   which a theme-swapped pair of declarations would only complicate.
+
+   RTL: background-position is physical, so the chevron is re-anchored to the
+   left edge under [dir='rtl'] rather than relying on a logical keyword that
+   background-position does not accept. Padding stays logical and flips on its
+   own.
+
+   Every declaration here carries !important for one reason: inputStyle is
+   applied as an INLINE style, and it sets both paddingInline and the
+   background SHORTHAND — which resets background-image to none. Without
+   !important the chevron would never paint on any control using inputStyle,
+   which is nearly all of them. */
+select {
+  -webkit-appearance: none; appearance: none;
+  padding-inline-end: 2rem !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.7rem center !important;
+  background-size: 12px 8px !important;
+}
+[dir='rtl'] select { background-position: left 0.7rem center !important; }
+/* A disabled control's chevron must fade with the rest of it. */
+select:disabled { opacity: 0.85; }
+/* Multi-selects and sized list boxes are not dropdowns: no arrow, no gutter. */
+select[multiple], select[size]:not([size='1']) {
+  background-image: none !important;
+  padding-inline-end: 0.65rem !important;
+}
+
 input::placeholder, textarea::placeholder { color: var(--tp-muted-fg); }
 input[type='date'], input[type='time'], input[type='number'] { font-variant-numeric: tabular-nums; }
 ::selection { background: var(--tp-accent-soft); }
@@ -330,6 +368,17 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-floor-zoom {
   -webkit-appearance: none; appearance: none;
   border-radius: 999px; border: 1px solid var(--tp-border);
+  /* Every paint the track and the thumb use, named here so blue mode can pin
+     them to the paper values. On paper --tp-accent is the brand blue and the
+     surfaces are near-white, which is the look the owner wants in BOTH modes
+     (2026-09-22): blue fill and blue thumb on a pale track. Left to the
+     tokens, blue mode inverted it — there --tp-accent IS white and the
+     surfaces are blue, so the slider came out white-on-blue. */
+  --tp-zoom-fill: var(--tp-accent);
+  --tp-zoom-track: var(--tp-border);
+  --tp-zoom-thumb: var(--tp-accent);
+  --tp-zoom-thumb-ring: var(--tp-surface);
+  border-color: var(--tp-zoom-track);
   /* Upright, running 0 at the bottom to 100 at the top. This pair is what
      tells the BROWSER the slider is vertical — so Up and Right both move
      toward 100, and the hit box matches the drawn box. A rotate() would do
@@ -342,15 +391,25 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-floor-zoom::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%;
-  background: var(--tp-accent); border: 2px solid var(--tp-surface);
+  background: var(--tp-zoom-thumb); border: 2px solid var(--tp-zoom-thumb-ring);
   box-shadow: var(--tp-shadow-raised); cursor: pointer;
 }
 .tp-floor-zoom::-moz-range-thumb {
   inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%;
-  background: var(--tp-accent); border: 2px solid var(--tp-surface);
+  background: var(--tp-zoom-thumb); border: 2px solid var(--tp-zoom-thumb-ring);
   box-shadow: var(--tp-shadow-raised); cursor: pointer;
 }
 .tp-floor-zoom::-moz-range-track { background: transparent; }
+/* Blue mode paints this one control exactly as paper does — the owner asked
+   for the two to be identical (2026-09-22), so these are the paper theme's own
+   values rather than blue-mode tokens: --tp-accent-contrast IS the brand blue
+   here, and the pale track and white ring are the brand white and its gray. */
+:root[data-theme='operator'][data-mode='blue'] .tp-floor-zoom {
+  --tp-zoom-fill: var(--tp-accent-contrast);
+  --tp-zoom-track: var(--tp-brand-white);
+  --tp-zoom-thumb: var(--tp-accent-contrast);
+  --tp-zoom-thumb-ring: var(--tp-brand-white);
+}
 
 /* ---- keyframes ---- */
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
@@ -483,6 +542,73 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @container (max-width: 30rem) { .tp-grid[data-cols="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (max-width: 22rem) { .tp-grid[data-cols="2"], .tp-grid[data-cols="3"] { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- the glass menu (components/SelectMenu.tsx) ----
+   The floating panel of a dropdown, frosted so the data it covers stays
+   faintly legible underneath rather than being replaced by a flat slab.
+
+   Opaque --tp-surface is the BASE, and the translucent --tp-glass is applied
+   only inside the @supports guard: a browser without backdrop-filter would
+   otherwise render a see-through panel with unblurred text behind it, which
+   is unreadable. Paper and blue mode each carry their own --tp-glass, so the
+   pane picks up the mode's own hue instead of a grey wash.
+
+   Radius is --tp-radius-dialog (12px), not the 6px control radius: this is an
+   overlay and reads as one, and it is the corner the platform's own menu uses.
+   The rows inside are inset by --tp-sp-1 and rounded a step down, so a tinted
+   row never has a square corner poking into a round one. */
+.tp-menu-glass {
+  background: var(--tp-surface);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-dialog);
+  box-shadow: var(--tp-shadow-popover);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tp-menu-glass {
+    background: var(--tp-glass);
+    border-color: var(--tp-glass-border);
+    -webkit-backdrop-filter: var(--tp-glass-blur);
+    backdrop-filter: var(--tp-glass-blur);
+  }
+}
+.tp-menu-glass [role='option'] {
+  border-radius: var(--tp-radius-ctl);
+  transition: background-color var(--tp-dur-fast) var(--tp-ease-out);
+}
+/* Hover tints only what the pointer is on; the keyboard's row is marked by
+   [data-active] from the component and wins, so the two never disagree. */
+.tp-menu-glass [role='option']:hover:not(:disabled):not([data-active='true']) {
+  background: var(--tp-surface-2);
+}
+
+/* ---- the frosted sticky bar, and the controls standing on it ----
+   The analytics bar is pinned over a scrolling <main>, so charts and tables
+   genuinely pass beneath it: that moving content is what the frost has to
+   show, and it is the reason this is glass rather than a tint.
+
+   As everywhere else here, the opaque value is the base rule and the
+   translucent one applies only inside @supports — without backdrop-filter a
+   72% bar would let sharp text scroll through it and the row would be
+   unreadable.
+
+   .tp-glass-ctl is the control ON the bar. It is near-opaque (0.8) with only
+   a light blur on purpose: two heavily translucent layers stack into a muddy
+   wash and the control stops reading as a control. The border carries it. */
+.tp-glass-bar { background: var(--tp-bg); }
+.tp-glass-ctl { background: var(--tp-surface) !important; }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tp-glass-bar {
+    background: var(--tp-glass-bar);
+    -webkit-backdrop-filter: var(--tp-glass-blur);
+    backdrop-filter: var(--tp-glass-blur);
+  }
+  .tp-glass-ctl {
+    /* !important because inputStyle sets the background shorthand inline. */
+    background: var(--tp-glass-ctl) !important;
+    -webkit-backdrop-filter: var(--tp-glass-blur-sm);
+    backdrop-filter: var(--tp-glass-blur-sm);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
