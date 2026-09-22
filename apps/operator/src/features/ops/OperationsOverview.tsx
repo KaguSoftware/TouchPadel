@@ -183,8 +183,8 @@ function Dashboard({ data, queued, go }: { data: OpsOverview; queued: number; go
         <ExceptionsCard data={data} go={go} />
       </div>
 
-      <Panel title={<CardTitle icon="users">{tr('ws.manager.ops.staff.title')}</CardTitle>} padded={false}>
-        <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+      <Panel title={<CardTitle icon="users">{tr('ws.manager.ops.staff.title')}</CardTitle>}>
+        <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
           {tr('ws.manager.ops.staff.lead')}
         </p>
         <StaffTable rows={data.staffActivity} />
@@ -506,13 +506,9 @@ function ExceptionsCard({ data, go }: { data: OpsOverview; go: Go }) {
  */
 function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
   const { tr, locale } = useLocale();
+  // Nobody has recorded anything yet is not a fault and not a filter.
   if (rows.length === 0) {
-    return (
-      <div style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', paddingBlockEnd: 'var(--tp-sp-3)' }}>
-        {/* Nobody has recorded anything yet is not a fault and not a filter. */}
-        <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} />
-      </div>
-    );
+    return <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} />;
   }
   const columns: Column<OpsStaffRow>[] = [
     { key: 'name', header: tr('ws.manager.ops.staff.name'), truncate: true, truncateTitle: (r) => r.name, render: (r) => <bdi>{r.name}</bdi> },

@@ -42,7 +42,7 @@ export function SplitBillDialog({
   const { tr } = useLocale();
   const [mode, setMode] = useState<SplitMode>('even');
   return (
-    <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('common.close')}</Button>}>
+    <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={(close) => (<Button onClick={close}>{tr('common.close')}</Button>)}>
       <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <SegmentedControl<SplitMode>
           value={mode}

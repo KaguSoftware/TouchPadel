@@ -24,7 +24,7 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -338,17 +338,23 @@ function IngredientForm({
           <BilingualFields labelEn={tr('op.courts.nameEn')} labelAr={tr('op.courts.nameAr')} en={nameEn} ar={nameAr} onEn={setNameEn} onAr={setNameAr} />
         </div>
         <Field label={tr('ws.manager.stock.ingredients.form.unit')} hint={locked ? tr('ws.manager.stock.ingredients.form.locked') : undefined}>
-          <select style={inputStyle} value={unit} disabled={locked} onChange={(e) => setUnit(e.target.value as typeof unit)}>
-            <option value="g">{tr('ws.manager.stock.ingredients.form.unitName.g')}</option>
-            <option value="ml">{tr('ws.manager.stock.ingredients.form.unitName.ml')}</option>
-            <option value="pc">{tr('ws.manager.stock.ingredients.form.unitName.pc')}</option>
-          </select>
+          <Select
+            value={unit}
+            disabled={locked}
+            onChange={(v) => setUnit(v as typeof unit)}
+            options={(['g', 'ml', 'pc'] as const).map((u) => ({ value: u, label: tr(`ws.manager.stock.ingredients.form.unitName.${u}`) }))}
+          />
         </Field>
         <Field label={tr('ws.manager.stock.ingredients.form.kind')} hint={locked ? tr('ws.manager.stock.ingredients.form.locked') : undefined}>
-          <select style={inputStyle} value={kind} disabled={locked} onChange={(e) => setKind(e.target.value as typeof kind)}>
-            <option value="purchased">{tr('ws.manager.stock.ingredients.form.purchased')}</option>
-            <option value="prepared">{tr('ws.manager.stock.ingredients.form.prepared')}</option>
-          </select>
+          <Select
+            value={kind}
+            disabled={locked}
+            onChange={(v) => setKind(v as typeof kind)}
+            options={[
+              { value: 'purchased', label: tr('ws.manager.stock.ingredients.form.purchased') },
+              { value: 'prepared', label: tr('ws.manager.stock.ingredients.form.prepared') },
+            ]}
+          />
         </Field>
       </Section>
 

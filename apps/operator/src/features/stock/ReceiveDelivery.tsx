@@ -29,7 +29,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
 import { MessagePresenter, Money, PageHeader, Panel } from '../../components/kit';
 import { useStockFormat } from './stockUi';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
@@ -136,14 +136,15 @@ export function ReceiveDelivery() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }}>
             <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
               {suppliers.length > 0 ? (
-                <select style={inputStyle} value={supplierId} disabled={busy} onChange={(e) => setSupplierId(e.target.value)}>
-                  <option value="">{tr('ws.manager.stock.goodsIn.supplierOther')}</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  value={supplierId}
+                  disabled={busy}
+                  onChange={setSupplierId}
+                  options={[
+                    { value: '', label: tr('ws.manager.stock.goodsIn.supplierOther') },
+                    ...suppliers.map((s) => ({ value: s.id, label: s.name })),
+                  ]}
+                />
               ) : null}
               {supplierId === '' && (
                 <input
@@ -162,6 +163,11 @@ export function ReceiveDelivery() {
         </Panel>
 
         <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
+          {/* The order of the work, said once at the top rather than hidden in
+              the Record button's tooltip, where it only showed up too late. */}
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
+            {tr('ws.manager.stock.goodsIn.recordEmpty')}
+          </p>
           <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
             {lines.map((l, i) => (
               <LineEditor
@@ -192,7 +198,6 @@ export function ReceiveDelivery() {
               icon="box"
               busy={busy}
               disabled={!canRecord}
-              disabledReason={started.length === 0 ? tr('ws.manager.stock.goodsIn.recordEmpty') : tr('ws.manager.stock.goodsIn.recordIncomplete')}
               onClick={() => void submit()}
             >
               {tr('ws.manager.stock.goodsIn.record')}
@@ -240,6 +245,25 @@ function LineEditor({
   const unit = ingredient ? fmt.unit(ingredient.unit) : null;
   const withUnit = (label: string) => (unit ? `${label} (${unit})` : label);
 
+  // Quantities and costs are numbers, so the boxes take nothing else: digits
+  // and a single decimal point survive, every other keystroke is dropped, and
+  // the run stops at ten digits — past that it is a typo, not a delivery.
+  const onlyNumber = (raw: string) => {
+    const kept = raw.replace(/[^\d.]/g, '');
+    const dot = kept.indexOf('.');
+    const once = dot === -1 ? kept : `${kept.slice(0, dot + 1)}${kept.slice(dot + 1).replace(/\./g, '')}`;
+    let digits = 0;
+    let out = '';
+    for (const ch of once) {
+      if (ch === '.') out += ch;
+      else if (digits < 10) {
+        out += ch;
+        digits += 1;
+      }
+    }
+    return out;
+  };
+
   const expiryHint = !ingredient
     ? undefined
     : ingredient.shelf_life_days !== null
@@ -260,33 +284,28 @@ function LineEditor({
     >
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--tp-sp-2)' }}>
         <Field label={tr('ws.manager.stock.goodsIn.ingredient')} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: 0 }} error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
-          <select style={inputStyle} value={line.ingredientId} disabled={busy} onChange={(e) => onChoose(e.target.value)}>
-            <option value="">{tr('ws.manager.stock.goodsIn.choose')}</option>
-            {ingredients.some((i) => i.kind === 'retail') ? (
-              <>
-                <optgroup label={tr('ws.manager.stock.goodsIn.groupCafe')}>
-                  {ingredients.filter((i) => i.kind !== 'retail').map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {pickName(locale, i)}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label={tr('ws.manager.stock.goodsIn.groupShop')}>
-                  {ingredients.filter((i) => i.kind === 'retail').map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {pickName(locale, i)}
-                    </option>
-                  ))}
-                </optgroup>
-              </>
-            ) : (
-              ingredients.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {pickName(locale, i)}
-                </option>
-              ))
-            )}
-          </select>
+          <Select
+            value={line.ingredientId}
+            disabled={busy}
+            onChange={onChoose}
+            options={[
+              { value: '', label: tr('ws.manager.stock.goodsIn.choose') },
+              // The cafe/shop <optgroup> pair became a prefixed flat list:
+              // SelectMenu draws its own panel and has no group row, and a
+              // silent flattening would have lost which list an item came
+              // from — retail and cafe ingredients can share a name.
+              ...(ingredients.some((i2) => i2.kind === 'retail')
+                ? [
+                    ...ingredients
+                      .filter((i2) => i2.kind !== 'retail')
+                      .map((i2) => ({ value: i2.id, label: `${tr('ws.manager.stock.goodsIn.groupCafe')} · ${pickName(locale, i2)}` })),
+                    ...ingredients
+                      .filter((i2) => i2.kind === 'retail')
+                      .map((i2) => ({ value: i2.id, label: `${tr('ws.manager.stock.goodsIn.groupShop')} · ${pickName(locale, i2)}` })),
+                  ]
+                : ingredients.map((i2) => ({ value: i2.id, label: pickName(locale, i2) }))),
+            ]}
+          />
         </Field>
         <Button
           kind="ghost"
@@ -300,8 +319,8 @@ function LineEditor({
         />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 'var(--tp-sp-2)', alignItems: 'start' }}>
-        <Field label={withUnit(tr('ws.manager.stock.goodsIn.received'))} style={{ marginBlockEnd: 0 }} error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: e.target.value })} />
+        <Field label={withUnit(tr('ws.manager.stock.goodsIn.received'))} required style={{ marginBlockEnd: 0 }} error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: onlyNumber(e.target.value) })} />
         </Field>
         <Field
           label={withUnit(tr('ws.manager.stock.goodsIn.ordered'))}
@@ -310,10 +329,11 @@ function LineEditor({
           error={problem === 'ordered' ? tr('ws.manager.stock.goodsIn.problem.ordered') : undefined}
           hint={short ? <span style={{ color: 'var(--tp-warn-fg)', fontWeight: 600 }}>{tr('ws.manager.stock.goodsIn.short', { qty: fmt.num(Number(line.qtyExpected) - Number(line.qtyReceived)) })}</span> : undefined}
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: e.target.value })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: onlyNumber(e.target.value) })} />
         </Field>
         <Field
           label={unit ? tr('ws.manager.stock.goodsIn.costPer', { unit }) : tr('ws.manager.stock.goodsIn.cost')}
+          required
           style={{ marginBlockEnd: 0 }}
           error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}
           hint={
@@ -324,7 +344,7 @@ function LineEditor({
             ) : undefined
           }
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: e.target.value })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: onlyNumber(e.target.value) })} />
         </Field>
         <Field label={tr('ws.manager.stock.goodsIn.expiry')} optional hint={expiryHint} style={{ marginBlockEnd: 0 }}>
           <input style={inputStyle} type="date" dir="ltr" value={line.expiryDate} disabled={busy} onChange={(e) => onPatch({ expiryDate: e.target.value })} />

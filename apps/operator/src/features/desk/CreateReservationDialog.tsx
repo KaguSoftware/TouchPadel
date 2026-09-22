@@ -176,16 +176,16 @@ export function CreateReservationDialog({
         </bdi>
       }
       onClose={busy ? () => {} : onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" busy={busy} disabled={!canSubmit} disabledReason={blockedReason} onClick={() => void submit()}>
             {tr('op.desk.create')}
           </Button>
         </>
-      }
+      )}
     >
       {conflict && (
         <ConflictNotice
@@ -266,23 +266,25 @@ export function CreateReservationDialog({
         )}
         {night && (
           <Field label={tr('ws.courtDesk.create.start')} error={chosenTaken ? tr('ws.courtDesk.create.takenNote') : undefined}>
-            <select style={inputStyle} value={startIso} disabled={busy} onChange={(e) => setStartIso(e.target.value)}>
-              {startOptions.map((o) => (
-                <option key={o.iso} value={o.iso} disabled={o.taken && o.iso !== startIso}>
-                  {o.taken ? tr('ws.courtDesk.create.startTaken', { time: formatTime(new Date(o.iso), locale, tz) }) : formatTime(new Date(o.iso), locale, tz)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={startIso}
+              disabled={busy}
+              onChange={setStartIso}
+              options={startOptions.map((o) => ({
+                value: o.iso,
+                label: o.taken ? tr('ws.courtDesk.create.startTaken', { time: formatTime(new Date(o.iso), locale, tz) }) : formatTime(new Date(o.iso), locale, tz),
+                disabled: o.taken && o.iso !== startIso,
+              }))}
+            />
           </Field>
         )}
         <Field label={tr('op.desk.duration')}>
-          <select style={inputStyle} value={duration} disabled={busy} onChange={(e) => setDuration(Number(e.target.value))}>
-            {durations.map((d) => (
-              <option key={d} value={d}>
-                {tr('op.common.minutesShort', { minutes: formatNumber(d, locale) })}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={String(duration)}
+            disabled={busy}
+            onChange={(d) => setDuration(Number(d))}
+            options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: formatNumber(d, locale) }) }))}
+          />
         </Field>
         {!night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
       </div>

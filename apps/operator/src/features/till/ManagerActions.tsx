@@ -133,9 +133,9 @@ export function RefundDialog({
       <Modal
         title={tr('op.till.refund')}
         onClose={onClose}
-        footer={
+        footer={(close) => (
           <div style={reasonedFooter}>
-            <Button onClick={onClose} disabled={busy}>
+            <Button onClick={close} disabled={busy}>
               {tr('common.cancel')}
             </Button>
             <Button
@@ -148,7 +148,7 @@ export function RefundDialog({
               {tr('op.till.refund')}
             </Button>
           </div>
-        }
+        )}
       >
         {!canRefund && (
           <PermissionRefusedNotice action={tr('ws.cashier.refund.refusedAction')} requiredRole={requiredRoleFor('refund')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
@@ -275,9 +275,9 @@ export function OverridePriceDialog({
         title={tr('op.till.override')}
         onClose={onClose}
         size="sm"
-        footer={
+        footer={(close) => (
           <div style={reasonedFooter}>
-            <Button onClick={onClose} disabled={busy}>
+            <Button onClick={close} disabled={busy}>
               {tr('common.cancel')}
             </Button>
             <Button
@@ -290,7 +290,7 @@ export function OverridePriceDialog({
               {tr('op.till.override')}
             </Button>
           </div>
-        }
+        )}
       >
         <p style={{ fontWeight: 600 }}>
           <bdi>{label}</bdi>
@@ -387,9 +387,9 @@ export function MergeTabsDialog({
       title={tr('ws.cashier.merge.title')}
       onClose={busy ? () => {} : onClose}
       size="sm"
-      footer={
+      footer={(close) => (
         <div style={reasonedFooter}>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -403,7 +403,7 @@ export function MergeTabsDialog({
             {tr('ws.cashier.merge.confirm')}
           </Button>
         </div>
-      }
+      )}
     >
       <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.merge.into', { name: survivorLabel })}</p>
       <ErrorText error={candidatesQ.error} />

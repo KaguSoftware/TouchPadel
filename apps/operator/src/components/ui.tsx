@@ -23,6 +23,7 @@ import { useLocale } from '../lib/i18n';
 import { errorToMessageKey } from '../lib/errors';
 import { Icon, type IconName } from './icons';
 import { BrandBall } from './brand';
+import { SelectMenu } from './SelectMenu';
 
 export const card: CSSProperties = {
   background: 'var(--tp-surface)',
@@ -317,7 +318,11 @@ export function Field({
     });
   }
 
-  const Wrapper = group ? 'div' : 'label';
+  // A <label> forwards a click anywhere inside it to its control, which for
+  // the button-triggered Select meant the label text — and the empty space
+  // beside a narrow menu — silently opened the dropdown. Those already carry
+  // their name through aria-labelledby, so they get a plain <div> instead.
+  const Wrapper = group || isSelect ? 'div' : 'label';
 
   return (
     <div style={{ marginBlockEnd: 'var(--tp-sp-4)', ...style }}>
@@ -413,8 +418,24 @@ export function trapTab(e: KeyboardEvent<HTMLElement>, panel: HTMLElement | null
 }
 
 /**
+ * Longest Modal waits for the exit animation's `animationend` before it calls
+ * `onClose` anyway. Comfortably past --tp-dur-base (220ms), which the exit
+ * shares with the entrance; the fallback covers reduced motion (the animation
+ * collapses to 0.01ms) and a backgrounded tab, where no animationend arrives
+ * at all.
+ */
+const MODAL_EXIT_FALLBACK_MS = 400;
+
+/**
  * Centered dialog: click-outside and Esc call `onClose`; focus is trapped
  * inside and restored to the opener on unmount.
+ *
+ * Closing is deferred so the exit can play. Every caller unmounts the dialog
+ * the moment its state clears, which ripped the panel out between two frames:
+ * it rose in on tpRise and then simply was not there. A close request instead
+ * flips `data-closing` (GlobalStyles) and only calls the caller's `onClose`
+ * when that animation ends, so the X, Esc and the backdrop all sink the panel
+ * back the way it came.
  */
 export function Modal({
   title,
@@ -434,12 +455,68 @@ export function Modal({
   subtitle?: ReactNode;
   /** Rendered inline right after the heading — a status pill, not a second title. */
   titleAfter?: ReactNode;
-  footer?: ReactNode;
+  /**
+   * The dialog's buttons. Given as a function, it receives the dialog's OWN
+   * close — the one that plays the exit animation — which a Cancel / Close /
+   * Back button should call in place of the `onClose` prop. Wiring such a
+   * button straight to `onClose` unmounts the panel on the spot, so it
+   * vanished while the X beside the title sank it.
+   */
+  footer?: ReactNode | ((close: () => void) => ReactNode);
 }) {
   const { tr } = useLocale();
   const panelRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  /*
+   * The exit is driven off the DOM rather than a state flag: a re-render on the
+   * way out would re-run the panel's children (a busy Button, a query that has
+   * just settled) for a frame nobody sees. `closing` also guards against a
+   * second request — an operator hitting Esc during the fade must not queue a
+   * second onClose.
+   */
+  const closing = useRef(false);
+  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (exitTimer.current !== null) clearTimeout(exitTimer.current);
+  }, []);
+
+  /*
+   * Stable across renders: this is the context value, and a new function every
+   * render would re-render every control in every dialog body on each keystroke
+   * typed into one of them.
+   */
+  const requestCloseRef = useRef((): void => {
+    requestClose();
+  });
+
+  function requestClose() {
+    if (closing.current) return;
+    const backdrop = backdropRef.current;
+    if (!backdrop) {
+      onCloseRef.current();
+      return;
+    }
+    closing.current = true;
+    backdrop.dataset.closing = 'true';
+    /*
+     * animationend BUBBLES, and the dialog body is full of other animations —
+     * a .tp-rise row, a .tp-attention pulse, the skeleton sweep. Listening for
+     * any of them closed the dialog early (or, for a loop, on its first
+     * period), so only the backdrop's own tpFadeOut counts.
+     */
+    const done = (e?: AnimationEvent) => {
+      if (e && (e.target !== backdrop || e.animationName !== 'tpFadeOut')) return;
+      backdrop.removeEventListener('animationend', done as EventListener);
+      if (exitTimer.current !== null) clearTimeout(exitTimer.current);
+      exitTimer.current = null;
+      onCloseRef.current();
+    };
+    backdrop.addEventListener('animationend', done as EventListener);
+    exitTimer.current = setTimeout(done, MODAL_EXIT_FALLBACK_MS);
+  }
   /*
    * Where the press STARTED. A mousedown inside the panel and a mouseup outside
    * it dispatch their click on the common ancestor — the backdrop — so dragging
@@ -462,7 +539,7 @@ export function Modal({
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      onCloseRef.current();
+      requestClose();
     } else if (e.key === 'Tab') {
       trapTab(e, panelRef.current);
     }
@@ -486,6 +563,7 @@ export function Modal({
 
   return (
     <div
+      ref={backdropRef}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -504,7 +582,7 @@ export function Modal({
         pressedBackdrop.current = e.target === e.currentTarget;
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && pressedBackdrop.current) onClose();
+        if (e.target === e.currentTarget && pressedBackdrop.current) requestClose();
       }}
       onKeyDown={onKeyDown}
     >
@@ -546,7 +624,7 @@ export function Modal({
               </p>
             )}
           </div>
-          <Button kind="ghost" size="sm" icon="x" onClick={onClose} aria-label={tr('common.close')} />
+          <Button kind="ghost" size="sm" icon="x" onClick={requestClose} aria-label={tr('common.close')} />
         </div>
         <div
           style={{
@@ -572,7 +650,7 @@ export function Modal({
               borderEndEndRadius: 'var(--tp-radius-dialog)',
             }}
           >
-            {footer}
+            {typeof footer === 'function' ? footer(requestCloseRef.current) : footer}
           </div>
         )}
       </div>
@@ -612,11 +690,13 @@ export function AmountPad({
   value,
   onChange,
   onConfirm,
+  max,
   disabled,
 }: {
   value: number;
   onChange: (next: number) => void;
   onConfirm?: () => void;
+  max?: number;
   disabled?: boolean;
 }) {
   const { tr } = useLocale();
@@ -625,7 +705,8 @@ export function AmountPad({
     if (k === '⌫') onChange(Math.floor(value / 10));
     else {
       const next = Number(`${value}${k}`);
-      if (Number.isSafeInteger(next)) onChange(next);
+      // A press that would exceed the cap is ignored, so the pad stops at max.
+      if (Number.isSafeInteger(next) && (max === undefined || next <= max)) onChange(next);
     }
   }
   return (
@@ -714,26 +795,24 @@ export function PinReasonModal({
     <Modal
       title={title}
       onClose={onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => onSubmit(pin, reason)}>
             {tr('common.confirm')}
           </Button>
         </>
-      }
+      )}
     >
       {children}
       <Field label={tr('op.common.reason')}>
-        <select style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value as ReasonCode)}>
-          {reasons.map((r) => (
-            <option key={r} value={r}>
-              {tr(`op.reasons.${r}`)}
-            </option>
-          ))}
-        </select>
+        <Select<ReasonCode>
+          value={reason}
+          onChange={setReason}
+          options={reasons.map((r) => ({ value: r, label: tr(`op.reasons.${r}`) }))}
+        />
       </Field>
       <Field label={tr('op.common.pin')}>
         <input
@@ -946,7 +1025,14 @@ export interface SelectOption<T extends string> {
   disabled?: boolean;
 }
 
-/** Thin wrapper over a native `<select>` styled like our inputs. */
+/**
+ * The app's dropdown. It renders SelectMenu — our own popup — rather than a
+ * native <select>, because the platform draws a native select's open menu
+ * itself: on macOS it lands over the control's own border and no CSS reaches
+ * it. This is the one definition, so every caller gets the same menu.
+ *
+ * The props are the native control's, unchanged, so call sites did not move.
+ */
 export function Select<T extends string>({
   value,
   onChange,
@@ -955,6 +1041,7 @@ export function Select<T extends string>({
   disabled,
   id,
   style,
+  className,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
   'aria-describedby': ariaDescribedBy,
@@ -967,6 +1054,7 @@ export function Select<T extends string>({
   disabled?: boolean;
   id?: string;
   style?: CSSProperties;
+  className?: string;
   'aria-label'?: string;
   /** Set by Field, which names and describes the control it wraps. */
   'aria-labelledby'?: string;
@@ -974,27 +1062,19 @@ export function Select<T extends string>({
   'aria-invalid'?: boolean;
 }) {
   return (
-    <select
-      id={id}
+    <SelectMenu<T>
       value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
       disabled={disabled}
+      id={id}
+      className={className}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
       aria-invalid={ariaInvalid}
-      onChange={(e) => onChange(e.target.value as T)}
       style={{ ...inputStyle, ...style }}
-    >
-      {placeholder !== undefined && (
-        <option value="" disabled>
-          {placeholder}
-        </option>
-      )}
-      {options.map((o) => (
-        <option key={o.value} value={o.value} disabled={o.disabled}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    />
   );
 }

@@ -89,9 +89,9 @@ export function ItemSheet({
     <Modal
       title={pickName(locale, item)}
       onClose={onClose}
-      footer={
+      footer={(close) => (
         <div style={reasonedFooter}>
-          <Button onClick={onClose}>{tr('common.cancel')}</Button>
+          <Button onClick={close}>{tr('common.cancel')}</Button>
           <Button
             kind="primary"
             size="lg"
@@ -110,7 +110,7 @@ export function ItemSheet({
             {tr('op.till.addToBasket')}
           </Button>
         </div>
-      }
+      )}
     >
       {variants.length > 1 ? (
         <Field label={tr('op.till.size')}>

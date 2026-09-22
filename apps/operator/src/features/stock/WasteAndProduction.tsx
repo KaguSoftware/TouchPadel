@@ -24,7 +24,7 @@ import { mutate } from '../../lib/mutate';
 import { QK } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
 import { EmptyState, PageHeader, Panel } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { Footnote, useStockFormat } from './stockUi';
@@ -99,14 +99,15 @@ function WasteForm() {
   return (
     <Panel title={<CardTitle icon="ban">{tr('ws.manager.stock.waste.wasteTitle')}</CardTitle>}>
       <Field label={tr('ws.manager.stock.waste.ingredient')} required hint={chosen && onHand !== undefined ? <bdi>{tr('ws.manager.stock.waste.onHand', { qty: fmt.qty(onHand, chosen.unit) })}</bdi> : undefined}>
-        <select style={inputStyle} value={ingredientId} disabled={busy} onChange={(e) => setIngredientId(e.target.value)}>
-          <option value="">{tr('ws.manager.stock.goodsIn.choose')}</option>
-          {ingredients.map((i) => (
-            <option key={i.id} value={i.id}>
-              {pickName(locale, i)}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={ingredientId}
+          disabled={busy}
+          onChange={setIngredientId}
+          options={[
+            { value: '', label: tr('ws.manager.stock.goodsIn.choose') },
+            ...ingredients.map((i) => ({ value: i.id, label: pickName(locale, i) })),
+          ]}
+        />
       </Field>
       <Field
         label={chosen ? tr('ws.manager.stock.waste.quantityIn', { unit: fmt.unit(chosen.unit) }) : tr('ws.manager.stock.waste.quantity')}
@@ -116,10 +117,15 @@ function WasteForm() {
         <input style={inputStyle} dir="ltr" inputMode="decimal" value={qty} disabled={busy} onChange={(e) => setQty(e.target.value)} />
       </Field>
       <Field label={tr('ws.manager.stock.waste.what')} required>
-        <select style={inputStyle} value={movementType} disabled={busy} onChange={(e) => setMovementType(e.target.value as typeof movementType)}>
-          <option value="waste_spill">{tr('ws.manager.stock.waste.spill')}</option>
-          <option value="waste_spoilage">{tr('ws.manager.stock.waste.spoilage')}</option>
-        </select>
+        <Select
+          value={movementType}
+          disabled={busy}
+          onChange={(v) => setMovementType(v as typeof movementType)}
+          options={[
+            { value: 'waste_spill', label: tr('ws.manager.stock.waste.spill') },
+            { value: 'waste_spoilage', label: tr('ws.manager.stock.waste.spoilage') },
+          ]}
+        />
       </Field>
       <Field label={tr('ws.manager.stock.waste.note')} required hint={tr('ws.manager.stock.waste.noteHint')}>
         <input style={inputStyle} value={reason} disabled={busy} maxLength={300} placeholder={tr('ws.manager.stock.waste.notePlaceholder')} onChange={(e) => setReason(e.target.value)} />
@@ -192,14 +198,15 @@ function ProductionForm() {
       ) : (
         <>
           <Field label={tr('ws.manager.stock.waste.prepared')} required hint={chosen && onHand !== undefined ? <bdi>{tr('ws.manager.stock.waste.onHand', { qty: fmt.qty(onHand, chosen.unit) })}</bdi> : undefined}>
-            <select style={inputStyle} value={ingredientId} disabled={busy} onChange={(e) => setIngredientId(e.target.value)}>
-              <option value="">{tr('ws.manager.stock.goodsIn.choose')}</option>
-              {prepared.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {pickName(locale, i)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={ingredientId}
+              disabled={busy}
+              onChange={setIngredientId}
+              options={[
+                { value: '', label: tr('ws.manager.stock.goodsIn.choose') },
+                ...prepared.map((i) => ({ value: i.id, label: pickName(locale, i) })),
+              ]}
+            />
           </Field>
           <Field
             label={chosen ? tr('ws.manager.stock.waste.madeIn', { unit: fmt.unit(chosen.unit) }) : tr('ws.manager.stock.waste.made')}

@@ -604,7 +604,34 @@ export function SeriesPatternBuilder({
           </div>
         </Field>
       )}
-      {/* How it ends and WHEN it ends are one decision, so they share a row. */}
+      <div className="tp-grid" data-cols="3" style={{ gap: '0.75rem' }}>
+        <Field label={tr('ws.courtDesk.series.startsOn')} required error={errors?.startsOn}>
+          {/* `min` greys the past out of the picker; it does not stop a typed
+              date, which is what errors.startsOn is for. */}
+          <input
+            type="date"
+            style={inputStyle}
+            value={draft.startsOn}
+            min={minDate}
+            disabled={disabled}
+            onChange={(e) => e.target.value && set({ startsOn: e.target.value })}
+          />
+        </Field>
+        <Field label={tr('ws.courtDesk.series.time')} required error={errors?.time}>
+          <input type="time" step={1800} style={inputStyle} value={draft.startTime} disabled={disabled} onChange={(e) => set({ startTime: e.target.value })} />
+        </Field>
+        <Field label={tr('ws.courtDesk.series.duration')}>
+          <Select
+            value={String(draft.durationMin)}
+            disabled={disabled}
+            onChange={(d) => set({ durationMin: Number(d) })}
+            options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: d }) }))}
+          />
+        </Field>
+      </div>
+      {/* How it ends and WHEN it ends are one decision, so they share a row.
+          The weeks box used to be a stubby 8rem stub floating under a
+          full-width control. */}
       <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
         <Field label={tr('ws.courtDesk.series.endMode')} group style={{ marginBlockEnd: 0 }}>
           <SegmentedControl<'weeks' | 'date'>

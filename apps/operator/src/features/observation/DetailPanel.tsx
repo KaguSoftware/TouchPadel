@@ -30,6 +30,14 @@ export interface WorkspaceTarget {
   params?: Record<string, string>;
 }
 
+/**
+ * The panel's travel, shared by the slide in and the slide back out so the two
+ * are the same gesture: a different duration or curve on the way out read as a
+ * different control rather than the same drawer closing.
+ */
+const SLIDE_MS = 260;
+const SLIDE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
 export function DetailPanel({
   eyebrow,
   title,
@@ -50,8 +58,11 @@ export function DetailPanel({
   const navigate = useNavigate();
   const { available, setActive } = useWorkspace();
   const panelRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  /* Guards a second dismissal while the panel is already sliding out. */
+  const closing = useRef(false);
 
   // Runs to the top edge, where the macOS drag strip would eat the header.
   useOwnsScreen();
@@ -62,8 +73,8 @@ export function DetailPanel({
     panel?.focus();
     if (panel && typeof panel.animate === 'function' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       panel.animate([{ transform: `translateX(${dir === 'rtl' ? '-' : ''}100%)` }, { transform: 'translateX(0)' }], {
-        duration: 260,
-        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        duration: SLIDE_MS,
+        easing: SLIDE_EASING,
       });
     }
     return () => {
@@ -72,10 +83,45 @@ export function DetailPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
   }, []);
 
+  /**
+   * Slide back out the way it came in, then unmount.
+   *
+   * The panel only ever had HALF an animation: it slid in on mount and then
+   * vanished between two frames, because the X, the backdrop and Escape all
+   * called the caller's `onClose`, which clears the state holding the panel.
+   * The reverse keyframes run first and `onClose` waits for them.
+   *
+   * `animate()` is absent under jsdom and the mount effect already skips it
+   * for reduced motion; both fall through to closing on the spot, which is the
+   * correct behaviour in either case rather than a panel that will not shut.
+   */
+  function requestClose() {
+    if (closing.current) return;
+    const panel = panelRef.current;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!panel || typeof panel.animate !== 'function' || reduced) {
+      onCloseRef.current();
+      return;
+    }
+    closing.current = true;
+    const out = panel.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${dir === 'rtl' ? '-' : ''}100%)` }], {
+      duration: SLIDE_MS,
+      easing: SLIDE_EASING,
+      fill: 'forwards',
+    });
+    // The scrim goes with it, or the panel slides out from under a dimmed
+    // screen that only clears once React unmounts the pair.
+    backdropRef.current?.animate([{ opacity: 0.35 }, { opacity: 0 }], { duration: SLIDE_MS, easing: SLIDE_EASING, fill: 'forwards' });
+    const done = () => onCloseRef.current();
+    out.addEventListener('finish', done, { once: true });
+    // A cancelled animation (the tab backgrounded mid-slide) never finishes.
+    out.addEventListener('cancel', done, { once: true });
+  }
+
   function onKeyDown(e: KeyboardEvent<HTMLElement>) {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      onCloseRef.current();
+      requestClose();
     } else if (e.key === 'Tab') {
       trapTab(e, panelRef.current);
     }
@@ -91,7 +137,7 @@ export function DetailPanel({
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 'var(--tp-z-overlay)' }}>
-      <div aria-hidden onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'var(--tp-overlay)', opacity: 0.35 }} />
+      <div ref={backdropRef} aria-hidden onClick={requestClose} style={{ position: 'absolute', inset: 0, background: 'var(--tp-overlay)', opacity: 0.35 }} />
       <aside
         ref={panelRef}
         role="dialog"
@@ -121,7 +167,7 @@ export function DetailPanel({
             <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, overflowWrap: 'anywhere' }}>{title}</h2>
             {status}
           </div>
-          <Button kind="ghost" size="sm" icon="x" onClick={onClose} aria-label={tr('ws.kit.drill.close')} title={tr('ws.kit.drill.close')} />
+          <Button kind="ghost" size="sm" icon="x" onClick={requestClose} aria-label={tr('ws.kit.drill.close')} title={tr('ws.kit.drill.close')} />
         </header>
 
         <div style={{ flex: 1, minBlockSize: 0, overflow: 'auto', padding: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>

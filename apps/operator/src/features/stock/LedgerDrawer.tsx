@@ -118,7 +118,7 @@ export function LedgerDrawer({
       }
       onClose={onClose}
       size="xl"
-      footer={
+      footer={(close) => (
         !movementIds ? (
           <>
             <Button size="sm" icon="chevronStart" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
@@ -129,9 +129,9 @@ export function LedgerDrawer({
             </Button>
           </>
         ) : (
-          <Button onClick={onClose}>{tr('common.close')}</Button>
+          <Button onClick={close}>{tr('common.close')}</Button>
         )
-      }
+      )}
     >
       <AsyncStateWrapper
         compact

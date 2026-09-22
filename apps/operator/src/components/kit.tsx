@@ -1486,7 +1486,7 @@ export function DrillThroughPanel<T>({
 }) {
   const { tr } = useLocale();
   return (
-    <Modal title={title ?? tr('ws.kit.drill.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('ws.kit.drill.close')}</Button>}>
+    <Modal title={title ?? tr('ws.kit.drill.title')} onClose={onClose} size="lg" footer={(close) => (<Button onClick={close}>{tr('ws.kit.drill.close')}</Button>)}>
       <AsyncStateWrapper
         status={status}
         onRetry={onRetry}
@@ -1889,12 +1889,16 @@ export function SegmentedControl<T extends string>({
 // Money helpers for display (formatting only; no arithmetic)
 // ---------------------------------------------------------------------------
 
-export function Money({ amount, style, strong }: { amount: number | null | undefined; style?: CSSProperties; strong?: boolean }) {
+/**
+ * `unit={false}` drops the IQD suffix for callers whose column header already
+ * carries the unit — repeating it on every row is noise, not information.
+ */
+export function Money({ amount, style, strong, unit = true }: { amount: number | null | undefined; style?: CSSProperties; strong?: boolean; unit?: boolean }) {
   const { locale } = useLocale();
   if (amount == null) return <span style={{ color: 'var(--tp-muted-fg)', ...style }}>—</span>;
   return (
     <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', fontWeight: strong ? 700 : undefined, ...style }}>
-      {formatIQD(amount, locale)}
+      {unit ? formatIQD(amount, locale) : formatNumber(amount, locale)}
     </span>
   );
 }

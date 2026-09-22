@@ -270,9 +270,6 @@ export function CountScreen() {
         ) : (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
             <Toolbar end={<ResultCount shown={visible.length} total={lines.length} />} style={{ marginBlockEnd: 0 }}>
-              <span style={{ inlineSize: '14rem', maxInlineSize: '100%' }}>
-                <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
-              </span>
               <SegmentedControl<LineFilter>
                 value={lineFilter}
                 onChange={setLineFilter}
@@ -283,6 +280,9 @@ export function CountScreen() {
                   { value: 'entered', label: tr('ws.manager.stock.count.enteredFilter') },
                 ]}
               />
+              <span style={{ inlineSize: '14rem', maxInlineSize: '100%' }}>
+                <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
+              </span>
               {lines.some((l) => ingredientOf.get(l.ingredient_id)?.kind === 'retail') && <KindFilter value={kind} onChange={setKind} />}
             </Toolbar>
             <ErrorText error={linesQ.error} />
