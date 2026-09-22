@@ -145,9 +145,8 @@ test.describe('operator stock (module 5)', () => {
 
     // Ring one Karak on the till and send it to the kitchen.
     await signIn(page, SEED_STAFF.cashier);
-    await page.getByRole('button', { name: '+', exact: true }).click();
-    const newTab = page.getByRole('dialog', { name: 'New tab' });
-    await newTab.getByLabel('Table').selectOption({ label: 'T8' });
+    await page.getByRole('button', { name: /^Table T8, Free/ }).click();
+    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T8?' });
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
     await page.getByRole('button', { name: /Hot Drinks/ }).click();

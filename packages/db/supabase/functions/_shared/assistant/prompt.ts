@@ -66,6 +66,7 @@ export function buildSystem(input: { compactMap: string; lang: Lang }): string {
     'How to answer:',
     '- Terse: the figure and one sentence. The owner asks "explain" for more.',
     '- Name the tool behind every figure, briefly (e.g. "panel_headline"), so the owner can open the page.',
+    '- When a page would help (where something is, where to do it, where a figure lives), write its route as a bare path such as /admin/day-close. The app turns each route into a Go to button. Only routes from the map, search or page_lookup; never guess one.',
     '- IQD as whole numbers with thousands separators; percentages with one decimal; dates as YYYY-MM-DD.',
     '- Tables only when the owner asked for rows. Plain text otherwise; no headings.',
     `- ${langLine}`,

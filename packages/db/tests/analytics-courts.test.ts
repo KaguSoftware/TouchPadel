@@ -7,9 +7,9 @@
  * runs over whatever residue the shared stack holds, plus the anonymity sweep.
  *
  * Court A carries the story:
- *   D1  desk booking, 90 min, 4 players, a phone identity        (live)
- *   D2  desk booking, 60 min, 4 players, the SAME phone          (live, returning)
- *   M1  mobile hold confirmed by an account guest, 2 players     (live)
+ *   D1  desk booking, 90 min, a phone identity                   (live)
+ *   D2  desk booking, 60 min, the SAME phone                     (live, returning)
+ *   M1  mobile hold confirmed by an account guest                (live)
  *   H1  mobile hold left to expire (service-role update)          (hold funnel)
  *   C1  desk booking cancelled by staff a week ahead              (cancellation)
  *   N1  desk booking backdated a day, marked no_show              (no-show)
@@ -76,7 +76,7 @@ type Row = { key: string; n: number; bookings_total: number };
 type Cell = { dow: number; hour: number; booked_minutes: number; bookings: number };
 type RawRes = {
   id: string; court_id: string; status: string; source: string; start_at: string; end_at: string;
-  created_at: string; price_iqd: number | null; players: number | null; series_id: string | null;
+  created_at: string; price_iqd: number | null; series_id: string | null;
 };
 
 const LOCAL_OFFSET_MS = 3 * 3_600_000; // Asia/Baghdad
@@ -184,7 +184,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
   async function rawRows(court: string): Promise<RawRes[]> {
     const { data, error } = await svc
       .from('reservations')
-      .select('id, court_id, status, source, start_at, end_at, created_at, price_iqd, players, series_id')
+      .select('id, court_id, status, source, start_at, end_at, created_at, price_iqd, series_id')
       .eq('court_id', court)
       .eq('kind', 'booking');
     if (error) throw new Error(error.message);
@@ -215,11 +215,11 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     const { data: vs } = await svc.from('venue_settings').select('cancellation_window_hours').limit(1).single();
     policyMin = Number((vs as { cancellation_window_hours: number }).cancellation_window_hours) * 60;
 
-    const D1 = await deskBooking(courtA, 90, { p_guest_name: NAME_DESK, p_guest_phone: phone, p_players: 4 });
-    const D2 = await deskBooking(courtA, 60, { p_guest_name: NAME_DESK, p_guest_phone: phone, p_players: 4 });
+    const D1 = await deskBooking(courtA, 90, { p_guest_name: NAME_DESK, p_guest_phone: phone });
+    const D2 = await deskBooking(courtA, 60, { p_guest_name: NAME_DESK, p_guest_phone: phone });
 
     const M1 = await guestHold(courtA);
-    const confirmed = await appRpc(guest, 'confirm_booking', { p_hold_id: M1, p_players: 2 }).then(outcome);
+    const confirmed = await appRpc(guest, 'confirm_booking', { p_hold_id: M1 }).then(outcome);
     if (!confirmed.ok) throw new Error(`seed confirm failed: ${confirmed.errorMessage}`);
 
     const H1 = await guestHold(courtA);
@@ -467,12 +467,12 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(Object.keys(pc).sort()).toEqual([
       'avg_duration_min', 'booked_minutes', 'booked_total', 'bookings', 'cancellation_rate_pct', 'cancellations',
       'court_id', 'desk_bookings', 'is_active', 'mobile_bookings', 'name_ar', 'name_en', 'no_show_rate_pct', 'no_shows',
-      'occupancy_pct', 'open_minutes', 'players_avg', 'players_known', 'rev_per_open_hour_iqd', 'revenue_iqd',
+      'occupancy_pct', 'open_minutes', 'rev_per_open_hour_iqd', 'revenue_iqd',
     ]);
     expect(pc).toMatchObject({
       court_id: courtA, is_active: true, bookings: 4, booked_minutes: 270, open_minutes: s.open_minutes,
       revenue_iqd: revenue, cancellations: 1, no_shows: 1, booked_total: 6, mobile_bookings: 1, desk_bookings: 3,
-      avg_duration_min: 67.5, players_known: 3, players_avg: 3.33,
+      avg_duration_min: 67.5,
     });
 
     // by_day: one row per calendar day of the range, zeros kept, no open-day flagged closed.
@@ -529,7 +529,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
   // -------------------------------------------------------------------------
   // Demand
   // -------------------------------------------------------------------------
-  it('demand: durations, lead-time buckets, sources, the mobile hold funnel, players incl. unknown, series', async () => {
+  it('demand: durations, lead-time buckets, sources, the mobile hold funnel, series; no players (0147)', async () => {
     const d = await ownerData<{
       durations: { duration_min: number; bookings: number; booked_minutes: number; revenue_iqd: number; revenue_per_hour_iqd: number | null }[];
       lead_time: { median_min: number | null; buckets: { bucket: string; bookings: number; mobile: number; desk: number }[] };
@@ -537,8 +537,6 @@ describe.skipIf(!up)('0093 courts analytics', () => {
       created_dow: { dow: number; bookings: number }[];
       sources: { source: string; bookings: number; cancellations: number; no_shows: number; avg_duration_min: number | null }[];
       hold_funnel: { holds_ended: number; converted: number; pending: number; conversion_pct: number | null };
-      players: { known: number; unknown: number; avg: number | null; rows: { players: number | null; bookings: number; mobile: number; desk: number }[] };
-      players_by_court: { court_id: string; players: number | null; bookings: number }[];
       series: { series_bookings: number; single_bookings: number; series_pct: number | null; series_revenue_iqd: number };
     }>('analytics_courts_demand', courtA);
     const rows = await rawRows(courtA);
@@ -576,9 +574,8 @@ describe.skipIf(!up)('0093 courts analytics', () => {
 
     expect(d.hold_funnel).toEqual({ holds_ended: 2, converted: 1, pending: 0, conversion_pct: 50 });
 
-    expect(d.players).toMatchObject({ known: 3, unknown: 1, avg: 3.33 });
-    expect(d.players.rows.map((r) => [r.players, r.bookings, r.mobile, r.desk])).toEqual([[2, 1, 1, 0], [4, 2, 0, 2], [null, 1, 0, 1]]);
-    expect(d.players_by_court.map((r) => [r.court_id, r.players, r.bookings])).toEqual([[courtA, 2, 1], [courtA, 4, 2], [courtA, null, 1]]);
+    // 0147: the group size is gone from the payload entirely.
+    expect(Object.keys(d).sort()).toEqual(['created_dow', 'created_hour', 'durations', 'hold_funnel', 'lead_time', 'series', 'sources']);
 
     expect(d.series).toEqual({ series_bookings: 0, single_bookings: 4, series_pct: 0, series_revenue_iqd: 0 });
   });
@@ -600,7 +597,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
       };
       no_shows: {
         total: number; revenue_iqd: number; by_hour: Row[]; by_dow: Row[]; by_court: Row[]; by_source: Row[];
-        by_duration: Row[]; by_lead_time: Row[]; by_series: Row[]; by_type: Row[]; by_players: Row[];
+        by_duration: Row[]; by_lead_time: Row[]; by_series: Row[]; by_type: Row[];
       };
     }>('analytics_courts_endings', courtA);
     const rows = await rawRows(courtA);
@@ -653,11 +650,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(e.cancellations.by_hour.reduce((acc, r) => acc + r.bookings_total, 0)).toBe(6);
 
     expect(e.no_shows).toMatchObject({ total: 1, revenue_iqd: Number(n1.price_iqd) });
-    expect(e.no_shows.by_players).toEqual([
-      { key: '2', n: 0, bookings_total: 1 },
-      { key: '4', n: 0, bookings_total: 2 },
-      { key: 'unknown', n: 1, bookings_total: 3 },
-    ]);
+    expect((e.no_shows as unknown as Json).by_players).toBeUndefined(); // 0147
     expect(e.no_shows.by_type.find((r) => r.key === 'unidentified')).toEqual({ key: 'unidentified', n: 1, bookings_total: 3 });
     expect(e.no_shows.by_source.find((r) => r.key === 'desk')!.n).toBe(1);
     expect((e.no_shows as unknown as Json).by_notice).toBeUndefined();
@@ -709,7 +702,6 @@ describe.skipIf(!up)('0093 courts analytics', () => {
       linked_orders_total: number; all_orders_total: number;
       order_timing: { median_offset_min: number | null; buckets: { bucket: string; orders: number; revenue_iqd: number }[] };
       attach_cells: { dow: number; hour: number; live_bookings: number; linked_bookings: number }[];
-      by_players: { players: number | null; bookings: number; linked: number; cafe_iqd: number }[];
       by_duration: { duration_min: number; bookings: number; linked: number; cafe_iqd: number }[];
     }>('analytics_courts_cafe', courtA);
     const rows = await rawRows(courtA);
@@ -753,11 +745,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
 
     expect(c.attach_cells.reduce((acc, x) => acc + x.live_bookings, 0)).toBe(4);
     expect(c.attach_cells.reduce((acc, x) => acc + x.linked_bookings, 0)).toBe(1);
-    expect(c.by_players).toEqual([
-      { players: 2, bookings: 1, linked: 0, cafe_iqd: 0 },
-      { players: 4, bookings: 2, linked: 0, cafe_iqd: 0 },
-      { players: null, bookings: 1, linked: 1, cafe_iqd: cafeIqd },
-    ]);
+    expect((c as unknown as Json).by_players).toBeUndefined(); // 0147
     expect(c.by_duration).toEqual([
       { duration_min: 60, bookings: 3, linked: 1, cafe_iqd: cafeIqd },
       { duration_min: 90, bookings: 1, linked: 0, cafe_iqd: 0 },

@@ -147,7 +147,7 @@ describe('DIRECT_RPC', () => {
     expect(call.args.p_guest_id).toBeNull();
   });
 
-  it('reservation.create sends p_players as null when unset and the number when set (0090)', () => {
+  it('reservation.create never sends p_players, even for a legacy payload that carries players (0147)', () => {
     const base = {
       clientRef: 'DESK-01-01J5XABCDEFGHJKMNPQRSTVWXY',
       courtId: UUID_A,
@@ -156,8 +156,8 @@ describe('DIRECT_RPC', () => {
       endAt: '2026-09-07T16:00:00.000Z',
       guestName: 'Walk-in',
     };
-    expect(DIRECT_RPC['reservation.create'](base, KEY, DEV).args.p_players).toBeNull();
-    expect(DIRECT_RPC['reservation.create']({ ...base, players: 4 }, KEY, DEV).args.p_players).toBe(4);
+    expect('p_players' in DIRECT_RPC['reservation.create'](base, KEY, DEV).args).toBe(false);
+    expect('p_players' in DIRECT_RPC['reservation.create']({ ...base, players: 4 }, KEY, DEV).args).toBe(false);
   });
 
   it('waiter_call.action routes ack vs resolve', () => {

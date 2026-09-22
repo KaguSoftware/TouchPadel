@@ -47,7 +47,6 @@ export function CourtTable({
     { key: 'cancel', header: tr('ws.analytics.courts.kpi.cancelRate'), numeric: true, render: (r) => rateText(tr, f, r.court.cancellationRatePct, r.court.cancellations, r.court.bookedTotal) },
     { key: 'noShow', header: tr('ws.analytics.courts.kpi.noShowRate'), numeric: true, render: (r) => rateText(tr, f, r.court.noShowRatePct, r.court.noShows, r.court.bookedTotal) },
     { key: 'attach', header: tr('ws.analytics.courts.kpi.attachRate'), numeric: true, render: (r) => (r.cafe ? rateText(tr, f, r.cafe.attachPct, r.cafe.linkedBookings, r.cafe.liveBookings) : '—') },
-    { key: 'players', header: tr('ws.analytics.courts.cards.avgPlayers'), numeric: true, render: (r) => (r.court.playersAvg == null ? '—' : f.num1(r.court.playersAvg)) },
   ];
   const exportCsv = () => {
     const headers = columns.map((c) => String(c.header));
@@ -62,7 +61,6 @@ export function CourtTable({
       r.court.cancellationRatePct,
       r.court.noShowRatePct,
       r.cafe?.attachPct ?? null,
-      r.court.playersAvg,
     ]);
     downloadCsv(`${file}.csv`, toCsv(headers, cells));
   };

@@ -9,12 +9,14 @@
  *
  * What the snapshot claims, and what it refuses to:
  *
- *  - A court is IN PLAY when a booking on it has been marked arrived and has
- *    not ended; BOOKED when a confirmed booking's window contains now but
- *    nobody has been marked arrived; FREE otherwise. `players` is the
- *    booking's own figure, null when the desk never recorded one — the plan
- *    then draws two players rather than a made-up four, and the tooltip says
- *    nothing about a count.
+ *  - A court is IN PLAY when a booking on it has been marked arrived AND its
+ *    slot has started and not ended; BOOKED when a confirmed booking's slot
+ *    contains now but nobody has been marked arrived; FREE otherwise.
+ *    Arrived is not "on court" (owner call, 2026-09-22): a guest checked in
+ *    at 17:40 for 18:00 is at the venue, not playing, and the court may still
+ *    hold the previous booking. Such a guest is WAITING — named on the court
+ *    they are booked on, never drawn on it. A game is always four players, so
+ *    an in-play court is drawn with four.
  *  - A table is OCCUPIED when an open tab sits on it. Nothing records how many
  *    guests are there, so the model never says so; the drawn figure at the
  *    table means "a tab is open", and its colour whether that tab is waiting
@@ -66,7 +68,6 @@ export interface RawBooking {
   start_at: string;
   end_at: string;
   guest_name: string | null;
-  players: number | null;
 }
 
 export interface RawTable {
@@ -134,12 +135,15 @@ export interface FloorCourt {
   name_ar: string;
   status: CourtStatus;
   guest: string | null;
-  /** The booking's own count, when the desk recorded one. */
-  players: number | null;
   /** ISO end of the current booking (in play or booked). */
   until: string | null;
-  /** ISO start of the next confirmed booking, when the court is free. */
+  /** ISO start of the next booking, when the court is free. */
   nextAt: string | null;
+  /**
+   * A guest marked arrived whose slot on this court has not started yet: at
+   * the venue, not on the court. Shown in words, never drawn as players.
+   */
+  waiting: { guest: string | null; startsAt: string } | null;
 }
 
 export type TableStatus = 'occupied' | 'free';
@@ -226,10 +230,13 @@ export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEA
   }
   const courts: FloorCourt[] = courtsSorted.map((c, i) => {
     const list = (byCourt.get(c.id) ?? []).slice().sort((a, b) => ms(a.start_at) - ms(b.start_at));
-    const inPlay = list.find((b) => b.status === 'arrived' && ms(b.end_at) > nowMs);
-    const booked = inPlay ? undefined : list.find((b) => b.status === 'confirmed' && ms(b.start_at) <= nowMs && ms(b.end_at) > nowMs);
+    const running = (b: RawBooking) => ms(b.start_at) <= nowMs && ms(b.end_at) > nowMs;
+    const inPlay = list.find((b) => b.status === 'arrived' && running(b));
+    const booked = inPlay ? undefined : list.find((b) => b.status === 'confirmed' && running(b));
     const current = inPlay ?? booked;
-    const next = current ? undefined : list.find((b) => b.status === 'confirmed' && ms(b.start_at) > nowMs && ms(b.start_at) - nowMs <= LOOKAHEAD_MS);
+    const upcoming = (b: RawBooking) => (b.status === 'confirmed' || b.status === 'arrived') && ms(b.start_at) > nowMs;
+    const next = current ? undefined : list.find((b) => upcoming(b) && ms(b.start_at) - nowMs <= LOOKAHEAD_MS);
+    const waiting = list.find((b) => b.status === 'arrived' && ms(b.start_at) > nowMs);
     return {
       id: c.id,
       slot: i < COURT_SLOTS ? i : null,
@@ -237,9 +244,9 @@ export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEA
       name_ar: c.name_ar,
       status: inPlay ? 'in_play' : booked ? 'booked' : 'free',
       guest: current?.guest_name ?? null,
-      players: current && typeof current.players === 'number' && current.players > 0 ? current.players : null,
       until: current?.end_at ?? null,
       nextAt: next?.start_at ?? null,
+      waiting: waiting ? { guest: waiting.guest_name, startsAt: waiting.start_at } : null,
     };
   });
 

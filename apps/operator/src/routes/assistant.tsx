@@ -11,13 +11,14 @@
 import { Outlet, createRoute, lazyRouteComponent, useRouterState } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
 import { RoutePending } from './admin/_shared';
+import { UnderConstruction } from '../features/assistant/UnderConstruction'; // TEMP under-construction
 
 const AssistantPage = lazyRouteComponent(() => import('../features/assistant/AssistantPage'), 'AssistantPageScreen');
 
 function AssistantLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const isUsage = /\/assistant\/usage\/?$/.test(path);
-  return <RequireRole route="/assistant">{isUsage ? <Outlet /> : <AssistantPage />}</RequireRole>;
+  return <RequireRole route="/assistant"><UnderConstruction>{isUsage ? <Outlet /> : <AssistantPage />}</UnderConstruction></RequireRole>; // TEMP under-construction
 }
 
 export const assistantRoute = createRoute({

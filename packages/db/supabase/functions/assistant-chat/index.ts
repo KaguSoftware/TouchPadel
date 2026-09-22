@@ -8,8 +8,11 @@
  *          Before the stream opens, refusals are plain JSON exactly like
  *          analytics-insights: 400 INVALID_REQUEST · 401 AUTH_REQUIRED · 403 FORBIDDEN ·
  *          404 NOT_FOUND · 429 LLM_DAILY_QUOTA / LLM_MONTHLY_CAP · 503 NOT_CONFIGURED.
- *          `dry_run: true` answers JSON `{ packs }` (sizes for the checkboxes): no model
- *          call, no llm_begin_request, no rows written.
+ *          `dry_run: true` answers JSON `{ packs, start }`: the pack size per scope and
+ *          `start` = { tokens, exact, model } | null, what any question in this chat
+ *          sends before a tool runs (system prompt + tool list + first turn with the
+ *          packs that fit), counted by the vendor where it can. No model call, no
+ *          llm_begin_request, no rows written; null when the model's vendor has no key.
  *
  * Re-check (plan §3.5, DECIDE 10; manual only, never automatic)
  * Request  POST { recheck: { message_id } } (owner session)
@@ -56,6 +59,7 @@ import {
   clean,
   CleanError,
   cleanedNotice,
+  estimateTokens,
   sourceForTool,
   toolResultBlock,
   type Cleaned,
@@ -79,6 +83,7 @@ import {
   withoutThinking,
   type ContentBlock,
   type Provider,
+  type ProviderCapabilities,
   type ProviderMessage,
   type ProviderUsage,
 } from '../_shared/assistant/provider.ts';
@@ -164,7 +169,8 @@ function parseBody(body: unknown): Req | string {
   const range = b.range === undefined || b.range === null ? null : isRange(b.range) ? b.range : 'range must be {from, to} as YYYY-MM-DD';
   if (typeof range === 'string') return range;
   const model = typeof b.model === 'string' && b.model.trim() ? b.model.trim() : null;
-  if (model && !/^[a-z0-9.-]{3,64}$/.test(model)) return 'model must be a model id';
+  // Groq ids carry a vendor prefix (`openai/gpt-oss-120b`).
+  if (model && !/^[a-z0-9./-]{3,64}$/.test(model)) return 'model must be a model id';
   return { conversation_id, text, lang, scopes, range, model, dry_run };
 }
 
@@ -494,6 +500,49 @@ async function runPacks(ctx: DispatchCtx, range: DateRange): Promise<PackForProm
   return out;
 }
 
+/**
+ * The system prompt and tool list every turn opens with. Claude: the compact
+ * map in the cached prefix and every tool deferred behind tool search. Groq:
+ * no map in the prompt (the free tier's per-request token budget) and only the
+ * tools this chat's scopes allow, none deferred. The dry run measures this same
+ * pair, so the number beside the checkboxes is the prompt that is sent.
+ */
+function turnPrefix(caps: ProviderCapabilities, scopes: readonly AssistantScope[], lang: Lang): { system: string; tools: WireTool[] } {
+  const system = buildSystem({ compactMap: caps.compactMap ? compactText() : '', lang });
+  const tools = caps.deferTools
+    ? wireTools() // the whole catalog in catalog order: one cache prefix for every chat
+    : wireTools(toolsForScopes(scopes)).map((t) => {
+        const { defer_loading: _drop, ...rest } = t;
+        return rest as WireTool;
+      });
+  return { system, tools };
+}
+
+/**
+ * What any question costs before the model reads a tool result: the prefix
+ * plus the first user turn carrying the packs that fit. Earlier messages, the
+ * question's own words, tool rounds and the answer come on top. Claude's
+ * count_tokens is exact and free; Groq has none, so bytes/4 (`exact: false`).
+ */
+async function startSize(
+  provider: Provider,
+  scopes: readonly AssistantScope[],
+  packs: PackForPrompt[],
+  lang: Lang,
+  today: string,
+  tz: string,
+): Promise<{ tokens: number; exact: boolean; model: string }> {
+  const { system, tools } = turnPrefix(provider.capabilities, scopes, lang);
+  const first = buildFirstUserTurn({ today, tz, scopes, packs: fitPacks(packs, provider.capabilities.packBudget) });
+  try {
+    const tokens = await provider.countTokens(system, tools, [{ role: 'user', content: first }]);
+    return { tokens, exact: provider.capabilities.exactTokens, model: provider.model };
+  } catch (e) {
+    console.error('[assistant-chat] count_tokens failed; estimating', errorText(e));
+    return { tokens: estimateTokens(system) + estimateTokens(JSON.stringify(tools)) + estimateTokens(first), exact: false, model: provider.model };
+  }
+}
+
 function packSizes(packs: readonly PackForPrompt[]): { scope: AssistantScope; tokens_est: number }[] {
   const by = new Map<AssistantScope, number>();
   for (const p of packs) by.set(p.scope, (by.get(p.scope) ?? 0) + p.cleaned.stats.tokens_est);
@@ -646,8 +695,11 @@ Deno.serve(async (req) => {
   if (parsed.dry_run) {
     const scopes = parsed.scopes ?? normaliseScopes(null);
     const ctx: DispatchCtx = { asOwner, scopes, handles: newHandleTable(null), tz, lang: parsed.lang, authorization: req.headers.get('Authorization') ?? '' };
-    const packs = await runPacks(ctx, parsed.range ?? defaultRange(today));
-    return json({ packs: packSizes(packs), scopes, range: parsed.range ?? defaultRange(today) });
+    const range = parsed.range ?? defaultRange(today);
+    const packs = await runPacks(ctx, range);
+    const provider = providerFromEnv((n) => Deno.env.get(n), parsed.model ?? (await venueModels(service)).default_model);
+    const start = provider ? await startSize(provider, scopes, packs, parsed.lang, today, tz) : null;
+    return json({ packs: packSizes(packs), start, scopes, range });
   }
 
   // No key → 503 before any write (the user message is not inserted either).
@@ -851,16 +903,7 @@ Deno.serve(async (req) => {
     for (const p of packs) allowed.push(...p.cleaned.numbers);
     emit('message_start', { conversation_id: conv.id, user_message_id: userMessageId, assistant_message_id: assistantMessageId, scopes, model: provider.model, packs: packSizes(packs) });
 
-    // Claude: the compact map in the cached prefix and every tool deferred behind
-    // tool search. Groq: no map in the prompt (the free tier's per-request token
-    // budget) and only the tools this chat's scopes allow, none deferred.
-    const system = buildSystem({ compactMap: provider.capabilities.compactMap ? compactText() : '', lang: parsed.lang });
-    const tools = provider.capabilities.deferTools
-      ? wireTools() // the whole catalog in catalog order: one cache prefix for every chat
-      : wireTools(toolsForScopes(scopes)).map((t) => {
-          const { defer_loading: _drop, ...rest } = t;
-          return rest as WireTool;
-        });
+    const { system, tools } = turnPrefix(provider.capabilities, scopes, parsed.lang);
     const messages: ProviderMessage[] = [
       { role: 'user', content: buildFirstUserTurn({ today, tz, scopes, packs }) },
       ...tail,

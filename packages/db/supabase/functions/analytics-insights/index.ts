@@ -428,8 +428,7 @@ Iraqi dinar (IQD), integer amounts, no decimals. You receive, for the date range
   weekday (0 = Sunday) with its weekday_label, hour, occupancy_pct, bookings, open_days (how many such days were
   open in the range). There is no per-court heatmap.
 - "demand": durations (bookings per slot length), lead_time (how far ahead people book), sources (app versus
-  desk), hold_funnel (app holds ended, converted, pending), players (group size where recorded), series
-  (standing weekly bookings).
+  desk), hold_funnel (app holds ended, converted, pending), series (standing weekly bookings).
 - "endings": cancellations (total, rate_pct, by_notice = how long before the slot, by_actor = who cancelled,
   top_segments = where cancellations cluster, each with dim, label, n, bookings_total and rate_pct) and no_shows
   (total, rate_pct, top_segments).
@@ -452,7 +451,6 @@ DEFINITIONS, use them exactly:
 - ATTACH = the share of live bookings with a till-linked cafe tab. QR orders from the phone never link to a
   booking, so a low attach means "not linked", never "did not order".
 - lead_time excludes standing (series) bookings; they are booked once and repeat.
-- players = null means the group size was not recorded, never that nobody played.
 
 SAMPLE SIZE IS A HARD GATE. Never make a weekday claim unless that weekday appears at least ${MIN_WEEKDAY_DAYS}
 times in basis.weekdayCounts. Never build a finding on a heat cell with fewer than ${MIN_CELL_OPEN_DAYS}
@@ -594,8 +592,7 @@ rate on fewer than ${MIN_RATE_DENOM} bookings is not evidence. If "endings" is a
   {
     id: 'demand',
     focus: `THIS PASS: HOW PEOPLE BOOK ONLY ("demand", "per_court"): lead time, app versus desk, the hold funnel
-(an expired hold is a guest who wanted the slot and left), slot lengths, group size where recorded, standing
-weekly series. Find where the app loses bookings the desk keeps, a slot length booked far more than the others,
+(an expired hold is a guest who wanted the slot and left), slot lengths, standing weekly series. Find where the app loses bookings the desk keeps, a slot length booked far more than the others,
 the share of the week standing bookings lock up and whether they show up. If "demand" is absent, return
 {"findings":[]}; never estimate conversion.`,
   },

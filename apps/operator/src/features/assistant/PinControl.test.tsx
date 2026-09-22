@@ -7,6 +7,7 @@ import { hasPinnableTools, scopeForPin } from './PinControl';
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
+  useRouter: () => undefined,
 }));
 
 // The pin is an owner RPC through the analytics components' helper; no session in a unit test.

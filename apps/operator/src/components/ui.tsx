@@ -102,6 +102,8 @@ interface ButtonProps {
   'aria-describedby'?: string;
   /** For toggle-group buttons (range presets): exposes which one is active. */
   'aria-pressed'?: boolean;
+  /** For a control that shows or hides a region (a folding side list). */
+  'aria-expanded'?: boolean;
   'data-testid'?: string;
 }
 
@@ -126,6 +128,7 @@ export function Button(props: ButtonProps) {
     title,
     'aria-label': ariaLabel,
     'aria-pressed': ariaPressed,
+    'aria-expanded': ariaExpanded,
     'data-testid': testId,
   } = props;
   const iconSize = size === 'sm' ? 14 : size === 'lg' ? 20 : size === 'xl' ? 22 : 16;
@@ -171,6 +174,7 @@ export function Button(props: ButtonProps) {
       title={title}
       aria-label={ariaLabel}
       aria-pressed={ariaPressed}
+      aria-expanded={ariaExpanded}
       data-testid={testId}
     >
       {hasGlyphSlot && (

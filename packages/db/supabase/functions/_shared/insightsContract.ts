@@ -30,8 +30,6 @@ export const MIN_CELL_OPEN_DAYS = 4;
 export const MIN_IDENTITIES = 15;
 /** A court or slot needs this many live bookings before its cafe attach rate is compared. */
 export const MIN_ATTACH_BOOKINGS = 10;
-/** Players-per-booking averages need this share of bookings with a known player count. */
-export const MIN_PLAYERS_KNOWN_SHARE = 0.5;
 /** An ending cluster (cancellations, no-shows) needs this many endings in the segment. */
 export const MIN_ENDING_N = 8;
 /** A cafe item claim needs this many units sold. */
@@ -366,7 +364,6 @@ export interface CourtsDemandWire {
   lead_time: { median_min: number | null; buckets: { bucket: string; bookings: number; mobile: number; desk: number }[] };
   sources: { source: string; bookings: number; revenue_iqd: number; cancellations: number; no_shows: number }[];
   hold_funnel: { holds_ended: number; converted: number; pending: number; conversion_pct: number | null };
-  players: { known: number; unknown: number; avg: number | null; rows: { players: number | null; bookings: number }[] };
   series: { series_bookings: number; single_bookings: number; series_pct: number | null; series_revenue_iqd: number };
 }
 

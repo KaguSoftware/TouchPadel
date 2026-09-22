@@ -47,7 +47,7 @@ export function AssistantPageScreen() {
               <Kbd>Ctrl/⌘ K</Kbd>
             </span>
             <Link to="/assistant/usage" className="tp-link">
-              <Button kind="soft" icon="chart">
+              <Button kind="soft" icon="sliders">
                 {tr('ws.owner.assistant.usage.open')}
               </Button>
             </Link>
@@ -57,18 +57,21 @@ export function AssistantPageScreen() {
 
       <div style={{ display: 'grid', gridTemplateColumns: listOpen ? 'minmax(14rem, 18rem) minmax(0, 1fr)' : 'auto minmax(0, 1fr)', gap: 'var(--tp-sp-4)', flex: 1, minBlockSize: 0 }}>
         <aside data-chat-list={listOpen ? 'open' : 'closed'} style={{ borderInlineEnd: '1px solid var(--tp-border)', paddingInlineEnd: 'var(--tp-sp-3)', minBlockSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2)' }}>
-          <Button
-            size="sm"
-            kind="ghost"
-            icon={listOpen ? 'chevronDown' : 'chevronEnd'}
-            onClick={toggleList}
-            aria-expanded={listOpen}
-            aria-label={tr(listOpen ? 'ws.owner.assistant.conversations.hideList' : 'ws.owner.assistant.conversations.showList')}
-            title={tr(listOpen ? 'ws.owner.assistant.conversations.hideList' : 'ws.owner.assistant.conversations.showList')}
-            style={{ justifySelf: 'start' }}
-          >
-            {listOpen ? tr('ws.owner.assistant.conversations.title') : ''}
-          </Button>
+          {/* The fold control is a sidebar glyph at the list's far edge, apart
+              from the title: a chevron beside "Chats" read as a menu that
+              would drop open, not as a panel that folds away. */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)' }}>
+            {listOpen && <h2 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.owner.assistant.conversations.title')}</h2>}
+            <Button
+              size="sm"
+              kind="ghost"
+              icon={listOpen ? 'panelClose' : 'panelOpen'}
+              onClick={toggleList}
+              aria-expanded={listOpen}
+              aria-label={tr(listOpen ? 'ws.owner.assistant.conversations.hideList' : 'ws.owner.assistant.conversations.showList')}
+              title={tr(listOpen ? 'ws.owner.assistant.conversations.hideList' : 'ws.owner.assistant.conversations.showList')}
+            />
+          </div>
           {listOpen ? (
             <ConversationList activeId={conversationId} onSelect={(next) => goTo(next)} onNew={() => goTo(null)} onArchived={(archived) => archived === conversationId && goTo(null)} />
           ) : (

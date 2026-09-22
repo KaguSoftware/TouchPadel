@@ -61,8 +61,6 @@ export interface CourtRow {
   mobileBookings: number;
   deskBookings: number;
   avgDurationMin: number | null;
-  playersKnown: number;
-  playersAvg: number | null;
 }
 
 export interface CourtsDay {
@@ -134,8 +132,6 @@ export function parseCourtsSummary(json: unknown): CourtsSummary {
         mobileBookings: num(c.mobile_bookings),
         deskBookings: num(c.desk_bookings),
         avgDurationMin: numOrNull(c.avg_duration_min),
-        playersKnown: num(c.players_known),
-        playersAvg: numOrNull(c.players_avg),
       };
     }),
     byDay: arr(o.by_day).map((r) => {
@@ -195,15 +191,6 @@ export interface SourceRow {
   noShows: number;
   avgDurationMin: number | null;
 }
-export interface PlayersRow {
-  /** null = unknown (older bookings, or nothing picked). */
-  players: number | null;
-  bookings: number;
-  revenueIqd: number;
-  avgDurationMin: number | null;
-  mobile: number;
-  desk: number;
-}
 export interface CourtsDemand {
   durations: DurationRow[];
   leadTime: { medianMin: number | null; buckets: LeadBucket[] };
@@ -211,8 +198,6 @@ export interface CourtsDemand {
   createdDow: { dow: number; bookings: number }[];
   sources: SourceRow[];
   holdFunnel: { holdsEnded: number; converted: number; pending: number; conversionPct: number | null };
-  players: { known: number; unknown: number; avg: number | null; rows: PlayersRow[] };
-  playersByCourt: { courtId: string; players: number | null; bookings: number }[];
   series: { seriesBookings: number; singleBookings: number; seriesPct: number | null; seriesRevenueIqd: number };
 }
 
@@ -220,7 +205,6 @@ export function parseCourtsDemand(json: unknown): CourtsDemand {
   const o = obj(json);
   const lead = obj(o.lead_time);
   const funnel = obj(o.hold_funnel);
-  const players = obj(o.players);
   const series = obj(o.series);
   const leadRows = arr(lead.buckets).map((r) => {
     const b = obj(r);
@@ -259,18 +243,6 @@ export function parseCourtsDemand(json: unknown): CourtsDemand {
       pending: num(funnel.pending),
       conversionPct: numOrNull(funnel.conversion_pct),
     },
-    players: {
-      known: num(players.known),
-      unknown: num(players.unknown),
-      avg: numOrNull(players.avg),
-      rows: arr(players.rows)
-        .map((r) => {
-          const p = obj(r);
-          return { players: numOrNull(p.players), bookings: num(p.bookings), revenueIqd: num(p.revenue_iqd), avgDurationMin: numOrNull(p.avg_duration_min), mobile: num(p.mobile), desk: num(p.desk) };
-        })
-        .sort((a, b) => (a.players ?? 99) - (b.players ?? 99)),
-    },
-    playersByCourt: arr(o.players_by_court).map((r) => ({ courtId: str(obj(r).court_id), players: numOrNull(obj(r).players), bookings: num(obj(r).bookings) })),
     series: {
       seriesBookings: num(series.series_bookings),
       singleBookings: num(series.single_bookings),
@@ -327,8 +299,6 @@ export interface EndingGroup {
   cancelledInPeriod: { n: number; revenueIqd: number };
   /** Late cancellations (inside the policy window) and what became of the slot. */
   resold: { cancelled: number; resoldN: number; recoveredIqd: number; emptyN: number; lostIqd: number };
-  /** No-shows only. */
-  byPlayers: Segment[];
 }
 export interface CourtsEndings {
   /** venue_settings.cancellation_window_hours × 60. */
@@ -381,7 +351,6 @@ function endingGroup(v: unknown): EndingGroup {
       const a = str(obj(r).actor);
       return { actor: (a === 'guest' || a === 'staff' ? a : 'unknown') as 'guest' | 'staff' | 'unknown', n: num(obj(r).n) };
     }),
-    byPlayers: segments(g.by_players),
   };
 }
 
@@ -485,7 +454,6 @@ export interface CourtsCafe {
   allOrdersTotal: number;
   orderTiming: { medianOffsetMin: number | null; buckets: { bucket: TimingBucketKey; orders: number; revenueIqd: number }[] };
   attachCells: { dow: number; hour: number; liveBookings: number; linkedBookings: number }[];
-  byPlayers: { players: number | null; bookings: number; linked: number; cafeIqd: number }[];
   byDuration: { durationMin: number; bookings: number; linked: number; cafeIqd: number }[];
 }
 
@@ -534,9 +502,6 @@ export function parseCourtsCafe(json: unknown): CourtsCafe {
       buckets: TIMING_BUCKETS.map((bucket) => timingRows.find((t) => t.bucket === bucket) ?? { bucket, orders: 0, revenueIqd: 0 }),
     },
     attachCells: arr(o.attach_cells).map((r) => ({ dow: num(obj(r).dow), hour: num(obj(r).hour), liveBookings: num(obj(r).live_bookings), linkedBookings: num(obj(r).linked_bookings) })),
-    byPlayers: arr(o.by_players)
-      .map((r) => ({ players: numOrNull(obj(r).players), bookings: num(obj(r).bookings), linked: num(obj(r).linked), cafeIqd: num(obj(r).cafe_iqd) }))
-      .sort((a, b) => (a.players ?? 99) - (b.players ?? 99)),
     byDuration: arr(o.by_duration)
       .map((r) => ({ durationMin: num(obj(r).duration_min), bookings: num(obj(r).bookings), linked: num(obj(r).linked), cafeIqd: num(obj(r).cafe_iqd) }))
       .sort((a, b) => a.durationMin - b.durationMin),

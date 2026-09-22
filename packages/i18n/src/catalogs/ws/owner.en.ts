@@ -128,8 +128,10 @@ export const ownerEn = {
       booked: 'Booked, nobody there yet',
       free: 'Free',
       until: 'Until {time}',
-      players: 'Players',
       next: 'Next booking {time}',
+      // Checked in early: at the venue, not on the court.
+      waiting: '{guest} has arrived, plays at {time}',
+      waitingAnon: 'Next guest has arrived, plays at {time}',
     },
     table: {
       occupied: 'Occupied',
@@ -177,6 +179,12 @@ export const ownerEn = {
   setupHome: {
     title: 'Setup',
     screens: 'Setup screens',
+    // The kitchen-screen pairing card (features/admin/KitchenPairing).
+    kitchen: {
+      title: 'Kitchen screens',
+      lead: 'A new kitchen screen connects to this till with a code. Show the code here, then type it on the kitchen screen.',
+      notTill: 'The pairing code is kept on the till itself. Open Setup on the till computer to pair a kitchen screen.',
+    },
     cards: {
       staff: 'Who can sign in, what each person can open, and the manager PINs that approve discounts and voids.',
       courts: 'The courts guests and the desk can book: names, photos, booking lengths and calendar order.',
@@ -948,9 +956,11 @@ export const ownerEn = {
         moneyAndFloor: 'Money and floor',
         justHelp: 'Just help',
       },
-      packSize: '≈ {tokens} tokens',
-      packNone: 'no pack',
-      total: 'Context sent with each question: ≈ {tokens} tokens',
+      start: 'Every question starts at {tokens} tokens · about {cost}',
+      startEstimated: 'Every question starts at about {tokens} tokens · about {cost}',
+      startShort: 'starts at {tokens} tokens',
+      startUnknown: 'The starting size cannot be measured: no AI key is set for this model.',
+      startHint: 'This is what is sent before the assistant reads anything: its instructions, the page map and the boxes you ticked. Earlier messages in this chat, the data it looks up and the answer come on top.',
       measuring: 'Measuring…',
       turnOn: 'Turn on {scope}',
       turnOnHint: 'The assistant said this context is off for this chat. Turning it on asks your last question again.',
@@ -965,6 +975,7 @@ export const ownerEn = {
       unverifiedFootnote: '{n} figures could not be checked against the data read this turn.',
       gateRetried: 'The first draft used figures that were not in the data; this is the restated answer.',
       toolPending: 'Reading {name}…',
+      goTo: 'Go to {page}',
       toolDone: 'Read {name}',
       toolFailed: '{name} could not be read',
       pin: {
@@ -1015,6 +1026,7 @@ export const ownerEn = {
       job: 'From a job',
     },
     meter: {
+      title: 'Usage',
       thisMessage: 'This message',
       thisChat: 'This chat',
       today: 'Today',
@@ -1091,9 +1103,10 @@ export const ownerEn = {
       cancelBody: 'What has been read is kept; the answer will not be written.',
     },
     usage: {
-      title: 'Assistant usage',
+      title: 'Assistant usage and options',
       lead: 'What the assistant cost, by day and by token kind. Prices come from the venue’s pricing table; the cap is the same one that refuses a question.',
-      open: 'Usage',
+      open: 'Usage and options',
+      back: 'Back to the assistant',
       prev: 'Previous month',
       next: 'Next month',
       cols: {
@@ -1111,6 +1124,18 @@ export const ownerEn = {
       cap: 'Monthly cap',
       capLine: '{spent} of {cap} used',
       capNone: 'No monthly cap is set.',
+      capEdit: 'Change cap',
+      capEditTitle: 'Change the monthly cap',
+      capField: 'New monthly cap (USD)',
+      capHint: 'More than $0 and at most $10,000. Once the month’s spend reaches the cap, the assistant refuses questions until the next month.',
+      capInvalid: 'Enter an amount more than 0 and at most 10,000.',
+      capSame: 'That is already the cap.',
+      capReview: 'Review change',
+      capConfirmTitle: 'Apply the new monthly cap?',
+      capConfirmBody: 'The cap changes from {from} to {to}. It applies from the next question.',
+      capConfirmBelow: 'This month has already spent {spent}, which reaches the new cap, so questions will be refused until next month or until the cap is raised.',
+      capApply: 'Apply new cap',
+      capSaved: 'Monthly cap set to {cap}.',
       dailyLimit: 'Daily limit: {n} questions',
       pricingTitle: 'Pricing (USD per million tokens)',
       pricingCols: {

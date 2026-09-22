@@ -18,9 +18,9 @@ import { LiveFloor } from './LiveFloor';
 
 const snapshot: FloorSnapshot = {
   courts: [
-    { id: 'c1', slot: 0, name_en: 'Court 1', name_ar: 'ملعب ١', status: 'in_play', guest: 'Ahmed K.', players: 4, until: '2026-09-18T19:30:00Z', nextAt: null },
-    { id: 'c2', slot: 1, name_en: 'Court 2', name_ar: 'ملعب ٢', status: 'free', guest: null, players: null, until: null, nextAt: null },
-    { id: 'c3', slot: null, name_en: 'Court 3', name_ar: 'ملعب ٣', status: 'free', guest: null, players: null, until: null, nextAt: null },
+    { id: 'c1', slot: 0, name_en: 'Court 1', name_ar: 'ملعب ١', status: 'in_play', guest: 'Ahmed K.', until: '2026-09-18T19:30:00Z', nextAt: null, waiting: null },
+    { id: 'c2', slot: 1, name_en: 'Court 2', name_ar: 'ملعب ٢', status: 'free', guest: null, until: null, nextAt: null, waiting: null },
+    { id: 'c3', slot: null, name_en: 'Court 3', name_ar: 'ملعب ٣', status: 'free', guest: null, until: null, nextAt: null, waiting: null },
   ],
   tables: [
     { id: 't1', slot: 0, number: '1', status: 'occupied', tab: { id: 'x', label: null, guest: 'Ali', state: 'awaiting_payment', openedAt: '2026-09-18T18:00:00Z' } },

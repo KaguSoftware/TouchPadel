@@ -92,6 +92,11 @@ export function conflictCount(occurrences: readonly SeriesOccurrencePreview[]): 
   return occurrences.filter((o) => o.conflict !== null).length;
 }
 
+/** How many sessions create_series would book: every date, less the clashes resolved by skipping. */
+export function bookableCount(occurrences: readonly SeriesOccurrencePreview[], resolutions: ResolutionMap): number {
+  return occurrences.filter((o) => !(o.conflict !== null && resolutions[o.date]?.action === 'skip')).length;
+}
+
 /** Resolutions as the RPC wants them, only for dates that still clash. */
 export function resolutionsForRpc(occurrences: readonly SeriesOccurrencePreview[], resolutions: ResolutionMap): SeriesResolution[] {
   return occurrences

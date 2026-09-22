@@ -26,9 +26,9 @@ import {
   fetchMessages,
   fetchModels,
   fetchUsage,
-  packSizes,
   setScopes,
   sourcesOf,
+  startSize,
   textOfContent,
   type JobMode,
   type MessageRow,
@@ -39,8 +39,8 @@ import { JobProgress } from './JobProgress';
 import { Message } from './Message';
 import { Disclosure } from './Disclosure';
 import { ModelSwitch, modelName } from './ModelSwitch';
-import { ScopeStrip, type PackSizes } from './ScopeStrip';
-import { UsageMeter } from './UsageMeter';
+import { ScopeStrip } from './ScopeStrip';
+import { UsageMeter, slotHasUsage, slotTotal, type MeterSlot } from './UsageMeter';
 import { normaliseScopes, refusedScopes, saveRememberedScopes } from './scopes';
 import { useAssistantChat } from './useAssistantChat';
 
@@ -99,20 +99,6 @@ export function Thread({
   const pricing: PricingMap | null = usage.data?.pricing ?? null;
   const fallback = usage.data?.fallback_micros_per_mtok ?? 0;
 
-  // Sizes for EVERY scope in one dry-run call, so an unchecked box shows what
-  // checking it would cost. Cached for the range; the edge caches 30 s too.
-  const packsQ = useQuery({
-    queryKey: QK.packs('default'),
-    queryFn: () => packSizes(ASSISTANT_SCOPES, undefined),
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
-  const packs = useMemo<PackSizes>(() => {
-    const out: PackSizes = {};
-    for (const p of packsQ.data ?? []) out[p.scope] = p.tokens_est;
-    return out;
-  }, [packsQ.data]);
-
   const scopes = useMemo<AssistantScope[]>(
     () => (conversation.data ? normaliseScopes(conversation.data.scopes) : normaliseScopes(newScopes)),
     [conversation.data, newScopes],
@@ -125,6 +111,17 @@ export function Thread({
   useEffect(() => setNewModel(null), [conversationId]);
   const modelsQ = useQuery({ queryKey: QK.models, queryFn: fetchModels, staleTime: 5 * 60_000 });
   const chosenModel: string | null = conversationId ? (conversation.data?.model ?? null) : newModel;
+
+  // What a question starts at with the checked boxes and this chat's model, in
+  // one dry-run call (no model call, nothing billed). Re-measured when a box or
+  // the model changes; the edge caches 30 s too.
+  const startQ = useQuery({
+    queryKey: QK.start(scopes.join(','), chosenModel ?? ''),
+    queryFn: ({ signal }) => startSize(scopes, chosenModel, undefined, signal),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const start = startQ.isError ? null : startQ.data?.start;
 
   const chat = useAssistantChat({
     conversationId,
@@ -211,13 +208,36 @@ export function Thread({
   const visibleJobs = (jobs.data ?? []).filter((j) => j.status !== 'estimated' && (!TERMINAL_JOB_STATUSES.includes(j.status) || watchedJobs.includes(j.id)));
   const liveEstimate = live?.jobEstimate && !dismissedJobs.has(live.jobEstimate.job_id) ? live.jobEstimate : null;
 
-  const stripTotal = scopes.reduce((n, s) => n + (packs[s] ?? 0), 0);
-
   const todayRow = usage.data?.days.find((d) => d.usage_date === month.to);
+  const meterSlots: MeterSlot[] = [
+    ...(conversation.data ? [{ label: 'thisChat' as const, tokens: conversation.data.tokens, costMicros: conversation.data.tokens.cost_micros ?? null, model: conversation.data.tokens.model ?? null }] : []),
+    ...(todayRow
+      ? [{ label: 'today' as const, tokens: { input: todayRow.input_tokens, cache_write: todayRow.cache_write_tokens, cache_read: todayRow.cache_read_tokens, output: todayRow.output_tokens }, costMicros: todayRow.cost_micros }]
+      : []),
+    ...(usage.data
+      ? [{ label: 'month' as const, tokens: { input: usage.data.month.input_tokens, cache_write: usage.data.month.cache_write_tokens, cache_read: usage.data.month.cache_read_tokens, output: usage.data.month.output_tokens }, costMicros: usage.data.month.cost_micros }]
+      : []),
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minBlockSize: 0, blockSize: '100%', gap: 'var(--tp-sp-2)' }}>
-      <div ref={scroller} data-thread-scroll="" style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-4)', alignContent: 'start', paddingInlineEnd: 'var(--tp-sp-1)' }}>
+      {/* In the drawer the panel is itself --tp-surface, so the thread gets the
+          page ground as a well; otherwise the answer bubbles would vanish into it. */}
+      <div
+        ref={scroller}
+        data-thread-scroll=""
+        style={{
+          flex: 1,
+          minBlockSize: 0,
+          overflowY: 'auto',
+          display: 'grid',
+          gap: 'var(--tp-sp-4)',
+          alignContent: 'start',
+          ...(compact
+            ? { background: 'var(--tp-bg)', borderRadius: 'var(--tp-radius-panel)', padding: 'var(--tp-sp-3)' }
+            : { paddingInlineEnd: 'var(--tp-sp-1)' }),
+        }}
+      >
         {conversationId && messages.isLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', paddingBlock: 'var(--tp-sp-4)' }}>
             <Spinner size="md" />
@@ -303,21 +323,22 @@ export function Thread({
         ))}
       </div>
 
-      {(conversation.data || usage.data) && (
-        <UsageMeter
-          compact
-          pricing={pricing}
-          fallbackMicrosPerMtok={fallback}
-          slots={[
-            ...(conversation.data ? [{ label: 'thisChat' as const, tokens: conversation.data.tokens, costMicros: conversation.data.tokens.cost_micros ?? null, model: conversation.data.tokens.model ?? null }] : []),
-            ...(todayRow
-              ? [{ label: 'today' as const, tokens: { input: todayRow.input_tokens, cache_write: todayRow.cache_write_tokens, cache_read: todayRow.cache_read_tokens, output: todayRow.output_tokens }, costMicros: todayRow.cost_micros }]
-              : []),
-            ...(usage.data
-              ? [{ label: 'month' as const, tokens: { input: usage.data.month.input_tokens, cache_write: usage.data.month.cache_write_tokens, cache_read: usage.data.month.cache_read_tokens, output: usage.data.month.output_tokens }, costMicros: usage.data.month.cost_micros }]
-              : []),
-          ]}
-        />
+      {/* Folded by default (owner call 2026-09-22): three rows of meter
+          above the composer crowded the answer. The header keeps the one
+          figure that matters here — this chat's, or the month's before a
+          chat exists. */}
+      {meterSlots.some(slotHasUsage) && (
+        <Disclosure
+          storageKey={compact ? 'drawer-usage' : 'page-usage'}
+          defaultOpen={false}
+          title={tr('ws.owner.assistant.meter.title')}
+          summary={(() => {
+            const head = meterSlots.find(slotHasUsage)!;
+            return `${tr(`ws.owner.assistant.meter.${head.label}`)} ${slotTotal(head, pricing, fallback, tr)}`;
+          })()}
+        >
+          <UsageMeter compact pricing={pricing} fallbackMicrosPerMtok={fallback} slots={meterSlots} />
+        </Disclosure>
       )}
 
       <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
@@ -325,13 +346,15 @@ export function Thread({
           storageKey={compact ? 'drawer-scopes' : 'page-scopes'}
           defaultOpen={!compact}
           title={tr('ws.owner.assistant.scopes.title')}
-          summary={`${scopes.length} · ${tr('ws.owner.assistant.scopes.packSize', { tokens: `⁨${formatTokens(stripTotal)}⁩` })}`}
+          summary={start ? `${scopes.length} · ${tr('ws.owner.assistant.scopes.startShort', { tokens: `⁨${formatTokens(start.tokens)}⁩` })}` : String(scopes.length)}
         >
           <ScopeStrip
             scopes={scopes}
             onChange={(next) => changeScopes.mutate(next)}
-            packs={packs}
-            measuring={packsQ.isLoading}
+            start={start}
+            measuring={startQ.isFetching}
+            pricing={pricing}
+            fallbackMicrosPerMtok={fallback}
             disabled={changeScopes.isPending || chat.streaming}
             compact={compact}
             titleHidden

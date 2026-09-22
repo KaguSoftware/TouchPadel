@@ -1,6 +1,6 @@
 /**
  * Generic vertical bars: one series, the peak emphasised. Hours, weekdays,
- * durations, lead-time buckets, players, visit buckets, losses by hour all use
+ * durations, lead-time buckets, visit buckets, losses by hour all use
  * this so every "which one is biggest" chart on the page reads the same way.
  * Emphasis is one accent + grey (dataviz: no rainbow on nominal categories);
  * a single series needs no legend, the card title names the measure.

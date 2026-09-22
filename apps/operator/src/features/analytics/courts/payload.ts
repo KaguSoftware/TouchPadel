@@ -138,7 +138,6 @@ export function buildCourtsInsightsData(
         pending: raw.demand.holdFunnel.pending,
         conversion_pct: raw.demand.holdFunnel.conversionPct,
       },
-      players: { known: raw.demand.players.known, unknown: raw.demand.players.unknown, avg: raw.demand.players.avg, rows: raw.demand.players.rows.map((p) => ({ players: p.players, bookings: p.bookings })) },
       series: {
         series_bookings: raw.demand.series.seriesBookings,
         single_bookings: raw.demand.series.singleBookings,
