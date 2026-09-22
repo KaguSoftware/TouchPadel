@@ -9,13 +9,13 @@
  *
  * Not referenced by main.tsx and not in the app bundle. Delete freely.
  */
-import { StrictMode } from 'react';
+import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '@touch/ui';
 import { LocaleProvider, useLocale } from './lib/i18n';
 import { ThemeModeProvider, useThemeMode } from './lib/themeMode';
 import { GlobalStyles } from './components/GlobalStyles';
-import { Button, Field, Skeleton, Spinner, Tabs, card, inputStyle } from './components/ui';
+import { Button, Field, Select, Skeleton, Spinner, Tabs, card, inputStyle } from './components/ui';
 import {
   DataTable,
   EmptyState,
@@ -60,6 +60,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Gallery() {
   const { tr, toggleLocale } = useLocale();
+  // The gallery demos the real control, so the dropdown needs real state.
+  const [galleryCourt, setGalleryCourt] = useState('1');
   const columns: Column<Row>[] = [
     { key: 'ref', header: 'Booking' },
     { key: 'guest', header: 'Guest' },
@@ -227,10 +229,14 @@ function Gallery() {
               <input style={inputStyle} defaultValue="0770 123 4567" dir="ltr" />
             </Field>
             <Field label="Court" error="That court is already booked at this time.">
-              <select style={inputStyle} defaultValue="1">
-                <option value="1">Court 1</option>
-                <option value="2">Court 2</option>
-              </select>
+              <Select
+                value={galleryCourt}
+                onChange={setGalleryCourt}
+                options={[
+                  { value: '1', label: 'Court 1' },
+                  { value: '2', label: 'Court 2' },
+                ]}
+              />
             </Field>
             <Tabs value="a" onChange={() => {}} items={[{ id: 'a', label: 'Details' }, { id: 'b', label: 'Payments', count: 2 }, { id: 'c', label: 'History' }]} />
           </div>

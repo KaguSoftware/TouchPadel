@@ -25,7 +25,7 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, TableSkeleton, Toolbar, type Column } from '../../components/kit';
 import { AttentionList, useStockFormat } from './stockUi';
 import { SK, fetchIngredients, type IngredientRow } from './stockKeys';
@@ -389,14 +389,15 @@ function RecipeDialog({
                 return (
                   <li key={l.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(8rem, 1fr) auto', gap: 'var(--tp-sp-1-5)', alignItems: 'end' }}>
                     <Field label={tr('op.stock.ingredient')} style={{ marginBlockEnd: 0 }}>
-                      <select style={inputStyle} value={l.ingredientId} disabled={busy} onChange={(e) => patch(l.key, { ingredientId: e.target.value })}>
-                        <option value="">{tr('ws.manager.stock.goodsIn.choose')}</option>
-                        {ingredients.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {pickName(locale, opt)}
-                          </option>
-                        ))}
-                      </select>
+                      <Select
+                        value={l.ingredientId}
+                        disabled={busy}
+                        onChange={(ingredientId) => patch(l.key, { ingredientId })}
+                        options={[
+                          { value: '', label: tr('ws.manager.stock.goodsIn.choose') },
+                          ...ingredients.map((opt) => ({ value: opt.id, label: pickName(locale, opt) })),
+                        ]}
+                      />
                     </Field>
                     <Field label={ing ? tr('ws.manager.stock.recipes.amountIn', { unit: fmt.unit(ing.unit) }) : tr('ws.manager.stock.recipes.amount')} style={{ marginBlockEnd: 0 }}>
                       <input

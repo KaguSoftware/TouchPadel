@@ -23,6 +23,7 @@ import { useLocale } from '../lib/i18n';
 import { errorToMessageKey } from '../lib/errors';
 import { Icon, type IconName } from './icons';
 import { BrandBall } from './brand';
+import { SelectMenu } from './SelectMenu';
 
 export const card: CSSProperties = {
   background: 'var(--tp-surface)',
@@ -723,13 +724,11 @@ export function PinReasonModal({
     >
       {children}
       <Field label={tr('op.common.reason')}>
-        <select style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value as ReasonCode)}>
-          {reasons.map((r) => (
-            <option key={r} value={r}>
-              {tr(`op.reasons.${r}`)}
-            </option>
-          ))}
-        </select>
+        <Select<ReasonCode>
+          value={reason}
+          onChange={setReason}
+          options={reasons.map((r) => ({ value: r, label: tr(`op.reasons.${r}`) }))}
+        />
       </Field>
       <Field label={tr('op.common.pin')}>
         <input
@@ -942,7 +941,14 @@ export interface SelectOption<T extends string> {
   disabled?: boolean;
 }
 
-/** Thin wrapper over a native `<select>` styled like our inputs. */
+/**
+ * The app's dropdown. It renders SelectMenu — our own popup — rather than a
+ * native <select>, because the platform draws a native select's open menu
+ * itself: on macOS it lands over the control's own border and no CSS reaches
+ * it. This is the one definition, so every caller gets the same menu.
+ *
+ * The props are the native control's, unchanged, so call sites did not move.
+ */
 export function Select<T extends string>({
   value,
   onChange,
@@ -951,6 +957,7 @@ export function Select<T extends string>({
   disabled,
   id,
   style,
+  className,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
   'aria-describedby': ariaDescribedBy,
@@ -963,6 +970,7 @@ export function Select<T extends string>({
   disabled?: boolean;
   id?: string;
   style?: CSSProperties;
+  className?: string;
   'aria-label'?: string;
   /** Set by Field, which names and describes the control it wraps. */
   'aria-labelledby'?: string;
@@ -970,27 +978,19 @@ export function Select<T extends string>({
   'aria-invalid'?: boolean;
 }) {
   return (
-    <select
-      id={id}
+    <SelectMenu<T>
       value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
       disabled={disabled}
+      id={id}
+      className={className}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
       aria-invalid={ariaInvalid}
-      onChange={(e) => onChange(e.target.value as T)}
       style={{ ...inputStyle, ...style }}
-    >
-      {placeholder !== undefined && (
-        <option value="" disabled>
-          {placeholder}
-        </option>
-      )}
-      {options.map((o) => (
-        <option key={o.value} value={o.value} disabled={o.disabled}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    />
   );
 }

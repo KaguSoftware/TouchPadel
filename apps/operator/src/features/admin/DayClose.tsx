@@ -618,15 +618,13 @@ export function DayClose() {
             />
           )}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
-          <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>} padded={false}>
-            <ErrorText error={adjustmentsQ.error} style={{ marginInline: 'var(--tp-sp-3)' }} />
+          <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>}>
+            <ErrorText error={adjustmentsQ.error} />
             {adjustments.length === 0 ? (
-              <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact kind="nothingToDo" icon="shield" title={tr('ws.manager.dayClose.noAdjustments')} />
-              </div>
+              <EmptyState compact kind="nothingToDo" icon="shield" title={tr('ws.manager.dayClose.noAdjustments')} />
             ) : (
               <>
-                <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.manager.dayClose.adjustmentsLead')}
                 </p>
                 <DataTable<DayAdjustmentRow> dense rows={adjustments} rowKey={(a) => a.adjustment_id} columns={adjustmentColumns(tr, locale)} aria-label={tr('ws.manager.dayClose.adjustmentsTitle')} />

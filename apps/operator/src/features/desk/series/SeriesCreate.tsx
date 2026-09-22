@@ -539,13 +539,12 @@ export function SeriesPatternBuilder({
           <input type="time" step={1800} style={inputStyle} value={draft.startTime} disabled={disabled} onChange={(e) => set({ startTime: e.target.value })} />
         </Field>
         <Field label={tr('ws.courtDesk.series.duration')}>
-          <select style={inputStyle} value={draft.durationMin} disabled={disabled} onChange={(e) => set({ durationMin: Number(e.target.value) })}>
-            {durations.map((d) => (
-              <option key={d} value={d}>
-                {tr('op.common.minutesShort', { minutes: d })}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={String(draft.durationMin)}
+            disabled={disabled}
+            onChange={(d) => set({ durationMin: Number(d) })}
+            options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: d }) }))}
+          />
         </Field>
       </div>
       {/* How it ends and WHEN it ends are one decision, so they share a row.

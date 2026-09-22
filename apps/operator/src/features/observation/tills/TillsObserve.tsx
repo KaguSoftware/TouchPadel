@@ -457,11 +457,9 @@ function TabsPanel({
     },
   ];
   return (
-    <Panel title={title} padded={false} actions={<span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', paddingInline: 'var(--tp-sp-3)' }}>{formatNumber(rows.length, locale)}</span>}>
+    <Panel title={title} actions={<span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{formatNumber(rows.length, locale)}</span>}>
       {rows.length === 0 ? (
-        <div style={{ padding: 'var(--tp-sp-3)' }}>
-          <EmptyState compact kind="nothingToDo" icon="receipt" title={empty} />
-        </div>
+        <EmptyState compact kind="nothingToDo" icon="receipt" title={empty} />
       ) : (
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} onRowClick={(r) => onOpen(r.id)} dense aria-label={title} />
       )}

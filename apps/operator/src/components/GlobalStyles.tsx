@@ -216,7 +216,8 @@ input:disabled, select:disabled, textarea:disabled {
    operator caused it, so nothing may move (DESIGN.md Motion). Geometry and
    surface tokens are inline on the instance; this is the state machine. */
 .tp-infotip {
-  position: fixed; z-index: var(--tp-z-popover);
+  /* Above --tp-z-menu: a tip can be opened from inside a menu's panel. */
+  position: fixed; z-index: var(--tp-z-tooltip);
   visibility: hidden; opacity: 0; pointer-events: none;
   transition: opacity var(--tp-dur-fast) var(--tp-ease-out);
 }

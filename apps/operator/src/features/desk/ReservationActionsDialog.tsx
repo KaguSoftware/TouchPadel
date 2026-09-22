@@ -29,7 +29,7 @@ import type { CourtRow } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
 import { permissionsFor, useAuth } from '../../lib/auth';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, Select } from '../../components/ui';
 import { ReservationBadge } from './deskStatus';
 import { allowedMarks, isLive } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
@@ -266,13 +266,12 @@ export function ReservationActionsDialog({
             </Button>
           </div>
           <Field label={tr('op.desk.overrideReason')} style={{ marginBlockStart: '0.85rem' }}>
-            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
-              {OVERRIDE_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {tr(`op.reasons.${code}`)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={reason}
+              disabled={busy}
+              onChange={setReason}
+              options={OVERRIDE_REASONS.map((code) => ({ value: code, label: tr(`op.reasons.${code}`) }))}
+            />
           </Field>
         </section>
       )}
@@ -282,32 +281,31 @@ export function ReservationActionsDialog({
         <div style={{ marginBlockStart: '0.6rem' }}>
           <h3 style={{ marginBlock: '0.4rem', fontSize: 'var(--tp-fs-md)' }}>{tr('op.desk.moveTitle')}</h3>
           <Field label={tr('op.desk.newCourt')}>
-            <select style={inputStyle} value={moveCourt} disabled={busy} onChange={(e) => setMoveCourt(e.target.value)}>
-              {courts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {pickName(locale, c)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={moveCourt}
+              disabled={busy}
+              onChange={setMoveCourt}
+              options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))}
+            />
           </Field>
           <Field label={tr('op.desk.newStart')}>
-            <select style={inputStyle} value={moveStartMin} disabled={busy} onChange={(e) => setMoveStartMin(e.target.value === '' ? '' : Number(e.target.value))}>
-              <option value="">{tr('ws.courtDesk.calendar.sameTime', { time: formatTime(new Date(r.start_at), locale, tz) })}</option>
-              {rows.map((min) => (
-                <option key={min} value={min}>
-                  {formatTime(wallTimeToUtc(date, min, tz), locale, tz)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={moveStartMin === '' ? '' : String(moveStartMin)}
+              disabled={busy}
+              onChange={(v) => setMoveStartMin(v === '' ? '' : Number(v))}
+              options={[
+                { value: '', label: tr('ws.courtDesk.calendar.sameTime', { time: formatTime(new Date(r.start_at), locale, tz) }) },
+                ...rows.map((min) => ({ value: String(min), label: formatTime(wallTimeToUtc(date, min, tz), locale, tz) })),
+              ]}
+            />
           </Field>
           <Field label={tr('op.desk.overrideReason')}>
-            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
-              {OVERRIDE_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {tr(`op.reasons.${code}`)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={reason}
+              disabled={busy}
+              onChange={setReason}
+              options={OVERRIDE_REASONS.map((code) => ({ value: code, label: tr(`op.reasons.${code}`) }))}
+            />
           </Field>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <Button onClick={() => setShowMove(false)} disabled={busy}>
@@ -339,13 +337,12 @@ export function ReservationActionsDialog({
       {showCancel && (
         <div style={{ marginBlockStart: '0.6rem' }}>
           <Field label={tr('op.common.reason')}>
-            <select style={inputStyle} value={cancelReason} disabled={busy} onChange={(e) => setCancelReason(e.target.value)}>
-              {CANCEL_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {tr(`op.reasons.${code}`)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={cancelReason}
+              disabled={busy}
+              onChange={setCancelReason}
+              options={CANCEL_REASONS.map((code) => ({ value: code, label: tr(`op.reasons.${code}`) }))}
+            />
           </Field>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <Button onClick={() => setShowCancel(false)} disabled={busy}>

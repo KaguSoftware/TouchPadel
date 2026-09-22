@@ -272,7 +272,6 @@ export function CashDrawerScreen() {
                     </span>
                   ) : undefined
                 }
-                padded={false}
                 fill
               >
                 <AsyncStateWrapper

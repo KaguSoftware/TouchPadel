@@ -21,7 +21,7 @@ import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -320,13 +320,11 @@ function SizeForm({
       {editing.mode === 'newProduct' && (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-3)' }}>
           <Field label={tr('ws.manager.stock.products.section')}>
-            <select style={inputStyle} value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {pickName(locale, s)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={sectionId}
+              onChange={setSectionId}
+              options={sections.map((s) => ({ value: s.id, label: pickName(locale, s) }))}
+            />
           </Field>
           <BilingualFields
             labelEn={tr('ws.manager.stock.products.productNameEn')}
@@ -360,14 +358,14 @@ function SizeForm({
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.barcode} onChange={(e) => set({ barcode: e.target.value })} />
         </Field>
         <Field label={tr('ws.manager.stock.ingredients.supplier')} optional>
-          <select style={inputStyle} value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-            <option value="">{tr('ws.manager.stock.products.noSupplier')}</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={supplierId}
+            onChange={setSupplierId}
+            options={[
+              { value: '', label: tr('ws.manager.stock.products.noSupplier') },
+              ...suppliers.map((s) => ({ value: s.id, label: s.name })),
+            ]}
+          />
         </Field>
         <Field label={tr('ws.manager.stock.products.low')} optional hint={tr('ws.manager.stock.products.lowHint')} error={problem === 'low' ? problemText('low') : undefined}>
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />

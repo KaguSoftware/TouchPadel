@@ -14,7 +14,7 @@ import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
 import { QK, fetchActiveCafeTables } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useAuth } from '../../lib/auth';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
 import { Switch } from '../../components/Switch';
 import { bookingTakesNewTab, canReadBookings, type TabListRow } from './tillData';
@@ -292,14 +292,14 @@ export function NewTabDialog({
       ) : (
       <>
       <Field label={tr('op.till.table')} required={!reservationId}>
-        <select style={inputStyle} value={tableId} onChange={(e) => setTableId(e.target.value)} autoFocus>
-          <option value="">{tr('op.till.chooseTable')}</option>
-          {(tablesQ.data ?? []).map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.table_number}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={tableId}
+          onChange={setTableId}
+          options={[
+            { value: '', label: tr('op.till.chooseTable') },
+            ...(tablesQ.data ?? []).map((t) => ({ value: t.id, label: String(t.table_number) })),
+          ]}
+        />
       </Field>
       {existing && (
         <MessagePresenter
@@ -323,14 +323,14 @@ export function NewTabDialog({
       </Field>
       {showBookings && (
         <Field label={tr('op.till.reservationLabel')} optional>
-          <select style={inputStyle} value={reservationId} onChange={(e) => setReservationId(e.target.value)}>
-            <option value="">{tr('op.till.noReservation')}</option>
-            {reservations.map((r) => (
-              <option key={r.id} value={r.id}>
-                {reservationOptionLabel(tr, locale, r)}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={reservationId}
+            onChange={setReservationId}
+            options={[
+              { value: '', label: tr('op.till.noReservation') },
+              ...reservations.map((r) => ({ value: r.id, label: reservationOptionLabel(tr, locale, r) })),
+            ]}
+          />
         </Field>
       )}
       </>

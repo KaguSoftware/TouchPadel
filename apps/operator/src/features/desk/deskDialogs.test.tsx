@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wallTimeToUtc } from '@touch/core';
@@ -90,13 +90,27 @@ describe('CreateReservationDialog', () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();
     wrap(<CreateReservationDialog courtId="c1" startAt={at(19 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={onCreated} />);
-    const start = screen.getByLabelText('Start') as HTMLSelectElement;
-    const taken = [...start.options].filter((o) => o.disabled).map((o) => o.value);
-    // 19:30 + 60 min and 20:00 + 60 min overlap the 20:00–21:00 booking; 19:00 + 60 does not.
-    expect(taken).toEqual([at(19 * 60 + 30).toISOString(), at(20 * 60).toISOString(), at(20 * 60 + 30).toISOString()]);
+    // The pickers are our own listboxes now: a row's state is on the option
+    // element in the open panel, not on a native <option>.
+    const openStart = async () => {
+      await user.click(screen.getByRole('combobox', { name: 'Start' }));
+      return screen.getByRole('listbox');
+    };
+    const takenLabels = within(await openStart())
+      .getAllByRole('option')
+      .filter((o) => o.hasAttribute('disabled'))
+      .map((o) => o.textContent);
+    // 19:30, 20:00 and 20:30 (+60 min) all overlap the 20:00–21:00 booking;
+    // 19:00 + 60 does not. Asserted by the times shown, so this still fails if
+    // the WRONG three rows are the disabled ones.
+    expect(takenLabels).toEqual(['7:30 PM · taken', '8:00 PM · taken', '8:30 PM · taken']);
+    await user.keyboard('{Escape}');
     // Moving to a free court clears it.
-    await user.selectOptions(screen.getByLabelText('Court'), 'c2');
-    expect([...(screen.getByLabelText('Start') as HTMLSelectElement).options].some((o) => o.disabled)).toBe(false);
+    await user.click(screen.getByRole('combobox', { name: 'Court' }));
+    // Scoped to the open panel: the Start picker is a listbox on this dialog too.
+    await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Court 2' }));
+    expect(within(await openStart()).getAllByRole('option').some((o) => o.hasAttribute('disabled'))).toBe(false);
+    await user.keyboard('{Escape}');
     await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
     await user.click(screen.getByRole('button', { name: 'Create booking' }));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
@@ -151,7 +165,8 @@ describe('ReservationActionsDialog', () => {
   it('carries the chosen reason on an override (SOW L313)', async () => {
     const user = userEvent.setup();
     wrap(<ReservationActionsDialog reservation={booking({ id: 'r1', end_at: at(21 * 60 + 30).toISOString() })} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
-    await user.selectOptions(screen.getByLabelText('Reason for this change'), 'weather');
+    await user.click(screen.getByRole('combobox', { name: 'Reason for this change' }));
+    await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Weather' }));
     await user.click(screen.getByRole('button', { name: 'Shorten −30 min' }));
     await waitFor(() => expect(mutate).toHaveBeenCalledWith('reservation.update', expect.objectContaining({ action: 'extend', reservationId: 'r1', reason: 'weather' })));
   });
