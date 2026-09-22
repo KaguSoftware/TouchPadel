@@ -137,7 +137,10 @@ truncate table
   public.assistant_conversations,
   public.assistant_jobs,
   public.assistant_index_queue,
-  public.assistant_component_cache,
+  -- assistant_component_cache is NOT listed: no migration creates it and it is
+  -- absent from both a clean 0139 stack and the hosted project. It existed only
+  -- on an older local database. Naming a table TRUNCATE cannot find aborts the
+  -- whole statement, so it stays out.
   public.llm_usage,
   public.marketing_sends,
 
