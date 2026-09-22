@@ -204,9 +204,6 @@ export function RecipeEditor() {
             </Panel>
             <div>
               <Toolbar end={<ResultCount shown={rows.length} total={targets.length} />}>
-                <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
-                  <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.recipes.search')} />
-                </span>
                 <SegmentedControl<Show>
                   value={show}
                   onChange={setShow}
@@ -217,6 +214,9 @@ export function RecipeEditor() {
                     { value: 'set', label: tr('ws.manager.stock.recipes.hasRecipe') },
                   ]}
                 />
+                <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
+                  <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.recipes.search')} />
+                </span>
               </Toolbar>
               {rows.length === 0 ? (
                 <EmptyState

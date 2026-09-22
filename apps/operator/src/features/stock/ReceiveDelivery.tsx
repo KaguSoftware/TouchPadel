@@ -163,6 +163,11 @@ export function ReceiveDelivery() {
         </Panel>
 
         <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
+          {/* The order of the work, said once at the top rather than hidden in
+              the Record button's tooltip, where it only showed up too late. */}
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
+            {tr('ws.manager.stock.goodsIn.recordEmpty')}
+          </p>
           <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
             {lines.map((l, i) => (
               <LineEditor
@@ -193,7 +198,6 @@ export function ReceiveDelivery() {
               icon="box"
               busy={busy}
               disabled={!canRecord}
-              disabledReason={started.length === 0 ? tr('ws.manager.stock.goodsIn.recordEmpty') : tr('ws.manager.stock.goodsIn.recordIncomplete')}
               onClick={() => void submit()}
             >
               {tr('ws.manager.stock.goodsIn.record')}
@@ -240,6 +244,25 @@ function LineEditor({
   const short = isShort(line);
   const unit = ingredient ? fmt.unit(ingredient.unit) : null;
   const withUnit = (label: string) => (unit ? `${label} (${unit})` : label);
+
+  // Quantities and costs are numbers, so the boxes take nothing else: digits
+  // and a single decimal point survive, every other keystroke is dropped, and
+  // the run stops at ten digits — past that it is a typo, not a delivery.
+  const onlyNumber = (raw: string) => {
+    const kept = raw.replace(/[^\d.]/g, '');
+    const dot = kept.indexOf('.');
+    const once = dot === -1 ? kept : `${kept.slice(0, dot + 1)}${kept.slice(dot + 1).replace(/\./g, '')}`;
+    let digits = 0;
+    let out = '';
+    for (const ch of once) {
+      if (ch === '.') out += ch;
+      else if (digits < 10) {
+        out += ch;
+        digits += 1;
+      }
+    }
+    return out;
+  };
 
   const expiryHint = !ingredient
     ? undefined
@@ -296,8 +319,8 @@ function LineEditor({
         />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 'var(--tp-sp-2)', alignItems: 'start' }}>
-        <Field label={withUnit(tr('ws.manager.stock.goodsIn.received'))} style={{ marginBlockEnd: 0 }} error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: e.target.value })} />
+        <Field label={withUnit(tr('ws.manager.stock.goodsIn.received'))} required style={{ marginBlockEnd: 0 }} error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: onlyNumber(e.target.value) })} />
         </Field>
         <Field
           label={withUnit(tr('ws.manager.stock.goodsIn.ordered'))}
@@ -306,10 +329,11 @@ function LineEditor({
           error={problem === 'ordered' ? tr('ws.manager.stock.goodsIn.problem.ordered') : undefined}
           hint={short ? <span style={{ color: 'var(--tp-warn-fg)', fontWeight: 600 }}>{tr('ws.manager.stock.goodsIn.short', { qty: fmt.num(Number(line.qtyExpected) - Number(line.qtyReceived)) })}</span> : undefined}
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: e.target.value })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: onlyNumber(e.target.value) })} />
         </Field>
         <Field
           label={unit ? tr('ws.manager.stock.goodsIn.costPer', { unit }) : tr('ws.manager.stock.goodsIn.cost')}
+          required
           style={{ marginBlockEnd: 0 }}
           error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}
           hint={
@@ -320,7 +344,7 @@ function LineEditor({
             ) : undefined
           }
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: e.target.value })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: onlyNumber(e.target.value) })} />
         </Field>
         <Field label={tr('ws.manager.stock.goodsIn.expiry')} optional hint={expiryHint} style={{ marginBlockEnd: 0 }}>
           <input style={inputStyle} type="date" dir="ltr" value={line.expiryDate} disabled={busy} onChange={(e) => onPatch({ expiryDate: e.target.value })} />

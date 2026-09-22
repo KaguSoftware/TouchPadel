@@ -176,16 +176,16 @@ export function CreateReservationDialog({
         </bdi>
       }
       onClose={busy ? () => {} : onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" busy={busy} disabled={!canSubmit} disabledReason={blockedReason} onClick={() => void submit()}>
             {tr('op.desk.create')}
           </Button>
         </>
-      }
+      )}
     >
       {conflict && (
         <ConflictNotice

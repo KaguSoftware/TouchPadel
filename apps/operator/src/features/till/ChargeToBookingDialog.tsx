@@ -86,9 +86,9 @@ export function ChargeToBookingDialog({
       title={tr('ws.cashier.charge.title')}
       subtitle={tr('ws.cashier.charge.lead')}
       onClose={busy ? () => {} : onClose}
-      footer={
+      footer={(close) => (
         <div style={reasonedFooter}>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -102,7 +102,7 @@ export function ChargeToBookingDialog({
             {tr('ws.cashier.charge.confirm')}
           </Button>
         </div>
-      }
+      )}
     >
       <p style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}>
         <strong>

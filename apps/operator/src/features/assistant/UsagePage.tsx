@@ -301,14 +301,14 @@ function CapDialog({ currentMicros, monthSpentMicros, onClose, onSaved }: { curr
       title={tr('ws.owner.assistant.usage.capEditTitle')}
       onClose={onClose}
       size="sm"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose}>{tr('common.cancel')}</Button>
+          <Button onClick={close}>{tr('common.cancel')}</Button>
           <Button kind="primary" onClick={review}>
             {tr('ws.owner.assistant.usage.capReview')}
           </Button>
         </>
-      }
+      )}
     >
       <form
         onSubmit={(e) => {

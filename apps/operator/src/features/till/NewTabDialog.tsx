@@ -238,12 +238,12 @@ export function NewTabDialog({
     <Modal
       title={tr('op.till.newTab')}
       onClose={onClose}
-      footer={
+      footer={(close) => (
         // Reserved height: the reason line below "Open tab" appears and clears
         // as the cashier picks an anchor, and the button it explains must not
         // travel while they are reaching for it.
         <div style={reasonedFooter}>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -264,7 +264,7 @@ export function NewTabDialog({
             {tr('op.till.openTabBtn')}
           </Button>
         </div>
-      }
+      )}
     >
       {initialReservationId && bound && (
         <MessagePresenter

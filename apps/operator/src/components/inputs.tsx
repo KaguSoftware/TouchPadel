@@ -28,6 +28,7 @@ export function MoneyInput({
   onChange,
   allowEmpty,
   min = 0,
+  max,
   disabled,
   placeholder,
   id,
@@ -37,6 +38,7 @@ export function MoneyInput({
   onChange: (next: number | null) => void;
   allowEmpty?: boolean;
   min?: number;
+  max?: number;
   disabled?: boolean;
   placeholder?: string;
   id?: string;
@@ -53,13 +55,16 @@ export function MoneyInput({
 
   function commit(raw: string) {
     const digits = digitsOnly(raw);
-    setText(digits);
     if (digits === '') {
+      setText('');
       onChange(allowEmpty ? null : 0);
       return;
     }
     const n = Number(digits);
-    if (!Number.isSafeInteger(n)) return;
+    // Reject a keystroke that overflows the cap instead of silently clamping:
+    // the field keeps the last accepted value so the typed count stays legible.
+    if (!Number.isSafeInteger(n) || (max !== undefined && n > max)) return;
+    setText(digits);
     onChange(Math.max(min, n));
   }
 

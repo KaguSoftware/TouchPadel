@@ -417,6 +417,8 @@ input:disabled, select:disabled, textarea:disabled {
 @keyframes tpSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes tpFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tpRise { from { opacity: 0; transform: translateY(var(--tp-rise)); } to { opacity: 1; transform: none; } }
+@keyframes tpFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes tpSink { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(var(--tp-rise)); } }
 /* The skeleton sweep. Travels along the reading direction, so it mirrors in
    Arabic off --tp-dir-sign like tpMarquee does, and it moves a transform
    rather than a background-position so it stays off the paint path. */
@@ -430,6 +432,15 @@ input:disabled, select:disabled, textarea:disabled {
 }
 .tp-rise { animation: tpRise var(--tp-dur-base) var(--tp-ease-out) both; }
 .tp-fade { animation: tpFadeIn var(--tp-dur-base) var(--tp-ease-out) both; }
+
+/* Leaving. A dialog that arrives on tpRise and then vanishes between two frames
+   reads as a glitch, not a dismissal; a data-closing attribute on the backdrop replays
+   both halves in reverse and the panel only unmounts once they have run (see
+   Modal in components/ui.tsx). Same --tp-dur-base as the entrance: a shorter
+   exit made opening and closing the same dialog feel like two different
+   controls. */
+[data-closing] .tp-rise, .tp-rise[data-closing] { animation: tpSink var(--tp-dur-base) var(--tp-ease-out) both; }
+[data-closing].tp-fade, .tp-fade[data-closing] { animation: tpFadeOut var(--tp-dur-base) var(--tp-ease-out) both; }
 
 /* Indeterminate progress. '.tp-ball-spin' is referenced by components/brand.tsx
    (BrandBall spin) and had no rule at all, so the brand ball was silently

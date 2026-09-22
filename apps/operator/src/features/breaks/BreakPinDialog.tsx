@@ -52,16 +52,16 @@ export function BreakPinDialog({
       subtitle={lead}
       onClose={busy ? () => {} : onClose}
       size="sm"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" icon="lock" busy={busy} disabled={!ready} onClick={() => void submit()}>
             {action}
           </Button>
         </>
-      }
+      )}
     >
       <form
         onSubmit={(e) => {

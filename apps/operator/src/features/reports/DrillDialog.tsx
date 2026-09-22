@@ -89,7 +89,7 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
       title={tr('ws.reports.drill.title', { what: request.what, range })}
       onClose={onClose}
       size="lg"
-      footer={<Button onClick={onClose}>{tr('ws.kit.drill.close')}</Button>}
+      footer={(close) => (<Button onClick={close}>{tr('ws.kit.drill.close')}</Button>)}
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {request.figures.length > 1 && (

@@ -136,9 +136,9 @@ export function ReservationActionsDialog({
         </span>
       }
       onClose={busy ? () => {} : onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.close')}
           </Button>
           {canPay && (
@@ -146,6 +146,8 @@ export function ReservationActionsDialog({
               icon="banknote"
               disabled={busy}
               onClick={() => {
+                // Leaves the screen entirely: no exit to play, and deferring
+                // the close would hold a dead dialog over the new route.
                 onClose();
                 void navigate({ to: '/desk/bookings/$id', params: { id: r.id } });
               }}
@@ -165,7 +167,7 @@ export function ReservationActionsDialog({
             {tr('ws.courtDesk.calendar.openDetail')}
           </Button>
         </>
-      }
+      )}
     >
       {r.notes && <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem', whiteSpace: 'pre-wrap' }}>{r.notes}</p>}
       <ErrorText error={error} />
