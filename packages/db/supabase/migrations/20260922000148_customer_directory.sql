@@ -1,4 +1,4 @@
--- 0144_customer_directory: the whole customer book in one lean read, for the
+-- 0148_customer_directory: the whole customer book in one lean read, for the
 -- desk's Customers screen.
 --
 -- WHAT. `app.customer_directory(p_limit)` returns every live customer (a
@@ -41,7 +41,7 @@ set statement_timeout = '60s';
 
 create or replace function app.customer_directory(p_limit int default 5000)
 returns jsonb
-language plpgsql stable security definer set search_path = public as $customer_directory_0144$
+language plpgsql stable security definer set search_path = public as $customer_directory_0148$
 declare
   v_limit int := least(greatest(coalesce(p_limit, 5000), 1), 5000);
   v_total bigint;
@@ -103,7 +103,7 @@ begin
     'rows',      v_rows,
     'total',     v_total,
     'truncated', v_total > v_limit);
-end $customer_directory_0144$;
+end $customer_directory_0148$;
 
 revoke all on function app.customer_directory(int) from public, anon;
 grant execute on function app.customer_directory(int) to authenticated;

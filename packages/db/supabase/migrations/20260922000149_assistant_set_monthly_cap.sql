@@ -1,4 +1,4 @@
--- 0145_assistant_set_monthly_cap — the owner edits the assistant's monthly
+-- 0149_assistant_set_monthly_cap — the owner edits the assistant's monthly
 -- spend cap from the usage page (owner call, 2026-09-22), behind a
 -- confirmation step in the client.
 --
@@ -19,7 +19,7 @@ set statement_timeout = '60s';
 
 create or replace function app.assistant_set_monthly_cap(p_cap_micros bigint)
 returns jsonb
-language plpgsql security definer set search_path = public as $assistant_set_monthly_cap_0145$
+language plpgsql security definer set search_path = public as $assistant_set_monthly_cap_0149$
 declare
   v_before bigint;
 begin
@@ -43,10 +43,10 @@ begin
     jsonb_build_object('monthly_cap_micros', p_cap_micros));
 
   return jsonb_build_object('monthly_cap_micros', p_cap_micros, 'previous_cap_micros', v_before);
-end $assistant_set_monthly_cap_0145$;
+end $assistant_set_monthly_cap_0149$;
 
 comment on function app.assistant_set_monthly_cap(bigint) is
-  '0145. Owner-only: set the assistant''s monthly spend cap (venue_settings.llm_monthly_cost_cap_micros, USD micros). More than 0, at most USD 10,000. Audited. The singleton row is addressed by its non-null id, as 0140 does, so safeupdate is satisfied.';
+  '0149. Owner-only: set the assistant''s monthly spend cap (venue_settings.llm_monthly_cost_cap_micros, USD micros). More than 0, at most USD 10,000. Audited. The singleton row is addressed by its non-null id, as 0140 does, so safeupdate is satisfied.';
 
 revoke all on function app.assistant_set_monthly_cap(bigint) from public, anon;
 grant execute on function app.assistant_set_monthly_cap(bigint) to authenticated;

@@ -139,6 +139,8 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_table_id: p?.tableId ?? null,
       p_label: p?.label ?? null,
       p_reservation_id: p?.reservationId ?? null,
+      // 0145: a shop counter sale; omitted for a café tab (same call as mutate.ts).
+      ...(p?.kind === 'shop' ? { p_kind: 'shop' } : {}),
       ...common(c),
     }),
   }),

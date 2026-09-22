@@ -529,7 +529,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
   // -------------------------------------------------------------------------
   // Demand
   // -------------------------------------------------------------------------
-  it('demand: durations, lead-time buckets, sources, the mobile hold funnel, series; no players (0143)', async () => {
+  it('demand: durations, lead-time buckets, sources, the mobile hold funnel, series; no players (0147)', async () => {
     const d = await ownerData<{
       durations: { duration_min: number; bookings: number; booked_minutes: number; revenue_iqd: number; revenue_per_hour_iqd: number | null }[];
       lead_time: { median_min: number | null; buckets: { bucket: string; bookings: number; mobile: number; desk: number }[] };
@@ -574,7 +574,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
 
     expect(d.hold_funnel).toEqual({ holds_ended: 2, converted: 1, pending: 0, conversion_pct: 50 });
 
-    // 0143: the group size is gone from the payload entirely.
+    // 0147: the group size is gone from the payload entirely.
     expect(Object.keys(d).sort()).toEqual(['created_dow', 'created_hour', 'durations', 'hold_funnel', 'lead_time', 'series', 'sources']);
 
     expect(d.series).toEqual({ series_bookings: 0, single_bookings: 4, series_pct: 0, series_revenue_iqd: 0 });
@@ -650,7 +650,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(e.cancellations.by_hour.reduce((acc, r) => acc + r.bookings_total, 0)).toBe(6);
 
     expect(e.no_shows).toMatchObject({ total: 1, revenue_iqd: Number(n1.price_iqd) });
-    expect((e.no_shows as unknown as Json).by_players).toBeUndefined(); // 0143
+    expect((e.no_shows as unknown as Json).by_players).toBeUndefined(); // 0147
     expect(e.no_shows.by_type.find((r) => r.key === 'unidentified')).toEqual({ key: 'unidentified', n: 1, bookings_total: 3 });
     expect(e.no_shows.by_source.find((r) => r.key === 'desk')!.n).toBe(1);
     expect((e.no_shows as unknown as Json).by_notice).toBeUndefined();
@@ -745,7 +745,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
 
     expect(c.attach_cells.reduce((acc, x) => acc + x.live_bookings, 0)).toBe(4);
     expect(c.attach_cells.reduce((acc, x) => acc + x.linked_bookings, 0)).toBe(1);
-    expect((c as unknown as Json).by_players).toBeUndefined(); // 0143
+    expect((c as unknown as Json).by_players).toBeUndefined(); // 0147
     expect(c.by_duration).toEqual([
       { duration_min: 60, bookings: 3, linked: 1, cafe_iqd: cafeIqd },
       { duration_min: 90, bookings: 1, linked: 0, cafe_iqd: 0 },

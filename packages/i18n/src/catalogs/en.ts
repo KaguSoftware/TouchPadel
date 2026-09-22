@@ -1392,6 +1392,8 @@ export const en = {
       margins: 'Margins',
       ingredients: 'Ingredients',
       recipes: 'Recipes',
+      products: 'Shop products',
+      suppliers: 'Suppliers',
     },
     // Vocabulary every stock screen shares. Screen copy lives in ws.manager.stock.
     stock: {
@@ -1918,6 +1920,16 @@ export const en = {
       COURT_NOT_FOUND: 'Court not found.',
       TABLE_NOT_FOUND: 'Table not found.',
       TAB_ANCHOR_REQUIRED: 'A tab needs a table or a booking. A name on its own is not enough.',
+      // Touch Shop (0145/0146).
+      CATEGORY_NOT_EMPTY: 'A section changes between café and shop only while it is empty. Move its items first.',
+      NOT_SHOP_CATEGORY: 'Only items in a shop section carry stock of their own.',
+      BARCODE_TAKEN: 'That barcode is already on another product.',
+      SKU_TAKEN: 'That SKU is already on another product.',
+      SUPPLIER_EXISTS: 'A supplier with that name already exists.',
+      SUPPLIER_NOT_FOUND: 'Supplier not found.',
+      LABEL_REQUIRED: 'A counter sale needs a name or a number.',
+      MIXED_BASKET: 'Café items and shop items go out as two orders. Send again.',
+      SHOP_ITEM_NOT_ORDERABLE: 'Shop items are sold at the counter, not from the table.',
       NOT_MOVABLE: 'This reservation can no longer be moved.',
       NOT_EXTENDABLE: 'This reservation can no longer be extended.',
       NOT_CANCELLABLE: 'This reservation can no longer be cancelled.',

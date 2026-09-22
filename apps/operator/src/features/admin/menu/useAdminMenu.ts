@@ -19,6 +19,8 @@ export interface CategoryRow {
   sort_order: number;
   is_active: boolean;
   photo_path: string | null;
+  /** 0144: 'shop' = a Touch Shop section (counter sales, own stock, never on the guest menu). */
+  kind: 'cafe' | 'shop';
 }
 export interface VariantRow {
   id: string;
@@ -90,7 +92,7 @@ export async function fetchAdminMenu(): Promise<AdminMenuData> {
   const [cats, items, groups, mods, taxes, costs] = await Promise.all([
     supabase
       .from('menu_categories')
-      .select('id, name_en, name_ar, tax_group_id, sort_order, is_active, photo_path')
+      .select('id, name_en, name_ar, tax_group_id, sort_order, is_active, photo_path, kind')
       .order('sort_order'),
     supabase.from('menu_items').select(ITEM_COLUMNS).order('sort_order'),
     supabase.from('modifier_groups').select('id, name_en, name_ar, min_select, max_select'),

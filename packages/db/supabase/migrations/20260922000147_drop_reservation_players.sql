@@ -1,5 +1,5 @@
 -- ===========================================================================
--- 0143 — drop the group size ("players") from bookings and every reader.
+-- 0147 — drop the group size ("players") from bookings and every reader.
 --
 -- WHAT
 --   * reservations.players and reservation_series.players (0092) are dropped;
@@ -66,12 +66,12 @@ create or replace function app.staff_create_reservation(
   p_client_ref         text default null,
   p_device_id          text default null,
   p_price_override_iqd bigint default null,
-  -- 0143: DEPRECATED, accepted and IGNORED (no range check, no write). Kept so
+  -- 0147: DEPRECATED, accepted and IGNORED (no range check, no write). Kept so
   -- a till on an older build that still sends it does not get PGRST202;
-  -- dropped by a later migration once every till and app build is past 0143.
+  -- dropped by a later migration once every till and app build is past 0147.
   p_players            int default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $staff_0143$
+language plpgsql security definer set search_path = public as $staff_0147$
 declare
   v_status   reservation_status;
   v_ttl      int;
@@ -190,7 +190,7 @@ begin
 
   return jsonb_build_object('duplicate', false, 'reservation_id', v_res.id,
     'status', v_res.status, 'rate_rule_id', v_rule, 'price_iqd', v_price);
-end $staff_0143$;
+end $staff_0147$;
 
 revoke all on function app.staff_create_reservation(uuid, reservation_kind, timestamptz, timestamptz, text, text, uuid, text, text, text, text, bigint, int) from public, anon;
 grant execute on function app.staff_create_reservation(uuid, reservation_kind, timestamptz, timestamptz, text, text, uuid, text, text, text, text, bigint, int) to authenticated;
@@ -215,12 +215,12 @@ create or replace function app.create_series(
   p_resolutions     jsonb default '[]'::jsonb,
   p_idempotency_key text  default null,
   p_device_id       text  default null,
-  -- 0143: DEPRECATED, accepted and IGNORED (no range check, no write). Kept so
+  -- 0147: DEPRECATED, accepted and IGNORED (no range check, no write). Kept so
   -- a till on an older build that still sends it does not get PGRST202;
-  -- dropped by a later migration once every till and app build is past 0143.
+  -- dropped by a later migration once every till and app build is past 0147.
   p_players         int   default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $create_series_0143$
+language plpgsql security definer set search_path = public as $create_series_0147$
 declare
   v_uid         uuid := auth.uid();
   v_resolutions jsonb := coalesce(p_resolutions, '[]'::jsonb);
@@ -416,7 +416,7 @@ begin
 
   return jsonb_build_object('duplicate', false, 'seriesId', v_series.id,
     'created', to_jsonb(v_created), 'skipped', to_jsonb(v_skipped));
-end $create_series_0143$;
+end $create_series_0147$;
 
 revoke all on function app.create_series(uuid, text, int[], time, int, date, date, uuid, text, text, text, jsonb, text, text, int)
   from public, anon;
@@ -432,12 +432,12 @@ create or replace function app.confirm_booking(
   p_hold_id     uuid,
   p_guest_name  text default null,
   p_guest_phone text default null,
-  -- 0143: DEPRECATED, accepted and IGNORED (no range check, no write). Kept so
+  -- 0147: DEPRECATED, accepted and IGNORED (no range check, no write). Kept so
   -- a phone on an older build that still sends it does not get PGRST202;
-  -- dropped by a later migration once every till and app build is past 0143.
+  -- dropped by a later migration once every till and app build is past 0147.
   p_players     int  default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as $confirm_booking_0143$
+language plpgsql security definer set search_path = public as $confirm_booking_0147$
 declare
   v_uid    uuid := auth.uid();
   v        reservations%rowtype;
@@ -531,7 +531,7 @@ begin
 
   return jsonb_build_object('duplicate', false, 'reservation_id', v.id,
     'rate_rule_id', v.rate_rule_id, 'price_iqd', v.price_iqd);
-end $confirm_booking_0143$;
+end $confirm_booking_0147$;
 
 revoke all on function app.confirm_booking(uuid, text, text, int) from public, anon;
 grant execute on function app.confirm_booking(uuid, text, text, int) to authenticated;
@@ -545,7 +545,7 @@ create or replace function app.analytics_courts_summary(
   p_to       date,
   p_court_id uuid default null
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $fn_analytics_courts_summary_0143$
+language plpgsql stable security definer set search_path = public as $fn_analytics_courts_summary_0147$
 declare
   v_b   record;
   v_out jsonb;
@@ -751,7 +751,7 @@ begin
     from tot t;
 
   return v_out;
-end $fn_analytics_courts_summary_0143$;
+end $fn_analytics_courts_summary_0147$;
 
 revoke all on function app.analytics_courts_summary(date, date, uuid) from public, anon;
 grant execute on function app.analytics_courts_summary(date, date, uuid) to authenticated;
@@ -765,7 +765,7 @@ create or replace function app.analytics_courts_demand(
   p_to       date,
   p_court_id uuid default null
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $fn_analytics_courts_demand_0143$
+language plpgsql stable security definer set search_path = public as $fn_analytics_courts_demand_0147$
 declare
   v_b   record;
   v_out jsonb;
@@ -879,7 +879,7 @@ begin
     from holds h, converted c;
 
   return v_out;
-end $fn_analytics_courts_demand_0143$;
+end $fn_analytics_courts_demand_0147$;
 
 revoke all on function app.analytics_courts_demand(date, date, uuid) from public, anon;
 grant execute on function app.analytics_courts_demand(date, date, uuid) to authenticated;
@@ -893,7 +893,7 @@ create or replace function app.analytics_courts_endings(
   p_to       date,
   p_court_id uuid default null
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $fn_analytics_courts_endings_0143$
+language plpgsql stable security definer set search_path = public as $fn_analytics_courts_endings_0147$
 declare
   v_b          record;
   v_policy_min int;
@@ -1086,7 +1086,7 @@ begin
     into v_out;
 
   return v_out;
-end $fn_analytics_courts_endings_0143$;
+end $fn_analytics_courts_endings_0147$;
 
 revoke all on function app.analytics_courts_endings(date, date, uuid) from public, anon;
 grant execute on function app.analytics_courts_endings(date, date, uuid) to authenticated;
@@ -1100,7 +1100,7 @@ create or replace function app.analytics_courts_cafe(
   p_to       date,
   p_court_id uuid default null
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $fn_analytics_courts_cafe_0143$
+language plpgsql stable security definer set search_path = public as $fn_analytics_courts_cafe_0147$
 declare
   v_b     record;
   v_ex    uuid[];
@@ -1322,7 +1322,7 @@ begin
     from tot t;
 
   return v_out;
-end $fn_analytics_courts_cafe_0143$;
+end $fn_analytics_courts_cafe_0147$;
 
 revoke all on function app.analytics_courts_cafe(date, date, uuid) from public, anon;
 grant execute on function app.analytics_courts_cafe(date, date, uuid) to authenticated;
@@ -1341,7 +1341,7 @@ create or replace function app.assistant_bookings_list(
   p_offset      int     default 0,
   p_count_only  boolean default false
 ) returns jsonb
-language plpgsql stable security definer set search_path = public as $assistant_bookings_list_0143$
+language plpgsql stable security definer set search_path = public as $assistant_bookings_list_0147$
 declare
   v_b      record;
   v_status reservation_status;
@@ -1409,7 +1409,7 @@ begin
     left join profiles pr on pr.id = x.guest_id;
 
   return jsonb_build_object('rows', v_rows, 'total', v_total, 'limit', v_page.o_limit, 'offset', v_page.o_offset);
-end $assistant_bookings_list_0143$;
+end $assistant_bookings_list_0147$;
 
 comment on function app.assistant_bookings_list(date, date, uuid, text, uuid, int, int, boolean) is
   '0109. Owner-only (reached through app.assistant_run_tool). Bookings (kind = booking) whose start falls on a business day in [p_from, p_to], optional court / status / customer filters, ordered by start, paged 1..500. p_count_only returns only total.';

@@ -1,7 +1,7 @@
 /**
- * 0143 — the group size is gone. 0092 added `players` to reservations and
+ * 0147 — the group size is gone. 0092 added `players` to reservations and
  * reservation_series and a trailing `p_players int default null` to three
- * RPCs; 0143 drops both columns and keeps the parameter, IGNORED, so a till
+ * RPCs; 0147 drops both columns and keeps the parameter, IGNORED, so a till
  * or phone on an older build that still sends it does not get PGRST202.
  * The cases here prove:
  *
@@ -67,7 +67,7 @@ interface Created {
   skipped: string[];
 }
 
-describe.skipIf(!up)('0143 players dropped (p_players accepted and ignored)', () => {
+describe.skipIf(!up)('0147 players dropped (p_players accepted and ignored)', () => {
   let svc: SupabaseClient;
   let desk: SupabaseClient;
   let guest: SupabaseClient;
@@ -78,7 +78,7 @@ describe.skipIf(!up)('0143 players dropped (p_players accepted and ignored)', ()
     desk = await signedInClient(SEED_STAFF.court_desk);
     guest = await guestClient(svc, 'players');
     await ensureTestRateRule(svc);
-    courtId = await createTestCourt(svc, 'P0143');
+    courtId = await createTestCourt(svc, 'P0147');
   });
 
   afterAll(async () => {
@@ -194,7 +194,7 @@ describe.skipIf(!up)('0143 players dropped (p_players accepted and ignored)', ()
 
   it('create_series: p_players is accepted and ignored; every occurrence is created', async () => {
     for (const p of [4, 9]) {
-      const court = await createTestCourt(svc, `P0143-series-${p}`);
+      const court = await createTestCourt(svc, `P0147-series-${p}`);
       const res = await appRpc(desk, 'create_series', weekly(court, {
         p_players: p,
         p_idempotency_key: testIdemKey('series.create'),

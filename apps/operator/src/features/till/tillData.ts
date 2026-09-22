@@ -23,6 +23,8 @@ export interface CategoryRow {
   sort_order: number;
   is_active: boolean;
   tax_group: { rate_bp: number } | null;
+  /** 0144: 'shop' for a Touch Shop section. Absent on a menu cached before 0144 (read as café). */
+  kind?: 'cafe' | 'shop';
 }
 export interface VariantRow {
   id: string;
@@ -32,6 +34,9 @@ export interface VariantRow {
   price_iqd: number;
   is_default: boolean;
   sort_order: number;
+  /** 0144: Touch Shop sizes only; the barcode is what a scanner types. */
+  sku?: string | null;
+  barcode?: string | null;
 }
 export interface ModifierRow {
   id: string;
@@ -93,7 +98,7 @@ export const TILL_MENU_QUERY = {
       const [cats, items, groups, mods, avail] = await Promise.all([
         supabase
           .from('menu_categories')
-          .select('id, name_en, name_ar, sort_order, is_active, tax_group:tax_groups(rate_bp)')
+          .select('id, name_en, name_ar, sort_order, is_active, kind, tax_group:tax_groups(rate_bp)')
           .order('sort_order'),
         supabase
           .from('menu_items')

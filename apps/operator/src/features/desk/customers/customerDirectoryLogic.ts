@@ -1,5 +1,5 @@
 /**
- * The Customers screen's list (0144 `customer_directory`) — the pure half.
+ * The Customers screen's list (0148 `customer_directory`) — the pure half.
  *
  * The whole book arrives once and is kept in memory (see CUSTOMER_DIRECTORY_STALE_MS),
  * so typing filters it HERE instead of asking the server per keystroke. To

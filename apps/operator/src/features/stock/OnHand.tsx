@@ -49,7 +49,7 @@ import {
 } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { LedgerDrawer } from './LedgerDrawer';
-import { AttentionList, Footnote, IngredientName, useStockFormat, type AttentionItem } from './stockUi';
+import { AttentionList, Footnote, IngredientName, KindFilter, matchesKind, useStockFormat, type AttentionItem, type StockKindFilter } from './stockUi';
 import {
   isBelowPar,
   isLow,
@@ -71,6 +71,7 @@ export function OnHand() {
   const search = useSearch({ strict: false }) as { filter?: unknown };
   const [filter, setFilter] = useState<OnHandFilter>(() => parseOnHandFilter(search.filter));
   const [query, setQuery] = useState('');
+  const [kind, setKind] = useState<StockKindFilter>('all');
   const [open, setOpen] = useState<OnHandRow | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +83,8 @@ export function OnHand() {
 
   const go = (href: string) => void navigate({ href });
   const active = (onHandQ.data ?? []).filter((r) => r.is_active);
-  const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query));
+  const hasShopStock = active.some((r) => r.kind === 'retail');
+  const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query) && matchesKind(r.kind, kind));
   const status = asyncStatus(onHandQ, (d) => d.filter((r) => r.is_active).length === 0);
 
   /** Narrow the table and bring it into view — the button's promise is "show which". */
@@ -270,6 +272,7 @@ export function OnHand() {
                   { value: 'countNeeded', label: tr('op.stock.status.countNeeded') },
                 ]}
               />
+              {hasShopStock && <KindFilter value={kind} onChange={setKind} />}
             </Toolbar>
             {rows.length === 0 ? (
               // The shelves are not empty — the search or the filter narrowed

@@ -334,7 +334,9 @@ export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuC
     client
       .from('menu_categories')
       .select('id, name_en, name_ar, sort_order, serve_temp, photo_path, photo_blur')
-      .eq('is_active', true),
+      .eq('is_active', true)
+      // 0144: Touch Shop sections are sold at the counter, never from the table.
+      .eq('kind', 'cafe'),
     client
       .from('menu_items')
       .select(

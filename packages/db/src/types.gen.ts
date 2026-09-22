@@ -1069,6 +1069,7 @@ export type Database = {
         Args: {
           p_device_id?: string
           p_idempotency_key?: string
+          p_kind?: string
           p_label?: string
           p_reservation_id?: string
           p_table_id?: string
@@ -1078,6 +1079,7 @@ export type Database = {
       open_table_session: { Args: { p_token: string }; Returns: Json }
       ops_overview: { Args: never; Returns: Json }
       order_is_callers: { Args: { p_order_id: string }; Returns: boolean }
+      order_is_shop: { Args: { p_order_id: string }; Returns: boolean }
       order_item_bom: {
         Args: { p_order_item_id: string }
         Returns: {
@@ -1143,8 +1145,10 @@ export type Database = {
       receive_delivery: {
         Args: {
           p_device_id?: string
+          p_idempotency_key?: string
           p_lines: Json
           p_notes?: string
+          p_supplier_id?: string
           p_supplier_name?: string
         }
         Returns: Json
@@ -1355,6 +1359,10 @@ export type Database = {
       set_campaign_status: {
         Args: { p_id: string; p_status: string }
         Returns: Json
+      }
+      set_category_kind: {
+        Args: { p_id: string; p_kind: string }
+        Returns: undefined
       }
       set_category_photo: {
         Args: {
@@ -1732,6 +1740,33 @@ export type Database = {
           p_start_time: string
           p_valid_from?: string
           p_valid_to?: string
+        }
+        Returns: string
+      }
+      upsert_retail_variant: {
+        Args: {
+          p_barcode?: string
+          p_id?: string
+          p_is_default?: boolean
+          p_item_id: string
+          p_low_stock_threshold?: number
+          p_name_ar: string
+          p_name_en: string
+          p_pack_cost_iqd?: number
+          p_price_iqd: number
+          p_sku?: string
+          p_sort_order?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
+      upsert_supplier: {
+        Args: {
+          p_id?: string
+          p_is_active?: boolean
+          p_name: string
+          p_notes?: string
+          p_phone?: string
         }
         Returns: string
       }
@@ -2846,6 +2881,7 @@ export type Database = {
           notes: string | null
           received_at: string
           received_by: string
+          supplier_id: string | null
           supplier_name: string | null
           venue_id: string | null
         }
@@ -2854,6 +2890,7 @@ export type Database = {
           notes?: string | null
           received_at?: string
           received_by: string
+          supplier_id?: string | null
           supplier_name?: string | null
           venue_id?: string | null
         }
@@ -2862,6 +2899,7 @@ export type Database = {
           notes?: string | null
           received_at?: string
           received_by?: string
+          supplier_id?: string | null
           supplier_name?: string | null
           venue_id?: string | null
         }
@@ -2871,6 +2909,13 @@ export type Database = {
             columns: ["received_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {
@@ -3070,8 +3115,10 @@ export type Database = {
           pack_size: number | null
           par_level: number | null
           shelf_life_days: number | null
+          supplier_id: string | null
           supplier_name: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
+          variant_id: string | null
           venue_id: string | null
           waste_allowance_percent: number
           yield_percent: number
@@ -3087,8 +3134,10 @@ export type Database = {
           pack_size?: number | null
           par_level?: number | null
           shelf_life_days?: number | null
+          supplier_id?: string | null
           supplier_name?: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
+          variant_id?: string | null
           venue_id?: string | null
           waste_allowance_percent?: number
           yield_percent?: number
@@ -3104,13 +3153,43 @@ export type Database = {
           pack_size?: number | null
           par_level?: number | null
           shelf_life_days?: number | null
+          supplier_id?: string | null
           supplier_name?: string | null
           unit?: Database["public"]["Enums"]["stock_unit"]
+          variant_id?: string | null
           venue_id?: string | null
           waste_allowance_percent?: number
           yield_percent?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ingredients_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredients_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: true
+            referencedRelation: "menu_item_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredients_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: true
+            referencedRelation: "v_item_cogs"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "ingredients_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: true
+            referencedRelation: "v_item_margin"
+            referencedColumns: ["variant_id"]
+          },
           {
             foreignKeyName: "ingredients_venue_id_fkey"
             columns: ["venue_id"]
@@ -3374,6 +3453,7 @@ export type Database = {
         Row: {
           id: string
           is_active: boolean
+          kind: string
           name_ar: string
           name_en: string
           photo_blur: string | null
@@ -3386,6 +3466,7 @@ export type Database = {
         Insert: {
           id?: string
           is_active?: boolean
+          kind?: string
           name_ar: string
           name_en: string
           photo_blur?: string | null
@@ -3398,6 +3479,7 @@ export type Database = {
         Update: {
           id?: string
           is_active?: boolean
+          kind?: string
           name_ar?: string
           name_en?: string
           photo_blur?: string | null
@@ -3525,30 +3607,36 @@ export type Database = {
       }
       menu_item_variants: {
         Row: {
+          barcode: string | null
           id: string
           is_default: boolean
           item_id: string
           name_ar: string
           name_en: string
           price_iqd: number
+          sku: string | null
           sort_order: number
         }
         Insert: {
+          barcode?: string | null
           id?: string
           is_default?: boolean
           item_id: string
           name_ar: string
           name_en: string
           price_iqd: number
+          sku?: string | null
           sort_order?: number
         }
         Update: {
+          barcode?: string | null
           id?: string
           is_default?: boolean
           item_id?: string
           name_ar?: string
           name_en?: string
           price_iqd?: number
+          sku?: string | null
           sort_order?: number
         }
         Relationships: [
@@ -5349,6 +5437,44 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          venue_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_replays: {
         Row: {
           conflict_detail: Json | null
@@ -5465,6 +5591,7 @@ export type Database = {
           discount_iqd: number | null
           id: string
           idempotency_key: string | null
+          kind: string
           label: string | null
           merged_into_tab_id: string | null
           opened_at: string
@@ -5485,6 +5612,7 @@ export type Database = {
           discount_iqd?: number | null
           id?: string
           idempotency_key?: string | null
+          kind?: string
           label?: string | null
           merged_into_tab_id?: string | null
           opened_at?: string
@@ -5505,6 +5633,7 @@ export type Database = {
           discount_iqd?: number | null
           id?: string
           idempotency_key?: string | null
+          kind?: string
           label?: string | null
           merged_into_tab_id?: string | null
           opened_at?: string
@@ -6393,7 +6522,7 @@ export type Database = {
       campaign_status: "draft" | "scheduled" | "live" | "ended" | "cancelled"
       cancellation_actor: "guest" | "staff"
       day_status: "open" | "closing" | "closed"
-      ingredient_kind: "purchased" | "prepared"
+      ingredient_kind: "purchased" | "prepared" | "retail"
       marketing_channel: "telegram" | "guest_site" | "in_venue"
       movement_type:
         | "goods_in"
@@ -6571,7 +6700,7 @@ export const Constants = {
       campaign_status: ["draft", "scheduled", "live", "ended", "cancelled"],
       cancellation_actor: ["guest", "staff"],
       day_status: ["open", "closing", "closed"],
-      ingredient_kind: ["purchased", "prepared"],
+      ingredient_kind: ["purchased", "prepared", "retail"],
       marketing_channel: ["telegram", "guest_site", "in_venue"],
       movement_type: [
         "goods_in",

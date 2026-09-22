@@ -380,6 +380,15 @@ export const cashierEn = {
     needTable: 'Pick a table.',
     tableHasTab: 'This table already has an open tab.',
     goToTab: 'Go to that tab',
+    counterSale: 'Shop counter sale',
+    counterSaleHint: 'For someone buying from the shop: no table or booking, just a name or a number.',
+    counterNameHint: 'Shown on the tab and on the day close.',
+    needLabel: 'Type a name or a number.',
+  },
+  shop: {
+    scanUnknown: 'No product has the barcode {code}.',
+    scanNoTab: 'Open a tab first, then scan.',
+    scanUnavailable: '{name} is not available to sell right now.',
   },
 
   // The till's floor view (FloorView, SpotDialog): what the till opens on.

@@ -1,6 +1,6 @@
 /**
  * The monthly cap as the owner types it (USD) and as the server stores it
- * (USD micros). The bounds mirror app.assistant_set_monthly_cap (0145), so the
+ * (USD micros). The bounds mirror app.assistant_set_monthly_cap (0149), so the
  * dialog refuses what the RPC would refuse before anyone presses Apply.
  */
 export const CAP_MAX_MICROS = 10_000_000_000; // USD 10,000

@@ -2,7 +2,7 @@
  * 06.8 CustomerSearchScreen — the customer book, listed, with one big search
  * box that narrows it as you type.
  *
- * The list (owner call, 2026-09-22) comes from 0144 `customer_directory`: the
+ * The list (owner call, 2026-09-22) comes from 0148 `customer_directory`: the
  * whole book in one lean read, kept in memory for
  * CUSTOMER_DIRECTORY_STALE_MS, so opening this screen again — or typing — does
  * not fetch anything. Typing filters that copy locally with the server

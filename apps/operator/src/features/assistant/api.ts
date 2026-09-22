@@ -327,7 +327,7 @@ export function setDefaultModel(model: string): Promise<void> {
   return assistantRpc<void>('assistant_set_default_model', { p_model: model });
 }
 
-/** The monthly spend cap in USD micros (0145). Refused with INVALID_ARGUMENT outside (0, USD 10,000]. */
+/** The monthly spend cap in USD micros (0149). Refused with INVALID_ARGUMENT outside (0, USD 10,000]. */
 export function setMonthlyCap(capMicros: number): Promise<{ monthly_cap_micros: number; previous_cap_micros: number }> {
   return assistantRpc('assistant_set_monthly_cap', { p_cap_micros: capMicros });
 }

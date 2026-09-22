@@ -17,9 +17,9 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0139`
-  (`20260921000139_venue_axis_fixes.sql`, multi-venue slice 1 = 0122–0139); the next is
-  `0140`.
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0146`
+  (`20260922000146_shop_sale_path.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+  Touch Shop 0143–0146); the next is `0147`.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).

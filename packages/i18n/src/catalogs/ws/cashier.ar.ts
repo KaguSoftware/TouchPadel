@@ -365,6 +365,15 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     needTable: 'اختر طاولة.',
     tableHasTab: 'لهذه الطاولة حساب مفتوح بالفعل.',
     goToTab: 'الذهاب إلى ذلك الحساب',
+    counterSale: 'بيع من المتجر على الكاونتر',
+    counterSaleHint: 'لمن يشتري من المتجر: دون طاولة أو حجز، اسم أو رقم فقط.',
+    counterNameHint: 'يظهر على الحساب وفي إقفال اليوم.',
+    needLabel: 'اكتب اسمًا أو رقمًا.',
+  },
+  shop: {
+    scanUnknown: 'لا يوجد منتج بالباركود {code}.',
+    scanNoTab: 'افتح حسابًا أولًا، ثم امسح الباركود.',
+    scanUnavailable: '{name} غير متاح للبيع الآن.',
   },
 
   floor: {

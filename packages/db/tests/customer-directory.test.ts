@@ -1,5 +1,5 @@
 /**
- * 0144 — customer_directory: the desk's whole customer book in one read.
+ * 0148 — customer_directory: the desk's whole customer book in one read.
  *
  * Asserted: the guard (a guest is refused, desk and cashier read), the row
  * shape the Customers screen binds to (same field names as customer_search),
@@ -26,7 +26,7 @@ interface Directory {
   truncated: boolean;
 }
 
-describe.skipIf(!up)('0144 customer_directory', () => {
+describe.skipIf(!up)('0148 customer_directory', () => {
   let svc: SupabaseClient;
   let desk: SupabaseClient;
   let cashier: SupabaseClient;

@@ -28,14 +28,19 @@ export const SK = {
   alertCount: ['stock', 'alertCount'] as const,
   expiryWindow: ['stock', 'expiryWindow'] as const,
   movementCheck: (ingredientId: string) => ['stock', 'movementCheck', ingredientId] as const,
+  suppliers: ['stock', 'suppliers'] as const,
+  products: ['stock', 'products'] as const,
 };
+
+/** 0143: 'retail' = a Touch Shop size's own stock row (unit pc, one per variant). */
+export type IngredientKind = 'purchased' | 'prepared' | 'retail';
 
 export interface OnHandRow {
   ingredient_id: string;
   name_en: string;
   name_ar: string;
   unit: 'g' | 'ml' | 'pc';
-  kind: 'purchased' | 'prepared';
+  kind: IngredientKind;
   on_hand: number;
   theoretical: number;
   par_level: number | null;
@@ -54,7 +59,7 @@ export async function fetchOnHand(): Promise<OnHandRow[]> {
 
 export interface IngredientRow {
   id: string;
-  kind: 'purchased' | 'prepared';
+  kind: IngredientKind;
   name_en: string;
   name_ar: string;
   unit: 'g' | 'ml' | 'pc';
@@ -67,6 +72,10 @@ export interface IngredientRow {
   par_level: number | null;
   low_stock_threshold: number | null;
   is_active: boolean;
+  /** 0144: the supplier record, beside the free-text supplier_name. */
+  supplier_id?: string | null;
+  /** 0144: the Touch Shop size this stock row belongs to (retail only). */
+  variant_id?: string | null;
 }
 
 export async function fetchIngredients(): Promise<IngredientRow[]> {
@@ -178,4 +187,76 @@ export async function fetchExpiryWindow(): Promise<number | null> {
   if (error) throw error;
   const days = (data as { expiring_soon_days: number | null } | null)?.expiring_soon_days;
   return typeof days === 'number' ? days : null;
+}
+
+// ---------------------------------------------------------------------------
+// Touch Shop (0144/0145)
+// ---------------------------------------------------------------------------
+
+export interface SupplierRow {
+  id: string;
+  name: string;
+  phone: string | null;
+  notes: string | null;
+  is_active: boolean;
+}
+
+/** Suppliers at the caller's venue(s); RLS shows them to managers and owners only. */
+export async function fetchSuppliers(): Promise<SupplierRow[]> {
+  const { data, error } = await supabase.from('suppliers').select('id, name, phone, notes, is_active').order('name');
+  if (error) throw error;
+  return data as SupplierRow[];
+}
+
+export interface ShopVariantRow {
+  id: string;
+  item_id: string;
+  name_en: string;
+  name_ar: string;
+  price_iqd: number;
+  is_default: boolean;
+  sort_order: number;
+  sku: string | null;
+  barcode: string | null;
+}
+
+export interface ShopProductRow {
+  id: string;
+  category_id: string;
+  name_en: string;
+  name_ar: string;
+  is_active: boolean;
+  sort_order: number;
+  menu_item_variants: ShopVariantRow[];
+}
+
+export interface ShopSectionRow {
+  id: string;
+  name_en: string;
+  name_ar: string;
+  is_active: boolean;
+}
+
+export interface ShopCatalogue {
+  sections: ShopSectionRow[];
+  products: ShopProductRow[];
+}
+
+/** Every shop section and its products with their sizes. */
+export async function fetchShopCatalogue(): Promise<ShopCatalogue> {
+  const { data: sections, error: sErr } = await supabase
+    .from('menu_categories')
+    .select('id, name_en, name_ar, is_active')
+    .eq('kind', 'shop')
+    .order('sort_order');
+  if (sErr) throw sErr;
+  const ids = (sections ?? []).map((s) => s.id);
+  if (ids.length === 0) return { sections: [], products: [] };
+  const { data: products, error: pErr } = await supabase
+    .from('menu_items')
+    .select('id, category_id, name_en, name_ar, is_active, sort_order, menu_item_variants(id, item_id, name_en, name_ar, price_iqd, is_default, sort_order, sku, barcode)')
+    .in('category_id', ids)
+    .order('sort_order');
+  if (pErr) throw pErr;
+  return { sections: (sections ?? []) as ShopSectionRow[], products: (products ?? []) as unknown as ShopProductRow[] };
 }

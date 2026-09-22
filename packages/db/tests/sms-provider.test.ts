@@ -19,7 +19,7 @@
  *      sendSms — the same rule the mobile reliability test applies to GoTrue.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isLocalRuntime, sendSms, smsFromEnv, SmsProviderError, SMS_PROVIDERS } from '../supabase/functions/_shared/sms/index.ts';
@@ -387,7 +387,7 @@ describe('boundary: only _shared/sms knows the vendors', () => {
   it.each(VENDOR_TOKENS)('"%s" appears only under _shared/sms', (token) => {
     const offenders = tsFiles(FUNCTIONS)
       .filter((f) => stripComments(readFileSync(f, 'utf8')).includes(token))
-      .map((f) => 'functions/' + relative(FUNCTIONS, f))
+      .map((f) => 'functions/' + relative(FUNCTIONS, f).split(sep).join('/')) // POSIX separators on Windows too
       .filter((f) => !f.startsWith(SEAM));
     expect(offenders).toEqual([]);
   });

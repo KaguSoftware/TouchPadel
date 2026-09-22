@@ -477,7 +477,7 @@ describe('reservation.create payload', () => {
     ).toBe(true);
   });
 
-  it('a legacy players field from an older till is stripped, never refused (0143)', () => {
+  it('a legacy players field from an older till is stripped, never refused (0147)', () => {
     for (const players of [4, 1, 0, 9, 2.5, null, 'four']) {
       const r = reservationCreatePayloadSchema.safeParse({ ...valid(), players });
       expect(r.success).toBe(true);

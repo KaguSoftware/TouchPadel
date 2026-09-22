@@ -147,7 +147,7 @@ describe('DIRECT_RPC', () => {
     expect(call.args.p_guest_id).toBeNull();
   });
 
-  it('reservation.create never sends p_players, even for a legacy payload that carries players (0143)', () => {
+  it('reservation.create never sends p_players, even for a legacy payload that carries players (0147)', () => {
     const base = {
       clientRef: 'DESK-01-01J5XABCDEFGHJKMNPQRSTVWXY',
       courtId: UUID_A,
