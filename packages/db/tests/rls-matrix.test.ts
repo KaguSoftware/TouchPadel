@@ -23,8 +23,10 @@ import {
   ensureTillFresh,
   ensureStationProbe,
   appRpc,
+  probeId,
   SEED_STAFF,
   DEV_PINS,
+  VENUE_A_ID,
 } from './helpers';
 import {
   matrix,
@@ -80,6 +82,11 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
     await ensurePromotionProbeData(svc); // drop 5 (0067) disabled probe promotion + redemption
     await ensureTillFresh(svc); // degraded mode would corrupt guest-RPC guard outcomes
     await ensureStationProbe(svc); // drop 13 (0124): a registered till at venue A
+    // drop 14 (0144): one supplier, so the management 'rows' has something to read.
+    const { error: supErr } = await svc
+      .from('suppliers')
+      .upsert({ id: probeId('5a01'), venue_id: VENUE_A_ID, name: 'RLS Probe Supplier' });
+    if (supErr) throw new Error(`probe supplier failed: ${supErr.message}`);
     const probeCourt = await createTestCourt(svc, 'RLS-probe');
     const { error: resErr } = await svc.from('reservations').insert({
       court_id: probeCourt,

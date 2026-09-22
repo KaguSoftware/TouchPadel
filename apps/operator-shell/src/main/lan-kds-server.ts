@@ -53,7 +53,10 @@ function ticketFromEnvelope(m: MutationEnvelope): LanTicket | null {
   const p = m.payload as {
     items?: { variantId?: string; qty?: number; notes?: string; modifiers?: { modifierId?: string; qty?: number }[] }[];
     tabIdemKey?: string;
+    shop?: boolean;
   } | null;
+  // 0146: a Touch Shop sale is never kitchen work (the server makes no ticket for it).
+  if (p?.shop === true) return null;
   const items: LanTicketItem[] = (p?.items ?? []).map((it) => ({
     variantId: String(it.variantId ?? ''),
     qty: Number(it.qty ?? 1),

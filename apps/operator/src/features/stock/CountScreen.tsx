@@ -31,7 +31,7 @@ import { useToast } from '../../components/toast';
 import { Button, ErrorText, inputStyle } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, Toolbar, asyncStatus, type Column } from '../../components/kit';
 import { CardTitle, Step } from '../ops/OpsVisuals';
-import { Footnote, useStockFormat } from './stockUi';
+import { Footnote, KindFilter, matchesKind, useStockFormat, type StockKindFilter } from './stockUi';
 import { countEntryState, matchesName } from './stockLogic';
 import { SK, fetchIngredients, fetchLastCount, fetchOpenCount, type IngredientRow } from './stockKeys';
 
@@ -64,6 +64,7 @@ export function CountScreen() {
   const [counted, setCounted] = useState<Record<string, string> | null>(null);
   const [query, setQuery] = useState('');
   const [lineFilter, setLineFilter] = useState<LineFilter>('all');
+  const [kind, setKind] = useState<StockKindFilter>('all');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -156,6 +157,7 @@ export function CountScreen() {
   const visible = lines.filter((l) => {
     const ing = ingredientOf.get(l.ingredient_id);
     if (ing && !matchesName(ing, query)) return false;
+    if (!matchesKind(ing?.kind, kind)) return false;
     const state = countEntryState(entries[l.ingredient_id]);
     if (lineFilter === 'left') return state !== 'ok';
     if (lineFilter === 'entered') return state === 'ok';
@@ -281,6 +283,7 @@ export function CountScreen() {
                   { value: 'entered', label: tr('ws.manager.stock.count.enteredFilter') },
                 ]}
               />
+              {lines.some((l) => ingredientOf.get(l.ingredient_id)?.kind === 'retail') && <KindFilter value={kind} onChange={setKind} />}
             </Toolbar>
             <ErrorText error={linesQ.error} />
             {visible.length === 0 && lines.length > 0 ? (

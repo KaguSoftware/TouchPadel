@@ -72,6 +72,9 @@ export function CategoryForm({
   const [name, setName] = useState({ en: category?.name_en ?? '', ar: category?.name_ar ?? '' });
   const [taxGroupId, setTaxGroupId] = useState(category?.tax_group_id ?? taxGroups[0]?.id ?? '');
   const [isActive, setIsActive] = useState(category?.is_active ?? true);
+  const [kind, setKind] = useState<'cafe' | 'shop'>(category?.kind ?? 'cafe');
+  // A section changes kind only while it is empty (app.set_category_kind, 0145).
+  const kindLocked = !!category && (itemCount ?? 0) > 0;
   const [photo, setPhoto] = useState<string | null>(category?.photo_path ?? null);
   const [error, setError] = useState<unknown>(null);
   // New categories get a draft owner id so uploads have a folder before the row exists.
@@ -88,6 +91,7 @@ export function CategoryForm({
     name.ar !== (category?.name_ar ?? '') ||
     taxGroupId !== (category?.tax_group_id ?? taxGroups[0]?.id ?? '') ||
     isActive !== (category?.is_active ?? true) ||
+    kind !== (category?.kind ?? 'cafe') ||
     (!category && pendingPhoto.current !== null);
 
   useEffect(() => {
@@ -141,6 +145,9 @@ export function CategoryForm({
       if (!category && pendingPhoto.current) {
         await savePhoto('category', id, pendingPhoto.current, null);
         pendingPhoto.current = null;
+      }
+      if (kind !== (category?.kind ?? 'cafe')) {
+        await appRpc('set_category_kind', { p_id: id, p_kind: kind });
       }
       return id;
     },
@@ -210,6 +217,20 @@ export function CategoryForm({
             onChange={setTaxGroupId}
             disabled={readOnly}
             options={taxGroups.map((tg) => ({ value: tg.id, label: pickName(locale, tg) }))}
+          />
+        </Field>
+        <Field
+          label={tr('ws.manager.menu.categoryForm.kind')}
+          hint={kindLocked ? tr('ws.manager.menu.categoryForm.kindLocked') : tr('ws.manager.menu.categoryForm.kindHint')}
+        >
+          <Select
+            value={kind}
+            onChange={(v) => setKind(v === 'shop' ? 'shop' : 'cafe')}
+            disabled={readOnly || kindLocked}
+            options={[
+              { value: 'cafe', label: tr('ws.manager.menu.categoryForm.kindCafe') },
+              { value: 'shop', label: tr('ws.manager.menu.categoryForm.kindShop') },
+            ]}
           />
         </Field>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>

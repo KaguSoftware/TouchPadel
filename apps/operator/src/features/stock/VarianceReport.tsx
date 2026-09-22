@@ -27,8 +27,8 @@ import { Button, Select } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, PageHeader, ResultCount, SegmentedControl, TableSkeleton, Toolbar, asyncStatus, type Column } from '../../components/kit';
 import { downloadCsv, toCsv } from '../analytics/csv';
 import { LedgerDrawer } from './LedgerDrawer';
-import { useStockFormat } from './stockUi';
-import { SK } from './stockKeys';
+import { KindFilter, matchesKind, useStockFormat, type StockKindFilter } from './stockUi';
+import { SK, fetchIngredients } from './stockKeys';
 
 interface CountOption {
   id: string;
@@ -62,6 +62,10 @@ export function VarianceReport() {
   const navigate = useNavigate();
   const [countId, setCountId] = useState('');
   const [show, setShow] = useState<Show>('differed');
+  const [kind, setKind] = useState<StockKindFilter>('all');
+  // The view carries no kind; the ingredient list says which rows are shop stock.
+  const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
+  const kindOf = new Map((ingredientsQ.data ?? []).map((i) => [i.id, i.kind]));
   const [drill, setDrill] = useState<VarianceRow | null>(null);
 
   const countsQ = useQuery({
@@ -89,7 +93,9 @@ export function VarianceReport() {
       return data as VarianceRow[];
     },
   });
-  const all = varianceQ.data ?? [];
+  const counted = varianceQ.data ?? [];
+  const hasShopStock = counted.some((r) => kindOf.get(r.ingredient_id) === 'retail');
+  const all = counted.filter((r) => matchesKind(kindOf.get(r.ingredient_id), kind));
   const differed = all.filter((r) => Number(r.variance_qty) !== 0);
   const rows = show === 'differed' ? differed : all;
   const first = all[0];
@@ -206,6 +212,7 @@ export function VarianceReport() {
               { value: 'all', label: tr('ws.manager.stock.variance.allIngredients') },
             ]}
           />
+          {hasShopStock && <KindFilter value={kind} onChange={setKind} />}
         </Toolbar>
 
         {varianceQ.isSuccess && (

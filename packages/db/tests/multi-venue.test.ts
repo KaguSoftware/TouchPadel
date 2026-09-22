@@ -87,6 +87,8 @@ const HAS_VENUE_ID = [
   'reservations', 'reservation_series', 'guest_sessions', 'tabs', 'orders', 'tickets',
   'payments', 'refunds', 'stock_batches', 'stock_movements', 'waiter_calls', 'staff_breaks',
   'station_staff', 'device_heartbeats',
+  // Phase 2 item 5 (0144): created venue-scoped
+  'suppliers',
   // The one-row singleton (slice 1 keeps its boolean primary key)
   'venue_settings',
 ] as const;

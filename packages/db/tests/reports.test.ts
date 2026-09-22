@@ -332,7 +332,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
 
     expect(d.comparison).toBeNull();
     expect(d.columns.map((c) => c.key)).toEqual([
-      'period', 'padelIqd', 'cafeIqd', 'cafeNetIqd', 'totalIqd', 'cashIqd', 'cardIqd',
+      'period', 'padelIqd', 'cafeIqd', 'cafeNetIqd', 'shopIqd', 'totalIqd', 'cashIqd', 'cardIqd',
       'discountsIqd', 'voidsIqd', 'refundsIqd', 'taxIqd', 'orders', 'bookings',
     ]);
     for (const c of d.columns) {

@@ -28,6 +28,7 @@ const RPC_ERROR_KEYS: Record<string, MessageKey> = {
   ITEM_UNAVAILABLE: 'cafe.itemUnavailable', // also sold_out (0030)
   ITEM_NOT_FOUND: 'cafe.itemUnavailable',
   VARIANT_NOT_FOUND: 'cafe.itemUnavailable',
+  SHOP_ITEM_NOT_ORDERABLE: 'cafe.itemUnavailable', // 0146: a shop item on a table order
   MODIFIER_INVALID: 'cafe.itemUnavailable', // incl. picks from non-revealed groups (0030)
   MODIFIER_SELECTION: 'errors.validation',
   INVALID_QTY: 'errors.validation',
@@ -58,6 +59,7 @@ export function isRpcError(error: { message?: string } | null | undefined, code:
 const REFRESH_MENU_CODES = new Set([
   'ITEM_UNAVAILABLE',
   'VARIANT_NOT_FOUND',
+  'SHOP_ITEM_NOT_ORDERABLE',
   'MODIFIER_INVALID',
   'MODIFIER_SELECTION',
 ]);
