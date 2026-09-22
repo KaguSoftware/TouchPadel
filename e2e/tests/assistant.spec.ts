@@ -78,8 +78,27 @@ async function signIn(page: Page, email: string) {
   await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
 }
 
+/**
+ * Assistant, the language switch and the appearance switch live inside the
+ * rail's OPTIONS group (RailMoreMenu), which is shut on every load. The group
+ * animates on grid-template-rows 0fr -> 1fr with the rows clipped by an
+ * overflow:hidden wrapper, so while it is shut each row still lays out at its
+ * natural height and Playwright judges it "visible, enabled and stable". The
+ * click then lands on whatever is actually painted there — the Options row
+ * itself, or the owner strip — and retries "intercepts pointer events" until
+ * the test times out. Open the group first; the guard makes it a no-op when it
+ * already stands open, so it is safe to call before every row.
+ */
+async function openRailOptions(page: Page) {
+  const more = page.getByTestId('rail.more');
+  await more.waitFor({ timeout: 30_000 });
+  if ((await more.getAttribute('aria-expanded')) !== 'true') await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+}
+
 /** Open the drawer from the rail and expand the (collapsed-in-compact) scope strip. */
 async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerTitle: string; contextToggle: RegExp }) {
+  await openRailOptions(page);
   await page.getByRole('button', { name: s.railButton }).click();
   const dialog = page.getByRole('dialog', { name: s.drawerTitle });
   await expect(dialog).toBeVisible();
@@ -143,6 +162,7 @@ test.describe('owner assistant', () => {
 
   test('a question with no key shows the not-configured sentence, no usage footer, no Stop', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
+    await openRailOptions(page);
     await page.getByRole('button', { name: EN.railButton }).click();
     const dialog = page.getByRole('dialog', { name: EN.drawerTitle });
     await expect(dialog).toBeVisible();
@@ -220,6 +240,7 @@ test.describe('owner assistant @ar', () => {
   /** Sign in (the form is EN until the station's locale is switched) and flip the rail to Arabic. */
   async function signInArabic(page: Page) {
     await signIn(page, SEED_STAFF.owner);
+    await openRailOptions(page);
     await page.getByRole('button', { name: EN.toArabic }).click();
     await expect(page.getByRole('button', { name: AR.toEnglish })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -239,6 +260,7 @@ test.describe('owner assistant @ar', () => {
 
   test('a question with no key shows the Arabic not-configured sentence', async ({ page }) => {
     await signInArabic(page);
+    await openRailOptions(page);
     await page.getByRole('button', { name: AR.railButton }).click();
     const dialog = page.getByRole('dialog', { name: AR.drawerTitle });
     await expect(dialog).toBeVisible();

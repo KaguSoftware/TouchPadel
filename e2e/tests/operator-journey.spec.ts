@@ -435,12 +435,17 @@ test.describe('operator journeys', () => {
     await pin.getByRole('button', { name: /Confirm|Apply|Change price/ }).last().click();
 
     await expect(async () => {
-      const { data } = await svc
+      // !orders_tab_id_fkey: 0133 added a second tabs <-> orders foreign key, so
+      // a bare embed is PGRST201 and `data` comes back null. The error was being
+      // dropped on the floor, which turned that into "Cannot read properties of
+      // null (reading 'orders')" twenty seconds later — throw it instead.
+      const { data, error: embedErr } = await svc
         .from('tabs')
-        .select('id, orders(order_items(unit_price_iqd))')
+        .select('id, orders!orders_tab_id_fkey(order_items(unit_price_iqd))')
         .eq('table_id', TABLE)
         .in('status', ['open', 'awaiting_payment'])
         .single();
+      if (embedErr) throw new Error(`tabs query failed: ${embedErr.code} ${embedErr.message}`);
       const prices = (data as { orders: { order_items: { unit_price_iqd: number }[] }[] }).orders
         .flatMap((o) => o.order_items)
         .map((i) => i.unit_price_iqd);
