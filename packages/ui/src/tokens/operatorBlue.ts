@@ -122,6 +122,19 @@ export const operatorBlueVars = {
   // ── elevation: brand black, deeper than on paper so it still reads ───────
   '--tp-shadow-raised': '0 1px 2px rgb(0 0 0 / 0.35)',
   '--tp-shadow-popover': '0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px rgb(0 0 0 / 0.45)',
+  // Glass on the blue ground: the same panel blue carried at 88%, so the menu
+  // still reads as one of THIS mode's surfaces and not as a grey pane. The
+  // lit hairline is white at a much lower alpha than on paper — on a dark
+  // ground a 0.7 white edge reads as a stroke rather than as a highlight.
+  '--tp-glass': 'rgb(45 84 149 / 0.86)',
+  '--tp-glass-border': 'rgb(255 255 255 / 0.14)',
+  // The sticky bar is the page ground, opaque: on a blue page a translucent
+  // bar picks up the saturate() in --tp-glass-blur and reads as a lighter
+  // blue band across the top, which is exactly what it must not do. Paper
+  // can afford the frost because its ground is near-white; here the bar's
+  // job is to hide what scrolls under it, so it takes --tp-bg flat.
+  '--tp-glass-bar': 'var(--tp-brand-blue)',
+  '--tp-glass-ctl': 'rgb(45 84 149 / 0.8)',
   '--tp-shadow-dialog': '0 2px 6px rgb(0 0 0 / 0.3), 0 24px 64px rgb(0 0 0 / 0.55)',
 } as const satisfies PaletteVars;
 

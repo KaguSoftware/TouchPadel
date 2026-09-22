@@ -28,9 +28,16 @@ export function ZoneNav({ zones }: { zones: readonly ZoneDef[] }) {
               paddingInline: 'var(--tp-sp-3)',
               borderRadius: 'var(--tp-radius-pill)',
               border: `1px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-              background: selected ? 'var(--tp-accent)' : 'transparent',
+              // Unselected chips take the same --tp-surface fill as the
+              // unselected Courts | Cafe tab beside them: transparent let the
+              // bar's own ground show through, so the two rows of controls on
+              // one bar read as two different materials.
+              background: selected ? 'var(--tp-accent)' : 'var(--tp-surface)',
               color: selected ? 'var(--tp-accent-contrast)' : 'var(--tp-muted-fg)',
               fontSize: 'var(--tp-fs-sm)',
+              // The lit chip carries the weight too, so the active section is
+              // legible without relying on the accent fill alone.
+              fontWeight: selected ? 700 : 500,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}

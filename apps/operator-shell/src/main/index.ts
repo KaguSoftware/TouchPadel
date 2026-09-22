@@ -172,10 +172,10 @@ function createWindow(): BrowserWindow {
   // kiosk whose only exit is the setup screen would be a machine nobody can
   // close if it was launched by mistake. Kiosk starts on the relaunch after setup.
   const relaxed = isDev || !station.configured;
-  // macOS: every window that is not a till/KDS kiosk keeps the real OS
-  // close/minimise/zoom buttons. `hiddenInset` draws them over the content
-  // instead of a full titlebar, so a desk station still looks like the app and
-  // not like a browser — see shouldShowTrafficLights for which windows qualify.
+  // macOS: every window keeps the real OS close/minimise/zoom buttons, kiosk
+  // modes included. `hiddenInset` draws them over the content instead of a full
+  // titlebar, so a station still looks like the app and not like a browser —
+  // see shouldShowTrafficLights.
   // Never larger than the screen it opens on: a floor macOS cannot honour
   // would push the bottom of the app off the work area for good.
   const workArea = screen.getPrimaryDisplay().workAreaSize;
@@ -192,7 +192,17 @@ function createWindow(): BrowserWindow {
   });
   const win = new BrowserWindow({
     // Kiosk-leaning per design-arch.md §2.5, but closable in dev.
-    kiosk: !relaxed && (station.mode === 'till' || station.mode === 'kds'),
+    //
+    // NOT on macOS where the traffic lights are shown: kiosk there IS a
+    // full-screen Space, and publishFullscreen hides the buttons for exactly
+    // that state — so a till would be born with the lights it was just given
+    // already invisible, and the change would show up nowhere. The window still
+    // opens at the screen's working size (`opening` below), which is the
+    // edge-to-edge look the kiosk was for; what it no longer does is take away
+    // the buttons. Windows is untouched: it draws no traffic lights, so its
+    // taskbar-covering kiosk is still the only way to get a bare station.
+    kiosk:
+      !relaxed && !trafficLights && (station.mode === 'till' || station.mode === 'kds'),
     autoHideMenuBar: true,
     // Electron's default window is 800x600 — smaller than the floor below, so
     // the window opened cramped and then JUMPED to the minimum the moment it
@@ -295,8 +305,8 @@ function createWindow(): BrowserWindow {
   // Confirming there calls touch:quit-app, and that exits through app.exit(),
   // which does not raise 'close' — so this guard cannot block the real quit.
   //
-  // Only where the buttons exist. A kiosk has no traffic lights and no OS
-  // close at all, and dev/browser windows are closed deliberately.
+  // Only where the buttons exist — Windows draws none, and browser dev has no
+  // window to guard.
   // Full screen and the traffic lights are alternatives, not companions. In a
   // macOS full-screen Space the buttons only reappear on a mouse-to-the-top
   // reveal, so a station driven by touch has no visible way back — that is the
@@ -304,9 +314,10 @@ function createWindow(): BrowserWindow {
   // this is true. Windowed, the buttons are right there and the row would be a
   // second control for what the green one already does.
   //
-  // Published for EVERY window, not just the ones with buttons: a till or a
-  // KDS is born `kiosk: true` with no traffic lights at all, and that row is
-  // its only way out — so it has to hear about the transition too.
+  // Published for EVERY window, not just the ones with buttons: on Windows a
+  // till or a KDS is still born `kiosk: true` with no traffic lights at all,
+  // and that row is its only way out — so it has to hear about the transition
+  // too.
   const publishFullscreen = () => {
     if (win.isDestroyed()) return;
     const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
@@ -387,18 +398,18 @@ if (gotTheLock) {
     });
 
     // The kitchen board asks for a bare window: no traffic lights over its
-    // header. Only where they exist in the first place — a kiosk has none, and
-    // Windows draws none. The window keeps its 'hiddenInset' inset either way,
-    // so the renderer's spacer stays correct whichever screen is up.
+    // header. Only where they exist in the first place — Windows draws none.
+    // The window keeps its 'hiddenInset' inset either way, so the renderer's
+    // spacer stays correct whichever screen is up.
     //
-    // A KDS-mode station is already `kiosk: true` from createWindow, but a
-    // till/desk operator can still switch INTO the same board from within the
-    // app (a cashier covering the pass) without the window itself ever being
-    // a kitchen kiosk. That window has traffic lights and is not full screen,
-    // so without this the board rendered inset in the middle of a windowed
-    // macOS app the moment someone browsed to it — the wall-mounted, edge-to-
-    // edge board design-arch §2.5 wants. Windows' taskbar-covering kiosk
-    // already reads as full screen without this.
+    // This is now what makes a macOS KDS station edge-to-edge at all. It is no
+    // longer born `kiosk: true` there (see createWindow: kiosk would hide the
+    // traffic lights it was just given), so the full-screen Space comes from
+    // the board asking for it — and goes away again when the operator browses
+    // off the board, which is the behaviour a till/desk machine covering the
+    // pass always had. Without it the board rendered inset in the middle of a
+    // windowed macOS app, instead of the wall-mounted board design-arch §2.5
+    // wants. Windows' taskbar-covering kiosk already reads as full screen.
     //
     // setFullScreen, not setSimpleFullScreen: the ask is the real macOS
     // full-screen Space (the same transition as the green button, its own
