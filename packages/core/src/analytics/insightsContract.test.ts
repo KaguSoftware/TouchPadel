@@ -16,11 +16,10 @@ describe('insightsContract module contract', () => {
     expect(contract.MIN_CELL_OPEN_DAYS).toBe(4);
     expect(contract.MIN_IDENTITIES).toBe(15);
     expect(contract.MIN_ATTACH_BOOKINGS).toBe(10);
-    expect(contract.MIN_PLAYERS_KNOWN_SHARE).toBe(0.5);
     expect(contract.MIN_ENDING_N).toBe(8);
     expect(contract.MIN_ITEM_UNITS).toBe(5);
     expect(contract.MIN_ITEM_VIEWS).toBe(5);
-    for (const key of ['MIN_RATE_DENOM', 'MIN_CELL_OPEN_DAYS', 'MIN_IDENTITIES', 'MIN_ATTACH_BOOKINGS', 'MIN_PLAYERS_KNOWN_SHARE', 'MIN_ENDING_N'] as const) {
+    for (const key of ['MIN_RATE_DENOM', 'MIN_CELL_OPEN_DAYS', 'MIN_IDENTITIES', 'MIN_ATTACH_BOOKINGS', 'MIN_ENDING_N'] as const) {
       expect(basis[key], key).toBe(contract[key]);
     }
   });

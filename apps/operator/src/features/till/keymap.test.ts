@@ -62,7 +62,7 @@ describe('resolveTillKey', () => {
 describe('TILL_KEYMAP', () => {
   it('documents every hotkey the resolver handles', () => {
     const documented = new Set(TILL_KEYMAP.map((r) => r.labelKey));
-    for (const k of ['send', 'cash', 'card', 'newTab', 'filter', 'categories', 'help', 'escape', 'rail', 'grid']) {
+    for (const k of ['send', 'cash', 'card', 'newTab', 'filter', 'categories', 'help', 'escape', 'grid']) {
       expect(documented.has(k)).toBe(true);
     }
   });

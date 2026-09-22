@@ -6,7 +6,6 @@ import {
   MIN_ATTACH_BOOKINGS,
   MIN_CELL_OPEN_DAYS,
   MIN_IDENTITIES,
-  MIN_PLAYERS_KNOWN_SHARE,
   MIN_RATE_DENOM,
   rateOrCount,
   thinCourtWeekdays,
@@ -98,7 +97,7 @@ describe('rateOrCount', () => {
 
 describe('floors and describe', () => {
   it('exports the plan floors', () => {
-    expect([MIN_CELL_OPEN_DAYS, MIN_IDENTITIES, MIN_ATTACH_BOOKINGS, MIN_PLAYERS_KNOWN_SHARE]).toEqual([4, 15, 10, 0.5]);
+    expect([MIN_CELL_OPEN_DAYS, MIN_IDENTITIES, MIN_ATTACH_BOOKINGS]).toEqual([4, 15, 10]);
   });
 
   it('describes the sample in one line, dropping zero parts', () => {

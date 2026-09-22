@@ -157,8 +157,8 @@ describe('normalise', () => {
   });
 
   it('IQD to integers, percentages to one decimal, other floats to two, booleans to y/n', () => {
-    const r = normalise([{ amount_iqd: 12499.6, occupancy_pct: 43.267, avg_players: 3.14159, is_active: true, refunded: false, count: 7 }], TZ);
-    expect(r[0]).toEqual({ amount_iqd: 12500, occupancy_pct: 43.3, avg_players: 3.14, is_active: 'y', refunded: 'n', count: 7 });
+    const r = normalise([{ amount_iqd: 12499.6, occupancy_pct: 43.267, avg_items: 3.14159, is_active: true, refunded: false, count: 7 }], TZ);
+    expect(r[0]).toEqual({ amount_iqd: 12500, occupancy_pct: 43.3, avg_items: 3.14, is_active: 'y', refunded: 'n', count: 7 });
   });
 
   it('Arabic-Indic digits in values become ASCII; column names are untouched; enums unchanged', () => {

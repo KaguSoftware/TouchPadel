@@ -44,6 +44,11 @@ const PATHS = {
   chevronStart: 'M15 18l-6-6 6-6',
   chevronEnd: 'M9 18l6-6-6-6',
   chevronDown: 'M6 9l6 6 6-6',
+  // A side panel with an arrow into it (close) or out of it (open): the
+  // desktop convention for folding a sidebar, so it never reads as a dropdown.
+  // Drawn for a start-side panel; RTL mirrors it (MIRRORED below).
+  panelClose: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 3v18M16 15l-3-3 3-3',
+  panelOpen: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 3v18M13 9l3 3-3 3',
   plus: 'M12 5v14M5 12h14',
   minus: 'M5 12h14',
   repeat: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
@@ -101,6 +106,12 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS;
 
+/**
+ * Glyphs that point at a side of the layout, so they mirror under RTL wherever
+ * they are drawn — including a Button's `icon`, which cannot pass `dataChevron`.
+ */
+const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(['panelClose', 'panelOpen']);
+
 export function Icon({
   name,
   size = 18,
@@ -132,7 +143,7 @@ export function Icon({
       role={label ? 'img' : undefined}
       aria-label={label}
       focusable="false"
-      data-chevron={dataChevron ? '' : undefined}
+      data-chevron={dataChevron || MIRRORED.has(name) ? '' : undefined}
       style={{ display: 'inline-block', flexShrink: 0, verticalAlign: 'middle', ...style }}
     >
       <path d={PATHS[name]} />

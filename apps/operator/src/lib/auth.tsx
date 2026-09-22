@@ -390,6 +390,12 @@ export interface Permissions {
   manageStaff: boolean;
   viewReports: boolean;
   viewFinancials: boolean;
+  /**
+   * The cash drawer's activity log (every cash payment and hand opening today).
+   * A cashier's drawer screen is the one thing they do there, recording a hand
+   * opening; the log is for whoever counts the drawer. Parsa, 2026-09-22.
+   */
+  viewDrawerLog: boolean;
 }
 
 const MANAGEMENT: readonly StaffRole[] = ['manager', 'owner'];
@@ -413,6 +419,7 @@ export function permissionsFor(role: StaffRole | undefined): Permissions {
     manageStaff: is(['owner']),
     viewReports: is(MANAGEMENT),
     viewFinancials: is(['owner']),
+    viewDrawerLog: is(MANAGEMENT),
   };
 }
 

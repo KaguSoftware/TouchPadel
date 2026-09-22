@@ -48,7 +48,6 @@ export function bookingFixture(over: Record<string, unknown> = {}) {
     end_at: end.toISOString(),
     status: 'confirmed',
     price_iqd: 30000,
-    players: null,
     hold_expires_at: null,
     cancelled_by: null,
     cancelled_at: null,

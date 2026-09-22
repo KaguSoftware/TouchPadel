@@ -716,9 +716,8 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
       zoneOf(courtZones[c.slot]!)!.target = { kind: 'court', id: c.id };
       courtBands[c.slot]!.material = c.status === 'in_play' ? M.green : c.status === 'booked' ? M.amber : M.gray;
       if (c.status === 'in_play') {
-        // Two players unless the desk recorded a count: a doubles court drawn
-        // as four when nobody said four would be an invention.
-        const n = Math.max(1, Math.min(c.players ?? 2, 4));
+        // A game of padel is four players, always (owner call, 2026-09-22).
+        const n = 4;
         const r = rallyFor(c.slot);
         const fresh = !r.group.visible;
         r.count = n;

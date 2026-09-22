@@ -1,15 +1,32 @@
 /**
  * 06.5 RecurringSeriesCreateScreen — a whole series in one action.
- * Flow: build the pattern → "Check clashes" (preview_series, read-only) →
- * resolve every clash (skip the date, or move it to a court the server says
- * is free) → create_series in one transaction. Every clash must be resolved
- * before the series is created (spec 06.5). States: ready · checking ·
- * conflictsFound · busy · error.
+ *
+ * Redone 2026-09-22 (UX pass, "you are Majed"). What a desk clerk met before:
+ * a "Check clashes" button that had to be pressed before any date appeared,
+ * and pressed again after every change ("the pattern changed since the last
+ * check"); "Weekly" that silently meant "the first date's weekday"; "After 8
+ * weeks" that quietly meant four sessions when fortnightly; and a customer
+ * search plus two more boxes that read as three different things. Now:
+ *
+ *  - The page reads top to bottom as the conversation at the counter goes:
+ *    WHO it is for, WHEN it repeats, and — beside them, always in view —
+ *    WHAT WILL BE BOOKED, in one sentence and as the list of dates.
+ *  - The dates are checked live: as soon as the pattern is complete,
+ *    preview_series (read-only) runs, debounced, and re-runs on every change.
+ *    There is no check button and nothing can be stale.
+ *  - A clash is decided on its own row (skip it, or move it to a court the
+ *    server says is free); the main button counts what will actually be
+ *    booked — "Book 7 sessions" — and names what is still missing when it
+ *    cannot go yet.
+ *  - No group size: padel is four players, always (owner call, 2026-09-22).
+ *
+ * Unchanged contract: create_series in one transaction, every clash resolved
+ * first (spec 06.5), the phone required so a moved date has someone to tell.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatDate, formatNumber, formatTimeRange, VENUE_TZ } from '@touch/i18n';
+import { formatDate, formatNumber, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { clientRef, deviceId, station } from '../../../lib/idem';
 import { QK, fetchActiveCourts, fetchVenueSettings, type CourtRow } from '../../../lib/queries';
@@ -19,9 +36,11 @@ import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel, SegmentedContro
 import { Icon } from '../../../components/icons';
 import { nameFromQuery, phoneDigitCount, phoneFromQuery, sanitizeName, sanitizePhone } from '../deskLogic';
 import { todayInTz } from '../useTradingNight';
+import { useDebounced } from '../useDebounced';
 import { CustomerPicker, type PickedCustomer } from '../customers/CustomerPicker';
 import type { SeriesCreateResult, SeriesOccurrencePreview, SeriesPattern, SeriesPreview } from '../deskTypes';
 import {
+  bookableCount,
   conflictCount,
   draftKey,
   draftProblem,
@@ -38,6 +57,8 @@ const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const TIME_RE = /^\d{2}:\d{2}$/;
 /** Short enough that no country's number reaches it — a typo, not a number. */
 const PHONE_MIN_DIGITS = 7;
+/** Long enough that typing "20:30" or a week count does not fire a preview per keystroke. */
+const PREVIEW_DEBOUNCE_MS = 400;
 
 /** "{station}:series.create:{ulid}" — the same shape mutate() uses, for an RPC outside the queue. */
 function seriesIdempotencyKey(): string {
@@ -45,20 +66,13 @@ function seriesIdempotencyKey(): string {
   return `${station()}:series.create:${ref.slice(ref.lastIndexOf('-') + 1)}`;
 }
 
-type Phase = 'ready' | 'checking' | 'conflictsFound' | 'busy' | 'error';
-
-/**
- * Group size (0090), same control as the create dialog: nothing preselected,
- * 2 and 4 one click away, 'other' opens the full 1..8 list. Sent on
- * create_series ONLY — never through seriesRpcArgs, which preview_series (no
- * such parameter) and draftKey() share.
- */
-type PlayersPick = '' | '2' | '4' | 'other';
-type PlayersCount = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
-const PLAYER_COUNTS: readonly PlayersCount[] = ['1', '2', '3', '4', '5', '6', '7', '8'];
+/** Day of week of an ISO date, 0 = Sunday (the build plan's and Postgres' numbering). */
+function dowOf(iso: string): number {
+  return new Date(`${iso}T12:00:00Z`).getUTCDay();
+}
 
 /** How much of the form the operator has asked about, and may therefore be told about. */
-type ErrorScope = 'none' | 'pattern' | 'all';
+type ErrorScope = 'none' | 'all';
 
 export interface PatternErrors {
   court?: string;
@@ -93,10 +107,6 @@ export function RecurringSeriesCreateScreen() {
   const [walkInName, setWalkInName] = useState('');
   const [walkInPhone, setWalkInPhone] = useState('');
   const [notes, setNotes] = useState('');
-  const [playersPick, setPlayersPick] = useState<PlayersPick>('');
-  const [playersOther, setPlayersOther] = useState<PlayersCount | ''>('');
-  const players: number | null =
-    playersPick === '2' ? 2 : playersPick === '4' ? 4 : playersPick === 'other' && playersOther ? Number(playersOther) : null;
   /*
    * Whether each box below holds something the operator typed into it. While
    * one does not, the customer search mirrors every keystroke into it: a search
@@ -108,9 +118,7 @@ export function RecurringSeriesCreateScreen() {
   const [nameTouched, setNameTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
 
-  const [preview, setPreview] = useState<{ key: string; occurrences: SeriesOccurrencePreview[] } | null>(null);
   const [resolutions, setResolutions] = useState<ResolutionMap>({});
-  const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [result, setResult] = useState<SeriesCreateResult | null>(null);
@@ -130,10 +138,26 @@ export function RecurringSeriesCreateScreen() {
   const today = todayInTz(tz);
   const problem = draftProblem(effective, today);
   const key = draftKey(effective);
-  const stale = preview !== null && preview.key !== key;
-  const occurrences = preview?.occurrences ?? [];
-  const unresolved = unresolvedDates(occurrences, resolutions);
+
+  // Live preview. The key is debounced, not the query: typing "2", "20",
+  // "20:3", "20:30" asks once, for the value the clerk stopped on.
+  const settledKey = useDebounced(key, PREVIEW_DEBOUNCE_MS);
+  const previewQ = useQuery({
+    queryKey: ['seriesPreview', settledKey],
+    enabled: problem === null && settledKey === key,
+    queryFn: () => appRpc<SeriesPreview>('preview_series', JSON.parse(settledKey) as Record<string, unknown>),
+    staleTime: 30_000,
+    retry: false,
+  });
+  const previewCurrent = problem === null && settledKey === key && previewQ.data !== undefined && !previewQ.isError;
+  const occurrences = previewCurrent ? (previewQ.data?.occurrences ?? []) : [];
+  const checking = problem === null && (settledKey !== key || previewQ.isFetching) && !previewCurrent;
+  // A resolution only counts while its date still clashes in what is on screen.
+  const liveResolutions = pruneResolutions(occurrences, resolutions);
+  const unresolved = unresolvedDates(occurrences, liveResolutions);
   const clashes = conflictCount(occurrences);
+  const toBook = bookableCount(occurrences, liveResolutions);
+
   const hasCustomer = customer !== null || walkInName.trim().length > 0;
   /*
    * A series books the same slot for weeks. When one of those weeks has to be
@@ -147,20 +171,11 @@ export function RecurringSeriesCreateScreen() {
   const phoneTooShort = phoneDigits > 0 && phoneDigits < PHONE_MIN_DIGITS;
   const phoneUnusable = phoneMissing || phoneTooShort;
 
-  const phase: Phase = busy ? 'busy' : checking ? 'checking' : error != null ? 'error' : preview && !stale && clashes > 0 ? 'conflictsFound' : 'ready';
-  const canSubmit = phase === 'ready' || (phase === 'conflictsFound' && unresolved.length === 0);
-  const submitReady = preview !== null && !stale && canSubmit && hasCustomer && problem === null && !phoneUnusable && !busy && !checking;
-
   /*
-   * Rulebook 4.3. Five conditions used to hold these two buttons shut, and a
-   * shut button says nothing about WHICH box is empty — the desk had to guess,
-   * or reverse-engineer the rule. The buttons are live now, and a click that
-   * cannot go through names every unmet condition in red under the box it
-   * belongs to. `errorScope` keeps that honest: "Check clashes" does not need a
-   * customer, so it never accuses the customer panel of anything.
-   *
-   * Each condition is computed on its own rather than read off draftProblem,
-   * which stops at the first: an empty court used to hide an empty time.
+   * Rulebook 4.3: the button stays live, and a press that cannot go through
+   * names every unmet condition in red under the box it belongs to. Each
+   * condition is computed on its own rather than read off draftProblem, which
+   * stops at the first: an empty court used to hide an empty time.
    */
   const patternErrors: PatternErrors = {
     court: !effective.courtId ? tr('ws.courtDesk.series.invalidCourt') : undefined,
@@ -170,45 +185,33 @@ export function RecurringSeriesCreateScreen() {
     weeks: effective.endMode === 'weeks' && (!Number.isInteger(effective.weeks) || effective.weeks < 1) ? tr('ws.courtDesk.series.invalidWeeks') : undefined,
     endsOn: effective.endMode === 'date' && effective.endsOn <= effective.startsOn ? tr('ws.courtDesk.series.invalidEnd') : undefined,
   };
-  const shownPatternErrors: PatternErrors = errorScope === 'none' ? {} : patternErrors;
-  const nameError = errorScope === 'all' && !hasCustomer ? tr('ws.courtDesk.series.invalidName') : undefined;
-  const phoneError =
-    errorScope !== 'all' ? undefined : phoneMissing ? tr('ws.courtDesk.series.phoneRequired') : phoneTooShort ? tr('ws.courtDesk.series.invalidPhone') : undefined;
-  const anyFieldError = problem !== null || (errorScope === 'all' && (!hasCustomer || phoneUnusable));
+  const shown = errorScope === 'all';
+  // A past date or an end before the start is worth saying the moment it is
+  // typed — it is why no dates appear. An EMPTY box is not accused until the
+  // clerk presses the button.
+  const shownPatternErrors: PatternErrors = shown ? patternErrors : { startsOn: patternErrors.startsOn, endsOn: effective.endsOn ? patternErrors.endsOn : undefined };
+  const nameError = shown && !hasCustomer ? tr('ws.courtDesk.series.invalidName') : undefined;
+  const phoneError = !shown ? undefined : phoneMissing ? tr('ws.courtDesk.series.phoneRequired') : phoneTooShort ? tr('ws.courtDesk.series.invalidPhone') : undefined;
 
-  async function runCheck() {
-    setChecking(true);
-    setError(null);
-    setResult(null);
-    try {
-      const data = await appRpc<SeriesPreview>('preview_series', seriesRpcArgs(effective));
-      const occ = data?.occurrences ?? [];
-      setPreview({ key, occurrences: occ });
-      setResolutions((prev) => pruneResolutions(occ, prev));
-    } catch (e) {
-      setError(e);
-    } finally {
-      setChecking(false);
-    }
-  }
+  const ready = problem === null && hasCustomer && !phoneUnusable && previewCurrent && unresolved.length === 0 && toBook > 0;
 
-  /** Always clickable; only the pattern half of the form gates the RPC. */
-  function checkClashes() {
-    setErrorScope((prev) => (prev === 'all' ? 'all' : 'pattern'));
-    if (problem !== null) return;
-    void runCheck();
-  }
+  /** What still stands between the clerk and the booking, in one line under the button. */
+  const blocker =
+    problem !== null || !hasCustomer || phoneUnusable
+      ? shown
+        ? tr('ws.courtDesk.series.fixFields')
+        : undefined
+      : checking
+        ? tr('ws.courtDesk.series.checking')
+        : unresolved.length > 0
+          ? tr('ws.courtDesk.series.unresolved', { count: formatNumber(unresolved.length, locale) })
+          : previewCurrent && toBook === 0
+            ? tr('ws.courtDesk.series.nothingToBook')
+            : undefined;
 
   async function submit() {
     setErrorScope('all');
-    if (problem !== null || !hasCustomer || phoneUnusable || busy || checking) return;
-    // Nothing is ever created without a preview, so the first click here runs
-    // the check instead of dead-ending the operator on "check clashes first".
-    if (preview === null || stale) {
-      void runCheck();
-      return;
-    }
-    if (unresolved.length > 0) return;
+    if (!ready || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -218,38 +221,37 @@ export function RecurringSeriesCreateScreen() {
         p_guest_name: (walkInName.trim() || customer?.name) ?? null,
         p_guest_phone: (walkInPhone.trim() || customer?.phone) ?? null,
         p_notes: notes.trim() || null,
-        p_players: players,
-        p_resolutions: resolutionsForRpc(occurrences, resolutions),
+        p_resolutions: resolutionsForRpc(occurrences, liveResolutions),
         p_idempotency_key: seriesIdempotencyKey(),
         p_device_id: deviceId(),
       });
       setResult(data);
-      setPreview(null);
       setResolutions({});
       setErrorScope('none');
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
       void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
+      void queryClient.invalidateQueries({ queryKey: ['seriesPreview'] });
     } catch (e) {
       setError(e);
+      // Most refusals here are a date that stopped being free since the
+      // preview: show the list as it is now.
+      void previewQ.refetch();
     } finally {
       setBusy(false);
     }
   }
 
-  /** One line beside the footer buttons, for what no single field can carry. */
-  const footerHint = submitReady
-    ? undefined
-    : anyFieldError
-      ? errorScope === 'none'
-        ? undefined
-        : tr('ws.courtDesk.series.fixFields')
-      : preview === null
-        ? tr('ws.courtDesk.series.needsCheck')
-        : stale
-          ? tr('ws.courtDesk.series.staleDraft')
-          : unresolved.length > 0
-            ? tr('ws.courtDesk.series.unresolved', { count: formatNumber(unresolved.length, locale) })
-            : undefined;
+  function startAnother() {
+    setResult(null);
+    setCustomer(null);
+    setWalkInName('');
+    setWalkInPhone('');
+    setNotes('');
+    setNameTouched(false);
+    setPhoneTouched(false);
+  }
+
+  const guestName = walkInName.trim() || customer?.name || '';
 
   return (
     <div>
@@ -262,190 +264,166 @@ export function RecurringSeriesCreateScreen() {
               message={tr('ws.courtDesk.series.created', { created: formatNumber(result.created.length, locale), skipped: formatNumber(result.skipped.length, locale) })}
               style={{ marginBlockEnd: '0.75rem' }}
             />
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <Button kind="primary" iconEnd="chevronEnd" onClick={() => void navigate({ to: '/desk/series/$id', params: { id: result.seriesId } })}>
                 {tr('ws.courtDesk.series.openSeries')}
               </Button>
               <Button icon="calendar" onClick={() => void navigate({ to: '/desk' })}>
                 {tr('ws.courtDesk.block.openCalendar')}
               </Button>
-              <Button icon="plus" onClick={() => setResult(null)}>
+              <Button icon="plus" onClick={startAnother}>
                 {tr('ws.courtDesk.series.another')}
               </Button>
             </div>
           </Panel>
         ) : (
           /*
-           * Pattern and customer sit side by side — two inputs of equal
-           * standing — and the occurrences they produce run the full width
-           * underneath, which is where a table of dates can actually be read.
+           * The form on one side, what it will book on the other — the answer
+           * stays in view while the clerk changes the question. Below 64rem
+           * the two stack, form first.
            */
-          <div className="tp-split" style={{ gap: '1rem' }}>
-            <Panel title={tr('ws.courtDesk.series.pattern')} bodyClassName="tp-cq">
-              <SeriesPatternBuilder draft={effective} courts={courts} disabled={busy} minDate={today} errors={shownPatternErrors} onChange={setDraft} />
-            </Panel>
-
-            <Panel title={tr('ws.courtDesk.series.customer')} bodyClassName="tp-cq">
-              <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: '0.6rem', marginBlockStart: 0 }}>{tr('ws.courtDesk.series.customerHint')}</p>
-              <CustomerPicker
-                value={customer}
-                disabled={busy}
-                onQueryChange={(q) => {
-                  if (!nameTouched) setWalkInName(nameFromQuery(q));
-                  if (!phoneTouched) setWalkInPhone(phoneFromQuery(q));
-                }}
-                onChange={(next) => {
-                  setCustomer(next);
-                  if (next) {
-                    // What the account says outranks what was searched for.
-                    if (!nameTouched || walkInName.trim() === '') setWalkInName(sanitizeName(next.name));
-                    if (next.phone && (!phoneTouched || walkInPhone.trim() === '')) setWalkInPhone(sanitizePhone(next.phone));
-                  }
-                }}
-              />
-              <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
-                <Field label={tr('ws.courtDesk.series.walkInName')} required={customer === null} error={nameError}>
-                  <input
-                    style={inputStyle}
-                    value={walkInName}
-                    disabled={busy}
-                    maxLength={200}
-                    onChange={(e) => {
-                      setNameTouched(true);
-                      setWalkInName(sanitizeName(e.target.value));
-                    }}
-                  />
-                </Field>
-                <Field label={tr('ws.courtDesk.series.walkInPhone')} required error={phoneError}>
-                  <input
-                    style={inputStyle}
-                    dir="ltr"
-                    inputMode="tel"
-                    autoComplete="off"
-                    maxLength={30}
-                    value={walkInPhone}
-                    disabled={busy}
-                    onChange={(e) => {
-                      setPhoneTouched(true);
-                      setWalkInPhone(sanitizePhone(e.target.value));
-                    }}
-                  />
-                </Field>
-              </div>
-              {/* group: a <label> around a set of buttons forwards the click to the first of them — see Field. */}
-              <Field label={tr('op.desk.players')} optional group>
-                <div role="group" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-                  <SegmentedControl<PlayersPick>
-                    value={playersPick}
-                    onChange={setPlayersPick}
-                    options={[
-                      { value: '2', label: formatNumber(2, locale), disabled: busy },
-                      { value: '4', label: formatNumber(4, locale), disabled: busy },
-                      { value: 'other', label: tr('op.desk.playersOther'), disabled: busy },
-                    ]}
-                  />
-                  {playersPick === 'other' && (
-                    <Select<PlayersCount>
-                      value={playersOther}
-                      disabled={busy}
-                      aria-label={tr('op.desk.playersOther')}
-                      placeholder={tr('op.desk.playersOther')}
-                      onChange={setPlayersOther}
-                      options={PLAYER_COUNTS.map((n) => ({ value: n, label: formatNumber(Number(n), locale) }))}
-                      style={{ inlineSize: 'auto', minInlineSize: '6rem' }}
-                    />
-                  )}
-                </div>
-              </Field>
-              <Field label={tr('ws.courtDesk.series.notes')} style={{ marginBlockEnd: 0 }}>
-                <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
-              </Field>
-            </Panel>
-
-            <Panel
-              title={tr('ws.courtDesk.series.previewTitle')}
-              className="tp-split-full"
-              actions={
-                preview && !checking ? (
-                  <StatusBadge
-                    size="sm"
-                    tone={stale ? 'neutral' : clashes > 0 ? 'danger' : 'success'}
-                    label={tr('ws.courtDesk.series.previewLead', { count: formatNumber(occurrences.length, locale), conflicts: formatNumber(clashes, locale) })}
-                  />
-                ) : undefined
-              }
-            >
-              <ErrorText error={error} />
-              {checking && <p style={{ color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('ws.courtDesk.series.checking')}</p>}
-              {!checking && preview === null && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{tr('ws.courtDesk.series.emptyPreview')}</p>}
-              {stale && !checking && <MessagePresenter tone="refused" message={tr('ws.courtDesk.series.staleDraft')} style={{ marginBlockEnd: '0.6rem' }} />}
-              {preview && !checking && (
-                <>
-                  {clashes === 0 ? (
-                    <MessagePresenter tone="success" message={tr('ws.courtDesk.series.noClashes')} style={{ marginBlockEnd: '0.6rem' }} />
-                  ) : unresolved.length > 0 ? (
-                    <MessagePresenter tone="refused" message={tr('ws.courtDesk.series.unresolved', { count: formatNumber(unresolved.length, locale) })} style={{ marginBlockEnd: '0.6rem' }} />
-                  ) : (
-                    <MessagePresenter tone="success" message={tr('ws.courtDesk.series.allResolved')} style={{ marginBlockEnd: '0.6rem' }} />
-                  )}
-                  <ClashPreviewList
-                    occurrences={occurrences}
-                    courts={courts}
-                    resolutions={resolutions}
-                    tz={tz}
-                    disabled={busy}
-                    onResolve={(date, action, courtId) => setResolutions((prev) => ({ ...prev, [date]: action === 'skip' ? { date, action } : { date, action, courtId: courtId! } }))}
-                    onUnresolve={(date) =>
-                      setResolutions((prev) => {
-                        const next = { ...prev };
-                        delete next[date];
-                        return next;
-                      })
+          <div className="tp-split" style={{ gap: '1rem', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gap: '1rem', minInlineSize: 0 }}>
+              <Panel title={tr('ws.courtDesk.series.whoTitle')} bodyClassName="tp-cq">
+                <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: '0.6rem', marginBlockStart: 0 }}>{tr('ws.courtDesk.series.customerHint')}</p>
+                <CustomerPicker
+                  value={customer}
+                  disabled={busy}
+                  label={tr('ws.courtDesk.series.findAccount')}
+                  onQueryChange={(q) => {
+                    if (!nameTouched) setWalkInName(nameFromQuery(q));
+                    if (!phoneTouched) setWalkInPhone(phoneFromQuery(q));
+                  }}
+                  onChange={(next) => {
+                    setCustomer(next);
+                    if (next) {
+                      // What the account says outranks what was searched for.
+                      if (!nameTouched || walkInName.trim() === '') setWalkInName(sanitizeName(next.name));
+                      if (next.phone && (!phoneTouched || walkInPhone.trim() === '')) setWalkInPhone(sanitizePhone(next.phone));
                     }
-                  />
-                </>
-              )}
-              {/*
-                Every action in one bar at the foot of the panel, bled to its
-                edges. They used to be split between the panel header and a
-                floating row, so the two halves of one decision — check, then
-                create — never sat next to each other, and "cancel" outranked
-                both by sitting where the eye lands first.
-              */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  marginBlockStart: '0.85rem',
-                  marginInline: '-0.85rem',
-                  marginBlockEnd: '-0.75rem',
-                  paddingBlock: '0.6rem',
-                  paddingInline: '0.85rem',
-                  borderBlockStart: '1px solid var(--tp-border)',
-                  background: 'var(--tp-surface-2)',
-                }}
+                  }}
+                />
+                <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
+                  <Field label={tr('ws.courtDesk.series.walkInName')} required={customer === null} error={nameError}>
+                    <input
+                      style={inputStyle}
+                      value={walkInName}
+                      disabled={busy}
+                      maxLength={200}
+                      onChange={(e) => {
+                        setNameTouched(true);
+                        setWalkInName(sanitizeName(e.target.value));
+                      }}
+                    />
+                  </Field>
+                  <Field label={tr('ws.courtDesk.series.walkInPhone')} required hint={tr('ws.courtDesk.series.phoneWhy')} error={phoneError}>
+                    <input
+                      style={inputStyle}
+                      dir="ltr"
+                      inputMode="tel"
+                      autoComplete="off"
+                      maxLength={30}
+                      value={walkInPhone}
+                      disabled={busy}
+                      onChange={(e) => {
+                        setPhoneTouched(true);
+                        setWalkInPhone(sanitizePhone(e.target.value));
+                      }}
+                    />
+                  </Field>
+                </div>
+                <Field label={tr('ws.courtDesk.series.notes')} optional style={{ marginBlockEnd: 0 }}>
+                  <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
+                </Field>
+              </Panel>
+
+              <Panel title={tr('ws.courtDesk.series.whenTitle')} bodyClassName="tp-cq">
+                <SeriesPatternBuilder draft={effective} courts={courts} disabled={busy} minDate={today} errors={shownPatternErrors} onChange={setDraft} />
+              </Panel>
+            </div>
+
+            {/* Sticky: on a tall form the answer should not scroll away from
+                the question being changed. */}
+            <div style={{ position: 'sticky', insetBlockStart: 0, minInlineSize: 0 }}>
+              <Panel
+                title={tr('ws.courtDesk.series.bookedTitle')}
+                actions={
+                  previewCurrent ? (
+                    <StatusBadge
+                      size="sm"
+                      tone={unresolved.length > 0 ? 'danger' : 'success'}
+                      label={tr('ws.courtDesk.series.previewLead', { count: formatNumber(occurrences.length, locale), conflicts: formatNumber(clashes, locale) })}
+                    />
+                  ) : undefined
+                }
               >
-                {footerHint && (
-                  <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', minInlineSize: 0 }}>
-                    <Icon name="info" size={14} />
-                    {footerHint}
-                  </span>
+                <SeriesSummary draft={effective} courts={courts} guest={guestName} tz={tz} lastDate={occurrences.at(-1)?.startsAt ?? null} />
+                {problem !== null ? (
+                  <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{tr('ws.courtDesk.series.emptyPreview')}</p>
+                ) : previewQ.isError && settledKey === key ? (
+                  <ErrorText error={previewQ.error} />
+                ) : checking ? (
+                  <p style={{ color: 'var(--tp-muted-fg)', margin: 0, display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <Icon name="search" size={14} /> {tr('ws.courtDesk.series.checking')}
+                  </p>
+                ) : (
+                  <>
+                    {clashes === 0 ? (
+                      <MessagePresenter tone="success" message={tr('ws.courtDesk.series.noClashes')} style={{ marginBlockEnd: '0.6rem' }} />
+                    ) : unresolved.length > 0 ? (
+                      <MessagePresenter tone="refused" message={tr('ws.courtDesk.series.clashesFound', { count: formatNumber(clashes, locale) })} style={{ marginBlockEnd: '0.6rem' }} />
+                    ) : (
+                      <MessagePresenter tone="success" message={tr('ws.courtDesk.series.allResolved')} style={{ marginBlockEnd: '0.6rem' }} />
+                    )}
+                    <ClashPreviewList
+                      occurrences={occurrences}
+                      courts={courts}
+                      resolutions={liveResolutions}
+                      tz={tz}
+                      disabled={busy}
+                      onResolve={(date, action, courtId) => setResolutions((prev) => ({ ...prev, [date]: action === 'skip' ? { date, action } : { date, action, courtId: courtId! } }))}
+                      onUnresolve={(date) =>
+                        setResolutions((prev) => {
+                          const next = { ...prev };
+                          delete next[date];
+                          return next;
+                        })
+                      }
+                    />
+                  </>
                 )}
-                <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginInlineStart: 'auto' }}>
-                  <Button kind="ghost" onClick={() => void navigate({ to: '/desk' })}>
+                <ErrorText error={error} />
+                {/* One decision, one button, at the foot of the answer it acts
+                    on. It says how many sessions it will book, so the clerk
+                    can read the result back to the customer before pressing. */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: '0.5rem',
+                    marginBlockStart: '0.85rem',
+                    marginInline: '-0.85rem',
+                    marginBlockEnd: '-0.75rem',
+                    paddingBlock: '0.75rem',
+                    paddingInline: '0.85rem',
+                    borderBlockStart: '1px solid var(--tp-border)',
+                    background: 'var(--tp-surface-2)',
+                  }}
+                >
+                  <Button kind="primary" size="lg" icon="repeat" busy={busy} onClick={() => void submit()} style={{ inlineSize: '100%', justifyContent: 'center' }}>
+                    {previewCurrent && toBook > 0 ? tr('ws.courtDesk.series.submitCount', { count: formatNumber(toBook, locale) }) : tr('ws.courtDesk.series.submit')}
+                  </Button>
+                  {blocker && (
+                    <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
+                      <Icon name="info" size={14} />
+                      {blocker}
+                    </span>
+                  )}
+                  <Button kind="ghost" onClick={() => void navigate({ to: '/desk' })} style={{ justifySelf: 'center' }}>
                     {tr('common.cancel')}
                   </Button>
-                  <Button icon="search" busy={checking} disabled={busy} onClick={checkClashes}>
-                    {preview ? tr('ws.courtDesk.series.recheck') : tr('ws.courtDesk.series.checkClashes')}
-                  </Button>
-                  <Button kind="primary" icon="repeat" busy={busy} disabled={checking} onClick={() => void submit()}>
-                    {tr('ws.courtDesk.series.submit')}
-                  </Button>
-                </span>
-              </div>
-            </Panel>
+                </div>
+              </Panel>
+            </div>
           </div>
         )}
       </AsyncStateWrapper>
@@ -454,8 +432,81 @@ export function RecurringSeriesCreateScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// SeriesPatternBuilder (spec §07): weekly · fortnightly · chosen weekdays;
-// time; duration from the court; number of weeks OR an end date, no limit.
+// SeriesSummary — the pattern read back as one sentence, the way the clerk
+// will say it to the customer: "Every Tuesday, 8:00 – 9:30 PM on Court 1".
+// ---------------------------------------------------------------------------
+function SeriesSummary({
+  draft,
+  courts,
+  guest,
+  tz,
+  lastDate,
+}: {
+  draft: SeriesDraft;
+  courts: readonly CourtRow[];
+  guest: string;
+  tz: string;
+  /** The last session the preview lists, when there is one. */
+  lastDate: string | null;
+}) {
+  const { tr, locale } = useLocale();
+  const dayLong = (i: number) => tr(`ws.courtDesk.series.weekdayLong.${WEEKDAY_KEYS[i]!}`);
+  const repeat =
+    draft.pattern === 'weekdays'
+      ? draft.weekdays.length > 0
+        ? tr('ws.courtDesk.series.summaryDays', {
+            days: [...draft.weekdays]
+              .sort((a, b) => a - b)
+              .map((i) => tr(`ws.courtDesk.common.weekday.${WEEKDAY_KEYS[i]!}`))
+              .join(locale === 'ar' ? '، ' : ', '),
+          })
+        : null
+      : tr(draft.pattern === 'fortnightly' ? 'ws.courtDesk.series.summaryFortnightly' : 'ws.courtDesk.series.summaryWeekly', { day: dayLong(dowOf(draft.startsOn)) });
+  const courtName = pickName(locale, courts.find((c) => c.id === draft.courtId));
+  const time = TIME_RE.test(draft.startTime)
+    ? (() => {
+        // The wall-clock time the clerk typed, formatted, not converted: an
+        // arbitrary date in UTC keeps "20:30" as 20:30 in either locale.
+        const [h, m] = draft.startTime.split(':').map(Number);
+        const start = new Date(Date.UTC(2000, 0, 1, h!, m!));
+        const end = new Date(start.getTime() + draft.durationMin * 60_000);
+        return formatTimeRange(start, end, locale, 'UTC');
+      })()
+    : null;
+  if (!repeat) return null;
+  return (
+    <div style={{ marginBlockEnd: '0.85rem' }}>
+      <p style={{ margin: 0, fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
+        {repeat}
+        {time && (
+          <>
+            {', '}
+            <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>{time}</bdi>
+          </>
+        )}
+        {courtName && <> {tr('ws.courtDesk.series.summaryOnCourt', { court: courtName })}</>}
+      </p>
+      <p style={{ margin: 0, marginBlockStart: '0.2rem', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+        {lastDate
+          ? tr('ws.courtDesk.series.summaryRange', {
+              first: formatDate(new Date(`${draft.startsOn}T12:00:00Z`), locale, 'UTC'),
+              last: formatDate(new Date(lastDate), locale, tz),
+            })
+          : tr('ws.courtDesk.series.summaryFrom', { first: formatDate(new Date(`${draft.startsOn}T12:00:00Z`), locale, 'UTC') })}
+        {guest && (
+          <>
+            {' · '}
+            <bdi>{guest}</bdi>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SeriesPatternBuilder (spec §07): court; first date, time, duration; how it
+// repeats; when it ends.
 // ---------------------------------------------------------------------------
 export function SeriesPatternBuilder({
   draft,
@@ -478,21 +529,52 @@ export function SeriesPatternBuilder({
   const court = courts.find((c) => c.id === draft.courtId);
   const durations = court?.duration_options?.length ? court.duration_options : [60, 90, 120];
   const set = (patch: Partial<SeriesDraft>) => onChange({ ...draft, ...patch });
+  const firstDay = tr(`ws.courtDesk.series.weekdayLong.${WEEKDAY_KEYS[dowOf(draft.startsOn)]!}`);
   return (
     <div>
       <Field label={tr('ws.courtDesk.series.court')} required error={errors?.court}>
         <Select value={draft.courtId} disabled={disabled} onChange={(courtId) => set({ courtId, durationMin: 0 })} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
       </Field>
+      <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
+        <Field label={tr('ws.courtDesk.series.startsOn')} required error={errors?.startsOn}>
+          {/* `min` greys the past out of the picker; it does not stop a typed
+              date, which is what errors.startsOn is for. */}
+          <input
+            type="date"
+            style={inputStyle}
+            value={draft.startsOn}
+            min={minDate}
+            disabled={disabled}
+            onChange={(e) => e.target.value && set({ startsOn: e.target.value })}
+          />
+        </Field>
+        <Field label={tr('ws.courtDesk.series.time')} required error={errors?.time}>
+          <input type="time" step={1800} style={inputStyle} value={draft.startTime} disabled={disabled} onChange={(e) => set({ startTime: e.target.value })} />
+        </Field>
+      </div>
+      {/* One press per length, not a dropdown: a court offers two or three,
+          and all of them fit on the line. */}
+      <Field label={tr('ws.courtDesk.series.duration')} group>
+        <SegmentedControl<string>
+          value={String(draft.durationMin)}
+          onChange={(v) => set({ durationMin: Number(v) })}
+          options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: d }), disabled }))}
+        />
+      </Field>
       {/* group: a <label> around a set of buttons forwards hover AND click to
           the first of them — see Field. */}
-      <Field label={tr('ws.courtDesk.series.pattern')} group>
+      <Field
+        label={tr('ws.courtDesk.series.repeats')}
+        group
+        hint={draft.pattern === 'weekdays' ? undefined : tr('ws.courtDesk.series.repeatsOnFirstDay', { day: firstDay })}
+      >
         <SegmentedControl<SeriesPattern>
           value={draft.pattern}
           onChange={(pattern) => set({ pattern })}
           options={[
-            { value: 'weekly', label: tr('ws.courtDesk.series.weekly') },
-            { value: 'fortnightly', label: tr('ws.courtDesk.series.fortnightly') },
-            { value: 'weekdays', label: tr('ws.courtDesk.series.weekdays') },
+            { value: 'weekly', label: tr('ws.courtDesk.series.weekly'), disabled },
+            { value: 'fortnightly', label: tr('ws.courtDesk.series.fortnightly'), disabled },
+            { value: 'weekdays', label: tr('ws.courtDesk.series.weekdays'), disabled },
           ]}
         />
       </Field>
@@ -556,13 +638,21 @@ export function SeriesPatternBuilder({
             value={draft.endMode}
             onChange={(endMode) => set({ endMode })}
             options={[
-              { value: 'weeks', label: tr('ws.courtDesk.series.afterWeeks') },
-              { value: 'date', label: tr('ws.courtDesk.series.onDate') },
+              { value: 'weeks', label: tr('ws.courtDesk.series.afterWeeks'), disabled },
+              { value: 'date', label: tr('ws.courtDesk.series.onDate'), disabled },
             ]}
           />
         </Field>
         {draft.endMode === 'weeks' ? (
-          <Field label={tr('ws.courtDesk.series.weeks')} required error={errors?.weeks} style={{ marginBlockEnd: 0 }}>
+          <Field
+            label={tr('ws.courtDesk.series.weeks')}
+            required
+            // Fortnightly and chosen days do not book one session a week; the
+            // summary beside the form gives the real count, this says why.
+            hint={draft.pattern === 'fortnightly' ? tr('ws.courtDesk.series.weeksFortnightlyHint') : undefined}
+            error={errors?.weeks}
+            style={{ marginBlockEnd: 0 }}
+          >
             <input
               type="number"
               min={1}
@@ -621,7 +711,6 @@ export function ClashPreviewList({
         <thead>
           <tr>
             <th>{tr('ws.courtDesk.series.date')}</th>
-            <th>{tr('ws.courtDesk.series.time')}</th>
             <th>{tr('ws.courtDesk.series.outcome')}</th>
           </tr>
         </thead>
@@ -629,14 +718,12 @@ export function ClashPreviewList({
           {occurrences.map((o) => {
             const res = resolutions[o.date];
             const start = new Date(o.startsAt);
-            const end = new Date(o.endsAt);
+            // No time column: every row is the same time, and the summary
+            // above already says it. The weekday is what a clerk checks.
             return (
               <tr key={o.date} style={{ background: o.conflict && !res ? 'var(--tp-danger-soft)' : undefined }}>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  <bdi>{formatDate(start, locale, tz)}</bdi>
-                </td>
-                <td style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                  <bdi>{formatTimeRange(start, end, locale, tz)}</bdi>
+                  <bdi>{`${formatWeekdayShort(start, locale, tz)} ${formatDate(start, locale, tz)}`}</bdi>
                 </td>
                 <td>
                   {!o.conflict ? (

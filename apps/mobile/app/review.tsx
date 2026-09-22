@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, View } from 'react-native';
+import { Animated, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { RequireSession } from '../src/features/auth/RequireSession';
@@ -10,7 +10,7 @@ import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useBack } from '../src/navigation/back';
 import { useConfirmBooking, useReleaseHold } from '../src/features/booking/hooks';
-import { isPlayers, PLAYER_COUNTS, PLAYER_OPTIONS, secondsUntil } from '../src/features/booking/logic';
+import { secondsUntil } from '../src/features/booking/logic';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
@@ -84,12 +84,6 @@ function ReviewScreen() {
   const [slotTaken, setSlotTaken] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [footerHeight, setFooterHeight] = useState(96);
-  // Group size (0090): '' is the resting state, nothing preselected. 'other'
-  // opens the full 1..8 row; a pick there is what gets sent.
-  const [playersPick, setPlayersPick] = useState<'' | 'other' | number>('');
-  const [playersOther, setPlayersOther] = useState<number | null>(null);
-  const playersValue = playersPick === 'other' ? playersOther : playersPick === '' ? null : playersPick;
-  const players = isPlayers(playersValue) ? playersValue : undefined;
 
   const confirmed = confirm.isSuccess;
   const expired = !confirmed && !slotTaken && secondsLeft === 0;
@@ -167,7 +161,7 @@ function ReviewScreen() {
   const onConfirm = () => {
     setError(null);
     setDialogOpen(false);
-    confirm.mutate({ holdId, players }, {
+    confirm.mutate({ holdId }, {
       onSuccess: (result) => {
         keepHoldRef.current = true; // this hold is a booking now — never release it
         const id = result.reservation_id ?? holdId;
@@ -437,60 +431,6 @@ function ReviewScreen() {
           <PayAtDeskCard title={t('booking.payAtDeskTitle')} body={t('booking.payAtDeskBody')} />
         </View>
 
-        {/* Players (0090): optional, no default. Chips rather than the sliding
-            SegmentedControl, whose thumb always sits on SOME segment and would
-            read as a preselected 2. */}
-        <View style={{ marginTop: space.sm }}>
-          <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-              <Text
-                style={{
-                  fontFamily: fonts.body700,
-                  fontSize: 11,
-                  letterSpacing: tracking(0.66),
-                  textTransform: 'uppercase',
-                  color: colors.mut,
-                }}
-              >
-                {t('booking.players.title')}
-              </Text>
-              <Text style={{ fontFamily: fonts.body400, fontSize: 11, color: colors.fnt }}>
-                {t('booking.players.optional')}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-              {PLAYER_OPTIONS.map((n) => (
-                <PlayersChip
-                  testID={`review.players.${n}`}
-                  key={n}
-                  label={String(n)}
-                  selected={playersPick === n}
-                  onPress={() => setPlayersPick((prev) => (prev === n ? '' : n))}
-                />
-              ))}
-              <PlayersChip
-                testID="review.players.other"
-                label={t('booking.players.other')}
-                selected={playersPick === 'other'}
-                onPress={() => setPlayersPick((prev) => (prev === 'other' ? '' : 'other'))}
-              />
-            </View>
-            {playersPick === 'other' ? (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                {PLAYER_COUNTS.map((n) => (
-                  <PlayersChip
-                    testID={`review.players-other.${n}`}
-                    key={n}
-                    label={String(n)}
-                    selected={playersOther === n}
-                    onPress={() => setPlayersOther((prev) => (prev === n ? null : n))}
-                  />
-                ))}
-              </View>
-            ) : null}
-          </Card>
-        </View>
-
         {windowHours != null ? (
           <Text
             style={{
@@ -591,58 +531,6 @@ function ReviewScreen() {
         onDismiss={() => setDialogOpen(false)}
       />
     </Screen>
-  );
-}
-
-/**
- * One group-size chip: FilterChip's pill without the icon, sized to a 44 pt
- * touch target. A second tap on the selected chip clears it, so "unknown" is
- * always one tap away again.
- */
-function PlayersChip({
-  label,
-  selected,
-  onPress,
-  testID,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  /** `review.players.<n>` — named by the group size it picks, not by index. */
-  testID?: string;
-}) {
-  const { colors, fonts } = useTheme();
-  return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minWidth: 44,
-        minHeight: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingStart: 14,
-        paddingEnd: 14,
-        borderRadius: radius.pill,
-        backgroundColor: selected ? brand.blue : colors.sub,
-        borderWidth: 1,
-        borderColor: selected ? brand.blue : colors.line,
-        opacity: pressed ? 0.7 : 1,
-      })}
-    >
-      <Text
-        style={{
-          fontFamily: fonts.body700,
-          fontSize: 13,
-          color: selected ? brand.white : colors.mut,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 

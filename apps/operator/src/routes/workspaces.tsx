@@ -14,6 +14,7 @@ import { WORKSPACES } from '../lib/workspaces';
 import { PageHeader, StatusBadge } from '../components/kit';
 import { ChevronForward, Icon } from '../components/icons';
 import { touch } from '../ipc/bridge';
+import { useConfirm } from '../components/ConfirmDialog';
 
 export const workspacesRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -29,7 +30,29 @@ function WorkspaceSwitcherScreen() {
   const { tr } = useLocale();
   const { active, available, setActive } = useWorkspace();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const station = touch.getStation();
+  /*
+   * The question is asked HERE, on the way in to a different workspace, not
+   * on the way out of the old one (owner call, 2026-09-22): opening this list
+   * changes nothing, choosing another tile swaps the whole rail. The current
+   * tile is the way back to where you came from, so it goes without asking.
+   */
+  const open = async (key: typeof available[number]) => {
+    const ws = WORKSPACES[key];
+    if (key !== active) {
+      const name = tr(`ws.shell.workspace.${key}`);
+      const ok = await confirm({
+        title: tr('ws.shell.switcher.confirmTitle', { workspace: name }),
+        body: tr('ws.shell.switcher.confirmBody', { workspace: name }),
+        confirmLabel: tr('ws.shell.switcher.confirmLabel'),
+        kind: 'primary',
+      });
+      if (!ok) return;
+    }
+    setActive(key);
+    void navigate({ to: ws.home });
+  };
   return (
     /* A full-height column so the build line can sit at the FOOT of the
        screen rather than 2rem under the last tile. <main> is a flex item with
@@ -56,10 +79,7 @@ function WorkspaceSwitcherScreen() {
               type="button"
               className="tp-tile"
               aria-current={current ? 'true' : undefined}
-              onClick={() => {
-                setActive(key);
-                void navigate({ to: ws.home });
-              }}
+              onClick={() => void open(key)}
               style={{
                 background: 'var(--tp-surface)',
                 border: `1px solid ${current ? 'var(--tp-accent)' : 'var(--tp-border)'}`,

@@ -5,11 +5,13 @@
  * model is told to answer tersely and anything richer is noise. Figures the
  * gate could not verify are wrapped in `UnverifiedMark`, with a footnote that
  * counts them. A refused scope in the answer becomes a "Turn on <Scope>"
- * button that re-asks. A saved answer that read business figures carries the
+ * button that re-asks, and a page route the answer names becomes a "Go to"
+ * button (pageLinks.ts). A saved answer that read business figures carries the
  * re-check control (plan §3.5, DECIDE 10); figures it reports as changed get
  * the same mark with a different sentence.
  */
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useRouter } from '@tanstack/react-router';
 import type { AssistantScope } from '@touch/core/assistant/tools';
 import { useLocale } from '../../lib/i18n';
 import { Button, Spinner } from '../../components/ui';
@@ -20,6 +22,7 @@ import { Sources, scopeLabel, type SourceRow } from './Sources';
 import { UnverifiedMark } from './UnverifiedMark';
 import { UsageMeter } from './UsageMeter';
 import { Disclosure } from './Disclosure';
+import { navItemFor, routesIn } from './pageLinks';
 import { formatTokens, formatUsd, priceFor, totalTokens, type PricingMap } from '../../lib/assistantPricing';
 
 // ---------------------------------------------------------------------------
@@ -223,6 +226,43 @@ export interface MessageProps {
   onNavigate?: () => void;
 }
 
+/**
+ * One button per page the answer names. The router is the judge of what a
+ * page is; without one (a unit test that mounts none) there are no buttons.
+ */
+function PageLinks({ text, onNavigate }: { text: string; onNavigate?: () => void }) {
+  const { tr } = useLocale();
+  const router = useRouter({ warn: false });
+  const routes = useMemo(() => {
+    if (!router) return [];
+    const byPath = router.routesByPath as Record<string, unknown>;
+    return routesIn(text, (path) => path in byPath || `${path}/` in byPath);
+  }, [router, text]);
+  if (!router || routes.length === 0) return null;
+  return (
+    <div data-page-links="" style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+      {routes.map((path) => {
+        const item = navItemFor(path);
+        return (
+          <Button
+            key={path}
+            kind="soft"
+            size="sm"
+            icon={item?.icon ?? 'arrowUpRight'}
+            title={path}
+            onClick={() => {
+              void router.navigate({ to: path });
+              onNavigate?.();
+            }}
+          >
+            {item ? tr('ws.owner.assistant.message.goTo', { page: tr(`ws.shell.nav.${item.labelKey}`) }) : tr('ws.owner.assistant.message.goTo', { page: `⁨${path}⁩` })}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function Message(props: MessageProps) {
   const { tr } = useLocale();
   const { role, text, tools = [], gate, usage, streaming, stopped, error, turnOn = [], onTurnOn, compact } = props;
@@ -279,19 +319,43 @@ export function Message(props: MessageProps) {
         </ul>
       )}
 
-      {text !== '' ? (
-        <AssistantText text={text} unverified={unverified} changed={changedRaws} />
-      ) : streaming ? (
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.assistant.message.reading')}</p>
-      ) : null}
+      {/* The answer sits on the brightest surface with a visible edge: bare
+          text on the page ground read as faint grey-on-grey (owner call
+          2026-09-22). What it read, the meter and the controls stay outside
+          it — they are about the answer, not the answer. */}
+      {(text !== '' || streaming || unverifiedCount > 0) && (
+        <div
+          data-answer-bubble=""
+          style={{
+            display: 'grid',
+            gap: 'var(--tp-sp-2)',
+            background: 'var(--tp-surface)',
+            color: 'var(--tp-fg)',
+            border: '1px solid var(--tp-border-strong, var(--tp-border))',
+            borderRadius: 'var(--tp-radius-panel)',
+            boxShadow: 'var(--tp-shadow-raised)',
+            paddingBlock: 'var(--tp-sp-3)',
+            paddingInline: 'var(--tp-sp-4)',
+            minInlineSize: 0,
+          }}
+        >
+          {text !== '' ? (
+            <AssistantText text={text} unverified={unverified} changed={changedRaws} />
+          ) : streaming ? (
+            <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.assistant.message.reading')}</p>
+          ) : null}
 
-      {unverifiedCount > 0 && (
-        <p data-unverified-footnote="" style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', borderInlineStart: '2px dotted var(--tp-warn-fg, currentColor)', paddingInlineStart: 'var(--tp-sp-2)' }}>
-          {unverifiedCount === 1
-            ? tr('ws.owner.assistant.message.unverifiedFootnoteOne')
-            : tr('ws.owner.assistant.message.unverifiedFootnote', { n: `⁨${unverifiedCount}⁩` })}
-          {gate?.retried && <> {tr('ws.owner.assistant.message.gateRetried')}</>}
-        </p>
+          {unverifiedCount > 0 && (
+            <p data-unverified-footnote="" style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', borderInlineStart: '2px dotted var(--tp-warn-fg, currentColor)', paddingInlineStart: 'var(--tp-sp-2)' }}>
+              {unverifiedCount === 1
+                ? tr('ws.owner.assistant.message.unverifiedFootnoteOne')
+                : tr('ws.owner.assistant.message.unverifiedFootnote', { n: `⁨${unverifiedCount}⁩` })}
+              {gate?.retried && <> {tr('ws.owner.assistant.message.gateRetried')}</>}
+            </p>
+          )}
+
+          {!streaming && text !== '' && <PageLinks text={text} onNavigate={props.onNavigate} />}
+        </div>
       )}
 
       {stopped && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.composer.stopped')}</p>}

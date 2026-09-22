@@ -48,6 +48,7 @@ export function CustomerRecordScreen() {
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['customer', id] });
     void queryClient.invalidateQueries({ queryKey: ['customerSearch'] });
+    void queryClient.invalidateQueries({ queryKey: ['customerDirectory'] });
   }
 
   function attach() {

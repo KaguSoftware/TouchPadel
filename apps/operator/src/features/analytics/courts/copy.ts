@@ -59,7 +59,7 @@ export function shortBucket(tr: Tr, dimension: 'byLeadTime', key: string): strin
 }
 
 /** A breakdown key, in words. Exported so the loss cards label their bars the same way. */
-export function segmentLabel(tr: Tr, f: Formatters, dimension: EndingsDimension | 'byPlayers', key: string): string {
+export function segmentLabel(tr: Tr, f: Formatters, dimension: EndingsDimension, key: string): string {
   switch (dimension) {
     case 'byLeadTime':
       return LEAD_KEY[key] ? tr(LEAD_KEY[key]) : key;
@@ -76,8 +76,6 @@ export function segmentLabel(tr: Tr, f: Formatters, dimension: EndingsDimension 
       return f.hour(Number(key));
     case 'byDow':
       return weekdayName(tr, Number(key));
-    case 'byPlayers':
-      return key === '' || key === 'null' ? tr('ws.analytics.courts.buckets.players.unknown') : tr('ws.analytics.courts.buckets.players.n', { n: f.num(Number(key)) });
     case 'byCourt':
       return key;
     default:

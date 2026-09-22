@@ -5,7 +5,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { isPlayers, parseHoldResult, type BookingRow, type HoldResult } from './logic';
+import { parseHoldResult, type BookingRow, type HoldResult } from './logic';
 
 type Client = SupabaseClient<Database>;
 
@@ -29,17 +29,15 @@ export async function holdSlot(client: Client, args: HoldSlotArgs): Promise<Hold
 }
 
 /**
- * app.confirm_booking (0008/0021/0090) — hold -> confirmed booking.
+ * app.confirm_booking (0008/0021) — hold -> confirmed booking.
  *
- * `players` is the optional group size. The key is OMITTED when unset rather
- * than sent as null, so a build that never asks the question makes a request
- * byte-identical to today's, and a new app against a hosted schema that has
- * not taken 0090 yet keeps confirming.
+ * Sends `p_hold_id` only. Padel is always four players (owner call), so the app
+ * never asks for a group size and never sends `p_players`; the server keeps
+ * that parameter only as an ignored, deprecated one for older builds.
  */
-export async function confirmBooking(client: Client, holdId: string, players?: number) {
+export async function confirmBooking(client: Client, holdId: string) {
   const { data, error } = await client.schema('app').rpc('confirm_booking', {
     p_hold_id: holdId,
-    ...(isPlayers(players) ? { p_players: players } : {}),
   });
   if (error) throw error;
   return data as { duplicate?: boolean; reservation_id?: string; price_iqd?: number | null };

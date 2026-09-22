@@ -6,7 +6,7 @@
  *
  * `supabase functions serve` runs here without ANTHROPIC_API_KEY, so a real
  * question answers 503 NOT_CONFIGURED and the thread must show the i18n
- * sentence for it — nothing is asked or billed. The `dry_run` pack sizing and
+ * sentence for it — nothing is asked or billed. The `dry_run` start sizing and
  * the usage/models RPCs need no key, so those are asserted for real.
  *
  * Selectors are roles, labels and the app's own data-testids; the strings
@@ -26,8 +26,9 @@ const EN = {
   contextToggle: /^What this chat may read/,
   scopeCafe: /^Cafe\b/,
   scopeHowto: /^Pages and how-to\b/,
-  // "Cafe ≈ 6.7k tokens" once the dry run has answered.
-  cafeWithPack: /^Cafe\s*≈\s*[\d.]+[kM]?\s*tokens$/,
+  // The one start line under the boxes once the dry run has answered: a size
+  // where the model's vendor has a key, the no-key sentence where it has none.
+  startLine: /^(Every question starts at|The starting size cannot be measured)/,
   presetJustHelp: 'Just help',
   presetEverything: 'Everything',
   ask: 'Ask',
@@ -52,7 +53,7 @@ const AR = {
   contextToggle: /^ما يمكن لهذه المحادثة/,
   scopeCafe: /^المقهى/,
   scopeHowto: /^الصفحات وطريقة الاستخدام/,
-  cafeWithPack: /^المقهى\s*≈\s*[\d.]+[kM]?\s*رمز$/,
+  startLine: /^(كل سؤال يبدأ|تعذّر قياس حجم البداية)/,
   ask: 'اسأل',
   stop: 'إيقاف',
   thisMessage: 'هذه الرسالة',
@@ -79,13 +80,19 @@ async function signIn(page: Page, email: string) {
 }
 
 /**
- * The assistant and the language switch live in the rail foot's Options group
- * (RailMoreMenu, owner call 2026-09-21), which starts shut on every load. A
- * press on a row inside a shut group lands on the group's own rows instead, so
- * open it first. Idempotent: an open group is left open.
+ * Assistant, the language switch and the appearance switch live inside the
+ * rail's OPTIONS group (RailMoreMenu), which is shut on every load. The group
+ * animates on grid-template-rows 0fr -> 1fr with the rows clipped by an
+ * overflow:hidden wrapper, so while it is shut each row still lays out at its
+ * natural height and Playwright judges it "visible, enabled and stable". The
+ * click then lands on whatever is actually painted there — the Options row
+ * itself, or the owner strip — and retries "intercepts pointer events" until
+ * the test times out. Open the group first; the guard makes it a no-op when it
+ * already stands open, so it is safe to call before every row.
  */
 async function openRailOptions(page: Page) {
   const more = page.getByTestId('rail.more');
+  await more.waitFor({ timeout: 30_000 });
   if ((await more.getAttribute('aria-expanded')) !== 'true') await more.click();
   await expect(more).toHaveAttribute('aria-expanded', 'true');
 }
@@ -96,14 +103,14 @@ async function openDrawerWithScopes(page: Page, s: { railButton: RegExp; drawerT
   await page.getByRole('button', { name: s.railButton }).click();
   const dialog = page.getByRole('dialog', { name: s.drawerTitle });
   await expect(dialog).toBeVisible();
-  // The drawer starts with the strip folded behind "Context · n · ≈ … tokens".
+  // The drawer starts with the strip folded behind "Context · n · starts at … tokens".
   const toggle = dialog.getByRole('button', { name: s.contextToggle });
   if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
   return dialog;
 }
 
 test.describe('owner assistant', () => {
-  test('rail button opens the drawer with Cafe + how-to pre-checked and the Cafe pack size', async ({ page }) => {
+  test('rail button opens the drawer with Cafe + how-to pre-checked and the start size', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
     await page.goto(`${OPERATOR_URL}/analytics/cafe`);
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
@@ -116,8 +123,9 @@ test.describe('owner assistant', () => {
     await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
     expect(await dialog.getByRole('checkbox').count()).toBeGreaterThan(2);
 
-    // The dry run answers a size for Cafe (the label carries "≈ … tokens").
-    await expect(dialog.getByRole('checkbox', { name: EN.cafeWithPack })).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
+    // The dry run answers one start line; the boxes carry no size of their own.
+    await expect(dialog.getByText(EN.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
+    await expect(dialog.getByRole('checkbox', { name: /tokens/ })).toHaveCount(0);
   });
 
   test('Ctrl/⌘ K opens and closes the drawer', async ({ page }) => {
@@ -215,7 +223,8 @@ test.describe('owner assistant', () => {
 
   test('cashier: no rail button, no shortcut, /assistant is refused', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({ timeout: 30_000 });
+    // The till lands on the floor plan.
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({ timeout: 30_000 });
 
     await expect(page.getByRole('button', { name: EN.railButton })).toHaveCount(0);
     await page.keyboard.press('ControlOrMeta+k');
@@ -249,7 +258,7 @@ test.describe('owner assistant @ar', () => {
     await expect(dialog.getByRole('checkbox', { name: AR.scopeCafe })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { name: AR.scopeHowto })).toBeChecked();
     await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(2);
-    await expect(dialog.getByRole('checkbox', { name: AR.cafeWithPack })).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
+    await expect(dialog.getByText(AR.startLine)).toBeVisible({ timeout: DRY_RUN_TIMEOUT });
   });
 
   test('a question with no key shows the Arabic not-configured sentence', async ({ page }) => {

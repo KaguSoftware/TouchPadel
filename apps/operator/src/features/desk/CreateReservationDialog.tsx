@@ -42,15 +42,6 @@ import type { ReservationRow } from './deskTypes';
 
 export type CreateKind = 'booking' | 'maintenance';
 
-/**
- * Group size (0090). '' is the resting state: nothing is preselected, because a
- * prefilled 4 would be recorded as fact for every booking the desk never asked
- * about. 2 and 4 are one click; 'other' opens the full 1..8 list.
- */
-type PlayersPick = '' | '2' | '4' | 'other';
-type PlayersCount = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
-const PLAYER_COUNTS: readonly PlayersCount[] = ['1', '2', '3', '4', '5', '6', '7', '8'];
-
 /** The trading night the dialog may move within: its date, its half-hour rows and what already holds them. */
 export interface CreateNight {
   date: string;
@@ -91,8 +82,6 @@ export function CreateReservationDialog({
   const [guestName, setGuestName] = useState(() => (initialCustomer ? sanitizeName(initialCustomer.name) : ''));
   const [guestPhone, setGuestPhone] = useState(() => (initialCustomer?.phone ? sanitizePhone(initialCustomer.phone) : ''));
   const [notes, setNotes] = useState('');
-  const [playersPick, setPlayersPick] = useState<PlayersPick>('');
-  const [playersOther, setPlayersOther] = useState<PlayersCount | ''>('');
   const [customer, setCustomer] = useState<PickedCustomer | null>(initialCustomer);
   /*
    * Whether each box below holds something the operator typed into it. While
@@ -110,9 +99,6 @@ export function CreateReservationDialog({
 
   const startAt = useMemo(() => new Date(startIso), [startIso]);
   const endAt = new Date(startAt.getTime() + duration * 60_000);
-
-  const players: number | null =
-    playersPick === '2' ? 2 : playersPick === '4' ? 4 : playersPick === 'other' && playersOther ? Number(playersOther) : null;
 
   // Start times the clerk may pick: the night's rows from now on, plus the
   // one the dialog opened on (the calendar never opens a past slot, but the
@@ -159,8 +145,6 @@ export function CreateReservationDialog({
         ...(guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}),
         ...(customer ? { guestId: customer.id } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
-        // Booking kind only: maintenance has no group, and absent means unknown.
-        ...(kind === 'booking' && players !== null ? { players } : {}),
       });
       onCreated();
     } catch (e) {
@@ -306,33 +290,6 @@ export function CreateReservationDialog({
       </div>
       {night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
 
-      {kind === 'booking' && (
-        // group: a <label> around a set of buttons forwards the click to the first of them — see Field.
-        <Field label={tr('op.desk.players')} optional group>
-          <div role="group" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-            <SegmentedControl<PlayersPick>
-              value={playersPick}
-              onChange={setPlayersPick}
-              options={[
-                { value: '2', label: formatNumber(2, locale), disabled: busy },
-                { value: '4', label: formatNumber(4, locale), disabled: busy },
-                { value: 'other', label: tr('op.desk.playersOther'), disabled: busy },
-              ]}
-            />
-            {playersPick === 'other' && (
-              <Select<PlayersCount>
-                value={playersOther}
-                disabled={busy}
-                aria-label={tr('op.desk.playersOther')}
-                placeholder={tr('op.desk.playersOther')}
-                onChange={setPlayersOther}
-                options={PLAYER_COUNTS.map((n) => ({ value: n, label: formatNumber(Number(n), locale) }))}
-                style={{ inlineSize: 'auto', minInlineSize: '6rem' }}
-              />
-            )}
-          </div>
-        </Field>
-      )}
       <Field label={kind === 'maintenance' ? tr('ws.courtDesk.create.blockReason') : tr('op.common.notes')} optional={kind === 'booking'}>
         <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
       </Field>

@@ -14,7 +14,7 @@ capture/<locale>/<slug>.png
 |------------------|--------------------------------------------------------------------------|
 | `1-book`         | Book tab, court at rest, venue open, sheet closed                         |
 | `2-availability` | Availability for a day with a mix of free / 1-left / booked times         |
-| `3-review`       | Review & confirm, hold timer running, a player count picked               |
+| `3-review`       | Review & confirm, hold timer running                                      |
 | `4-success`      | Court reserved                                                            |
 | `5-bookings`     | My reservations, Upcoming selected, a Next up card + ≥3 more bookings     |
 | `6-settings`     | Settings, notifications enabled, About card visible                       |

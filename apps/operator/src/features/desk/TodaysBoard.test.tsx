@@ -139,6 +139,8 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     });
     const table = screen.getByRole('table', { name: 'All bookings today' });
     expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
+    // Newest to oldest: Nadia (19:00) heads the list.
+    expect(within(table.querySelectorAll('tbody tr')[0] as HTMLElement).getByText('Nadia')).toBeTruthy();
     const t = within(table);
     expect(t.getByText('VIP')).toBeTruthy();
     // Court fee, from the server: paid → Paid; not paid while the game is on or

@@ -74,14 +74,14 @@ values ('ee570000-0000-4000-8000-0000e7a10201', '2024-03-05', 'closed', '2024-03
 on conflict (id) do nothing;
 
 -- ── Bookings on the eval court (created at the desk by Dev Court Desk) ─────
-insert into reservations (id, court_id, kind, status, start_at, end_at, guest_name, guest_phone, created_by_staff_id, source, price_iqd, players, created_at, cancelled_at, cancelled_by, cancellation_reason)
+insert into reservations (id, court_id, kind, status, start_at, end_at, guest_name, guest_phone, created_by_staff_id, source, price_iqd, created_at, cancelled_at, cancelled_by, cancellation_reason)
 values
-  ('ee570000-0000-4000-8000-0000e7a10801', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'completed', '2024-03-08 19:00:00+03', '2024-03-08 20:00:00+03', 'Eval Guest One',   null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, 4, '2024-03-04 10:00:00+03', null, null, null),
-  ('ee570000-0000-4000-8000-0000e7a10802', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'confirmed', '2024-03-05 17:00:00+03', '2024-03-05 18:30:00+03', 'Eval Guest Two',   null, 'a0000000-0000-4000-8000-000000000005', 'desk', 60000, 4, '2024-03-04 10:05:00+03', null, null, null),
-  ('ee570000-0000-4000-8000-0000e7a10803', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'completed', '2024-03-06 18:00:00+03', '2024-03-06 19:00:00+03', 'Eval Guest Three', null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, 2, '2024-03-04 10:10:00+03', null, null, null),
-  ('ee570000-0000-4000-8000-0000e7a10804', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'cancelled', '2024-03-07 20:00:00+03', '2024-03-07 21:00:00+03', 'Eval Guest Four',  null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, null, '2024-03-04 10:15:00+03', '2024-03-07 10:00:00+03', 'staff', 'guest_request'),
-  ('ee570000-0000-4000-8000-0000e7a10805', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'no_show',   '2024-03-09 16:00:00+03', '2024-03-09 17:00:00+03', 'Eval Guest Five',  null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, null, '2024-03-04 10:20:00+03', null, null, null),
-  ('ee570000-0000-4000-8000-0000e7a10806', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'arrived',   '2024-03-10 15:00:00+03', '2024-03-10 16:00:00+03', 'Eval Guest Six',   null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, 3, '2024-03-04 10:25:00+03', null, null, null)
+  ('ee570000-0000-4000-8000-0000e7a10801', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'completed', '2024-03-08 19:00:00+03', '2024-03-08 20:00:00+03', 'Eval Guest One',   null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, '2024-03-04 10:00:00+03', null, null, null),
+  ('ee570000-0000-4000-8000-0000e7a10802', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'confirmed', '2024-03-05 17:00:00+03', '2024-03-05 18:30:00+03', 'Eval Guest Two',   null, 'a0000000-0000-4000-8000-000000000005', 'desk', 60000, '2024-03-04 10:05:00+03', null, null, null),
+  ('ee570000-0000-4000-8000-0000e7a10803', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'completed', '2024-03-06 18:00:00+03', '2024-03-06 19:00:00+03', 'Eval Guest Three', null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, '2024-03-04 10:10:00+03', null, null, null),
+  ('ee570000-0000-4000-8000-0000e7a10804', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'cancelled', '2024-03-07 20:00:00+03', '2024-03-07 21:00:00+03', 'Eval Guest Four',  null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, '2024-03-04 10:15:00+03', '2024-03-07 10:00:00+03', 'staff', 'guest_request'),
+  ('ee570000-0000-4000-8000-0000e7a10805', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'no_show',   '2024-03-09 16:00:00+03', '2024-03-09 17:00:00+03', 'Eval Guest Five',  null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, '2024-03-04 10:20:00+03', null, null, null),
+  ('ee570000-0000-4000-8000-0000e7a10806', 'ee570000-0000-4000-8000-0000e7a10001', 'booking', 'arrived',   '2024-03-10 15:00:00+03', '2024-03-10 16:00:00+03', 'Eval Guest Six',   null, 'a0000000-0000-4000-8000-000000000005', 'desk', 40000, '2024-03-04 10:25:00+03', null, null, null)
 on conflict (id) do nothing;
 
 -- ── Tabs: four settled (one carrying a court fee), one void ─────────────────

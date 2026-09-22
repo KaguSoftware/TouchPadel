@@ -1,8 +1,16 @@
 /**
- * 06.8 CustomerSearchScreen — one big search box, results as you type
- * (200 ms debounce, customer_search). Matching tolerance is server-side; we
- * render what comes back, flags and counts included.
- * States: idle · searching · ready · empty (offers create) · error.
+ * 06.8 CustomerSearchScreen — the customer book, listed, with one big search
+ * box that narrows it as you type.
+ *
+ * The list (owner call, 2026-09-22) comes from 0148 `customer_directory`: the
+ * whole book in one lean read, kept in memory for
+ * CUSTOMER_DIRECTORY_STALE_MS, so opening this screen again — or typing — does
+ * not fetch anything. Typing filters that copy locally with the server
+ * search's own matching rules (customerDirectoryLogic.ts). A book larger than
+ * the directory's cap cannot be filtered locally without missing people, so
+ * then the box falls back to `customer_search`, as it always used to.
+ * A customer created, edited or flagged here invalidates the list; the foot
+ * says how old it is and offers a Refresh for changes made elsewhere.
  *
  * Attach mode (`?attach=booking&reservation=<id>` / `?attach=tab&tab=<id>`):
  * no reservation RPC accepts a guest id after creation, so "Attach" hands the
@@ -10,16 +18,26 @@
  * caller decides what it can do with it. The booking screen currently states
  * that attaching is not available; the till lane owns the tab side.
  */
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { formatNumber } from '@touch/i18n';
+import { formatNumber, formatTime } from '@touch/i18n';
+import { appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
 import { canAccess, useAuth } from '../../../lib/auth';
 import { Button, Skeleton } from '../../../components/ui';
-import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, FilterChips, MessagePresenter, PageHeader, ResultCount, SearchField, type AsyncStatus } from '../../../components/kit';
+import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, FilterChips, MessagePresenter, PageHeader, ResultCount, SearchField, SegmentedControl, type AsyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import type { CustomerSearchRow } from '../deskTypes';
 import { CUSTOMER_SEARCH_MIN, useCustomerSearch } from './CustomerPicker';
+import {
+  CUSTOMER_DIRECTORY_KEY,
+  CUSTOMER_DIRECTORY_STALE_MS,
+  CUSTOMER_PAGE,
+  filterCustomers,
+  type CustomerDirectory,
+  type CustomerSort,
+} from './customerDirectoryLogic';
 
 export interface CustomerSearchParams {
   attach?: 'booking' | 'tab';
@@ -37,30 +55,65 @@ export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSe
   };
 }
 
-/** What `customer_search` returns at most; the screen states when it is hit. */
+/** What `customer_search` returns at most when the book is too big to list; the screen states when it is hit. */
 const CUSTOMER_SEARCH_LIMIT = 12;
+
+export function useCustomerDirectory() {
+  return useQuery({
+    queryKey: CUSTOMER_DIRECTORY_KEY,
+    queryFn: () => appRpc<CustomerDirectory>('customer_directory', {}),
+    staleTime: CUSTOMER_DIRECTORY_STALE_MS,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  });
+}
 
 export function CustomerSearchScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const params = useSearch({ strict: false }) as CustomerSearchParams;
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<CustomerSort>('name');
+  const [shown, setShown] = useState(CUSTOMER_PAGE);
   const inputRef = useRef<HTMLInputElement>(null);
-  const search = useCustomerSearch(query, CUSTOMER_SEARCH_LIMIT);
+  const directory = useCustomerDirectory();
+  const book = directory.data;
+  // Only a book the directory could not hold whole goes back to the server
+  // per query; otherwise the search below never fires.
+  const serverMode = book?.truncated === true;
+  const search = useCustomerSearch(serverMode ? query : '', CUSTOMER_SEARCH_LIMIT);
   // The cashier searches customers too, and cannot open the desk calendar.
   const { staff } = useAuth();
   const canBook = canAccess(staff?.role, '/desk');
-  const results = search.data ?? [];
 
-  const status: AsyncStatus | 'idle' | 'searching' = !search.enabled
-    ? 'idle'
-    : search.isError
-      ? 'error'
-      : search.data === undefined
-        ? 'searching'
-        : search.data.length === 0
+  const trimmed = query.trim();
+  const filtering = trimmed.length >= CUSTOMER_SEARCH_MIN;
+  const local = useMemo(() => (book ? filterCustomers(book.rows, query, sort, CUSTOMER_SEARCH_MIN) : []), [book, query, sort]);
+  const results: CustomerSearchRow[] = serverMode && filtering ? (search.data ?? []) : local;
+  const visible = serverMode && filtering ? results : results.slice(0, shown);
+
+  const status: AsyncStatus | 'loading' = directory.isError && !book
+    ? 'error'
+    : !book
+      ? 'loading'
+      : serverMode && filtering
+        ? search.isError
+          ? 'error'
+          : search.data === undefined
+            ? 'loading'
+            : search.data.length === 0
+              ? 'empty'
+              : 'ready'
+        : results.length === 0
           ? 'empty'
           : 'ready';
+
+  const clear = () => {
+    setQuery('');
+    setShown(CUSTOMER_PAGE);
+    inputRef.current?.focus();
+  };
 
   function attach(c: CustomerSearchRow) {
     if (params.attach === 'booking' && params.reservation) {
@@ -75,6 +128,7 @@ export function CustomerSearchScreen() {
       <Icon name="userPlus" size={20} /> {tr('ws.courtDesk.customers.create')}
     </Link>
   );
+  const emptyBook = book !== undefined && book.total === 0;
 
   return (
     /* The desk runs this screen on a wide till monitor: capping it at
@@ -85,11 +139,16 @@ export function CustomerSearchScreen() {
       <PageHeader
         title={tr('ws.courtDesk.customers.title')}
         subtitle={
-          /* Rulebook 6.10: the count belongs beside the title, not only in a
-             footer line the eye reaches last. */
+          /* Rulebook 6.10: the count belongs beside the title. With no query
+             it is the size of the book; with one, how many of it match. */
           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'baseline', flexWrap: 'wrap' }}>
             {tr('ws.courtDesk.customers.lead')}
-            {status === 'ready' && <ResultCount shown={results.length} total={results.length} />}
+            {book && !filtering && !emptyBook && (
+              <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
+                {tr('ws.courtDesk.customers.countAll', { count: formatNumber(book.total, locale) })}
+              </span>
+            )}
+            {filtering && status === 'ready' && !serverMode && <ResultCount shown={results.length} total={book?.rows.length ?? results.length} />}
           </span>
         }
         actions={createLink}
@@ -102,66 +161,84 @@ export function CustomerSearchScreen() {
           style={{ marginBlockEnd: '0.75rem' }}
         />
       )}
-      <SearchField
-        value={query}
-        onChange={setQuery}
-        size="lg"
-        autoFocus
-        inputRef={inputRef}
-        placeholder={tr('ws.courtDesk.customers.placeholder')}
-        aria-label={tr('ws.courtDesk.customers.title')}
-        busy={search.isFetching}
-        style={{ marginBlockEnd: '1rem' }}
-      />
+      {/* The box and the order of the list sit on one line: both change what
+          the list below shows, and neither is worth a row of its own. */}
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', flexWrap: 'wrap', marginBlockEnd: '1rem' }}>
+        <SearchField
+          value={query}
+          onChange={(v) => {
+            setQuery(v);
+            setShown(CUSTOMER_PAGE);
+          }}
+          size="lg"
+          autoFocus
+          inputRef={inputRef}
+          placeholder={tr('ws.courtDesk.customers.placeholder')}
+          aria-label={tr('ws.courtDesk.customers.title')}
+          busy={serverMode ? search.isFetching : false}
+          style={{ flex: '1 1 22rem', minInlineSize: 0 }}
+        />
+        {!emptyBook && (
+          <SegmentedControl<CustomerSort>
+            value={sort}
+            onChange={(v) => {
+              setSort(v);
+              setShown(CUSTOMER_PAGE);
+            }}
+            aria-label={tr('ws.courtDesk.customers.sortLabel')}
+            options={[
+              { value: 'name', label: tr('ws.courtDesk.customers.sortName') },
+              { value: 'bookings', label: tr('ws.courtDesk.customers.sortBookings') },
+            ]}
+          />
+        )}
+      </div>
 
-      {/* Rulebook 6.6: the filter actually behind the results is the DEBOUNCED
-          query, which can differ from what is still being typed. Showing it
-          removably is also the one-click way back to an empty screen. */}
+      {/* Rulebook 6.6: the filter behind the results, removable — the
+          one-press way back to the whole list. */}
       <FilterChips
         chips={
-          search.enabled
-            ? [
-                {
-                  id: 'query',
-                  label: tr('ws.courtDesk.customers.queryChip', { query: search.debouncedQuery }),
-                  text: search.debouncedQuery,
-                  onRemove: () => {
-                    setQuery('');
-                    inputRef.current?.focus();
-                  },
-                },
-              ]
+          filtering
+            ? [{ id: 'query', label: tr('ws.courtDesk.customers.queryChip', { query: trimmed }), text: trimmed, onRemove: clear }]
             : []
         }
         style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
       />
 
-      {status === 'idle' && <EmptyState icon="search" title={tr('ws.courtDesk.customers.idle')} body={tr('ws.courtDesk.customers.idleBody')} compact />}
-      {status === 'searching' && <Skeleton lines={5} blockSize="4.1rem" />}
-      {(status === 'ready' || status === 'empty' || status === 'error') && (
+      {serverMode && !filtering && book && (
+        <MessagePresenter
+          tone="info"
+          message={tr('ws.courtDesk.customers.truncated', { shown: formatNumber(book.rows.length, locale), total: formatNumber(book.total, locale) })}
+          style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
+        />
+      )}
+
+      {status === 'loading' && <Skeleton lines={6} blockSize="4.1rem" />}
+      {status !== 'loading' && (
         <AsyncStateWrapper
           status={status}
-          error={search.error}
-          onRetry={() => void search.refetch()}
+          error={serverMode && filtering ? search.error : directory.error}
+          onRetry={() => void (serverMode && filtering ? search.refetch() : directory.refetch())}
           emptyContent={
-            /* 'filtered', not 'initial': the desk did not arrive at an empty
-               customer book, it typed something that matched nothing, and the
-               way back is clearing the search — not only creating a record. */
-            <EmptyState
-              kind="filtered"
-              icon="users"
-              title={tr('ws.courtDesk.customers.noMatch', { query: search.debouncedQuery })}
-              body={tr('ws.courtDesk.customers.noMatchBody')}
-              onClearFilters={() => {
-                setQuery('');
-                inputRef.current?.focus();
-              }}
-              action={createLink}
-            />
+            emptyBook ? (
+              <EmptyState icon="users" title={tr('ws.courtDesk.customers.emptyBook')} body={tr('ws.courtDesk.customers.emptyBookBody')} action={createLink} />
+            ) : (
+              /* 'filtered', not 'initial': the desk typed something that
+                 matched nothing, and the way back is clearing the search —
+                 not only creating a record. */
+              <EmptyState
+                kind="filtered"
+                icon="users"
+                title={tr('ws.courtDesk.customers.noMatch', { query: trimmed })}
+                body={tr('ws.courtDesk.customers.noMatchBody')}
+                onClearFilters={clear}
+                action={createLink}
+              />
+            )
           }
         >
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-surface)', overflow: 'hidden' }}>
-            {results.map((c) => (
+            {visible.map((c) => (
               <CustomerResultRow
                 key={c.id}
                 customer={c}
@@ -172,16 +249,36 @@ export function CustomerSearchScreen() {
               />
             ))}
           </ul>
-          {/* The RPC caps the list, so a full page is never "all of them" —
-              say so rather than letting the count imply a complete answer. */}
-          {results.length === CUSTOMER_SEARCH_LIMIT && (
+          {visible.length < results.length && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBlockStart: 'var(--tp-sp-3)' }}>
+              <Button size="lg" kind="soft" icon="chevronDown" onClick={() => setShown((n) => n + CUSTOMER_PAGE)}>
+                {tr('ws.courtDesk.customers.showMore', { count: formatNumber(Math.min(CUSTOMER_PAGE, results.length - visible.length), locale), remaining: formatNumber(results.length - visible.length, locale) })}
+              </Button>
+            </div>
+          )}
+          {/* The server search caps its answer, so a full page is never "all
+              of them" — say so rather than letting the count imply it. */}
+          {serverMode && filtering && results.length === CUSTOMER_SEARCH_LIMIT && (
             <p style={{ marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
               {tr('ws.courtDesk.customers.capped', { count: formatNumber(CUSTOMER_SEARCH_LIMIT, locale) })}
             </p>
           )}
         </AsyncStateWrapper>
       )}
-      {query.trim().length > 0 && query.trim().length < CUSTOMER_SEARCH_MIN && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.customers.idle')}</p>}
+      {trimmed.length > 0 && !filtering && (
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.courtDesk.customers.keepTyping')}</p>
+      )}
+      {/* How old the copy on screen is, and the way to fetch a new one: the
+          list is kept for a while on purpose, and a customer added on another
+          till will not be in it until then. */}
+      {book && (
+        <p style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.courtDesk.customers.asOf', { time: formatTime(new Date(directory.dataUpdatedAt), locale) })}
+          <Button size="sm" kind="ghost" icon="refresh" busy={directory.isFetching} onClick={() => void directory.refetch()}>
+            {tr('ws.courtDesk.customers.refresh')}
+          </Button>
+        </p>
+      )}
     </div>
   );
 }
@@ -230,9 +327,13 @@ export function CustomerResultRow({
       </span>
       <div style={{ minInlineSize: 0, flex: '1 1 18rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: 'var(--tp-fs-lg)' }}>
-            <bdi>{c.full_name}</bdi>
-          </strong>
+          {c.full_name.trim() ? (
+            <strong style={{ fontSize: 'var(--tp-fs-lg)' }}>
+              <bdi>{c.full_name}</bdi>
+            </strong>
+          ) : (
+            <span style={{ fontSize: 'var(--tp-fs-lg)', color: 'var(--tp-muted-fg)', fontStyle: 'italic' }}>{tr('ws.courtDesk.customers.noName')}</span>
+          )}
           {(c.flags ?? []).map((f, i) => (
             <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
           ))}

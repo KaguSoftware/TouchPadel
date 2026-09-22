@@ -13,6 +13,7 @@ import {
   sanitizeName,
   sanitizePhone,
   slotTaken,
+  sortByStartDesc,
   toBookingStatus,
 } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
@@ -61,6 +62,18 @@ describe('groupByStart', () => {
     ]);
     expect(groups.map((g) => g.startAt)).toEqual(['2026-09-03T15:00:00.000Z', '2026-09-03T17:00:00.000Z']);
     expect(groups[0]!.rows.map((r) => r.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('sortByStartDesc', () => {
+  it('puts the latest start first and keeps courts in order within a start', () => {
+    const sorted = sortByStartDesc([
+      row({ id: 'early', start_at: '2026-09-03T13:00:00.000Z' }),
+      row({ id: 'b', court_id: 'c2' }),
+      row({ id: 'late', start_at: '2026-09-03T17:00:00.000Z' }),
+      row({ id: 'a', court_id: 'c1' }),
+    ]);
+    expect(sorted.map((r) => r.id)).toEqual(['late', 'a', 'b', 'early']);
   });
 });
 

@@ -5,7 +5,7 @@
  * window, a closed heat cell and a 90-minute booking split across two cells
  * (heat-cell open minutes are VENUE-WIDE: both courts, 120 each),
  * lead / notice / visit / timing buckets with some keys missing (the parsers
- * fill the fixed order), a players row with a null group size, and a cafe
+ * fill the fixed order), and a cafe
  * payload with one variant where no tab was ever linked to a booking.
  *
  * Test-only: nothing here is imported by the app.
@@ -79,8 +79,6 @@ export const summaryJson: Json = {
       mobile_bookings: 12,
       desk_bookings: 6,
       avg_duration_min: 75,
-      players_known: 12,
-      players_avg: 3.4,
     },
     {
       // `is_active` deliberately absent: the parser defaults it to true.
@@ -101,8 +99,6 @@ export const summaryJson: Json = {
       mobile_bookings: 18,
       desk_bookings: 12,
       avg_duration_min: 75,
-      players_known: 0,
-      players_avg: null,
     },
   ],
   by_day: days(9, 7, 7),
@@ -169,21 +165,6 @@ export const demandJson: Json = {
     { source: 'mobile', bookings: 999, revenue_iqd: 1, cancellations: 0, no_shows: 0, avg_duration_min: null },
   ],
   hold_funnel: { holds_ended: 5, converted: 25, pending: 1, conversion_pct: 83.3 },
-  players: {
-    known: 20,
-    unknown: 28,
-    avg: 3.4,
-    // Unknown first and out of order: the parser sorts ascending with null last.
-    rows: [
-      { players: null, bookings: 28, revenue_iqd: 700000, avg_duration_min: 75, mobile: 18, desk: 10 },
-      { players: 4, bookings: 12, revenue_iqd: 300000, avg_duration_min: 90, mobile: 8, desk: 4 },
-      { players: 2, bookings: 8, revenue_iqd: 200000, avg_duration_min: 60, mobile: 4, desk: 4 },
-    ],
-  },
-  players_by_court: [
-    { court_id: COURT_A, players: 4, bookings: 12 },
-    { court_id: COURT_B, players: null, bookings: 30 },
-  ],
   series: { series_bookings: 8, single_bookings: 40, series_pct: 16.7, series_revenue_iqd: 200000 },
 };
 
@@ -251,11 +232,6 @@ export const endingsJson: Json = {
     by_lead_time: [{ key: '7d_plus', n: 2, bookings_total: 9 }],
     by_series: [{ key: 'series', n: 1, bookings_total: 12 }],
     by_type: [{ key: 'new', n: 3, bookings_total: 30 }],
-    // The empty key is the "group size not recorded" row.
-    by_players: [
-      { key: '4', n: 2, bookings_total: 12 },
-      { key: '', n: 2, bookings_total: 28 },
-    ],
   },
 };
 
@@ -367,10 +343,6 @@ export const cafeJson: Json = {
     { dow: 5, hour: 20, live_bookings: 2, linked_bookings: 1 },
     { dow: 1, hour: 18, live_bookings: 1, linked_bookings: 0 },
   ],
-  by_players: [
-    { players: null, bookings: 28, linked: 6, cafe_iqd: 150000 },
-    { players: 4, bookings: 12, linked: 6, cafe_iqd: 180000 },
-  ],
   by_duration: [
     { duration_min: 90, bookings: 20, linked: 8, cafe_iqd: 240000 },
     { duration_min: 60, bookings: 28, linked: 7, cafe_iqd: 180000 },
@@ -406,7 +378,6 @@ export const cafeNoLinksJson: Json = {
     { dow: 5, hour: 20, live_bookings: 2, linked_bookings: 0 },
     { dow: 1, hour: 18, live_bookings: 1, linked_bookings: 0 },
   ],
-  by_players: [],
   by_duration: [],
 };
 

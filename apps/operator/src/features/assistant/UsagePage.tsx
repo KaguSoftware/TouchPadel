@@ -3,18 +3,20 @@
  * the four token kinds and the cost — with the month's totals, the cap as a
  * bar, and the pricing table the figures were priced from. A model that is
  * not in the table is priced at the blended fallback, and the page says
- * which ones were.
+ * which ones were. The owner edits the monthly cap here, behind a review step
+ * that shows the old and new figures before anything is written (0149).
  */
 import { useId, useMemo, useState } from 'react';
-import { Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate, formatMonthYear, formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { AsyncStateWrapper, DataTable, PageHeader, Panel, asyncStatus, type Column } from '../../components/kit';
-import { Button, ErrorText } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { TOKEN_KINDS, formatTokens, formatUsd, isBlendedFallback, type PricingRates } from '../../lib/assistantPricing';
-import { QK, fetchConversations, fetchModels, fetchUsage, setDefaultModel, type UsageDay } from './api';
+import { QK, fetchConversations, fetchModels, fetchUsage, setDefaultModel, setMonthlyCap, type UsageDay } from './api';
+import { capInputValue, parseCapUsd } from './capLogic';
 import { ModelChoice, ModelError } from './ModelSwitch';
 
 const iso = (s: string) => `⁨${s}⁩`;
@@ -29,7 +31,9 @@ export function UsagePageScreen() {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const defaultLeadId = useId();
+  const [capOpen, setCapOpen] = useState(false);
   const now = new Date();
   const [ym, setYm] = useState<{ y: number; m: number }>({ y: now.getUTCFullYear(), m: now.getUTCMonth() });
   const bounds = useMemo(() => monthBounds(ym.y, ym.m), [ym]);
@@ -104,14 +108,15 @@ export function UsagePageScreen() {
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      <div>
+        <Button kind="ghost" icon="chevronStart" onClick={() => void navigate({ to: '/assistant' })} style={{ marginInlineStart: 'calc(-1 * var(--tp-sp-2))' }}>
+          {tr('ws.owner.assistant.usage.back')}
+        </Button>
+      </div>
       <PageHeader
         title={tr('ws.owner.assistant.usage.title')}
         subtitle={tr('ws.owner.assistant.usage.lead')}
-        eyebrow={
-          <Link to="/assistant" className="tp-link">
-            {tr('ws.owner.assistant.title')}
-          </Link>
-        }
+        style={{ marginBlockEnd: 0 }}
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
             <Button size="sm" icon="chevronStart" aria-label={tr('ws.owner.assistant.usage.prev')} title={tr('ws.owner.assistant.usage.prev')} onClick={() => setYm(({ y, m }) => (m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 }))} />
@@ -129,22 +134,37 @@ export function UsagePageScreen() {
           dense
           aria-label={tr('ws.owner.assistant.usage.title')}
           footer={
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)', fontFamily: 'var(--tp-font-numeric)' }}>
-              <strong>{tr('ws.owner.assistant.usage.totals')}</strong>
-              <span>{tr('ws.owner.assistant.usage.cols.requests')}: {num(totals.requests)}</span>
-              <span>{tr('ws.owner.assistant.usage.cols.calls')}: {num(totals.model_calls)}</span>
-              <span>{tr('ws.owner.assistant.usage.cols.input')}: {iso(formatTokens(totals.input_tokens))}</span>
-              <span>{tr('ws.owner.assistant.usage.cols.cacheWrite')}: {iso(formatTokens(totals.cache_write_tokens))}</span>
-              <span>{tr('ws.owner.assistant.usage.cols.cacheRead')}: {iso(formatTokens(totals.cache_read_tokens))}</span>
-              <span>{tr('ws.owner.assistant.usage.cols.output')}: {iso(formatTokens(totals.output_tokens))}</span>
-              <strong>{tr('ws.owner.assistant.usage.cols.cost')}: {iso(formatUsd(totals.cost_micros))}</strong>
-            </div>
+            // <tfoot> takes rows: each total sits under its own column, with
+            // the table's cell padding (a bare <div> here had none).
+            <tr data-usage-totals="">
+              <td style={totalCell}>{tr('ws.owner.assistant.usage.totals')}</td>
+              {[
+                num(totals.requests),
+                num(totals.model_calls),
+                iso(formatTokens(totals.input_tokens)),
+                iso(formatTokens(totals.cache_write_tokens)),
+                iso(formatTokens(totals.cache_read_tokens)),
+                iso(formatTokens(totals.output_tokens)),
+                iso(formatUsd(totals.cost_micros)),
+              ].map((v, i) => (
+                <td key={i} data-align="end" style={{ ...totalCell, fontFamily: 'var(--tp-font-numeric)' }}>
+                  {v}
+                </td>
+              ))}
+            </tr>
           }
         />
       </AsyncStateWrapper>
 
       {q.data && (
-        <Panel title={tr('ws.owner.assistant.usage.cap')}>
+        <Panel
+          title={tr('ws.owner.assistant.usage.cap')}
+          actions={
+            <Button size="sm" kind="soft" icon="sliders" onClick={() => setCapOpen(true)}>
+              {tr('ws.owner.assistant.usage.capEdit')}
+            </Button>
+          }
+        >
           <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
             {capMicros && capMicros > 0 ? (
               <>
@@ -197,6 +217,119 @@ export function UsagePageScreen() {
           </div>
         </Panel>
       )}
+
+      {capOpen && (
+        <CapDialog
+          currentMicros={capMicros}
+          monthSpentMicros={cap?.month_cost_micros ?? 0}
+          onClose={() => setCapOpen(false)}
+          onSaved={(next) => {
+            setCapOpen(false);
+            toast.ok(tr('ws.owner.assistant.usage.capSaved', { cap: iso(formatUsd(next)) }));
+            void qc.invalidateQueries({ queryKey: ['assistant', 'usage'] });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+const totalCell = {
+  fontWeight: 600,
+  background: 'var(--tp-surface-2)',
+  borderBlockStart: '1px solid var(--tp-border)',
+  borderBlockEnd: 'none',
+} as const;
+
+/**
+ * Two steps in one dialog: type the new figure, then a review that names the
+ * old and new caps (and warns when this month already spent the new one)
+ * before Apply writes anything.
+ */
+function CapDialog({ currentMicros, monthSpentMicros, onClose, onSaved }: { currentMicros: number | null; monthSpentMicros: number; onClose: () => void; onSaved: (micros: number) => void }) {
+  const { tr } = useLocale();
+  const [text, setText] = useState(() => capInputValue(currentMicros));
+  const [step, setStep] = useState<'edit' | 'confirm'>('edit');
+  const [touched, setTouched] = useState(false);
+  const next = parseCapUsd(text);
+  const same = next != null && next === currentMicros;
+  const problem = !touched ? null : next == null ? tr('ws.owner.assistant.usage.capInvalid') : same ? tr('ws.owner.assistant.usage.capSame') : null;
+  const save = useMutation({ mutationFn: (micros: number) => setMonthlyCap(micros), onSuccess: (_r, micros) => onSaved(micros) });
+
+  const review = () => {
+    setTouched(true);
+    if (next != null && !same) setStep('confirm');
+  };
+
+  if (step === 'confirm' && next != null) {
+    return (
+      <Modal
+        title={tr('ws.owner.assistant.usage.capConfirmTitle')}
+        onClose={save.isPending ? () => {} : onClose}
+        size="sm"
+        footer={
+          <>
+            <Button onClick={() => setStep('edit')} disabled={save.isPending}>
+              {tr('common.back')}
+            </Button>
+            <Button kind="primary" busy={save.isPending} onClick={() => save.mutate(next)}>
+              {tr('ws.owner.assistant.usage.capApply')}
+            </Button>
+          </>
+        }
+      >
+        <div data-cap-confirm="" style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          <p style={{ margin: 0 }}>
+            {tr('ws.owner.assistant.usage.capConfirmBody', {
+              from: iso(currentMicros && currentMicros > 0 ? formatUsd(currentMicros) : '—'),
+              to: iso(formatUsd(next)),
+            })}
+          </p>
+          {monthSpentMicros >= next && (
+            <p role="alert" style={{ margin: 0, color: 'var(--tp-warn-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+              {tr('ws.owner.assistant.usage.capConfirmBelow', { spent: iso(formatUsd(monthSpentMicros)) })}
+            </p>
+          )}
+          <ErrorText error={save.error} />
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal
+      title={tr('ws.owner.assistant.usage.capEditTitle')}
+      onClose={onClose}
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onClose}>{tr('common.cancel')}</Button>
+          <Button kind="primary" onClick={review}>
+            {tr('ws.owner.assistant.usage.capReview')}
+          </Button>
+        </>
+      }
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          review();
+        }}
+      >
+        <Field label={tr('ws.owner.assistant.usage.capField')} hint={tr('ws.owner.assistant.usage.capHint')} error={problem} required>
+          <input
+            data-cap-input=""
+            style={inputStyle}
+            dir="ltr"
+            inputMode="decimal"
+            autoComplete="off"
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={() => setTouched(true)}
+          />
+        </Field>
+      </form>
+    </Modal>
   );
 }

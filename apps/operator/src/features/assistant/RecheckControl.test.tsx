@@ -7,6 +7,7 @@ import { hasRecheckableTools, rawsForValues } from './RecheckControl';
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children }: { to: string; children: ReactNode }) => <a href={to}>{children}</a>,
+  useRouter: () => undefined,
 }));
 
 // The control talks to the chat function through the data layer; no session in a unit test.

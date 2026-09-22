@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bookableCount,
   cancelScopeCount,
   conflictCount,
   draftKey,
@@ -95,6 +96,16 @@ describe('resolutions', () => {
       { date: '2026-09-20', action: 'skip' },
     ]);
     expect(Object.keys(pruneResolutions(occ, res)).sort()).toEqual(['2026-09-13', '2026-09-20']);
+  });
+  it('counts what would be booked: a skipped clash drops out, a moved one stays, a stale skip on a free date does not count', () => {
+    expect(bookableCount(occ, {})).toBe(occ.length);
+    expect(
+      bookableCount(occ, {
+        '2026-09-13': { date: '2026-09-13', action: 'moveCourt', courtId: 'c2' },
+        '2026-09-20': { date: '2026-09-20', action: 'skip' },
+        '2026-09-06': { date: '2026-09-06', action: 'skip' },
+      }),
+    ).toBe(occ.length - 1);
   });
 });
 

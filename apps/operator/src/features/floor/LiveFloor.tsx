@@ -20,8 +20,9 @@
  *  - Wheel zoom is off (the page scrolls); closer is a click, back is the one
  *    button that appears only once you have moved.
  *  - Guest counts at tables are not known to the system and are not drawn.
- *    A doubles court whose booking never recorded a player count is drawn
- *    with two players, not four. See floorModel.ts.
+ *    A court in play is drawn with four players, the only way padel is
+ *    played. A guest marked arrived before their slot starts is named on the
+ *    court's card, not drawn on it: arrived is not playing. See floorModel.ts.
  */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
@@ -618,11 +619,18 @@ function describe(target: FloorTarget, s: FloorSnapshot, tr: Tr, locale: ReturnT
         {c.status !== 'free' && (
           <Parts>
             {c.guest && <bdi>{c.guest}</bdi>}
-            {c.players !== null && <span>{`${tr('ws.owner.floor.court.players')} ${formatNumber(c.players, locale)}`}</span>}
             {c.until && <span>{tr('ws.owner.floor.court.until', { time: time(c.until) })}</span>}
           </Parts>
         )}
-        {c.status === 'free' && c.nextAt && <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.floor.court.next', { time: time(c.nextAt) })}</span>}
+        {c.waiting ? (
+          <span style={{ color: 'var(--tp-muted-fg)' }}>
+            {c.waiting.guest
+              ? tr('ws.owner.floor.court.waiting', { guest: c.waiting.guest, time: time(c.waiting.startsAt) })
+              : tr('ws.owner.floor.court.waitingAnon', { time: time(c.waiting.startsAt) })}
+          </span>
+        ) : (
+          c.status === 'free' && c.nextAt && <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.floor.court.next', { time: time(c.nextAt) })}</span>
+        )}
       </>
     );
   }

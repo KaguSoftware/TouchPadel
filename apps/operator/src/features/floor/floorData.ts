@@ -44,7 +44,7 @@ export async function fetchFloorRaw(nowMs = Date.now()): Promise<FloorRaw> {
     supabase.from('courts').select('id, name_en, name_ar, sort_order').eq('is_active', true).order('sort_order').then(unwrap<RawCourt[]>),
     supabase
       .from('reservations')
-      .select('id, court_id, status, start_at, end_at, guest_name, players')
+      .select('id, court_id, status, start_at, end_at, guest_name')
       .eq('kind', 'booking')
       .in('status', ['confirmed', 'arrived'])
       .gt('end_at', nowIso)

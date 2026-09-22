@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ASSISTANT_PRESETS, ASSISTANT_SCOPES } from '@touch/core/assistant/tools';
 import { LocaleProvider } from '../../lib/i18n';
 import { ScopeStrip } from './ScopeStrip';
@@ -8,7 +8,7 @@ function renderStrip(props: Partial<Parameters<typeof ScopeStrip>[0]> = {}) {
   const onChange = vi.fn();
   render(
     <LocaleProvider>
-      <ScopeStrip scopes={['howto']} onChange={onChange} packs={{ cafe: 1_234, money: 2_000, howto: 0 }} {...props} />
+      <ScopeStrip scopes={['howto']} onChange={onChange} start={{ tokens: 12_345, exact: true, model: 'claude-opus-5' }} pricing={{ 'claude-opus-5': { input: 5_000_000, cache_write: 6_250_000, cache_read: 500_000, output: 25_000_000 } }} {...props} />
     </LocaleProvider>,
   );
   return { onChange };
@@ -36,17 +36,27 @@ describe('ScopeStrip', () => {
     expect(onChange).toHaveBeenLastCalledWith([]);
   });
 
-  it('prints each pack size and totals the checked ones', () => {
+  it('shows one start figure with its price and no size per box', () => {
     renderStrip({ scopes: ['cafe', 'money', 'howto'] });
-    expect(document.querySelector('[data-scope="cafe"]')!.textContent).toContain('≈ 1.2k tokens');
-    expect(document.querySelector('[data-scope="money"]')!.textContent).toContain('≈ 2k tokens');
-    expect(document.querySelector('[data-scope="howto"]')!.textContent).toContain('no pack');
-    expect(document.querySelector('[data-scope-total]')!.textContent).toContain('3.2k');
+    for (const scope of ['cafe', 'money', 'howto']) expect(document.querySelector(`[data-scope="${scope}"]`)!.textContent).not.toMatch(/token/);
+    const start = document.querySelector('[data-scope-start]')!.textContent!;
+    expect(start).toContain('Every question starts at');
+    expect(start).toMatch(/12\.3k\S? tokens/);
+    // 12,345 input tokens at $5 / Mtok.
+    expect(start).toContain('$0.06');
+    expect(start).toContain('Earlier messages in this chat');
   });
 
-  it('says it is measuring while sizes are unknown', () => {
-    renderStrip({ scopes: ['stock'], packs: {}, measuring: true });
-    expect(document.querySelector('[data-scope="stock"]')!.textContent).toContain('Measuring');
-    expect(document.querySelector('[data-scope-total]')!.textContent).toContain('Measuring');
+  it('says "about" when the vendor could only estimate', () => {
+    renderStrip({ start: { tokens: 2_000, exact: false, model: 'openai/gpt-oss-120b' } });
+    expect(document.querySelector('[data-scope-start]')!.textContent).toContain('starts at about');
+  });
+
+  it('says it is measuring while the start is unknown, and why when it cannot be measured', () => {
+    renderStrip({ start: undefined, measuring: true });
+    expect(document.querySelector('[data-scope-start]')!.textContent).toContain('Measuring');
+    cleanup();
+    renderStrip({ start: null });
+    expect(document.querySelector('[data-scope-start]')!.textContent).toContain('no AI key');
   });
 });

@@ -33,38 +33,51 @@ function raw(partial: Partial<FloorRaw> = {}): FloorRaw {
 }
 
 describe('courts', () => {
-  it('is in play when an arrived booking has not ended, with the booking’s own player count', () => {
+  it('is in play when an arrived booking’s slot has started and not ended', () => {
     const s = composeSnapshot(
-      raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'arrived', start_at: iso(-30), end_at: iso(60), guest_name: 'Ahmed K.', players: 4 }] }),
+      raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'arrived', start_at: iso(-30), end_at: iso(60), guest_name: 'Ahmed K.' }] }),
       NOW,
     );
-    expect(s.courts[0]).toMatchObject({ id: 'c1', slot: 0, status: 'in_play', guest: 'Ahmed K.', players: 4, until: iso(60), nextAt: null });
+    expect(s.courts[0]).toMatchObject({ id: 'c1', slot: 0, status: 'in_play', guest: 'Ahmed K.', until: iso(60), nextAt: null, waiting: null });
     expect(s.courts[1]).toMatchObject({ id: 'c2', slot: 1, status: 'free' });
   });
 
   it('is booked, not in play, while a confirmed booking’s window contains now and nobody was marked arrived', () => {
     const s = composeSnapshot(
-      raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'confirmed', start_at: iso(-10), end_at: iso(50), guest_name: 'Sara M.', players: null }] }),
+      raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'confirmed', start_at: iso(-10), end_at: iso(50), guest_name: 'Sara M.' }] }),
       NOW,
     );
-    expect(s.courts[0]).toMatchObject({ status: 'booked', guest: 'Sara M.', players: null, until: iso(50) });
+    expect(s.courts[0]).toMatchObject({ status: 'booked', guest: 'Sara M.', until: iso(50) });
   });
 
-  it('never invents a player count: null when the desk recorded none or zero', () => {
+  it('arrived is not playing: a guest checked in before their slot is waiting, and the court is not in play', () => {
     const s = composeSnapshot(
-      raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'arrived', start_at: iso(-5), end_at: iso(55), guest_name: null, players: 0 }] }),
+      raw({ bookings: [{ id: 'b1', court_id: 'c1', status: 'arrived', start_at: iso(20), end_at: iso(110), guest_name: 'Early E.' }] }),
       NOW,
     );
-    expect(s.courts[0]!.players).toBeNull();
+    expect(s.courts[0]).toMatchObject({ status: 'free', guest: null, until: null, nextAt: iso(20), waiting: { guest: 'Early E.', startsAt: iso(20) } });
+  });
+
+  it('an early arrival waits while the previous booking is still on the court', () => {
+    const s = composeSnapshot(
+      raw({
+        bookings: [
+          { id: 'now', court_id: 'c1', status: 'arrived', start_at: iso(-50), end_at: iso(10), guest_name: 'Now N.' },
+          { id: 'next', court_id: 'c1', status: 'arrived', start_at: iso(10), end_at: iso(100), guest_name: 'Next X.' },
+        ],
+      }),
+      NOW,
+    );
+    expect(s.courts[0]).toMatchObject({ status: 'in_play', guest: 'Now N.', waiting: { guest: 'Next X.', startsAt: iso(10) } });
   });
 
   it('a free court names its next confirmed booking within the lookahead, and ignores ended ones', () => {
     const s = composeSnapshot(
       raw({
         bookings: [
-          { id: 'old', court_id: 'c1', status: 'arrived', start_at: iso(-120), end_at: iso(-60), guest_name: null, players: null },
-          { id: 'later', court_id: 'c1', status: 'confirmed', start_at: iso(90), end_at: iso(150), guest_name: null, players: null },
-          { id: 'soon', court_id: 'c1', status: 'confirmed', start_at: iso(40), end_at: iso(100), guest_name: null, players: null },
+          { id: 'old', court_id: 'c1', status: 'arrived', start_at: iso(-120), end_at: iso(-60), guest_name: null },
+          { id: 'later', court_id: 'c1', status: 'confirmed', start_at: iso(90), end_at: iso(150), guest_name: null },
+          { id: 'soon', court_id: 'c1', status: 'confirmed', start_at: iso(40), end_at: iso(100), guest_name: null },
         ],
       }),
       NOW,
