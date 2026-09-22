@@ -1,0 +1,92 @@
+{
+  "restaurant": { "name": { "en": "Just One Touch", "ar": "Just One Touch" },
+    "address": { "en": "Holy Karbala, Durrat Karbala Residential Complex", "ar": "كربلاء المقدسة - مجمع درة كربلاء السكني" } },
+  "currency": "IQD",
+  "categories": [
+    { "category": { "en": "Coffee", "ar": "قهوة" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Espresso", "ar": "إيسبريسو" }, "hot": true, "iced": false, "prices": { "single": 2000, "double": 3000 } },
+      { "name": { "en": "Americano", "ar": "أميريكانو" }, "hot": true, "iced": true, "prices": { "medium": 3000, "large": null } },
+      { "name": { "en": "Latte", "ar": "لاتيه" }, "hot": true, "iced": true, "prices": { "medium": 3000, "large": 4000 } },
+      { "name": { "en": "Spanish Latte", "ar": "سبانش لاتيه" }, "hot": true, "iced": true, "prices": { "medium": 3500, "large": 4500 } },
+      { "name": { "en": "Mocha Latte", "ar": "موكا لاتيه" }, "hot": true, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Caramel Latte", "ar": "كراميل لاتيه" }, "hot": true, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Vanilla Latte", "ar": "فانيلا لاتيه" }, "hot": true, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Hazelnut Latte", "ar": "لاتيه بالبندق" }, "hot": true, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Cortado", "ar": "كورتادو" }, "hot": true, "iced": false, "prices": { "medium": 3000, "large": null } },
+      { "name": { "en": "Flat White", "ar": "فلات وايت" }, "hot": true, "iced": true, "prices": { "medium": 3000, "large": null } },
+      { "name": { "en": "Turkish Coffee", "ar": "قهوة تركية" }, "hot": true, "iced": false, "prices": { "medium": 3000, "large": null }, "note": { "en": "Plain, medium sweet, or hazelnut", "ar": "سادة - وسط - بندق" } } ] },
+    { "category": { "en": "Smoothies", "ar": "سموذي" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Pineapple", "ar": "أناناس" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Passion Fruit", "ar": "باشن فروت" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Strawberry", "ar": "فراولة" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Peach", "ar": "خوخ" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Mango", "ar": "مانغا" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Mix", "ar": "مكس" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 }, "note": { "en": "Customer's choice", "ar": "حسب رغبة الزبون" } } ] },
+    { "category": { "en": "Tea", "ar": "شاي" }, "sizes": ["single"], "items": [
+      { "name": { "en": "Iraqi Tea", "ar": "شاي عراقي" }, "hot": true, "iced": false, "price": 1000 },
+      { "name": { "en": "Lemon Tea", "ar": "شاي بالليمون" }, "hot": true, "iced": false, "price": 1500 },
+      { "name": { "en": "Karak Tea", "ar": "شاي كرك" }, "hot": true, "iced": false, "price": 2000 },
+      { "name": { "en": "Hibiscus Tea", "ar": "شاي كركدية" }, "hot": true, "iced": true, "price": 4500 } ] },
+    { "category": { "en": "Fresh Juices", "ar": "عصائر منعشة" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Orange", "ar": "برتقال" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": 4000 } },
+      { "name": { "en": "Strawberry", "ar": "فراولة" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4500 } },
+      { "name": { "en": "Lemonade", "ar": "عصير ليمون" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": 4000 } },
+      { "name": { "en": "Watermelon", "ar": "بطيخ" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4500 } },
+      { "name": { "en": "Mango", "ar": "مانغا" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4500 } },
+      { "name": { "en": "Polo", "ar": "بولو" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } } ] },
+    { "category": { "en": "Frappuccino", "ar": "فراباچينو" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Chocolate", "ar": "شوكولاتة" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Oreo", "ar": "اوريو" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Caramel", "ar": "كراميل" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "White Chocolate", "ar": "شوكلاتة بيضاء" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Classic", "ar": "كلاسيك" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } } ] },
+    { "category": { "en": "Cocktails", "ar": "كوكتيل" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Touch Blue", "ar": "تاچ بلو" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Fruit", "ar": "فواكه" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Piña Colada", "ar": "بينا كولادا" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } } ] },
+    { "category": { "en": "Milkshakes", "ar": "ميلك شيك" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Banana", "ar": "موز" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Strawberry", "ar": "فراولة" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Lotus", "ar": "لوتس" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Pistachio", "ar": "بستاشيو" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Snickers", "ar": "سنيكرز" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "KitKat", "ar": "كت كات" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Kinder", "ar": "كندر" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } },
+      { "name": { "en": "Chocolate", "ar": "شوكلاتة" }, "hot": false, "iced": true, "prices": { "medium": 4000, "large": 5000 } } ] },
+    { "category": { "en": "Milk Drinks", "ar": "مشتقات الحليب" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Banana & Nutella Milk", "ar": "حليب موز ونوتيلا" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } },
+      { "name": { "en": "Strawberry Milk", "ar": "حليب فراولة" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } },
+      { "name": { "en": "Banana Milk", "ar": "حليب موز" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": 3500 } },
+      { "name": { "en": "Hot Chocolate", "ar": "شوكلاتة ساخنة" }, "hot": true, "iced": false, "prices": { "medium": 3000, "large": 3500 } },
+      { "name": { "en": "Iced Chocolate", "ar": "شوكلاتة مثلجة" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": 3500 } } ] },
+    { "category": { "en": "Desserts", "ar": "حلويات" }, "sizes": ["single"], "items": [
+      { "name": { "en": "Donuts", "ar": "دونات" }, "price": 1750 },
+      { "name": { "en": "Cookies", "ar": "كوكيز" }, "price": 2000 },
+      { "name": { "en": "Cheesecake", "ar": "تشيز كيك" }, "price": 4000 },
+      { "name": { "en": "Mosaic Cake", "ar": "موزايك كيك" }, "price": 4000 },
+      { "name": { "en": "San Sebastián Cheesecake", "ar": "سان سباستيان" }, "price": 5000 },
+      { "name": { "en": "Brownies", "ar": "براونيز" }, "price": 3500 },
+      { "name": { "en": "Tiramisu", "ar": "تيراميسيو" }, "price": 4000 },
+      { "name": { "en": "Carrot Cake", "ar": "كيك جزر" }, "price": 4000 } ] },
+    { "category": { "en": "Our Signature Drinks", "ar": "مشروباتنا" }, "sizes": ["large"], "items": [
+      { "name": { "en": "Court Energy", "ar": "كورت اينرجي" }, "hot": false, "iced": true, "prices": { "medium": null, "large": 5000 } },
+      { "name": { "en": "Touch Special", "ar": "تاچ سبيشل" }, "hot": false, "iced": true, "prices": { "medium": null, "large": 5000 } },
+      { "name": { "en": "Pistachino Macchiato", "ar": "بستاشينو ماكياتو" }, "hot": false, "iced": true, "prices": { "medium": null, "large": 5000 } },
+      { "name": { "en": "Padel Fresh", "ar": "بادل فرش" }, "hot": false, "iced": true, "prices": { "medium": null, "large": 5000 } } ] },
+    { "category": { "en": "Healthy", "ar": "صحي" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Immunity Shot", "ar": "شوت المناعة" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": null } },
+      { "name": { "en": "Green Apple", "ar": "تفاح اخضر" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": 4000 } },
+      { "name": { "en": "Protein", "ar": "بروتين" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": 4000 } },
+      { "name": { "en": "Orange & Carrot", "ar": "برتقال - جزر" }, "hot": false, "iced": true, "prices": { "medium": 3000, "large": 4000 } } ] },
+    { "category": { "en": "Mojito", "ar": "موهيتو" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "Strawberry", "ar": "فراولة" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } },
+      { "name": { "en": "Pomegranate & Blackberry", "ar": "رمان - توت اسود" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } },
+      { "name": { "en": "Blue", "ar": "ازرق" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } },
+      { "name": { "en": "Blueberry", "ar": "توت ازرق" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } },
+      { "name": { "en": "Lemon & Mint", "ar": "ليمون - نعناع" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } },
+      { "name": { "en": "Pineapple", "ar": "أناناس" }, "hot": false, "iced": true, "prices": { "medium": 3500, "large": 4000 } } ] },
+    { "category": { "en": "Specialty Coffee", "ar": "قهوة مختصة" }, "sizes": ["medium","large"], "items": [
+      { "name": { "en": "V60", "ar": "V60" }, "hot": true, "iced": true, "prices": { "medium": 5000, "large": 7000 } },
+      { "name": { "en": "Cold Brew", "ar": "كولد برو" }, "hot": false, "iced": true, "prices": { "medium": 5000, "large": null } } ] }
+  ]
+}
