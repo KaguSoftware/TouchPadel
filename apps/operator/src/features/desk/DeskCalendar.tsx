@@ -23,10 +23,16 @@
  *    clerk picks opens the booking already linked to them.
  *
  * Keyboard: ← → move the date (by a month in month view), D / M switch views.
- * Pointer: drag a live booking onto another cell to move it (reason
- * required, then the server decides). Resize stays on the booking's own
- * shorten / extend buttons — a drag handle that could silently re-price a
- * booking is not worth the ambiguity at a busy desk.
+ * Pointer: a live booking carries a grip and is dragged to move it. The block
+ * travels WITH the hand — the row it was taken hold of stays under the pointer
+ * — and a dashed outline draws the whole destination, court, start and end, at
+ * the booking's full length, before the release. A destination the desk may
+ * not use (in the past, or already booked) draws in danger and says which;
+ * dropping there says so out loud rather than doing nothing. Then the reason
+ * prompt, then the server decides (0150 refuses a past start on its own).
+ * Resize stays on the booking's own shorten / extend buttons — a drag handle
+ * that could silently re-price a booking is not worth the ambiguity at a busy
+ * desk. The pure part of all this is dragLogic.ts, which has the tests.
  *
  * e2e selectors kept: heading 'Desk calendar', buttons '‹' '›' 'Today', the
  * 'Month' / 'Day' view buttons, slots titled 'Free', label 'Date', block
@@ -78,13 +84,26 @@ import { shiftMonth } from './calendar/monthLogic';
 import { CreateReservationDialog } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
-import { BLOCKING_STATUSES, isLive, isVisible } from './deskLogic';
+import { BLOCKING_STATUSES, guestNameOf, isLive, isVisible } from './deskLogic';
+import { dropRefusal, dropStartMin, grabRowOffset, type DropRefusal } from './dragLogic';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import type { PickedCustomer } from './customers/CustomerPicker';
 
 type View = 'day' | 'month';
 
 const DRAG_THRESHOLD_PX = 6;
+/*
+ * A drag that reaches the edge of the grid keeps going: the band, in px, in
+ * which the scrollport starts following the pointer, and how much of the
+ * overlap it travels per frame.
+ *
+ * The night is taller than the screen. Holding a booking and pushing towards
+ * 02:00 used to end with the pointer against the bottom of the window and the
+ * booking still a row short of where it belonged (Parsa, 2026-09-23) — the
+ * only way down was to let go, scroll, and take hold again.
+ */
+const EDGE_SCROLL_BAND_PX = 56;
+const EDGE_SCROLL_RATE = 0.28;
 const CLOCK_TICK_MS = 30_000;
 /** One grid row: its height plus the row gap. The now line is placed with it. */
 const ROW_PITCH = 'calc(2.4rem + var(--tp-sp-0))';
@@ -101,9 +120,18 @@ export interface DeskCalendarSearch {
  * scoped rule does it. The label is the slot's own time, from data-hover.
  */
 const SLOT_CSS = `
-.desk-slot:not(:disabled):hover { background: var(--tp-accent-soft) !important; border-color: var(--tp-accent) !important; border-style: solid !important; }
-.desk-slot:not(:disabled):hover::after { content: '+ ' attr(data-hover); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
+.desk-grid:not([data-dragging]) .desk-slot:not(:disabled):hover { background: var(--tp-accent-soft) !important; border-color: var(--tp-accent) !important; border-style: solid !important; }
+.desk-grid:not([data-dragging]) .desk-slot:not(:disabled):hover::after { content: '+ ' attr(data-hover); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
 .desk-slot:focus-visible::after { content: '+ ' attr(data-hover); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
+/*
+ * While a booking is in the hand, the bookings stop answering the pointer.
+ * The drop target is read with elementFromPoint, and a booking sits ON TOP of
+ * the slots it covers: dragging over ANY booking — including the one being
+ * dragged, which is every short drag — used to find no cell at all, so the
+ * grid went quiet exactly when the desk needed it to speak.
+ */
+.desk-grid[data-dragging] .desk-block { pointer-events: none; }
+.desk-grid[data-dragging] .desk-slot { cursor: grabbing; }
 `;
 
 /**
@@ -125,8 +153,12 @@ const STICKY_TIME = {
 
 interface DragState {
   id: string;
-  /** Where the pointer is over: a cell, or null while between cells. */
-  target: { courtId: string; min: number } | null;
+  /** Rows between the booking's own start and where the hand took hold of it. */
+  grabRows: number;
+  /** How many rows the booking covers — the preview is drawn this tall. */
+  spanRows: number;
+  /** Where it would land, or null until the pointer has been over the grid. */
+  drop: { courtId: string; startMin: number; refusal: DropRefusal | null } | null;
 }
 
 interface PendingMove {
@@ -135,7 +167,30 @@ interface PendingMove {
   startAt: Date;
 }
 
-function slotUnderPointer(x: number, y: number): { courtId: string; min: number } | null {
+/**
+ * The cell the pointer is over — or, when the pointer has run past the grid,
+ * the cell at the edge it ran past.
+ *
+ * `box` is the grid's scrollport. The pointer is pulled back inside it before
+ * the hit test, minus the header it would otherwise land on and minus the
+ * scrollbars, which are not cells and answer elementFromPoint with the
+ * scroller itself. Without that, the LAST row of the night was unreachable on
+ * a screen shorter than the night: the pointer hit the bottom of the window
+ * first and the grid stopped answering.
+ */
+function slotUnderPointer(
+  x: number,
+  y: number,
+  box?: HTMLElement | null,
+): { courtId: string; min: number } | null {
+  if (box) {
+    const r = box.getBoundingClientRect();
+    const barX = box.offsetWidth - box.clientWidth; // vertical scrollbar
+    const barY = box.offsetHeight - box.clientHeight; // horizontal scrollbar
+    const head = box.querySelector<HTMLElement>('[data-grid-head]')?.offsetHeight ?? 0;
+    x = Math.min(Math.max(x, r.left + barX + 2), r.right - barX - 2);
+    y = Math.min(Math.max(y, r.top + head + 2), r.bottom - barY - 2);
+  }
   const el = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-slot-court]');
   if (!el) return null;
   const courtId = el.dataset.slotCourt;
@@ -168,6 +223,7 @@ export function DeskCalendar() {
     reservationsQ,
     courts,
     openMin,
+    closeMin,
     rowCount,
     rows,
     dayStart,
@@ -277,17 +333,125 @@ export function DeskCalendar() {
   }, [dialogOpen, dir, view]);
 
   // ---- drag to move -------------------------------------------------------
-  const dragStart = useRef<{ id: string; x: number; y: number } | null>(null);
+  /** The grid's scrollport: the drag reads it, and "open at now" scrolls it. */
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const dragStart = useRef<{
+    id: string;
+    x: number;
+    y: number;
+    grabRows: number;
+    spanRows: number;
+  } | null>(null);
   const suppressClick = useRef(false);
+  /*
+   * Where the pointer last was. A ref rather than a local, because the drag
+   * effect is rebuilt whenever the night's rows change — the 60 s refetch, the
+   * courts broadcast — and a desk holding a booking against the bottom edge,
+   * waiting for the grid to come to it, would otherwise see the scroll stop
+   * dead until it moved the mouse again.
+   */
+  const pointerAt = useRef<{ x: number; y: number } | null>(null);
   const dragRef = useRef<DragState | null>(null);
   dragRef.current = drag;
 
   function onBlockPointerDown(e: ReactPointerEvent<HTMLButtonElement>, r: ReservationRow) {
     if (e.button !== 0 || r.kind !== 'booking' || !isLive(r.status)) return;
-    dragStart.current = { id: r.id, x: e.clientX, y: e.clientY };
+    // Which row of the block the hand closed on, so the block travels WITH the
+    // hand instead of snapping its start under the pointer. Measured off the
+    // drawn element: it is the only thing that knows the row pitch after the
+    // zoom has scaled the grid.
+    const box = e.currentTarget.getBoundingClientRect();
+    const from = Math.max(0, rowIndexOf(r.start_at));
+    const visible = Math.max(1, Math.min(spanOf(r), rowCount - from));
+    dragStart.current = {
+      id: r.id,
+      x: e.clientX,
+      y: e.clientY,
+      grabRows: grabRowOffset(e.clientY - box.top, box.height, visible),
+      spanRows: spanOf(r),
+    };
   }
 
   useEffect(() => {
+    /** Where the booking would land for a pointer over this cell, and whether it may. */
+    function dropFor(
+      start: NonNullable<typeof dragStart.current>,
+      cell: { courtId: string; min: number },
+    ): DragState['drop'] {
+      const r = reservations.find((x) => x.id === start.id);
+      if (!r) return null;
+      const startMin = dropStartMin(
+        cell.min,
+        start.grabRows,
+        start.spanRows,
+        openMin,
+        closeMin,
+        SLOT_MIN,
+      );
+      const startMs = wallTimeToUtc(date, startMin, tz).getTime();
+      const originalStartMs = new Date(r.start_at).getTime();
+      return {
+        courtId: cell.courtId,
+        startMin,
+        refusal: dropRefusal({
+          reservations,
+          ignoreId: r.id,
+          courtId: cell.courtId,
+          startMs,
+          endMs: startMs + (new Date(r.end_at).getTime() - originalStartMs),
+          originalStartMs,
+          nowMs: Date.now(),
+        }),
+      };
+    }
+
+    /** Read the pointer, redraw the preview. The one place the drag state is set. */
+    function paint(x: number, y: number) {
+      const start = dragStart.current;
+      if (!start) return;
+      const cell = slotUnderPointer(x, y, gridScrollRef.current);
+      setDrag({
+        id: start.id,
+        grabRows: start.grabRows,
+        spanRows: start.spanRows,
+        // Nowhere on the grid at all (another window, the page behind it):
+        // the preview stays where it last was rather than blinking out.
+        drop: cell ? dropFor(start, cell) : (dragRef.current?.drop ?? null),
+      });
+    }
+
+    /*
+     * While the pointer sits in the band at either end of the scrollport, the
+     * grid travels under it and the preview is redrawn against the rows that
+     * arrive. Speed follows how far into the band the pointer is, so easing up
+     * slows it down instead of being all-or-nothing. It stops on its own at
+     * either end of the scroll range, because scrollTop stops changing.
+     */
+    let raf = 0;
+    function edgeScroll() {
+      raf = 0;
+      const box = gridScrollRef.current;
+      const at = pointerAt.current;
+      if (!box || !dragStart.current || !at) return;
+      const r = box.getBoundingClientRect();
+      const past = at.y - (r.bottom - EDGE_SCROLL_BAND_PX);
+      const above = r.top + EDGE_SCROLL_BAND_PX - at.y;
+      const over =
+        past > 0
+          ? Math.min(past, EDGE_SCROLL_BAND_PX)
+          : above > 0
+            ? -Math.min(above, EDGE_SCROLL_BAND_PX)
+            : 0;
+      if (over !== 0) {
+        const before = box.scrollTop;
+        box.scrollTop = before + over * EDGE_SCROLL_RATE;
+        if (box.scrollTop !== before) paint(at.x, at.y);
+      }
+      raf = requestAnimationFrame(edgeScroll);
+    }
+    // Rebuilt mid-drag: pick the loop back up where it was.
+    if (dragStart.current && pointerAt.current) raf = requestAnimationFrame(edgeScroll);
+
     function onMove(e: PointerEvent) {
       const start = dragStart.current;
       if (!start) return;
@@ -299,40 +463,81 @@ export function DeskCalendar() {
           return;
         suppressClick.current = true;
       }
-      setDrag({ id: start.id, target: slotUnderPointer(e.clientX, e.clientY) });
+      pointerAt.current = { x: e.clientX, y: e.clientY };
+      if (!raf) raf = requestAnimationFrame(edgeScroll);
+      paint(e.clientX, e.clientY);
     }
     function onUp(e: PointerEvent) {
       const start = dragStart.current;
       dragStart.current = null;
       const current = dragRef.current;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      pointerAt.current = null;
       setDrag(null);
       if (!start || !current) return;
-      const target = slotUnderPointer(e.clientX, e.clientY) ?? current.target;
+      const cell = slotUnderPointer(e.clientX, e.clientY, gridScrollRef.current);
+      // The preview the desk was looking at IS the drop: falling back to it
+      // keeps the release from being a different move than the one on screen.
+      const drop = (cell ? dropFor(start, cell) : null) ?? current.drop;
       const r = reservations.find((x) => x.id === start.id);
-      if (!target || !r) return;
-      const startAt = wallTimeToUtc(date, target.min, tz);
+      if (!drop || !r) return;
+      const startAt = wallTimeToUtc(date, drop.startMin, tz);
       if (
-        target.courtId === r.court_id &&
+        drop.courtId === r.court_id &&
         startAt.toISOString() === new Date(r.start_at).toISOString()
       )
         return;
+      // Say why, where the hand let go. A drop that is refused in silence
+      // reads as the grid being broken, and the desk simply tries it again.
+      if (drop.refusal) {
+        toast.err(
+          tr(
+            drop.refusal === 'past'
+              ? 'ws.courtDesk.calendar.dropPastBody'
+              : 'ws.courtDesk.calendar.dropTakenBody',
+          ),
+        );
+        return;
+      }
       setMoveError(null);
       setMoveConflict(null);
-      setPendingMove({ reservation: r, courtId: target.courtId, startAt });
+      setPendingMove({ reservation: r, courtId: drop.courtId, startAt });
     }
     function onCancel() {
       dragStart.current = null;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      pointerAt.current = null;
       setDrag(null);
     }
+    /*
+     * Every gesture starts able to click, and only the gesture that actually
+     * dragged swallows its own trailing click.
+     *
+     * The flag used to be cleared by the block's own onClick — which assumed
+     * that click would arrive. It does not: a click is dispatched on the
+     * common ancestor of the press and the release, so a block dragged onto a
+     * slot fires its click on the court column, and the block's handler never
+     * runs. The flag then stayed raised and ate the NEXT click anywhere on the
+     * grid. Clearing it on pointerdown needs nothing to arrive.
+     */
+    function onDown() {
+      suppressClick.current = false;
+    }
+    window.addEventListener('pointerdown', onDown, true);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
     return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
     };
-  }, [reservations, date, tz]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast and tr are stable for the screen
+  }, [reservations, date, tz, openMin, closeMin, rowCount]);
 
   async function confirmMove(reason: ReasonCode, note: string) {
     if (!pendingMove) return;
@@ -393,7 +598,6 @@ export function DeskCalendar() {
    * the grid while it arrives, and a measured rectangle would be the scaled one.
    * Once per date, so the desk's own scrolling is never taken back.
    */
-  const gridScrollRef = useRef<HTMLDivElement>(null);
   const scrolledFor = useRef<string | null>(null);
   const gridReady =
     view === 'day' && dayStatus === 'ready' && gridStatus === 'ready' && !closed && rowCount > 0;
@@ -417,6 +621,14 @@ export function DeskCalendar() {
 
   const dayNoon = new Date(`${date}T12:00:00Z`);
   const dayCount = reservations.filter((r) => r.kind === 'booking').length;
+
+  // The booking in the hand, and how long it is: the preview is drawn from
+  // these, so what the desk sees before releasing is the whole destination
+  // slot — its court, its start AND its end — not a one-cell outline.
+  const dragged = drag ? (reservations.find((r) => r.id === drag.id) ?? null) : null;
+  const dragDurationMs = dragged
+    ? new Date(dragged.end_at).getTime() - new Date(dragged.start_at).getTime()
+    : 0;
 
   return (
     /*
@@ -613,7 +825,7 @@ export function DeskCalendar() {
           style={{ marginBlockEnd: '0.75rem' }}
         >
           <p style={{ fontSize: 'var(--tp-fs-sm)' }}>
-            <bdi>{moveConflict.reservation.guest_name ?? tr('op.desk.walkIn')}</bdi> ·{' '}
+            <bdi>{guestNameOf(moveConflict.reservation) ?? tr('op.desk.walkIn')}</bdi> ·{' '}
             {tr('ws.courtDesk.calendar.moveTo', {
               court: courtName(moveConflict.courtId),
               time: formatTime(moveConflict.startAt, locale, tz),
@@ -690,6 +902,8 @@ export function DeskCalendar() {
             ) : (
               <div ref={gridScrollRef} style={{ flex: 1, minBlockSize: 0, overflow: 'auto' }}>
                 <div
+                  className="desk-grid"
+                  data-dragging={drag ? '' : undefined}
                   style={{
                     // Positioned so a column's offsetTop is measured from here (scroll to now).
                     position: 'relative',
@@ -800,8 +1014,6 @@ export function DeskCalendar() {
                         {rows.map((min, i) => {
                           const startAt = wallTimeToUtc(date, min, tz);
                           const past = startAt.getTime() < now;
-                          const isTarget =
-                            drag?.target?.courtId === c.id && drag.target.min === min;
                           const common = {
                             'data-slot-court': c.id,
                             'data-slot-min': min,
@@ -811,10 +1023,7 @@ export function DeskCalendar() {
                               <div
                                 key={min}
                                 {...common}
-                                style={{
-                                  outline: isTarget ? '2px solid var(--tp-accent)' : undefined,
-                                  borderRadius: 'var(--tp-radius-sm)',
-                                }}
+                                style={{ borderRadius: 'var(--tp-radius-sm)' }}
                               />
                             );
                           }
@@ -835,17 +1044,11 @@ export function DeskCalendar() {
                               }
                               aria-label={`${pickName(locale, c)} ${formatTime(startAt, locale, tz)} · ${past ? tr('ws.courtDesk.calendar.pastSlot') : tr('ws.courtDesk.calendar.freeSlot')}`}
                               style={{
-                                border: isTarget
-                                  ? '2px solid var(--tp-accent)'
-                                  : '1px dashed var(--tp-border)',
+                                border: '1px dashed var(--tp-border)',
                                 borderRadius: 'var(--tp-radius-sm)',
-                                background: isTarget
-                                  ? 'var(--tp-accent-soft)'
-                                  : past
-                                    ? 'var(--tp-surface)'
-                                    : 'var(--tp-bg)',
+                                background: past ? 'var(--tp-surface)' : 'var(--tp-bg)',
                                 cursor: past ? 'default' : 'pointer',
-                                opacity: past && !isTarget ? 'var(--tp-opacity-disabled)' : 1,
+                                opacity: past ? 'var(--tp-opacity-disabled)' : 1,
                                 padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -864,17 +1067,20 @@ export function DeskCalendar() {
                               ? (r.notes ?? tr('op.desk.maintenance'))
                               : r.kind === 'hold'
                                 ? tr('op.desk.hold')
-                                : (r.guest_name ?? tr('op.desk.walkIn'));
+                                : (guestNameOf(r) ?? tr('op.desk.walkIn'));
                           return (
                             <button
                               key={r.id}
                               type="button"
+                              className="desk-block"
+                              title={
+                                draggable
+                                  ? tr('ws.courtDesk.calendar.dragHint')
+                                  : tr('ws.courtDesk.calendar.openDetail')
+                              }
                               onPointerDown={(e) => onBlockPointerDown(e, r)}
                               onClick={() => {
-                                if (suppressClick.current) {
-                                  suppressClick.current = false;
-                                  return;
-                                }
+                                if (suppressClick.current) return;
                                 setSelected(r);
                               }}
                               style={{
@@ -904,16 +1110,35 @@ export function DeskCalendar() {
                                 font: 'inherit',
                               }}
                             >
-                              <strong
+                              <span
                                 style={{
-                                  fontSize: 'var(--tp-fs-sm)',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  minInlineSize: 0,
                                 }}
                               >
-                                <bdi>{name}</bdi>
-                              </strong>
+                                {/* The grip is the affordance: the old block
+                                    was a plain rectangle that happened to be
+                                    draggable, which nobody discovers. */}
+                                {draggable && (
+                                  <Icon
+                                    name="grip"
+                                    size={13}
+                                    style={{ opacity: 0.6, marginInlineStart: '-0.2rem' }}
+                                  />
+                                )}
+                                <strong
+                                  style={{
+                                    fontSize: 'var(--tp-fs-sm)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  <bdi>{name}</bdi>
+                                </strong>
+                              </span>
                               <span
                                 style={{
                                   display: 'flex',
@@ -935,6 +1160,66 @@ export function DeskCalendar() {
                             </button>
                           );
                         })}
+                        {/*
+                         * Where it would land. Drawn at the booking's FULL
+                         * length in the destination court, with the times it
+                         * would take and, when the destination cannot have it,
+                         * the reason — so the release is never a surprise.
+                         * Painted after the blocks, so it sits over them.
+                         */}
+                        {(() => {
+                          const drop = drag?.drop;
+                          if (!drag || !drop || !dragged || drop.courtId !== c.id) return null;
+                          const at = Math.max(
+                            0,
+                            Math.round((drop.startMin - openMin) / SLOT_MIN),
+                          );
+                          const span = Math.max(1, Math.min(drag.spanRows, rowCount - at));
+                          const startAt = wallTimeToUtc(date, drop.startMin, tz);
+                          const bad = drop.refusal !== null;
+                          return (
+                            <div
+                              aria-hidden="true"
+                              style={{
+                                gridRow: `${at + 1} / span ${span}`,
+                                gridColumn: 1,
+                                position: 'relative',
+                                pointerEvents: 'none',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.1rem',
+                                overflow: 'hidden',
+                                borderRadius: 'var(--tp-radius-ctl)',
+                                border: `2px ${bad ? 'solid' : 'dashed'} ${bad ? 'var(--tp-danger-mark)' : 'var(--tp-accent)'}`,
+                                background: bad ? 'var(--tp-danger-soft)' : 'var(--tp-accent-soft)',
+                                color: bad ? 'var(--tp-danger-fg)' : 'var(--tp-accent-soft-fg)',
+                                paddingBlock: '0.25rem',
+                                paddingInline: '0.45rem',
+                                fontSize: 'var(--tp-fs-xs)',
+                                fontWeight: 700,
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {formatTimeRange(
+                                  startAt,
+                                  new Date(startAt.getTime() + dragDurationMs),
+                                  locale,
+                                  tz,
+                                )}
+                              </bdi>
+                              <span style={{ fontWeight: 600 }}>
+                                {tr(
+                                  drop.refusal === 'past'
+                                    ? 'ws.courtDesk.calendar.dropPast'
+                                    : drop.refusal === 'taken'
+                                      ? 'ws.courtDesk.calendar.dropTaken'
+                                      : 'ws.courtDesk.calendar.dropHere',
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -994,7 +1279,7 @@ export function DeskCalendar() {
         >
           <p style={{ marginBlockEnd: '0.75rem' }}>
             <strong>
-              <bdi>{pendingMove.reservation.guest_name ?? tr('op.desk.walkIn')}</bdi>
+              <bdi>{guestNameOf(pendingMove.reservation) ?? tr('op.desk.walkIn')}</bdi>
             </strong>
             <br />
             {tr('ws.courtDesk.calendar.moveTo', {

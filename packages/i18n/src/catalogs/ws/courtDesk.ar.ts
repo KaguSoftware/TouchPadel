@@ -69,7 +69,7 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
   },
 
   calendar: {
-    lead: 'انقر خانة فارغة لحجزها. اسحب حجزاً لنقله.',
+    lead: 'انقر خانة فارغة لحجزها. أمسك الحجز من مقبضه واسحبه — يبيّن الإطار أين سيحطّ.',
     leadMonth: 'الأيام الأغمق فيها حجوزات أكثر. اختر يوماً لفتحه.',
     view: 'العرض',
     prev: 'اليوم السابق (مفتاح السهم)',
@@ -100,6 +100,14 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     freeSlot: 'خانة فارغة',
     pastSlot: 'مضى',
     openDetail: 'فتح الحجز',
+
+    dragHint: 'اسحب للنقل · انقر للفتح',
+    dropHere: 'أفلِت هنا',
+    dropPast: 'في الماضي',
+    dropTaken: 'محجوز أصلاً',
+    dropPastBody: 'هذا الوقت قد مضى. الحجز المنقول إلى الماضي يختفي من تطبيق الضيف.',
+    dropTakenBody: 'هذا الملعب محجوز في جزء من ذلك الوقت.',
+    startPast: '{time} · مضى',
   },
 
   create: {
@@ -163,6 +171,7 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     moveSubmit: 'نقل',
     refused: 'هذا التغيير غير مسموح.',
     shortenFloor: 'الحجز أصلاً بأقصر مدة مسعّرة لهذا الملعب ({minutes}).',
+    movePast: 'هذا الوقت قد مضى. الحجز المنقول إلى الماضي يختفي من تطبيق الضيف.',
     moveNeedsTime: 'اختر وقت البدء الجديد أولاً.',
     done: 'تم الحفظ.',
     reason: {

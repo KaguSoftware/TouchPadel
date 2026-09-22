@@ -4,6 +4,7 @@ import {
   arrivalsDue,
   courtAvailability,
   groupByStart,
+  guestNameOf,
   isOverrideRefusal,
   isVisible,
   nameFromQuery,
@@ -39,6 +40,25 @@ describe('toBookingStatus', () => {
   it('passes the seven known statuses through and leaves unknown strings alone', () => {
     expect(toBookingStatus('no_show')).toBe('no_show');
     expect(toBookingStatus('weird')).toBe('weird');
+  });
+});
+
+describe('guestNameOf', () => {
+  it('prefers the name the desk typed', () => {
+    expect(guestNameOf(row({ id: 'a', guest_name: 'Sara', guest: { full_name: 'Sara Ahmed' } }))).toBe('Sara');
+  });
+
+  it('falls back to the account a mobile booking came from', () => {
+    // The bug: an app booking carries only guest_id, and the calendar called it a walk-in.
+    expect(guestNameOf(row({ id: 'b', guest_name: null, guest_id: 'u1', guest: { full_name: 'Sara Ahmed' } }))).toBe('Sara Ahmed');
+  });
+
+  it('is null for a real nameless walk-in, and for rows an older build cached without the join', () => {
+    expect(guestNameOf(row({ id: 'c', guest_name: null }))).toBeNull();
+    expect(guestNameOf(row({ id: 'd', guest_name: null, guest: null }))).toBeNull();
+    expect(guestNameOf(row({ id: 'e', guest_name: null, guest: { full_name: null } }))).toBeNull();
+    expect(guestNameOf(undefined)).toBeNull();
+    expect(guestNameOf(null)).toBeNull();
   });
 });
 

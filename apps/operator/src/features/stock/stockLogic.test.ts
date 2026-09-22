@@ -6,6 +6,8 @@ import {
   isBelowPar,
   isBlankLine,
   isLow,
+  isOut,
+  isPastExpiry,
   isShort,
   lineProblem,
   marginFlag,
@@ -14,6 +16,7 @@ import {
   needsCount,
   onHandStatus,
   parseOnHandFilter,
+  stockLevel,
   unitCostFromPack,
   type DeliveryLineDraft,
 } from './stockLogic';
@@ -43,6 +46,24 @@ describe('on hand status', () => {
     expect(isLow(row({ on_hand: 0, low_stock_threshold: null }))).toBe(false);
   });
 
+  it('is out of stock at zero, reorder point or not', () => {
+    expect(isOut(row({ on_hand: 0 }))).toBe(true);
+    expect(isOut(row({ on_hand: 0, low_stock_threshold: null }))).toBe(true);
+    expect(isOut(row({ on_hand: 1 }))).toBe(false);
+  });
+
+  // The three predicates all fire on an empty shelf. Whatever counts rows has
+  // to ask for the rung, or one ingredient is reported three times over.
+  it('puts a row on one rung of the ladder only', () => {
+    const empty = row({ on_hand: 0 });
+    expect(isOut(empty) && isLow(empty) && isBelowPar(empty)).toBe(true);
+    expect(stockLevel(empty)).toBe('out');
+    expect(stockLevel(row({ on_hand: 800 }))).toBe('low');
+    expect(stockLevel(row({ on_hand: 3000 }))).toBe('belowPar');
+    expect(stockLevel(row())).toBe('ok');
+    expect(stockLevel(row({ on_hand: 0, low_stock_threshold: null, par_level: null }))).toBe('out');
+  });
+
   it('is below par only strictly under par', () => {
     expect(isBelowPar(row({ on_hand: 3999 }))).toBe(true);
     expect(isBelowPar(row({ on_hand: 4000 }))).toBe(false);
@@ -56,16 +77,22 @@ describe('on hand status', () => {
     expect(needsCount(row())).toBe(false);
   });
 
-  it('wears the single worst status: low, then count needed, then below par', () => {
+  // A row sold past its records is nearly always at zero, so "count needed"
+  // may not outrank the level: it would hide every empty shelf behind a
+  // bookkeeping note. The table prints the recorded figure beside the badge.
+  it('wears its level as the status, and "count needed" only when the level is fine', () => {
+    expect(onHandStatus(row({ on_hand: 0, theoretical: -20 }))).toBe('out');
+    expect(onHandStatus(row({ on_hand: 0, low_stock_threshold: null, par_level: null }))).toBe('out');
     expect(onHandStatus(row({ on_hand: 500, theoretical: -20 }))).toBe('low');
-    expect(onHandStatus(row({ on_hand: 3000, theoretical: 2800 }))).toBe('countNeeded');
-    expect(onHandStatus(row({ on_hand: 3000, theoretical: 3000 }))).toBe('belowPar');
+    expect(onHandStatus(row({ on_hand: 3000, theoretical: 2800 }))).toBe('belowPar');
+    expect(onHandStatus(row({ on_hand: 5000, theoretical: 4800 }))).toBe('countNeeded');
     expect(onHandStatus(row())).toBe('ok');
   });
 });
 
 describe('on hand filter', () => {
   it('accepts the links other screens use and opens everything for anything else', () => {
+    expect(parseOnHandFilter('out')).toBe('out');
     expect(parseOnHandFilter('low')).toBe('low');
     expect(parseOnHandFilter('belowPar')).toBe('belowPar');
     expect(parseOnHandFilter('countNeeded')).toBe('countNeeded');
@@ -74,10 +101,24 @@ describe('on hand filter', () => {
   });
 
   it('narrows the table to exactly the rows the filter names', () => {
+    const out = row({ on_hand: 0 });
     const low = row({ on_hand: 10 });
+    const under = row({ on_hand: 3000 });
     const fine = row();
-    expect([low, fine].filter((r) => matchesOnHandFilter(r, 'low'))).toEqual([low]);
-    expect([low, fine].filter((r) => matchesOnHandFilter(r, 'all'))).toEqual([low, fine]);
+    const all = [out, low, under, fine];
+    expect(all.filter((r) => matchesOnHandFilter(r, 'out'))).toEqual([out]);
+    expect(all.filter((r) => matchesOnHandFilter(r, 'low'))).toEqual([low]);
+    expect(all.filter((r) => matchesOnHandFilter(r, 'belowPar'))).toEqual([under]);
+    expect(all.filter((r) => matchesOnHandFilter(r, 'all'))).toEqual(all);
+  });
+
+  // What the manager was reading as "54 out of stock, 49 below par": the same
+  // shelves, counted twice. Every row belongs to exactly one level filter.
+  it('counts each row under one level, so the attention list adds up', () => {
+    const rows = [row({ on_hand: 0 }), row({ on_hand: 0 }), row({ on_hand: 10 }), row({ on_hand: 3000 }), row()];
+    const counts = (['out', 'low', 'belowPar'] as const).map((f) => rows.filter((r) => matchesOnHandFilter(r, f)).length);
+    expect(counts).toEqual([2, 1, 1]);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(rows.length - 1);
   });
 
   it('searches either language', () => {
@@ -89,22 +130,39 @@ describe('on hand filter', () => {
 });
 
 describe('goods in lines', () => {
+  const TODAY = '2026-09-23';
   const blank: DeliveryLineDraft = { ingredientId: '', qtyExpected: '', qtyReceived: '', unitCostIqd: '', expiryDate: '' };
   const line = (over: Partial<DeliveryLineDraft>): DeliveryLineDraft => ({ ...blank, ...over });
 
   it('skips a line nothing was typed into, rather than calling it an error', () => {
     expect(isBlankLine(blank)).toBe(true);
-    expect(lineProblem(blank)).toBeNull();
+    expect(lineProblem(blank, TODAY)).toBeNull();
   });
 
   // The old screen dropped half-filled lines silently on submit.
   it('names the first thing missing from a started line', () => {
-    expect(lineProblem(line({ qtyReceived: '5' }))).toBe('ingredient');
-    expect(lineProblem(line({ ingredientId: 'i1' }))).toBe('received');
-    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '0' }))).toBe('received');
-    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '5' }))).toBe('cost');
-    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '5', unitCostIqd: '2', qtyExpected: 'x' }))).toBe('ordered');
-    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '5', unitCostIqd: '0' }))).toBeNull();
+    expect(lineProblem(line({ qtyReceived: '5' }), TODAY)).toBe('ingredient');
+    expect(lineProblem(line({ ingredientId: 'i1' }), TODAY)).toBe('received');
+    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '0' }), TODAY)).toBe('received');
+    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '5' }), TODAY)).toBe('cost');
+    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '5', unitCostIqd: '2', qtyExpected: 'x' }), TODAY)).toBe('ordered');
+    expect(lineProblem(line({ ingredientId: 'i1', qtyReceived: '5', unitCostIqd: '0' }), TODAY)).toBeNull();
+  });
+
+  // Stock that expired before it arrived cannot go on the shelf, so the line
+  // holds the Record button rather than booking a dead batch.
+  it('refuses an expiry date already behind us, and lets today through', () => {
+    const good = { ingredientId: 'i1', qtyReceived: '5', unitCostIqd: '2' };
+    expect(lineProblem(line({ ...good, expiryDate: '2026-09-22' }), TODAY)).toBe('expiry');
+    expect(lineProblem(line({ ...good, expiryDate: TODAY }), TODAY)).toBeNull();
+    expect(lineProblem(line({ ...good, expiryDate: '2026-12-01' }), TODAY)).toBeNull();
+    expect(lineProblem(line({ ...good, expiryDate: '' }), TODAY)).toBeNull();
+  });
+
+  it('reads a blank expiry box as "no expiry", not as a past one', () => {
+    expect(isPastExpiry('', TODAY)).toBe(false);
+    expect(isPastExpiry('  ', TODAY)).toBe(false);
+    expect(isPastExpiry('2020-01-01', TODAY)).toBe(true);
   });
 
   it('flags a short delivery only when both amounts are known', () => {
@@ -139,6 +197,15 @@ describe('alerts', () => {
     expect(alertKind('expiring_soon', {})).toBe('expiring_soon');
     expect(alertKind('negative_stock', {})).toBe('negative_stock');
     expect(alertKind('something_new', {})).toBeNull();
+  });
+
+  // Same idea for an empty shelf (migration 0151): one server kind, two
+  // meanings, and "Running low" is the wrong thing to say about a shelf with
+  // nothing on it.
+  it('splits an empty shelf out of running low', () => {
+    expect(alertKind('low_stock', { out: true })).toBe('out_of_stock');
+    expect(alertKind('low_stock', {})).toBe('low_stock');
+    expect(alertKind('low_stock', { out: false })).toBe('low_stock');
   });
 
   it('orders groups by what hurts most if ignored, and lists every kind once', () => {

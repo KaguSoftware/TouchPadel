@@ -45,6 +45,7 @@ interface AlertRow {
 
 const KIND_TONE: Record<AlertKind, 'danger' | 'warn' | 'neutral'> = {
   negative_stock: 'danger',
+  out_of_stock: 'danger',
   expired: 'danger',
   low_stock: 'warn',
   expiring_soon: 'warn',
@@ -54,6 +55,7 @@ const KIND_TONE: Record<AlertKind, 'danger' | 'warn' | 'neutral'> = {
 /** Where each kind is resolved. Replay conflicts have no screen that fixes them — the group says what to do instead. */
 const KIND_HREF: Partial<Record<AlertKind, string>> = {
   negative_stock: '/stock/counts',
+  out_of_stock: '/stock?filter=out',
   expired: '/stock/expiry',
   low_stock: '/stock?filter=low',
   expiring_soon: '/stock/expiry',
@@ -156,6 +158,10 @@ function AlertGroup({
     switch (kind) {
       case 'low_stock':
         return tr('ws.manager.stock.alerts.detail.low_stock', { onHand: q(a.payload.on_hand), threshold: q(a.payload.threshold) });
+      // No "reorder point" clause: an empty shelf raises this whether or not
+      // the ingredient has one, and most here do not.
+      case 'out_of_stock':
+        return tr('ws.manager.stock.alerts.detail.out_of_stock');
       case 'negative_stock':
         return tr('ws.manager.stock.alerts.detail.negative_stock', { qty: q(a.payload.shortfall) });
       case 'expiring_soon':
@@ -199,7 +205,7 @@ function AlertGroup({
       padded={false}
       title={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-          <CardTitle icon={kind === 'replay_conflict' ? 'wifiOff' : kind === 'expired' || kind === 'expiring_soon' ? 'hourglass' : 'package'}>
+          <CardTitle icon={kind === 'replay_conflict' ? 'wifiOff' : kind === 'expired' || kind === 'expiring_soon' ? 'hourglass' : kind === 'out_of_stock' ? 'ban' : 'package'}>
             {tr(`ws.manager.stock.alerts.kind.${kind}`)}
           </CardTitle>
           <StatusBadge size="sm" tone={KIND_TONE[kind]} label={fmt.num(rows.length)} />

@@ -31,7 +31,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { permissionsFor, useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { ReservationBadge } from './deskStatus';
-import { allowedMarks, isLive } from './deskLogic';
+import { allowedMarks, guestNameOf, isLive } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
@@ -113,7 +113,7 @@ export function ReservationActionsDialog({
   // The floor is the court's own shortest bookable duration: shorter than that
   // and no rate rule prices the slot, so the server refuses. Do not offer it.
   const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
-  const title = r.kind === 'maintenance' ? tr('op.desk.maintenance') : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
+  const title = r.kind === 'maintenance' ? tr('op.desk.maintenance') : r.kind === 'hold' ? tr('op.desk.hold') : (guestNameOf(r) ?? tr('op.desk.walkIn'));
 
   // The pair shares a border, so the floor hint sits under it and is tied to
   // the minus button by id rather than through Button's own disabledReason.
@@ -293,11 +293,21 @@ export function ReservationActionsDialog({
           <Field label={tr('op.desk.newStart')}>
             <select style={inputStyle} value={moveStartMin} disabled={busy} onChange={(e) => setMoveStartMin(e.target.value === '' ? '' : Number(e.target.value))}>
               <option value="">{tr('ws.courtDesk.calendar.sameTime', { time: formatTime(new Date(r.start_at), locale, tz) })}</option>
-              {rows.map((min) => (
-                <option key={min} value={min}>
-                  {formatTime(wallTimeToUtc(date, min, tz), locale, tz)}
-                </option>
-              ))}
+              {rows.map((min) => {
+                const at = wallTimeToUtc(date, min, tz);
+                // A start MOVED into the past strands the booking: the desk
+                // goes on calling it confirmed while the guest's app drops it
+                // out of Upcoming and shows it nowhere (Parsa, 2026-09-23).
+                // Standing still is fine — that is a court change on a game
+                // already running.
+                const past = at.getTime() < Date.now() && at.getTime() !== new Date(r.start_at).getTime();
+                const label = formatTime(at, locale, tz);
+                return (
+                  <option key={min} value={min} disabled={past}>
+                    {past ? tr('ws.courtDesk.calendar.startPast', { time: label }) : label}
+                  </option>
+                );
+              })}
             </select>
           </Field>
           <Field label={tr('op.desk.overrideReason')}>

@@ -100,6 +100,12 @@ const PATHS = {
    * it is symmetric, so it does not need mirroring under RTL.
    */
   frame: 'M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3',
+  /**
+   * Two columns of dots — the one shape that says "take hold of this" without
+   * a word. Drawn as zero-length segments, which strokeLinecap="round" renders
+   * as dots, so it stays one path like every other glyph here.
+   */
+  grip: 'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01',
   /** The same frame with the corners turned in: the way back out. */
   frameExit: 'M8 3v2a3 3 0 0 1-3 3H3M16 3v2a3 3 0 0 0 3 3h2M21 16h-2a3 3 0 0 0-3 3v2M8 21v-2a3 3 0 0 0-3-3H3',
 } as const;

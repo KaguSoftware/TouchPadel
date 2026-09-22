@@ -39,6 +39,8 @@ vi.mock('@tanstack/react-router', () => ({
 
 const TZ = 'Asia/Baghdad';
 const DATE = '2099-09-03';
+/** A night that has already been and gone — for the rules that read the clock. */
+const PAST_DATE = '2020-09-03';
 const courts = [
   { id: 'c1', name_en: 'Court 1', name_ar: 'ملعب 1', duration_options: [60, 90], sort_order: 1 },
   { id: 'c2', name_en: 'Court 2', name_ar: 'ملعب 2', duration_options: [60, 90], sort_order: 2 },
@@ -146,6 +148,33 @@ describe('ReservationActionsDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Take payment' }));
     expect(onClose).toHaveBeenCalled();
     expect(navigateSpy).toHaveBeenCalledWith({ to: '/desk/bookings/$id', params: { id: 'r1' } });
+  });
+
+  /*
+   * 2026-09-23: a booking moved to a start that has already passed stays
+   * 'confirmed' on the desk and leaves the guest's app entirely — not in
+   * Upcoming, not in Played, not in Cancelled. The server refuses it since
+   * 0150; this is the desk not asking for it.
+   */
+  it('will not offer a start time that has already passed', async () => {
+    const user = userEvent.setup();
+    const pastAt = (min: number) => wallTimeToUtc(PAST_DATE, min, TZ);
+    wrap(
+      <ReservationActionsDialog
+        reservation={booking({ id: 'r1', start_at: pastAt(20 * 60).toISOString(), end_at: pastAt(21 * 60).toISOString() })}
+        courts={courts}
+        date={PAST_DATE}
+        tz={TZ}
+        rows={rows}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Move' }));
+    const options = (screen.getByLabelText('New start time') as HTMLSelectElement).options;
+    // [0] is "same time"; then the three rows: 19:00, 20:00 (its own start), 21:00.
+    expect([options[1]?.disabled, options[2]?.disabled, options[3]?.disabled]).toEqual([true, false, true]);
+    expect(options[1]?.text).toMatch(/past/);
   });
 
   it('carries the chosen reason on an override (SOW L313)', async () => {

@@ -6,10 +6,11 @@
  * The screen answers two questions, in the order a manager asks them:
  *
  *  1. **Does anything need me?** One list, the stock twin of Today's "Needs
- *     you now": running low, below par, sold past the records, expired,
- *     expiring, unread alerts. Each row has one button that opens exactly those
- *     items — the first three narrow the table below, the rest open the screen
- *     that resolves them. The previous version showed six tiles in two rows
+ *     you now": out of stock, running low, below par, sold past the records,
+ *     expired, expiring, unread alerts. Each row has one button that opens
+ *     exactly those items — the four the table can show narrow it, the rest
+ *     open the screen that resolves them. Out of stock leads because an empty
+ *     shelf is already costing sales, not about to. The previous version showed six tiles in two rows
  *     (one orphaned), one of which was a permanent "Stock value — not reported
  *     by the server" even though report_stock has always returned it.
  *  2. **What do we have?** The table, searchable, one status per row. The
@@ -22,11 +23,11 @@
  * explained exactly once, under the table, where someone looking for an
  * editable number ends up.
  *
- * `?filter=low|belowPar|countNeeded` opens the table already narrowed; the
- * Today screen links to the first two.
+ * `?filter=out|low|belowPar|countNeeded` opens the table already narrowed; the
+ * Today screen links to `low` and `belowPar`.
  */
 import { useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { formatDate } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -48,21 +49,22 @@ import {
   type Column,
 } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
+import { IngredientForm } from './IngredientForm';
 import { LedgerDrawer } from './LedgerDrawer';
 import { AttentionList, Footnote, IngredientName, KindFilter, matchesKind, useStockFormat, type AttentionItem, type StockKindFilter } from './stockUi';
 import {
-  isBelowPar,
-  isLow,
   matchesName,
   matchesOnHandFilter,
   needsCount,
   onHandStatus,
   parseOnHandFilter,
+  stockLevel,
   type OnHandFilter,
+  type StockLevel,
 } from './stockLogic';
 import { SK, fetchAlertCount, fetchLastCount, fetchOnHand, fetchOpenCount, fetchSummary, type OnHandRow } from './stockKeys';
 
-export { isBelowPar, isLow } from './stockLogic';
+export { isBelowPar, isLow, isOut, stockLevel } from './stockLogic';
 
 export function OnHand() {
   const { tr, locale } = useLocale();
@@ -73,7 +75,9 @@ export function OnHand() {
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<StockKindFilter>('all');
   const [open, setOpen] = useState<OnHandRow | null>(null);
+  const [adding, setAdding] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand, refetchInterval: 60_000 });
   const summaryQ = useQuery({ queryKey: SK.summary, queryFn: fetchSummary, refetchInterval: 60_000 });
@@ -94,10 +98,23 @@ export function OnHand() {
     tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // Counted by the rung each row is on, never by the raw predicates: an empty
+  // shelf is under its reorder point AND under par, so asking those separately
+  // reports the same ingredient in three rows of this list at once.
+  const atLevel = (level: StockLevel) => active.filter((r) => stockLevel(r) === level).length;
+
   const attention: AttentionItem[] = [
     {
+      key: 'out',
+      count: atLevel('out'),
+      tone: 'danger',
+      title: tr('ws.manager.stock.onHand.now.out'),
+      hint: tr('ws.manager.stock.onHand.now.outHint'),
+      action: { label: tr('ws.manager.stock.onHand.now.showWhich'), onClick: () => showWhich('out') },
+    },
+    {
       key: 'low',
-      count: active.filter(isLow).length,
+      count: atLevel('low'),
       tone: 'danger',
       title: tr('ws.manager.stock.onHand.now.low'),
       hint: tr('ws.manager.stock.onHand.now.lowHint'),
@@ -121,7 +138,7 @@ export function OnHand() {
     },
     {
       key: 'belowPar',
-      count: active.filter(isBelowPar).length,
+      count: atLevel('belowPar'),
       tone: 'warn',
       title: tr('ws.manager.stock.onHand.now.belowPar'),
       hint: tr('ws.manager.stock.onHand.now.belowParHint'),
@@ -257,7 +274,16 @@ export function OnHand() {
           </Panel>
 
           <div ref={tableRef} style={{ scrollMarginBlockStart: 'var(--tp-sp-4)' }}>
-            <Toolbar end={<ResultCount shown={rows.length} total={active.length} />}>
+            <Toolbar
+              end={
+                <>
+                  <ResultCount shown={rows.length} total={active.length} />
+                  <Button kind="primary" icon="plus" onClick={() => setAdding(true)}>
+                    {tr('ws.manager.stock.ingredients.add')}
+                  </Button>
+                </>
+              }
+            >
               <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
                 <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
               </span>
@@ -267,6 +293,7 @@ export function OnHand() {
                 aria-label={tr('ws.manager.stock.onHand.table.show')}
                 options={[
                   { value: 'all', label: tr('ws.kit.common.all') },
+                  { value: 'out', label: tr('op.stock.status.out') },
                   { value: 'low', label: tr('op.stock.status.low') },
                   { value: 'belowPar', label: tr('op.stock.status.belowPar') },
                   { value: 'countNeeded', label: tr('op.stock.status.countNeeded') },
@@ -306,6 +333,17 @@ export function OnHand() {
       </AsyncStateWrapper>
 
       {open && <LedgerDrawer ingredient={open} onClose={() => setOpen(null)} />}
+      {adding && (
+        <IngredientForm
+          row={null}
+          onHand={null}
+          onDone={() => {
+            setAdding(false);
+            void queryClient.invalidateQueries({ queryKey: ['stock'] });
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
     </div>
   );
 }
@@ -321,7 +359,7 @@ function RowStatus({ row }: { row: OnHandRow }) {
   if (s === 'ok') return <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('op.stock.status.ok')}</span>;
   return (
     <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
-      <StatusBadge size="sm" tone={s === 'low' ? 'danger' : 'warn'} label={tr(`op.stock.status.${s}`)} />
+      <StatusBadge size="sm" tone={s === 'out' || s === 'low' ? 'danger' : 'warn'} label={tr(`op.stock.status.${s}`)} />
       {needsCount(row) && (
         <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
           <bdi>{tr('ws.manager.stock.onHand.table.recordsSay', { qty: fmt.qty(row.theoretical, row.unit) })}</bdi>
