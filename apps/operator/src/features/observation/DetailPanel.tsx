@@ -19,6 +19,7 @@ import { useLocale } from '../../lib/i18n';
 import { trapTab, Button } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { useWorkspace } from '../../routes/__root';
+import { useOwnsScreen } from '../../lib/screenOwner';
 import type { WorkspaceKey } from '../../lib/workspaces';
 
 export interface WorkspaceTarget {
@@ -51,6 +52,9 @@ export function DetailPanel({
   const panelRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // Runs to the top edge, where the macOS drag strip would eat the header.
+  useOwnsScreen();
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;

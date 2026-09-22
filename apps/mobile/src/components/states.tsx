@@ -87,12 +87,14 @@ export function SkeletonList({ rows = 4, height = 84 }: { rows?: number; height?
 
 /**
  * The retry button's id, derived from the block's: `bookings.error` →
- * `bookings.retry`. The smoke tests assert `<route>.retry` on every screen
- * that can fail, and deriving it means a screen cannot label the block and
- * then forget the one control that gets a guest out of the failure.
+ * `bookings.error.retry`. Appended, not substituted for the last segment:
+ * stripping it made `app.crash` and `app.config-error` both answer to
+ * `app.retry`, so a test could not tell which failure it was looking at.
+ * Deriving it means a screen cannot label the block and then forget the one
+ * control that gets a guest out of the failure.
  */
 function retryTestID(testID: string | undefined): string | undefined {
-  return testID ? `${testID.replace(/\.[^.]*$/, '')}.retry` : undefined;
+  return testID ? `${testID}.retry` : undefined;
 }
 
 export function ErrorState({
@@ -108,7 +110,7 @@ export function ErrorState({
   retryLabel: string;
   onRetry?: () => void;
   busy?: boolean;
-  /** `<route>.error`; the retry Button takes `<route>.retry` (see above). */
+  /** `<route>.error`; the retry Button takes `<route>.error.retry` (see above). */
   testID?: string;
 }) {
   const { colors, fonts } = useTheme();

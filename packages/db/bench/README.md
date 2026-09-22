@@ -58,7 +58,7 @@ invariant, `2` harness error (no stack, no baseline, a refused
 | `run.ts`                    | Argument parsing, area order, repeat folding, the summary table.                                                                                           |
 | `compare.ts`                | The diff, and `--update-baseline`.                                                                                                                         |
 | `seed.sql` / `teardown.sql` | The fixture, `bec4`-prefixed, and its removal.                                                                                                             |
-| `baseline.json`             | Committed. **Today it is a local placeholder** — see below.                                                                                                |
+| `baseline.json`             | Committed; taken on the CI runner (`meta.runner: "github-actions"`). How to retake it is below.                                                            |
 | `results/`                  | Gitignored; every run overwrites `results.json`.                                                                                                           |
 
 ## The rule
@@ -112,12 +112,14 @@ whatever the p95 says:
   back `duplicate` with neither count moving. Counts are compared as **deltas**,
   because `sync_replays` is append-only and a second run cannot clear the first.
 
-## Replacing the placeholder baseline
+## Retaking the baseline
 
-**The committed `baseline.json` is a local placeholder** (`meta.runner:
-"local-placeholder"`). It exists so `bench:compare` and
-`tests/bench-contract.test.ts` have something to read; its numbers are from a
-Windows laptop and mean nothing as a gate. Replace it with the first real run:
+The committed `baseline.json` was taken on the CI runner (`meta.runner:
+"github-actions"`; the `meta` block names the SHA, the CPU model and the core
+count it was measured on). It is the gate the nightly compares against, so it is
+retaken only when a change is MEANT to move the numbers — a new index, a
+rewritten RPC, a different runner class — and the commit that retakes it says
+why:
 
 1. GitHub → **Actions** → **Bench (db)**.
 2. **Run workflow**.
@@ -127,8 +129,9 @@ Windows laptop and mean nothing as a gate. Replace it with the first real run:
    commit that one file.
 
 `compare.ts` refuses to write a baseline outside GitHub Actions unless you pass
-`--force`, which is how the placeholder was made, and it prints a warning on
-every comparison against a placeholder.
+`--force`, which stamps it `runner: "local-placeholder"`; a laptop's numbers are
+not a baseline the nightly can compare against, and nothing should be committed
+with that stamp.
 
 ## The fixture
 

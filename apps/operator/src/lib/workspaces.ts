@@ -266,7 +266,12 @@ const OWNER_SECTIONS: readonly NavSection[] = [
   { key: 'financial', home: '/financial', icon: 'banknote', items: OWNER_FINANCIAL },
   { key: 'observation', home: '/observation', icon: 'eye', items: OWNER_OBSERVATION },
   { key: 'stock', home: '/stock', icon: 'package', items: OWNER_STOCK },
-  { key: 'setup', home: '/setup', icon: 'settings', items: OWNER_SETUP },
+  // Sliders, not the gear: /admin/settings is ONE row inside this section
+  // (OWNER_SETUP), and when the section and one of its own rows wore the same
+  // gear, the row you wanted was the one that looked like the section holding
+  // it. It is also the mobile app's settings glyph, so staff who use both
+  // meet one icon for the idea.
+  { key: 'setup', home: '/setup', icon: 'sliders', items: OWNER_SETUP },
 ];
 
 export const WORKSPACES: Record<WorkspaceKey, Workspace> = {

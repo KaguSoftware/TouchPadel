@@ -91,7 +91,7 @@ const migrationFiles = readdirSync(MIGRATIONS)
   .filter((f) => f.endsWith('.sql'))
   .sort()
   .map((file) => ({ file, sql: readFileSync(path.join(MIGRATIONS, file), 'utf8') }));
-const { live: liveSigs, misses: dropMisses } = replaySignatures(migrationFiles);
+const { live: liveSigs, misses: dropMisses, errors: replayErrors } = replaySignatures(migrationFiles);
 const overloadAllow = JSON.parse(readFileSync(OVERLOADS_FILE, 'utf8')).allowed ?? {};
 const overloaded = [...liveSigs.entries()].filter(([, sigs]) => sigs.size > 1);
 const strayOverloads = overloaded.filter(([name]) => !(name in overloadAllow));
@@ -168,6 +168,23 @@ if (strayOverloads.length > 0) {
       '      a plain `create function` counts — with `drop function app.<name>(<exact prior types>)`\n' +
       '      first and the grants re-issued after; or, if both signatures are meant to coexist,\n' +
       '      add the name to fixtures/rpc-overloads.json with the reason.',
+  );
+}
+
+if (replayErrors.length > 0) {
+  problems.push(
+    `${replayErrors.length} bare \`drop function app.<name>;\` (no argument list) hit an OVERLOADED name:\n` +
+      replayErrors
+        .map(
+          ({ file, name, sigs }) =>
+            `        ${file}: drop function app.${name};\n` +
+            sigs.map((sig) => `            (${sig}) is live too`).join('\n'),
+        )
+        .join('\n') +
+      '\n\n' +
+      '      Postgres refuses that statement when the name is not unique ("function name\n' +
+      '      is not unique"), so the migration fails at apply time. Spell out the argument\n' +
+      '      types of the signature to drop, one statement per signature.',
   );
 }
 

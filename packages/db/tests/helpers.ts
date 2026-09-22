@@ -1132,6 +1132,8 @@ export interface VenueBProbe {
   tableIds: [string, string];
   /** A registered till at B whose heartbeat is a day old (B reads degraded). */
   stationId: string;
+  /** The venue-wide 'TEST all-day' rate rule at B (court_id null, priority -100). */
+  ruleId: string;
 }
 
 /**
@@ -1238,7 +1240,19 @@ export async function ensureVenueBProbeData(svc: SupabaseClient): Promise<VenueB
   ]);
   if (svErr) throw new Error(`venue B probe staff_venues insert failed: ${svErr.message}`);
 
-  return { venueId: VENUE_B_ID, courtIds, tableIds, stationId };
+  // `up` ignores duplicates, and deactivateVenueBProbeData switched these rows
+  // OFF on the previous run: put them back on explicitly, or the second run of
+  // this suite proves nothing about an inactive court, table or rule.
+  for (const [table, ids] of [
+    ['courts', courtIds],
+    ['cafe_tables', tableIds],
+    ['rate_rules', [ruleId]],
+  ] as const) {
+    const { error } = await svc.from(table).update({ is_active: true }).in('id', ids);
+    if (error) throw new Error(`venue B probe ${table} re-activate failed: ${error.message}`);
+  }
+
+  return { venueId: VENUE_B_ID, courtIds, tableIds, stationId, ruleId };
 }
 
 /**
@@ -1269,6 +1283,15 @@ export async function deactivateVenueBProbeData(svc: SupabaseClient): Promise<vo
     .update({ is_active: false })
     .eq('venue_id', VENUE_B_ID);
   if (tErr) throw new Error(`deactivateVenueBProbeData tables failed: ${tErr.message}`);
+
+  // The venue-wide 'TEST all-day' rule planted at B. app.price_slot is filtered
+  // to the court's venue since 0139, but an ACTIVE rule at an inactive venue is
+  // still a row the pricing suites would have to reason about; switch it off.
+  const { error: rErr } = await svc
+    .from('rate_rules')
+    .update({ is_active: false })
+    .eq('venue_id', VENUE_B_ID);
+  if (rErr) throw new Error(`deactivateVenueBProbeData rate_rules failed: ${rErr.message}`);
 
   const bStaff = [SEED_STAFF_IDS.manager_b, SEED_STAFF_IDS.cashier_b];
   const { error: dErr } = await svc.from('staff_venues').delete().in('staff_id', bStaff);

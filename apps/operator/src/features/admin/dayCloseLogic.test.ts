@@ -144,6 +144,7 @@ describe('plain words for stored codes', () => {
     expect(queueErrorCode('400: TAB_NOT_EMPTY')).toBe('TAB_NOT_EMPTY');
     expect(queueErrorCode('400: the server said no')).toBeNull();
     expect(queueErrorCode('network down')).toBeNull();
+    expect(queueErrorCode('HTTP 503 gateway')).toBeNull();
     expect(queueErrorCode(null)).toBeNull();
   });
 });

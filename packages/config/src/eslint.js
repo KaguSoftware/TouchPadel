@@ -208,12 +208,18 @@ const testIdElements = [
   'DegradedBanner',
   'CapsuleControl',
   'PlayersChip',
+  'CountryRow',
 ].join('|');
 
 const TEST_ID_MESSAGE =
   'Interactive element without a testID. Name it `<route>.<element>` (kebab-case, dots between ' +
   'segments — `sign-in.submit`, `bookings.filter.upcoming`); a list row appends its entity id. ' +
   'A shared component takes `testID?: string` and forwards it explicitly — a {...spread} does not count.';
+
+const TEST_ID_UNDEFINED_MESSAGE =
+  'testID={undefined} is no testID. A wrapper that derives child ids from its own takes ' +
+  '`testID: string` (required) and passes `${testID}.<child>` unconditionally; the old ' +
+  '`testID={testID ? … : undefined}` idiom shipped id-less controls whenever a caller forgot the prop.';
 
 export const testIdRules = {
   'no-restricted-syntax': [
@@ -231,6 +237,14 @@ export const testIdRules = {
         'JSXOpeningElement[name.type="JSXMemberExpression"][name.property.name="AppleAuthenticationButton"]' +
         ':not(:has(> JSXAttribute[name.name="testID"]))',
       message: TEST_ID_MESSAGE,
+    },
+    {
+      // `testID={undefined}` satisfies the two selectors above (the attribute
+      // IS there) and puts no id on the element. Reported on ANY element, not
+      // only the listed ones: a literal undefined is never what a caller meant.
+      selector:
+        'JSXAttribute[name.name="testID"] > JSXExpressionContainer > Identifier[name="undefined"]',
+      message: TEST_ID_UNDEFINED_MESSAGE,
     },
   ],
 };

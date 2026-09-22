@@ -28,6 +28,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { formatNumber, formatTime } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Skeleton } from '../../components/ui';
+import { ScreenOwnerClaim } from '../../lib/screenOwner';
+import { touch } from '../../ipc/bridge';
 import { AsyncStateWrapper, Panel } from '../../components/kit';
 import { ConnectionPill } from '../../components/ConnectionPill';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
@@ -195,10 +197,17 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
   const [drawable] = useState(canDraw);
+  // Pixels the macOS traffic lights are drawn over, for the full-screen
+  // corner. Absent off Electron and off macOS, where they do not exist.
+  const [titleBarInset] = useState(() => touch.getStation().titleBarInset ?? 0);
   const [ready, setReady] = useState(false);
   const [hover, setHover] = useState<Hover | null>(null);
   const [focused, setFocused] = useState(false);
   const [full, setFull] = useState(false);
+  // Where the slider's thumb sits: 0 the whole floor, 1 as close as the plan
+  // goes. The scene owns the truth and reports every camera move, so the
+  // buttons, a click on a court and a drag all carry the thumb with them.
+  const [zoomLevel, setZoomLevel] = useState(0);
 
   useEffect(() => {
     if (!drawable || !hostRef.current) return;
@@ -216,6 +225,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
             setFocused(true);
           },
           onMoved: () => setFocused(true),
+          onZoom: setZoomLevel,
         },
         { reducedMotion },
       );
@@ -234,10 +244,17 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
     sceneRef.current?.apply(snapshot);
   }, [snapshot]);
 
-  // Full screen: the plan covers the window, the wheel zooms (there is nothing
-  // else to scroll), and Escape is the way out alongside the button.
+  // The wheel zooms the plan wherever it is (owner request, 2026-09-21), and
+  // only over the plan — the handler is on the canvas, so the wheel means what
+  // it always meant everywhere else on the page. Inside the scrolling panel it
+  // hands the wheel back once the plan is all the way out or all the way in,
+  // so the page still scrolls past rather than trapping the reader on the
+  // canvas; see the note on the handler in floorScene.ts.
+  //
+  // Full screen additionally covers the window, and Escape is the way out
+  // alongside the button.
   useEffect(() => {
-    sceneRef.current?.setWheelZoom(full);
+    sceneRef.current?.setWheelZoom(true);
     if (!full) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setFull(false);
@@ -268,6 +285,9 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
 
   return (
     <div style={stage}>
+      {/* Full screen only: the exit and zoom buttons sit in the top corner,
+          which is where the macOS drag strip would be. Inline, not laid out. */}
+      {full && <ScreenOwnerClaim />}
       <div
         ref={hostRef}
         role="img"
@@ -281,14 +301,56 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
           <Skeleton lines={1} blockSize="100%" style={{ blockSize: '100%' }} />
         </div>
       )}
-      {ready && (
-        <div style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-2)', insetInlineEnd: 'var(--tp-sp-2)', display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
-          {/* Only once the view has moved: at the whole floor the button would
-              be a control that does nothing. */}
-          {focused && (
+      {/* "Show whole floor" sits in the top START corner, opposite the zoom
+          cluster (owner call, 2026-09-21): it undoes a move rather than
+          adjusting one, so it does not belong in the column of controls that
+          make the moves. Only once the view HAS moved — at the whole floor it
+          would be a control that does nothing. */}
+      {ready && (focused || full) && (
+        <div
+          style={{
+            position: 'absolute',
+            // Full screen puts this corner under the macOS traffic lights,
+            // which the OS draws over the page ('hiddenInset'): clear the
+            // band they occupy and keep the usual gap below it, so the row
+            // sits under them rather than behind them.
+            //
+            // In BOTH languages, now that the row spans the full width. The
+            // lights stay at the window's physical top-LEFT whatever the
+            // script (__root.tsx says the same where the sign-in panels
+            // handle this), and this row always has a control at each end —
+            // so whichever button is physically on the left is under them:
+            // "Show whole floor" in English, the way out in Arabic. Dropping
+            // the inset for Arabic, as an earlier version did, put the exit
+            // button straight on top of the lights.
+            //
+            // Windowed, the plan is inside the page and this corner is the
+            // panel's own, so the ordinary gap is all it needs; and the inset
+            // is 0 on Windows, in the browser and on every kiosk, where the
+            // lights do not exist at all.
+            insetBlockStart: full && titleBarInset > 0 ? `calc(${titleBarInset}px + var(--tp-sp-2))` : 'var(--tp-sp-2)',
+            // The row spans both gutters so its two controls can sit in
+            // opposite corners of the SAME line: "Show whole floor" at the
+            // start, the way out of full screen at the end.
+            insetInlineStart: 'var(--tp-sp-2)',
+            insetInlineEnd: 'var(--tp-sp-2)',
+            display: 'flex',
+            gap: 'var(--tp-sp-1)',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            // Only the buttons are clickable; the empty middle of the row must
+            // not sit over the plan and swallow a drag or a click on a court.
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Only once the view HAS moved — at the whole floor it would be a
+              control that does nothing. In full screen the row may therefore
+              hold the way out alone. */}
+          {focused ? (
             <Button
               size="sm"
               icon="court"
+              style={{ pointerEvents: 'auto' }}
               onClick={() => {
                 sceneRef.current?.focus(null);
                 setFocused(false);
@@ -296,54 +358,127 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
             >
               {tr('ws.owner.floor.showWhole')}
             </Button>
+          ) : (
+            // Holds the start of the row so the way out stays at the end
+            // rather than sliding over when there is nothing to reset.
+            <span />
           )}
-          {/* In full screen the wheel zooms, so the step buttons would only
-              repeat it; the one control left is the way out. */}
-          {!full && (
-            <>
-              <Button
-                size="sm"
-                icon="zoomIn"
-                aria-label={tr('ws.owner.floor.zoomIn')}
-                title={tr('ws.owner.floor.zoomIn')}
-                onClick={() => {
-                  sceneRef.current?.zoom('in');
-                  setFocused(true);
-                }}
-              />
-              <Button
-                size="sm"
-                icon="zoomOut"
-                aria-label={tr('ws.owner.floor.zoomOut')}
-                title={tr('ws.owner.floor.zoomOut')}
-                onClick={() => {
-                  sceneRef.current?.zoom('out');
-                  setFocused(true);
-                }}
-              />
-            </>
+          {/* Full screen only: the way out joins this row rather than keeping
+              its own corner (owner call, 2026-09-21) — the two controls that
+              step BACK out of something belong together, and the corner it
+              used to hold is the one the traffic lights complicate. */}
+          {full && (
+            <Button
+              size="sm"
+              icon="frameExit"
+              style={{ pointerEvents: 'auto' }}
+              aria-label={tr('ws.owner.floor.exitFullScreen')}
+              title={tr('ws.owner.floor.exitFullScreen')}
+              onClick={() => setFull(false)}
+            />
           )}
-          <Button size="sm" icon={full ? 'collapse' : 'expand'} onClick={() => setFull((f) => !f)}>
-            {tr(full ? 'ws.owner.floor.exitFullScreen' : 'ws.owner.floor.fullScreen')}
-          </Button>
         </div>
       )}
+      {/* The zoom column, read top to bottom the way the view moves: Closer,
+          the track, Further. The track's two ends are the two buttons, so the
+          column says the same thing three ways.
+
+          In full screen too (owner call, 2026-09-21): the wheel zooms there
+          as well, but a wheel is not a control — it says nothing about where
+          the view stands between the whole floor and the nearest it goes, and
+          a trackpad-less till has only the buttons. The track answers both. */}
+      {ready && (
+        <div
+          style={{
+            position: 'absolute',
+            insetBlockEnd: 'var(--tp-sp-2)',
+            insetInlineEnd: 'var(--tp-sp-2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--tp-sp-1)',
+            alignItems: 'center',
+          }}
+        >
+          <Button
+            size="sm"
+            icon="zoomIn"
+            aria-label={tr('ws.owner.floor.zoomIn')}
+            title={tr('ws.owner.floor.zoomIn')}
+            onClick={() => {
+              sceneRef.current?.zoom('in');
+              setFocused(true);
+            }}
+          />
+          <ZoomSlider
+            value={zoomLevel}
+            onChange={(v) => {
+              sceneRef.current?.setZoomLevel(v);
+              setZoomLevel(v);
+              if (v > 0) setFocused(true);
+            }}
+          />
+          <Button
+            size="sm"
+            icon="zoomOut"
+            aria-label={tr('ws.owner.floor.zoomOut')}
+            title={tr('ws.owner.floor.zoomOut')}
+            onClick={() => {
+              sceneRef.current?.zoom('out');
+              setFocused(true);
+            }}
+          />
+        </div>
+      )}
+      {/* Windowed, the way IN sits in the top end corner, above the zoom
+          column: it is the one control that changes the whole frame rather
+          than the view inside it. In full screen the way OUT moves to the
+          start-corner row instead, beside "Show whole floor". Icon only —
+          the label lives in the tooltip and the accessible name, so the
+          corner stays quiet. */}
+      {ready && !full && (
+        <div style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-2)', insetInlineEnd: 'var(--tp-sp-2)' }}>
+          <Button
+            size="sm"
+            icon="frame"
+            aria-label={tr('ws.owner.floor.fullScreen')}
+            title={tr('ws.owner.floor.fullScreen')}
+            onClick={() => setFull(true)}
+          />
+        </div>
+      )}
+      {/* The hint is two elements, and the reason is the background.
+          The <p> is an invisible frame: pinned to BOTH side gutters, it is
+          what stops the sentence — wrapped lines included — from ever
+          reaching the full-screen button in the corner. The <span> inside
+          carries the surface, and being inline it is only ever as wide as
+          the words themselves, so the paint stops where the text stops
+          instead of running on across empty floor. */}
       <p
         style={{
           position: 'absolute',
           insetBlockEnd: 'var(--tp-sp-2)',
           insetInlineStart: 'var(--tp-sp-3)',
+          insetInlineEnd: 'calc(var(--tp-sp-2) + 1.85rem + var(--tp-sp-2))',
           margin: 0,
-          paddingBlock: 'var(--tp-sp-0)',
-          paddingInline: 'var(--tp-sp-2)',
-          borderRadius: 'var(--tp-radius-sm)',
-          background: 'var(--tp-surface)',
           fontSize: 'var(--tp-fs-xs)',
           color: 'var(--tp-muted-fg)',
           pointerEvents: 'none',
         }}
       >
-        {tr(full ? 'ws.owner.floor.hintFull' : 'ws.owner.floor.hint')}
+        <span
+          style={{
+            // A wrapped line breaks the box in two, and each piece keeps the
+            // rounding, so the sentence never looks like a torn label.
+            boxDecorationBreak: 'clone',
+            WebkitBoxDecorationBreak: 'clone',
+            paddingBlock: 'var(--tp-sp-0)',
+            paddingInline: 'var(--tp-sp-2)',
+            borderRadius: 'var(--tp-radius-sm)',
+            background: 'var(--tp-surface)',
+          }}
+        >
+          {tr(full ? 'ws.owner.floor.hintFull' : 'ws.owner.floor.hint')}
+        </span>
       </p>
       {/* Pointer coordinates are physical, so the tooltip is placed inside an
           LTR overlay and only its content follows the document direction. */}
@@ -353,6 +488,67 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The zoom track: upright, under "Closer" and over "Further", so the column
+ * reads the way the view moves — top is near, bottom is far.
+ *
+ * A native range input, not a div with a drag handler: it arrives with the
+ * keyboard (arrows, Home/End), the pointer, touch and the screen reader's
+ * slider role already right, and macOS and Windows both give it the grab
+ * behaviour the owner expects. Only the paint is ours.
+ *
+ * Upright is `writing-mode: vertical-lr` + `direction: rtl` (GlobalStyles),
+ * not a rotate() — the browser then knows the control is vertical, so Up/Right
+ * really do move toward 100 and the hit box is the box that is drawn. A
+ * rotated slider keeps its horizontal hit box and its arrow keys stay
+ * sideways, which is wrong for a mouse and wrong for a screen reader.
+ *
+ * Nothing here mirrors under RTL: the track is vertical, and near is at the
+ * top in both scripts.
+ */
+function ZoomSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { tr } = useLocale();
+  const pct = Math.round(value * 100);
+  return (
+    <input
+      type="range"
+      min={0}
+      max={100}
+      step={1}
+      value={pct}
+      onChange={(e) => onChange(Number(e.target.value) / 100)}
+      aria-label={tr('ws.owner.floor.zoomLevel')}
+      title={tr('ws.owner.floor.zoomLevel')}
+      data-testid="floor-zoom-slider"
+      className="tp-floor-zoom"
+      style={{
+        // Upright, between the two buttons: closer at the top under "Closer",
+        // further at the bottom above "Further".
+        //
+        // THESE READ BACKWARDS AND ARE CORRECT. The element's own writing mode
+        // is vertical (GlobalStyles), and logical sizes resolve against THAT,
+        // not the page's — so the inline axis here runs down the screen and
+        // the block axis runs across it. Written the intuitive way round, the
+        // control renders 80 × 24 instead of 24 × 80.
+        inlineSize: '5rem',
+        blockSize: '1.5rem',
+        margin: 0,
+        cursor: 'pointer',
+        // The fill stops at the CENTRE OF THE CIRCLE, at every value.
+        //
+        // A percentage of the track would not: the thumb's centre never
+        // reaches either end, it travels only between half a thumb in from
+        // each, so `${pct}%` runs ahead of the circle in the middle of the
+        // range and the blue pokes out below it. The stop is therefore
+        // measured in the same units the thumb actually moves in — half a
+        // thumb, plus pct of what is left — which lands on the centre
+        // wherever the thumb is, including hard against both ends.
+        background: `linear-gradient(to top, var(--tp-accent) calc(0.75rem + ${pct} * (100% - 1.5rem) / 100), var(--tp-border) calc(0.75rem + ${pct} * (100% - 1.5rem) / 100))`,
+      }}
+    />
   );
 }
 

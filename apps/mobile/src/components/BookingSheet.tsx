@@ -117,9 +117,9 @@ export interface BookingSheetProps {
    * `book.sheet`. Everything inside hangs off it — `book.sheet.retry`,
    * `book.sheet.duration`, `book.sheet.day.<date>`, `book.sheet.slot.<id>`,
    * `book.sheet.call-venue` — so the Book tab's own ids and the sheet's never
-   * collide even though they live on the same route.
+   * collide even though they live on the same route. REQUIRED for that reason.
    */
-  testID?: string;
+  testID: string;
 }
 
 export function BookingSheet({
@@ -248,7 +248,7 @@ export function BookingSheet({
           {t(mapErrorToKey(a.day.error))}
         </Text>
         <Button
-          testID={testID ? `${testID}.retry` : undefined}
+          testID={`${testID}.retry`}
           label={t('common.retry')}
           onPress={a.day.refetch}
           busy={a.day.isRefetching}
@@ -350,7 +350,7 @@ export function BookingSheet({
               {row.map((cell, c) => (
                 <SlotCell
                   key={c}
-                  testID={testID ? slotTestID(`${testID}.slot`, cell) : undefined}
+                  testID={slotTestID(`${testID}.slot`, cell)}
                   compact
                   cell={cell}
                   time={formatTime(cell.startAt, locale, a.tz)}
@@ -509,7 +509,7 @@ export function BookingSheet({
                         style={{ opacity: e.opacity, transform: [{ translateY: e.translateY }] }}
                       >
                         <DayChip
-                          testID={testID ? `${testID}.day.${d}` : undefined}
+                          testID={`${testID}.day.${d}`}
                           compact
                           dow={formatWeekdayShort(noon, locale, a.tz)}
                           dayNum={formatDayNumber(noon, locale, a.tz)}
@@ -535,7 +535,7 @@ export function BookingSheet({
                 }}
               >
                 <SegmentedControl
-                  testID={testID ? `${testID}.duration` : undefined}
+                  testID={`${testID}.duration`}
                   fit
                   options={a.durations.map((m) => ({
                     value: m,
@@ -567,7 +567,7 @@ export function BookingSheet({
                   }}
                 >
                   <Pressable
-                    testID={testID ? `${testID}.call-venue` : undefined}
+                    testID={`${testID}.call-venue`}
                     accessibilityRole="button"
                     accessibilityLabel={a.phone ? t('profile.callVenue') : undefined}
                     disabled={!a.phone}

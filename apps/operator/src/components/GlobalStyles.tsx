@@ -199,6 +199,15 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-nav-item[data-active='true'] { background: var(--tp-rail-active); color: var(--tp-rail-fg-active); font-weight: 700; }
 .tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); }
 .tp-nav-item svg { opacity: 0.85; }
+/* A .tp-btn standing ON the rail (the rail foot's Sign out). .tp-btn's ground
+   is --tp-surface/--tp-fg, which are the LIGHT tokens: on a 25%-lightness rail
+   that paints a white chip. This restates the same three properties in the
+   rail's own palette, and takes the rail's hover ground rather than .tp-btn's,
+   so it answers a finger the way the rows above it do. In CSS, not inline,
+   because an inline background would outrank every :hover rule there is. */
+.tp-rail-btn.tp-btn { background: transparent; border-color: var(--tp-rail-border); color: var(--tp-rail-fg); }
+.tp-rail-btn.tp-btn:hover:not(:disabled) { background: var(--tp-rail-2); border-color: var(--tp-rail-active); color: var(--tp-rail-fg-active); filter: none; }
+.tp-rail-btn.tp-btn:focus-visible { outline-color: var(--tp-rail-green); }
 /* A collapsible rail group's title (routes/__root.tsx RailGroup). It is set as
    a rail ROW, not a caption: Operations is the only workspace that uses these
    groups, so when this was small-caps/xs/muted it was the one rail in the app
@@ -215,6 +224,32 @@ input:disabled, select:disabled, textarea:disabled {
   transition: grid-template-rows var(--tp-dur-base) var(--tp-ease-settle);
 }
 .tp-rail-group-body[data-open='true'] { grid-template-rows: 1fr; }
+/* Options' four rows read as children of the row that opens them (owner call,
+   2026-09-21). They used to sit flush with their own title, so the open drawer
+   was one undifferentiated column and the title was told apart only by its
+   chevron. They step in by one --tp-sp-3 with a hairline stem down the group:
+
+     Options
+       │  Switch workspace
+       │  Assistant
+
+   Scoped to OPTIONS, not to .tp-rail-group-body: the workspace's own groups
+   (Run the day, Records, Setup) hold destinations you navigate to and stay
+   flush, so the indent means "these belong to the row above", not "these are
+   nested rows". The stem is a ::before rather than a border-inline-start, so it
+   stops at the last row instead of running through the padding above it, and
+   inset-inline-start makes RTL mirror it for free. It is marked on the LIST and
+   not on the animating body, which owns the 0fr->1fr track: padding there would
+   leave the shut drawer a few pixels tall instead of nothing. */
+.tp-rail-options-list {
+  position: relative;
+  padding-inline-start: var(--tp-sp-3);
+}
+.tp-rail-options-list::before {
+  content: ''; position: absolute;
+  inset-block: 0.25rem; inset-inline-start: calc(var(--tp-sp-3) / 2);
+  inline-size: 1px; background: var(--tp-rail-border);
+}
 .tp-nav-item[data-active='true'] svg { opacity: 1; color: var(--tp-rail-green); }
 /* The way out of a section rail.
    It used to be styled as the quietest thing on the rail — 11px, --tp-rail-muted,
@@ -287,6 +322,36 @@ input:disabled, select:disabled, textarea:disabled {
 [data-workspace='prep'] .tp-skel { background: var(--tp-kds-card-2); }
 [data-workspace='prep'] .tp-skel::after { background: linear-gradient(90deg, transparent, var(--tp-kds-border), transparent); }
 
+/* ---- live floor: the zoom track beside the two step buttons ----
+   A native range input keeps the keyboard, touch and slider semantics; only
+   the paint is ours, and the thumb can only be reached from real CSS. The
+   track fill is an inline gradient (it follows the value), so the rule below
+   only has to flip it under RTL, where "closer" sits on the other side. */
+.tp-floor-zoom {
+  -webkit-appearance: none; appearance: none;
+  border-radius: 999px; border: 1px solid var(--tp-border);
+  /* Upright, running 0 at the bottom to 100 at the top. This pair is what
+     tells the BROWSER the slider is vertical — so Up and Right both move
+     toward 100, and the hit box matches the drawn box. A rotate() would do
+     neither. direction:rtl is what puts 100 at the top rather than the
+     bottom; it is the writing mode's own axis, not the page's, so it is
+     identical in Arabic and never mirrors. */
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+.tp-floor-zoom::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%;
+  background: var(--tp-accent); border: 2px solid var(--tp-surface);
+  box-shadow: var(--tp-shadow-raised); cursor: pointer;
+}
+.tp-floor-zoom::-moz-range-thumb {
+  inline-size: 1.5rem; block-size: 1.5rem; border-radius: 50%;
+  background: var(--tp-accent); border: 2px solid var(--tp-surface);
+  box-shadow: var(--tp-shadow-raised); cursor: pointer;
+}
+.tp-floor-zoom::-moz-range-track { background: transparent; }
+
 /* ---- keyframes ---- */
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 @keyframes tpSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -356,6 +421,34 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-swoosh-in {
   animation: tpSwooshIn var(--tp-dur-ceremony) var(--tp-ease-settle) 90ms both;
 }
+/*
+ * The assistant sheet sliding in from the inline-end edge, and back out again.
+ * It used to mount and unmount on the spot, so it appeared and vanished
+ * between two frames with nothing to follow.
+ *
+ * Travel is 100% of the sheet's own inline size, multiplied by --tp-dir-sign
+ * the way tpMarquee and tpSwooshIn do, so the sheet leaves towards whichever
+ * edge it is pinned to and Arabic needs no second rule. The scrim only ever
+ * fades: it spans the viewport, so moving it would be nothing but paint.
+ *
+ * --tp-ease-settle, not --tp-ease-out: this is sheet-length travel across a
+ * third of the screen, which is exactly the case --tp-ease-out stops dead on.
+ * The exit runs on --tp-dur-fast because a dismissal that takes as long as the
+ * arrival reads as the sheet being reluctant to go.
+ */
+@keyframes tpSheetIn {
+  from { transform: translateX(calc(100% * var(--tp-dir-sign, 1))); }
+  to   { transform: none; }
+}
+@keyframes tpSheetOut {
+  from { transform: none; }
+  to   { transform: translateX(calc(100% * var(--tp-dir-sign, 1))); }
+}
+.tp-sheet-inline { animation: tpSheetIn var(--tp-dur-base) var(--tp-ease-settle) both; }
+.tp-sheet-inline[data-closing] { animation: tpSheetOut var(--tp-dur-fast) var(--tp-ease-settle) both; }
+.tp-sheet-scrim { animation: tpFadeIn var(--tp-dur-base) var(--tp-ease-out) both; }
+.tp-sheet-scrim[data-closing] { animation: tpFadeIn var(--tp-dur-fast) var(--tp-ease-out) reverse both; }
+
 /* ---- form grids ---- */
 /*
  * repeat(auto-fit, minmax(N, 1fr)) fits as many columns as the width allows.

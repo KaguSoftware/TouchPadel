@@ -55,6 +55,23 @@ const mockUseEffect = useEffect;
 const mockRouterState = routerState;
 const mockAuthState = authState;
 
+/**
+ * The slice of bottom-tabs' screen options the `Tabs` stand-in below reads.
+ * Declared HERE, not inside the factory: babel-plugin-jest-hoist treats a
+ * parameter name in a function-type annotation as a free variable and refuses
+ * the factory, and a type is erased anyway. `Mock`-prefixed for the same
+ * reason as the aliases above.
+ */
+type MockTabOptions = {
+  tabBarButton?: (props: Record<string, unknown>) => ReactNode;
+  tabBarIcon?: (props: { focused: boolean; color: string; size: number }) => ReactNode;
+  tabBarLabel?: (props: { focused: boolean; color: string }) => ReactNode;
+};
+type MockTabsScreenProps = {
+  name: string;
+  options?: MockTabOptions | ((info: { route: { name: string } }) => MockTabOptions);
+};
+
 // ── expo core ───────────────────────────────────────────────────────────────
 
 jest.mock('expo', () => ({
@@ -72,13 +89,21 @@ jest.mock('expo', () => ({
 // ── expo-router ─────────────────────────────────────────────────────────────
 
 /**
- * Null-renderers for the navigator components.
+ * Stand-ins for the navigator components.
  *
  * `Stack`, `Tabs` and `NativeTabs` are DECLARATIONS — they describe screens to
  * a navigator that owns the whole app. A smoke test renders ONE screen, not the
  * app, so there is no navigator for them to talk to and nothing they would draw
- * that belongs to the screen under test. Rendering them as null lets a layout
- * file mount and be inspected for everything else it does.
+ * that belongs to the screen under test. `Stack` renders null, which lets a
+ * layout file mount and be inspected for everything else it does.
+ *
+ * `Tabs` renders a little more: each `Tabs.Screen`'s OWN `tabBarButton`, with
+ * that screen's `tabBarIcon` and `tabBarLabel` as its children, the way
+ * bottom-tabs' BottomTabItem composes them. Nothing here is the app's UI —
+ * the button, icon and label render functions all come from the layout file
+ * under test (`TabsLayout.android.tsx` puts `tabs.book` on its Pressable), so
+ * the smoke case that mounts it asserts on ids app code minted. It does NOT
+ * navigate, focus or press: `focused` is `true` for the initial route only.
  *
  * `Redirect` is null for a different reason: it is what a gate returns when a
  * screen must not be shown. A test that renders a gated screen signed-out
@@ -106,8 +131,24 @@ jest.mock('expo-router', () => {
   };
   const Stack = nullRender('Stack') as ReturnType<typeof nullRender> & Record<string, unknown>;
   Stack.Screen = nullRender('Stack.Screen');
-  const Tabs = nullRender('Tabs') as ReturnType<typeof nullRender> & Record<string, unknown>;
-  Tabs.Screen = nullRender('Tabs.Screen');
+  const Tabs = ({ children }: { children?: ReactNode }) => mockH(mockView, null, children);
+  Tabs.displayName = 'Tabs';
+  const TabsScreen = ({ name, options }: MockTabsScreenProps) => {
+    const o = (typeof options === 'function' ? options({ route: { name } }) : options) ?? {};
+    // `index` is the initial route (app/(tabs)/_layout.tsx unstable_settings).
+    const focused = name === 'index';
+    const inner = mockH(
+      mockView,
+      null,
+      o.tabBarIcon?.({ focused, color: '#000000', size: 24 }),
+      o.tabBarLabel?.({ focused, color: '#000000' }),
+    );
+    return o.tabBarButton
+      ? o.tabBarButton({ children: inner, onPress: () => {}, accessibilityRole: 'button' })
+      : inner;
+  };
+  TabsScreen.displayName = 'Tabs.Screen';
+  Tabs.Screen = TabsScreen;
   return {
     Stack,
     Tabs,
@@ -271,7 +312,27 @@ jest.mock('@react-native-community/netinfo', () =>
   jest.requireActual('@react-native-community/netinfo/jest/netinfo-mock.js'),
 );
 
-jest.mock('react-native-screens', () => jest.requireActual('react-native-screens/mock'));
+/**
+ * react-native-screens, reduced to what the app reads from it in a render.
+ *
+ * `react-native-screens/mock` was named here for months and never resolved —
+ * the package (4.x) ships no such entry, and the factory was never RUN because
+ * nothing a smoke case mounted imported the module. `TabsLayout.android.tsx`
+ * does (`ScreenContext` + `InnerScreen`, its stable-order fix), so the stub is
+ * now written out: a context nobody provides and a `View` where a native
+ * screen would be. Same rule as every other native view here — it occupies
+ * its slot and asserts nothing about what the native side would draw.
+ */
+jest.mock('react-native-screens', () => ({
+  ScreenContext: mockCreateContext(mockView),
+  InnerScreen: mockView,
+  Screen: mockView,
+  ScreenContainer: mockView,
+  ScreenStack: mockView,
+  enableScreens: () => {},
+  enableFreeze: () => {},
+  screensEnabled: () => true,
+}));
 
 /**
  * The library's OWN test mock, which renders its children immediately with a

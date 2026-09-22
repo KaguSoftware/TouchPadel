@@ -93,7 +93,7 @@ async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: str
       .limit(200),
     supabase
       .from('payments')
-      .select('id, created_at, amount_iqd, change_iqd, recorder:staff(display_name), tab:tabs(label, table:cafe_tables(table_number), reservation:reservations(guest_name))')
+      .select('id, created_at, amount_iqd, change_iqd, recorder:staff(display_name), tab:tabs(label, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name))')
       .eq('day_session_id', dayId)
       .eq('method', 'cash')
       .order('created_at', { ascending: false })

@@ -19,7 +19,7 @@
  * change', button 'Shorten −30 min', button 'Cancel booking' (click → the
  * cancel panel with label 'Reason' → click again to confirm).
  */
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
@@ -115,19 +115,24 @@ export function ReservationActionsDialog({
   const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
   const title = r.kind === 'maintenance' ? tr('op.desk.maintenance') : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
 
+  // The pair shares a border, so the floor hint sits under it and is tied to
+  // the minus button by id rather than through Button's own disabledReason.
+  const shortenBelowFloor = durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000;
+  const shortenFloorId = useId();
+
   const canComplete = marks.includes('completed');
   const canArrive = marks.includes('arrived');
 
   return (
     <Modal
       title={title}
+      titleAfter={<ReservationBadge reservation={r} size="sm" />}
       subtitle={
         <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <bdi>{court ? pickName(locale, court) : ''}</bdi>
           <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
           {r.guest_phone && <bdi dir="ltr">{r.guest_phone}</bdi>}
           {r.price_iqd != null && <bdi dir="ltr">{formatIQD(r.price_iqd, locale)}</bdi>}
-          <ReservationBadge reservation={r} size="sm" />
         </span>
       }
       onClose={busy ? () => {} : onClose}
@@ -183,52 +188,71 @@ export function ReservationActionsDialog({
       {live && !showMove && !showCancel && (
         <section style={{ borderBlockStart: canArrive || canComplete ? '1px solid var(--tp-border)' : undefined, paddingBlockStart: canArrive || canComplete ? '0.85rem' : 0 }}>
           <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockEnd: '0.5rem' }}>{tr('ws.courtDesk.calendar.changeTitle')}</h3>
-          <Field label={tr('op.desk.overrideReason')}>
-            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
-              {OVERRIDE_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {tr(`op.reasons.${code}`)}
-                </option>
-              ))}
-            </select>
-          </Field>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start' }}>
-            <Button
-              icon="minus"
-              busy={busy}
-              disabled={durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
-              // Rulebook 4.3: the floor is the court's own shortest priced
-              // length, which is not guessable from a greyed button.
-              disabledReason={tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
-              onClick={() =>
-                void run(() =>
-                  mutate('reservation.update', {
-                    action: 'extend',
-                    reservationId: r.id,
-                    newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(),
-                    reason,
-                  }),
-                )
-              }
-            >
-              {tr('op.desk.shorten30')}
-            </Button>
-            <Button
-              icon="plus"
-              busy={busy}
-              onClick={() =>
-                void run(() =>
-                  mutate('reservation.update', {
-                    action: 'extend',
-                    reservationId: r.id,
-                    newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(),
-                    reason,
-                  }),
-                )
-              }
-            >
-              {tr('op.desk.extend30')}
-            </Button>
+            {/* Shorten and extend are one control — the same dial, both ways —
+                so they share a border and sit flush, seam in the middle. The
+                floor hint lives under the pair rather than on the minus
+                button: Button renders its own reason in a grid wrapper, which
+                would break the shared border and wrap "Extend" to the next
+                row. */}
+            <span style={{ display: 'grid', justifyItems: 'start', rowGap: 'var(--tp-sp-1)' }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  border: '1px solid var(--tp-border)',
+                  borderRadius: 'var(--tp-radius-ctl)',
+                  overflow: 'hidden',
+                }}
+              >
+                <Button
+                  icon="minus"
+                  busy={busy}
+                  disabled={shortenBelowFloor}
+                  aria-describedby={shortenBelowFloor ? shortenFloorId : undefined}
+                  style={{ border: 'none', borderRadius: 0 }}
+                  onClick={() =>
+                    void run(() =>
+                      mutate('reservation.update', {
+                        action: 'extend',
+                        reservationId: r.id,
+                        newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(),
+                        reason,
+                      }),
+                    )
+                  }
+                >
+                  {tr('op.desk.shorten30')}
+                </Button>
+                <span aria-hidden style={{ inlineSize: '1px', background: 'var(--tp-border)' }} />
+                <Button
+                  icon="plus"
+                  busy={busy}
+                  style={{ border: 'none', borderRadius: 0 }}
+                  onClick={() =>
+                    void run(() =>
+                      mutate('reservation.update', {
+                        action: 'extend',
+                        reservationId: r.id,
+                        newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(),
+                        reason,
+                      }),
+                    )
+                  }
+                >
+                  {tr('op.desk.extend30')}
+                </Button>
+              </span>
+              {/* Rulebook 4.3: the floor is the court's own shortest priced
+                  length, which is not guessable from a greyed button. */}
+              {shortenBelowFloor && (
+                <span
+                  id={shortenFloorId}
+                  style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: 1.3, textAlign: 'start' }}
+                >
+                  {tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
+                </span>
+              )}
+            </span>
             <Button icon="repeat" busy={busy} onClick={() => setShowMove(true)}>
               {tr('op.desk.move')}
             </Button>
@@ -237,10 +261,19 @@ export function ReservationActionsDialog({
                 {tr('ws.courtDesk.detail.noShow')}
               </Button>
             )}
-            <Button kind="danger" icon="ban" busy={busy} onClick={() => setShowCancel(true)} style={{ marginInlineStart: 'auto' }}>
+            <Button kind="danger" icon="ban" busy={busy} onClick={() => setShowCancel(true)}>
               {tr('op.desk.cancelBooking')}
             </Button>
           </div>
+          <Field label={tr('op.desk.overrideReason')} style={{ marginBlockStart: '0.85rem' }}>
+            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
+              {OVERRIDE_REASONS.map((code) => (
+                <option key={code} value={code}>
+                  {tr(`op.reasons.${code}`)}
+                </option>
+              ))}
+            </select>
+          </Field>
         </section>
       )}
       {!live && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.detail.notLive', { status: tr(`ws.kit.bookingStatus.${r.status as 'completed'}`) })}</p>}

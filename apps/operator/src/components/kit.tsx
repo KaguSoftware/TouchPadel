@@ -419,7 +419,11 @@ export function StatusBadge({
         background: t.bg,
         color: t.fg,
         borderRadius: 'var(--tp-radius-pill)',
-        paddingBlock: size === 'sm' ? '0.1rem' : '0.2rem',
+        /* The label below sets line-height 1 so the glyphs can be centred,
+           which takes 0.3em off the content box the 1.3 used to give it.
+           Padding gives it back, so the pill keeps the height it has had
+           everywhere it is already placed and only the text moves. */
+        paddingBlock: size === 'sm' ? 'calc(0.1rem + 0.15em)' : 'calc(0.2rem + 0.15em)',
         paddingInline: size === 'sm' ? '0.45rem' : '0.6rem',
         fontSize: size === 'sm' ? 'var(--tp-fs-xs)' : 'var(--tp-fs-sm)',
         fontWeight: 600,
@@ -433,7 +437,16 @@ export function StatusBadge({
       ) : dot ? (
         <span aria-hidden="true" style={{ inlineSize: '0.45rem', blockSize: '0.45rem', borderRadius: '50%', background: t.dot }} />
       ) : null}
-      {label}
+      {/* The label is a SPAN, not a bare text node, and it carries the
+          line-height. A bare text node inside this inline-flex forms an
+          anonymous inline box sized by the FONT's metrics — ascent and descent
+          — not by the 1.3 above. Those metrics are asymmetric (the descent
+          reserves room for a 'g' the word "Owner" does not have), so the
+          symmetric padding-block was centring a box that was not where the
+          glyphs sat, and every text-only pill — the rail's role, "You",
+          "Hidden", "Off" — rode a hair high inside it. An explicit flex item
+          at line-height 1 is a box the flex centring can put in the middle. */}
+      <span style={{ lineHeight: 1 }}>{label}</span>
     </span>
   );
 }

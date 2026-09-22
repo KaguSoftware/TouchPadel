@@ -16,6 +16,7 @@ import { useLocale } from '../../lib/i18n';
 import { Button, trapTab } from '../../components/ui';
 import { Kbd } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { useOwnsScreen } from '../../lib/screenOwner';
 import { Thread } from './Thread';
 import { initialScopes, loadSessionConversation, saveSessionConversation } from './scopes';
 
@@ -83,13 +84,27 @@ export function AssistantRailButton({ style }: { style?: CSSProperties }) {
   );
 }
 
+/**
+ * Longest we wait for the exit animation's `animationend` before dropping the
+ * sheet anyway. Past --tp-dur-fast (160ms) with room to spare.
+ */
+const EXIT_FALLBACK_MS = 320;
+
 export function AssistantDrawer() {
   const drawer = useAssistantDrawerOrNull();
-  if (!drawer?.open) return null;
-  return <DrawerSheet onClose={drawer.closeDrawer} />;
+  const open = drawer?.open ?? false;
+  // The sheet outlives `open` by one animation: unmounting the moment the
+  // context flips would rip the node out before a single frame of the exit
+  // ran, which is why closing used to be instant while opening was not.
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
+  if (!mounted || !drawer) return null;
+  return <DrawerSheet open={open} onClose={drawer.closeDrawer} onExited={() => setMounted(false)} />;
 }
 
-function DrawerSheet({ onClose }: { onClose: () => void }) {
+function DrawerSheet({ open, onClose, onExited }: { open: boolean; onClose: () => void; onExited: () => void }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -97,11 +112,49 @@ function DrawerSheet({ onClose }: { onClose: () => void }) {
   const [conversationId, setConversationId] = useState<string | null>(() => loadSessionConversation());
   const [newScopes, setNewScopes] = useState<AssistantScope[]>(() => initialScopes(path, staff?.id ?? ''));
 
+  // The sheet runs to the top edge, so its header sits where the macOS drag
+  // strip would be. This stands the strip down for as long as it is open.
+  useOwnsScreen();
+
   const pick = (id: string | null) => {
     setConversationId(id);
     saveSessionConversation(id);
     if (id === null) setNewScopes(initialScopes(path, staff?.id ?? ''));
   };
+
+  // The exit animation. `open` has already flipped false by the time we see
+  // it here — AssistantDrawer holds us mounted for exactly this long — so the
+  // closing flag is just `!open`, and when the sheet's own animationend lands
+  // we tell it to let go.
+  const closing = !open;
+  // Held in a ref so a re-render underneath us (the thread streaming a reply)
+  // cannot re-arm the effect and push the fallback deadline back out.
+  const exitedRef = useRef(onExited);
+  exitedRef.current = onExited;
+  useEffect(() => {
+    if (!closing) return;
+    const node = panel.current;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      exitedRef.current();
+    };
+    // animationend bubbles, and the thread below animates rows of its own
+    // (.tp-rise on each message, the skeleton sweep), so only the sheet's OWN
+    // exit may end it.
+    const onEnd = (e: AnimationEvent) => {
+      if (e.target === node) finish();
+    };
+    node?.addEventListener('animationend', onEnd);
+    // Reduced motion collapses the animation to 0.01ms and a backgrounded tab
+    // may never fire the event, so the sheet is never stranded on screen.
+    const timer = window.setTimeout(finish, EXIT_FALLBACK_MS);
+    return () => {
+      node?.removeEventListener('animationend', onEnd);
+      window.clearTimeout(timer);
+    };
+  }, [closing]);
 
   // Focus lands on the sheet; Escape closes; Tab stays inside.
   useEffect(() => {
@@ -123,7 +176,13 @@ function DrawerSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div onClick={onClose} aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'var(--tp-scrim, rgba(0,0,0,0.25))', zIndex: 60 }} />
+      <div
+        className="tp-sheet-scrim"
+        data-closing={closing ? '' : undefined}
+        onClick={onClose}
+        aria-hidden="true"
+        style={{ position: 'fixed', inset: 0, background: 'var(--tp-scrim, rgba(0,0,0,0.25))', zIndex: 'var(--tp-z-overlay)' as CSSProperties['zIndex'] }}
+      />
       <div
         ref={panel}
         role="dialog"
@@ -131,6 +190,8 @@ function DrawerSheet({ onClose }: { onClose: () => void }) {
         aria-label={tr('ws.owner.assistant.title')}
         tabIndex={-1}
         onKeyDown={onKeyDown}
+        className="tp-sheet-inline"
+        data-closing={closing ? '' : undefined}
         data-assistant-drawer=""
         style={{
           position: 'fixed',
@@ -140,7 +201,9 @@ function DrawerSheet({ onClose }: { onClose: () => void }) {
           background: 'var(--tp-surface)',
           borderInlineStart: '1px solid var(--tp-border)',
           boxShadow: 'var(--tp-shadow-lg, 0 0 2rem rgba(0,0,0,0.2))',
-          zIndex: 61,
+          // One above its own scrim. A Modal opened from inside the sheet is
+          // --tp-z-overlay too and later in DOM order, so it still wins.
+          zIndex: 'var(--tp-z-overlay-raised)' as CSSProperties['zIndex'],
           display: 'flex',
           flexDirection: 'column',
           paddingBlock: 'var(--tp-sp-3)',

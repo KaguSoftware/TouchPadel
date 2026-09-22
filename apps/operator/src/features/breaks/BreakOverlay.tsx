@@ -25,6 +25,7 @@ import { BrandLockup } from '../../components/brand';
 import { elapsedSeconds, formatElapsed, remainingSeconds, wholeMinutes, type BreakCandidate } from '../../lib/breaks';
 import { PIN_MAX, PIN_MIN } from '../admin/staff/staffModel';
 import { useBreak } from './BreakProvider';
+import { ScreenOwnerClaim } from '../../lib/screenOwner';
 
 /** Who is typing a PIN: the person coming back, or a cover candidate. */
 type Who = { kind: 'self' } | { kind: 'cover'; who: BreakCandidate };
@@ -110,6 +111,7 @@ export function BreakOverlay() {
         overflow: 'hidden',
       }}
     >
+      <ScreenOwnerClaim />
       <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
         <CourtLines opacity={0.2} />
       </div>

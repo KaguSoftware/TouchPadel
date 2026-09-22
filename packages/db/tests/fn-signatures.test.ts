@@ -111,8 +111,27 @@ describe('replaySignatures', () => {
     expect(misses).toEqual([{ file: 'x', name: 'apply_discount', sig: 'uuid' }]);
   });
 
-  it('a drop without an argument list removes every signature of the name', () => {
-    const { live } = replaySignatures([f0037, f0049, f0115, { file: 'y', sql: 'drop function app.apply_discount;' }]);
+  it('a drop without an argument list removes the one live signature of the name', () => {
+    const { live, errors } = replaySignatures([f0037, f0049, { file: 'y', sql: 'drop function app.apply_discount;' }]);
     expect(live.has('apply_discount')).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
+  it('a drop without an argument list while the name is overloaded is an error, not a mass drop', () => {
+    // Postgres: ERROR: function name "app.apply_discount" is not unique. The
+    // migration would fail at apply time, so the replay must not pretend it
+    // cleaned up — both signatures stay live and the gate names the file.
+    const { live, errors } = replaySignatures([f0037, f0049, f0115, { file: 'y', sql: 'drop function app.apply_discount;' }]);
+    expect(live.get('apply_discount')!.size).toBe(2);
+    expect(errors).toEqual([
+      {
+        file: 'y',
+        name: 'apply_discount',
+        sigs: [
+          'uuid, adjustment_kind, integer, text, text, uuid, text, text',
+          'uuid, adjustment_kind, integer, text, text, uuid, text',
+        ],
+      },
+    ]);
   });
 });

@@ -36,12 +36,12 @@ set statement_timeout = '60s';
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'device_heartbeats_station_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'device_heartbeats_station_fkey' and conrelid = 'device_heartbeats'::regclass) then
     alter table device_heartbeats
       add constraint device_heartbeats_station_fkey
       foreign key (device_id) references stations(id) not valid;
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'station_staff_station_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'station_staff_station_fkey' and conrelid = 'station_staff'::regclass) then
     alter table station_staff
       add constraint station_staff_station_fkey
       foreign key (station_id) references stations(id) not valid;

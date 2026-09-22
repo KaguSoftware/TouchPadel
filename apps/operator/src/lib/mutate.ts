@@ -21,7 +21,7 @@ import {
 import { touch } from '../ipc/bridge';
 import { appRpc, AppRpcError, type AppFunctionName } from './appRpc';
 import { clientRef, deviceId } from './idem';
-import { awaitResult } from './queueResults';
+import { awaitResult, errorStringCode, serverErrorCode } from './queueResults';
 
 export interface MutateOutcome<T = unknown> {
   /** true = durably queued with no server echo yet (offline / slow link). */
@@ -271,14 +271,9 @@ function extractEcho(serverResult: unknown): unknown {
 
 function toError(state: 'conflict' | 'failed', serverResult: unknown, fallback?: string): AppRpcError {
   const body = (serverResult ?? {}) as Record<string, unknown>;
-  const code =
-    typeof body.error === 'string' && /^[A-Z][A-Z0-9_]*$/.test(body.error)
-      ? body.error
-      : typeof body.code === 'string'
-        ? body.code
-        : state === 'conflict'
-          ? 'SLOT_TAKEN'
-          : 'UNKNOWN';
+  // The one code reader (queueResults.ts) — the toast and the day-close list
+  // read the same refusal the same way.
+  const code = serverErrorCode(serverResult) ?? errorStringCode(fallback) ?? (state === 'conflict' ? 'SLOT_TAKEN' : 'UNKNOWN');
   const message = typeof body.message === 'string' ? body.message : (fallback ?? code);
   return new AppRpcError(code, message, undefined, typeof body.details === 'string' ? body.details : undefined);
 }

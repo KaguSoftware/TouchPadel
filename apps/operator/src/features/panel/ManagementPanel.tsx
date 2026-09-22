@@ -170,15 +170,15 @@ export function ManagementPanelScreen() {
           />
         }
       >
-        <section aria-label={tr('ws.owner.panel.headline')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-4)' }}>
+        <section aria-label={tr('ws.owner.panel.headline')} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gridTemplateRows: 'auto auto', gap: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-4)' }}>
           {(
             [
               { title: 'ws.owner.panel.earned', hint: 'ws.owner.panel.earnedHint', keys: ['revenue'] },
               { title: 'ws.owner.panel.taken', hint: 'ws.owner.panel.takenHint', keys: ['cash', 'card'] },
             ] as const
           ).map((group) => (
-            <div key={group.title} style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start' }}>
-              <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+            <div key={group.title} style={{ gridColumn: `span ${group.keys.length}`, gridRow: 'span 2', display: 'grid', gridTemplateRows: 'subgrid', gap: 'var(--tp-sp-2)' }}>
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', alignContent: 'start' }}>
                 <h2 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{tr(group.title)}</h2>
                 <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '60ch' }}>{tr(group.hint)}</p>
               </div>

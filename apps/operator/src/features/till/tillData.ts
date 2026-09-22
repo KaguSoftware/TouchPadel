@@ -157,7 +157,7 @@ export const OPEN_TABS_QUERY = {
         .select(
           `id, status, label, opened_at, total_iqd,
            table:cafe_tables(table_number),
-           reservation:reservations(guest_name, court:courts(name_en, name_ar)),
+           reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
            orders(source, status, order_items(line_total_iqd, voided, menu_item:menu_items(category_id))),
            tab_adjustments(kind, amount_iqd),
            payments(amount_iqd)`,
@@ -277,7 +277,7 @@ export interface TabDetail {
   table: { table_number: string } | null;
   reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
   orders: TabOrderRow[];
-  payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null }[];
+  payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null; refunds: { amount_iqd: number }[] }[];
   tab_adjustments: TabAdjustmentRow[];
 }
 
@@ -287,7 +287,7 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
     .select(
       `id, status, label, opened_at, subtotal_iqd, total_iqd, court_iqd, reservation_id,
        table:cafe_tables(table_number),
-       reservation:reservations(guest_name, court:courts(name_en, name_ar)),
+       reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
        orders (
          id, status, source, placed_at,
          order_items (
@@ -297,7 +297,7 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
            order_item_modifiers(qty, price_delta_iqd, modifier:modifiers(name_en, name_ar))
          )
        ),
-       payments(id, method, amount_iqd, change_iqd),
+       payments(id, method, amount_iqd, change_iqd, refunds(amount_iqd)),
        tab_adjustments(id, kind, amount_iqd, reason_code)`,
     )
     .eq('id', tabId)

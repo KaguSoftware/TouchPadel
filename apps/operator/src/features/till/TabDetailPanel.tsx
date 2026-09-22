@@ -44,7 +44,8 @@ import { supabase } from '../../lib/supabase';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
-import { onFailedResult, resultErrorCode } from '../../lib/queueResults';
+import { resultErrorCode } from '../../lib/queueResults';
+import { usePendingResults } from '../../lib/pendingResults';
 import { QK } from '../../lib/queries';
 import { touch } from '../../ipc/bridge';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -114,10 +115,27 @@ export function TabDetailPanel({
    * Voids that went onto the durable queue (item 9, 0120): line id -> the
    * envelope's localId, until the server answers. A pending line shows its
    * badge and hides its actions; the ack refetches the tab (the line comes back
-   * voided), a refusal arrives through onFailedResult below.
+   * voided) and retires the entry, a refusal retires it and lands where the
+   * synchronous one would have — VOID_REQUIRES_REFUND beside the lines,
+   * anything else as the action error. (The root also toasts it.)
    */
-  const [pendingVoids, setPendingVoids] = useState<ReadonlyMap<string, string>>(new Map());
-  const [refundQueued, setRefundQueued] = useState(false);
+  const pendingVoids = usePendingResults<string>((_lineId, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    if (code === 'VOID_REQUIRES_REFUND') setVoidRefused(true);
+    else setActionError(new AppRpcError(code, code));
+  });
+  /**
+   * Refunds on the queue, unanswered: payment id -> localId. The "saved on
+   * this station" notice shows while any is held and goes with the ack (the
+   * payments list refetches then) or the refusal (shown as the action error).
+   */
+  const pendingRefunds = usePendingResults<string>((_paymentId, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    const detail = (r.serverResult as { details?: unknown } | null)?.details;
+    setActionError(new AppRpcError(code, code, undefined, typeof detail === 'string' ? detail : undefined));
+  });
+  const { clear: clearPendingVoids } = pendingVoids;
+  const { clear: clearPendingRefunds } = pendingRefunds;
   const [actionError, setActionError] = useState<unknown>(null);
   const [pinError, setPinError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -211,29 +229,9 @@ export function TabDetailPanel({
     setOverlay({ kind: 'none' });
     setPromoOpen(false);
     setOpenLineId(null);
-    setPendingVoids(new Map());
-    setRefundQueued(false);
-  }, [tabId]);
-
-  // A void queued offline and refused later: the modal is long closed, so the
-  // answer lands where the synchronous one would have — VOID_REQUIRES_REFUND
-  // beside the lines, anything else as the action error. (The root also toasts it.)
-  useEffect(
-    () =>
-      onFailedResult((r) => {
-        const lineId = [...pendingVoids].find(([, localId]) => localId === r.localId)?.[0];
-        if (!lineId) return;
-        setPendingVoids((m) => {
-          const next = new Map(m);
-          next.delete(lineId);
-          return next;
-        });
-        const code = resultErrorCode(r) ?? 'UNKNOWN';
-        if (code === 'VOID_REQUIRES_REFUND') setVoidRefused(true);
-        else setActionError(new AppRpcError(code, code));
-      }),
-    [pendingVoids],
-  );
+    clearPendingVoids();
+    clearPendingRefunds();
+  }, [tabId, clearPendingVoids, clearPendingRefunds]);
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });
@@ -330,7 +328,7 @@ export function TabDetailPanel({
         reasonCode,
       });
       if (!outcome.queued) touch.pinObserved(pin);
-      else setPendingVoids((m) => new Map(m).set(lineId, outcome.localId));
+      else pendingVoids.add(lineId, outcome.localId);
       close();
       refresh();
     } catch (e) {
@@ -486,7 +484,7 @@ export function TabDetailPanel({
                   line={line}
                   settled={Boolean(settled)}
                   busy={busy}
-                  pending={!line.voided && pendingVoids.has(line.id)}
+                  pending={!line.voided && pendingVoids.pending.has(line.id)}
                   open={openLineId === line.id}
                   onToggle={() => setOpenLineId((cur) => (cur === line.id ? null : line.id))}
                   onOverride={() => setOverlay({ kind: 'override', lineId: line.id })}
@@ -500,7 +498,7 @@ export function TabDetailPanel({
             </ul>
           ))}
           {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
-          {refundQueued && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.refundQueued')} />}
+          {pendingRefunds.pending.size > 0 && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.refundQueued')} />}
         </div>
 
         {/* ---- totals ---- */}
@@ -715,12 +713,12 @@ export function TabDetailPanel({
           payments={tab.payments}
           lines={allLines}
           canRefund={can.refund}
-          onDone={(queued) => {
+          onDone={(outcome, paymentId) => {
             close();
             refresh();
             // A refund moves the day's takings; the day panel reads QK.day.
             void queryClient.invalidateQueries({ queryKey: [...QK.day] });
-            setRefundQueued(queued);
+            if (outcome.queued) pendingRefunds.add(paymentId, outcome.localId);
           }}
           onClose={close}
         />

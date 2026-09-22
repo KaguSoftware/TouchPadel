@@ -56,11 +56,21 @@ export function dropWarmup(samples: readonly number[], count: number): number[] 
   return samples.length > count ? samples.slice(count) : [...samples];
 }
 
-/** Median of the per-repeat p95s — what `--repeat=N` feeds to the comparer. */
+/**
+ * Median of the per-repeat p95s — what `--repeat=N` feeds to the comparer.
+ *
+ * The TRUE median, not the nearest-rank p50 above: on an even count the two
+ * middles are averaged. `percentile` refuses to interpolate because a p95 must
+ * be a sample that was measured, but this folds N whole repeats into one
+ * number and the nearest-rank form took the LOWER middle — so `--repeat=2` or
+ * `4` systematically favoured the faster run, a bias in the direction that
+ * hides a regression. The nightly runs 3, where the two agree.
+ */
 export function medianOf(values: readonly number[]): number {
   if (values.length === 0) throw new Error('medianOf: empty sample');
   const sorted = [...values].sort((a, b) => a - b);
-  return percentile(sorted, 50);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
 /** The relative part of the regression rule. */

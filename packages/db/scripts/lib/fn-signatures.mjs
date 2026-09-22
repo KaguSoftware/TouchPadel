@@ -231,10 +231,17 @@ export function signatureEvents(clean) {
  *   misses: [{ file, name, sig }]        — drops that matched nothing while the
  *            name had OTHER live signatures (the 0115 mistake in reverse: a drop
  *            aimed at an arity that was never created)
+ *   errors: [{ file, name, sigs }]       — a bare `drop function app.X;` (no
+ *            argument list) issued while X had MORE THAN ONE live signature.
+ *            Postgres refuses that statement ("function name is not unique"),
+ *            so the migration would fail at apply time; the replay records it
+ *            and leaves every signature in place. With exactly one live
+ *            signature the bare drop removes it, as Postgres would.
  */
 export function replaySignatures(files) {
   const live = new Map();
   const misses = [];
+  const errors = [];
   for (const { file, sql } of files) {
     for (const e of signatureEvents(stripSqlNoise(sql))) {
       if (e.op === 'create') {
@@ -245,6 +252,10 @@ export function replaySignatures(files) {
       const sigs = live.get(e.name);
       if (!sigs) continue;
       if (e.sig === null) {
+        if (sigs.size > 1) {
+          errors.push({ file, name: e.name, sigs: [...sigs.keys()] });
+          continue;
+        }
         live.delete(e.name);
         continue;
       }
@@ -256,5 +267,5 @@ export function replaySignatures(files) {
       }
     }
   }
-  return { live, misses };
+  return { live, misses, errors };
 }

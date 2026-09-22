@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatIQD } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
-import { mutate } from '../../lib/mutate';
+import { mutate, type MutateOutcome } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -34,6 +34,14 @@ export interface RefundablePayment {
   id: string;
   method: string;
   amount_iqd: number;
+  /** What has already gone back on this payment (refunds.payment_id); absent on a detail cached before the join. */
+  refunds?: readonly { amount_iqd: number }[];
+}
+
+/** What is still refundable on a payment: its amount less every refund already recorded. */
+export function refundableIqd(p: Pick<RefundablePayment, 'amount_iqd' | 'refunds'>): number {
+  const refunded = (p.refunds ?? []).reduce((sum, r) => sum + (r.amount_iqd ?? 0), 0);
+  return Math.max(0, p.amount_iqd - refunded);
 }
 
 export interface RefundableLine {
@@ -55,20 +63,25 @@ export function RefundDialog({
   lines: readonly RefundableLine[];
   /** `can.refund` — false renders the `refused` state; the controls stay visible. */
   canRefund: boolean;
-  /** `queued`: the refund is safe on the durable queue but the server has not answered yet (item 9). */
-  onDone(queued: boolean): void;
+  /**
+   * `outcome.queued`: the refund is safe on the durable queue but the server has
+   * not answered yet (item 9); `outcome.localId` is what its result will carry.
+   */
+  onDone(outcome: Pick<MutateOutcome, 'queued' | 'localId'>, paymentId: string): void;
   onClose(): void;
 }) {
   const { tr, locale } = useLocale();
   const [paymentId, setPaymentId] = useState(payments[0]?.id ?? '');
-  const [amount, setAmount] = useState<number>(payments[0]?.amount_iqd ?? 0);
+  const [amount, setAmount] = useState<number>(payments[0] ? refundableIqd(payments[0]) : 0);
   const [items, setItems] = useState<Record<string, number>>({});
   const [pinOpen, setPinOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
   const payment = payments.find((p) => p.id === paymentId);
-  const max = payment?.amount_iqd ?? 0;
+  // Capped at what is left on the payment, not what was paid: a second refund
+  // may not exceed the remainder (the server refuses REFUND_EXCEEDS_PAYMENT too).
+  const max = payment ? refundableIqd(payment) : 0;
   const valid = !!payment && amount > 0 && amount <= max;
   /*
    * Rulebook 4.3, in the order the cashier meets them. The permission case is
@@ -106,7 +119,7 @@ export function RefundDialog({
       // Cache for the offline unlock only once the server has verified it.
       if (!outcome.queued) touch.pinObserved(pin);
       setPinOpen(false);
-      onDone(outcome.queued);
+      onDone({ queued: outcome.queued, localId: outcome.localId }, paymentId);
     } catch (e) {
       setError(e);
       setPinOpen(false);
@@ -153,7 +166,8 @@ export function RefundDialog({
                 disabled={!canRefund}
                 onChange={(v) => {
                   setPaymentId(v);
-                  setAmount(payments.find((p) => p.id === v)?.amount_iqd ?? 0);
+                  const next = payments.find((p) => p.id === v);
+                  setAmount(next ? refundableIqd(next) : 0);
                 }}
                 options={payments.map((p) => ({
                   value: p.id,
@@ -338,7 +352,7 @@ export function MergeTabsDialog({
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, label, table:cafe_tables(table_number), reservation:reservations(guest_name)')
+        .select('id, label, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name)')
         .in('status', ['open', 'awaiting_payment'])
         .is('merged_into_tab_id', null)
         .neq('id', survivorTabId)

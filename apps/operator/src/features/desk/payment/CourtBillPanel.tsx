@@ -17,12 +17,14 @@
  * added at the till, the booking extended) the server refuses with
  * TOTAL_CHANGED and the panel shows the new figure instead of taking the old.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatIQD, formatNumber, formatTime, VENUE_TZ } from '@touch/i18n';
 import { mutate } from '../../../lib/mutate';
 import { AppRpcError } from '../../../lib/appRpc';
+import { resultErrorCode } from '../../../lib/queueResults';
+import { usePendingResults } from '../../../lib/pendingResults';
 import { canAccess, permissionsFor, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
@@ -78,14 +80,22 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
   const [addingCafe, setAddingCafe] = useState(false);
   /**
    * A close that went onto the durable queue (item 9, 0120) and has not been
-   * answered yet. The Close button stays off until the bill itself moves —
-   * the server's ack refetches it, a refusal arrives as a queue row.
+   * answered yet: tab id -> the envelope's localId. The Close button stays off
+   * until the result lands — the ack refetches the bill, a refusal (TAB_NOT_EMPTY:
+   * an item reached the bill first) is shown here, where the synchronous one
+   * would have been, and the bill re-read. (The root also toasts it.)
    */
-  const [closePending, setClosePending] = useState(false);
-  useEffect(() => setClosePending(false), [bill.live_tab?.id, bill.live_tab?.due_iqd, bill.live_tab?.status]);
+  const pendingCloses = usePendingResults<string>((_tabId, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    const detail = (r.serverResult as { details?: unknown } | null)?.details;
+    setNotice(null);
+    setError(new AppRpcError(code, code, undefined, typeof detail === 'string' ? detail : undefined));
+    void onRefetch();
+  });
 
   const state = panelStateOf(bill);
   const tab = bill.live_tab;
+  const closePending = tab ? pendingCloses.pending.has(tab.id) : false;
   const amount = (n: number) => formatIQD(n, locale);
 
   function invalidate() {
@@ -164,7 +174,7 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
       const out = await mutate(plan.mutation, { tabId: tab.id, reasonCode: plan.reason });
       setConfirmClose(false);
       if (out.queued) {
-        setClosePending(true);
+        pendingCloses.add(tab.id, out.localId);
         setNotice(tr('ws.courtDesk.payment.closeQueued'));
         toast.info(tr('ws.courtDesk.payment.closeQueuedToast'));
       } else {

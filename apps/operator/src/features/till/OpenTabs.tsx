@@ -41,7 +41,8 @@ import { formatDateTime, formatNumber, formatTime, type MessageKey } from '@touc
 import { supabase } from '../../lib/supabase';
 import { AppRpcError } from '../../lib/appRpc';
 import { mutate } from '../../lib/mutate';
-import { onFailedResult, resultErrorCode } from '../../lib/queueResults';
+import { resultErrorCode } from '../../lib/queueResults';
+import { usePendingResults } from '../../lib/pendingResults';
 import { errorToMessageKey } from '../../lib/errors';
 import { compareTableNumbers } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
@@ -505,8 +506,17 @@ export function OpenTabsScreen() {
   const [now, setNow] = useState(() => Date.now());
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<{ id: string; error: unknown } | null>(null);
-  /** Removals on the durable queue, unanswered: tab id -> the envelope's localId (item 9). */
-  const [pendingRemovals, setPendingRemovals] = useState<ReadonlyMap<string, string>>(new Map());
+  /**
+   * Removals on the durable queue, unanswered: tab id -> the envelope's localId
+   * (item 9). The ack retires the entry; a refusal the server turned down
+   * lands back in the row, exactly where a synchronous refusal would have.
+   * (The root also toasts it.)
+   */
+  const pendingRemovals = usePendingResults<string>((id, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    const detail = (r.serverResult as { details?: unknown } | null)?.details;
+    setRemoveError({ id, error: new AppRpcError(code, code, undefined, typeof detail === 'string' ? detail : undefined) });
+  });
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -515,37 +525,13 @@ export function OpenTabsScreen() {
 
   const tabsQ = useQuery({ ...OPEN_TABS_QUERY });
 
-  // The ack: the refetch no longer lists the tab, so its pending entry goes.
+  // A refetch that no longer lists the tab also retires its entry (the ack
+  // may have landed while this screen was unmounted).
   useEffect(() => {
-    if (pendingRemovals.size === 0 || !tabsQ.data) return;
+    if (pendingRemovals.pending.size === 0 || !tabsQ.data) return;
     const live = new Set(tabsQ.data.map((t) => t.id));
-    const gone = [...pendingRemovals.keys()].filter((id) => !live.has(id));
-    if (gone.length === 0) return;
-    setPendingRemovals((m) => {
-      const next = new Map(m);
-      for (const id of gone) next.delete(id);
-      return next;
-    });
+    for (const id of pendingRemovals.pending.keys()) if (!live.has(id)) pendingRemovals.remove(id);
   }, [tabsQ.data, pendingRemovals]);
-
-  // The refusal: a queued removal the server turned down lands back in the row,
-  // exactly where a synchronous refusal would have. (The root also toasts it.)
-  useEffect(
-    () =>
-      onFailedResult((r) => {
-        const id = [...pendingRemovals].find(([, localId]) => localId === r.localId)?.[0];
-        if (!id) return;
-        setPendingRemovals((m) => {
-          const next = new Map(m);
-          next.delete(id);
-          return next;
-        });
-        const code = resultErrorCode(r) ?? 'UNKNOWN';
-        const detail = (r.serverResult as { details?: unknown } | null)?.details;
-        setRemoveError({ id, error: new AppRpcError(code, code, undefined, typeof detail === 'string' ? detail : undefined) });
-      }),
-    [pendingRemovals],
-  );
   const menuQ = useQuery({ ...TILL_MENU_QUERY });
   const taxInclusiveQ = useQuery({
     queryKey: ['taxInclusive'],
@@ -614,7 +600,7 @@ export function OpenTabsScreen() {
       if (outcome.queued) {
         // Safe on disk, unanswered: the row wears its badge until the ack
         // (the refetch drops it) or the refusal (the row shows it).
-        setPendingRemovals((m) => new Map(m).set(id, outcome.localId));
+        pendingRemovals.add(id, outcome.localId);
         return;
       }
       // Awaited on purpose: ['tabs'] is mounted here, so this resolves only
@@ -650,7 +636,7 @@ export function OpenTabsScreen() {
         removingId={removingId}
         removeError={removeError}
         onDismissRemoveError={() => setRemoveError(null)}
-        pendingIds={pendingRemovals}
+        pendingIds={pendingRemovals.pending}
       />
       <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <StartShiftBanner />
