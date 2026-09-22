@@ -1056,6 +1056,23 @@ export type Database = {
         }
         Returns: Json
       }
+      my_reservations: {
+        Args: { p_reservation_id?: string }
+        Returns: {
+          cancelled_at: string
+          cancelled_by: string
+          court_id: string
+          court_paid_iqd: number
+          court_remaining_iqd: number
+          end_at: string
+          hold_expires_at: string
+          id: string
+          kind: string
+          price_iqd: number
+          start_at: string
+          status: string
+        }[]
+      }
       normalize_finding: { Args: { p_text: string }; Returns: string }
       open_day: {
         Args: {

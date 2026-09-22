@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   allowedMarks,
   arrivalsDue,
+  blockRangeInvalid,
+  canMoveReservation,
   courtAvailability,
   groupByStart,
   isOverrideRefusal,
@@ -255,5 +257,78 @@ describe('splitting a customer search between the name and phone boxes', () => {
     expect(phoneFromQuery('   ')).toBe('');
     expect(nameFromQuery('--')).toBe('');
     expect(phoneFromQuery('--')).toBe('');
+  });
+});
+
+describe('canMoveReservation', () => {
+  // The fixture runs 15:00-16:00 UTC on 2026-09-03.
+  const during = new Date('2026-09-03T15:30:00.000Z').getTime();
+  const before = new Date('2026-09-03T14:00:00.000Z').getTime();
+  const after = new Date('2026-09-03T18:00:00.000Z').getTime();
+
+  it('refuses a checked-in booking whose slot has started', () => {
+    const r = row({ id: 'playing', status: 'arrived' });
+    expect(canMoveReservation(r, during)).toBe(false);
+    expect(canMoveReservation(r, after)).toBe(false);
+  });
+
+  it('allows an early check-in that has not started yet', () => {
+    // The desk checks guests in before the hour; until the slot starts there
+    // is still nothing being played, so the time may still change.
+    expect(canMoveReservation(row({ id: 'early', status: 'arrived' }), before)).toBe(true);
+  });
+
+  it('allows a confirmed booking whether or not its slot has passed', () => {
+    const r = row({ id: 'noshow-pending', status: 'confirmed' });
+    expect(canMoveReservation(r, before)).toBe(true);
+    expect(canMoveReservation(r, during)).toBe(true);
+    expect(canMoveReservation(r, after)).toBe(true);
+  });
+
+  it('allows a pending hold-turned-booking and refuses terminal statuses', () => {
+    expect(canMoveReservation(row({ id: 'p', status: 'pending' }), during)).toBe(true);
+    for (const status of ['completed', 'cancelled', 'no_show', 'expired']) {
+      expect(canMoveReservation(row({ id: status, status }), before)).toBe(false);
+    }
+  });
+
+  it('refuses anything that is not a booking', () => {
+    expect(canMoveReservation(row({ id: 'h', kind: 'hold', status: 'pending' }), before)).toBe(false);
+    expect(canMoveReservation(row({ id: 'm', kind: 'maintenance', status: 'confirmed' }), before)).toBe(
+      false,
+    );
+  });
+
+  it('turns exactly at the start instant', () => {
+    const start = new Date('2026-09-03T15:00:00.000Z').getTime();
+    const r = row({ id: 'edge', status: 'arrived' });
+    expect(canMoveReservation(r, start)).toBe(true);
+    expect(canMoveReservation(r, start + 1)).toBe(false);
+  });
+});
+
+describe('blockRangeInvalid', () => {
+  it('refuses an end before the start', () => {
+    // The reported case: 09:00 -> 08:00 used to become a 23-hour block.
+    expect(blockRangeInvalid(9 * 60, 8 * 60)).toBe(true);
+    expect(blockRangeInvalid(22 * 60, 2 * 60)).toBe(true);
+  });
+
+  it('refuses a zero-length block', () => {
+    expect(blockRangeInvalid(9 * 60, 9 * 60)).toBe(true);
+  });
+
+  it('accepts a forward range', () => {
+    expect(blockRangeInvalid(9 * 60, 11 * 60)).toBe(false);
+    expect(blockRangeInvalid(0, 30)).toBe(false);
+    expect(blockRangeInvalid(0, 24 * 60)).toBe(false);
+  });
+
+  it('does not judge a half-filled form', () => {
+    // Missing is the required-field error; two messages under one empty box
+    // would be the screen contradicting itself.
+    expect(blockRangeInvalid(null, 8 * 60)).toBe(false);
+    expect(blockRangeInvalid(9 * 60, null)).toBe(false);
+    expect(blockRangeInvalid(null, null)).toBe(false);
   });
 });

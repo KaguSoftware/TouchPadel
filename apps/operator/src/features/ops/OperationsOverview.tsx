@@ -391,7 +391,10 @@ const BLOCKING_TABS_SHOWN = 4;
 
 function tabName(t: OpsBlockingTab, tr: ReturnType<typeof useLocale>['tr']): string {
   if (t.tableNumber) return tr('ws.manager.ops.close.tab', { label: t.tableNumber });
-  return t.guestName ?? t.label ?? t.id.slice(0, 8);
+  // Never an id: a booking made by a signed-in account carries no guest_name,
+  // so this used to name the tab `3f2a1b9c` on the one screen that exists to
+  // tell a manager WHICH tab is holding the day open.
+  return t.guestName ?? t.label ?? tr('op.till.forReservation');
 }
 
 function ClosingCard({ data, queued, go }: { data: OpsOverview; queued: number; go: Go }) {

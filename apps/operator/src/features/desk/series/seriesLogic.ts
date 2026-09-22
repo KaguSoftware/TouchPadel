@@ -39,14 +39,31 @@ export function draftProblem(d: SeriesDraft, today?: string): DraftProblem {
   return null;
 }
 
+/** Days between two sessions of a pattern. `weekdays` steps a day at a time. */
+function stepDays(pattern: SeriesPattern): number {
+  return pattern === 'fortnightly' ? 14 : 7;
+}
+
 /**
- * The inclusive last date the series runs to. "N weeks" means N weekly
- * cycles from the first date: 1 week = the first date only through the day
- * before its next weekly repeat.
+ * The inclusive last date the series runs to.
+ *
+ * The number the clerk types is a count of SESSIONS, and this turns it into the
+ * range the server enumerates: the first session plus N-1 more, one step apart.
+ *
+ * It used to mean calendar span, with the interval applied independently inside
+ * it — so "every 2 weeks" with 2 asked for a 13-day range, the 14-day step
+ * cleared it in one jump, and the desk got ONE booking after asking for two
+ * (reported 2026-09-22). Weekly is unchanged by the switch, because N weekly
+ * sessions and N weeks of span describe the same range.
+ *
+ * `weekdays` keeps meaning calendar weeks: with three weekdays ticked a week
+ * holds three sessions, so a session count could not name a range on its own.
  */
 export function resolvedEndsOn(d: SeriesDraft): string {
   if (d.endMode === 'date') return d.endsOn;
-  return shiftIsoDate(d.startsOn, Math.max(1, d.weeks) * 7 - 1);
+  const n = Math.max(1, d.weeks);
+  if (d.pattern === 'weekdays') return shiftIsoDate(d.startsOn, n * 7 - 1);
+  return shiftIsoDate(d.startsOn, (n - 1) * stepDays(d.pattern));
 }
 
 /** RPC arguments shared by preview_series and create_series (build plan §4 0066). */

@@ -215,10 +215,12 @@ export const courtDeskEn = {
     time: 'Start time',
     duration: 'Length',
     endMode: 'Ends',
-    afterWeeks: 'After some weeks',
+    afterWeeks: 'By count',
     onDate: 'On a date',
-    weeks: 'Number of weeks',
-    weeksFortnightlyHint: 'Every 2 weeks books one session per two weeks.',
+    weeks: 'Number of sessions',
+    weeksWeekdays: 'Number of weeks',
+    weeksFortnightlyHint: 'Sessions sit two weeks apart: 2 books two sessions, 14 days between them.',
+    weeksWeekdaysHint: 'This counts calendar weeks — every weekday you tick is booked in each of them.',
     endsOn: 'Last date',
     weekdayLong: {
       sun: 'Sunday',
@@ -256,7 +258,7 @@ export const courtDeskEn = {
     submitCount: 'Book {count} sessions',
     created: 'Series booked: {created} sessions, {skipped} dates skipped.',
     openSeries: 'Open series',
-    invalidWeeks: 'Enter at least one week.',
+    invalidWeeks: 'Enter a number of at least one.',
     invalidEnd: 'The last date must be after the first.',
     invalidPast: 'The first date cannot be in the past.',
     invalidWeekdays: 'Pick at least one day.',
@@ -311,7 +313,7 @@ export const courtDeskEn = {
   // 06.7 Court block
   block: {
     title: 'Block court',
-    lead: 'Take a court out of use for maintenance or a private event. If a booking already holds part of that time, the block is refused.',
+    lead: 'Take a court out of use for maintenance or a private event. If a booking already holds part of that time, the block is refused. A block runs within one day — to cover a night, block the evening and the small hours separately.',
     court: 'Court',
     date: 'Date',
     from: 'From',
@@ -494,6 +496,10 @@ export const courtDeskEn = {
     historyRow: '{time} · {method} · by {name}',
     someone: 'staff',
     paidToast: 'Payment taken.',
+    // The two ways on from a settled payment: back to the night's board, or
+    // stay on this booking (a second payment, a cafe bill, the receipt).
+    goToToday: 'Go to today',
+    resume: 'Stay on this booking',
     paidChangeToast: 'Payment taken. Give {amount} change.',
     queuedToast: 'Payment saved. It will reach the server when the connection is back.',
     openQueued: 'The bill could not be opened while offline. Try again when the connection is back.',

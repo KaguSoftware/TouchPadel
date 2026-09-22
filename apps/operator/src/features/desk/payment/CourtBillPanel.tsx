@@ -73,6 +73,11 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
   const canOpenTill = canAccess(staff?.role, '/till');
 
   const [paying, setPaying] = useState<Method | null>(null);
+  // What the last settle did, kept on screen until the clerk chooses where to
+  // go next. A toast could not carry those two choices — toast.ok() takes a
+  // message and nothing else — and it took the confirmation away after three
+  // seconds, which is the moment the clerk looks up from the cash drawer.
+  const [settled, setSettled] = useState<{ changeIqd: number; queued: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -149,9 +154,7 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
         expectedTotalIqd: tab.total_iqd,
       });
       setPaying(null);
-      if (out.queued) toast.info(tr('ws.courtDesk.payment.queuedToast'));
-      else if (out.result?.change_iqd) toast.ok(tr('ws.courtDesk.payment.paidChangeToast', { amount: amount(out.result.change_iqd) }));
-      else toast.ok(tr('ws.courtDesk.payment.paidToast'));
+      setSettled({ changeIqd: out.result?.change_iqd ?? 0, queued: out.queued === true });
       invalidate();
     } catch (e) {
       setError(e);
@@ -221,6 +224,28 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
   return (
     <Panel title={tr('ws.courtDesk.payment.title')}>
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        {settled && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            <MessagePresenter
+              tone="success"
+              message={
+                settled.queued
+                  ? tr('ws.courtDesk.payment.queuedToast')
+                  : settled.changeIqd > 0
+                    ? tr('ws.courtDesk.payment.paidChangeToast', { amount: amount(settled.changeIqd) })
+                    : tr('ws.courtDesk.payment.paidToast')
+              }
+            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)' }}>
+              <Button kind="primary" icon="today" onClick={() => void navigate({ to: '/desk/today' })}>
+                {tr('ws.courtDesk.payment.goToToday')}
+              </Button>
+              <Button icon="repeat" onClick={() => setSettled(null)}>
+                {tr('ws.courtDesk.payment.resume')}
+              </Button>
+            </div>
+          </div>
+        )}
         <MessagePresenter tone={sentenceTone} icon={sentenceIcon} message={sentence} />
         {dayBlocked && (canTakePayment(state) || state === 'closeBill') && <MessagePresenter tone="refused" icon="lock" message={tr('ws.courtDesk.payment.dayClosed')} />}
         {notice && <MessagePresenter tone="refused" message={notice} />}

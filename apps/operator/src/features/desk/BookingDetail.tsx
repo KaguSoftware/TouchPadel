@@ -381,7 +381,13 @@ export function BookingDetailScreen() {
                     </div>
                   )}
                   {marks.includes('no_show') && (
-                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => setPending('noShow')}>
+                    // One click, like arrived and completed above: the guest did
+                    // not turn up, and there is nothing to explain. The server
+                    // asks for no reason either -- mark_reservation coalesces a
+                    // missing one to 'no_show' -- so the "Reason required" modal
+                    // this used to open was the app inventing a rule nothing
+                    // downstream held it to (owner, 2026-09-23).
+                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => void run('noShow')}>
                       {tr('ws.courtDesk.detail.noShow')}
                     </Button>
                   )}

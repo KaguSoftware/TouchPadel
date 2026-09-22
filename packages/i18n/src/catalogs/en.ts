@@ -516,6 +516,12 @@ export const en = {
     holdExplainer: 'Nobody else can take this slot while you check out. If the timer runs out, it goes back on the grid.',
     price: 'Price',
     payAtDeskTitle: 'Pay at the desk',
+    // Shown in the SAME card once the desk has settled the court fee (0150
+    // finally tells the guest app that it has). The sign-off follows the
+    // VENUE's clock, so it reads right to someone in another timezone.
+    paidTitle: 'Payment received',
+    paidDay: 'The court fee on this booking is settled — nothing to pay at reception. Have a good day.',
+    paidEvening: 'The court fee on this booking is settled — nothing to pay at reception. Have a good evening.',
     payAtDeskBody: 'Your court is reserved now. You pay at reception when you arrive — there is no online payment in this app.',
     policyLine: 'Free cancellation until {hours} hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
     reserveCta: 'Reserve court',
@@ -1076,12 +1082,12 @@ export const en = {
       notStaff: 'This account is not set up as active staff.',
       signedInAs: 'Signed in as {name} ({role})',
     },
-    // SOW L688: "A banner states the mode and the queued count." Nothing did.
+    // The venue's own mode, as the SERVER reports it. The connectivity rungs
+    // that used to sit beside it now live in ws.shell.status.*; the queued and
+    // did-not-sync counts were removed from the strip entirely (see
+    // components/VenueStatusBanner).
     status: {
       degraded: 'Venue offline mode — guests cannot book the coming days or order online. Take bookings and orders at the desk.',
-      offline: 'This station cannot reach the server. Keep serving; the venue will switch to desk-only until it reconnects.',
-      queued: '{count} waiting to sync',
-      attention: '{count} did not sync — see the Day close screen',
     },
     // SOW L237-238: the shared-till idle lock (0064).
     lock: {
