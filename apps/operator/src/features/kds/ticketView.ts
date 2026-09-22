@@ -90,8 +90,8 @@ export interface TicketRow {
 export const TICKET_SELECT = `id, status, target_seconds, created_at, completed_at, last_actor_label,
   order:orders (
     id, source, status,
-    tab:tabs ( id, label, table:cafe_tables ( table_number ),
-               reservation:reservations ( id, guest_name ) ),
+    tab:tabs!orders_tab_id_fkey ( id, label, table:cafe_tables ( table_number ),
+               reservation:reservations!tabs_reservation_id_fkey ( id, guest_name ) ),
     order_items (
       id, qty, notes, voided, ready_at,
       menu_item:menu_items ( name_en, name_ar ),
