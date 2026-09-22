@@ -47,5 +47,6 @@
       "@types/react-dom": "19.2.7",
       "js-yaml@4": "4.3.2"
     }
-  }
+  },
+  "workspaces": ["apps/*", "packages/*"]
 }

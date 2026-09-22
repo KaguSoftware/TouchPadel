@@ -40,6 +40,9 @@ import { CardShell, type CardState } from '../cards/CardShell';
 import { FigureGroup, FigureLine, Kpi } from '../cards/Kpi';
 import { menuTakeaway, salesTakeaway, timeTakeaway } from './takeaways';
 import { AiInsightsCard } from '../cards/AiInsightsCard';
+import { AssistantComponentCard } from '../components/AssistantComponentCard';
+import { PinnedComponents } from '../components/PinnedComponents';
+import { componentParams } from '../components/params';
 import { PatternsCard } from '../cards/PatternsCard';
 import { MenuMatrixCard } from '../cards/MenuMatrixCard';
 import { PositionCard } from '../cards/PositionCard';
@@ -433,6 +436,35 @@ export function CafeTab() {
             state={allState}
             f={f}
           />
+          {/* The assistant-fed cards (plan §5.4): read from the component cache, never
+              generated on open; Refresh and the nightly pre-warm are the only writers.
+              The Groq insights card above stays until the eval set shows parity. */}
+          <AssistantComponentCard
+            componentKey="cafe_findings"
+            title={tr('ws.analytics.components.titles.cafe_findings')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'cafe', locale })}
+            f={f}
+            fallback={() => (raw && derived && allState === 'ready' ? mineCafeCandidates(raw, derived, 0, patternsCopy(tr, f, locale)).map((c) => c.fallbackText) : [])}
+          />
+          <AssistantComponentCard
+            componentKey="week_paragraph"
+            title={tr('ws.analytics.components.titles.week_paragraph')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'cafe', locale })}
+            f={f}
+          />
+          <AssistantComponentCard
+            componentKey="what_changed"
+            title={tr('ws.analytics.components.titles.what_changed')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'cafe', locale })}
+            f={f}
+          />
+          <AssistantComponentCard
+            componentKey="stock_watch"
+            title={tr('ws.analytics.components.titles.stock_watch')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'cafe', locale })}
+            f={f}
+          />
+          <PinnedComponents scope="cafe" range={data.range} compareBasis={data.compareBasis} f={f} />
         </ZoneGrid>
       </Zone>
 

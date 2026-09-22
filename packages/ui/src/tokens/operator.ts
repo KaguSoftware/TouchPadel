@@ -163,6 +163,34 @@ export const operatorVars = {
   '--tp-shadow-popover': `0 1px 2px oklch(20% 0.03 ${HUE} / 0.06), 0 8px 24px oklch(20% 0.03 ${HUE} / 0.12)`,
   '--tp-shadow-dialog': `0 2px 6px oklch(20% 0.03 ${HUE} / 0.08), 0 24px 64px oklch(20% 0.03 ${HUE} / 0.22)`,
 
+  // ── glass: the frosted ground for a menu that floats over the data ───────
+  /* Used ONLY by a popover that sits above content the operator is still
+     reading (the select menu). It is a translucent --tp-surface, so what shows
+     through is the page's own hue rather than a grey wash, and it is paired
+     with --tp-glass-blur in a @supports guard: where backdrop-filter is not
+     available the fallback is the opaque --tp-surface, never this value on its
+     own. The alpha, not the blur radius, is what stops a hard edge under the
+     pane from still reading as an edge: a big radius over too little alpha
+     leaves chart bars visible as shapes. 86% softens them to a wash and keeps
+     body text above the 4.5:1 floor (measured on rendered pixels, not
+     estimated) — legibility is not negotiable on a till. */
+  '--tp-glass': `oklch(99.4% 0.002 ${HUE} / 0.86)`,
+  /** A hairline lit from above, which is what reads as "pane of glass". */
+  '--tp-glass-border': `oklch(100% 0 0 / 0.7)`,
+  '--tp-glass-blur': 'blur(28px) saturate(1.9)',
+  /* The STICKY BAR's ground. Built on --tp-bg, not --tp-surface, because the
+     bar is page ground that content scrolls beneath — that scrolling content
+     is the only thing the frost has to show. Held more transparent than the
+     menu: a toolbar is a large area, and an alpha that suits a small panel
+     makes a whole bar read as opaque. */
+  '--tp-glass-bar': `oklch(96.5% 0.005 ${HUE} / 0.6)`,
+  /* A CONTROL standing ON that frosted bar. It cannot be translucent over a
+     translucent ground — two 88% layers stack to a muddy 98% and the control
+     stops reading as a control — so it is a near-opaque lift of --tp-surface
+     with its own, lighter blur. The border does the real work here. */
+  '--tp-glass-ctl': `oklch(99.4% 0.002 ${HUE} / 0.8)`,
+  '--tp-glass-blur-sm': 'blur(14px) saturate(1.5)',
+
   // type scale (rem) — ratio ≈ 1.2, product register
   '--tp-fs-xs': '0.75rem',
   '--tp-fs-sm': '0.8125rem',

@@ -22,6 +22,8 @@ export interface MapChunk {
   title: string;
   body: string;
   route: string | null;
+  /** Optional, posted chunks only: a vector computed by scripts/assistant-embed-local.mjs with the runtime's own model. */
+  embedding?: number[] | null;
 }
 
 interface MapFile {

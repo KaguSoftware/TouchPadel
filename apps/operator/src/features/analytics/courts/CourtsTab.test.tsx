@@ -113,6 +113,15 @@ beforeEach(() => {
   vi.mocked(fetchStoredInsights).mockResolvedValue([]);
   vi.mocked(fetchStoredPatterns).mockResolvedValue(null);
   vi.mocked(fetchRejections).mockResolvedValue([]);
+  // The assistant-fed cards read the component cache on mount (one RPC, no model);
+  // a miss with nothing written is the honest default here.
+  vi.mocked(appRpc).mockImplementation(async (fn: string) =>
+    fn === 'analytics_component'
+      ? ({ hit: false, key: 'x', params_hash: 'h', last: null } as never)
+      : fn === 'assistant_usage'
+        ? ({ pricing: {}, fallback_micros_per_mtok: 0 } as never)
+        : (undefined as never),
+  );
 });
 
 describe('CourtsTab', () => {
@@ -215,14 +224,17 @@ describe('CourtsTab', () => {
     renderTab();
     await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
 
-    // The sticky bar's select is the first labelled "Court" (the cafe section has its own for the orders card).
-    const select = screen.getAllByLabelText('Court')[0]!;
-    const labels = within(select)
-      .getAllByRole('option')
-      .map((o) => o.textContent);
-    expect(labels).toEqual(['All courts', 'Court A', 'Court B']);
+    // The sticky bar's filter is the first control named "Court" (the cafe
+    // section has its own for the orders card). It is a SelectMenu, so its
+    // options exist only while the panel is open.
+    const trigger = screen.getAllByRole('combobox', { name: 'Court' })[0]!;
+    await userEvent.click(trigger);
+    // Scoped to THIS panel: the cafe section's own court filter is on the
+    // page too, so a bare getByRole('option') would match twice.
+    const panel = screen.getByRole('listbox');
+    expect(within(panel).getAllByRole('option').map((o) => o.textContent)).toEqual(['All courts', 'Court A', 'Court B']);
 
-    await userEvent.selectOptions(select, COURT_A);
+    await userEvent.click(within(panel).getByRole('option', { name: 'Court A' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/analytics/courts', search: expect.objectContaining({ range: '30d', court: COURT_A }) });
   });
 
@@ -231,9 +243,12 @@ describe('CourtsTab', () => {
     serveFixtures();
     renderTab();
     await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
-    const select = screen.getAllByLabelText('Court')[0]!;
-    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['All courts', 'Court A', 'Court B']);
-    expect((select as HTMLSelectElement).value).toBe(COURT_A);
+    const trigger = screen.getAllByRole('combobox', { name: 'Court' })[0]!;
+    // The trigger shows the chosen court; the full list is still behind it.
+    expect(trigger.textContent).toContain('Court A');
+    await userEvent.click(trigger);
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent)).toEqual(['All courts', 'Court A', 'Court B']);
+    await userEvent.keyboard('{Escape}');
     // The filtered payload was asked for court A; the venue revenue tile still asks venue-wide.
     expect(rpc).toHaveBeenCalledWith('analytics_courts_summary', expect.objectContaining({ courtId: COURT_A }));
     expect(rpc).toHaveBeenCalledWith('analytics_courts_summary', expect.objectContaining({ from: expect.any(String), to: expect.any(String) }));

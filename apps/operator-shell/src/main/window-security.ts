@@ -94,11 +94,18 @@ export function shouldRecoverToRenderer(
 /**
  * Should this window carry native macOS traffic lights?
  *
- * On a till or a KDS the window is a kiosk by design (design-arch.md §2.5) and
- * the only way out is Quit to desktop or "Exit forced full screen" — a close
- * button there would be a second, unaudited exit. Every other window on macOS
- * is a machine somebody actually drives: dev, a station that has not been set
- * up yet, and a desk station. Those get the real OS buttons.
+ * Every macOS window does, tills and KDS boards included. The kiosk modes used
+ * to be button-less on the grounds that their only exits are Quit to desktop
+ * and "Exit forced full screen" — but that made the buttons appear in dev and
+ * vanish in production on the same machine, which read as a bug rather than a
+ * policy, and left a windowed till with no obvious way to minimise or move it.
+ *
+ * The red button is not a second, unaudited exit: createWindow intercepts
+ * 'close' and hands it to the renderer, which opens the same "Quit to desktop?"
+ * confirmation the rail row uses. The buttons also hide themselves whenever the
+ * window is actually full screen or kiosk (publishFullscreen), so the forced
+ * full-screen story is unchanged — they only show while the window is one
+ * somebody can already drag.
  *
  * macOS only: Windows draws no traffic lights, and its frameless windows stay
  * as they were.
@@ -109,9 +116,7 @@ export function shouldShowTrafficLights(chrome: {
   configured: boolean;
   mode: 'till' | 'desk' | 'kds';
 }): boolean {
-  if (chrome.platform !== 'darwin') return false;
-  if (chrome.isDev || !chrome.configured) return true;
-  return chrome.mode === 'desk';
+  return chrome.platform === 'darwin';
 }
 
 

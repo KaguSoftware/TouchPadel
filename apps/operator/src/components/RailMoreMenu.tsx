@@ -12,15 +12,21 @@ import { useAssistantDrawerOrNull } from '../features/assistant/AssistantDrawer'
 import { navButtonStyle } from './railStyles';
 
 /**
- * The rail foot's one collapsible group (owner call, 2026-09-21). Switch
- * workspace, the assistant, the language switch and the appearance switch were
- * four rows stacked above Sign out — four preferences competing with the
- * shift-ending control for the place where fingers rest. They are all "change
- * something about this station", so they fold into one row that opens them.
+ * The rail foot's one collapsible group (owner call, 2026-09-21). The
+ * assistant, the language switch and the appearance switch were rows stacked
+ * above Sign out — preferences competing with the shift-ending control for the
+ * place where fingers rest. They are all "change something about this
+ * station", so they fold into one row that opens them.
  *
- * Sign out, Go on break, Pair kitchen screen and the update row stay outside:
- * none of them is a preference, and burying Sign out costs a press on every
- * shift change.
+ * Switch workspace sits ABOVE that row, outside the group (owner call,
+ * 2026-09-22). It is not a preference: it is a destination, the one an owner
+ * running two venues reaches for all shift, and it cost a press to open a
+ * drawer of settings to get to. It keeps its `rail.more.workspace` id so the
+ * rail's tests and anything pointing at it still find it.
+ *
+ * Sign out, Go on break, Pair kitchen screen and the update row stay outside
+ * too: none of them is a preference, and burying Sign out costs a press on
+ * every shift change.
  *
  * It expands IN PLACE, reusing the rail's own accordion (.tp-rail-group +
  * .tp-rail-group-body in GlobalStyles, what RailGroup uses for Operations and
@@ -36,10 +42,10 @@ export function RailMoreMenu({
   canSwitch: boolean;
   /**
    * Already standing on the workspace picker. The row STAYS and lights up
-   * instead of vanishing (owner call, 2026-09-21): it used to be dropped from
-   * the list, so opening Options on that one screen showed a different, shorter
-   * menu and the row an owner reaches for had moved. A destination you are
-   * already on is what `data-active` is for everywhere else on the rail.
+   * instead of vanishing (owner call, 2026-09-21): it used to be dropped, so
+   * that one screen showed a rail with the row an owner reaches for missing. A
+   * destination you are already on is what `data-active` is for everywhere
+   * else on the rail.
    */
   onWorkspacePicker?: boolean;
   onSwitchWorkspace: () => void;
@@ -52,7 +58,7 @@ export function RailMoreMenu({
   const [open, setOpen] = useState(false);
   const listId = 'rail-more-body';
 
-  // Every item is optional by role, so an owner sees four and a cashier two.
+  // Every item is optional by role, so an owner sees three and a cashier two.
   // `glyph` is for a row whose icon is not a static member of the set: the
   // appearance switch renders ThemeModeIcon, which animates between two glyphs
   // and so has to survive the re-render rather than be swapped by name.
@@ -67,22 +73,6 @@ export function RailMoreMenu({
     active?: boolean;
     hint?: ReactNode;
   }[] = [];
-  if (canSwitch) {
-    items.push({
-      key: 'workspace',
-      icon: 'repeat',
-      label: tr('ws.shell.nav.switchWorkspace'),
-      // A row standing on its own destination goes nowhere, and the guard lives
-      // HERE rather than in the caller's handler: the row is lit by this same
-      // flag, so the thing that makes it look inert is the thing that makes it
-      // inert. Not `disabled` — that would grey it out and drop it from the Tab
-      // order, and "you are here" is not "you may not".
-      onSelect: () => {
-        if (!onWorkspacePicker) onSwitchWorkspace();
-      },
-      active: onWorkspacePicker,
-    });
-  }
   if (assistant?.allowed) {
     items.push({
       key: 'assistant',
@@ -113,6 +103,32 @@ export function RailMoreMenu({
 
   return (
     <div style={{ display: 'grid' }}>
+      {canSwitch && (
+        <button
+          type="button"
+          className="tp-nav-item"
+          style={navButtonStyle}
+          data-testid="rail.more.workspace"
+          data-active={onWorkspacePicker ? 'true' : undefined}
+          // `aria-current`, not `aria-pressed`: this is the screen you are on,
+          // not a control left switched on.
+          aria-current={onWorkspacePicker ? 'page' : undefined}
+          // A row standing on its own destination goes nowhere, and the guard
+          // lives HERE rather than in the caller's handler: the row is lit by
+          // this same flag, so the thing that makes it look inert is the thing
+          // that makes it inert. Not `disabled` — that would grey it out and
+          // drop it from the Tab order, and "you are here" is not "you may
+          // not".
+          onClick={() => {
+            if (!onWorkspacePicker) onSwitchWorkspace();
+          }}
+        >
+          <Icon name="repeat" size={16} />
+          <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {tr('ws.shell.nav.switchWorkspace')}
+          </span>
+        </button>
+      )}
       <button
         type="button"
         className="tp-nav-item tp-rail-group"
@@ -126,8 +142,8 @@ export function RailMoreMenu({
         onClick={() => setOpen((o) => !o)}
       >
         {/* A gear, not the ellipsis it used to be (owner call, 2026-09-21).
-            Everything behind this row is a SETTING — workspace, assistant,
-            language, appearance — and an ellipsis says "there is more here"
+            Everything behind this row is a SETTING — assistant, language,
+            appearance — and an ellipsis says "there is more here"
             without saying what, which is the one thing the row already says
             in words. The Setup SECTION wears the sliders instead, so the two
             never read as the same destination. */}
@@ -140,7 +156,7 @@ export function RailMoreMenu({
         </span>
       </button>
       <div id={listId} className="tp-rail-group-body" data-open={open ? 'true' : undefined}>
-        {/* `inert` while shut, so the four controls are not Tab stops and a
+        {/* `inert` while shut, so the controls are not Tab stops and a
             screen reader does not read a closed drawer — the same guard
             RailGroup puts on its own collapsed list. */}
         <div style={{ overflow: 'hidden', minBlockSize: 0 }} inert={!open}>

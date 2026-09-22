@@ -44,7 +44,10 @@ const YEAR_RE = /\b(?:19|20)\d{2}\b/g;
  * handles, not figures), optional sign, thousands separators `,` or Arabic
  * `٬`, decimal `.` or Arabic `٫`, optional `%`.
  */
-const NUMBER_RE = /(?<![A-Za-z0-9#_.])[-−]?\d[\d,٬]*(?:[.٫]\d+)?%?(?![A-Za-z0-9_])/g;
+// `\d{1,3}(?:[ \u00a0\u202f]\d{3})+` lets "29 000" / "١٢ ٣٤٥" (a space as the thousands
+// separator, common in Arabic and French formatting) read as one figure; the
+// group must be exactly three digits so "2 3" stays two numbers.
+const NUMBER_RE = /(?<![A-Za-z0-9#_.])[-−]?(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d[\d,٬]*)(?:[.٫]\d+)?%?(?![A-Za-z0-9_])/g;
 
 export interface NumberToken {
   raw: string;
@@ -72,7 +75,7 @@ export function tokenizeNumbers(text: string): NumberToken[] {
   for (const m of cleaned.matchAll(NUMBER_RE)) {
     const raw = m[0];
     const percent = raw.endsWith('%');
-    const body = raw.replace(/%$/, '').replace(/[,٬]/g, '').replace('٫', '.').replace('−', '-');
+    const body = raw.replace(/%$/, '').replace(/[,٬ \u00a0\u202f]/g, '').replace('٫', '.').replace('−', '-');
     const value = Number(body);
     if (!Number.isFinite(value)) continue;
     const dot = body.indexOf('.');

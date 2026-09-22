@@ -49,10 +49,46 @@ describe('AnalyticsBar', () => {
     expect(setSearch).toHaveBeenCalledWith({ range: 'custom', from: '2026-08-10', to: '2026-08-20' });
   });
 
+  // The bar's dropdowns are SelectMenu, not a native <select>: the options
+  // only exist once the panel is open, so each one is opened and then clicked.
   it('writes the court filter to the search', async () => {
     const setSearch = renderBar({ courts: [{ id: 'c1', label: 'Court 1' }] });
-    await userEvent.selectOptions(screen.getByLabelText('Court'), 'c1');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Court' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Court 1' }));
     expect(setSearch).toHaveBeenCalledWith({ court: 'c1' });
+  });
+
+  it('closes the court panel on Escape without choosing, and returns focus', async () => {
+    const setSearch = renderBar({ courts: [{ id: 'c1', label: 'Court 1' }] });
+    const trigger = screen.getByRole('combobox', { name: 'Court' });
+    await userEvent.click(trigger);
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(setSearch).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('commits the arrow-key choice on Enter', async () => {
+    const setSearch = renderBar({ courts: [{ id: 'c1', label: 'Court 1' }] });
+    screen.getByRole('combobox', { name: 'Court' }).focus();
+    // Opens on ArrowDown at the current choice ("All courts"), steps to Court 1.
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    expect(setSearch).toHaveBeenCalledWith({ court: 'c1' });
+  });
+
+  // The menu portals to <body>, so it is DOM-outside the Settings dialog that
+  // holds its trigger. Without the [data-menu-portal] guard in MorePanel, the
+  // press that chose an hour read as a press outside and closed the panel.
+  it('keeps the Settings panel open while its own dropdown is used', async () => {
+    renderBar({ deck: { startHour: 4 } });
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Business day starts at' }));
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+    await userEvent.click(screen.getByRole('option', { name: '06:00' }));
+    expect(mutate).toHaveBeenCalledWith({ key: 'analytics_business_day_start_hour', value: 6 });
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
   });
 
   it('opens the Settings panel, keeps it open through a setting write, and closes on Escape', async () => {
@@ -62,7 +98,8 @@ describe('AnalyticsBar', () => {
     await userEvent.click(more);
     const panel = screen.getByRole('dialog', { name: 'Settings' });
     expect(panel).toBeTruthy();
-    await userEvent.selectOptions(screen.getByLabelText('Business day starts at'), '6');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Business day starts at' }));
+    await userEvent.click(screen.getByRole('option', { name: '06:00' }));
     expect(mutate).toHaveBeenCalledWith({ key: 'analytics_business_day_start_hour', value: 6 });
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
     await userEvent.keyboard('{Escape}');

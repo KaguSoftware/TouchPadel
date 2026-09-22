@@ -66,7 +66,7 @@ export function AddCafeBillDialog({
     queryFn: async (): Promise<OpenCafeTab[]> => {
       const { data, error: e } = await supabase
         .from('tabs')
-        .select('id, label, opened_at, table:cafe_tables(table_number), orders(status, order_items(voided, qty))')
+        .select('id, label, opened_at, table:cafe_tables(table_number), orders!orders_tab_id_fkey(status, order_items(voided, qty))')
         .eq('status', 'open')
         .is('reservation_id', null)
         .is('merged_into_tab_id', null)

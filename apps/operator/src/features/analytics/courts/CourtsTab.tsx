@@ -36,6 +36,9 @@ import { makeFormatters } from '../format';
 import type { AnalyticsSearch } from '../search';
 import type { CardState } from '../cards/CardShell';
 import { AiInsightsCard } from '../cards/AiInsightsCard';
+import { AssistantComponentCard } from '../components/AssistantComponentCard';
+import { PinnedComponents } from '../components/PinnedComponents';
+import { componentParams } from '../components/params';
 import { useVenueRevenue } from '../useVenueRevenue';
 import { downloadCsv, toCsv } from '../csv';
 import { useAnalyticsDrill } from '../drill';
@@ -180,6 +183,35 @@ export function CourtsTab() {
             refreshing={state.refreshing}
             f={f}
           />
+          {/* The assistant-fed cards (plan §5.4): read from the component cache, never
+              generated on open; Refresh and the nightly pre-warm are the only writers.
+              The Groq insights card above stays until the eval set shows parity. */}
+          <AssistantComponentCard
+            componentKey="courts_findings"
+            title={tr('ws.analytics.components.titles.courts_findings')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'courts', courtId: data.courtId, locale })}
+            f={f}
+            fallback={() => (derived && allState === 'ready' ? derived.patterns.map((p) => p.fallbackText) : [])}
+          />
+          <AssistantComponentCard
+            componentKey="week_paragraph"
+            title={tr('ws.analytics.components.titles.week_paragraph')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'courts', courtId: data.courtId, locale })}
+            f={f}
+          />
+          <AssistantComponentCard
+            componentKey="what_changed"
+            title={tr('ws.analytics.components.titles.what_changed')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'courts', courtId: data.courtId, locale })}
+            f={f}
+          />
+          <AssistantComponentCard
+            componentKey="staff_note"
+            title={tr('ws.analytics.components.titles.staff_note')}
+            params={componentParams({ range: data.range, compareBasis: data.compareBasis, scope: 'courts', locale })}
+            f={f}
+          />
+          <PinnedComponents scope="courts" range={data.range} compareBasis={data.compareBasis} courtId={data.courtId} f={f} />
         </ZoneGrid>
       </Zone>
 

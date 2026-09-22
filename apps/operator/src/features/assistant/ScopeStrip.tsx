@@ -21,6 +21,7 @@ export function ScopeStrip({
   onChange,
   packs,
   measuring,
+  titleHidden,
   disabled,
   compact,
 }: {
@@ -29,6 +30,8 @@ export function ScopeStrip({
   /** Pack size per scope for the current range; missing = not measured yet. */
   packs: PackSizes;
   measuring?: boolean;
+  /** The legend stays for screen readers but is not drawn (a Disclosure header already shows the title). */
+  titleHidden?: boolean;
   disabled?: boolean;
   compact?: boolean;
 }) {
@@ -46,7 +49,7 @@ export function ScopeStrip({
 
   return (
     <fieldset data-scope-strip="" disabled={disabled} style={{ border: 'none', margin: 0, padding: 0, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-      <legend id={legendId} style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, padding: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>
+      <legend id={legendId} style={titleHidden ? { position: 'absolute', inlineSize: 1, blockSize: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } : { fontSize: 'var(--tp-fs-sm)', fontWeight: 600, padding: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>
         {tr('ws.owner.assistant.scopes.title')}
       </legend>
 
@@ -80,7 +83,10 @@ export function ScopeStrip({
                 {size === undefined
                   ? measuring && checked
                     ? tr('ws.owner.assistant.scopes.measuring')
-                    : ''
+                    : // Measured and absent: the scope has no context pack (how-to, audit, customers, …); say so rather than print nothing.
+                      !measuring && Object.keys(packs).length > 0
+                      ? tr('ws.owner.assistant.scopes.packNone')
+                      : ''
                   : size > 0
                     ? tr('ws.owner.assistant.scopes.packSize', { tokens: formatTokens(size) })
                     : tr('ws.owner.assistant.scopes.packNone')}

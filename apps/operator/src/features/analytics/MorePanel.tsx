@@ -35,6 +35,10 @@ export function MorePanel({
     const close = () => onClose();
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node;
+      // A menu opened from inside this panel renders in a portal on <body>,
+      // so it is not `contains`-ed by either ref — pressing one of its options
+      // would otherwise read as a press outside and close the panel.
+      if (t instanceof Element && t.closest('[data-menu-portal]')) return;
       if (!panelRef.current?.contains(t) && !anchorRef.current?.contains(t)) close();
     };
     window.addEventListener('scroll', close, true);

@@ -2483,6 +2483,32 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'assistant_job_cancel',
     args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 11,
   },
+  // 0140: the model switch. A nil chat id stops the owner at NOT_FOUND; an
+  // unpriced model name at ASSISTANT_MODEL_NOT_PRICED; the list is a pure read.
+  { kind: 'rpc', schema: 'app', name: 'assistant_models', args: {}, expect: OWNER_ONLY, drop: 11 },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_set_model',
+    args: { p_id: NIL_UUID, p_model: null }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_set_default_model',
+    args: { p_model: 'matrix-probe-model' }, expect: OWNER_ONLY, drop: 11,
+  },
+  // 0141: analytics components. An unknown key stops the owner at
+  // COMPONENT_NOT_FOUND; an empty tool list at INVALID_ARGUMENT; nothing written.
+  {
+    kind: 'rpc', schema: 'app', name: 'analytics_component',
+    args: { p_key: 'matrix_probe_component', p_params: {} }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_pin_component',
+    args: { p_key: 'matrix_probe_component', p_question: 'probe', p_tools: [], p_output_schema: { type: 'object' }, p_default_params: {} },
+    expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_archive_component',
+    args: { p_key: 'matrix_probe_component' }, expect: OWNER_ONLY, drop: 11,
+  },
 
   // ── drop 12 · Phase 2 milestone 0 (criticals) ───────────────────────────────
   {

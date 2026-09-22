@@ -113,9 +113,11 @@ describe('shouldRecoverToRenderer', () => {
   });
 });
 
-// A till/KDS station is a kiosk by design and its only exits are Quit to
-// desktop and "Exit forced full screen"; a close button there would be a
-// third, unaudited one. Everything else on macOS is a machine somebody drives.
+// Every macOS window gets the real buttons now, kiosk modes included: dev and
+// production used to disagree on the same machine, which read as a bug. The red
+// button is not an unaudited exit — createWindow routes 'close' through the
+// renderer's "Quit to desktop?" confirmation — and the buttons still hide
+// themselves whenever the window is actually full screen or kiosk.
 describe('shouldShowTrafficLights', () => {
   const mac = { platform: 'darwin' as NodeJS.Platform, isDev: false, configured: true };
 
@@ -123,25 +125,23 @@ describe('shouldShowTrafficLights', () => {
     expect(shouldShowTrafficLights({ ...mac, mode: 'desk' })).toBe(true);
   });
 
-  it('withholds them from a till kiosk', () => {
-    expect(shouldShowTrafficLights({ ...mac, mode: 'till' })).toBe(false);
+  it('shows them on a till, the same as dev does', () => {
+    expect(shouldShowTrafficLights({ ...mac, mode: 'till' })).toBe(true);
+    expect(shouldShowTrafficLights({ ...mac, isDev: true, mode: 'till' })).toBe(true);
   });
 
-  it('withholds them from a KDS kiosk', () => {
-    expect(shouldShowTrafficLights({ ...mac, mode: 'kds' })).toBe(false);
+  it('shows them on a KDS station', () => {
+    expect(shouldShowTrafficLights({ ...mac, mode: 'kds' })).toBe(true);
   });
 
   it('shows them on an unconfigured station, whatever the default mode', () => {
     expect(shouldShowTrafficLights({ ...mac, configured: false, mode: 'till' })).toBe(true);
   });
 
-  it('shows them in development, even for a till', () => {
-    expect(shouldShowTrafficLights({ ...mac, isDev: true, mode: 'till' })).toBe(true);
-  });
-
   it('never claims them on Windows, which draws none', () => {
     expect(shouldShowTrafficLights({ ...mac, platform: 'win32', mode: 'desk' })).toBe(false);
     expect(shouldShowTrafficLights({ ...mac, platform: 'win32', isDev: true, mode: 'desk' })).toBe(false);
+    expect(shouldShowTrafficLights({ ...mac, platform: 'win32', mode: 'till' })).toBe(false);
   });
 });
 

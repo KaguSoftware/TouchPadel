@@ -19,7 +19,7 @@ export interface MeterSlot {
 
 const iso = (s: string) => `⁨${s}⁩`;
 
-export function UsageMeter({ slots, pricing, fallbackMicrosPerMtok, compact }: { slots: readonly MeterSlot[]; pricing: PricingMap | null | undefined; fallbackMicrosPerMtok: number; compact?: boolean }) {
+export function UsageMeter({ slots, pricing, fallbackMicrosPerMtok, compact, hideLabels }: { slots: readonly MeterSlot[]; pricing: PricingMap | null | undefined; fallbackMicrosPerMtok: number; compact?: boolean; /** No slot title (a Disclosure header already names the one slot). */ hideLabels?: boolean }) {
   const { tr, locale } = useLocale();
   const shown = slots.filter((s) => totalTokens(s.tokens) > 0 || (s.costMicros ?? 0) > 0);
   if (shown.length === 0) return null;
@@ -42,7 +42,7 @@ export function UsageMeter({ slots, pricing, fallbackMicrosPerMtok, compact }: {
           .join(' · ');
         return (
           <div key={slot.label} style={{ display: 'grid', gap: '0.1rem', minInlineSize: 0 }}>
-            <dt style={{ fontWeight: 600 }}>{tr(`ws.owner.assistant.meter.${slot.label}`)}</dt>
+            <dt style={hideLabels ? { position: 'absolute', inlineSize: 1, blockSize: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } : { fontWeight: 600 }}>{tr(`ws.owner.assistant.meter.${slot.label}`)}</dt>
             <dd style={{ margin: 0, display: 'grid', gap: '0.1rem' }}>
               <span style={{ color: 'var(--tp-fg)', fontFamily: 'var(--tp-font-numeric)' }}>
                 {tr('ws.owner.assistant.meter.tokens', { tokens: iso(formatTokens(totalTokens(slot.tokens))) })} · {iso(formatUsd(micros))}

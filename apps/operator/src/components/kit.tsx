@@ -1858,7 +1858,7 @@ export function SegmentedControl<T extends string>({
               paddingBlock: size === 'sm' ? '0.2rem' : '0.35rem',
               paddingInline: size === 'sm' ? '0.55rem' : '0.8rem',
               fontSize: size === 'sm' ? 'var(--tp-fs-sm)' : 'var(--tp-fs-md)',
-              fontWeight: 600,
+              fontWeight: active ? 700 : 600,
               background: active ? 'var(--tp-surface)' : 'transparent',
               color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
               boxShadow: active ? 'var(--tp-shadow-raised)' : undefined,
@@ -1869,7 +1869,15 @@ export function SegmentedControl<T extends string>({
             }}
           >
             {o.icon && <Icon name={o.icon} size={14} />}
-            {o.label}
+            {/* The selected segment is bold, and bold is wider: each label is
+                laid out in a zero-height bold ghost so the group keeps one
+                width and nothing shifts as the selection moves. */}
+            <span style={{ display: 'grid' }}>
+              <span style={{ gridArea: '1 / 1' }}>{o.label}</span>
+              <span aria-hidden="true" style={{ gridArea: '1 / 1', fontWeight: 700, visibility: 'hidden', blockSize: 0 }}>
+                {o.label}
+              </span>
+            </span>
           </button>
         );
       })}

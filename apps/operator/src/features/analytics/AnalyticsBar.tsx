@@ -18,7 +18,8 @@
 import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { BUSINESS_DAY_START_OPTIONS, RANGE_PRESETS, isIsoDate, type CompareBasis, type RangePreset } from '@touch/core';
 import type { MessageKey } from '@touch/i18n';
-import { Button, ErrorText, Select, inputStyle } from '../../components/ui';
+import { Button, ErrorText, inputStyle } from '../../components/ui';
+import { SelectMenu } from '../../components/SelectMenu';
 import { SegmentedControl } from '../../components/kit';
 import { InfoTip } from '../../components/InfoTip';
 import { Icon } from '../../components/icons';
@@ -58,7 +59,8 @@ const bar: CSSProperties = {
   // park the stuck bar a full --tp-sp-4 below the top of the pane.
   insetBlockStart: 'calc(-1 * var(--tp-sp-4))',
   zIndex: 'var(--tp-z-section-bar)',
-  background: 'var(--tp-bg)',
+  // The ground is .tp-glass-bar's, not this object's: it is frosted where the
+  // browser can do it and falls back to the opaque --tp-bg where it cannot.
   borderBlockEnd: '1px solid var(--tp-border)',
   marginInline: 'calc(-1 * var(--tp-sp-4))',
   paddingInline: 'var(--tp-sp-4)',
@@ -89,6 +91,8 @@ const groupLabel: CSSProperties = {
 const band: CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minBlockSize: 'var(--tp-row-h)' };
 
 const small: CSSProperties = { ...inputStyle, inlineSize: 'auto', fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1-5)' };
+/** Paired with `small` on a control that stands on the frosted bar. */
+const GLASS_CTL = 'tp-glass-ctl';
 
 /** One labelled control group: the label line, then the control band. */
 function Group({ label, tip, children, style }: { label?: ReactNode; tip?: ReactNode; children: ReactNode; style?: CSSProperties }) {
@@ -147,7 +151,7 @@ export function AnalyticsBar({
   const nonDefault = (deck ? Number(deck.startHour !== 4) : 0) + (deck?.cafe ? Number(deck.cafe.excludedIds.length > 0) : 0);
 
   return (
-    <div id="analytics-bar" style={bar}>
+    <div id="analytics-bar" className="tp-glass-bar" style={bar}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
         <AnalyticsTabs value={tab} />
         {zones.length > 0 && <ZoneNav zones={zones} />}
@@ -179,8 +183,8 @@ export function AnalyticsBar({
             only exist while a custom period is being chosen or is in force. */}
         {(search.range === 'custom' || editingCustom) && (
           <Group label={`${tr('analytics.deck.from')} / ${tr('analytics.deck.to')}`}>
-            <input type="date" style={small} value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)} aria-label={tr('analytics.deck.from')} />
-            <input type="date" style={small} value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)} aria-label={tr('analytics.deck.to')} />
+            <input type="date" className={GLASS_CTL} style={small} value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)} aria-label={tr('analytics.deck.from')} />
+            <input type="date" className={GLASS_CTL} style={small} value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)} aria-label={tr('analytics.deck.to')} />
             <Button
               disabled={!customValid}
               onClick={() => {
@@ -195,22 +199,24 @@ export function AnalyticsBar({
         )}
 
         <Group label={tr('analytics.deck.compare')} tip={tr(HINT_KEY[compareBasis])}>
-          <Select<CompareBasis>
+          <SelectMenu<CompareBasis>
             value={compareBasis}
             onChange={(cmp) => setSearch({ cmp })}
             options={(['prev', '4w', '52w'] as const).map((b) => ({ value: b, label: tr(BASIS_KEY[b]) }))}
             style={small}
+            className={GLASS_CTL}
             aria-label={tr('analytics.deck.compare')}
           />
         </Group>
 
         {courts && (
           <Group label={tr('ws.reports.filters.court')}>
-            <Select<string>
+            <SelectMenu<string>
               value={search.court ?? ''}
               onChange={(court) => setSearch({ court: court || undefined })}
               options={[{ value: '', label: tr('ws.reports.filters.allCourts') }, ...courts.map((c) => ({ value: c.id, label: c.label }))]}
               style={small}
+              className={GLASS_CTL}
               aria-label={tr('ws.reports.filters.court')}
             />
           </Group>
@@ -233,7 +239,7 @@ export function AnalyticsBar({
             </button>
             <MorePanel id={moreId} open={moreOpen} anchorRef={moreRef} onClose={closeMore} label={tr('ws.analytics.settings.title')}>
               <Group label={tr('analytics.deck.businessDay')} tip={tr('analytics.notices.businessDayLine', { hour: String(deck.startHour).padStart(2, '0') })}>
-                <Select<string>
+                <SelectMenu<string>
                   value={String(deck.startHour)}
                   onChange={(hour) => setSetting.mutate({ key: 'analytics_business_day_start_hour', value: Number(hour) })}
                   options={BUSINESS_DAY_START_OPTIONS.map((h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))}
