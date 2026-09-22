@@ -97,3 +97,12 @@ describe('gateAnswer', () => {
     );
   });
 });
+
+describe('spaced thousands (Groq answered "29 000 IQD" on 2026-09-20)', () => {
+  it('reads a space, NBSP or narrow NBSP between three-digit groups as one figure, and "2 3" as two', () => {
+    expect(tokenizeNumbers('card 29 000 IQD and 1 250 000 more').map((t) => t.value)).toEqual([29000, 1250000]);
+    expect(tokenizeNumbers('courts 2 3 and 4').map((t) => t.value)).toEqual([2, 3, 4]);
+    // 30,000 − 1,000 = 29 000 passes the derived-difference rule.
+    expect(gateAnswer('Card after refunds: 29 000 IQD.', [30000, 1000], []).status).toBe('ok');
+  });
+});

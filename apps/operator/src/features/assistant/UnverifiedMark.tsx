@@ -8,12 +8,20 @@
 import type { ReactNode } from 'react';
 import { useLocale } from '../../lib/i18n';
 
-export function UnverifiedMark({ children }: { children: ReactNode }) {
+export type MarkVariant = 'unverified' | 'changed';
+
+/**
+ * `variant="changed"` is the re-check's mark (plan §3.5): the same dotted
+ * underline, but the sentence says the figure has moved since the answer was
+ * written, and the attribute is `data-changed` so the two are countable apart.
+ */
+export function UnverifiedMark({ children, variant = 'unverified' }: { children: ReactNode; variant?: MarkVariant }) {
   const { tr } = useLocale();
-  const title = tr('ws.owner.assistant.message.unverifiedTitle');
+  const title = variant === 'changed' ? tr('ws.owner.assistant.message.recheck.changedTitle') : tr('ws.owner.assistant.message.unverifiedTitle');
+  const attrs = variant === 'changed' ? { 'data-changed': '' } : { 'data-unverified': '' };
   return (
     <mark
-      data-unverified=""
+      {...attrs}
       title={title}
       aria-label={title}
       style={{

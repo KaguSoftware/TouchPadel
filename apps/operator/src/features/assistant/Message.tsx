@@ -5,17 +5,22 @@
  * model is told to answer tersely and anything richer is noise. Figures the
  * gate could not verify are wrapped in `UnverifiedMark`, with a footnote that
  * counts them. A refused scope in the answer becomes a "Turn on <Scope>"
- * button that re-asks.
+ * button that re-asks. A saved answer that read business figures carries the
+ * re-check control (plan §3.5, DECIDE 10); figures it reports as changed get
+ * the same mark with a different sentence.
  */
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import type { AssistantScope } from '@touch/core/assistant/tools';
 import { useLocale } from '../../lib/i18n';
 import { Button, Spinner } from '../../components/ui';
-import type { PricingMap } from '../../lib/assistantPricing';
-import type { AssistantErrorCode, GatePayload, UsagePayload } from './api';
+import type { AssistantErrorCode, GatePayload, RecheckResult, UsagePayload } from './api';
+import { RecheckControl, hasRecheckableTools, rawsForValues } from './RecheckControl';
+import { PinControl, hasPinnableTools } from './PinControl';
 import { Sources, scopeLabel, type SourceRow } from './Sources';
 import { UnverifiedMark } from './UnverifiedMark';
 import { UsageMeter } from './UsageMeter';
+import { Disclosure } from './Disclosure';
+import { formatTokens, formatUsd, priceFor, totalTokens, type PricingMap } from '../../lib/assistantPricing';
 
 // ---------------------------------------------------------------------------
 // The renderer
@@ -92,12 +97,15 @@ function escapeRe(s: string): string {
 }
 
 /**
- * Inline text: `**bold**` and the unverified figures. The figures are matched
- * as the gate reported them (`raw`), longest first so `1,250` is not eaten by
- * `250`, and only on a digit boundary so `12` does not mark the `12` in `120`.
+ * Inline text: `**bold**`, the unverified figures and the figures a re-check
+ * found changed. The figures are matched as the gate reported them (`raw`),
+ * longest first so `1,250` is not eaten by `250`, and only on a digit boundary
+ * so `12` does not mark the `12` in `120`. A figure in both lists is
+ * unverified: it was never a figure from the data.
  */
-export function renderInline(text: string, unverified: readonly string[], key: string): ReactNode {
-  const raws = [...new Set(unverified.filter((r) => r !== ''))].sort((a, b) => b.length - a.length);
+export function renderInline(text: string, unverified: readonly string[], key: string, changed: readonly string[] = []): ReactNode {
+  const unverifiedSet = new Set(unverified.filter((r) => r !== ''));
+  const raws = [...new Set([...unverifiedSet, ...changed.filter((r) => r !== '')])].sort((a, b) => b.length - a.length);
   // A digit, or a separator followed by a digit, on either side means the
   // match is part of a longer number; a trailing comma or full stop of the
   // sentence is not.
@@ -110,14 +118,20 @@ export function renderInline(text: string, unverified: readonly string[], key: s
     const inner = isBold ? part.slice(2, -2) : part;
     const pieces = markRe ? inner.split(markRe) : [inner];
     const nodes = pieces.map((piece, pi) =>
-      markRe && pi % 2 === 1 ? <UnverifiedMark key={`${key}-${bi}-${pi}`}>{piece}</UnverifiedMark> : <Fragment key={`${key}-${bi}-${pi}`}>{piece}</Fragment>,
+      markRe && pi % 2 === 1 ? (
+        <UnverifiedMark key={`${key}-${bi}-${pi}`} variant={unverifiedSet.has(piece) ? 'unverified' : 'changed'}>
+          {piece}
+        </UnverifiedMark>
+      ) : (
+        <Fragment key={`${key}-${bi}-${pi}`}>{piece}</Fragment>
+      ),
     );
     out.push(isBold ? <strong key={`${key}-b${bi}`}>{nodes}</strong> : <Fragment key={`${key}-f${bi}`}>{nodes}</Fragment>);
   });
   return out;
 }
 
-export function AssistantText({ text, unverified }: { text: string; unverified: readonly string[] }) {
+export function AssistantText({ text, unverified, changed = [] }: { text: string; unverified: readonly string[]; changed?: readonly string[] }) {
   const blocks = parseBlocks(text);
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', overflowWrap: 'anywhere' }}>
@@ -130,7 +144,7 @@ export function AssistantText({ text, unverified }: { text: string; unverified: 
                 {b.lines.map((line, li) => (
                   <Fragment key={li}>
                     {li > 0 && <br />}
-                    {renderInline(line, unverified, `${k}-${li}`)}
+                    {renderInline(line, unverified, `${k}-${li}`, changed)}
                   </Fragment>
                 ))}
               </p>
@@ -141,7 +155,7 @@ export function AssistantText({ text, unverified }: { text: string; unverified: 
             return (
               <Tag key={k} style={{ margin: 0, paddingInlineStart: '1.25rem', display: 'grid', gap: '0.2rem', lineHeight: 1.5 }}>
                 {b.items.map((item, li) => (
-                  <li key={li}>{renderInline(item, unverified, `${k}-${li}`)}</li>
+                  <li key={li}>{renderInline(item, unverified, `${k}-${li}`, changed)}</li>
                 ))}
               </Tag>
             );
@@ -154,7 +168,7 @@ export function AssistantText({ text, unverified }: { text: string; unverified: 
                     <tr>
                       {b.header.map((h, ci) => (
                         <th key={ci} style={{ textAlign: 'start', paddingBlock: '0.25rem', paddingInline: '0.5rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
-                          {renderInline(h, unverified, `${k}-h${ci}`)}
+                          {renderInline(h, unverified, `${k}-h${ci}`, changed)}
                         </th>
                       ))}
                     </tr>
@@ -164,7 +178,7 @@ export function AssistantText({ text, unverified }: { text: string; unverified: 
                       <tr key={ri}>
                         {row.map((cell, ci) => (
                           <td key={ci} style={{ paddingBlock: '0.25rem', paddingInline: '0.5rem', borderBlockEnd: '1px solid var(--tp-border)', fontFamily: /^[\d.,%\s-]+$/.test(cell) ? 'var(--tp-font-numeric)' : undefined }}>
-                            {renderInline(cell, unverified, `${k}-${ri}-${ci}`)}
+                            {renderInline(cell, unverified, `${k}-${ri}-${ci}`, changed)}
                           </td>
                         ))}
                       </tr>
@@ -186,6 +200,10 @@ export function AssistantText({ text, unverified }: { text: string; unverified: 
 export interface MessageProps {
   role: 'user' | 'assistant';
   text: string;
+  /** The stored row's id; enables the re-check control on a saved assistant answer. */
+  messageId?: string;
+  /** The owner's question this answer replies to; enables "Pin to Analytics" on a saved answer. */
+  question?: string;
   tools?: readonly SourceRow[];
   scopes?: readonly string[] | null;
   gate?: GatePayload | null;
@@ -208,6 +226,9 @@ export interface MessageProps {
 export function Message(props: MessageProps) {
   const { tr } = useLocale();
   const { role, text, tools = [], gate, usage, streaming, stopped, error, turnOn = [], onTurnOn, compact } = props;
+  // The last re-check of this message; forgotten when the row changes.
+  const [recheck, setRecheck] = useState<RecheckResult | null>(null);
+  useEffect(() => setRecheck(null), [props.messageId]);
 
   if (role === 'user') {
     return (
@@ -234,6 +255,9 @@ export function Message(props: MessageProps) {
   const unverified = gate?.unverified?.map((u) => u.raw) ?? [];
   const unverifiedCount = unverified.length;
   const pendingTools = tools.filter((t) => t.pending);
+  const changedRaws = recheck ? rawsForValues(text, recheck.changed.map((c) => c.value_then)) : [];
+  const canRecheck = !streaming && !!props.messageId && hasRecheckableTools(tools);
+  const canPin = !streaming && !!props.messageId && !!props.question && !props.fromJob && hasPinnableTools(tools);
 
   return (
     <div data-message-role="assistant" style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginInlineEnd: compact ? 0 : '10%' }}>
@@ -256,7 +280,7 @@ export function Message(props: MessageProps) {
       )}
 
       {text !== '' ? (
-        <AssistantText text={text} unverified={unverified} />
+        <AssistantText text={text} unverified={unverified} changed={changedRaws} />
       ) : streaming ? (
         <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.assistant.message.reading')}</p>
       ) : null}
@@ -293,13 +317,28 @@ export function Message(props: MessageProps) {
 
       {!streaming && tools.length > 0 && <Sources items={tools} scopes={props.scopes} compact={compact} onNavigate={props.onNavigate} />}
 
-      {usage && (
-        <UsageMeter
-          compact
-          slots={[{ label: 'thisMessage', tokens: usage, costMicros: usage.cost_micros ?? null, model: usage.model ?? null, calls: usage.calls ?? null }]}
-          pricing={props.pricing}
-          fallbackMicrosPerMtok={props.fallbackMicrosPerMtok ?? 0}
-        />
+      {(canRecheck || canPin) && (
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'start' }}>
+          {canRecheck && <RecheckControl messageId={props.messageId!} result={recheck} onResult={setRecheck} />}
+          {canPin && <PinControl question={props.question!} tools={tools} scopes={props.scopes} />}
+        </div>
+      )}
+
+      {usage && totalTokens(usage) > 0 && (
+        <Disclosure
+          storageKey="message-meter"
+          defaultOpen={false}
+          title={tr('ws.owner.assistant.meter.thisMessage')}
+          summary={`⁨${formatTokens(totalTokens(usage))}⁩ · ⁨${formatUsd(usage.cost_micros ?? priceFor({ model: usage.model ?? '', ...usage }, props.pricing, props.fallbackMicrosPerMtok ?? 0))}⁩`}
+        >
+          <UsageMeter
+            compact
+            hideLabels
+            slots={[{ label: 'thisMessage', tokens: usage, costMicros: usage.cost_micros ?? null, model: usage.model ?? null, calls: usage.calls ?? null }]}
+            pricing={props.pricing}
+            fallbackMicrosPerMtok={props.fallbackMicrosPerMtok ?? 0}
+          />
+        </Disclosure>
       )}
     </div>
   );

@@ -1007,7 +1007,7 @@ begin
       v_path := '$';
       select coalesce(jsonb_agg(to_jsonb(s)), '[]'::jsonb) into v_result from app.list_staff() s;
     when 'staff_requests_page' then
-      v_path := 'rows';
+      v_path := 'requests';   -- the RPC returns {requests, total, pending}; the catalog says the same
       v_result := app.staff_requests_page(a ->> 'p_status', coalesce((a ->> 'p_limit')::int, 50),
                                           coalesce((a ->> 'p_offset')::int, 0));
     when 'report_staff_activity' then

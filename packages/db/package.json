@@ -43,17 +43,19 @@
     "assistant:map": "node --experimental-strip-types scripts/build-assistant-map.mjs",
     "assistant:measure": "node --experimental-strip-types scripts/measure-assistant-tokens.mjs",
     "lint": "eslint .",
-    "assistant:index-map": "node --experimental-strip-types scripts/assistant-index-map.mjs"
+    "assistant:index-map": "node --experimental-strip-types scripts/assistant-index-map.mjs",
+    "assistant:eval": "node --experimental-strip-types scripts/assistant-eval.mjs"
   },
   "devDependencies": {
+    "@huggingface/transformers": "^4.3.0",
     "@supabase/supabase-js": "^2.47.0",
+    "@touch/config": "workspace:*",
     "@types/node": "^20.17.0",
     "dotenv": "^16.4.7",
+    "eslint": "^9.15.0",
     "qrcode": "^1.5.4",
     "supabase": "^2.0.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8",
-    "@touch/config": "workspace:*",
-    "eslint": "^9.15.0"
+    "vitest": "^2.1.8"
   }
 }

@@ -113,6 +113,15 @@ beforeEach(() => {
   vi.mocked(fetchStoredInsights).mockResolvedValue([]);
   vi.mocked(fetchStoredPatterns).mockResolvedValue(null);
   vi.mocked(fetchRejections).mockResolvedValue([]);
+  // The assistant-fed cards read the component cache on mount (one RPC, no model);
+  // a miss with nothing written is the honest default here.
+  vi.mocked(appRpc).mockImplementation(async (fn: string) =>
+    fn === 'analytics_component'
+      ? ({ hit: false, key: 'x', params_hash: 'h', last: null } as never)
+      : fn === 'assistant_usage'
+        ? ({ pricing: {}, fallback_micros_per_mtok: 0 } as never)
+        : (undefined as never),
+  );
 });
 
 describe('CourtsTab', () => {

@@ -234,6 +234,10 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Record<string, unknown>
       }
+      analytics_component: {
+        Args: { p_key: string; p_params?: Json }
+        Returns: Json
+      }
       analytics_courts_cafe: {
         Args: { p_court_id?: string; p_from: string; p_to: string }
         Returns: Json
@@ -368,6 +372,16 @@ export type Database = {
         Args: { p_start_at: string }
         Returns: undefined
       }
+      assistant_archive_component: {
+        Args: { p_key: string }
+        Returns: Database["public"]["Tables"]["assistant_components"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_components"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       assistant_archive_conversation: { Args: { p_id: string }; Returns: Json }
       assistant_audit_page: {
         Args: {
@@ -410,6 +424,15 @@ export type Database = {
         Args: { p_kind: string; p_ref: string }
         Returns: Json
       }
+      assistant_component_lookup: {
+        Args: { p_key: string; p_params: Json }
+        Returns: Json
+      }
+      assistant_component_supersede: {
+        Args: { p_key: string; p_params_hash: string }
+        Returns: number
+      }
+      assistant_component_upsert: { Args: { p: Json }; Returns: Json }
       assistant_count: {
         Args: { p_args?: Json; p_tool: string }
         Returns: number
@@ -454,10 +477,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assistant_model_allowed: { Args: { p_model: string }; Returns: boolean }
+      assistant_models: { Args: never; Returns: Json }
       assistant_page: {
         Args: { p_limit: number; p_offset: number }
         Returns: Record<string, unknown>
       }
+      assistant_params_hash: { Args: { p_params: Json }; Returns: string }
       assistant_payments_list: {
         Args: {
           p_count_only?: boolean
@@ -469,7 +495,28 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_pin_component: {
+        Args: {
+          p_default_params?: Json
+          p_key: string
+          p_output_schema: Json
+          p_question: string
+          p_tools: string[]
+        }
+        Returns: Database["public"]["Tables"]["assistant_components"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_components"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assistant_prewarm_nudge: { Args: never; Returns: undefined }
       assistant_run_tool: {
+        Args: { p_args?: Json; p_tool: string }
+        Returns: Json
+      }
+      assistant_run_tool_prewarm: {
         Args: { p_args?: Json; p_tool: string }
         Returns: Json
       }
@@ -481,6 +528,20 @@ export type Database = {
           p_query: string
         }
         Returns: Json
+      }
+      assistant_set_default_model: {
+        Args: { p_model: string }
+        Returns: undefined
+      }
+      assistant_set_model: {
+        Args: { p_id: string; p_model: string }
+        Returns: Database["public"]["Tables"]["assistant_conversations"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_conversations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       assistant_set_scopes: {
         Args: { p_id: string; p_range?: Json; p_scopes: string[] }
@@ -2094,12 +2155,107 @@ export type Database = {
         }
         Relationships: []
       }
+      assistant_component_cache: {
+        Row: {
+          component_key: string
+          content: Json
+          expires_at: string | null
+          gate: Json | null
+          generated_at: string
+          id: number
+          inputs_fingerprint: string
+          params_hash: string
+          sources: Json
+          superseded_at: string | null
+          tokens: Json
+        }
+        Insert: {
+          component_key: string
+          content: Json
+          expires_at?: string | null
+          gate?: Json | null
+          generated_at?: string
+          id?: never
+          inputs_fingerprint: string
+          params_hash: string
+          sources?: Json
+          superseded_at?: string | null
+          tokens?: Json
+        }
+        Update: {
+          component_key?: string
+          content?: Json
+          expires_at?: string | null
+          gate?: Json | null
+          generated_at?: string
+          id?: never
+          inputs_fingerprint?: string
+          params_hash?: string
+          sources?: Json
+          superseded_at?: string | null
+          tokens?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_component_cache_component_key_fkey"
+            columns: ["component_key"]
+            isOneToOne: false
+            referencedRelation: "assistant_components"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      assistant_components: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          default_params: Json
+          key: string
+          kind: string
+          output_schema: Json
+          question: string
+          tools: string[]
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_params?: Json
+          key: string
+          kind: string
+          output_schema: Json
+          question: string
+          tools: string[]
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_params?: Json
+          key?: string
+          kind?: string
+          output_schema?: Json
+          question?: string
+          tools?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_components_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assistant_conversations: {
         Row: {
           archived_at: string | null
           created_at: string
           handles: Json
           id: string
+          model: string | null
           owner_id: string
           range: Json | null
           scopes: string[]
@@ -2112,6 +2268,7 @@ export type Database = {
           created_at?: string
           handles?: Json
           id?: string
+          model?: string | null
           owner_id: string
           range?: Json | null
           scopes?: string[]
@@ -2124,6 +2281,7 @@ export type Database = {
           created_at?: string
           handles?: Json
           id?: string
+          model?: string | null
           owner_id?: string
           range?: Json | null
           scopes?: string[]
@@ -5710,6 +5868,7 @@ export type Database = {
           id: boolean
           llm_cost_micros_per_mtok: number
           llm_daily_request_limit: number
+          llm_default_model: string
           llm_monthly_cost_cap_micros: number
           llm_pricing: Json
           max_booking_horizon_days: number
@@ -5738,6 +5897,7 @@ export type Database = {
           id?: boolean
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
+          llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
           max_booking_horizon_days?: number
@@ -5766,6 +5926,7 @@ export type Database = {
           id?: boolean
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
+          llm_default_model?: string
           llm_monthly_cost_cap_micros?: number
           llm_pricing?: Json
           max_booking_horizon_days?: number

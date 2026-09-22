@@ -25,6 +25,7 @@ const SCOPE_TITLES: Readonly<Record<AssistantScope, string>> = {
   customers: 'Customers',
   audit: 'Audit',
   marketing: 'Marketing',
+  engagement: 'Guest engagement',
   settings: 'Settings',
   system: 'System',
   howto: 'How-to',
@@ -57,7 +58,8 @@ export function buildSystem(input: { compactMap: string; lang: Lang }): string {
     `- Up to ${MAX_TOOL_ROUNDS} tool rounds per message. Call independent tools in parallel.`,
     '- Ids are short handles such as r12, c3, s1. Use them exactly as given; pass them back to tools that take an id. Never guess or fabricate a handle.',
     '- Phones and emails appear as phone#1 / email#2. Refer to them that way.',
-    `- Scopes: ${scopes}. A tool outside the chat's scopes answers "Scope \\"<scope>\\" is off for this chat"; tell the owner that context is off (for example, "Cafe context is off for this chat") and stop; do not retry.`,
+    `- Scopes: ${scopes}. A DATA tool outside the chat's scopes answers "Scope \\"<scope>\\" is off for this chat"; only then tell the owner that context is off (for example, "Cafe context is off for this chat") and stop; do not retry.`,
+    '- search, describe and page_lookup are allowed in every chat whatever the scopes. A question about where a page, button or setting is, or how something works, is answered with them — never with "context is off", and never from memory: call search or page_lookup first and answer with the route (for example /admin/day-close).',
     '- The first user message carries today\'s date, the venue timezone, the scopes that are on and their context packs. Use the packs before calling the same tool again.',
     '- search finds pages, buttons, operations, tables, settings, rules and documents; describe gives the full entry; page_lookup gives a route\'s page.',
     '',
@@ -68,8 +70,9 @@ export function buildSystem(input: { compactMap: string; lang: Lang }): string {
     '- Tables only when the owner asked for rows. Plain text otherwise; no headings.',
     `- ${langLine}`,
     '',
-    'The venue map (pages with routes and roles, rules, tool names):',
-    input.compactMap.trim(),
+    ...(input.compactMap.trim()
+      ? ['The venue map (pages with routes and roles, rules, tool names):', input.compactMap.trim()]
+      : ['The venue map is NOT in this prompt. For any page, button, setting, rule or how-to question call search or page_lookup before answering; do not guess a route.']),
   ].join('\n');
 }
 

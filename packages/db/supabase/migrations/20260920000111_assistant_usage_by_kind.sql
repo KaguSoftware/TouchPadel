@@ -117,7 +117,9 @@ create or replace function app.llm_price_micros(
 ) returns bigint
 language plpgsql stable security definer set search_path = public as $llm_price_micros_0111$
 begin
-  if not app.is_staff('owner') then
+  -- The owner (the UI's calculator) or the service role (the edge functions
+  -- pricing each model call — the job tick and the pre-warm carry no owner JWT).
+  if not (app.is_staff('owner') or auth.role() = 'service_role') then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
   return app.llm_price_calc(p_model, p_input, p_cache_write, p_cache_read, p_output);
@@ -128,6 +130,7 @@ comment on function app.llm_price_micros(text, bigint, bigint, bigint, bigint) i
 
 revoke all on function app.llm_price_micros(text, bigint, bigint, bigint, bigint) from public, anon;
 grant execute on function app.llm_price_micros(text, bigint, bigint, bigint, bigint) to authenticated;
+grant execute on function app.llm_price_micros(text, bigint, bigint, bigint, bigint) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- 4. app.llm_record_usage — the by-kind overload (service role only)

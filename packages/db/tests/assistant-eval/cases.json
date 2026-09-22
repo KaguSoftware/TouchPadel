@@ -1,0 +1,1136 @@
+{
+  "$comment": "Owner-assistant eval set (plan §8). 40 cases: 20 numeric, 10 where, 10 audit; both languages in every kind. Numeric truths are SQL run as postgres on the local stack after fixture.sql is planted; the eval week is business days 2024-03-04..2024-03-10 where only the fixture rows exist. `expect.value` pins the fixture arithmetic (tests fail if the fixture drifts); cases without it read live seed state. `expect.run` is the dispatcher call the vitest suite makes as the owner (`rpc` is the app.* name, `counts_rows` says the sql scalar equals the list total). Runner: node scripts/assistant-eval.mjs.",
+  "range": {
+    "from": "2024-03-04",
+    "to": "2024-03-10"
+  },
+  "cases": [
+    {
+      "id": "n01-revenue-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How much revenue did we make between 4 and 10 March 2024?",
+      "scopes": [
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_revenue"
+        ],
+        "value": 228000,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')), res as (select coalesce(sum(r.price_iqd) filter (where r.status in ('confirmed','arrived','completed')),0) p from reservations r, b where r.kind='booking' and r.start_at>=b.ts_from and r.start_at<b.ts_to), cafe as (select coalesce(sum(s.cafe_net_iqd),0) n from b, app.cafe_settled_tabs(b.ts_from,b.ts_to) s) select res.p + cafe.n from res, cafe"
+      }
+    },
+    {
+      "id": "n02-cash-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How much cash did we take in between 4 and 10 March 2024, after cash refunds?",
+      "scopes": [
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_revenue"
+        ],
+        "value": 58000,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')), pay as (select coalesce(sum(p.amount_iqd) filter (where p.method='cash'),0) c from payments p, b where p.created_at>=b.ts_from and p.created_at<b.ts_to), ref as (select coalesce(sum(r.amount_iqd) filter (where p.method='cash'),0) c from refunds r join payments p on p.id=r.payment_id, b where r.created_at>=b.ts_from and r.created_at<b.ts_to) select pay.c - ref.c from pay, ref"
+      }
+    },
+    {
+      "id": "n03-card-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم كان مجموع مدفوعات البطاقة بعد خصم المبالغ المستردة بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_revenue"
+        ],
+        "value": 30000,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')), pay as (select coalesce(sum(p.amount_iqd) filter (where p.method='card'),0) c from payments p, b where p.created_at>=b.ts_from and p.created_at<b.ts_to), ref as (select coalesce(sum(r.amount_iqd) filter (where p.method='card'),0) c from refunds r join payments p on p.id=r.payment_id, b where r.created_at>=b.ts_from and r.created_at<b.ts_to) select pay.c - ref.c from pay, ref"
+      }
+    },
+    {
+      "id": "n04-bookings-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many court bookings were played or confirmed between 4 and 10 March 2024?",
+      "scopes": [
+        "courts",
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_courts",
+          "analytics_courts_summary",
+          "bookings_list"
+        ],
+        "value": 4,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select count(*) from reservations r, b where r.kind='booking' and r.status in ('confirmed','arrived','completed') and r.start_at>=b.ts_from and r.start_at<b.ts_to"
+      }
+    },
+    {
+      "id": "n05-padel-revenue-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم كان إيراد الملاعب (البادل) بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "courts",
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_courts",
+          "analytics_courts_summary",
+          "report_revenue"
+        ],
+        "value": 180000,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select coalesce(sum(r.price_iqd) filter (where r.status in ('confirmed','arrived','completed')),0) from reservations r, b where r.kind='booking' and r.start_at>=b.ts_from and r.start_at<b.ts_to"
+      }
+    },
+    {
+      "id": "n06-no-shows-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many bookings were no-shows between 4 and 10 March 2024?",
+      "scopes": [
+        "courts",
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_courts",
+          "analytics_courts_summary",
+          "analytics_courts_endings",
+          "bookings_list"
+        ],
+        "value": 1,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select count(*) from reservations r, b where r.kind='booking' and r.status='no_show' and r.start_at>=b.ts_from and r.start_at<b.ts_to"
+      }
+    },
+    {
+      "id": "n07-booked-minutes-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم دقيقة حُجزت الملاعب فعلياً بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "courts",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "report_courts",
+          "analytics_courts_summary"
+        ],
+        "value": 270,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select coalesce(sum(extract(epoch from (r.end_at - r.start_at)) / 60) filter (where r.status in ('confirmed','arrived','completed')),0)::bigint from reservations r, b where r.kind='booking' and r.start_at>=b.ts_from and r.start_at<b.ts_to"
+      }
+    },
+    {
+      "id": "n08-cafe-net-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "What was the cafe's net revenue after refunds between 4 and 10 March 2024?",
+      "scopes": [
+        "cafe",
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_cafe",
+          "report_revenue"
+        ],
+        "value": 48000,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select coalesce(sum(s.cafe_net_iqd),0) from b, app.cafe_settled_tabs(b.ts_from,b.ts_to) s"
+      }
+    },
+    {
+      "id": "n09-orders-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many cafe orders were placed between 4 and 10 March 2024?",
+      "scopes": [
+        "cafe",
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_cafe",
+          "report_revenue",
+          "analytics_daily_sales"
+        ],
+        "value": 4,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select count(*) from orders o, b where o.placed_at>=b.ts_from and o.placed_at<b.ts_to and o.status<>'voided'"
+      }
+    },
+    {
+      "id": "n10-discounts-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم كان إجمالي الخصومات على فواتير الكافيه بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "cafe",
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_revenue",
+          "report_cafe"
+        ],
+        "value": 2000,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select coalesce(sum(s.discount_iqd),0) from b, app.cafe_settled_tabs(b.ts_from,b.ts_to) s"
+      }
+    },
+    {
+      "id": "n11-best-seller-qty-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many units of our best-selling menu item did we sell between 4 and 10 March 2024?",
+      "scopes": [
+        "cafe",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "analytics_best_sellers",
+          "analytics_sold_items",
+          "report_cafe"
+        ],
+        "value": 10,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')), t as (select t.id from tabs t, b where t.status='settled' and t.merged_into_tab_id is null and t.settled_at>=b.ts_from and t.settled_at<b.ts_to) select coalesce((select sum(oi.qty) from orders o join order_items oi on oi.order_id=o.id where o.tab_id in (select id from t) and o.status<>'voided' and not oi.voided and oi.menu_item_id <> all(app.analytics_excluded()) group by oi.menu_item_id order by 1 desc limit 1),0)"
+      }
+    },
+    {
+      "id": "n12-settled-tabs-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم فاتورة (تاب) تمت تسويتها بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "cafe",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "tabs_list",
+          "report_cafe",
+          "analytics_daily_sales"
+        ],
+        "value": 4,
+        "sql": "select count(*) from tabs t join day_sessions ds on ds.id=t.day_session_id where ds.business_date between '2024-03-04' and '2024-03-10' and t.status='settled'",
+        "run": {
+          "rpc": "assistant_tabs_list",
+          "args": {
+            "p_from": "2024-03-04",
+            "p_to": "2024-03-10",
+            "p_status": "settled"
+          },
+          "counts_rows": true
+        }
+      }
+    },
+    {
+      "id": "n13-payments-count-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many individual payments were recorded between 4 and 10 March 2024?",
+      "scopes": [
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "payments_list",
+          "report_revenue"
+        ],
+        "value": 5,
+        "sql": "select count(*) from payments p join day_sessions ds on ds.id=p.day_session_id where ds.business_date between '2024-03-04' and '2024-03-10'",
+        "run": {
+          "rpc": "assistant_payments_list",
+          "args": {
+            "p_from": "2024-03-04",
+            "p_to": "2024-03-10"
+          },
+          "counts_rows": true
+        }
+      }
+    },
+    {
+      "id": "n14-refunds-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم بلغت المبالغ المستردة للزبائن بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "money",
+        "cafe",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline",
+          "report_cafe",
+          "report_revenue"
+        ],
+        "value": 1000,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')) select coalesce(sum(s.refunds_iqd),0) from b, app.cafe_settled_tabs(b.ts_from,b.ts_to) s"
+      }
+    },
+    {
+      "id": "n15-pending-requests-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many staff requests are still waiting for a decision?",
+      "scopes": [
+        "staff",
+        "howto"
+      ],
+      "expect": {
+        "tools_any_of": [
+          "staff_requests_page"
+        ],
+        "sql": "select count(*) from staff_requests where status='pending'",
+        "run": {
+          "rpc": "staff_requests_page",
+          "args": {
+            "p_status": "pending"
+          },
+          "counts_rows": true
+        }
+      }
+    },
+    {
+      "id": "n16-staff-count-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم حساب موظف لدينا في النظام؟",
+      "scopes": [
+        "staff",
+        "howto"
+      ],
+      "expect": {
+        "tools_any_of": [
+          "list_staff"
+        ],
+        "sql": "select count(*) from staff",
+        "run": {
+          "rpc": "list_staff",
+          "args": {},
+          "counts_rows": true
+        }
+      }
+    },
+    {
+      "id": "n17-break-minutes-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many minutes of staff breaks were taken in total between 4 and 10 March 2024?",
+      "scopes": [
+        "staff",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "break_history"
+        ],
+        "value": 40,
+        "sql": "select coalesce(sum(round(extract(epoch from (coalesce(ended_at, now()) - started_at)) / 60)),0)::bigint from staff_breaks where business_date between '2024-03-04' and '2024-03-10'",
+        "run": {
+          "rpc": "assistant_break_history",
+          "args": {
+            "p_from": "2024-03-04",
+            "p_to": "2024-03-10"
+          },
+          "counts_rows": false
+        }
+      }
+    },
+    {
+      "id": "n18-expired-batches-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم دفعة مخزون منتهية الصلاحية لدينا الآن؟",
+      "scopes": [
+        "stock",
+        "howto"
+      ],
+      "expect": {
+        "tools_any_of": [
+          "stock_view",
+          "report_stock"
+        ],
+        "sql": "select count(*) from v_expired",
+        "run": {
+          "rpc": "assistant_stock_view",
+          "args": {
+            "p_view": "expired",
+            "p_limit": 500
+          },
+          "counts_rows": true
+        }
+      }
+    },
+    {
+      "id": "n19-ingredients-on-hand-en",
+      "kind": "numeric",
+      "lang": "en",
+      "question": "How many ingredients do we track in the on-hand stock view?",
+      "scopes": [
+        "stock",
+        "howto"
+      ],
+      "expect": {
+        "tools_any_of": [
+          "stock_view",
+          "report_stock"
+        ],
+        "sql": "select count(*) from v_ingredient_on_hand",
+        "run": {
+          "rpc": "assistant_stock_view",
+          "args": {
+            "p_view": "on_hand",
+            "p_limit": 500
+          },
+          "counts_rows": true
+        }
+      }
+    },
+    {
+      "id": "n20-avg-order-value-ar",
+      "kind": "numeric",
+      "lang": "ar",
+      "question": "كم كان متوسط قيمة الطلب كما تعرضه لوحة الإدارة (إجمالي الكافيه ÷ عدد الطلبات) بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "money",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "panel_headline"
+        ],
+        "value": 12250,
+        "sql": "with b as (select * from app.analytics_bounds('2024-03-04','2024-03-10')), cafe as (select coalesce(sum(s.cafe_gross_iqd),0) g from b, app.cafe_settled_tabs(b.ts_from,b.ts_to) s), ord as (select count(*) o from orders o, b where o.placed_at>=b.ts_from and o.placed_at<b.ts_to and o.status<>'voided') select case when ord.o > 0 then round(cafe.g::numeric / ord.o)::bigint else 0 end from cafe, ord"
+      }
+    },
+    {
+      "id": "w01-day-close-en",
+      "kind": "where",
+      "lang": "en",
+      "question": "Where do I close the trading day?",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/admin/day-close",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/admin/day-close",
+          "Day close",
+          "day-close",
+          "إغلاق اليوم"
+        ]
+      }
+    },
+    {
+      "id": "w02-audit-en",
+      "kind": "where",
+      "lang": "en",
+      "question": "Where can I see who changed what and why?",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/admin/audit",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/admin/audit",
+          "Audit log",
+          "audit",
+          "سجل التدقيق"
+        ]
+      }
+    },
+    {
+      "id": "w03-requests-en",
+      "kind": "where",
+      "lang": "en",
+      "question": "Where do I approve or decline a staff leave request?",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/observation/requests",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/observation/requests",
+          "Requests",
+          "requests",
+          "الطلبات"
+        ]
+      }
+    },
+    {
+      "id": "w04-staff-en",
+      "kind": "where",
+      "lang": "en",
+      "question": "Where do I add a new staff member?",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/admin/staff",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/admin/staff",
+          "Staff",
+          "الموظفون",
+          "الموظفين"
+        ]
+      }
+    },
+    {
+      "id": "w05-rates-en",
+      "kind": "where",
+      "lang": "en",
+      "question": "Where do I change the court prices?",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/admin/rates",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/admin/rates",
+          "Court rates",
+          "rates",
+          "الأسعار"
+        ]
+      }
+    },
+    {
+      "id": "w06-waste-ar",
+      "kind": "where",
+      "lang": "ar",
+      "question": "أين أسجل هدر المخزون؟",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/stock/waste",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/stock/waste",
+          "Waste",
+          "waste",
+          "الهدر",
+          "هدر"
+        ]
+      }
+    },
+    {
+      "id": "w07-revenue-report-ar",
+      "kind": "where",
+      "lang": "ar",
+      "question": "أين أجد تقرير الإيرادات؟",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/reports/revenue",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/reports/revenue",
+          "Revenue",
+          "revenue",
+          "الإيراد",
+          "الإيرادات"
+        ]
+      }
+    },
+    {
+      "id": "w08-promotions-ar",
+      "kind": "where",
+      "lang": "ar",
+      "question": "أين أضيف عرضاً ترويجياً جديداً؟",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/admin/promotions",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/admin/promotions",
+          "Promotions",
+          "promotions",
+          "العروض"
+        ]
+      }
+    },
+    {
+      "id": "w09-hours-ar",
+      "kind": "where",
+      "lang": "ar",
+      "question": "أين أضبط ساعات العمل وأيام الإغلاق؟",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/admin/hours",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe"
+        ],
+        "contains_any": [
+          "/admin/hours",
+          "/admin/settings",
+          "Opening hours",
+          "hours",
+          "ساعات",
+          "أوقات العمل"
+        ]
+      }
+    },
+    {
+      "id": "w10-assistant-usage-ar",
+      "kind": "where",
+      "lang": "ar",
+      "question": "أين أرى كم كلّف المساعد هذا الشهر؟",
+      "scopes": [
+        "howto"
+      ],
+      "expect": {
+        "route": "/assistant/usage",
+        "tools_any_of": [
+          "page_lookup",
+          "search",
+          "describe",
+          "usage"
+        ],
+        "contains_any": [
+          "/assistant/usage",
+          "usage",
+          "Usage",
+          "الاستخدام",
+          "المساعد"
+        ]
+      }
+    },
+    {
+      "id": "a01-discount-en",
+      "kind": "audit",
+      "lang": "en",
+      "question": "Who applied the discount to a cafe tab on 6 March 2024, and how much was it?",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Manager",
+          "المدير"
+        ],
+        "contains_any": [
+          "discount",
+          "2000",
+          "2,000",
+          "خصم",
+          "٢٠٠٠",
+          "٢٬٠٠٠"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-06T00:00:00+03:00",
+            "p_to": "2024-03-07T04:00:00+03:00",
+            "p_action_prefix": "tab.discount"
+          },
+          "actor": "Dev Manager"
+        }
+      }
+    },
+    {
+      "id": "a02-refund-en",
+      "kind": "audit",
+      "lang": "en",
+      "question": "Who refunded a card payment on 5 March 2024?",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Manager",
+          "المدير"
+        ],
+        "contains_any": [
+          "refund",
+          "استرداد",
+          "مسترد",
+          "أرجع",
+          "استرجاع"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-05T00:00:00+03:00",
+            "p_to": "2024-03-06T04:00:00+03:00",
+            "p_action_prefix": "payment.refund"
+          },
+          "actor": "Dev Manager"
+        }
+      }
+    },
+    {
+      "id": "a03-cancel-en",
+      "kind": "audit",
+      "lang": "en",
+      "question": "Who cancelled the court booking on 7 March 2024?",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Court Desk",
+          "مكتب الملاعب"
+        ],
+        "contains_any": [
+          "cancel",
+          "ألغ",
+          "إلغاء"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-07T00:00:00+03:00",
+            "p_to": "2024-03-08T04:00:00+03:00",
+            "p_action_prefix": "reservation.cancel"
+          },
+          "actor": "Dev Court Desk"
+        }
+      }
+    },
+    {
+      "id": "a04-advance-approved-en",
+      "kind": "audit",
+      "lang": "en",
+      "question": "Who approved the wage advance request between 4 and 10 March 2024?",
+      "scopes": [
+        "audit",
+        "staff",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page",
+          "staff_requests_page"
+        ],
+        "actor_any": [
+          "Dev Owner",
+          "المالك"
+        ],
+        "contains_any": [
+          "approv",
+          "advance",
+          "وافق",
+          "موافقة",
+          "سلفة"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-04T00:00:00+03:00",
+            "p_to": "2024-03-11T04:00:00+03:00",
+            "p_action_prefix": "staff_request.decide",
+            "p_actor_id": "a0000000-0000-4000-8000-000000000001"
+          },
+          "actor": "Dev Owner"
+        }
+      }
+    },
+    {
+      "id": "a05-day-close-en",
+      "kind": "audit",
+      "lang": "en",
+      "question": "Who closed the trading day of 6 March 2024, and what was the cash variance?",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Manager",
+          "المدير"
+        ],
+        "contains_any": [
+          "2000",
+          "2,000",
+          "٢٠٠٠",
+          "٢٬٠٠٠"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-06T00:00:00+03:00",
+            "p_to": "2024-03-08T04:00:00+03:00",
+            "p_action_prefix": "day.close"
+          },
+          "actor": "Dev Manager"
+        }
+      }
+    },
+    {
+      "id": "a06-shift-swap-rejected-ar",
+      "kind": "audit",
+      "lang": "ar",
+      "question": "من رفض طلب تبديل الوردية بين 4 و10 آذار 2024؟",
+      "scopes": [
+        "audit",
+        "staff",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page",
+          "staff_requests_page"
+        ],
+        "actor_any": [
+          "Dev Manager",
+          "المدير"
+        ],
+        "contains_any": [
+          "reject",
+          "رفض",
+          "shift",
+          "الوردية",
+          "تبديل"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-04T00:00:00+03:00",
+            "p_to": "2024-03-11T04:00:00+03:00",
+            "p_action_prefix": "staff_request.decide",
+            "p_actor_id": "a0000000-0000-4000-8000-000000000002"
+          },
+          "actor": "Dev Manager"
+        }
+      }
+    },
+    {
+      "id": "a07-tab-void-ar",
+      "kind": "audit",
+      "lang": "ar",
+      "question": "من ألغى (أبطل) فاتورة كافيه يوم 8 آذار 2024؟",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Cashier",
+          "الكاشير",
+          "أمين الصندوق"
+        ],
+        "contains_any": [
+          "void",
+          "tab",
+          "ألغ",
+          "إلغاء",
+          "أبطل",
+          "إبطال",
+          "فاتورة"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-08T00:00:00+03:00",
+            "p_to": "2024-03-09T04:00:00+03:00",
+            "p_action_prefix": "tab.void"
+          },
+          "actor": "Dev Cashier"
+        }
+      }
+    },
+    {
+      "id": "a08-rate-rule-ar",
+      "kind": "audit",
+      "lang": "ar",
+      "question": "من غيّر سعر قاعدة أسعار الملاعب يوم 4 آذار 2024، وإلى كم؟",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Owner",
+          "المالك"
+        ],
+        "contains_any": [
+          "45000",
+          "45,000",
+          "٤٥٠٠٠",
+          "٤٥٬٠٠٠",
+          "rate",
+          "سعر"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-04T00:00:00+03:00",
+            "p_to": "2024-03-05T04:00:00+03:00",
+            "p_action_prefix": "rate_rule."
+          },
+          "actor": "Dev Owner"
+        }
+      }
+    },
+    {
+      "id": "a09-no-show-ar",
+      "kind": "audit",
+      "lang": "ar",
+      "question": "من سجّل عدم حضور الحجز يوم 9 آذار 2024؟",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Court Desk",
+          "مكتب الملاعب"
+        ],
+        "contains_any": [
+          "no_show",
+          "no-show",
+          "no show",
+          "عدم حضور",
+          "عدم الحضور",
+          "لم يحضر",
+          "غياب"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-09T00:00:00+03:00",
+            "p_to": "2024-03-10T04:00:00+03:00",
+            "p_action_prefix": "reservation.no_show"
+          },
+          "actor": "Dev Court Desk"
+        }
+      }
+    },
+    {
+      "id": "a10-arrived-ar",
+      "kind": "audit",
+      "lang": "ar",
+      "question": "من سجّل وصول الحجز يوم 10 آذار 2024؟",
+      "scopes": [
+        "audit",
+        "howto"
+      ],
+      "range": {
+        "from": "2024-03-04",
+        "to": "2024-03-10"
+      },
+      "expect": {
+        "tools_any_of": [
+          "audit_page"
+        ],
+        "actor_any": [
+          "Dev Cashier",
+          "الكاشير",
+          "أمين الصندوق"
+        ],
+        "contains_any": [
+          "arriv",
+          "وصول",
+          "حضور",
+          "وصل",
+          "حضر"
+        ],
+        "run": {
+          "rpc": "assistant_audit_page",
+          "args": {
+            "p_from": "2024-03-10T00:00:00+03:00",
+            "p_to": "2024-03-11T04:00:00+03:00",
+            "p_action_prefix": "reservation.mark_arrived"
+          },
+          "actor": "Dev Cashier"
+        }
+      }
+    }
+  ]
+}
