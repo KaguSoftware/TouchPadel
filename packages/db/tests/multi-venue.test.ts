@@ -293,7 +293,7 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
     // proved that SOME statement trigger raised, not that these four are
     // enabled on these four tables.
     const rows = psql(`
-      select c.relname || ':' || t.tgname || ':' || t.tgenabled
+      select c.relname || ':' || t.tgname || ':' || t.tgenabled::text
         from pg_trigger t
         join pg_class c on c.oid = t.tgrelid
         join pg_namespace n on n.oid = c.relnamespace
