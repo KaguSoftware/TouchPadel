@@ -140,4 +140,32 @@ describe('SelectMenu', () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
+
+  // jsdom lays nothing out, so the rects are stubbed: a narrow trigger hard
+  // against the right edge, and a panel whose own content is far wider. That
+  // is the analytics compare picker, the one that hung off the screen.
+  it('pulls a panel wider than its trigger back inside the right edge', async () => {
+    const WIDTH = 1000;
+    const origin = Element.prototype.getBoundingClientRect;
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.getAttribute('role') === 'combobox') {
+        return { left: 900, right: 980, top: 40, bottom: 70, width: 80, height: 30, x: 900, y: 40 } as DOMRect;
+      }
+      if (this.getAttribute('role') === 'listbox') {
+        // Drawn at the trigger's left edge, it would end 300px past the window.
+        const left = Number((this as HTMLElement).style.insetInlineStart.replace('px', ''));
+        return { left, right: left + 400, top: 70, bottom: 270, width: 400, height: 200, x: left, y: 70 } as DOMRect;
+      }
+      return origin.call(this);
+    });
+    Object.defineProperty(window, 'innerWidth', { value: WIDTH, configurable: true });
+
+    renderMenu();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Court' }));
+    const panel = screen.getByRole('listbox') as HTMLElement;
+    const start = Number(panel.style.insetInlineStart.replace('px', ''));
+    // Slid back so its right edge clears the 8px gutter, not left at 900.
+    expect(start).toBe(WIDTH - 8 - 400);
+    vi.restoreAllMocks();
+  });
 });

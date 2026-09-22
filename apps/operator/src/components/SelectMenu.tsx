@@ -28,7 +28,7 @@
  * on the trigger, aria-selected on the rows). Keep those working; they are
  * the reason a native select is the default elsewhere in the app.
  */
-import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
 import { useLocale } from '../lib/i18n';
@@ -84,6 +84,8 @@ export function SelectMenu<T extends string>({
     start: number;
     blockStart: number;
     minInlineSize: number;
+    /** How wide it may grow before the viewport edge, same idea as the height. */
+    maxInlineSize: number;
     /** How tall the list may be before it scrolls, given the room available. */
     maxBlockSize: number;
   } | null>(null);
@@ -127,6 +129,10 @@ export function SelectMenu<T extends string>({
       // it grows upward from just above the trigger.
       blockStart: flip ? -(window.innerHeight - rect.top + GAP) : rect.bottom,
       minInlineSize: rect.width,
+      // Only as a last resort, when the list is wider than the whole window:
+      // the rows do not wrap, so a cap tighter than this would CLIP a label
+      // rather than fit it. Staying on screen is the slide's job below.
+      maxInlineSize: Math.max(window.innerWidth - 2 * GUTTER, 0),
       maxBlockSize: Math.min(IDEAL, room),
     });
     // Open onto the current choice, the way the native menu does.
@@ -160,6 +166,23 @@ export function SelectMenu<T extends string>({
       document.removeEventListener('mousedown', onPointerDown);
     };
   }, [open]);
+
+  // The width cap keeps the panel inside the viewport, but a wide list on a
+  // trigger near the reading-end edge would then be squeezed to the sliver of
+  // room left there and wrap every label. So once it has been laid out, slide
+  // it back along the inline axis until it clears the gutter — the panel keeps
+  // its natural width and stops being cut off. Measured in a layout effect so
+  // the move happens before paint, never as a visible jump.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel || !box) return;
+    const rect = panel.getBoundingClientRect();
+    const GUTTER = 8;
+    const overflow = dir === 'rtl' ? GUTTER - rect.left : rect.right - (window.innerWidth - GUTTER);
+    if (overflow <= 0) return;
+    const start = Math.max(box.start - overflow, GUTTER);
+    if (start !== box.start) setBox({ ...box, start });
+  }, [open, box, dir]);
 
   // Focus follows the active row so the panel owns the keyboard while open.
   useEffect(() => {
@@ -310,6 +333,7 @@ export function SelectMenu<T extends string>({
               ? { insetBlockEnd: `${-box.blockStart}px` }
               : { insetBlockStart: `${box.blockStart}px`, marginBlockStart: 'var(--tp-sp-1)' }),
             minInlineSize: `${box.minInlineSize}px`,
+            maxInlineSize: `${box.maxInlineSize}px`,
             // Above a dialog, not merely above the page: the panel is a
             // sibling of any Modal (both live on <body>), and most of the
             // app's dropdowns are inside one.
