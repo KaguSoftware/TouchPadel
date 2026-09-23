@@ -40,8 +40,8 @@
 import { addDays } from '@touch/core';
 import type { Locale, MessageKey } from '@touch/i18n';
 import type { ComparisonMode, Period } from '../../components/kit';
-import type { CsvBundle, CsvCell, CsvTable } from '../analytics/csv';
-import { cellText, dayCell, momentCells, shortId, timeCell } from '../analytics/csvFormat';
+import type { CsvCell, ExportBundle, ExportTable } from '../analytics/exportTables';
+import { cellText, dayCell, momentCells, shortId, timeCell } from '../analytics/cellFormat';
 import type { DrillTransaction } from '../reports/reportPayloads';
 import { drillFacts } from '../reports/drillWords';
 import { FIGURE_KEYS, figuresToCsvRows, type FigureKey, type HeadlineFigureRow } from './figures';
@@ -113,15 +113,15 @@ export interface PanelExportInput {
   locale: Locale;
 }
 
-/** The three tables, ready for `downloadCsvBundle`. */
-export function buildPanelExport(input: PanelExportInput): CsvBundle {
+/** The three tables, one sheet each. */
+export function buildPanelExport(input: PanelExportInput): ExportBundle {
   const { tr, locale, period, compare, comparison, figures, transactions, exportedAt } = input;
   const label = (key: FigureKey) => tr(`ws.owner.panel.figures.${key}`);
   const c = (k: string) => tr(`ws.owner.panel.csv.${k}` as MessageKey);
 
-  const windowTable: CsvTable = {
-    name: 'window',
-    headers: [c('setting'), c('settingValue')],
+  const windowTable: ExportTable = {
+    name: c('tabs.window'),
+    columns: [c('setting'), c('settingValue')],
     rows: [
       [c('periodFrom'), period.from],
       [c('periodTo'), period.to],
@@ -134,9 +134,9 @@ export function buildPanelExport(input: PanelExportInput): CsvBundle {
     ],
   };
 
-  const figuresTable: CsvTable = {
-    name: 'figures',
-    headers: [c('figure'), c('group'), c('kind'), c('value'), c('previous'), c('changeAbs'), c('changePct'), c('key')],
+  const figuresTable: ExportTable = {
+    name: c('tabs.figures'),
+    columns: [c('figure'), c('group'), c('kind'), { header: c('value'), type: 'money' }, { header: c('previous'), type: 'money' }, { header: c('changeAbs'), type: 'money' }, { header: c('changePct'), type: 'percent' }, c('key')],
     rows: figuresToCsvRows(
       figures,
       label,
@@ -173,9 +173,9 @@ export function buildPanelExport(input: PanelExportInput): CsvBundle {
     }
   }
 
-  const transactionsTable: CsvTable = {
-    name: 'transactions',
-    headers: [
+  const transactionsTable: ExportTable = {
+    name: c('tabs.transactions'),
+    columns: [
       c('figure'),
       c('date'),
       c('time'),
@@ -190,7 +190,7 @@ export function buildPanelExport(input: PanelExportInput): CsvBundle {
       c('detail.source'),
       c('detail.qty'),
       c('detail.unit'),
-      c('amount'),
+      { header: c('amount'), type: 'money' },
       c('by'),
       c('reference'),
       c('id'),

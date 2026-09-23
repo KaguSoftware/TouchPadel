@@ -218,6 +218,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
     lastCloseLine: 'يوم العمل {date}',
     lastCloseNone: 'لم يُغلق أي يوم بعد.',
     csv: {
+      tabFigures: 'إغلاق اليوم',
       figure: 'البند',
       value: 'القيمة (د.ع)',
       count: 'العدد',
@@ -671,7 +672,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
     latestOf: 'يُعرض آخر {shown} من أصل {total} في هذه الفترة. ضيّق الفترة أو عوامل التصفية للوصول إلى القيود الأقدم.',
     latest: 'يُعرض آخر {shown} في هذه الفترة. ضيّق الفترة أو عوامل التصفية للوصول إلى القيود الأقدم.',
     readOnly: 'للقراءة فقط',
-    export: 'تصدير CSV',
+    export: 'تصدير',
     csv: {
       date: 'التاريخ',
       time: 'الوقت',
@@ -1200,7 +1201,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
         parHint: 'الكمية التي تحب الاحتفاظ بها. ما دونها يظهر «دون الحد».',
         low: 'حد إعادة الطلب ({unit})',
         lowHint: 'عنده أو دونه يظهر «على وشك النفاد» ويُطلق تنبيهًا.',
-        lowAbovePar: 'هذا أعلى من الحد. حد إعادة الطلب عادةً أقل.',
+        lowAbovePar: 'لا يمكن أن يكون حد إعادة الطلب أعلى من الحد. اخفضه أو ارفع الحد للحفظ.',
         recipeMaths: 'حساب الوصفات',
         yield: 'القابل للاستخدام بعد التحضير (٪)',
         yieldHint: '100 إن لم يُقص أو يُقشّر شيء.',

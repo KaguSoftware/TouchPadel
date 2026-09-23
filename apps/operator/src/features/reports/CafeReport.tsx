@@ -116,10 +116,10 @@ export function CafeReportScreen() {
     if (!data) return;
     const base = tr('ws.reports.export.cafe');
     const parts = { view, cat: categoryId || undefined };
-    if (view === 'categories') return exportTable(base, period, parts, tableCsv(columns.categories, data.categories));
-    if (view === 'waste') return exportTable(base, period, parts, tableCsv(columns.waste, data.waste));
+    if (view === 'categories') return exportTable(base, locale, period, parts, tableCsv(columns.categories, data.categories));
+    if (view === 'waste') return exportTable(base, locale, period, parts, tableCsv(columns.waste, data.waste));
     // Items: sales and cost together, whichever of the two item breakdowns is showing.
-    exportTable(base, period, parts, tableCsv([...columns.items, ...columns.profit.slice(2)], data.items));
+    exportTable(base, locale, period, parts, tableCsv([...columns.items, ...columns.profit.slice(2)], data.items));
   }
 
   return (

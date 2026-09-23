@@ -51,9 +51,9 @@ import {
   type SortState,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { downloadCsv, toCsv, type CsvCell } from '../analytics/csv';
+import { downloadTable, type CsvCell, type SheetColumn } from '../analytics/exportTables';
 import { ReportTabs } from './ReportTabs';
-import { reportFilename } from './reportCsv';
+import { reportFilename } from './reportFile';
 import { readCompared, sortBy, type Compared, type FigureChange } from './reportPayloads';
 import type { ReportName } from './reportTypes';
 
@@ -321,8 +321,10 @@ export interface ReportColumn<T> {
   numeric?: boolean;
   /** The value to sort by; a column without one is not sortable. */
   sort?: (row: T) => string | number | null;
-  /** The raw value for the CSV; a column without one is left out of it. */
+  /** The raw value for the export; a column without one is left out of it. */
   csv?: (row: T) => CsvCell;
+  /** How the exported column is formatted, when the values alone are ambiguous. */
+  csvType?: SheetColumn['type'];
   truncate?: boolean;
   truncateTitle?: (row: T) => string;
 }
@@ -375,16 +377,25 @@ export function ReportTable<T>({
   );
 }
 
-export function tableCsv<T>(columns: readonly ReportColumn<T>[], rows: readonly T[], extra: readonly CsvField<T>[] = []): { headers: string[]; body: CsvCell[][] } {
+export function tableCsv<T>(columns: readonly ReportColumn<T>[], rows: readonly T[], extra: readonly CsvField<T>[] = []): { headers: (SheetColumn | string)[]; body: CsvCell[][] } {
   const cols = columns.filter((c) => c.csv);
   return {
-    headers: [...cols.map((c) => c.header), ...extra.map((e) => e.header)],
+    // A column the screen draws as money is money in the file too, whatever
+    // this period's rows happen to look like.
+    headers: [...cols.map((c): SheetColumn | string => (c.numeric ? { header: c.header, type: c.csvType ?? 'money' } : c.header)), ...extra.map((e) => e.header)],
     body: rows.map((r) => [...cols.map((c) => c.csv!(r)), ...extra.map((e) => e.value(r))]),
   };
 }
 
-export function exportTable(base: string, period: Period, parts: Record<string, string | undefined | null>, table: { headers: string[]; body: CsvCell[][] }) {
-  downloadCsv(reportFilename(base, period, parts), toCsv(table.headers, table.body));
+/** The report's one table, as a workbook named for the report and its period. */
+export function exportTable(
+  base: string,
+  locale: Locale,
+  period: Period,
+  parts: Record<string, string | undefined | null>,
+  table: { headers: (SheetColumn | string)[]; body: CsvCell[][] },
+) {
+  downloadTable(reportFilename(base, period, parts), locale, { name: base, columns: table.headers, rows: table.body });
 }
 
 export function ReportSkeleton({ columns }: { columns: readonly string[] }) {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { t, type MessageKey } from '@touch/i18n';
-import { CSV_BOM, bundleEntries } from '../analytics/csv';
+import { xlsxEntries } from '../analytics/xlsx';
 import type { DrillTransaction } from '../reports/reportPayloads';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, splitRange } from './exportAll';
 import { FIGURE_KEYS, mapFigures } from './figures';
@@ -125,18 +125,19 @@ describe('buildPanelExport', () => {
     locale: 'en',
   });
   const [windowTable, figuresTable, transactionsTable] = bundle;
+  const header = (t: (typeof bundle)[number]) => t.columns.map((c) => (typeof c === 'string' ? c : c.header));
 
-  it('is three tables, so three files — never three blocks of one sheet', () => {
-    expect(bundle.map((t) => t.name)).toEqual(['window', 'figures', 'transactions']);
-    // Every row of every table is exactly as wide as that table's headers;
+  it('is three tables, so three sheets — never three blocks of one sheet', () => {
+    expect(bundle.map((t) => t.name)).toEqual(['Period', 'Figures', 'Transactions']);
+    // Every row of every table is exactly as wide as that table's header row;
     // that is what the old sectioned file could not promise.
     for (const table of bundle) {
-      for (const row of table.rows) expect(row).toHaveLength(table.headers.length);
+      for (const row of table.rows) expect(row).toHaveLength(table.columns.length);
     }
   });
 
   it('writes the window, the comparison and the capped days first', () => {
-    expect(windowTable!.headers).toEqual(['What', 'Value']);
+    expect(windowTable!.columns).toEqual(['What', 'Value']);
     expect(windowTable!.rows).toEqual([
       ['Period from', '2026-08-22'],
       ['Period to', '2026-09-20'],
@@ -149,7 +150,7 @@ describe('buildPanelExport', () => {
   });
 
   it('writes every figure with its group and unit, raw numbers, the server key last', () => {
-    expect(figuresTable!.headers).toEqual(['Figure', 'Group', 'Measured in', 'Value', 'Previous', 'Change', 'Change %', 'Server key']);
+    expect(header(figuresTable!)).toEqual(['Figure', 'Group', 'Measured in', 'Value', 'Previous', 'Change', 'Change %', 'Server key']);
     expect(figuresTable!.rows).toEqual([
       ['Revenue', 'Headline', 'IQD', 15000, 12000, 3000, 25, 'revenue'],
       ['Average order value', 'Cafe', 'IQD', 357, null, null, null, 'avgOrderValue'],
@@ -158,7 +159,7 @@ describe('buildPanelExport', () => {
   });
 
   it('writes a transaction as a date, a time and one worded fact per column', () => {
-    expect(transactionsTable!.headers).toEqual([
+    expect(header(transactionsTable!)).toEqual([
       'Figure',
       'Date',
       'Time',
@@ -209,11 +210,15 @@ describe('buildPanelExport', () => {
     expect(waste[13]).toBe('ml');
   });
 
-  it('serialises as one uniform CSV per file', () => {
-    const entries = bundleEntries(bundle);
-    expect(entries.map((e) => e.name)).toEqual(['01-window.csv', '02-figures.csv', '03-transactions.csv']);
-    expect(entries[1]!.text.startsWith(CSV_BOM + 'Figure,Group,Measured in,Value,Previous,Change,Change %,Server key\r\n')).toBe(true);
-    // No blank lines, no title rows — nothing a spreadsheet would read as a second table.
-    expect(entries[1]!.text).not.toContain('\r\n\r\n');
+  it('becomes one workbook with a sheet per table', () => {
+    const parts = new Map(xlsxEntries(bundle.map((t) => ({ ...t }))).map((e) => [e.name, e.text]));
+    expect(parts.has('xl/worksheets/sheet3.xml')).toBe(true);
+    expect(parts.get('xl/workbook.xml')).toContain('<sheet name="Period" sheetId="1"');
+    expect(parts.get('xl/workbook.xml')).toContain('<sheet name="Transactions" sheetId="3"');
+    const figuresSheet = parts.get('xl/worksheets/sheet2.xml')!;
+    // Amounts are numbers, not text, so they total and sort as amounts.
+    expect(figuresSheet).toContain('<v>15000</v>');
+    // Every column has a width, which is what a CSV could never carry.
+    expect(figuresSheet).toMatch(/<col min="1" max="1" width="\d+"/);
   });
 });

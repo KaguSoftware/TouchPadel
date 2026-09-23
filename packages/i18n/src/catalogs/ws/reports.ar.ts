@@ -233,11 +233,13 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
   stock: {
     value: 'على الرفوف',
     valueHint: 'الآن، بتكلفة المخزون',
+    out: 'نفد من المخزون',
     low: 'على وشك النفاد',
     belowPar: 'دون الحد',
     expiring: 'تنتهي قريبًا',
     expired: 'منتهية الصلاحية',
     views: {
+      out: 'نفد من المخزون',
       low: 'على وشك النفاد',
       belowPar: 'دون الحد',
       expiring: 'تنتهي قريبًا',
@@ -246,7 +248,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       counts: 'فروقات الجرد',
     },
     lead: {
-      low: 'المكونات عند حد التنبيه أو دونه.',
+      out: 'لم يبقَ شيء على الرف. لا يمكن بيع ما يُصنع منها حتى تُسجَّل استلامات جديدة.',
+      low: 'المكونات عند حد التنبيه أو دونه، وما زال منها شيء.',
       belowPar: 'المكونات دون الكمية التي تريد الاحتفاظ بها، الأكبر نقصًا أولًا.',
       expiring: 'دفعات يقترب تاريخ صلاحيتها.',
       expired: 'دفعات تجاوزت تاريخ صلاحيتها وما زالت على الرفوف.',
@@ -283,6 +286,7 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     openExpiry: 'فتح قائمة الصلاحية',
     openCounts: 'فتح عمليات الجرد',
     empty: {
+      out: 'لا شيء نفد من المخزون.',
       low: 'لا شيء على وشك النفاد.',
       belowPar: 'كل شيء عند الحد أو فوقه.',
       expiring: 'لا شيء ينتهي قريبًا.',

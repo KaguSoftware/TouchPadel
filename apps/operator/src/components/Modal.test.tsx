@@ -61,3 +61,55 @@ describe('Modal dismissible', () => {
     vi.useRealTimers();
   });
 });
+
+describe('Modal canClose', () => {
+  it('asks before the exit, and a "no" leaves no half-closed backdrop', async () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    const canClose = vi.fn().mockResolvedValue(false);
+    render(
+      <LocaleProvider>
+        <Modal title="Edit ingredient" onClose={onClose} canClose={canClose}>
+          <p>body</p>
+        </Modal>
+      </LocaleProvider>,
+    );
+    const backdrop = screen.getByRole('dialog');
+    fireEvent.mouseDown(backdrop);
+    fireEvent.click(backdrop);
+    await act(async () => void vi.advanceTimersByTime(1000));
+    expect(canClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    // The freeze: the fade had already run, leaving an invisible layer on top.
+    expect(document.querySelector('[data-closing]')).toBeNull();
+    canClose.mockResolvedValue(true);
+    fireEvent.keyDown(backdrop, { key: 'Escape' });
+    await act(async () => {}); // the answer settles, then the exit starts
+    act(() => void vi.advanceTimersByTime(1000));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+});
+
+describe('Modal requireChoice', () => {
+  it('refuses a backdrop click with a warning instead of closing', () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    render(
+      <LocaleProvider>
+        <Modal title="You have unsaved changes" onClose={onClose} requireChoice footer={<button>Keep editing</button>}>
+          <p>body</p>
+        </Modal>
+      </LocaleProvider>,
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+    const backdrop = screen.getByRole('dialog');
+    fireEvent.mouseDown(backdrop);
+    fireEvent.click(backdrop);
+    act(() => void vi.advanceTimersByTime(1000));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-closing]')).toBeNull();
+    expect(screen.getByRole('alert')).toBeTruthy();
+    vi.useRealTimers();
+  });
+});

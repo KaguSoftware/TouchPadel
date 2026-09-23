@@ -222,6 +222,7 @@ export const managerEn = {
     lastCloseNone: 'No day has been closed yet.',
     // Two files in a zip: the close figures, and the authorised adjustments.
     csv: {
+      tabFigures: 'Day close',
       figure: 'Figure',
       value: 'Value (IQD)',
       count: 'Count',
@@ -681,7 +682,7 @@ export const managerEn = {
     latestOf: 'Showing the latest {shown} of {total} in this period. Narrow the period or the filters to reach older entries.',
     latest: 'Showing the latest {shown} in this period. Narrow the period or the filters to reach older entries.',
     readOnly: 'Read-only',
-    export: 'Export CSV',
+    export: 'Export',
     // One row per changed field, so no cell holds a whole before/after list.
     csv: {
       date: 'Date',
@@ -708,8 +709,8 @@ export const managerEn = {
     formerStaff: 'Someone no longer on staff',
     station: 'Station {name}',
     otherAction: 'Other change',
-    hiddenFields: 'Record ids and other technical fields are left out here. Export CSV includes them.',
-    noVisibleChanges: 'Only technical fields changed. Export CSV to see them.',
+    hiddenFields: 'Record ids and other technical fields are left out here. The export includes them.',
+    noVisibleChanges: 'Only technical fields changed. Export to see them.',
     yes: 'Yes',
     no: 'No',
     families: {
@@ -1211,7 +1212,7 @@ export const managerEn = {
         parHint: 'The amount you like to keep. Under this shows as Below par.',
         low: 'Reorder point ({unit})',
         lowHint: 'At or under this shows as Running low and raises an alert.',
-        lowAbovePar: 'This is above par. The reorder point is usually lower.',
+        lowAbovePar: 'The reorder point cannot be above par. Lower it or raise par to save.',
         recipeMaths: 'Recipe maths',
         yield: 'Usable after prep (%)',
         yieldHint: '100 if nothing is trimmed or peeled off.',

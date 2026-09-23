@@ -15,8 +15,8 @@
 
 import { wallTimeToUtc } from '@touch/core';
 
-import type { CsvCell } from '../../analytics/csv';
-import { cellText, humanizeCode, momentCells, shortId, valueCell } from '../../analytics/csvFormat';
+import type { CsvCell } from '../../analytics/exportTables';
+import { cellText, humanizeCode, momentCells, shortId, valueCell } from '../../analytics/cellFormat';
 
 export interface AuditRow {
   id: number;

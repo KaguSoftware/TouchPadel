@@ -1,7 +1,7 @@
 /**
  * Ingredients (spec 06.29 / 06.30): master data — unit, pack size, cost,
  * supplier, yield %, waste allowance, shelf life, par levels. The row editor
- * is `IngredientForm`, its own module since On hand opens it too.
+ * is `IngredientForm`, in its own module to keep this one to the table.
  *
  * The editor is a dialog: beside the table it squeezed a seven-column list
  * into half the screen at 1100px.

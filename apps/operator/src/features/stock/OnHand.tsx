@@ -27,7 +27,7 @@
  * Today screen links to `low` and `belowPar`.
  */
 import { useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { formatDate } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -49,7 +49,6 @@ import {
   type Column,
 } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
-import { IngredientForm } from './IngredientForm';
 import { LedgerDrawer } from './LedgerDrawer';
 import { AttentionList, Footnote, IngredientName, KindFilter, matchesKind, useStockFormat, type AttentionItem, type StockKindFilter } from './stockUi';
 import {
@@ -75,9 +74,7 @@ export function OnHand() {
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<StockKindFilter>('all');
   const [open, setOpen] = useState<OnHandRow | null>(null);
-  const [adding, setAdding] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
 
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand, refetchInterval: 60_000 });
   const summaryQ = useQuery({ queryKey: SK.summary, queryFn: fetchSummary, refetchInterval: 60_000 });
@@ -274,16 +271,7 @@ export function OnHand() {
           </Panel>
 
           <div ref={tableRef} style={{ scrollMarginBlockStart: 'var(--tp-sp-4)' }}>
-            <Toolbar
-              end={
-                <>
-                  <ResultCount shown={rows.length} total={active.length} />
-                  <Button kind="primary" icon="plus" onClick={() => setAdding(true)}>
-                    {tr('ws.manager.stock.ingredients.add')}
-                  </Button>
-                </>
-              }
-            >
+            <Toolbar end={<ResultCount shown={rows.length} total={active.length} />}>
               <SegmentedControl<OnHandFilter>
                 value={filter}
                 onChange={setFilter}
@@ -333,17 +321,6 @@ export function OnHand() {
       </AsyncStateWrapper>
 
       {open && <LedgerDrawer ingredient={open} onClose={() => setOpen(null)} />}
-      {adding && (
-        <IngredientForm
-          row={null}
-          onHand={null}
-          onDone={() => {
-            setAdding(false);
-            void queryClient.invalidateQueries({ queryKey: ['stock'] });
-          }}
-          onCancel={() => setAdding(false)}
-        />
-      )}
     </div>
   );
 }

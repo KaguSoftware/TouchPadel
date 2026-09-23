@@ -5,7 +5,7 @@
  * Pure: no formatting, no arithmetic — the server's `changeAbs` / `changePct`
  * are rendered as given.
  */
-import type { CsvCell } from '../analytics/csv';
+import type { CsvCell } from '../analytics/exportTables';
 
 export const FIGURE_KEYS = [
   'revenue',

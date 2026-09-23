@@ -14,7 +14,7 @@ import { Button } from '../../../components/ui';
 import { DataTable, type Column } from '../../../components/kit';
 import { useLocale } from '../../../lib/i18n';
 import { CardShell, type CardState } from '../cards/CardShell';
-import { downloadCsv, toCsv, type CsvCell } from '../csv';
+import { downloadTable, type CsvCell } from '../exportTables';
 
 export interface ChartTwinColumn {
   key: string;
@@ -25,7 +25,7 @@ export interface ChartTwinColumn {
 export interface ChartTwin {
   columns: readonly ChartTwinColumn[];
   rows: readonly Record<string, string | number | null | undefined>[];
-  /** CSV file name (".csv" is added). */
+  /** The downloaded file name, without an extension. */
   file: string;
 }
 
@@ -58,7 +58,7 @@ export function ChartCard({
   error?: unknown;
   onRetry?: () => void;
 }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const [showTable, setShowTable] = useState(false);
   const columns: Column<TwinRow>[] =
     twin?.columns.map((c) => ({
@@ -69,8 +69,8 @@ export function ChartCard({
     })) ?? [];
   const exportCsv = () => {
     if (!twin) return;
-    const cells: CsvCell[][] = twin.rows.map((row) => twin.columns.map((c) => row[c.key] ?? ''));
-    downloadCsv(`${twin.file}.csv`, toCsv(twin.columns.map((c) => c.label), cells));
+    const cells: CsvCell[][] = twin.rows.map((row) => twin.columns.map((c) => row[c.key] ?? null));
+    downloadTable(twin.file, locale, { name: title, columns: twin.columns.map((c) => c.label), rows: cells });
   };
   const twinActions = twin && state === 'ready' && (
     <>

@@ -105,7 +105,7 @@ describe('ManagementPanelScreen — four states', () => {
   });
 });
 
-describe('ManagementPanelScreen — Export CSV', () => {
+describe('ManagementPanelScreen — Export', () => {
   it('pulls the transactions behind every figure into the file, not the totals alone', async () => {
     rpc.mockImplementation(async (fn: string, args: unknown) => {
       if (fn === 'panel_headline') {
@@ -126,9 +126,8 @@ describe('ManagementPanelScreen — Export CSV', () => {
       };
     });
     const archives: string[] = [];
-    // The export is three tables, so it downloads a zip. Its entries are
-    // STORED, so every CSV sits in the archive verbatim and decoding the whole
-    // blob is enough to read them back.
+    // The export is a workbook: a zip of XML parts, stored uncompressed, so
+    // decoding the whole blob is enough to read the parts back.
     const createObjectURL = vi.fn((b: Blob) => {
       const reader = new FileReader();
       reader.onload = () => archives.push(new TextDecoder().decode(reader.result as ArrayBuffer));
@@ -144,7 +143,7 @@ describe('ManagementPanelScreen — Export CSV', () => {
 
     renderPanel();
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
     await waitFor(() => expect(click).toHaveBeenCalled());
     await waitFor(() => expect(archives).toHaveLength(1));
 
@@ -154,19 +153,23 @@ describe('ManagementPanelScreen — Export CSV', () => {
     expect(drills.every((d) => d.p_from < d.p_to)).toBe(true);
 
     // Three tables, so a zip — not one sheet with three headers in it.
-    expect(names[0]).toMatch(/^management-panel_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.zip$/);
-    const zip = archives[0]!;
-    // One file per table, each with its own header row — not three tables in one sheet.
-    expect(zip).toContain('01-window.csv');
-    expect(zip).toContain('02-figures.csv');
-    expect(zip).toContain('03-transactions.csv');
-    // A label with a comma in it is quoted, as any CSV cell must be.
-    expect(zip).toContain('"Compared with, from",2026-07-23');
-    expect(zip).toContain('Revenue,Headline,IQD,15000,12000,3000,25,revenue');
-    expect(zip).toContain('Refunds,"Discounts, refunds and waste",IQD,5000,4000,1000,25,refunds');
-    // The date and the time in their own columns, the facts in words.
-    expect(zip).toContain('Revenue,2026-09-01,');
-    expect(zip).toContain('Refund,,Quality issue · Cash,,,Quality issue,Cash,,,,,5000,Dev,tab-9,revenue-1');
+    // Three tables, so three sheets in one workbook — not three headers in one sheet.
+    expect(names[0]).toMatch(/^management-panel_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const book = archives[0]!;
+    expect(book).toContain('xl/worksheets/sheet1.xml');
+    expect(book).toContain('xl/worksheets/sheet3.xml');
+    expect(book).toContain('<sheet name="Period" sheetId="1"');
+    expect(book).toContain('<sheet name="Figures" sheetId="2"');
+    expect(book).toContain('<sheet name="Transactions" sheetId="3"');
+    // Headings are written whole and columns are sized, so nothing is cut off.
+    expect(book).toContain('Compared with, from');
+    expect(book).toMatch(/<col min="1" max="1" width="\d+" customWidth="1"\/>/);
+    // The figures are numbers, not strings of digits.
+    expect(book).toContain('<v>15000</v>');
+    expect(book).toContain('<v>3000</v>');
+    // The facts are still in words, and the date is a real date.
+    expect(book).toContain('Quality issue');
+    expect(book).toContain('<autoFilter');
     click.mockRestore();
   });
 
@@ -178,7 +181,7 @@ describe('ManagementPanelScreen — Export CSV', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     renderPanel();
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
     expect(await screen.findByText('The export could not be completed. Nothing was downloaded.')).toBeTruthy();
     expect(click).not.toHaveBeenCalled();
     click.mockRestore();

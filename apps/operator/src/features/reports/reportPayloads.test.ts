@@ -98,13 +98,27 @@ describe('readStock', () => {
       variance: [{ unit: 'pc', nameEn: 'Patty', nameAr: 'قرص', countId: 'k', periodEnd: '2026-09-17T00:10:10Z', countedQty: 1039, varianceQty: 0, ingredientId: 'p1', theoreticalQty: 1039 }],
     });
     expect(r.valueIqd).toBe(1633337);
-    expect(r.low[0]).toMatchObject({ name: { en: 'Milk', ar: 'حليب' }, unit: 'g', threshold: 1000, parLevel: 5000 });
-    expect(r.belowPar[0]?.shortfall).toBe(5000);
+    // Milk is at zero: out of stock, and not also running low and below par.
+    expect(r.out[0]).toMatchObject({ name: { en: 'Milk', ar: 'حليب' }, unit: 'g', threshold: 1000, parLevel: 5000 });
+    expect(r.low).toEqual([]);
+    expect(r.belowPar).toEqual([]);
     // Days left and days past share one field; which it is depends on the list.
     expect(r.expiringSoon[0]).toMatchObject({ batchId: 'b1', days: 0, valueIqd: 20000 });
     expect(r.expired[0]).toMatchObject({ batchId: 'b2', days: 2, qtyRemaining: 22 });
     expect(r.consumption[0]).toMatchObject({ consumedQty: 222, costIqd: 5550 });
     expect(r.variance[0]).toMatchObject({ countedAt: '2026-09-17T00:10:10Z', theoreticalQty: 1039, countedQty: 1039, varianceQty: 0 });
+  });
+  it('puts each ingredient on one rung: out, then low, then below par', () => {
+    const row = (id: string, onHand: number) => ({ ingredientId: id, nameEn: id, nameAr: id, unit: 'g', onHand, threshold: 100, parLevel: 500, shortfall: 500 - onHand });
+    const r = readStock({
+      lowStock: [row('empty', 0), row('short', 50)],
+      // 'noAlert' has no alert level, so the server only lists it as below par.
+      belowPar: [row('empty', 0), row('short', 50), row('under', 300), row('noAlert', 0)],
+    });
+    expect(r.out.map((x) => x.ingredientId)).toEqual(['empty', 'noAlert']);
+    expect(r.out[1]?.threshold).toBeNull();
+    expect(r.low.map((x) => x.ingredientId)).toEqual(['short']);
+    expect(r.belowPar.map((x) => x.ingredientId)).toEqual(['under']);
   });
   it('keeps an unreported stock value as null', () => {
     expect(readStock({}).valueIqd).toBeNull();

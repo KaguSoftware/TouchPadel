@@ -362,6 +362,8 @@ export interface VarianceRow extends StockBase {
 export interface StockReport {
   /** Everything on the shelves now, at what it cost. Not ranged. */
   valueIqd: number | null;
+  /** Nothing left. Each ingredient sits in exactly one of out, low and below par. */
+  out: LowStockRow[];
   low: LowStockRow[];
   belowPar: BelowParRow[];
   expiringSoon: ExpiryRow[];
@@ -391,10 +393,30 @@ export function readStock(payload: unknown): StockReport {
     days: num(r[key]),
     valueIqd: num(r.valueIqd),
   });
+  // report_stock's lists overlap: an empty shelf is also under its alert level
+  // and under par, so it came back in both, and the report said "46 running
+  // low, 47 below par" about the same empty shelves. Each ingredient is put on
+  // the one rung it is on — out, then low, then below par — as On hand does
+  // (stockLevel).
+  const lowStock = each(p.lowStock, (b, r): LowStockRow => ({ ...b, onHand: num(r.onHand), threshold: num(r.threshold), parLevel: num(r.parLevel) }));
+  const belowParAll = each(p.belowPar, (b, r): BelowParRow => ({ ...b, onHand: num(r.onHand), parLevel: num(r.parLevel), shortfall: num(r.shortfall) }));
+  const isOut = (r: { onHand: number | null }) => r.onHand !== null && r.onHand <= 0;
+  const out = lowStock.filter(isOut);
+  const outIds = new Set(out.map((r) => r.ingredientId));
+  // An empty shelf with no alert level set only reaches the payload as below par.
+  for (const r of belowParAll) {
+    if (isOut(r) && !outIds.has(r.ingredientId)) {
+      out.push({ ...r, threshold: null });
+      outIds.add(r.ingredientId);
+    }
+  }
+  const low = lowStock.filter((r) => !outIds.has(r.ingredientId));
+  const lowIds = new Set(low.map((r) => r.ingredientId));
   return {
     valueIqd: num(p.stockValueIqd),
-    low: each(p.lowStock, (b, r) => ({ ...b, onHand: num(r.onHand), threshold: num(r.threshold), parLevel: num(r.parLevel) })),
-    belowPar: each(p.belowPar, (b, r) => ({ ...b, onHand: num(r.onHand), parLevel: num(r.parLevel), shortfall: num(r.shortfall) })),
+    out,
+    low,
+    belowPar: belowParAll.filter((r) => !outIds.has(r.ingredientId) && !lowIds.has(r.ingredientId)),
     expiringSoon: each(p.expiringSoon, expiry('daysLeft')),
     expired: each(p.expired, expiry('daysExpired')),
     consumption: each(p.consumption, (b, r) => ({ ...b, consumedQty: num(r.consumedQty), costIqd: num(r.costIqd) })),

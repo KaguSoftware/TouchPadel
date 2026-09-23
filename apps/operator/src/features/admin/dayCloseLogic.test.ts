@@ -59,7 +59,7 @@ describe('variance wording', () => {
 
 describe('dayCloseCsv', () => {
   const labels: CsvLabels = {
-    figure: 'Figure', value: 'Value', count: 'Count', authorisers: 'Authorised by', note: 'Note', partOf: 'Part of the line above',
+    tabFigures: 'Day close', figure: 'Figure', value: 'Value', count: 'Count', authorisers: 'Authorised by', note: 'Note', partOf: 'Part of the line above',
     cashExpected: 'Cash expected', cashCounted: 'Cash counted', variance: 'Variance',
     cardExpected: 'Card expected', cardBatch: 'Card batch', discounts: 'Discounts', voids: 'Voids',
     refunds: 'Refunds', waste: 'Waste', openingFloat: 'Float', cashPayments: 'Cash in', cardPayments: 'Card in',
@@ -92,22 +92,24 @@ describe('dayCloseCsv', () => {
     reason_code: 'comp', created_at: '2026-09-03T18:42:00', applied_by_name: 'Sara', authorized_by_name: 'Dev Manager',
   };
 
-  it('is two tables, not one: the figures, then the adjustments', () => {
+  it('is two tables, not one: the figures, then the adjustments, each its own sheet', () => {
     const bundle = dayCloseCsv(labels, close, summary, [adjustment], (names) => names.join(', '), words);
-    expect(bundle.map((t) => t.name)).toEqual(['figures', 'adjustments']);
+    expect(bundle.map((t) => t.name)).toEqual(['Day close', 'Adjustments']);
   });
 
   it('lays out the server figures with the authorisers', () => {
-    const { headers, rows } = figuresOf(dayCloseCsv(labels, close, summary, [], (names) => names.join(', '), words));
-    expect(headers).toEqual(['Figure', 'Value', 'Count', 'Authorised by', 'Note']);
+    const { name, columns, rows } = figuresOf(dayCloseCsv(labels, close, summary, [], (names) => names.join(', '), words));
+    expect(name).toBe('Day close');
+    expect(columns).toEqual(['Figure', { header: 'Value', type: 'money' }, { header: 'Count', type: 'number' }, 'Authorised by', 'Note']);
     expect(rows).toContainEqual(['Cash expected', 170000, null, null, null]);
     expect(rows).toContainEqual(['Variance', -2000, null, null, null]);
     expect(rows).toContainEqual(['Discounts', 15000, 2, 'Dev Manager, Dev Owner', null]);
   });
 
   it('gives each adjustment its own row with the date, the time and each fact in a column', () => {
-    const { headers, rows } = adjustmentsOf(dayCloseCsv(labels, close, summary, [adjustment], (n) => n.join(', '), words));
-    expect(headers).toEqual(['Date', 'Time', 'What', 'Applies to', 'Reason', 'Amount', 'Applied by', 'Authorised by', 'Tab id']);
+    const { name, columns, rows } = adjustmentsOf(dayCloseCsv(labels, close, summary, [adjustment], (n) => n.join(', '), words));
+    expect(name).toBe('Adjustments');
+    expect(columns).toEqual(['Date', 'Time', 'What', 'Applies to', 'Reason', { header: 'Amount', type: 'money' }, 'Applied by', 'Authorised by', 'Tab id']);
     // No sentence crammed into the figure column, and the uuid is the short form.
     expect(rows).toEqual([['2026-09-03', '18:42', 'words for discount', 'The whole bill', 'comp', 5000, 'Sara', 'Dev Manager', '9f8e7d6c']]);
   });

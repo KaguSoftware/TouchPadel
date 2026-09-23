@@ -42,7 +42,8 @@ export const ownerEn = {
     },
     // Three tables, so three files in a zip. Every column is one fact in words.
     csv: {
-      // 01-window.csv
+      // One sheet per table.
+      tabs: { window: 'Period', figures: 'Figures', transactions: 'Transactions' },
       setting: 'What',
       settingValue: 'Value',
       periodFrom: 'Period from',
@@ -52,7 +53,6 @@ export const ownerEn = {
       comparisonTo: 'Compared with, to',
       exportedAt: 'Exported',
       cappedDay: 'More than 500 transactions on one day; the oldest of that day are not listed',
-      // 02-figures.csv
       figure: 'Figure',
       group: 'Group',
       kind: 'Measured in',
@@ -62,7 +62,6 @@ export const ownerEn = {
       changePct: 'Change %',
       key: 'Server key',
       kinds: { money: 'IQD', count: 'Count' },
-      // 03-transactions.csv
       date: 'Date',
       time: 'Time',
       type: 'Type',

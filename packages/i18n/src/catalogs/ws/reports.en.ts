@@ -233,11 +233,13 @@ export const reportsEn = {
   stock: {
     value: 'On the shelves',
     valueHint: 'Right now, at what the stock cost',
+    out: 'Out of stock',
     low: 'Running low',
     belowPar: 'Below par',
     expiring: 'Expiring soon',
     expired: 'Expired',
     views: {
+      out: 'Out of stock',
       low: 'Running low',
       belowPar: 'Below par',
       expiring: 'Expiring soon',
@@ -246,7 +248,8 @@ export const reportsEn = {
       counts: 'Count differences',
     },
     lead: {
-      low: 'Ingredients at or under their alert level.',
+      out: 'Nothing left on the shelf. Anything made from these cannot be sold until a delivery is recorded.',
+      low: 'Ingredients at or under their alert level, with some still left.',
       belowPar: 'Ingredients under the amount you aim to keep, biggest shortfall first.',
       expiring: 'Batches reaching their use-by date soon.',
       expired: 'Batches past their use-by date that are still on the shelves.',
@@ -284,6 +287,7 @@ export const reportsEn = {
     openExpiry: 'Open expiry list',
     openCounts: 'Open stock counts',
     empty: {
+      out: 'Nothing is out of stock.',
       low: 'Nothing is running low.',
       belowPar: 'Everything is at or above par.',
       expiring: 'Nothing expires soon.',

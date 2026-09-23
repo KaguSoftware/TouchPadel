@@ -346,7 +346,7 @@ export const ar: Messages = {
       leastSold: 'الأقل مبيعًا أولًا',
       hiddenGem: 'جوهرة مخفية',
       onlyHiddenGems: 'الجواهر المخفية فقط',
-      csv: 'تصدير CSV',
+      csv: 'تصدير',
       howToRead: 'المشاهدات من قائمة QR؛ المبيعات من الكاشير وتشمل ضيوفًا لم يمسحوا الرمز أصلًا.',
       showAll: 'عرض الكل',
       showLess: 'عرض أقل',

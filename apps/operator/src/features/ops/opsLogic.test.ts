@@ -173,6 +173,7 @@ describe('alertsFor', () => {
 describe('stock hrefs', () => {
   it('opens each stock figure on the screen that lists exactly those items', () => {
     expect(STOCK_HREF).toEqual({
+      out: '/stock?filter=out',
       low: '/stock?filter=low',
       belowPar: '/stock?filter=belowPar',
       expiringSoon: '/stock/expiry',

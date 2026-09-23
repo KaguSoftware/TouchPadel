@@ -8,7 +8,7 @@ import { Button } from '../../../../components/ui';
 import { DataTable, type Column } from '../../../../components/kit';
 import { useLocale } from '../../../../lib/i18n';
 import { CardShell, type CardState } from '../../cards/CardShell';
-import { downloadCsv, toCsv } from '../../csv';
+import { downloadTable } from '../../exportTables';
 import type { Formatters } from '../../format';
 import type { CourtAttachRow, CourtRow } from '../shape';
 import { rateText } from '../format';
@@ -62,7 +62,7 @@ export function CourtTable({
       r.court.noShowRatePct,
       r.cafe?.attachPct ?? null,
     ]);
-    downloadCsv(`${file}.csv`, toCsv(headers, cells));
+    downloadTable(file, locale, { name: tr('ws.analytics.courts.cards.courtTable'), columns: headers, rows: cells });
   };
   return (
     <CardShell

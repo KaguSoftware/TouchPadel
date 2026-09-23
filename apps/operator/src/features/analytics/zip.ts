@@ -1,17 +1,15 @@
 /**
- * A minimal ZIP writer, so an export made of several tables can be several
- * files instead of several tables crammed into one sheet.
+ * A minimal ZIP writer.
  *
- * A sectioned CSV — a title line, a header row, rows, a blank line, another
- * header row — is not a CSV. Every spreadsheet reads the first header row and
- * then tries to fit every later section into those columns, which is where
- * the ragged, unreadable sheets came from. One table per file, zipped, gives
- * each table its own uniform header and its own sheet when opened.
+ * It exists because an `.xlsx` IS a zip — of XML parts — so `xlsx.ts` needs a
+ * container, and a container is all this is. Writing one is a file; the
+ * alternative was a spreadsheet library several hundred kilobytes wide in a
+ * bundle the operator station has to hold offline.
  *
- * Entries are STORED (no compression). A CSV compresses well, but deflate
- * would mean shipping an implementation of it; stored entries are read by
- * Explorer, Finder, Windows, macOS, Excel and every unzip tool there is, and
- * an export is a handful of files a manager opens once.
+ * Entries are STORED (no compression). XML compresses well, but deflate would
+ * mean shipping an implementation of it, and a stored archive is read by
+ * Excel, LibreOffice, Numbers, Google Sheets, Explorer, Finder and every
+ * unzip tool there is. An export is a handful of small parts opened once.
  */
 
 const CRC_TABLE = (() => {
@@ -39,7 +37,7 @@ function dosStamp(d: Date): { time: number; date: number } {
 }
 
 export interface ZipEntry {
-  /** Path inside the archive, e.g. `2-figures.csv`. */
+  /** Path inside the archive, e.g. `xl/worksheets/sheet1.xml`. */
   name: string;
   /** The file's text. */
   text: string;

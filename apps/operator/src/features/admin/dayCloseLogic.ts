@@ -6,8 +6,8 @@
  */
 import type { MutationType } from '@touch/core/schemas/mutations';
 import { errorStringCode } from '../../lib/queueResults';
-import type { CsvBundle, CsvCell, CsvTable } from '../analytics/csv';
-import { cellText, momentCells, shortId } from '../analytics/csvFormat';
+import type { CsvCell, ExportBundle, ExportTable } from '../analytics/exportTables';
+import { cellText, momentCells, shortId } from '../analytics/cellFormat';
 
 export type DayCloseState =
   | 'loading'
@@ -117,7 +117,8 @@ export function varianceMagnitude(varianceIqd: number): number {
 }
 
 export interface CsvLabels {
-  /** 01-figures.csv */
+  /** The close figures sheet. */
+  tabFigures: string;
   figure: string;
   value: string;
   count: string;
@@ -138,7 +139,7 @@ export interface CsvLabels {
   deskCard: string;
   note: string;
   partOf: string;
-  /** 02-adjustments.csv */
+  /** The authorised adjustments sheet. */
   adjustments: string;
   date: string;
   time: string;
@@ -184,11 +185,11 @@ export function dayCloseCsv(
   adjustments: readonly DayAdjustmentRow[],
   joinNames: (names: readonly string[]) => string,
   words: AdjustmentWords,
-): CsvBundle {
+): ExportBundle {
   return [figuresTable(labels, close, summary, joinNames), adjustmentsTable(labels, adjustments, words)];
 }
 
-function figuresTable(labels: CsvLabels, close: CloseResult | null, summary: DaySummaryRow | null, joinNames: (names: readonly string[]) => string): CsvTable {
+function figuresTable(labels: CsvLabels, close: CloseResult | null, summary: DaySummaryRow | null, joinNames: (names: readonly string[]) => string): ExportTable {
   const rows: CsvCell[][] = [];
   const line = (figure: string, value: CsvCell, count: CsvCell = null, who: CsvCell = null, note: CsvCell = null) => rows.push([figure, value, count, who, note]);
 
@@ -213,13 +214,13 @@ function figuresTable(labels: CsvLabels, close: CloseResult | null, summary: Day
     line(labels.refunds, summary.refunds_iqd, summary.refund_count);
     line(labels.waste, summary.waste_cost_iqd);
   }
-  return { name: 'figures', headers: [labels.figure, labels.value, labels.count, labels.authorisers, labels.note], rows };
+  return { name: labels.tabFigures, columns: [labels.figure, { header: labels.value, type: 'money' }, { header: labels.count, type: 'number' }, labels.authorisers, labels.note], rows };
 }
 
-function adjustmentsTable(labels: CsvLabels, adjustments: readonly DayAdjustmentRow[], words: AdjustmentWords): CsvTable {
+function adjustmentsTable(labels: CsvLabels, adjustments: readonly DayAdjustmentRow[], words: AdjustmentWords): ExportTable {
   return {
-    name: 'adjustments',
-    headers: [labels.date, labels.time, labels.what, labels.appliesTo, labels.reason, labels.amount, labels.appliedBy, labels.authorisedBy, labels.tab],
+    name: labels.adjustments,
+    columns: [labels.date, labels.time, labels.what, labels.appliesTo, labels.reason, { header: labels.amount, type: 'money' }, labels.appliedBy, labels.authorisedBy, labels.tab],
     rows: adjustments.map((a): CsvCell[] => {
       const [day, time] = momentCells(a.created_at);
       return [day, time, cellText(words.what(a)), cellText(words.scope(a)), cellText(words.reason(a)), a.amount_iqd, cellText(a.applied_by_name), cellText(a.authorized_by_name), shortId(a.tab_id)];

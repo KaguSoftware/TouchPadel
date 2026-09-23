@@ -39,8 +39,30 @@ export interface SelectMenuOption<T extends string> {
   disabled?: boolean;
 }
 
-/** How long a run of keystrokes counts as one type-ahead word. */
-const TYPEAHEAD_MS = 600;
+/**
+ * How long a run of keystrokes counts as one type-ahead word. 600ms was too
+ * short for someone hunting the keyboard for the second letter: each key
+ * started a fresh search, so "ch" jumped to the first "h". The typed word is
+ * now shown at the top of the panel, so a longer window never feels stuck.
+ */
+const TYPEAHEAD_MS = 1500;
+
+/**
+ * The row the typed word points at: a label that starts with it first, then
+ * one with a word that starts with it ("oil" finds "Olive oil"), then any
+ * label that contains it at all.
+ */
+export function typeaheadMatch(options: readonly { label: string; disabled?: boolean }[], text: string): number {
+  const q = text.toLowerCase();
+  if (q.trim() === '') return -1;
+  const enabled = (pred: (label: string) => boolean) =>
+    options.findIndex((o) => !o.disabled && pred(o.label.toLowerCase()));
+  const prefix = enabled((l) => l.startsWith(q));
+  if (prefix >= 0) return prefix;
+  const word = enabled((l) => l.split(/\s+/).some((w) => w.startsWith(q.trim())));
+  if (word >= 0) return word;
+  return enabled((l) => l.includes(q));
+}
 
 export function SelectMenu<T extends string>({
   value,
@@ -77,6 +99,10 @@ export function SelectMenu<T extends string>({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const typed = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+  // The same word, for display; cleared when the window runs out.
+  const [query, setQuery] = useState('');
+  const queryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(queryTimer.current), []);
 
   // Panel geometry is measured once per open, like RowActions: the bar is
   // sticky and a scroll would leave the panel behind, so movement dismisses.
@@ -98,6 +124,8 @@ export function SelectMenu<T extends string>({
 
   const close = useCallback((focusTrigger: boolean) => {
     setBox(null);
+    typed.current = { text: '', at: 0 };
+    setQuery('');
     if (focusTrigger) triggerRef.current?.focus();
   }, []);
 
@@ -216,20 +244,46 @@ export function SelectMenu<T extends string>({
     close(true);
   }
 
-  function typeahead(key: string) {
-    const now = Date.now();
-    const text = (now - typed.current.at > TYPEAHEAD_MS ? '' : typed.current.text) + key.toLowerCase();
-    typed.current = { text, at: now };
-    const i = options.findIndex((o) => !o.disabled && o.label.toLowerCase().startsWith(text));
+  /** The word typed so far, or '' once the window has run out. */
+  function currentWord(): string {
+    return Date.now() - typed.current.at > TYPEAHEAD_MS ? '' : typed.current.text;
+  }
+
+  function setWord(text: string) {
+    typed.current = { text, at: Date.now() };
+    setQuery(text);
+    clearTimeout(queryTimer.current);
+    queryTimer.current = setTimeout(() => setQuery(''), TYPEAHEAD_MS);
+    const i = typeaheadMatch(options, text);
     if (i >= 0) setActive(i);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (!open) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         openPanel();
+      } else if (e.key.length === 1) {
+        // Typing on the closed control opens it onto the match, so a word can
+        // be typed straight from Tab without opening the list first.
+        e.preventDefault();
+        openPanel();
+        setWord(e.key);
       }
+      return;
+    }
+    // Mid-word, Space is part of the word ("olive oil"), not a commit, and
+    // Backspace takes the last letter back instead of starting over.
+    if (e.key === ' ' && currentWord() !== '') {
+      e.preventDefault();
+      setWord(currentWord() + ' ');
+      return;
+    }
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const word = currentWord();
+      if (word !== '') setWord(word.slice(0, -1));
       return;
     }
     switch (e.key) {
@@ -264,7 +318,10 @@ export function SelectMenu<T extends string>({
         commit(active);
         return;
       default:
-        if (e.key.length === 1) typeahead(e.key);
+        if (e.key.length === 1) {
+          e.preventDefault();
+          setWord(currentWord() + e.key);
+        }
     }
   }
 
@@ -346,6 +403,34 @@ export function SelectMenu<T extends string>({
             padding: 'var(--tp-sp-1)',
           }}
         >
+          {query !== '' && (
+            // What has been typed, so a second letter visibly extends the
+            // word. Sticky, so it stays in view while the list scrolls to the
+            // match. aria-hidden: the active row is what a reader announces.
+            <div
+              aria-hidden="true"
+              data-typeahead=""
+              style={{
+                position: 'sticky',
+                insetBlockStart: 0,
+                zIndex: 1,
+                // Large and full-contrast: a mistyped letter has to be easy to
+                // spot so it can be taken back with Backspace.
+                paddingBlock: 'var(--tp-sp-2)',
+                paddingInline: 'var(--tp-sp-3)',
+                marginBlockEnd: 'var(--tp-sp-1)',
+                fontSize: 'var(--tp-fs-lg)',
+                fontWeight: 600,
+                color: 'var(--tp-fg)',
+                background: 'var(--tp-surface)',
+                borderBlockEnd: '1px solid var(--tp-border)',
+                borderRadius: 'var(--tp-radius-sm)',
+                whiteSpace: 'pre',
+              }}
+            >
+              {query}
+            </div>
+          )}
           {options.map((o, i) => {
             const isSelected = o.value === value;
             return (

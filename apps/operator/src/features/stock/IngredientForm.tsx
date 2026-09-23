@@ -4,10 +4,10 @@
  * levels. Writes via app.upsert_ingredient (0063); unit and kind lock once the
  * ledger holds a movement for the ingredient.
  *
- * It lives in its own module because two screens open it: the ingredients
- * setup table, and On hand, where a manager who is looking at the shelves and
- * finds something missing should not have to go hunting for the setup screen
- * to add it.
+ * Opened from the ingredients screen, which is where an ingredient is added
+ * and managed. On hand briefly carried an "add" button of its own above the
+ * stock table; it was removed, because that whole screen already exists and a
+ * second door to it only split where setup lives.
  *
  * On hand is shown in the editor as a figure, not a field: stock is an
  * append-only ledger and changes only through goods in, consumption, waste or
@@ -121,8 +121,13 @@ export function IngredientForm({
   const u = fmt.unit(unit);
   const numErr = (v: string) => (badNumber(v) ? tr('ws.manager.stock.ingredients.form.notNumber') : undefined);
 
-  async function close() {
-    if (dirty && !(await confirm({
+  /**
+   * Modal `canClose`: asked before the dialog starts to leave. Called from
+   * `onClose` instead, the backdrop's exit fade had already run, so "Keep
+   * editing" left an invisible layer over the app that took every click.
+   */
+  async function confirmDiscard() {
+    return !dirty || confirm({
       title: tr('ws.kit.actions.dirtyLeave'),
       body: tr('ws.kit.actions.dirtyLeaveBody'),
       confirmLabel: tr('ws.kit.actions.dirtyLeaveConfirm'),
@@ -133,8 +138,9 @@ export function IngredientForm({
       // loses only an unsaved draft, never stored data, and Cancel still
       // autofocuses so Enter and Esc both keep the edits.
       pairActions: true,
-    }))) return;
-    onCancel();
+      // A stray tap outside is not an answer: the prompt shakes and asks.
+      requireChoice: true,
+    });
   }
 
   async function save() {
@@ -166,7 +172,7 @@ export function IngredientForm({
     }
   }
 
-  const disabledReason = !nameEn.trim() || !nameAr.trim() ? tr('ws.manager.disabled.namesRequired') : anyBad || yieldOut ? tr('ws.manager.stock.ingredients.form.fixErrors') : tr('ws.manager.stock.ingredients.form.nothingChanged');
+  const disabledReason = !nameEn.trim() || !nameAr.trim() ? tr('ws.manager.disabled.namesRequired') : anyBad || yieldOut || lowAbovePar ? tr('ws.manager.stock.ingredients.form.fixErrors') : tr('ws.manager.stock.ingredients.form.nothingChanged');
 
   return (
     <Modal
@@ -181,25 +187,27 @@ export function IngredientForm({
           </span>
         ) : undefined
       }
-      onClose={() => void close()}
+      canClose={confirmDiscard}
+      onClose={onCancel}
+      dismissible={!busy}
       size="lg"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={() => void close()} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
             kind="primary"
             icon="check"
             busy={busy}
-            disabled={!nameEn.trim() || !nameAr.trim() || anyBad || yieldOut || (!!row && !dirty)}
+            disabled={!nameEn.trim() || !nameAr.trim() || anyBad || yieldOut || lowAbovePar || (!!row && !dirty)}
             disabledReason={disabledReason}
             onClick={() => void save()}
           >
             {tr('ws.manager.stock.ingredients.form.save')}
           </Button>
         </>
-      }
+      )}
     >
       <Section title={tr('ws.manager.stock.ingredients.form.basics')}>
         <div style={{ gridColumn: '1 / -1' }}>
@@ -248,8 +256,8 @@ export function IngredientForm({
         <Field
           label={tr('ws.manager.stock.ingredients.form.low', { unit: u })}
           optional
-          hint={lowAbovePar ? <span style={{ color: 'var(--tp-warn-fg)' }}>{tr('ws.manager.stock.ingredients.form.lowAbovePar')}</span> : tr('ws.manager.stock.ingredients.form.lowHint')}
-          error={numErr(lowStock)}
+          hint={tr('ws.manager.stock.ingredients.form.lowHint')}
+          error={numErr(lowStock) ?? (lowAbovePar ? tr('ws.manager.stock.ingredients.form.lowAbovePar') : undefined)}
         >
           <input style={inputStyle} dir="ltr" inputMode="decimal" value={lowStock} onChange={(e) => setLowStock(e.target.value)} />
         </Field>

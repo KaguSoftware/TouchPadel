@@ -447,9 +447,25 @@ export function Modal({
   titleAfter,
   footer,
   dismissible = true,
+  canClose,
+  requireChoice,
 }: {
   title: string;
   onClose: () => void;
+  /**
+   * Asked BEFORE the exit plays; resolving false keeps the dialog open. A form
+   * with a draft passes its "discard changes?" confirm here. Asking from inside
+   * `onClose` came too late: the fade had already run, so "Keep editing" left
+   * the dialog mounted as an invisible full-screen layer that swallowed every
+   * click until a reload.
+   */
+  canClose?: () => boolean | Promise<boolean>;
+  /**
+   * A click on the backdrop does not dismiss: the panel shakes and a red line
+   * above the footer asks for one of its buttons. For a question with no safe
+   * implied answer. Esc and the X still close, since both are deliberate.
+   */
+  requireChoice?: boolean;
   /**
    * False while a write is in flight: Esc, the backdrop, the X and the footer's
    * close do nothing. Callers used to pass `onClose={busy ? () => {} : …}`,
@@ -480,6 +496,12 @@ export function Modal({
   onCloseRef.current = onClose;
   const dismissibleRef = useRef(dismissible);
   dismissibleRef.current = dismissible;
+  const canCloseRef = useRef(canClose);
+  canCloseRef.current = canClose;
+  /** A `canClose` answer is pending; a second Esc or click must not ask twice. */
+  const asking = useRef(false);
+  const mounted = useRef(true);
+  const [refused, setRefused] = useState(false);
   /*
    * The exit is driven off the DOM rather than a state flag: a re-render on the
    * way out would re-run the panel's children (a busy Button, a query that has
@@ -490,8 +512,12 @@ export function Modal({
   const closing = useRef(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (exitTimer.current !== null) clearTimeout(exitTimer.current);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (exitTimer.current !== null) clearTimeout(exitTimer.current);
+    };
   }, []);
 
   /*
@@ -500,11 +526,22 @@ export function Modal({
    * typed into one of them.
    */
   const requestCloseRef = useRef((): void => {
-    requestClose();
+    void requestClose();
   });
 
-  function requestClose() {
-    if (closing.current || !dismissibleRef.current) return;
+  async function requestClose() {
+    if (closing.current || asking.current || !dismissibleRef.current) return;
+    const guard = canCloseRef.current;
+    if (guard) {
+      asking.current = true;
+      let ok = false;
+      try {
+        ok = await guard();
+      } finally {
+        asking.current = false;
+      }
+      if (!ok || !mounted.current || closing.current) return;
+    }
     const backdrop = backdropRef.current;
     if (!backdrop) {
       onCloseRef.current();
@@ -547,10 +584,34 @@ export function Modal({
     };
   }, []);
 
+  /** requireChoice: refuse a backdrop click with a shake and the red line. */
+  function nudge() {
+    setRefused(true);
+    const panel = panelRef.current;
+    if (!panel || typeof panel.animate !== 'function') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    // Sideways only, so it reads the same in Arabic; each click restarts it.
+    panel.getAnimations?.().forEach((a) => {
+      if (a.id === 'tp-shake') a.cancel();
+    });
+    panel.animate(
+      [
+        { transform: 'translateX(0)' },
+        { transform: 'translateX(-8px)' },
+        { transform: 'translateX(8px)' },
+        { transform: 'translateX(-6px)' },
+        { transform: 'translateX(6px)' },
+        { transform: 'translateX(-3px)' },
+        { transform: 'translateX(0)' },
+      ],
+      { duration: 380, easing: 'ease-in-out', id: 'tp-shake' },
+    );
+  }
+
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      requestClose();
+      void requestClose();
     } else if (e.key === 'Tab') {
       trapTab(e, panelRef.current);
     }
@@ -593,7 +654,9 @@ export function Modal({
         pressedBackdrop.current = e.target === e.currentTarget;
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && pressedBackdrop.current) requestClose();
+        if (e.target !== e.currentTarget || !pressedBackdrop.current) return;
+        if (requireChoice) nudge();
+        else void requestClose();
       }}
       onKeyDown={onKeyDown}
     >
@@ -635,7 +698,7 @@ export function Modal({
               </p>
             )}
           </div>
-          <Button kind="ghost" size="sm" icon="x" onClick={requestClose} aria-label={tr('common.close')} />
+          <Button kind="ghost" size="sm" icon="x" onClick={() => void requestClose()} aria-label={tr('common.close')} />
         </div>
         <div
           style={{
@@ -659,8 +722,27 @@ export function Modal({
               background: 'var(--tp-surface-2)',
               borderEndStartRadius: 'var(--tp-radius-dialog)',
               borderEndEndRadius: 'var(--tp-radius-dialog)',
+              flexWrap: 'wrap',
             }}
           >
+            {refused && (
+              <p
+                role="alert"
+                style={{
+                  flexBasis: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: 'var(--tp-sp-1)',
+                  color: 'var(--tp-danger-fg)',
+                  fontSize: 'var(--tp-fs-sm)',
+                  fontWeight: 600,
+                }}
+              >
+                <Icon name="alert" size={16} />
+                <span>{tr('ws.kit.actions.chooseOne')}</span>
+              </p>
+            )}
             {typeof footer === 'function' ? footer(requestCloseRef.current) : footer}
           </div>
         )}

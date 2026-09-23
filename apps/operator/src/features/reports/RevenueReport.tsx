@@ -156,7 +156,7 @@ function RevenueReport() {
     // Every figure the row carries, whichever breakdown is on screen: the
     // breakdown is a way of reading the rows, not a limit on what is taken away.
     const all = allColumns(group, periodLabel, tr, locale);
-    exportTable(tr('ws.reports.export.revenue'), period, { group, pay: method || undefined, staff: staffId || undefined }, tableCsv(all, data.rows));
+    exportTable(tr('ws.reports.export.revenue'), locale, period, { group, pay: method || undefined, staff: staffId || undefined }, tableCsv(all, data.rows));
   }
 
   return (

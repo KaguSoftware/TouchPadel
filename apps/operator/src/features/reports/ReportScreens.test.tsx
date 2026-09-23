@@ -196,7 +196,10 @@ describe('CafeReportScreen', () => {
 describe('StockReportScreen', () => {
   const STOCK = {
     stockValueIqd: 1633337,
-    lowStock: [{ ingredientId: 'm1', nameEn: 'Milk', nameAr: 'حليب', unit: 'g', onHand: 0, threshold: 1000, parLevel: 5000 }],
+    lowStock: [
+      { ingredientId: 'm1', nameEn: 'Milk', nameAr: 'حليب', unit: 'g', onHand: 0, threshold: 1000, parLevel: 5000 },
+      { ingredientId: 's1', nameEn: 'Sugar', nameAr: 'سكر', unit: 'g', onHand: 200, threshold: 1000, parLevel: 5000 },
+    ],
     belowPar: [],
     expiringSoon: [],
     expired: [{ batchId: 'b1', ingredientId: 'b', nameEn: 'Buns', nameAr: 'خبز', unit: 'pc', qtyRemaining: 22, expiryDate: '2026-09-15', daysExpired: 2, valueIqd: 11000 }],
@@ -211,8 +214,14 @@ describe('StockReportScreen', () => {
   it('shows the lists report_stock sends (it has no rows), with units and the stock value', async () => {
     rpc.mockResolvedValue(STOCK);
     renderIt(<StockReportScreen />);
-    const table = await screen.findByRole('table', { name: 'Running low' });
-    expect(within(table).getByText('Milk')).toBeTruthy();
+    // Empty shelves lead, and are not repeated under "Running low".
+    const out = await screen.findByRole('table', { name: 'Out of stock' });
+    expect(within(out).getByText('Milk')).toBeTruthy();
+    expect(within(out).queryByText('Sugar')).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Running low' }));
+    const table = screen.getByRole('table', { name: 'Running low' });
+    expect(within(table).getByText('Sugar')).toBeTruthy();
+    expect(within(table).queryByText('Milk')).toBeNull();
     expect(within(table).getByText('1,000 g')).toBeTruthy();
     expect(screen.getByText('1,633,337 IQD')).toBeTruthy();
     expect(screen.getByText('Right now. The period above does not change this list.')).toBeTruthy();
@@ -222,7 +231,7 @@ describe('StockReportScreen', () => {
     const user = userEvent.setup();
     rpc.mockResolvedValue(STOCK);
     renderIt(<StockReportScreen />);
-    await screen.findByRole('table', { name: 'Running low' });
+    await screen.findByRole('table', { name: 'Out of stock' });
     await user.click(screen.getByRole('button', { name: 'Below par' }));
     expect(screen.getByText('Everything is at or above par.')).toBeTruthy();
 
@@ -238,9 +247,9 @@ describe('StockReportScreen', () => {
     const user = userEvent.setup();
     rpc.mockResolvedValue(STOCK);
     renderIt(<StockReportScreen />);
-    await screen.findByRole('table', { name: 'Running low' });
+    await screen.findByRole('table', { name: 'Out of stock' });
     await user.click(screen.getByRole('button', { name: 'Open in inventory' }));
-    expect(navigate).toHaveBeenCalledWith({ href: '/stock?filter=low' });
+    expect(navigate).toHaveBeenCalledWith({ href: '/stock?filter=out' });
   });
 });
 

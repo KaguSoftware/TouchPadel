@@ -103,7 +103,7 @@ describe('CourtsReportScreen', () => {
     rpc.mockReturnValue(new Promise(() => {}));
     renderReport();
     expect(screen.getByRole('heading', { name: 'Courts' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Export' })).toHaveProperty('disabled', true);
     // 0097: report_courts takes (p_from, p_to, p_filters) — no grouping, no view.
     expect(rpc).toHaveBeenCalledWith('report_courts', { p_from: expect.any(String), p_to: expect.any(String), p_filters: { courtId: null } });
   });
@@ -122,7 +122,7 @@ describe('CourtsReportScreen', () => {
     expect(within(band).getByText('350,000 IQD')).toBeTruthy();
     expect(within(table).queryByText('350,000 IQD')).toBeNull();
     expect(screen.getByText(/Occupancy is hours booked out of the hours the court was open/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toHaveProperty('disabled', false);
+    expect(screen.getByRole('button', { name: 'Export' })).toHaveProperty('disabled', false);
   });
 
   it('each breakdown shows its own figures', async () => {

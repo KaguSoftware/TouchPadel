@@ -252,8 +252,9 @@ function SizeForm({
     low: editSize!.lowStockThreshold != null ? String(editSize!.lowStockThreshold) : '',
   }) || supplierId !== (editSize!.supplier?.id ?? '') || editSize!.ingredientId === null;
 
-  async function close() {
-    if (dirty && editing.mode === 'editSize' && !(await confirm({
+  /** Modal `canClose`: asked before the exit plays (see IngredientForm). */
+  async function confirmDiscard() {
+    return !(dirty && editing.mode === 'editSize') || confirm({
       title: tr('ws.kit.actions.dirtyLeave'),
       body: tr('ws.kit.actions.dirtyLeaveBody'),
       confirmLabel: tr('ws.kit.actions.dirtyLeaveConfirm'),
@@ -264,8 +265,8 @@ function SizeForm({
       // loses only an unsaved draft, never stored data, and Cancel still
       // autofocuses so Enter and Esc both keep the edits.
       pairActions: true,
-    }))) return;
-    onCancel();
+      requireChoice: true,
+    });
   }
 
   async function save() {
@@ -308,11 +309,13 @@ function SizeForm({
     <Modal
       title={title}
       subtitle={editSize && editSize.ingredientId === null ? tr('ws.manager.stock.products.notTrackedHint') : undefined}
-      onClose={() => void close()}
+      canClose={confirmDiscard}
+      onClose={onCancel}
+      dismissible={!busy}
       size="lg"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={() => void close()} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -326,7 +329,7 @@ function SizeForm({
             {tr('ws.kit.actions.save')}
           </Button>
         </>
-      }
+      )}
     >
       {editing.mode === 'newProduct' && (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-3)' }}>

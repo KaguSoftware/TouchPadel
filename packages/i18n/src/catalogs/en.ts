@@ -369,7 +369,7 @@ export const en = {
       leastSold: 'Least sold first',
       hiddenGem: 'Hidden gem',
       onlyHiddenGems: 'Hidden gems only',
-      csv: 'Export CSV',
+      csv: 'Export',
       howToRead:
         'Views come from the QR menu; sales come from the till and include guests who never scanned.',
       showAll: 'Show all',

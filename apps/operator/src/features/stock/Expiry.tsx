@@ -24,8 +24,8 @@ import { usePermissions } from '../../lib/auth';
 import { useToast } from '../../components/toast';
 import { Button, PinReasonModal } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
-import { downloadCsv, toCsv } from '../analytics/csv';
-import { dateOnlyCell, dayCell } from '../analytics/csvFormat';
+import { downloadTable } from '../analytics/exportTables';
+import { dateOnlyCell, dayCell } from '../analytics/cellFormat';
 import { CardTitle } from '../ops/OpsVisuals';
 import { useStockFormat } from './stockUi';
 import { SK, fetchExpiryWindow, fetchSummary, type SummaryBatch } from './stockKeys';
@@ -77,7 +77,7 @@ export function Expiry() {
       ...expiring.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), dateOnlyCell(b.expiryDate), b.valueIqd, tr('ws.manager.stock.expiry.stateExpiring')]),
     ];
     // The day it was taken, so two exports a week apart are not the same file.
-    downloadCsv(`expiry-${dayCell(new Date().toISOString())}.csv`, toCsv(headers, rows));
+    downloadTable(`expiry-${dayCell(new Date().toISOString())}`, locale, { name: tr('op.stockNav.expiry'), columns: headers, rows });
   }
 
   /** "today" / "tomorrow" / "in 3 days" — relative words read faster than a date. */

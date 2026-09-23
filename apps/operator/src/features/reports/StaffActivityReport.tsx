@@ -107,8 +107,8 @@ export function StaffActivityReportScreen() {
     if (!rows) return;
     const base = tr('ws.reports.export.staff');
     const parts = { view, staff: staffId || undefined };
-    if (view === 'dayCloses') return exportTable(base, period, parts, tableCsv(cols.dayCloses, closes));
-    exportTable(base, period, parts, tableCsv(cols[view], rows, view === 'exceptions' ? cols.exceptionCounts : []));
+    if (view === 'dayCloses') return exportTable(base, locale, period, parts, tableCsv(cols.dayCloses, closes));
+    exportTable(base, locale, period, parts, tableCsv(cols[view], rows, view === 'exceptions' ? cols.exceptionCounts : []));
   }
 
   return (

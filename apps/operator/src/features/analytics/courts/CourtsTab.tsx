@@ -40,7 +40,7 @@ import { AssistantComponentCard } from '../components/AssistantComponentCard';
 import { PinnedComponents } from '../components/PinnedComponents';
 import { componentParams } from '../components/params';
 import { useVenueRevenue } from '../useVenueRevenue';
-import { downloadCsv, toCsv } from '../csv';
+import { downloadTable } from '../exportTables';
 import { useAnalyticsDrill } from '../drill';
 import { pulseCsvRows, type PulseFigure } from '../pulseCsv';
 import { CourtPatternsCard } from './cards/CourtPatternsCard';
@@ -113,11 +113,11 @@ export function CourtsTab() {
       { label: tr('ws.analytics.courts.kpi.noShowRate'), value: k?.noShowRatePct ?? null, previous: kp?.noShowRatePct ?? null },
       { label: tr('ws.analytics.courts.kpi.attachRate'), value: raw?.cafe.attach.attachPct ?? null, previous: raw?.cafePrev?.attach.attachPct ?? null },
     ];
-    const csv = toCsv(
-      [tr('ws.analytics.pulseCsv.figure'), tr('ws.analytics.pulseCsv.value'), tr('ws.analytics.pulseCsv.previous'), tr('ws.analytics.pulseCsv.changeAbs'), tr('ws.analytics.pulseCsv.changePct')],
-      pulseCsvRows(figures),
-    );
-    downloadCsv(`courts-pulse-${rangeLabel}.csv`, csv);
+    downloadTable(`courts-pulse-${rangeLabel}`, locale, {
+      name: tr('ws.analytics.tabs.courts'),
+      columns: [{ header: tr('ws.analytics.pulseCsv.figure') }, { header: tr('ws.analytics.pulseCsv.value'), type: 'decimal' }, { header: tr('ws.analytics.pulseCsv.previous'), type: 'decimal' }, { header: tr('ws.analytics.pulseCsv.changeAbs'), type: 'decimal' }, { header: tr('ws.analytics.pulseCsv.changePct'), type: 'percent' }],
+      rows: pulseCsvRows(figures),
+    });
   };
   const section = (keys: readonly CourtsQueryKey[]) => ({ raw, derived, state: stateFor(keys), refreshing: state.refreshing, f, rangeLabel });
   /** A section's sentence, once its queries are in. */

@@ -140,7 +140,8 @@ export const kitEn = {
     apply: 'Apply',
   },
   export: {
-    csv: 'Export CSV',
+    /** The file is a styled .xlsx workbook, so the button does not name a format. */
+    csv: 'Export',
     exporting: 'Exporting…',
     scope: 'Current filters and dates',
   },
@@ -184,6 +185,8 @@ export const kitEn = {
     dirtyLeaveBody: 'Everything you changed here will be lost. Are you sure you want to close?',
     dirtyLeaveConfirm: 'Discard changes',
     dirtyLeaveCancel: 'Keep editing',
+    /** Shown when a click outside a must-answer dialog is refused (Modal requireChoice). */
+    chooseOne: 'Choose one of the options to continue',
   },
   /** Accessible name of the InfoTip's default trigger (components/InfoTip.tsx). */
   infoTip: {

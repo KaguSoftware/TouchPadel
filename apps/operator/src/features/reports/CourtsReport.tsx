@@ -167,9 +167,9 @@ export function CourtsReportScreen() {
     if (!data) return;
     const parts = { view, court: courtId || undefined };
     const base = tr('ws.reports.export.courts');
-    if (view === 'byDay') return exportTable(base, period, parts, tableCsv(dayColumns, data.trend));
+    if (view === 'byDay') return exportTable(base, locale, period, parts, tableCsv(dayColumns, data.trend));
     if (view === 'byHour') {
-      return exportTable(base, period, parts, {
+      return exportTable(base, locale, period, parts, {
         headers: [tr('ws.reports.columns.hour'), tr('ws.reports.courts.columns.bookings')],
         // `07:00`, not a bare `7` in a column headed "Hour".
         body: data.byHour.map((h) => [`${String(h.hour).padStart(2, '0')}:00`, h.bookings]),
@@ -177,7 +177,7 @@ export function CourtsReportScreen() {
     }
     // Every court figure, whichever of the three court breakdowns is showing.
     const all = [courtColumn, ...columns.byCourt.slice(1), ...columns.cancellations.slice(2), ...columns.peak.slice(1)];
-    exportTable(base, period, parts, tableCsv(all, data.rows, [{ header: tr('ws.reports.columns.available_hours'), value: (r) => r.availableMinutes }]));
+    exportTable(base, locale, period, parts, tableCsv(all, data.rows, [{ header: tr('ws.reports.columns.available_hours'), value: (r) => r.availableMinutes }]));
   }
 
   return (

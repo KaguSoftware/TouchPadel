@@ -54,7 +54,7 @@ import {
   type Period,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { downloadCsvBundle } from '../analytics/csv';
+import { downloadWorkbook } from '../analytics/exportTables';
 import { DrillDialog } from '../reports/DrillDialog';
 import { readDrill } from '../reports/reportPayloads';
 import { LiveFloor } from '../floor/LiveFloor';
@@ -119,8 +119,8 @@ export function ManagementPanelScreen() {
         tr,
         locale,
       });
-      // Three tables, so three files: `downloadCsvBundle` zips them.
-      downloadCsvBundle(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}`, bundle);
+      // Three tables, so three sheets in one workbook.
+      downloadWorkbook(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}`, locale, bundle);
     } catch (error) {
       console.error('panel export failed', error);
       setExportFailed(true);

@@ -56,7 +56,7 @@ import {
   type PeriodPreset,
 } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
-import { downloadCsv, toCsv } from '../../analytics/csv';
+import { downloadTable } from '../../analytics/exportTables';
 import { knownReason } from '../dayCloseLogic';
 import {
   EMPTY_FILTER,
@@ -299,7 +299,7 @@ export function AuditLog() {
         no: tr('ws.manager.audit.no'),
       },
     );
-    downloadCsv(`audit-log-${period.from}-${period.to}.csv`, toCsv(headers, out));
+    downloadTable(`audit-log-${period.from}-${period.to}`, locale, { name: tr('op.audit.title'), columns: headers, rows: out });
   }
 
   const status = asyncStatus(logQ, (d) => d.rows.length === 0 && !filter.family && !filter.actorId && !isActionCode(filter.query));

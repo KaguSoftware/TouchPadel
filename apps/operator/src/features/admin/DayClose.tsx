@@ -58,7 +58,7 @@ import {
 } from '../../components/kit';
 import { MoneyInput } from '../../components/inputs';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { downloadCsvBundle } from '../analytics/csv';
+import { downloadWorkbook } from '../analytics/exportTables';
 import { auditDrillHref, tillTabHref, type ExceptionKey } from '../ops/opsLogic';
 import { CardTitle, FigureRow, MARK_FG, RowList, Step } from '../ops/OpsVisuals';
 import {
@@ -359,6 +359,7 @@ export function DayClose() {
     const csvKey = (k: string) => tr(`ws.manager.dayClose.csv.${k}` as MessageKey);
     const bundle = dayCloseCsv(
       {
+        tabFigures: csvKey('tabFigures'),
         figure: csvKey('figure'),
         value: csvKey('value'),
         count: csvKey('count'),
@@ -402,7 +403,7 @@ export function DayClose() {
       },
     );
     const date = closeResult?.business_date ?? day?.business_date ?? 'day';
-    downloadCsvBundle(`day-close-${date}`, bundle);
+    downloadWorkbook(`day-close-${date}`, locale, bundle);
   }
 
   // ---------------------------------------------------------------- loading

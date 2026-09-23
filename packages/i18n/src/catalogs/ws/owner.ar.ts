@@ -43,6 +43,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       noShows: 'عدم الحضور',
     },
     csv: {
+      tabs: { window: 'الفترة', figures: 'الأرقام', transactions: 'المعاملات' },
       setting: 'البند',
       settingValue: 'القيمة',
       periodFrom: 'الفترة من',
