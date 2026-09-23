@@ -1,6 +1,7 @@
 /**
  * TEMPORARY — greys out the assistant and blocks every click/keypress.
- * To revert: delete this file and undo the two marked lines in routes/assistant.tsx.
+ * To revert: delete this file, undo the two marked lines in routes/assistant.tsx,
+ * and drop DRAWER_UNDER_CONSTRUCTION (and its marked line) in AssistantDrawer.tsx.
  */
 import type { ReactNode } from 'react';
 

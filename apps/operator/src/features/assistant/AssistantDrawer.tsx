@@ -29,6 +29,9 @@ interface DrawerContextValue {
   allowed: boolean;
 }
 
+/** TEMP under-construction: no ⌘K, no drawer, no More-menu row while the assistant is greyed out. */
+const DRAWER_UNDER_CONSTRUCTION = true;
+
 const DrawerContext = createContext<DrawerContextValue | null>(null);
 
 export function useAssistantDrawer(): DrawerContextValue {
@@ -43,7 +46,7 @@ export function useAssistantDrawerOrNull(): DrawerContextValue | null {
 
 export function AssistantDrawerProvider({ children }: { children: ReactNode }) {
   const { staff } = useAuth();
-  const allowed = canAccess(staff?.role, '/assistant');
+  const allowed = !DRAWER_UNDER_CONSTRUCTION && canAccess(staff?.role, '/assistant'); // TEMP under-construction
   const [open, setOpen] = useState(false);
   const openDrawer = useCallback(() => setOpen(true), []);
   const closeDrawer = useCallback(() => setOpen(false), []);
