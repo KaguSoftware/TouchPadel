@@ -5,10 +5,9 @@
  * constraint decides, and SLOT_TAKEN is rendered as a rejected write.
  * States: ready · busy · conflict · error.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { wallTimeToUtc } from '@touch/core';
 import { VENUE_TZ } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
@@ -19,7 +18,8 @@ import { Button, ErrorText, Field, Select, inputStyle } from '../../components/u
 import { DateField } from '../../components/inputs';
 import { AsyncStateWrapper, ConflictNotice, MessagePresenter, PageHeader, Panel, asyncStatus } from '../../components/kit';
 import { blockRangeInvalid } from './deskLogic';
-import { todayInTz } from './useTradingNight';
+import { todayInTz, tonightInTz } from './useTradingNight';
+import { nightTimeToUtc } from './calendar/monthLogic';
 
 function toMinutes(hhmm: string): number | null {
   const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
@@ -47,6 +47,8 @@ export function CourtBlockScreen() {
   const [error, setError] = useState<unknown>(null);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
+  // The block went onto the queue: saved here, not yet holding the court.
+  const [queued, setQueued] = useState(false);
   /**
    * The empty fields stay silent until the operator asks for the block — a form
    * that shouts "required" at a field nobody has reached yet is noise. The
@@ -70,12 +72,30 @@ export function CourtBlockScreen() {
   const toMin = toMinutes(to);
   const rangeInvalid = blockRangeInvalid(fromMin, toMin);
 
-  // Past-ness is judged on the instant the block would start, not on the
-  // wall-clock numbers: only wallTimeToUtc knows what 01:00 on this date means
-  // in the venue's zone, and it is the same conversion the write itself uses.
-  const today = todayInTz(tz);
+  // The date is a trading NIGHT, as the calendar that opens this form means it:
+  // 00:30–01:30 "on Friday" is Friday night's tail, on Saturday's calendar
+  // date. It used to be read as a calendar date and blocked the night before.
+  // Past-ness is judged on the instant the block would start, through the same
+  // conversion the write itself uses.
+  const hours = settingsQ.data?.opening_hours;
+  const at = (min: number) => nightTimeToUtc(date, min, tz, hours);
+  // 01:30–03:00: the start is in the tail (next date), the end is not; the end
+  // then belongs to the same next date, never before the start.
+  const endAt = (fromM: number, toM: number) => {
+    const start = at(fromM);
+    const end = at(toM);
+    return end <= start ? new Date(end.getTime() + 24 * 60 * 60_000) : end;
+  };
+  const today = settingsQ.data ? tonightInTz(tz, hours) : todayInTz(tz);
+  // Opened without a date: start on the night trading now, once hours are known.
+  const anchored = useRef(Boolean(search.date));
+  useEffect(() => {
+    if (anchored.current || !settingsQ.data) return;
+    anchored.current = true;
+    setDate(tonightInTz(settingsQ.data.timezone, settingsQ.data.opening_hours));
+  }, [settingsQ.data]);
   const dateIsPast = date < today;
-  const startsInPast = !dateIsPast && fromMin !== null && wallTimeToUtc(date, fromMin, tz).getTime() < now;
+  const startsInPast = !dateIsPast && fromMin !== null && at(fromMin).getTime() < now;
 
   const missingCourt = effectiveCourt === '';
   const missingFrom = fromMin === null;
@@ -96,7 +116,7 @@ export function CourtBlockScreen() {
     // between the last render and this click the start may have gone by, and
     // the button must not be the one place a past block gets through. Pushing
     // `now` forward re-renders the field warning that explains the refusal.
-    if (wallTimeToUtc(date, fromMin, tz).getTime() < Date.now()) {
+    if (at(fromMin).getTime() < Date.now()) {
       setNow(Date.now());
       return;
     }
@@ -105,15 +125,16 @@ export function CourtBlockScreen() {
     setConflict(false);
     setDone(false);
     try {
-      await mutate('reservation.create', {
+      const outcome = await mutate('reservation.create', {
         clientRef: clientRef(),
         courtId: effectiveCourt,
         kind: 'maintenance',
-        startAt: wallTimeToUtc(date, fromMin, tz).toISOString(),
-        endAt: wallTimeToUtc(date, toMin, tz).toISOString(),
+        startAt: at(fromMin).toISOString(),
+        endAt: endAt(fromMin, toMin).toISOString(),
         notes: reason.trim(),
       });
       setDone(true);
+      setQueued(outcome.queued);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
       void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     } catch (e) {
@@ -130,7 +151,11 @@ export function CourtBlockScreen() {
       <AsyncStateWrapper status={asyncStatus(courtsQ, (c) => c.length === 0)} error={courtsQ.error} onRetry={() => void courtsQ.refetch()}>
         {done ? (
           <Panel>
-            <MessagePresenter tone="success" message={tr('ws.courtDesk.block.done')} style={{ marginBlockEnd: '0.75rem' }} />
+            <MessagePresenter
+              tone={queued ? 'info' : 'success'}
+              message={queued ? tr('ws.courtDesk.detail.queued') : tr('ws.courtDesk.block.done')}
+              style={{ marginBlockEnd: '0.75rem' }}
+            />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <Button kind="primary" icon="calendar" onClick={() => void navigate({ to: '/desk', search: { date } as never })}>
                 {tr('ws.courtDesk.block.openCalendar')}

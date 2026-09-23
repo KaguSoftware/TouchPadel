@@ -48,7 +48,7 @@ import { Button, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, StatusBadge, type AsyncStatus } from '../../components/kit';
 import { ChevronForward, Icon, type IconName } from '../../components/icons';
 import { ChargeCell, ReservationBadge } from './deskStatus';
-import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
+import { arrivalsDue, courtAvailability, guestNameOf, isVisible, nightSummary, slotTaken, sortByStart, sortByStartDesc, type CourtAvailability } from './deskLogic';
 import type { CustomerFlag, ReservationRow } from './deskTypes';
 import { CreateReservationDialog } from './CreateReservationDialog';
 import { todayInTz, tonightInTz, useTradingNight } from './useTradingNight';
@@ -245,7 +245,7 @@ function PanelTitle({ icon, children }: { icon: IconName; children: ReactNode })
 function guestLabel(r: ReservationRow, tr: ReturnType<typeof useLocale>['tr']): string {
   if (r.kind === 'maintenance') return r.notes ?? tr('ws.courtDesk.board.blocked');
   if (r.kind === 'hold') return tr('ws.courtDesk.board.hold');
-  return r.guest_name ?? tr('ws.courtDesk.board.walkIn');
+  return guestNameOf(r) ?? tr('ws.courtDesk.board.walkIn');
 }
 
 const minutesBetween = (a: string, b: string) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60_000));
@@ -770,8 +770,9 @@ export function TodaysBoardScreen() {
     // Optimistic, like the calendar dialog: single-row transition, idempotent server-side.
     queryClient.setQueryData(['reservations', date], (list?: ReservationRow[]) => list?.map((row) => (row.id === r.id ? { ...row, status: 'arrived' } : row)));
     try {
-      await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived' });
-      toast.ok(tr('ws.courtDesk.board.arrivedToast', { name: r.guest_name ?? tr('ws.courtDesk.board.walkIn') }));
+      const outcome = await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived' });
+      if (outcome.queued) toast.info(tr('ws.courtDesk.detail.queued'));
+      else toast.ok(tr('ws.courtDesk.board.arrivedToast', { name: guestNameOf(r) ?? tr('ws.courtDesk.board.walkIn') }));
     } catch (e) {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
@@ -812,9 +813,10 @@ export function TodaysBoardScreen() {
           tz={tz}
           night={{ date, rows, reservations: visible }}
           onClose={() => setCreateAt(null)}
-          onCreated={() => {
+          onCreated={(queued) => {
             setCreateAt(null);
-            toast.ok(tr('op.desk.created'));
+            if (queued) toast.info(tr('ws.courtDesk.detail.queued'));
+            else toast.ok(tr('op.desk.created'));
             void queryClient.invalidateQueries({ queryKey: ['reservations'] });
             void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
           }}

@@ -29,6 +29,7 @@ export function SplitBillDialog({
   lines,
   due,
   busy,
+  settleError,
   onSettleShare,
   onClose,
 }: {
@@ -36,7 +37,10 @@ export function SplitBillDialog({
   lines: readonly SplitLine[];
   due: number;
   busy: boolean;
-  onSettleShare(amountIqd: number, method: PaymentMethod): void;
+  /** The last payment's refusal. The tab panel's own error line is under this dialog. */
+  settleError: unknown;
+  /** Resolves true once the share is taken (or saved on the queue); false when refused. */
+  onSettleShare(amountIqd: number, method: PaymentMethod): Promise<boolean>;
   onClose(): void;
 }) {
   const { tr } = useLocale();
@@ -54,6 +58,7 @@ export function SplitBillDialog({
           ]}
         />
       </div>
+      <ErrorText error={settleError} />
       {mode === 'even' ? (
         <SplitEvenlyPanel tabId={tabId} due={due} busy={busy} onSettleShare={onSettleShare} />
       ) : (
@@ -72,7 +77,8 @@ function SplitEvenlyPanel({
   tabId: string;
   due: number;
   busy: boolean;
-  onSettleShare(amountIqd: number, method: PaymentMethod): void;
+  /** Resolves true once the share is taken (or saved on the queue); false when refused. */
+  onSettleShare(amountIqd: number, method: PaymentMethod): Promise<boolean>;
 }) {
   const { tr, locale } = useLocale();
   const [n, setN] = useState(2);
@@ -126,8 +132,9 @@ function SplitEvenlyPanel({
               busy={busy}
               taken={taken.has(i)}
               onSettle={(m) => {
-                setTaken((prev) => new Set(prev).add(i));
-                onSettleShare(s, m);
+                // Taken only once the payment is: a refused share keeps its
+                // buttons, and the refusal shows above the shares.
+                void onSettleShare(s, m).then((ok) => ok && setTaken((prev) => new Set(prev).add(i)));
               }}
             />
           ))}

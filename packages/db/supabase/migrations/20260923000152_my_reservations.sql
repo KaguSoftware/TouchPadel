@@ -1,4 +1,4 @@
--- 0150_my_reservations: let a guest see whether their own booking is paid.
+-- 0152_my_reservations: let a guest see whether their own booking is paid.
 --
 -- WHAT. `app.my_reservations(p_reservation_id)` returns the caller's own
 -- reservations -- the columns the mobile app already reads, plus `cancelled_at`
@@ -58,7 +58,7 @@ returns table (
   court_paid_iqd      bigint,
   court_remaining_iqd bigint
 )
-language sql stable security definer set search_path = public as $my_reservations_0150$
+language sql stable security definer set search_path = public as $my_reservations_0152$
   select r.id,
          r.court_id,
          r.kind::text,
@@ -77,10 +77,10 @@ language sql stable security definer set search_path = public as $my_reservation
      and (p_reservation_id is null or r.id = p_reservation_id)
    order by r.start_at desc
    limit 100
-$my_reservations_0150$;
+$my_reservations_0152$;
 
 revoke all on function app.my_reservations(uuid) from public, anon;
 grant execute on function app.my_reservations(uuid) to authenticated;
 
 comment on function app.my_reservations(uuid) is
-  '0150. The caller''s own reservations (guest_id = auth.uid()), newest first, capped at 100, with the court fee paid and still owed on each, and cancelled_at (0075: the moment the booking became history). Null id lists them; an id returns that one. The guest-side counterpart of booking_bill, which is staff-only.';
+  '0152. The caller''s own reservations (guest_id = auth.uid()), newest first, capped at 100, with the court fee paid and still owed on each, and cancelled_at (0075: the moment the booking became history). Null id lists them; an id returns that one. The guest-side counterpart of booking_bill, which is staff-only.';

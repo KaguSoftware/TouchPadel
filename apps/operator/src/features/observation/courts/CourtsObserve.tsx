@@ -17,7 +17,7 @@
  * booking opens the read-only panel, whose one button moves the station into
  * the court desk on that booking.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { wallTimeToUtc } from '@touch/core';
 import { formatDate, formatNumber, formatTime, formatTimeRange, VENUE_TZ } from '@touch/i18n';
@@ -26,9 +26,9 @@ import { useLocale, pickName } from '../../../lib/i18n';
 import { Button } from '../../../components/ui';
 import { AsyncStateWrapper, DescriptionList, EmptyState, HeadlineFigure, Money, PageHeader, Panel, StatusBadge, TabStatusIndicator, asyncStatus, type Tone } from '../../../components/kit';
 import { ChevronForward, Icon } from '../../../components/icons';
-import { useTradingNight, todayInTz } from '../../desk/useTradingNight';
+import { useTradingNight, todayInTz, tonightInTz } from '../../desk/useTradingNight';
 import { ReservationBadge, TONE_EDGE, TONE_FG, TONE_SOFT, reservationTone } from '../../desk/deskStatus';
-import { courtAvailability } from '../../desk/deskLogic';
+import { courtAvailability, guestNameOf } from '../../desk/deskLogic';
 import type { ReservationRow } from '../../desk/deskTypes';
 import type { CourtRow } from '../../../lib/queries';
 import { MonthHeatCalendar } from '../../desk/calendar/MonthHeatCalendar';
@@ -61,7 +61,16 @@ export function CourtsObserveScreen() {
 
   const night = useTradingNight(date);
   const { tz, settingsQ } = night;
-  const today = todayInTz(tz);
+  // The night trading NOW, not the calendar date: at 00:40 the courts are
+  // still on last night, and "today" read as a night that had not opened, with
+  // every court free while guests played. Same anchor as the desk calendar.
+  const today = settingsQ.data ? tonightInTz(tz, settingsQ.data.opening_hours) : todayInTz(tz);
+  const anchored = useRef(false);
+  useEffect(() => {
+    if (anchored.current || !settingsQ.data) return;
+    anchored.current = true;
+    setDate(tonightInTz(settingsQ.data.timezone, settingsQ.data.opening_hours));
+  }, [settingsQ.data]);
 
   const month = useMonthCounts({
     queryKey: 'reservationsMonth',
@@ -226,7 +235,7 @@ function DayView({
                     <li key={r.id}>
                       <button type="button" className="tp-row" onClick={() => onOpen(r.id)} style={rowButton}>
                         <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <bdi>{r.guest_name ?? tr('op.desk.walkIn')}</bdi>
+                          <bdi>{guestNameOf(r) ?? tr('op.desk.walkIn')}</bdi>
                         </strong>
                         <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
                           {pickName(locale, courts.find((c) => c.id === r.court_id))} · <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
@@ -320,14 +329,14 @@ function CourtsNow({
               tone = s.kind === 'booking' ? 'success' : s.kind === 'hold' ? 'info' : 'neutral';
               label = tr(s.kind === 'booking' ? 'ws.owner.observe.courts.now.inPlay' : s.kind === 'hold' ? 'ws.owner.observe.courts.now.held' : 'ws.owner.observe.courts.now.blocked');
               line = tr('ws.owner.observe.courts.now.until', { time: formatTime(new Date(s.untilAt), locale, tz) });
-              who = s.kind === 'booking' ? (r?.guest_name ?? tr('op.desk.walkIn')) : (r?.notes ?? null);
+              who = s.kind === 'booking' ? (guestNameOf(r) ?? tr('op.desk.walkIn')) : (r?.notes ?? null);
               targetId = s.reservationId;
             } else {
               const next = s.nextStartAt ? reservations.find((x) => x.start_at === s.nextStartAt && x.court_id === s.courtId) : null;
               tone = 'neutral';
               label = tr('ws.owner.observe.courts.now.free');
               line = s.nextStartAt ? tr('ws.owner.observe.courts.now.next', { time: formatTime(new Date(s.nextStartAt), locale, tz) }) : tr('ws.owner.observe.courts.now.nextNone');
-              who = next ? (next.kind === 'booking' ? (next.guest_name ?? tr('op.desk.walkIn')) : null) : null;
+              who = next ? (next.kind === 'booking' ? (guestNameOf(next) ?? tr('op.desk.walkIn')) : null) : null;
               targetId = next?.id ?? null;
             }
             const body = (
@@ -518,7 +527,7 @@ function ScheduleBoard({
                 if (!p) return null;
                 const tone = r.status === 'no_show' ? 'danger' : reservationTone(r);
                 const name =
-                  r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
+                  r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (guestNameOf(r) ?? tr('op.desk.walkIn'));
                 // Rows are short, so a block shows only what its height holds: one line, name over time, or the badge row too.
                 const blockRem = p.height * heightRem;
                 const lines = blockRem >= 4 ? 3 : blockRem >= 2 ? 2 : 1;
@@ -605,7 +614,7 @@ function BookingPanel({ reservation: r, courts, tz, onClose }: { reservation: Re
   });
   const minutes = Math.round((new Date(r.end_at).getTime() - new Date(r.start_at).getTime()) / 60_000);
   const eyebrow = tr(r.kind === 'maintenance' ? 'ws.owner.observe.courts.peek.maintenance' : r.kind === 'hold' ? 'ws.owner.observe.courts.peek.hold' : 'ws.owner.observe.courts.peek.booking');
-  const title = r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
+  const title = r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (guestNameOf(r) ?? tr('op.desk.walkIn'));
 
   return (
     <DetailPanel

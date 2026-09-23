@@ -15,6 +15,16 @@ export function isLive(status: string): boolean {
   return BLOCKING_STATUSES.has(status);
 }
 
+/**
+ * Who the booking is for. The desk types a name into `guest_name`; a booking
+ * made from the app carries only `guest_id`, and the name lives on the joined
+ * profile. Reading `guest_name` alone labelled every account booking a walk-in.
+ * Null here means a genuine nameless walk-in.
+ */
+export function guestNameOf(r: Pick<ReservationRow, 'guest_name' | 'guest'> | null | undefined): string | null {
+  return r?.guest_name ?? r?.guest?.full_name ?? null;
+}
+
 const KNOWN: readonly BookingStatus[] = ['pending', 'confirmed', 'arrived', 'completed', 'cancelled', 'no_show', 'expired'];
 
 /** Server status → the seven-state indicator. Unknown strings render as-is via the indicator. */
@@ -255,6 +265,9 @@ export const OVERRIDE_REFUSAL_CODES: ReadonlySet<string> = new Set([
   'CANCELLATION_WINDOW',
   'REASON_REQUIRED',
   'RESERVATION_NOT_STARTED',
+  // 0150: the start would land before now. A rule, not a failure — the booking
+  // stays where it is and the control stays on screen.
+  'RESERVATION_IN_PAST',
 ]);
 
 export function isOverrideRefusal(code: string | undefined): boolean {
@@ -408,32 +421,38 @@ export function durationsFitting(
   return [...durations].sort((a, b) => a - b).filter((d) => startMin + d <= closeMin);
 }
 
+
 /**
- * Which grid row a reservation starts in, as minutes past the night's own
- * opening divided into slots.
+ * Where a reservation sits on one night's grid: its first row and how many
+ * rows it spans, or null when no part of it is inside opening hours.
  *
- * `dayStartMs` is midnight of the calendar date, but a trading night runs past
- * it: at a 02:00 close the 00:00-02:00 rows belong to THIS grid, near the
- * bottom. Measured raw against midnight they come out NEGATIVE relative to an
- * openMin of 540 — a 03:34 block gave row -11, which the caller's `Math.max(0,
- * ...)` clamped onto the 09:00 row, painting its whole span down over the
- * morning and leaving every free slot under it out of line with the time
- * gutter (the 12:30 button sitting on the 16:00 label).
- *
- * Anything before the opening is therefore the inherited tail and is folded
- * forward a day. The night's row list has already dropped what belongs to
- * another night, so nothing else can land below `openMin`.
- *
- * The result may exceed the grid's last row — a start past the close is not on
- * this grid at all, and the caller filters on that rather than clamping.
+ * `dayStartMs` is midnight of the night's calendar date; tonight's
+ * after-midnight tail is on the next date, so it measures past 24:00 and lands
+ * at the bottom of the grid, and the night's rows already exclude the previous
+ * night's tail. What is left before the opening is a same-date reservation
+ * before hours. The old start-only row index folded those forward a day, so a
+ * block running INTO the opening (08:00–10:00 maintenance) went off the grid:
+ * the 09:00–10:00 cells showed free and a click met SLOT_TAKEN. Now one that
+ * runs past the opening is drawn from the first row, clipped to the part
+ * inside the hours, and one that ends by the opening (the 03:34 block that
+ * once painted over the morning) stays off the grid. A start past the close is
+ * off the grid too, rather than clamped.
  */
-export function rowIndexOf(
+export function gridPlacement(
   startAtIso: string,
+  endAtIso: string,
   dayStartMs: number,
   openMin: number,
   slotMin: number,
-): number {
-  let min = (new Date(startAtIso).getTime() - dayStartMs) / 60_000;
-  if (min < openMin) min += 24 * 60;
-  return Math.floor((min - openMin) / slotMin);
+  rowCount: number,
+): { from: number; span: number } | null {
+  const startMin = (new Date(startAtIso).getTime() - dayStartMs) / 60_000;
+  const endMin = (new Date(endAtIso).getTime() - dayStartMs) / 60_000;
+  if (startMin < openMin) {
+    if (endMin <= openMin) return null;
+    return { from: 0, span: Math.max(1, Math.round((endMin - openMin) / slotMin)) };
+  }
+  const from = Math.floor((startMin - openMin) / slotMin);
+  if (from >= rowCount) return null;
+  return { from, span: Math.max(1, Math.round((endMin - startMin) / slotMin)) };
 }

@@ -8,6 +8,14 @@ import type { OnHandRow } from './stockKeys';
 // On hand
 // ---------------------------------------------------------------------------
 
+/**
+ * Nothing left on the shelf. Worse than low, and true whether or not the
+ * ingredient has a reorder point — "none" is not a threshold question.
+ */
+export function isOut(r: Pick<OnHandRow, 'on_hand'>): boolean {
+  return Number(r.on_hand) <= 0;
+}
+
 /** At or under the reorder point (the ingredient's low-stock threshold). */
 export function isLow(r: Pick<OnHandRow, 'on_hand' | 'low_stock_threshold'>): boolean {
   return r.low_stock_threshold !== null && r.on_hand <= r.low_stock_threshold;
@@ -28,32 +36,61 @@ export function needsCount(r: Pick<OnHandRow, 'on_hand' | 'theoretical'>): boole
   return Number(r.on_hand) !== Number(r.theoretical);
 }
 
-export type OnHandStatus = 'low' | 'belowPar' | 'countNeeded' | 'ok';
+export type StockLevel = 'out' | 'low' | 'belowPar' | 'ok';
 
-/** One status per row, worst first: a row that is low is also below par. */
-export function onHandStatus(r: OnHandRow): OnHandStatus {
+/**
+ * How much is left, as ONE rung of a ladder. The three predicates above all
+ * fire together on an empty shelf — nothing is out without also being low and
+ * below par — so anything that counts rows has to ask this, not the
+ * predicates, or the same ingredient is reported two or three times over
+ * ("54 out of stock" beside "49 below par", all of them the same shelves).
+ */
+export function stockLevel(r: OnHandRow): StockLevel {
+  if (isOut(r)) return 'out';
   if (isLow(r)) return 'low';
-  if (needsCount(r)) return 'countNeeded';
   if (isBelowPar(r)) return 'belowPar';
   return 'ok';
 }
 
-export type OnHandFilter = 'all' | 'low' | 'belowPar' | 'countNeeded';
+export type OnHandStatus = StockLevel | 'countNeeded';
+
+/**
+ * The single status a row wears. How much is left comes first; "count needed"
+ * is a different question (the shelf and the ledger disagree), so it only
+ * takes the badge when the amount itself is fine. On a row that is out or low
+ * the table prints the recorded figure beside the badge instead, which is
+ * where that signal belongs — a row sold past its records is almost always at
+ * zero, so ranking "count needed" above "out of stock" would hide the empty
+ * shelf behind a bookkeeping note.
+ */
+export function onHandStatus(r: OnHandRow): OnHandStatus {
+  const level = stockLevel(r);
+  if (level !== 'ok') return level;
+  return needsCount(r) ? 'countNeeded' : 'ok';
+}
+
+export type OnHandFilter = 'all' | 'out' | 'low' | 'belowPar' | 'countNeeded';
 
 /**
  * `?filter=` values On hand accepts. The Today screen links `low` and
  * `belowPar`; anything unknown opens the full list rather than an empty one.
  */
 export function parseOnHandFilter(value: unknown): OnHandFilter {
-  return value === 'low' || value === 'belowPar' || value === 'countNeeded' ? value : 'all';
+  return value === 'out' || value === 'low' || value === 'belowPar' || value === 'countNeeded' ? value : 'all';
 }
 
+/**
+ * The rows behind a count on the "Needs attention" list. The three level
+ * filters are exclusive, so every row is shown by exactly one of them and the
+ * counts add up; `countNeeded` cuts across them and can name a row the level
+ * filters put elsewhere.
+ */
 export function matchesOnHandFilter(r: OnHandRow, filter: OnHandFilter): boolean {
   switch (filter) {
+    case 'out':
     case 'low':
-      return isLow(r);
     case 'belowPar':
-      return isBelowPar(r);
+      return stockLevel(r) === filter;
     case 'countNeeded':
       return needsCount(r);
     default:
@@ -91,14 +128,18 @@ export function isBlankLine(l: DeliveryLineDraft): boolean {
   return !l.ingredientId && l.qtyExpected.trim() === '' && l.qtyReceived.trim() === '' && l.unitCostIqd.trim() === '' && !l.expiryDate;
 }
 
-export type LineProblem = 'ingredient' | 'received' | 'cost' | 'ordered' | null;
+export type LineProblem = 'ingredient' | 'received' | 'cost' | 'ordered' | 'expiry' | null;
 
 /**
  * What is missing from a started line, first problem only. The old screen
  * dropped half-filled lines silently when the delivery was recorded, so a
  * line with no cost simply never reached stock.
+ *
+ * `today` is the venue's calendar date (YYYY-MM-DD), compared as a string
+ * because both sides are plain dates — a batch that expires today is still
+ * good today, one that expired yesterday cannot be put on the shelf.
  */
-export function lineProblem(l: DeliveryLineDraft): LineProblem {
+export function lineProblem(l: DeliveryLineDraft, today: string): LineProblem {
   if (isBlankLine(l)) return null;
   if (!l.ingredientId) return 'ingredient';
   const received = parseQty(l.qtyReceived);
@@ -107,7 +148,13 @@ export function lineProblem(l: DeliveryLineDraft): LineProblem {
   if (cost === null || cost < 0) return 'cost';
   const expected = parseQty(l.qtyExpected);
   if (l.qtyExpected.trim() !== '' && (expected === null || expected < 0)) return 'ordered';
+  if (isPastExpiry(l.expiryDate, today)) return 'expiry';
   return null;
+}
+
+/** An expiry date already behind us. A blank box is not a problem: it means "no expiry", or the ingredient's shelf life. */
+export function isPastExpiry(expiryDate: string, today: string): boolean {
+  return expiryDate.trim() !== '' && expiryDate < today;
 }
 
 /** Received below what was ordered. */
@@ -138,21 +185,24 @@ export function countEntryState(v: string | undefined): 'blank' | 'ok' | 'invali
   return Number.isFinite(n) && n >= 0 ? 'ok' : 'invalid';
 }
 
-export type AlertKind = 'low_stock' | 'negative_stock' | 'expiring_soon' | 'expired' | 'replay_conflict';
+export type AlertKind = 'low_stock' | 'out_of_stock' | 'negative_stock' | 'expiring_soon' | 'expired' | 'replay_conflict';
 
 /**
- * The server raises one `expiring_soon` kind for both batches about to expire
- * and batches already past it (payload `expired`). Staff act on those
- * differently, so the screen splits them.
+ * Two server kinds carry two meanings each, in their payload, and staff act on
+ * each pair differently — so the screen splits them into their own groups:
+ * `expiring_soon` covers batches about to expire and batches already past it
+ * (`expired`), and `low_stock` covers a shelf running down and a shelf that has
+ * emptied (`out`, 0151).
  */
-export function alertKind(kind: string, payload: { expired?: unknown }): AlertKind | null {
+export function alertKind(kind: string, payload: { expired?: unknown; out?: unknown }): AlertKind | null {
   if (kind === 'expiring_soon') return payload.expired === true ? 'expired' : 'expiring_soon';
-  if (kind === 'low_stock' || kind === 'negative_stock' || kind === 'replay_conflict') return kind;
+  if (kind === 'low_stock') return payload.out === true ? 'out_of_stock' : 'low_stock';
+  if (kind === 'negative_stock' || kind === 'replay_conflict') return kind;
   return null;
 }
 
 /** Order the alert groups by what hurts most if ignored. */
-export const ALERT_ORDER: readonly AlertKind[] = ['negative_stock', 'expired', 'low_stock', 'expiring_soon', 'replay_conflict'];
+export const ALERT_ORDER: readonly AlertKind[] = ['negative_stock', 'out_of_stock', 'expired', 'low_stock', 'expiring_soon', 'replay_conflict'];
 
 // ---------------------------------------------------------------------------
 // Margins

@@ -149,11 +149,13 @@ describe('SelectMenu', () => {
     const origin = Element.prototype.getBoundingClientRect;
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
       if (this.getAttribute('role') === 'combobox') {
+        // eslint-disable-next-line no-restricted-syntax -- DOMRect geometry the menu reads, not CSS
         return { left: 900, right: 980, top: 40, bottom: 70, width: 80, height: 30, x: 900, y: 40 } as DOMRect;
       }
       if (this.getAttribute('role') === 'listbox') {
         // Drawn at the trigger's left edge, it would end 300px past the window.
         const left = Number((this as HTMLElement).style.insetInlineStart.replace('px', ''));
+        // eslint-disable-next-line no-restricted-syntax -- DOMRect geometry the menu reads, not CSS
         return { left, right: left + 400, top: 70, bottom: 270, width: 400, height: 200, x: left, y: 70 } as DOMRect;
       }
       return origin.call(this);

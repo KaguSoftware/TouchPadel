@@ -33,7 +33,8 @@ export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
   'adjustment.apply': [QK.tab.all, QK.tabs],
   'reservation.create': RESERVATION_LIST_KEYS,
   // A move or extend re-prices the booking, so its bill moves with it (0106).
-  'reservation.update': [...RESERVATION_LIST_KEYS, QK.bookingBill.all, QK.bookingBillStates.all],
+  // An open BookingDetail reads QK.reservation.one, so a late result refreshes it too.
+  'reservation.update': [...RESERVATION_LIST_KEYS, QK.reservation.all, QK.bookingBill.all, QK.bookingBillStates.all],
   'waiter_call.action': [QK.waiterCalls],
   'stock.waste': [QK.stock.all],
   // Item 9 / C3 (0120). The desk keys are named unconditionally, as tab.settle

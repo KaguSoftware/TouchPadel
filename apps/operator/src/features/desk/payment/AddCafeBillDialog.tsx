@@ -128,7 +128,8 @@ export function AddCafeBillDialog({
     <Modal
       title={tr('ws.courtDesk.cafeBill.title')}
       subtitle={tr('ws.courtDesk.cafeBill.lead')}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       size="md"
       footer={(close) => (
         <>

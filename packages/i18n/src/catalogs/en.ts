@@ -1411,7 +1411,7 @@ export const en = {
       iqd: '{amount} IQD',
       unitLabel: 'Unit',
       unit: { g: 'g', ml: 'ml', pc: 'pcs' },
-      status: { low: 'Running low', belowPar: 'Below par', countNeeded: 'Count needed', ok: 'OK' },
+      status: { out: 'Out of stock', low: 'Running low', belowPar: 'Below par', countNeeded: 'Count needed', ok: 'OK' },
       movement: {
         goods_in: 'Delivery',
         production_in: 'Made in the kitchen',
@@ -1938,6 +1938,7 @@ export const en = {
       MIXED_BASKET: 'Café items and shop items go out as two orders. Send again.',
       SHOP_ITEM_NOT_ORDERABLE: 'Shop items are sold at the counter, not from the table.',
       NOT_MOVABLE: 'This reservation can no longer be moved.',
+      RESERVATION_IN_PAST: 'A booking cannot be moved to a time that has already passed.',
       NOT_EXTENDABLE: 'This reservation can no longer be extended.',
       NOT_CANCELLABLE: 'This reservation can no longer be cancelled.',
       INVALID_SPLIT_COUNT: 'Split count must be between 1 and 50.',

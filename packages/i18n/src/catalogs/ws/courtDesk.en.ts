@@ -69,7 +69,7 @@ export const courtDeskEn = {
 
   // 06.2 Calendar
   calendar: {
-    lead: 'Click a free slot to book it. Drag a booking to move it.',
+    lead: 'Click a free slot to book it. Pick a booking up by its grip and drag — the outline shows where it lands.',
     leadMonth: 'Darker days have more bookings. Pick a day to open it.',
     view: 'View',
     prev: 'Previous day (← key)',
@@ -102,6 +102,16 @@ export const courtDeskEn = {
     freeSlot: 'Free slot',
     pastSlot: 'Past',
     openDetail: 'Open booking',
+
+    // Drag to move (09-23). The preview names its own destination, so the
+    // release is never the first time the desk learns where the booking went.
+    dragHint: 'Drag to move · click to open',
+    dropHere: 'Drop here',
+    dropPast: 'In the past',
+    dropTaken: 'Already booked',
+    dropPastBody: 'That time has already passed. A booking moved into the past disappears from the guest\'s app.',
+    dropTakenBody: 'That court is already booked for part of that time.',
+    startPast: '{time} · past',
   },
 
   // 06.3 Booking create dialog
@@ -168,8 +178,10 @@ export const courtDeskEn = {
     moveSubmit: 'Move',
     refused: 'That change was not allowed.',
     shortenFloor: 'Already at the shortest length this court is priced for ({minutes}).',
+    movePast: 'That time has already passed. A booking moved into the past disappears from the guest\'s app.',
     moveNeedsTime: 'Pick a new start time first.',
     done: 'Saved.',
+    queued: 'Saved on this station only. It is not confirmed until the connection is back, so do not promise the slot yet.',
     reason: {
       move: 'move this booking',
       shorten: 'shorten this booking by 30 minutes',

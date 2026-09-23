@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  nightTimeToUtc,
   busiestCount,
   countByTradingDate,
   daysInMonth,
@@ -97,5 +98,19 @@ describe('heatLevel', () => {
       ['2026-10-20', 90],
     ]);
     expect(busiestCount(counts, ['2026-09-01', '2026-09-02'])).toBe(4);
+  });
+});
+
+describe('nightTimeToUtc', () => {
+  // Baghdad is UTC+3; Touch trades 09:00 -> 02:00.
+  it('keeps an evening time on the night itself', () => {
+    expect(nightTimeToUtc('2026-09-12', 23 * 60, BAGHDAD, TOUCH_HOURS).toISOString()).toBe('2026-09-12T20:00:00.000Z');
+  });
+  it('puts a time in the after-midnight tail on the next calendar date', () => {
+    // 01:00 on the night of the 12th is 01:00 on the 13th = 22:00Z on the 12th.
+    expect(nightTimeToUtc('2026-09-12', 60, BAGHDAD, TOUCH_HOURS).toISOString()).toBe('2026-09-12T22:00:00.000Z');
+  });
+  it('leaves a time after the close on the night date', () => {
+    expect(nightTimeToUtc('2026-09-12', 3 * 60, BAGHDAD, TOUCH_HOURS).toISOString()).toBe('2026-09-12T00:00:00.000Z');
   });
 });

@@ -32,6 +32,9 @@ import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
 
 export type PaymentMethod = 'cash' | 'card';
 
+/** How one payment went: taken in full, taken in part, saved on the queue, or refused. */
+export type SettleResult = 'settled' | 'partial' | 'queued' | 'failed';
+
 /** Iraqi dinar banknotes a guest hands over, smallest first. */
 const NOTES_IQD = [5_000, 10_000, 25_000, 50_000] as const;
 
@@ -126,7 +129,8 @@ export function PaymentPane({
     return (
       <Modal
         title={tr('op.till.payCard')}
-        onClose={busy ? () => {} : onCancel}
+        dismissible={!busy}
+        onClose={onCancel}
         size="sm"
         footer={
           <div style={reasonedFooter}>
@@ -161,7 +165,8 @@ export function PaymentPane({
   return (
     <Modal
       title={tr('op.till.payCash')}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       footer={
         <div style={reasonedFooter}>
           <Button onClick={onCancel} disabled={busy}>

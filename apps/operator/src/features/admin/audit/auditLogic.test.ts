@@ -210,17 +210,20 @@ describe('actorLabel', () => {
 });
 
 describe('periodBounds / inPeriod', () => {
-  it('turns an inclusive date range into a half-open instant range', () => {
-    const b = periodBounds({ from: '2026-09-01', to: '2026-09-03' });
-    expect(new Date(b.fromIso).getDate()).toBe(1);
-    // Exclusive upper bound is the START of the 4th, so the whole 3rd is inside.
-    expect(new Date(b.toExclusiveIso).getDate()).toBe(4);
-    expect(new Date(b.toExclusiveIso).getHours()).toBe(0);
+  // Baghdad (UTC+3), business days starting at 04:00 as app.business_date counts them.
+  const TZ = 'Asia/Baghdad';
+  it('turns an inclusive range of business days into a half-open instant range', () => {
+    const b = periodBounds({ from: '2026-09-01', to: '2026-09-03' }, 4, TZ);
+    expect(b.fromIso).toBe('2026-09-01T01:00:00.000Z'); // 04:00 on the 1st, venue time
+    expect(b.toExclusiveIso).toBe('2026-09-04T01:00:00.000Z'); // 04:00 on the 4th
   });
-  it('checks a row against the bounds', () => {
-    const b = periodBounds({ from: '2026-09-01', to: '2026-09-01' });
-    expect(inPeriod({ at: new Date(2026, 8, 1, 12).toISOString() }, b)).toBe(true);
-    expect(inPeriod({ at: new Date(2026, 8, 2, 0, 0, 1).toISOString() }, b)).toBe(false);
+  it("keeps a night's after-midnight tail with its night", () => {
+    const b = periodBounds({ from: '2026-09-01', to: '2026-09-01' }, 4, TZ);
+    // 22:00 and 01:30 (next calendar day) venue time are both the night of the 1st.
+    expect(inPeriod({ at: '2026-09-01T19:00:00.000Z' }, b)).toBe(true);
+    expect(inPeriod({ at: '2026-09-01T22:30:00.000Z' }, b)).toBe(true);
+    // 04:30 on the 2nd is the next business day.
+    expect(inPeriod({ at: '2026-09-02T01:30:00.000Z' }, b)).toBe(false);
   });
 });
 

@@ -50,7 +50,8 @@ export function BreakPinDialog({
     <Modal
       title={title}
       subtitle={lead}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       size="sm"
       footer={(close) => (
         <>

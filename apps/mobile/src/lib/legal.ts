@@ -6,10 +6,10 @@ import type { Locale } from '@touch/i18n';
  * as well as in the listing, so Settings and Sign up link here. Opened in the
  * system browser, never an in-app web view (no "unrestricted web access").
  *
- * EXPO_PUBLIC_SITE_URL moves these to touch-padel.com once the domain is live;
- * until then the Vercel URL is the one App Store Connect also carries.
+ * The venue's domain is live (2026-09-23; the bare touch-padel.com redirects to
+ * www). EXPO_PUBLIC_SITE_URL still overrides it per build.
  */
-const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://touch-padel-web.vercel.app').replace(/\/+$/, '');
+const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://www.touch-padel.com').replace(/\/+$/, '');
 
 export type LegalPage = 'privacy' | 'support';
 

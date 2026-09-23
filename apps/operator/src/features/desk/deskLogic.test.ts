@@ -7,6 +7,7 @@ import {
   courtAvailability,
   durationsFitting,
   groupByStart,
+  guestNameOf,
   isOverrideRefusal,
   isVisible,
   nameFromQuery,
@@ -14,7 +15,7 @@ import {
   packLanes,
   phoneDigitCount,
   phoneFromQuery,
-  rowIndexOf,
+  gridPlacement,
   sanitizeName,
   sanitizePhone,
   slotTaken,
@@ -44,6 +45,25 @@ describe('toBookingStatus', () => {
   it('passes the seven known statuses through and leaves unknown strings alone', () => {
     expect(toBookingStatus('no_show')).toBe('no_show');
     expect(toBookingStatus('weird')).toBe('weird');
+  });
+});
+
+describe('guestNameOf', () => {
+  it('prefers the name the desk typed', () => {
+    expect(guestNameOf(row({ id: 'a', guest_name: 'Sara', guest: { full_name: 'Sara Ahmed' } }))).toBe('Sara');
+  });
+
+  it('falls back to the account a mobile booking came from', () => {
+    // The bug: an app booking carries only guest_id, and the calendar called it a walk-in.
+    expect(guestNameOf(row({ id: 'b', guest_name: null, guest_id: 'u1', guest: { full_name: 'Sara Ahmed' } }))).toBe('Sara Ahmed');
+  });
+
+  it('is null for a real nameless walk-in, and for rows an older build cached without the join', () => {
+    expect(guestNameOf(row({ id: 'c', guest_name: null }))).toBeNull();
+    expect(guestNameOf(row({ id: 'd', guest_name: null, guest: null }))).toBeNull();
+    expect(guestNameOf(row({ id: 'e', guest_name: null, guest: { full_name: null } }))).toBeNull();
+    expect(guestNameOf(undefined)).toBeNull();
+    expect(guestNameOf(null)).toBeNull();
   });
 });
 
@@ -369,45 +389,52 @@ describe('durationsFitting', () => {
   });
 });
 
-describe('rowIndexOf', () => {
+describe('gridPlacement', () => {
   // A night trading 09:00 -> 02:00, drawn in 30-minute rows.
   const OPEN = 9 * 60;
   const SLOT = 30;
   const ROW_COUNT = Math.ceil((26 * 60 - OPEN) / SLOT);
   // Midnight of the calendar date, in a zone with no offset so the test states
-  // the wall clock it means.
+  // the wall clock it means. Hours past 24 are the next calendar date.
   const dayStart = Date.UTC(2026, 8, 23);
   const at = (h: number, m = 0) => new Date(dayStart + (h * 60 + m) * 60_000).toISOString();
-  const row = (iso: string) => rowIndexOf(iso, dayStart, OPEN, SLOT);
+  const place = (from: string, to: string) => gridPlacement(from, to, dayStart, OPEN, SLOT, ROW_COUNT);
 
   it('puts the opening slot in the first row', () => {
-    expect(row(at(9))).toBe(0);
+    expect(place(at(9), at(10))).toEqual({ from: 0, span: 2 });
   });
 
   it('counts rows forward through the evening', () => {
-    expect(row(at(12, 30))).toBe(7);
-    expect(row(at(16))).toBe(14);
+    expect(place(at(12, 30), at(14))?.from).toBe(7);
+    expect(place(at(16), at(17))?.from).toBe(14);
   });
 
   it('places the after-midnight tail at the BOTTOM of the night, not the top', () => {
-    // The regression: measured against midnight these are negative, and the
-    // caller's Math.max(0, ...) clamped them onto the 09:00 row, painting the
-    // block over the morning and pushing the free slots under it out of line
-    // with the time gutter.
-    expect(row(at(0, 30))).toBe(31);
-    expect(row(at(1, 30))).toBe(33);
-    expect(row(at(0, 30))).toBeLessThan(ROW_COUNT);
+    // Tonight's tail is on the NEXT calendar date. Clamped onto the 09:00 row
+    // it painted over the morning and pushed the free slots out of line.
+    expect(place(at(24, 30), at(25, 30))).toEqual({ from: 31, span: 2 });
+    expect(place(at(25, 30), at(26))?.from).toBe(33);
+  });
+
+  it('keeps a reservation that ends by the opening off the grid', () => {
+    // 03:34, the block from the old bug report: drawn at 09:00 it covered the morning.
+    expect(place(at(3, 34), at(5))).toBeNull();
+    expect(place(at(8), at(9))).toBeNull();
+  });
+
+  it('draws a block that runs INTO the opening from the first row, clipped', () => {
+    // 08:00-10:00: folded off the grid, the 09:00-10:00 cells showed free and
+    // a click there met SLOT_TAKEN with nothing drawn.
+    expect(place(at(8), at(10))).toEqual({ from: 0, span: 2 });
   });
 
   it('reports a start past the close as off the grid rather than clamping it', () => {
-    // 03:34, the block from the bug report: not on this night's grid at all,
-    // so the caller filters it out instead of drawing it at 09:00.
-    expect(row(at(3, 34))).toBeGreaterThanOrEqual(ROW_COUNT);
+    expect(place(at(26, 30), at(27))).toBeNull();
   });
 
   it('keeps a start inside a row in that row', () => {
-    expect(row(at(9, 29))).toBe(0);
-    expect(row(at(9, 30))).toBe(1);
+    expect(place(at(9, 29), at(10))?.from).toBe(0);
+    expect(place(at(9, 30), at(10))?.from).toBe(1);
   });
 });
 

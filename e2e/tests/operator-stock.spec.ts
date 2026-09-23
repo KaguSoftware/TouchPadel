@@ -16,6 +16,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL } from '../playwright.config';
 import {
+  choose,
   DEV_PASSWORD,
   SEED_STAFF,
   appRpc,
@@ -110,7 +111,7 @@ test.describe('operator stock (module 5)', () => {
   test('(b) goods in raises on-hand and the ledger names the delivery', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/receive`);
-    await page.getByLabel('Ingredient').first().selectOption({ label: ING });
+    await choose(page.getByLabel('Ingredient').first(), { label: ING });
     // Once an ingredient is chosen the quantity labels carry its unit.
     await page.getByLabel('Ordered (g)').first().fill('500');
     await page.getByLabel('Received (g)').first().fill('400');
@@ -182,9 +183,9 @@ test.describe('operator stock (module 5)', () => {
   test('(d) waste demands a reason and lands in the ledger', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/waste`);
-    await page.getByLabel(/^Ingredient/).first().selectOption({ label: ING });
+    await choose(page.getByLabel(/^Ingredient/).first(), { label: ING });
     await page.getByLabel(/^Quantity \(g\)/).fill('30');
-    await page.getByLabel(/^What happened/).selectOption('waste_spill');
+    await choose(page.getByLabel(/^What happened/), 'waste_spill');
     await page.getByLabel(/^Note/).fill('dropped the bag');
     await page.getByRole('button', { name: 'Record waste' }).click();
 

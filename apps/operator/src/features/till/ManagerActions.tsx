@@ -396,7 +396,8 @@ export function MergeTabsDialog({
   return (
     <Modal
       title={tr('ws.cashier.merge.title')}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       size="sm"
       footer={(close) => (
         <div style={reasonedFooter}>

@@ -44,7 +44,7 @@ export async function fetchFloorRaw(nowMs = Date.now()): Promise<FloorRaw> {
     supabase.from('courts').select('id, name_en, name_ar, sort_order').eq('is_active', true).order('sort_order').then(unwrap<RawCourt[]>),
     supabase
       .from('reservations')
-      .select('id, court_id, status, start_at, end_at, guest_name')
+      .select('id, court_id, status, start_at, end_at, guest_name, guest:profiles!reservations_guest_id_fkey(full_name)')
       .eq('kind', 'booking')
       .in('status', ['confirmed', 'arrived'])
       .gt('end_at', nowIso)
@@ -53,7 +53,7 @@ export async function fetchFloorRaw(nowMs = Date.now()): Promise<FloorRaw> {
     supabase.from('cafe_tables').select('id, table_number').eq('is_active', true).then(unwrap<RawTable[]>),
     supabase
       .from('tabs')
-      .select('id, status, table_id, label, opened_at, reservation:reservations!tabs_reservation_id_fkey(guest_name)')
+      .select('id, status, table_id, label, opened_at, reservation:reservations!tabs_reservation_id_fkey(guest_name, guest:profiles!reservations_guest_id_fkey(full_name))')
       .in('status', ['open', 'awaiting_payment'])
       .is('merged_into_tab_id', null)
       .then((r) => unwrap<unknown[]>(r) as RawTab[]),

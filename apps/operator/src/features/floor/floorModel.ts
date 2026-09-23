@@ -68,6 +68,8 @@ export interface RawBooking {
   start_at: string;
   end_at: string;
   guest_name: string | null;
+  /** The account a mobile booking came from; the desk-typed `guest_name` is null there. */
+  guest?: { full_name: string | null } | null;
 }
 
 export interface RawTable {
@@ -81,7 +83,7 @@ export interface RawTab {
   table_id: string | null;
   label: string | null;
   opened_at: string;
-  reservation: { guest_name: string | null } | null;
+  reservation: { guest_name: string | null; guest?: { full_name: string | null } | null } | null;
 }
 
 export interface RawStaff {
@@ -217,6 +219,14 @@ function ms(iso: string | null | undefined): number {
   return Date.parse(iso);
 }
 
+/**
+ * Whose booking it is. A booking made in the app has no `guest_name` — only the
+ * account it came from — so the floor showed those courts with a blank name.
+ */
+function bookingGuest(b: { guest_name: string | null; guest?: { full_name: string | null } | null } | null | undefined): string | null {
+  return b?.guest_name ?? b?.guest?.full_name ?? null;
+}
+
 export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEAT_STALE_MS): FloorSnapshot {
   // Courts -----------------------------------------------------------------
   const courtsSorted = raw.courts
@@ -243,10 +253,10 @@ export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEA
       name_en: c.name_en,
       name_ar: c.name_ar,
       status: inPlay ? 'in_play' : booked ? 'booked' : 'free',
-      guest: current?.guest_name ?? null,
+      guest: bookingGuest(current),
       until: current?.end_at ?? null,
       nextAt: next?.start_at ?? null,
-      waiting: waiting ? { guest: waiting.guest_name, startsAt: waiting.start_at } : null,
+      waiting: waiting ? { guest: bookingGuest(waiting), startsAt: waiting.start_at } : null,
     };
   });
 
@@ -269,7 +279,7 @@ export function composeSnapshot(raw: FloorRaw, nowMs: number, staleMs = HEARTBEA
           ? {
               id: tab.id,
               label: tab.label,
-              guest: tab.reservation?.guest_name ?? null,
+              guest: bookingGuest(tab.reservation),
               state: tab.status === 'awaiting_payment' ? 'awaiting_payment' : 'open',
               openedAt: tab.opened_at,
             }

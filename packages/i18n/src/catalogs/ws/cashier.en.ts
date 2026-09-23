@@ -191,6 +191,7 @@ export const cashierEn = {
     // Item 9 (0120): void and refund ride the durable queue when the link is down.
     voidQueued: 'Void waiting to sync',
     refundQueued: 'Refund saved on this station. It will be recorded when the connection is back; the payments list updates then.',
+    settleQueued: 'Payment saved on this station. It will be recorded when the connection is back; the amount due updates then.',
     voidedTitle: 'Voided',
     noLines: 'Nothing on this tab yet — pick items from the grid.',
     totalsTitle: 'Totals',
@@ -323,6 +324,7 @@ export const cashierEn = {
     confirm: 'Charge to this booking',
     pickBooking: 'Pick a booking from the list first.',
     partialFailure: 'The booking tab was opened but the merge was refused — this tab is untouched. Merge it by hand from Open tabs.',
+    openQueued: 'Offline: the booking’s tab is saved on this station and opens when the connection is back. This tab was not moved — merge it from Open tabs then.',
     option: '{time} · {court} · {guest}',
   },
 

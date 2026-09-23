@@ -264,6 +264,8 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
         void qc.invalidateQueries({ queryKey: QK.jobs(convId) });
       }
       void qc.invalidateQueries({ queryKey: QK.conversations });
+      // The turn just spent tokens: the meter and the cap must move with it.
+      void qc.invalidateQueries({ queryKey: ['assistant', 'usage'] });
     }
   }, [qc]);
 
