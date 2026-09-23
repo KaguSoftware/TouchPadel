@@ -11,7 +11,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
+import { VENUE_TZ } from '@touch/i18n';
 import { useAuth } from '../../lib/auth';
+import { QK as SHARED_QK, fetchVenueSettings } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { ErrorText, Spinner } from '../../components/ui';
@@ -43,16 +45,7 @@ import { ScopeStrip } from './ScopeStrip';
 import { UsageMeter, slotHasUsage, slotTotal, type MeterSlot } from './UsageMeter';
 import { normaliseScopes, refusedScopes, saveRememberedScopes } from './scopes';
 import { useAssistantChat } from './useAssistantChat';
-
-function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-/** The month so far — the meter's Today and This month slots read from it. */
-export function monthSoFar(now = new Date()): { from: string; to: string } {
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  return { from: isoDate(from), to: isoDate(now) };
-}
+import { monthSoFar } from './usageDates';
 
 export function Thread({
   conversationId,
@@ -94,7 +87,9 @@ export function Thread({
     enabled: conversationId !== null,
     refetchInterval: (q) => (q.state.data?.some((j) => !TERMINAL_JOB_STATUSES.includes(j.status) && j.status !== 'estimated') ? 5_000 : false),
   });
-  const month = useMemo(() => monthSoFar(), []);
+  const settings = useQuery({ queryKey: SHARED_QK.venueSettings, queryFn: fetchVenueSettings });
+  const tz = settings.data?.timezone ?? VENUE_TZ;
+  const month = useMemo(() => monthSoFar(tz), [tz]);
   const usage = useQuery({ queryKey: QK.usage(month.from, month.to), queryFn: () => fetchUsage(month.from, month.to), staleTime: 60_000 });
   const pricing: PricingMap | null = usage.data?.pricing ?? null;
   const fallback = usage.data?.fallback_micros_per_mtok ?? 0;
