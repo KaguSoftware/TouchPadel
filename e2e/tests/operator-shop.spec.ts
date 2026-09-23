@@ -132,9 +132,10 @@ test.describe('operator Touch Shop', () => {
 
   test('(c) a counter sale scans the barcode and sends with no kitchen ticket', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({ timeout: 30_000 });
+    // The till lands on the floor plan; a counter sale has no table to tap.
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: '+', exact: true }).click();
+    await page.getByRole('button', { name: 'New tab', exact: true }).click();
     const newTab = page.getByRole('dialog', { name: 'New tab' });
     await newTab.getByRole('switch', { name: 'Shop counter sale' }).click();
     await newTab.getByLabel('Name on the tab').fill(COUNTER);
@@ -142,7 +143,8 @@ test.describe('operator Touch Shop', () => {
     await expect(newTab).toBeHidden();
 
     // A wedge scanner: fast keys into the page (not a field), then Enter.
-    await page.getByRole('heading', { name: 'Open tabs' }).click();
+    // The tab's own header takes the focus off every input.
+    await page.getByRole('heading', { name: COUNTER, exact: true }).click();
     await page.keyboard.type(BARCODE, { delay: 5 });
     await page.keyboard.press('Enter');
     await expect(page.getByText(`1× ${PRODUCT} (One size)`)).toBeVisible();
