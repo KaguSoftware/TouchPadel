@@ -267,6 +267,13 @@ export function validateLanStatus(value: unknown): { ref: string; status: 'prepa
  * one IPC argument that must never reach a log line, so the value is never
  * echoed in the error message.
  */
+/** touch:pin-observed's optional second argument: whose pin it is. */
+export function validatePinOwner(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string' || !uuidRegex.test(value)) fail('pin owner must be a uuid');
+  return value as string;
+}
+
 export function validatePin(value: unknown): string {
   if (typeof value !== 'string') fail('pin must be a string');
   const pin = value as string;

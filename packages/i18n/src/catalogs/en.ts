@@ -1823,6 +1823,7 @@ export const en = {
       DEGRADED_LOCKOUT: 'The venue is in offline mode — this action is blocked right now.',
       PIN_INVALID: 'Incorrect PIN.',
       PIN_LOCKED: 'Too many wrong PINs — locked for a few minutes.',
+      PIN_OWN: 'That is your own PIN. Another manager has to enter theirs.',
       PIN_GRANT_REQUIRED: 'Manager authorisation expired — enter the PIN again.',
       FORBIDDEN: 'You do not have permission for that.',
       AUTH_REQUIRED: 'You must be signed in.',

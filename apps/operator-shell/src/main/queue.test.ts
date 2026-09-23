@@ -121,7 +121,7 @@ describe('schema v1 migration', () => {
     expect(cols).toContain('device_id');
     expect(cols).toContain('resolved_by'); // v3: manager dismiss (resolveRow)
     expect(cols).toContain('resolved_at');
-    expect(d.pragma('user_version', { simple: true })).toBe(4);
+    expect(d.pragma('user_version', { simple: true })).toBe(5);
     expect(() => d.exec("INSERT INTO meta (key, value) VALUES ('k','v')")).not.toThrow();
     d.close();
   });
@@ -140,7 +140,7 @@ describe('schema v1 migration', () => {
     const file = legacyDbFile();
     openQueueAt(file).close();
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(4);
+    expect(d.pragma('user_version', { simple: true })).toBe(5);
     d.close();
   });
 });
@@ -554,6 +554,42 @@ describe('queue encryption is mandatory (SEC-32)', () => {
 });
 
 /**
+ * v5: the PIN cache learns whose PIN a hash is, so "a manager PIN that is not
+ * your own" can be judged offline. A cached hash from before the upgrade must
+ * survive it (a station that loses them loses offline manager PINs).
+ */
+describe('v4 -> v5 upgrade (pin_cache owner)', () => {
+  it('adds a nullable staff_id and keeps the cached hashes', () => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tp-queue-v4-')), 'queue.db');
+    const db = new Database(file);
+    db.exec(`
+      CREATE TABLE pin_cache (
+        pin_hash   TEXT PRIMARY KEY,
+        role       TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    db.prepare('INSERT INTO pin_cache (pin_hash, role, updated_at) VALUES (?, ?, ?)').run(
+      'ab'.repeat(32),
+      'manager',
+      '2026-09-22T09:00:00.000Z',
+    );
+    db.pragma('user_version = 4');
+    db.close();
+
+    const d = openQueueAt(file);
+    expect(d.pragma('user_version', { simple: true })).toBe(5);
+    const row = d.prepare('SELECT pin_hash, role, staff_id FROM pin_cache').get() as {
+      pin_hash: string;
+      role: string;
+      staff_id: string | null;
+    };
+    expect(row).toEqual({ pin_hash: 'ab'.repeat(32), role: 'manager', staff_id: null });
+    d.close();
+  });
+});
+
+/**
  * The upgrade a till in service actually performs: v3 (the shipping schema) to
  * v4 (SEC-32, payload encrypted at rest). The pre-v1 fixture above does not
  * cover this — its rows are parked as `failed` for a missing staff_id, so it
@@ -607,7 +643,7 @@ describe('v3 -> v4 upgrade (a till updated mid-service)', () => {
 
   it('adds payload_enc without touching the pending row', () => {
     const d = openQueueAt(v3DbFile());
-    expect(d.pragma('user_version', { simple: true })).toBe(4);
+    expect(d.pragma('user_version', { simple: true })).toBe(5);
     const row = d
       .prepare('SELECT state, payload_enc, payload FROM mutation_queue')
       .get() as { state: string; payload_enc: number; payload: string };
