@@ -6,12 +6,13 @@
  * envelope's idempotency key (lib/offlineTabs).
  */
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
-import { QK, fetchActiveCafeTables } from '../../lib/queries';
+import { QK, fetchActiveCafeTables, fetchVenueSettings } from '../../lib/queries';
+import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
@@ -33,22 +34,21 @@ export interface OpenReservationRow {
  * cashier reads tonight's bookings too (reservations_cashier_read).
  */
 export function useTodaysOpenReservations(enabled = true) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ['openTabReservations'],
     enabled,
     queryFn: async () => {
-      const dayStart = new Date();
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+      const night = await tonightScope(() => queryClient.ensureQueryData({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings }));
       const { data, error } = await supabase
         .from('reservations')
         .select('id, start_at, end_at, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar), tabs!tabs_reservation_id_fkey(id, status)')
         .in('status', ['confirmed', 'arrived'])
-        .gte('start_at', dayStart.toISOString())
-        .lt('start_at', dayEnd.toISOString())
+        .gte('start_at', night.start)
+        .lt('start_at', night.end)
         .order('start_at');
       if (error) throw error;
-      return (data as unknown as OpenReservationRow[]).filter(bookingTakesNewTab);
+      return (data as unknown as OpenReservationRow[]).filter((r) => night.isTonight(r.start_at) && bookingTakesNewTab(r));
     },
   });
 }

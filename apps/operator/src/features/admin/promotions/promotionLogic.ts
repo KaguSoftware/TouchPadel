@@ -4,7 +4,8 @@
  * expired / off), and the plain-language summaries both screens print. The
  * server applies promotions; nothing here prices a bill.
  */
-import { formatDate, formatIQD, formatNumber, type Locale, type MessageKey, type TParams } from '@touch/i18n';
+import { wallTimeToUtc } from '@touch/core';
+import { VENUE_TZ, formatDate, formatIQD, formatNumber, type Locale, type MessageKey, type TParams } from '@touch/i18n';
 import type { PromotionLimits, PromotionRow, PromotionScope, PromotionType } from './promotionsApi';
 
 /** The `tr` a screen gets from useLocale(), or makeT(locale) in a test. */
@@ -46,17 +47,25 @@ export const EMPTY_DRAFT: PromotionDraft = {
   enabled: true,
 };
 
-/** ISO timestamp → YYYY-MM-DD (station-local calendar day), '' for null. */
+/*
+ * Promotion dates are the VENUE's calendar days. They were the station's: a
+ * browser not set to Baghdad shifted both ends by its offset, as marketing's
+ * windows once did (marketingTypes windowToServer). The server prices by venue
+ * time, so the form reads and writes venue midnights.
+ */
+const venueDay = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: VENUE_TZ });
+
+/** ISO timestamp → YYYY-MM-DD (the venue's calendar day), '' for null. */
 export function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return venueDay(d);
 }
 
-/** Today as YYYY-MM-DD on the station's own calendar, to match isoToDateInput. */
+/** Today as YYYY-MM-DD on the venue's calendar, to match isoToDateInput. */
 export function todayInput(now = new Date()): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return venueDay(now);
 }
 
 /**
@@ -125,8 +134,9 @@ export function toRpcArgs(draft: PromotionDraft, id: string | null): Record<stri
     p_name_ar: draft.name.ar.trim(),
     p_type: draft.type,
     p_value: draft.value,
-    p_starts_at: draft.startsOn ? new Date(`${draft.startsOn}T00:00:00`).toISOString() : null,
-    p_ends_at: draft.endsOn ? new Date(`${draft.endsOn}T23:59:59.999`).toISOString() : null,
+    // The start day's venue midnight, and the last millisecond of the end day.
+    p_starts_at: draft.startsOn ? wallTimeToUtc(draft.startsOn, 0, VENUE_TZ).toISOString() : null,
+    p_ends_at: draft.endsOn ? new Date(wallTimeToUtc(draft.endsOn, 24 * 60, VENUE_TZ).getTime() - 1).toISOString() : null,
     p_weekdays: [...draft.weekdays].sort((a, b) => a - b),
     p_hour_from: draft.hourFrom || null,
     p_hour_to: draft.hourTo || null,

@@ -22,7 +22,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { wallTimeToUtc } from '@touch/core';
+import { DateField } from '../../components/inputs';
 import { formatDate, formatIQD, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
@@ -45,7 +45,7 @@ import {
   ReasonCodePrompt,
 } from '../../components/kit';
 import { allowedMarks, isLive, isOverrideRefusal } from './deskLogic';
-import { tradingDateOf } from './calendar/monthLogic';
+import { nightTimeToUtc, tradingDateOf } from './calendar/monthLogic';
 import { ReservationBadge } from './deskStatus';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import { OVERRIDE_REASONS, STEP_MIN } from './ReservationActionsDialog';
@@ -144,7 +144,7 @@ export function BookingDetailScreen() {
         case 'move': {
           if (!move) return;
           const [hh, mm] = move.time.split(':').map(Number);
-          const start = wallTimeToUtc(move.date, (hh ?? 0) * 60 + (mm ?? 0), tz);
+          const start = nightTimeToUtc(move.date, (hh ?? 0) * 60 + (mm ?? 0), tz, settingsQ.data?.opening_hours);
           queued = (
             await mutate('reservation.update', {
               action: 'move',
@@ -205,7 +205,7 @@ export function BookingDetailScreen() {
   // change and stays allowed.
   const moveStart =
     move && /^\d{2}:\d{2}$/.test(move.time)
-      ? wallTimeToUtc(move.date, Number(move.time.slice(0, 2)) * 60 + Number(move.time.slice(3, 5)), tz)
+      ? nightTimeToUtc(move.date, Number(move.time.slice(0, 2)) * 60 + Number(move.time.slice(3, 5)), tz, settingsQ.data?.opening_hours)
       : null;
   const movePast = Boolean(
     r && moveStart && moveStart.getTime() < Date.now() && moveStart.getTime() !== new Date(r.start_at).getTime(),
@@ -373,7 +373,8 @@ export function BookingDetailScreen() {
                     disabled={busy !== null}
                     onClick={() => {
                       setShowMove((v) => !v);
-                      if (!move) setMove({ courtId: r.court_id, date: new Date(r.start_at).toLocaleDateString('en-CA', { timeZone: tz }), time: '' });
+                      // The NIGHT, as the calendar's move uses: a 01:00 booking is on the night before.
+                      if (!move) setMove({ courtId: r.court_id, date: tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours), time: '' });
                     }}
                   >
                     {tr('ws.courtDesk.detail.move')}
@@ -385,7 +386,7 @@ export function BookingDetailScreen() {
                         <Select value={move.courtId} onChange={(courtId) => setMove({ ...move, courtId })} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
                       </Field>
                       <Field label={tr('ws.courtDesk.detail.newDate')}>
-                        <input type="date" style={inputStyle} value={move.date} onChange={(e) => e.target.value && setMove({ ...move, date: e.target.value })} />
+                        <DateField value={move.date} onChange={(date) => setMove({ ...move, date })} />
                       </Field>
                       <Field label={tr('ws.courtDesk.detail.newTime')}>
                         <input type="time" step={STEP_MIN * 60} style={inputStyle} value={move.time} onChange={(e) => setMove({ ...move, time: e.target.value })} />

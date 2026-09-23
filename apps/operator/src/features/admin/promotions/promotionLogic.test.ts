@@ -81,11 +81,12 @@ describe('fromRow / toRpcArgs', () => {
     expect(args.p_hour_to).toBeNull();
   });
 
-  it('makes an end date inclusive of its whole day', () => {
-    const args = toRpcArgs({ ...EMPTY_DRAFT, endsOn: '2026-09-12' }, null);
-    const ends = new Date(args.p_ends_at as string);
-    expect(ends.getDate()).toBe(12);
-    expect(ends.getHours()).toBe(23);
+  it('makes an end date inclusive of its whole VENUE day, whatever the station zone', () => {
+    const args = toRpcArgs({ ...EMPTY_DRAFT, startsOn: '2026-09-10', endsOn: '2026-09-12' }, null);
+    // Baghdad is UTC+3: its midnights are 21:00Z the evening before.
+    expect(args.p_starts_at).toBe('2026-09-09T21:00:00.000Z');
+    expect(args.p_ends_at).toBe('2026-09-12T20:59:59.999Z');
+    expect(isoToDateInput(args.p_ends_at as string)).toBe('2026-09-12');
   });
 });
 
@@ -93,7 +94,9 @@ describe('date and time inputs', () => {
   it('formats to the input value types and treats null as blank', () => {
     expect(isoToDateInput(null)).toBe('');
     expect(isoToDateInput('garbage')).toBe('');
-    expect(isoToDateInput(new Date(2026, 8, 3, 12).toISOString())).toBe('2026-09-03');
+    expect(isoToDateInput('2026-09-03T09:00:00.000Z')).toBe('2026-09-03');
+    // 22:30Z is already the next day in Baghdad.
+    expect(isoToDateInput('2026-09-03T22:30:00.000Z')).toBe('2026-09-04');
     expect(timeToInput('16:00:00')).toBe('16:00');
     expect(timeToInput(null)).toBe('');
   });

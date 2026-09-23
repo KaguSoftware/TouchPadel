@@ -12,9 +12,11 @@
  * inside it, so they take focus, read their state aloud and are found by role.
  */
 import type { CSSProperties, ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatNumber, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
+import { QK, fetchVenueSettings } from '../../lib/queries';
+import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button } from '../../components/ui';
 import { AsyncStateWrapper, EmptyState, Kbd, SegmentedControl } from '../../components/kit';
@@ -53,26 +55,26 @@ export interface OtherTab {
  * any that carry a tab).
  */
 export function useCourtBookings() {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ['tillCourts'],
     refetchInterval: 60_000,
     queryFn: async (): Promise<{ courts: CourtRow[]; bookings: CourtBookingRow[] }> => {
-      const dayStart = new Date();
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+      const night = await tonightScope(() => queryClient.ensureQueryData({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings }));
       const [courts, bookings] = await Promise.all([
         supabase.from('courts').select('id, name_en, name_ar, sort_order').eq('is_active', true).order('sort_order'),
         supabase
           .from('reservations')
           .select('id, court_id, start_at, end_at, status, guest_name, tabs!tabs_reservation_id_fkey(id, status)')
           .in('status', ['confirmed', 'arrived'])
-          .gte('start_at', dayStart.toISOString())
-          .lt('start_at', dayEnd.toISOString())
+          .gte('start_at', night.start)
+          .lt('start_at', night.end)
           .order('start_at'),
       ]);
       if (courts.error) throw courts.error;
       if (bookings.error) throw bookings.error;
-      return { courts: courts.data as CourtRow[], bookings: bookings.data as unknown as CourtBookingRow[] };
+      const rows = bookings.data as unknown as CourtBookingRow[];
+      return { courts: courts.data as CourtRow[], bookings: rows.filter((b) => night.isTonight(b.start_at)) };
     },
   });
 }

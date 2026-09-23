@@ -30,7 +30,8 @@ import { useLocale } from '../../lib/i18n';
 import { QK, fetchOpenDay } from '../../lib/queries';
 import { SectionHome } from '../../components/SectionHome';
 import { Button, Skeleton } from '../../components/ui';
-import { AsyncStateWrapper, Panel, presetPeriod } from '../../components/kit';
+import { AsyncStateWrapper, Panel } from '../../components/kit';
+import { useReportPeriod } from '../reports/ReportParts';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { varianceMagnitude, varianceSign } from '../admin/dayCloseLogic';
 import { figuresIn, mapFigures, type FigureKey, type PanelHeadline } from '../panel/figures';
@@ -73,10 +74,14 @@ export function FinancialHomeScreen() {
 function MonthSoFar() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  const period = useMemo(() => presetPeriod('thisMonth'), []);
+  // The venue's business month, re-read each render: at 00:30 on the 1st the
+  // venue still trades on the 30th, and a till left here past midnight must
+  // not keep polling last month. The station calendar did both wrong.
+  const { period, ready } = useReportPeriod();
 
   const headlineQ = useQuery({
     queryKey: ['financial', 'headline', period.from, period.to],
+    enabled: ready,
     queryFn: () =>
       appRpc<PanelHeadline>('panel_headline', {
         p_from: period.from,

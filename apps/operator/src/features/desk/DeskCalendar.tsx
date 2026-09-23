@@ -85,7 +85,7 @@ import { CreateReservationDialog } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
 import { DateField } from '../../components/inputs';
-import { BLOCKING_STATUSES, canMoveReservation, guestNameOf, isVisible, packLanes, rowIndexOf as rowIndexAt } from './deskLogic';
+import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, guestNameOf, isVisible, packLanes } from './deskLogic';
 import { dropRefusal, dropStartMin, grabRowOffset, type DropRefusal } from './dragLogic';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import type { PickedCustomer } from './customers/CustomerPicker';
@@ -289,7 +289,10 @@ export function DeskCalendar() {
       : null;
   const stopBookingFor = () => void navigate({ to: '/desk', search: { date } as never });
 
-  const rowIndexOf = (iso: string) => rowIndexAt(iso, dayStart.getTime(), openMin, SLOT_MIN);
+  // Row and span on tonight's grid, null when no part of it is inside the
+  // opening hours (deskLogic.gridPlacement). A drag keeps the full length.
+  const placementOf = (r: ReservationRow) =>
+    gridPlacement(r.start_at, r.end_at, dayStart.getTime(), openMin, SLOT_MIN, rowCount);
 
   function spanOf(r: ReservationRow): number {
     return Math.max(
@@ -367,8 +370,9 @@ export function DeskCalendar() {
     // drawn element: it is the only thing that knows the row pitch after the
     // zoom has scaled the grid.
     const box = e.currentTarget.getBoundingClientRect();
-    const from = Math.max(0, rowIndexOf(r.start_at));
-    const visible = Math.max(1, Math.min(spanOf(r), rowCount - from));
+    const place = placementOf(r);
+    if (!place) return;
+    const visible = Math.max(1, Math.min(place.span, rowCount - place.from));
     dragStart.current = {
       id: r.id,
       x: e.clientX,
@@ -999,7 +1003,7 @@ export function DeskCalendar() {
                      * is simply not in this grid.
                      */
                     const courtRes = reservations.filter(
-                      (r) => r.court_id === c.id && rowIndexOf(r.start_at) < rowCount,
+                      (r) => r.court_id === c.id && placementOf(r) !== null,
                     );
                     // Two reservations on one court at one time used to paint on
                     // top of each other; each takes its own column instead.
@@ -1007,8 +1011,8 @@ export function DeskCalendar() {
                     const blockedRows = new Set<number>();
                     for (const r of courtRes) {
                       if (!BLOCKING_STATUSES.has(r.status)) continue;
-                      const from = Math.max(0, rowIndexOf(r.start_at));
-                      for (let i = from; i < Math.min(rowCount, from + spanOf(r)); i++)
+                      const { from, span } = placementOf(r)!;
+                      for (let i = from; i < Math.min(rowCount, from + span); i++)
                         blockedRows.add(i);
                     }
                     return (
@@ -1104,8 +1108,7 @@ export function DeskCalendar() {
                           );
                         })}
                         {courtRes.map((r) => {
-                          const from = Math.max(0, rowIndexOf(r.start_at));
-                          const span = spanOf(r);
+                          const { from, span } = placementOf(r)!;
                           const { lane, lanes: laneCount } = lanes.get(r.id) ?? { lane: 0, lanes: 1 };
                           // Share the column's width between the lanes of one
                           // overlapping cluster; a lone booking keeps all of it.

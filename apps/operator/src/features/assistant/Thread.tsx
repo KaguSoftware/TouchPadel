@@ -89,7 +89,9 @@ export function Thread({
   });
   const settings = useQuery({ queryKey: SHARED_QK.venueSettings, queryFn: fetchVenueSettings });
   const tz = settings.data?.timezone ?? VENUE_TZ;
-  const month = useMemo(() => monthSoFar(tz), [tz]);
+  // Not memoised: re-read on every render so an open thread rolls into the
+  // new venue day (and month) instead of keeping the day it was opened on.
+  const month = monthSoFar(tz);
   const usage = useQuery({ queryKey: QK.usage(month.from, month.to), queryFn: () => fetchUsage(month.from, month.to), staleTime: 60_000 });
   const pricing: PricingMap | null = usage.data?.pricing ?? null;
   const fallback = usage.data?.fallback_micros_per_mtok ?? 0;

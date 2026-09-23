@@ -17,7 +17,7 @@
  * booking opens the read-only panel, whose one button moves the station into
  * the court desk on that booking.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { wallTimeToUtc } from '@touch/core';
 import { formatDate, formatNumber, formatTime, formatTimeRange, VENUE_TZ } from '@touch/i18n';
@@ -26,7 +26,7 @@ import { useLocale, pickName } from '../../../lib/i18n';
 import { Button } from '../../../components/ui';
 import { AsyncStateWrapper, DescriptionList, EmptyState, HeadlineFigure, Money, PageHeader, Panel, StatusBadge, TabStatusIndicator, asyncStatus, type Tone } from '../../../components/kit';
 import { ChevronForward, Icon } from '../../../components/icons';
-import { useTradingNight, todayInTz } from '../../desk/useTradingNight';
+import { useTradingNight, todayInTz, tonightInTz } from '../../desk/useTradingNight';
 import { ReservationBadge, TONE_EDGE, TONE_FG, TONE_SOFT, reservationTone } from '../../desk/deskStatus';
 import { courtAvailability, guestNameOf } from '../../desk/deskLogic';
 import type { ReservationRow } from '../../desk/deskTypes';
@@ -61,7 +61,16 @@ export function CourtsObserveScreen() {
 
   const night = useTradingNight(date);
   const { tz, settingsQ } = night;
-  const today = todayInTz(tz);
+  // The night trading NOW, not the calendar date: at 00:40 the courts are
+  // still on last night, and "today" read as a night that had not opened, with
+  // every court free while guests played. Same anchor as the desk calendar.
+  const today = settingsQ.data ? tonightInTz(tz, settingsQ.data.opening_hours) : todayInTz(tz);
+  const anchored = useRef(false);
+  useEffect(() => {
+    if (anchored.current || !settingsQ.data) return;
+    anchored.current = true;
+    setDate(tonightInTz(settingsQ.data.timezone, settingsQ.data.opening_hours));
+  }, [settingsQ.data]);
 
   const month = useMonthCounts({
     queryKey: 'reservationsMonth',
