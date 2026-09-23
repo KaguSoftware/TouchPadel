@@ -79,8 +79,7 @@ import { CreateReservationDialog } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
 import { DateField } from '../../components/inputs';
-import { BLOCKING_STATUSES, canMoveReservation, isVisible } from './deskLogic';
-import { BLOCKING_STATUSES, isVisible, packLanes, rowIndexOf as rowIndexAt } from './deskLogic';
+import { BLOCKING_STATUSES, canMoveReservation, isVisible, packLanes, rowIndexOf as rowIndexAt } from './deskLogic';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import type { PickedCustomer } from './customers/CustomerPicker';
 
