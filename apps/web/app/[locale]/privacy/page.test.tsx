@@ -83,6 +83,26 @@ describe.each(LOCALES)('privacy page (%s)', (locale: Locale) => {
     expect(screen.queryByRole('link', { name: VENUE_PHONE })).toBeNull();
   });
 
+  /**
+   * The disclosures the pre-2026-09-23 policy was missing: every processor that
+   * actually receives guest data, where it is stored, cookies, and the web
+   * deletion route Google Play reviews.
+   */
+  it('discloses every processor, transfers, cookies and the web deletion route', async () => {
+    await renderServerPage(PrivacyPage, locale);
+
+    const share = document.querySelector('section#share')?.textContent ?? '';
+    for (const name of ['Supabase', 'Telegram', 'OTPIQ', 'Groq', 'Vercel', 'PostHog', 'Kagu Software']) {
+      expect(share).toContain(name);
+    }
+    for (const id of ['transfers', 'cookies', 'security']) {
+      expect(document.querySelector(`section#${id}`)).not.toBeNull();
+    }
+    expect(
+      screen.getByRole('link', { name: t(locale, 'legal.privacy.rights.deleteLink') }).getAttribute('href'),
+    ).toBe(`/${locale}/delete-account`);
+  });
+
   it('offers the other language and the sibling legal page', async () => {
     await renderServerPage(PrivacyPage, locale);
 

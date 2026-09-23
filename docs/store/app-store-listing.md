@@ -98,16 +98,21 @@ Book a padel court at Touch Padel: live availability, your slot held while you c
 
 | Field | Value |
 |---|---|
-| Support URL | `https://touch-padel-web.vercel.app/en/support` |
+| Support URL | `https://www.touch-padel.com/en/support` |
 | Marketing URL | *leave empty* |
-| Privacy Policy URL | `https://touch-padel-web.vercel.app/en/privacy` (App Information, per localization) |
+| Privacy Policy URL | `https://www.touch-padel.com/en/privacy` (App Information, per localization) |
 
 Both pages live in `apps/web/app/[locale]/{privacy,support}` and read the venue phone and hours from
 `venue_settings_public`, so they never go stale against the desk's settings. Marketing URL is optional; the only
 other public page is the cafe menu, which the app does not contain (see §3), so it stays empty.
 
-When `touch-padel.com` is delegated, swap the host in both fields. That doesn't need a new build or a review of
-the binary.
+The domain is live (2026-09-23), so these are the final URLs. The same folder also holds `terms` and
+`delete-account`.
+
+**Terms of Service / EULA.** Keep Apple's **standard EULA** (App Information → License Agreement: leave the default).
+Our own Terms of Service are at `https://www.touch-padel.com/en/terms` (AR `/ar/terms`). Every account accepts them
+in the app, through the sign-up switch or the consent screen (migration 0153). App Store Connect has no Terms URL
+field, so link them from the end of the description if they should be visible in the listing.
 
 ### Copyright
 
@@ -196,9 +201,9 @@ into Arabic script; use the words Iraqi players actually type.
 
 | Field | Value |
 |---|---|
-| Support URL | `https://touch-padel-web.vercel.app/ar/support` |
+| Support URL | `https://www.touch-padel.com/ar/support` |
 | Marketing URL | *leave empty* |
-| Privacy Policy URL | `https://touch-padel-web.vercel.app/ar/privacy` |
+| Privacy Policy URL | `https://www.touch-padel.com/ar/privacy` |
 
 ---
 

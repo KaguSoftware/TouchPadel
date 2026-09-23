@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Pressable, Switch, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
@@ -11,6 +11,8 @@ import {
   type AuthMethod,
 } from '../src/features/auth/emailAuth';
 import type { Locale } from '@touch/i18n';
+import { CURRENT_TERMS_VERSION } from '@touch/core';
+import { Text } from '../src/i18n/text';
 import { supabase } from '../src/lib/supabase';
 import { signUpWithEmail, signUpWithPhone, validateSignUp } from '../src/features/auth/api';
 import { verifyRedirect } from '../src/features/auth/redirects';
@@ -18,8 +20,8 @@ import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { space } from '../src/theme';
-import { legalUrl } from '../src/lib/legal';
+import { space, useTheme } from '../src/theme';
+import { legalUrl, type LegalPage } from '../src/lib/legal';
 import {
   Button,
   ErrorText,
@@ -27,6 +29,7 @@ import {
   FooterLink,
   FormScreen,
   LabeledDivider,
+  LinkText,
   MicroLabel,
   Screen,
   SegmentedControl,
@@ -78,6 +81,10 @@ function SignUpScreen() {
   const [national, setNational] = useState('');
   const [password, setPassword] = useState('');
   const [preferredLang, setPreferredLang] = useState<Locale>(locale);
+  // 0153: the Terms consent. Required to submit; the version rides in the
+  // sign-up metadata and useTermsGate records it once the session lands.
+  const [agreed, setAgreed] = useState(false);
+  const { colors, fonts } = useTheme();
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +97,10 @@ function SignUpScreen() {
     },
     disabled: busy,
   });
+
+  const openLegal = (page: LegalPage) => {
+    void Linking.openURL(legalUrl(page, locale)).catch(() => toast(t('settings.linkFailed'), 'error'));
+  };
 
   /** Shared field checks; the E.164 or null when something is wrong (already rendered). */
   const validate = (): string | null => {
@@ -135,17 +146,25 @@ function SignUpScreen() {
     social.clearError();
     const e164 = validate();
     if (!e164) return;
+    if (!agreed) return setError(t('auth.termsRequired'));
     setBusy(true);
     try {
       if (method === 'email') {
         const data = await signUpWithEmail(
           supabase,
-          { firstName, lastName, email, phone: e164, password, preferredLang },
+          { firstName, lastName, email, phone: e164, password, preferredLang, termsVersion: CURRENT_TERMS_VERSION },
           verifyRedirect(),
         );
         if (signUpHidExistingEmail(data)) return setFieldErrors({ email: t('auth.emailTaken') });
       } else {
-        await signUpWithPhone(supabase, { firstName, lastName, phone: e164, password, preferredLang });
+        await signUpWithPhone(supabase, {
+          firstName,
+          lastName,
+          phone: e164,
+          password,
+          preferredLang,
+          termsVersion: CURRENT_TERMS_VERSION,
+        });
       }
       // The chosen language becomes the app language — strings, faces and
       // layout direction switch in one commit, under a short crossfade, before
@@ -268,6 +287,33 @@ function SignUpScreen() {
             pinOrder
           />
         </View>
+        {/* 0153: the whole row toggles, so the sentence is a real target too. */}
+        <Pressable
+          testID="sign-up.terms-row"
+          accessibilityRole="switch"
+          accessibilityState={{ checked: agreed }}
+          onPress={() => setAgreed((v) => !v)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.l }}
+        >
+          <Switch
+            testID="sign-up.terms"
+            value={agreed}
+            onValueChange={setAgreed}
+            trackColor={{ true: colors.blue, false: colors.line }}
+            accessibilityLabel={t('auth.termsAgree')}
+          />
+          <Text style={{ flex: 1, fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.ink }}>
+            {t('auth.termsAgree')}
+          </Text>
+        </Pressable>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.l, marginTop: space.s }}>
+          <LinkText testID="sign-up.read-terms" label={t('auth.readTerms')} onPress={() => openLegal('terms')} />
+          <LinkText
+            testID="sign-up.read-privacy"
+            label={t('settings.privacyPolicy')}
+            onPress={() => openLegal('privacy')}
+          />
+        </View>
         <ErrorText>{error ?? social.errorText}</ErrorText>
         <Button
           testID="sign-up.submit"
@@ -286,16 +332,6 @@ function SignUpScreen() {
           // on the segment the guest was using here.
           onPress={() => router.replace({ pathname: '/sign-in', params: { method } })}
           style={{ marginTop: 18 }}
-        />
-        {/* Pushed to the bottom of the screen (flexGrow content) so it reads
-            as a persistent footer instead of crowding the Sign in link. */}
-        <FooterLink
-          testID="sign-up.privacy-policy"
-          label={t('settings.privacyPolicy')}
-          onPress={() =>
-            void Linking.openURL(legalUrl('privacy', locale)).catch(() => toast(t('settings.linkFailed'), 'error'))
-          }
-          style={{ marginTop: 'auto', paddingTop: 14 }}
         />
       </FormScreen>
     </Screen>

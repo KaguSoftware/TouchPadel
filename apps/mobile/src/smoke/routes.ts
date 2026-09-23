@@ -62,6 +62,7 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.save' },
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
+  { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

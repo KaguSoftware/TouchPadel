@@ -380,7 +380,8 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
-        {/* About: the privacy policy has to be reachable in the app (5.1.1(i)). */}
+        {/* About: the privacy policy has to be reachable in the app (5.1.1(i)); the
+            terms are what the guest accepted (0153). */}
         <Card style={{ padding: space.m }}>
           {groupLabel(<LockIcon size={13} color={colors.gstrong} />, t('settings.about'))}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
@@ -390,6 +391,14 @@ export default function SettingsScreen() {
               variant="secondary"
               size="compact"
               onPress={() => openLegal('privacy')}
+              style={{ flexGrow: 1 }}
+            />
+            <Button
+              testID="settings.terms"
+              label={t('settings.terms')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('terms')}
               style={{ flexGrow: 1 }}
             />
             <Button

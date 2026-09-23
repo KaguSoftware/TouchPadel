@@ -697,7 +697,14 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       `touch-padel-web.vercel.app/{ar,en}/privacy` proposed in `social-auth-setup-2026-09-01.md` was never built
       (`/en/privacy` → 404 on production). Both stores need these URLs at submission — build them on the current
       origin now and move them with the domain.
+      ✅ *2026-09-23* **Built**: `apps/web/app/[locale]/delete-account` signs in with phone or email + password in
+      an in-memory client (never the café cookie) and calls the same `app.delete_my_account`, with an emailed
+      request for Apple/Google accounts. Tick this once deployed and `LEGAL_STRICT=1 pnpm check:legal` passes
+      (the company details in `docs/legal/LEGAL-DETAILS-TO-FILL.md` are still `[FILL: …]`).
 - [ ] ★ `[FREEZE]` Publish the privacy notice in Arabic and English, matching the code: the exact stored-field list, the processors, the legal basis, a contact address. Arabic is the default locale, so it is the primary text. (SEC-17 · FE2)
+      ✅ *2026-09-23* **Rewritten**: every processor (Telegram, the OTP providers, the AI provider added), legal basis
+      per purpose, transfers, retention, rights, cookies, plus a new `/terms` with consent recorded by 0153. The
+      same two conditions as above apply before ticking.
 - [ ] ★ Register universal / app links against the real domain. **The redirect bug is fixed — do not redo it**
       (`api.ts:24-25` + `redirects.ts` `Linking.createURL()` + `useAuthDeepLink` mounted at `_layout.tsx:73`;
       the local allowlist at `config.toml:59-63` lists both `touchpadel://` URLs). What remains: add
@@ -1104,7 +1111,7 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 10 | Future bookings cannot be resold (SEC-11) | ✅ **CLOSED 2026-09-07 (0071 §4 + 0076)** | Ask for `booking-integrity.test.ts` → "no_show on a future booking is refused, and the court stays taken": it marks a future booking, gets `RESERVATION_NOT_STARTED`, then tries to resell the slot and gets `SLOT_TAKEN`. ⚠ **0075 reverted this gate within a day and nothing but that test noticed.** If it is ever removed, this gate is open again. |
 | 11 | Second-pass authz sweep green (SEC-12) | **OPEN** | It is a CI job. Green or red. |
 | 12 | Account deletion works end to end (SEC-15/16) | **OPEN** | Delete your own test account on a real phone, then try to sign in. **Store blocker.** |
-| 13 | Privacy notice and web deletion page live (SEC-17) | **OPEN** | Open both URLs in Arabic and English. **Store blocker.** |
+| 13 | Privacy notice and web deletion page live (SEC-17) | **BUILT 2026-09-23, not yet live** (company details still `[FILL: …]`) | Open `/ar/privacy`, `/ar/terms`, `/ar/delete-account` and the `/en` versions; `LEGAL_STRICT=1 pnpm check:legal` must pass. **Store blocker.** |
 | 14 | Password reset works on a real device (SEC-18) | **OPEN** | Do it yourself from a cold install. **Store blocker.** |
 | 15 | Auth hardening on (SEC-05) | **OPEN** — read 2026-09-01: captcha OFF, leaked-password protection OFF, `localhost` + `exp://` still in the redirect list | Dashboard toggles — look at them. |
 | 16 | Production headers and CSP live (SEC-25) | ⚠ **WAS FALSELY GREEN — fixed 2026-09-07** · **PARTIAL again 2026-09-13** — no CSP on `/api/t` or dotted paths (M3) | The 2026-09-04 tick was wrong: the header set was written and *imported* into `next.config.ts` but never returned, so **zero** static headers shipped while the gate stayed green (it grepped for the constant's name, which an unused import satisfies). Now wired, gate strengthened and negative-tested, 6/6 e2e green. Do the third-column check yourself: `curl -I` the domain and read them. |

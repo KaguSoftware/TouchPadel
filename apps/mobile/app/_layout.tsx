@@ -29,6 +29,7 @@ import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { useNavigationTheme } from '../src/navigation/theme';
 import { useNativeBarDirection } from '../src/navigation/headerDirection';
 import { AuthProvider, useAuth } from '../src/features/auth/context';
+import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import {
@@ -163,6 +164,10 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  // The Terms consent gate (0153): records the sign-up switch once the session
+  // lands, or presents accept-terms to an account that has not accepted the
+  // current version. Here because it needs the session and the router.
+  useTermsGate();
   // Push registration lives HERE, under AuthProvider, because it needs the live
   // session: the server drops a notification on the floor when the profile
   // holds no token (migration 0075's trigger returns early and nothing
@@ -250,6 +255,12 @@ function RootStack() {
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />
           <Stack.Screen name="delete-account" />
+          {/* Consent gate (0153): a modal with no swipe-to-dismiss — accept,
+          sign out, or delete the account are the only ways out. */}
+          <Stack.Screen
+            name="accept-terms"
+            options={{ presentation: 'modal', gestureEnabled: false, headerShown: false }}
+          />
           {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own

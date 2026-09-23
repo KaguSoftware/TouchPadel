@@ -247,6 +247,38 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // told, and App Store Connect gates AR listing metadata on it.
       CFBundleLocalizations: ['en', 'ar'],
     },
+    // Apple privacy manifest (PrivacyInfo.xcprivacy). Required for every upload
+    // since May 2024: without the required-reason API declarations App Store
+    // Connect rejects the build (ITMS-91053). Collected types mirror the App
+    // Privacy label in docs/store/app-store-submission.md §2 exactly — change
+    // both together. Nothing is used for tracking and there are no tracking
+    // domains.
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyTrackingDomains: [],
+      NSPrivacyCollectedDataTypes: [
+        'NSPrivacyCollectedDataTypeName',
+        'NSPrivacyCollectedDataTypeEmailAddress',
+        'NSPrivacyCollectedDataTypePhoneNumber',
+        'NSPrivacyCollectedDataTypeUserID',
+        'NSPrivacyCollectedDataTypeOtherDataTypes',
+      ].map((type) => ({
+        NSPrivacyCollectedDataType: type,
+        NSPrivacyCollectedDataTypeLinked: true,
+        NSPrivacyCollectedDataTypeTracking: false,
+        NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+      })),
+      // Required-reason APIs the React Native / Expo runtime touches
+      // (docs.expo.dev/guides/apple-privacy): UserDefaults (AsyncStorage, the
+      // persisted query cache), file timestamps (image and font caches), system
+      // boot time (RN's timing) and disk space. All for the app's own use.
+      NSPrivacyAccessedAPITypes: [
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults', NSPrivacyAccessedAPITypeReasons: ['CA92.1'] },
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryFileTimestamp', NSPrivacyAccessedAPITypeReasons: ['C617.1'] },
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategorySystemBootTime', NSPrivacyAccessedAPITypeReasons: ['35F9.1'] },
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryDiskSpace', NSPrivacyAccessedAPITypeReasons: ['E174.1'] },
+      ],
+    },
   },
   android: {
     package: 'com.kagu.touchpadel',

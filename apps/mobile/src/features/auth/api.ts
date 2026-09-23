@@ -34,6 +34,12 @@ export interface SignUpArgs {
   phone: string;
   password: string;
   preferredLang: Locale;
+  /**
+   * The Terms/Privacy version the guest switched on (0153). Rides in the
+   * metadata because there is no session to call app.accept_terms with until
+   * the code or link is confirmed; useTermsGate records it then.
+   */
+  termsVersion?: string;
 }
 
 /** "First Last" — profiles keeps one name column; the parts also ride in metadata. */
@@ -49,6 +55,7 @@ function signUpMetadata(args: SignUpArgs) {
     family_name: args.lastName.trim(),
     phone: args.phone,
     preferred_lang: args.preferredLang,
+    ...(args.termsVersion ? { terms_version: args.termsVersion } : {}),
   };
 }
 

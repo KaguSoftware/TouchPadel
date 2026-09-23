@@ -18,7 +18,7 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
 
 | # | Must be true | How to check |
 |---|---|---|
-| 1 | Privacy and Support pages are live | `curl -sI https://touch-padel-web.vercel.app/en/privacy` (and `/ar/privacy`, `/en/support`, `/ar/support`) returns 200 |
+| 1 | Privacy and Support pages are live | `curl -sI https://www.touch-padel.com/en/privacy` (and `/ar/privacy`, `/en/support`, `/ar/support`, `/en/terms`, `/en/delete-account`) returns 200, and `LEGAL_STRICT=1 pnpm check:legal` passes (no `[FILL: …]` left on the pages) |
 | 2 | apple-revoke is deployed with its four secrets | Delete a throwaway Sign-in-with-Apple account on TestFlight, then Supabase → Edge Functions → apple-revoke → Logs shows `[apple-revoke] revoked`. The audit row still says `apple_revoke_pending: true`, because `delete_my_account` has no "revoked" parameter. That's expected |
 | 3 | The review account exists on the hosted project | `node scripts/create-review-account.mjs` prints `Signed in with phone + password: OK` |
 | 4 | A build ≥ 10 with version 1.0.0 is processed | App Store Connect → TestFlight shows it with no "Missing Compliance" |
@@ -38,7 +38,7 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
 | Primary category | **Sports** |
 | Secondary category | **Health & Fitness** |
 | Content rights | Does **not** contain, show or access third-party content |
-| Privacy Policy URL | EN `https://touch-padel-web.vercel.app/en/privacy` · AR `https://touch-padel-web.vercel.app/ar/privacy` |
+| Privacy Policy URL | EN `https://www.touch-padel.com/en/privacy` · AR `https://www.touch-padel.com/ar/privacy` |
 | Price | **Free** |
 | In-App Purchases | **None.** The app takes no money. Guests pay at the venue's front desk for a service used in person, which is outside IAP (Guideline 3.1.3(e), goods and services used outside the app) |
 | Made for Kids | No |
@@ -84,7 +84,9 @@ If Sentry (or any crash reporter) ships later, add Diagnostics → Crash Data (n
 
 ### Account deletion (5.1.1(v))
 
-In the app: **Profile → Delete account**, typed confirmation, no email or web form. `app.delete_my_account`
+In the app: **Profile → Delete account**, typed confirmation. The same deletion also runs on the web at
+`https://www.touch-padel.com/en/delete-account`; Google Play requires that page, and Apple only requires the in-app
+path. `app.delete_my_account`
 (migration 0077) removes the login, name and phone immediately. Past bookings stay in the venue's books with no
 name attached. For a Sign in with Apple account the app first re-authorises with Apple, and the server revokes
 the Apple token (`apple-revoke`). Say this in the review notes (§5).
