@@ -44,11 +44,13 @@ describe('assignable and retired roles (0155)', () => {
     expect(ASSIGNABLE_ROLES.filter(isRetiredRole)).toEqual([]);
   });
 
-  it('a prep account still sees Kitchen in its picker, as a row it cannot choose', () => {
+  it('a prep account still sees Kitchen in its picker, first, as a row it cannot choose', () => {
+    // First so the list opens with it in view and ArrowDown steps straight
+    // into the live roles; a disabled row at the foot could not be reached.
     const choices = roleChoices('prep');
-    expect(choices.at(-1)).toEqual({ role: 'prep', retired: true });
+    expect(choices[0]).toEqual({ role: 'prep', retired: true });
     expect(choices.filter((c) => c.retired)).toHaveLength(1);
-    expect(choices.slice(0, -1).map((c) => c.role)).toEqual(ASSIGNABLE_ROLES);
+    expect(choices.slice(1).map((c) => c.role)).toEqual(ASSIGNABLE_ROLES);
   });
 
   it('any other account is never offered prep at all', () => {
@@ -77,7 +79,9 @@ describe('staffRefusal', () => {
     expect(staffRefusal(new AppRpcError('PIN_WEAK', 'PIN_WEAK'))).toBe('pinWeak');
     expect(staffRefusal(new AppRpcError('PIN_FORMAT', 'PIN_FORMAT'))).toBe('pinFormat');
     expect(staffRefusal(new AppRpcError('LAST_OWNER', 'LAST_OWNER'))).toBe('lastOwner');
+    expect(staffRefusal(new AppRpcError('ROLE_RETIRED', 'ROLE_RETIRED'))).toBe('roleRetired');
     expect(staffRefusal(new EdgeError(409, 'UNKNOWN', 'dup', 'EMAIL_IN_USE'))).toBe('emailInUse');
+    expect(staffRefusal(new EdgeError(400, 'UNKNOWN', 'retired', 'ROLE_RETIRED'))).toBe('roleRetired');
   });
 
   it('leaves everything else to the shared error text', () => {

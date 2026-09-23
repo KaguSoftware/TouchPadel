@@ -6,7 +6,9 @@
  *     set_ticket_status, set_order_item_ready) and nothing past it;
  *   * driver and marketing hold the baseline only — no board, no stock, no
  *     money;
- *   * prep is soft-retired, not removed: it still passes the kitchen guard.
+ *   * prep is soft-retired, not removed: it still passes the kitchen guard;
+ *   * 0157: tabs, orders and order lines are read by the station roles only,
+ *     never driver or marketing, and set_staff_role moves nobody onto prep.
  *
  * The baseline is what 0156 made role-agnostic (`app.staff_role() is null`):
  * breaks, the own-PIN check, the heartbeat, staff requests and the any-staff
@@ -36,6 +38,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   SEED_STAFF,
+  SEED_STAFF_IDS,
   DEV_PASSWORD,
   VENUE_A_ID,
 } from './helpers';
@@ -53,7 +56,7 @@ type NewRole = (typeof NEW_ROLES)[number];
 const STATION = 'NEWROLES-PROBE';
 const OWN_PIN = '583920';
 
-describe.skipIf(!up)('0155/0156 new staff roles', () => {
+describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
   let svc: SupabaseClient;
   let owner: SupabaseClient;
   let cashier: SupabaseClient;
@@ -66,6 +69,7 @@ describe.skipIf(!up)('0155/0156 new staff roles', () => {
 
   let ticketId: string;
   let orderItemId: string;
+  let orderId: string;
   let tabId: string;
   let hiddenItemId: string;
   let ingredientId: string;
@@ -124,6 +128,7 @@ describe.skipIf(!up)('0155/0156 new staff roles', () => {
     });
     if (order.error) throw new Error(order.error.message);
     ticketId = (order.data as { ticket_id: string }).ticket_id;
+    orderId = (order.data as { order_id: string }).order_id;
     const { data: line, error: lineErr } = await svc
       .from('order_items')
       .select('id')
@@ -290,5 +295,54 @@ describe.skipIf(!up)('0155/0156 new staff roles', () => {
       expect(paid.error).toBeNull();
       expect(paid.data, `${role} reads no payments`).toHaveLength(0);
     }
+  });
+
+  it('0157: tabs, orders and order lines stay with the station roles', async () => {
+    for (const role of NO_STATION) {
+      const c = as[role];
+      for (const [table, column, id] of [
+        ['tabs', 'id', tabId],
+        ['orders', 'id', orderId],
+        ['order_items', 'id', orderItemId],
+        ['order_item_modifiers', 'order_item_id', orderItemId],
+      ] as const) {
+        const rows = await c.from(table).select(column).eq(column, id);
+        expect(rows.error).toBeNull();
+        expect(rows.data, `${role} reads no ${table}`).toHaveLength(0);
+      }
+    }
+    // The bar and kitchen board reads order lines, as prep always has.
+    const station: [string, SupabaseClient][] = [
+      ...KITCHEN.map((role) => [role, as[role]] as [string, SupabaseClient]),
+      ['prep', prep],
+      ['cashier', cashier],
+    ];
+    for (const [role, c] of station) {
+      for (const [table, id] of [
+        ['tabs', tabId],
+        ['orders', orderId],
+        ['order_items', orderItemId],
+      ] as const) {
+        const rows = await c.from(table).select('id').eq('id', id);
+        expect(rows.error).toBeNull();
+        expect(rows.data, `${role} reads the ${table} row`).toHaveLength(1);
+      }
+    }
+  });
+
+  it('0157: set_staff_role moves nobody onto prep', async () => {
+    const onto = await appRpc(owner, 'set_staff_role', { p_staff_id: ids.chef, p_role: 'prep' });
+    expect(onto.error?.message).toBe('ROLE_RETIRED');
+    const still = await svc.from('staff').select('role').eq('id', ids.chef).single();
+    expect((still.data as { role: string }).role).toBe('chef');
+
+    // Moving between live roles is untouched, and so is saving a prep account
+    // unchanged; moving off prep is the whole point of the retirement.
+    const across = await appRpc(owner, 'set_staff_role', { p_staff_id: ids.chef, p_role: 'barista' });
+    expect(across.error).toBeNull();
+    const back = await appRpc(owner, 'set_staff_role', { p_staff_id: ids.chef, p_role: 'chef' });
+    expect(back.error).toBeNull();
+    const same = await appRpc(owner, 'set_staff_role', { p_staff_id: SEED_STAFF_IDS.prep, p_role: 'prep' });
+    expect(same.error).toBeNull();
   });
 });

@@ -1669,12 +1669,16 @@ calls worth knowing before touching anything venue-shaped:
   rewrite the returning-guest test as a first-seen aggregate instead of a correlated SubPlan, closing
   the Milestone 0 bench finding. Bench numbers: local bench p95 `courts_endings.12mo` 174 ms and `courts_guests.12mo` 132 ms (were 8,016 / 8,028 ms timeouts); with half the bookings phone-only 233 / 128 ms (the phone fallback now resolves through one `phone_owner` map per call); parity with the 0147/0097 bodies on 9 range x court cases; db suite green twice, 1,397 tests. After it is pushed the CI
   baseline needs a refresh (`bench.yml` dispatch, `mode: baseline`); until then the nightly compare
-  flags those two rows by design. **Next migration ordinal: 0155.**
+  flags those two rows by design. ~~Next migration ordinal: 0155.~~ 0155–0157 are the new staff
+  roles (below); the next ordinal is **0158**.
 - **Slice 2a discarded.** The local slice 2a commits (per-venue settings + `platform_settings`,
   `8ae7f22`..`54ec9c5`, ordinals 0139–0150) were discarded 2026-09-23 at Parsa's request because the
-  remote had used those ordinals. Slice 2 is not started. It restarts at **0155** and must be redone
-  against the six migrations that touched `venue_settings` since slice 1: **0140, 0141, 0142, 0144,
-  0147, 0149**.
+  remote had used those ordinals. Slice 2 is not started. It restarts at the next free ordinal
+  (**0158** since the new roles) and must be redone against the seven migrations that touched
+  `venue_settings` since slice 1: **0140, 0141, 0142, 0144, 0147, 0149, 0156**. 0156 re-issued
+  `venue_settings_staff_read` (and 16 other any-staff policies) as `app.staff_role() is not null`;
+  a slice-2 policy copied from `0006:65`'s five-role `is_staff` would lock the six 0155 roles out
+  and no gate would fail (`packages/db/CLAUDE.md`, RPCs).
 - **Scope, 2026-09-22.** Customer 360 dropped by the client; AI receipt scanning deferred by Parsa;
   Touch Shop built (0143–0146). Client-visible items: 1 built of the 6 still in scope. Programme
   about 15 % by effort.
@@ -1698,6 +1702,28 @@ calls worth knowing before touching anything venue-shaped:
   copies it into the repo.
 - The change order (`docs/scope/phase2-change-order-2026-09-21.md`) is still unsigned and its fee
   table blank; its Milestone 3 and 4 rows now carry the 09-22 scope changes.
+- **0155–0157 (2026-09-23, `f6a0802` + follow-up, not pushed): six new staff roles, prep soft-retired.** 0155
+  adds `head_barista`, `barista`, `head_chef`, `chef`, `driver` and `marketing` to `staff_role`;
+  0156 turns every any-staff guard into the role-agnostic 0072 form and adds the four bar and
+  kitchen roles to the kitchen guards. 0157 puts `tabs`, `orders`, `order_items` and
+  `order_item_modifiers` back on an explicit list (the station roles plus the bar and kitchen
+  family), so driver and marketing, who work from a personal phone, read no priced order data; and
+  `app.set_staff_role` refuses a move onto prep (`ROLE_RETIRED`). Prep stays in every guard: the Staff page no longer offers
+  it, `staff-admin` refuses to create it (`ROLE_RETIRED`), and Setup lists who is still on it.
+  **Rollout, in this order:** (1) `db-migrate.yml` applies 0155–0157; (2) approve the
+  `functions-deploy.yml` run for `staff-admin`; (3) cut the operator tag straight after; (4) check
+  that every station reports the new version under Venue settings › Venue details › Devices; (5)
+  only then create a new-role account or move a prep account. Why: operator 0.2.19 and older read
+  any role outside their five as revoked, re-check it every 60 s and show the not-staff screen,
+  which has no update button, so a kitchen screen still on the old build goes dark within a minute
+  of its account moving to Chef, and a new barista or driver cannot sign in on it. Between (2) and
+  (3) an owner on the old build cannot create any kitchen account (Kitchen is refused, Barista and
+  Chef are not offered) and sees a generic error: tell the owner not to add staff in that window.
+  The other mismatches fail closed: a new `staff-admin` against a database without 0155 fails the
+  enum cast and deletes the auth user it made, and an old `staff-admin` refuses `barista`.
+  Majed decided (2026-09-23) that prep is not assignable at all, so 0157 closes the old-build
+  path through `set_staff_role` too. A later migration drops prep from the kitchen guards once no
+  active prep account is left.
 
 ## File map (key files)
 - **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
@@ -1778,7 +1804,8 @@ calls worth knowing before touching anything venue-shaped:
   owner assistant)** + **0114–0121 (2026-09-20/21: Milestone 0 criticals)** + **0122–0138
   (2026-09-21: multi-venue slice 1 — live on hosted, verified 2026-09-23)** + 0139 (slice-1 review
   fixes) + **0140–0153 (2026-09-22/23: assistant, Touch Shop, fixes, terms consent)** + 0154
-  (2026-09-23, analytics bench fix). Next ordinal **0155**;
+  (2026-09-23, analytics bench fix) + 0155–0157 (2026-09-23, six new staff roles). Next ordinal
+  **0158**;
   `0023`, `0040` and `0101` have no file and `0069`/`0071` are doubled — leave the gaps
   (`packages/db/CLAUDE.md`). ~~Hosted at 0075 as of 2026-09-07 (0 pending)~~ — historic; the HOSTED
   STATE line under Gotchas is the only current answer.

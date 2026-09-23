@@ -131,7 +131,7 @@ export const shellEn = {
     prep: 'The ticket board the cooks work from',
     manager: 'Floor, stock, day close and reports',
     owner: 'The whole business in one place',
-    team: 'Purchases, tasks and checklists given to you',
+    team: 'Tasks and checklists given to you',
   },
   nav: {
     today: 'Today',

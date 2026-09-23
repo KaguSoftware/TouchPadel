@@ -34,7 +34,7 @@ here.
 
 ## Team (driver, marketing)
 
-- /tasks — "My tasks", the driver's and marketing's landing screen and the team workspace's one rail row; nothing can be assigned yet, so it shows only the empty state saying that purchases, marketing tasks and checklists will appear here, with no buttons and no data read.
+- /tasks — "My tasks", the driver's and marketing's landing screen and the team workspace's one rail row; nothing can be assigned yet, so it shows only the empty state saying what will appear here once assigned (purchases and checklists for a driver, marketing tasks and checklists for marketing), with no buttons and no data read.
 
 ## Operations (manager)
 
@@ -84,7 +84,7 @@ here.
 
 ## Setup section and admin
 
-- /setup — The Setup section's landing screen: a "Worth checking" panel flags a broken Telegram link, managers or owners without a PIN and a single owner account, each with a jump button ("Open Telegram", "Set PINs", "Go to Staff"), above cards opening the Setup screens.
+- /setup — The Setup section's landing screen: a "Worth checking" panel flags a broken Telegram link, managers or owners without a PIN, a single owner account, and active accounts still on the retired Kitchen role (update every station first, then move each one to Barista or Chef), each with a jump button ("Open Telegram", "Set PINs", "Go to Staff"), above cards opening the Setup screens.
 - /admin — A layout with no content of its own: it draws the section tab strip for the Menu and Guest-app families and its index redirects to /admin/menu.
 - /admin/menu — The "Menu items" editor listing categories and their items with sold-out switches; "New category" and "New item" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out.
 - /admin/categories — The "Categories" screen for the menu sections' order, photo, tax group and shown or hidden switch; "New category" or a row opens the form whose "Save" calls app.upsert_menu_category, and the order arrows call app.reorder_menu_categories.
@@ -98,6 +98,6 @@ here.
 - /admin/promotions — The "Promotions" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); "New promotion" or a row opens the promotion editor whose "Save" calls app.upsert_promotion, and nothing is ever deleted.
 - /admin/telegram — The "Telegram" settings with "Set up" and "Sent messages" tabs: connection health from the telegram-diagnose function, "Send test message" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.
 - /admin/settings — "Venue settings" in four tabs: Opening hours (app.set_opening_hours), Day & service (business-day start hour, waiter-call wait via app.set_waiter_call_cooldown, idle lock), Analytics (owner-only exclusions and engagement floor) and Venue details (name, phone, timezone through app.set_venue_details).
-- /admin/staff — The owner's "Staff" screen listing accounts with role, PIN and status; "Add staff member" creates an account through the staff-admin edge function, "Manage" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's "Save" writes break_allowance_minutes.
+- /admin/staff — The owner's "Staff" screen listing accounts with role, PIN and status; "Add staff member" creates an account through the staff-admin edge function, "Manage" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's "Save" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Head chef or Chef), and an account still on it shows a "Retired" badge and keeps working until it is moved.
 - /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; "Ask" sends a question (billed), "Stop" ends a streaming answer, "Run this job" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.
 - /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.

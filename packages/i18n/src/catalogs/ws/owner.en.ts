@@ -220,9 +220,11 @@ export const ownerEn = {
       oneOwner: 'Only one owner account',
       oneOwnerHint: 'If it is lost or locked, nobody can manage staff accounts. A second owner is the safeguard.',
       oneOwnerAction: 'Go to Staff',
-      // 0155: prep is retired, and each account on it is moved by hand.
-      retiredRole: 'People still on Kitchen, which is retired',
-      retiredRoleHint: 'Move each one to Barista or Chef. Their access keeps working until you do.',
+      // 0155: prep is retired, and each account on it is moved by hand. A
+      // station still on an older version reads the new roles as no access,
+      // so the hint puts the update first.
+      retiredRole: 'Accounts still on the retired Kitchen role',
+      retiredRoleHint: 'Update every station to the latest version first: an older version will not let a Barista or Chef sign in. Then move each one to Barista or Chef. Their access keeps working until you do.',
       retiredRoleAction: 'Go to Staff',
       error: 'Some checks could not load.',
     },
@@ -375,8 +377,9 @@ export const ownerEn = {
       barista: 'The kitchen screen only.',
       head_chef: 'The kitchen screen only, the same as a chef for now.',
       chef: 'The kitchen screen only.',
-      driver: 'My tasks, where purchases will be given to them. No till, desk or kitchen.',
-      marketing: 'My tasks, where marketing tasks will be given to them. No till, desk or kitchen.',
+      // The owner is reading, so the page is named as a page, not as "My tasks" of their own.
+      driver: 'A task list (My tasks) where purchases will be given to them. No till, desk or kitchen.',
+      marketing: 'A task list (My tasks) where marketing tasks will be given to them. No till, desk or kitchen.',
     },
     // Beside a role that still works but is no longer given (prep, 0155).
     retired: 'Retired',
@@ -418,6 +421,8 @@ export const ownerEn = {
       pinWeak: 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.',
       pinFormat: 'A PIN is 6 to 12 digits.',
       emailInUse: 'An account with this email already exists.',
+      // staff-admin's ROLE_RETIRED (0155): a new account on prep.
+      roleRetired: 'Kitchen is no longer given to anyone. Choose Barista or Chef.',
       lastOwner: 'This is the only owner. Make someone else an owner first.',
     },
     // 0105: which stations offer this person as cover on their break screen.

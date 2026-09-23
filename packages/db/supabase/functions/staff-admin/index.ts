@@ -27,23 +27,7 @@
 import { createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
 import { json, mapPgError } from '../_shared/http.ts';
-
-/** Every role a new account can start on; 0155 added the six after court_desk. */
-const ROLES = [
-  'cashier',
-  'court_desk',
-  'head_barista',
-  'barista',
-  'head_chef',
-  'chef',
-  'driver',
-  'marketing',
-  'manager',
-  'owner',
-] as const;
-
-/** Still a staff_role, and every guard still admits it, but never a new account's. */
-const RETIRED_ROLES = ['prep'] as const;
+import { checkCreateRole } from './role.ts';
 
 /** Long enough to be worth typing once, short enough to read aloud accurately. */
 const MIN_PASSWORD = 10;
@@ -54,7 +38,7 @@ interface CreateBody {
   email: string;
   password: string;
   display_name: string;
-  /** Untrusted until checked against ROLES below. */
+  /** Untrusted until checkCreateRole (role.ts) has passed it. */
   role: string;
 }
 
@@ -91,20 +75,14 @@ Deno.serve(async (req) => {
   if (body?.action === 'create') {
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : '';
-    const role = body.role;
+    const roleCheck = checkCreateRole(body.role);
     const password = validPassword(body.password);
 
     if (!email.includes('@')) return badRequest('a valid email is required');
     if (!displayName) return badRequest('display_name is required');
-    if ((RETIRED_ROLES as readonly string[]).includes(role)) {
-      return json(
-        { error: 'ROLE_RETIRED', message: `${role} is retired: create the account as barista or chef instead` },
-        400,
-      );
-    }
-    if (!(ROLES as readonly string[]).includes(role)) {
-      return badRequest(`role must be one of ${ROLES.join(', ')}`);
-    }
+    // `=== false`, not `!roleCheck.ok`: deno checks this folder without
+    // strictNullChecks, where a truthiness test does not narrow the union.
+    if (roleCheck.ok === false) return json({ error: roleCheck.error, message: roleCheck.message }, 400);
     if (!password) {
       return badRequest(`password must be ${MIN_PASSWORD}-${MAX_PASSWORD} characters`);
     }
@@ -132,7 +110,7 @@ Deno.serve(async (req) => {
     const { data, error } = await service.schema('app').rpc('register_staff', {
       p_staff_id: userId,
       p_display_name: displayName,
-      p_role: role,
+      p_role: roleCheck.role,
       p_actor_id: caller.userId,
     });
 

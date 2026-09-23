@@ -9,7 +9,13 @@ export const teamEn = {
     title: 'My tasks',
     empty: {
       title: 'Nothing is assigned to you yet',
-      body: 'Purchases, marketing tasks and checklists will appear here once they are assigned to you.',
+      // By role (MyTasks BODY_BY_ROLE): each reads only what will be handed to
+      // them. `other` is for a role /tasks admits without a line of its own.
+      body: {
+        driver: 'Purchases and checklists will appear here once they are assigned to you.',
+        marketing: 'Marketing tasks and checklists will appear here once they are assigned to you.',
+        other: 'Tasks and checklists will appear here once they are assigned to you.',
+      },
     },
   },
 } as const;

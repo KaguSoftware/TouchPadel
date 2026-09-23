@@ -26,8 +26,43 @@ import {
   SEED_STAFF,
   SEED_STAFF_IDS,
 } from './helpers';
+import { Constants } from '../src/types.gen';
+import { RETIRED_ROLES, ROLES, checkCreateRole } from '../supabase/functions/staff-admin/role';
 
 const up = await stackAvailable();
+
+// ── the create role check (pure, no stack needed) ───────────────────────────
+// The edge function is the only wall against a new prep account (0155): the
+// database still admits prep in every guard, so nothing else would catch it.
+describe('staff-admin checkCreateRole (pure)', () => {
+  it('refuses prep by name, pointing at barista and chef', () => {
+    const r = checkCreateRole('prep');
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toBe('ROLE_RETIRED');
+    expect(r.message).toMatch(/barista or chef/);
+  });
+
+  it('accepts each of the ten assignable roles as itself', () => {
+    expect(ROLES).toHaveLength(10);
+    for (const role of ROLES) expect(checkCreateRole(role)).toEqual({ ok: true, role });
+  });
+
+  it('calls anything that is not exactly a role a bad request, not a retired one', () => {
+    for (const role of [undefined, null, 7, '', 'prep ', 'Prep', 'PREP', 'baker', ['prep']]) {
+      const r = checkCreateRole(role);
+      expect(r.ok, String(role)).toBe(false);
+      if (!r.ok) expect(r.error, String(role)).toBe('BAD_REQUEST');
+    }
+  });
+
+  it('splits every staff_role value into assignable or retired, and nothing is both', () => {
+    // A later `alter type staff_role add value` that forgets this function fails here.
+    const all = [...ROLES, ...RETIRED_ROLES].sort();
+    expect(all).toEqual([...Constants.public.Enums.staff_role].sort());
+    expect(new Set(all).size).toBe(all.length);
+  });
+});
 
 describe.skipIf(!up)('0051 staff administration', () => {
   let svc: SupabaseClient;

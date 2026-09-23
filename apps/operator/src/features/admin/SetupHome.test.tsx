@@ -135,7 +135,9 @@ describe('SetupHomeScreen', () => {
     await waitFor(() => expect(check('retiredRole')).toBeTruthy());
     // Someone without access holds nothing that needs moving.
     expect(within(check('retiredRole')!).getByText('2')).toBeTruthy();
-    expect(within(check('retiredRole')!).getByText(/Move each one to Barista or Chef/)).toBeTruthy();
+    expect(within(check('retiredRole')!).getByText('Accounts still on the retired Kitchen role')).toBeTruthy();
+    // An older station reads the new roles as no access, so the update comes first.
+    expect(within(check('retiredRole')!).getByText(/^Update every station to the latest version first.*move each one to Barista or Chef/)).toBeTruthy();
     await userEvent.click(within(check('retiredRole')!).getByRole('button', { name: 'Go to Staff' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/admin/staff' });
   });

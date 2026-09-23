@@ -12,18 +12,31 @@
  * as a list above this empty state, and the empty state stays for the day
  * nothing is assigned.
  */
+import { useAuth, type StaffRole } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { EmptyState, PageHeader } from '../../components/kit';
 
+/**
+ * Which empty sentence each role reads: the driver is told about purchases,
+ * marketing about its own tasks, and neither about the other's. A role
+ * without a line of its own reads the neutral one.
+ */
+const BODY_BY_ROLE: Partial<Record<StaffRole, 'driver' | 'marketing'>> = {
+  driver: 'driver',
+  marketing: 'marketing',
+};
+
 export function MyTasksScreen() {
   const { tr } = useLocale();
+  const { staff } = useAuth();
+  const body = (staff && BODY_BY_ROLE[staff.role]) ?? 'other';
   return (
     <>
       <PageHeader title={tr('ws.team.tasks.title')} />
       <EmptyState
         icon="checkCircle"
         title={tr('ws.team.tasks.empty.title')}
-        body={tr('ws.team.tasks.empty.body')}
+        body={tr(`ws.team.tasks.empty.body.${body}`)}
       />
     </>
   );
