@@ -66,7 +66,9 @@ export function KdsBoard() {
     // concurrent station) rolls back and the invalidation self-heals.
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['tickets'] });
-      const prev = queryClient.getQueryData<TicketRow[]>(['tickets']);
+      // Only THIS ticket is remembered and restored: putting back the whole
+      // list undid any other bump made while this one was in flight.
+      const prevTicket = queryClient.getQueryData<TicketRow[]>(['tickets'])?.find((t) => t.id === vars.ticketId);
       queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) =>
         rows?.map((t) =>
           t.id === vars.ticketId
@@ -79,10 +81,13 @@ export function KdsBoard() {
             : t,
         ),
       );
-      return { prev };
+      return { prevTicket };
     },
-    onError: (_e, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['tickets'], ctx.prev);
+    onError: (_e, vars, ctx) => {
+      const prevTicket = ctx?.prevTicket;
+      if (prevTicket) {
+        queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) => rows?.map((t) => (t.id === vars.ticketId ? prevTicket : t)));
+      }
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['tickets'] }),
   });
@@ -94,7 +99,10 @@ export function KdsBoard() {
       appRpc('set_order_item_ready', { p_order_item_id: vars.orderItemId, p_ready: vars.ready }),
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['tickets'] });
-      const prev = queryClient.getQueryData<TicketRow[]>(['tickets']);
+      const prevReadyAt = queryClient
+        .getQueryData<TicketRow[]>(['tickets'])
+        ?.flatMap((t) => t.order?.order_items ?? [])
+        .find((i) => i.id === vars.orderItemId)?.ready_at;
       queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) =>
         rows?.map((t) =>
           // Rebuild ONLY the ticket that holds the item — unchanged rows keep
@@ -114,10 +122,19 @@ export function KdsBoard() {
             : t,
         ),
       );
-      return { prev };
+      return { prevReadyAt };
     },
-    onError: (_e, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['tickets'], ctx.prev);
+    onError: (_e, vars, ctx) => {
+      // Put back this one item's mark only, as the status bump does.
+      if (!ctx || ctx.prevReadyAt === undefined) return;
+      const readyAt = ctx.prevReadyAt;
+      queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) =>
+        rows?.map((t) =>
+          t.order && t.order.order_items.some((i) => i.id === vars.orderItemId)
+            ? { ...t, order: { ...t.order, order_items: t.order.order_items.map((i) => (i.id === vars.orderItemId ? { ...i, ready_at: readyAt } : i)) } }
+            : t,
+        ),
+      );
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['tickets'] }),
   });

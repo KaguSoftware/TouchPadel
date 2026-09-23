@@ -324,6 +324,7 @@ export const cashierEn = {
     confirm: 'Charge to this booking',
     pickBooking: 'Pick a booking from the list first.',
     partialFailure: 'The booking tab was opened but the merge was refused — this tab is untouched. Merge it by hand from Open tabs.',
+    openQueued: 'Offline: the booking’s tab is saved on this station and opens when the connection is back. This tab was not moved — merge it from Open tabs then.',
     option: '{time} · {court} · {guest}',
   },
 

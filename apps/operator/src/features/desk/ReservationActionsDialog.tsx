@@ -72,11 +72,13 @@ export function ReservationActionsDialog({
   const [cancelReason, setCancelReason] = useState<string>(CANCEL_REASONS[0]);
   const [reason, setReason] = useState<string>(OVERRIDE_REASONS[0]);
 
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<{ queued: boolean }>) {
     setBusy(true);
     setError(null);
     try {
-      await action();
+      const outcome = await action();
+      // The dialog closes either way; a queued change says it is not applied yet.
+      if (outcome.queued) toast.info(tr('ws.courtDesk.detail.queued'));
       onChanged();
     } catch (e) {
       setError(e);

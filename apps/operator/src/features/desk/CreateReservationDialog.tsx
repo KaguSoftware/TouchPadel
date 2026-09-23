@@ -69,7 +69,8 @@ export function CreateReservationDialog({
   /** A customer the booking starts linked to (the calendar's "book for" mode). */
   customer?: PickedCustomer | null;
   onClose: () => void;
-  onCreated: () => void;
+  /** `queued`: saved on this station only, not yet accepted by the server. */
+  onCreated: (queued: boolean) => void;
 }) {
   const { tr, locale } = useLocale();
   const [courtId, setCourtId] = useState(initialCourtId);
@@ -160,7 +161,7 @@ export function CreateReservationDialog({
     setError(null);
     setConflict(false);
     try {
-      await mutate('reservation.create', {
+      const outcome = await mutate('reservation.create', {
         clientRef: clientRef(),
         courtId,
         kind,
@@ -172,7 +173,7 @@ export function CreateReservationDialog({
         ...(customer ? { guestId: customer.id } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
-      onCreated();
+      onCreated(outcome.queued);
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'SLOT_TAKEN') setConflict(true);
       else setError(e);

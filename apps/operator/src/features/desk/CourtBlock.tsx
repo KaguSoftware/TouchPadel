@@ -47,6 +47,8 @@ export function CourtBlockScreen() {
   const [error, setError] = useState<unknown>(null);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
+  // The block went onto the queue: saved here, not yet holding the court.
+  const [queued, setQueued] = useState(false);
   /**
    * The empty fields stay silent until the operator asks for the block — a form
    * that shouts "required" at a field nobody has reached yet is noise. The
@@ -105,7 +107,7 @@ export function CourtBlockScreen() {
     setConflict(false);
     setDone(false);
     try {
-      await mutate('reservation.create', {
+      const outcome = await mutate('reservation.create', {
         clientRef: clientRef(),
         courtId: effectiveCourt,
         kind: 'maintenance',
@@ -114,6 +116,7 @@ export function CourtBlockScreen() {
         notes: reason.trim(),
       });
       setDone(true);
+      setQueued(outcome.queued);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
       void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     } catch (e) {
@@ -130,7 +133,11 @@ export function CourtBlockScreen() {
       <AsyncStateWrapper status={asyncStatus(courtsQ, (c) => c.length === 0)} error={courtsQ.error} onRetry={() => void courtsQ.refetch()}>
         {done ? (
           <Panel>
-            <MessagePresenter tone="success" message={tr('ws.courtDesk.block.done')} style={{ marginBlockEnd: '0.75rem' }} />
+            <MessagePresenter
+              tone={queued ? 'info' : 'success'}
+              message={queued ? tr('ws.courtDesk.detail.queued') : tr('ws.courtDesk.block.done')}
+              style={{ marginBlockEnd: '0.75rem' }}
+            />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <Button kind="primary" icon="calendar" onClick={() => void navigate({ to: '/desk', search: { date } as never })}>
                 {tr('ws.courtDesk.block.openCalendar')}

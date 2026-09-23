@@ -770,8 +770,9 @@ export function TodaysBoardScreen() {
     // Optimistic, like the calendar dialog: single-row transition, idempotent server-side.
     queryClient.setQueryData(['reservations', date], (list?: ReservationRow[]) => list?.map((row) => (row.id === r.id ? { ...row, status: 'arrived' } : row)));
     try {
-      await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived' });
-      toast.ok(tr('ws.courtDesk.board.arrivedToast', { name: guestNameOf(r) ?? tr('ws.courtDesk.board.walkIn') }));
+      const outcome = await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived' });
+      if (outcome.queued) toast.info(tr('ws.courtDesk.detail.queued'));
+      else toast.ok(tr('ws.courtDesk.board.arrivedToast', { name: guestNameOf(r) ?? tr('ws.courtDesk.board.walkIn') }));
     } catch (e) {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
@@ -812,9 +813,10 @@ export function TodaysBoardScreen() {
           tz={tz}
           night={{ date, rows, reservations: visible }}
           onClose={() => setCreateAt(null)}
-          onCreated={() => {
+          onCreated={(queued) => {
             setCreateAt(null);
-            toast.ok(tr('op.desk.created'));
+            if (queued) toast.info(tr('ws.courtDesk.detail.queued'));
+            else toast.ok(tr('op.desk.created'));
             void queryClient.invalidateQueries({ queryKey: ['reservations'] });
             void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
           }}

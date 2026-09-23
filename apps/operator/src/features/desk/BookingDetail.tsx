@@ -124,40 +124,49 @@ export function BookingDetailScreen() {
     setRefused(null);
     setDone(false);
     const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
+    let queued = false;
     try {
       switch (kind) {
         case 'arrived':
         case 'completed':
         case 'noShow':
-          await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: kind === 'noShow' ? 'no_show' : kind, reason });
+          queued = (await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: kind === 'noShow' ? 'no_show' : kind, reason })).queued;
           break;
         case 'shorten':
-          await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(), reason });
+          queued = (await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(), reason })).queued;
           break;
         case 'extend':
-          await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(), reason });
+          queued = (await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(), reason })).queued;
           break;
         case 'cancel':
-          await mutate('reservation.update', { action: 'cancel', reservationId: r.id, reason });
+          queued = (await mutate('reservation.update', { action: 'cancel', reservationId: r.id, reason })).queued;
           break;
         case 'move': {
           if (!move) return;
           const [hh, mm] = move.time.split(':').map(Number);
           const start = wallTimeToUtc(move.date, (hh ?? 0) * 60 + (mm ?? 0), tz);
-          await mutate('reservation.update', {
-            action: 'move',
-            reservationId: r.id,
-            courtId: move.courtId,
-            startAt: start.toISOString(),
-            endAt: new Date(start.getTime() + durationMs).toISOString(),
-            reason,
-          });
+          queued = (
+            await mutate('reservation.update', {
+              action: 'move',
+              reservationId: r.id,
+              courtId: move.courtId,
+              startAt: start.toISOString(),
+              endAt: new Date(start.getTime() + durationMs).toISOString(),
+              reason,
+            })
+          ).queued;
           setShowMove(false);
           break;
         }
       }
       setPending(null);
-      setDone(true);
+      // "Saved" only for what the server took; a queued change is not applied yet.
+      setDone(!queued);
+      if (queued) {
+        toast.info(tr('ws.courtDesk.detail.queued'));
+        invalidate();
+        return;
+      }
       // Completing a game whose court fee is still open says so, once, where
       // the clerk is looking — the bill panel beside it offers the payment.
       const owed = kind === 'completed' ? queryClient.getQueryData<BookingBill>(['bookingBill', r.id]) : undefined;

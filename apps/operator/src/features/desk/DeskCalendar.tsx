@@ -552,7 +552,7 @@ export function DeskCalendar() {
     setMoveBusy(true);
     setMoveError(null);
     try {
-      await mutate('reservation.update', {
+      const outcome = await mutate('reservation.update', {
         action: 'move',
         reservationId: r.id,
         courtId,
@@ -561,6 +561,7 @@ export function DeskCalendar() {
         reason: note ? `${reason}: ${note}` : reason,
       });
       setPendingMove(null);
+      if (outcome.queued) toast.info(tr('ws.courtDesk.detail.queued'));
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
       void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     } catch (e) {
@@ -1309,13 +1310,16 @@ export function DeskCalendar() {
           night={{ date, rows, reservations }}
           customer={bookFor}
           onClose={() => setCreateAt(null)}
-          onCreated={() => {
+          onCreated={(queued) => {
             setCreateAt(null);
-            toast.ok(
-              bookFor
-                ? tr('ws.courtDesk.calendar.bookedFor', { name: bookFor.name })
-                : tr('op.desk.created'),
-            );
+            // A queued booking is not a booking yet: the slot can still be refused.
+            if (queued) toast.info(tr('ws.courtDesk.detail.queued'));
+            else
+              toast.ok(
+                bookFor
+                  ? tr('ws.courtDesk.calendar.bookedFor', { name: bookFor.name })
+                  : tr('op.desk.created'),
+              );
             void queryClient.invalidateQueries({ queryKey: ['reservations'] });
             void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
             // A booking-for is one booking: the strip goes once it is made.

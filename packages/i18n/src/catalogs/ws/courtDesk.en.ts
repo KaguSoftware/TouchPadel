@@ -181,6 +181,7 @@ export const courtDeskEn = {
     movePast: 'That time has already passed. A booking moved into the past disappears from the guest\'s app.',
     moveNeedsTime: 'Pick a new start time first.',
     done: 'Saved.',
+    queued: 'Saved on this station only. It is not confirmed until the connection is back, so do not promise the slot yet.',
     reason: {
       move: 'move this booking',
       shorten: 'shorten this booking by 30 minutes',

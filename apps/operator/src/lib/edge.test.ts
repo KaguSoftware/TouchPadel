@@ -124,6 +124,24 @@ describe('callEdge', () => {
     expect(failing).toHaveBeenCalledTimes(2);
   });
 
+  it('never retries an uncached call: a 502 may come after the write committed', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(json(502, {})));
+    vi.stubGlobal('fetch', fetchMock);
+    const err = await callEdge('staff-admin', { action: 'create' }, { ttlMs: 0 }).catch((e: unknown) => e);
+    expect((err as EdgeError).code).toBe('UPSTREAM');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries an uncached call when asked to', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(502, {}))
+      .mockResolvedValueOnce(json(200, { ok: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await callEdge('telegram-diagnose', { action: 'diagnose' }, { ttlMs: 0, retry: true })).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('does not retry 503 NOT_CONFIGURED and never caches failures', async () => {
     const fetchMock = vi
       .fn()
