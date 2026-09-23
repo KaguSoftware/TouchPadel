@@ -19,6 +19,11 @@ import { deriveTileState, tileInteractive, type TileState } from './tileState';
 import type { CategoryRow, ItemRow } from './tillData';
 import { muted } from './tillStyles';
 
+/** Rows of categories the strip shows before it scrolls, and the gap between them. */
+const STRIP_ROWS = 3;
+const STRIP_GAP = 'var(--tp-sp-1-5)';
+const STRIP_PAD = 'var(--tp-sp-1-5)';
+
 export function CategoryStrip({
   categories,
   activeId,
@@ -33,18 +38,39 @@ export function CategoryStrip({
 }) {
   const { tr, locale } = useLocale();
   return (
-    // A venue with many categories must never squeeze the item grid to nothing:
-    // the strip keeps at most three rows and scrolls, the grid keeps the rest.
+    /*
+     * A venue with many categories must never squeeze the item grid to nothing:
+     * the strip keeps at most three rows and scrolls, the grid keeps the rest.
+     *
+     * The cap is COMPUTED from the row height and the gap rather than typed as
+     * a round number. It used to be a flat 8.75rem against 44px buttons and a
+     * 0.375rem gap — 140px where three rows need 144 — so the third row was
+     * clipped through the middle of its buttons and the fourth showed as a
+     * sliver below it, which read as the strip being broken rather than
+     * scrollable.
+     */
     <div
       role="group"
       aria-label={tr('ws.cashier.till.categories')}
       style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: 'var(--tp-sp-1-5)',
+        gap: STRIP_GAP,
         flexShrink: 0,
-        maxBlockSize: '8.75rem',
+        /* The bordered box is what says "this scrolls": a strip that simply
+           ran out of room mid-row looked like a rendering fault, while the
+           same rows inside a frame read as a container with more in it. The
+           padding is what the cap above adds to, or the third row would be
+           clipped by exactly the padding it sits on. Same frame the other
+           scrolling lists in the till use. */
+        maxBlockSize: `calc(${STRIP_ROWS} * var(--tp-touch) + ${STRIP_ROWS - 1} * ${STRIP_GAP} + 2 * ${STRIP_PAD})`,
         overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        background: 'var(--tp-surface-2)',
+        padding: STRIP_PAD,
+        alignContent: 'start',
       }}
     >
       {categories.map((c, i) => {

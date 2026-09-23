@@ -28,7 +28,7 @@ import { businessTodayISO, normalizeBusinessDayStart } from '@touch/core';
 import { VENUE_TZ, formatDate, formatIQD, formatNumber, formatPercent, type Locale, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { useCafeSettings } from '../../lib/settings';
-import { Button, Field } from '../../components/ui';
+import { Button, Field, card } from '../../components/ui';
 import { appRpc } from '../../lib/appRpc';
 import {
   AsyncStateWrapper,
@@ -205,23 +205,47 @@ export function FigureBand({ children, label, min = '11.5rem' }: { children: Rea
   return (
     <section
       aria-label={label}
-      style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}), 1fr))`, gap: 'var(--tp-sp-3) var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-4)' }}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}), 1fr))`,
+        gap: 'var(--tp-sp-3) var(--tp-sp-4)',
+        // Groups are cards now, so a short one ("Tax", one figure) stretches to
+        // its neighbours' height instead of leaving a ragged bottom edge.
+        alignItems: 'stretch',
+        marginBlockEnd: 'var(--tp-sp-4)',
+      }}
     >
       {children}
     </section>
   );
 }
 
-/** A labelled group of figures (revenue's Earned / Money taken / Given away). */
+/**
+ * A labelled group of figures (revenue's Earned / Money taken / Given away),
+ * drawn as one bordered card with its figures inside it. The heading and hint
+ * used to float over the figures with nothing around them, so on a wide screen
+ * the four groups read as one run of tiles and it took reading the labels to
+ * tell where "Earned" stopped and "Given away" started.
+ *
+ * Group and figures are both the plain white surface: the borders alone mark
+ * where one ends and the other begins.
+ */
 export function FigureGroup({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start' }}>
+    <section
+      style={{
+        ...card,
+        display: 'grid',
+        gap: 'var(--tp-sp-3)',
+        alignContent: 'start',
+      }}
+    >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
         <h2 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{title}</h2>
         <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '60ch' }}>{hint}</p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: 'var(--tp-sp-2)' }}>{children}</div>
-    </div>
+    </section>
   );
 }
 

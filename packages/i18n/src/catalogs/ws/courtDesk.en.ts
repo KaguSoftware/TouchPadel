@@ -117,6 +117,8 @@ export const courtDeskEn = {
     takenReason: 'Pick a start, court or length that is free.',
     noPrice: 'No price is set for this court at this time and length.',
     noPriceReason: 'No price is set for this length — pick another one.',
+    closesTooSoon: 'The venue closes before the shortest game would finish.',
+    closesTooSoonReason: 'Too little time before closing — pick an earlier start.',
     linked: 'Linked to {name}',
     unlink: 'Unlink',
     createCustomer: 'Create customer',
@@ -124,7 +126,6 @@ export const courtDeskEn = {
     conflictBody: 'That slot is already taken. Nothing was saved — pick another time.',
     pickAnother: 'Pick another time',
     price: 'Price',
-    needsGuest: 'Enter a guest name, or link an account.',
   },
 
   // 06.4 Booking detail

@@ -97,6 +97,32 @@ test.describe('operator journeys', () => {
     const block = page.getByRole('button', { name: new RegExp(WALKIN_NAME) });
     await expect(block).toBeVisible();
 
+    /*
+     * The grid still lines up under the booking.
+     *
+     * The cards are placed explicitly and the slots used to be auto-placed,
+     * so grid flowed the slots AROUND each card: every slot below a booking
+     * sat one card-span too low, in implicit rows grid invented at the
+     * bottom, and the desk read a long gap under the booking with each free
+     * slot offered against the wrong time. The gutter never moved, so the
+     * check is that each slot's top still matches its own label's top.
+     */
+    const misaligned = await page.evaluate(() => {
+      const times = [...document.querySelectorAll<HTMLElement>('[data-grid-time]')];
+      const tops = new Map(times.map((el) => [el.dataset.gridTime!, el.getBoundingClientRect().top]));
+      const bad: string[] = [];
+      for (const slot of document.querySelectorAll<HTMLElement>('[data-slot-min]')) {
+        const want = tops.get(slot.dataset.slotMin!);
+        if (want === undefined) continue;
+        // A row is 2.4rem; a drift of a whole row is the bug, sub-pixel is not.
+        if (Math.abs(slot.getBoundingClientRect().top - want) > 4) {
+          bad.push(slot.dataset.slotMin!);
+        }
+      }
+      return bad;
+    });
+    expect(misaligned).toEqual([]);
+
     // Cancel with a reason.
     await block.click();
     const actions = page.getByRole('dialog', { name: WALKIN_NAME });

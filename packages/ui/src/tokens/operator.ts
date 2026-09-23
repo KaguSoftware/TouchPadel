@@ -146,6 +146,11 @@ export const operatorVars = {
 
   // focus ring
   '--tp-ring': '0 0 0 2px var(--tp-brand-white), 0 0 0 4px var(--tp-brand-blue)',
+  /** The room a focus ring needs OUTSIDE the control it belongs to: the global
+   *  rule draws a 2px outline at a 2px offset. A scrolling box whose children
+   *  reach its edge must pad itself by this much, or it clips the ring of the
+   *  first and last child in every row. */
+  '--tp-focus-room': '4px',
 
   // shape
   /** Chips, grid cells, skeleton blocks — below a control. Was hand-typed as

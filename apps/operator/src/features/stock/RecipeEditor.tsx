@@ -306,7 +306,18 @@ function RecipeDialog({
   const patch = (key: string, part: Partial<LineDraft>) => setLines((ls) => (ls ?? []).map((x) => (x.key === key ? { ...x, ...part } : x)));
 
   async function leave(next: () => void) {
-    if (dirty && !(await confirm({ title: tr('ws.kit.actions.dirtyLeave'), kind: 'danger' }))) return;
+    if (dirty && !(await confirm({
+      title: tr('ws.kit.actions.dirtyLeave'),
+      body: tr('ws.kit.actions.dirtyLeaveBody'),
+      confirmLabel: tr('ws.kit.actions.dirtyLeaveConfirm'),
+      cancelLabel: tr('ws.kit.actions.dirtyLeaveCancel'),
+      kind: 'danger',
+      // Beside "Keep editing", not pushed to the far edge (owner call,
+      // 2026-09-23). Rulebook 7.8 spreads a destructive confirm; this one
+      // loses only an unsaved draft, never stored data, and Cancel still
+      // autofocuses so Enter and Esc both keep the edits.
+      pairActions: true,
+    }))) return;
     next();
   }
 

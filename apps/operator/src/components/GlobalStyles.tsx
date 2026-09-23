@@ -126,7 +126,13 @@ input:disabled, select:disabled, textarea:disabled {
   color: var(--tp-fg);
   border-radius: var(--tp-radius-ctl);
   padding-block: 0.45rem; padding-inline: 0.85rem;
-  font-size: var(--tp-fs-md); font-weight: 600; line-height: 1.25;
+  /* line-height 1 on the LABEL's own box, not 1.25: a bare text node inside
+     this inline-flex forms an anonymous inline box sized by the font's ascent
+     and descent, which are asymmetric — the descent reserves room for a 'g'
+     that "Void" does not have. At 1.25 that box is taller than the glyphs and
+     centring it left the icon beside them riding high. The button keeps its
+     height from padding and min-block-size, so nothing resizes. */
+  font-size: var(--tp-fs-md); font-weight: 600; line-height: 1;
   min-block-size: 2.25rem;
   cursor: pointer; user-select: none; white-space: nowrap;
   /* 'transform' is deliberately NOT in this list: the :active nudge below

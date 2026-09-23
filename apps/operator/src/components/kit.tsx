@@ -22,6 +22,7 @@ import { BilingualFields } from './inputs';
 
 export function PageHeader({
   title,
+  titleAfter,
   subtitle,
   actions,
   eyebrow,
@@ -29,6 +30,12 @@ export function PageHeader({
   style,
 }: {
   title: string;
+  /**
+   * Sits on the title's own line, beside the heading rather than out in
+   * `actions` at the far end of the header. For the control that belongs TO
+   * the title — a refresh of what this page shows — where the eye already is.
+   */
+  titleAfter?: ReactNode;
   subtitle?: ReactNode;
   eyebrow?: ReactNode;
   actions?: ReactNode;
@@ -52,7 +59,14 @@ export function PageHeader({
               {eyebrow}
             </p>
           )}
-          <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+          {titleAfter ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+              {titleAfter}
+            </div>
+          ) : (
+            <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+          )}
           {subtitle && (
             <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem', maxInlineSize: '70ch' }}>{subtitle}</p>
           )}

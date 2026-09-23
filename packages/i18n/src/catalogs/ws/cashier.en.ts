@@ -55,6 +55,8 @@ export const cashierEn = {
       sending: 'Sending…',
       switching: 'Switching tabs discards unsent lines. Send or clear first.',
       titleFor: 'Basket for',
+      collapse: 'Hide the basket lines',
+      expand: 'Show the basket lines',
     },
     note: {
       title: 'Line note',
@@ -188,7 +190,7 @@ export const cashierEn = {
     // Item 9 (0120): void and refund ride the durable queue when the link is down.
     voidQueued: 'Void waiting to sync',
     refundQueued: 'Refund saved on this station. It will be recorded when the connection is back; the payments list updates then.',
-    voided: 'Voided',
+    voidedTitle: 'Voided',
     noLines: 'Nothing on this tab yet — pick items from the grid.',
     totalsTitle: 'Totals',
     gross: 'Gross',
@@ -217,7 +219,6 @@ export const cashierEn = {
     overrideSame: 'Type a different price to change it.',
     chargeBooking: 'Charge to booking',
     split: 'Split bill',
-    splitNothing: 'Nothing left to pay, so there is nothing to split.',
     merge: 'Merge tabs',
     refund: 'Refund',
     refundAction: 'refund a payment',
@@ -258,7 +259,6 @@ export const cashierEn = {
     drawerRecorded: 'Drawer opening recorded.',
     queued: 'Recorded offline — it syncs when the connection returns.',
     confirmByClick: 'Confirm with the button; function keys only open this pane.',
-    nothingDue: 'Nothing to pay yet — add items to this tab first.',
     enterAmount: 'Enter an amount to record.',
     shortTendered: 'The tendered amount does not cover what is due.',
     toPay: 'To pay',

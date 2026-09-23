@@ -114,7 +114,6 @@ function SplitEvenlyPanel({
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} aria-busy={loading || undefined}>
       <CountStepper label={tr('ws.cashier.split.people')} value={n} min={2} max={50} onChange={setN} />
-      {due <= 0 && <p style={muted}>{tr('ws.cashier.detail.splitNothing')}</p>}
       <ErrorText error={error} />
       {shares && (
         <div style={{ display: 'grid' }}>

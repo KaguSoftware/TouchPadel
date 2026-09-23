@@ -114,6 +114,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     takenReason: 'اختر بداية أو ملعباً أو مدة متاحة.',
     noPrice: 'لا يوجد سعر لهذا الملعب في هذا الوقت وبهذه المدة.',
     noPriceReason: 'لا يوجد سعر لهذه المدة — اختر مدة أخرى.',
+    closesTooSoon: 'يغلق المكان قبل أن تنتهي أقصر مباراة.',
+    closesTooSoonReason: 'الوقت قبل الإغلاق غير كافٍ — اختر بداية أبكر.',
     linked: 'مرتبط بـ {name}',
     unlink: 'فك الارتباط',
     createCustomer: 'إنشاء زبون',
@@ -121,7 +123,6 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     conflictBody: 'هذه الخانة محجوزة فعلاً. لم يُحفظ شيء — اختر وقتاً آخر.',
     pickAnother: 'اختيار وقت آخر',
     price: 'السعر',
-    needsGuest: 'أدخل اسم الضيف، أو اربط حساباً.',
   },
 
   detail: {

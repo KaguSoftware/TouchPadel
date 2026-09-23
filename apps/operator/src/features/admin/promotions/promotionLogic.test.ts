@@ -13,6 +13,8 @@ import {
   isPromotionFilter,
   isoToDateInput,
   lifecycle,
+  minEndOn,
+  minStartOn,
   saveBlocker,
   scheduleText,
   scopeText,
@@ -100,26 +102,62 @@ describe('date and time inputs', () => {
 describe('validateDraft', () => {
   const ok = fromRow(row);
   it('accepts a complete draft', () => {
-    expect(validateDraft(ok)).toEqual([]);
+    expect(validateDraft(ok, ok.startsOn, ok.endsOn)).toEqual([]);
   });
   it('requires both names', () => {
-    expect(validateDraft({ ...ok, name: { en: 'x', ar: '' } })).toContain('name');
+    expect(validateDraft({ ...ok, name: { en: 'x', ar: '' } }, ok.startsOn, ok.endsOn)).toContain('name');
   });
   it('requires a positive value and a sane percent', () => {
-    expect(validateDraft({ ...ok, value: 0 })).toContain('value');
-    expect(validateDraft({ ...ok, type: 'percent', value: 150 })).toContain('percent');
-    expect(validateDraft({ ...ok, type: 'amount', value: 150 })).toEqual([]);
+    expect(validateDraft({ ...ok, value: 0 }, ok.startsOn, ok.endsOn)).toContain('value');
+    expect(validateDraft({ ...ok, type: 'percent', value: 150 }, ok.startsOn, ok.endsOn)).toContain('percent');
+    expect(validateDraft({ ...ok, type: 'amount', value: 150 }, ok.startsOn, ok.endsOn)).toEqual([]);
   });
   it('refuses an end date before the start date', () => {
-    expect(validateDraft({ ...ok, startsOn: '2026-09-10', endsOn: '2026-09-01' })).toContain('dates');
-    expect(validateDraft({ ...ok, startsOn: '2026-09-10', endsOn: '2026-09-10' })).toEqual([]);
+    // Dates ahead of the fixture's "now", so only the ordering is under test:
+    // a past start or end is its own error now.
+    const now = new Date('2026-09-23T12:00:00');
+    expect(validateDraft({ ...ok, startsOn: '2026-10-10', endsOn: '2026-10-01' }, ok.startsOn, ok.endsOn, now)).toContain('dates');
+    expect(validateDraft({ ...ok, startsOn: '2026-10-10', endsOn: '2026-10-10' }, ok.startsOn, ok.endsOn, now)).toEqual([]);
   });
   it('matches upsert_promotion on hours: both or neither, never equal, overnight allowed', () => {
-    expect(validateDraft({ ...ok, hourFrom: '16:00', hourTo: '' })).toContain('hours');
-    expect(validateDraft({ ...ok, hourFrom: '', hourTo: '19:00' })).toContain('hours');
-    expect(validateDraft({ ...ok, hourFrom: '16:00', hourTo: '16:00' })).toContain('hours');
-    expect(validateDraft({ ...ok, hourFrom: '22:00', hourTo: '02:00' })).toEqual([]);
-    expect(validateDraft({ ...ok, hourFrom: '', hourTo: '' })).toEqual([]);
+    expect(validateDraft({ ...ok, hourFrom: '16:00', hourTo: '' }, ok.startsOn, ok.endsOn)).toContain('hours');
+    expect(validateDraft({ ...ok, hourFrom: '', hourTo: '19:00' }, ok.startsOn, ok.endsOn)).toContain('hours');
+    expect(validateDraft({ ...ok, hourFrom: '16:00', hourTo: '16:00' }, ok.startsOn, ok.endsOn)).toContain('hours');
+    expect(validateDraft({ ...ok, hourFrom: '22:00', hourTo: '02:00' }, ok.startsOn, ok.endsOn)).toEqual([]);
+    expect(validateDraft({ ...ok, hourFrom: '', hourTo: '' }, ok.startsOn, ok.endsOn)).toEqual([]);
+  });
+  it('refuses a start before today, and offers today as the floor', () => {
+    const now = new Date('2026-09-23T12:00:00');
+    expect(validateDraft({ ...ok, startsOn: '2026-09-22' }, '', '', now)).toContain('startsPast');
+    expect(validateDraft({ ...ok, startsOn: '2026-09-23' }, '', '', now)).not.toContain('startsPast');
+    expect(validateDraft({ ...ok, startsOn: '2026-09-24' }, '', '', now)).not.toContain('startsPast');
+    expect(validateDraft({ ...ok, startsOn: '' }, '', '', now)).not.toContain('startsPast');
+    expect(minStartOn('', now)).toBe('2026-09-23');
+  });
+  it('lets a promotion that already began keep its own start', () => {
+    const now = new Date('2026-09-23T12:00:00');
+    // Editing a promotion that started in June: its start is history, so it
+    // stays allowed — but it still cannot be pushed further back.
+    expect(validateDraft({ ...ok, startsOn: '2026-06-01' }, '2026-06-01', '', now)).not.toContain('startsPast');
+    expect(validateDraft({ ...ok, startsOn: '2026-05-31' }, '2026-06-01', '', now)).toContain('startsPast');
+    expect(minStartOn('2026-06-01', now)).toBe('2026-06-01');
+  });
+  it('refuses an end before today, and floors the picker at the start when later', () => {
+    const now = new Date('2026-09-23T12:00:00');
+    const base = { ...ok, startsOn: '' };
+    expect(validateDraft({ ...base, endsOn: '2026-09-22' }, '', '', now)).toContain('endsPast');
+    expect(validateDraft({ ...base, endsOn: '2026-09-23' }, '', '', now)).not.toContain('endsPast');
+    expect(validateDraft({ ...base, endsOn: '' }, '', '', now)).not.toContain('endsPast');
+    expect(minEndOn('', '', now)).toBe('2026-09-23');
+    // A start further out drags the end's floor with it.
+    expect(minEndOn('', '2026-10-05', now)).toBe('2026-10-05');
+    expect(minEndOn('', '2026-06-01', now)).toBe('2026-09-23');
+  });
+  it('lets a promotion that already ended keep its own end', () => {
+    const now = new Date('2026-09-23T12:00:00');
+    expect(validateDraft({ ...ok, startsOn: '', endsOn: '2026-06-30' }, '', '2026-06-30', now)).not.toContain('endsPast');
+    expect(validateDraft({ ...ok, startsOn: '', endsOn: '2026-06-29' }, '', '2026-06-30', now)).toContain('endsPast');
+    expect(minEndOn('2026-06-30', '', now)).toBe('2026-06-30');
   });
   it('names one save blocker, in the order the form reads', () => {
     expect(saveBlocker([])).toBeNull();
@@ -235,7 +273,7 @@ describe('plain-language pieces', () => {
   });
 
   it('says how a bill gets it, and flags code-only with no code', () => {
-    expect(howText({ auto: true, publicCode: null, codeSingleUse: false }, en)).toBe('No code needed');
+    expect(howText({ auto: true, publicCode: null, codeSingleUse: false }, en)).toBe('');
     expect(howText({ auto: false, publicCode: 'SUMMER5', codeSingleUse: true }, en)).toBe('Code SUMMER5 · single use');
     expect(howText({ auto: false, publicCode: null, codeSingleUse: false }, en)).toBe('Needs a code, none yet');
   });
@@ -249,7 +287,7 @@ describe('plain-language pieces', () => {
 describe('describePromotion', () => {
   it('reads a happy hour back in one line', () => {
     const d = { ...EMPTY_DRAFT, type: 'percent' as const, value: 10, weekdays: [5, 6], hourFrom: '16:00', hourTo: '19:00' };
-    expect(describePromotion(d, en, 'en')).toBe('10% off everything from the cafe · Fri, Sat · 16:00–19:00 · No code needed');
+    expect(describePromotion(d, en, 'en')).toBe('10% off everything from the cafe · Fri, Sat · 16:00–19:00');
   });
 
   it('includes scope, limits and the code when set', () => {

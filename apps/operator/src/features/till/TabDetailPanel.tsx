@@ -60,7 +60,7 @@ import { SplitBillDialog } from './SplitBillDialog';
 import { ChargeToBookingDialog } from './ChargeToBookingDialog';
 import { PaymentPane, type PaymentMethod } from './PaymentPane';
 import { TILL_MENU_QUERY, canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type TabLineRow } from './tillData';
-import { kvRow, muted, numeric, sectionTitle } from './tillStyles';
+import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
 
 /** The part of app.booking_bill (0106) the till reads. Every figure is the server's. */
@@ -86,13 +86,11 @@ type Overlay =
 
 export function TabDetailPanel({
   tabId,
-  unsentCount = 0,
   onClosedTab,
   onSwitchTab,
 }: {
   tabId: string;
   /** Lines in the till's basket not yet sent to this tab — they are not on its bill. */
-  unsentCount?: number;
   onClosedTab: () => void;
   /** The tab was merged into / replaced by another one — select that instead. */
   onSwitchTab: (id: string) => void;
@@ -402,6 +400,11 @@ export function TabDetailPanel({
   const label = tabAnchorLabel(tab, tr('op.till.table'), tr('op.till.forReservation'));
   const liveOrders = tab.orders.filter((o) => o.status !== 'voided');
   const allLines = liveOrders.flatMap((o) => o.order_items);
+  /* Voided lines are waste, not the order: they used to sit in place among the
+     lines with a "Voided" tag on each, so a long tab read as a mix of what the
+     guest is having and what was thrown away. They are collected into their
+     own section below instead, where the heading says it once. */
+  const voidedLines = allLines.filter((l) => l.voided);
   const partiallyPaid = !settled && !courtPending && totals.paid > 0 && due > 0;
   const overrideLine = overlay.kind === 'override' ? allLines.find((l) => l.id === overlay.lineId) : undefined;
   const web = tabHasWebOrder(tab);
@@ -415,7 +418,10 @@ export function TabDetailPanel({
       : tr('ws.cashier.payment.courtLoading')
     : undefined;
   const payHeld = courtPending || nothingDue;
-  const payBlockedReason = courtReason ?? (nothingDue ? tr('ws.cashier.payment.nothingDue') : undefined);
+  /* An empty tab says so already — the lines list is empty and the total is
+     0 IQD — so the pay buttons are simply disabled without a line of text
+     repeating it under them. A court fee still pending IS worth stating. */
+  const payBlockedReason = courtReason;
   const courtName = tab.reservation?.court
     ? pickName(locale, tab.reservation.court)
     : bill?.reservation?.court_name_en && bill.reservation.court_name_ar
@@ -476,9 +482,13 @@ export function TabDetailPanel({
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
           {allLines.length === 0 && <p style={muted}>{tr('ws.cashier.detail.noLines')}</p>}
-          {liveOrders.map((o) => (
-            <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-0)' }}>
-              {o.order_items.map((line) => (
+          {liveOrders.map((o) => {
+            const active = o.order_items.filter((l) => !l.voided);
+            if (active.length === 0) return null;
+            return (
+            // Cards need air between them; 2px was spacing for bare text rows.
+            <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              {active.map((line) => (
                 <TabLine
                   key={line.id}
                   line={line}
@@ -496,10 +506,32 @@ export function TabDetailPanel({
                 />
               ))}
             </ul>
-          ))}
+            );
+          })}
           {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
           {pendingRefunds.pending.size > 0 && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.refundQueued')} />}
         </div>
+
+        {/* ---- voided (waste, kept visible: it was on the tab once) ---- */}
+        {voidedLines.length > 0 && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <h3 style={sectionTitle}>{tr('ws.cashier.detail.voidedTitle')}</h3>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              {voidedLines.map((line) => (
+                <TabLine
+                  key={line.id}
+                  line={line}
+                  settled={Boolean(settled)}
+                  busy={busy}
+                  open={false}
+                  onToggle={() => {}}
+                  onOverride={() => {}}
+                  onVoid={() => {}}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ---- totals ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)' }}>
@@ -543,49 +575,77 @@ export function TabDetailPanel({
         {settled && <MessagePresenter tone="success" message={tr('op.till.paidInFull')} />}
         {drawerNoted && <MessagePresenter tone="success" icon="drawer" message={tr('op.till.drawerNoted')} />}
         <ErrorText error={actionError} />
+      </div>
 
+      {/* The actions sit with the pay row, not at the end of the scrolling
+          body: they used to be reachable only after scrolling past every line
+          of a long tab, while Cash and Card stayed pinned. Above the footer's
+          own rule, so the line still reads as the boundary of the pay zone. */}
+      <div style={{ flex: '0 0 auto', display: 'grid', gap: 'var(--tp-sp-1-5)', paddingBlockEnd: 'var(--tp-sp-2-5)' }}>
         {/* ---- actions, most-used first ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.actionsTitle')}</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-start' }}>
-            <Button icon="receipt" disabled={busy || courtPending} disabledReason={courtReason} onClick={() => setOverlay({ kind: 'bill' })}>
+          {/* Three to a row, so the set reads as a block of equal choices and
+              each button lands where the cashier last saw it. A wrapping flex
+              row sized every button to its own label, so the grid reflowed and
+              the buttons moved whenever one appeared or dropped out. The count
+              varies with the tab's state; the last row simply fills from the
+              start. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 'var(--tp-sp-1-5)',
+              alignItems: 'start',
+            }}
+          >
+            <Button icon="receipt" style={actionButton} disabled={busy || courtPending} disabledReason={courtReason} onClick={() => setOverlay({ kind: 'bill' })}>
               {tr('op.till.bill')}
             </Button>
             {!settled && (
               <>
                 <Button
                   icon="split"
+                  style={actionButton}
                   disabled={payHeld || busy}
-                  disabledReason={courtReason ?? (nothingDue ? tr('ws.cashier.detail.splitNothing') : undefined)}
+                  disabledReason={courtReason}
                   onClick={() => setOverlay({ kind: 'split' })}
                 >
                   {tr('ws.cashier.detail.split')}
                 </Button>
-                <Button icon="tag" disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
+                <Button icon="tag" style={actionButton} disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
                   {tr('ws.cashier.detail.discount')}
                 </Button>
                 {allLines.length > 0 && (
-                  <Button icon="spark" aria-pressed={promoOpen} disabled={busy} onClick={() => setPromoOpen((v) => !v)}>
+                  <Button icon="spark" style={actionButton} aria-pressed={promoOpen} disabled={busy} onClick={() => setPromoOpen((v) => !v)}>
                     {tr('ws.cashier.detail.promoTitle')}
                   </Button>
                 )}
-                <Button icon="merge" disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
+                <Button icon="merge" style={actionButton} disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
                   {tr('ws.cashier.detail.merge')}
                 </Button>
-                {!tab.reservation_id && bookingsVisible && (
-                  <Button icon="calendar" disabled={busy} onClick={() => setOverlay({ kind: 'charge' })}>
-                    {tr('ws.cashier.detail.chargeBooking')}
-                  </Button>
-                )}
+                <Button icon="drawer" style={actionButton} disabled={busy} onClick={() => setOverlay({ kind: 'drawer' })}>
+                  {tr('op.till.openDrawer')}
+                </Button>
               </>
             )}
-            <Button icon="drawer" disabled={busy} onClick={() => setOverlay({ kind: 'drawer' })}>
-              {tr('op.till.openDrawer')}
-            </Button>
+            {!tab.reservation_id && bookingsVisible && (
+              /* Spans the last two columns: it is the widest label of the set
+                 and the one action that reaches outside this tab, so it gets
+                 the room rather than being squeezed into a third. */
+              <Button
+                icon="calendar"
+                style={{ ...actionButton, gridColumn: 'span 2' }}
+                disabled={busy}
+                onClick={() => setOverlay({ kind: 'charge' })}
+              >
+                {tr('ws.cashier.detail.chargeBooking')}
+              </Button>
+            )}
             {tab.payments.length > 0 && (
               // The dialog says who may refund when this role may not; the
               // same notice under the buttons said it twice.
-              <Button kind="danger" icon="undo" disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
+              <Button kind="danger" icon="undo" style={actionButton} disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
                 {tr('op.till.refund')}
               </Button>
             )}
@@ -631,16 +691,27 @@ export function TabDetailPanel({
       <div style={{ flex: '0 0 auto', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-1-5)' }}>
         {!settled ? (
           <>
-            {unsentCount > 0 && (
-              <MessagePresenter tone="refused" icon="flame" message={tr('ws.cashier.payment.unsentWarning')} />
-            )}
             {partiallyPaid && (
               <div style={{ ...kvRow, fontWeight: 700 }}>
                 <span>{tr('ws.cashier.payment.stillToPay')}</span>
                 <Money amount={due} strong />
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 'var(--tp-sp-1-5)', alignItems: 'start', minBlockSize: '5rem' }}>
+            {/* The row reserves the taller height ONLY while a reason could
+                actually appear under Cash — the buttons are 3.5rem and the
+                reservation was a flat 5rem, so every tab with nothing blocking
+                it carried 1.5rem of empty footer below the pay row. The reason
+                still cannot move the buttons: the height is already reserved by
+                the time one can be shown. */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                gap: 'var(--tp-sp-1-5)',
+                alignItems: 'start',
+                minBlockSize: (payHeld || busy) && payBlockedReason !== undefined ? '5rem' : undefined,
+              }}
+            >
               <Button
                 kind="primary"
                 size="xl"
@@ -684,7 +755,7 @@ export function TabDetailPanel({
 
       {/* ---- overlays ---- */}
       {overlay.kind === 'pay' && (
-        <PaymentPane mode={overlay.method} due={due} unsentCount={unsentCount} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t)} />
+        <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t)} />
       )}
       {overlay.kind === 'split' && (
         <SplitBillDialog
@@ -849,11 +920,6 @@ function TabLine({
     <>
       <span style={{ minInlineSize: 0, flex: 1, textAlign: 'start' }}>
         <bdi style={{ textDecoration: line.voided ? 'line-through' : 'none' }}>{name}</bdi>
-        {line.voided && (
-          <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginInlineStart: '0.4rem', display: 'inline-block' }}>
-            {tr('ws.cashier.detail.voided')}
-          </span>
-        )}
         {pending && (
           <span style={{ marginInlineStart: '0.4rem', display: 'inline-block', verticalAlign: 'middle' }}>
             <StatusBadge tone="info" icon="wifiOff" size="sm" label={tr('ws.cashier.detail.voidQueued')} />
@@ -876,6 +942,11 @@ function TabLine({
       </span>
     </>
   );
+  /* A card per line, same as the basket's unsent lines: the two lists sit on
+     the same screen and a sent line should not read as a different kind of
+     thing from one still in the basket. The negative inline margin is gone
+     with it — a card that bled past the panel's padding looked like a
+     mistake. */
   const rowStyle = {
     display: 'flex',
     justifyContent: 'space-between',
@@ -883,9 +954,11 @@ function TabLine({
     alignItems: 'center',
     inlineSize: '100%',
     paddingBlock: 'var(--tp-sp-1)',
-    paddingInline: 'var(--tp-sp-1-5)',
-    marginInline: 'calc(-1 * var(--tp-sp-1-5))',
-    boxSizing: 'content-box',
+    paddingInline: 'var(--tp-sp-2)',
+    boxSizing: 'border-box',
+    background: 'var(--tp-surface)',
+    border: '1px solid var(--tp-border)',
+    borderRadius: 'var(--tp-radius-ctl)',
     color: line.voided ? 'var(--tp-muted-fg)' : 'inherit',
   } as const;
   return (
@@ -897,7 +970,14 @@ function TabLine({
           aria-expanded={open}
           aria-label={tr('ws.cashier.detail.lineActions', { name })}
           onClick={onToggle}
-          style={{ ...rowStyle, border: '1px solid transparent', borderRadius: 'var(--tp-radius-ctl)', background: open ? 'var(--tp-surface-2)' : 'transparent', font: 'inherit' }}
+          style={{
+            ...rowStyle,
+            background: open ? 'var(--tp-surface-2)' : rowStyle.background,
+            ...(open
+              ? { borderEndStartRadius: 0, borderEndEndRadius: 0, borderBlockEnd: 'none' }
+              : null),
+            font: 'inherit',
+          }}
         >
           {body}
         </button>
@@ -905,7 +985,25 @@ function TabLine({
         <div style={rowStyle}>{body}</div>
       )}
       {actionable && open && (
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-1)' }}>
+        /* Continues the open row's own card rather than sitting on the bare
+           panel: same tinted surface, and the two are JOINED — the row above
+           keeps its top corners, this keeps its bottom ones, and the border
+           between them is dropped — so the buttons read as belonging to the
+           line they act on rather than floating under it. */
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-1-5)',
+            flexWrap: 'wrap',
+            paddingBlock: 'var(--tp-sp-1-5)',
+            paddingInline: 'var(--tp-sp-2)',
+            background: 'var(--tp-surface-2)',
+            border: '1px solid var(--tp-border)',
+            borderBlockStart: 'none',
+            borderEndStartRadius: 'var(--tp-radius-ctl)',
+            borderEndEndRadius: 'var(--tp-radius-ctl)',
+          }}
+        >
           <Button size="sm" icon="tag" disabled={busy} aria-label={`${tr('op.till.override')} — ${name}`} onClick={onOverride}>
             {tr('op.till.override')}
           </Button>

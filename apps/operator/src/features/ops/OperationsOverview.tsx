@@ -412,7 +412,7 @@ function ClosingCard({ data, queued, go }: { data: OpsOverview; queued: number; 
           </Button>
         </div>
       ) : (
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
           <Step
             index={1}
             title={tr('ws.manager.ops.close.stepTabs')}

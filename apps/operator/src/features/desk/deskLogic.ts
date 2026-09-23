@@ -267,3 +267,119 @@ export function phoneFromQuery(query: string): string {
     .replace(/^[^\d+]+/, '')
     .replace(/\D+$/, '');
 }
+
+export interface Lane {
+  /** 0-based column this reservation takes inside its court. */
+  lane: number;
+  /** How many columns the court's widest overlapping cluster needs. */
+  lanes: number;
+}
+
+/**
+ * Side-by-side columns for reservations that share a court and a moment.
+ *
+ * The day grid used to paint every block of a court in the same column, so a
+ * double booking (or a hold under a booking, or a block laid over one) hid
+ * whichever row painted first: the desk saw one card and had no way to reach
+ * the other. This is the calendar's usual answer — pack overlapping rows into
+ * as few columns as fit, then let a cluster's widest point set the width for
+ * every block in it, so cards in one cluster line up rather than each one
+ * being stretched to its own share.
+ *
+ * Clusters are maximal runs of rows connected by overlap; a gap in the court's
+ * day starts a fresh cluster, so a single booking at 18:00 stays full width
+ * even when 20:00 is triple-booked. Touching ends (one ends exactly when the
+ * next starts) do not overlap.
+ *
+ * Rows are keyed by `id` because the caller renders from its own list.
+ */
+export function packLanes<T extends { id: string; start_at: string; end_at: string }>(
+  rows: readonly T[],
+): Map<string, Lane> {
+  const out = new Map<string, Lane>();
+  const sorted = [...rows].sort((a, b) => a.start_at.localeCompare(b.start_at) || a.end_at.localeCompare(b.end_at));
+
+  /** Rows of the cluster being built, with the lane each one took. */
+  let cluster: { id: string; lane: number }[] = [];
+  /** Lane index → end instant of the last row placed in it, within this cluster. */
+  let laneEnds: string[] = [];
+
+  const flush = () => {
+    const lanes = laneEnds.length || 1;
+    for (const c of cluster) out.set(c.id, { lane: c.lane, lanes });
+    cluster = [];
+    laneEnds = [];
+  };
+
+  for (const r of sorted) {
+    // A row starting at or after every open lane's end touches nothing in the
+    // cluster: the cluster is closed and this row opens the next one.
+    if (laneEnds.length > 0 && laneEnds.every((end) => end <= r.start_at)) flush();
+    let lane = laneEnds.findIndex((end) => end <= r.start_at);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(r.end_at);
+    } else if (r.end_at > laneEnds[lane]!) {
+      laneEnds[lane] = r.end_at;
+    }
+    cluster.push({ id: r.id, lane });
+  }
+  flush();
+  return out;
+}
+
+/**
+ * The lengths a booking may still take from `startMin`, given when the night
+ * closes.
+ *
+ * The dialog used to offer a court's whole `duration_options` list at every
+ * row, so the last slot of the night sold a 60-minute game that ran half an
+ * hour past the close: at a 02:00 close, 01:30 offered "60 min" and wrote
+ * 01:30–02:30. A length is kept only when it ends at or before the close.
+ *
+ * `closeMin` and `startMin` are minutes from the night's own midnight, so an
+ * overnight close is past 1440 and the comparison stays plain arithmetic.
+ *
+ * An empty list is a real answer: the time left before the close is shorter
+ * than anything the court sells, so there is nothing to book and the dialog
+ * says so rather than offering a length that would overrun. Returning the
+ * shortest option anyway would put the overrun back in the one place it is
+ * most likely to happen.
+ */
+export function durationsFitting(
+  durations: readonly number[],
+  startMin: number,
+  closeMin: number,
+): number[] {
+  return [...durations].sort((a, b) => a - b).filter((d) => startMin + d <= closeMin);
+}
+
+/**
+ * Which grid row a reservation starts in, as minutes past the night's own
+ * opening divided into slots.
+ *
+ * `dayStartMs` is midnight of the calendar date, but a trading night runs past
+ * it: at a 02:00 close the 00:00-02:00 rows belong to THIS grid, near the
+ * bottom. Measured raw against midnight they come out NEGATIVE relative to an
+ * openMin of 540 — a 03:34 block gave row -11, which the caller's `Math.max(0,
+ * ...)` clamped onto the 09:00 row, painting its whole span down over the
+ * morning and leaving every free slot under it out of line with the time
+ * gutter (the 12:30 button sitting on the 16:00 label).
+ *
+ * Anything before the opening is therefore the inherited tail and is folded
+ * forward a day. The night's row list has already dropped what belongs to
+ * another night, so nothing else can land below `openMin`.
+ *
+ * The result may exceed the grid's last row — a start past the close is not on
+ * this grid at all, and the caller filters on that rather than clamping.
+ */
+export function rowIndexOf(
+  startAtIso: string,
+  dayStartMs: number,
+  openMin: number,
+  slotMin: number,
+): number {
+  let min = (new Date(startAtIso).getTime() - dayStartMs) / 60_000;
+  if (min < openMin) min += 24 * 60;
+  return Math.floor((min - openMin) / slotMin);
+}

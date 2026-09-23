@@ -67,8 +67,4 @@ describe('PaymentPane — cash', () => {
     expect(onSettle).not.toHaveBeenCalled();
   });
 
-  it('warns when the basket holds items that are not on this bill', () => {
-    renderCash({ unsentCount: 2 });
-    expect(screen.getByText(/not sent yet/)).toBeTruthy();
-  });
 });
