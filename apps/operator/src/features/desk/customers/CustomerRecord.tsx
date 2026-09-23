@@ -393,17 +393,18 @@ function FlagsEditor({ customerId, flags, onClose, onSaved }: { customerId: stri
     <Modal
       title={tr('ws.courtDesk.record.flagsTitle')}
       subtitle={tr('ws.courtDesk.record.flagsLead')}
-      onClose={busy ? () => {} : onClose}
-      footer={
+      dismissible={!busy}
+      onClose={onClose}
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" busy={busy} onClick={() => void save()}>
             {tr('ws.courtDesk.record.saveFlags')}
           </Button>
         </>
-      }
+      )}
     >
       <div style={{ display: 'grid', gap: '0.6rem' }}>
         {FLAG_TYPES.map((t) => (

@@ -60,12 +60,12 @@ beforeEach(() => {
 });
 
 describe('PromotionEditorScreen', () => {
-  it('a new promotion opens without errors, and Save says what it needs', () => {
+  it('a new promotion opens quiet: no errors, and Save asks for nothing yet', () => {
     renderScreen();
     expect(screen.queryByText('Enter both the English and the Arabic name.')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
     expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('Add both names to save.')).toBeTruthy();
+    expect(screen.queryByText(/to save\.$/)).toBeNull();
     // Discard is simply disabled: no reason text of its own.
     expect((screen.getByRole('button', { name: 'Discard changes' }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -80,16 +80,15 @@ describe('PromotionEditorScreen', () => {
     await user.type(screen.getByLabelText('Arabic'), 'ساعة السعادة');
     expect(screen.queryByText('Enter both the English and the Arabic name.')).toBeNull();
     expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.queryByText('Add both names to save.')).toBeNull();
   });
 
   it('keeps a one-line summary of the draft, and states the rules once without a banner', async () => {
     const user = userEvent.setup();
     renderScreen();
-    expect(screen.getByText('10% off everything from the cafe · Any day, any time · No code needed')).toBeTruthy();
+    expect(screen.getByText('10% off everything from the cafe · Any day, any time')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Fri' }));
     await user.click(screen.getByRole('button', { name: 'Sat' }));
-    expect(screen.getByText('10% off everything from the cafe · Fri, Sat · No code needed')).toBeTruthy();
+    expect(screen.getByText('10% off everything from the cafe · Fri, Sat')).toBeTruthy();
     expect(screen.getAllByText(/only the one that takes the most off applies/).length).toBe(1);
     expect(screen.getByText(/Off means it never applies/)).toBeTruthy();
     expect(screen.queryByText(/Every promotion, active and inactive/)).toBeNull();

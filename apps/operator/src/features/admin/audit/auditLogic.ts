@@ -13,6 +13,8 @@
  * tested without a database.
  */
 
+import { wallTimeToUtc } from '@touch/core';
+
 import type { CsvCell } from '../../analytics/csv';
 import { cellText, humanizeCode, momentCells, shortId, valueCell } from '../../analytics/csvFormat';
 
@@ -199,22 +201,27 @@ export function actorLabel(
 // ---------------------------------------------------------------------------
 
 export interface PeriodBounds {
-  /** ISO instant at the start of `from` on the station clock. */
+  /** ISO instant the `from` business day starts at. */
   fromIso: string;
-  /** ISO instant at the start of the day AFTER `to` (exclusive upper bound). */
+  /** ISO instant the business day AFTER `to` starts at (exclusive upper bound). */
   toExclusiveIso: string;
 }
 
 /**
- * Inclusive YYYY-MM-DD range → half-open instant range for `at`. Built on the
- * station's calendar day; the server's audit page function re-anchors to the
- * venue day when it is available.
+ * Inclusive range of BUSINESS days → half-open instant range for `at`. A
+ * business day starts at `startHour` in the venue's zone, as
+ * app.business_date counts it, so a night's 00:00–02:00 tail stays with its
+ * night. This used the station's calendar midnight and said the server
+ * re-anchored to the venue day; it does not (audit_log_page filters
+ * `at >= p_from and at < p_to` as given), so at 01:30 "Today" missed
+ * tonight's 22:00 void, and "Yesterday" cut every night at midnight.
  */
-export function periodBounds(period: { from: string; to: string }): PeriodBounds {
-  const from = new Date(`${period.from}T00:00:00`);
-  const to = new Date(`${period.to}T00:00:00`);
-  to.setDate(to.getDate() + 1);
-  return { fromIso: from.toISOString(), toExclusiveIso: to.toISOString() };
+export function periodBounds(period: { from: string; to: string }, startHour: number, tz: string): PeriodBounds {
+  const start = startHour * 60;
+  return {
+    fromIso: wallTimeToUtc(period.from, start, tz).toISOString(),
+    toExclusiveIso: wallTimeToUtc(period.to, 24 * 60 + start, tz).toISOString(),
+  };
 }
 
 /** True when `row.at` falls inside the period (used by the direct-select fallback re-check). */

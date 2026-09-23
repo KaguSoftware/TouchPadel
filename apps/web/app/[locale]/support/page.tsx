@@ -73,6 +73,7 @@ const SECTIONS: LegalSection[] = [
         kind: 'list',
         items: ['legal.support.cancel.free', 'legal.support.cancel.late', 'legal.support.cancel.noShow'],
       },
+      { kind: 'link', to: 'terms', hash: 'bookings', label: 'legal.support.cancel.more' },
     ],
   },
   {
@@ -97,6 +98,7 @@ const SECTIONS: LegalSection[] = [
       { kind: 'p', key: 'legal.support.delete.how' },
       { kind: 'p', key: 'legal.support.delete.what' },
       { kind: 'p', key: 'legal.support.delete.desk' },
+      { kind: 'link', to: 'delete-account', label: 'legal.support.delete.web' },
       { kind: 'link', to: 'privacy', hash: 'retention', label: 'legal.support.delete.more' },
     ],
   },

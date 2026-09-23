@@ -11,15 +11,19 @@
  * so `BillView` renders from exactly the same computation the settle buttons do
  * rather than a second one that drifts.
  *
- * Kept deliberately in step with 0036, whose rules are:
+ * Kept step for step with `app.compute_tab_totals` (0106), whose rules are:
  *   - live lines only (a voided line and a voided order are both out);
  *   - discounts capped at the subtotal;
- *   - tax per active group on the post-discount base;
- *   - `tax_inclusive` means the tax figure is display-only.
+ *   - tax per ACTIVE tax group, on that group's base after its own line
+ *     discounts and its pro-rata share of the whole-tab discounts (the share
+ *     is over every group's base, untaxed and inactive ones included);
+ *   - `tax_inclusive`: the tax is carved OUT of the price, rate/(10000+rate),
+ *     and is display-only — it is not added to the total.
  *
- * The one simplification against the server: the pro-rata spread of a WHOLE-TAB
- * discount across tax groups. The till has at most a couple of groups and the
- * difference is sub-IQD, and the server figure is the one that gets charged.
+ * This used to tax the full line totals at rate/10000 and call the gap
+ * "sub-IQD". It was not: a 20% discount showed 20% too much tax on the guest
+ * bill, the exact tender and the part-payment cap, and an inclusive venue
+ * showed rate/10000 of a price that already contained it.
  *
  * The court fee is NOT mirrored, and must not be. Since 0106 a booking tab
  * charges the court fee still OWED on the booking — the price now, less what
@@ -31,6 +35,8 @@
  */
 
 export interface TotalsLine {
+  /** Matches a line discount's `order_item_id`. Optional: a row cached before it was selected. */
+  id?: string;
   line_total_iqd: number;
   voided: boolean;
   menu_item: { category_id: string } | null;
@@ -44,6 +50,8 @@ export interface TotalsOrder {
 export interface TotalsAdjustment {
   kind: string;
   amount_iqd: number;
+  /** Set on a LINE discount; null (or absent on an old cached row) on a whole-tab one. */
+  order_item_id?: string | null;
 }
 
 /**
@@ -60,11 +68,42 @@ export interface TotalsInput {
   payments?: { amount_iqd: number }[];
 }
 
+export interface TaxGroup {
+  id: string;
+  rateBp: number;
+  /** An inactive group still counts in the pro-rata spread, but charges no tax (0106). */
+  active: boolean;
+}
+
 export interface TaxContext {
-  /** category id -> rate in basis points. */
-  rateByCategory: ReadonlyMap<string, number>;
+  /** category id -> its tax group. A category with no group is simply absent. */
+  groupByCategory: ReadonlyMap<string, TaxGroup>;
   taxInclusive: boolean;
 }
+
+/** Categories as the till menu reads them (`tax_group:tax_groups(id, rate_bp, is_active)`). */
+export interface TaxCategory {
+  id: string;
+  tax_group: { id?: string; rate_bp: number; is_active?: boolean } | null;
+}
+
+export function taxContextFrom(categories: readonly TaxCategory[], taxInclusive: boolean): TaxContext {
+  const groupByCategory = new Map<string, TaxGroup>();
+  for (const c of categories) {
+    if (!c.tax_group) continue;
+    const g = c.tax_group;
+    // A menu cached before `id` was selected: its rate is the best key there is.
+    groupByCategory.set(c.id, { id: g.id ?? `rate:${g.rate_bp}`, rateBp: g.rate_bp, active: g.is_active ?? true });
+  }
+  return { groupByCategory, taxInclusive };
+}
+
+/** round(a / b) for non-negative integers, half away from zero like Postgres numeric round. */
+function roundDiv(a: number, b: number): number {
+  return Math.floor((2 * a + b) / (2 * b));
+}
+
+const NO_GROUP = '';
 
 export interface TabTotals {
   subtotal: number;
@@ -102,21 +141,54 @@ export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null
 
   // Capped at the subtotal: 0036 does the same, so a discount can never make a
   // tab owe less than nothing.
-  const discount = Math.min(
-    (tab.tab_adjustments ?? [])
-      .filter((a) => DISCOUNT_KINDS.has(a.kind))
-      .reduce((s, a) => s + a.amount_iqd, 0),
-    subtotal,
-  );
+  const groupOf = (l: TotalsLine) => tax?.groupByCategory.get(l.menu_item?.category_id ?? '');
+  const liveById = new Map<string, TotalsLine>();
+  for (const l of lines) if (l.id) liveById.set(l.id, l);
 
-  const byRate = new Map<number, number>();
-  for (const l of lines) {
-    const rate = tax?.rateByCategory.get(l.menu_item?.category_id ?? '') ?? 0;
-    byRate.set(rate, (byRate.get(rate) ?? 0) + l.line_total_iqd);
+  // A line discount counts only while its line is live; a whole-tab one always.
+  const lineDiscByGroup = new Map<string, number>();
+  let discLine = 0;
+  let discTab = 0;
+  for (const a of tab.tab_adjustments ?? []) {
+    if (!DISCOUNT_KINDS.has(a.kind)) continue;
+    if (a.order_item_id == null) {
+      discTab += a.amount_iqd;
+      continue;
+    }
+    const l = liveById.get(a.order_item_id);
+    if (!l) continue;
+    discLine += a.amount_iqd;
+    const key = groupOf(l)?.id ?? NO_GROUP;
+    lineDiscByGroup.set(key, (lineDiscByGroup.get(key) ?? 0) + a.amount_iqd);
   }
+  // Capped at the subtotal: 0036 does the same, so a discount can never make a
+  // tab owe less than nothing.
+  const discount = Math.min(discLine + discTab, subtotal);
+  // The whole-tab share that survives the cap, after the line discounts took theirs.
+  const tabAlloc = Math.max(Math.min(discTab, discount - Math.min(discLine, discount)), 0);
+
+  const groups = new Map<string, { group: TaxGroup | undefined; subtotal: number }>();
+  for (const l of lines) {
+    const group = groupOf(l);
+    const key = group?.id ?? NO_GROUP;
+    const g = groups.get(key) ?? { group, subtotal: 0 };
+    g.subtotal += l.line_total_iqd;
+    groups.set(key, g);
+  }
+  const bases = [...groups].map(([key, g]) => ({
+    group: g.group,
+    afterLine: Math.max(g.subtotal - (lineDiscByGroup.get(key) ?? 0), 0),
+  }));
+  const baseSum = bases.reduce((s, b) => s + b.afterLine, 0);
+
   let taxTotal = 0;
-  for (const [rate, groupSubtotal] of byRate) {
-    taxTotal += Math.round((groupSubtotal * rate) / 10000);
+  for (const { group, afterLine } of bases) {
+    if (!group?.active) continue;
+    const share = baseSum > 0 ? roundDiv(tabAlloc * afterLine, baseSum) : 0;
+    const taxable = Math.max(afterLine - share, 0);
+    taxTotal += tax?.taxInclusive
+      ? roundDiv(taxable * group.rateBp, 10000 + group.rateBp)
+      : roundDiv(taxable * group.rateBp, 10000);
   }
 
   // Goods floored at zero first, then the court fee on top — 0106's order.

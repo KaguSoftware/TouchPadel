@@ -127,6 +127,8 @@ export const courtDeskEn = {
     takenReason: 'Pick a start, court or length that is free.',
     noPrice: 'No price is set for this court at this time and length.',
     noPriceReason: 'No price is set for this length — pick another one.',
+    closesTooSoon: 'The venue closes before the shortest game would finish.',
+    closesTooSoonReason: 'Too little time before closing — pick an earlier start.',
     linked: 'Linked to {name}',
     unlink: 'Unlink',
     createCustomer: 'Create customer',
@@ -134,7 +136,6 @@ export const courtDeskEn = {
     conflictBody: 'That slot is already taken. Nothing was saved — pick another time.',
     pickAnother: 'Pick another time',
     price: 'Price',
-    needsGuest: 'Enter a guest name, or link an account.',
   },
 
   // 06.4 Booking detail
@@ -180,6 +181,7 @@ export const courtDeskEn = {
     movePast: 'That time has already passed. A booking moved into the past disappears from the guest\'s app.',
     moveNeedsTime: 'Pick a new start time first.',
     done: 'Saved.',
+    queued: 'Saved on this station only. It is not confirmed until the connection is back, so do not promise the slot yet.',
     reason: {
       move: 'move this booking',
       shorten: 'shorten this booking by 30 minutes',
@@ -226,10 +228,12 @@ export const courtDeskEn = {
     time: 'Start time',
     duration: 'Length',
     endMode: 'Ends',
-    afterWeeks: 'After some weeks',
+    afterWeeks: 'By count',
     onDate: 'On a date',
-    weeks: 'Number of weeks',
-    weeksFortnightlyHint: 'Every 2 weeks books one session per two weeks.',
+    weeks: 'Number of sessions',
+    weeksWeekdays: 'Number of weeks',
+    weeksFortnightlyHint: 'Sessions sit two weeks apart: 2 books two sessions, 14 days between them.',
+    weeksWeekdaysHint: 'This counts calendar weeks — every weekday you tick is booked in each of them.',
     endsOn: 'Last date',
     weekdayLong: {
       sun: 'Sunday',
@@ -267,7 +271,7 @@ export const courtDeskEn = {
     submitCount: 'Book {count} sessions',
     created: 'Series booked: {created} sessions, {skipped} dates skipped.',
     openSeries: 'Open series',
-    invalidWeeks: 'Enter at least one week.',
+    invalidWeeks: 'Enter a number of at least one.',
     invalidEnd: 'The last date must be after the first.',
     invalidPast: 'The first date cannot be in the past.',
     invalidWeekdays: 'Pick at least one day.',
@@ -322,7 +326,7 @@ export const courtDeskEn = {
   // 06.7 Court block
   block: {
     title: 'Block court',
-    lead: 'Take a court out of use for maintenance or a private event. If a booking already holds part of that time, the block is refused.',
+    lead: 'Take a court out of use for maintenance or a private event. If a booking already holds part of that time, the block is refused. A block runs within one day — to cover a night, block the evening and the small hours separately.',
     court: 'Court',
     date: 'Date',
     from: 'From',
@@ -505,6 +509,10 @@ export const courtDeskEn = {
     historyRow: '{time} · {method} · by {name}',
     someone: 'staff',
     paidToast: 'Payment taken.',
+    // The two ways on from a settled payment: back to the night's board, or
+    // stay on this booking (a second payment, a cafe bill, the receipt).
+    goToToday: 'Go to today',
+    resume: 'Stay on this booking',
     paidChangeToast: 'Payment taken. Give {amount} change.',
     queuedToast: 'Payment saved. It will reach the server when the connection is back.',
     openQueued: 'The bill could not be opened while offline. Try again when the connection is back.',

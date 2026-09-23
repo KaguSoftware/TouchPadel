@@ -28,7 +28,7 @@
  * on the trigger, aria-selected on the rows). Keep those working; they are
  * the reason a native select is the default elsewhere in the app.
  */
-import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
 import { useLocale } from '../lib/i18n';
@@ -50,9 +50,11 @@ export function SelectMenu<T extends string>({
   id,
   style,
   className,
+  placeholder,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
   'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
 }: {
   value: T | '';
   onChange: (next: T) => void;
@@ -63,9 +65,12 @@ export function SelectMenu<T extends string>({
   style?: CSSProperties;
   /** Also on the trigger — the analytics bar passes its glass class here. */
   className?: string;
+  /** Shown on the trigger while nothing is chosen; never itself choosable. */
+  placeholder?: string;
   'aria-label'?: string;
   'aria-labelledby'?: string;
   'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
 }) {
   const { dir } = useLocale();
   const listId = useId();
@@ -75,7 +80,15 @@ export function SelectMenu<T extends string>({
 
   // Panel geometry is measured once per open, like RowActions: the bar is
   // sticky and a scroll would leave the panel behind, so movement dismisses.
-  const [box, setBox] = useState<{ start: number; blockStart: number; minInlineSize: number } | null>(null);
+  const [box, setBox] = useState<{
+    start: number;
+    blockStart: number;
+    minInlineSize: number;
+    /** How wide it may grow before the viewport edge, same idea as the height. */
+    maxInlineSize: number;
+    /** How tall the list may be before it scrolls, given the room available. */
+    maxBlockSize: number;
+  } | null>(null);
   // The row the keyboard is on. Mouse hover does NOT move it: a pointer
   // drifting across the panel must not retarget what Enter would commit.
   const [active, setActive] = useState(0);
@@ -91,6 +104,19 @@ export function SelectMenu<T extends string>({
   const openPanel = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
+    // Fit the panel to the room the trigger actually has. A fixed 18rem list
+    // hung off the bottom of the window whenever its trigger sat low — the
+    // business-day picker inside the analytics Settings panel is the case
+    // that showed it, but it is every dropdown near the foot of a screen.
+    const GAP = 4;
+    const GUTTER = 8;
+    const IDEAL = 18 * 16;
+    const below = window.innerHeight - rect.bottom - GAP - GUTTER;
+    const above = rect.top - GAP - GUTTER;
+    // Drop below unless there is meaningfully more room above: a menu that
+    // flips for a few pixels' gain is a menu that moves under the hand.
+    const flip = below < Math.min(IDEAL, above) && above > below;
+    const room = Math.max(flip ? above : below, 0);
     setBox({
       // insetInlineStart is resolved by the browser against the panel's own
       // direction, which it inherits from <html> through the portal: in
@@ -99,8 +125,15 @@ export function SelectMenu<T extends string>({
       // as well double-flipped it — the panel's right edge landed ~24px past
       // the trigger's whenever the panel was the wider of the two.
       start: dir === 'rtl' ? window.innerWidth - rect.right : rect.left,
-      blockStart: rect.bottom,
+      // When it flips, the panel is pinned by its own block-end instead, so
+      // it grows upward from just above the trigger.
+      blockStart: flip ? -(window.innerHeight - rect.top + GAP) : rect.bottom,
       minInlineSize: rect.width,
+      // Only as a last resort, when the list is wider than the whole window:
+      // the rows do not wrap, so a cap tighter than this would CLIP a label
+      // rather than fit it. Staying on screen is the slide's job below.
+      maxInlineSize: Math.max(window.innerWidth - 2 * GUTTER, 0),
+      maxBlockSize: Math.min(IDEAL, room),
     });
     // Open onto the current choice, the way the native menu does.
     setActive(selectedIndex >= 0 ? selectedIndex : 0);
@@ -108,20 +141,48 @@ export function SelectMenu<T extends string>({
 
   useEffect(() => {
     if (!open) return;
-    const dismiss = () => setBox(null);
+    // The panel is measured once and does not chase its trigger, so a scroll
+    // of the PAGE dismisses it. A scroll of the panel's OWN list must not:
+    // the listener is in the capture phase (it has to be, to hear scrolls on
+    // any ancestor scroller, which do not bubble), so it also hears the
+    // panel's own — which closed the menu the instant a long list was
+    // scrolled, and is why they could not be scrolled at all.
+    const dismiss = (e: Event) => {
+      const t = e.target;
+      if (t instanceof Node && panelRef.current?.contains(t)) return;
+      setBox(null);
+    };
+    const onResize = () => setBox(null);
     const onPointerDown = (e: MouseEvent) => {
       const t = e.target as Node;
       if (!panelRef.current?.contains(t) && !triggerRef.current?.contains(t)) setBox(null);
     };
     window.addEventListener('scroll', dismiss, true);
-    window.addEventListener('resize', dismiss);
+    window.addEventListener('resize', onResize);
     document.addEventListener('mousedown', onPointerDown);
     return () => {
       window.removeEventListener('scroll', dismiss, true);
-      window.removeEventListener('resize', dismiss);
+      window.removeEventListener('resize', onResize);
       document.removeEventListener('mousedown', onPointerDown);
     };
   }, [open]);
+
+  // The width cap keeps the panel inside the viewport, but a wide list on a
+  // trigger near the reading-end edge would then be squeezed to the sliver of
+  // room left there and wrap every label. So once it has been laid out, slide
+  // it back along the inline axis until it clears the gutter — the panel keeps
+  // its natural width and stops being cut off. Measured in a layout effect so
+  // the move happens before paint, never as a visible jump.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel || !box) return;
+    const rect = panel.getBoundingClientRect();
+    const GUTTER = 8;
+    const overflow = dir === 'rtl' ? GUTTER - rect.left : rect.right - (window.innerWidth - GUTTER);
+    if (overflow <= 0) return;
+    const start = Math.max(box.start - overflow, GUTTER);
+    if (start !== box.start) setBox({ ...box, start });
+  }, [open, box, dir]);
 
   // Focus follows the active row so the panel owns the keyboard while open.
   useEffect(() => {
@@ -223,6 +284,7 @@ export function SelectMenu<T extends string>({
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         disabled={disabled}
         className={className}
         onClick={() => (open ? close(false) : openPanel())}
@@ -237,7 +299,9 @@ export function SelectMenu<T extends string>({
           ...style,
         }}
       >
-        <span>{current ?? ''}</span>
+        <span style={current === undefined && placeholder !== undefined ? { color: 'var(--tp-muted-fg)' } : undefined}>
+          {current ?? placeholder ?? ''}
+        </span>
         <Icon name="chevronDown" size={14} style={{ color: 'var(--tp-muted-fg)', flexShrink: 0 }} />
       </button>
       {box && createPortal(
@@ -265,13 +329,17 @@ export function SelectMenu<T extends string>({
             // which is exactly the anchor we want. The value in `start` is
             // already the distance from that reading-side edge.
             insetInlineStart: `${box.start}px`,
-            insetBlockStart: `${box.blockStart}px`,
-            // The gap that the native menu refuses to leave.
-            marginBlockStart: 'var(--tp-sp-1)',
+            ...(box.blockStart < 0
+              ? { insetBlockEnd: `${-box.blockStart}px` }
+              : { insetBlockStart: `${box.blockStart}px`, marginBlockStart: 'var(--tp-sp-1)' }),
             minInlineSize: `${box.minInlineSize}px`,
-            zIndex: 'var(--tp-z-popover)',
+            maxInlineSize: `${box.maxInlineSize}px`,
+            // Above a dialog, not merely above the page: the panel is a
+            // sibling of any Modal (both live on <body>), and most of the
+            // app's dropdowns are inside one.
+            zIndex: 'var(--tp-z-menu)',
             display: 'grid',
-            maxBlockSize: '18rem',
+            maxBlockSize: `${box.maxBlockSize}px`,
             overflowY: 'auto',
             // Inset, so a tinted row's rounded corner sits inside the pane's
             // rather than fighting it.
@@ -286,6 +354,9 @@ export function SelectMenu<T extends string>({
                 id={`${listId}-${i}`}
                 type="button"
                 role="option"
+                // The value, not the label: e2e picks by it in both locales,
+                // the way selectOption() picked a native <option>.
+                data-value={o.value}
                 aria-selected={isSelected}
                 data-active={i === active ? 'true' : undefined}
                 disabled={o.disabled}

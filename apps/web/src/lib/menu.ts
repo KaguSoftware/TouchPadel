@@ -507,6 +507,8 @@ export interface VenueOpeningHours {
   closed_dates: string[];
   /** venue phone (0026 added the column to the public view); null = not set */
   phone: string | null;
+  /** Free-cancellation window app.cancel_reservation enforces (0056 set it to 4); the legal pages quote it. */
+  cancellation_window_hours?: number | null;
 }
 
 /** Opening hours, venue name & phone from the anon-safe venue_settings_public view. */
@@ -515,7 +517,7 @@ export async function fetchVenuePublic(
 ): Promise<VenueOpeningHours | null> {
   const { data, error } = await client
     .from('venue_settings_public')
-    .select('venue_name, opening_hours, closed_dates, phone')
+    .select('venue_name, opening_hours, closed_dates, phone, cancellation_window_hours')
     .maybeSingle();
   if (error || !data) return null;
   return {
@@ -523,5 +525,6 @@ export async function fetchVenuePublic(
     opening_hours: (data.opening_hours ?? {}) as Record<string, [string, string][]>,
     closed_dates: data.closed_dates ?? [],
     phone: data.phone ?? null,
+    cancellation_window_hours: data.cancellation_window_hours ?? null,
   };
 }

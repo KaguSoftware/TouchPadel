@@ -103,6 +103,9 @@ const SUMMARY_COLUMNS =
   'discounts_iqd, adjustment_count, authorizer_names, voided_lines_iqd, voided_line_count, refunds_iqd, refund_count, waste_cost_iqd, ' +
   'desk_cash_iqd, desk_card_iqd';
 
+/** Counted cash ceiling: 999,999,999,999 IQD — twelve digits, past any real drawer. */
+const MAX_COUNTED_IQD = 999_999_999_999;
+
 const STATE_TONE: Partial<Record<DayCloseState, 'success' | 'danger' | 'warn' | 'neutral'>> = {
   ready: 'success',
   busy: 'success',
@@ -127,6 +130,14 @@ export function DayClose() {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [closeResult, setCloseResult] = useState<CloseResult | null>(null);
+  // Last night's count, batch and notes must not carry into the next day: a
+  // till left on this screen showed step 3 done before anything was counted.
+  function startNextDay() {
+    setCloseResult(null);
+    setCountedCash(null);
+    setCardBatch(null);
+    setNotes('');
+  }
 
   // Identical query to the till's — same key, same shape, deliberately shared.
   const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
@@ -294,7 +305,7 @@ export function DayClose() {
       title: tr('ws.manager.dayClose.confirmTitle', { date: showDate(day.business_date, locale) }),
       body: tr('ws.manager.dayClose.confirmBody', {
         cash: formatIQD(countedCash, locale),
-        card: cardBatch !== null && cardBatch > 0 ? formatIQD(cardBatch, locale) : tr('ws.manager.dayClose.notEntered'),
+        card: cardBatch !== null ? formatIQD(cardBatch, locale) : tr('ws.manager.dayClose.notEntered'),
       }),
       confirmLabel: tr('ws.manager.dayClose.closeBtn'),
       kind: 'danger',
@@ -315,7 +326,8 @@ export function DayClose() {
       }
       const res = await appRpc<CloseResult>('close_day', {
         p_cash_counted_iqd: countedCash,
-        p_card_batch_iqd: cardBatch !== null && cardBatch > 0 ? cardBatch : null,
+        // A batch of 0 is a reading (a cash-only night), not "not entered".
+        p_card_batch_iqd: cardBatch,
         p_notes: notes || null,
         p_device_id: deviceId(),
       });
@@ -462,7 +474,7 @@ export function DayClose() {
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(24rem, 1fr))', alignItems: 'start' }}>
         {/* ------------------------------------------------ the close itself */}
         {closeResult && businessDate ? (
-          <ClosedResult result={closeResult} businessDate={businessDate} onNextDay={() => setCloseResult(null)} />
+          <ClosedResult result={closeResult} businessDate={businessDate} onNextDay={startNextDay} />
         ) : (
           <Panel
             title={<CardTitle icon="sun">{tr('ws.manager.dayClose.stepsTitle')}</CardTitle>}
@@ -570,9 +582,16 @@ export function DayClose() {
                   </RowList>
                   <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', alignItems: 'start' }}>
                     <Field label={tr('ws.manager.dayClose.countedCash')} hint={tr('ws.manager.dayClose.countedHint')} style={{ flex: '1 1 13rem', minInlineSize: 0, marginBlockEnd: 0 }}>
-                      <MoneyInput value={countedCash} onChange={setCountedCash} allowEmpty disabled={busy} style={{ fontSize: 'var(--tp-fs-xl)' }} />
+                      <MoneyInput
+                        value={countedCash}
+                        onChange={setCountedCash}
+                        allowEmpty
+                        max={MAX_COUNTED_IQD}
+                        disabled={busy}
+                        style={{ fontSize: 'var(--tp-fs-xl)' }}
+                      />
                     </Field>
-                    <AmountPad value={countedCash ?? 0} onChange={setCountedCash} disabled={busy} />
+                    <AmountPad nullable value={countedCash} onChange={setCountedCash} max={MAX_COUNTED_IQD} disabled={busy} />
                   </div>
                 </div>
               </Step>
@@ -636,15 +655,13 @@ export function DayClose() {
             />
           )}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
-          <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>} padded={false}>
-            <ErrorText error={adjustmentsQ.error} style={{ marginInline: 'var(--tp-sp-3)' }} />
+          <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>}>
+            <ErrorText error={adjustmentsQ.error} />
             {adjustments.length === 0 ? (
-              <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact kind="nothingToDo" icon="shield" title={tr('ws.manager.dayClose.noAdjustments')} />
-              </div>
+              <EmptyState compact kind="nothingToDo" icon="shield" title={tr('ws.manager.dayClose.noAdjustments')} />
             ) : (
               <>
-                <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.manager.dayClose.adjustmentsLead')}
                 </p>
                 <DataTable<DayAdjustmentRow> dense rows={adjustments} rowKey={(a) => a.adjustment_id} columns={adjustmentColumns(tr, locale)} aria-label={tr('ws.manager.dayClose.adjustmentsTitle')} />

@@ -44,6 +44,7 @@ const PATHS = {
   chevronStart: 'M15 18l-6-6 6-6',
   chevronEnd: 'M9 18l6-6-6-6',
   chevronDown: 'M6 9l6 6 6-6',
+  chevronUp: 'M18 15l-6-6-6 6',
   // A side panel with an arrow into it (close) or out of it (open): the
   // desktop convention for folding a sidebar, so it never reads as a dropdown.
   // Drawn for a start-side panel; RTL mirrors it (MIRRORED below).

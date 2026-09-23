@@ -15,6 +15,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL } from '../playwright.config';
 import {
+  choose,
   DEV_PASSWORD,
   SEED_STAFF,
   appRpc,
@@ -97,12 +98,12 @@ test.describe('operator Touch Shop', () => {
     await page.goto(`${OPERATOR_URL}/stock/products`);
     await page.getByRole('button', { name: 'New product' }).first().click();
     const form = page.getByRole('dialog', { name: 'New product' });
-    await form.getByLabel('Shop section').selectOption({ label: SECTION });
+    await choose(form.getByLabel('Shop section'), { label: SECTION });
     await form.getByLabel('Product name (English)').fill(PRODUCT);
     await form.getByLabel('Product name (Arabic)').fill(`مضرب ${stamp}`);
     await form.getByLabel('Price (IQD)').fill('250000');
     await form.getByLabel('Barcode').fill(BARCODE);
-    await form.getByLabel('Supplier').selectOption({ label: SUPPLIER });
+    await choose(form.getByLabel('Supplier'), { label: SUPPLIER });
     await form.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(form).toBeHidden();
     await expect(page.getByText(BARCODE)).toBeVisible();
@@ -122,7 +123,7 @@ test.describe('operator Touch Shop', () => {
   test('(b) goods in receives the product like any stock', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/receive`);
-    await page.getByLabel('Ingredient').first().selectOption({ label: `${PRODUCT} One size` });
+    await choose(page.getByLabel('Ingredient').first(), { label: `${PRODUCT} One size` });
     await page.getByLabel(/^Received/).first().fill('3');
     await page.getByLabel(/^Cost per/).first().fill('180000');
     await page.getByRole('button', { name: 'Record delivery' }).click();
@@ -132,17 +133,21 @@ test.describe('operator Touch Shop', () => {
 
   test('(c) a counter sale scans the barcode and sends with no kitchen ticket', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({ timeout: 30_000 });
+    // The till lands on the floor plan; a counter sale has no table to tap.
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: '+', exact: true }).click();
+    await page.getByRole('button', { name: 'New tab', exact: true }).click();
     const newTab = page.getByRole('dialog', { name: 'New tab' });
     await newTab.getByRole('switch', { name: 'Shop counter sale' }).click();
     await newTab.getByLabel('Name on the tab').fill(COUNTER);
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
+    // The basket starts with its lines folded away; open it to read them.
+    await page.getByRole('button', { name: 'Show the basket lines' }).click();
 
     // A wedge scanner: fast keys into the page (not a field), then Enter.
-    await page.getByRole('heading', { name: 'Open tabs' }).click();
+    // The tab's own header takes the focus off every input.
+    await page.getByRole('heading', { name: COUNTER, exact: true }).click();
     await page.keyboard.type(BARCODE, { delay: 5 });
     await page.keyboard.press('Enter');
     await expect(page.getByText(`1× ${PRODUCT} (One size)`)).toBeVisible();

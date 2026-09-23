@@ -1,17 +1,18 @@
 import type { Locale } from '@touch/i18n';
 
 /**
- * The public privacy policy and support pages (apps/web/app/[locale]/privacy|support).
+ * The public legal pages (apps/web/app/[locale]/{privacy,terms,support,delete-account}).
  * App Store Guideline 5.1.1(i) wants the privacy policy reachable inside the app
- * as well as in the listing, so Settings and Sign up link here. Opened in the
+ * as well as in the listing, so Settings and Sign up link here; the Terms are what
+ * the sign-up checkbox and the accept-terms screen record (app.accept_terms, 0153). Opened in the
  * system browser, never an in-app web view (no "unrestricted web access").
  *
- * EXPO_PUBLIC_SITE_URL moves these to touch-padel.com once the domain is live;
- * until then the Vercel URL is the one App Store Connect also carries.
+ * The venue's domain is live (2026-09-23; the bare touch-padel.com redirects to
+ * www). EXPO_PUBLIC_SITE_URL still overrides it per build.
  */
-const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://touch-padel-web.vercel.app').replace(/\/+$/, '');
+const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://www.touch-padel.com').replace(/\/+$/, '');
 
-export type LegalPage = 'privacy' | 'support';
+export type LegalPage = 'privacy' | 'terms' | 'support' | 'delete-account';
 
 export function legalUrl(page: LegalPage, locale: Locale): string {
   return `${SITE_URL}/${locale}/${page}`;

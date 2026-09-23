@@ -25,7 +25,7 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, TableSkeleton, Toolbar, type Column } from '../../components/kit';
 import { AttentionList, useStockFormat } from './stockUi';
 import { SK, fetchIngredients, type IngredientRow } from './stockKeys';
@@ -204,9 +204,6 @@ export function RecipeEditor() {
             </Panel>
             <div>
               <Toolbar end={<ResultCount shown={rows.length} total={targets.length} />}>
-                <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
-                  <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.recipes.search')} />
-                </span>
                 <SegmentedControl<Show>
                   value={show}
                   onChange={setShow}
@@ -217,6 +214,9 @@ export function RecipeEditor() {
                     { value: 'set', label: tr('ws.manager.stock.recipes.hasRecipe') },
                   ]}
                 />
+                <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
+                  <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.recipes.search')} />
+                </span>
               </Toolbar>
               {rows.length === 0 ? (
                 <EmptyState
@@ -306,7 +306,18 @@ function RecipeDialog({
   const patch = (key: string, part: Partial<LineDraft>) => setLines((ls) => (ls ?? []).map((x) => (x.key === key ? { ...x, ...part } : x)));
 
   async function leave(next: () => void) {
-    if (dirty && !(await confirm({ title: tr('ws.kit.actions.dirtyLeave'), kind: 'danger' }))) return;
+    if (dirty && !(await confirm({
+      title: tr('ws.kit.actions.dirtyLeave'),
+      body: tr('ws.kit.actions.dirtyLeaveBody'),
+      confirmLabel: tr('ws.kit.actions.dirtyLeaveConfirm'),
+      cancelLabel: tr('ws.kit.actions.dirtyLeaveCancel'),
+      kind: 'danger',
+      // Beside "Keep editing", not pushed to the far edge (owner call,
+      // 2026-09-23). Rulebook 7.8 spreads a destructive confirm; this one
+      // loses only an unsaved draft, never stored data, and Cancel still
+      // autofocuses so Enter and Esc both keep the edits.
+      pairActions: true,
+    }))) return;
     next();
   }
 
@@ -389,14 +400,15 @@ function RecipeDialog({
                 return (
                   <li key={l.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(8rem, 1fr) auto', gap: 'var(--tp-sp-1-5)', alignItems: 'end' }}>
                     <Field label={tr('op.stock.ingredient')} style={{ marginBlockEnd: 0 }}>
-                      <select style={inputStyle} value={l.ingredientId} disabled={busy} onChange={(e) => patch(l.key, { ingredientId: e.target.value })}>
-                        <option value="">{tr('ws.manager.stock.goodsIn.choose')}</option>
-                        {ingredients.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {pickName(locale, opt)}
-                          </option>
-                        ))}
-                      </select>
+                      <Select
+                        value={l.ingredientId}
+                        disabled={busy}
+                        onChange={(ingredientId) => patch(l.key, { ingredientId })}
+                        options={[
+                          { value: '', label: tr('ws.manager.stock.goodsIn.choose') },
+                          ...ingredients.map((opt) => ({ value: opt.id, label: pickName(locale, opt) })),
+                        ]}
+                      />
                     </Field>
                     <Field label={ing ? tr('ws.manager.stock.recipes.amountIn', { unit: fmt.unit(ing.unit) }) : tr('ws.manager.stock.recipes.amount')} style={{ marginBlockEnd: 0 }}>
                       <input

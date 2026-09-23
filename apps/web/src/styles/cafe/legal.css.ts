@@ -22,4 +22,19 @@ export const legalCss = `
 .tp-legal li::marker { color: var(--tp-accent); }
 .tp-legal__phone { direction: ltr; unicode-bidi: isolate; font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--tp-font-numeric); }
 .tp-legal__hours { max-inline-size: 22rem; }
+.tp-legal__email { direction: ltr; unicode-bidi: isolate; font-weight: 700; }
+/* /delete-account: the sign-in and confirmation form. */
+.tp-legal__form { display: grid; gap: var(--tp-space-3); padding: var(--tp-space-4); border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-sm); background: var(--tp-surface); }
+.tp-legal__methods { display: flex; flex-wrap: wrap; gap: var(--tp-space-2) var(--tp-space-4); border: 0; padding: 0; margin: 0; }
+.tp-legal__methods legend { font-weight: 700; margin-block-end: var(--tp-space-2); }
+.tp-legal__method { display: inline-flex; align-items: center; gap: var(--tp-space-2); }
+.tp-legal__method input { accent-color: var(--tp-accent); }
+.tp-legal__field { display: grid; gap: var(--tp-space-1); font-weight: 600; }
+.tp-legal__input { inline-size: 100%; min-block-size: 2.75rem; border: 1px solid var(--tp-border); border-radius: var(--tp-radius-sm);
+  padding-block: 0.5rem; padding-inline: 0.75rem; background: var(--tp-bg); color: var(--tp-fg); }
+.tp-legal__actions { display: flex; flex-wrap: wrap; gap: var(--tp-space-2); }
+.tp-legal__danger { background: var(--tp-danger); color: var(--tp-danger-contrast); }
+.tp-legal__error { padding: var(--tp-space-2) var(--tp-space-3); border: 1px solid var(--tp-error-border);
+  border-radius: var(--tp-radius-sm); background: var(--tp-error-bg); }
 `;

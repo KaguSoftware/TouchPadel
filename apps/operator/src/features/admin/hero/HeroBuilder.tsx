@@ -20,7 +20,7 @@ import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
 import { ImageField } from '../../../components/ImageField';
 import { BilingualFields, PercentInput } from '../../../components/inputs';
-import { Button, Field, Skeleton, inputStyle } from '../../../components/ui';
+import { Button, Field, Select, Skeleton } from '../../../components/ui';
 import { PageHeader, Panel } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import { HeroPreview, type HeroPreviewItem } from './HeroPreview';
@@ -273,18 +273,22 @@ export function HeroBuilder() {
           <div style={{ display: draft.hero_mode === 'featured' ? 'block' : 'none' }}>
             <Panel title={tr('op.hero.featuredTitle')}>
               <Field label={tr('op.hero.featuredItem')} hint={tr('op.hero.featuredItemHint')}>
-                <select style={inputStyle} value={draft.featured_item_id ?? ''} onChange={(e) => patch({ featured_item_id: e.target.value || null })}>
-                  <option value="">{tr('op.hero.pickItem')}</option>
-                  {grouped.map((g) => (
-                    <optgroup key={g.category.id} label={locale === 'ar' ? g.category.name_ar : g.category.name_en}>
-                      {g.items.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {locale === 'ar' ? i.name_ar : i.name_en}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <Select
+                  value={draft.featured_item_id ?? ''}
+                  onChange={(id) => patch({ featured_item_id: id || null })}
+                  options={[
+                    { value: '', label: tr('op.hero.pickItem') },
+                    // The <optgroup> per category became a category-prefixed
+                    // flat list: SelectMenu draws its own panel and has no
+                    // group row, and two categories may hold the same dish.
+                    ...grouped.flatMap((g) =>
+                      g.items.map((i2) => ({
+                        value: i2.id,
+                        label: `${locale === 'ar' ? g.category.name_ar : g.category.name_en} · ${locale === 'ar' ? i2.name_ar : i2.name_en}`,
+                      })),
+                    ),
+                  ]}
+                />
               </Field>
               {menuQ.isSuccess && grouped.length === 0 && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.noItems')}</p>}
               <BilingualFields

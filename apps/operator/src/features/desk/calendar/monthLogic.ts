@@ -13,7 +13,7 @@
  *     owner call, 2026-09-13), so a quiet month still has contrast — and a day
  *     with one booking must still read as "not empty".
  */
-import { tradingSpan, type DayKey } from '@touch/core';
+import { tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
 import type { VenueSettingsRow } from '../../../lib/queries';
 import { localDateOf, localMinutesOf, shiftIsoDate, startOfWeek, WEEK_LENGTH } from '../weekLogic';
 
@@ -87,6 +87,18 @@ export function tradingDateOf(iso: string, timeZone: string, hours: OpeningHours
   const local = localDateOf(iso, timeZone);
   const minutes = localMinutesOf(iso, timeZone);
   return minutes < inheritedTailMin(local, hours) ? shiftIsoDate(local, -1) : local;
+}
+
+/**
+ * A wall-clock time on a trading NIGHT as an instant. Times inside the
+ * night's after-midnight tail (01:00 on a 09:00 → 02:00 night) are on the next
+ * calendar date. The booking detail's move form wrote them on the night's own
+ * date instead, so moving a 01:00 booking "to 23:00 the same night" landed a
+ * full day later, and the past-time check did not catch it.
+ */
+export function nightTimeToUtc(night: string, minutesOfDay: number, timeZone: string, hours: OpeningHours): Date {
+  const tail = inheritedTailMin(shiftIsoDate(night, 1), hours);
+  return wallTimeToUtc(night, minutesOfDay < tail ? minutesOfDay + 24 * 60 : minutesOfDay, timeZone);
 }
 
 /** How many items fall on each trading date. Dates with none are absent. */

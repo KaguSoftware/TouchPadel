@@ -59,7 +59,7 @@ export function LineNoteDialog({
       title={tr('ws.cashier.till.note.title')}
       subtitle={`${line.qty}× ${line.itemName} (${line.variantName})`}
       onClose={onClose}
-      footer={
+      footer={(close) => (
         <div style={reasonedFooter}>
           <Button
             kind="ghost"
@@ -72,12 +72,12 @@ export function LineNoteDialog({
           >
             {tr('ws.cashier.till.note.clear')}
           </Button>
-          <Button onClick={onClose}>{tr('common.cancel')}</Button>
+          <Button onClick={close}>{tr('common.cancel')}</Button>
           <Button kind="primary" size="lg" disabled={!changed} onClick={() => onSave(composed)}>
             {tr('ws.cashier.till.note.save')}
           </Button>
         </div>
-      }
+      )}
     >
       {NOTE_PRESET_GROUPS.map((g) => (
         <div key={g.id} style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>

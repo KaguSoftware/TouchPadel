@@ -284,9 +284,6 @@ export function OnHand() {
                 </>
               }
             >
-              <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
-                <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
-              </span>
               <SegmentedControl<OnHandFilter>
                 value={filter}
                 onChange={setFilter}
@@ -299,6 +296,9 @@ export function OnHand() {
                   { value: 'countNeeded', label: tr('op.stock.status.countNeeded') },
                 ]}
               />
+              <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
+                <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
+              </span>
               {hasShopStock && <KindFilter value={kind} onChange={setKind} />}
             </Toolbar>
             {rows.length === 0 ? (

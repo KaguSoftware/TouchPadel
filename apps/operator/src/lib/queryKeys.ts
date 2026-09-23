@@ -34,6 +34,8 @@ export const QK = {
   /** ALL cafe tables including inactive — the QR admin's editor. */
   allCafeTables: ['cafeTables', 'all'] as const satisfies QueryKey,
 
+  /** venue_settings.tax_inclusive — half of the till's tax context (till/useTaxContext.ts). */
+  taxInclusive: ['taxInclusive'] as const satisfies QueryKey,
   /** Every open tab on the floor: the rail and the open-tabs board (till/tillData.ts OPEN_TABS_QUERY). */
   tabs: ['tabs'] as const satisfies QueryKey,
   /** One tab's detail, the six-level join (till/tillData.ts tabDetailQuery). */

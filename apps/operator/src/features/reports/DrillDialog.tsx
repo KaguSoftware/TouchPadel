@@ -84,12 +84,19 @@ export function DrillDialog({ request, onClose }: { request: DrillRequest; onClo
     { key: 'amount', header: tr('ws.reports.drill.amount'), numeric: true, render: (t) => money(t.amountIqd, locale) },
   ];
   const rows = q.data ?? [];
+  // One Modal per request. The screens render a single <DrillDialog> slot and
+  // swap its request, so React reused the Modal still fading out from the last
+  // drill: open another figure inside that fade and the old exit timer fired
+  // onClose, shutting the new one. A new request now mounts a fresh Modal, and
+  // unmounting the old one clears its timer.
+  const requestKey = [request.what, request.scope ?? '', request.from, request.to, ...request.figures.map((f) => f.key ?? '')].join('|');
   return (
     <Modal
+      key={requestKey}
       title={tr('ws.reports.drill.title', { what: request.what, range })}
       onClose={onClose}
       size="lg"
-      footer={<Button onClick={onClose}>{tr('ws.kit.drill.close')}</Button>}
+      footer={(close) => (<Button onClick={close}>{tr('ws.kit.drill.close')}</Button>)}
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {request.figures.length > 1 && (

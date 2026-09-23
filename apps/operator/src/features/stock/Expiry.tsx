@@ -153,15 +153,12 @@ export function Expiry() {
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           <Panel
             title={<CardTitle icon="ban">{tr('ws.manager.stock.expiry.expiredTitle')}</CardTitle>}
-            padded={false}
           >
             {expired.length === 0 ? (
-              <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact kind="nothingToDo" icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpired')} />
-              </div>
+              <EmptyState compact kind="nothingToDo" icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpired')} />
             ) : (
               <>
-                <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                   {can.adjustStock ? tr('ws.manager.stock.expiry.expiredHint') : tr('ws.manager.stock.expiry.writeOffNotAllowed')}
                 </p>
                 <DataTable columns={expiredColumns} rows={expired} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiredTitle')} />
@@ -169,14 +166,12 @@ export function Expiry() {
             )}
           </Panel>
 
-          <Panel title={<CardTitle icon="hourglass">{tr('ws.manager.stock.expiry.expiringTitle')}</CardTitle>} padded={false}>
+          <Panel title={<CardTitle icon="hourglass">{tr('ws.manager.stock.expiry.expiringTitle')}</CardTitle>}>
             {expiring.length === 0 ? (
-              <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact kind="nothingToDo" icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpiring')} />
-              </div>
+              <EmptyState compact kind="nothingToDo" icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpiring')} />
             ) : (
               <>
-                <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.manager.stock.expiry.expiringHint')}
                 </p>
                 <DataTable columns={expiringColumns} rows={expiring} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiringTitle')} />

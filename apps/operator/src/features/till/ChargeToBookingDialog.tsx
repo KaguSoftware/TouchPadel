@@ -43,6 +43,9 @@ export function ChargeToBookingDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [partialFailure, setPartialFailure] = useState(false);
+  // The booking's tab.open went onto the queue: it WILL open when the station
+  // reconnects, but nothing can be merged into it until then.
+  const [openQueued, setOpenQueued] = useState(false);
 
   const rows = reservationsQ.data ?? [];
   const selected = rows.find((r) => r.id === selectedId);
@@ -52,15 +55,19 @@ export function ChargeToBookingDialog({
     setBusy(true);
     setError(null);
     setPartialFailure(false);
+    setOpenQueued(false);
     let survivorId: string | null = null;
     try {
       let target: string;
       try {
         const outcome = await mutate<{ tab_id: string }>('tab.open', { reservationId: selected.id });
         if (!outcome.result) {
-          // Queued offline: the merge cannot reference a tab that has no server
-          // id yet. Refuse cleanly rather than half-do it.
-          throw new Error('QUEUED');
+          // Queued offline: the envelope is already on the durable queue, so
+          // the booking's tab will open on reconnect whatever happens here. The
+          // merge cannot reference a tab with no server id yet, so say both
+          // halves plainly instead of throwing a bare refusal.
+          setOpenQueued(true);
+          return;
         }
         target = outcome.result.tab_id;
         survivorId = target;
@@ -85,10 +92,11 @@ export function ChargeToBookingDialog({
     <Modal
       title={tr('ws.cashier.charge.title')}
       subtitle={tr('ws.cashier.charge.lead')}
-      onClose={busy ? () => {} : onClose}
-      footer={
+      dismissible={!busy}
+      onClose={onClose}
+      footer={(close) => (
         <div style={reasonedFooter}>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -102,7 +110,7 @@ export function ChargeToBookingDialog({
             {tr('ws.cashier.charge.confirm')}
           </Button>
         </div>
-      }
+      )}
     >
       <p style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}>
         <strong>
@@ -130,6 +138,7 @@ export function ChargeToBookingDialog({
           <MessagePresenter tone="info" icon="info" message={tr('ws.cashier.charge.consequence')} />
         </div>
       )}
+      {openQueued && <MessagePresenter tone="info" icon="wifiOff" style={{ marginBlockStart: 'var(--tp-sp-2)' }} message={tr('ws.cashier.charge.openQueued')} />}
       {partialFailure && <MessagePresenter tone="refused" style={{ marginBlockStart: 'var(--tp-sp-2)' }} message={tr('ws.cashier.charge.partialFailure')} />}
       <ErrorText error={error} />
     </Modal>

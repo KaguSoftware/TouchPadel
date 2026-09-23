@@ -199,10 +199,12 @@ describe('CourtsTab', () => {
     const pulse = screen.getByRole('region', { name: 'Summary' });
     await userEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind No-shows' }));
     await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'noShows', p_key: `court:${COURT_A}` })));
-    await userEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!);
+    // find*, not get*: the RPC being called does not mean the dialog has rendered yet.
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Close' })).at(-1)!);
     await userEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Venue revenue' }));
     await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'revenue', p_key: null })));
-    await userEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!);
+    // find*, not get*: the RPC being called does not mean the dialog has rendered yet.
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Close' })).at(-1)!);
 
     await userEvent.click(screen.getByRole('button', { name: 'Ask for findings' }));
     await waitFor(() => expect(analyticsRpc.saveInsights).toHaveBeenCalledTimes(1));

@@ -30,10 +30,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearch } from '@tanstack/react-router';
-import { formatDate, formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
 import { supabase } from '../../../lib/supabase';
 import { appRpc, AppRpcError } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
+import { useBusinessDay } from '../../../lib/settings';
 import { Button, ErrorText, Field, Select } from '../../../components/ui';
 import {
   AsyncStateWrapper,
@@ -139,8 +140,8 @@ interface ServerFilter {
   prefix: string | null;
 }
 
-async function fetchAuditPage(period: Period, server: ServerFilter): Promise<{ rows: AuditRow[]; total: number | null }> {
-  const bounds = periodBounds(period);
+async function fetchAuditPage(period: Period, startHour: number, server: ServerFilter): Promise<{ rows: AuditRow[]; total: number | null }> {
+  const bounds = periodBounds(period, startHour, VENUE_TZ);
   if (!auditPageUnavailable) {
     try {
       const payload = await appRpc<unknown>('audit_log_page', {
@@ -169,9 +170,9 @@ async function fetchAuditPage(period: Period, server: ServerFilter): Promise<{ r
   return { rows: ((data ?? []) as unknown as AuditRow[]).filter((r) => inPeriod(r, bounds)), total: null };
 }
 
-function initialPeriod(raw: unknown): Period {
+function initialPeriod(raw: unknown, today: Date): Period {
   const preset = typeof raw === 'string' && (PRESETS as readonly string[]).includes(raw) ? (raw as Exclude<PeriodPreset, 'custom'>) : 'last30';
-  return presetPeriod(preset);
+  return presetPeriod(preset, today);
 }
 
 export function AuditLog() {
@@ -181,7 +182,9 @@ export function AuditLog() {
   // `?actor=<staff id>` — the staff-activity report's "audit view filtered to one person".
   const initialActor = typeof search.actor === 'string' ? search.actor : '';
   const [filter, setFilter] = useState<AuditFilter>({ ...EMPTY_FILTER, query: initialQuery, actorId: initialActor });
-  const [period, setPeriod] = useState<Period>(() => initialPeriod(search.period));
+  // Presets count from the venue's business day, the same day the bounds use.
+  const { today, startHour } = useBusinessDay();
+  const [period, setPeriod] = useState<Period>(() => initialPeriod(search.period, today));
   const [expanded, setExpanded] = useState<number | null>(null);
 
   // Person and area go to the server so they reach the whole period, not just
@@ -193,8 +196,8 @@ export function AuditLog() {
   };
 
   const logQ = useQuery({
-    queryKey: ['auditLog', period.from, period.to, server.actorId, server.prefix],
-    queryFn: () => fetchAuditPage(period, server),
+    queryKey: ['auditLog', period.from, period.to, startHour, server.actorId, server.prefix],
+    queryFn: () => fetchAuditPage(period, startHour, server),
     // A manager reading this is investigating something that already happened;
     // silently swapping rows under them mid-read would be worse than stale.
     refetchOnWindowFocus: false,
@@ -320,7 +323,7 @@ export function AuditLog() {
 
       <Toolbar>
         <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.manager.audit.period')}</span>
-        <DateRangeControl period={period} onChange={setPeriod} presets={PRESETS} />
+        <DateRangeControl period={period} onChange={setPeriod} presets={PRESETS} now={today} />
       </Toolbar>
       <Toolbar style={{ alignItems: 'flex-end' }}>
         <Field label={tr('op.common.search')} style={{ marginBlockEnd: 0, inlineSize: '17rem', maxInlineSize: '100%' }}>

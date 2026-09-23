@@ -143,9 +143,6 @@ export function Margins() {
 
           <div>
             <Toolbar end={<ResultCount shown={rows.length} total={all.length} />}>
-              <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
-                <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.margins.search')} />
-              </span>
               <SegmentedControl<Show>
                 value={show}
                 onChange={setShow}
@@ -156,6 +153,9 @@ export function Margins() {
                   { value: 'thin', label: tr('ws.manager.stock.margins.flag.thin') },
                 ]}
               />
+              <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
+                <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.margins.search')} />
+              </span>
             </Toolbar>
             {rows.length === 0 ? (
               <EmptyState

@@ -91,6 +91,45 @@ describe('AnalyticsBar', () => {
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
   });
 
+  // The bar carries backdrop-filter, which makes it a containing block for
+  // fixed-position descendants — so a panel rendered inside it resolved its
+  // viewport coordinates against the BAR and hung low, detached from the
+  // Settings button and floating over the cards. The portal is what fixes it.
+  it('renders the Settings panel outside the filtered bar', async () => {
+    renderBar({ deck: { startHour: 4 } });
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const panel = screen.getByRole('dialog', { name: 'Settings' });
+    expect(document.getElementById('analytics-bar')?.contains(panel)).toBe(false);
+    expect(panel.parentElement).toBe(document.body);
+  });
+
+  // The tip is inside the Settings panel, which is itself portalled and
+  // fixed-positioned: rendered in place its bubble measured against that
+  // panel and landed off-screen, so the button lit up and nothing showed.
+  it('shows the info tip opened from inside the Settings panel', async () => {
+    renderBar({ deck: { startHour: 4 } });
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const panel = screen.getByRole('dialog', { name: 'Settings' });
+    const tip = panel.querySelector<HTMLElement>('.tp-infotip-trigger');
+    expect(tip).toBeTruthy();
+    await userEvent.click(tip!);
+    const bubble = document.querySelector('.tp-infotip[data-open="true"]');
+    expect(bubble).toBeTruthy();
+    // Portalled out of the panel, which is the whole fix.
+    expect(panel.contains(bubble!)).toBe(false);
+    expect(bubble!.parentElement).toBe(document.body);
+  });
+
+  // Opening Settings used to focus the label's InfoTip — the panel's focus
+  // selector said 'select, button, input', and once the dropdown stopped being
+  // a <select> the first match became the tooltip button, which opens on focus
+  // and covered the only control in the panel.
+  it('focuses the setting itself when the panel opens, not the info tip', async () => {
+    renderBar({ deck: { startHour: 4 } });
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Business day starts at' }));
+  });
+
   it('opens the Settings panel, keeps it open through a setting write, and closes on Escape', async () => {
     renderBar({ deck: { startHour: 4 } });
     const more = screen.getByRole('button', { name: 'Settings' });

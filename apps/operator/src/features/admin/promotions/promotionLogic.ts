@@ -4,7 +4,8 @@
  * expired / off), and the plain-language summaries both screens print. The
  * server applies promotions; nothing here prices a bill.
  */
-import { formatDate, formatIQD, formatNumber, type Locale, type MessageKey, type TParams } from '@touch/i18n';
+import { wallTimeToUtc } from '@touch/core';
+import { VENUE_TZ, formatDate, formatIQD, formatNumber, type Locale, type MessageKey, type TParams } from '@touch/i18n';
 import type { PromotionLimits, PromotionRow, PromotionScope, PromotionType } from './promotionsApi';
 
 /** The `tr` a screen gets from useLocale(), or makeT(locale) in a test. */
@@ -46,12 +47,47 @@ export const EMPTY_DRAFT: PromotionDraft = {
   enabled: true,
 };
 
-/** ISO timestamp → YYYY-MM-DD (station-local calendar day), '' for null. */
+/*
+ * Promotion dates are the VENUE's calendar days. They were the station's: a
+ * browser not set to Baghdad shifted both ends by its offset, as marketing's
+ * windows once did (marketingTypes windowToServer). The server prices by venue
+ * time, so the form reads and writes venue midnights.
+ */
+const venueDay = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: VENUE_TZ });
+
+/** ISO timestamp → YYYY-MM-DD (the venue's calendar day), '' for null. */
 export function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return venueDay(d);
+}
+
+/** Today as YYYY-MM-DD on the venue's calendar, to match isoToDateInput. */
+export function todayInput(now = new Date()): string {
+  return venueDay(now);
+}
+
+/**
+ * The earliest start the picker offers: today, so a new promotion cannot be
+ * backdated. A promotion that already began keeps its own start as the floor —
+ * that date is history, not a mistake, and flooring it at today would leave the
+ * saved value out of range and the native picker unable to reopen on it.
+ */
+export function minStartOn(savedStartsOn: string, now = new Date()): string {
+  const today = todayInput(now);
+  return savedStartsOn && savedStartsOn < today ? savedStartsOn : today;
+}
+
+/**
+ * The earliest end the picker offers: today, or the start once that is later —
+ * an end before the start is meaningless. A promotion that already ended keeps
+ * its own end as the floor, for the same reason a started one keeps its start.
+ */
+export function minEndOn(savedEndsOn: string, startsOn: string, now = new Date()): string {
+  const today = todayInput(now);
+  if (savedEndsOn && savedEndsOn < today) return savedEndsOn;
+  return startsOn && startsOn > today ? startsOn : today;
 }
 
 /** 'HH:MM:SS' | 'HH:MM' → 'HH:MM', '' for null. */
@@ -98,8 +134,9 @@ export function toRpcArgs(draft: PromotionDraft, id: string | null): Record<stri
     p_name_ar: draft.name.ar.trim(),
     p_type: draft.type,
     p_value: draft.value,
-    p_starts_at: draft.startsOn ? new Date(`${draft.startsOn}T00:00:00`).toISOString() : null,
-    p_ends_at: draft.endsOn ? new Date(`${draft.endsOn}T23:59:59.999`).toISOString() : null,
+    // The start day's venue midnight, and the last millisecond of the end day.
+    p_starts_at: draft.startsOn ? wallTimeToUtc(draft.startsOn, 0, VENUE_TZ).toISOString() : null,
+    p_ends_at: draft.endsOn ? new Date(wallTimeToUtc(draft.endsOn, 24 * 60, VENUE_TZ).getTime() - 1).toISOString() : null,
     p_weekdays: [...draft.weekdays].sort((a, b) => a - b),
     p_hour_from: draft.hourFrom || null,
     p_hour_to: draft.hourTo || null,
@@ -120,13 +157,17 @@ export function toRpcArgs(draft: PromotionDraft, id: string | null): Record<stri
   };
 }
 
-export type DraftError = 'name' | 'value' | 'percent' | 'dates' | 'hours';
+export type DraftError = 'name' | 'value' | 'percent' | 'startsPast' | 'endsPast' | 'dates' | 'hours';
 
-export function validateDraft(d: PromotionDraft): DraftError[] {
+export function validateDraft(d: PromotionDraft, savedStartsOn = '', savedEndsOn = '', now = new Date()): DraftError[] {
   const errors: DraftError[] = [];
   if (d.name.en.trim() === '' || d.name.ar.trim() === '') errors.push('name');
   if (!(d.value > 0)) errors.push('value');
   else if (d.type === 'percent' && (d.value < 1 || d.value > 99)) errors.push('percent');
+  // The input's `min` already stops the picker; this catches a typed-in date,
+  // which the browser accepts out of range.
+  if (d.startsOn && d.startsOn < minStartOn(savedStartsOn, now)) errors.push('startsPast');
+  if (d.endsOn && d.endsOn < todayInput(now) && !(savedEndsOn && d.endsOn === savedEndsOn)) errors.push('endsPast');
   if (d.startsOn && d.endsOn && d.endsOn < d.startsOn) errors.push('dates');
   // Mirrors upsert_promotion (0067): both hours or neither, and not the same
   // time twice. An end earlier than the start is valid — it runs past
@@ -236,7 +277,9 @@ export function howItApplies(d: Pick<PromotionDraft, 'auto' | 'publicCode' | 'co
 
 export function howText(d: Pick<PromotionDraft, 'auto' | 'publicCode' | 'codeSingleUse'>, tr: Translate): string {
   const how = howItApplies(d);
-  if (how.kind === 'auto') return tr('ws.manager.promotions.noCodeNeeded');
+  // Needing no code is the default and says nothing a manager acts on, so it
+  // stays silent; only a code, or a missing one, is worth a line.
+  if (how.kind === 'auto') return '';
   if (how.kind === 'missing') return tr('ws.manager.promotions.codeMissing');
   const code = tr('ws.manager.promotions.code', { code: how.code });
   return how.singleUse ? `${code} · ${tr('ws.manager.promotions.singleUse')}` : code;
@@ -322,7 +365,7 @@ export function scheduleText(d: Schedule, tr: Translate, locale: Locale): string
 
 /**
  * What the promotion does, in one line built from the draft as it stands:
- * "10% off everything from the cafe · Fri, Sat · 16:00–19:00 · No code needed".
+ * "10% off everything from the cafe · Fri, Sat · 16:00–19:00".
  *
  * Wording follows what the server really does (0067): with no category or
  * item chosen the discount is on the cafe goods, never the court fee; courts
@@ -352,12 +395,13 @@ export function describePromotion(d: PromotionDraft, tr: Translate, locale: Loca
   }
   if (d.limits.total !== null) parts.push(tr('ws.manager.promotions.summary.total', { n: formatNumber(d.limits.total, locale) }));
   if (d.limits.perCustomer !== null) parts.push(tr('ws.manager.promotions.summary.perCustomer', { n: formatNumber(d.limits.perCustomer, locale) }));
-  parts.push(howText(d, tr));
+  const how = howText(d, tr);
+  if (how) parts.push(how);
   return parts.join(' · ');
 }
 
 /** The single reason Save is unavailable, in the order the form reads. */
 export function saveBlocker(errors: readonly DraftError[]): DraftError | null {
-  const order: DraftError[] = ['name', 'value', 'percent', 'dates', 'hours'];
+  const order: DraftError[] = ['name', 'value', 'percent', 'startsPast', 'endsPast', 'dates', 'hours'];
   return order.find((e) => errors.includes(e)) ?? null;
 }

@@ -18,6 +18,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL } from '../playwright.config';
 import {
+  choose,
   DEV_PASSWORD,
   FIXTURE_COURTS_EN,
   SEED_STAFF,
@@ -97,11 +98,37 @@ test.describe('operator journeys', () => {
     const block = page.getByRole('button', { name: new RegExp(WALKIN_NAME) });
     await expect(block).toBeVisible();
 
+    /*
+     * The grid still lines up under the booking.
+     *
+     * The cards are placed explicitly and the slots used to be auto-placed,
+     * so grid flowed the slots AROUND each card: every slot below a booking
+     * sat one card-span too low, in implicit rows grid invented at the
+     * bottom, and the desk read a long gap under the booking with each free
+     * slot offered against the wrong time. The gutter never moved, so the
+     * check is that each slot's top still matches its own label's top.
+     */
+    const misaligned = await page.evaluate(() => {
+      const times = [...document.querySelectorAll<HTMLElement>('[data-grid-time]')];
+      const tops = new Map(times.map((el) => [el.dataset.gridTime!, el.getBoundingClientRect().top]));
+      const bad: string[] = [];
+      for (const slot of document.querySelectorAll<HTMLElement>('[data-slot-min]')) {
+        const want = tops.get(slot.dataset.slotMin!);
+        if (want === undefined) continue;
+        // A row is 2.4rem; a drift of a whole row is the bug, sub-pixel is not.
+        if (Math.abs(slot.getBoundingClientRect().top - want) > 4) {
+          bad.push(slot.dataset.slotMin!);
+        }
+      }
+      return bad;
+    });
+    expect(misaligned).toEqual([]);
+
     // Cancel with a reason.
     await block.click();
     const actions = page.getByRole('dialog', { name: WALKIN_NAME });
     await actions.getByRole('button', { name: 'Cancel booking' }).click();
-    await actions.getByLabel('Reason').selectOption('customer_request');
+    await choose(actions.getByLabel('Reason'), 'customer_request');
     await actions.getByRole('button', { name: 'Cancel booking' }).click();
     await expect(actions).toBeHidden();
     await expect(block).toBeHidden();
@@ -151,11 +178,17 @@ test.describe('operator journeys', () => {
     // the new basket ± controls bump and remove the line ---------------------
     await page.getByRole('button', { name: /Desserts/ }).click();
     await page.getByRole('button', { name: /^Kunafa/ }).click();
+    // The basket starts short, its lines folded away so the item grid keeps the
+    // screen. Opened only now: open, it takes the grid's room, and the tiles
+    // above are needed until the last item is in.
+    await page.getByRole('button', { name: 'Show the basket lines' }).click();
     await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
     await page.getByRole('button', { name: '+1' }).last().click();
     await expect(page.getByText('2× Kunafa (Regular)')).toBeVisible();
     await page.getByRole('button', { name: '−1' }).last().click();
-    await page.getByRole('button', { name: '−1' }).last().click();
+    await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
+    // −1 stops at one; taking the line off is its own button.
+    await page.getByRole('button', { name: 'Remove line' }).last().click();
     await expect(page.getByText(/× Kunafa/)).toHaveCount(0);
     await page.getByRole('button', { name: /Hot Drinks/ }).click();
 
@@ -213,7 +246,7 @@ test.describe('operator journeys', () => {
       // 90 minutes, so shortening lands on 60 — a duration the fixture rate
       // rules actually price. The venue sells 60/90/120; shortening to 30 has
       // no price and the server rightly refuses it.
-      await dialog.getByLabel('Duration').selectOption('90');
+      await choose(dialog.getByLabel('Duration'), '90');
       await dialog.getByRole('button', { name: 'Create booking' }).click();
       await expect(dialog).toBeHidden();
 
@@ -238,7 +271,7 @@ test.describe('operator journeys', () => {
       await expect(actions).toBeVisible();
 
       // Shorten: SOW L310 lists it and there was no UI path at all.
-      await actions.getByLabel('Reason for this change').selectOption('customer_request');
+      await choose(actions.getByLabel('Reason for this change'), 'customer_request');
       const { data: beforeRow } = await svc
         .from('reservations')
         .select('end_at')
@@ -429,7 +462,7 @@ test.describe('operator journeys', () => {
     await override.getByLabel('New price each').fill('2500');
     await override.getByRole('button', { name: 'Change price' }).click();
     const pin = page.getByRole('dialog', { name: 'Change price' }).last();
-    await pin.getByLabel('Reason').selectOption('staff_error');
+    await choose(pin.getByLabel('Reason'), 'staff_error');
     await pin.getByLabel('Manager PIN').fill('380517');
     await pin.getByRole('button', { name: /Confirm|Apply|Change price/ }).last().click();
 
@@ -474,7 +507,7 @@ test.describe('operator journeys', () => {
     await refund.getByLabel('Turkish Coffee').fill('1');
     await refund.getByRole('button', { name: 'Refund', exact: true }).click();
     const refundPin = page.getByRole('dialog', { name: 'Refund' }).last();
-    await refundPin.getByLabel('Reason').selectOption('quality');
+    await choose(refundPin.getByLabel('Reason'), 'quality');
     await refundPin.getByLabel('Manager PIN').fill('380517');
     await refundPin.getByRole('button', { name: /Confirm|Apply|Refund/ }).last().click();
 

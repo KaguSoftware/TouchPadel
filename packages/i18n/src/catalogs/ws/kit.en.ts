@@ -180,7 +180,10 @@ export const kitEn = {
     more: 'More',
     refresh: 'Refresh',
     unsaved: 'Unsaved changes',
-    dirtyLeave: 'You have unsaved changes. Leave and lose them?',
+    dirtyLeave: 'You have unsaved changes',
+    dirtyLeaveBody: 'Everything you changed here will be lost. Are you sure you want to close?',
+    dirtyLeaveConfirm: 'Discard changes',
+    dirtyLeaveCancel: 'Keep editing',
   },
   /** Accessible name of the InfoTip's default trigger (components/InfoTip.tsx). */
   infoTip: {

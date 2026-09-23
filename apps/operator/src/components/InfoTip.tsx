@@ -41,6 +41,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocale } from '../lib/i18n';
 import { Icon } from './icons';
 
@@ -271,11 +272,18 @@ export function InfoTip({
   return (
     <>
       {trigger}
+      {/* Portalled for the same reason SelectMenu and MorePanel are: this is
+          position:fixed, and both the frosted analytics bar (backdrop-filter)
+          and the portalled Settings panel are containing blocks for fixed
+          descendants. Rendered in place, the bubble's viewport coordinates
+          resolved against them — inside Settings it landed off-screen, so the
+          button lit up and nothing appeared. */}
+      {createPortal(
       <div
         ref={panelRef}
         id={id}
         role="tooltip"
-        className="tp-infotip"
+        className="tp-infotip tp-menu-glass"
         data-open={open ? 'true' : 'false'}
         onPointerEnter={() => {
           if (closeTimer.current !== null) {
@@ -291,10 +299,6 @@ export function InfoTip({
           insetInlineStart: geometry ? `${geometry.inlineStart}px` : undefined,
           insetBlockStart: geometry ? `${geometry.blockStart}px` : undefined,
           maxInlineSize,
-          background: 'var(--tp-surface)',
-          border: '1px solid var(--tp-border-strong)',
-          borderRadius: 'var(--tp-radius-ctl)',
-          boxShadow: 'var(--tp-shadow-popover)',
           color: 'var(--tp-fg)',
           fontSize: 'var(--tp-fs-sm)',
           lineHeight: 1.45,
@@ -303,7 +307,9 @@ export function InfoTip({
         }}
       >
         {content}
-      </div>
+      </div>,
+      document.body,
+      )}
     </>
   );
 }

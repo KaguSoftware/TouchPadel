@@ -22,7 +22,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { wallTimeToUtc } from '@touch/core';
+import { DateField } from '../../components/inputs';
 import { formatDate, formatIQD, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
@@ -45,7 +45,7 @@ import {
   ReasonCodePrompt,
 } from '../../components/kit';
 import { allowedMarks, isLive, isOverrideRefusal } from './deskLogic';
-import { tradingDateOf } from './calendar/monthLogic';
+import { nightTimeToUtc, tradingDateOf } from './calendar/monthLogic';
 import { ReservationBadge } from './deskStatus';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import { OVERRIDE_REASONS, STEP_MIN } from './ReservationActionsDialog';
@@ -124,40 +124,49 @@ export function BookingDetailScreen() {
     setRefused(null);
     setDone(false);
     const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
+    let queued = false;
     try {
       switch (kind) {
         case 'arrived':
         case 'completed':
         case 'noShow':
-          await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: kind === 'noShow' ? 'no_show' : kind, reason });
+          queued = (await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: kind === 'noShow' ? 'no_show' : kind, reason })).queued;
           break;
         case 'shorten':
-          await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(), reason });
+          queued = (await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(), reason })).queued;
           break;
         case 'extend':
-          await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(), reason });
+          queued = (await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(), reason })).queued;
           break;
         case 'cancel':
-          await mutate('reservation.update', { action: 'cancel', reservationId: r.id, reason });
+          queued = (await mutate('reservation.update', { action: 'cancel', reservationId: r.id, reason })).queued;
           break;
         case 'move': {
           if (!move) return;
           const [hh, mm] = move.time.split(':').map(Number);
-          const start = wallTimeToUtc(move.date, (hh ?? 0) * 60 + (mm ?? 0), tz);
-          await mutate('reservation.update', {
-            action: 'move',
-            reservationId: r.id,
-            courtId: move.courtId,
-            startAt: start.toISOString(),
-            endAt: new Date(start.getTime() + durationMs).toISOString(),
-            reason,
-          });
+          const start = nightTimeToUtc(move.date, (hh ?? 0) * 60 + (mm ?? 0), tz, settingsQ.data?.opening_hours);
+          queued = (
+            await mutate('reservation.update', {
+              action: 'move',
+              reservationId: r.id,
+              courtId: move.courtId,
+              startAt: start.toISOString(),
+              endAt: new Date(start.getTime() + durationMs).toISOString(),
+              reason,
+            })
+          ).queued;
           setShowMove(false);
           break;
         }
       }
       setPending(null);
-      setDone(true);
+      // "Saved" only for what the server took; a queued change is not applied yet.
+      setDone(!queued);
+      if (queued) {
+        toast.info(tr('ws.courtDesk.detail.queued'));
+        invalidate();
+        return;
+      }
       // Completing a game whose court fee is still open says so, once, where
       // the clerk is looking — the bill panel beside it offers the payment.
       const owed = kind === 'completed' ? queryClient.getQueryData<BookingBill>(['bookingBill', r.id]) : undefined;
@@ -196,7 +205,7 @@ export function BookingDetailScreen() {
   // change and stays allowed.
   const moveStart =
     move && /^\d{2}:\d{2}$/.test(move.time)
-      ? wallTimeToUtc(move.date, Number(move.time.slice(0, 2)) * 60 + Number(move.time.slice(3, 5)), tz)
+      ? nightTimeToUtc(move.date, Number(move.time.slice(0, 2)) * 60 + Number(move.time.slice(3, 5)), tz, settingsQ.data?.opening_hours)
       : null;
   const movePast = Boolean(
     r && moveStart && moveStart.getTime() < Date.now() && moveStart.getTime() !== new Date(r.start_at).getTime(),
@@ -364,7 +373,8 @@ export function BookingDetailScreen() {
                     disabled={busy !== null}
                     onClick={() => {
                       setShowMove((v) => !v);
-                      if (!move) setMove({ courtId: r.court_id, date: new Date(r.start_at).toLocaleDateString('en-CA', { timeZone: tz }), time: '' });
+                      // The NIGHT, as the calendar's move uses: a 01:00 booking is on the night before.
+                      if (!move) setMove({ courtId: r.court_id, date: tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours), time: '' });
                     }}
                   >
                     {tr('ws.courtDesk.detail.move')}
@@ -376,7 +386,7 @@ export function BookingDetailScreen() {
                         <Select value={move.courtId} onChange={(courtId) => setMove({ ...move, courtId })} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
                       </Field>
                       <Field label={tr('ws.courtDesk.detail.newDate')}>
-                        <input type="date" style={inputStyle} value={move.date} onChange={(e) => e.target.value && setMove({ ...move, date: e.target.value })} />
+                        <DateField value={move.date} onChange={(date) => setMove({ ...move, date })} />
                       </Field>
                       <Field label={tr('ws.courtDesk.detail.newTime')}>
                         <input type="time" step={STEP_MIN * 60} style={inputStyle} value={move.time} onChange={(e) => setMove({ ...move, time: e.target.value })} />
@@ -393,7 +403,13 @@ export function BookingDetailScreen() {
                     </div>
                   )}
                   {marks.includes('no_show') && (
-                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => setPending('noShow')}>
+                    // One click, like arrived and completed above: the guest did
+                    // not turn up, and there is nothing to explain. The server
+                    // asks for no reason either -- mark_reservation coalesces a
+                    // missing one to 'no_show' -- so the "Reason required" modal
+                    // this used to open was the app inventing a rule nothing
+                    // downstream held it to (owner, 2026-09-23).
+                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => void run('noShow')}>
                       {tr('ws.courtDesk.detail.noShow')}
                     </Button>
                   )}

@@ -279,9 +279,9 @@ function AddStaffDialog({ onClose, onCreated }: { onClose(): void; onCreated(): 
       title={tr('op.staff.add')}
       subtitle={tr('ws.owner.staff.add.lead')}
       onClose={onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={create.isPending}>
+          <Button onClick={close} disabled={create.isPending}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -295,7 +295,7 @@ function AddStaffDialog({ onClose, onCreated }: { onClose(): void; onCreated(): 
             {tr('op.staff.add')}
           </Button>
         </>
-      }
+      )}
     >
       <Field label={tr('op.staff.name')} required hint={tr('ws.owner.staff.add.nameHint')}>
         <input style={inputStyle} autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
@@ -335,9 +335,9 @@ function PasswordDialog({ staff, onClose }: { staff: StaffRow; onClose(): void }
       title={tr('op.staff.resetPasswordFor', { name: staff.display_name })}
       subtitle={tr('ws.owner.staff.password.lead')}
       onClose={onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={reset.isPending}>
+          <Button onClick={close} disabled={reset.isPending}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -351,7 +351,7 @@ function PasswordDialog({ staff, onClose }: { staff: StaffRow; onClose(): void }
             {tr('ws.owner.staff.password.save')}
           </Button>
         </>
-      }
+      )}
     >
       <Field label={tr('ws.owner.staff.password.label')} hint={tr('op.staff.passwordHint', { min: formatNumber(MIN_PASSWORD, locale) })}>
         <input style={inputStyle} dir="ltr" type="text" autoFocus autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -456,9 +456,9 @@ function PinDialog({ staff, onClose, onSaved }: { staff: StaffRow; onClose(): vo
       subtitle={tr('ws.owner.staff.pin.lead')}
       onClose={onClose}
       size="sm"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={save.isPending}>
+          <Button onClick={close} disabled={save.isPending}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -472,7 +472,7 @@ function PinDialog({ staff, onClose, onSaved }: { staff: StaffRow; onClose(): vo
             {tr('common.save')}
           </Button>
         </>
-      }
+      )}
     >
       <Field label={tr('ws.owner.staff.pin.label')} hint={tr('ws.owner.staff.pin.hint', { min: n(PIN_MIN), max: n(PIN_MAX) })}>
         <input

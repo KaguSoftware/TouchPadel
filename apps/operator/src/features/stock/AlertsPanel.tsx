@@ -202,7 +202,6 @@ function AlertGroup({
 
   return (
     <Panel
-      padded={false}
       title={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
           <CardTitle icon={kind === 'replay_conflict' ? 'wifiOff' : kind === 'expired' || kind === 'expiring_soon' ? 'hourglass' : kind === 'out_of_stock' ? 'ban' : 'package'}>
@@ -219,7 +218,7 @@ function AlertGroup({
         ) : undefined
       }
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-2)' }}>
         <p style={{ flex: '1 1 20rem', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>{tr(`ws.manager.stock.alerts.hint.${kind}`)}</p>
         {href && (
           <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ href })}>

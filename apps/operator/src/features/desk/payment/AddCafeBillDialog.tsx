@@ -128,18 +128,19 @@ export function AddCafeBillDialog({
     <Modal
       title={tr('ws.courtDesk.cafeBill.title')}
       subtitle={tr('ws.courtDesk.cafeBill.lead')}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       size="md"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('ws.courtDesk.cafeBill.cancel')}
           </Button>
           <Button kind="primary" icon="plus" busy={busy} disabled={!selected} disabledReason={tr('ws.courtDesk.cafeBill.chooseFirst')} onClick={() => void add()}>
             {tr('ws.courtDesk.cafeBill.add')}
           </Button>
         </>
-      }
+      )}
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {notice && <MessagePresenter tone="refused" message={notice} />}

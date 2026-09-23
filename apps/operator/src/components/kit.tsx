@@ -7,14 +7,14 @@
  * Inline styles with logical properties only; interaction states via the
  * class hooks in GlobalStyles.
  */
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { formatIQD, formatNumber, formatPercent } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import type { StaffRole } from '../lib/auth';
 import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinner, card, inputStyle, type ReasonCode } from './ui';
 import { Icon, type IconName } from './icons';
-import { BilingualFields } from './inputs';
+import { BilingualFields, DateField } from './inputs';
 
 // ---------------------------------------------------------------------------
 // Page structure
@@ -22,6 +22,7 @@ import { BilingualFields } from './inputs';
 
 export function PageHeader({
   title,
+  titleAfter,
   subtitle,
   actions,
   eyebrow,
@@ -29,6 +30,12 @@ export function PageHeader({
   style,
 }: {
   title: string;
+  /**
+   * Sits on the title's own line, beside the heading rather than out in
+   * `actions` at the far end of the header. For the control that belongs TO
+   * the title — a refresh of what this page shows — where the eye already is.
+   */
+  titleAfter?: ReactNode;
   subtitle?: ReactNode;
   eyebrow?: ReactNode;
   actions?: ReactNode;
@@ -52,7 +59,14 @@ export function PageHeader({
               {eyebrow}
             </p>
           )}
-          <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+          {titleAfter ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+              {titleAfter}
+            </div>
+          ) : (
+            <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+          )}
           {subtitle && (
             <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem', maxInlineSize: '70ch' }}>{subtitle}</p>
           )}
@@ -575,6 +589,34 @@ const sortHeaderButton: CSSProperties = {
   textAlign: 'start',
 };
 
+type RowBlock<T> = { kind: 'row'; row: T } | { kind: 'group'; key: string; rows: T[] };
+
+/**
+ * Split rows into groups, in FIRST-APPEARANCE order.
+ *
+ * A group takes every row sharing its key, not just adjacent ones, so the
+ * combined figure in its header is the whole truth even when the table is
+ * sorted by something else. The group lands where its first row was, and rows
+ * with a null key stay exactly where they were — so turning grouping on never
+ * shuffles the rows that are not grouped.
+ */
+function buildRowBlocks<T>(rows: readonly T[], groupBy?: (row: T) => string | null): RowBlock<T>[] {
+  if (!groupBy) return rows.map((row) => ({ kind: 'row', row }));
+  const blocks: RowBlock<T>[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const key = groupBy(row);
+    if (key === null) {
+      blocks.push({ kind: 'row', row });
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    blocks.push({ kind: 'group', key, rows: rows.filter((r) => groupBy(r) === key) });
+  }
+  return blocks;
+}
+
 export function DataTable<T>({
   columns,
   rows,
@@ -588,6 +630,8 @@ export function DataTable<T>({
   fill,
   maxBlockSize,
   footer,
+  groupBy,
+  renderGroupHeader,
   'aria-label': ariaLabel,
 }: {
   columns: readonly Column<T>[];
@@ -604,78 +648,23 @@ export function DataTable<T>({
   /** Scroll inside the table instead of the page. */
   maxBlockSize?: string;
   footer?: ReactNode;
+  /**
+   * Gather rows under a shared heading. Returning null leaves a row on its own,
+   * exactly as an ungrouped table renders it, so a board can group some rows
+   * and not others. Opt-in: without this the table renders as it always has.
+   */
+  groupBy?: (row: T) => string | null;
+  /** The heading cell for one group; it spans every column. */
+  renderGroupHeader?: (key: string, rows: readonly T[]) => ReactNode;
   'aria-label'?: string;
 }) {
   const { tr } = useLocale();
-  return (
-    <div
-      style={{
-        border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-panel)',
-        overflow: 'auto',
-        maxBlockSize,
-        background: 'var(--tp-surface)',
-        ...(fill ? { flex: 1, minBlockSize: 0 } : null),
-      }}
-    >
-      <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
-        <thead>
-          <tr>
-            {columns.map((c) => {
-              const align = c.align ?? (c.numeric ? 'end' : 'start');
-              const active = sort?.key === c.key;
-              const sortable = Boolean(c.sortable && onSort);
-              const inner = (
-                <>
-                  {c.header}
-                  {active && (
-                    <Icon
-                      name="chevronDown"
-                      size={12}
-                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
-                      style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
-                    />
-                  )}
-                </>
-              );
-              return (
-                <th
-                  key={c.key}
-                  data-align={align}
-                  data-sortable={sortable ? 'true' : undefined}
-                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                  style={{ inlineSize: c.width }}
-                >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      style={{
-                        ...sortHeaderButton,
-                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
-                      }}
-                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
-                    >
-                      {inner}
-                    </button>
-                  ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
-                  )}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
-                {emptyContent ?? tr('ws.kit.table.noRows')}
-              </td>
-            </tr>
-          )}
-          {rows.map((row, i) => {
-            const key = rowKey(row, i);
-            return (
+
+  // One row, extracted so a grouped table renders the same markup inside a
+  // group as an ungrouped one does at the top level.
+  const renderRow = (row: T, i: number) => {
+    const key = rowKey(row, i);
+    return (
               <tr
                 key={key}
                 data-clickable={onRowClick ? 'true' : undefined}
@@ -749,9 +738,93 @@ export function DataTable<T>({
                   );
                 })}
               </tr>
-            );
-          })}
+    );
+  };
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        overflow: 'auto',
+        maxBlockSize,
+        background: 'var(--tp-surface)',
+        ...(fill ? { flex: 1, minBlockSize: 0 } : null),
+      }}
+    >
+      <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
+        <thead>
+          <tr>
+            {columns.map((c) => {
+              const align = c.align ?? (c.numeric ? 'end' : 'start');
+              const active = sort?.key === c.key;
+              const sortable = Boolean(c.sortable && onSort);
+              const inner = (
+                <>
+                  {c.header}
+                  {active && (
+                    <Icon
+                      name="chevronDown"
+                      size={12}
+                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
+                      style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
+                    />
+                  )}
+                </>
+              );
+              return (
+                <th
+                  key={c.key}
+                  data-align={align}
+                  data-sortable={sortable ? 'true' : undefined}
+                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  style={{ inlineSize: c.width }}
+                >
+                  {sortable ? (
+                    <button
+                      type="button"
+                      style={{
+                        ...sortHeaderButton,
+                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
+                      }}
+                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
+                    >
+                      {inner}
+                    </button>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
+                  )}
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
+                {emptyContent ?? tr('ws.kit.table.noRows')}
+              </td>
+            </tr>
+          )}
+          {buildRowBlocks(rows, groupBy).map((block) =>
+            block.kind === 'group' ? (
+              <Fragment key={`g:${block.key}`}>
+                {renderGroupHeader && (
+                  <tr data-group-header="true">
+                    <td colSpan={columns.length} style={{ background: 'var(--tp-surface-2)' }}>
+                      {renderGroupHeader(block.key, block.rows)}
+                    </td>
+                  </tr>
+                )}
+                {block.rows.map((row) => renderRow(row, rows.indexOf(row)))}
+              </Fragment>
+            ) : (
+              renderRow(block.row, rows.indexOf(block.row))
+            ),
+          )}
         </tbody>
+
         {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>
@@ -1428,22 +1501,22 @@ export function DateRangeControl({
         </Button>
       ))}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginInlineStart: '0.4rem' }}>
-        <input
-          type="date"
-          aria-label={tr('ws.kit.dateRange.from')}
+        {/* DateField: a raw date input let '20266-…' through the `from > to`
+            string check, and formatting it threw, taking the whole report down. */}
+        <DateField
+          ariaLabel={tr('ws.kit.dateRange.from')}
           value={draft.from}
           disabled={disabled}
-          onChange={(e) => e.target.value && setDraft((d) => ({ ...d, from: e.target.value }))}
-          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
+          onChange={(v) => setDraft((d) => ({ ...d, from: v }))}
+          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         <span style={{ color: 'var(--tp-muted-fg)' }}>–</span>
-        <input
-          type="date"
-          aria-label={tr('ws.kit.dateRange.to')}
+        <DateField
+          ariaLabel={tr('ws.kit.dateRange.to')}
           value={draft.to}
           disabled={disabled}
-          onChange={(e) => e.target.value && setDraft((d) => ({ ...d, to: e.target.value }))}
-          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
+          onChange={(v) => setDraft((d) => ({ ...d, to: v }))}
+          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         {(draft.from !== period.from || draft.to !== period.to) && (
           <Button size="sm" kind="soft" disabled={disabled || draft.from > draft.to} onClick={() => onChange(draft)}>
@@ -1486,7 +1559,7 @@ export function DrillThroughPanel<T>({
 }) {
   const { tr } = useLocale();
   return (
-    <Modal title={title ?? tr('ws.kit.drill.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('ws.kit.drill.close')}</Button>}>
+    <Modal title={title ?? tr('ws.kit.drill.title')} onClose={onClose} size="lg" footer={(close) => (<Button onClick={close}>{tr('ws.kit.drill.close')}</Button>)}>
       <AsyncStateWrapper
         status={status}
         onRetry={onRetry}
@@ -1527,7 +1600,8 @@ export function PinPromptOverlay({
     <Modal
       title={tr('ws.kit.pin.title')}
       subtitle={tr('ws.kit.pin.lead', { action })}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       size="sm"
       footer={
         <>
@@ -1590,7 +1664,8 @@ export function ReasonCodePrompt({
     <Modal
       title={tr('ws.kit.reason.title')}
       subtitle={tr('ws.kit.reason.lead', { action })}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       size="sm"
       footer={
         <>
@@ -1889,12 +1964,16 @@ export function SegmentedControl<T extends string>({
 // Money helpers for display (formatting only; no arithmetic)
 // ---------------------------------------------------------------------------
 
-export function Money({ amount, style, strong }: { amount: number | null | undefined; style?: CSSProperties; strong?: boolean }) {
+/**
+ * `unit={false}` drops the IQD suffix for callers whose column header already
+ * carries the unit — repeating it on every row is noise, not information.
+ */
+export function Money({ amount, style, strong, unit = true }: { amount: number | null | undefined; style?: CSSProperties; strong?: boolean; unit?: boolean }) {
   const { locale } = useLocale();
   if (amount == null) return <span style={{ color: 'var(--tp-muted-fg)', ...style }}>—</span>;
   return (
     <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', fontWeight: strong ? 700 : undefined, ...style }}>
-      {formatIQD(amount, locale)}
+      {unit ? formatIQD(amount, locale) : formatNumber(amount, locale)}
     </span>
   );
 }

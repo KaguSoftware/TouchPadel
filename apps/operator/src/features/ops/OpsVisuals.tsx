@@ -209,28 +209,40 @@ export function Step({
 }) {
   const { locale } = useLocale();
   return (
-    <li style={{ display: 'grid', gridTemplateColumns: '1.5rem 1fr', columnGap: 'var(--tp-sp-2)', rowGap: 'var(--tp-sp-2)', alignItems: 'center' }}>
-      {done ? (
-        <Icon name="checkCircle" size={20} style={{ color: MARK.success }} />
-      ) : (
-        <span
-          aria-hidden="true"
-          style={{
-            display: 'grid',
-            placeItems: 'center',
-            inlineSize: '1.375rem',
-            blockSize: '1.375rem',
-            borderRadius: '999px',
-            fontSize: 'var(--tp-fs-xs)',
-            fontWeight: 700,
-            background: MARK_SOFT[tone],
-            color: MARK_FG[tone],
-          }}
-        >
-          {formatNumber(index, locale)}
-        </span>
-      )}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
+    <li
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1.5rem 1fr',
+        columnGap: 'var(--tp-sp-4)',
+        rowGap: 'var(--tp-sp-2)',
+        alignItems: 'center',
+        alignContent: 'center',
+        minBlockSize: '3.5rem',
+      }}
+    >
+      {/* Done or not, the marker is the same disc in the same place, so the
+          column reads as one line of steps rather than a tick that outgrew its
+          numbers. Only what is inside it, and its tone, change. */}
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          inlineSize: '1.5rem',
+          blockSize: '1.5rem',
+          borderRadius: '999px',
+          fontSize: 'var(--tp-fs-xs)',
+          fontWeight: 700,
+          lineHeight: 1,
+          fontVariantNumeric: 'tabular-nums',
+          fontFamily: 'var(--tp-font-numeric)',
+          background: done ? MARK_SOFT.success : MARK_SOFT[tone],
+          color: done ? MARK_FG.success : MARK_FG[tone],
+        }}
+      >
+        {done ? <Icon name="check" size={14} /> : formatNumber(index, locale)}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
         <span style={{ fontWeight: 600, color: done ? 'var(--tp-muted-fg)' : 'var(--tp-fg)' }}>{title}</span>
         {status && (
           <span style={{ marginInlineStart: 'auto', fontWeight: 700, color: done ? MARK_FG.success : MARK_FG[tone] }}>{status}</span>

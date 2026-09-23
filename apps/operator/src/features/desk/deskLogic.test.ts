@@ -2,15 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
   allowedMarks,
   arrivalsDue,
+  blockRangeInvalid,
+  canMoveReservation,
   courtAvailability,
+  durationsFitting,
   groupByStart,
   guestNameOf,
   isOverrideRefusal,
   isVisible,
   nameFromQuery,
   nightSummary,
+  packLanes,
   phoneDigitCount,
   phoneFromQuery,
+  gridPlacement,
   sanitizeName,
   sanitizePhone,
   slotTaken,
@@ -275,5 +280,233 @@ describe('splitting a customer search between the name and phone boxes', () => {
     expect(phoneFromQuery('   ')).toBe('');
     expect(nameFromQuery('--')).toBe('');
     expect(phoneFromQuery('--')).toBe('');
+  });
+});
+
+describe('packLanes', () => {
+  const at = (h: number, m = 0) => `2026-09-03T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`;
+
+  it('gives a court with no overlap one full-width lane each', () => {
+    const got = packLanes([
+      row({ id: 'a', start_at: at(15), end_at: at(16) }),
+      row({ id: 'b', start_at: at(16), end_at: at(17) }),
+    ]);
+    expect(got.get('a')).toEqual({ lane: 0, lanes: 1 });
+    expect(got.get('b')).toEqual({ lane: 0, lanes: 1 });
+  });
+
+  it('puts two overlapping bookings side by side', () => {
+    // The screenshot's case: 21:00-22:00 under 21:30-22:30.
+    const got = packLanes([
+      row({ id: 'a', start_at: at(21), end_at: at(22) }),
+      row({ id: 'b', start_at: at(21, 30), end_at: at(22, 30) }),
+    ]);
+    expect(got.get('a')).toEqual({ lane: 0, lanes: 2 });
+    expect(got.get('b')).toEqual({ lane: 1, lanes: 2 });
+  });
+
+  it('gives a triple booking three lanes', () => {
+    const got = packLanes([
+      row({ id: 'a', start_at: at(20), end_at: at(22) }),
+      row({ id: 'b', start_at: at(20, 30), end_at: at(21, 30) }),
+      row({ id: 'c', start_at: at(21), end_at: at(23) }),
+    ]);
+    expect(got.get('a')).toEqual({ lane: 0, lanes: 3 });
+    expect(got.get('b')).toEqual({ lane: 1, lanes: 3 });
+    expect(got.get('c')).toEqual({ lane: 2, lanes: 3 });
+  });
+
+  it('reuses a lane once it is free inside one cluster', () => {
+    const got = packLanes([
+      row({ id: 'a', start_at: at(20), end_at: at(21) }),
+      row({ id: 'b', start_at: at(20, 30), end_at: at(22) }),
+      row({ id: 'c', start_at: at(21), end_at: at(22) }),
+    ]);
+    // c starts when a ends, so it takes a's lane rather than opening a third.
+    expect(got.get('c')?.lane).toBe(0);
+    expect(got.get('c')?.lanes).toBe(2);
+  });
+
+  it('keeps a lone booking full width when another hour is double-booked', () => {
+    const got = packLanes([
+      row({ id: 'lone', start_at: at(18), end_at: at(19) }),
+      row({ id: 'a', start_at: at(21), end_at: at(22) }),
+      row({ id: 'b', start_at: at(21, 30), end_at: at(22, 30) }),
+    ]);
+    expect(got.get('lone')).toEqual({ lane: 0, lanes: 1 });
+    expect(got.get('a')?.lanes).toBe(2);
+  });
+
+  it('does not overlap rows that merely touch', () => {
+    const got = packLanes([
+      row({ id: 'a', start_at: at(15), end_at: at(16) }),
+      row({ id: 'b', start_at: at(16), end_at: at(17) }),
+      row({ id: 'c', start_at: at(17), end_at: at(18) }),
+    ]);
+    expect([...got.values()].every((l) => l.lanes === 1)).toBe(true);
+  });
+
+  it('is stable whatever order the rows arrive in', () => {
+    const rows = [
+      row({ id: 'a', start_at: at(21), end_at: at(22) }),
+      row({ id: 'b', start_at: at(21, 30), end_at: at(22, 30) }),
+    ];
+    expect(packLanes(rows)).toEqual(packLanes([...rows].reverse()));
+  });
+});
+
+describe('durationsFitting', () => {
+  const CLOSE = 26 * 60; // 02:00, the night after a 17:00 open.
+
+  it('offers every length in the middle of the night', () => {
+    expect(durationsFitting([60, 90, 120], 20 * 60, CLOSE)).toEqual([60, 90, 120]);
+  });
+
+  it('offers only the half hour that fits in the last slot', () => {
+    // 01:30 with a 02:00 close: the 60 that used to write 01:30-02:30 is gone.
+    expect(durationsFitting([30, 60, 90], 25.5 * 60, CLOSE)).toEqual([30]);
+  });
+
+  it('offers nothing when the shortest game would run past the close', () => {
+    // A court selling 60 upwards has nothing to sell in the last half hour;
+    // the dialog blocks rather than booking an overrun.
+    expect(durationsFitting([60, 90], 25.5 * 60, CLOSE)).toEqual([]);
+  });
+
+  it('keeps a length that ends exactly at the close', () => {
+    expect(durationsFitting([60, 90], 25 * 60, CLOSE)).toEqual([60]);
+  });
+
+  it('drops the lengths that overrun and keeps the rest', () => {
+    expect(durationsFitting([60, 90, 120], 24 * 60, CLOSE)).toEqual([60, 90, 120]);
+    expect(durationsFitting([60, 90, 120], 24.5 * 60, CLOSE)).toEqual([60, 90]);
+  });
+
+
+
+  it('sorts a court list that is stored out of order', () => {
+    expect(durationsFitting([120, 60, 90], 20 * 60, CLOSE)).toEqual([60, 90, 120]);
+  });
+});
+
+describe('gridPlacement', () => {
+  // A night trading 09:00 -> 02:00, drawn in 30-minute rows.
+  const OPEN = 9 * 60;
+  const SLOT = 30;
+  const ROW_COUNT = Math.ceil((26 * 60 - OPEN) / SLOT);
+  // Midnight of the calendar date, in a zone with no offset so the test states
+  // the wall clock it means. Hours past 24 are the next calendar date.
+  const dayStart = Date.UTC(2026, 8, 23);
+  const at = (h: number, m = 0) => new Date(dayStart + (h * 60 + m) * 60_000).toISOString();
+  const place = (from: string, to: string) => gridPlacement(from, to, dayStart, OPEN, SLOT, ROW_COUNT);
+
+  it('puts the opening slot in the first row', () => {
+    expect(place(at(9), at(10))).toEqual({ from: 0, span: 2 });
+  });
+
+  it('counts rows forward through the evening', () => {
+    expect(place(at(12, 30), at(14))?.from).toBe(7);
+    expect(place(at(16), at(17))?.from).toBe(14);
+  });
+
+  it('places the after-midnight tail at the BOTTOM of the night, not the top', () => {
+    // Tonight's tail is on the NEXT calendar date. Clamped onto the 09:00 row
+    // it painted over the morning and pushed the free slots out of line.
+    expect(place(at(24, 30), at(25, 30))).toEqual({ from: 31, span: 2 });
+    expect(place(at(25, 30), at(26))?.from).toBe(33);
+  });
+
+  it('keeps a reservation that ends by the opening off the grid', () => {
+    // 03:34, the block from the old bug report: drawn at 09:00 it covered the morning.
+    expect(place(at(3, 34), at(5))).toBeNull();
+    expect(place(at(8), at(9))).toBeNull();
+  });
+
+  it('draws a block that runs INTO the opening from the first row, clipped', () => {
+    // 08:00-10:00: folded off the grid, the 09:00-10:00 cells showed free and
+    // a click there met SLOT_TAKEN with nothing drawn.
+    expect(place(at(8), at(10))).toEqual({ from: 0, span: 2 });
+  });
+
+  it('reports a start past the close as off the grid rather than clamping it', () => {
+    expect(place(at(26, 30), at(27))).toBeNull();
+  });
+
+  it('keeps a start inside a row in that row', () => {
+    expect(place(at(9, 29), at(10))?.from).toBe(0);
+    expect(place(at(9, 30), at(10))?.from).toBe(1);
+  });
+});
+
+describe('canMoveReservation', () => {
+  // The fixture runs 15:00-16:00 UTC on 2026-09-03.
+  const during = new Date('2026-09-03T15:30:00.000Z').getTime();
+  const before = new Date('2026-09-03T14:00:00.000Z').getTime();
+  const after = new Date('2026-09-03T18:00:00.000Z').getTime();
+
+  it('refuses a checked-in booking whose slot has started', () => {
+    const r = row({ id: 'playing', status: 'arrived' });
+    expect(canMoveReservation(r, during)).toBe(false);
+    expect(canMoveReservation(r, after)).toBe(false);
+  });
+
+  it('allows an early check-in that has not started yet', () => {
+    // The desk checks guests in before the hour; until the slot starts there
+    // is still nothing being played, so the time may still change.
+    expect(canMoveReservation(row({ id: 'early', status: 'arrived' }), before)).toBe(true);
+  });
+
+  it('allows a confirmed booking whether or not its slot has passed', () => {
+    const r = row({ id: 'noshow-pending', status: 'confirmed' });
+    expect(canMoveReservation(r, before)).toBe(true);
+    expect(canMoveReservation(r, during)).toBe(true);
+    expect(canMoveReservation(r, after)).toBe(true);
+  });
+
+  it('allows a pending hold-turned-booking and refuses terminal statuses', () => {
+    expect(canMoveReservation(row({ id: 'p', status: 'pending' }), during)).toBe(true);
+    for (const status of ['completed', 'cancelled', 'no_show', 'expired']) {
+      expect(canMoveReservation(row({ id: status, status }), before)).toBe(false);
+    }
+  });
+
+  it('refuses anything that is not a booking', () => {
+    expect(canMoveReservation(row({ id: 'h', kind: 'hold', status: 'pending' }), before)).toBe(false);
+    expect(canMoveReservation(row({ id: 'm', kind: 'maintenance', status: 'confirmed' }), before)).toBe(
+      false,
+    );
+  });
+
+  it('turns exactly at the start instant', () => {
+    const start = new Date('2026-09-03T15:00:00.000Z').getTime();
+    const r = row({ id: 'edge', status: 'arrived' });
+    expect(canMoveReservation(r, start)).toBe(true);
+    expect(canMoveReservation(r, start + 1)).toBe(false);
+  });
+});
+
+describe('blockRangeInvalid', () => {
+  it('refuses an end before the start', () => {
+    // The reported case: 09:00 -> 08:00 used to become a 23-hour block.
+    expect(blockRangeInvalid(9 * 60, 8 * 60)).toBe(true);
+    expect(blockRangeInvalid(22 * 60, 2 * 60)).toBe(true);
+  });
+
+  it('refuses a zero-length block', () => {
+    expect(blockRangeInvalid(9 * 60, 9 * 60)).toBe(true);
+  });
+
+  it('accepts a forward range', () => {
+    expect(blockRangeInvalid(9 * 60, 11 * 60)).toBe(false);
+    expect(blockRangeInvalid(0, 30)).toBe(false);
+    expect(blockRangeInvalid(0, 24 * 60)).toBe(false);
+  });
+
+  it('does not judge a half-filled form', () => {
+    // Missing is the required-field error; two messages under one empty box
+    // would be the screen contradicting itself.
+    expect(blockRangeInvalid(null, 8 * 60)).toBe(false);
+    expect(blockRangeInvalid(9 * 60, null)).toBe(false);
+    expect(blockRangeInvalid(null, null)).toBe(false);
   });
 });

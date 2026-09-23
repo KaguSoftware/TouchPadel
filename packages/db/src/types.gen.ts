@@ -200,6 +200,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_terms: { Args: { p_version?: string }; Returns: Json }
       ack_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       acknowledge_alert: { Args: { p_alert_id: string }; Returns: undefined }
       add_customer_note: {
@@ -1055,6 +1056,23 @@ export type Database = {
           p_start_at?: string
         }
         Returns: Json
+      }
+      my_reservations: {
+        Args: { p_reservation_id?: string }
+        Returns: {
+          cancelled_at: string
+          cancelled_by: string
+          court_id: string
+          court_paid_iqd: number
+          court_remaining_iqd: number
+          end_at: string
+          hold_expires_at: string
+          id: string
+          kind: string
+          price_iqd: number
+          start_at: string
+          status: string
+        }[]
       }
       normalize_finding: { Args: { p_text: string }; Returns: string }
       open_day: {
@@ -4171,6 +4189,8 @@ export type Database = {
           id: string
           phone: string | null
           preferred_lang: string
+          terms_accepted_at: string | null
+          terms_version: string | null
         }
         Insert: {
           created_at?: string
@@ -4180,6 +4200,8 @@ export type Database = {
           id: string
           phone?: string | null
           preferred_lang?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
         }
         Update: {
           created_at?: string
@@ -4189,6 +4211,8 @@ export type Database = {
           id?: string
           phone?: string | null
           preferred_lang?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
         }
         Relationships: []
       }

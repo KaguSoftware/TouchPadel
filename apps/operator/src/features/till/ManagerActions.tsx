@@ -15,12 +15,13 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, formatTime } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { mutate, type MutateOutcome } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
+import { mergeDonorLabel } from './tillData';
 import { requiredRoleFor } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle } from '../../components/ui';
 import { MessagePresenter, Money, PermissionRefusedNotice } from '../../components/kit';
@@ -133,9 +134,9 @@ export function RefundDialog({
       <Modal
         title={tr('op.till.refund')}
         onClose={onClose}
-        footer={
+        footer={(close) => (
           <div style={reasonedFooter}>
-            <Button onClick={onClose} disabled={busy}>
+            <Button onClick={close} disabled={busy}>
               {tr('common.cancel')}
             </Button>
             <Button
@@ -148,7 +149,7 @@ export function RefundDialog({
               {tr('op.till.refund')}
             </Button>
           </div>
-        }
+        )}
       >
         {!canRefund && (
           <PermissionRefusedNotice action={tr('ws.cashier.refund.refusedAction')} requiredRole={requiredRoleFor('refund')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
@@ -275,9 +276,9 @@ export function OverridePriceDialog({
         title={tr('op.till.override')}
         onClose={onClose}
         size="sm"
-        footer={
+        footer={(close) => (
           <div style={reasonedFooter}>
-            <Button onClick={onClose} disabled={busy}>
+            <Button onClick={close} disabled={busy}>
               {tr('common.cancel')}
             </Button>
             <Button
@@ -290,7 +291,7 @@ export function OverridePriceDialog({
               {tr('op.till.override')}
             </Button>
           </div>
-        }
+        )}
       >
         <p style={{ fontWeight: 600 }}>
           <bdi>{label}</bdi>
@@ -326,8 +327,9 @@ export function OverridePriceDialog({
 interface MergeCandidate {
   id: string;
   label: string | null;
+  opened_at: string;
   table: { table_number: string } | null;
-  reservation: { guest_name: string | null } | null;
+  reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
 }
 
 export function MergeTabsDialog({
@@ -341,7 +343,7 @@ export function MergeTabsDialog({
   onDone(): void;
   onClose(): void;
 }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const [donorId, setDonorId] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -352,7 +354,12 @@ export function MergeTabsDialog({
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, label, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name)')
+        // The court and the open time are here so a booking tab has something
+        // human to be listed under: an account holder's booking carries no
+        // guest_name, and this picker used to fall back to a UUID fragment.
+        .select(
+          'id, label, opened_at, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar))',
+        )
         .in('status', ['open', 'awaiting_payment'])
         .is('merged_into_tab_id', null)
         .neq('id', survivorTabId)
@@ -363,8 +370,12 @@ export function MergeTabsDialog({
   });
 
   function nameOf(t: MergeCandidate): string {
-    if (t.table) return `${tr('op.till.table')} ${t.table.table_number}`;
-    return t.reservation?.guest_name ?? t.label ?? t.id.slice(0, 8);
+    return mergeDonorLabel(
+      t,
+      { table: tr('op.till.table'), reservation: tr('op.till.forReservation') },
+      t.reservation?.court ? pickName(locale, t.reservation.court) : null,
+      formatTime(new Date(t.opened_at), locale),
+    );
   }
 
   async function submit() {
@@ -385,11 +396,12 @@ export function MergeTabsDialog({
   return (
     <Modal
       title={tr('ws.cashier.merge.title')}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       size="sm"
-      footer={
+      footer={(close) => (
         <div style={reasonedFooter}>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -403,7 +415,7 @@ export function MergeTabsDialog({
             {tr('ws.cashier.merge.confirm')}
           </Button>
         </div>
-      }
+      )}
     >
       <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.merge.into', { name: survivorLabel })}</p>
       <ErrorText error={candidatesQ.error} />

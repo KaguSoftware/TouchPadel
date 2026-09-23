@@ -48,7 +48,8 @@ import { HighlightDot, MarginChip, Thumb } from './chips';
 import { countWithoutCost, defaultPrice, itemListView, nextSortOrder, reorderedIds, sortRows } from './menuLogic';
 import { CategoryForm } from './CategoryEditor';
 import { ItemForm } from './ItemForm';
-import { MENU_AVAILABILITY_KEY, fetchStockBlockData, stockBlockFor, todayIso } from './availability';
+import { MENU_AVAILABILITY_KEY, fetchStockBlockData, stockBlockFor } from './availability';
+import { useBusinessToday } from '../../../lib/settings';
 import { patchCachedItems, useAdminMenu, type CategoryRow, type ItemRow } from './useAdminMenu';
 import { useNarrow } from './useNarrow';
 
@@ -70,7 +71,9 @@ export function MenuEditor() {
     queryFn: fetchStockBlockData,
     refetchInterval: 60_000,
   });
-  const today = todayIso();
+  // unavailable_on is stamped with the BUSINESS date (0041); after midnight the
+  // station calendar has moved on and "off today" items read as stock-blocked.
+  const today = useBusinessToday();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | 'new' | null>(null);
@@ -193,7 +196,7 @@ export function MenuEditor() {
         const price = defaultPrice(i.menu_item_variants);
         return (
           <span style={{ display: 'inline-grid', justifyItems: 'end', gap: 'var(--tp-sp-0)' }}>
-            <Money amount={price} />
+            <Money amount={price} unit={false} />
             <MarginChip price={price} cost={data?.costs.get(i.id) ?? null} />
           </span>
         );

@@ -126,7 +126,13 @@ input:disabled, select:disabled, textarea:disabled {
   color: var(--tp-fg);
   border-radius: var(--tp-radius-ctl);
   padding-block: 0.45rem; padding-inline: 0.85rem;
-  font-size: var(--tp-fs-md); font-weight: 600; line-height: 1.25;
+  /* line-height 1 on the LABEL's own box, not 1.25: a bare text node inside
+     this inline-flex forms an anonymous inline box sized by the font's ascent
+     and descent, which are asymmetric — the descent reserves room for a 'g'
+     that "Void" does not have. At 1.25 that box is taller than the glyphs and
+     centring it left the icon beside them riding high. The button keeps its
+     height from padding and min-block-size, so nothing resizes. */
+  font-size: var(--tp-fs-md); font-weight: 600; line-height: 1;
   min-block-size: 2.25rem;
   cursor: pointer; user-select: none; white-space: nowrap;
   /* 'transform' is deliberately NOT in this list: the :active nudge below
@@ -216,7 +222,8 @@ input:disabled, select:disabled, textarea:disabled {
    operator caused it, so nothing may move (DESIGN.md Motion). Geometry and
    surface tokens are inline on the instance; this is the state machine. */
 .tp-infotip {
-  position: fixed; z-index: var(--tp-z-popover);
+  /* Above --tp-z-menu: a tip can be opened from inside a menu's panel. */
+  position: fixed; z-index: var(--tp-z-tooltip);
   visibility: hidden; opacity: 0; pointer-events: none;
   transition: opacity var(--tp-dur-fast) var(--tp-ease-out);
 }
@@ -416,6 +423,8 @@ input:disabled, select:disabled, textarea:disabled {
 @keyframes tpSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes tpFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tpRise { from { opacity: 0; transform: translateY(var(--tp-rise)); } to { opacity: 1; transform: none; } }
+@keyframes tpFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes tpSink { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(var(--tp-rise)); } }
 /* The skeleton sweep. Travels along the reading direction, so it mirrors in
    Arabic off --tp-dir-sign like tpMarquee does, and it moves a transform
    rather than a background-position so it stays off the paint path. */
@@ -429,6 +438,15 @@ input:disabled, select:disabled, textarea:disabled {
 }
 .tp-rise { animation: tpRise var(--tp-dur-base) var(--tp-ease-out) both; }
 .tp-fade { animation: tpFadeIn var(--tp-dur-base) var(--tp-ease-out) both; }
+
+/* Leaving. A dialog that arrives on tpRise and then vanishes between two frames
+   reads as a glitch, not a dismissal; a data-closing attribute on the backdrop replays
+   both halves in reverse and the panel only unmounts once they have run (see
+   Modal in components/ui.tsx). Same --tp-dur-base as the entrance: a shorter
+   exit made opening and closing the same dialog feel like two different
+   controls. */
+[data-closing] .tp-rise, .tp-rise[data-closing] { animation: tpSink var(--tp-dur-base) var(--tp-ease-out) both; }
+[data-closing].tp-fade, .tp-fade[data-closing] { animation: tpFadeOut var(--tp-dur-base) var(--tp-ease-out) both; }
 
 /* Indeterminate progress. '.tp-ball-spin' is referenced by components/brand.tsx
    (BrandBall spin) and had no rule at all, so the brand ball was silently

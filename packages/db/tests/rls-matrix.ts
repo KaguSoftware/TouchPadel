@@ -2686,4 +2686,44 @@ export const matrix: MatrixRule[] = [
     note: '0145: variant + its own retail stock row in one transaction; an unknown item fails ITEM_NOT_FOUND past the guard',
     drop: 14,
   },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_reservations',
+    args: { p_reservation_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied' }),
+    note:
+      '0150: ownership-guarded like cancel_reservation, but it FILTERS rather than raising \u2014 any ' +
+      'account may ask and gets back only rows whose guest_id is its own, so an id it does not own ' +
+      'returns the empty set. anon holds no grant at all.',
+    drop: 15,
+  },
+
+  // ── terms consent (0153) ──────────────────────────────────────────────────
+  {
+    kind: 'select',
+    name: 'profiles',
+    columns: 'terms_version, terms_accepted_at',
+    expect: ex<SelectExpectation>('rows', { anon: 'denied', guest_anon_session: 'silence' }),
+    note: '0153: the app gate reads the caller’s own acceptance; same row visibility as the other profile columns',
+    drop: 16,
+  },
+  {
+    kind: 'write',
+    name: 'profiles',
+    op: 'update',
+    payload: { terms_version: '2000-01-01', terms_accepted_at: '2000-01-01T00:00:00Z' },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0153: no UPDATE grant on the consent columns — app.accept_terms is the only write path, so the timestamp is the server’s',
+    drop: 16,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'accept_terms',
+    // No p_version: every principal that passes the guard stops at
+    // VERSION_INVALID, so the matrix never records an acceptance.
+    args: {},
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note:
+      '0153: any account may accept for itself; an anonymous café session has no profile and is ' +
+      'refused with ACCOUNT_REQUIRED. anon holds no grant.',
+    drop: 16,
+  },
 ];

@@ -34,6 +34,7 @@ import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel, SegmentedControl, StatusBadge, asyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
+import { CountInput, DateField } from '../../../components/inputs';
 import { nameFromQuery, phoneDigitCount, phoneFromQuery, sanitizeName, sanitizePhone } from '../deskLogic';
 import { todayInTz } from '../useTradingNight';
 import { useDebounced } from '../useDebounced';
@@ -539,13 +540,11 @@ export function SeriesPatternBuilder({
         <Field label={tr('ws.courtDesk.series.startsOn')} required error={errors?.startsOn}>
           {/* `min` greys the past out of the picker; it does not stop a typed
               date, which is what errors.startsOn is for. */}
-          <input
-            type="date"
-            style={inputStyle}
+          <DateField
             value={draft.startsOn}
+            onChange={(startsOn) => set({ startsOn })}
             min={minDate}
             disabled={disabled}
-            onChange={(e) => e.target.value && set({ startsOn: e.target.value })}
           />
         </Field>
         <Field label={tr('ws.courtDesk.series.time')} required error={errors?.time}>
@@ -604,7 +603,9 @@ export function SeriesPatternBuilder({
           </div>
         </Field>
       )}
-      {/* How it ends and WHEN it ends are one decision, so they share a row. */}
+      {/* How it ends and WHEN it ends are one decision, so they share a row.
+          The weeks box used to be a stubby 8rem stub floating under a
+          full-width control. */}
       <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
         <Field label={tr('ws.courtDesk.series.endMode')} group style={{ marginBlockEnd: 0 }}>
           <SegmentedControl<'weeks' | 'date'>
@@ -618,34 +619,41 @@ export function SeriesPatternBuilder({
         </Field>
         {draft.endMode === 'weeks' ? (
           <Field
-            label={tr('ws.courtDesk.series.weeks')}
+            label={tr(
+              draft.pattern === 'weekdays'
+                ? 'ws.courtDesk.series.weeksWeekdays'
+                : 'ws.courtDesk.series.weeks',
+            )}
             required
-            // Fortnightly and chosen days do not book one session a week; the
-            // summary beside the form gives the real count, this says why.
-            hint={draft.pattern === 'fortnightly' ? tr('ws.courtDesk.series.weeksFortnightlyHint') : undefined}
+            // The number counts SESSIONS for weekly and fortnightly. Chosen
+            // weekdays cannot work that way — three ticked days is three
+            // sessions in one week — so there it stays a count of weeks, and
+            // each pattern says which it is.
+            hint={
+              draft.pattern === 'weekdays'
+                ? tr('ws.courtDesk.series.weeksWeekdaysHint')
+                : draft.pattern === 'fortnightly'
+                  ? tr('ws.courtDesk.series.weeksFortnightlyHint')
+                  : undefined
+            }
             error={errors?.weeks}
             style={{ marginBlockEnd: 0 }}
           >
-            <input
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              style={{ ...inputStyle, maxInlineSize: '12rem' }}
+            <CountInput
               value={draft.weeks}
+              onChange={(weeks) => set({ weeks })}
+              min={1}
+              max={200}
               disabled={disabled}
-              onChange={(e) => set({ weeks: Number(e.target.value) })}
             />
           </Field>
         ) : (
           <Field label={tr('ws.courtDesk.series.endsOn')} required error={errors?.endsOn} style={{ marginBlockEnd: 0 }}>
-            <input
-              type="date"
-              style={inputStyle}
+            <DateField
               value={draft.endsOn}
+              onChange={(endsOn) => set({ endsOn })}
               min={minDate && minDate > draft.startsOn ? minDate : draft.startsOn}
               disabled={disabled}
-              onChange={(e) => e.target.value && set({ endsOn: e.target.value })}
             />
           </Field>
         )}

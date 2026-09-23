@@ -61,7 +61,7 @@ import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, inputStyle, type ReasonCode } from '../../components/ui';
+import { Button, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
   ConflictNotice,
@@ -84,7 +84,8 @@ import { shiftMonth } from './calendar/monthLogic';
 import { CreateReservationDialog } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
-import { BLOCKING_STATUSES, guestNameOf, isLive, isVisible } from './deskLogic';
+import { DateField } from '../../components/inputs';
+import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, guestNameOf, isVisible, packLanes } from './deskLogic';
 import { dropRefusal, dropStartMin, grabRowOffset, type DropRefusal } from './dragLogic';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import type { PickedCustomer } from './customers/CustomerPicker';
@@ -107,6 +108,13 @@ const EDGE_SCROLL_RATE = 0.28;
 const CLOCK_TICK_MS = 30_000;
 /** One grid row: its height plus the row gap. The now line is placed with it. */
 const ROW_PITCH = 'calc(2.4rem + var(--tp-sp-0))';
+
+/**
+ * The hairline between two reservation cards that sit next to each other.
+ * Small enough that a half-width card keeps its text, wide enough that the
+ * cards' own borders stay two lines rather than one doubled one.
+ */
+const LANE_GAP = '3px';
 
 /** `/desk?date=YYYY-MM-DD&customer=<id>` — validated at the route (routes/desk/_children.ts). */
 export interface DeskCalendarSearch {
@@ -281,10 +289,11 @@ export function DeskCalendar() {
       : null;
   const stopBookingFor = () => void navigate({ to: '/desk', search: { date } as never });
 
-  function rowIndexOf(iso: string): number {
-    const min = (new Date(iso).getTime() - dayStart.getTime()) / 60_000;
-    return Math.floor((min - openMin) / SLOT_MIN);
-  }
+  // Row and span on tonight's grid, null when no part of it is inside the
+  // opening hours (deskLogic.gridPlacement). A drag keeps the full length.
+  const placementOf = (r: ReservationRow) =>
+    gridPlacement(r.start_at, r.end_at, dayStart.getTime(), openMin, SLOT_MIN, rowCount);
+
   function spanOf(r: ReservationRow): number {
     return Math.max(
       1,
@@ -355,14 +364,15 @@ export function DeskCalendar() {
   dragRef.current = drag;
 
   function onBlockPointerDown(e: ReactPointerEvent<HTMLButtonElement>, r: ReservationRow) {
-    if (e.button !== 0 || r.kind !== 'booking' || !isLive(r.status)) return;
+    if (e.button !== 0 || !canMoveReservation(r, now)) return;
     // Which row of the block the hand closed on, so the block travels WITH the
     // hand instead of snapping its start under the pointer. Measured off the
     // drawn element: it is the only thing that knows the row pitch after the
     // zoom has scaled the grid.
     const box = e.currentTarget.getBoundingClientRect();
-    const from = Math.max(0, rowIndexOf(r.start_at));
-    const visible = Math.max(1, Math.min(spanOf(r), rowCount - from));
+    const place = placementOf(r);
+    if (!place) return;
+    const visible = Math.max(1, Math.min(place.span, rowCount - place.from));
     dragStart.current = {
       id: r.id,
       x: e.clientX,
@@ -546,7 +556,7 @@ export function DeskCalendar() {
     setMoveBusy(true);
     setMoveError(null);
     try {
-      await mutate('reservation.update', {
+      const outcome = await mutate('reservation.update', {
         action: 'move',
         reservationId: r.id,
         courtId,
@@ -555,6 +565,7 @@ export function DeskCalendar() {
         reason: note ? `${reason}: ${note}` : reason,
       });
       setPendingMove(null);
+      if (outcome.queued) toast.info(tr('ws.courtDesk.detail.queued'));
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
       void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     } catch (e) {
@@ -643,6 +654,19 @@ export function DeskCalendar() {
       <PageHeader
         style={{ flexShrink: 0 }}
         title={tr('desk.title')}
+        titleAfter={
+          <Button
+            kind="ghost"
+            icon="refresh"
+            busy={reservationsQ.isFetching && reservationsQ.data !== undefined}
+            onClick={() => {
+              void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+              void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
+            }}
+          >
+            {tr('op.common.refresh')}
+          </Button>
+        }
         subtitle={
           view === 'month'
             ? tr('ws.courtDesk.calendar.leadMonth')
@@ -659,17 +683,6 @@ export function DeskCalendar() {
             >
               {tr('ws.courtDesk.calendar.block')}
             </Button>
-            <Button
-              kind="ghost"
-              icon="refresh"
-              busy={reservationsQ.isFetching && reservationsQ.data !== undefined}
-              onClick={() => {
-                void queryClient.invalidateQueries({ queryKey: ['reservations'] });
-                void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
-              }}
-            >
-              {tr('op.common.refresh')}
-            </Button>
           </>
         }
       >
@@ -684,12 +697,11 @@ export function DeskCalendar() {
           >
             ‹
           </Button>
-          <input
-            type="date"
-            aria-label={tr('ws.courtDesk.common.date')}
+          <DateField
+            ariaLabel={tr('ws.courtDesk.common.date')}
             value={date}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            style={{ ...inputStyle, inlineSize: 'auto' }}
+            onChange={setDate}
+            style={{ inlineSize: 'auto' }}
           />
           <Button
             onClick={() => setDate(shiftDate(date, 1))}
@@ -945,6 +957,9 @@ export function DeskCalendar() {
                     {rows.map((min) => (
                       <div
                         key={min}
+                        // The row this label names, so a test can prove the
+                        // court columns still line up with the gutter.
+                        data-grid-time={min}
                         style={{
                           fontSize: 'var(--tp-fs-xs)',
                           color: 'var(--tp-muted-fg)',
@@ -978,12 +993,26 @@ export function DeskCalendar() {
                   </div>
 
                   {courts.map((c) => {
-                    const courtRes = reservations.filter((r) => r.court_id === c.id);
+                    /*
+                     * Rows that start at or after the close have no row to sit
+                     * in: `rowCount - from` goes 0 or negative, and `span 0` /
+                     * `span -1` made CSS grid invent implicit rows below the
+                     * calendar — the band of dotted slots hanging off the end
+                     * of the night. A booking that overruns the close still
+                     * paints, clamped to the last row; one that begins past it
+                     * is simply not in this grid.
+                     */
+                    const courtRes = reservations.filter(
+                      (r) => r.court_id === c.id && placementOf(r) !== null,
+                    );
+                    // Two reservations on one court at one time used to paint on
+                    // top of each other; each takes its own column instead.
+                    const lanes = packLanes(courtRes);
                     const blockedRows = new Set<number>();
                     for (const r of courtRes) {
                       if (!BLOCKING_STATUSES.has(r.status)) continue;
-                      const from = Math.max(0, rowIndexOf(r.start_at));
-                      for (let i = from; i < Math.min(rowCount, from + spanOf(r)); i++)
+                      const { from, span } = placementOf(r)!;
+                      for (let i = from; i < Math.min(rowCount, from + span); i++)
                         blockedRows.add(i);
                     }
                     return (
@@ -992,6 +1021,11 @@ export function DeskCalendar() {
                         style={{
                           display: 'grid',
                           gridTemplateRows: `repeat(${rowCount}, 2.4rem)`,
+                          /* Nothing should land outside the named rows now that
+                           every child names one; at 0 an accidental one is
+                           visibly wrong here rather than silently adding
+                           height and sliding the column past the gutter. */
+                          gridAutoRows: 0,
                           rowGap: 'var(--tp-sp-0)',
                           position: 'relative',
                         }}
@@ -1014,16 +1048,32 @@ export function DeskCalendar() {
                         {rows.map((min, i) => {
                           const startAt = wallTimeToUtc(date, min, tz);
                           const past = startAt.getTime() < now;
+                          /*
+                           * Every slot names its OWN row.
+                           *
+                           * The cards below are placed explicitly (gridRow:
+                           * from+1 / span n). Auto-placement flows around an
+                           * explicitly-placed item, so while these slots were
+                           * auto-placed a card spanning three rows pushed the
+                           * slots after it three rows down and grid invented
+                           * implicit rows at the bottom to hold the overflow:
+                           * the 10:30 button carrying the right label sat two
+                           * rows below the 10:30 label in the gutter, and the
+                           * whole column read as a gap under the booking. The
+                           * gutter never drifted because nothing is placed
+                           * explicitly in it.
+                           */
                           const common = {
                             'data-slot-court': c.id,
                             'data-slot-min': min,
+                            style: { gridRow: i + 1, gridColumn: 1 },
                           } as const;
                           if (blockedRows.has(i)) {
                             return (
                               <div
                                 key={min}
                                 {...common}
-                                style={{ borderRadius: 'var(--tp-radius-sm)' }}
+                                style={{ ...common.style, borderRadius: 'var(--tp-radius-sm)' }}
                               />
                             );
                           }
@@ -1044,6 +1094,7 @@ export function DeskCalendar() {
                               }
                               aria-label={`${pickName(locale, c)} ${formatTime(startAt, locale, tz)} · ${past ? tr('ws.courtDesk.calendar.pastSlot') : tr('ws.courtDesk.calendar.freeSlot')}`}
                               style={{
+                                ...common.style,
                                 border: '1px dashed var(--tp-border)',
                                 borderRadius: 'var(--tp-radius-sm)',
                                 background: past ? 'var(--tp-surface)' : 'var(--tp-bg)',
@@ -1057,11 +1108,14 @@ export function DeskCalendar() {
                           );
                         })}
                         {courtRes.map((r) => {
-                          const from = Math.max(0, rowIndexOf(r.start_at));
-                          const span = spanOf(r);
+                          const { from, span } = placementOf(r)!;
+                          const { lane, lanes: laneCount } = lanes.get(r.id) ?? { lane: 0, lanes: 1 };
+                          // Share the column's width between the lanes of one
+                          // overlapping cluster; a lone booking keeps all of it.
+                          const laneWidth = 100 / laneCount;
                           const tone = reservationTone(r);
                           const dragging = drag?.id === r.id;
-                          const draggable = r.kind === 'booking' && isLive(r.status);
+                          const draggable = canMoveReservation(r, now);
                           const name =
                             r.kind === 'maintenance'
                               ? (r.notes ?? tr('op.desk.maintenance'))
@@ -1089,8 +1143,22 @@ export function DeskCalendar() {
                                 /* position: relative alone paints this above the
                                  unpositioned slot buttons behind it; the raw
                                  z-index: 2 it used to carry sat outside the
-                                 scale and fought the sticky header. */
+                                 scale and fought the sticky header. Its lane
+                                 narrows the box within the cell rather than
+                                 offsetting it, so the card is never pushed out
+                                 past the court's column. */
                                 position: 'relative',
+                                marginInlineStart: `${lane * laneWidth}%`,
+                                /* A gap off every lane but the last keeps the
+                                 two 1px borders of neighbouring cards from
+                                 meeting and reading as one thick edge; the
+                                 last lane takes none so the cluster still ends
+                                 flush with the court's column. */
+                                inlineSize:
+                                  lane === laneCount - 1
+                                    ? `${laneWidth}%`
+                                    : `calc(${laneWidth}% - ${LANE_GAP})`,
+                                justifySelf: 'start',
                                 background: TONE_SOFT[tone],
                                 color: TONE_FG[tone],
                                 border: `1px ${r.kind === 'maintenance' ? 'dashed' : 'solid'} ${TONE_EDGE[tone]}`,
@@ -1139,22 +1207,28 @@ export function DeskCalendar() {
                                   <bdi>{name}</bdi>
                                 </strong>
                               </span>
+                              {/* Time and status on their own lines: sharing one
+                               row, the badge was squeezed off the end of a card
+                               that only has half a court's width to itself. */}
+                              <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {formatTimeRange(
+                                  new Date(r.start_at),
+                                  new Date(r.end_at),
+                                  locale,
+                                  tz,
+                                )}
+                              </bdi>
+                              {/* The pill carries 0.45rem of inline padding of
+                               its own, which set its dot in from the name and
+                               the time above it; pulled back by exactly that,
+                               the three lines share one start edge. */}
                               <span
                                 style={{
                                   display: 'flex',
-                                  gap: '0.35rem',
-                                  alignItems: 'center',
-                                  flexWrap: 'wrap',
+                                  marginInlineStart: '-0.45rem',
+                                  minInlineSize: 0,
                                 }}
                               >
-                                <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                  {formatTimeRange(
-                                    new Date(r.start_at),
-                                    new Date(r.end_at),
-                                    locale,
-                                    tz,
-                                  )}
-                                </bdi>
                                 <ReservationBadge reservation={r} size="sm" />
                               </span>
                             </button>
@@ -1239,13 +1313,16 @@ export function DeskCalendar() {
           night={{ date, rows, reservations }}
           customer={bookFor}
           onClose={() => setCreateAt(null)}
-          onCreated={() => {
+          onCreated={(queued) => {
             setCreateAt(null);
-            toast.ok(
-              bookFor
-                ? tr('ws.courtDesk.calendar.bookedFor', { name: bookFor.name })
-                : tr('op.desk.created'),
-            );
+            // A queued booking is not a booking yet: the slot can still be refused.
+            if (queued) toast.info(tr('ws.courtDesk.detail.queued'));
+            else
+              toast.ok(
+                bookFor
+                  ? tr('ws.courtDesk.calendar.bookedFor', { name: bookFor.name })
+                  : tr('op.desk.created'),
+              );
             void queryClient.invalidateQueries({ queryKey: ['reservations'] });
             void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
             // A booking-for is one booking: the strip goes once it is made.

@@ -9,23 +9,19 @@
 import { useId, useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDate, formatMonthYear, formatNumber } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatMonthYear, formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
+import { QK as SHARED_QK, fetchVenueSettings } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { AsyncStateWrapper, DataTable, PageHeader, Panel, asyncStatus, type Column } from '../../components/kit';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { TOKEN_KINDS, formatTokens, formatUsd, isBlendedFallback, type PricingRates } from '../../lib/assistantPricing';
 import { QK, fetchConversations, fetchModels, fetchUsage, setDefaultModel, setMonthlyCap, type UsageDay } from './api';
 import { capInputValue, parseCapUsd } from './capLogic';
+import { currentYm, monthBounds } from './usageDates';
 import { ModelChoice, ModelError } from './ModelSwitch';
 
 const iso = (s: string) => `⁨${s}⁩`;
-
-function monthBounds(year: number, month0: number): { from: string; to: string } {
-  const from = new Date(Date.UTC(year, month0, 1));
-  const to = new Date(Date.UTC(year, month0 + 1, 0));
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
-}
 
 export function UsagePageScreen() {
   const { tr, locale } = useLocale();
@@ -34,10 +30,11 @@ export function UsagePageScreen() {
   const navigate = useNavigate();
   const defaultLeadId = useId();
   const [capOpen, setCapOpen] = useState(false);
-  const now = new Date();
-  const [ym, setYm] = useState<{ y: number; m: number }>({ y: now.getUTCFullYear(), m: now.getUTCMonth() });
+  const settings = useQuery({ queryKey: SHARED_QK.venueSettings, queryFn: fetchVenueSettings });
+  const now = currentYm(settings.data?.timezone ?? VENUE_TZ);
+  const [ym, setYm] = useState<{ y: number; m: number }>(now);
   const bounds = useMemo(() => monthBounds(ym.y, ym.m), [ym]);
-  const isCurrent = ym.y === now.getUTCFullYear() && ym.m === now.getUTCMonth();
+  const isCurrent = ym.y === now.y && ym.m === now.m;
 
   const q = useQuery({ queryKey: QK.usage(bounds.from, bounds.to), queryFn: () => fetchUsage(bounds.from, bounds.to) });
   // Which models were used: the conversations carry the model in `tokens`.
@@ -265,7 +262,8 @@ function CapDialog({ currentMicros, monthSpentMicros, onClose, onSaved }: { curr
     return (
       <Modal
         title={tr('ws.owner.assistant.usage.capConfirmTitle')}
-        onClose={save.isPending ? () => {} : onClose}
+        dismissible={!save.isPending}
+        onClose={onClose}
         size="sm"
         footer={
           <>
@@ -301,14 +299,14 @@ function CapDialog({ currentMicros, monthSpentMicros, onClose, onSaved }: { curr
       title={tr('ws.owner.assistant.usage.capEditTitle')}
       onClose={onClose}
       size="sm"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose}>{tr('common.cancel')}</Button>
+          <Button onClick={close}>{tr('common.cancel')}</Button>
           <Button kind="primary" onClick={review}>
             {tr('ws.owner.assistant.usage.capReview')}
           </Button>
         </>
-      }
+      )}
     >
       <form
         onSubmit={(e) => {

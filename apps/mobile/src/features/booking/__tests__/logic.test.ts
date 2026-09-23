@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../errors';
 import {
+  calendarDaysBetween,
   canCancel,
+  dayPart,
   cancelActor,
   cancelActorLabel,
   cancelledBookings,
   endedNotice,
+  enteredHistoryAt,
+  isCourtFeePaid,
   isLiveHold,
   parseHoldResult,
   playedCount,
@@ -208,9 +212,10 @@ describe('canCancel', () => {
 });
 
 describe('startProximity', () => {
+  const TZ = 'Asia/Baghdad'; // UTC+3, no DST
   const now = new Date('2026-09-01T12:00:00Z');
   const at = (start: string, end = '2026-12-01T00:00:00Z') =>
-    startProximity(row({ start_at: start, end_at: end }), now);
+    startProximity(row({ start_at: start, end_at: end }), now, TZ);
 
   it('counts down in minutes, then hours, then days', () => {
     expect(at('2026-09-01T12:20:00Z')).toEqual({ unit: 'minutes', value: 20 });
@@ -221,14 +226,63 @@ describe('startProximity', () => {
   it('hands off between steps with no gap', () => {
     // 59'40" rounds to 60 minutes, which is an hour — never "In 60 min".
     expect(at('2026-09-01T12:59:40Z')).toEqual({ unit: 'hours', value: 1 });
-    // 23h50m rounds to 24 hours, which is a day — never "In 24 h".
+    // 23h50m rounds to 24 hours, which is a day — and 23h50m from 15:00
+    // Baghdad lands on the NEXT venue date, so one day is also the calendar
+    // answer. The two rules agree here; the case below is where they did not.
     expect(at('2026-09-02T11:50:00Z')).toEqual({ unit: 'days', value: 1 });
+  });
+
+  it('counts venue calendar days, not elapsed 24-hour blocks', () => {
+    // The reported bug: 22 Sep 23:30 Baghdad -> 24 Sep 10:00 Baghdad is 34.5 h,
+    // which rounds to one 24-hour block but is two nights on the venue's
+    // calendar — and "24 Sep" is what the card prints beside this label.
+    const late = new Date('2026-09-22T20:30:00Z'); // 23:30 Baghdad on the 22nd
+    const row24 = row({ start_at: '2026-09-24T07:00:00Z' }); // 10:00 on the 24th
+    expect(startProximity(row24, late, TZ)).toEqual({ unit: 'days', value: 2 });
+  });
+
+  it('resolves the day boundary in the venue zone, not UTC', () => {
+    // 21:00 UTC on the 1st is already 00:00 on the 2nd in Baghdad, so the venue
+    // dates are the 2nd -> the 3rd: ONE day. Counting the same two instants in
+    // UTC gives the 1st -> the 3rd and answers two.
+    const evening = new Date('2026-09-01T21:00:00Z');
+    const start = row({ start_at: '2026-09-03T17:00:00Z' }); // 20:00 Baghdad
+    expect(startProximity(start, evening, TZ)).toEqual({ unit: 'days', value: 1 });
+  });
+
+  it('does not move with the device timezone', () => {
+    const late = new Date('2026-09-22T20:30:00Z');
+    const row24 = row({ start_at: '2026-09-24T07:00:00Z' });
+    const expected = { unit: 'days', value: 2 };
+    // Same instants, same venue zone: the answer is a property of the venue's
+    // calendar and the guest's own zone is not an input.
+    expect(startProximity(row24, late, TZ)).toEqual(expected);
+    expect(startProximity(row24, late, 'Asia/Baghdad')).toEqual(expected);
+  });
+
+  it('never claims less than a day once past the hours step', () => {
+    // 24h05m out but the same venue date would still be a day, never zero.
+    expect(at('2026-09-02T12:05:00Z')).toEqual({ unit: 'days', value: 1 });
   });
 
   it('is "now" inside the last minute and "live" once it has started', () => {
     expect(at('2026-09-01T12:00:30Z')).toEqual({ unit: 'now' });
     expect(at('2026-09-01T11:30:00Z', '2026-09-01T13:00:00Z')).toEqual({ unit: 'live' });
     expect(at('not-a-date')).toEqual({ unit: 'live' });
+  });
+});
+
+describe('calendarDaysBetween', () => {
+  it('counts whole days across months and years', () => {
+    expect(calendarDaysBetween('2026-09-22', '2026-09-24')).toBe(2);
+    expect(calendarDaysBetween('2026-09-30', '2026-10-01')).toBe(1);
+    expect(calendarDaysBetween('2026-12-31', '2027-01-01')).toBe(1);
+    expect(calendarDaysBetween('2026-09-22', '2026-09-22')).toBe(0);
+  });
+
+  it('returns 0 for anything that is not a calendar date', () => {
+    expect(calendarDaysBetween('nope', '2026-09-24')).toBe(0);
+    expect(calendarDaysBetween('2026-9-2', '2026-09-24')).toBe(0);
   });
 });
 
@@ -353,5 +407,118 @@ describe('visiblePast (Clear history)', () => {
     const original = [...rows];
     visiblePast(rows, '2026-09-01T12:00:00Z');
     expect(rows).toEqual(original);
+  });
+
+  it('hides a booking CANCELLED before the cut, though its slot is still ahead', () => {
+    // THE BUG: splitBookings files a cancelled booking under past the moment it
+    // is cancelled, but the cut used to be judged on end_at -- which is next
+    // Tuesday. So the row survived every clear, and the button looked broken.
+    const cancelledEarly = row({
+      id: 'called-off',
+      status: 'cancelled',
+      end_at: '2026-09-08T11:00:00Z', // a week AFTER the cut
+      cancelled_at: '2026-08-30T09:00:00Z', // but called off before it
+    });
+    expect(visiblePast([cancelledEarly], '2026-09-01T12:00:00Z')).toEqual([]);
+  });
+
+  it('keeps a booking cancelled AFTER the cut', () => {
+    // New history since the guest tidied up: it has to show, or clearing once
+    // would silence every future cancellation too.
+    const cancelledLate = row({
+      id: 'called-off-later',
+      status: 'cancelled',
+      end_at: '2026-09-08T11:00:00Z',
+      cancelled_at: '2026-09-03T09:00:00Z',
+    });
+    expect(visiblePast([cancelledLate], '2026-09-01T12:00:00Z').map((r) => r.id)).toEqual([
+      'called-off-later',
+    ]);
+  });
+
+  it('still judges a played game on when it ended', () => {
+    // completed also stamps cancelled_at (0075), a little AFTER the slot ends.
+    // The earlier of the two is when it became history, so this stays hidden.
+    const played = row({
+      id: 'played',
+      status: 'completed',
+      end_at: '2026-08-20T11:00:00Z',
+      cancelled_at: '2026-08-20T11:05:00Z',
+    });
+    expect(visiblePast([played], '2026-09-01T12:00:00Z')).toEqual([]);
+  });
+
+  it('falls back to end_at for a terminal row with no cancelled_at', () => {
+    // Pre-0075 rows, and anything a cache handed back before the RPC carried
+    // the column: judged exactly as they were before.
+    const old = row({ id: 'legacy', status: 'cancelled', end_at: '2026-09-08T11:00:00Z' });
+    expect(visiblePast([old], '2026-09-01T12:00:00Z').map((r) => r.id)).toEqual(['legacy']);
+  });
+});
+
+describe('enteredHistoryAt', () => {
+  const ms = (iso: string) => new Date(iso).getTime();
+
+  it('is the slot end when nothing closed the booking early', () => {
+    expect(enteredHistoryAt(row({ end_at: '2026-09-02T11:00:00Z' }))).toBe(ms('2026-09-02T11:00:00Z'));
+  });
+
+  it('is the cancellation when that came first', () => {
+    const r = row({ end_at: '2026-09-08T11:00:00Z', cancelled_at: '2026-08-30T09:00:00Z' });
+    expect(enteredHistoryAt(r)).toBe(ms('2026-08-30T09:00:00Z'));
+  });
+
+  it('is the slot end when the desk closed it afterwards', () => {
+    const r = row({ end_at: '2026-09-02T11:00:00Z', cancelled_at: '2026-09-02T11:05:00Z' });
+    expect(enteredHistoryAt(r)).toBe(ms('2026-09-02T11:00:00Z'));
+  });
+
+  it('ignores an unparseable cancelled_at rather than returning NaN', () => {
+    const r = row({ end_at: '2026-09-02T11:00:00Z', cancelled_at: 'not-a-date' });
+    expect(enteredHistoryAt(r)).toBe(ms('2026-09-02T11:00:00Z'));
+  });
+});
+
+describe('isCourtFeePaid', () => {
+  it('is paid only when something was taken AND nothing is left', () => {
+    expect(isCourtFeePaid(row({ court_paid_iqd: 30000, court_remaining_iqd: 0 }))).toBe(true);
+  });
+
+  it('is not paid while any of the fee is still owed', () => {
+    expect(isCourtFeePaid(row({ court_paid_iqd: 10000, court_remaining_iqd: 20000 }))).toBe(false);
+    expect(isCourtFeePaid(row({ court_paid_iqd: 0, court_remaining_iqd: 30000 }))).toBe(false);
+  });
+
+  it('does not read a pending booking as paid', () => {
+    // court_fee_remaining answers 0 for a booking nobody confirmed, so
+    // "nothing remaining" alone would put "payment received" on a slot no one
+    // has paid for. Nothing taken means not paid.
+    expect(isCourtFeePaid(row({ status: 'pending', court_paid_iqd: 0, court_remaining_iqd: 0 }))).toBe(
+      false,
+    );
+  });
+
+  it('treats an unknown figure as unpaid', () => {
+    // A cached payload from before 0150 knows neither number. The guest is
+    // shown how to pay, which is the safe way to be wrong.
+    expect(isCourtFeePaid(row({}))).toBe(false);
+    expect(isCourtFeePaid(row({ court_paid_iqd: 30000 }))).toBe(false);
+    expect(isCourtFeePaid(row({ court_remaining_iqd: 0 }))).toBe(false);
+    expect(isCourtFeePaid(row({ court_paid_iqd: null, court_remaining_iqd: null }))).toBe(false);
+  });
+});
+
+describe('dayPart', () => {
+  const TZ = 'Asia/Baghdad'; // UTC+3
+
+  it('turns to evening at 17:00 venue time', () => {
+    expect(dayPart(new Date('2026-09-23T13:59:00Z'), TZ)).toBe('day'); // 16:59
+    expect(dayPart(new Date('2026-09-23T14:00:00Z'), TZ)).toBe('evening'); // 17:00
+  });
+
+  it('reads the venue clock, not the phone clock', () => {
+    // 21:00 UTC is midnight in Baghdad: the venue is in its small hours, which
+    // is 'day' by this split, however late it is where the guest is reading.
+    expect(dayPart(new Date('2026-09-23T21:00:00Z'), TZ)).toBe('day');
   });
 });

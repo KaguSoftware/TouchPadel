@@ -183,7 +183,10 @@ test.describe('owner assistant', () => {
     await expect(dialog.getByRole('button', { name: EN.ask, exact: true })).toBeVisible();
   });
 
-  test('/assistant lists no chats for a fresh owner; /assistant/usage shows cap, pricing and default model', async ({ page }) => {
+  // routes/assistant.tsx wraps both pages in the TEMPORARY UnderConstruction
+  // (inert + aria-hidden), so nothing on them is reachable by role. Un-fixme
+  // this when that wrapper goes.
+  test.fixme('/assistant lists no chats for a fresh owner; /assistant/usage shows cap, pricing and default model', async ({ page }) => {
     // Other suites and manual runs may have left chats behind — only assert the
     // empty sentence when the owner really has none.
     const svc = serviceClient();
@@ -223,8 +226,10 @@ test.describe('owner assistant', () => {
 
   test('cashier: no rail button, no shortcut, /assistant is refused', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
-    // The till lands on the floor plan.
-    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({ timeout: 30_000 });
+    // The till is the cashier's home. Its heading is "Floor" with a business
+    // day open and "Till" without one, and this suite opens no day — so the
+    // landing is asserted by URL, not by what the till draws.
+    await expect(page).toHaveURL(/\/till\b/, { timeout: 30_000 });
 
     await expect(page.getByRole('button', { name: EN.railButton })).toHaveCount(0);
     await page.keyboard.press('ControlOrMeta+k');

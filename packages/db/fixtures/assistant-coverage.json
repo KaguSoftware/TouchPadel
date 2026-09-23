@@ -102,6 +102,7 @@
     "venue_settings_public": "table_read"
   },
   "functions": {
+    "accept_terms": "map:action",
     "ack_waiter_call": "map:action",
     "acknowledge_alert": "map:action",
     "add_customer_note": "map:action",
@@ -279,6 +280,7 @@
     "menu_availability": "map:action",
     "merge_tabs": "map:action",
     "move_reservation": "map:action",
+    "my_reservations": "map:action",
     "normalize_finding": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "open_day": "map:action",
     "open_tab": "map:action",
@@ -590,6 +592,8 @@
     "docs/design/sow-gap-review-2026-08-24.md": "index:doc",
     "docs/drill-runbook.md": "index:doc",
     "docs/install-runbook.md": "index:doc",
+    "docs/legal/LEGAL-DETAILS-TO-FILL.md": "index:doc",
+    "docs/legal/staff-privacy-notice.md": "index:doc",
     "docs/scope/phase2-change-order-2026-09-21.md": "excluded: the Phase 2 change order (scope, milestones, fee blanks, signature block) is commercial paperwork between Kagu and Touch; not venue knowledge the owner asks the assistant about",
     "docs/security/HANDOFF-security.md": "index:doc",
     "docs/security/eas-update-signing.md": "index:doc",
@@ -601,6 +605,7 @@
     "docs/security/security-layer-1.md": "index:doc",
     "docs/store/app-store-listing.md": "index:doc",
     "docs/store/app-store-submission.md": "index:doc",
+    "docs/store/google-play-data-safety.md": "index:doc",
     "packages/db/README.md": "index:doc"
   }
 }

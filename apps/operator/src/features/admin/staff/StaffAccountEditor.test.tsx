@@ -43,7 +43,8 @@ describe('StaffAccountEditor', () => {
   it('a role change says what the new role can open and writes nothing until confirmed', async () => {
     renderPanel(cashier);
     // The hint under the picker follows the choice before anything is saved.
-    await userEvent.selectOptions(screen.getByLabelText('Role'), 'owner');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Role' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Owner' }));
     expect(screen.getByText(/Everything, including staff accounts/)).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: 'Change role' }));

@@ -117,6 +117,13 @@ export interface CallEdgeOptions {
   cacheKey?: string;
   /** Cache TTL; 0 disables caching for this call. */
   ttlMs?: number;
+  /**
+   * Retry once on a 5xx. Defaults to on only for cacheable calls (ttlMs > 0):
+   * an uncached call is a write or a billed model call, and a 502 from the
+   * gateway can arrive after the function has committed — the retry then got
+   * DUPLICATE_PHONE, or billed the model twice, for a call that had worked.
+   */
+  retry?: boolean;
   signal?: AbortSignal;
 }
 
@@ -152,7 +159,7 @@ export async function callEdge<Req, Res>(
     signal: opts.signal,
   };
 
-  let retried = false;
+  let retried = !(opts.retry ?? ttl > 0);
   for (;;) {
     const res = await fetch(url, init);
     const payload = await parseBody(res);

@@ -38,6 +38,38 @@ export function tonightInTz(tz: string, hours: OpeningHours): string {
   return tradingDateOf(new Date().toISOString(), tz, hours);
 }
 
+/**
+ * The fetch window of one trading night: its calendar date's midnight to its
+ * close, which runs past the next midnight (09:00 → 02:00). Rows in it that
+ * belong to the night BEFORE (that date's own 00:00–02:00) are dropped by the
+ * caller with tradingDateOf.
+ */
+export function nightWindow(date: string, tz: string, hours: OpeningHours): { start: Date; end: Date } {
+  const dayIndex = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const windows = hours?.[DAY_KEYS[dayIndex] as DayKey] ?? [];
+  const nextDayWindows = hours?.[DAY_KEYS[(dayIndex + 1) % 7] as DayKey] ?? [];
+  const { endMin } = tradingSpan(windows, nextDayWindows);
+  return { start: wallTimeToUtc(date, 0, tz), end: wallTimeToUtc(date, Math.max(24 * 60, endMin), tz) };
+}
+
+/**
+ * Tonight's window and a filter to its own rows, off the venue settings. For
+ * the till's court lists, which used the STATION's midnight: at 00:10 a
+ * 23:00–00:30 booking still on court was missing, and so was tonight's 00:30
+ * booking at 23:30.
+ */
+export async function tonightScope(fetchSettings: () => Promise<VenueSettingsRow>) {
+  const s = await fetchSettings();
+  const tz = s.timezone ?? VENUE_TZ;
+  const tonight = tonightInTz(tz, s.opening_hours);
+  const { start, end } = nightWindow(tonight, tz, s.opening_hours);
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+    isTonight: (startAt: string) => tradingDateOf(startAt, tz, s.opening_hours) === tonight,
+  };
+}
+
 export interface TradingNight {
   date: string;
   tz: string;

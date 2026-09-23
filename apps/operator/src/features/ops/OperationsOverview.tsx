@@ -183,8 +183,8 @@ function Dashboard({ data, queued, go }: { data: OpsOverview; queued: number; go
         <ExceptionsCard data={data} go={go} />
       </div>
 
-      <Panel title={<CardTitle icon="users">{tr('ws.manager.ops.staff.title')}</CardTitle>} padded={false}>
-        <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+      <Panel title={<CardTitle icon="users">{tr('ws.manager.ops.staff.title')}</CardTitle>}>
+        <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
           {tr('ws.manager.ops.staff.lead')}
         </p>
         <StaffTable rows={data.staffActivity} />
@@ -391,7 +391,10 @@ const BLOCKING_TABS_SHOWN = 4;
 
 function tabName(t: OpsBlockingTab, tr: ReturnType<typeof useLocale>['tr']): string {
   if (t.tableNumber) return tr('ws.manager.ops.close.tab', { label: t.tableNumber });
-  return t.guestName ?? t.label ?? t.id.slice(0, 8);
+  // Never an id: a booking made by a signed-in account carries no guest_name,
+  // so this used to name the tab `3f2a1b9c` on the one screen that exists to
+  // tell a manager WHICH tab is holding the day open.
+  return t.guestName ?? t.label ?? tr('op.till.forReservation');
 }
 
 function ClosingCard({ data, queued, go }: { data: OpsOverview; queued: number; go: Go }) {
@@ -412,7 +415,7 @@ function ClosingCard({ data, queued, go }: { data: OpsOverview; queued: number; 
           </Button>
         </div>
       ) : (
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
           <Step
             index={1}
             title={tr('ws.manager.ops.close.stepTabs')}
@@ -506,13 +509,9 @@ function ExceptionsCard({ data, go }: { data: OpsOverview; go: Go }) {
  */
 function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
   const { tr, locale } = useLocale();
+  // Nobody has recorded anything yet is not a fault and not a filter.
   if (rows.length === 0) {
-    return (
-      <div style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', paddingBlockEnd: 'var(--tp-sp-3)' }}>
-        {/* Nobody has recorded anything yet is not a fault and not a filter. */}
-        <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} />
-      </div>
-    );
+    return <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} />;
   }
   const columns: Column<OpsStaffRow>[] = [
     { key: 'name', header: tr('ws.manager.ops.staff.name'), truncate: true, truncateTitle: (r) => r.name, render: (r) => <bdi>{r.name}</bdi> },

@@ -38,7 +38,6 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
-import { supabase } from '../../lib/supabase';
 import { AppRpcError } from '../../lib/appRpc';
 import { mutate } from '../../lib/mutate';
 import { resultErrorCode } from '../../lib/queueResults';
@@ -70,8 +69,9 @@ import { WaiterCallsPanel } from './WaiterCallsPanel';
 import { NewTabDialog } from './NewTabDialog';
 import { MergeTabsDialog } from './ManagerActions';
 import { computeTabTotals } from './tabTotals';
+import { useTaxContext } from './useTaxContext';
 import { formatElapsed } from './elapsed';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
+import { OPEN_TABS_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
 import { muted } from './tillStyles';
 
 export type TabsSort = 'table' | 'court' | 'name';
@@ -81,6 +81,8 @@ export interface BoardRow {
   label: string;
   table: string | null;
   court: string | null;
+  /** The court itself, for grouping — a name is a label, not a key. */
+  courtId: string | null;
   guest: string | null;
   status: string;
   openedAt: string;
@@ -111,6 +113,39 @@ export function removalErrorKey(error: unknown): MessageKey {
 
 /** Elapsed label for a server timestamp — display only. See elapsed.ts. */
 export const ageLabel = formatElapsed;
+
+/**
+ * Courts carrying more than one open tab, and what those tabs come to together.
+ *
+ * A court legitimately has several live tabs at once — `tabs` has no court
+ * column, the link is through the reservation, and the only uniqueness index is
+ * one live tab per RESERVATION (0106). So an 18:00 and a 19:00 booking on Court
+ * 1 are two tabs, and the board showed two unrelated figures with nothing
+ * saying what the court owed altogether (reported 2026-09-23).
+ *
+ * Only courts with TWO OR MORE tabs are returned: a court with one tab has
+ * nothing to add up, and giving it a heading would push every row down a line
+ * to repeat a number already in the row.
+ *
+ * The totals are the board's own `total` — the same figure the column shows,
+ * so the two can never disagree. Court FEES are outside both (the board says so
+ * in its footnote); this adds up bills, not bookings.
+ */
+export function courtTotals(rows: readonly BoardRow[]): Map<string, { total: number; count: number }> {
+  const byCourt = new Map<string, { total: number; count: number }>();
+  for (const r of rows) {
+    if (r.courtId === null) continue;
+    const seen = byCourt.get(r.courtId);
+    if (seen) {
+      seen.total += r.total;
+      seen.count += 1;
+    } else {
+      byCourt.set(r.courtId, { total: r.total, count: 1 });
+    }
+  }
+  for (const [id, v] of byCourt) if (v.count < 2) byCourt.delete(id);
+  return byCourt;
+}
 
 /**
  * Rows that match the query, ordered by the chosen key. The query matches
@@ -289,6 +324,9 @@ export function OpenTabsBoard({
 }) {
   const { tr, locale } = useLocale();
   const visible = useMemo(() => filterBoardRows(rows, filter, query), [rows, filter, query]);
+  // Computed over what is ON SCREEN: a court total that counted rows the
+  // search has hidden would not add up to the rows under it.
+  const grouped = useMemo(() => courtTotals(visible), [visible]);
   /*
    * Which row is asking "remove?". One id, not a set: two tabs mid-confirm at
    * once is not a state a cashier ever wants, and arming a second row is the
@@ -472,6 +510,21 @@ export function OpenTabsBoard({
           onRowClick={(r) => onSelect(r.id)}
           emptyContent={tr('ws.cashier.tabs.noMatches')}
           aria-label={tr('ws.cashier.tabs.title')}
+          // Only courts carrying more than one tab are grouped; everything
+          // else keeps the row it always had.
+          groupBy={(r) => (r.courtId !== null && grouped.has(r.courtId) ? r.courtId : null)}
+          renderGroupHeader={(key, groupRows) => {
+            const sum = grouped.get(key);
+            if (!sum) return null;
+            return (
+              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-3)' }}>
+                <span style={{ fontWeight: 700 }}>
+                  {tr('ws.cashier.tabs.courtGroup', { court: groupRows[0]?.court ?? '', count: String(sum.count) })}
+                </span>
+                <Money amount={sum.total} strong />
+              </span>
+            );
+          }}
         />
         {hasBookingTabs && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.courtFeeNote')}</p>}
       </AsyncStateWrapper>
@@ -532,24 +585,7 @@ export function OpenTabsScreen() {
     const live = new Set(tabsQ.data.map((t) => t.id));
     for (const id of pendingRemovals.pending.keys()) if (!live.has(id)) pendingRemovals.remove(id);
   }, [tabsQ.data, pendingRemovals]);
-  const menuQ = useQuery({ ...TILL_MENU_QUERY });
-  const taxInclusiveQ = useQuery({
-    queryKey: ['taxInclusive'],
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('venue_settings').select('tax_inclusive').single();
-      if (error) throw error;
-      return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
-    },
-  });
-  const taxCtx = useMemo(() => {
-    if (!menuQ.data || taxInclusiveQ.data === undefined) return null;
-    return {
-      rateByCategory: new Map(menuQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0])),
-      taxInclusive: taxInclusiveQ.data,
-    };
-  }, [menuQ.data, taxInclusiveQ.data]);
+  const taxCtx = useTaxContext();
 
   const { status: floorStatus } = useBroadcast({
     topic: 'floor',
@@ -566,6 +602,7 @@ export function OpenTabsScreen() {
         label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')),
         table: t.table?.table_number ?? null,
         court: t.reservation?.court ? pickName(locale, t.reservation.court) : null,
+        courtId: t.reservation?.court?.id ?? null,
         guest: t.reservation?.guest_name ?? t.label,
         status: t.status,
         openedAt: t.opened_at,

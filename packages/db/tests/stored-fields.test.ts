@@ -93,6 +93,10 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     expo_push_token: { category: 'Device or other IDs', why: 'booking reminders and order-ready pushes', onDelete: 'scrub' },
     created_at: n,
     deleted_at: n,
+    // 0153: which Terms/Privacy version was accepted, and when. Identifies
+    // nobody; kept on the tombstone as proof the terms applied.
+    terms_version: n,
+    terms_accepted_at: n,
   },
   reservations: {
     id: n, court_id: n, kind: n, status: n, start_at: n, end_at: n, period: n, guest_id: n,
@@ -353,6 +357,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       lines.push('');
     }
     lines.push('  Deletion: in-app, app.delete_my_account (migration 0077).');
+    lines.push('            on the web: https://www.touch-padel.com/en/delete-account (same RPC; the Play deletion URL).');
     lines.push('  Every "scrub"/"row" field above is proved erased by the test above this one.');
     lines.push('  "keep" is deliberate retention — the venue’s takings, not the guest’s identity.');
     console.log(lines.join('\n'));
