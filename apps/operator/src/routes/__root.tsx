@@ -56,7 +56,7 @@ import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
-import { touch, type UpdateReadyInfo } from '../ipc/bridge';
+import { touch, type LeaveResult, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
 import { isElectron } from '../lib/mutate';
@@ -914,9 +914,19 @@ function WorkspaceNav({
             className="tp-rail-btn"
             style={{
               flexShrink: 0,
-              /* The 1.85rem square is one line taller than the name it sits
-                 beside, so a flush top sets it a touch high. Half that
-                 difference puts its glyph on the name's optical centre. */
+              /* The full touch target on EVERY rail, not just the two that get
+                 it from [data-workspace='cashier'|'prep'] in GlobalStyles
+                 (owner call, 2026-09-23). Sign out ends the shift and it is
+                 the one control on the rail with no label to aim at, so the
+                 desk clerk and the manager get the same square the till has
+                 always had. Set here rather than by dropping size="sm",
+                 because the size also carries the glyph and padding scale the
+                 rail's other footer rows are drawn at. */
+              inlineSize: 'var(--tp-touch)',
+              minBlockSize: 'var(--tp-touch)',
+              /* The square is taller than the name it sits beside, so a flush
+                 top sets it a touch high. Half that difference puts its glyph
+                 on the name's optical centre. */
               marginBlockStart: '-0.1rem',
               /* Pull the border box onto the rail's true end edge, so the
                  button's edge lines up with RAIL_EDGE the way every other
@@ -1153,9 +1163,11 @@ function IdleLock() {
         refocus();
         return;
       }
-      // Only an authorising role's pin feeds the offline manager-pin cache.
+      // Only an authorising role's pin feeds the offline manager-pin cache,
+      // tagged as this person's own: offline, it is what stops them letting
+      // themselves out of the station with it (Quit / Exit full screen).
       if (staff && (staff.role === 'manager' || staff.role === 'owner')) {
-        touch.pinObserved(pin);
+        touch.pinObserved(pin, staff.id);
       }
       clearAndUnlock();
     } catch (e) {
@@ -1411,10 +1423,12 @@ function IdleLock() {
  * that was Quit, which ends service to answer a question that did not need
  * service ended.
  *
- * So this leaves the kiosk and leaves the app running. No confirmation and no
- * PIN: nothing is lost, the station keeps trading, and the operator can drop
- * back to full screen from the OS. It is deliberately quieter than Quit —
- * same muted rail weight, no danger colour — because it is the reversible one.
+ * So this leaves the kiosk and leaves the app running. Nothing is lost and
+ * the station keeps trading, but it is still leaving: on a locked station it
+ * takes a manager's PIN that is not the signed-in person's own (owner call,
+ * 2026-09-23 — staff are kept inside the app), and main locks the window
+ * again at the next sign-in or sign-out. It stays quieter than Quit — same
+ * muted rail weight, no danger colour — because it is the reversible one.
  *
  * Electron fixes `frame` at window creation, so a production window cannot
  * grow a titlebar here; main compensates by resizing it off full-bleed, which
@@ -1424,6 +1438,9 @@ function IdleLock() {
  */
 function ExitFullscreen() {
   const { tr } = useLocale();
+  const { staff } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   // Only while the window IS full screen. Windowed, the macOS traffic lights
@@ -1438,18 +1455,28 @@ function ExitFullscreen() {
 
   if (typeof window === 'undefined' || !window.touch) return null;
   if (!fullscreen) return null;
+  const locked = touch.getStation().locked === true;
+
+  function close() {
+    setOpen(false);
+    setPin('');
+    setError(null);
+  }
 
   async function exit() {
     setBusy(true);
     setError(null);
     try {
-      const res = await touch.exitFullscreen();
-      if (!res.ok) throw new Error(res.error ?? 'refused');
+      if (locked) await proveLeavePin(pin, staff?.id ?? null);
+      const refusal = leaveRefusal(await touch.exitFullscreen(pin));
+      if (refusal) throw refusal;
       // No success line: the window visibly leaving full screen IS the
       // feedback, and a rail that keeps a sentence around after the fact only
       // adds something to ignore. A failure still speaks, below.
+      close();
     } catch (e) {
       setError(e);
+      setPin('');
     } finally {
       setBusy(false);
     }
@@ -1460,19 +1487,108 @@ function ExitFullscreen() {
       <button
         type="button"
         className="tp-nav-item"
-        onClick={() => void exit()}
+        onClick={() => (locked ? setOpen(true) : void exit())}
         disabled={busy}
         style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)' }}
       >
         <Icon name="shrink" size={16} />
         <span>{tr('ws.shell.nav.exitFullscreen')}</span>
       </button>
-      {error != null && (
+      {!locked && error != null && (
         <div style={{ paddingInline: RAIL_ITEM_PAD }}>
           <ErrorText error={error} />
         </div>
       )}
+      {open && (
+        <Modal
+          title={tr('ws.shell.nav.exitFullscreen')}
+          size="sm"
+          onClose={close}
+          footer={
+            <>
+              <Button onClick={close}>{tr('common.back')}</Button>
+              <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void exit()}>
+                {tr('ws.shell.nav.exitFullscreen')}
+              </Button>
+            </>
+          }
+        >
+          <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void exit()} />
+          <ErrorText error={error} />
+        </Modal>
+      )}
     </>
+  );
+}
+
+/**
+ * Staff are kept inside the app (owner call, 2026-09-23): on a locked station
+ * (StationInfo.locked — every configured production one) Quit and Exit forced
+ * full screen take a manager's PIN, and never the signed-in person's own.
+ *
+ * Signed in, the PIN is proved to verify_manager_pin first. It returns the
+ * manager's id, which is how "not your own" is told, and the PIN is then
+ * cached tagged with that id so main — which re-checks every exit against the
+ * offline cache (pin-cache.ts mayLeave) — can tell the same thing offline.
+ * Offline, the call fails as UNKNOWN and main's cache is the whole check.
+ * Signed out there is no session to ask the server with, and no "own" to
+ * exclude: main's cache alone decides.
+ */
+async function proveLeavePin(pin: string, signedInStaffId: string | null): Promise<void> {
+  if (!signedInStaffId) return;
+  try {
+    const authorizer = await appRpc<string | null>('verify_manager_pin', {
+      p_pin: pin,
+      p_device_id: touch.getStation().stationId,
+    });
+    // null is a wrong PIN (the function raises only for a lockout or a
+    // non-staff caller); refused before the cache can learn it.
+    if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
+    if (authorizer === signedInStaffId) throw new AppRpcError('PIN_OWN', 'PIN_OWN');
+    touch.pinObserved(pin, authorizer);
+  } catch (e) {
+    if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+  }
+}
+
+/** Main's answer to quitApp / exitFullscreen, as the error the dialog shows (null: let out). */
+function leaveRefusal(res: LeaveResult): Error | null {
+  if (res.ok) return null;
+  if (res.error === 'own pin') return new AppRpcError('PIN_OWN', res.error);
+  // The same fact the server states as PIN_INVALID, so it reads "Incorrect
+  // PIN." — at sign-in the cache is the only check that ran.
+  if (res.error === 'pin not recognised') return new AppRpcError('PIN_INVALID', res.error);
+  return new Error(res.error);
+}
+
+function LeavePinField({
+  pin,
+  setPin,
+  busy,
+  onEnter,
+}: {
+  pin: string;
+  setPin: (pin: string) => void;
+  busy: boolean;
+  onEnter: () => void;
+}) {
+  const { tr } = useLocale();
+  return (
+    <Field label={tr('ws.shell.nav.leavePin')} hint={tr('ws.shell.nav.leavePinHint')}>
+      <input
+        style={inputStyle}
+        type="password"
+        inputMode="numeric"
+        autoComplete="off"
+        dir="ltr"
+        autoFocus
+        maxLength={12}
+        disabled={busy}
+        value={pin}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+        onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && onEnter()}
+      />
+    </Field>
   );
 }
 
@@ -1480,11 +1596,11 @@ function ExitFullscreen() {
  * "Quit to desktop" (design-arch §2.5) — production kiosk windows are not
  * closable any other way. Hidden entirely in browser mode.
  *
- * NO CREDENTIAL. This sat behind the manager PIN (verify_manager_pin online,
- * main's offline cache otherwise) so a till could not be casually ended. That
- * gate is gone by request: what remains is a plain confirmation that names the
- * cost, and main exits on the word of the renderer alone. The dialog is the
- * whole protection against a stray tap now, which is why it stays.
+ * MANAGER PIN, NOT YOUR OWN. The PIN gate was taken off by request once, and
+ * is back (owner call, 2026-09-23): staff are kept inside the app, so on a
+ * locked station the dialog names the cost AND takes a manager's PIN that is
+ * not the signed-in person's (proveLeavePin; main re-checks it). In dev and
+ * on first run it is the plain confirmation it was.
  *
  * Rulebook 7.8: it carries its own separator and its own muted weight because
  * it ENDS SERVICE on this till, and it used to sit directly beneath "Sign out"
@@ -1503,7 +1619,9 @@ function ExitFullscreen() {
  */
 function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'windowClose' }) {
   const { tr } = useLocale();
+  const { staff } = useAuth();
   const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   // The sign-in variant sits in the top INLINE-END corner, inside the band
@@ -1525,19 +1643,26 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   // this question. It stays on a till or a KDS: those kiosks have no traffic
   // lights, and with the rail behind a sign-in it is their only way out.
   if (variant === 'signIn' && inset) return null;
+  const locked = touch.getStation().locked === true;
+
+  function close() {
+    setOpen(false);
+    setPin('');
+    setError(null);
+  }
 
   async function quit() {
     setBusy(true);
     setError(null);
     try {
+      if (locked) await proveLeavePin(pin, staff?.id ?? null);
       // Main exits ~50 ms after replying, so `busy` is the last thing the
-      // screen shows. A refusal only reaches here in browser mode, where the
-      // control does not render at all — it is surfaced rather than swallowed
-      // so a future refusal cannot fail silently on a station.
-      const res = await touch.quitApp();
-      if (!res.ok) throw new Error(res.error ?? 'refused');
+      // screen shows on success.
+      const refusal = leaveRefusal(await touch.quitApp(pin));
+      if (refusal) throw refusal;
     } catch (e) {
       setError(e);
+      setPin('');
       setBusy(false);
     }
   }
@@ -1588,24 +1713,25 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
         * outside, and no focus return to the control that opened it. The shared
         * Modal does all four, so the fork is deleted rather than repaired
         * (rulebook 12.1) — and its z-index comes from the scale with it,
-        * replacing a hand-typed 40. With the PIN field gone, Escape and the
-        * returned focus are the whole undo for a mis-tap.
+        * replacing a hand-typed 40. Escape and the returned focus are the
+        * undo for a mis-tap.
         */}
       {open && (
         <Modal
           title={tr('ws.shell.nav.quit')}
           size="sm"
-          onClose={() => setOpen(false)}
+          onClose={close}
           footer={
             <>
-              <Button onClick={() => setOpen(false)}>{tr('common.back')}</Button>
-              <Button kind="danger" busy={busy} onClick={() => void quit()}>
+              <Button onClick={close}>{tr('common.back')}</Button>
+              <Button kind="danger" busy={busy} disabled={locked && pin.length < 4} onClick={() => void quit()}>
                 {tr('ws.shell.nav.quit')}
               </Button>
             </>
           }
         >
           <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitConfirm')}</p>
+          {locked && <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void quit()} />}
           <ErrorText error={error} />
         </Modal>
       )}
@@ -1671,15 +1797,17 @@ function SignInScreen() {
     setError(null);
     try {
       await signIn(email.trim(), password);
+      // Stays busy on success: the shell replaces this screen once the role
+      // lookup lands (AuthProvider publishes the session after it), and the
+      // button coming back for that round trip invited a second submit.
     } catch (err) {
+      setBusy(false);
       const kind = signInFailure(err);
       setError(kind);
       // A wrong password is retyped, not edited: clear it and put the cursor
       // back. A network failure keeps both, because nothing was wrong with them.
       if (kind === 'invalid') setPassword('');
       passwordRef.current?.focus();
-    } finally {
-      setBusy(false);
     }
   }
 

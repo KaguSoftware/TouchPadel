@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { openQueue, getMeta, setMeta } from './queue';
-import { observePin, unlockPinOffline, resetPinCache } from './pin-cache';
+import { mayLeave, observePin, unlockPinOffline, resetPinCache } from './pin-cache';
 import { __setEncryptionAvailable } from '../../test/electron-stub';
 
 /**
@@ -89,5 +89,48 @@ describe('pin_cache salt at rest', () => {
     resetPinCache();
     expect(getMeta('pin_salt_enc')).toBeUndefined();
     expect(unlockPinOffline('4821')).toBeNull();
+  });
+});
+
+/**
+ * Staff are kept inside the app (owner call, 2026-09-23): leaving the station
+ * takes a manager PIN that is not the signed-in person's own.
+ */
+describe('mayLeave', () => {
+  const MANAGER_A = '11111111-1111-4111-8111-111111111111';
+  const MANAGER_B = '22222222-2222-4222-8222-222222222222';
+
+  beforeEach(() => {
+    openQueue().exec("DELETE FROM pin_cache; DELETE FROM meta WHERE key LIKE 'pin_salt%';");
+    __setEncryptionAvailable(true);
+  });
+
+  it('lets another manager\'s PIN out, and refuses the signed-in person\'s own', () => {
+    observePin('4821', 'manager', MANAGER_A);
+    expect(mayLeave('4821', MANAGER_B)).toBe('ok');
+    expect(mayLeave('4821', MANAGER_A)).toBe('own pin');
+  });
+
+  it('refuses a PIN nobody cached', () => {
+    observePin('4821', 'manager', MANAGER_A);
+    expect(mayLeave('9357', MANAGER_B)).toBe('pin not recognised');
+    expect(mayLeave('9357', null)).toBe('pin not recognised');
+  });
+
+  it('signed out, any cached manager PIN will do — there is no "own" to exclude', () => {
+    observePin('4821', 'manager');
+    expect(mayLeave('4821', null)).toBe('ok');
+  });
+
+  it('signed in, refuses a PIN whose owner was never learnt: it could be their own', () => {
+    observePin('4821', 'manager');
+    expect(mayLeave('4821', MANAGER_B)).toBe('pin not recognised');
+  });
+
+  it('a later untagged observation keeps the owner already on file', () => {
+    observePin('4821', 'manager', MANAGER_A);
+    observePin('4821', 'manager');
+    expect(unlockPinOffline('4821')?.staffId).toBe(MANAGER_A);
+    expect(mayLeave('4821', MANAGER_A)).toBe('own pin');
   });
 });

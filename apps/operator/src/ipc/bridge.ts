@@ -121,6 +121,9 @@ export type Role = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
 export type StationMode = 'till' | 'desk' | 'kds';
 
+/** What quitApp / exitFullscreen answer (ipc-channels.ts LeaveResult). */
+export type LeaveResult = { ok: true } | { ok: false; error: string };
+
 export interface StationInfo {
   stationId: string; // e.g. 'TILL1'
   mode: StationMode;
@@ -137,6 +140,8 @@ export interface StationInfo {
    * start below them. 0 or absent everywhere else: Windows, and every kiosk.
    */
   titleBarInset?: number;
+  /** Leaving (quit, exit full screen) takes a manager PIN that is not your own. False in dev and first run. */
+  locked?: boolean;
 }
 
 /** What the first-run setup screen sends. Only accepted while unconfigured. */
@@ -212,8 +217,14 @@ export interface TouchBridge {
   pushChromeless(chromeless: boolean): void;
   /** Store a fresh reference-data payload for offline trading (fetched_at stamped in main). */
   cachePut(key: RefKey, payload: unknown): void;
-  /** A PIN just succeeded server-side — cache its hash for offline unlock. */
-  pinObserved(pin: string): void;
+  /**
+   * A PIN just succeeded server-side — cache its hash for offline unlock.
+   * `staffId` is whose PIN it is, when known (verify_manager_pin's return, or
+   * the signed-in person's own on the lock screen): leaving the station needs
+   * a manager PIN that is not the signed-in person's, and offline that is the
+   * only way main can tell.
+   */
+  pinObserved(pin: string, staffId?: string): void;
   /**
    * The macOS red traffic light was pressed and main is HOLDING the close.
    * The page owes the operator the quit confirmation; nothing closes until
@@ -231,10 +242,17 @@ export interface TouchBridge {
   /** Manager PIN: park a conflict/failed row as resolved so it stops blocking day close.
    *  The row is kept with who and when; the write it carried is NOT applied. */
   resolveQueueRow(req: ResolveQueueRowRequest): Promise<ResolveQueueRowResult | IpcRefusal>;
-  /** Quit to desktop — the only way a production kiosk window closes. No PIN. */
-  quitApp(): Promise<{ ok: boolean; error?: string }>;
-  /** Drop kiosk/fullscreen so the station behaves like a normal window. Service continues. */
-  exitFullscreen(): Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Quit to desktop — the only way a production kiosk window closes. On a
+   * locked station (StationInfo.locked) it takes a manager PIN that is not the
+   * signed-in person's own; main re-checks it and answers `own pin` for that.
+   */
+  quitApp(pin: string): Promise<LeaveResult>;
+  /**
+   * Drop kiosk/fullscreen so the station behaves like a normal window until
+   * the signed-in person changes. Service continues. Same PIN rule as quitApp.
+   */
+  exitFullscreen(pin: string): Promise<LeaveResult>;
   /** First run only: write station.json and relaunch. */
   saveStation(req: StationSetupRequest): Promise<StationSetupResult | IpcRefusal>;
   /** Till only, behind the manager PIN: what a kitchen screen needs to pair. */

@@ -223,6 +223,11 @@ export const shellEn = {
     exitFullscreen: 'Exit forced full screen',
     quit: 'Quit to desktop',
     quitConfirm: 'This ends service on this station. Orders stop and the venue sees it go offline.',
+    // Quit and Exit forced full screen on a locked station (owner call,
+    // 2026-09-23): staff are kept inside the app, and the way out is somebody
+    // else's manager PIN.
+    leavePin: 'Manager PIN',
+    leavePinHint: 'A manager other than you has to enter their PIN.',
     kitchenNoNav: 'Kitchen display',
     version: 'Version {version}',
     updateReady: 'Update ready',

@@ -94,16 +94,23 @@ function deleteMeta(key: string): void {
   openQueue().prepare('DELETE FROM meta WHERE key = ?').run(key);
 }
 
-export function observePin(pin: string, role: Role = 'manager'): void {
+/**
+ * `staffId` is whose PIN this is, when the renderer knows it: the id
+ * verify_manager_pin returned, or the signed-in person's own on the lock
+ * screen. A later observation without one (a queued write's PIN) keeps the
+ * owner already on file rather than forgetting it.
+ */
+export function observePin(pin: string, role: Role = 'manager', staffId?: string): void {
   const hash = hashPin(pin);
   // Fail closed: no encryption, no cached credential material.
   if (!hash) return;
   openQueue()
     .prepare(
-      `INSERT INTO pin_cache (pin_hash, role, updated_at) VALUES (@hash, @role, @at)
-       ON CONFLICT(pin_hash) DO UPDATE SET role = excluded.role, updated_at = excluded.updated_at`,
+      `INSERT INTO pin_cache (pin_hash, role, updated_at, staff_id) VALUES (@hash, @role, @at, @staffId)
+       ON CONFLICT(pin_hash) DO UPDATE SET role = excluded.role, updated_at = excluded.updated_at,
+         staff_id = coalesce(excluded.staff_id, pin_cache.staff_id)`,
     )
-    .run({ hash: hash.toString('hex'), role, at: new Date().toISOString() });
+    .run({ hash: hash.toString('hex'), role, at: new Date().toISOString(), staffId: staffId ?? null });
 }
 
 export function unlockPinOffline(pin: string): PinUnlockResult | null {
@@ -113,18 +120,43 @@ export function unlockPinOffline(pin: string): PinUnlockResult | null {
   if (!candidate) return null;
   const cutoff = Date.now() - MAX_AGE_MS;
   const rows = openQueue()
-    .prepare('SELECT pin_hash, role, updated_at FROM pin_cache')
-    .all() as { pin_hash: string; role: string; updated_at: string }[];
+    .prepare('SELECT pin_hash, role, updated_at, staff_id FROM pin_cache')
+    .all() as { pin_hash: string; role: string; updated_at: string; staff_id: string | null }[];
   for (const row of rows) {
     const stored = Buffer.from(row.pin_hash, 'hex');
     // Equal-length scrypt outputs — constant-time compare, no early exit.
     if (stored.length === candidate.length && timingSafeEqual(stored, candidate)) {
       if (new Date(row.updated_at).getTime() < cutoff) return null; // stale — re-verify online
       return {
+        ...(row.staff_id ? { staffId: row.staff_id } : {}),
         role: row.role as Role,
         grantToken: randomBytes(16).toString('hex'),
       };
     }
   }
   return null;
+}
+
+export type LeaveVerdict = 'ok' | 'pin not recognised' | 'own pin';
+
+/**
+ * May this PIN take the station out of its lock (quit, or leave full screen)?
+ *
+ * Staff are kept inside the app (owner call, 2026-09-23): the way out is a
+ * manager's PIN, and never the signed-in person's own — a manager on the till
+ * cannot let themselves out, somebody else has to. Signed out there is no
+ * "own" to exclude, so any manager PIN on file will do.
+ *
+ * Signed in, the PIN's owner must be KNOWN and different. A cached hash with
+ * no owner on file is refused as unrecognised: it could be the signed-in
+ * person's, and online the renderer tags it before asking (the id
+ * verify_manager_pin returns), so this only bites an offline station whose
+ * cache never learnt the owner.
+ */
+export function mayLeave(pin: string, signedInStaffId: string | null): LeaveVerdict {
+  const unlocked = unlockPinOffline(pin);
+  if (!unlocked) return 'pin not recognised';
+  if (!signedInStaffId) return 'ok';
+  if (!unlocked.staffId) return 'pin not recognised';
+  return unlocked.staffId === signedInStaffId ? 'own pin' : 'ok';
 }
