@@ -20,6 +20,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL } from '../playwright.config';
 import {
+  choose,
   DEV_PASSWORD,
   SEED_STAFF,
   appRpc,
@@ -504,7 +505,7 @@ test.describe('operator cafe admin', () => {
     // Filtering by area narrows to that family and nothing else.
     await firstRow.getByRole('button', { name: 'Hide' }).click();
     await search.fill('');
-    await page.getByLabel('Area').selectOption('menu');
+    await choose(page.getByLabel('Area'), 'menu');
     // Scoped by attribute: the expanded before/after table repeats the column
     // positions, so an nth-child selector would also match its cells. Read the
     // attribute, not the text — the cell shows the action in words.
@@ -574,7 +575,7 @@ test.describe('operator cafe admin', () => {
       // before anything is written: nothing may change on the select alone.
       await row.getByRole('button', { name: 'Manage', exact: true }).click();
       const editor = page.getByTestId('staff-editor');
-      await editor.getByLabel('Role', { exact: true }).selectOption('manager');
+      await choose(editor.getByLabel('Role', { exact: true }), 'manager');
       await editor.getByRole('button', { name: 'Change role', exact: true }).click();
       const roleDialog = page.getByRole('dialog', { name: `Change ${name}’s role to Manager?` });
       await expect(roleDialog).toBeVisible();

@@ -354,6 +354,9 @@ export function SelectMenu<T extends string>({
                 id={`${listId}-${i}`}
                 type="button"
                 role="option"
+                // The value, not the label: e2e picks by it in both locales,
+                // the way selectOption() picked a native <option>.
+                data-value={o.value}
                 aria-selected={isSelected}
                 data-active={i === active ? 'true' : undefined}
                 disabled={o.disabled}

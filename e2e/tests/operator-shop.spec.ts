@@ -15,6 +15,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL } from '../playwright.config';
 import {
+  choose,
   DEV_PASSWORD,
   SEED_STAFF,
   appRpc,
@@ -97,12 +98,12 @@ test.describe('operator Touch Shop', () => {
     await page.goto(`${OPERATOR_URL}/stock/products`);
     await page.getByRole('button', { name: 'New product' }).first().click();
     const form = page.getByRole('dialog', { name: 'New product' });
-    await form.getByLabel('Shop section').selectOption({ label: SECTION });
+    await choose(form.getByLabel('Shop section'), { label: SECTION });
     await form.getByLabel('Product name (English)').fill(PRODUCT);
     await form.getByLabel('Product name (Arabic)').fill(`مضرب ${stamp}`);
     await form.getByLabel('Price (IQD)').fill('250000');
     await form.getByLabel('Barcode').fill(BARCODE);
-    await form.getByLabel('Supplier').selectOption({ label: SUPPLIER });
+    await choose(form.getByLabel('Supplier'), { label: SUPPLIER });
     await form.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(form).toBeHidden();
     await expect(page.getByText(BARCODE)).toBeVisible();
@@ -122,7 +123,7 @@ test.describe('operator Touch Shop', () => {
   test('(b) goods in receives the product like any stock', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/receive`);
-    await page.getByLabel('Ingredient').first().selectOption({ label: `${PRODUCT} One size` });
+    await choose(page.getByLabel('Ingredient').first(), { label: `${PRODUCT} One size` });
     await page.getByLabel(/^Received/).first().fill('3');
     await page.getByLabel(/^Cost per/).first().fill('180000');
     await page.getByRole('button', { name: 'Record delivery' }).click();
@@ -141,6 +142,8 @@ test.describe('operator Touch Shop', () => {
     await newTab.getByLabel('Name on the tab').fill(COUNTER);
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
+    // The basket starts with its lines folded away; open it to read them.
+    await page.getByRole('button', { name: 'Show the basket lines' }).click();
 
     // A wedge scanner: fast keys into the page (not a field), then Enter.
     // The tab's own header takes the focus off every input.
