@@ -3,7 +3,7 @@
  * in packages/db/tests/helpers.ts (service-role client, staff sign-in,
  * generate_table_token as owner, ensureOpenDay, ensureTillFresh).
  */
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -38,11 +38,19 @@ export async function choose(select: Locator, option: string | { label: string }
     await select.selectOption(option);
     return;
   }
-  await select.click();
-  const list = select.page().getByRole('listbox');
   // A grouped list writes its group ahead of the label ("Cafe · Beans"), where
   // a native <optgroup> kept it out of the option: the label still matches.
   const escaped = typeof option === 'string' ? '' : option.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Already showing it — a form with one choice starts on it, as a native
+  // select would, and selectOption() was a no-op there too.
+  if (typeof option !== 'string' && new RegExp(`^(?:.+ · )?${escaped}$`).test((await select.innerText()).trim())) return;
+  const list = select.page().getByRole('listbox');
+  // A click that lands while the dialog is still settling can leave the popup
+  // shut; open it until it is open rather than waiting on one that never came.
+  await expect(async () => {
+    if (!(await list.isVisible())) await select.click();
+    await expect(list).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   const item =
     typeof option === 'string'
       ? list.locator(`[role="option"][data-value="${option}"]`)
