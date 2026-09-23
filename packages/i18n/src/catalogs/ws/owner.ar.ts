@@ -113,7 +113,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       free: 'شاغر',
       staffWorking: 'موظف في محطته',
       staffBreak: 'موظف في استراحة',
-      players: 'لاعبون',
+      players: 'عملاء',
       seated: 'حساب مفتوح',
       paying: 'بانتظار الدفع',
     },

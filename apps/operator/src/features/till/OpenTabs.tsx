@@ -421,7 +421,7 @@ export function OpenTabsBoard({
       // <button> inside a cell from firing the row's navigate, by click and by
       // Enter — so arming a removal cannot also open the tab it is removing.
       render: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {pendingIds?.has(r.id) ? (
             <StatusBadge tone="info" icon="wifiOff" size="sm" label={tr('ws.cashier.tabs.removalQueued')} />
           ) : (
@@ -440,10 +440,10 @@ export function OpenTabsBoard({
           )}
           {armedId !== r.id && (
             <>
-              <Button size="sm" kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
+              <Button kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
                 {tr('ws.cashier.tabs.merge')}
               </Button>
-              <Button size="sm" iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
+              <Button iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
                 {tr('ws.cashier.tabs.select')}
               </Button>
             </>

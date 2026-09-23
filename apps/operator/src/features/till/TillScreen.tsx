@@ -557,7 +557,10 @@ export function TillScreen() {
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1fr) minmax(15rem, 21rem)',
-          gap: 'var(--tp-sp-4)',
+          // Row 1: floor heading and legend | New tab. Row 2: the plan | calls.
+          gridTemplateRows: 'auto minmax(0, 1fr)',
+          columnGap: 'var(--tp-sp-4)',
+          rowGap: 'var(--tp-sp-3)',
           blockSize: '100%',
           minBlockSize: 0,
           alignItems: 'stretch',
@@ -576,11 +579,18 @@ export function TillScreen() {
           courtTabs={courtTabCount(boards)}
           onTable={pressTable}
           onBooking={pressBooking}
-          onNewTab={() => setNewTab({})}
         />
-        <aside style={{ minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)' }}>
-          <StartShiftBanner />
+        {/* The screen's own action, top of the end column like every page's
+            header button, with the calls to answer right under it. */}
+        <span style={{ gridColumn: 2, gridRow: 1, alignSelf: 'start', justifySelf: 'end', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+          <Kbd>F6</Kbd>
+          <Button kind="primary" size="lg" icon="plus" onClick={() => setNewTab({})}>
+            {tr('ws.cashier.till.rail.newTab')}
+          </Button>
+        </span>
+        <aside style={{ gridColumn: 2, gridRow: 2, minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)' }}>
           <WaiterCallsPanel status={floorStatus} />
+          <StartShiftBanner />
           <OtherTabsList tabs={others} onPick={(id) => void selectTab(id)} />
         </aside>
         {overlays}

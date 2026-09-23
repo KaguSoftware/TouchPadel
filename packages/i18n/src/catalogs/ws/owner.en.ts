@@ -119,7 +119,7 @@ export const ownerEn = {
       free: 'Free',
       staffWorking: 'Staff at a station',
       staffBreak: 'Staff on break',
-      players: 'Players',
+      players: 'Customers',
       seated: 'Tab open',
       paying: 'Awaiting payment',
     },

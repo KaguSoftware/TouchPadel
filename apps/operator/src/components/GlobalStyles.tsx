@@ -163,6 +163,10 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-btn[data-size='sm'] { min-block-size: 1.85rem; padding-block: 0.25rem; padding-inline: 0.6rem; font-size: var(--tp-fs-sm); }
 .tp-btn[data-size='lg'] { min-block-size: var(--tp-touch); padding-block: 0.6rem; padding-inline: 1.1rem; font-size: var(--tp-fs-lg); }
 .tp-btn[data-size='xl'] { min-block-size: 3.5rem; padding-block: 0.8rem; padding-inline: 1.4rem; font-size: var(--tp-fs-xl); border-radius: var(--tp-radius-panel); }
+/* The page's own "add" action (New rule, New product…) is the one thing on the
+   header an owner reaches for, so a default-size primary there renders at lg. */
+.tp-page-actions .tp-btn[data-kind='primary'][data-size='md']:not(.tp-iconbtn) { min-block-size: var(--tp-touch); padding-block: 0.6rem; padding-inline: 1.25rem; font-size: var(--tp-fs-lg); }
+.tp-page-actions .tp-btn[data-kind='primary'][data-size='md']:not(.tp-iconbtn) svg { inline-size: 20px; block-size: 20px; }
 .tp-btn[aria-pressed='true'] { background: var(--tp-accent-soft); border-color: var(--tp-accent); color: var(--tp-accent-soft-fg); }
 /* Without this, a toggle carrying BOTH aria-pressed and data-kind='primary'
    renders soft at rest and flips to solid accent on hover, because the
