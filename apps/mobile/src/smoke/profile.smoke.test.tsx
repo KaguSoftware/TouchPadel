@@ -15,6 +15,7 @@ import SettingsScreen from '../../app/settings';
 import ProfileEditScreen from '../../app/profile-edit';
 import ChangePasswordScreen from '../../app/change-password';
 import DeleteAccountScreen from '../../app/delete-account';
+import AcceptTermsScreen from '../../app/accept-terms';
 
 const SIGNED_IN: [readonly unknown[], unknown][] = [
   [profileKeys.own, profileFixture()],
@@ -50,6 +51,14 @@ const CASES: SmokeCase[] = [
     // MOUNTED but disabled until the confirmation word is typed — which is the
     // state worth smoking: the screen must offer the action and refuse it.
     labelKey: 'profile.deleteAccount',
+    options: { session: 'in', queryData: SIGNED_IN },
+  },
+  {
+    route: 'accept-terms',
+    Component: AcceptTermsScreen,
+    // Mounted but disabled until the consent switch is on — the gate must
+    // offer acceptance and refuse it unticked.
+    labelKey: 'consent.accept',
     options: { session: 'in', queryData: SIGNED_IN },
   },
 ];

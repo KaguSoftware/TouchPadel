@@ -607,7 +607,7 @@ Twenty-one claims, all corrected in place; the full table is audit §5. The ones
 | **H2** | One malformed LAN frame crashes the till | code, then `operator-v0.2.3` after H1 |
 | **M1, M2** | Mobile login CSRF; `reset-password` accepts any session | code, before the store build |
 | **M15** | OTA signing key custody unknown | human, before the store build |
-| — | Privacy notice and account-deletion pages do not exist (store blocker, SEC-17) | code + owner sign-off |
+| — | Privacy notice and account-deletion pages (store blocker, SEC-17): **built 2026-09-23**; waiting on the company details in `docs/legal/LEGAL-DETAILS-TO-FILL.md` | client details + deploy |
 
 Everything else, and the order to do it in: audit §3 (tonight) and §4 (Patch 1 this week, Patch 2 next week,
 before handover).

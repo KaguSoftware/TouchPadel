@@ -200,6 +200,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_terms: { Args: { p_version?: string }; Returns: Json }
       ack_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       acknowledge_alert: { Args: { p_alert_id: string }; Returns: undefined }
       add_customer_note: {
@@ -4188,6 +4189,8 @@ export type Database = {
           id: string
           phone: string | null
           preferred_lang: string
+          terms_accepted_at: string | null
+          terms_version: string | null
         }
         Insert: {
           created_at?: string
@@ -4197,6 +4200,8 @@ export type Database = {
           id: string
           phone?: string | null
           preferred_lang?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
         }
         Update: {
           created_at?: string
@@ -4206,6 +4211,8 @@ export type Database = {
           id?: string
           phone?: string | null
           preferred_lang?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
         }
         Relationships: []
       }

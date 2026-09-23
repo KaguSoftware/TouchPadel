@@ -516,9 +516,9 @@ SHA-1 fingerprints to register (label: value; each becomes its own client):
    `GOOGLE_ANDROID_CLIENT_ID_<LABEL>`. "Already in use" ⇒ the pair belongs to another project — report verbatim.
 
 ## Task 2 — consent screen → production (CHANGE only if both URL lines are filled; otherwise REPORT ONLY)
-- Home page URL: `<HOME_URL or 'not yet'>`
-- Privacy policy URL: `<PRIVACY_URL or 'not yet'>`
-- Terms of service URL: `<TERMS_URL, or 'same' to reuse the privacy URL>`
+- Home page URL: `https://www.touch-padel.com/en`
+- Privacy policy URL: `https://www.touch-padel.com/en/privacy`
+- Terms of service URL: `https://www.touch-padel.com/en/terms` (live once the 2026-09-23 legal pages deploy)
 If both are filled: Google Auth Platform → **Branding** → App domain → enter the three links; **Authorized
 domains** → add the domain of those URLs (if Google refuses because the domain is not verified in Search
 Console, STOP and report the exact message); Save. Then **Audience** → **Publish app** → confirm. If Google
