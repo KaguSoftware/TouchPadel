@@ -14,7 +14,7 @@ import { useLocale } from '../lib/i18n';
 import type { StaffRole } from '../lib/auth';
 import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinner, card, inputStyle, type ReasonCode } from './ui';
 import { Icon, type IconName } from './icons';
-import { BilingualFields } from './inputs';
+import { BilingualFields, DateField } from './inputs';
 
 // ---------------------------------------------------------------------------
 // Page structure
@@ -1501,22 +1501,22 @@ export function DateRangeControl({
         </Button>
       ))}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginInlineStart: '0.4rem' }}>
-        <input
-          type="date"
-          aria-label={tr('ws.kit.dateRange.from')}
+        {/* DateField: a raw date input let '20266-…' through the `from > to`
+            string check, and formatting it threw, taking the whole report down. */}
+        <DateField
+          ariaLabel={tr('ws.kit.dateRange.from')}
           value={draft.from}
           disabled={disabled}
-          onChange={(e) => e.target.value && setDraft((d) => ({ ...d, from: e.target.value }))}
-          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
+          onChange={(v) => setDraft((d) => ({ ...d, from: v }))}
+          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         <span style={{ color: 'var(--tp-muted-fg)' }}>–</span>
-        <input
-          type="date"
-          aria-label={tr('ws.kit.dateRange.to')}
+        <DateField
+          ariaLabel={tr('ws.kit.dateRange.to')}
           value={draft.to}
           disabled={disabled}
-          onChange={(e) => e.target.value && setDraft((d) => ({ ...d, to: e.target.value }))}
-          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
+          onChange={(v) => setDraft((d) => ({ ...d, to: v }))}
+          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         {(draft.from !== period.from || draft.to !== period.to) && (
           <Button size="sm" kind="soft" disabled={disabled || draft.from > draft.to} onClick={() => onChange(draft)}>
@@ -1600,7 +1600,8 @@ export function PinPromptOverlay({
     <Modal
       title={tr('ws.kit.pin.title')}
       subtitle={tr('ws.kit.pin.lead', { action })}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       size="sm"
       footer={
         <>
@@ -1663,7 +1664,8 @@ export function ReasonCodePrompt({
     <Modal
       title={tr('ws.kit.reason.title')}
       subtitle={tr('ws.kit.reason.lead', { action })}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       size="sm"
       footer={
         <>

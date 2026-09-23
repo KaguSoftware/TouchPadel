@@ -210,7 +210,8 @@ export function CreateReservationDialog({
           {courtLabel} · {formatDate(startAt, locale, tz)} · {formatTimeRange(startAt, endAt, locale, tz)}
         </bdi>
       }
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       footer={(close) => (
         <>
           <Button onClick={close} disabled={busy}>

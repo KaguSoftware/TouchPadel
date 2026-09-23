@@ -85,7 +85,8 @@ export function ChargeToBookingDialog({
     <Modal
       title={tr('ws.cashier.charge.title')}
       subtitle={tr('ws.cashier.charge.lead')}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       footer={(close) => (
         <div style={reasonedFooter}>
           <Button onClick={close} disabled={busy}>

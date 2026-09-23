@@ -329,7 +329,8 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
       {confirmClose && (
         <Modal
           title={tr('ws.courtDesk.payment.closeBillTitle')}
-          onClose={busy ? () => {} : () => setConfirmClose(false)}
+          dismissible={!busy}
+          onClose={() => setConfirmClose(false)}
           size="sm"
           footer={
             <>

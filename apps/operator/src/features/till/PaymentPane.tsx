@@ -129,7 +129,8 @@ export function PaymentPane({
     return (
       <Modal
         title={tr('op.till.payCard')}
-        onClose={busy ? () => {} : onCancel}
+        dismissible={!busy}
+        onClose={onCancel}
         size="sm"
         footer={
           <div style={reasonedFooter}>
@@ -164,7 +165,8 @@ export function PaymentPane({
   return (
     <Modal
       title={tr('op.till.payCash')}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       footer={
         <div style={reasonedFooter}>
           <Button onClick={onCancel} disabled={busy}>

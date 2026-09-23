@@ -141,7 +141,8 @@ export function ReservationActionsDialog({
           {r.price_iqd != null && <bdi dir="ltr">{formatIQD(r.price_iqd, locale)}</bdi>}
         </span>
       }
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       footer={(close) => (
         <>
           <Button onClick={close} disabled={busy}>

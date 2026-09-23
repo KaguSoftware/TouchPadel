@@ -446,9 +446,18 @@ export function Modal({
   subtitle,
   titleAfter,
   footer,
+  dismissible = true,
 }: {
   title: string;
   onClose: () => void;
+  /**
+   * False while a write is in flight: Esc, the backdrop, the X and the footer's
+   * close do nothing. Callers used to pass `onClose={busy ? () => {} : …}`,
+   * which let the exit fade play and stick — the dialog stayed mounted as an
+   * invisible full-screen layer, `closing` stayed set, and every later click
+   * or Esc was swallowed until a reload.
+   */
+  dismissible?: boolean;
   children: ReactNode;
   wide?: boolean;
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -469,6 +478,8 @@ export function Modal({
   const backdropRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const dismissibleRef = useRef(dismissible);
+  dismissibleRef.current = dismissible;
   /*
    * The exit is driven off the DOM rather than a state flag: a re-render on the
    * way out would re-run the panel's children (a busy Button, a query that has
@@ -493,7 +504,7 @@ export function Modal({
   });
 
   function requestClose() {
-    if (closing.current) return;
+    if (closing.current || !dismissibleRef.current) return;
     const backdrop = backdropRef.current;
     if (!backdrop) {
       onCloseRef.current();
@@ -685,28 +696,36 @@ export function ErrorText({ error, style }: { error: unknown; style?: CSSPropert
   );
 }
 
-/** Cash amount pad — appends digits / 000, backspace, clear. Keyboard-operable. */
-export function AmountPad({
-  value,
-  onChange,
-  onConfirm,
-  max,
-  disabled,
-}: {
-  value: number;
-  onChange: (next: number) => void;
+type AmountPadProps = {
   onConfirm?: () => void;
   max?: number;
   disabled?: boolean;
-}) {
+} & (
+  | { nullable?: false; value: number; onChange: (next: number) => void }
+  /**
+   * "Nothing entered" is not 0: Clear, and ⌫ on the last digit, go back to
+   * null. Day close counts the drawer this way, where a 0 reads as "counted,
+   * and empty" and would close the day short by the whole drawer.
+   */
+  | { nullable: true; value: number | null; onChange: (next: number | null) => void }
+);
+
+/** Cash amount pad — appends digits / 000, backspace, clear. Keyboard-operable. */
+export function AmountPad(props: AmountPadProps) {
+  const { onConfirm, max, disabled } = props;
   const { tr } = useLocale();
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', '⌫'];
+  const value = props.value ?? 0;
+  const set = (next: number | null) => {
+    if (props.nullable) props.onChange(next);
+    else props.onChange(next ?? 0);
+  };
   function press(k: string) {
-    if (k === '⌫') onChange(Math.floor(value / 10));
+    if (k === '⌫') set(value < 10 ? null : Math.floor(value / 10));
     else {
-      const next = Number(`${value}${k}`);
+      const next = Number(props.value === null ? k : `${value}${k}`);
       // A press that would exceed the cap is ignored, so the pad stops at max.
-      if (Number.isSafeInteger(next) && (max === undefined || next <= max)) onChange(next);
+      if (Number.isSafeInteger(next) && (max === undefined || next <= max)) set(next);
     }
   }
   return (
@@ -745,7 +764,7 @@ export function AmountPad({
           {k === '⌫' ? <Icon name="undo" size={20} /> : k}
         </Button>
       ))}
-      <Button kind="ghost" size="sm" disabled={disabled} onClick={() => onChange(0)} style={{ gridColumn: '1 / -1' }}>
+      <Button kind="ghost" size="sm" disabled={disabled} onClick={() => set(null)} style={{ gridColumn: '1 / -1' }}>
         {tr('ws.kit.keypad.clear')}
       </Button>
     </div>

@@ -262,7 +262,8 @@ function CapDialog({ currentMicros, monthSpentMicros, onClose, onSaved }: { curr
     return (
       <Modal
         title={tr('ws.owner.assistant.usage.capConfirmTitle')}
-        onClose={save.isPending ? () => {} : onClose}
+        dismissible={!save.isPending}
+        onClose={onClose}
         size="sm"
         footer={
           <>

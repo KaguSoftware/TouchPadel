@@ -393,7 +393,8 @@ function FlagsEditor({ customerId, flags, onClose, onSaved }: { customerId: stri
     <Modal
       title={tr('ws.courtDesk.record.flagsTitle')}
       subtitle={tr('ws.courtDesk.record.flagsLead')}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       footer={(close) => (
         <>
           <Button onClick={close} disabled={busy}>
