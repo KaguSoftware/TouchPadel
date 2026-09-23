@@ -1,5 +1,5 @@
 {
-  "generated_from": "9860835136b8a31efb4ee431a8d7b21c9e835c88",
+  "generated_from": "b07f76b5d1de9a873025ea171cd83608a2ef7feb",
   "chunks": [
     {
       "kind": "page",
@@ -21549,29 +21549,69 @@
       "kind": "doc",
       "ref": "doc:README.md#1",
       "lang": "en",
-      "title": "README.md › Touch Padel — Phase 1",
-      "body": "# Touch Padel — Phase 1\n\nMonorepo for the Touch Padel venue system (padel courts + cafe, Iraq): guest booking app,\npublic website with QR cafe ordering, and a Windows operator app (till / desk / kitchen /\nstock / admin) on one Supabase Postgres. Bilingual EN/AR, full RTL. Money is integer IQD\neverywhere. The signed SOW in `docs/scope/` is the contract.",
+      "title": "README.md › Touch Padel",
+      "body": "# Touch Padel\n\nThe venue system for Touch Padel, a padel club with a cafe in Iraq: a guest booking app, a\npublic website with QR cafe ordering, and a Windows operator app for the staff (till, court\ndesk, kitchen screen, stock, admin), all on one Supabase Postgres. Bilingual EN/AR with full\nRTL. Money is integer IQD everywhere. The signed SOW in `docs/scope/` is the contract.\n\nLive site: **https://www.touch-padel.com** (the bare `touch-padel.com` redirects there). It\nis also the address printed on the table QR cards and linked from the app's privacy and\nsupport pages.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:README.md#10",
+      "lang": "en",
+      "title": "README.md › Conventions",
+      "body": "## Conventions\n\n- Schema changes are migrations only. No Supabase dashboard edits.\n- Writes go through RPCs; row-level security is the backstop, not the interface.\n- Bilingual columns come in `_en` / `_ar` pairs; UI strings come in `.en.ts` / `.ar.ts` pairs.\n- Money is integer IQD. No floats, no currency conversion in the client.\n- CSS uses logical properties (`margin-inline-start`, not `margin-left`) so RTL is free.\n- Commits are authored by the human doing the work, with no AI co-author trailers (see `CLAUDE.md`).\n\n`HANDOFF.md` holds the full set, plus the current state and known gotchas.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:README.md#11",
+      "lang": "en",
+      "title": "README.md › Read next",
+      "body": "## Read next\n\n- `HANDOFF.md`: current state, conventions and gotchas. Read it first in any new session.\n- `CONTRIBUTING.md`: workflow rules and Windows setup.\n- `API.md`: the RPC and edge-function surface.\n- `docs/design/`: architecture, the canonical data model and the delivery plan.\n- `docs/security/`: security-layer decisions and runbooks.\n- `docs/install-runbook.md`: on-site install steps for the operator machine.\n- `docs/client/`: the client-facing input pack (checklists, CSV templates).\n- `docs/brand/lama-sans/README.md`: the brand typeface — what ships, what was cut, and how to\n  add a weight.",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:README.md#2",
       "lang": "en",
-      "title": "README.md › Layout",
-      "body": "## Layout\n\n| Path | Package | What it is |\n|---|---|---|\n| `apps/mobile` | `@touch/mobile` | Guest app, React Native + Expo (padel booking only) |\n| `apps/web` | `@touch/web` | Public site + cafe QR ordering, Next.js on Vercel |\n| `apps/operator` | `@touch/operator` | Operator SPA (till, calendar, KDS, stock, admin), Vite + React |\n| `apps/operator-shell` | `@touch/operator-shell` | Electron shell: SQLite queue, LAN KDS, ESC/POS printing, auto-update |\n| `packages/db` | `@touch/db` | Supabase migrations, generated types, seeds, DB tests and safety checks |\n| `packages/core` | `@touch/core` | Shared domain logic (money, splits, idempotency, time) |\n| `packages/ui` | `@touch/ui` | Shared UI tokens/components (logical properties only) |\n| `packages/i18n` | `@touch/i18n` | EN/AR messages and locale utilities |\n| `packages/config` | `@touch/config` | Shared tsconfig/eslint/prettier presets |",
+      "title": "README.md › The system at a glance",
+      "body": "## The system at a glance\n\n```\n  Guests                                   Staff (at the venue)\n  ──────                                   ────────────────────\n  Mobile app          Website              Operator app (Windows)\n  apps/mobile         apps/web             apps/operator  inside  apps/operator-shell\n  Expo / RN           Next.js, Vercel      Vite + React SPA       Electron: offline queue,\n  book courts         menu, QR table       till · desk · KDS ·    LAN kitchen screen,\n                      ordering             stock · admin ·        receipt printing,\n                                           reports · assistant    auto-update\n       │                   │                      │                    │\n       └───────────────────┴──────────┬───────────┴────────────────────┘\n                                      ▼\n                        Supabase (packages/db)\n                        Postgres: tables + RLS + app.* RPCs   ← every business write\n                        Realtime: broadcast topics            → screens refresh\n                        Edge functions: replay, SMS/OTP, push,\n                        Telegram, AI assistant, analytics\n```\n\nHow it hangs together:",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:README.md#3",
       "lang": "en",
-      "title": "README.md › Quickstart",
-      "body": "## Quickstart\n\nPrereqs: Node 22+, pnpm 9 (`corepack enable` picks up the pinned version), Docker Desktop\n(for local Supabase). Windows setup details are in `CONTRIBUTING.md`.\n\n```sh\npnpm i\npnpm db:start                    # local Supabase via Docker\npnpm db:reset                    # apply migrations + seed fixtures\npnpm dev                         # turbo dev for everything\npnpm --filter @touch/web dev     # or a single app\npnpm turbo lint typecheck test\npnpm e2e:install && pnpm e2e     # optional: Playwright browser tests\n```",
+      "title": "README.md › The system at a glance",
+      "body": "- **Writes are RPCs.** Every business write (open a tab, settle, book, void) is an `app.*`\n  Postgres function. It checks the role, validates, and writes in one transaction. Row-level\n  security is the backstop, not the interface. Clients may read tables directly.\n- **The server owns the numbers.** Totals, tax, court fees and prices are computed in SQL.\n  The apps show a mirror of those figures for speed, and the server re-stamps them when it\n  writes.\n- **The till survives the internet going down.** In Electron, writes go to a durable SQLite\n  queue with idempotency keys. The `replay` edge function applies them in order on reconnect.\n  A write that is only queued is shown as \"saved on this station\", never as done.\n- **Screens stay live through broadcast.** Tables publish on topics (`courts`, `floor`,\n  `kds`, `menu`). A screen subscribes, treats each message as a signal to refetch, and polls as\n  a safety net.\n- **Time is venue time.** The venue trades 09:00 → 02:00 in `Asia/Baghdad`, so the\n  00:00–02:00 tail belongs to the night before. Dates come from the venue's timezone and\n  business day, never from the station's clock.",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:README.md#4",
+      "lang": "en",
+      "title": "README.md › Project tree",
+      "body": "## Project tree\n\n```\napps/\n  mobile/            Guest app (Expo Router). app/ = screens, src/features = booking, auth, profile\n  web/               Public site (www.touch-padel.com). app/[locale]/ = home, download, support,\n                     t/ (QR table ordering)\n  operator/          Staff SPA\n    src/features/    one folder per area: till, desk, kds, floor, stock, admin, reports,\n                     analytics, assistant, observation, financial, …\n    src/lib/         the plumbing every screen uses: appRpc, mutate (offline queue), realtime,\n                     auth + roles, query keys, edge calls\n    src/components/  kit.tsx / ui.tsx: the shared UI primitives (Modal, fields, tables)\n    src/routes/      route tree and role gates\n  operator-shell/    Electron main process: queue.ts + sync-worker.ts (offline writes),\n                     lan-kds-* (kitchen screen over LAN), print/ (ESC/POS), updater.ts\npackages/\n  db/                Everything database\n    supabase/migrations/   the schema, numbered 0001… (the only way the schema changes)\n    supabase/functions/    edge functions (Deno)\n    src/types.gen.ts       generated TypeScript types for the schema\n    tests/                 RLS, RPC and concurrency tests against a local Supabase\n    fixtures/ seeds/       dev data, and the assistant's generated page map\n  core/              Pure domain logic shared by all apps: money, pricing, availability,\n                     time zones, phone numbers, mutation schemas\n  i18n/              EN/AR catalogs (catalogs/ws/<lane>.en.ts + .ar.ts), formatting, RTL helpers\n  ui/                Design tokens and theme (colours as var(--tp-*))\n  config/            Shared tsconfig / eslint / prettier presets\ne2e/                 Playwright journeys (operator + web, EN and AR)\ndocs/                Scope (SOW), design and architecture, security, runbooks, brand\nscripts/             One-off admin and security scripts\n```",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:README.md#5",
+      "lang": "en",
+      "title": "README.md › Project tree",
+      "body": "Each app and `packages/db` has its own `CLAUDE.md` with the rules for working in it. Read the\none for the package you are changing.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:README.md#6",
+      "lang": "en",
+      "title": "README.md › Quickstart",
+      "body": "## Quickstart\n\nPrereqs: Node 22+, pnpm 9 (`corepack enable` picks up the pinned version), Docker Desktop\n(for local Supabase). Windows setup details are in `CONTRIBUTING.md`.\n\n```sh\npnpm i\npnpm db:start                    # local Supabase via Docker\npnpm db:reset                    # apply migrations + seed fixtures\npnpm dev                         # turbo dev for everything\npnpm --filter @touch/web dev     # or a single app\npnpm turbo lint typecheck test\npnpm e2e:install && pnpm e2e     # optional: Playwright browser tests\n```\n\nThe operator-shell tests need `better-sqlite3` built for Node. If about 47 shell tests fail\nwith a `NODE_MODULE_VERSION` error, run `pnpm --filter @touch/operator-shell native:node`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:README.md#7",
       "lang": "en",
       "title": "README.md › Environment",
       "body": "## Environment\n\nEach app reads its own env file. Copy the example, fill in values, never commit the result\n(`.gitignore` blocks every `.env*` except `.env.example`).\n\n| Example | Copy to | Read by |\n|---|---|---|\n| `apps/web/.env.example` | `apps/web/.env.local` | Next.js (`NEXT_PUBLIC_*`) |\n| `apps/mobile/.env.example` | `apps/mobile/.env` | Expo (`EXPO_PUBLIC_*`) |\n| `apps/operator/.env.example` | `apps/operator/.env.local` | Vite (`VITE_*`) |\n| `packages/db/.env.example` | `packages/db/.env` | dotenv in DB tests and scripts |\n\n`NEXT_PUBLIC_`, `EXPO_PUBLIC_` and `VITE_` values are inlined into shipped client bundles,\nso nothing secret may sit behind those names. `pnpm security:env-names` enforces this in CI.\nThe service-role key lives only in `packages/db/.env` and GitHub Environment secrets.",
@@ -21579,34 +21619,18 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:README.md#5",
-      "lang": "en",
-      "title": "README.md › Scripts (repo root)",
-      "body": "## Scripts (repo root)\n\n| Group | Scripts |\n|---|---|\n| Turbo | `build`, `dev`, `lint`, `typecheck`, `test` |\n| Database | `db:start`, `db:stop`, `db:reset`, `db:types`, `db:fixtures`, `db:clear-dev-till` |\n| Quality | `format`, `fonts:sync`, `fonts:check`, `e2e`, `e2e:install` |\n| Security | `security` runs every Docker-free CI secrets gate in one go; or `security:env-names`, `security:history`, `security:audit`, `security:data`, `security:web` individually |\n\nRun `supabase` CLI commands from `packages/db`, not the repo root. Never run `eas` or `expo`\nfrom the root either; the real config lives in `apps/mobile/`.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:README.md#6",
-      "lang": "en",
-      "title": "README.md › CI and release",
-      "body": "## CI and release\n\nWorkflows live in `.github/workflows/`:\n\n- `ci.yml` runs on every PR and push to main: secret and hygiene gates, lint/typecheck/test/build,\n  an Electron ABI smoke on Windows, an Expo bundle check, and a clean local Supabase run with\n  migration, RLS, lock-order and concurrency tests.\n- `db-drift.yml` diffs the hosted project against the migration head nightly (02:00 Baghdad).\n- `db-migrate.yml` pushes migrations to staging on `workflow_dispatch` or when a main push touches\n  `packages/db/supabase/migrations/**`, behind the `staging` GitHub Environment.\n- `operator-release.yml` builds and signs the Electron installer on `operator-v*` tags and publishes\n  it to the public `KaguSoftware/touchpadel-releases` repo.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:README.md#7",
-      "lang": "en",
-      "title": "README.md › Conventions",
-      "body": "## Conventions\n\n- Schema changes are migrations only. No Supabase dashboard edits.\n- Writes go through RPCs; row-level security is the backstop, not the interface.\n- Bilingual columns come in `_en` / `_ar` pairs.\n- Money is integer IQD. No floats, no currency conversion in the client.\n- CSS uses logical properties (`margin-inline-start`, not `margin-left`) so RTL is free.\n- Commits are authored by the human doing the work, with no AI co-author trailers (see `CLAUDE.md`).\n\n`HANDOFF.md` holds the full set, plus the current state and known gotchas.",
-      "route": null
-    },
-    {
-      "kind": "doc",
       "ref": "doc:README.md#8",
       "lang": "en",
-      "title": "README.md › Read next",
-      "body": "## Read next\n\n- `HANDOFF.md` — current state, conventions, gotchas. Read first in any new session.\n- `CONTRIBUTING.md` — workflow rules and Windows setup.\n- `docs/install-runbook.md` — on-site install steps for the operator machine.\n- `docs/design/` — architecture, canonical data model, delivery plan.\n- `docs/security/` — security layer decisions and runbooks.\n- `docs/client/` — client-facing input pack (checklists, CSV templates).\n- `docs/brand/lama-sans/README.md` — the brand family: what ships, what was cut, adding a weight.",
+      "title": "README.md › Scripts (repo root)",
+      "body": "## Scripts (repo root)\n\n| Group | Scripts |\n|---|---|\n| Turbo | `build`, `dev`, `lint`, `typecheck`, `test` |\n| Database | `db:start`, `db:stop`, `db:reset`, `db:types`, `db:fixtures`, `db:clear-dev-till` |\n| Quality | `format`, `fonts:sync`, `fonts:check`, `e2e`, `e2e:install` |\n| Security | `security` runs every Docker-free CI secrets gate in one go; or `security:env-names`, `security:history`, `security:audit`, `security:data`, `security:web` individually |\n\nRun `supabase` CLI commands from `packages/db`, not the repo root. Never run `eas` or `expo`\nfrom the root either; the real config lives in `apps/mobile/`. Don't run `pnpm format` across\nthe whole repo; format only the files you touched.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:README.md#9",
+      "lang": "en",
+      "title": "README.md › CI and release",
+      "body": "## CI and release\n\nWorkflows live in `.github/workflows/`:\n\n- `ci.yml` runs on every PR and push to main: secret and hygiene gates, lint/typecheck/test/build,\n  an Electron ABI smoke on Windows, an Expo bundle check, a clean local Supabase run with\n  migration, RLS, lock-order and concurrency tests, and the Playwright suite.\n- `db-drift.yml` diffs the hosted project against the migration head nightly (02:00 Baghdad).\n- `db-migrate.yml` pushes migrations to staging on `workflow_dispatch` or when a main push touches\n  `packages/db/supabase/migrations/**`, behind the `staging` GitHub Environment.\n- `operator-release.yml` builds and signs the Electron installer on `operator-v*` tags and publishes\n  it to the public `KaguSoftware/touchpadel-releases` repo.\n\nEvery push to `main` is also a Vercel production build of the website. Commit as often as you\nlike, but push in batches.",
       "route": null
     }
   ]
