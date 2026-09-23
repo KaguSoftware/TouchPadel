@@ -31,7 +31,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { permissionsFor, useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, Select } from '../../components/ui';
 import { ReservationBadge } from './deskStatus';
-import { allowedMarks, isLive } from './deskLogic';
+import { allowedMarks, canMoveReservation, isLive } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
@@ -96,11 +96,13 @@ export function ReservationActionsDialog({
       list?.map((row) => (row.id === r.id ? { ...row, status } : row)),
     );
     onChanged();
-    // Arrived and completed are the normal course of a booking, not an
-    // override: they carry no reason (the server records its own default).
-    // A no-show ends the booking and frees the court, so it carries one.
-    const why = status === 'no_show' ? { reason } : {};
-    void mutate('reservation.update', { action: 'mark', reservationId: r.id, status, ...why }).catch((e: unknown) => {
+    // No mark carries a reason. The server asks for none -- mark_reservation's
+    // p_reason is defaulted and coalesced, so a no-show records 'no_show' --
+    // and this dialog's reason Select is pre-filled with OVERRIDE_REASONS[0],
+    // so attaching it stamped every no-show taken from the calendar as
+    // "Customer request". A wrong reason in the audit is worse than none
+    // (owner, 2026-09-23). The Select stays: move, shorten and extend use it.
+    void mutate('reservation.update', { action: 'mark', reservationId: r.id, status }).catch((e: unknown) => {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
     });
@@ -108,6 +110,10 @@ export function ReservationActionsDialog({
 
   const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
   const live = isLive(r.status);
+  // Same rule the calendar's drag gate uses: a checked-in guest whose slot has
+  // started is playing, and re-timing that is not on offer. Read at render like
+  // `allowedMarks` below — the dialog is opened per action, not left standing.
+  const movable = canMoveReservation(r, Date.now());
   const marks = allowedMarks(r.status, r.start_at);
   const court = courts.find((c) => c.id === r.court_id);
   // The floor is the court's own shortest bookable duration: shorter than that
@@ -255,9 +261,11 @@ export function ReservationActionsDialog({
                 </span>
               )}
             </span>
-            <Button icon="repeat" busy={busy} onClick={() => setShowMove(true)}>
-              {tr('op.desk.move')}
-            </Button>
+            {movable && (
+              <Button icon="repeat" busy={busy} onClick={() => setShowMove(true)}>
+                {tr('op.desk.move')}
+              </Button>
+            )}
             {marks.includes('no_show') && (
               <Button icon="eyeOff" busy={busy} onClick={() => runMark('no_show')}>
                 {tr('ws.courtDesk.detail.noShow')}

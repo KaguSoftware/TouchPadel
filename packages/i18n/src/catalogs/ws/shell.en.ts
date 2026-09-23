@@ -36,11 +36,13 @@ export const shellEn = {
     confirmBody: 'The sidebar will change to the {workspace} screens. Nothing on your current screen is lost; you can switch back from Switch workspace.',
     confirmLabel: 'Switch',
   },
-  // The healthy rung of the connectivity strip (rulebook 9.6). The other three
-  // read op.status.*; only "normal" had no string at all, because the banner
-  // used to render nothing when everything was fine.
+  // The connectivity strip (rulebook 9.6). It answers one question — can this
+  // station reach the server — so "ok" no longer promises anything about the
+  // queue: writes made offline replay on reconnect, which is what `offline`
+  // says, and the Day close screen is where unsynced writes are listed.
   status: {
-    ok: 'Connected — nothing waiting to sync.',
+    ok: 'Connected.',
+    offline: 'Not connected — changes are saved here and will sync once the connection is back.',
   },
   // Named so RequireRole can hand the shared PermissionRefusedNotice a subject
   // instead of forking its own sentence. Reads as "{action} needs the {role}

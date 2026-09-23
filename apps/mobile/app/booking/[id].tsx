@@ -8,10 +8,10 @@ import { formatDate, formatDateTime, formatTimeRange, isolate } from '@touch/i18
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
-import { canCancel, displayRef, endedNotice } from '../../src/features/booking/logic';
+import { canCancel, dayPart, displayRef, endedNotice, isCourtFeePaid } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useCourts, useCourtsBroadcast, useVenueSettings } from '../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../src/features/availability/assemble';
+import { DEFAULT_TZ, venuePhoneOf } from '../../src/features/availability/assemble';
 import { callPhone } from '../../src/lib/phone';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
@@ -77,6 +77,8 @@ function BookingDetailScreen() {
   // red refusal card a second later.
   const policyKnown = settings.isSuccess;
   const windowHours = settings.data?.cancellation_window_hours ?? 0;
+  // The venue's clock decides "good evening", not the phone's.
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   const start = booking ? new Date(booking.start_at) : null;
   const end = booking ? new Date(booking.end_at) : null;
   const upcomingActive =
@@ -355,7 +357,18 @@ function BookingDetailScreen() {
           ) : null}
 
           <View style={{ marginTop: 10 }}>
-            <PayAtDeskCard lead={`${t('booking.payAtDeskTitle')}.`} body={t('booking.payAtDeskShort')} />
+            {/* Once the desk has taken the money this card is the only place
+                the guest would ever learn it: the app takes no payment, so
+                "pay at the desk" stood on every booking forever, including
+                ones already settled. */}
+            {isCourtFeePaid(booking) ? (
+              <PayAtDeskCard
+                lead={`${t('booking.paidTitle')}.`}
+                body={t(dayPart(now, tz) === 'evening' ? 'booking.paidEvening' : 'booking.paidDay')}
+              />
+            ) : (
+              <PayAtDeskCard lead={`${t('booking.payAtDeskTitle')}.`} body={t('booking.payAtDeskShort')} />
+            )}
           </View>
 
           <ErrorText>{error}</ErrorText>

@@ -21,7 +21,8 @@ import {
 } from '../../src/features/booking/logic';
 import { useHistoryClearedAt } from '../../src/features/booking/history';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useCourtsBroadcast } from '../../src/features/availability/hooks';
+import { useCourts, useCourtsBroadcast, useVenueSettings } from '../../src/features/availability/hooks';
+import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
@@ -117,6 +118,10 @@ export default function BookingsScreen() {
   const pull = usePullRefresh(bookings.refetch);
   const [tab, setTab] = useState<Tab>('upcoming');
   const courts = useCourts();
+  // The hero's day count is the venue's calendar, not the phone's: the date
+  // beside it is formatted in this same zone.
+  const settings = useVenueSettings();
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   const release = useReleaseHold();
   const cleared = useHistoryClearedAt();
   const toast = useToast();
@@ -413,7 +418,7 @@ export default function BookingsScreen() {
   // The hero: the very next game, out of the list and onto the brand's navy.
   const renderHero = (item: BookingRow) => {
     const start = new Date(item.start_at);
-    const proximity = startProximity(item, now);
+    const proximity = startProximity(item, now, tz);
     return (
       <NextUpCard
         testID="bookings.next-up"

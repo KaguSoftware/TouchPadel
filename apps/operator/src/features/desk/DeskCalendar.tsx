@@ -55,7 +55,7 @@ import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, inputStyle, type ReasonCode } from '../../components/ui';
+import { Button, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
   ConflictNotice,
@@ -78,7 +78,9 @@ import { shiftMonth } from './calendar/monthLogic';
 import { CreateReservationDialog } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
-import { BLOCKING_STATUSES, isLive, isVisible, packLanes, rowIndexOf as rowIndexAt } from './deskLogic';
+import { DateField } from '../../components/inputs';
+import { BLOCKING_STATUSES, canMoveReservation, isVisible } from './deskLogic';
+import { BLOCKING_STATUSES, isVisible, packLanes, rowIndexOf as rowIndexAt } from './deskLogic';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import type { PickedCustomer } from './customers/CustomerPicker';
 
@@ -288,7 +290,7 @@ export function DeskCalendar() {
   dragRef.current = drag;
 
   function onBlockPointerDown(e: ReactPointerEvent<HTMLButtonElement>, r: ReservationRow) {
-    if (e.button !== 0 || r.kind !== 'booking' || !isLive(r.status)) return;
+    if (e.button !== 0 || !canMoveReservation(r, now)) return;
     dragStart.current = { id: r.id, x: e.clientX, y: e.clientY };
   }
 
@@ -479,12 +481,11 @@ export function DeskCalendar() {
           >
             ‹
           </Button>
-          <input
-            type="date"
-            aria-label={tr('ws.courtDesk.common.date')}
+          <DateField
+            ariaLabel={tr('ws.courtDesk.common.date')}
             value={date}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            style={{ ...inputStyle, inlineSize: 'auto' }}
+            onChange={setDate}
+            style={{ inlineSize: 'auto' }}
           />
           <Button
             onClick={() => setDate(shiftDate(date, 1))}
@@ -909,7 +910,7 @@ export function DeskCalendar() {
                           const laneWidth = 100 / laneCount;
                           const tone = reservationTone(r);
                           const dragging = drag?.id === r.id;
-                          const draggable = r.kind === 'booking' && isLive(r.status);
+                          const draggable = canMoveReservation(r, now);
                           const name =
                             r.kind === 'maintenance'
                               ? (r.notes ?? tr('op.desk.maintenance'))

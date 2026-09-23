@@ -153,6 +153,23 @@ describe('ReservationActionsDialog', () => {
     expect(mutate).toHaveBeenCalledWith('reservation.update', { action: 'mark', reservationId: 'r1', status: 'arrived' });
   });
 
+  it('marks a no-show in one click, with no reason attached', async () => {
+    // A no-show is only offered once the slot has started (allowedMarks mirrors
+    // the server's SEC-11 guard), so this booking sits in the past -- unlike
+    // every other case in this file, which uses the 2099 fixture date.
+    const started = booking({
+      id: 'r1',
+      start_at: new Date(Date.now() - 2 * 3_600_000).toISOString(),
+      end_at: new Date(Date.now() - 3_600_000).toISOString(),
+    });
+    const user = userEvent.setup();
+    wrap(<ReservationActionsDialog reservation={started} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Mark no-show' }));
+    // No `reason` key at all: the dialog's Select is pre-filled, and sending it
+    // stamped every calendar no-show as "Customer request".
+    expect(mutate).toHaveBeenCalledWith('reservation.update', { action: 'mark', reservationId: 'r1', status: 'no_show' });
+  });
+
   it('takes the desk to the booking screen to take payment (0106)', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

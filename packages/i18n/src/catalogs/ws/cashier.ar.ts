@@ -160,6 +160,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     removalQueued: 'الإزالة بانتظار المزامنة',
     nothingYet: 'لا شيء عليه بعد',
     since: 'منذ {time}',
+    courtGroup: '{court} · {count} فواتير',
     courtFeeNote: 'رسوم الملاعب غير مشمولة في هذه الإجماليات. تُضاف عند دفع حساب الحجز.',
   },
 
@@ -195,6 +196,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     promoApplied: 'طُبّق العرض — خصم {amount}.',
     promoNone: 'لا ينطبق أي عرض على هذا الحساب حاليًا.',
     promoCodeInvalid: 'هذا الرمز ليس رمز عرض. تحقق منه مع الضيف وحاول مجددًا.',
+    promoCodeNotEligible: 'الرمز صحيح لكنه لا ينطبق على هذه الفاتورة — راجع أصنافها أو أوقاتها أو الحد الأدنى للإنفاق.',
     promoHint: 'اترك الرمز فارغًا للحصول على أفضل عرض ينطبق. عرض واحد لكل حساب.',
     promoAppliedRow: 'العرض',
     managerDiscount: 'خصم المدير',

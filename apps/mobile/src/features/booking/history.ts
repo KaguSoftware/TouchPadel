@@ -64,6 +64,10 @@ export function useClearHistory() {
   const userId = session?.user.id ?? '';
   return useMutation({
     mutationFn: async () => {
+      // No session means no key to write: `?? ''` above would otherwise store
+      // the cut under `tp.historyClearedAt.` and report success for a clear
+      // nothing will ever read back. purgeKeys.ts guards the same shape.
+      if (!userId) throw new Error('NO_SESSION');
       const at = new Date().toISOString();
       await AsyncStorage.setItem(historyClearedKey(userId), at);
       return at;

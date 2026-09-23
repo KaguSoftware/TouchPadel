@@ -7,7 +7,7 @@
  * Inline styles with logical properties only; interaction states via the
  * class hooks in GlobalStyles.
  */
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { formatIQD, formatNumber, formatPercent } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
@@ -589,6 +589,34 @@ const sortHeaderButton: CSSProperties = {
   textAlign: 'start',
 };
 
+type RowBlock<T> = { kind: 'row'; row: T } | { kind: 'group'; key: string; rows: T[] };
+
+/**
+ * Split rows into groups, in FIRST-APPEARANCE order.
+ *
+ * A group takes every row sharing its key, not just adjacent ones, so the
+ * combined figure in its header is the whole truth even when the table is
+ * sorted by something else. The group lands where its first row was, and rows
+ * with a null key stay exactly where they were — so turning grouping on never
+ * shuffles the rows that are not grouped.
+ */
+function buildRowBlocks<T>(rows: readonly T[], groupBy?: (row: T) => string | null): RowBlock<T>[] {
+  if (!groupBy) return rows.map((row) => ({ kind: 'row', row }));
+  const blocks: RowBlock<T>[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const key = groupBy(row);
+    if (key === null) {
+      blocks.push({ kind: 'row', row });
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    blocks.push({ kind: 'group', key, rows: rows.filter((r) => groupBy(r) === key) });
+  }
+  return blocks;
+}
+
 export function DataTable<T>({
   columns,
   rows,
@@ -602,6 +630,8 @@ export function DataTable<T>({
   fill,
   maxBlockSize,
   footer,
+  groupBy,
+  renderGroupHeader,
   'aria-label': ariaLabel,
 }: {
   columns: readonly Column<T>[];
@@ -618,78 +648,23 @@ export function DataTable<T>({
   /** Scroll inside the table instead of the page. */
   maxBlockSize?: string;
   footer?: ReactNode;
+  /**
+   * Gather rows under a shared heading. Returning null leaves a row on its own,
+   * exactly as an ungrouped table renders it, so a board can group some rows
+   * and not others. Opt-in: without this the table renders as it always has.
+   */
+  groupBy?: (row: T) => string | null;
+  /** The heading cell for one group; it spans every column. */
+  renderGroupHeader?: (key: string, rows: readonly T[]) => ReactNode;
   'aria-label'?: string;
 }) {
   const { tr } = useLocale();
-  return (
-    <div
-      style={{
-        border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-panel)',
-        overflow: 'auto',
-        maxBlockSize,
-        background: 'var(--tp-surface)',
-        ...(fill ? { flex: 1, minBlockSize: 0 } : null),
-      }}
-    >
-      <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
-        <thead>
-          <tr>
-            {columns.map((c) => {
-              const align = c.align ?? (c.numeric ? 'end' : 'start');
-              const active = sort?.key === c.key;
-              const sortable = Boolean(c.sortable && onSort);
-              const inner = (
-                <>
-                  {c.header}
-                  {active && (
-                    <Icon
-                      name="chevronDown"
-                      size={12}
-                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
-                      style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
-                    />
-                  )}
-                </>
-              );
-              return (
-                <th
-                  key={c.key}
-                  data-align={align}
-                  data-sortable={sortable ? 'true' : undefined}
-                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                  style={{ inlineSize: c.width }}
-                >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      style={{
-                        ...sortHeaderButton,
-                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
-                      }}
-                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
-                    >
-                      {inner}
-                    </button>
-                  ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
-                  )}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
-                {emptyContent ?? tr('ws.kit.table.noRows')}
-              </td>
-            </tr>
-          )}
-          {rows.map((row, i) => {
-            const key = rowKey(row, i);
-            return (
+
+  // One row, extracted so a grouped table renders the same markup inside a
+  // group as an ungrouped one does at the top level.
+  const renderRow = (row: T, i: number) => {
+    const key = rowKey(row, i);
+    return (
               <tr
                 key={key}
                 data-clickable={onRowClick ? 'true' : undefined}
@@ -763,9 +738,93 @@ export function DataTable<T>({
                   );
                 })}
               </tr>
-            );
-          })}
+    );
+  };
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        overflow: 'auto',
+        maxBlockSize,
+        background: 'var(--tp-surface)',
+        ...(fill ? { flex: 1, minBlockSize: 0 } : null),
+      }}
+    >
+      <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
+        <thead>
+          <tr>
+            {columns.map((c) => {
+              const align = c.align ?? (c.numeric ? 'end' : 'start');
+              const active = sort?.key === c.key;
+              const sortable = Boolean(c.sortable && onSort);
+              const inner = (
+                <>
+                  {c.header}
+                  {active && (
+                    <Icon
+                      name="chevronDown"
+                      size={12}
+                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
+                      style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
+                    />
+                  )}
+                </>
+              );
+              return (
+                <th
+                  key={c.key}
+                  data-align={align}
+                  data-sortable={sortable ? 'true' : undefined}
+                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  style={{ inlineSize: c.width }}
+                >
+                  {sortable ? (
+                    <button
+                      type="button"
+                      style={{
+                        ...sortHeaderButton,
+                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
+                      }}
+                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
+                    >
+                      {inner}
+                    </button>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
+                  )}
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
+                {emptyContent ?? tr('ws.kit.table.noRows')}
+              </td>
+            </tr>
+          )}
+          {buildRowBlocks(rows, groupBy).map((block) =>
+            block.kind === 'group' ? (
+              <Fragment key={`g:${block.key}`}>
+                {renderGroupHeader && (
+                  <tr data-group-header="true">
+                    <td colSpan={columns.length} style={{ background: 'var(--tp-surface-2)' }}>
+                      {renderGroupHeader(block.key, block.rows)}
+                    </td>
+                  </tr>
+                )}
+                {block.rows.map((row) => renderRow(row, rows.indexOf(row)))}
+              </Fragment>
+            ) : (
+              renderRow(block.row, rows.indexOf(block.row))
+            ),
+          )}
         </tbody>
+
         {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>

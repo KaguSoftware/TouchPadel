@@ -174,6 +174,7 @@ export const cashierEn = {
     removalQueued: 'Removal waiting to sync',
     nothingYet: 'Nothing on it yet',
     since: 'since {time}',
+    courtGroup: '{court} · {count} bills',
     courtFeeNote: 'Court fees are not in these totals. They are added when a booking’s tab is paid.',
   },
 
@@ -210,6 +211,7 @@ export const cashierEn = {
     promoApplied: 'Promotion applied — {amount} off.',
     promoNone: 'No promotion applies to this tab right now.',
     promoCodeInvalid: 'That code is not a promotion code. Check it with the guest and try again.',
+    promoCodeNotEligible: 'That code is real, but it does not apply to this tab — check its items, times or minimum spend.',
     promoHint: 'Leave the code empty to get the best offer that applies. One promotion per tab.',
     promoAppliedRow: 'Promotion',
     managerDiscount: 'Manager discount',

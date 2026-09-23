@@ -2686,4 +2686,14 @@ export const matrix: MatrixRule[] = [
     note: '0145: variant + its own retail stock row in one transaction; an unknown item fails ITEM_NOT_FOUND past the guard',
     drop: 14,
   },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_reservations',
+    args: { p_reservation_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied' }),
+    note:
+      '0150: ownership-guarded like cancel_reservation, but it FILTERS rather than raising \u2014 any ' +
+      'account may ask and gets back only rows whose guest_id is its own, so an id it does not own ' +
+      'returns the empty set. anon holds no grant at all.',
+    drop: 15,
+  },
 ];

@@ -360,6 +360,12 @@ export function TabDetailPanel({
         setPromoNotice({ tone: 'refused', text: tr('ws.cashier.detail.promoNone') });
       } else if (e instanceof AppRpcError && e.code === 'CODE_INVALID') {
         setPromoNotice({ tone: 'refused', text: tr('ws.cashier.detail.promoCodeInvalid') });
+      } else if (e instanceof AppRpcError && e.code === 'CODE_NOT_ELIGIBLE') {
+        // A REAL code that this tab does not qualify for (0067). It used to
+        // fall to the generic error line, which reads as the till failing
+        // rather than the offer not applying -- and left the cashier with
+        // nothing to tell the guest.
+        setPromoNotice({ tone: 'refused', text: tr('ws.cashier.detail.promoCodeNotEligible') });
       } else {
         setActionError(e);
       }
@@ -616,8 +622,23 @@ export function TabDetailPanel({
                 <Button icon="tag" style={actionButton} disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
                   {tr('ws.cashier.detail.discount')}
                 </Button>
+                {/* Clearing the notice is part of the toggle, like the discount
+                    button's setPinError(null) above: a refusal describes ONE
+                    press against ONE snapshot of a tab, and this one used to
+                    outlive both -- closing the panel moved the warning OUT of
+                    it and stranded it on the tab until the cashier opened a
+                    different one. */}
                 {allLines.length > 0 && (
-                  <Button icon="spark" style={actionButton} aria-pressed={promoOpen} disabled={busy} onClick={() => setPromoOpen((v) => !v)}>
+                  <Button
+                    icon="spark"
+                    style={actionButton}
+                    aria-pressed={promoOpen}
+                    disabled={busy}
+                    onClick={() => {
+                      setPromoNotice(null);
+                      setPromoOpen((v) => !v);
+                    }}
+                  >
                     {tr('ws.cashier.detail.promoTitle')}
                   </Button>
                 )}
@@ -678,7 +699,6 @@ export function TabDetailPanel({
             <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
           </div>
         )}
-        {!promoOpen && promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
       </div>
 
       {/*

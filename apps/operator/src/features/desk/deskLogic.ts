@@ -32,6 +32,60 @@ export function isVisible(r: ReservationRow, nowMs: number): boolean {
   return true;
 }
 
+/**
+ * A booking whose TIME the desk may still change.
+ *
+ * `isLive` is not enough here, and narrowing `isLive` would be wrong: it also
+ * gates "mark completed", the actions section and the detail screen, all of
+ * which must keep working on a guest who is on court. This is the narrower
+ * question of whether the slot may be dragged or re-timed.
+ *
+ * A booking the desk has checked in and whose start has passed is a game that
+ * is being played. Moving it rewrites when it happened, and on the calendar it
+ * is one stray pointer-drag away — so the grid stops offering the handle at
+ * all rather than refusing afterwards.
+ *
+ * Deliberately NOT a mirror of a server rule: `app.move_reservation` (0071)
+ * permits `arrived` and never compares against now(), so unlike `allowedMarks`
+ * this predicate is the only control. Under Electron a move is written to the
+ * durable queue before anything reaches the server, so refusing here is what
+ * stops it being enqueued for replay.
+ *
+ * `start_at` is an absolute instant; no venue timezone is involved.
+ */
+export function canMoveReservation(
+  r: Pick<ReservationRow, 'kind' | 'status' | 'start_at'>,
+  nowMs: number,
+): boolean {
+  if (r.kind !== 'booking' || !isLive(r.status)) return false;
+  if (r.status !== 'arrived') return true;
+  return new Date(r.start_at).getTime() >= nowMs;
+}
+
+/**
+ * A court block whose end is not after its start — the Block court form's
+ * "to" against its "from", both as minutes past midnight.
+ *
+ * This is a predicate rather than three lines in the screen because the screen
+ * had three lines and they were wrong: a same-night wrap (`to += 24h` whenever
+ * `to <= from`) sat immediately above the check for `to <= from`, so it fired
+ * first, every time, and the check could never be true. `09:00 → 08:00` became
+ * a silent 23-hour block instead of a refusal (reported 2026-09-23), and
+ * nothing downstream could catch it: the wrap produces a real forward range,
+ * so `staff_create_reservation`'s INVALID_RANGE and the table's
+ * `end_at > start_at` are both satisfied, and maintenance is exempt from the
+ * opening-hours guard by design.
+ *
+ * A block that genuinely runs past midnight is now two blocks, one per date.
+ *
+ * An unset side is NOT invalid: "missing" is the required-field error, and
+ * reporting both at once would put two messages under one empty box.
+ */
+export function blockRangeInvalid(fromMin: number | null, toMin: number | null): boolean {
+  if (fromMin === null || toMin === null) return false;
+  return toMin <= fromMin;
+}
+
 /** Sort by start, then by court so the board reads top to bottom through the night. */
 export function sortByStart<T extends { start_at: string; court_id: string }>(rows: readonly T[]): T[] {
   return [...rows].sort((a, b) => a.start_at.localeCompare(b.start_at) || a.court_id.localeCompare(b.court_id));

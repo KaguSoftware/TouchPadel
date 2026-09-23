@@ -7,12 +7,20 @@
  *      the app and website are locked out of near-term writes and the desk is
  *      the only channel selling;
  *   2. this station cannot reach the server at all — which is what causes (1),
- *      seen from the other side;
- *   3. how much is still queued, because the day cannot be closed while
- *      anything is unsynced (L688-689) and that number is the reason.
+ *      seen from the other side.
  *
  * Nothing showed any of this. The word "degraded" appeared in the operator only
  * in analytics copy about a missing AI key.
+ *
+ * The strip used to carry a third thing: counts of queued and of failed writes,
+ * the latter as an amber "N did not sync — see the Day close screen". A single
+ * refused booking (a double-booked court is a 409) therefore raised a standing
+ * warning about day close on every screen in the app, which is not what a
+ * refusal means and not what the person at this screen can act on (owner,
+ * 2026-09-22). The counts are gone from here; NOTHING about them is gone from
+ * the product — the Day close screen still lists every unsynced write, and
+ * QueueFailureToasts still fires its three-second cue at the moment of refusal.
+ * This strip now answers one question only: can this station reach the server.
  *
  * Rulebook 9.6 asks for FOUR permanently visible connectivity states, each with
  * a distinct treatment. This component used to render NOTHING while healthy, so
@@ -26,23 +34,11 @@
  * animating it would advertise a layout shift rather than remove one, and the
  * removal is what the permanent, fixed-height strip below actually does.
  */
-import { useEffect, useState } from 'react';
 import { useLocale } from '../lib/i18n';
 import type { HeartbeatState } from '../lib/heartbeat';
-import { touch } from '../ipc/bridge';
 import { Icon, type IconName } from './icons';
 
-/** conflict+failed rows — writes a person must look at (day close lists them). */
-function useAttentionCount(): number {
-  const [count, setCount] = useState(0);
-  useEffect(
-    () => touch.onQueueUpdate((s) => setCount((s.conflicts ?? 0) + (s.failed ?? 0))),
-    [],
-  );
-  return count;
-}
-
-type ConnectivityState = 'ok' | 'syncing' | 'degraded' | 'offline';
+type ConnectivityState = 'ok' | 'degraded' | 'offline';
 
 /**
  * The four treatments, in one place. Every pair is a status family's own soft
@@ -53,7 +49,6 @@ type ConnectivityState = 'ok' | 'syncing' | 'degraded' | 'offline';
  */
 const TREATMENT: Record<ConnectivityState, { bg: string; fg: string; icon: IconName }> = {
   ok: { bg: 'var(--tp-success-soft)', fg: 'var(--tp-success-fg)', icon: 'check' },
-  syncing: { bg: 'var(--tp-info-soft)', fg: 'var(--tp-info-fg)', icon: 'refresh' },
   degraded: { bg: 'var(--tp-warn-soft)', fg: 'var(--tp-warn-fg)', icon: 'alert' },
   offline: { bg: 'var(--tp-danger-soft)', fg: 'var(--tp-danger-fg)', icon: 'wifiOff' },
 };
@@ -85,7 +80,6 @@ const stripBase = {
 
 export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
   const { tr } = useLocale();
-  const attention = useAttentionCount();
 
   // Before the first heartbeat the station genuinely does not know its state.
   // Reserve the height anyway — the alternative is claiming "connected" a
@@ -102,29 +96,27 @@ export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
   }
 
   const unreachable = state.error !== null;
-  const queued = state.queueDepth > 0;
 
   // Order is severity, and it is also actionability: a station that cannot
   // reach the server is WHY the venue is degraded, and it is the one thing the
   // person standing at this screen can do something about.
+  //
+  // `state.queueDepth` is deliberately not read. While this station is offline
+  // its writes queue by design and will replay on reconnect, which the offline
+  // line already promises; counting them told the clerk a number they could do
+  // nothing with and could not distinguish from a refusal.
   const connectivity: ConnectivityState = unreachable
     ? 'offline'
-    : state.degraded || attention > 0
+    : state.degraded
       ? 'degraded'
-      : queued
-        ? 'syncing'
-        : 'ok';
+      : 'ok';
 
   const t = TREATMENT[connectivity];
   const message = unreachable
-    ? tr('op.status.offline')
+    ? tr('ws.shell.status.offline')
     : state.degraded
       ? tr('op.status.degraded')
-      : attention > 0
-        ? tr('op.status.attention', { count: attention })
-        : queued
-          ? tr('op.status.queued', { count: state.queueDepth })
-          : tr('ws.shell.status.ok');
+      : tr('ws.shell.status.ok');
 
   return (
     <div
@@ -143,16 +135,6 @@ export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
       >
         {message}
       </span>
-      {queued && connectivity !== 'syncing' && (
-        <span style={{ flexShrink: 0, fontWeight: 500 }}>
-          {tr('op.status.queued', { count: state.queueDepth })}
-        </span>
-      )}
-      {attention > 0 && (unreachable || state.degraded) && (
-        <span style={{ flexShrink: 0, fontWeight: 500 }}>
-          {tr('op.status.attention', { count: attention })}
-        </span>
-      )}
     </div>
   );
 }

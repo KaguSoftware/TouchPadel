@@ -142,7 +142,8 @@ export interface TabListRow {
   table: { table_number: string } | null;
   reservation: {
     guest_name: string | null;
-    court: { name_en: string; name_ar: string } | null;
+    /** `id` so the board groups on the court itself, not on a localised name. */
+    court: { id: string; name_en: string; name_ar: string } | null;
   } | null;
   orders: {
     source: string;
@@ -162,7 +163,7 @@ export const OPEN_TABS_QUERY = {
         .select(
           `id, status, label, opened_at, total_iqd,
            table:cafe_tables(table_number),
-           reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
+           reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(id, name_en, name_ar)),
            orders!orders_tab_id_fkey(source, status, order_items(line_total_iqd, voided, menu_item:menu_items(category_id))),
            tab_adjustments(kind, amount_iqd),
            payments(amount_iqd)`,
@@ -369,6 +370,32 @@ const LIVE_TAB_STATUSES: ReadonlySet<string> = new Set(['open', 'awaiting_paymen
  */
 export function bookingTakesNewTab(r: { tabs?: readonly { status: string }[] | null }): boolean {
   return !(r.tabs ?? []).some((t) => LIVE_TAB_STATUSES.has(t.status));
+}
+
+/**
+ * The one line a merge donor is offered under in the Merge tabs picker.
+ *
+ * It exists because that picker used to end `?? t.id.slice(0, 8)` and showed a
+ * raw UUID fragment. That was not a rare fallback: a tab has no `guest_name`
+ * whenever the booking was made by a signed-in account (`reservations` requires
+ * guest_id OR guest_name), and a booking tab with no cafe table and no free
+ * label has nothing else -- so the tabs a cashier most often merges were
+ * exactly the ones shown as `3f2a1b9c` (reported 2026-09-23).
+ *
+ * Built on `tabAnchorLabel`, which cannot return an id, then widened with the
+ * court and the time so several booking tabs are told apart rather than all
+ * reading "Reservation". Both extras are optional: a cafe tab has neither and
+ * keeps its plain table label.
+ */
+export function mergeDonorLabel(
+  tab: { table: { table_number: string } | null; reservation: { guest_name: string | null } | null; label: string | null },
+  words: { table: string; reservation: string },
+  courtName: string | null,
+  time: string | null,
+): string {
+  const anchor = tabAnchorLabel(tab, words.table, words.reservation);
+  const extra = [courtName, time].filter((x): x is string => x !== null && x !== '');
+  return extra.length > 0 ? `${anchor} · ${extra.join(' · ')}` : anchor;
 }
 
 /** The label a tab is known by on the floor: table number, guest name or free label. */

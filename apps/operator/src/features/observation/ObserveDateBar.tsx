@@ -12,7 +12,8 @@
 import { useEffect } from 'react';
 import { formatMonthYear } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
-import { Button, inputStyle } from '../../components/ui';
+import { Button } from '../../components/ui';
+import { DateField } from '../../components/inputs';
 import { Toolbar } from '../../components/kit';
 import { shiftIsoDate } from '../desk/weekLogic';
 import { shiftMonth } from '../desk/calendar/monthLogic';
@@ -75,12 +76,11 @@ export function ObserveDateBar({
       <Button onClick={() => onDate(step(date, -1))} title={`${level === 'month' ? tr('ws.kit.calendar.prevMonth') : tr('ws.courtDesk.calendar.prev')} (${backKey})`}>
         ‹
       </Button>
-      <input
-        type="date"
-        aria-label={tr('ws.courtDesk.common.date')}
+      <DateField
+        ariaLabel={tr('ws.courtDesk.common.date')}
         value={date}
-        onChange={(e) => e.target.value && onDate(e.target.value)}
-        style={{ ...inputStyle, inlineSize: 'auto' }}
+        onChange={onDate}
+        style={{ inlineSize: 'auto' }}
       />
       <Button onClick={() => onDate(step(date, 1))} title={`${level === 'month' ? tr('ws.kit.calendar.nextMonth') : tr('ws.courtDesk.calendar.next')} (${forwardKey})`}>
         ›
