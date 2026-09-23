@@ -134,7 +134,7 @@ describe('guestTableUrl', () => {
 });
 
 describe('resolveGuestSiteUrl — a printed card never opens localhost', () => {
-  const LIVE = 'https://touch-padel-web.vercel.app';
+  const LIVE = 'https://www.touch-padel.com';
 
   it('the default is the live guest site', () => {
     expect(DEFAULT_GUEST_SITE_URL).toBe(LIVE);
@@ -163,8 +163,8 @@ describe('resolveGuestSiteUrl — a printed card never opens localhost', () => {
   });
 
   it('keeps a real origin, upgrades http, drops the locale path and trailing slashes', () => {
-    expect(resolveGuestSiteUrl('http://touch-padel-web.vercel.app/en/', true)).toBe(LIVE);
-    expect(resolveGuestSiteUrl('touch-padel-web.vercel.app', true)).toBe(LIVE);
+    expect(resolveGuestSiteUrl('http://www.touch-padel.com/en/', true)).toBe(LIVE);
+    expect(resolveGuestSiteUrl('www.touch-padel.com', true)).toBe(LIVE);
     expect(resolveGuestSiteUrl('https://touch-padel.com/', true)).toBe('https://touch-padel.com');
   });
 

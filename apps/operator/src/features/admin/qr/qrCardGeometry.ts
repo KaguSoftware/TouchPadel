@@ -111,10 +111,11 @@ export function cardLayout(tableNumber: string): CardLayout {
 
 /**
  * Where a printed card sends the guest when nothing better is configured: the
- * live guest site on Vercel. Swap here (and in the OPERATOR_GUEST_SITE_URL
- * release secret) when touch-padel.com is recovered.
+ * venue's own domain, live since 2026-09-23 (the bare touch-padel.com
+ * redirects to www). A card outlives any hosting move, so it carries the
+ * domain, never the vercel.app address.
  */
-export const DEFAULT_GUEST_SITE_URL = 'https://touch-padel-web.vercel.app';
+export const DEFAULT_GUEST_SITE_URL = 'https://www.touch-padel.com';
 
 const LOOPBACK_OR_PRIVATE =
   /^(localhost|0\.0\.0\.0|127(\.\d{1,3}){3}|\[?::1\]?|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})$|\.local$/i;
