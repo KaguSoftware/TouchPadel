@@ -51,8 +51,9 @@ import { MonthHeatCalendar } from '../../desk/calendar/MonthHeatCalendar';
 import { ZoomStage, type ZoomLevel } from '../../desk/calendar/ZoomStage';
 import { selectAllPages, useMonthCounts } from '../../desk/calendar/useMonthCounts';
 import { fetchTabCounts } from '../../desk/calendar/monthFetchers';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabDetailQuery, tabHasWebOrder, type TabListRow } from '../../till/tillData';
+import { OPEN_TABS_QUERY, tabAnchorLabel, tabDetailQuery, tabHasWebOrder, type TabListRow } from '../../till/tillData';
 import { computeTabTotals, type TaxContext } from '../../till/tabTotals';
+import { useTaxContext } from '../../till/useTaxContext';
 import { ageLabel } from '../../till/OpenTabs';
 import { ObserveDateBar } from '../ObserveDateBar';
 import { DetailPanel, PanelSection } from '../DetailPanel';
@@ -65,32 +66,10 @@ interface DayTabRow extends TabListRow {
 const DAY_TAB_COLUMNS = `id, status, label, opened_at, settled_at, total_iqd,
   table:cafe_tables(table_number),
   reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
-  orders!orders_tab_id_fkey(source, status, order_items(line_total_iqd, voided, menu_item:menu_items(category_id))),
-  tab_adjustments(kind, amount_iqd),
+  orders!orders_tab_id_fkey(source, status, order_items(id, line_total_iqd, voided, menu_item:menu_items(category_id))),
+  tab_adjustments(kind, amount_iqd, order_item_id),
   payments(amount_iqd),
   day_session:day_sessions!inner(business_date)`;
-
-/** The tax context computeTabTotals needs — the same two reads the till makes. */
-function useTaxContext(): TaxContext | null {
-  const menuQ = useQuery({ ...TILL_MENU_QUERY });
-  const taxInclusiveQ = useQuery({
-    queryKey: ['taxInclusive'],
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('venue_settings').select('tax_inclusive').single();
-      if (error) throw error;
-      return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
-    },
-  });
-  return useMemo(() => {
-    if (!menuQ.data || taxInclusiveQ.data === undefined) return null;
-    return {
-      rateByCategory: new Map(menuQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0])),
-      taxInclusive: taxInclusiveQ.data,
-    };
-  }, [menuQ.data, taxInclusiveQ.data]);
-}
 
 export function TillsObserveScreen() {
   const { tr, locale } = useLocale();

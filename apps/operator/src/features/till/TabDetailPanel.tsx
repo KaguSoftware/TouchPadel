@@ -40,7 +40,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatTime } from '@touch/i18n';
-import { supabase } from '../../lib/supabase';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
@@ -54,12 +53,13 @@ import { Button, ErrorText, Field, PinReasonModal, Skeleton, inputStyle } from '
 import { Kbd, MessagePresenter, Money, ReasonCodePrompt, SegmentedControl, StatusBadge, TabStatusIndicator } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { computeTabTotals, discountBreakdown } from './tabTotals';
+import { useTaxContext } from './useTaxContext';
 import { BillView } from './BillView';
 import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
 import { SplitBillDialog } from './SplitBillDialog';
 import { ChargeToBookingDialog } from './ChargeToBookingDialog';
-import { PaymentPane, type PaymentMethod } from './PaymentPane';
-import { TILL_MENU_QUERY, canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type TabLineRow } from './tillData';
+import { PaymentPane, type PaymentMethod, type SettleResult } from './PaymentPane';
+import { canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type TabLineRow } from './tillData';
 import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
 
@@ -132,8 +132,19 @@ export function TabDetailPanel({
     const detail = (r.serverResult as { details?: unknown } | null)?.details;
     setActionError(new AppRpcError(code, code, undefined, typeof detail === 'string' ? detail : undefined));
   });
+  /**
+   * Payments on the queue, unanswered: localId -> localId. While any is held
+   * the due on screen is stale (the server has not taken it yet), so the pay
+   * buttons wait and a notice says why. A queued settle used to close the pane
+   * with no word, and the cashier took the same payment again.
+   */
+  const pendingSettles = usePendingResults<string>((_localId, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    setActionError(new AppRpcError(code, code));
+  });
   const { clear: clearPendingVoids } = pendingVoids;
   const { clear: clearPendingRefunds } = pendingRefunds;
+  const { clear: clearPendingSettles } = pendingSettles;
   const [actionError, setActionError] = useState<unknown>(null);
   const [pinError, setPinError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -141,25 +152,7 @@ export function TabDetailPanel({
 
   const tabQ = useQuery(tabDetailQuery(tabId));
 
-  // Tax rates come off the SAME ['menu'] cache the grid already holds.
-  const menuForTaxQ = useQuery({ ...TILL_MENU_QUERY });
-  const taxInclusiveQ = useQuery({
-    queryKey: ['taxInclusive'],
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('venue_settings').select('tax_inclusive').single();
-      if (error) throw error;
-      return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
-    },
-  });
-  const taxCtx = useMemo(() => {
-    if (!menuForTaxQ.data || taxInclusiveQ.data === undefined) return null;
-    return {
-      rateByCategory: new Map(menuForTaxQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0])),
-      taxInclusive: taxInclusiveQ.data,
-    };
-  }, [menuForTaxQ.data, taxInclusiveQ.data]);
+  const taxCtx = useTaxContext();
 
   const tab = tabQ.data;
   const settled = tab?.status === 'settled';
@@ -203,11 +196,12 @@ export function TabDetailPanel({
 
   // F4/F5 from anywhere on the till OPEN the pane (TillScreen dispatches);
   // money is confirmed by click only. Registered before any early return.
-  const hotkeyGate = useRef({ settled: true, due: 0, courtPending: true });
-  hotkeyGate.current = { settled: Boolean(settled), due, courtPending };
+  const hotkeyGate = useRef({ settled: true, due: 0, held: true });
+  // Held while the court fee is loading or a payment is still on the queue.
+  hotkeyGate.current = { settled: Boolean(settled), due, held: courtPending || pendingSettles.pending.size > 0 };
   useEffect(() => {
     function onHotkey(e: Event) {
-      if (hotkeyGate.current.settled || hotkeyGate.current.courtPending || hotkeyGate.current.due <= 0) return;
+      if (hotkeyGate.current.settled || hotkeyGate.current.held || hotkeyGate.current.due <= 0) return;
       const method = (e as CustomEvent<PaymentMethod>).detail;
       setLastChange(null);
       setActionError(null);
@@ -229,7 +223,8 @@ export function TabDetailPanel({
     setOpenLineId(null);
     clearPendingVoids();
     clearPendingRefunds();
-  }, [tabId, clearPendingVoids, clearPendingRefunds]);
+    clearPendingSettles();
+  }, [tabId, clearPendingVoids, clearPendingRefunds, clearPendingSettles]);
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });
@@ -237,7 +232,12 @@ export function TabDetailPanel({
   }
   const close = () => setOverlay({ kind: 'none' });
 
-  async function settle(method: PaymentMethod, amountIqd: number | null, tenderedIqd: number | null) {
+  /**
+   * Takes one payment and says how it went; the CALLER decides what closes.
+   * The pay pane closes on any success, while a split closes only once the
+   * tab is settled, since its other shares are still to be taken.
+   */
+  async function settle(method: PaymentMethod, amountIqd: number | null, tenderedIqd: number | null): Promise<SettleResult> {
     setBusy(true);
     setActionError(null);
     try {
@@ -246,23 +246,23 @@ export function TabDetailPanel({
         method,
         ...(amountIqd != null ? { amountIqd } : {}),
         ...(tenderedIqd != null ? { tenderedIqd } : {}),
-        // Only a SERVER total is sent as the expectation. This panel's own
-        // mirror differs from compute_tab_totals in places (tax on a
-        // discounted tab), and sending it would refuse those tabs forever.
+        // Only a SERVER total is sent as the expectation. The mirror follows
+        // compute_tab_totals, but it reads a cached menu and can lag a price
+        // change; sending it could refuse a tab the server would take.
         ...(expectedTotalIqd != null ? { expectedTotalIqd } : {}),
       });
       if (outcome.result) {
         // The change shown is the SERVER's figure.
         setLastChange(outcome.result.change_iqd ?? null);
         refresh();
-        if (outcome.result.status === 'settled') close();
-      } else {
-        // Queued offline: durably recorded, replays on reconnect. No server
-        // echo yet, so no change figure is claimed.
-        setLastChange(null);
-        close();
-        refresh();
+        return outcome.result.status === 'settled' ? 'settled' : 'partial';
       }
+      // Queued offline: durably recorded, replays on reconnect. No server
+      // echo yet, so no change figure is claimed, and the pay buttons hold.
+      setLastChange(null);
+      pendingSettles.add(outcome.localId, outcome.localId);
+      refresh();
+      return 'queued';
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'TOTAL_CHANGED') {
         // The bill moved under the payment (a price change, a line added
@@ -271,6 +271,7 @@ export function TabDetailPanel({
         if (reservationId) void queryClient.invalidateQueries({ queryKey: ['bookingBill', reservationId] });
       }
       setActionError(e);
+      return 'failed';
     } finally {
       setBusy(false);
     }
@@ -423,11 +424,12 @@ export function TabDetailPanel({
       ? tr('ws.cashier.payment.courtFailed')
       : tr('ws.cashier.payment.courtLoading')
     : undefined;
-  const payHeld = courtPending || nothingDue;
+  const settlePending = pendingSettles.pending.size > 0;
+  const payHeld = courtPending || nothingDue || settlePending;
   /* An empty tab says so already — the lines list is empty and the total is
      0 IQD — so the pay buttons are simply disabled without a line of text
      repeating it under them. A court fee still pending IS worth stating. */
-  const payBlockedReason = courtReason;
+  const payBlockedReason = courtReason ?? (settlePending ? tr('ws.cashier.detail.settleQueued') : undefined);
   const courtName = tab.reservation?.court
     ? pickName(locale, tab.reservation.court)
     : bill?.reservation?.court_name_en && bill.reservation.court_name_ar
@@ -516,6 +518,7 @@ export function TabDetailPanel({
           })}
           {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
           {pendingRefunds.pending.size > 0 && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.refundQueued')} />}
+          {settlePending && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.settleQueued')} />}
         </div>
 
         {/* ---- voided (waste, kept visible: it was on the tab once) ---- */}
@@ -775,7 +778,7 @@ export function TabDetailPanel({
 
       {/* ---- overlays ---- */}
       {overlay.kind === 'pay' && (
-        <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t)} />
+        <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t).then((r) => r !== 'failed' && close())} />
       )}
       {overlay.kind === 'split' && (
         <SplitBillDialog
@@ -783,7 +786,12 @@ export function TabDetailPanel({
           lines={allLines}
           due={due}
           busy={busy}
-          onSettleShare={(amount, method) => void settle(method, amount, method === 'cash' ? amount : null)}
+          settleError={actionError}
+          onSettleShare={async (amount, method) => {
+            const r = await settle(method, amount, method === 'cash' ? amount : null);
+            if (r === 'settled' || r === 'queued') close();
+            return r !== 'failed';
+          }}
           onClose={close}
         />
       )}
@@ -869,7 +877,12 @@ export function TabDetailPanel({
           <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
             <SegmentedControl<typeof discountKind>
               value={discountKind}
-              onChange={setDiscountKind}
+              onChange={(k) => {
+                // A value typed for one kind means nothing in the other: 10%
+                // must not quietly become 10 IQD.
+                setDiscountKind(k);
+                setDiscountValue(10);
+              }}
               aria-label={tr('op.till.discount')}
               options={[
                 { value: 'discount_percent', label: tr('op.till.discountPercent') },
@@ -885,7 +898,11 @@ export function TabDetailPanel({
               min={1}
               max={discountKind === 'discount_percent' ? 100 : undefined}
               value={discountValue}
-              onChange={(e) => setDiscountValue(Math.max(1, Number(e.target.value) || 1))}
+              // `max` only styles the field; typing 150 still reached the payload as 15000 bp.
+              onChange={(e) => {
+                const v = Math.max(1, Math.floor(Number(e.target.value)) || 1);
+                setDiscountValue(discountKind === 'discount_percent' ? Math.min(v, 100) : v);
+              }}
             />
           </Field>
         </PinReasonModal>

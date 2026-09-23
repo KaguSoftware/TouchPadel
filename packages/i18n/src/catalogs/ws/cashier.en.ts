@@ -191,6 +191,7 @@ export const cashierEn = {
     // Item 9 (0120): void and refund ride the durable queue when the link is down.
     voidQueued: 'Void waiting to sync',
     refundQueued: 'Refund saved on this station. It will be recorded when the connection is back; the payments list updates then.',
+    settleQueued: 'Payment saved on this station. It will be recorded when the connection is back; the amount due updates then.',
     voidedTitle: 'Voided',
     noLines: 'Nothing on this tab yet — pick items from the grid.',
     totalsTitle: 'Totals',

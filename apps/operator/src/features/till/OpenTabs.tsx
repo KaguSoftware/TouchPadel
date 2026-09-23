@@ -38,7 +38,6 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
-import { supabase } from '../../lib/supabase';
 import { AppRpcError } from '../../lib/appRpc';
 import { mutate } from '../../lib/mutate';
 import { resultErrorCode } from '../../lib/queueResults';
@@ -70,8 +69,9 @@ import { WaiterCallsPanel } from './WaiterCallsPanel';
 import { NewTabDialog } from './NewTabDialog';
 import { MergeTabsDialog } from './ManagerActions';
 import { computeTabTotals } from './tabTotals';
+import { useTaxContext } from './useTaxContext';
 import { formatElapsed } from './elapsed';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
+import { OPEN_TABS_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
 import { muted } from './tillStyles';
 
 export type TabsSort = 'table' | 'court' | 'name';
@@ -585,24 +585,7 @@ export function OpenTabsScreen() {
     const live = new Set(tabsQ.data.map((t) => t.id));
     for (const id of pendingRemovals.pending.keys()) if (!live.has(id)) pendingRemovals.remove(id);
   }, [tabsQ.data, pendingRemovals]);
-  const menuQ = useQuery({ ...TILL_MENU_QUERY });
-  const taxInclusiveQ = useQuery({
-    queryKey: ['taxInclusive'],
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('venue_settings').select('tax_inclusive').single();
-      if (error) throw error;
-      return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
-    },
-  });
-  const taxCtx = useMemo(() => {
-    if (!menuQ.data || taxInclusiveQ.data === undefined) return null;
-    return {
-      rateByCategory: new Map(menuQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0])),
-      taxInclusive: taxInclusiveQ.data,
-    };
-  }, [menuQ.data, taxInclusiveQ.data]);
+  const taxCtx = useTaxContext();
 
   const { status: floorStatus } = useBroadcast({
     topic: 'floor',

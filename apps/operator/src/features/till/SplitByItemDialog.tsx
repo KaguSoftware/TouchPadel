@@ -42,7 +42,8 @@ export function SplitByItemPanel({
   due: number;
   busy: boolean;
   /** Take one share as a payment; the tab panel owns settle_tab. */
-  onSettleShare(amountIqd: number, method: PaymentMethod): void;
+  /** Resolves true once the share is taken (or saved on the queue); false when refused. */
+  onSettleShare(amountIqd: number, method: PaymentMethod): Promise<boolean>;
 }) {
   const { tr, locale } = useLocale();
   const live = useMemo(() => lines.filter((l) => !l.voided), [lines]);
@@ -164,8 +165,9 @@ export function SplitByItemPanel({
               busy={busy}
               taken={taken.has(i)}
               onSettle={(m) => {
-                setTaken((prev) => new Set(prev).add(i));
-                onSettleShare(s, m);
+                // Taken only once the payment is: a refused share keeps its
+                // buttons, and the refusal shows above the shares.
+                void onSettleShare(s, m).then((ok) => ok && setTaken((prev) => new Set(prev).add(i)));
               }}
             />
           ))}

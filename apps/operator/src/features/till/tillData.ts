@@ -22,7 +22,8 @@ export interface CategoryRow {
   name_ar: string;
   sort_order: number;
   is_active: boolean;
-  tax_group: { rate_bp: number } | null;
+  /** `id` and `is_active` are absent on a menu cached before they were selected. */
+  tax_group: { id?: string; rate_bp: number; is_active?: boolean } | null;
   /** 0144: 'shop' for a Touch Shop section. Absent on a menu cached before 0144 (read as café). */
   kind?: 'cafe' | 'shop';
 }
@@ -98,7 +99,7 @@ export const TILL_MENU_QUERY = {
       const [cats, items, groups, mods, avail] = await Promise.all([
         supabase
           .from('menu_categories')
-          .select('id, name_en, name_ar, sort_order, is_active, kind, tax_group:tax_groups(rate_bp)')
+          .select('id, name_en, name_ar, sort_order, is_active, kind, tax_group:tax_groups(id, rate_bp, is_active)')
           .order('sort_order'),
         supabase
           .from('menu_items')
@@ -148,9 +149,9 @@ export interface TabListRow {
   orders: {
     source: string;
     status: string;
-    order_items: { line_total_iqd: number; voided: boolean; menu_item: { category_id: string } | null }[];
+    order_items: { id?: string; line_total_iqd: number; voided: boolean; menu_item: { category_id: string } | null }[];
   }[];
-  tab_adjustments: { kind: string; amount_iqd: number }[];
+  tab_adjustments: { kind: string; amount_iqd: number; order_item_id?: string | null }[];
   payments: { amount_iqd: number }[];
 }
 
@@ -164,8 +165,8 @@ export const OPEN_TABS_QUERY = {
           `id, status, label, opened_at, total_iqd,
            table:cafe_tables(table_number),
            reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(id, name_en, name_ar)),
-           orders!orders_tab_id_fkey(source, status, order_items(line_total_iqd, voided, menu_item:menu_items(category_id))),
-           tab_adjustments(kind, amount_iqd),
+           orders!orders_tab_id_fkey(source, status, order_items(id, line_total_iqd, voided, menu_item:menu_items(category_id))),
+           tab_adjustments(kind, amount_iqd, order_item_id),
            payments(amount_iqd)`,
         )
         .in('status', ['open', 'awaiting_payment'])
@@ -268,6 +269,8 @@ export interface TabAdjustmentRow {
   amount_iqd: number;
   /** 'promotion' marks a server-applied promotion (build plan §0); anything else is a manager action. */
   reason_code: string;
+  /** Set on a line discount, null on a whole-tab one (computeTabTotals spreads those pro rata). */
+  order_item_id: string | null;
 }
 
 export interface TabDetail {
@@ -304,7 +307,7 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
          )
        ),
        payments(id, method, amount_iqd, change_iqd, refunds(amount_iqd)),
-       tab_adjustments(id, kind, amount_iqd, reason_code)`,
+       tab_adjustments(id, kind, amount_iqd, reason_code, order_item_id)`,
     )
     .eq('id', tabId)
     .single();
