@@ -10,6 +10,7 @@
  * item is already moving towards the fifth tile, and every one of those three
  * used to shift the grid under that finger (rulebook 11.5).
  */
+import type { CSSProperties } from 'react';
 import { formatIQD, formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText } from '../../components/ui';
@@ -17,6 +18,16 @@ import { Kbd } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { basketLineEstimate, type BasketLine } from './tillData';
 import { BASKET_LIST_OPEN, kvRow, muted, numeric, reservedStatusLine, sectionTitle } from './tillStyles';
+
+/** A − or + in a line's stepper: a compact square, little padding round the glyph. */
+const stepBtn: CSSProperties = {
+  border: 'none',
+  borderRadius: 0,
+  inlineSize: '2rem',
+  minBlockSize: '2rem',
+  blockSize: '2rem',
+  padding: 0,
+};
 
 export function Basket({
   lines,
@@ -238,16 +249,41 @@ export function Basket({
                     onClick={() => onNote(l.key)}
                     style={l.notes ? { color: 'var(--tp-accent)' } : undefined}
                   />
-                  {/* Dead at one rather than deleting the line: × is the way
-                      out, and it is next to this button. */}
-                  <Button
-                    kind="ghost"
-                    icon="minus"
-                    aria-label="−1"
-                    disabled={sending || l.qty <= 1}
-                    onClick={() => onBump(l.key, -1)}
-                  />
-                  <Button kind="ghost" icon="plus" aria-label="+1" disabled={sending} onClick={() => onBump(l.key, 1)} />
+                  {/* The item sheet's joined −/+ stepper, at the row's button
+                      size (the count is already in the line's "2×"). − is
+                      dead at one rather than deleting the line: × is the way
+                      out, and it is next to the stepper. */}
+                  <span
+                    role="group"
+                    aria-label={tr('op.till.qty')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'stretch',
+                      // An inset outline, not a border: a border would add 2px
+                      // round the buttons.
+                      outline: '1px solid var(--tp-border-strong)',
+                      outlineOffset: '-1px',
+                      borderRadius: 'var(--tp-radius-ctl)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Button
+                      kind="ghost"
+                      icon="minus"
+                      aria-label="−1"
+                      disabled={sending || l.qty <= 1}
+                      onClick={() => onBump(l.key, -1)}
+                      style={{ ...stepBtn, borderInlineEnd: '1px solid var(--tp-border)' }}
+                    />
+                    <Button
+                      kind="ghost"
+                      icon="plus"
+                      aria-label="+1"
+                      disabled={sending}
+                      onClick={() => onBump(l.key, 1)}
+                      style={stepBtn}
+                    />
+                  </span>
                   <Button kind="ghost" icon="x" aria-label={tr('ws.cashier.till.basket.remove')} disabled={sending} onClick={() => onRemove(l.key)} />
                 </span>
               </li>
