@@ -25,7 +25,7 @@ import { useEffect, useState } from 'react';
 import { formatIQD } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { MessagePresenter, Money } from '../../components/kit';
+import { Money } from '../../components/kit';
 import { Switch } from '../../components/Switch';
 import { computeChange } from './change';
 import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
@@ -51,7 +51,6 @@ export function quickTenders(target: number, limit = 4): number[] {
 export function PaymentPane({
   mode,
   due,
-  unsentCount = 0,
   busy,
   error,
   onCancel,
@@ -61,7 +60,6 @@ export function PaymentPane({
   /** Amount still owed (server-stamped after each payment; preview before). */
   due: number;
   /** Basket lines not yet sent to this tab — they are not in `due`. */
-  unsentCount?: number;
   busy: boolean;
   error: unknown;
   onCancel: () => void;
@@ -96,10 +94,6 @@ export function PaymentPane({
       : !change.sufficient
         ? tr('ws.cashier.payment.shortTendered')
         : undefined;
-
-  const unsent = unsentCount > 0 && (
-    <MessagePresenter tone="refused" icon="flame" message={tr('ws.cashier.payment.unsentWarning')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
-  );
 
   const amountBlock = (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', marginBlockEnd: 'var(--tp-sp-3)' }}>
@@ -153,7 +147,6 @@ export function PaymentPane({
           </div>
         }
       >
-        {unsent}
         {amountBlock}
         <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.cashier.payment.cardNote')}</p>
         <ErrorText error={error} />
@@ -188,7 +181,6 @@ export function PaymentPane({
         </div>
       }
     >
-      {unsent}
       {amountBlock}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start' }}>

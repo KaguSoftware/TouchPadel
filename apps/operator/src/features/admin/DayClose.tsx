@@ -103,6 +103,9 @@ const SUMMARY_COLUMNS =
   'discounts_iqd, adjustment_count, authorizer_names, voided_lines_iqd, voided_line_count, refunds_iqd, refund_count, waste_cost_iqd, ' +
   'desk_cash_iqd, desk_card_iqd';
 
+/** Counted cash ceiling: 999,999,999,999 IQD — twelve digits, past any real drawer. */
+const MAX_COUNTED_IQD = 999_999_999_999;
+
 const STATE_TONE: Partial<Record<DayCloseState, 'success' | 'danger' | 'warn' | 'neutral'>> = {
   ready: 'success',
   busy: 'success',
@@ -552,9 +555,16 @@ export function DayClose() {
                   </RowList>
                   <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', alignItems: 'start' }}>
                     <Field label={tr('ws.manager.dayClose.countedCash')} hint={tr('ws.manager.dayClose.countedHint')} style={{ flex: '1 1 13rem', minInlineSize: 0, marginBlockEnd: 0 }}>
-                      <MoneyInput value={countedCash} onChange={setCountedCash} allowEmpty disabled={busy} style={{ fontSize: 'var(--tp-fs-xl)' }} />
+                      <MoneyInput
+                        value={countedCash}
+                        onChange={setCountedCash}
+                        allowEmpty
+                        max={MAX_COUNTED_IQD}
+                        disabled={busy}
+                        style={{ fontSize: 'var(--tp-fs-xl)' }}
+                      />
                     </Field>
-                    <AmountPad value={countedCash ?? 0} onChange={setCountedCash} disabled={busy} />
+                    <AmountPad value={countedCash ?? 0} onChange={setCountedCash} max={MAX_COUNTED_IQD} disabled={busy} />
                   </div>
                 </div>
               </Step>
@@ -618,15 +628,13 @@ export function DayClose() {
             />
           )}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
-          <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>} padded={false}>
-            <ErrorText error={adjustmentsQ.error} style={{ marginInline: 'var(--tp-sp-3)' }} />
+          <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>}>
+            <ErrorText error={adjustmentsQ.error} />
             {adjustments.length === 0 ? (
-              <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact kind="nothingToDo" icon="shield" title={tr('ws.manager.dayClose.noAdjustments')} />
-              </div>
+              <EmptyState compact kind="nothingToDo" icon="shield" title={tr('ws.manager.dayClose.noAdjustments')} />
             ) : (
               <>
-                <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                <p style={{ marginBlockEnd: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.manager.dayClose.adjustmentsLead')}
                 </p>
                 <DataTable<DayAdjustmentRow> dense rows={adjustments} rowKey={(a) => a.adjustment_id} columns={adjustmentColumns(tr, locale)} aria-label={tr('ws.manager.dayClose.adjustmentsTitle')} />

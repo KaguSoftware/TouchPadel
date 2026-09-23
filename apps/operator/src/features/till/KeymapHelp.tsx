@@ -9,7 +9,7 @@ import { muted } from './tillStyles';
 export function KeymapHelp({ onClose }: { onClose: () => void }) {
   const { tr } = useLocale();
   return (
-    <Modal title={tr('ws.cashier.till.help.title')} onClose={onClose} size="sm" footer={<Button onClick={onClose}>{tr('common.close')}</Button>}>
+    <Modal title={tr('ws.cashier.till.help.title')} onClose={onClose} size="sm" footer={(close) => (<Button onClick={close}>{tr('common.close')}</Button>)}>
       <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.till.help.intro')}</p>
       <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 'var(--tp-sp-2) var(--tp-sp-4)', margin: 0, alignItems: 'center' }}>
         {TILL_KEYMAP.map((row) => (

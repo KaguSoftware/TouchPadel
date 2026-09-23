@@ -184,7 +184,9 @@ describe('CourtsReportScreen', () => {
     rpc.mockResolvedValue(READY);
     renderReport();
     await screen.findByRole('table', { name: 'By court' });
-    await user.selectOptions(await screen.findByLabelText('Court'), 'c1');
+    // Our own listbox, so the options exist only once the panel is open.
+    await user.click(await screen.findByRole('combobox', { name: 'Court' }));
+    await user.click(await screen.findByRole('option', { name: 'Court 1' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_courts', expect.objectContaining({ p_filters: { courtId: 'c1' } })));
   });
 });

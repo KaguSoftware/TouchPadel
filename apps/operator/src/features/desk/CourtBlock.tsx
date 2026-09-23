@@ -16,7 +16,9 @@ import { AppRpcError } from '../../lib/appRpc';
 import { QK, fetchActiveCourts, fetchVenueSettings } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../components/ui';
+import { DateField } from '../../components/inputs';
 import { AsyncStateWrapper, ConflictNotice, MessagePresenter, PageHeader, Panel, asyncStatus } from '../../components/kit';
+import { blockRangeInvalid } from './deskLogic';
 import { todayInTz } from './useTradingNight';
 
 function toMinutes(hhmm: string): number | null {
@@ -65,10 +67,8 @@ export function CourtBlockScreen() {
 
   const effectiveCourt = courtId || courts[0]?.id || '';
   const fromMin = toMinutes(from);
-  const toMinRaw = toMinutes(to);
-  // A block that ends "after midnight" (02:00 < 22:00) belongs to the same trading night.
-  const toMin = fromMin !== null && toMinRaw !== null && toMinRaw <= fromMin ? toMinRaw + 24 * 60 : toMinRaw;
-  const rangeInvalid = fromMin !== null && toMinRaw !== null && toMin !== null && toMin <= fromMin;
+  const toMin = toMinutes(to);
+  const rangeInvalid = blockRangeInvalid(fromMin, toMin);
 
   // Past-ness is judged on the instant the block would start, not on the
   // wall-clock numbers: only wallTimeToUtc knows what 01:00 on this date means
@@ -79,7 +79,7 @@ export function CourtBlockScreen() {
 
   const missingCourt = effectiveCourt === '';
   const missingFrom = fromMin === null;
-  const missingTo = toMinRaw === null;
+  const missingTo = toMin === null;
   const missingReason = reason.trim().length === 0;
   const required = tr('ws.courtDesk.block.required');
   const courtError = attempted && missingCourt ? required : undefined;
@@ -162,7 +162,7 @@ export function CourtBlockScreen() {
               {/* `min` keeps yesterday out of the native picker; the warning is
                   what catches a date typed straight into the field. */}
               <Field label={tr('ws.courtDesk.block.date')} required error={dateError}>
-                <input type="date" min={today} style={inputStyle} value={date} disabled={busy} onChange={(e) => e.target.value && setDate(e.target.value)} />
+                <DateField value={date} onChange={setDate} min={today} disabled={busy} />
               </Field>
               <Field label={tr('ws.courtDesk.block.from')} required error={fromError}>
                 <input type="time" step={1800} style={inputStyle} value={from} disabled={busy} onChange={(e) => setFrom(e.target.value)} />

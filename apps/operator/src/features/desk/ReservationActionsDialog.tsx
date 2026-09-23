@@ -29,9 +29,9 @@ import type { CourtRow } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
 import { permissionsFor, useAuth } from '../../lib/auth';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, Modal, Select } from '../../components/ui';
 import { ReservationBadge } from './deskStatus';
-import { allowedMarks, isLive } from './deskLogic';
+import { allowedMarks, canMoveReservation, isLive } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
@@ -96,11 +96,13 @@ export function ReservationActionsDialog({
       list?.map((row) => (row.id === r.id ? { ...row, status } : row)),
     );
     onChanged();
-    // Arrived and completed are the normal course of a booking, not an
-    // override: they carry no reason (the server records its own default).
-    // A no-show ends the booking and frees the court, so it carries one.
-    const why = status === 'no_show' ? { reason } : {};
-    void mutate('reservation.update', { action: 'mark', reservationId: r.id, status, ...why }).catch((e: unknown) => {
+    // No mark carries a reason. The server asks for none -- mark_reservation's
+    // p_reason is defaulted and coalesced, so a no-show records 'no_show' --
+    // and this dialog's reason Select is pre-filled with OVERRIDE_REASONS[0],
+    // so attaching it stamped every no-show taken from the calendar as
+    // "Customer request". A wrong reason in the audit is worse than none
+    // (owner, 2026-09-23). The Select stays: move, shorten and extend use it.
+    void mutate('reservation.update', { action: 'mark', reservationId: r.id, status }).catch((e: unknown) => {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
     });
@@ -108,6 +110,10 @@ export function ReservationActionsDialog({
 
   const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
   const live = isLive(r.status);
+  // Same rule the calendar's drag gate uses: a checked-in guest whose slot has
+  // started is playing, and re-timing that is not on offer. Read at render like
+  // `allowedMarks` below — the dialog is opened per action, not left standing.
+  const movable = canMoveReservation(r, Date.now());
   const marks = allowedMarks(r.status, r.start_at);
   const court = courts.find((c) => c.id === r.court_id);
   // The floor is the court's own shortest bookable duration: shorter than that
@@ -136,9 +142,9 @@ export function ReservationActionsDialog({
         </span>
       }
       onClose={busy ? () => {} : onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.close')}
           </Button>
           {canPay && (
@@ -146,6 +152,8 @@ export function ReservationActionsDialog({
               icon="banknote"
               disabled={busy}
               onClick={() => {
+                // Leaves the screen entirely: no exit to play, and deferring
+                // the close would hold a dead dialog over the new route.
                 onClose();
                 void navigate({ to: '/desk/bookings/$id', params: { id: r.id } });
               }}
@@ -165,7 +173,7 @@ export function ReservationActionsDialog({
             {tr('ws.courtDesk.calendar.openDetail')}
           </Button>
         </>
-      }
+      )}
     >
       {r.notes && <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem', whiteSpace: 'pre-wrap' }}>{r.notes}</p>}
       <ErrorText error={error} />
@@ -253,9 +261,11 @@ export function ReservationActionsDialog({
                 </span>
               )}
             </span>
-            <Button icon="repeat" busy={busy} onClick={() => setShowMove(true)}>
-              {tr('op.desk.move')}
-            </Button>
+            {movable && (
+              <Button icon="repeat" busy={busy} onClick={() => setShowMove(true)}>
+                {tr('op.desk.move')}
+              </Button>
+            )}
             {marks.includes('no_show') && (
               <Button icon="eyeOff" busy={busy} onClick={() => runMark('no_show')}>
                 {tr('ws.courtDesk.detail.noShow')}
@@ -266,13 +276,12 @@ export function ReservationActionsDialog({
             </Button>
           </div>
           <Field label={tr('op.desk.overrideReason')} style={{ marginBlockStart: '0.85rem' }}>
-            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
-              {OVERRIDE_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {tr(`op.reasons.${code}`)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={reason}
+              disabled={busy}
+              onChange={setReason}
+              options={OVERRIDE_REASONS.map((code) => ({ value: code, label: tr(`op.reasons.${code}`) }))}
+            />
           </Field>
         </section>
       )}
@@ -282,32 +291,31 @@ export function ReservationActionsDialog({
         <div style={{ marginBlockStart: '0.6rem' }}>
           <h3 style={{ marginBlock: '0.4rem', fontSize: 'var(--tp-fs-md)' }}>{tr('op.desk.moveTitle')}</h3>
           <Field label={tr('op.desk.newCourt')}>
-            <select style={inputStyle} value={moveCourt} disabled={busy} onChange={(e) => setMoveCourt(e.target.value)}>
-              {courts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {pickName(locale, c)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={moveCourt}
+              disabled={busy}
+              onChange={setMoveCourt}
+              options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))}
+            />
           </Field>
           <Field label={tr('op.desk.newStart')}>
-            <select style={inputStyle} value={moveStartMin} disabled={busy} onChange={(e) => setMoveStartMin(e.target.value === '' ? '' : Number(e.target.value))}>
-              <option value="">{tr('ws.courtDesk.calendar.sameTime', { time: formatTime(new Date(r.start_at), locale, tz) })}</option>
-              {rows.map((min) => (
-                <option key={min} value={min}>
-                  {formatTime(wallTimeToUtc(date, min, tz), locale, tz)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={moveStartMin === '' ? '' : String(moveStartMin)}
+              disabled={busy}
+              onChange={(v) => setMoveStartMin(v === '' ? '' : Number(v))}
+              options={[
+                { value: '', label: tr('ws.courtDesk.calendar.sameTime', { time: formatTime(new Date(r.start_at), locale, tz) }) },
+                ...rows.map((min) => ({ value: String(min), label: formatTime(wallTimeToUtc(date, min, tz), locale, tz) })),
+              ]}
+            />
           </Field>
           <Field label={tr('op.desk.overrideReason')}>
-            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
-              {OVERRIDE_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {tr(`op.reasons.${code}`)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={reason}
+              disabled={busy}
+              onChange={setReason}
+              options={OVERRIDE_REASONS.map((code) => ({ value: code, label: tr(`op.reasons.${code}`) }))}
+            />
           </Field>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <Button onClick={() => setShowMove(false)} disabled={busy}>
@@ -339,13 +347,12 @@ export function ReservationActionsDialog({
       {showCancel && (
         <div style={{ marginBlockStart: '0.6rem' }}>
           <Field label={tr('op.common.reason')}>
-            <select style={inputStyle} value={cancelReason} disabled={busy} onChange={(e) => setCancelReason(e.target.value)}>
-              {CANCEL_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {tr(`op.reasons.${code}`)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={cancelReason}
+              disabled={busy}
+              onChange={setCancelReason}
+              options={CANCEL_REASONS.map((code) => ({ value: code, label: tr(`op.reasons.${code}`) }))}
+            />
           </Field>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <Button onClick={() => setShowCancel(false)} disabled={busy}>

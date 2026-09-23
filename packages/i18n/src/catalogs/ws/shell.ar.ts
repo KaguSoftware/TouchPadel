@@ -34,7 +34,8 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     confirmLabel: 'انتقال',
   },
   status: {
-    ok: 'متصل — لا شيء بانتظار المزامنة.',
+    ok: 'متصل.',
+    offline: 'غير متصل — يتم حفظ التغييرات هنا وستتم مزامنتها عند عودة الاتصال.',
   },
   forbidden: {
     action: 'فتح هذه الشاشة',

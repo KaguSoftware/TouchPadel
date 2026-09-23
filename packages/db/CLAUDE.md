@@ -17,9 +17,12 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0146`
-  (`20260922000146_shop_sale_path.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
-  Touch Shop 0143–0146); the next is `0147`.
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0150`
+  (`20260923000150_my_reservations.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+  Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
+  0149 assistant-cap, 0150 my-reservations); the next is `0151`. **Check the directory, not this
+  line** — it said 0146 while 0147–0149 were already on disk, and a reused ordinal fails
+  `check-migrations.mjs` after the file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).

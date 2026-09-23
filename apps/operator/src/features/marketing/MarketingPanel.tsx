@@ -591,16 +591,16 @@ function CampaignEditor({
       title={tr(campaign ? 'ws.owner.marketing.editCampaign' : 'ws.owner.marketing.newCampaign')}
       onClose={onClose}
       wide
-      footer={
+      footer={(close) => (
         <>
-          <Button kind="ghost" onClick={onClose} disabled={save.isPending}>
+          <Button kind="ghost" onClick={close} disabled={save.isPending}>
             {tr('ws.kit.reason.cancel')}
           </Button>
           <Button kind="primary" busy={save.isPending} disabled={!bodyReady} onClick={submit}>
             {tr('ws.owner.marketing.form.save')}
           </Button>
         </>
-      }
+      )}
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
         <Field label={tr('ws.owner.marketing.form.nameEn')} required error={tried && nameEn.trim() === '' ? tr('ws.owner.marketing.form.nameRequired') : undefined}>
@@ -716,16 +716,16 @@ function AudienceEditor({ audience, onClose, onSaved }: { audience: AudienceRow 
       title={tr(audience ? 'ws.owner.marketing.editAudience' : 'ws.owner.marketing.newAudience')}
       onClose={onClose}
       wide
-      footer={
+      footer={(close) => (
         <>
-          <Button kind="ghost" onClick={onClose} disabled={save.isPending}>
+          <Button kind="ghost" onClick={close} disabled={save.isPending}>
             {tr('ws.kit.reason.cancel')}
           </Button>
           <Button kind="primary" busy={save.isPending} onClick={submit}>
             {tr('ws.owner.marketing.form.save')}
           </Button>
         </>
-      }
+      )}
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
         <Field label={tr('ws.owner.marketing.form.nameEn')} required error={tried && nameEn.trim() === '' ? tr('ws.owner.marketing.form.nameRequired') : undefined}>

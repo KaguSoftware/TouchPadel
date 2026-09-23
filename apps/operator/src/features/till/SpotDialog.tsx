@@ -75,10 +75,10 @@ export function SpotDialog({
       title={title}
       size="sm"
       onClose={onClose}
-      footer={
+      footer={(close) =>
         adding ? (
           <>
-            <Button onClick={shared ? () => setAdding(false) : onClose} disabled={busy}>
+            <Button onClick={shared ? () => setAdding(false) : close} disabled={busy}>
               {shared ? tr('common.back') : tr('common.cancel')}
             </Button>
             <Button kind="primary" icon="plus" busy={busy} onClick={() => void open()} autoFocus={target.kind === 'booking'}>
@@ -86,7 +86,7 @@ export function SpotDialog({
             </Button>
           </>
         ) : (
-          <Button onClick={onClose}>{tr('common.cancel')}</Button>
+          <Button onClick={close}>{tr('common.cancel')}</Button>
         )
       }
     >

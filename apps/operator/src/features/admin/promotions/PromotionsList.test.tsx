@@ -96,7 +96,7 @@ describe('PromotionsListScreen', () => {
     // Applies to: how a bill gets it, and what it covers.
     expect(screen.getByText('Code OLD5 · single use')).toBeTruthy();
     expect(screen.getByText('Items: 2')).toBeTruthy();
-    expect(screen.getAllByText('No code needed').length).toBe(1);
+    expect(screen.queryByText('No code needed')).toBeNull();
     expect(screen.getByText('Needs a code, none yet')).toBeTruthy();
     expect(screen.queryByText('What it applies to')).toBeNull();
     // The rules are one lead, not a lead + a count + a banner.

@@ -52,6 +52,10 @@ export function bookingFixture(over: Record<string, unknown> = {}) {
     cancelled_by: null,
     cancelled_at: null,
     created_at: new Date().toISOString(),
+    // app.my_reservations (0150). Unpaid by default, which is the state the
+    // detail screen's smoke case asserts against.
+    court_paid_iqd: 0,
+    court_remaining_iqd: 30000,
     ...over,
   };
 }

@@ -134,7 +134,8 @@ describe('RevenueReportScreen', () => {
     rpc.mockImplementation(async (fn) => (fn === 'report_revenue' ? REVENUE : DRILL));
     renderIt(<RevenueReportScreen />);
     await screen.findByRole('table', { name: 'Earned' });
-    await user.selectOptions(await screen.findByLabelText('Staff member'), 's1');
+    await user.click(await screen.findByRole('combobox', { name: 'Staff member' }));
+    await user.click(await screen.findByRole('option', { name: 'Dev Cashier' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_revenue', expect.objectContaining({ p_filters: { paymentMethod: null, staffId: 's1' } })));
     expect(await screen.findByText(/Only what Dev Cashier recorded/)).toBeTruthy();
     await user.click(await within(await screen.findByRole('table', { name: 'Earned' })).findByText('639,473 IQD'));

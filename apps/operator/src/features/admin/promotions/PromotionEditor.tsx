@@ -8,7 +8,7 @@
  *
  *  - The header carries one line saying what the promotion does, rebuilt from
  *    the draft on every change ("10% off everything from the cafe · Fri, Sat ·
- *    16:00–19:00 · No code needed"), so a manager can check the result in
+ *    16:00–19:00"), so a manager can check the result in
  *    words instead of reading five panels back.
  *  - A field's error shows once the manager has left that field, not on
  *    arrival: a new promotion used to open with "Both names are required" in
@@ -56,6 +56,8 @@ import {
   fromRow,
   isDirty,
   lifecycle,
+  minEndOn,
+  minStartOn,
   saveBlocker,
   statusText,
   toRpcArgs,
@@ -116,7 +118,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const [error, setError] = useState<unknown>(null);
   const [touched, setTouched] = useState<ReadonlySet<TouchKey>>(new Set());
   const dirty = isDirty(draft, saved);
-  const errors = validateDraft(draft);
+  const errors = validateDraft(draft, saved.startsOn, saved.endsOn);
   const blocker = saveBlocker(errors);
   const readOnly = !can.editPromotions;
 
@@ -132,7 +134,18 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   useBlocker({
     shouldBlockFn: async () => {
       if (!dirty) return false;
-      const leave = await confirm({ title: tr('ws.kit.actions.dirtyLeave'), kind: 'danger' });
+      const leave = await confirm({
+        title: tr('ws.kit.actions.dirtyLeave'),
+        body: tr('ws.kit.actions.dirtyLeaveBody'),
+        confirmLabel: tr('ws.kit.actions.dirtyLeaveConfirm'),
+        cancelLabel: tr('ws.kit.actions.dirtyLeaveCancel'),
+        kind: 'danger',
+        // Beside "Keep editing", not pushed to the far edge (owner call,
+        // 2026-09-23). Rulebook 7.8 spreads a destructive confirm; this one
+        // loses only an unsaved draft, never stored data, and Cancel still
+        // autofocuses so Enter and Esc both keep the edits.
+        pairActions: true,
+      });
       return !leave;
     },
     enableBeforeUnload: dirty,
@@ -208,8 +221,10 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
               disabled={saveDisabled}
               // One reason, and only the one a manager can act on here: the
               // permission notice below covers read-only, and "nothing changed"
-              // needs no sentence.
-              disabledReason={!readOnly && blocker ? tr(`ws.manager.promotions.editor.saveNeeds.${blocker}`) : undefined}
+              // needs no sentence. The empty name is not one either — it is the
+              // state every new promotion opens in, so it would greet the
+              // manager as a complaint before they have typed anything.
+              disabledReason={!readOnly && blocker && blocker !== 'name' ? tr(`ws.manager.promotions.editor.saveNeeds.${blocker}`) : undefined}
               onClick={() => save.mutate()}
             >
               {tr('ws.kit.actions.save')}
@@ -280,15 +295,15 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
         {/* When */}
         <Panel title={tr('ws.manager.promotions.editor.whenTitle')}>
           <div onBlur={leave('dates')} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
-            <Field label={tr('ws.manager.promotions.editor.starts')}>
-              <input style={inputStyle} type="date" dir="ltr" value={draft.startsOn} disabled={readOnly} onChange={(e) => patch({ startsOn: e.target.value })} />
+            <Field label={tr('ws.manager.promotions.editor.starts')} error={shown('dates', 'startsPast') ? tr('ws.manager.promotions.editor.errors.startsPast') : undefined}>
+              <input style={inputStyle} type="date" dir="ltr" value={draft.startsOn} min={minStartOn(saved.startsOn)} disabled={readOnly} onChange={(e) => patch({ startsOn: e.target.value })} />
             </Field>
             <Field
               label={tr('ws.manager.promotions.editor.ends')}
               hint={tr('ws.manager.promotions.editor.endsHint')}
-              error={shown('dates', 'dates') ? tr('ws.manager.promotions.editor.errors.dates') : undefined}
+              error={shown('dates', 'endsPast', 'dates') ? tr(`ws.manager.promotions.editor.errors.${errors.includes('endsPast') ? 'endsPast' : 'dates'}`) : undefined}
             >
-              <input style={inputStyle} type="date" dir="ltr" value={draft.endsOn} disabled={readOnly} onChange={(e) => patch({ endsOn: e.target.value })} />
+              <input style={inputStyle} type="date" dir="ltr" value={draft.endsOn} min={minEndOn(saved.endsOn, draft.startsOn)} disabled={readOnly} onChange={(e) => patch({ endsOn: e.target.value })} />
             </Field>
           </div>
           {endedLabel && (

@@ -170,7 +170,10 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     more: 'المزيد',
     refresh: 'تحديث',
     unsaved: 'تغييرات غير محفوظة',
-    dirtyLeave: 'لديك تغييرات غير محفوظة. المغادرة وفقدانها؟',
+    dirtyLeave: 'لديك تغييرات غير محفوظة',
+    dirtyLeaveBody: 'سيضيع كل ما غيّرته هنا. هل تريد الإغلاق؟',
+    dirtyLeaveConfirm: 'تجاهل التغييرات',
+    dirtyLeaveCancel: 'متابعة التحرير',
   },
   infoTip: {
     label: 'المزيد عن هذا',

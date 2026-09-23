@@ -72,6 +72,9 @@ export function TillScreen() {
   /** Basket line key whose note dialog is open — the line itself is read from `basket`. */
   const [noteLineKey, setNoteLineKey] = useState<string | null>(null);
   const [basket, setBasket] = useState<BasketLine[]>([]);
+  /* The basket is short by default — the item grid keeps the screen — and the
+     cashier opens it taller to read a long order before sending. */
+  const [basketExpanded, setBasketExpanded] = useState(false);
   const [sendError, setSendError] = useState<unknown>(null);
   const [sending, setSending] = useState(false);
   const [newTab, setNewTab] = useState<{ reservationId?: string } | null>(null);
@@ -288,8 +291,14 @@ export function TillScreen() {
     void queryClient.invalidateQueries({ queryKey: ['openTabReservations'] });
   }
 
+  /**
+   * Quantity stops at ONE. Taking the last one off used to delete the line
+   * outright, so a mis-aimed − removed a drink the cashier only meant to count
+   * down — and silently, with the row gone before they could see it. Removing
+   * is the × button's job, which is the one that asks.
+   */
   function bumpBasketQty(key: string, delta: number) {
-    setBasket((b) => b.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0));
+    setBasket((b) => b.map((l) => (l.key === key ? { ...l, qty: Math.max(1, l.qty + delta) } : l)));
   }
 
   function setLineNotes(key: string, notes: string) {
@@ -594,11 +603,25 @@ export function TillScreen() {
           gap: 'var(--tp-sp-4)',
           flex: 1,
           minBlockSize: 0,
+          /* ONE row, as tall as the strip and no taller. Without this the row
+             was implicit and `auto`, so it took the height of whichever pane
+             was taller — and the basket opening made the menu pane that pane,
+             which pushed the row, both panes and the buttons on their bottom
+             edges down the screen. A definite row is what lets the item grid
+             absorb the basket's two heights instead. */
+          gridTemplateRows: 'minmax(0, 1fr)',
           alignItems: 'stretch',
         }}
       >
         {/* ---- menu: back, filter, categories, grid, basket ---- */}
-        <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2-5)' }}>
+        {/* `blockSize: 100%` is what pins the basket to the bottom of the pane.
+            Without it the column sized to its CONTENT, so the item grid's
+            `flex: 1` had no fixed height to divide and the basket's two
+            reserved heights simply made the whole pane taller or shorter —
+            which is what moved Send up and down on every press of the
+            chevron. With a definite height the grid absorbs the difference and
+            the bottom edge, and everything sitting on it, never moves. */}
+        <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ blockSize: '100%', minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2-5)', position: 'relative' }}>
           <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
             <Button icon="chevronStart" onClick={() => void selectTab(null)} aria-label={tr('ws.cashier.floor.backLabel')} style={{ minBlockSize: 'var(--tp-touch)', flexShrink: 0 }}>
               {tr('ws.cashier.floor.back')}
@@ -649,7 +672,21 @@ export function TillScreen() {
                 setFilter('');
               }}
             />
-            <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto' }}>
+            {/* `overflow-y: auto` makes the box clip on BOTH axes, and the
+                focus ring is drawn 2px OUTSIDE the tile it belongs to, so a
+                tile in the first or last column had the outer half of its ring
+                sliced off by the scroll edge. The padding is the room the ring
+                needs; the negative margin keeps the grid itself as wide as it
+                was, so the tile count per row does not change. */}
+            <div
+              style={{
+                flex: 1,
+                minBlockSize: 0,
+                overflowY: 'auto',
+                padding: 'var(--tp-focus-room)',
+                margin: 'calc(-1 * var(--tp-focus-room))',
+              }}
+            >
               <MenuItemGrid
                 items={visibleItems}
                 availability={menuQ.data?.availability ?? {}}
@@ -666,15 +703,41 @@ export function TillScreen() {
           {/* Reserved, not emergent: see BASKET_BLOCK_SIZE. The grid above keeps
               exactly the same height from the first item of the shift to the
               last, so a finger already travelling to a tile still lands on it. */}
+          {/* Holds the basket's CLOSED height in the column, so the item grid
+              ends where it always did; the basket itself is lifted out of the
+              flow over this spacer and grows upward from the same bottom
+              edge. */}
           <div
+            aria-hidden="true"
             style={{
               flex: '0 0 auto',
-              blockSize: BASKET_BLOCK_SIZE,
+              blockSize: `calc(${BASKET_BLOCK_SIZE} + 2 * var(--tp-sp-2-5))`,
+            }}
+          />
+          <div
+            style={{
+              /* The basket keeps the natural order — heading, lines, estimate,
+                 Send — and grows UPWARD when it opens: the whole box is lifted
+                 out of the column and pinned to the pane's bottom edge, so its
+                 bottom never moves however tall it gets and the extra height
+                 is taken off the item grid above. Leaving it in the column
+                 made a taller box grow at both ends, which is what carried
+                 Send and the estimated total down the screen. */
+              position: 'absolute',
+              insetInline: 0,
+              insetBlockEnd: 0,
+              background: 'var(--tp-bg)',
               borderBlockStart: '1px solid var(--tp-border)',
-              paddingBlockStart: 'var(--tp-sp-2-5)',
+              /* Padded at BOTH ends like the pay footer opposite it: with a
+                 start pad only, Send sat flush to the window edge while Cash
+                 and Card floated 0.625rem above it, and the three buttons that
+                 are meant to read as one family sat on two different lines. */
+              paddingBlock: 'var(--tp-sp-2-5)',
             }}
           >
             <Basket
+              expanded={basketExpanded}
+              onToggleExpanded={() => setBasketExpanded((v) => !v)}
               lines={basket}
               forLabel={selectedLabel}
               sending={sending}
@@ -708,7 +771,6 @@ export function TillScreen() {
           {!selectedIsOffline && (
             <TabDetailPanel
               tabId={selectedTabId}
-              unsentCount={basket.length}
               onClosedTab={() => {
                 setSelectedTabId(null);
                 void queryClient.invalidateQueries({ queryKey: ['tabs'] });

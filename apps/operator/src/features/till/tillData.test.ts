@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingTakesNewTab, canReadBookings, tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
+import { bookingTakesNewTab, canReadBookings, mergeDonorLabel, tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
 
 /** A tab as the board sees it: opened, never touched. */
 const bare: TabListRow = {
@@ -102,5 +102,43 @@ describe('bookingTakesNewTab — the till picker hides only bookings with a live
   it('hides a booking that already has an open or settling tab', () => {
     expect(bookingTakesNewTab({ tabs: [{ status: 'open' }] })).toBe(false);
     expect(bookingTakesNewTab({ tabs: [{ status: 'settled' }, { status: 'awaiting_payment' }] })).toBe(false);
+  });
+});
+
+describe('mergeDonorLabel', () => {
+  const WORDS = { table: 'Table', reservation: 'Reservation' };
+  const tab = (over: Partial<{ table: { table_number: string } | null; reservation: { guest_name: string | null } | null; label: string | null }> = {}) => ({
+    table: null,
+    reservation: null,
+    label: null,
+    ...over,
+  });
+
+  it('names a cafe tab by its table, with no court or time bolted on', () => {
+    expect(mergeDonorLabel(tab({ table: { table_number: 'T4' } }), WORDS, null, null)).toBe('Table T4');
+  });
+
+  it('names a booking tab by its guest, court and time', () => {
+    const row = tab({ reservation: { guest_name: 'Sara Ahmed' } });
+    expect(mergeDonorLabel(row, WORDS, 'Court 1', '19:00')).toBe('Sara Ahmed · Court 1 · 19:00');
+  });
+
+  it('still says something useful when the booking has no guest name', () => {
+    // THE BUG: a booking made by a signed-in account has guest_name = null,
+    // and this used to render a UUID fragment.
+    const row = tab({ reservation: { guest_name: null } });
+    expect(mergeDonorLabel(row, WORDS, 'Court 2', '20:30')).toBe('Reservation · Court 2 · 20:30');
+  });
+
+  it('falls back to the free label, then to a dash — never to an id', () => {
+    expect(mergeDonorLabel(tab({ label: 'Birthday party' }), WORDS, null, null)).toBe('Birthday party');
+    expect(mergeDonorLabel(tab(), WORDS, null, null)).toBe('—');
+  });
+
+  it('drops an absent court or time rather than leaving a dangling separator', () => {
+    const row = tab({ reservation: { guest_name: 'Sara Ahmed' } });
+    expect(mergeDonorLabel(row, WORDS, 'Court 1', null)).toBe('Sara Ahmed · Court 1');
+    expect(mergeDonorLabel(row, WORDS, null, '19:00')).toBe('Sara Ahmed · 19:00');
+    expect(mergeDonorLabel(row, WORDS, '', '')).toBe('Sara Ahmed');
   });
 });

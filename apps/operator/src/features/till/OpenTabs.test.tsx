@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../lib/i18n';
 import { AppRpcError } from '../../lib/appRpc';
-import { OpenTabsBoard, ageLabel, boardSummary, filterBoardRows, type BoardRow } from './OpenTabs';
+import { OpenTabsBoard, ageLabel, boardSummary, courtTotals, filterBoardRows, type BoardRow } from './OpenTabs';
 
 const NOW = Date.parse('2026-09-03T12:00:00Z');
 
@@ -13,6 +13,7 @@ const rows: BoardRow[] = [
     label: 'Table T8',
     table: 'T8',
     court: null,
+    courtId: null,
     guest: null,
     status: 'open',
     openedAt: '2026-09-03T11:35:00Z',
@@ -26,6 +27,7 @@ const rows: BoardRow[] = [
     label: 'Ali',
     table: null,
     court: 'Court 1',
+    courtId: 'c1',
     guest: 'Ali',
     status: 'awaiting_payment',
     openedAt: '2026-09-03T09:50:00Z',
@@ -332,5 +334,67 @@ describe('ageLabel', () => {
     expect(ageLabel(new Date(NOW - 125 * 60_000).toISOString(), NOW, tr as never)).toContain('"hours":2,"minutes":5');
     // "29 h 44 min" wrapped onto three lines of a narrow column.
     expect(ageLabel(new Date(NOW - (29 * 60 + 44) * 60_000).toISOString(), NOW, tr as never)).toContain('"days":1,"hours":5');
+  });
+});
+
+describe('courtTotals', () => {
+  const on = (id: string, courtId: string | null, total: number): BoardRow => ({
+    ...rows[1]!,
+    id,
+    courtId,
+    court: courtId === null ? null : `Court ${courtId.slice(1)}`,
+    total,
+  });
+
+  it('adds up every tab on a court that has more than one', () => {
+    const got = courtTotals([on('a', 'c1', 25000), on('b', 'c1', 8000)]);
+    expect(got.get('c1')).toEqual({ total: 33000, count: 2 });
+  });
+
+  it('leaves a court with a single tab alone', () => {
+    // Nothing to add up, and a heading would only repeat the row beneath it.
+    expect(courtTotals([on('a', 'c1', 25000)]).size).toBe(0);
+  });
+
+  it('ignores tabs with no court at all', () => {
+    expect(courtTotals([on('a', null, 8000), on('b', null, 3000)]).size).toBe(0);
+  });
+
+  it('keeps courts apart and sums each on its own', () => {
+    const got = courtTotals([
+      on('a', 'c1', 25000),
+      on('b', 'c2', 5000),
+      on('c', 'c1', 8000),
+      on('d', 'c2', 7000),
+      on('e', null, 100),
+    ]);
+    expect(got.get('c1')).toEqual({ total: 33000, count: 2 });
+    expect(got.get('c2')).toEqual({ total: 12000, count: 2 });
+    expect(got.size).toBe(2);
+  });
+
+  it('sums tabs on one court even when they are not adjacent', () => {
+    // The board can be sorted by name, which scatters a court's tabs.
+    const got = courtTotals([on('a', 'c1', 25000), on('b', 'c2', 5000), on('c', 'c1', 8000)]);
+    expect(got.get('c1')).toEqual({ total: 33000, count: 2 });
+  });
+});
+
+describe('OpenTabsBoard court grouping', () => {
+  it('shows one combined figure for a court carrying two tabs', () => {
+    const two: BoardRow[] = [
+      { ...rows[1]!, id: 'x', courtId: 'c1', court: 'Court 1', total: 25000, blocker: null },
+      { ...rows[1]!, id: 'y', courtId: 'c1', court: 'Court 1', total: 8000, blocker: null },
+    ];
+    renderBoard({ rows: two });
+    // The heading names the court and how many bills it carries...
+    expect(screen.getByText('Court 1 · 2 bills')).toBeTruthy();
+    // ...and the combined total appears exactly once, alongside the two rows.
+    expect(screen.getAllByText('33,000 IQD')).toHaveLength(1);
+  });
+
+  it('does not group a court with a single tab', () => {
+    renderBoard({ rows });
+    expect(screen.queryByText(/· 1 bills?$/)).toBeNull();
   });
 });

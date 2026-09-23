@@ -42,7 +42,7 @@ export function SplitBillDialog({
   const { tr } = useLocale();
   const [mode, setMode] = useState<SplitMode>('even');
   return (
-    <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('common.close')}</Button>}>
+    <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={(close) => (<Button onClick={close}>{tr('common.close')}</Button>)}>
       <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <SegmentedControl<SplitMode>
           value={mode}
@@ -114,7 +114,6 @@ function SplitEvenlyPanel({
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} aria-busy={loading || undefined}>
       <CountStepper label={tr('ws.cashier.split.people')} value={n} min={2} max={50} onChange={setN} />
-      {due <= 0 && <p style={muted}>{tr('ws.cashier.detail.splitNothing')}</p>}
       <ErrorText error={error} />
       {shares && (
         <div style={{ display: 'grid' }}>

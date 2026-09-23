@@ -193,7 +193,7 @@ export function MenuEditor() {
         const price = defaultPrice(i.menu_item_variants);
         return (
           <span style={{ display: 'inline-grid', justifyItems: 'end', gap: 'var(--tp-sp-0)' }}>
-            <Money amount={price} />
+            <Money amount={price} unit={false} />
             <MarginChip price={price} cost={data?.costs.get(i.id) ?? null} />
           </span>
         );

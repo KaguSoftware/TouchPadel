@@ -146,6 +146,11 @@ export const operatorVars = {
 
   // focus ring
   '--tp-ring': '0 0 0 2px var(--tp-brand-white), 0 0 0 4px var(--tp-brand-blue)',
+  /** The room a focus ring needs OUTSIDE the control it belongs to: the global
+   *  rule draws a 2px outline at a 2px offset. A scrolling box whose children
+   *  reach its edge must pad itself by this much, or it clips the ring of the
+   *  first and last child in every row. */
+  '--tp-focus-room': '4px',
 
   // shape
   /** Chips, grid cells, skeleton blocks — below a control. Was hand-typed as
@@ -295,6 +300,22 @@ export const operatorVars = {
    * later one (the Modal you just opened) is meant to win.
    */
   '--tp-z-overlay-raised': '101',
+  /**
+   * A dropdown's own panel (components/SelectMenu.tsx), which is PORTALLED to
+   * <body> and so is a sibling of any dialog rather than a child of it. It has
+   * to outrank --tp-z-overlay-raised, because most of the app's dropdowns are
+   * inside a Modal and at --tp-z-popover the panel opened BEHIND the dialog —
+   * invisible, on every one of them. Still below --tp-z-lock: the idle lock
+   * covers everything, an open menu included.
+   */
+  '--tp-z-menu': '120',
+  /**
+   * An InfoTip's bubble. Above --tp-z-menu because a tip can be opened from
+   * inside a menu's own panel (the analytics Settings panel holds both), and
+   * at the same rung the two were settled by DOM order — which put the tip
+   * behind the panel that owns it.
+   */
+  '--tp-z-tooltip': '130',
   '--tp-z-lock': '150',
   '--tp-z-toast': '200',
 

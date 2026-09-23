@@ -7,8 +7,15 @@
  * error in place), and closes on Escape, an outside press, scroll or resize.
  * Positioning follows the RowActions menu (kit.tsx): `position: fixed` from
  * the trigger's rect, logical insets so Arabic mirrors for free.
+ *
+ * PORTALLED to <body> for the same reason SelectMenu is: the analytics bar
+ * carries backdrop-filter, and a filtered element is a CONTAINING BLOCK for
+ * its fixed-position descendants. Rendered in place, this panel's viewport
+ * coordinates resolved against the bar and it hung ~16px low, detached from
+ * its trigger and floating over the cards below.
  */
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocale } from '../../lib/i18n';
 
 export function MorePanel({
@@ -52,17 +59,37 @@ export function MorePanel({
   }, [open, onClose, anchorRef]);
 
   useEffect(() => {
-    if (open) panelRef.current?.querySelector<HTMLElement>('select, button, input')?.focus();
+    if (!open) return;
+    // The first CONTROL, not simply the first button. This used to read
+    // 'select, button, input': once the dropdowns stopped being <select> and
+    // became buttons, the first match was the label's InfoTip — so opening
+    // Settings focused the tooltip, which opens on focus and covered the very
+    // control the panel exists for. InfoTip's trigger already carries
+    // .tp-infotip-trigger, so it is skipped by name rather than by DOM order.
+    const control = panelRef.current?.querySelector<HTMLElement>(
+      '[role="combobox"], input, button:not(.tp-infotip-trigger)',
+    );
+    control?.focus();
   }, [open]);
 
   if (!open || !rect) return null;
-  const inlineStart = dir === 'rtl' ? window.innerWidth - rect.right : rect.left;
-  return (
+  // Clamped at both ends. Math.max(8, …) alone only held the panel off the
+  // START edge, so a trigger near the end of the bar — which Settings always
+  // is, it is the last control on the row — pushed a 22rem panel off screen
+  // and the settings inside it were simply unreachable.
+  const PANEL_MAX = 22 * 16; // --tp-sp scale is rem; maxInlineSize below in sync
+  const GUTTER = 8;
+  const raw = dir === 'rtl' ? window.innerWidth - rect.right : rect.left;
+  const inlineStart = Math.min(Math.max(GUTTER, raw), Math.max(GUTTER, window.innerWidth - PANEL_MAX - GUTTER));
+  return createPortal(
     <div
       ref={panelRef}
       id={id}
       role="dialog"
       aria-label={label}
+      // The same frosted pane as the dropdowns it contains (.tp-menu-glass):
+      // it was the one popover left on an opaque 6px surface.
+      className="tp-menu-glass tp-rise"
       onKeyDown={(e) => {
         if (e.key !== 'Escape') return;
         e.stopPropagation();
@@ -71,23 +98,23 @@ export function MorePanel({
       }}
       style={{
         position: 'fixed',
-        insetInlineStart: `${Math.max(8, inlineStart)}px`,
+        insetInlineStart: `${inlineStart}px`,
         insetBlockStart: `${rect.bottom}px`,
         marginBlockStart: 'var(--tp-sp-1)',
+        // The popover rung, deliberately BELOW --tp-z-menu: a dropdown opened
+        // from inside this panel has to paint over it, and at the same value
+        // the two were settled by DOM order alone.
         zIndex: 'var(--tp-z-popover)',
         display: 'grid',
         gap: 'var(--tp-sp-3)',
         minInlineSize: '16rem',
         maxInlineSize: '22rem',
-        background: 'var(--tp-surface)',
-        border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-ctl)',
-        boxShadow: 'var(--tp-shadow-popover)',
         paddingBlock: 'var(--tp-sp-3)',
         paddingInline: 'var(--tp-sp-3)',
       }}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }

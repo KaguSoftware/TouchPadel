@@ -28,6 +28,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { wallTimeToUtc } from '@touch/core';
+import { SLOT_MIN } from './useTradingNight';
 import { formatDate, formatNumber, formatTime, formatTimeRange } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
@@ -37,7 +38,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
 import { ConflictNotice, Money, SegmentedControl } from '../../components/kit';
 import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker';
-import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
+import { durationsFitting, nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone, slotTaken } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
 export type CreateKind = 'booking' | 'maintenance';
@@ -74,11 +75,15 @@ export function CreateReservationDialog({
   const [courtId, setCourtId] = useState(initialCourtId);
   const [startIso, setStartIso] = useState(() => initialStartAt.toISOString());
   const court = courts.find((c) => c.id === courtId);
-  const durations = court?.duration_options?.length ? court.duration_options : [60, 90, 120];
+  // Its own memo so the clamp below does not rebuild on every keystroke.
+  const soldKey = court?.duration_options?.join(',') ?? '';
+  const sold = useMemo(
+    () => (court?.duration_options?.length ? court.duration_options : [60, 90, 120]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [soldKey],
+  );
   const [kind, setKind] = useState<CreateKind>('booking');
-  const [durationPick, setDuration] = useState<number>(durations[0] ?? 60);
-  // A court with a different list of lengths keeps the pick only if it sells it.
-  const duration = durations.includes(durationPick) ? durationPick : (durations[0] ?? 60);
+  const [durationPick, setDuration] = useState<number>(sold[0] ?? 60);
   const [guestName, setGuestName] = useState(() => (initialCustomer ? sanitizeName(initialCustomer.name) : ''));
   const [guestPhone, setGuestPhone] = useState(() => (initialCustomer?.phone ? sanitizePhone(initialCustomer.phone) : ''));
   const [notes, setNotes] = useState('');
@@ -98,6 +103,27 @@ export function CreateReservationDialog({
   const [conflict, setConflict] = useState(false);
 
   const startAt = useMemo(() => new Date(startIso), [startIso]);
+
+  /*
+   * A game may not run past the close. The night's rows are minutes from its
+   * own midnight and each row is one slot, so the last row plus a slot IS the
+   * closing minute; the chosen start is placed on the same scale by the offset
+   * from the first row. Without the night (the dialog opened from a screen
+   * that passes none) there is no close to clamp to and the court's whole
+   * list stands.
+   */
+  const durations = useMemo(() => {
+    if (!night || night.rows.length === 0) return [...sold].sort((a, b) => a - b);
+    const openMin = night.rows[0]!;
+    const closeMin = night.rows[night.rows.length - 1]! + SLOT_MIN;
+    const startMin =
+      openMin + (startAt.getTime() - wallTimeToUtc(night.date, openMin, tz).getTime()) / 60_000;
+    return durationsFitting(sold, startMin, closeMin);
+  }, [night, sold, startAt, tz]);
+
+  // A court (or a start) whose list no longer sells the pick falls back to the
+  // shortest length that still fits.
+  const duration = durations.includes(durationPick) ? durationPick : (durations[0] ?? 60);
   const endAt = new Date(startAt.getTime() + duration * 60_000);
 
   // Start times the clerk may pick: the night's rows from now on, plus the
@@ -156,9 +182,18 @@ export function CreateReservationDialog({
   }
 
   const needsGuest = kind === 'booking' && guestName.trim().length === 0 && customer === null;
-  const canSubmit = !busy && !needsGuest && !chosenTaken && !unpriced;
-  const blockedReason = needsGuest
-    ? tr('ws.courtDesk.create.needsGuest')
+  // Nothing the court sells fits before the close, so there is no booking to
+  // make from this start at all.
+  const closesTooSoon = durations.length === 0;
+  const canSubmit = !busy && !needsGuest && !chosenTaken && !unpriced && !closesTooSoon;
+  /*
+   * Why Create is disabled. A missing guest name is NOT among these: the name
+   * box already carries the required mark, so the tooltip only restated what
+   * the field says, and it is the one blocked state the desk fixes by typing
+   * rather than by changing the booking.
+   */
+  const blockedReason = closesTooSoon
+    ? tr('ws.courtDesk.create.closesTooSoonReason')
     : chosenTaken
       ? tr('ws.courtDesk.create.takenReason')
       : unpriced
@@ -176,16 +211,16 @@ export function CreateReservationDialog({
         </bdi>
       }
       onClose={busy ? () => {} : onClose}
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" busy={busy} disabled={!canSubmit} disabledReason={blockedReason} onClick={() => void submit()}>
             {tr('op.desk.create')}
           </Button>
         </>
-      }
+      )}
     >
       {conflict && (
         <ConflictNotice
@@ -266,31 +301,39 @@ export function CreateReservationDialog({
         )}
         {night && (
           <Field label={tr('ws.courtDesk.create.start')} error={chosenTaken ? tr('ws.courtDesk.create.takenNote') : undefined}>
-            <select style={inputStyle} value={startIso} disabled={busy} onChange={(e) => setStartIso(e.target.value)}>
-              {startOptions.map((o) => (
-                <option key={o.iso} value={o.iso} disabled={o.taken && o.iso !== startIso}>
-                  {o.taken ? tr('ws.courtDesk.create.startTaken', { time: formatTime(new Date(o.iso), locale, tz) }) : formatTime(new Date(o.iso), locale, tz)}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={startIso}
+              disabled={busy}
+              onChange={setStartIso}
+              options={startOptions.map((o) => ({
+                value: o.iso,
+                label: o.taken ? tr('ws.courtDesk.create.startTaken', { time: formatTime(new Date(o.iso), locale, tz) }) : formatTime(new Date(o.iso), locale, tz),
+                disabled: o.taken && o.iso !== startIso,
+              }))}
+            />
           </Field>
         )}
-        <Field label={tr('op.desk.duration')}>
-          <select style={inputStyle} value={duration} disabled={busy} onChange={(e) => setDuration(Number(e.target.value))}>
-            {durations.map((d) => (
-              <option key={d} value={d}>
-                {tr('op.common.minutesShort', { minutes: formatNumber(d, locale) })}
-              </option>
-            ))}
-          </select>
+        <Field
+          label={tr('op.desk.duration')}
+          error={closesTooSoon ? tr('ws.courtDesk.create.closesTooSoon') : undefined}
+        >
+          <Select
+            value={String(duration)}
+            disabled={busy || closesTooSoon}
+            onChange={(d) => setDuration(Number(d))}
+            options={durations.map((d) => ({ value: String(d), label: tr('op.common.minutesShort', { minutes: formatNumber(d, locale) }) }))}
+          />
         </Field>
         {!night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
       </div>
-      {night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
 
+      {/* Notes sit above the price: the price is the last thing the desk reads
+       out before pressing Create, so it ends the form rather than being
+       buried between two boxes. */}
       <Field label={kind === 'maintenance' ? tr('ws.courtDesk.create.blockReason') : tr('op.common.notes')} optional={kind === 'booking'}>
         <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
       </Field>
+      {night && kind === 'booking' && <PriceLine loading={priceQ.isPending} failed={priceQ.isError} price={priceQ.data?.[0]?.price_iqd ?? null} unpriced={unpriced} />}
       <ErrorText error={error} />
     </Modal>
   );

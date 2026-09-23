@@ -20,6 +20,7 @@
     "Baseline 2026-09-04: 19 public, 108 guarded, 60 of 127 covered by tests/rls-matrix.ts."
   ],
   "publicByDesign": {
+    "my_reservations": "booking: guarded by reservation OWNERSHIP (guest_id = auth.uid()) inside the body, not by role; a caller who owns nothing matches no row",
     "cancel_reservation": "booking: guarded by reservation OWNERSHIP, not by role",
     "confirm_booking": "booking: guarded by reservation OWNERSHIP, not by role",
     "create_guest_order": "guest ordering: guarded by guest_sessions OWNERSHIP, not by role",

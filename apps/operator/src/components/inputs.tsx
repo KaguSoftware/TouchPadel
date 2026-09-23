@@ -8,6 +8,7 @@ import { formatIQD } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import { Icon } from './icons';
 import { Button, Field, inputStyle } from './ui';
+import { dateKeystroke, MAX_ISO_DATE } from './dateFieldLogic';
 
 const numericStyle: CSSProperties = { ...inputStyle, fontVariantNumeric: 'tabular-nums' };
 
@@ -28,6 +29,7 @@ export function MoneyInput({
   onChange,
   allowEmpty,
   min = 0,
+  max,
   disabled,
   placeholder,
   id,
@@ -37,6 +39,7 @@ export function MoneyInput({
   onChange: (next: number | null) => void;
   allowEmpty?: boolean;
   min?: number;
+  max?: number;
   disabled?: boolean;
   placeholder?: string;
   id?: string;
@@ -53,13 +56,16 @@ export function MoneyInput({
 
   function commit(raw: string) {
     const digits = digitsOnly(raw);
-    setText(digits);
     if (digits === '') {
+      setText('');
       onChange(allowEmpty ? null : 0);
       return;
     }
     const n = Number(digits);
-    if (!Number.isSafeInteger(n)) return;
+    // Reject a keystroke that overflows the cap instead of silently clamping:
+    // the field keeps the last accepted value so the typed count stays legible.
+    if (!Number.isSafeInteger(n) || (max !== undefined && n > max)) return;
+    setText(digits);
     onChange(Math.max(min, n));
   }
 
@@ -85,6 +91,54 @@ export function MoneyInput({
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * A native date box that cannot take the screen down with it.
+ *
+ * Every `<input type="date">` in this app used to be written
+ * `onChange={(e) => e.target.value && set(e.target.value)}`, which rejects only
+ * the empty string. Chromium's year spinner accepts six digits, so one extra
+ * keystroke committed '20285-09-23' and the next render threw. This holds the
+ * change until it spells a real date — see `dateFieldLogic` for why bounds are
+ * not enforced here — and pins `max` so the spinner itself stays at four
+ * digits.
+ */
+export function DateField({
+  value,
+  onChange,
+  min,
+  max = MAX_ISO_DATE,
+  disabled,
+  id,
+  ariaLabel,
+  style,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  min?: string;
+  max?: string;
+  disabled?: boolean;
+  id?: string;
+  ariaLabel?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <input
+      type="date"
+      id={id}
+      aria-label={ariaLabel}
+      style={{ ...inputStyle, ...style }}
+      value={value}
+      min={min}
+      max={max}
+      disabled={disabled}
+      onChange={(e) => {
+        const next = dateKeystroke(e.target.value);
+        if (next !== null) onChange(next);
+      }}
+    />
   );
 }
 
@@ -139,6 +193,65 @@ export function PercentInput({
           of a localised figure in Latin. */}
       <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.kit.common.percent')}</span>
     </span>
+  );
+}
+
+/**
+ * A whole count, clamped to [min, max].
+ *
+ * Not `type="number"`: React compares `node.value != props.value` LOOSELY when
+ * it reconciles an input, so with a numeric state of 5 and a DOM value of "05"
+ * the check reads `"05" != 5` → false and the node is never rewritten. That is
+ * how a leading zero became undeletable in the series form — `Number('')` is 0,
+ * which put the 0 there, and typing beside it could not shift it.
+ *
+ * A text box holding its own string draft has neither problem: the draft is
+ * what the person typed, the number is what the screen gets, and blur resyncs
+ * the two.
+ */
+export function CountInput({
+  value,
+  onChange,
+  min = 1,
+  max = 999,
+  disabled,
+  id,
+  style,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  min?: number;
+  max?: number;
+  disabled?: boolean;
+  id?: string;
+  style?: CSSProperties;
+}) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => {
+    if (Number(text === '' ? NaN : text) !== value) setText(String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const width = String(max).length + 2;
+  return (
+    <input
+      id={id}
+      style={{ ...numericStyle, inlineSize: `${width}rem`, ...style }}
+      dir="ltr"
+      inputMode="numeric"
+      autoComplete="off"
+      disabled={disabled}
+      value={text}
+      onChange={(e) => {
+        // Strip the leading zeros the person cannot see a reason for: '05' is
+        // the state that used to get stuck, and it is never what they meant.
+        const digits = digitsOnly(e.target.value).slice(0, String(max).length).replace(/^0+(?=\d)/, '');
+        setText(digits);
+        if (digits === '') return; // mid-edit; the screen keeps the last number
+        onChange(Math.min(max, Math.max(min, Number(digits))));
+      }}
+      onBlur={() => setText(String(value))}
+    />
   );
 }
 

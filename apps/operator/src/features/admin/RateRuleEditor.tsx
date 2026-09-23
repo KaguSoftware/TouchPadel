@@ -25,7 +25,7 @@ import { appRpc } from '../../lib/appRpc';
 import { QK, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../lib/auth';
-import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -359,14 +359,15 @@ function RuleForm({
         <input style={inputStyle} value={name} disabled={readOnly} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={tr('op.rates.court')}>
-        <select style={inputStyle} value={courtId} disabled={readOnly} onChange={(e) => setCourtId(e.target.value)}>
-          <option value="">{tr('op.rates.allCourts')}</option>
-          {courts.map((c) => (
-            <option key={c.id} value={c.id}>
-              {pickName(locale, c)}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={courtId}
+          disabled={readOnly}
+          onChange={setCourtId}
+          options={[
+            { value: '', label: tr('op.rates.allCourts') },
+            ...courts.map((c) => ({ value: c.id, label: pickName(locale, c) })),
+          ]}
+        />
       </Field>
       <Field label={tr('op.rates.daysLabel')}>
         <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
