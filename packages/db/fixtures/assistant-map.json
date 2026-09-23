@@ -1,5 +1,5 @@
 {
-  "generated_from": "f6a0802cc94d07e602fd040acb14cd8fffdc521f",
+  "generated_from": "ed5c2e319be13df9cd716ead56ecf7a4f7d1d4b7",
   "chunks": [
     {
       "kind": "page",
@@ -17543,6 +17543,614 @@
       "lang": "en",
       "title": "docs/design/phone-otp-2026-09-05.md › 5. Security checklist (SEC reviewer)",
       "body": "## 5. Security checklist (SEC reviewer)\n\n- [x] Hook authenticity: Standard Webhooks HMAC-SHA256 over `id.timestamp.rawBody`, secret from\n      `SEND_SMS_HOOK_SECRET` (`v1,whsec_…`), constant-time compare, ±300 s tolerance, **fail closed** on an unset or\n      malformed secret (`verify.ts`, tested).\n- [x] `verify_jwt = false` is deliberate and documented in `config.toml`; nothing else in the function trusts headers.\n- [x] No client role can call `sms_send_gate` / `sms_send_result` (revoked from `public, anon, authenticated`;\n      `service_role` only). `check-rpc-authz.mjs` therefore never sees them; the db test asserts refusal for anon and\n      a staff session.\n- [x] The kill switch defaults OFF and is checked before anything is billed; an early dashboard flip spends nothing.\n- [x] The code is never logged on hosted (`_shared/sms/log.ts` redacts unless running under `functions serve`; tested).\n- [x] Exactly one file per vendor knows its hostname and secrets, and the hook names none of them (`sendSms` is the\n      only door; boundary test in `sms-provider.test.ts`).\n- [x] Phone accounts have no password; change-password is hidden for them and for desk-created synthetic accounts.\n- [x] No blind backfill of `auth.users.phone` for email/social users (account-takeover vector); linking requires a\n      code to the number.\n- [x] The template stays in one UCS-2 segment (≤70 UTF-16 units, tested) — cost, not security, but it is what an\n      attacker doubles.\n- [ ] At activation: hosted rate limits set (`sms_sent`, OTP expiry ≤ 5 min), `allowed_prefixes` confirmed,\n      `test_otp` review number added, first-day watch on `app.sms_sends` (runbook §C).\n- [ ] At activation: SEC-22 reopened only with the owner's written decision D4a–D4d; the D5 row in\n      `security-general.md` updated.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#1",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › Protocols and the staff phone: plan",
+      "body": "# Protocols and the staff phone: plan\n\nDate: 2026-09-23. Status: plan. The only things built are the six staff roles (commit `f6a0802`,\nmigrations 0155/0156) and 0157, committed in `ed5c2e3`. 0157 does two things: it takes money reads\naway from driver and marketing, and it retires prep on the server. It re-issues\n`app.set_staff_role`, which now raises `ROLE_RETIRED` on a move onto prep, so 0157 is the latest\nbody of that function; `ed5c2e3` also carries the review fixes to the role work. Neither commit is\npushed yet, so none of this is on hosted.\n\nThe decisions come from Majed's interview on 2026-09-23 and are binding. A **PROPOSAL** is a shape\nClaude picked where nobody has decided yet; build it unless someone objects. An **UNVERIFIED** item\nhas to be checked before anyone relies on it. §11 lists what is still open.\n\nCitations: `NNNN:line` means `packages/db/supabase/migrations/2026…NNNN_*.sql`, and `op/` means\n`apps/operator/src/`. Operator symbols in `op/lib/auth.tsx`, `op/lib/workspaces.ts` and the role\nfiles are cited by name rather than line, because those files move often.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#10",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 2. Decisions",
+      "body": "---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#11",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 3. Where everything lives",
+      "body": "## 3. Where everything lives\n\nRule of thumb (**PROPOSAL**, not decided): **each step form exists in exactly one app.**\n- The phone gets steps whose actor is a bar, kitchen, driver or marketing role, plus every\n  owner-added generic step.\n- The operator gets manager and owner step forms, plus all decisions and all editing. The reason is\n  that these forms are long and full of numbers. Default #32 puts \"doing the work\" on the phone,\n  and a manager filling in plan, price or launch is doing protocol work, so §11 Q8 asks whether\n  those forms should also be on the phone.\n- The desk gets the court-blocking step.\n- **Starting a run is not a step form.** A run's start form may appear in both apps:\n  - price or promotion change: marketing on the phone (`staff-change.tsx`), manager and owner on\n    either app;\n  - product release: the phone only (`staff-proposal.tsx`);\n  - tournament and hiring: the operator only.\n\n  Both apps call the same `start_protocol`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#12",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 3. Where everything lives",
+      "body": "```\n                 OPERATOR (desktop: till, desk, kitchen PCs)          PHONE (Touch Padel app, staff account)\n                 ─────────────────────────────────────────────        ─────────────────────────────────────────\nowner            Observe ▸ Requests · Protocols (decide, How it       Today · Requests · Notes on new items ·\n                 works, daily checklists) · Marketing (drafts from    Propose a new item · Waiting on you (read)\n                 marketing, make live)\nmanager          Today (/ops: \"N waiting on you\", \"N purchases to     Today · Requests · Notes · Propose a new\n                 receive\") · Run the day ▸ Protocols (start, step     item · Price or promo change · Waiting on\n                 forms, decide) · Stock ▸ Goods in (from driver),     you (read)\n                 Waste & production (made today)\ncourt_desk       Desk ▸ Block courts for an event (from a run)        Today · Requests · Notes\ncashier          Till                                                  Today · Requests · Notes\nhead_barista     Kitchen board (navless)                               Today · Propose a new item · Shopping list ·\n                                                                       My proposals · Requests · Notes\nbarista          Kitchen board                                         Today · Shopping list (read) · Requests · Notes\nhead_chef        Kitchen board                                         Today · Propose a new item · Production ·\n                                                                       Shopping list · My proposals · Requests · Notes\nchef             Kitchen board                                         Today · Production · Shopping list (read) ·\n                                                                       Requests · Notes\ndriver           /tasks: \"Your work is on your phone\" + today, read    Today · Shopping list · Purchases · Requests\nmarketing        /tasks: same                                          Today · M",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#13",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 3. Where everything lives",
+      "body": "y take · Campaign drafts · Price or\n                                                                       promo change · Requests · Notes\nprep (retired)   Kitchen board                                         Today · Requests · Notes\n```",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#14",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 3. Where everything lives",
+      "body": "\"Today\" is the phone home: my checklists for today, the protocol steps open for me, my submissions\nwaiting on a decision, and decisions on my work from the last seven days.\n\n\"Notes\" (**PROPOSAL**, not decided) means staff's own notes on items in their 30-day post-launch\nwindow (§5.1). These are the staff member's own observations. They are not a log of guest feedback,\nand the screen must not ask for \"what customers said\". Decision #14 makes marketing's own take the\nonly feedback surface, and the post-launch decision (#22) names a numbers review and an AI write-up\nwith no staff notes. §11 Q9 asks whether to keep this. If it goes, every \"Notes\" row above goes, and\nthe day-30 write-up reads `marketing_notes` about the item or run instead.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#15",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "## 4. Protocol engine\n\n### 4.1 Data model (0162)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#16",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "```\nprotocol_templates      id uuid pk, venue_id uuid not null → venues,\n                        kind text not null check (kind in ('product_release','tournament','hiring','price_promo')),\n                        variant text check (variant is null or variant in ('type1','type2','type3')),\n                        name_en text not null, name_ar text not null,\n                        version int not null default 1, updated_by uuid → staff, updated_at timestamptz,\n                        unique (venue_id, kind, variant)                  -- nulls not distinct\nprotocol_template_steps id uuid pk, template_id → protocol_templates on delete cascade,\n                        position int not null,\n                        step_key text,                                    -- null = owner-added generic step\n                        name_en text not null, name_ar text not null,\n                        actor_roles staff_role[] not null,               -- who does the work; manager/owner may always cover\n                        needs_owner_ok boolean not null,\n                        optional boolean not null default false,\n                        unique (template_id, position) deferrable initially deferred\nprotocol_template_items id uuid pk, step_id → protocol_template_steps on delete cascade,\n                        position int not null, text_en text not null, text_ar text not null\nprotocol_runs           id uuid pk, venue_id uuid not null → venues,\n                        template_id → protocol_templates, template_version int not null,\n                        kind text not null, variant text,\n                        title_en text, title_ar text,                     -- typed by the starter; see below\n                        check (coalesce(length(btrim(title_en)),0) > 0 or coalesce(length(btrim(title_ar)),0) > 0),\n                        status text not null check (status in ('active','scheduled','live','done','stopped','withdrawn')),\n                        started_by uuid not nu",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#17",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "ll → staff, started_at, finished_at, stop_reason text,\n                        scheduled_for timestamptz,                        -- launch or apply date\n                        menu_item_id uuid → menu_items on delete set null, -- product release draft; price change target\n                        promotion_id uuid → promotions,                   -- promo change\n                        data jsonb not null default '{}'                  -- kind-level typed fields, validated (4.2)\nprotocol_run_steps      id uuid pk, run_id → protocol_runs on delete cascade, position int not null,\n                        step_key text, name_en text not null, name_ar text not null,\n                        actor_roles staff_role[] not null, assigned_to uuid → staff,\n                        needs_owner_ok boolean not null, optional boolean not null,\n                        status text not null check (status in ('waiting','open','submitted','passed','skipped','stopped')),\n                        round int not null default 1,\n                        skip_note text, skipped_by uuid → staff, skipped_at timestamptz,\n                        check (status <> 'skipped' or (skipped_by is not null\n                               and coalesce(length(btrim(skip_note)),0) > 0))\nprotocol_submissions    id uuid pk, run_step_id → protocol_run_steps, round int not null,\n                        submitted_by uuid not null → staff, submitted_at timestamptz not null,\n                        record jsonb not null, photos text[] not null default '{}',   -- staff-media paths\n                        withdrawn_at timestamptz,\n                        decided_by uuid → staff, decided_at timestamptz,\n                        decision text check (decision in ('approve','auto','send_back','stop')),\n                        decision_note text, send_back_to int, owner_override jsonb,\n                        check (decision is null or (decided_by is not null\n                               and (decision = 'auto' or decided_by <",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#18",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "> submitted_by))),\n                        check (decision is null or decision not in ('send_back','stop')\n                               or coalesce(length(btrim(decision_note)),0) > 0)\nprotocol_run_items      id uuid pk, run_step_id → protocol_run_steps on delete cascade, position int,\n                        text_en text not null, text_ar text not null, done_by uuid → staff, done_at timestamptz\n```",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#19",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "- **Snapshot.** `start_protocol` copies the template's steps and items into `protocol_run_steps`\n  and `protocol_run_items` and stores `template_version`. Every later edit to the template affects\n  only new runs. Customising one run (for example, the lists for one tournament) edits only that\n  run's rows (§4.5).\n- **Title.** The run title shows on the desk calendar (§5.2) and in both languages' UIs.\n  - When the **owner** starts a run, `start_protocol` requires both `title_en` and `title_ar`\n    (`TEXT_BOTH_LANGUAGES_REQUIRED`, decision #19).\n  - Anyone else may type one language, and the UI shows it in both. This is a **PROPOSAL**: #19\n    covers owner-typed text only. §11 Q10 asks whether staff-typed titles need both.\n  - A tournament's desk label uses its public name, which is EN and AR required anyway (§5.2).\n- **Deleting a draft item.** `menu_item_id` is `on delete set null`, so a stopped product release\n  can delete its draft item (§5.1). The other children of `menu_items` already cascade\n  (0013:38, 65, 79, 85-86; 0027:82).\n- **Venue.** Every table carries `venue_id`, directly or through its FK.\n  - Templates are seeded by 0162 for every active venue: four kinds, with three tournament variants.\n  - A new venue copies venue 1's templates (the `PHASE-2-PLAN.md:25` rule).\n  - Root RPCs take an optional `p_venue_id` and fall back to `app.current_venue()`. How it is\n    checked depends on the guard:\n    - **Any-staff RPCs** (`my_protocol_work`, `protocol_step_detail`, `my_checklists_today`, the\n      release-note RPCs, the `staff-media` INSERT policy) guard with `app.staff_role() is null`,\n      then check `p_venue_id = any(app.staff_venue_ids())`. `app.is_staff_at` takes an explicit\n      role list (0139:269), and `packages/db/CLAUDE.md` forbids a list of every role.\n    - **Subset RPCs** (manager and owner, kitchen, and so on) use `app.is_staff_at(p_venue_id,\n      <roles>)`.\n  - The scheduler passes `venue_id` explicitly and never relies on `current_venue()`, w",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#2",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 1. What this is",
+      "body": "## 1. What this is\n\n**Protocols** are four approval processes that move through stages: tournament, product release,\nhiring, and price or promotion change. The owner can shape each one lightly. Around them sits a\n**staff area in the mobile app**. Every staff account signs in there and does its hands-on work:\n- daily checklists\n- new-item proposals\n- production\n- the shopping list and driver purchases\n- marketing's own take on products, launches, tournaments and campaigns (not customer feedback),\n  and campaign drafts\n- staff requests\n- the protocol steps that belong to them\n\nThe operator desktop app stays the place for managing: step templates, decisions, purchase review.\nIt is also the only place for the till, the desk and the kitchen board. Staff and the owner get\nphone push when something is theirs to do.\n\n**Scope and contract.** None of this is in the signed Phase 1 Scope of Work, and none of it is in\nthe Phase 2 change order, which is still unsigned. The SOW change-control clause\n(`docs/scope/touch-padel-phase1-scope-of-work.txt:956-963`) requires a written line with its effect\non date and fee before work starts. This work touches four exclusions:\n- **Roles beyond the five.** ui-spec:527 says \"additional roles are a change request\". The six\n  roles in `f6a0802` are already on `main`, so they need recording now.\n- **Purchase orders and supplier ordering.** SOW:548-556 says \"goods received only\", and ui-spec:687\n  says the same. Shopping list and driver purchases stop short of ordering: they record what was\n  bought and hand it to Goods in.\n- **Staff shift scheduling or time clock.** SOW:265. Checklists stay task lists, and no report\n  ranks people (ui-spec:687, SOW:480).\n- **Tournaments.** This is change-order item 4, Milestone 6. The tournament protocol is its\n  planning front half only.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#20",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "hich raises\n    `VENUE_REQUIRED` once a second venue is live (0125).\n- **Reads.** RLS select only for manager and owner at the venue (`venue_id = any(app.staff_venue_ids())`,\n  owner global). Everyone else reads through definer RPCs that return only what involves them. No\n  direct write grants.\n- **Typed records.** `record` and `data` are jsonb, but each `step_key` has a validator\n  (`app.protocol_record_valid(step_key, record)`, raising `RECORD_INVALID` with the field name). The\n  0072 lesson, typed payloads rather than free jsonb, is kept in code instead of CHECK constraints,\n  because the step list is editable.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#21",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "### 4.2 Built-in (\"system\") steps vs owner-added generic steps\n\n- **A system step** has a `step_key`. It has its own record fields and a behaviour that runs when it\n  **passes** (approved or auto):\n  - create the draft menu item\n  - record the test stock\n  - write the price\n  - launch\n  - block courts\n  - open Add staff\n  - apply a price or promotion\n\n  The owner may rename it (EN and AR), flip \"Needs my OK\", edit its checklist, and mark it optional\n  where §5 allows. **PROPOSAL** (Majed chose full step editing, §2 #7): the owner cannot delete it\n  or change its actor roles, because the behaviour's guard depends on them. §11 Q7 asks whether\n  that is acceptable, or whether the owner should be able to change a built-in step's actors, for\n  example handing the marketing step to the manager.\n- **A generic step** (`step_key` null) is added by the owner. It has:\n  - a name in EN and AR\n  - actor roles picked from the 9 live non-owner roles (prep is retired, 0157)\n  - \"Needs my OK\"\n  - an optional flag\n  - checklist items\n\n  Its record is a note, optional photos and the ticks. It has no behaviour. It is done on the phone.\n  Manager and owner can also submit it on the operator (note and ticks, no photo).\n\n### 4.3 State machine (the 0112 transition-table pattern)\n\nTwo pure `immutable` functions, `app.protocol_step_allowed(from, to)` and\n`app.protocol_run_allowed(from, to)`, have the same shape as `app.assistant_job_allowed`\n(0112:30-41). Every write goes through one RPC that checks them and raises `INVALID_TRANSITION`,\nwhich `op/lib/errors.ts` already maps.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#22",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "```\nstep:  waiting ──(becomes current)──▶ open ──(submit)──▶ submitted ──(approve)─────────────────▶ passed\n          │                            ▲                     │ ├──(author = decider: auto)──────▶ passed  (decision 'auto')\n          │                            │                     │ ├──(send back + reason)──────────▶ open, round+1\n          │                            └──(withdraw)─────────┘ │     or an earlier step reopens (steps between → waiting)\n          │                                                    └──(stop + reason)───────────────▶ stopped ⇒ run stopped\n          └──(skip + reason; optional steps only; decider)──▶ skipped\n       passed ──(send back from a LATER step)──▶ open, round+1        -- the only way out of passed\n\nrun:   active ──(last blocking step passes, \"now\")───────▶ done | live (product release)\n       active ──(last blocking step passes, \"on date\")───▶ scheduled ──(date, ready)──▶ done | live\n       scheduled ──(date, not ready | manager cancels the date)──▶ active (last step reopens, manager pushed)\n       live ──(day-30 review written)──▶ done\n       active ──(a step stopped)──▶ stopped\n       active ──(starter withdraws before the first decision)──▶ withdrawn\n```\n\n- Each submit adds a new `protocol_submissions` row. A sent submission is never edited. The\n  submitter withdraws it instead, while it is undecided (0072:12-29).\n- A send-back to an earlier step keeps every earlier round in history. The test loop in product\n  release is this mechanism.\n- No due dates or reminders in v1.\n\n### 4.4 Who decides (the 0072 rules, extended)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#23",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "| Situation | Decider |\n|---|---|\n| `needs_owner_ok` on | The owner. |\n| `needs_owner_ok` off | Any active manager at the run's venue. |\n| Submitter is the decider: a manager submits a manager-decided step (decision #9), or the owner submits an owner-decided step (**PROPOSAL**; brief G6, never answered) | Nobody. The step passes automatically, with `decision = 'auto'`, `decided_by = submitted_by`, and an audit row `protocol.step.auto`. |\n\n- **Nobody decides their own submission.** The table CHECK and the RPC (`CANNOT_DECIDE_OWN`, reused\n  from 0072:237) enforce it. The automatic pass is the one recorded exception.\n- **A reason is required** on send-back, stop and skip (`REASON_REQUIRED`, reused from 0072:243).\n  Send-back and stop keep it in `protocol_submissions.decision_note`. A skip usually has no\n  submission, so it goes in `protocol_run_steps.skip_note`, with `skipped_by` and `skipped_at`.\n- **One-way.** No un-approve. A later step can send the work back, and that is recorded as a new\n  round.\n- **The owner may override** (**PROPOSAL**; brief P4, never answered). At the price step the owner\n  may change the number. `owner_override` keeps the owner's figures, and the submission keeps the\n  manager's. The alternative is approve or send back only.\n- **Who may act.** An actor is anyone holding one of `actor_roles` at the venue, or the\n  `assigned_to` person when it is set; the test step is assigned to the proposer. Manager and owner\n  may always cover, and the record shows who submitted.\n\n### 4.5 What the owner can edit, and the limits\n\n\"How it works\" is the owner-only sheet on each Protocols card (§7.1). It edits the template:\n- step names (EN and AR)\n- \"Needs my OK\"\n- \"Optional\", only where the step's definition allows it\n- checklist items: add, rename, remove, reorder, up to 12 per step, EN and AR\n- generic steps: add, remove, pick actor roles\n- order, using `SortButtons` (`op/components/inputs.tsx`)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#24",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "`app.save_protocol_template(p_template_id, p_expected_version, p_steps jsonb)` (owner only) checks\nthe whole list, then bumps `version`. The first two limits below are a **PROPOSAL** that narrows\ndecision #7 (§11 Q7). Only two pairs of built-in steps can swap: price and marketing in product\nrelease, and marketing and courts in a tournament. Every other built-in step keeps its place.\n- **First and last are fixed.** The first system step (propose, plan, open position) stays first.\n  The terminal system step (launch, ready, add staff, apply) stays last. Product release's\n  `post_launch` is a fixed tail that is not in the reorderable list.\n- **System steps keep their dependencies.** Each declares `after` keys (§5). A move that breaks one\n  is disabled in the editor and refused by the server with `PROTOCOL_ORDER_INVALID`. Generic steps\n  move freely between the first and the terminal step.\n- **Every text is bilingual.** `TEXT_BOTH_LANGUAGES_REQUIRED`.\n- **Concurrent edits fail.** `TEMPLATE_CHANGED` when `p_expected_version` is stale.\n\n**Per-run customisation** is a **PROPOSAL**. Nobody decided it: the brief's G2 sub-question, \"who\nmay change the checklist on one running protocol\", was never answered, and §11 Q11 asks it. The\nproposal is that the manager and owner may edit one run:\n- edit its checklist items (`edit_run_items`, EN and AR required);\n- add a generic step (`add_run_step`) before its terminal step.\n\nThey cannot remove or reorder system steps on a run. An edit to a step that already passed does\nnot reopen it.\n\n### 4.6 RPCs (0163; all `security definer`, `$name_0163$`, guard first)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#25",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "| RPC | Caller | Does |\n|---|---|---|\n| `protocols_overview(p_venue_id)` | manager, owner | Per template: running, waiting on me, finished in the last 30 days. Feeds the cards. |\n| `protocol_runs_page(p_kind, p_filter, p_limit, p_offset)` | manager, owner | The list: Waiting on you, then In progress and Finished. |\n| `protocol_run_detail(p_run_id)` | manager, owner | Steps, rounds, records, photo paths, ticks, decisions. |\n| `protocol_step_detail(p_run_step_id)` | any staff (0072 guard), then refused unless the caller is a step actor, the `assigned_to` person, the starter, or manager/owner | The reduced view the phone's step screen needs: this step's form, its checklist, my earlier rounds and their decision notes, and the run title. No other step's record, and no costs. |\n| `start_protocol(p_kind, p_variant, p_title, p_data, p_venue_id, p_idempotency_key)` | By kind: product release = head_barista, head_chef, manager, owner; tournament and hiring = manager, owner; price/promo = manager, marketing, owner | Validates `data`, takes the snapshot, opens step 1, notifies. |\n| `submit_step(p_run_step_id, p_record, p_photos, p_idempotency_key)` | step actor | Checks the photo paths (§6.5), writes a submission, then passes it automatically or notifies the decider. |\n| `withdraw_step(p_run_step_id)` / `withdraw_protocol(p_run_id)` | submitter / starter | 0072 withdraw semantics. |\n| `decide_step(p_submission_id, p_decision, p_note, p_send_back_to, p_override)` | decider (§4.4) | Approve (runs the behaviour), send back, or stop. |\n| `skip_step(p_run_step_id, p_note)` | decider | Optional steps only (`STEP_NOT_OPTIONAL`). Writes `skip_note`, `skipped_by` and `skipped_at` on the run step. |\n| `tick_run_item(p_item_id, p_done)` | step actors, manager, owner | Records who ticked and when. |\n| `edit_run_items`, `add_run_step` | manager, owner (**PROPOSAL**, §11 Q11) | §4.5. |\n| `save_protocol_template` | owner | §4.5. |\n| `my_protocol_work(p_venue_id)` | any staff (0072 guard `app.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#26",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "staff_role() is null`) | The phone's Today list, plus the waiting count for manager and owner. |\n| `protocols_waiting_count(p_venue_id)` | manager, owner | Badges on `/ops`, the Observe rail and Protocols. |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#27",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "- **Audit.** Every write calls `app.write_audit` with entity `protocol_run` or `protocol_template`,\n  and actions `protocol.start`, `.submit`, `.withdraw`, `.decide`, `.auto`, `.skip`,\n  `.template.save`, `.run.edit`. `audit_log` is append-only (0005:25), so audit payloads carry ids,\n  statuses and decisions only. They never carry a record's free text or any candidate data.\n- **Behaviours call internal bodies, never public RPCs.** The public menu and promotion RPCs open\n  with `if not app.is_staff('manager','owner')`:\n  - `upsert_variant` (0013:217);\n  - `upsert_promotion` (0067:290);\n  - `set_promotion_enabled` (0067:491).\n\n  Two callers cannot pass that guard. The cron has no `auth.uid()`, and a price/promo run may be\n  started by marketing (#17). Each of those three is therefore split into a revoked\n  `*_internal(…, p_actor uuid)` body, the same pattern as `record_production_internal` (0171). The\n  public RPC keeps its guard unchanged and calls the internal body. `start_protocol`, `decide_step`\n  and the cron call the internal bodies directly and pass the audit actor explicitly: the starter,\n  the decider, or null for cron.\n- **Audit screen.** `ACTION_KEYS` and `FAMILY_KEYS` in `op/features/admin/audit/auditLogic.ts` gain\n  a `protocol` family next to `staff_request`.\n- **Errors.** New codes go into `MAPPED_CODES` (`op/lib/errors.ts`), `CODE_TO_KEY`\n  (`apps/mobile/src/features/booking/errors.ts:12`) and both catalogs, in the same commit.\n\n### 4.7 Notifications (push and badges)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#28",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 4. Protocol engine",
+      "body": "| Event | Push kind | Goes to |\n|---|---|---|\n| A step becomes open | `staff_task` | `assigned_to`, or every active holder of an actor role at the venue |\n| A submission needs a decision | `staff_decide` | The owner if `needs_owner_ok`, else the venue's managers |\n| A decision on my submission, or on my run | `staff_decided` | Submitter and starter |\n| Staff request submitted / decided | `staff_decide` / `staff_decided` | Owner / requester |\n| New shopping items | `staff_task` | Drivers at the venue, at most one push per 15 minutes (outbox `scheduled_for` dedupe) |\n| Purchase recorded | `staff_task` | Managers: a receiving task (\"to receive in Goods in\"), not a decision. Purchases need no approval (#26, #30). |\n| Scheduled launch or apply not ready on the date | `staff_task` | Managers |\n| Day-30 review written | `staff_info` | Owner, proposer |\n\n- **In-app badges.** Counts on the phone's Today rows. On the operator, a count on the Observe rail\n  button and on the Protocols row, a `WaitingOnYou` row on Observe home\n  (`op/features/observation/ObservationHome.tsx:140-190`), and an `/ops` alert row.\n- **`/ops`.** `OPS_ALERTS` (`op/features/ops/opsLogic.ts:257`) is computed from `ops_overview`, so\n  use a second query (`protocols_waiting_count`) rather than re-issuing `ops_overview`.\n- **Owner's landing screen.** The owner lands on `/panel`, which by design shows no pending signal.\n  The Observe badge and the push cover that, and `/panel` stays read-only.\n- **iOS icon badge** (**PROPOSAL**): the push carries `badge` = my open item count, cleared when the\n  app opens.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#29",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "## 5. The four protocols\n\nEach table lists the default template. \"Owner OK\" is the default of `needs_owner_ok`, and \"After\" is\nthe dependency the editor enforces.\n\n### 5.1 Product release (`product_release`)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#3",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 1. What this is",
+      "body": "The change order lists nine numbered items. It also names a dropped tenth item, AI analysis, which\nwas never given a number and \"comes back as its own change order\". The day-30 AI write-up (#22) is\nnot that item, but it sits close to it, so the line must name it. It reuses the edge-function\npattern of `analytics-insights` (gate, template fallback, metering), not the owner assistant, which\nstays off. Proposed line for `docs/scope/phase2-change-order-2026-09-21.md` §2, numbered 10 as the\nnext row of that table:\n\n> | 10 | Protocols and the staff phone: four owner-editable approval processes (tournament planning, product release, hiring, price or promotion change); six staff roles beyond the five (head barista, barista, head chef, chef, driver, marketing); a staff area in the mobile app (daily checklists, new-item proposals, production, shopping list, driver purchases, marketing's own notes on products, launches, tournaments and campaigns (not customer feedback), and campaign drafts, staff requests, protocol tasks); staff push notifications; a day-30 numbers review and AI write-up per launched item (reuses the pattern of the live analytics-insights function; not the dropped AI-analysis item); in-app camera and gallery for work photos (new app binary; store labels and privacy text change); a separate product-test stock ledger line | New request, 2026-09-23. Touches SOW exclusions: roles beyond five (ui-spec:527), purchase orders and supplier ordering (SOW:548-556; this item records purchases and hands them to Goods in, no ordering), shift scheduling (SOW:265; checklists are task lists with no ranking). |\n\nWhether line 10 is billed or recorded as a vendor addition is §11 Q1.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#30",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "| # | Step (key) | Actor | Owner OK | After | Records | When it passes |\n|---|---|---|---|---|---|---|\n| 1 | Propose (`propose`) | head_barista, head_chef | off, so the **manager accepts** | first | Name (EN, AR optional here); kind (drink, dessert, food); draft recipe lines (ingredient from `staff_ingredient_options` or free text, quantity, unit g/ml/pc); target audience; inspiration (text or link, plus an optional photo); idea photos; suggested sizes | Manager picks the category at accept. The **inactive draft item** is created: `menu_items` with `is_active = false` and `release_run_id`, one size per suggested size at price 0, and `set_recipe` for lines whose ingredient exists (0063:129-209 needs the size first). Free-text lines stay on the run until an ingredient exists. |\n| 2 | Test (`test`) | proposer (`assigned_to`) | off (manager tastes) | propose | Servings made; product photos (required, at least one); preparation notes; manager's tasting note on the decision | `record_product_test` has already consumed `servings × draft recipe` through `consume_fefo` as `product_test` on submit. A send-back opens round 2: a new photo and new stock. |\n| 3 | Price (`analysis`) | manager | **on**. This is the **first contact with the owner** | test | Price per size; cost to make per size from `v_item_cogs` (0019:242-270) with a **cost unknown** flag; margin per size; EN and AR names final; notes | Owner approves and may change a price (`owner_override`, **PROPOSAL**, §4.4). The final price is written to the draft sizes through `upsert_variant_internal` (§4.6). The item stays inactive. |\n| 4 | Marketing (`marketing`) | marketing | **on**, so the **owner accepts** | test | Images; launch prep notes; highlights (EN and AR); optional campaign draft (`suggest_campaign`); optional hero or ticker text | Nothing is published. Hero and ticker text is applied at launch by the manager, who can already edit them (0105:164-175). `featured_item_id` only accepts an active item (0105:167). |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#31",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "| 5 | Launch (`launch`) | manager (**PROPOSAL**; #21 says only \"now or on a date\", not who presses it; §11 Q12) | off | analysis, marketing | Now or on a date; which photo becomes the menu photo; the readiness result | See below. |\n| – | 30 days (`post_launch`) | none | – | fixed tail | The day-30 numbers review and AI write-up; staff notes only if §11 Q9 keeps them | See below. |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#32",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "- **When the owner first sees it.** The owner can see every run on Protocols from the start. \"First\n  contact\" means the first push and the first \"waiting on you\", at step 3.\n- **Cost unknown.** `v_item_cogs` falls back from the latest batch cost to the pack cost, then to 0\n  (0019:251-257). A 0 therefore hides a missing cost. `release_cost(p_run_id)` returns\n  `cost_known = false` when any line has no batch and no pack cost, or is still free text. The form\n  then shows \"cost unknown\" instead of a margin.\n- **Readiness** (`release_readiness(p_run_id)`, checked on submit and again at the scheduled time):\n  1. EN and AR names present.\n  2. Every active size has a price greater than 0.\n  3. A photo is chosen.\n  4. Every size has a recipe.\n  5. The category is active. The till refuses otherwise (`ITEM_UNAVAILABLE`, 0095:157-161).",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#33",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "Allergens and serve temperature (0054) are warnings, not blockers.\n- **Launch.**\n  - \"Now\" calls the `protocol-action` edge function with the manager's session. It:\n    1. copies the chosen photo from `staff-media` to `menu-media/items/<item_id>/<run_id>.<ext>`,\n       using a path derived from the run id so a retry overwrites the same file;\n    2. calls `app.release_launch_internal` in one transaction, which sets the photo (the\n       `set_item_photo` rule, 0027:228), sets `is_active = true` and `launched_at`, and moves the\n       run to `live`.\n  - \"On a date\" moves the run to `scheduled`. The `protocol-scheduler` cron (every 5 minutes)\n    re-checks readiness when the time arrives, then does the same thing.\n  - The cross-bucket copy uses `storage.copy` with `destinationBucket`. **UNVERIFIED** on the\n    hosted storage version. The fallback is a download plus an upload inside the same function.\n- **Nobody can go around the gate.** 0164 re-issues `app.upsert_menu_item` (latest body 0054) so\n  that `is_active = true` on an item whose release run is not `live` or `done` raises\n  `ITEM_IN_RELEASE`. The menu editor shows \"In release: <run>\" on such items.\n- **A stopped run** deletes its draft item, sizes and recipe. The sizes, recipe and other children\n  cascade, and the run's own `menu_item_id` is `on delete set null` (§4.1), so the delete cannot fail\n  on the run. Its photos are removed 90 days after the stop.\n- **Post-launch.**\n  - **Staff notes (PROPOSAL, §11 Q9).** For 30 days any staff member at the venue can add a note on\n    the item from the phone (`release_notes`: author, text, time). Nobody decided this: the\n    decision (#22) is a numbers review plus an AI write-up. The notes are the staff member's own\n    observations, not a log of what guests said (#14). If Q9 drops them, the write-up reads\n    marketing's own take (`marketing_notes` whose subject is the item or the run) instead.\n  - On day 30 the scheduler builds the numbers review from existing reads",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#34",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "and stores it in\n    `release_reviews.numbers`: units, revenue, margin, share of category, days sold, bought-with\n    (the `report_cafe` item rows, 0096; `v_item_margin`).\n  - The `release-review` edge function then writes the AI write-up. **The model** follows the\n    assistant's switch, not `analytics-insights`:\n    - `_shared/assistant/provider.ts` `vendorFor` on the venue's `llm_default_model` (0140; 0142\n      set it to a Groq model for now).\n    - The setting is read with the venue qualified, never from unqualified `venue_settings`\n      (`packages/db/CLAUDE.md`).\n    - `analytics-insights` itself calls Groq directly with `GROQ_API_KEY` (`index.ts:68-70`) and\n      never reads that setting. `packages/db/CLAUDE.md` makes `claude-opus-5` the default for new\n      LLM code unless Parsa names another.\n    - §11 Q13 records which model decision covers release-review.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#35",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "Taken from `analytics-insights` (`functions/analytics-insights/index.ts:1-33`) are only:\n    - the template fallback when no key is set;\n    - the number gate, so any figure not in the payload is dropped;\n    - metering through `app.llm_record_usage` under the spend cap (0079, 0149).\n\n    Any notes go to the model as text only, with no names.\n  - **Thin data.** Below the evidence floors (`MIN_ITEM_UNITS`) the write-up says there is not\n    enough data yet. Majed should expect that for slow items.\n  - **Measurable campaigns only.** A campaign-effect claim is made only when the launch campaign\n    carries a promotion (`op/features/marketing/MarketingPanel.tsx:9-17`).\n  - The run then moves to `done`.\n\n### 5.2 Tournament (`tournament`, variants `type1`, `type2`, `type3`)\n\n**Run data**, validated at start:\n- type and class label (A, B or C, a label only)\n- name in EN and AR (public-facing)\n- format: Americano, Mexicano, knockout or league. A label now; it is C4's main axis.\n- dates, and the court ranges wanted\n- capacity (players or pairs)\n- entry fee in IQD and prize (text plus IQD). These are **planning figures only**: nothing collects\n  or pays them, and the policy is still open (change order §4 row 6).\n- budget, expected entries, risks, notes\n- **Type 3 only**, required at start (`SPONSOR_DETAILS_REQUIRED`): sponsor or client name, contact,\n  contribution in IQD, branding obligations, invoice details.\n\nThe run's `data` maps onto C4's planned `tournaments` columns (venue, format, dates, courts, fee,\ncapacity; `PHASE-2-PLAN.md:307-315`). Milestone 6's `create_tournament` will take `p_protocol_run_id`,\nso no tournament table is built now.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#36",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "| # | Step (key) | Actor | Owner OK | After | Records | When it passes |\n|---|---|---|---|---|---|---|\n| 1 | Plan (`plan`) | manager | off | first | Run data. Type 2 is the short form: name, date, courts, capacity, class, notes. | – |\n| 2 | Feasibility (`feasibility`), types 1 and 3 only | manager | **on** (owner approval) | plan | The overview form: every run field plus staffing, expected income against cost, risks. System-filled: existing bookings in the wanted ranges (count and guests affected). | Courts may now be blocked. |\n| 3 | Marketing (`marketing`), optional | marketing | off | feasibility (type 2: plan) | Highlights EN/AR, images, campaign draft, hero or ticker text proposal | – |\n| 4 | Courts (`courts`) | court_desk | off | feasibility (type 2: plan) | The blocks created, and the conflicts the desk moved | `block_courts_for_event` (below). |\n| 5 | Ready (`ready`) | manager | off | courts | Checklist (balls, referee, prizes bought, posters printed…, all owner-editable); announce now or on a date | Run moves to `done`. The web hero and ticker are applied by the manager if chosen. Registration stays at the desk or by phone until Milestone 6. |\n\n**Court blocks.** Today a block is `kind = 'maintenance'` (`op/features/desk/CourtBlock.tsx:131`).\nThree problems follow:\n- Court analytics subtract maintenance from open capacity (0097:280-290), so a tournament reads as\n  a closed court.\n- Guests see \"blocked\" (`packages/core/src/availability/slotGrid.ts:111`).\n- A four-court, two-day event takes eight separate, non-atomic submissions.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#37",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "Fix (**PROPOSAL**, 0166):\n- **Keep `kind = 'maintenance'`.** Every conflict guard, the opening-hours exemption and the guest\n  rendering stay unchanged. A new `reservation_kind` value would touch about 16 migrations' checks\n  and 17 client files, and a desktop build that does not know it would render it as a booking.\n- **Add** `reservations.block_purpose text` (nullable, no default) with\n  `check (block_purpose is null or block_purpose = 'event')`, and\n  `reservations.protocol_run_id uuid → protocol_runs`. The CHECK and the FK are added NOT VALID then\n  VALIDATE inside a `pg_constraint` guard scoped by `conrelid`.\n  - **No backfill.** An ordinary desk block made after 0166 still goes through\n    `staff_create_reservation` (`CourtBlock.tsx:128-134` → `op/lib/mutate.ts` `'reservation.create'`;\n    latest body 0147), which does not know the column, so it would get NULL anyway.\n  - A backfill UPDATE would also fire the `reservations_rt` trigger (0022:94-96) once per\n    historical block.\n  - Only `block_courts_for_event` writes `'event'`. \"Maintenance\" means\n    `kind = 'maintenance' and block_purpose is distinct from 'event'`.\n- **`app.block_courts_for_event(p_run_id, p_blocks jsonb, p_idempotency_key)`** (court_desk,\n  manager, owner):\n  - takes every `app.lock_court` in court-id order;\n  - writes all the blocks in one transaction, or refuses with the conflicting slots listed;\n  - the desk then clears those through the normal move and cancel path, and a guest cancellation\n    still sends `booking_cancelled`.\n- **Court analytics.** `app.analytics_open_minutes` (latest 0097:236-305) subtracts only\n  `kind = 'maintenance' and block_purpose is distinct from 'event'`, so event minutes stay in open\n  capacity. An \"events\" line of its own costs more than a re-issue:\n  - the function's return type is fixed (`court_id, dow, hour, open_minutes, open_days`) and it is\n    granted to `service_role` only;\n  - so it is dropped by its exact signature `(timestamptz, timestamptz, text,",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#38",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "int, uuid)`,\n    recreated with an `event_minutes` column, and re-granted to `service_role`;\n  - both callers are then re-issued verbatim with the new field: `analytics_courts_summary` (latest\n    0147:543, call at :588) and `analytics_courts_cafe` (latest 0147:1098, call at :1132);\n  - the operator analytics types change with them.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#39",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "If that is too much for v1, cut the events line and only stop subtracting event minutes. Whether\n  event minutes should count as occupied instead is §11 Q5.\n- **Label.** The desk calendar label shows the tournament's public name, which exists in EN and AR\n  (notes are already the label, `DeskCalendar.tsx:1120`).\n- **Hand-off.** When Milestone 6 adds `kind = 'tournament'` for match reservations, its\n  `create_tournament` releases the run's event blocks under the same locks.\n\n### 5.3 Hiring (`hiring`)\n\n| # | Step (key) | Actor | Owner OK | After | Records | When it passes |\n|---|---|---|---|---|---|---|\n| 1 | Open position (`open_position`) | manager | **on** | first | Role (one of the 9 hireable roles: every role except owner and the retired prep, which `staff-admin` refuses (`staff-admin/role.ts` `RETIRED_ROLES`) and `set_staff_role` refuses since 0157); why; hours pattern; start date; pay range in IQD (optional) | – |\n| 2 | Interviews and pick (`interviews`) | manager | **on** | open_position | Candidates, kept in `hiring_candidates` (name, phone, brief, interview date, and the reason for the pick on the picked row); the step `record` holds candidate ids and the picked id only | – |\n| 3 | Add staff (`add_staff`) | owner | off (the owner is the author) | last | The created `staff_id` | The operator opens Staff ▸ Add staff member prefilled with the pick's display name and the role. The owner types the email and opening password, and the `staff-admin` function creates the account as today. `complete_hire(p_run_id, p_staff_id)` checks the role matches and refuses prep, then the run moves to `done`. |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#4",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 2. Decisions",
+      "body": "## 2. Decisions",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#40",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "**Candidate data** (0167):\n- **Access.** Manager and owner only. No CV files.\n- **Retention.** Decision #35: deleted 90 days after the decision, with no exception for the hire.\n  - `purge_after = decided_at + 90 days`. A daily cron deletes those rows.\n  - Nothing about a candidate lives anywhere else, so nothing else needs purging:\n    - the step `record` holds candidate ids only;\n    - audit payloads (`audit_log` is append-only) hold ids and decisions only;\n    - the purge clears `decision_note` on the hiring run's submissions, in case a decider typed a\n      name there.\n  - After the purge, the run shows \"Candidate details deleted after 90 days\".\n  - The hire's name survives only where it belongs, on their own `staff` row, created at Add staff.\n  - The §9 notice line \"hiring candidates' data is deleted after 90 days\" is then true as written.\n- **Assistant.** No assistant index trigger (unlike `staff_requests`, 0110:518-520).\n  `assistant-coverage.json` marks the table `excluded: candidate personal data`, and the phone and\n  name columns join the SEC-29 `FORBIDDEN` list.\n- **Push.** No candidate name or phone ever appears in a push payload.\n\n**Venue.** A new hire is placed at `app.default_venue()` by trigger (0123:88-112).\n`complete_hire` corrects the `staff_venues` row to the run's venue when they differ. Milestone 1\nslice 2 owns the long-term fix.\n\nA hire into a job that has no role (a cleaner, a coach) is outside v1.\n\n### 5.4 Price or promotion change (`price_promo`), all **PROPOSAL**\n\n**Run data**:\n- **Price change:** the item and the new price for each size.\n- **Promotion:** a draft in the shape of `app.upsert_promotion` (0067), meaning name EN/AR, kind,\n  value, items or categories, days, hours and dates.\n- **Both:** the reason and the expected effect.\n\nCourt rates stay in `/admin/rates`, outside this protocol, and promotions never discount the court\nfee (0067).",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#41",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 5. The four protocols",
+      "body": "| # | Step (key) | Actor | Owner OK | After | Records | When it passes |\n|---|---|---|---|---|---|---|\n| 1 | Propose (`propose`) | manager, marketing | off (the manager reviews marketing's proposal; a manager's own proposal passes automatically) | first | Run data | – |\n| 2 | Numbers (`numbers`) | manager | **on** (owner OK) | propose | System-filled: current and new price, cost to make with cost-unknown, margin before and after, last 30 days' units and revenue for the targets; for a promotion, the discount cost at last-30-day volume. Plus the manager's recommendation. | The owner may change the price or value (`owner_override`). |\n| 3 | Announce (`announce`), optional | marketing | off | numbers | Campaign draft (a promotion-backed campaign is the only measurable kind), images, hero or ticker text | – |\n| 4 | Apply (`apply`) | manager | off | numbers, announce | Now or on a date | Price: `upsert_variant_internal` for each size. Promotion: `upsert_promotion_internal` saves it disabled when the run starts, even when marketing starts it; `set_promotion_enabled_internal` then enables it with its dates (§4.6). Scheduled applies run in their own SQL cron job, `price-promo-apply`, every 5 minutes (0168), with a null actor. The run moves to `done`. |\n\nA manager can still change a price directly in the menu editor; this protocol does not take that\naway (§11 Q4).\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#42",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "## 6. Mobile staff interface\n\nThis section is based on the mobile brief. It follows `apps/mobile/CLAUDE.md` throughout:\n- every write is an `app.*` RPC with a per-intent idempotency key. The one documented exception is\n  the photo upload, which writes straight to the `staff-media` bucket; the RPC that records the\n  photo path then checks it (§6.5);\n- query-key families, native tabs and native stack;\n- `Text` from `src/i18n/text` and direction from `useLocale().dir`;\n- logical style props and the closed token palette;\n- strings in `en.ts` and `ar.ts`, with a parity test;\n- testIDs of the form `<route>.<element>`;\n- a smoke case in EN and AR for every screen.\n\n### 6.1 Architecture\n\n**Sign-in.** Staff use the email segment of `/sign-in` (`app/sign-in.tsx:131-172`). `staff-admin`\nalready creates staff with `email_confirm: true`. Today a staff sign-in falls into\n`/complete-profile`, because the staff member's `phone` is NULL (`RequireNoSession.tsx:53-54`), and\nthen `/accept-terms`. The fix:\n- `postSignInStep` (`src/features/auth/social.ts:198-204`) reads the caller's own `staff` row\n  alongside the profile. The RLS own-row rule (0004:173-174) allows it.\n- It returns a new `'staff'` step, writes the device hint and replaces to `/staff`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#43",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "**`StaffStatusProvider`** (`src/features/staff/`) is mounted inside `AuthProvider` at\n`app/_layout.tsx:375-381`.\n- **States:** `none | pending | guest | staff{role, displayName, venues} | revoked | unsupported`.\n  The default is `guest`, so every existing suite renders unchanged.\n- **Classification.** It uses `STAFF_ROLES` and `resolveStaffRow` / `nextStaff`, moved from\n  `op/lib/roleResolution.ts` into `@touch/core`. Both apps already depend on it, so the role list\n  cannot drift.\n  - Today `resolveStaffRow` returns `revoked` both for a missing row and for an unknown role\n    (`roleResolution.ts:105, 107`). The moved function gets a distinct result for an unknown role\n    (`unknown_role`). The operator keeps mapping that to revoked, so `roleResolution.test.ts` holds.\n  - On the phone, every guest session reads its own staff row and gets none, so \"missing row\" can\n    only mean revoked when the phone knows this uid was staff. The mobile mapping:\n\n    | What the read returns | Status |\n    |---|---|\n    | An error | Unknown: keep the previous answer |\n    | No row, and no staff hint for this uid | `guest` |\n    | No row, with a staff hint for this uid | `revoked` |\n    | A row with `is_active = false` | `revoked` |\n    | An active row with a role this build does not know (`unknown_role`) | `unsupported`, which shows \"Update the app\". Unlike the operator, it is not read as revoked. |\n    | An active row with a known role | `staff` |\n- **Re-check.** On focus, plus every 60 s while the status is staff (`ROLE_RECHECK_MS`).\n- **Device hint** `{uid, surface: 'staff'}`:\n  - stored in AsyncStorage and read in the pre-splash `bootPrefs`, so a staff cold start never\n    mounts the guest tabs;\n  - cleared on `SIGNED_OUT` (`src/features/auth/context.tsx:68-77`) and on revoked;\n  - every access wrapped in try/catch.\n\n**Routes.** Flat files on the root stack with search params, following the `/review` precedent. No\nnew layout, so `routes.test.ts:48-53` holds.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#44",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "| Route | Roles | Data (RPC) |\n|---|---|---|\n| `app/staff.tsx` | all | `my_protocol_work`, `my_checklists_today`, counts; rows shaped by role (§3); Account section links `/settings` and Sign out, shows whether work alerts are on (§6.6), and says \"one account per phone\" |\n| `app/staff-checklist.tsx?id=` | all | `my_checklists_today`, `mark_checklist_item` |\n| `app/staff-step.tsx?id=` | step actors | `protocol_step_detail`, `submit_step`, `withdraw_step`, `tick_run_item`; the form comes from `step_key` (propose, test, marketing, announce, generic) |\n| `app/staff-proposal.tsx` | head_barista, head_chef, manager, owner | `staff_ingredient_options`, `start_protocol('product_release')`; My proposals list |\n| `app/staff-production.tsx` | head_chef, chef, manager, owner | `production_today`, `record_batch`, `production_log_today` |\n| `app/staff-shopping.tsx` | bar and kitchen roles (heads add), driver, manager, owner | `shopping_list`, `add_shopping_item`, `cancel_shopping_item` |\n| `app/staff-purchase.tsx?itemIds=` | driver, manager, owner | `record_purchase` |\n| `app/staff-marketing.tsx` | marketing (owner and manager read on the operator) | My take (`marketing_notes`), Campaign drafts (`suggest_campaign`, `my_campaign_drafts`) |\n| `app/staff-change.tsx` | marketing, manager, owner | `start_protocol('price_promo')` |\n| `app/staff-request.tsx` | all | `submit_staff_request`, `withdraw_staff_request`, `staff_requests_page` (0072, all existing) |\n| `app/staff-notes.tsx?itemId=` | all (**PROPOSAL**, §11 Q9) | `release_notes_for_me(p_venue_id)` for items in their 30-day window, `add_release_note` (0165) |\n\n**Guards.** Each screen wraps itself in `<RequireStaff>`, backed by a pure `staffGate`\n(`src/features/staff/gate.ts`) modelled on `sessionGate`. Back goes through `useBack('/staff')`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#45",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "**`GuestTabsGate`.** `app/(tabs)/_layout.tsx:20` re-exports a gate that returns\n`<Redirect href=\"/staff\" />` for a staff session instead of `TabsLayout`. The tab navigator and the\n3D court never mount. This one place also catches every hard-coded `/(tabs)` target.\n\n**No till, desk or KDS on the phone.** The database cannot tell a phone session from a station\nsession:\n- the any-staff RPCs (break, cover, heartbeat) guard with `app.staff_role() is null`\n  (0156:95-110, 362-380), so every staff role passes;\n- the kitchen-list RPCs (`set_ticket_status`, `set_order_item_ready`) name the kitchen list\n  (0156:605, 628), so driver, marketing and court_desk are refused, but bar and kitchen phones pass.\n\nA vitest check therefore fails if `src/features/staff/**` names any of:\n- `heartbeat`, `start_break`, `end_break`, `cover_station`, `verify_own_pin`\n- `set_ticket_status`, `set_order_item_ready`\n- any till or desk RPC\n\n**Venue.** A phone has no station. The home builds its venue list from `app.staff_venue_ids()`,\nnot from `staff_venues` rows: the owner holds no rows (0123:100-101), and `staff_venue_ids()`\nreturns every active venue for the owner. The picker shows only when that list has more than one\nvenue, and every call passes `p_venue_id`.\n\n**Offline.** Every staff write is online only, with a clear refusal message. Mobile mutations retry\nonce and are never queued (`src/lib/queryClient.ts:108-114`).\n\n### 6.2 Shared files that change (guest behaviour identical while the status is `guest`)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#46",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "1. `app/_layout.tsx`: mount the provider; declare the `staff*` screens (`:241-273`).\n2. `app/(tabs)/_layout.tsx:20`: `GuestTabsGate`.\n3. `src/features/auth/gate.ts:56-69` and `RequireNoSession.tsx:39-57`: `noSessionGate` gains an\n   optional `staff` input. `pending` with a staff hint waits; `staff` redirects to `/staff` before\n   the complete-profile branch.\n4. `social.ts:198-204`, `sign-in.tsx:140-155`, `useSocialSignIn.ts:132`: the `'staff'` step.\n   Social sign-in refuses it (§6.7).\n5. `src/features/profile/useTermsGate.ts:32`: returns `'none'` for staff.\n6. `src/lib/queryClient.ts:145-148`: the `'staff'` key family is kept out of the disk cache.\n7. `src/lib/idempotency.ts`: `staffIdemKey(mutation)` gives `MOBILE:staff.<mutation>:<ulid>`.\n8. `src/features/booking/errors.ts:12`: one `CODE_TO_KEY` entry per new code.\n9. `src/lib/bootPrefs.ts`: reads the hint.\n10. `src/smoke/routes.ts:37-71` plus `src/smoke/staff.smoke.test.tsx` in EN and AR. The Supabase\n    mock is unchanged. `renderRoute` (`src/test/smoke.tsx:103-117`) mounts no staff provider, and\n    the context default is `guest`. Seeded query data alone would therefore never reach\n    `RequireStaff`: every staff screen would redirect, and its testID would never be found.\n    `renderRoute` gains an optional `staff` option. It mounts `StaffStatusProvider` with a\n    `staffKeys` row seeded through `queryData`, which works because `renderRoute` uses\n    `staleTime: Infinity`. Guest cases omit the option and render as today.\n11. `packages/config/src/eslint.js:178-212`: new Pressable wrappers (`ChecklistRow`, `PhotoButton`).\n12. `packages/i18n/src/catalogs/{en,ar}.ts`: a `staff` namespace, reusing `op.roles.*`.\n13. `src/features/profile/pushSync.ts:99`: `tapDestination` accepts a generic `route` and opens\n    `staff*` routes only while the status is staff.\n14. `package.json`, `app.config.ts`: expo-image-picker (§6.5).\n15. `apps/mobile/CLAUDE.md:3-4`: the staff area joins the feature list.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#47",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "**Untouched:**\n- `TabsLayout.ios/.android` and `useTabBarHeight`\n- the Book, Bookings and Profile screens\n- booking, availability, courtTransition and `BootOverlay`\n- the single Supabase client and its SecureStore key\n- `deepLink.ts`\n- the push registration lifecycle (`app/_layout.tsx:179-206`). It never prompts, though, so staff\n  need their own prompt (§6.6)\n- `jest.setup.ts`, `routes.test.ts`\n- the guest push kinds\n\n### 6.3 Today (everyone)\n\n`my_protocol_work` and `my_checklists_today` feed one list with three groups:\n- **To do:** open checklists, then open steps.\n- **Waiting:** my submissions not yet decided.\n- **Decided:** the last seven days, with the decision note.\n\nManager and owner also see \"Waiting on you (N)\" read-only, with \"Decide in Protocols on the\noperator\". A step whose form lives on the operator also appears in To do, read-only, with \"Do this\non the operator: <page>\". Today that means a manager step or the desk's courts step, under the §3\n**PROPOSAL** that §11 Q8 may change. The push that announced it therefore never leads to a dead\nend. Pull to refresh; the 60 s re-check while staff.\n\nA **\"Turn on work alerts\"** row sits at the top of Today until push permission is granted. It calls\n`registerPushToken()` with prompting on (§6.6).\n\n### 6.4 Pages",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#48",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "- **Checklists** (0169). Tables: `checklist_templates`, `checklist_template_items`,\n  `checklist_runs`, `checklist_marks`.\n  - A template belongs to one role, one venue and one slot (`open` or `close`). Names and items are\n    EN and AR.\n  - A run is keyed by template and `business_date`, computed with the three-argument\n    `business_date` in the venue's timezone (never the unqualified 0034 form). It is created on the\n    first read or tick of the day.\n  - A mark records who ticked, when, and an optional note.\n  - Anyone holding the role at the venue ticks the one shared list, and each tick shows its\n    ticker's name.\n  - Manager and owner see today's state per role on the operator.\n  - There is no per-person history view and no report that ranks people (SOW:265, :480).\n  - Day close reads `checklist_day_state(p_venue_id, p_business_date)` into a soft warning section,\n    the same pattern as the unpaid-played rows (`op/features/admin/dayCloseLogic.ts:290-294`,\n    \"a WARNING list, never a close block\").\n- **Propose a new item.** Starts a product-release run (§5.1 step 1).\n  - Recipe lines use `staff_ingredient_options(p_venue_id)` (0161). It returns id, `name_en`,\n    `name_ar`, unit and kind, with no cost and no on-hand figure. Ingredient tables are\n    manager/owner only (0136:129-151).\n  - A line for an ingredient that is not stocked yet offers \"Add to shopping list\".\n  - \"My proposals\" shows each run's current step and decisions.\n- **Production** (0171).\n  - \"What to make today\": prepared (batch) ingredients below `par_level`, showing on hand, par and\n    made today, with no cost (`production_today`). Desserts are set up as prepared ingredients with\n    unit `pc` and an output recipe. Setup \"Worth checking\" lists prepared items that have no par\n    level, because the plan is empty without one. Whether par levels are set here is\n    **UNVERIFIED**. The nearest evidence is 0151:8-11, which says most ingredients have no\n    `low_stock_threshold`, a different colu",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#49",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "mn.\n  - \"Record a batch\": `app.record_batch(p_ingredient_id, p_qty, p_idempotency_key)` for head_chef,\n    chef, manager and owner.\n    - It calls the `record_production` body, factored into a revoked `app.record_production_internal`\n      shared with the existing manager RPC, whose guard does not change.\n    - Idempotency goes through `app.claim_replay`, because `record_production` (0018:342) takes no\n      key and a retry would deduct twice.\n    - It returns quantity and expiry but not `unit_cost_iqd`.\n  - \"Made today\" (`production_log_today`): `production_in` movements today with the staff name,\n    quantity and time.\n- **Shopping list** (0170). `shopping_items` columns:\n  - `venue_id`\n  - `ingredient_id` (nullable)\n  - `label` (free text when there is no ingredient)\n  - `qty`, `unit`, `note`\n  - `requested_by`\n  - `status` (`open`, `bought`, `cancelled`, `received`, `acknowledged`)\n  - `purchase_id`",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#5",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 2. Decisions",
+      "body": "| # | Topic | Decision | Consequence |\n|---|---|---|---|\n| 1 | Role shape | Real `staff_role` values: `head_barista`, `barista`, `head_chef`, `chef`, `driver`, `marketing`. A title on an existing role was rejected. | Built in `f6a0802` (0155 enum, 0156 guards). A value can never be dropped. An older desktop build reads an unknown role as revoked (§9). Recorded as a change request (§1). |\n| 2 | Marketing | Marketing is a staff member who signs in. It is not the owner and not an agency. | Needs its own access split on campaigns: drafting is theirs, going live stays owner-only (§7.4). |\n| 3 | Prep | Replaced softly. Prep stays in the DB guards, the UI stops offering it, and Setup \"Worth checking\" nags until nobody holds it. A later migration drops prep from the guards. | Done in `f6a0802`. The drop migration waits until no prep account is active, so it is not numbered here. |\n| 4 | Kitchen tiers | Head chef and chef are two tiers, like head barista and barista. | \"Head\" roles propose items and add to the shopping list. Both chef tiers record production. |\n| 5 | Fourth protocol | Price or promotion change. The shopping list and driver purchases are plain role pages, not a protocol. | §5.4. Shopping and purchases have no approval stage (#26). |\n| 6 | Where protocols live | One Protocols page in the operator. The owner reaches it from Observe (beside Requests), the manager from \"Run the day\". Editing \"How it works\" is owner-only. | One route `/protocols` for manager and owner, plus an owner-only capability (§7.1). |\n| 7 | Owner editing | Per step, the owner can set the \"Needs my OK\" switch, edit checklist items, and rename, add and reorder steps. Full step editing, chosen despite the complexity warning. | Each run takes a snapshot of the template, so an edit changes only new runs. The limits in §4.2 and §4.5 are a **PROPOSAL** and narrow this a lot. Built-in steps cannot be deleted and cannot change who does them. Their dependencies fix their order, except for two swaps:",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#50",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "Who can do what:\n  - Add: head_barista, head_chef, manager, owner.\n  - Cancel: the requester, or a manager.\n  - Read: bar and kitchen roles and the driver.\n\n  Items go straight to the driver, with no approval. There are no suggested quantities\n  (ui-spec:687).\n- **Purchases** (0170). The driver selects open items and marks them bought, entering:\n  - the actual quantity per line. For a stock ingredient it is recorded in the ingredient's **base\n    unit** (g, ml or pc, shown beside the box), because `delivery_lines.unit_cost_iqd` is a cost per\n    base unit (0017:108). A pack helper can convert packs × `pack_size` on the phone if\n    `staff_ingredient_options` also returns `pack_size`, which is not a cost.\n  - the price paid in IQD\n  - the shop name (free text; suppliers are manager/owner-only, 0144)\n  - a receipt photo\n  - the time\n\n  `record_purchase(p_lines, p_total_iqd, p_shop, p_receipt_path, p_idempotency_key)` calls\n  `app.claim_replay`. It writes `purchases` and `purchase_lines` and never touches the till, the\n  drawer or day close. Paying the driver back happens outside the system.\n- **Marketing.**\n  - **My take:** `marketing_notes` (venue, subject kind `item | run | campaign`, subject id, author,\n    text, photos). Only marketing writes; manager and owner read, on the run and the campaign.\n  - **Campaign drafts:** `suggest_campaign(...)` writes a `marketing_campaigns` row in `draft` with\n    `suggested_by` set and optional images. It has name, channel, dates, EN/AR message, and an\n    optional link to a menu item, a run or a promotion idea.\n  - Marketing may edit its own draft until the owner saves or schedules it (`CAMPAIGN_LOCKED`), and\n    can see its status.\n- **Requests.** The existing 0072 RPCs: kind, dates or amount, note; the list of my own requests\n  with Withdraw.\n\n### 6.5 Photos",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#51",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "- **Picker.** `expo-image-picker` only: `launchCameraAsync` plus the library, microphone off. It is\n  installed with `npx expo install` from `apps/mobile`, and its config plugin carries EN and AR\n  permission text through a new iOS `locales` block.\n- **Android.** `blockedPermissions` for `READ_MEDIA_IMAGES` and `READ_MEDIA_VIDEO`; the system photo\n  picker needs neither. **UNVERIFIED** against SDK 57.\n- **Isolation.** `src/features/staff/photo.ts` is the only importer. It loads the module lazily\n  inside try/catch, with a boundary test, the same precedent as expo-gl\n  (`reliability.test.ts:206-217`).\n- **Metadata.** Images are compressed on the client. **UNVERIFIED:** whether the picker's output\n  still carries GPS EXIF. If it does, add `expo-image-manipulator` to re-encode, in the same binary.\n- **Upload.** An ArrayBuffer (the operator's Blob helper is web-only) to the private bucket\n  `staff-media` (0159):\n  - path `<venue_id>/<proposals|tests|marketing|receipts|notes>/<uuid>.jpg`;\n  - `public = false`, 5 MiB, JPEG, WebP or PNG;\n  - INSERT for any staff whose first path folder is in `app.staff_venue_ids()`;\n  - SELECT for the object's owner, or manager/owner at that venue;\n  - no UPDATE; DELETE for manager/owner.\n- **Recording.** Each recording RPC checks the path shape and that `storage.objects.owner_id` is the\n  caller (`PHOTO_PATH_INVALID`). **UNVERIFIED.** No migration has ever read `storage.objects`\n  (0027:226, \"SQL never touches storage.objects\"). Confirm on hosted that the definer's owner\n  (postgres) can select `storage.objects`, and that `owner_id` is filled for an upload made with a\n  user JWT. If either fails, the RPC issues a signed upload URL for a path it chose and records that\n  path. The client then never picks its own path.\n- **Reading.** Signed URLs with a 10-minute lifetime, on both the phone and the operator.\n- **Launch.** The launch copies the chosen photo into public `menu-media` (§5.1). Nothing else ever\n  becomes public.\n- **Hosted.** Stor",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#52",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "age policies can end in a NOTICE (0031:13-17, 329-335; 0062:210-212), so assert\n  them after the push and create them in the Dashboard if they are missing.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#53",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "### 6.6 Push to staff\n\n- **Tokens.** Staff already have a `profiles` row (the `handle_new_user` trigger, 0004:35-58), so\n  push reuses `notification_outbox` with `profile_id = staff.id`.\n  - **Registration never prompts.** The lifecycle only refreshes a token when permission was already\n    granted (`push.ts:183`, `registerPushToken({ prompt: false })` at `:203`). The only prompting\n    calls are in `app/settings.tsx:104, 134`.\n  - So a staff account that never turned notifications on has no token, and every `staff_*` row for\n    it ends as `NO_PUSH_TOKEN` (`send-push/index.ts:160-168`).\n  - The fix is the Today row \"Turn on work alerts\" (§6.3), which calls `registerPushToken()` with\n    prompting on. The Account section shows whether alerts are on.\n- **Kinds.** 0160 widens the kind CHECK (latest 0075:57-60) with `staff_task`, `staff_decide`,\n  `staff_decided` and `staff_info`. The payload is `{route, id, title_key, params}` and never\n  carries money, a phone or a candidate name.\n- **Enqueueing.** Only through `app.notify_staff(p_staff_ids, p_kind, p_payload)`. It is revoked\n  from clients and skips inactive staff.\n- **Deactivation.** 0160 re-issues `app.set_staff_active` (latest 0081:67) to clear\n  `profiles.expo_push_token` when an account is switched off. 0081 kills refresh tokens but leaves\n  the push token.\n- **`send-push`.** Gains EN and AR `STRINGS` for the new kinds plus the generic route. The `STRINGS`\n  type (`send-push/index.ts:48`) fixes the body signature to `(court, when)`. The staff kinds carry\n  `title_key` and `params` instead, so the type changes, not just the entries. **Deploy it before\n  0160**, because an unknown kind is terminal there (`send-push/index.ts:172-178`). §9 gives the\n  push order.\n- **Language.** Taken from `profiles.preferred_lang`.\n\n### 6.7 Sign-in hardening",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#54",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 6. Mobile staff interface",
+      "body": "Decision #33 (a default, not objected) covers three things only: email and password only, social\nsign-in refused, and owner-only password resets. \"Revoked\" and \"One account per phone\" below are\nnot part of it. \"Revoked\" is a **PROPOSAL**, and \"One account per phone\" is a consequence of #27.\n\n- **Email and password only** (#33). If a Google or Apple sign-in resolves to an active staff row, the\n  app signs out and says \"Staff accounts sign in with email and password\". GoTrue links providers\n  by verified email (`social.ts:222-229`), so this refusal is client-side. **UNVERIFIED:** whether a\n  server-side check on the session's `amr` in staff RPCs is practical; it is a follow-up, not v1.\n- **Password resets are owner-only** (#33). The staff home does not link to change-password or\n  forgot-password; the owner resets on the Staff page.\n  - The mobile minimum is 8 characters against staff-admin's 10 (`staff-admin/index.ts:33`), and\n    the staff area never reaches those screens.\n  - GoTrue will still send a reset email to anyone who asks for any address. Blocking that needs\n    the Send Email auth hook. **UNVERIFIED**, noted for the security pass.\n- **Revoked** (**PROPOSAL**). A full-screen \"This staff account is switched off\" with Sign out, never a fall back\n  to the guest UI. An access token lives up to 3600 s after 0081; the 60 s re-check covers that\n  tail.\n- **One account per phone** (a consequence of #27). Signing in as staff moves the push token to the staff profile, so the\n  person's guest booking reminders pause (`src/features/auth/api.ts:176-183`). The Account section\n  says so.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#55",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 7. Operator changes",
+      "body": "## 7. Operator changes\n\n### 7.1 Protocols page (`/protocols`)",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#56",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 7. Operator changes",
+      "body": "- **Routing.**\n  - `ROUTE_ROLES['/protocols'] = ['manager','owner']` (default deny) and a new\n    `routes/protocols.tsx`. No `SUB_ROUTES` entry: that map lists only the children of the `/admin`\n    and `/stock` layouts (it \"drives the admin sub-nav\"), and top-level routes such as\n    `/marketing`, `/tasks` and `/ops` have none. A new `/stock` child page would need one.\n  - Rail rows in `workspaces.ts`: `OWNER_OBSERVATION` directly under Requests, and `MANAGER_RUN`.\n  - `CAPABILITY_ROLES.editProtocols = ['owner']`. No inline role check.\n- **Layout.**\n  - Five cards: the four protocols plus **Daily checklists**. Each protocol card shows \"N running ·\n    N waiting on you\", with Start for tournament, hiring and price/promo; product release starts on\n    the phone. Price/promo can also be started on the phone (§3).\n  - Under the cards: a Waiting on you list, then In progress / Finished, following the\n    `StaffRequests` layout (`op/features/observation/StaffRequests.tsx`).\n  - Refresh every 60 s.\n- **Run detail sheet.**\n  - The step timeline with rounds, records, photos through signed URLs, ticks and marketing's take.\n  - The manager's step forms: plan, feasibility, price, numbers, open position, interviews, launch,\n    apply. They live only here under the §3 **PROPOSAL** (§11 Q8).\n  - The decision dialog, adapted from `DecisionDialog` (`StaffRequests.tsx:258`), which already\n    requires a reason:\n    - Approve / Send back (with a target step) / Stop / Skip.\n    - A price override at the price and numbers steps (**PROPOSAL**, §4.4).\n    - Buttons are hidden, not greyed, on rows the caller may not decide (`:173`).\n- **How it works** (owner only): a sheet per template, per §4.5.\n  - Built from `SettingsGroup` / `SettingsRow` (`op/features/admin/settings/SettingsList.tsx`),\n    `Switch` and `SortButtons`.\n  - The checklist editor follows `SuggestedEditor`'s capped ordered list.\n  - Save confirms first: \"Running protocols keep their steps. New ones use this.\"\n- **Daily chec",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#57",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 7. Operator changes",
+      "body": "klists card.** The owner edits the per-role open and close templates with the same\n  editor. The manager sees today's lists per role and who ticked each item.\n- **Around the page.**\n  - A `WaitingOnYou` row on Observe home.\n  - An `/ops` alert row.\n  - A badge on the Observe rail button.\n- **Contracts and copy.**\n  - An `assistant-coverage.json` route entry.\n  - A `docs/design/assistant/pages.md` sentence; the map generator refuses without one. Then\n    `assistant:map` is regenerated (§8, Fixtures).\n  - A `ws.protocols` EN/AR catalog pair.\n  - `workspaces.test.ts` expectations. The four-section owner rail is unchanged.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#58",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 7. Operator changes",
+      "body": "### 7.2 Menu, stock and desk\n\n- **Menu editor.** Items with an open release run show \"In release\" and cannot be activated there\n  (`ITEM_IN_RELEASE`, §5.1).\n- **Stock ▸ Goods in.** A new \"Bought by the driver\" list (`purchases_to_receive`, manager/owner).\n  Opening a purchase prefills `ReceiveDelivery`:\n  - each stock line gets its ingredient, `qty_expected` = the bought quantity, and unit cost =\n    price paid ÷ quantity. That is a cost per base unit only because the purchase quantity is\n    recorded in base units (§6.4; 0017:108). Today's pack-price prefill\n    (`ReceiveDelivery.tsx:85`) is not used for these lines.\n  - the manager picks the supplier (\"Ordered\" is 0017:107).\n\n  **One call, one transaction.** Saving calls `app.receive_purchase(p_purchase_id, p_lines,\n  p_supplier_id, p_idempotency_key)`. It:\n  - locks the purchase row and refuses one that is already received (`PURCHASE_ALREADY_RECEIVED`);\n  - runs the `receive_delivery` body (0145:242-339);\n  - marks the lines `received` in the same transaction.\n\n  Two client calls, receive then link, would leave a committed delivery with the purchase still \"to\n  receive\" if the second failed. Receiving it again with a new idempotency key would then book the\n  stock twice. Non-stock lines (cleaning supplies) get **Acknowledge**.\n- **Stock ▸ Waste and production.** Adds \"Made today\", from the same `production_log_today`.\n- **Desk.** \"Block courts for this event\" opens from a tournament run at the courts step. It is a\n  multi-court, multi-day dialog over `block_courts_for_event` that lists conflicts to move first\n  (§5.2).\n\n### 7.3 Day close\n\nA soft \"Checklists not finished\" section, following the unpaid-played pattern (§6.4). It lists each\nrole's open items and never blocks.\n\n### 7.4 Marketing access",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#59",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 7. Operator changes",
+      "body": "- **`/marketing` stays owner-only.**\n  - Campaigns speak in the venue's name (the `/marketing` route comment in `op/lib/auth.tsx`).\n  - `save_marketing_campaign` and `set_campaign_status` stay owner-only (0073).\n- **Marketing's drafts.** The owner's panel gains a \"From marketing\" filter and badge on drafts with\n  `suggested_by`. The owner completes the audience and promotion, then schedules the draft or sets\n  it live.\n- **My take.** Marketing's notes appear on the campaign and on the run.\n- **Reads.** Marketing reads its own drafts through `my_campaign_drafts`. It gets no campaign\n  performance or revenue reads, and after 0157 no tab or order reads.\n\n### 7.5 `/tasks` (team workspace, driver and marketing)\n\n- **The page.** It stays, because it is where a driver or marketing login lands on a desktop.\n  `MyTasks.tsx` becomes \"Your work is in the Touch Padel app on your phone\", with a read-only copy\n  of today's list from `my_protocol_work` and `my_checklists_today`.\n- **What it does not do.** No ticking and no forms on the desktop.\n- **Rail.** Unchanged: one row, `ws.team`.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#6",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 2. Decisions",
+      "body": "price and marketing in product release, and marketing and courts in a tournament. Hiring and price/promo built-in steps cannot move at all. In practice, \"reorder\" means moving the generic steps the owner adds. §11 Q7 asks whether that is acceptable. |\n| 8 | Decline | The decider chooses \"Send back for changes\" or \"Stop\". A reason is always required. | Send-back opens a new round and keeps the history (§4.3). |\n| 9 | Needs-my-OK off | The manager decides. If the manager wrote the step, it passes automatically and the record says so. | The rule is \"author = decider → automatic pass, recorded\" (§4.4). No step can get stuck on `CANNOT_DECIDE_OWN`. Applying the same automatic pass when the **owner** submits a step the owner would decide goes beyond this decision (brief G6, never answered). It is a **PROPOSAL** (§4.4). |\n| 10 | Logins | Every bar and kitchen worker has their own login. | Proposals, ticks and production are credited to the real person. The runbook's \"station's staff account\" line changes (§9). |\n| 11 | Staff surface | Staff pages live in the mobile app as a separate staff interface. Till, desk and KDS stay operator-only. Follow every mobile rule, don't break the guest app, and isolate staff code only where needed. | §6. A test enforces no till, desk or KDS RPC in staff code. |\n| 12 | Driver | The driver uses the phone with their own login. | No link-token page. `driver` is a normal staff session on the phone. |\n| 13 | Checklists | Opening and closing lists per role, editable by the owner. Staff tick them on the phone. Day close warns but does not block. | One list per role per venue per business day (§6.4). Day close gets a soft warning section like 0106's unpaid-played rows. |\n| 14 | Marketing role work | Marketing drafts and suggests campaigns, and the owner makes them live. Marketing has a feedback panel for its **own** take on products, launches, tournaments and campaigns. It is not a customer-feedback log. | `suggest_campaign` plus a `marketing_notes`",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#60",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 8. Database work (ordered; 0157, money reads plus prep retired on the server, is committed in `ed5c2e3` and is not part of this plan)",
+      "body": "## 8. Database work (ordered; 0157, money reads plus prep retired on the server, is committed in `ed5c2e3` and is not part of this plan)\n\n**Gates for every file** (`packages/db/CLAUDE.md`):\n- **File.** Opens with `set lock_timeout = '3s'; set statement_timeout = '60s';`. The ordinal is\n  greater than the current max; check the directory, since these ordinals are a reservation, not a\n  guarantee.\n- **Functions.**\n  - `security definer`, `set search_path = public`, dollar tag `$name_0NNN$`, guard first.\n  - `revoke … from public, anon` / `grant execute … to authenticated`.\n  - Any-staff guards use the 0072 form, plus `p_venue_id = any(app.staff_venue_ids())` for the\n    venue. Subsets name their roles and may use `app.is_staff_at` (§4.1).\n  - `app.set_staff_role`'s latest body is 0157; `upsert_variant` 0013, `upsert_promotion` and\n    `set_promotion_enabled` 0067, `report_stock` 0068.\n  - A re-issue copies the latest body verbatim (`grep -n \"function app.<name>(\" … | tail -1`).\n- **Tables.** RLS on every table, `venue_id` rules, and a `comment on` for every object.\n- **Fixtures.**\n  - `tests/rls-matrix.ts` rows (data only). Driver and marketing principals are not in the 8, so\n    their denials are asserted in `tests/new-roles.test.ts`-style files.\n  - `fixtures/rpc-allowlist.json`; the coverage floor only rises.\n  - `fixtures/assistant-coverage.json` for every table, RPC, cron job and edge function.\n  - Error codes mapped in both clients and both catalogs.\n  - `types.gen.ts` regenerated in the same commit.\n  - **The assistant map.** `pnpm --filter @touch/db assistant:map` is run, and its three output files\n    are committed, in every commit that touches a route, a rail row, a migration, a catalog or a doc:\n    - `fixtures/assistant-map.json`;\n    - `supabase/functions/_shared/assistant/map.json`;\n    - `fixtures/assistant-map-compact.md`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#61",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 8. Database work (ordered; 0157, money reads plus prep retired on the server, is committed in `ed5c2e3` and is not part of this plan)",
+      "body": "The staleness test (`tests/assistant-map.test.ts:47`) regenerates the map and fails on any\n    drift.\n  - **Docs coverage.** Every new `.md` under `docs/` needs a `docs` key in `assistant-coverage.json`\n    (`inventoryDocs`, `build-assistant-map.mjs:485-491`). That includes this plan, as\n    `\"docs/design/protocols/plan-2026-09-23.md\": \"index:doc\"`, which has no key yet.\n- **Stack checks.** `check:authz` passes, and a reservation write respects the lock order.\n- **Lock safety** (`check:migrations`).\n  - A `create index` without CONCURRENTLY fails the gate, even on a new table. It needs either\n    CONCURRENTLY in its own file or a written waiver.\n  - Commits go straight to `main`, so there is no PR body to carry the waiver. On a push to main,\n    CI's merge base is HEAD and the gate judges nothing (`check-migrations.mjs:61-64`,\n    `ci.yml:140-145`).\n  - So run `check:migrations` locally with `MIGRATION_RISK_ACCEPTED` set, and record each waiver in\n    the migration header, as 0108:20-26 does for plain indexes on empty new tables.\n  - An `add constraint` on an existing table is NOT VALID then VALIDATE.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#62",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 8. Database work (ordered; 0157, money reads plus prep retired on the server, is committed in `ed5c2e3` and is not part of this plan)",
+      "body": "| # | File | Feature | Contents | Gate notes |\n|---|---|---|---|---|\n| 0158 | `product_test_movement` | release | `alter type movement_type add value 'product_test'` | Enum widening in its own file, strictly before 0164 uses it. |\n| 0159 | `staff_media_bucket` | photos | `staff-media` bucket and policies in a guarded DO block (the 0031:283-336 shape); `app.is_staff_media_path` | Helpers used in policies are granted to anon, authenticated and service_role (0116→0121). Assert policies on hosted. |\n| 0160 | `staff_push` | push | Kind CHECK widened, written as drop, add NOT VALID, then VALIDATE (0075's in-place drop and add predates the gate); `app.notify_staff`; `set_staff_active` re-issued (clears token); `submit_staff_request` / `decide_staff_request` re-issued from 0072 with one notify line each | **Deploy `send-push` first.** |\n| 0161 | `staff_ingredient_options` | shared read | Narrow definer read: id, names, unit, kind | Guard: bar and kitchen roles, manager, owner. No cost columns (SEC-29 list). |\n| 0162 | `protocol_tables` | engine | §4.1 tables; `protocol_step_allowed`, `protocol_run_allowed`, `protocol_template_valid`, `protocol_record_valid`; seed templates per active venue (EN+AR) | `venue_id` default `app.current_venue()`; seeds pass `venue_id` explicitly. |\n| 0163 | `protocol_rpcs` | engine | §4.6 RPCs including `protocol_step_detail`; audit; notify hooks | Needs 0159 (`app.is_staff_media_path` for photo checks) and 0160 (`app.notify_staff`). `rpc-allowlist`, matrix rows, `MAPPED_CODES`/`CODE_TO_KEY`. |\n| 0164 | `product_release` | release | `menu_items.release_run_id`; `upsert_menu_item` re-issued (latest 0054) with `ITEM_IN_RELEASE`; `release_accept_internal`, `record_product_test` (idempotency + `claim_replay`), `release_cost`, `release_readiness`, `release_launch_internal`; `upsert_variant_internal` (revoked; `upsert_variant` 0013 re-issued as its wrapper, same guard); `v_variance_report` (0019:205) re-created with `product_test_qty` appended as the l",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#63",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 8. Database work (ordered; 0157, money reads plus prep retired on the server, is committed in `ed5c2e3` and is not part of this plan)",
+      "body": "ast column; `app.report_stock` (latest 0068) re-issued verbatim with `'productTestQty'` added to the `variance` object, because `/reports/stock` builds that object from a fixed key list (0068:1080-1096) | Signature unchanged for `upsert_menu_item` and `upsert_variant`. The view keeps `security_invoker = on`. The operator half of the same commit adds `product_test` to `LedgerDrawer.tsx`'s `MOVEMENT_TYPES` (:23), the `op.stock.movement.product_test` catalog keys and the Variance column. |\n| 0165 | `release_post_launch` | release | `release_reviews`; `release_notes` with `release_notes_for_me(p_venue_id)` and `add_release_note` (any-staff guard plus venue check; **PROPOSAL**, dropped if §11 Q9 says no); `protocol-scheduler` cron (every 5 min: due launches, day-30 reviews, photo purges of stopped runs) calling `protocol-action` / `release-review` through `pg_net` | Cron rows asserted on hosted. Cron job, edge functions and RPCs in `assistant-coverage`; RPCs in `rpc-allowlist` and matrix rows. |\n| 0166 | `event_court_blocks` | tournament | `reservations.block_purpose` (nullable, only `'event'`, no backfill), `protocol_run_id` (CHECK and FK NOT VALID then VALIDATE, guard scoped by `conrelid`); `block_courts_for_event`; `analytics_open_minutes` (latest 0097) changed to subtract `kind = 'maintenance' and block_purpose is distinct from 'event'`; with the events line, also dropped and recreated with `event_minutes`, re-granted to `service_role`, and `analytics_courts_summary` / `analytics_courts_cafe` (latest 0147) re-issued verbatim with the field (§5.2); tournament `data` validator | `app.lock_court` in court-id order; `check:locks`. A new FK index needs its own migration or `MIGRATION-RISK-ACCEPTED`. |\n| 0167 | `hiring` | hiring | `hiring_candidates`, `complete_hire` (refuses prep), and its own daily SQL cron job `hiring-candidate-purge` (§5.3), so it never edits the 0165 scheduler | Excluded from the assistant index; SEC-29 `FORBIDDEN` gains name and phone. |\n| 0168 | `pr",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#64",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 8. Database work (ordered; 0157, money reads plus prep retired on the server, is committed in `ed5c2e3` and is not part of this plan)",
+      "body": "ice_promo` | price/promo | Numbers read; `upsert_promotion_internal` and `set_promotion_enabled_internal` (revoked; the 0067 public RPCs re-issued as wrappers with their guards unchanged); its own SQL cron job `price-promo-apply` every 5 minutes for scheduled applies, calling the internals with a null actor | The public RPCs keep their manager/owner guards; start and cron reach the bodies only through the internals (§4.6). No new money path. |\n| 0169 | `checklists` | checklists | §6.4 tables; `my_checklists_today`, `mark_checklist_item`, `save_checklist_template` (owner), `checklist_day_state` | Three-argument `business_date` only. |\n| 0170 | `shopping_purchases` | shopping | `shopping_items`, `purchases`, `purchase_lines`; `add_shopping_item`, `cancel_shopping_item`, `shopping_list`, `record_purchase` (idempotency + `claim_replay`; stock quantities in base units), `purchases_to_receive`, `receive_purchase` (receive and link in one transaction, §7.2), `acknowledge_purchase_line` | `price_iqd` on the `iqd` domain; staff columns named `requested_by` / `staff_id` for SEC-20. |\n| 0171 | `staff_production` | production | `record_production_internal` (revoked), `record_production` re-issued as a wrapper (same signature, same guard), `record_batch`, `production_today`, `production_log_today` | Signature of `record_production` unchanged (0018:342, 559-560). |\n| 0172 | `marketing_staff` | marketing | `marketing_campaigns.suggested_by`, `images`; RLS read of own drafts for marketing; `suggest_campaign`, `my_campaign_drafts`; `marketing_notes` and its RPCs | `marketing_overview` is still unfiltered by venue (0073:254); re-issue it with the venue filter while here. |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#65",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 8. Database work (ordered; 0157, money reads plus prep retired on the server, is committed in `ed5c2e3` and is not part of this plan)",
+      "body": "- **Milestone 1 slice 2** was to \"restart from 0155\" (`PHASE-2-PLAN.md:12`). It now restarts after\n  whatever this block has landed. Agree the numbers before either starts.\n- **Prep.** The drop of prep from the kitchen guards comes later, once no active prep account is\n  left.\n\n**Edge functions**:\n- `send-push`: new kinds and the route field.\n- `protocol-action`: launch; `verify_jwt`; manager or owner through `requireStaffRole`, or service\n  role from the cron.\n- `release-review`: service role. The model comes from `provider.ts` `vendorFor` on the venue's\n  `llm_default_model`. Only the gate, the template fallback and the metering come from\n  `analytics-insights` (§5.1).\n\nDeno cannot import `packages/core`, so shared shapes go under `_shared/` as JSON or byte-identical\ncopies.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#66",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 9. Release and rollout",
+      "body": "## 9. Release and rollout",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#67",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 9. Release and rollout",
+      "body": "- **Everything in mobile 1.0** (Majed's call). The first store release waits for the staff area.\n  - `version` stays `1.0.0` (`apps/mobile/app.config.ts:167`, runtime `appVersion` at `:212`),\n    because no store binary exists.\n  - Any internal 1.0.0 build without expo-image-picker must not take OTAs that reach the photo\n    screen. The lazy import makes that fail safe, not crash.\n  - The test phone needs a new `development` dev client. Production `eas build` and store submits\n    are run by a person, never by an agent (`apps/mobile/CLAUDE.md:71-73` names Parsa).\n- **Store and legal, in the same release.** Both store forms say today that the app sends no free\n  text to the server. The staff area sends free text: step notes, proposals, requests, marketing's\n  own notes and campaign drafts. Declaring photos alone would leave both forms wrong.\n  - iOS `privacyManifests` (`app.config.ts:256-270`) gains both Photos and Other user content, plus\n    the camera and photo usage strings in EN and AR.\n  - `docs/store/app-store-submission.md`:\n    - User Content \"not collected\" (`:75`) becomes Photos and Other User Content, collected from\n      staff accounts only, linked to identity, used for app functionality;\n    - the review notes' \"that is the entire app\" (`:146`) describes the staff area.\n  - `docs/store/google-play-data-safety.md`: declare Photos and Other user-generated content, both\n    staff accounts only, linked, for app functionality, in the table and the not-collected list\n    (`:50-52`). Rewrite `:56-57` (\"The app itself has no free-text field that reaches the server,\n    which is why 'User-generated content' is not declared\").\n  - Guest privacy policy (`packages/i18n/src/catalogs/legal.en.ts:82` and its AR twin): staff\n    accounts can upload work photos; guests cannot.\n  - `docs/legal/staff-privacy-notice.md:33` (\"no cameras … no monitoring of your personal phone\")\n    is rewritten:\n    - the staff area uses the camera only when you take a work photo;\n    - no l",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#68",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 9. Release and rollout",
+      "body": "ocation;\n    - push for work;\n    - checklist ticks and submissions carry your name;\n    - hiring candidates' data is deleted after 90 days.\n  - A short applicant notice for candidates, EN and AR, which the manager gives at interview.\n- **Staff demo login for App Review** (Apple 2.1). A `driver` account on hosted, since after 0157\n  it is the role with the least access. It is created by a script modelled on\n  `scripts/create-review-account.mjs` (password generated at run time, printed once) and\n  deactivated after the decision. The review notes give both the guest and the staff login. It\n  will see the real shopping list (§11 Q6).\n- **Deploy order.** Edge functions cannot be deployed in stages: `functions-deploy.yml` redeploys\n  every function on any push that touches `supabase/functions/**`. When one push touches both\n  functions and migrations, both workflows start, and the reviewer approves the migration first\n  (`functions-deploy.yml:9-12`). So:\n  1. 0157 and the role work (`f6a0802`, `ed5c2e3`, plus the review fixes still being applied).\n  2. **A push with the `send-push` change alone** (no migration in it). Wait for the functions\n     deploy to finish on hosted.\n  3. Then push the migrations 0158–0172 (`db-migrate.yml`). `npx supabase migration list --linked`\n     shows 0 pending. Assert the `storage.objects` policies and `cron.job` rows.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#69",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 9. Release and rollout",
+      "body": "`protocol-action` and `release-review` (and `staff-admin`, if it changed again) deploy with\n     whichever functions push comes first, so there is no separate step for them. That is safe:\n     nothing calls them until the 0165 cron exists and the new operator is installed.\n  4. The operator tag: the next annotated `operator-vX.Y.Z` on the pushed commit fires\n     `operator-release.yml`.\n  5. The mobile build.\n\n  Push to `main` in batches: every push is a Vercel production build and a full CI run. Step 2 is\n  the one exception to \"one push per work package\": `send-push` must be live before 0160 reaches\n  hosted, because an unknown kind is terminal (§6.6).\n- **The old-desktop-build risk.** An operator build older than the `f6a0802` release reads any of\n  the six roles as revoked (`op/lib/roleResolution.ts`). Install the new operator on all three\n  machines before any account is given a new role. The phone's `unsupported` state (§6.1) keeps\n  the same risk away from future roles.\n- **People and runbook.** Each bar and kitchen worker gets their own account on the Staff page.\n  Prep accounts move to barista or chef (\"Worth checking\" lists them).\n  `docs/install-runbook.md:96` (\"the station's staff account\") changes to say the kitchen board is\n  signed in by whoever runs it, and personal work is on the phone.\n- **Acceptance.** An EN and AR acceptance script on the real system, the same shape as the change\n  order's §5: every protocol end to end (including send-back, stop and the automatic pass), a\n  checklist day with a day-close warning, a shopping run to Goods in, a production batch, a\n  scheduled launch, and a staff push tapped through.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#7",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 2. Decisions",
+      "body": "table. `set_campaign_status` stays owner-only (§7.4). |\n| 15 | Alerts | Phone push to staff, plus badges. | Staff push kinds and a staff route field in `send-push`, which must be deployed first (§6.6, §9). |\n| 16 | Staff requests | Staff send requests from the phone. The owner still decides them in Observe ▸ Requests. | The existing 0072 RPCs get their first client caller. The owner gets a push on submit. |\n| 17 | Who starts price/promo | The manager or marketing. | §5.4. |\n| 18 | Tournament scope | Planning through launch only. Running the event stays in Milestone 6. | The run's data maps onto C4's future `tournaments` row, so there is no second tournament model (§5.2). |\n| 19 | Owner-typed text | EN and AR are both required. | Every template name, step name and checklist item stores `_en` and `_ar`, both NOT NULL. A save fails with `TEXT_BOTH_LANGUAGES_REQUIRED`. |\n| 20 | Test stock | Stock used in testing gets its own \"product test\" ledger line, kept out of waste. | A new `movement_type` value in its own file (0158). A new consuming RPC. The variance view and the `/reports/stock` payload learn it (§8, 0164). |\n| 21 | Launch timing | Launch is either pressed now or scheduled for a date. | A scheduler re-checks readiness when the date arrives (§5.1). Who presses Launch is not decided (§11 Q12). |\n| 22 | Post-launch | A 30-day numbers review plus an AI write-up at day 30. | A cron job and a `release-review` edge function. It reuses `analytics-insights`' number gate, template fallback and metering; the model is §11 Q13 (§5.1). Staff notes on the item are a **PROPOSAL** (§11 Q9). |\n| 23 | Tournament types | Types 1 and 3 run the full feasibility study plus owner approval. Type 2 (community) uses a short form and skips feasibility. Type 3 cannot start until the sponsor or client details are filled in. | Three template variants. `start_protocol` refuses type 3 with `SPONSOR_DETAILS_REQUIRED`. |\n| 24 | Class A/B/C | A label only, with no player levels. | Keeps \"no playe",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#70",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 10. Build order",
+      "body": "## 10. Build order\n\nNumbered ordinals are reserved up front (§8) so lanes can write migrations in parallel.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#71",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 10. Build order",
+      "body": "| Lane | Work | Depends on | Verifiable here |\n|---|---|---|---|\n| **A** Engine DB | 0158, 0161, 0162, 0163 | 0157 (committed); G's 0159 and 0160, because 0163 checks photo paths with `app.is_staff_media_path` and notifies through `app.notify_staff` | Local Supabase (Docker): `db:reset`, db tests, `check:authz`, `check:rpc-registry`, `check:migrations` |\n| **B** Mobile shell | `@touch/core` role move; sign-in `'staff'` step; `StaffStatusProvider`; hint; `GuestTabsGate`; `staff.tsx`; Requests page (existing RPCs); no-till-RPC guard | none | Mobile typecheck, lint, vitest, jest smoke (EN and AR); operator vitest for the role move |\n| **C** Staff-page DB | 0169, 0170, 0171, 0172 | G's 0159 and 0160 (`notify_staff`, photo paths) | Local stack |\n| **D** Operator Protocols | `/protocols`, How it works, decision dialog, step forms, badges, `/ops` row, audit keys | A's RPC shapes (write a contract note first, as in the assistant build) | Operator vitest; Playwright visual check on a second Vite against the local stack with seeded logins |\n| **E** Product release | 0164, 0165 (owns the `protocol-scheduler` cron); `protocol-action`, `release-review`; menu-editor guard | A | Local stack; `/opt/homebrew/bin/deno check --no-lock` (deno is installed but not on PATH; the tsc plus shim recipe is the fallback); `supabase functions serve` for a real run |\n| **F** Tournament, hiring, price/promo | 0166, 0167, 0168; desk block dialog; Staff prefill. 0167 and 0168 each create their own cron job, so F never edits E's scheduler | A | Local stack; operator vitest; desk Playwright |\n| **G** Push and photos | 0159, 0160; `send-push`; expo-image-picker; `photo.ts`; store and legal docs | none | Push: db tests plus the `send-push` pure tests. Picker: typecheck, the boundary test, `doctor`. **The camera itself cannot be run on this Mac** (no iOS or Android toolchain): Majed runs it on a phone through Metro on a new dev client, and can drop a screenshot into `docs/design/mobile-ui` |\n| **H** Mob",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#72",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 10. Build order",
+      "body": "ile pages | checklist, step, proposal, production, shopping, purchase, marketing, change, notes | B, and C, E or F for each page's RPCs | Mobile typecheck, lint, vitest, smoke; against the local stack over the LAN IP for a device run (0155+ are not on hosted yet) |\n| **I** Operator stock and day close | Goods in \"from the driver\", made today, day-close soft section, checklist card | C | Operator vitest; Playwright |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#73",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 10. Build order",
+      "body": "- **Critical path:** G's 0159 and 0160, then A, then D and E, then acceptance.\n- **Independent:** B and G can start today. G's two migrations come first because A and C need them.\n- **Hosted:** nothing reaches hosted until the deploy order in §9.\n- **Commits:** one commit carries the migration, `types.gen.ts`, both catalogs and the fixtures,\n  including the regenerated assistant map (§8), as sole author with no AI trailer. The commit that\n  first lands this plan adds its `assistant-coverage.json` docs key. Commit with pathspecs, because parallel sessions share this\n  working tree.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#74",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 11. Open questions",
+      "body": "## 11. Open questions",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#75",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 11. Open questions",
+      "body": "1. **Billing and order.** Is line 10 a billed change-order item or a recorded vendor addition? Does\n   it run before Milestone 1 slice 2 or alongside it (they compete for ordinals)?\n2. **Deciding from the phone.** Push tells the owner and manager something is waiting, but the\n   default puts every decision on the operator. Should approve, send back and stop also work on the\n   phone? Tasting a test at the bar is the obvious case.\n3. **Type 2 tournaments.** With feasibility skipped, is there any owner approval? The default is\n   no: the manager decides, and a manager's own plan passes automatically.\n4. **Direct price edits.** Once the price/promo protocol exists, may managers still change prices\n   directly in the menu editor, as they can today?\n5. **Event hours in court analytics.** Should the hours blocked for an event count as occupied, or\n   only show on their own line (the default)?\n6. **Review login.** Is it acceptable for the App Review staff login to see the venue's real\n   shopping list, or should there be a demo venue?\n7. **How far \"full step editing\" goes.** Under the proposal, built-in steps cannot be deleted and\n   cannot change who does them. Their order is fixed apart from two swaps: price and marketing in\n   product release, and marketing and courts in a tournament. Is that acceptable? Or should the\n   owner also be able to change a built-in step's actors, for example handing the marketing step to\n   the manager?\n8. **The manager's own step forms on the phone.** Default #32 puts doing the work on the phone. Should\n   the manager's step forms (plan, feasibility, price, numbers, open position, interviews, launch,\n   apply) also be fillable on the phone, or stay on the operator (the proposal, because they are\n   long and numeric)?\n9. **Staff notes on new items.** Should every staff member be able to add notes on a new item for\n   30 days, feeding the day-30 write-up? Or should marketing's own take be the only input? Either\n   way these are staff's own ob",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#76",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 11. Open questions",
+      "body": "servations, never a log of guest feedback.\n10. **Run titles.** The owner's titles need EN and AR (#19). Do titles typed by staff (a head\n    barista's proposal, marketing's price change) need both too?\n11. **Changing one running protocol.** May the manager edit one run's checklists and add steps to\n    it, or only the owner (or nobody)?\n12. **Launch and the owner's powers.** Who presses Launch, the manager (the proposal) or the owner?\n    May the owner change the manager's price at the price and numbers steps? When the owner\n    submits a step only the owner decides, should it pass automatically, as a manager's own step\n    does under #9?\n13. **Model for the day-30 write-up.** Does release-review follow the venue's `llm_default_model`\n    (a Groq model since 0142), or `packages/db/CLAUDE.md`'s default for new LLM code,\n    `claude-opus-5` unless Parsa names another?",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#8",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 2. Decisions",
+      "body": "r levels in v1\" (`PHASE-2-PLAN.md:452`). |\n| 25 | Production | Recording production deducts stock immediately. Desserts are set up as batch items. | A phone wrapper around `record_production` for the chef tiers. Desserts become prepared ingredients (unit `pc`) with an output recipe (§6.4). |\n| 26 | Shopping list | Items go straight to the driver, with no manager approval. The head barista and head chef add to it. | No approval state (§6.4). Driver push on new items (§4.7). |\n| 27 | Staff UI only | A staff account sees only the staff UI. Staff book courts with a personal guest account. | `GuestTabsGate` redirects a staff session. One account per phone (§6.1). |\n| 28 | Photos | The in-app camera and gallery, through expo-image-picker. | A new binary. The store labels, privacy policy and staff notice change (§9). |\n| 29 | Release | Everything ships in 1.0. The first store release waits for the staff area. | Replaces the brief's \"guest 1.0, staff 1.1\" default (§9). |\n| 30 | Driver purchases | Recorded first. The manager then receives them into stock through Goods in, prefilled. No till or day-close effect. | Purchases are not payments, and the drawer never sees them (§6.4, §7.2). |\n| 31 | Phone for all | *Default, not objected.* All 11 roles get the phone UI, shaped by role. | The owner and manager also land on the staff UI on the phone (§3). |\n| 32 | Doing vs managing | *Default, not objected.* The phone is for doing the work; the operator is for managing it (templates, approvals, purchase review). | Decisions happen on the operator. The phone shows them read-only (§11 Q2 asks whether that should change). Filling in the manager's own step forms (plan, price, launch…) is also doing the work; putting those only on the operator is a **PROPOSAL** (§3, §11 Q8). |\n| 33 | Staff sign-in | *Default, not objected.* Email and password only. A social sign-in that lands on a staff row is refused. Only the owner resets a staff password. | §6.7. |\n| 34 | 0156 money reads | `tabs`, `o",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/protocols/plan-2026-09-23.md#9",
+      "lang": "en",
+      "title": "docs/design/protocols/plan-2026-09-23.md › 2. Decisions",
+      "body": "rders`, `order_items` and `order_item_modifiers` go back on an explicit list that excludes driver and marketing. | 0157, committed in `ed5c2e3`. It also retires prep on the server (`set_staff_role` raises `ROLE_RETIRED`). Protocol numbering starts at 0158. |\n| 35 | Hiring outcome | Hiring ends in a prefilled Staff ▸ Add staff member, where the owner types the email and password. Candidate data is name, phone and brief, with no CVs, deleted 90 days after the decision. | A `hiring_candidates` table with a purge job, kept out of the assistant index. Run records and audit rows hold candidate ids only, so nothing about a candidate outlives the purge, the hire included (§5.3). |\n| 36 | Naming | The idea screen is not called \"Suggested\", because `/admin/suggested` is \"Goes well with\". | The phone row is \"Propose a new item\", and marketing's is \"Campaign drafts\". |",
       "route": null
     },
     {
