@@ -25,6 +25,9 @@
  * minutes at all. One walk-in cafe tab
  * (no reservation) proves unlinked orders stay out of the attach figures and
  * in all_orders_total.
+ * Courts D and E (0154) carry the returning-guest cases on direct service-role
+ * rows: history before the range, an account and its phone, a phone with no
+ * account, and one guest's two bookings at the same instant.
  *
  * Venue timezone is Asia/Baghdad (UTC+3, no DST); futureSlot() gives each
  * booking its own local hour on the same future day.
@@ -44,6 +47,7 @@ import {
   outcome,
   SEED_STAFF,
   DEV_PINS,
+  DEV_PASSWORD,
   createTestCourt,
   createTestMenuItem,
   createTestCafeTable,
@@ -688,6 +692,95 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(g.by_week.reduce((acc, w) => acc + w.new_identities, 0)).toBe(1);
     expect(g.by_week.reduce((acc, w) => acc + w.returning_identities, 0)).toBeLessThanOrEqual(1);
     for (const w of g.by_week) expect(new Date(`${w.week_start}T00:00:00Z`).getUTCDay()).toBe(1); // ISO weeks start Monday
+  });
+
+  // -------------------------------------------------------------------------
+  // 0154: the returning test is a first-seen aggregate and the phone -> account
+  // map is built once. Same answers as the 0097 correlated EXISTS.
+  // -------------------------------------------------------------------------
+  it('returning guests (0154): history before the range, phone = account, phone-only, same-instant pair', async () => {
+    const tag = Date.now().toString().slice(-8);
+    const courtD = await createTestCourt(svc, `Courts D ${tag}`);
+    const courtE = await createTestCourt(svc, `Courts E ${tag}`);
+    const makeUser = async (n: number): Promise<string> => {
+      const { data, error } = await svc.auth.admin.createUser({
+        email: `courts-ret-${tag}-${n}@test.touch.local`,
+        password: DEV_PASSWORD,
+        email_confirm: true,
+        user_metadata: { full_name: `Courts Returning ${n}`, phone: '+9647700000000' },
+      });
+      if (error || !data.user) throw new Error(`createUser failed: ${error?.message}`);
+      return data.user.id;
+    };
+    const [u1, u3, u4, u6] = [await makeUser(1), await makeUser(3), await makeUser(4), await makeUser(6)];
+    // u4's account carries a phone nobody else has; a desk booking under the
+    // same number, written the domestic way, is u4 (0097 identity).
+    const p4Intl = `+96478${tag}`;
+    const p4Local = `078${tag}`;
+    const p5 = `+96479${tag}`; // no account anywhere
+    const prof = await svc.from('profiles').update({ phone: p4Intl }).eq('id', u4);
+    if (prof.error) throw new Error(`seed u4 phone failed: ${prof.error.message}`);
+
+    // 10:00 local (07:00Z) on day `d` from today; each row on its own day per court.
+    const today = new Date(`${iso(new Date())}T07:00:00Z`);
+    const at = (d: number) => shiftDays(today, d);
+    const book = async (court: string, d: number, who: { guest_id?: string; guest_phone?: string; guest_name?: string }) => {
+      const start = at(d);
+      const { error } = await svc.from('reservations').insert({
+        court_id: court, kind: 'booking', status: 'confirmed', source: 'desk',
+        start_at: start.toISOString(), end_at: new Date(start.getTime() + 3_600_000).toISOString(),
+        price_iqd: 40_000, created_by_staff_id: null, ...who,
+      });
+      if (error) throw new Error(`seed booking day ${d} failed: ${error.message}`);
+    };
+    await book(courtD, -20, { guest_id: u1 }); // before the range: u1's history
+    await book(courtD, 3, { guest_id: u1 }); // returning
+    await book(courtD, 4, { guest_id: u3 }); // first time: new
+    await book(courtD, 5, { guest_id: u4 }); // new
+    await book(courtD, 6, { guest_phone: p4Local, guest_name: NAME_DESK }); // the same person by phone: returning
+    await book(courtD, 7, { guest_phone: p5, guest_name: NAME_DESK }); // a phone nobody registered: new
+    await book(courtD, 8, { guest_id: u6 }); // same instant as the court E row below:
+    await book(courtE, 8, { guest_id: u6 }); //   neither is the other's history, both new
+    await book(courtD, 9, { guest_id: u6 }); // returning
+    await book(courtD, 10, { guest_name: NAME_WALKIN }); // unidentified
+
+    type Guests = {
+      identified_bookings: number; unidentified_bookings: number; identities: number;
+      returning_bookings: number; new_bookings: number; returning_pct: number | null; regulars: number;
+      visit_buckets: { bucket: string; identities: number; bookings: number }[];
+      by_week: { new_identities: number; returning_identities: number; bookings: number }[];
+    };
+    type Endings = { cancellations: { by_type: Row[] }; no_shows: { by_type: Row[] } };
+
+    const gD = await ownerData<Guests>('analytics_courts_guests', courtD);
+    expect(gD).toMatchObject({
+      identified_bookings: 7, unidentified_bookings: 1, identities: 5,
+      returning_bookings: 3, new_bookings: 4, returning_pct: 42.9, regulars: 0,
+    });
+    expect(gD.visit_buckets).toEqual([
+      { bucket: '1', identities: 3, bookings: 3 }, // u1, u3, p5
+      { bucket: '2_3', identities: 2, bookings: 4 }, // u4 (account + phone), u6
+      { bucket: '4_6', identities: 0, bookings: 0 },
+      { bucket: '7_plus', identities: 0, bookings: 0 },
+    ]);
+    expect(gD.by_week.reduce((acc, w) => acc + w.bookings, 0)).toBe(8);
+
+    const gE = await ownerData<Guests>('analytics_courts_guests', courtE);
+    expect(gE).toMatchObject({
+      identified_bookings: 1, unidentified_bookings: 0, identities: 1,
+      returning_bookings: 0, new_bookings: 1, returning_pct: 0,
+    });
+    expect(gE.visit_buckets[0]).toEqual({ bucket: '1', identities: 1, bookings: 1 });
+
+    const eD = await ownerData<Endings>('analytics_courts_endings', courtD);
+    expect(eD.cancellations.by_type).toEqual([
+      { key: 'returning', n: 0, bookings_total: 3 },
+      { key: 'new', n: 0, bookings_total: 4 },
+      { key: 'unidentified', n: 0, bookings_total: 1 },
+    ]);
+    expect(eD.no_shows.by_type).toEqual(eD.cancellations.by_type);
+    const eE = await ownerData<Endings>('analytics_courts_endings', courtE);
+    expect(eE.cancellations.by_type).toEqual([{ key: 'new', n: 0, bookings_total: 1 }]);
   });
 
   // -------------------------------------------------------------------------

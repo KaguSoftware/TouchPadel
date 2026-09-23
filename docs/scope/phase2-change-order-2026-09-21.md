@@ -4,6 +4,10 @@
 **From:** Kagu Web Studio (Parsa Mansouri)
 **To:** Touch Padel (Mustafa)
 **Status:** for review and signature. Nothing in it is started before it is signed.
+**Revised 2026-09-23:** milestones 3 and 4 in section 3 (and their names in section 6) updated for
+two changes of 2026-09-22 — Customer 360 removed at Touch's request, AI receipt scanning deferred —
+and to record that the Touch Shop is built and awaiting acceptance. Nothing else changed; the fees
+and the signatures are still blank.
 
 ---
 
@@ -64,8 +68,8 @@ calendar, and are an order of magnitude, not a quotation; the fee and the dates 
 | **0** | **Phase 1 close-out** | The security, correctness and contract items found in the 2026-09-19 audit, closed before any new table is built: the offline replay path can no longer lose a till write, manager PINs are protected on the five money operations, guest profile fields are validated, the price a guest is quoted is the price they are charged, a device can be retired from offline mode, till refunds and voids go on the durable queue, the release pipeline is gated, and the hosted database is brought up to date on a rehearsed push. | none | 3 weeks (about three quarters done) |
 | **1** | **Multi-venue** | The second branch. Every court, table, tab, order, stock movement and setting learns which venue it belongs to; one owner over all branches, managers per branch, one stock location per branch, shared guests. Owner venue switcher, venue picker in the guest app, venue axis on every report. | 0 | 6 to 7 weeks |
 | **2** | **Online payment (Qi Card)** | Deposits and balances paid online for court bookings, on a hosted Qi page, with refunds and a no-show policy. Money paid online appears in day close and in the reports beside desk payments. | 1, plus Qi credentials for go-live | 3 to 4 weeks (plus Qi's own lead time) |
-| **3** | **Customers 360 and loyalty** | One customer record across bookings, cafe, shop, lessons and matches, with lifetime value and a timeline. Points earned on spend in every part of the business, three tiers over a rolling twelve months, and a rewards catalogue. Includes sign-in at checkout on the cafe website, which is what lets a cafe order earn points. | 1 | 6 to 7 weeks |
-| **4** | **Shop and AI receipts** | Retail products and variants sold on the till and counted in stock, with suppliers. A staff member photographs a supplier receipt from a code on the till, the lines are read, matched to items and shown for a human to confirm before anything enters the ledger. | 1 | 5 to 6 weeks |
+| **3** | **Loyalty and web sign-in** | Points earned on spend in every part of the business, three tiers over a rolling twelve months, and a rewards catalogue. Includes sign-in at checkout on the cafe website, which is what lets a cafe order earn points. Customer 360 (one customer record with lifetime value and a timeline) was removed from this milestone at Touch's request on 2026-09-22. | 1 | 6 to 7 weeks |
+| **4** | **Touch Shop (AI receipts deferred)** | Retail products and variants sold on the till and counted in stock, with suppliers. Built 2026-09-22, awaiting acceptance. AI receipt scanning (a supplier receipt photographed, read, matched to items and confirmed by a human) is deferred and is not part of this milestone. | 1 | 5 to 6 weeks |
 | **5** | **Coaching** | Coaches, availability, lesson types, courses, enrolment, and commission settlement. Coaches are guests with a coach record and use a coach mode in the phone app; they are not staff accounts. | 1, 2 | 4 to 5 weeks |
 | **6** | **Open matches, then tournaments** | Open matches with four seats and seat splitting, then tournaments and leagues: Americano and Mexicano first, then knockout, then leagues, with entries, scoring and standings. | 1, 2, 5 | 8 to 9 weeks |
 
@@ -115,8 +119,8 @@ Phase 1 commercial terms.
 | 0 | Phase 1 close-out | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | 1 | Multi-venue | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | 2 | Online payment (Qi Card) | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
-| 3 | Customers 360 and loyalty | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
-| 4 | Shop and AI receipts | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| 3 | Loyalty and web sign-in | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| 4 | Touch Shop | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | 5 | Coaching | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | 6 | Open matches and tournaments | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | | **Total** | `[            ]` | | | |
@@ -178,6 +182,10 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 **من:** Kagu Web Studio (پارسا منصوري)
 **إلى:** تاتش بادل (مصطفى)
 **الحالة:** للمراجعة والتوقيع. لا يبدأ أي بند فيه قبل توقيعه.
+**مراجعة ٢٠٢٦-٠٩-٢٣:** حُدِّثت المرحلتان الثالثة والرابعة في القسم الثالث (واسماهما في القسم
+السادس) لتعكسا تغييرين في ٢٠٢٦-٠٩-٢٢: إزالة ملف العميل الشامل بطلب من تاتش، وتأجيل قراءة الفواتير
+بالذكاء الاصطناعي، ولتسجيل أن متجر تاتش قد بُني وينتظر الاعتماد. لم يتغيّر شيء آخر، وما زالت
+الأتعاب والتواقيع فارغة.
 
 ---
 
@@ -236,8 +244,8 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 | **٠** | **إغلاق المرحلة الأولى** | معالجة بنود الأمان والصحة والعقد التي كشفها تدقيق ٢٠٢٦-٠٩-١٩، قبل بناء أي جدول جديد: لم يعد ممكناً أن يضيع أي إدخال من الكاشير في مسار العمل دون اتصال، وحماية أرقام تعريف المدير السرية على عمليات المال الخمس، والتحقق من حقول ملف الضيف، وأن يكون السعر المعروض على الضيف هو السعر المحتسب عليه، وإمكانية سحب جهاز من وضع عدم الاتصال، ووضع عمليات الاسترجاع والإلغاء في الكاشير على الطابور الدائم، ووضع بوابة موافقة على خط إصدار البرنامج، وتحديث قاعدة البيانات المستضافة عبر دفعة مُجرَّبة مسبقاً. | لا شيء | ٣ أسابيع (أُنجز نحو ثلاثة أرباعها) |
 | **١** | **تعدد الفروع** | الفرع الثاني. كل ملعب وطاولة وفاتورة وطلب وحركة مخزون وإعداد يعرف إلى أي فرع ينتمي؛ مالك واحد فوق كل الفروع، ومدراء لكل فرع، وموقع مخزون واحد لكل فرع، وضيوف مشتركون. مبدّل فروع للمالك، واختيار الفرع في تطبيق الضيف، ومحور الفرع في كل تقرير. | ٠ | ٦ إلى ٧ أسابيع |
 | **٢** | **الدفع الإلكتروني (Qi Card)** | دفع العربون والرصيد إلكترونياً لحجوزات الملاعب عبر صفحة Qi المستضافة، مع الاسترجاع وسياسة عدم الحضور. والمبالغ المدفوعة إلكترونياً تظهر في إقفال اليوم وفي التقارير إلى جانب مدفوعات الكاشير. | ١، مع بيانات اعتماد Qi للتشغيل الفعلي | ٣ إلى ٤ أسابيع (إضافةً إلى مدة Qi نفسها) |
-| **٣** | **ملف العميل الشامل والولاء** | سجل واحد للعميل عبر الحجوزات والكافيه والمتجر والدروس والمباريات، مع القيمة الإجمالية للعميل وخط زمني لتعاملاته. ونقاط تُكتسب على الإنفاق في كل أقسام العمل، وثلاث فئات على مدى اثني عشر شهراً متحركة، وكتالوج مكافآت. ويشمل تسجيل الدخول عند الدفع في موقع الكافيه، وهو ما يتيح لطلب الكافيه أن يكسب نقاطاً. | ١ | ٦ إلى ٧ أسابيع |
-| **٤** | **المتجر وقراءة الفواتير** | منتجات التجزئة وأصنافها تُباع على الكاشير وتُحتسب في المخزون، مع المورّدين. يصوّر الموظف فاتورة المورّد انطلاقاً من رمز يظهر على الكاشير، فتُقرأ سطورها وتُطابَق بالأصناف وتُعرض ليؤكدها إنسان قبل دخول أي شيء إلى السجل. | ١ | ٥ إلى ٦ أسابيع |
+| **٣** | **الولاء وتسجيل الدخول عبر الموقع** | نقاط تُكتسب على الإنفاق في كل أقسام العمل، وثلاث فئات على مدى اثني عشر شهراً متحركة، وكتالوج مكافآت. ويشمل تسجيل الدخول عند الدفع في موقع الكافيه، وهو ما يتيح لطلب الكافيه أن يكسب نقاطاً. أما ملف العميل الشامل (سجل واحد للعميل مع قيمته الإجمالية وخط زمني لتعاملاته) فقد أُزيل من هذه المرحلة بطلب من تاتش في ٢٠٢٦-٠٩-٢٢. | ١ | ٦ إلى ٧ أسابيع |
+| **٤** | **متجر تاتش (قراءة الفواتير مؤجَّلة)** | منتجات التجزئة وأصنافها تُباع على الكاشير وتُحتسب في المخزون، مع المورّدين. بُني في ٢٠٢٦-٠٩-٢٢ وينتظر الاعتماد. أما قراءة فواتير المورّدين بالذكاء الاصطناعي (تصوير الفاتورة وقراءة سطورها ومطابقتها بالأصناف وتأكيدها من إنسان) فمؤجَّلة، وليست جزءاً من هذه المرحلة. | ١ | ٥ إلى ٦ أسابيع |
 | **٥** | **التدريب** | المدربون وأوقات توفرهم وأنواع الدروس والدورات والتسجيل وتسوية العمولات. والمدربون ضيوف لهم سجل مدرب ويستخدمون وضع المدرب في تطبيق الهاتف، وليسوا حسابات موظفين. | ١، ٢ | ٤ إلى ٥ أسابيع |
 | **٦** | **المباريات المفتوحة ثم البطولات** | مباريات مفتوحة بأربعة مقاعد مع تقسيم المقاعد، ثم البطولات والدوريات: أمريكانو وميكسيكانو أولاً، ثم خروج المغلوب، ثم الدوريات، مع التسجيل واحتساب النتائج والترتيب. | ١، ٢، ٥ | ٨ إلى ٩ أسابيع |
 
@@ -287,8 +295,8 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 | ٠ | إغلاق المرحلة الأولى | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | ١ | تعدد الفروع | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | ٢ | الدفع الإلكتروني (Qi Card) | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
-| ٣ | ملف العميل الشامل والولاء | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
-| ٤ | المتجر وقراءة الفواتير | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| ٣ | الولاء وتسجيل الدخول عبر الموقع | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| ٤ | متجر تاتش | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | ٥ | التدريب | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | ٦ | المباريات المفتوحة والبطولات | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | | **المجموع** | `[            ]` | | | |
