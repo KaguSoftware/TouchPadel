@@ -15,6 +15,16 @@ export function isLive(status: string): boolean {
   return BLOCKING_STATUSES.has(status);
 }
 
+/**
+ * Who the booking is for. The desk types a name into `guest_name`; a booking
+ * made from the app carries only `guest_id`, and the name lives on the joined
+ * profile. Reading `guest_name` alone labelled every account booking a walk-in.
+ * Null here means a genuine nameless walk-in.
+ */
+export function guestNameOf(r: Pick<ReservationRow, 'guest_name' | 'guest'> | null | undefined): string | null {
+  return r?.guest_name ?? r?.guest?.full_name ?? null;
+}
+
 const KNOWN: readonly BookingStatus[] = ['pending', 'confirmed', 'arrived', 'completed', 'cancelled', 'no_show', 'expired'];
 
 /** Server status → the seven-state indicator. Unknown strings render as-is via the indicator. */
@@ -255,6 +265,9 @@ export const OVERRIDE_REFUSAL_CODES: ReadonlySet<string> = new Set([
   'CANCELLATION_WINDOW',
   'REASON_REQUIRED',
   'RESERVATION_NOT_STARTED',
+  // 0150: the start would land before now. A rule, not a failure — the booking
+  // stays where it is and the control stays on screen.
+  'RESERVATION_IN_PAST',
 ]);
 
 export function isOverrideRefusal(code: string | undefined): boolean {

@@ -49,6 +49,9 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'GUEST_REQUIRED',
   'INVALID_RANGE',
   'CANCELLATION_WINDOW',
+  // 0150: a move whose START would land before now. The desk no longer offers
+  // one, so this is the wall behind the wall (and the offline replay's answer).
+  'RESERVATION_IN_PAST',
   'RESERVATION_NOT_FOUND',
   'REASON_REQUIRED',
   'INVALID_VALUE',

@@ -189,6 +189,18 @@ export function BookingDetailScreen() {
   const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
   const durationMs = r ? new Date(r.end_at).getTime() - new Date(r.start_at).getTime() : 0;
   const canShorten = live && durationMs - STEP_MIN * 60_000 >= minDurationMin * 60_000;
+  // Where the date + time boxes currently point, and whether that is a start
+  // in the past. Same rule as the calendar's drag: moving a booking backwards
+  // past now takes it off the guest's app while the desk still shows it
+  // confirmed (Parsa, 2026-09-23). A start that does not move is a court
+  // change and stays allowed.
+  const moveStart =
+    move && /^\d{2}:\d{2}$/.test(move.time)
+      ? wallTimeToUtc(move.date, Number(move.time.slice(0, 2)) * 60 + Number(move.time.slice(3, 5)), tz)
+      : null;
+  const movePast = Boolean(
+    r && moveStart && moveStart.getTime() < Date.now() && moveStart.getTime() !== new Date(r.start_at).getTime(),
+  );
   const customer = customerQ.data;
   const guestName = r ? (r.guest_name ?? customer?.customer.full_name ?? null) : null;
   const title = !r ? tr('ws.courtDesk.detail.title') : r.kind === 'booking' ? (guestName ?? tr('ws.courtDesk.detail.walkIn')) : tr(`ws.courtDesk.detail.kindLabel.${r.kind}`);
@@ -372,8 +384,8 @@ export function BookingDetailScreen() {
                       <Button
                         kind="primary"
                         busy={busy === 'move'}
-                        disabled={busy !== null || !/^\d{2}:\d{2}$/.test(move.time)}
-                        disabledReason={tr('ws.courtDesk.detail.moveNeedsTime')}
+                        disabled={busy !== null || !/^\d{2}:\d{2}$/.test(move.time) || movePast}
+                        disabledReason={movePast ? tr('ws.courtDesk.detail.movePast') : tr('ws.courtDesk.detail.moveNeedsTime')}
                         onClick={() => setPending('move')}
                       >
                         {tr('ws.courtDesk.detail.moveSubmit')}

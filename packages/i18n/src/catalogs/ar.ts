@@ -1321,7 +1321,7 @@ export const ar: Messages = {
       iqd: '{amount} د.ع',
       unitLabel: 'الوحدة',
       unit: { g: 'غ', ml: 'مل', pc: 'قطعة' },
-      status: { low: 'على وشك النفاد', belowPar: 'دون الحد', countNeeded: 'يحتاج جردًا', ok: 'جيد' },
+      status: { out: 'نفد المخزون', low: 'على وشك النفاد', belowPar: 'دون الحد', countNeeded: 'يحتاج جردًا', ok: 'جيد' },
       movement: {
         goods_in: 'استلام',
         production_in: 'حُضّر في المطبخ',
@@ -1843,6 +1843,7 @@ export const ar: Messages = {
       MIXED_BASKET: 'أصناف الكافيه وأصناف المتجر تُرسل كطلبين. أرسل مجددًا.',
       SHOP_ITEM_NOT_ORDERABLE: 'منتجات المتجر تُباع على الكاونتر، لا من الطاولة.',
       NOT_MOVABLE: 'لم يعد بالإمكان نقل هذا الحجز.',
+      RESERVATION_IN_PAST: 'لا يمكن نقل الحجز إلى وقت قد مضى.',
       NOT_EXTENDABLE: 'لم يعد بالإمكان تمديد هذا الحجز.',
       NOT_CANCELLABLE: 'لم يعد بالإمكان إلغاء هذا الحجز.',
       INVALID_SPLIT_COUNT: 'يجب أن يكون عدد التقسيم بين 1 و50.',

@@ -14,7 +14,9 @@
  *    the Record button with the reason. The old screen silently dropped
  *    half-filled lines when the delivery was recorded.
  *  - The expiry hint says what a blank box will actually do for THIS
- *    ingredient (its shelf life, or no expiry at all).
+ *    ingredient (its shelf life, or no expiry at all), and the date cannot be
+ *    in the past — the picker starts at today and a typed past date holds the
+ *    Record button. Stock that is already expired never belongs on the shelf.
  *  - The supplier fills itself from the first ingredient's supplier.
  *
  * Touch Shop (0145): retail stock is received here too, and the supplier is
@@ -32,6 +34,7 @@ import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
 import { MessagePresenter, Money, PageHeader, Panel } from '../../components/kit';
 import { useStockFormat } from './stockUi';
+import { todayIso } from '../admin/menu/availability';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
 import { SK, fetchIngredients, fetchSuppliers, type IngredientRow } from './stockKeys';
 
@@ -91,8 +94,11 @@ export function ReceiveDelivery() {
     }
   }
 
+  // One calendar date for the whole form: the expiry boxes cannot be set
+  // earlier than today, and the same date decides whether they are valid.
+  const today = todayIso();
   const started = lines.filter((l) => !isBlankLine(l));
-  const problems = started.filter((l) => lineProblem(l) !== null);
+  const problems = started.filter((l) => lineProblem(l, today) !== null);
   const shortCount = lines.filter(isShort).length;
   const canRecord = started.length > 0 && problems.length === 0;
 
@@ -174,6 +180,7 @@ export function ReceiveDelivery() {
                 key={l.key}
                 index={i}
                 line={l}
+                today={today}
                 ingredients={ingredients}
                 ingredient={byId.get(l.ingredientId) ?? null}
                 busy={busy}
@@ -220,6 +227,7 @@ export function ReceiveDelivery() {
 function LineEditor({
   index,
   line,
+  today,
   ingredients,
   ingredient,
   busy,
@@ -230,6 +238,7 @@ function LineEditor({
 }: {
   index: number;
   line: DraftLine;
+  today: string;
   ingredients: IngredientRow[];
   ingredient: IngredientRow | null;
   busy: boolean;
@@ -240,7 +249,7 @@ function LineEditor({
 }) {
   const { tr, locale } = useLocale();
   const fmt = useStockFormat();
-  const problem = lineProblem(line);
+  const problem = lineProblem(line, today);
   const short = isShort(line);
   const unit = ingredient ? fmt.unit(ingredient.unit) : null;
   const withUnit = (label: string) => (unit ? `${label} (${unit})` : label);
@@ -346,8 +355,23 @@ function LineEditor({
         >
           <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: onlyNumber(e.target.value) })} />
         </Field>
-        <Field label={tr('ws.manager.stock.goodsIn.expiry')} optional hint={expiryHint} style={{ marginBlockEnd: 0 }}>
-          <input style={inputStyle} type="date" dir="ltr" value={line.expiryDate} disabled={busy} onChange={(e) => onPatch({ expiryDate: e.target.value })} />
+        <Field
+          label={tr('ws.manager.stock.goodsIn.expiry')}
+          optional
+          hint={expiryHint}
+          style={{ marginBlockEnd: 0 }}
+          error={problem === 'expiry' ? tr('ws.manager.stock.goodsIn.problem.expiry') : undefined}
+        >
+          {/* `min` greys out the past in the picker; lineProblem catches a typed one and holds Record. */}
+          <input
+            style={inputStyle}
+            type="date"
+            dir="ltr"
+            min={today}
+            value={line.expiryDate}
+            disabled={busy}
+            onChange={(e) => onPatch({ expiryDate: e.target.value })}
+          />
         </Field>
       </div>
     </li>

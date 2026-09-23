@@ -14,7 +14,13 @@ export interface ReservationRow {
   start_at: string;
   end_at: string;
   guest_id: string | null;
+  /** Walk-in name typed at the desk. A booking made from an account leaves this null — see `guest`. */
   guest_name: string | null;
+  /**
+   * The account the booking was made from, joined through `guest_id`. Absent on
+   * rows a previous build cached offline, so readers go through `guestNameOf`.
+   */
+  guest?: { full_name: string | null } | null;
   guest_phone: string | null;
   price_iqd: number | null;
   hold_expires_at: string | null;
@@ -25,7 +31,8 @@ export interface ReservationRow {
 }
 
 export const RESERVATION_COLUMNS =
-  'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes';
+  'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes,' +
+  ' guest:profiles!reservations_guest_id_fkey(full_name)';
 
 // ---------------------------------------------------------------------------
 // 0065 customers (build plan §4)
