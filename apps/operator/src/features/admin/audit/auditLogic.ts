@@ -13,6 +13,9 @@
  * tested without a database.
  */
 
+import type { CsvCell } from '../../analytics/csv';
+import { cellText, humanizeCode, momentCells, shortId, valueCell } from '../../analytics/csvFormat';
+
 export interface AuditRow {
   id: number;
   at: string;
@@ -114,6 +117,13 @@ export interface FieldChange {
   after: string;
 }
 
+/** The same change with its stored values untouched, so an export can format them itself. */
+export interface RawFieldChange {
+  field: string;
+  before: unknown;
+  after: unknown;
+}
+
 /** Render a jsonb leaf the way a manager reads it, not the way JSON prints it. */
 export function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '—';
@@ -127,27 +137,33 @@ export function formatValue(value: unknown): string {
 }
 
 /**
- * The fields that actually changed between `before` and `after`.
+ * The fields that actually changed between `before` and `after`, values as
+ * stored.
  *
  * A raw jsonb pair is unreadable at a glance — `menu_items` has eighteen
  * columns and a sold-out toggle changes one. Insert rows (`before` null) and
  * delete rows (`after` null) are shown whole, because for those the whole row
  * IS the change.
  */
-export function diffFields(before: unknown, after: unknown): FieldChange[] {
+export function rawDiffFields(before: unknown, after: unknown): RawFieldChange[] {
   const b = isRecord(before) ? before : null;
   const a = isRecord(after) ? after : null;
   if (!b && !a) return [];
 
   const keys = [...new Set([...Object.keys(b ?? {}), ...Object.keys(a ?? {})])].sort();
-  const out: FieldChange[] = [];
+  const out: RawFieldChange[] = [];
   for (const field of keys) {
     const bv = b ? b[field] : undefined;
     const av = a ? a[field] : undefined;
     if (sameValue(bv, av)) continue;
-    out.push({ field, before: formatValue(bv), after: formatValue(av) });
+    out.push({ field, before: bv, after: av });
   }
   return out;
+}
+
+/** The changed fields with both sides already said in words — what the screen shows. */
+export function diffFields(before: unknown, after: unknown): FieldChange[] {
+  return rawDiffFields(before, after).map((c) => ({ field: c.field, before: formatValue(c.before), after: formatValue(c.after) }));
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -207,40 +223,116 @@ export function inPeriod(row: Pick<AuditRow, 'at'>, bounds: PeriodBounds): boole
 }
 
 export interface AuditCsvLabels {
-  when: string;
-  actor: string;
+  date: string;
+  time: string;
+  who: string;
   role: string;
   authoriser: string;
-  action: string;
-  entity: string;
-  entityId: string;
+  what: string;
+  record: string;
+  field: string;
+  was: string;
+  became: string;
   reason: string;
-  device: string;
-  changes: string;
+  station: string;
+  actionCode: string;
+  recordType: string;
+  recordId: string;
 }
 
-/** Headers + one row per entry; changes are flattened to `field: before → after; …`. */
+/** The words the screen already says for a row, reused so the file matches the screen. */
+export interface AuditCsvWords {
+  /** The person, by name — not a uuid. */
+  actor: (row: AuditRow) => string;
+  /** Who entered the PIN, when the action was escalated to someone else. */
+  authoriser: (row: AuditRow) => string | null;
+  role: (role: string | null) => string | null;
+  /** The stored action in plain language ("Refund given"), not `payment.refund`. */
+  action: (action: string) => string;
+  /** What the record is called — the menu item's name, the guest's name. */
+  record: (row: AuditRow) => string | null;
+  reason: (code: string) => string;
+  yes: string;
+  no: string;
+}
+
+/**
+ * One row per CHANGED FIELD, not one row per entry.
+ *
+ * The old export put every field of an entry into a single `Changes` cell as
+ * `field: before → after; field: before → after; …`. A menu-item edit has
+ * eighteen columns, so that cell ran to hundreds of characters, spilled across
+ * the whole sheet, could not be filtered, could not be sorted, and could not
+ * be read. It also wrote the raw ISO instant, the raw action code and the full
+ * uuid in the first columns, so the three cells a manager actually reads were
+ * the three hardest to find.
+ *
+ * Now each change is its own row: the entry's columns (when, who, what, which
+ * record) repeat, and `Field` / `Was` / `Became` hold one fact each. That is
+ * the shape a spreadsheet filters and pivots — "show me every price change",
+ * "every field Ahmed touched" — and no cell is longer than a phrase. An entry
+ * whose before/after carry nothing still gets its one row, so no entry is lost.
+ *
+ * Fields are ordered with the ones a person reads first and the ids, tokens
+ * and timestamps after them; every field is still in the file, because the
+ * export is where an investigation that needs them goes.
+ */
 export function auditCsv(
   labels: AuditCsvLabels,
   rows: readonly AuditRow[],
-  names: ReadonlyMap<string, string>,
-): { headers: string[]; rows: (string | number | null)[][] } {
-  const headers = [labels.when, labels.actor, labels.role, labels.authoriser, labels.action, labels.entity, labels.entityId, labels.reason, labels.device, labels.changes];
-  const out = rows.map((r) => [
-    r.at,
-    actorLabel(r.actor_id, r.actor_role, names),
-    r.actor_role,
-    r.authorizer_id ? actorLabel(r.authorizer_id, null, names) : null,
-    r.action,
-    r.entity,
-    r.entity_id,
-    r.reason_code,
-    r.device_id,
-    diffFields(r.before, r.after)
-      .map((c) => `${c.field}: ${c.before} → ${c.after}`)
-      .join('; '),
-  ]);
+  words: AuditCsvWords,
+): { headers: string[]; rows: CsvCell[][] } {
+  const headers = [
+    labels.date,
+    labels.time,
+    labels.who,
+    labels.role,
+    labels.authoriser,
+    labels.what,
+    labels.record,
+    labels.field,
+    labels.was,
+    labels.became,
+    labels.reason,
+    labels.station,
+    labels.actionCode,
+    labels.recordType,
+    labels.recordId,
+  ];
+  const valueWords = { yes: words.yes, no: words.no };
+  const out: CsvCell[][] = [];
+
+  for (const row of rows) {
+    const [day, time] = momentCells(row.at);
+    const head: CsvCell[] = [day, time, cellText(words.actor(row)), words.role(row.actor_role), cellText(words.authoriser(row)), cellText(words.action(row.action)), cellText(words.record(row))];
+    const tail: CsvCell[] = [row.reason_code ? cellText(words.reason(row.reason_code)) : null, cellText(row.device_id), row.action, humanizeCode(row.entity), shortId(row.entity_id)];
+
+    const changes = orderedChanges(row.before, row.after);
+    if (changes.length === 0) {
+      out.push([...head, null, null, null, ...tail]);
+      continue;
+    }
+    for (const change of changes) {
+      out.push([...head, humanizeField(change.field), valueCell(change.before, valueWords), valueCell(change.after, valueWords), ...tail]);
+    }
+  }
   return { headers, rows: out };
+}
+
+/** The changed fields, the ones worth reading first, then ids and timestamps. */
+export function orderedChanges(before: unknown, after: unknown): RawFieldChange[] {
+  const changes = rawDiffFields(before, after);
+  return [...changes].sort((a, b) => {
+    const rank = technicalRank(a.field) - technicalRank(b.field);
+    return rank !== 0 ? rank : a.field.localeCompare(b.field);
+  });
+}
+
+function technicalRank(field: string): number {
+  if (isTechnicalField(field)) return 2;
+  // `created_at` / `updated_at` change on every write and say nothing on their own.
+  if (/_at$/.test(field)) return 1;
+  return 0;
 }
 
 // ---------------------------------------------------------------------------

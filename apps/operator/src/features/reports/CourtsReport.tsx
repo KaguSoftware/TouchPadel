@@ -171,7 +171,8 @@ export function CourtsReportScreen() {
     if (view === 'byHour') {
       return exportTable(base, period, parts, {
         headers: [tr('ws.reports.columns.hour'), tr('ws.reports.courts.columns.bookings')],
-        body: data.byHour.map((h) => [h.hour, h.bookings]),
+        // `07:00`, not a bare `7` in a column headed "Hour".
+        body: data.byHour.map((h) => [`${String(h.hour).padStart(2, '0')}:00`, h.bookings]),
       });
     }
     // Every court figure, whichever of the three court breakdowns is showing.

@@ -260,7 +260,8 @@ function cafeColumns(tr: Tr, locale: Locale) {
         header: tr('ws.reports.cafe.columns.reason'),
         render: (r) => <bdi>{wasteReasonWords(r.reason, tr)}</bdi>,
         sort: (r) => wasteReasonWords(r.reason, tr),
-        csv: (r) => r.reason,
+        // The words, not `wrong_item`: the file says what the screen says.
+        csv: (r) => wasteReasonWords(r.reason, tr),
       },
       n<WasteReasonRow>('count', 'ws.reports.cafe.columns.times', c),
       n<WasteReasonRow>('costIqd', 'ws.reports.cafe.columns.cost', m, true),

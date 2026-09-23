@@ -11,6 +11,7 @@ import {
   varianceSign,
   unpaidPlayedRows,
   type CsvLabels,
+  type DayAdjustmentRow,
   QUEUE_WRITE_KEY,
 } from './dayCloseLogic';
 import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
@@ -58,11 +59,18 @@ describe('variance wording', () => {
 
 describe('dayCloseCsv', () => {
   const labels: CsvLabels = {
-    figure: 'Figure', value: 'Value', count: 'Count', authorisers: 'Authorised by',
+    figure: 'Figure', value: 'Value', count: 'Count', authorisers: 'Authorised by', note: 'Note', partOf: 'Part of the line above',
     cashExpected: 'Cash expected', cashCounted: 'Cash counted', variance: 'Variance',
     cardExpected: 'Card expected', cardBatch: 'Card batch', discounts: 'Discounts', voids: 'Voids',
     refunds: 'Refunds', waste: 'Waste', openingFloat: 'Float', cashPayments: 'Cash in', cardPayments: 'Card in',
     deskCash: 'Desk cash', deskCard: 'Desk card',
+    adjustments: 'Adjustments', date: 'Date', time: 'Time', what: 'What', appliesTo: 'Applies to',
+    reason: 'Reason', amount: 'Amount', appliedBy: 'Applied by', authorisedBy: 'Authorised by', tab: 'Tab id',
+  };
+  const words = {
+    what: (a: DayAdjustmentRow) => `words for ${a.kind}`,
+    scope: (a: DayAdjustmentRow) => (a.order_item_id ? 'One item' : 'The whole bill'),
+    reason: (a: DayAdjustmentRow) => a.reason_code,
   };
   const summary = {
     day_session_id: 'd1', business_date: '2026-09-03', status: 'closed', opening_float_iqd: 50000,
@@ -76,36 +84,51 @@ describe('dayCloseCsv', () => {
     day_session_id: 'd1', business_date: '2026-09-03', cash_expected_iqd: 170000, cash_counted_iqd: 168000,
     cash_variance_iqd: -2000, card_expected_iqd: 80000, card_terminal_batch_iqd: 80000,
   };
+  const figuresOf = (bundle: ReturnType<typeof dayCloseCsv>) => bundle[0]!;
+  const adjustmentsOf = (bundle: ReturnType<typeof dayCloseCsv>) => bundle[1]!;
 
-  it('lays out server figures, the summary with authorisers, then each adjustment', () => {
-    const { headers, rows } = dayCloseCsv(labels, close, summary, [
-      { adjustment_id: 'a1', tab_id: 't1', kind: 'discount', value: 10, amount_iqd: 5000, reason_code: 'comp', created_at: '', applied_by_name: 'Sara', authorized_by_name: 'Dev Manager' },
-    ], (names) => names.join(', '), (adj) => `words for ${adj.kind}`);
-    expect(headers).toEqual(['Figure', 'Value', 'Count', 'Authorised by']);
-    expect(rows).toContainEqual(['Cash expected', 170000, null, null]);
-    expect(rows).toContainEqual(['Variance', -2000, null, null]);
-    expect(rows).toContainEqual(['Discounts', 15000, 2, 'Dev Manager, Dev Owner']);
-    // The adjustment line carries the screen's words, not the enum.
-    expect(rows[rows.length - 1]).toEqual(['words for discount', 5000, 1, 'Dev Manager']);
+  const adjustment: DayAdjustmentRow = {
+    adjustment_id: 'a1', tab_id: '9f8e7d6c-1111-4222-8333-444455556666', kind: 'discount', value: 10, amount_iqd: 5000,
+    reason_code: 'comp', created_at: '2026-09-03T18:42:00', applied_by_name: 'Sara', authorized_by_name: 'Dev Manager',
+  };
+
+  it('is two tables, not one: the figures, then the adjustments', () => {
+    const bundle = dayCloseCsv(labels, close, summary, [adjustment], (names) => names.join(', '), words);
+    expect(bundle.map((t) => t.name)).toEqual(['figures', 'adjustments']);
   });
 
-  it('lists the court desk’s cash and card right after the totals they are part of', () => {
-    const { rows } = dayCloseCsv(labels, null, summary, [], (n) => n.join(', '), () => '');
+  it('lays out the server figures with the authorisers', () => {
+    const { headers, rows } = figuresOf(dayCloseCsv(labels, close, summary, [], (names) => names.join(', '), words));
+    expect(headers).toEqual(['Figure', 'Value', 'Count', 'Authorised by', 'Note']);
+    expect(rows).toContainEqual(['Cash expected', 170000, null, null, null]);
+    expect(rows).toContainEqual(['Variance', -2000, null, null, null]);
+    expect(rows).toContainEqual(['Discounts', 15000, 2, 'Dev Manager, Dev Owner', null]);
+  });
+
+  it('gives each adjustment its own row with the date, the time and each fact in a column', () => {
+    const { headers, rows } = adjustmentsOf(dayCloseCsv(labels, close, summary, [adjustment], (n) => n.join(', '), words));
+    expect(headers).toEqual(['Date', 'Time', 'What', 'Applies to', 'Reason', 'Amount', 'Applied by', 'Authorised by', 'Tab id']);
+    // No sentence crammed into the figure column, and the uuid is the short form.
+    expect(rows).toEqual([['2026-09-03', '18:42', 'words for discount', 'The whole bill', 'comp', 5000, 'Sara', 'Dev Manager', '9f8e7d6c']]);
+  });
+
+  it('lists the court desk’s cash and card right after the totals they are part of, and says they are part of them', () => {
+    const { rows } = figuresOf(dayCloseCsv(labels, null, summary, [], (n) => n.join(', '), words));
     const names = rows.map((r) => r[0]);
-    expect(rows).toContainEqual(['Desk cash', 30000, null, null]);
-    expect(rows).toContainEqual(['Desk card', 0, null, null]);
+    expect(rows).toContainEqual(['Desk cash', 30000, null, null, 'Part of the line above']);
+    expect(rows).toContainEqual(['Desk card', 0, null, null, 'Part of the line above']);
     expect(names.indexOf('Desk cash')).toBe(names.indexOf('Cash in') + 1);
     expect(names.indexOf('Desk card')).toBe(names.indexOf('Card in') + 1);
   });
 
   it('leaves the desk lines out when the server did not send them', () => {
     const older = { ...summary, desk_cash_iqd: undefined, desk_card_iqd: undefined };
-    const { rows } = dayCloseCsv(labels, null, older, [], (n) => n.join(', '), () => '');
+    const { rows } = figuresOf(dayCloseCsv(labels, null, older, [], (n) => n.join(', '), words));
     expect(rows.some((r) => r[0] === 'Desk cash' || r[0] === 'Desk card')).toBe(false);
   });
 
   it('exports what it has before the close (no close figures yet)', () => {
-    const { rows } = dayCloseCsv(labels, null, summary, [], (n) => n.join(', '), () => '');
+    const { rows } = figuresOf(dayCloseCsv(labels, null, summary, [], (n) => n.join(', '), words));
     expect(rows.some((r) => r[0] === 'Cash expected')).toBe(false);
     expect(rows.some((r) => r[0] === 'Cash in')).toBe(true);
   });

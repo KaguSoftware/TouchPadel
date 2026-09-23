@@ -25,6 +25,7 @@ import { useToast } from '../../components/toast';
 import { Button, PinReasonModal } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
 import { downloadCsv, toCsv } from '../analytics/csv';
+import { dateOnlyCell, dayCell } from '../analytics/csvFormat';
 import { CardTitle } from '../ops/OpsVisuals';
 import { useStockFormat } from './stockUi';
 import { SK, fetchExpiryWindow, fetchSummary, type SummaryBatch } from './stockKeys';
@@ -72,10 +73,11 @@ export function Expiry() {
       tr('ws.manager.stock.expiry.state'),
     ];
     const rows = [
-      ...expired.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpired')]),
-      ...expiring.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpiring')]),
+      ...expired.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), dateOnlyCell(b.expiryDate), b.valueIqd, tr('ws.manager.stock.expiry.stateExpired')]),
+      ...expiring.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), dateOnlyCell(b.expiryDate), b.valueIqd, tr('ws.manager.stock.expiry.stateExpiring')]),
     ];
-    downloadCsv('expiry.csv', toCsv(headers, rows));
+    // The day it was taken, so two exports a week apart are not the same file.
+    downloadCsv(`expiry-${dayCell(new Date().toISOString())}.csv`, toCsv(headers, rows));
   }
 
   /** "today" / "tomorrow" / "in 3 days" — relative words read faster than a date. */

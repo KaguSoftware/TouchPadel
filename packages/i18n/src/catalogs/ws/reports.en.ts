@@ -268,6 +268,8 @@ export const reportsEn = {
       used: 'Used',
       cost: 'Cost',
       countedOn: 'Counted',
+      /** CSV only: the clock beside the date, so both sort as a spreadsheet expects. */
+      countedAtTime: 'Counted at',
       expected: 'Expected',
       counted: 'Found',
       difference: 'Difference',

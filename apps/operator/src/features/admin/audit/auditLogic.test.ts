@@ -225,13 +225,66 @@ describe('periodBounds / inPeriod', () => {
 });
 
 describe('auditCsv', () => {
-  it('names the actor and flattens the change list into one cell', () => {
-    const names = new Map([['a0000000-0000-4000-8000-000000000001', 'Dev Owner']]);
-    const labels = { when: 'When', actor: 'Actor', role: 'Role', authoriser: 'Auth', action: 'Action', entity: 'Record', entityId: 'Id', reason: 'Reason', device: 'Station', changes: 'Changes' };
-    const { headers, rows } = auditCsv(labels, [row({ before: { sold_out: false }, after: { sold_out: true } })], names);
-    expect(headers).toHaveLength(10);
-    expect(rows[0]![1]).toBe('Dev Owner');
-    expect(rows[0]![9]).toBe('sold_out: false → true');
+  const labels = {
+    date: 'Date', time: 'Time', who: 'Who', role: 'Role', authoriser: 'Authorised by',
+    what: 'What happened', record: 'Record', field: 'Field changed', was: 'Was', became: 'Became',
+    reason: 'Reason', station: 'Station', actionCode: 'Action code', recordType: 'Record type', recordId: 'Record id',
+  };
+  const words = {
+    actor: () => 'Dev Owner',
+    authoriser: () => null,
+    role: (r: string | null) => (r === 'manager' ? 'Manager' : r),
+    action: (a: string) => (a === 'menu.item.sold_out' ? 'Item sold out or back on sale' : a),
+    record: () => 'Iced Latte',
+    reason: (c: string) => (c === 'comp' ? 'Complimentary' : c),
+    yes: 'Yes',
+    no: 'No',
+  };
+
+  it('gives every changed field its own row instead of one cell holding the list', () => {
+    const { headers, rows } = auditCsv(
+      labels,
+      [row({ action: 'menu.item.sold_out', entity: 'menu_items', before: { sold_out: false, price_iqd: 5000 }, after: { sold_out: true, price_iqd: 6000 } })],
+      words,
+    );
+    expect(headers).toEqual(['Date', 'Time', 'Who', 'Role', 'Authorised by', 'What happened', 'Record', 'Field changed', 'Was', 'Became', 'Reason', 'Station', 'Action code', 'Record type', 'Record id']);
+    expect(rows).toHaveLength(2);
+    // The entry's columns repeat; Field / Was / Became hold one fact each.
+    expect(rows.map((r) => [r[7], r[8], r[9]])).toEqual([
+      ['Price (IQD)', '5000', '6000'],
+      ['Sold out', 'No', 'Yes'],
+    ]);
+    expect(rows[0]!.slice(2, 7)).toEqual(['Dev Owner', 'Manager', null, 'Item sold out or back on sale', 'Iced Latte']);
+    expect(rows[0]!.slice(10)).toEqual(['Complimentary', 'TILL-01', 'menu.item.sold_out', 'Menu items', 'tab-1']);
+  });
+
+  it('writes the date and the time in their own columns, not an ISO instant', () => {
+    const at = new Date(2026, 7, 28, 9, 5).toISOString();
+    const { rows } = auditCsv(labels, [row({ at })], words);
+    expect(rows[0]!.slice(0, 2)).toEqual(['2026-08-28', '09:05']);
+  });
+
+  it('keeps an entry that changed nothing, as one row', () => {
+    const { rows } = auditCsv(labels, [row({ before: null, after: null })], words);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.slice(7, 10)).toEqual([null, null, null]);
+  });
+
+  it('puts the fields worth reading before the ids and the timestamps', () => {
+    const { rows } = auditCsv(
+      labels,
+      [row({ before: { updated_at: '2026-01-01T00:00:00Z', tab_id: 'x', name_en: 'Old' }, after: { updated_at: '2026-01-02T00:00:00Z', tab_id: 'y', name_en: 'New' } })],
+      words,
+    );
+    expect(rows.map((r) => r[7])).toEqual(['Name en', 'Updated at', 'Tab id']);
+  });
+
+  it('cuts a value that would otherwise spill across the sheet', () => {
+    const long = 'x'.repeat(400);
+    const { rows } = auditCsv(labels, [row({ before: { note: '' }, after: { note: long } })], words);
+    const became = rows[0]![9] as string;
+    expect(became.length).toBeLessThanOrEqual(160);
+    expect(became.endsWith('…')).toBe(true);
   });
 });
 

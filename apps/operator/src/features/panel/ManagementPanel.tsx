@@ -54,7 +54,7 @@ import {
   type Period,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { downloadCsv, toCsvSections } from '../analytics/csv';
+import { downloadCsvBundle } from '../analytics/csv';
 import { DrillDialog } from '../reports/DrillDialog';
 import { readDrill } from '../reports/reportPayloads';
 import { LiveFloor } from '../floor/LiveFloor';
@@ -109,19 +109,18 @@ export function ManagementPanelScreen() {
     setExportFailed(false);
     try {
       const transactions = await Promise.all(DRILLABLE_FIGURES.filter((k) => figures.has(k)).map((k) => fetchAllTransactions(k, period, fetchDrill)));
-      const csv = toCsvSections(
-        buildPanelExport({
-          period,
-          compare,
-          comparison: compare === 'none' ? null : (headlineQ.data?.comparison ?? null),
-          figures,
-          transactions,
-          exportedAt: new Date(),
-          tr,
-          locale,
-        }),
-      );
-      downloadCsv(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}.csv`, csv);
+      const bundle = buildPanelExport({
+        period,
+        compare,
+        comparison: compare === 'none' ? null : (headlineQ.data?.comparison ?? null),
+        figures,
+        transactions,
+        exportedAt: new Date(),
+        tr,
+        locale,
+      });
+      // Three tables, so three files: `downloadCsvBundle` zips them.
+      downloadCsvBundle(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}`, bundle);
     } catch (error) {
       console.error('panel export failed', error);
       setExportFailed(true);

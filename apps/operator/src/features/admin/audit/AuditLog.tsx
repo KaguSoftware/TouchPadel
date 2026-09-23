@@ -264,21 +264,37 @@ export function AuditLog() {
   ];
 
   function exportCsv() {
+    const csvKey = (k: string) => tr(`ws.manager.audit.csv.${k}` as MessageKey);
     const { headers, rows: out } = auditCsv(
       {
-        when: tr('ws.manager.audit.csv.when'),
-        actor: tr('ws.manager.audit.csv.actor'),
-        role: tr('ws.manager.audit.csv.role'),
-        authoriser: tr('ws.manager.audit.csv.authoriser'),
-        action: tr('ws.manager.audit.csv.action'),
-        entity: tr('ws.manager.audit.csv.entity'),
-        entityId: tr('ws.manager.audit.csv.entityId'),
-        reason: tr('ws.manager.audit.csv.reason'),
-        device: tr('ws.manager.audit.csv.device'),
-        changes: tr('ws.manager.audit.csv.changes'),
+        date: csvKey('date'),
+        time: csvKey('time'),
+        who: csvKey('actor'),
+        role: csvKey('role'),
+        authoriser: csvKey('authoriser'),
+        what: csvKey('what'),
+        record: csvKey('record'),
+        field: csvKey('field'),
+        was: csvKey('was'),
+        became: csvKey('became'),
+        reason: csvKey('reason'),
+        station: csvKey('device'),
+        actionCode: csvKey('actionCode'),
+        recordType: csvKey('recordType'),
+        recordId: csvKey('entityId'),
       },
       visible,
-      names,
+      {
+        actor: (r) => personName(r.actor_id, r.actor_role, r.actor_name ?? null, names, tr),
+        // Only when someone else authorised it — repeating the actor's own name says nothing.
+        authoriser: (r) => (r.authorizer_id && r.authorizer_id !== r.actor_id ? (r.authorizer_name ?? personName(r.authorizer_id, null, null, names, tr)) : null),
+        role: (role) => (role && (ROLE_KEYS as readonly string[]).includes(role) ? tr(`op.roles.${role}` as MessageKey) : role),
+        action: (action) => actionWords(action, tr),
+        record: (r) => recordName(r.before, r.after, locale),
+        reason: (code) => reasonWords(code, tr),
+        yes: tr('ws.manager.audit.yes'),
+        no: tr('ws.manager.audit.no'),
+      },
     );
     downloadCsv(`audit-log-${period.from}-${period.to}.csv`, toCsv(headers, out));
   }

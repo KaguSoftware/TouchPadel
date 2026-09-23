@@ -50,6 +50,7 @@ import {
   type ReportColumn,
   type Tr,
 } from './ReportParts';
+import { dayCell, timeCell } from '../analytics/csvFormat';
 import { readStock, type BelowParRow, type ConsumptionRow, type ExpiryRow, type LowStockRow, type StockReport, type VarianceRow } from './reportPayloads';
 
 type View = 'low' | 'belowPar' | 'expiring' | 'expired' | 'used' | 'counts';
@@ -99,7 +100,7 @@ export function StockReportScreen() {
     if (!data) return;
     const base = tr('ws.reports.export.stock');
     const parts = { view };
-    const t = tableFor(view, data, variance, cols, tr('ws.reports.columns.unit'));
+    const t = tableFor(view, data, variance, cols, tr('ws.reports.columns.unit'), tr('ws.reports.stock.columns.countedAtTime'));
     exportTable(base, period, parts, t);
   }
 
@@ -175,7 +176,7 @@ function StockView({ view, data, variance, cols, tr }: { view: View; data: Stock
 }
 
 /** The list on screen as CSV: bare quantities, with the unit in a column of its own. */
-function tableFor(view: View, data: StockReport, variance: VarianceRow[], cols: ReturnType<typeof stockColumns>, unitHeader: string) {
+function tableFor(view: View, data: StockReport, variance: VarianceRow[], cols: ReturnType<typeof stockColumns>, unitHeader: string, countedAtTimeHeader: string) {
   const unit = [{ header: unitHeader, value: (r: { unit: string | null }) => r.unit }];
   switch (view) {
     case 'low':
@@ -189,7 +190,8 @@ function tableFor(view: View, data: StockReport, variance: VarianceRow[], cols: 
     case 'used':
       return tableCsv(cols.used, data.consumption, unit);
     case 'counts':
-      return tableCsv(cols.counts, variance, unit);
+      // The clock beside the date column, so both sort the way a spreadsheet expects.
+      return tableCsv(cols.counts, variance, [{ header: countedAtTimeHeader, value: (r: VarianceRow) => timeCell(r.countedAt) }, ...unit]);
   }
 }
 
@@ -248,7 +250,9 @@ function stockColumns(tr: Tr, locale: Locale) {
         header: tr('ws.reports.stock.columns.countedOn'),
         render: (r) => (r.countedAt ? <bdi>{formatDateTime(new Date(r.countedAt), locale)}</bdi> : '—'),
         sort: (r) => r.countedAt,
-        csv: (r) => r.countedAt,
+        // `2026-09-23`, not `2026-09-23T11:05:23.481Z`: a date a spreadsheet
+        // sorts and groups by. The clock is the column after it.
+        csv: (r) => dayCell(r.countedAt),
       },
       ingredient(),
       q('theoreticalQty', 'ws.reports.stock.columns.expected'),

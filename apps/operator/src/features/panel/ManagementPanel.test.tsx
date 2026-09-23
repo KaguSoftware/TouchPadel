@@ -125,38 +125,48 @@ describe('ManagementPanelScreen — Export CSV', () => {
         ],
       };
     });
-    const blobs: string[] = [];
-    // jsdom's Blob has no text(); a FileReader reads it.
+    const archives: string[] = [];
+    // The export is three tables, so it downloads a zip. Its entries are
+    // STORED, so every CSV sits in the archive verbatim and decoding the whole
+    // blob is enough to read them back.
     const createObjectURL = vi.fn((b: Blob) => {
       const reader = new FileReader();
-      reader.onload = () => blobs.push(String(reader.result));
-      reader.readAsText(b);
+      reader.onload = () => archives.push(new TextDecoder().decode(reader.result as ArrayBuffer));
+      reader.readAsArrayBuffer(b);
       return 'blob:x';
     });
     Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const names: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
 
     renderPanel();
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     await waitFor(() => expect(click).toHaveBeenCalled());
-    await waitFor(() => expect(blobs).toHaveLength(1));
+    await waitFor(() => expect(archives).toHaveLength(1));
 
     // One drill per figure the server sent, over the panel's period.
     const drills = rpc.mock.calls.filter(([fn]) => fn === 'report_drill').map(([, a]) => a as { p_figure: string; p_from: string; p_to: string });
     expect(drills.map((d) => d.p_figure).sort()).toEqual(['refunds', 'revenue']);
     expect(drills.every((d) => d.p_from < d.p_to)).toBe(true);
 
-    const csv = blobs[0]!;
-    expect(csv).toContain('Period from,');
+    // Three tables, so a zip — not one sheet with three headers in it.
+    expect(names[0]).toMatch(/^management-panel_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.zip$/);
+    const zip = archives[0]!;
+    // One file per table, each with its own header row — not three tables in one sheet.
+    expect(zip).toContain('01-window.csv');
+    expect(zip).toContain('02-figures.csv');
+    expect(zip).toContain('03-transactions.csv');
     // A label with a comma in it is quoted, as any CSV cell must be.
-    expect(csv).toContain('"Compared with, from",2026-07-23');
-    expect(csv).toContain('Revenue,revenue,Headline,IQD,15000,12000,3000,25');
-    expect(csv).toContain('Refunds,refunds,"Discounts, refunds and waste",IQD,5000,4000,1000,25');
-    expect(csv).toContain('Revenue,revenue,revenue-1,');
-    expect(csv).toContain('Refunds,refunds,refunds-1,');
-    expect(csv).toContain('Quality issue · Cash,refund · quality · cash,Dev,s1,tab-9,5000');
+    expect(zip).toContain('"Compared with, from",2026-07-23');
+    expect(zip).toContain('Revenue,Headline,IQD,15000,12000,3000,25,revenue');
+    expect(zip).toContain('Refunds,"Discounts, refunds and waste",IQD,5000,4000,1000,25,refunds');
+    // The date and the time in their own columns, the facts in words.
+    expect(zip).toContain('Revenue,2026-09-01,');
+    expect(zip).toContain('Refund,,Quality issue · Cash,,,Quality issue,Cash,,,,,5000,Dev,tab-9,revenue-1');
     click.mockRestore();
   });
 

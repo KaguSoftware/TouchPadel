@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { t, type MessageKey } from '@touch/i18n';
-import { toCsvSections } from '../analytics/csv';
+import { CSV_BOM, bundleEntries } from '../analytics/csv';
 import type { DrillTransaction } from '../reports/reportPayloads';
-import { DETAIL_COLUMNS, DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, splitRange } from './exportAll';
+import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, splitRange } from './exportAll';
 import { FIGURE_KEYS, mapFigures } from './figures';
 
 // The export used to be the thirteen totals and nothing else. These pin that
@@ -98,7 +98,7 @@ describe('buildPanelExport', () => {
       { key: 'avgOrderValue', value: 357 },
     ],
   });
-  const sections = buildPanelExport({
+  const bundle = buildPanelExport({
     period: { from: '2026-08-22', to: '2026-09-20' },
     compare: 'previousPeriod',
     comparison: { from: '2026-07-23', to: '2026-08-21' },
@@ -107,8 +107,8 @@ describe('buildPanelExport', () => {
       {
         figure: 'refunds',
         rows: [
-          tx('r1', '2026-09-01T10:00:00Z'),
-          tx('r2', '2026-09-02T10:00:00Z', {
+          tx('r1', new Date(2026, 8, 1, 10, 30).toISOString()),
+          tx('r2', new Date(2026, 8, 2, 16, 5).toISOString(), {
             kind: 'waste',
             label: 'Milk · spill · 500 ml',
             staffName: null,
@@ -120,55 +120,100 @@ describe('buildPanelExport', () => {
         cappedDays: ['2026-09-02'],
       },
     ],
-    exportedAt: new Date('2026-09-20T12:00:00Z'),
+    exportedAt: new Date(2026, 8, 20, 12, 0),
     tr,
     locale: 'en',
   });
+  const [windowTable, figuresTable, transactionsTable] = bundle;
+
+  it('is three tables, so three files — never three blocks of one sheet', () => {
+    expect(bundle.map((t) => t.name)).toEqual(['window', 'figures', 'transactions']);
+    // Every row of every table is exactly as wide as that table's headers;
+    // that is what the old sectioned file could not promise.
+    for (const table of bundle) {
+      for (const row of table.rows) expect(row).toHaveLength(table.headers.length);
+    }
+  });
 
   it('writes the window, the comparison and the capped days first', () => {
-    expect(sections[0]!.title).toBe('Management panel');
-    expect(sections[0]!.rows).toEqual([
+    expect(windowTable!.headers).toEqual(['What', 'Value']);
+    expect(windowTable!.rows).toEqual([
       ['Period from', '2026-08-22'],
       ['Period to', '2026-09-20'],
       ['Comparison', 'Previous period'],
       ['Compared with, from', '2026-07-23'],
       ['Compared with, to', '2026-08-21'],
-      ['Exported at (UTC)', '2026-09-20T12:00:00.000Z'],
+      ['Exported', '2026-09-20 12:00'],
       ['More than 500 transactions on one day; the oldest of that day are not listed', 'Refunds · 2026-09-02'],
     ]);
   });
 
-  it('writes every figure with its key, group and kind, raw numbers', () => {
-    expect(sections[1]!.headers).toEqual(['Figure', 'Key', 'Group', 'Kind', 'Value', 'Previous', 'Change', 'Change %']);
-    expect(sections[1]!.rows).toEqual([
-      ['Revenue', 'revenue', 'Headline', 'IQD', 15000, 12000, 3000, 25],
-      ['Average order value', 'avgOrderValue', 'Cafe', 'IQD', 357, null, null, null],
-      ['Refunds', 'refunds', 'Discounts, refunds and waste', 'IQD', 5000, 4000, 1000, 25],
+  it('writes every figure with its group and unit, raw numbers, the server key last', () => {
+    expect(figuresTable!.headers).toEqual(['Figure', 'Group', 'Measured in', 'Value', 'Previous', 'Change', 'Change %', 'Server key']);
+    expect(figuresTable!.rows).toEqual([
+      ['Revenue', 'Headline', 'IQD', 15000, 12000, 3000, 25, 'revenue'],
+      ['Average order value', 'Cafe', 'IQD', 357, null, null, null, 'avgOrderValue'],
+      ['Refunds', 'Discounts, refunds and waste', 'IQD', 5000, 4000, 1000, 25, 'refunds'],
     ]);
   });
 
-  it('writes every transaction with every server field and every detail fact in its own column', () => {
-    const [headers, rows] = [sections[2]!.headers!, sections[2]!.rows];
-    expect(headers.slice(0, 13)).toEqual(['Figure', 'Key', 'ID', 'When', 'When (ISO)', 'Record', 'Type', 'Description', 'Server label', 'By', 'Staff ID', 'Reference', 'Amount (IQD)']);
-    expect(headers).toHaveLength(13 + DETAIL_COLUMNS.length);
-    expect(rows).toHaveLength(2);
-    const r1 = rows[0]!;
-    expect(r1.slice(0, 3)).toEqual(['Refunds', 'refunds', 'r1']);
-    expect(r1[4]).toBe('2026-09-01T10:00:00Z');
-    expect(r1.slice(5, 13)).toEqual(['refund', 'Refund', 'Quality issue · Cash', 'refund · quality · cash', 'Dev', 'staff-1', 'tab-9', 5000]);
-    const detail = Object.fromEntries(DETAIL_COLUMNS.map((c, i) => [c, r1[13 + i]]));
-    expect(detail.reason).toBe('quality');
-    expect(detail.method).toBe('cash');
-    expect(detail.qty).toBeNull();
-    const r2 = Object.fromEntries(DETAIL_COLUMNS.map((c, i) => [c, rows[1]![13 + i]]));
-    expect(r2).toMatchObject({ movement: 'waste_spill', reason: 'spill', ingredientEn: 'Milk', ingredientAr: 'حليب', qty: 500, unit: 'ml' });
+  it('writes a transaction as a date, a time and one worded fact per column', () => {
+    expect(transactionsTable!.headers).toEqual([
+      'Figure',
+      'Date',
+      'Time',
+      'Type',
+      'What',
+      'Details',
+      'Where',
+      'Guest',
+      'Reason',
+      'Payment method',
+      'Booking status',
+      'Order source',
+      'Quantity',
+      'Unit',
+      'Amount (IQD)',
+      'By',
+      'Reference',
+      'Transaction id',
+    ]);
+    expect(transactionsTable!.rows).toHaveLength(2);
+    expect(transactionsTable!.rows[0]).toEqual([
+      'Refunds',
+      '2026-09-01',
+      '10:30',
+      'Refund',
+      null,
+      'Quality issue · Cash',
+      null,
+      null,
+      'Quality issue',
+      'Cash',
+      null,
+      null,
+      null,
+      null,
+      5000,
+      'Dev',
+      'tab-9',
+      'r1',
+    ]);
   });
 
-  it('serialises as one file in three blocks', () => {
-    const csv = toCsvSections(sections);
-    expect(csv.startsWith('﻿Management panel\r\nPeriod from,2026-08-22')).toBe(true);
-    expect(csv).toContain('\r\n\r\nFigures\r\nFigure,Key,Group,Kind,Value,Previous,Change,Change %\r\n');
-    expect(csv).toContain('\r\n\r\nTransactions behind each figure\r\n');
-    expect(csv).toContain('Refunds,refunds,r1,');
+  it('collapses the six name columns into one, in the reader’s language', () => {
+    const waste = transactionsTable!.rows[1]!;
+    expect(waste[4]).toBe('Milk');
+    expect(waste[8]).toBe('Spill / waste');
+    expect(waste[12]).toBe(500);
+    expect(waste[13]).toBe('ml');
+  });
+
+  it('serialises as one uniform CSV per file', () => {
+    const entries = bundleEntries(bundle);
+    expect(entries.map((e) => e.name)).toEqual(['01-window.csv', '02-figures.csv', '03-transactions.csv']);
+    expect(entries[1]!.text.startsWith(CSV_BOM + 'Figure,Group,Measured in,Value,Previous,Change,Change %,Server key\r\n')).toBe(true);
+    // No blank lines, no title rows — nothing a spreadsheet would read as a second table.
+    expect(entries[1]!.text).not.toContain('\r\n\r\n');
   });
 });

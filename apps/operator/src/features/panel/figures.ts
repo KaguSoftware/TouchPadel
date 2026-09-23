@@ -102,9 +102,11 @@ export function panelIsEmpty(result: PanelHeadline | null | undefined): boolean 
 }
 
 /**
- * One CSV row per known figure, raw numbers, in panel order: the label, then
- * the server key, the group and the kind (so a reader can tell IQD from a
- * count), then value, previous, change and change %.
+ * One CSV row per known figure, raw numbers, in panel order: the label, the
+ * group and what it is measured in (so a reader can tell IQD from a count),
+ * then value, previous, change and change %, and the server key last — it is
+ * there to correlate two exports, not to be read, so it does not sit between
+ * the figure's name and its value.
  */
 export function figuresToCsvRows(
   figures: ReadonlyMap<FigureKey, HeadlineFigureRow>,
@@ -117,7 +119,7 @@ export function figuresToCsvRows(
     const f = figures.get(key);
     if (!f) continue;
     const meta = FIGURES[key];
-    rows.push([labelOf(key), key, groupOf(meta.group), kindOf(meta.kind), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null]);
+    rows.push([labelOf(key), groupOf(meta.group), kindOf(meta.kind), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null, key]);
   }
   return rows;
 }

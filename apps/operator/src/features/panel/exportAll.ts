@@ -1,18 +1,31 @@
 /**
  * The management panel's full export: everything the panel was given for the
- * period, in one CSV — not the thirteen totals alone.
+ * period — not the thirteen totals alone.
  *
- * Three sections:
- *   1. The window: period, comparison mode and the window the changes are
- *      measured against, and when the file was made.
- *   2. The figures: label, server key, group, kind, value, previous, change
- *      and change %, raw numbers as `panel_headline` sent them.
- *   3. The transactions behind every figure that can be opened (the same
- *      `report_drill` rows the drill dialog shows), one row per transaction
- *      per figure, with every field the server sends flattened into its own
- *      column: id, when, kind, the words, who (name and id), the reference,
- *      the amount, and each `detail` fact (status, court, guest, table,
- *      method, reason, item, ingredient, quantity…) as raw codes.
+ * Three TABLES, and since they are three tables they are three files, zipped.
+ * They used to be three blocks of one CSV separated by blank lines, which no
+ * spreadsheet reads as three tables: it takes the first header row and fits
+ * everything below into those columns, so the figures landed under the window
+ * labels and the transactions landed under the figures. That single ragged
+ * sheet is most of what made this export unreadable.
+ *
+ *   1. `window` — the period, the comparison mode and the window the changes
+ *      are measured against, when the file was made, and any warning.
+ *   2. `figures` — one row per figure: its name, its group, what it is
+ *      measured in, then value, previous, change and change %.
+ *   3. `transactions` — the rows behind every figure that can be opened (the
+ *      same `report_drill` rows the drill dialog shows), one row per
+ *      transaction, with the date and the time in their own columns and every
+ *      fact said in words.
+ *
+ * Why words and not codes: the transactions table used to carry all seventeen
+ * `detail` keys raw, including `courtEn`, `courtAr`, `itemEn`, `itemAr`,
+ * `ingredientEn`, `ingredientAr` — six columns of which at most one was ever
+ * filled — beside a server label, a translated label, an ISO instant, a
+ * formatted instant, a staff id and a transaction uuid. Thirty columns, mostly
+ * empty, with the same fact written three ways. The argument for raw codes was
+ * that a spreadsheet can filter and count them; so it can, and it filters and
+ * counts a word from a fixed catalog exactly as well.
  *
  * Why the drill is fetched in pieces: `report_drill` lists the latest 500
  * rows of a figure and no more. An export that stopped there would drop the
@@ -25,11 +38,12 @@
  * for it and the export does not pretend to.
  */
 import { addDays } from '@touch/core';
-import { formatDateTime, type Locale, type MessageKey } from '@touch/i18n';
+import type { Locale, MessageKey } from '@touch/i18n';
 import type { ComparisonMode, Period } from '../../components/kit';
-import type { CsvCell, CsvSection } from '../analytics/csv';
+import type { CsvBundle, CsvCell, CsvTable } from '../analytics/csv';
+import { cellText, dayCell, momentCells, shortId, timeCell } from '../analytics/csvFormat';
 import type { DrillTransaction } from '../reports/reportPayloads';
-import { drillWords } from '../reports/drillWords';
+import { drillFacts } from '../reports/drillWords';
 import { FIGURE_KEYS, figuresToCsvRows, type FigureKey, type HeadlineFigureRow } from './figures';
 
 type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
@@ -39,32 +53,6 @@ export const DRILL_CAP = 500;
 
 /** The figures the server can list transactions for, in panel order. */
 export const DRILLABLE_FIGURES: readonly FigureKey[] = FIGURE_KEYS.filter((k) => k !== 'avgOrderValue');
-
-/**
- * The `detail` facts `report_drill` writes (0102), each its own column. Raw
- * codes on purpose: the words column beside them is the translation, and a
- * code in a spreadsheet can be filtered and counted where a sentence cannot.
- */
-export const DETAIL_COLUMNS = [
-  'status',
-  'courtEn',
-  'courtAr',
-  'guest',
-  'table',
-  'tabLabel',
-  'method',
-  'source',
-  'reason',
-  'adjKind',
-  'itemEn',
-  'itemAr',
-  'ingredientEn',
-  'ingredientAr',
-  'movement',
-  'qty',
-  'unit',
-] as const;
-export type DetailColumn = (typeof DETAIL_COLUMNS)[number];
 
 export interface DrillRange {
   from: string;
@@ -125,88 +113,90 @@ export interface PanelExportInput {
   locale: Locale;
 }
 
-const detailCell = (v: unknown): CsvCell => {
-  if (v === null || v === undefined) return null;
-  if (typeof v === 'number' || typeof v === 'string') return v;
-  if (typeof v === 'boolean') return v ? 'true' : 'false';
-  return JSON.stringify(v);
-};
-
-/** The three sections, ready for `toCsvSections`. */
-export function buildPanelExport(input: PanelExportInput): CsvSection[] {
+/** The three tables, ready for `downloadCsvBundle`. */
+export function buildPanelExport(input: PanelExportInput): CsvBundle {
   const { tr, locale, period, compare, comparison, figures, transactions, exportedAt } = input;
   const label = (key: FigureKey) => tr(`ws.owner.panel.figures.${key}`);
+  const c = (k: string) => tr(`ws.owner.panel.csv.${k}` as MessageKey);
 
-  const meta: CsvCell[][] = [
-    [tr('ws.owner.panel.csv.periodFrom'), period.from],
-    [tr('ws.owner.panel.csv.periodTo'), period.to],
-    [tr('ws.owner.panel.csv.comparison'), tr(`ws.kit.comparison.${compare}`)],
-    [tr('ws.owner.panel.csv.comparisonFrom'), comparison?.from ?? null],
-    [tr('ws.owner.panel.csv.comparisonTo'), comparison?.to ?? null],
-    [tr('ws.owner.panel.csv.exportedAt'), exportedAt.toISOString()],
-  ];
-  const capped = transactions.flatMap((t) => t.cappedDays.map((day) => [tr('ws.owner.panel.csv.cappedDay'), `${label(t.figure)} · ${day}`] as CsvCell[]));
+  const windowTable: CsvTable = {
+    name: 'window',
+    headers: [c('setting'), c('settingValue')],
+    rows: [
+      [c('periodFrom'), period.from],
+      [c('periodTo'), period.to],
+      [c('comparison'), tr(`ws.kit.comparison.${compare}`)],
+      [c('comparisonFrom'), comparison?.from ?? null],
+      [c('comparisonTo'), comparison?.to ?? null],
+      [c('exportedAt'), `${dayCell(exportedAt.toISOString())} ${timeCell(exportedAt.toISOString())}`],
+      // A day the server capped is a warning about THIS file, so it belongs in it.
+      ...transactions.flatMap((t) => t.cappedDays.map((day): CsvCell[] => [c('cappedDay'), `${label(t.figure)} · ${day}`])),
+    ],
+  };
 
-  const figureRows = figuresToCsvRows(
-    figures,
-    label,
-    (g) => tr(`ws.owner.panel.${g}`),
-    (k) => tr(`ws.owner.panel.csv.kinds.${k}`),
-  );
+  const figuresTable: CsvTable = {
+    name: 'figures',
+    headers: [c('figure'), c('group'), c('kind'), c('value'), c('previous'), c('changeAbs'), c('changePct'), c('key')],
+    rows: figuresToCsvRows(
+      figures,
+      label,
+      (g) => tr(`ws.owner.panel.${g}`),
+      (k) => tr(`ws.owner.panel.csv.kinds.${k}`),
+    ),
+  };
 
   const txRows: CsvCell[][] = [];
   for (const { figure, rows } of transactions) {
     for (const t of rows) {
-      const w = drillWords(t, tr, locale);
-      const d = t.detail ?? {};
+      const f = drillFacts(t, tr, locale);
+      const [day, time] = momentCells(t.at);
       txRows.push([
         label(figure),
-        figure,
-        t.id,
-        t.at ? formatDateTime(new Date(t.at), locale) : null,
-        t.at,
-        t.kind,
-        w.kind,
-        w.text ?? t.label,
-        t.label,
-        t.staffName,
-        t.staffId,
-        t.reference,
-        t.amountIqd,
-        ...DETAIL_COLUMNS.map((c) => detailCell(d[c])),
+        day,
+        time,
+        f.kind ?? cellText(t.kind),
+        f.what,
+        cellText(f.text ?? t.label),
+        f.where,
+        f.guest,
+        f.reason,
+        f.method,
+        f.status,
+        f.source,
+        f.qty,
+        f.unit,
+        t.amountIqd ?? null,
+        cellText(t.staffName),
+        cellText(t.reference),
+        shortId(t.id),
       ]);
     }
   }
 
-  const c = (k: 'figure' | 'key' | 'group' | 'kind' | 'value' | 'previous' | 'changeAbs' | 'changePct' | 'id' | 'when' | 'whenIso' | 'serverKind' | 'type' | 'description' | 'label' | 'by' | 'staffId' | 'reference' | 'amount') =>
-    tr(`ws.owner.panel.csv.${k}`);
+  const transactionsTable: CsvTable = {
+    name: 'transactions',
+    headers: [
+      c('figure'),
+      c('date'),
+      c('time'),
+      c('type'),
+      c('what'),
+      c('description'),
+      c('where'),
+      c('detail.guest'),
+      c('detail.reason'),
+      c('detail.method'),
+      c('detail.status'),
+      c('detail.source'),
+      c('detail.qty'),
+      c('detail.unit'),
+      c('amount'),
+      c('by'),
+      c('reference'),
+      c('id'),
+    ],
+    rows: txRows,
+  };
 
-  return [
-    { title: tr('ws.owner.panel.title'), rows: [...meta, ...capped] },
-    {
-      title: tr('ws.owner.panel.csv.figuresSection'),
-      headers: [c('figure'), c('key'), c('group'), c('kind'), c('value'), c('previous'), c('changeAbs'), c('changePct')],
-      rows: figureRows,
-    },
-    {
-      title: tr('ws.owner.panel.csv.transactionsSection'),
-      headers: [
-        c('figure'),
-        c('key'),
-        c('id'),
-        c('when'),
-        c('whenIso'),
-        c('serverKind'),
-        c('type'),
-        c('description'),
-        c('label'),
-        c('by'),
-        c('staffId'),
-        c('reference'),
-        c('amount'),
-        ...DETAIL_COLUMNS.map((col) => tr(`ws.owner.panel.csv.detail.${col}`)),
-      ],
-      rows: txRows,
-    },
-  ];
+  return [windowTable, figuresTable, transactionsTable];
 }

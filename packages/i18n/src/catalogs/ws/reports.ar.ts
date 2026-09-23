@@ -268,6 +268,7 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       used: 'المستخدم',
       cost: 'التكلفة',
       countedOn: 'تاريخ الجرد',
+      countedAtTime: 'وقت الجرد',
       expected: 'المتوقع',
       counted: 'الموجود فعلًا',
       difference: 'الفرق',

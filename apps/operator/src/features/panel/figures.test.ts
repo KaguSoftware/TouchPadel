@@ -49,7 +49,7 @@ describe('panelIsEmpty', () => {
 });
 
 describe('figuresToCsvRows', () => {
-  it('emits raw numbers in panel order with the localised label first', () => {
+  it('emits raw numbers in panel order: the label first, the server key last', () => {
     const m = mapFigures({
       figures: [
         { key: 'orders', value: 3, previous: 2, changeAbs: 1, changePct: 50 },
@@ -57,12 +57,12 @@ describe('figuresToCsvRows', () => {
       ],
     });
     expect(figuresToCsvRows(m, (k) => k.toUpperCase())).toEqual([
-      ['REVENUE', 'revenue', 'headline', 'money', 100, null, null, null],
-      ['ORDERS', 'orders', 'cafe', 'count', 3, 2, 1, 50],
+      ['REVENUE', 'headline', 'money', 100, null, null, null, 'revenue'],
+      ['ORDERS', 'cafe', 'count', 3, 2, 1, 50, 'orders'],
     ]);
   });
   it('lets the screen word the group and the kind', () => {
     const m = mapFigures({ figures: [{ key: 'waste', value: 7 }] });
-    expect(figuresToCsvRows(m, (k) => k, (g) => `G:${g}`, (k) => `K:${k}`)).toEqual([['waste', 'waste', 'G:losses', 'K:money', 7, null, null, null]]);
+    expect(figuresToCsvRows(m, (k) => k, (g) => `G:${g}`, (k) => `K:${k}`)).toEqual([['waste', 'G:losses', 'K:money', 7, null, null, null, 'waste']]);
   });
 });
