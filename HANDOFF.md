@@ -1621,7 +1621,7 @@ deviation table in `docs/security/security-general.md` §01, now D1–D11.
 **Day 32 (2026-09-21, night): Milestone 1 slice 1 — the multi-venue schema foundation.**
 Migrations **0122–0138**, built by three Opus agents from an approved plan and green locally
 (`db:reset`, the six stack gates, `check:rpc-registry`, `check:assistant-coverage`, the whole db
-suite, typecheck, lint). **Decision was "committed, not pushed"; the commits reached `origin/main` at 16:34 from the second machine anyway (`b3e7e1e`..`58b5b27`), and `db-migrate.yml` fires on that path — hosted state UNVERIFIED, first owner step below.** The plan was to buy PITR, create the
+suite, typecheck, lint). **Decision was "committed, not pushed"; the commits reached `origin/main` at 16:34 from the second machine anyway (`b3e7e1e`..`58b5b27`), and `db-migrate.yml` fires on that path — hosted state UNVERIFIED, first owner step below.** _(2026-09-23: verified live — `migration list --linked` shows 0001–0153, 0 pending; slice 1 and 0139 are on hosted, without the staging rehearsal. See Day 33.)_ The plan was to buy PITR, create the
 staging project from a backup and rehearse 0122–0138 there first (D3). The design note is
 `docs/design/multi-venue/slice-1-2026-09-21.md`; the tick list is in `PHASE-2-CHECKLIST.md`. The
 calls worth knowing before touching anything venue-shaped:
@@ -1649,11 +1649,62 @@ calls worth knowing before touching anything venue-shaped:
 - One defect found by the stack, not by the agents: `min(uuid)` does not exist in Postgres; the
   resolver casts through `text`.
 
+**Day 33 (2026-09-22 → 2026-09-23): hosted verified at 0153, Touch Shop, slice 2a discarded.**
+
+- **Hosted verified.** Parsa ran `npx supabase migration list --linked` on 2026-09-23: 0001–0153 on
+  both sides, local = remote, **0 pending** (holes 0023/0040/0101 and the doubled 0069/0071 on both).
+  So slice 1 (0122–0138, pushed 09-21 16:34 as `b3e7e1e`..`58b5b27`) and 0139 (`abc6016`, pushed the
+  evening of 09-21) are live on production **without the staging rehearsal that was decided** (D3).
+  The slice-1 index waiver (non-`CONCURRENTLY` indexes in 0132/0134/0135) is moot: they are applied.
+- **Migrations that landed on `main` since slice 1**, all on hosted:
+  0140 assistant model choice (per-chat model with a venue-wide default), 0141 assistant analytics
+  components and their cache, 0142 the assistant on the Groq tier for now (one-line move back to
+  Claude) — all three from Majed's `7bdc3f0`; **0143–0146 Touch Shop** (`d0104dd`: `retail`
+  ingredient kind, shop schema, shop RPCs, the shop sale path); 0147 drop the booking group size
+  (`players`), 0148 customer directory, 0149 the assistant monthly cap editable from the usage page
+  (Majed, merged at `2193729`); 0150 `move_reservation` refuses a start that has passed and 0151 an
+  out-of-stock alert of its own (Ameen, `6cf3106`); 0152 `my_reservations` (Kemal's `a2b3580`,
+  renumbered to 0152 by Majed in `188bb91`); 0153 terms consent (the legal pack, `fe6d1ba`).
+- **0154 (2026-09-23, pushed the same day):** `analytics_courts_endings` / `analytics_courts_guests`
+  rewrite the returning-guest test as a first-seen aggregate instead of a correlated SubPlan, closing
+  the Milestone 0 bench finding. Bench numbers: local bench p95 `courts_endings.12mo` 174 ms and `courts_guests.12mo` 132 ms (were 8,016 / 8,028 ms timeouts); with half the bookings phone-only 233 / 128 ms (the phone fallback now resolves through one `phone_owner` map per call); parity with the 0147/0097 bodies on 9 range x court cases; db suite green twice, 1,397 tests. After it is pushed the CI
+  baseline needs a refresh (`bench.yml` dispatch, `mode: baseline`); until then the nightly compare
+  flags those two rows by design. **Next migration ordinal: 0155.**
+- **Slice 2a discarded.** The local slice 2a commits (per-venue settings + `platform_settings`,
+  `8ae7f22`..`54ec9c5`, ordinals 0139–0150) were discarded 2026-09-23 at Parsa's request because the
+  remote had used those ordinals. Slice 2 is not started. It restarts at **0155** and must be redone
+  against the six migrations that touched `venue_settings` since slice 1: **0140, 0141, 0142, 0144,
+  0147, 0149**.
+- **Scope, 2026-09-22.** Customer 360 dropped by the client; AI receipt scanning deferred by Parsa;
+  Touch Shop built (0143–0146). Client-visible items: 1 built of the 6 still in scope. Programme
+  about 15 % by effort.
+- **The team is committing to `main` again.** Since 09-22 Majed, Sait, Kemal and Ameen merge into
+  `main` (branch `two`, the `operator-fixes` merges), contrary to the 09-19 "they pause" decision.
+- **Live domain.** www.touch-padel.com went live 2026-09-23; operator and mobile default to it
+  (`6bbcbe8`). Done the same day from the dashboards: Auth Site URL `http://localhost:3000` →
+  `https://www.touch-padel.com`, `https://www.touch-padel.com/**` added to the redirect list (7
+  entries); Vercel `NEXT_PUBLIC_SITE_URL` split — Production `https://www.touch-padel.com`, Preview
+  keeps `https://touch-padel-web.vercel.app` — and Production redeployed.
+- **Slice-1 post-push reads, run 2026-09-23 (SQL editor):** 10 active `cron.job` rows (the 9 of
+  09-21 plus `tp_assistant_prewarm` from 0141 — expected); `venues` = 1; active venues = 1; five
+  `_ao` triggers (`audit_log`, `sync_replays`, `payments`, `refunds`, `stock_movements`). **Open:**
+  6 staff rows without a `staff_venues` row — being broken down by role and `is_active` (the eight
+  accounts deactivated in S1 are the likely set).
+- **PITR priced, not bought:** the org is on the Free plan; PITR needs Pro ($25/month) plus the add-on
+  ($100 / $200 / $400 a month for 7 / 14 / 28 days) and likely a larger compute size. A staging
+  project fits in the Free plan's second active project slot (pauses after a week idle).
+- **The plan file.** `~/.claude/plans/i-got-this-scope-binary-piglet.md` is not on this machine. The
+  repo files (`PHASE-2-PLAN.md`, `PHASE-2-CHECKLIST.md`, this file) are the record until Parsa
+  copies it into the repo.
+- The change order (`docs/scope/phase2-change-order-2026-09-21.md`) is still unsigned and its fee
+  table blank; its Milestone 3 and 4 rows now carry the 09-22 scope changes.
+
 ## File map (key files)
 - **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
   it is, Part B the criticals pass, Part C the scope items and the milestone plan, Part C+ the
-  performance baseline and benchmark suite, Part D the decision record. The **"Status 2026-09-20"**
-  section at the top is the live state and corrects Parts A–C where they disagree.
+  performance baseline and benchmark suite, Part D the decision record. The **"Status 2026-09-23"**
+  section at the top is the live state (the dated Status sections below it are history) and corrects
+  Parts A–C where they disagree.
 - **`PHASE-2-CHECKLIST.md`** (repo root) — the short list: Milestone 0 done, Milestone 0 left (code),
   Milestone 0 left (owner), inputs owed by the client, milestones 1–6. Updated in the same commit as
   the work it describes.
@@ -1725,7 +1776,9 @@ calls worth knowing before touching anything venue-shaped:
   (phone OTP base, test push) + 0071–0075 (2026-09-07, Majed: compact QR, staff_requests,
   marketing, court_delete, no_show_terminates) + 0076–0107 + **0108–0113 (2026-09-20, Majed: the
   owner assistant)** + **0114–0121 (2026-09-20/21: Milestone 0 criticals)** + **0122–0138
-  (2026-09-21: multi-venue slice 1 — committed, NOT pushed)**. Next ordinal **0139**;
+  (2026-09-21: multi-venue slice 1 — live on hosted, verified 2026-09-23)** + 0139 (slice-1 review
+  fixes) + **0140–0153 (2026-09-22/23: assistant, Touch Shop, fixes, terms consent)** + 0154
+  (2026-09-23, analytics bench fix). Next ordinal **0155**;
   `0023`, `0040` and `0101` have no file and `0069`/`0071` are doubled — leave the gaps
   (`packages/db/CLAUDE.md`). ~~Hosted at 0075 as of 2026-09-07 (0 pending)~~ — historic; the HOSTED
   STATE line under Gotchas is the only current answer.
@@ -1830,7 +1883,9 @@ calls worth knowing before touching anything venue-shaped:
    - **2 — Online payment (Qi Card deposits).** 3 to 4 weeks plus Qi lead time. Depends on 1 and on
      the client's Qi credentials.
    - **3 — Customers 360 and loyalty.** 6 to 7 weeks, includes web sign-in at checkout. Depends on 1.
-   - **4 — Shop and AI receipts.** 5 to 6 weeks. Depends on 1.
+     _(2026-09-22: Customer 360 dropped by the client; loyalty and web sign-in only.)_
+   - **4 — Shop and AI receipts.** 5 to 6 weeks. Depends on 1. _(2026-09-22: Touch Shop built,
+     0143–0146; AI receipts deferred by Parsa.)_
    - **5 — Coaching (phone-app coach mode).** 4 to 5 weeks. Depends on 1 and 2.
    - **6 — Open matches, then tournaments.** 8 to 9 weeks. Depends on 1, 2 and 5.
    Item 10 (the new AI analysis system) is **dropped** as of 2026-09-20; the built owner assistant
@@ -1895,17 +1950,16 @@ calls worth knowing before touching anything venue-shaped:
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
-- **HOSTED STATE — read this line and ignore every other one in this file (2026-09-21).** Hosted
-  is at **0121, complete, 0 pending** — verified 2026-09-21 09:28 UTC from the `db-migrate.yml` run
-  35583475145: the 09-20 pushes applied 0108–0119 and 0121, and 0120 (which sorts before 0121)
-  was applied by a dispatch with `include_all` on 2026-09-21. Local head is **0121**. The source of truth is
-  one command, run from `packages/db` and nowhere else:
-  `cd packages/db && npx supabase migration list --linked`. Expect **0 pending**. **Never**
-  accept the CLI's `migration repair --status reverted` offer. History, for the record: before the 09-20 runs the last position this repository proved was **0089** (ledger 89/89,
-  `docs/client/hosted-catchup-2026-09-12.md`), and on 2026-09-13 migrations 0090 and 0091 were
-  queued behind the `staging` approval (Day 20 below). Nothing here records 0090–0107 being
-  approved, so "0108–0121 pending" holds only if that batch went through; if the list shows more,
-  the list is right and this line is stale. Every other dated hosted figure in this file is history.
+- **HOSTED STATE — read this line and ignore every other one in this file (2026-09-23).** Hosted
+  is at **0153, complete, 0 pending** — verified 2026-09-23 by Parsa with
+  `npx supabase migration list --linked` from `packages/db`: 0001–0153 on both sides, local = remote
+  (holes 0023/0040/0101 and the doubled 0069/0071 on both). 0154 (the analytics fix) was pushed
+  the same day and applied by `db-migrate.yml` on that push. The source of truth is one command, run from `packages/db` and
+  nowhere else: `cd packages/db && npx supabase migration list --linked`. Expect **0 pending**.
+  **Never** accept the CLI's `migration repair --status reverted` offer. History, compressed: 0089
+  proved 2026-09-12, 0121 on 2026-09-21 (run 35583475145, 0120 by an `include_all` dispatch),
+  slice 1 (0122–0138) and 0139 reached hosted with the 09-21 pushes. If the list ever disagrees
+  with this line, the list is right. Every other dated hosted figure in this file is history.
 - ~~HOSTED IS BEHIND AGAIN (2026-09-12)~~ **CAUGHT UP 2026-09-12: 89/89 migrations, all 10 edge
   functions deployed, `is_degraded()` false** (it had been at 0075 + 0088 with 20260904000069,
   20260906000071, 0076–0087 stranded and three functions never deployed). Cause: an out-of-order migration
