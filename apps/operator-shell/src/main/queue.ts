@@ -51,7 +51,8 @@ const BASE_DDL = `
   CREATE TABLE IF NOT EXISTS pin_cache (
     pin_hash   TEXT PRIMARY KEY,                       -- scrypt(pin, station salt), cached on online success
     role       TEXT NOT NULL,                          -- authorisation level the pin demonstrated
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    staff_id   TEXT                                    -- v5: whose pin, when the server said so
   );
   CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,                            -- e.g. 'pin_salt', cache bookkeeping
@@ -90,7 +91,9 @@ function migrate(d: Database.Database): void {
     // model — the server never exposes whose pin a hash is). The v1 table was
     // never written by anything, so drop-and-recreate loses no data.
     const pinCols = d.pragma('table_info(pin_cache)') as { name: string }[];
-    if (pinCols.some((c) => c.name === 'staff_id')) {
+    // Keyed on the missing pin_hash, not on staff_id: v5 brings a (nullable,
+    // non-key) staff_id back, and a fresh file is created with it.
+    if (pinCols.length > 0 && !pinCols.some((c) => c.name === 'pin_hash')) {
       d.exec('DROP TABLE pin_cache');
       d.exec(`CREATE TABLE pin_cache (
         pin_hash   TEXT PRIMARY KEY,
@@ -122,7 +125,18 @@ function migrate(d: Database.Database): void {
     }
     d.pragma('user_version = 3');
   }
-  d.pragma('user_version = 4');
+  if (version < 5) {
+    // v5: whose PIN a cached hash is, when the server said so (verify_manager_pin
+    // returns the manager's id; the lock screen's verify_own_pin is the signed-in
+    // person's). Leaving the station needs a manager PIN that is NOT the signed-in
+    // person's own, and offline this column is the only way to tell. Nullable: a
+    // pin observed after a queued write has no owner attached, and says so.
+    const cols = d.pragma('table_info(pin_cache)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'staff_id')) {
+      d.exec('ALTER TABLE pin_cache ADD COLUMN staff_id TEXT');
+    }
+  }
+  d.pragma('user_version = 5');
 }
 
 /** Open (or create) a queue db at an explicit path — the testable seam. */

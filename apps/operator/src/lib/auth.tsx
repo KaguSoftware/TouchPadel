@@ -105,7 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function applySession(next: Session | null) {
       if (cancelled) return;
-      setSession(next);
       // The main-process sync worker replays the durable queue AS this staff
       // session (design-arch §2.2). Every auth change flows through here —
       // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT — so the pushed token is always
@@ -124,8 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (next) {
         // Private realtime channels (kds/floor/courts) need realtime auth.
         supabase.realtime.setAuth(next.access_token);
-        await applyResolution(await resolveStaff(next.user.id));
+        // The session is published only once its role is known. Set before
+        // the lookup, a fresh sign-in rendered "session, no staff" for one
+        // round trip, which the shell reads as NotStaffScreen: an error page
+        // that flashed and then gave way to the home screen.
+        const resolution = await resolveStaff(next.user.id);
+        if (cancelled) return;
+        await applyResolution(resolution);
+        if (cancelled) return;
+        setSession(next);
       } else {
+        setSession(null);
         setStaff(null);
         setNotStaff(false);
       }

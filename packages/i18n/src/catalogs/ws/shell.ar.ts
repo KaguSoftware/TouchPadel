@@ -169,6 +169,8 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     exitFullscreen: 'الخروج من وضع ملء الشاشة',
     quit: 'الخروج إلى سطح المكتب',
     quitConfirm: 'هذا ينهي الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز خارج الاتصال.',
+    leavePin: 'الرمز السري للمدير',
+    leavePinHint: 'يجب أن يُدخل مدير غيرك رمزه السري.',
     kitchenNoNav: 'شاشة المطبخ',
     version: 'الإصدار {version}',
     updateReady: 'التحديث جاهز',
