@@ -186,7 +186,9 @@ test.describe('operator journeys', () => {
     await page.getByRole('button', { name: '+1' }).last().click();
     await expect(page.getByText('2× Kunafa (Regular)')).toBeVisible();
     await page.getByRole('button', { name: '−1' }).last().click();
-    await page.getByRole('button', { name: '−1' }).last().click();
+    await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
+    // −1 stops at one; taking the line off is its own button.
+    await page.getByRole('button', { name: 'Remove line' }).last().click();
     await expect(page.getByText(/× Kunafa/)).toHaveCount(0);
     await page.getByRole('button', { name: /Hot Drinks/ }).click();
 
