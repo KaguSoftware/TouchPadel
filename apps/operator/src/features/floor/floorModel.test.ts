@@ -220,6 +220,13 @@ describe('staff', () => {
   it('places roles in the rooms of the plan', () => {
     expect(['court_desk', 'cashier', 'prep', 'manager', 'owner', 'other'].map(roomForRole)).toEqual(['reception', 'bar', 'kitchen', 'office', 'office', 'floor']);
   });
+
+  it('puts the 0155 bar team at the bar and the kitchen team in the kitchen, and gives driver and marketing no room', () => {
+    expect(['head_barista', 'barista'].map(roomForRole)).toEqual(['bar', 'bar']);
+    expect(['head_chef', 'chef'].map(roomForRole)).toEqual(['kitchen', 'kitchen']);
+    // Where any role without a room of its own stands.
+    expect(['driver', 'marketing'].map(roomForRole)).toEqual([roomForRole('other'), roomForRole('other')]);
+  });
 });
 
 // ---------------------------------------------------------------------------

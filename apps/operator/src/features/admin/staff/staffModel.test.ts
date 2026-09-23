@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { AppRpcError } from '../../../lib/appRpc';
 import { EdgeError } from '../../../lib/edge';
-import { approvesWithPin, holdsPin, looksLikeEmail, pinFormatOk, staffRefusal } from './staffModel';
+import { STAFF_ROLES } from '../../../lib/auth';
+import {
+  ASSIGNABLE_ROLES,
+  approvesWithPin,
+  holdsPin,
+  isRetiredRole,
+  looksLikeEmail,
+  onRetiredRole,
+  pinFormatOk,
+  roleChoices,
+  staffRefusal,
+  type StaffRow,
+} from './staffModel';
 
 describe('pinFormatOk', () => {
   // The field used to stop at 6 digits while its hint promised "4 to 6", and
@@ -16,12 +28,39 @@ describe('pinFormatOk', () => {
 });
 
 describe('holdsPin / approvesWithPin', () => {
-  const roles = ['cashier', 'prep', 'court_desk', 'manager', 'owner'];
-  it('every role holds a PIN since 0105 (breaks, idle lock)', () => {
-    expect(roles.map((r) => holdsPin(r as never))).toEqual([true, true, true, true, true]);
+  it('every role holds a PIN since 0105 (breaks, idle lock), the 0155 roles included', () => {
+    expect(STAFF_ROLES.filter((r) => !holdsPin(r))).toEqual([]);
   });
   it('only managers and owners approve with it', () => {
-    expect(roles.map((r) => approvesWithPin(r as never))).toEqual([false, false, false, true, true]);
+    expect(STAFF_ROLES.filter((r) => approvesWithPin(r))).toEqual(['manager', 'owner']);
+  });
+});
+
+describe('assignable and retired roles (0155)', () => {
+  it('offers every role but prep, management last', () => {
+    expect([...ASSIGNABLE_ROLES].sort()).toEqual(STAFF_ROLES.filter((r) => r !== 'prep').sort());
+    expect(ASSIGNABLE_ROLES.slice(-2)).toEqual(['manager', 'owner']);
+    expect(isRetiredRole('prep')).toBe(true);
+    expect(ASSIGNABLE_ROLES.filter(isRetiredRole)).toEqual([]);
+  });
+
+  it('a prep account still sees Kitchen in its picker, as a row it cannot choose', () => {
+    const choices = roleChoices('prep');
+    expect(choices.at(-1)).toEqual({ role: 'prep', retired: true });
+    expect(choices.filter((c) => c.retired)).toHaveLength(1);
+    expect(choices.slice(0, -1).map((c) => c.role)).toEqual(ASSIGNABLE_ROLES);
+  });
+
+  it('any other account is never offered prep at all', () => {
+    for (const role of ASSIGNABLE_ROLES) {
+      expect(roleChoices(role).map((c) => c.role)).not.toContain('prep');
+    }
+  });
+
+  it('counts the people who can still sign in on a retired role', () => {
+    const row = (role: StaffRow['role'], is_active = true): StaffRow => ({ id: role, display_name: role, role, is_active, has_pin: false });
+    expect(onRetiredRole([row('prep'), row('prep', false), row('barista'), row('chef')])).toBe(1);
+    expect(onRetiredRole([row('cashier')])).toBe(0);
   });
 });
 

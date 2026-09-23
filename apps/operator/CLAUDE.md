@@ -74,7 +74,7 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
 ## i18n and styling
 
 - Strings are `ws.<lane>.*` keys from `packages/i18n/src/catalogs/ws/` (`shell`, `kit`, `courtDesk`,
-  `cashier`, `prep`, `manager`, `owner`, `analytics`, `reports`), one `.en.ts` + `.ar.ts` pair per
+  `cashier`, `prep`, `manager`, `owner`, `analytics`, `reports`, `team`), one `.en.ts` + `.ar.ts` pair per
   lane so parallel lanes never edit one file.
 - The Arabic file is typed `DeepMessages<typeof xEn>`, so a missing key fails `typecheck`;
   `packages/i18n/src/__tests__/t.test.ts:35` asserts parity on the assembled catalogs.

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 import type { StaffRole } from '../../lib/auth';
@@ -19,13 +20,14 @@ const data: {
   telegram: { telegram_enabled: boolean; telegram_chat_id: string | null };
 } = { staff: [], outbox: [], telegram: { telegram_enabled: false, telegram_chat_id: null } };
 
+const navigate = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children, ...rest }: { to: string; children: ReactNode }) => (
     <a href={to} {...rest}>
       {children}
     </a>
   ),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigate,
 }));
 vi.mock('../../lib/supabase', () => {
   const chain: Record<string, unknown> = {};
@@ -118,6 +120,31 @@ describe('SetupHomeScreen', () => {
     expect(within(check('pins')!).getByText('1')).toBeTruthy();
     expect(within(check('pins')!).getByRole('button', { name: 'Set PINs' })).toBeTruthy();
     expect(check('owner')).toBeTruthy();
+  });
+
+  it('raises anyone who can sign in still on Kitchen, which 0155 retired', async () => {
+    data.staff = [
+      person({ id: 'o1', role: 'owner', has_pin: true }),
+      person({ id: 'o2', role: 'owner', has_pin: true }),
+      person({ id: 'p1', role: 'prep' }),
+      person({ id: 'p2', role: 'prep' }),
+      person({ id: 'p3', role: 'prep', is_active: false }),
+      person({ id: 'b1', role: 'barista' }),
+    ];
+    renderSetup('owner');
+    await waitFor(() => expect(check('retiredRole')).toBeTruthy());
+    // Someone without access holds nothing that needs moving.
+    expect(within(check('retiredRole')!).getByText('2')).toBeTruthy();
+    expect(within(check('retiredRole')!).getByText(/Move each one to Barista or Chef/)).toBeTruthy();
+    await userEvent.click(within(check('retiredRole')!).getByRole('button', { name: 'Go to Staff' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/admin/staff' });
+  });
+
+  it('says nothing about Kitchen once nobody is on it', async () => {
+    data.staff = [...data.staff, person({ id: 'p1', role: 'prep', is_active: false }), person({ id: 'c1', role: 'chef' })];
+    renderSetup('owner');
+    expect(await screen.findByText('Nothing in setup needs attention.')).toBeTruthy();
+    expect(check('retiredRole')).toBeNull();
   });
 
   it('raises Telegram when it is switched on but has no real group', async () => {

@@ -220,6 +220,10 @@ export const ownerEn = {
       oneOwner: 'Only one owner account',
       oneOwnerHint: 'If it is lost or locked, nobody can manage staff accounts. A second owner is the safeguard.',
       oneOwnerAction: 'Go to Staff',
+      // 0155: prep is retired, and each account on it is moved by hand.
+      retiredRole: 'People still on Kitchen, which is retired',
+      retiredRoleHint: 'Move each one to Barista or Chef. Their access keeps working until you do.',
+      retiredRoleAction: 'Go to Staff',
       error: 'Some checks could not load.',
     },
   },
@@ -361,11 +365,21 @@ export const ownerEn = {
     },
     roleAccess: {
       cashier: 'The till, open tabs, the cash drawer and customer lookup.',
-      prep: 'The kitchen screen only.',
+      // Retired by 0155: still works, no longer given (staffModel RETIRED_ROLES).
+      prep: 'The kitchen screen only. Retired: move this person to Barista or Chef.',
       court_desk: 'The court calendar, bookings and customers.',
       manager: 'Runs the day: the till, desk and kitchen, plus menu, prices, stock, day close, reports and the audit log. Approves discounts and voids with a PIN.',
       owner: 'Everything, including staff accounts, Telegram, marketing and the business figures.',
+      // 0155. The head roles open what their team opens, and nothing more yet.
+      head_barista: 'The kitchen screen only, the same as a barista for now.',
+      barista: 'The kitchen screen only.',
+      head_chef: 'The kitchen screen only, the same as a chef for now.',
+      chef: 'The kitchen screen only.',
+      driver: 'My tasks, where purchases will be given to them. No till, desk or kitchen.',
+      marketing: 'My tasks, where marketing tasks will be given to them. No till, desk or kitchen.',
     },
+    // Beside a role that still works but is no longer given (prep, 0155).
+    retired: 'Retired',
     add: {
       lead: 'They sign in with this email and password.',
       nameHint: 'As staff and the records will see it.',

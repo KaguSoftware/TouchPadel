@@ -1,12 +1,12 @@
 {
-  "generated_from": "fe6d1baf16a092ec2a792b7569099838a3744988",
+  "generated_from": "d96d4d5a3d7770d021dcab90cb34c5974a460b22",
   "chunks": [
     {
       "kind": "page",
       "ref": "page:/",
       "lang": "en",
       "title": "/",
-      "body": "No screen of its own: it shows the boot screen until the staff row loads, then redirects to /workspaces when the account holds several workspaces and none is stored on this station, otherwise to the role's home (/till, /kds, /desk/today, /ops or /panel).\nRoles: any signed-in staff (it only redirects).\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "No screen of its own: it shows the boot screen until the staff row loads, then redirects to /workspaces when the account holds several workspaces and none is stored on this station, otherwise to the role's home (/till, /kds, /desk/today, /ops, /panel or /tasks).\nRoles: any signed-in staff (it only redirects).\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/"
     },
     {
@@ -238,7 +238,7 @@
       "ref": "page:/kds",
       "lang": "en",
       "title": "/kds",
-      "body": "The kitchen display board: per-ticket \"Start\", \"Ready\" and \"Complete\" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and \"Leave kitchen display\" appears only for staff who hold another workspace.\nRoles: prep, manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "The kitchen display board: per-ticket \"Start\", \"Ready\" and \"Complete\" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and \"Leave kitchen display\" appears only for staff who hold another workspace.\nRoles: prep, head_barista, barista, head_chef, chef, manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/kds"
     },
     {
@@ -448,6 +448,14 @@
       "title": "/stock/waste",
       "body": "\"Waste & production\", two forms side by side: \"Record waste\" (ingredient, quantity, Spill or Spoilage, a required note) writes app.record_waste, and \"Record production\" (prepared item, amount made) writes app.record_production, which consumes the components by recipe and reports the batch cost.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/stock/waste"
+    },
+    {
+      "kind": "page",
+      "ref": "page:/tasks",
+      "lang": "en",
+      "title": "/tasks — My tasks",
+      "body": "\"My tasks\", the driver's and marketing's landing screen and the team workspace's one rail row; nothing can be assigned yet, so it shows only the empty state saying that purchases, marketing tasks and checklists will appear here, with no buttons and no data read.\nRoles: driver, marketing.\nReached from: Team: \"My tasks\".",
+      "route": "/tasks"
     },
     {
       "kind": "page",
@@ -1394,6 +1402,38 @@
       "route": "/kds"
     },
     {
+      "kind": "nav",
+      "ref": "nav:team",
+      "lang": "ar",
+      "title": "مساحة العمل: الفريق",
+      "body": "مساحة العمل \"الفريق\" تبدأ من /tasks.\nالصفوف: مهامي → /tasks",
+      "route": "/tasks"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team",
+      "lang": "en",
+      "title": "Workspace: Team",
+      "body": "Workspace \"Team\" opens at /tasks.\nRows: My tasks → /tasks",
+      "route": "/tasks"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/tasks",
+      "lang": "ar",
+      "title": "الفريق: مهامي",
+      "body": "صف \"مهامي\" في مساحة \"الفريق\" يفتح /tasks. الاسم بالإنجليزية: \"My tasks\". الأدوار: driver, marketing.",
+      "route": "/tasks"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:team:-:/tasks",
+      "lang": "en",
+      "title": "Team: My tasks",
+      "body": "Rail row \"My tasks\" in the Team workspace opens /tasks. Arabic label: \"مهامي\". Roles: driver, marketing.",
+      "route": "/tasks"
+    },
+    {
       "kind": "rpc",
       "ref": "rpc:analytics_best_sellers",
       "lang": "en",
@@ -1942,7 +1982,7 @@
       "ref": "action:app.break_status",
       "lang": "en",
       "title": "app.break_status",
-      "body": "Signature: app.break_status(p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_STATION.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0105 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.break_status(p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_STATION.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2006,7 +2046,7 @@
       "ref": "action:app.cover_station",
       "lang": "en",
       "title": "app.cover_station",
-      "body": "Signature: app.cover_station(p_staff_id uuid, p_pin text, p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.pin_locked, staff.break_cover.\nError codes: FORBIDDEN, INVALID_STATION, BREAK_NOT_OPEN, COVER_NOT_ALLOWED, PIN_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0105 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.cover_station(p_staff_id uuid, p_pin text, p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.pin_locked, staff.break_cover.\nError codes: FORBIDDEN, INVALID_STATION, BREAK_NOT_OPEN, COVER_NOT_ALLOWED, PIN_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2094,7 +2134,7 @@
       "ref": "action:app.end_break",
       "lang": "en",
       "title": "app.end_break",
-      "body": "Signature: app.end_break(p_pin text, p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.break_end.\nError codes: FORBIDDEN, BREAK_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0105 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.end_break(p_pin text, p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.break_end.\nError codes: FORBIDDEN, BREAK_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2150,7 +2190,7 @@
       "ref": "action:app.heartbeat",
       "lang": "en",
       "title": "app.heartbeat",
-      "body": "Signature: app.heartbeat(p_device_id text, p_queue_depth int default 0, p_app_version text default null, p_is_till boolean default false) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,prep,court_desk,manager,owner).\nAudit actions written: station.registered.\nError codes: FORBIDDEN, DEVICE_REQUIRED, INVALID_STATION, STATION_UNKNOWN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0130 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.heartbeat(p_device_id text, p_queue_depth int default 0, p_app_version text default null, p_is_till boolean default false) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: station.registered.\nError codes: FORBIDDEN, DEVICE_REQUIRED, INVALID_STATION, STATION_UNKNOWN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2638,7 +2678,7 @@
       "ref": "action:app.set_order_item_ready",
       "lang": "en",
       "title": "app.set_order_item_ready",
-      "body": "Signature: app.set_order_item_ready(p_order_item_id uuid, p_ready boolean, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_NOT_FOUND, ITEM_VOIDED, TICKET_CLOSED.\nCalled from: apps/operator/src/features/kds/KdsBoard.tsx (pages /kds).\nDefined in migration 0061 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.set_order_item_ready(p_order_item_id uuid, p_ready boolean, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_NOT_FOUND, ITEM_VOIDED, TICKET_CLOSED.\nCalled from: apps/operator/src/features/kds/KdsBoard.tsx (pages /kds).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/kds"
     },
     {
@@ -2710,7 +2750,7 @@
       "ref": "action:app.set_ticket_status",
       "lang": "en",
       "title": "app.set_ticket_status",
-      "body": "Signature: app.set_ticket_status(p_ticket_id uuid, p_status ticket_status, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0032 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.set_ticket_status(p_ticket_id uuid, p_status ticket_status, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2790,7 +2830,7 @@
       "ref": "action:app.start_break",
       "lang": "en",
       "title": "app.start_break",
-      "body": "Signature: app.start_break(p_pin text, p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.break_start.\nError codes: FORBIDDEN, INVALID_STATION, BREAK_ALREADY_OPEN, BREAK_ALLOWANCE_USED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0105 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.start_break(p_pin text, p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.break_start.\nError codes: FORBIDDEN, INVALID_STATION, BREAK_ALREADY_OPEN, BREAK_ALLOWANCE_USED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2966,7 +3006,7 @@
       "ref": "action:app.verify_manager_pin",
       "lang": "en",
       "title": "app.verify_manager_pin",
-      "body": "Signature: app.verify_manager_pin(p_pin text, p_device_id text default null) returns uuid.\nGranted to: authenticated. Guard: staff role in (cashier,prep,court_desk,manager,owner).\nAudit actions written: staff.pin_weak_refused, staff.pin_locked, staff.pin_collision.\nError codes: FORBIDDEN, PIN_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0115 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.verify_manager_pin(p_pin text, p_device_id text default null) returns uuid.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: staff.pin_weak_refused, staff.pin_locked, staff.pin_collision.\nError codes: FORBIDDEN, PIN_LOCKED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2974,7 +3014,7 @@
       "ref": "action:app.verify_own_pin",
       "lang": "en",
       "title": "app.verify_own_pin",
-      "body": "Signature: app.verify_own_pin(p_pin text, p_device_id text default null) returns boolean.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.pin_locked.\nError codes: FORBIDDEN, PIN_LOCKED, NO_PIN_SET.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0086 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.verify_own_pin(p_pin text, p_device_id text default null) returns boolean.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: staff.pin_locked.\nError codes: FORBIDDEN, PIN_LOCKED, NO_PIN_SET.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -6070,7 +6110,7 @@
       "ref": "enum:staff_role",
       "lang": "en",
       "title": "enum staff_role",
-      "body": "Values: cashier, prep, court_desk, manager, owner.\nDefined in migration 0002.",
+      "body": "Values: cashier, prep, court_desk, manager, owner, head_barista, barista, head_chef, chef, driver, marketing.\nDefined in migration 0002.",
       "route": null
     },
     {
@@ -6310,7 +6350,7 @@
       "ref": "label:op.errors",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts)",
-      "body": "SLOT_TAKEN: تم حجز هذه الفترة للتو — اختر وقتًا آخر.\nDEGRADED_LOCKOUT: النادي في وضع عدم الاتصال — هذا الإجراء محظور حاليًا.\nPIN_INVALID: الرمز السري غير صحيح.\nPIN_LOCKED: محاولات خاطئة كثيرة — تم القفل لعدة دقائق.\nPIN_GRANT_REQUIRED: انتهت صلاحية تفويض المدير — أدخل الرمز السري مرة أخرى.\nFORBIDDEN: لا تملك صلاحية لهذا الإجراء.\nAUTH_REQUIRED: يجب تسجيل الدخول.\nALREADY_NOTIFIED: تم إشعار الموظفين لهذه الطاولة مسبقًا.\nNO_OPEN_DAY: لا يوجد يوم عمل مفتوح.\nPREVIOUS_DAY_OPEN: أغلق اليوم السابق قبل فتح يوم جديد.\nDAY_OPEN_TABS: ما زالت هناك حسابات مفتوحة — قم بتسويتها أو إلغائها قبل إغلاق اليوم.\nINVALID_DURATIONS: خيارات المدة يجب أن تكون بين 30 و300 دقيقة وبخطوات 15 دقيقة.\nINVALID_ACTIVE_WINDOW: لا يمكن أن يكون آخر يوم نشاط للملعب قبل أول يوم.\nCOURT_IN_USE: ما زال هذا الملعب مرتبطاً بحجوزات أو قواعد أسعار. عطّله بدلاً من حذفه — سيختفي من التقويم وتطبيق الضيوف مع بقاء اسمه في التقارير.\nNAME_REQUIRED: الاسمان بالإنجليزية والعربية مطلوبان.\nUNIT_LOCKED: الوحدة مقفلة — السجل يحمل كميات بها بالفعل.\nKIND_LOCKED: النوع مقفل — السجل يصنّف هذا المكوّن بالفعل.\nINVALID_YIELD: نسبة الاستفادة يجب أن تكون بين 0 و100.\nINVALID_WASTE_ALLOWANCE: نسبة الهدر المسموح يجب أن تكون بين 0 و100.\nINVALID_PACK: حجم العبوة يجب أن يكون أكبر من صفر.\nINGREDIENT_NOT_FOUND: المكوّن غير موجود (الوصفات الفرعية تُربط بمكوّن محضّر).\nINVALID_TARGET: تُربط الوصفات بحجم أو إضافة أو مكوّن محضّر.\nRECIPE_CYCLE: هذا يجعل الوصفة الفرعية تحتوي نفسها (أو تتداخل أكثر من اللازم).\nCOUNT_IN_PROGRESS: هناك جرد جارٍ بالفعل — أنهِه أولًا.\nCOUNT_NOT_FOUND: الجرد غير موجود.\nCOUNT_FINALIZED: هذا الجرد منتهٍ بالفعل.\nCOUNT_LINE_NOT_FOUND: هذا المكوّن ليس ضمن هذا الجرد.\nBATCH_NOT_FOUND: الدفعة غير موجودة.\nNOT_EXPIRED: هذه الدفعة لم تنتهِ صلاحيتها.\nTAB_NOT_OPEN: هذا الحساب غير مفتوح.\nTAB_NOT_FOUND: الحساب غير موجود.\nTAB_MERGED: تم دمج هذا الحساب في حساب آخر.\nTAB_NOT_EMPTY: على هذا الحساب مبلغ مستحق، فلا يمكن حذفه. سوِّه بدلًا من ذلك.\nTAB_DAY_MISMATCH: هذا الحساب يخص يوم عمل آخر.\nTENDER_SHORT: المبلغ المستلم أقل من المبلغ المستحق.",
+      "body": "SLOT_TAKEN: تم حجز هذه الفترة للتو — اختر وقتًا آخر.\nDEGRADED_LOCKOUT: النادي في وضع عدم الاتصال — هذا الإجراء محظور حاليًا.\nPIN_INVALID: الرمز السري غير صحيح.\nPIN_LOCKED: محاولات خاطئة كثيرة — تم القفل لعدة دقائق.\nPIN_OWN: هذا رمزك السري. يجب أن يُدخل مدير آخر رمزه.\nPIN_GRANT_REQUIRED: انتهت صلاحية تفويض المدير — أدخل الرمز السري مرة أخرى.\nFORBIDDEN: لا تملك صلاحية لهذا الإجراء.\nAUTH_REQUIRED: يجب تسجيل الدخول.\nALREADY_NOTIFIED: تم إشعار الموظفين لهذه الطاولة مسبقًا.\nNO_OPEN_DAY: لا يوجد يوم عمل مفتوح.\nPREVIOUS_DAY_OPEN: أغلق اليوم السابق قبل فتح يوم جديد.\nDAY_OPEN_TABS: ما زالت هناك حسابات مفتوحة — قم بتسويتها أو إلغائها قبل إغلاق اليوم.\nINVALID_DURATIONS: خيارات المدة يجب أن تكون بين 30 و300 دقيقة وبخطوات 15 دقيقة.\nINVALID_ACTIVE_WINDOW: لا يمكن أن يكون آخر يوم نشاط للملعب قبل أول يوم.\nCOURT_IN_USE: ما زال هذا الملعب مرتبطاً بحجوزات أو قواعد أسعار. عطّله بدلاً من حذفه — سيختفي من التقويم وتطبيق الضيوف مع بقاء اسمه في التقارير.\nNAME_REQUIRED: الاسمان بالإنجليزية والعربية مطلوبان.\nUNIT_LOCKED: الوحدة مقفلة — السجل يحمل كميات بها بالفعل.\nKIND_LOCKED: النوع مقفل — السجل يصنّف هذا المكوّن بالفعل.\nINVALID_YIELD: نسبة الاستفادة يجب أن تكون بين 0 و100.\nINVALID_WASTE_ALLOWANCE: نسبة الهدر المسموح يجب أن تكون بين 0 و100.\nINVALID_PACK: حجم العبوة يجب أن يكون أكبر من صفر.\nINGREDIENT_NOT_FOUND: المكوّن غير موجود (الوصفات الفرعية تُربط بمكوّن محضّر).\nINVALID_TARGET: تُربط الوصفات بحجم أو إضافة أو مكوّن محضّر.\nRECIPE_CYCLE: هذا يجعل الوصفة الفرعية تحتوي نفسها (أو تتداخل أكثر من اللازم).\nCOUNT_IN_PROGRESS: هناك جرد جارٍ بالفعل — أنهِه أولًا.\nCOUNT_NOT_FOUND: الجرد غير موجود.\nCOUNT_FINALIZED: هذا الجرد منتهٍ بالفعل.\nCOUNT_LINE_NOT_FOUND: هذا المكوّن ليس ضمن هذا الجرد.\nBATCH_NOT_FOUND: الدفعة غير موجودة.\nNOT_EXPIRED: هذه الدفعة لم تنتهِ صلاحيتها.\nTAB_NOT_OPEN: هذا الحساب غير مفتوح.\nTAB_NOT_FOUND: الحساب غير موجود.\nTAB_MERGED: تم دمج هذا الحساب في حساب آخر.\nTAB_NOT_EMPTY: على هذا الحساب مبلغ مستحق، فلا يمكن حذفه. سوِّه بدلًا من ذلك.\nTAB_DAY_MISMATCH: هذا الحساب يخص يوم عمل آخر.",
       "route": null
     },
     {
@@ -6318,7 +6358,7 @@
       "ref": "label:op.errors",
       "lang": "en",
       "title": "op.errors (packages/i18n/src/catalogs/en.ts)",
-      "body": "SLOT_TAKEN: That slot was just taken — pick another time.\nDEGRADED_LOCKOUT: The venue is in offline mode — this action is blocked right now.\nPIN_INVALID: Incorrect PIN.\nPIN_LOCKED: Too many wrong PINs — locked for a few minutes.\nPIN_GRANT_REQUIRED: Manager authorisation expired — enter the PIN again.\nFORBIDDEN: You do not have permission for that.\nAUTH_REQUIRED: You must be signed in.\nALREADY_NOTIFIED: Staff have already been notified for this table.\nNO_OPEN_DAY: No business day is open.\nPREVIOUS_DAY_OPEN: Close the previous day before opening a new one.\nDAY_OPEN_TABS: Open tabs remain — settle or void them before closing the day.\nDAY_UNSYNCED: A till still has queued offline writes — let it finish syncing.\nINVALID_DURATIONS: Duration options must be 30–300 minutes in 15-minute steps.\nINVALID_ACTIVE_WINDOW: The court's last active day cannot be before its first.\nCOURT_IN_USE: That court still has bookings or price rules. Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.\nNAME_REQUIRED: Both the English and Arabic names are required.\nUNIT_LOCKED: The unit is locked — the ledger already holds quantities in it.\nKIND_LOCKED: The kind is locked — the ledger already classifies this ingredient.\nINVALID_YIELD: Usable yield must be between 0 and 100.\nINVALID_WASTE_ALLOWANCE: Waste allowance must be between 0 and 100.\nINVALID_PACK: Pack size must be greater than zero.\nINGREDIENT_NOT_FOUND: Ingredient not found (sub-recipes attach to a prepared ingredient).\nINVALID_TARGET: Recipes attach to a size, a modifier or a prepared ingredient.\nRECIPE_CYCLE: That would make a sub-recipe contain itself (or nest too deep).\nCOUNT_IN_PROGRESS: A count is already in progress — finalize it first.\nCOUNT_NOT_FOUND: Count not found.\nCOUNT_FINALIZED: This count is already finalized.\nCOUNT_LINE_NOT_FOUND: That ingredient is not part of this count.\nBATCH_NOT_FOUND: Batch not found.\nNOT_EXPIRED: That batch has not expired.",
+      "body": "SLOT_TAKEN: That slot was just taken — pick another time.\nDEGRADED_LOCKOUT: The venue is in offline mode — this action is blocked right now.\nPIN_INVALID: Incorrect PIN.\nPIN_LOCKED: Too many wrong PINs — locked for a few minutes.\nPIN_OWN: That is your own PIN. Another manager has to enter theirs.\nPIN_GRANT_REQUIRED: Manager authorisation expired — enter the PIN again.\nFORBIDDEN: You do not have permission for that.\nAUTH_REQUIRED: You must be signed in.\nALREADY_NOTIFIED: Staff have already been notified for this table.\nNO_OPEN_DAY: No business day is open.\nPREVIOUS_DAY_OPEN: Close the previous day before opening a new one.\nDAY_OPEN_TABS: Open tabs remain — settle or void them before closing the day.\nDAY_UNSYNCED: A till still has queued offline writes — let it finish syncing.\nINVALID_DURATIONS: Duration options must be 30–300 minutes in 15-minute steps.\nINVALID_ACTIVE_WINDOW: The court's last active day cannot be before its first.\nCOURT_IN_USE: That court still has bookings or price rules. Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.\nNAME_REQUIRED: Both the English and Arabic names are required.\nUNIT_LOCKED: The unit is locked — the ledger already holds quantities in it.\nKIND_LOCKED: The kind is locked — the ledger already classifies this ingredient.\nINVALID_YIELD: Usable yield must be between 0 and 100.\nINVALID_WASTE_ALLOWANCE: Waste allowance must be between 0 and 100.\nINVALID_PACK: Pack size must be greater than zero.\nINGREDIENT_NOT_FOUND: Ingredient not found (sub-recipes attach to a prepared ingredient).\nINVALID_TARGET: Recipes attach to a size, a modifier or a prepared ingredient.\nRECIPE_CYCLE: That would make a sub-recipe contain itself (or nest too deep).\nCOUNT_IN_PROGRESS: A count is already in progress — finalize it first.\nCOUNT_NOT_FOUND: Count not found.\nCOUNT_FINALIZED: This count is already finalized.\nCOUNT_LINE_NOT_FOUND: That ingredient is not part of this count.\nBATCH_NOT_FOUND: Batch not found.",
       "route": null
     },
     {
@@ -6326,7 +6366,7 @@
       "ref": "label:op.errors#2",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts)",
-      "body": "ALREADY_PAID: هذا الحساب مدفوع بالكامل.\nQUEUE_ROW_NOT_RESOLVABLE: لا يمكن استبعاد هذه العملية: ما زالت قيد الإرسال أو تمت مزامنتها بالفعل.\nINVALID_AMOUNT: مبلغ غير صالح.\nITEM_UNAVAILABLE: أحد أصناف الطلب غير متوفر حاليًا.\nEMPTY_ORDER: الطلب فارغ.\nMODIFIER_SELECTION: اختيارات الإضافات تخالف الحد الأدنى/الأقصى للمجموعة.\nINVALID_TRANSITION: تغيير الحالة هذا غير مسموح.\nHOLD_EXPIRED: انتهت صلاحية الحجز المؤقت.\nNO_RATE: لا توجد قاعدة سعر لهذه الفترة.\nCLOSED_DATE: النادي مغلق في هذا التاريخ.\nOUTSIDE_HOURS: هذا الوقت خارج ساعات العمل.\nINVALID_TIME_RANGE: يجب أن يكون وقت البداية قبل وقت النهاية. قسّم أي قاعدة تمتد بعد منتصف الليل إلى قاعدتين.\nGUEST_REQUIRED: الحجز يحتاج اسم ضيف أو حسابًا مرتبطًا.\nINVALID_RANGE: يجب أن يكون وقت النهاية بعد وقت البداية.\nCANCELLATION_WINDOW: ضمن نافذة الإلغاء.\nRESERVATION_NOT_FOUND: الحجز غير موجود.\nREASON_REQUIRED: السبب مطلوب.\nREQUEST_NOT_PENDING: تمت الإجابة على هذا الطلب بالفعل. أعد التحميل لرؤية القرار.\nCANNOT_DECIDE_OWN: لا يمكنك البتّ في طلبك أنت.\nREQUEST_ALREADY_PENDING: يوجد طلب من هذا النوع قيد الانتظار بالفعل.\nBAD_KIND: هذا ليس نوعاً من الطلبات.\nBAD_STATUS: هذه ليست حالة صالحة.\nBAD_TRANSITION: لا يمكن نقل الحملة إلى تلك الحالة من وضعها الحالي.\nCAMPAIGN_LOCKED: هذه الحملة خرجت بالفعل ولم يعد تعديلها ممكناً.\nBAD_CHANNEL: اختر قناة.\nBAD_RULE: قاعدة الجمهور هذه غير صالحة.\nBODY_REQUIRED: اكتب الرسالة باللغتين قبل أن تخرج هذه الحملة.\nSTART_REQUIRED: حدّد تاريخ بدء للحملة قبل أن تخرج.\nREQUEST_NOT_FOUND: هذا الطلب لم يعد موجوداً. أعد تحميل القائمة.\nCAMPAIGN_NOT_FOUND: هذه الحملة لم تعد موجودة. أعد تحميل الصفحة.\nBREAK_ALREADY_OPEN: أنت في استراحة بالفعل.\nBREAK_ALLOWANCE_USED: لم يتبقَّ وقت استراحة اليوم.\nBREAK_NOT_OPEN: لا توجد استراحة لإنهائها.\nCOVER_NOT_ALLOWED: لا يستطيع هذا الشخص تغطية هذه المحطة.\nINVALID_STATION: لا اسم صالحًا لهذه المحطة. أعد إعداد المحطة.\nVENUE_REQUIRED: هذا الإجراء يحتاج إلى تحديد الفرع الذي يخصّه.\nNO_PIN_SET: لا يوجد رمز سري لهذا الحساب بعد. اطلب من المالك تحديده.",
+      "body": "TENDER_SHORT: المبلغ المستلم أقل من المبلغ المستحق.\nALREADY_PAID: هذا الحساب مدفوع بالكامل.\nQUEUE_ROW_NOT_RESOLVABLE: لا يمكن استبعاد هذه العملية: ما زالت قيد الإرسال أو تمت مزامنتها بالفعل.\nINVALID_AMOUNT: مبلغ غير صالح.\nITEM_UNAVAILABLE: أحد أصناف الطلب غير متوفر حاليًا.\nEMPTY_ORDER: الطلب فارغ.\nMODIFIER_SELECTION: اختيارات الإضافات تخالف الحد الأدنى/الأقصى للمجموعة.\nINVALID_TRANSITION: تغيير الحالة هذا غير مسموح.\nHOLD_EXPIRED: انتهت صلاحية الحجز المؤقت.\nNO_RATE: لا توجد قاعدة سعر لهذه الفترة.\nCLOSED_DATE: النادي مغلق في هذا التاريخ.\nOUTSIDE_HOURS: هذا الوقت خارج ساعات العمل.\nINVALID_TIME_RANGE: يجب أن يكون وقت البداية قبل وقت النهاية. قسّم أي قاعدة تمتد بعد منتصف الليل إلى قاعدتين.\nGUEST_REQUIRED: الحجز يحتاج اسم ضيف أو حسابًا مرتبطًا.\nINVALID_RANGE: يجب أن يكون وقت النهاية بعد وقت البداية.\nCANCELLATION_WINDOW: ضمن نافذة الإلغاء.\nRESERVATION_NOT_FOUND: الحجز غير موجود.\nREASON_REQUIRED: السبب مطلوب.\nREQUEST_NOT_PENDING: تمت الإجابة على هذا الطلب بالفعل. أعد التحميل لرؤية القرار.\nCANNOT_DECIDE_OWN: لا يمكنك البتّ في طلبك أنت.\nREQUEST_ALREADY_PENDING: يوجد طلب من هذا النوع قيد الانتظار بالفعل.\nBAD_KIND: هذا ليس نوعاً من الطلبات.\nBAD_STATUS: هذه ليست حالة صالحة.\nBAD_TRANSITION: لا يمكن نقل الحملة إلى تلك الحالة من وضعها الحالي.\nCAMPAIGN_LOCKED: هذه الحملة خرجت بالفعل ولم يعد تعديلها ممكناً.\nBAD_CHANNEL: اختر قناة.\nBAD_RULE: قاعدة الجمهور هذه غير صالحة.\nBODY_REQUIRED: اكتب الرسالة باللغتين قبل أن تخرج هذه الحملة.\nSTART_REQUIRED: حدّد تاريخ بدء للحملة قبل أن تخرج.\nREQUEST_NOT_FOUND: هذا الطلب لم يعد موجوداً. أعد تحميل القائمة.\nCAMPAIGN_NOT_FOUND: هذه الحملة لم تعد موجودة. أعد تحميل الصفحة.\nBREAK_ALREADY_OPEN: أنت في استراحة بالفعل.\nBREAK_ALLOWANCE_USED: لم يتبقَّ وقت استراحة اليوم.\nBREAK_NOT_OPEN: لا توجد استراحة لإنهائها.\nCOVER_NOT_ALLOWED: لا يستطيع هذا الشخص تغطية هذه المحطة.\nINVALID_STATION: لا اسم صالحًا لهذه المحطة. أعد إعداد المحطة.\nVENUE_REQUIRED: هذا الإجراء يحتاج إلى تحديد الفرع الذي يخصّه.\nNO_PIN_SET: لا يوجد رمز سري لهذا الحساب بعد. اطلب من المالك تحديده.",
       "route": null
     },
     {
@@ -6334,7 +6374,7 @@
       "ref": "label:op.errors#2",
       "lang": "en",
       "title": "op.errors (packages/i18n/src/catalogs/en.ts)",
-      "body": "TAB_NOT_OPEN: This tab is not open.\nTAB_NOT_FOUND: Tab not found.\nTAB_MERGED: This tab was merged into another tab.\nTAB_NOT_EMPTY: There is a payment to be made on this tab, so it cannot be removed. Settle it instead.\nTAB_DAY_MISMATCH: This tab belongs to a different business day.\nTENDER_SHORT: Tendered amount is less than the amount due.\nALREADY_PAID: This tab is already fully paid.\nQUEUE_ROW_NOT_RESOLVABLE: This write cannot be dismissed: it is still travelling or has already synced.\nINVALID_AMOUNT: Invalid amount.\nITEM_UNAVAILABLE: An item in the order is unavailable right now.\nEMPTY_ORDER: The order is empty.\nMODIFIER_SELECTION: Modifier choices violate a group minimum/maximum.\nINVALID_TRANSITION: That status change is not allowed.\nHOLD_EXPIRED: The hold has expired.\nNO_RATE: No rate rule prices this slot.\nCLOSED_DATE: The venue is closed on that date.\nOUTSIDE_HOURS: That time is outside opening hours.\nINVALID_TIME_RANGE: Start must be before end. Split a rule that runs past midnight into two.\nGUEST_REQUIRED: A booking needs a guest name or a linked account.\nINVALID_RANGE: The end time must be after the start time.\nCANCELLATION_WINDOW: Inside the cancellation window.\nRESERVATION_NOT_FOUND: Reservation not found.\nREASON_REQUIRED: A reason is required.\nREQUEST_NOT_PENDING: That request has already been answered. Reload to see the decision.\nCANNOT_DECIDE_OWN: You cannot decide your own request.\nREQUEST_ALREADY_PENDING: There is already a pending request of that kind.\nBAD_KIND: That is not a kind of request.\nBAD_STATUS: That is not a status.\nBAD_TRANSITION: A campaign cannot move to that state from where it is now.\nCAMPAIGN_LOCKED: This campaign has already gone out and can no longer be edited.\nBAD_CHANNEL: Choose a channel.\nBAD_RULE: That audience rule is not valid.\nBODY_REQUIRED: Write the message in both languages before this campaign goes out.\nSTART_REQUIRED: Give the campaign a start date before it goes out.",
+      "body": "NOT_EXPIRED: That batch has not expired.\nTAB_NOT_OPEN: This tab is not open.\nTAB_NOT_FOUND: Tab not found.\nTAB_MERGED: This tab was merged into another tab.\nTAB_NOT_EMPTY: There is a payment to be made on this tab, so it cannot be removed. Settle it instead.\nTAB_DAY_MISMATCH: This tab belongs to a different business day.\nTENDER_SHORT: Tendered amount is less than the amount due.\nALREADY_PAID: This tab is already fully paid.\nQUEUE_ROW_NOT_RESOLVABLE: This write cannot be dismissed: it is still travelling or has already synced.\nINVALID_AMOUNT: Invalid amount.\nITEM_UNAVAILABLE: An item in the order is unavailable right now.\nEMPTY_ORDER: The order is empty.\nMODIFIER_SELECTION: Modifier choices violate a group minimum/maximum.\nINVALID_TRANSITION: That status change is not allowed.\nHOLD_EXPIRED: The hold has expired.\nNO_RATE: No rate rule prices this slot.\nCLOSED_DATE: The venue is closed on that date.\nOUTSIDE_HOURS: That time is outside opening hours.\nINVALID_TIME_RANGE: Start must be before end. Split a rule that runs past midnight into two.\nGUEST_REQUIRED: A booking needs a guest name or a linked account.\nINVALID_RANGE: The end time must be after the start time.\nCANCELLATION_WINDOW: Inside the cancellation window.\nRESERVATION_NOT_FOUND: Reservation not found.\nREASON_REQUIRED: A reason is required.\nREQUEST_NOT_PENDING: That request has already been answered. Reload to see the decision.\nCANNOT_DECIDE_OWN: You cannot decide your own request.\nREQUEST_ALREADY_PENDING: There is already a pending request of that kind.\nBAD_KIND: That is not a kind of request.\nBAD_STATUS: That is not a status.\nBAD_TRANSITION: A campaign cannot move to that state from where it is now.\nCAMPAIGN_LOCKED: This campaign has already gone out and can no longer be edited.\nBAD_CHANNEL: Choose a channel.\nBAD_RULE: That audience rule is not valid.\nBODY_REQUIRED: Write the message in both languages before this campaign goes out.\nSTART_REQUIRED: Give the campaign a start date before it goes out.",
       "route": null
     },
     {
@@ -6550,7 +6590,7 @@
       "ref": "label:op.roles",
       "lang": "ar",
       "title": "op.roles (packages/i18n/src/catalogs/ar.ts)",
-      "body": "cashier: كاشير\nprep: المطبخ\ncourt_desk: مكتب الملاعب\nmanager: مدير\nowner: مالك",
+      "body": "cashier: كاشير\nprep: المطبخ\ncourt_desk: مكتب الملاعب\nmanager: مدير\nowner: مالك\nhead_barista: رئيس الباريستا\nbarista: باريستا\nhead_chef: رئيس الطهاة\nchef: شيف\ndriver: سائق\nmarketing: التسويق",
       "route": null
     },
     {
@@ -6558,7 +6598,7 @@
       "ref": "label:op.roles",
       "lang": "en",
       "title": "op.roles (packages/i18n/src/catalogs/en.ts)",
-      "body": "cashier: Cashier\nprep: Kitchen\ncourt_desk: Court desk\nmanager: Manager\nowner: Owner",
+      "body": "cashier: Cashier\nprep: Kitchen\ncourt_desk: Court desk\nmanager: Manager\nowner: Owner\nhead_barista: Head barista\nbarista: Barista\nhead_chef: Head chef\nchef: Chef\ndriver: Driver\nmarketing: Marketing",
       "route": null
     },
     {
@@ -8910,7 +8950,7 @@
       "ref": "label:ws.owner.setupHome",
       "lang": "ar",
       "title": "ws.owner.setupHome (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "title: الإعداد\nscreens: شاشات الإعداد\nkitchen.title: شاشات المطبخ\nkitchen.lead: تتصل شاشة المطبخ الجديدة بهذا الكاشير برمز. اعرض الرمز هنا، ثم اكتبه على شاشة المطبخ.\nkitchen.notTill: رمز الإقران محفوظ على الكاشير نفسه. افتح الإعداد على جهاز الكاشير لإقران شاشة مطبخ.\ncards.staff: من يستطيع تسجيل الدخول، وما يمكن لكل شخص فتحه، والأرقام السرية للمديرين التي تعتمد الخصومات والإلغاءات.\ncards.courts: الملاعب التي يحجزها الضيوف والمكتب: الأسماء والصور ومدد الحجز وترتيبها في التقويم.\ncards.tables: طاولات المقهى وبطاقة QR على كل منها. شغّل جرس النادل أو أوقفه، اطبع بطاقة، أو استبدل بطاقة مفقودة.\ncards.settings: ساعات العمل وأيام الإغلاق وبداية اليوم التجاري، وبيانات المكان المحدّدة عند الإعداد.\ncards.guestSite: ما يراه الضيوف أعلى القائمة بعد مسح بطاقة الطاولة. رموز QR للطاولات وتيليغرام في تبويبات الصفحة نفسها.\nstatus.staff: أشخاص لديهم صلاحية الدخول\nstatus.courts: متاحة للحجز\nstatus.tables: طاولات مستخدمة\nstatus.dayStarts: يبدأ اليوم التجاري\nstatus.homeScreen: أعلى القائمة\nheroMode.none: القائمة فقط\nheroMode.media: صورة أو فيديو\nheroMode.featured: صنف مميز\nchecks.title: يستحق المراجعة\nchecks.none: لا شيء في الإعداد يحتاج انتباهك.\nchecks.telegram: إشعارات تيليغرام لا تصل إلى الفريق\nchecks.telegramHint.noGroup: الإشعارات مفعّلة، لكن لم تُختر مجموعة الفريق.\nchecks.telegramHint.failing: آخر رسالة طُلب من تيليغرام إرسالها لم تصل.\nchecks.telegramHint.stuck: رسائل تنتظر الإرسال منذ أكثر من دقيقتين.\nchecks.telegramAction: فتح تيليغرام\nchecks.noPin: مديرون أو مالكون بلا رقم سري\nchecks.noPinHint: لا يستطيعون اعتماد خصم أو إلغاء على الصندوق حتى يُحدَّد لهم رقم سري.\nchecks.noPinAction: تحديد الأرقام السرية\nchecks.oneOwner: حساب مالك واحد فقط\nchecks.oneOwnerHint: إذا فُقد أو أُقفل، لن يستطيع أحد إدارة حسابات الموظفين. المالك الثاني هو الضمان.\nchecks.oneOwnerAction: الذهاب إلى الموظفين\nchecks.error: تعذّر تحميل بعض الفحوص.",
+      "body": "title: الإعداد\nscreens: شاشات الإعداد\nkitchen.title: شاشات المطبخ\nkitchen.lead: تتصل شاشة المطبخ الجديدة بهذا الكاشير برمز. اعرض الرمز هنا، ثم اكتبه على شاشة المطبخ.\nkitchen.notTill: رمز الإقران محفوظ على الكاشير نفسه. افتح الإعداد على جهاز الكاشير لإقران شاشة مطبخ.\ncards.staff: من يستطيع تسجيل الدخول، وما يمكن لكل شخص فتحه، والأرقام السرية للمديرين التي تعتمد الخصومات والإلغاءات.\ncards.courts: الملاعب التي يحجزها الضيوف والمكتب: الأسماء والصور ومدد الحجز وترتيبها في التقويم.\ncards.tables: طاولات المقهى وبطاقة QR على كل منها. شغّل جرس النادل أو أوقفه، اطبع بطاقة، أو استبدل بطاقة مفقودة.\ncards.settings: ساعات العمل وأيام الإغلاق وبداية اليوم التجاري، وبيانات المكان المحدّدة عند الإعداد.\ncards.guestSite: ما يراه الضيوف أعلى القائمة بعد مسح بطاقة الطاولة. رموز QR للطاولات وتيليغرام في تبويبات الصفحة نفسها.\nstatus.staff: أشخاص لديهم صلاحية الدخول\nstatus.courts: متاحة للحجز\nstatus.tables: طاولات مستخدمة\nstatus.dayStarts: يبدأ اليوم التجاري\nstatus.homeScreen: أعلى القائمة\nheroMode.none: القائمة فقط\nheroMode.media: صورة أو فيديو\nheroMode.featured: صنف مميز\nchecks.title: يستحق المراجعة\nchecks.none: لا شيء في الإعداد يحتاج انتباهك.\nchecks.telegram: إشعارات تيليغرام لا تصل إلى الفريق\nchecks.telegramHint.noGroup: الإشعارات مفعّلة، لكن لم تُختر مجموعة الفريق.\nchecks.telegramHint.failing: آخر رسالة طُلب من تيليغرام إرسالها لم تصل.\nchecks.telegramHint.stuck: رسائل تنتظر الإرسال منذ أكثر من دقيقتين.\nchecks.telegramAction: فتح تيليغرام\nchecks.noPin: مديرون أو مالكون بلا رقم سري\nchecks.noPinHint: لا يستطيعون اعتماد خصم أو إلغاء على الصندوق حتى يُحدَّد لهم رقم سري.\nchecks.noPinAction: تحديد الأرقام السرية\nchecks.oneOwner: حساب مالك واحد فقط\nchecks.oneOwnerHint: إذا فُقد أو أُقفل، لن يستطيع أحد إدارة حسابات الموظفين. المالك الثاني هو الضمان.\nchecks.oneOwnerAction: الذهاب إلى الموظفين\nchecks.retiredRole: أشخاص ما زالوا على دور المطبخ المتوقف\nchecks.retiredRoleHint: انقل كل واحد منهم إلى باريستا أو شيف. تبقى صلاحيتهم تعمل حتى تفعل ذلك.\nchecks.retiredRoleAction: الذهاب إلى الموظفين",
       "route": "/panel"
     },
     {
@@ -8918,7 +8958,23 @@
       "ref": "label:ws.owner.setupHome",
       "lang": "en",
       "title": "ws.owner.setupHome (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "title: Setup\nscreens: Setup screens\nkitchen.title: Kitchen screens\nkitchen.lead: A new kitchen screen connects to this till with a code. Show the code here, then type it on the kitchen screen.\nkitchen.notTill: The pairing code is kept on the till itself. Open Setup on the till computer to pair a kitchen screen.\ncards.staff: Who can sign in, what each person can open, and the manager PINs that approve discounts and voids.\ncards.courts: The courts guests and the desk can book: names, photos, booking lengths and calendar order.\ncards.tables: The cafe tables and the QR card on each one. Switch a waiter bell, print a card, or replace a lost one.\ncards.settings: Opening hours, closed days, when the business day starts, and the venue details fixed at setup.\ncards.guestSite: What guests see at the top of the menu after scanning a table card. Table QR codes and Telegram are tabs on the same page.\nstatus.staff: People with access\nstatus.courts: Open for booking\nstatus.tables: Tables in use\nstatus.dayStarts: Business day starts\nstatus.homeScreen: Top of the menu\nheroMode.none: Menu only\nheroMode.media: Photo or video\nheroMode.featured: Featured item\nchecks.title: Worth checking\nchecks.none: Nothing in setup needs attention.\nchecks.telegram: Telegram notifications are not reaching staff\nchecks.telegramHint.noGroup: Notifications are switched on, but no staff group is chosen.\nchecks.telegramHint.failing: The last message Telegram was asked to send did not arrive.\nchecks.telegramHint.stuck: Messages have been waiting to send for more than two minutes.\nchecks.telegramAction: Open Telegram\nchecks.noPin: Managers or owners without a PIN\nchecks.noPinHint: They cannot approve a discount or a void at the till until a PIN is set.\nchecks.noPinAction: Set PINs\nchecks.oneOwner: Only one owner account\nchecks.oneOwnerHint: If it is lost or locked, nobody can manage staff accounts. A second owner is the safeguard.\nchecks.oneOwnerAction: Go to Staff\nchecks.error: Some checks could not load.",
+      "body": "title: Setup\nscreens: Setup screens\nkitchen.title: Kitchen screens\nkitchen.lead: A new kitchen screen connects to this till with a code. Show the code here, then type it on the kitchen screen.\nkitchen.notTill: The pairing code is kept on the till itself. Open Setup on the till computer to pair a kitchen screen.\ncards.staff: Who can sign in, what each person can open, and the manager PINs that approve discounts and voids.\ncards.courts: The courts guests and the desk can book: names, photos, booking lengths and calendar order.\ncards.tables: The cafe tables and the QR card on each one. Switch a waiter bell, print a card, or replace a lost one.\ncards.settings: Opening hours, closed days, when the business day starts, and the venue details fixed at setup.\ncards.guestSite: What guests see at the top of the menu after scanning a table card. Table QR codes and Telegram are tabs on the same page.\nstatus.staff: People with access\nstatus.courts: Open for booking\nstatus.tables: Tables in use\nstatus.dayStarts: Business day starts\nstatus.homeScreen: Top of the menu\nheroMode.none: Menu only\nheroMode.media: Photo or video\nheroMode.featured: Featured item\nchecks.title: Worth checking\nchecks.none: Nothing in setup needs attention.\nchecks.telegram: Telegram notifications are not reaching staff\nchecks.telegramHint.noGroup: Notifications are switched on, but no staff group is chosen.\nchecks.telegramHint.failing: The last message Telegram was asked to send did not arrive.\nchecks.telegramHint.stuck: Messages have been waiting to send for more than two minutes.\nchecks.telegramAction: Open Telegram\nchecks.noPin: Managers or owners without a PIN\nchecks.noPinHint: They cannot approve a discount or a void at the till until a PIN is set.\nchecks.noPinAction: Set PINs\nchecks.oneOwner: Only one owner account\nchecks.oneOwnerHint: If it is lost or locked, nobody can manage staff accounts. A second owner is the safeguard.\nchecks.oneOwnerAction: Go to Staff",
+      "route": "/panel"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.setupHome#2",
+      "lang": "ar",
+      "title": "ws.owner.setupHome (packages/i18n/src/catalogs/ws/owner.ar.ts)",
+      "body": "checks.error: تعذّر تحميل بعض الفحوص.",
+      "route": "/panel"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.setupHome#2",
+      "lang": "en",
+      "title": "ws.owner.setupHome (packages/i18n/src/catalogs/ws/owner.en.ts)",
+      "body": "checks.retiredRole: People still on Kitchen, which is retired\nchecks.retiredRoleHint: Move each one to Barista or Chef. Their access keeps working until you do.\nchecks.retiredRoleAction: Go to Staff\nchecks.error: Some checks could not load.",
       "route": "/panel"
     },
     {
@@ -8926,7 +8982,7 @@
       "ref": "label:ws.owner.staff",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "lead: كل من يستطيع تسجيل الدخول إلى هذا التطبيق، وما يمكن لكل منهم فتحه.\nrefusedAction: إدارة حسابات الموظفين\nemptyTitle: لا توجد حسابات موظفين بعد\nemptyBody: أضف الحساب الأول. يسجّل كل شخص الدخول ببريده وكلمة مروره.\nmanage: إدارة\nshowRemoved: إظهار من لا يملكون صلاحية ({count})\nhideRemoved: إخفاء من لا يملكون صلاحية\ncolumns.name: الاسم\ncolumns.role: الدور\ncolumns.pin: الرقم السري\ncolumns.status: الصلاحية\ncolumns.actions: إدارة\nstatus.active: يستطيع الدخول\nstatus.inactive: بلا صلاحية\nroleAccess.cashier: الصندوق والحسابات المفتوحة ودرج النقد والبحث عن العملاء.\nroleAccess.prep: شاشة المطبخ فقط.\nroleAccess.court_desk: تقويم الملاعب والحجوزات والعملاء.\nroleAccess.manager: يدير اليوم: الصندوق والمكتب والمطبخ، إضافة إلى القائمة والأسعار والمخزون وإغلاق اليوم والتقارير وسجل التدقيق. يعتمد الخصومات والإلغاءات برقم سري.\nroleAccess.owner: كل شيء، بما في ذلك حسابات الموظفين وتيليغرام والتسويق والأرقام المالية.\nadd.lead: يسجّل الدخول بهذا البريد وكلمة المرور.\nadd.nameHint: كما سيراه الفريق وتظهر في السجلات.\nadd.emailHint: يُستخدم لتسجيل الدخول فقط.\nadd.emailInvalid: هذا لا يبدو عنوان بريد إلكتروني.\nadd.passwordShort: قصيرة جدًا: أضف {count}.\nadd.notReady: أدخل اسمًا وبريدًا صحيحًا وكلمة مرور بطول كافٍ.\npassword.title: كلمة المرور\npassword.panelNote: حدّد كلمة جديدة عندما ينسى كلمته.\npassword.label: كلمة المرور الجديدة\npassword.lead: تتوقف كلمة المرور الحالية عن العمل فور الحفظ.\npassword.save: تعيين كلمة المرور\npassword.tooShort: استخدم {min} أحرف على الأقل.\npin.title: الرقم السري\npin.label: الرقم السري الجديد\npin.lead: يُكتب على الصندوق لبدء الاستراحة وفتح قفل المحطة. رقم المدير أو المالك يعتمد أيضًا الخصم أو الإلغاء أو تغيير السعر.\npin.hint: من {min} إلى {max} أرقام. تُرفض الأرقام المكررة (111111) والمتتالية (123456).\npin.length: أدخل من {min} إلى {max} أرقام.\npin.setFor: تحديد رقم سري لـ {name}\npin.changeFor: تغيير الرقم السري لـ {name}\npin.hasPin: محدّد. يستطيع اعتماد الخصومات والإلغاءات على الصندوق، وأخذ الاستراحات، وفتح قفل المحطة.",
+      "body": "lead: كل من يستطيع تسجيل الدخول إلى هذا التطبيق، وما يمكن لكل منهم فتحه.\nrefusedAction: إدارة حسابات الموظفين\nemptyTitle: لا توجد حسابات موظفين بعد\nemptyBody: أضف الحساب الأول. يسجّل كل شخص الدخول ببريده وكلمة مروره.\nmanage: إدارة\nshowRemoved: إظهار من لا يملكون صلاحية ({count})\nhideRemoved: إخفاء من لا يملكون صلاحية\ncolumns.name: الاسم\ncolumns.role: الدور\ncolumns.pin: الرقم السري\ncolumns.status: الصلاحية\ncolumns.actions: إدارة\nstatus.active: يستطيع الدخول\nstatus.inactive: بلا صلاحية\nroleAccess.cashier: الصندوق والحسابات المفتوحة ودرج النقد والبحث عن العملاء.\nroleAccess.prep: شاشة المطبخ فقط. هذا الدور متوقف: انقل هذا الشخص إلى باريستا أو شيف.\nroleAccess.court_desk: تقويم الملاعب والحجوزات والعملاء.\nroleAccess.manager: يدير اليوم: الصندوق والمكتب والمطبخ، إضافة إلى القائمة والأسعار والمخزون وإغلاق اليوم والتقارير وسجل التدقيق. يعتمد الخصومات والإلغاءات برقم سري.\nroleAccess.owner: كل شيء، بما في ذلك حسابات الموظفين وتيليغرام والتسويق والأرقام المالية.\nroleAccess.head_barista: شاشة المطبخ فقط، مثل الباريستا حاليًا.\nroleAccess.barista: شاشة المطبخ فقط.\nroleAccess.head_chef: شاشة المطبخ فقط، مثل الشيف حاليًا.\nroleAccess.chef: شاشة المطبخ فقط.\nroleAccess.driver: مهامي، حيث ستُسند إليه المشتريات. بلا صندوق ولا مكتب ولا مطبخ.\nroleAccess.marketing: مهامي، حيث ستُسند إليه مهام التسويق. بلا صندوق ولا مكتب ولا مطبخ.\nretired: متوقف\nadd.lead: يسجّل الدخول بهذا البريد وكلمة المرور.\nadd.nameHint: كما سيراه الفريق وتظهر في السجلات.\nadd.emailHint: يُستخدم لتسجيل الدخول فقط.\nadd.emailInvalid: هذا لا يبدو عنوان بريد إلكتروني.\nadd.passwordShort: قصيرة جدًا: أضف {count}.\nadd.notReady: أدخل اسمًا وبريدًا صحيحًا وكلمة مرور بطول كافٍ.\npassword.title: كلمة المرور\npassword.panelNote: حدّد كلمة جديدة عندما ينسى كلمته.\npassword.label: كلمة المرور الجديدة\npassword.lead: تتوقف كلمة المرور الحالية عن العمل فور الحفظ.\npassword.save: تعيين كلمة المرور\npassword.tooShort: استخدم {min} أحرف على الأقل.\npin.title: الرقم السري\npin.label: الرقم السري الجديد",
       "route": "/admin/staff"
     },
     {
@@ -8934,7 +8990,7 @@
       "ref": "label:ws.owner.staff",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "lead: Everyone who can sign in to this app, and what each of them can open.\nrefusedAction: Managing staff accounts\nemptyTitle: No staff accounts yet\nemptyBody: Add the first account. Each person signs in with their own email and password.\nmanage: Manage\nshowRemoved: Show people without access ({count})\nhideRemoved: Hide people without access\ncolumns.name: Name\ncolumns.role: Role\ncolumns.pin: PIN\ncolumns.status: Access\ncolumns.actions: Manage\nstatus.active: Can sign in\nstatus.inactive: No access\nroleAccess.cashier: The till, open tabs, the cash drawer and customer lookup.\nroleAccess.prep: The kitchen screen only.\nroleAccess.court_desk: The court calendar, bookings and customers.\nroleAccess.manager: Runs the day: the till, desk and kitchen, plus menu, prices, stock, day close, reports and the audit log. Approves discounts and voids with a PIN.\nroleAccess.owner: Everything, including staff accounts, Telegram, marketing and the business figures.\nadd.lead: They sign in with this email and password.\nadd.nameHint: As staff and the records will see it.\nadd.emailHint: Used only to sign in.\nadd.emailInvalid: This does not look like an email address.\nadd.passwordShort: Too short: add {count} more.\nadd.notReady: Fill in a name, a valid email and a long enough password.\npassword.title: Password\npassword.panelNote: Set a new one when they forget theirs.\npassword.label: New password\npassword.lead: Their current password stops working as soon as you save.\npassword.save: Set password\npassword.tooShort: Use at least {min} characters.\npin.title: PIN\npin.label: New PIN\npin.lead: Typed at the till to go on break and unlock the station. A manager’s or owner’s PIN also approves a discount, a void or a price change.\npin.hint: {min} to {max} digits. Repeated digits (111111) and runs (123456) are refused.\npin.length: Enter {min} to {max} digits.\npin.setFor: Set a PIN for {name}\npin.changeFor: Change the PIN for {name}",
+      "body": "lead: Everyone who can sign in to this app, and what each of them can open.\nrefusedAction: Managing staff accounts\nemptyTitle: No staff accounts yet\nemptyBody: Add the first account. Each person signs in with their own email and password.\nmanage: Manage\nshowRemoved: Show people without access ({count})\nhideRemoved: Hide people without access\ncolumns.name: Name\ncolumns.role: Role\ncolumns.pin: PIN\ncolumns.status: Access\ncolumns.actions: Manage\nstatus.active: Can sign in\nstatus.inactive: No access\nroleAccess.cashier: The till, open tabs, the cash drawer and customer lookup.\nroleAccess.prep: The kitchen screen only. Retired: move this person to Barista or Chef.\nroleAccess.court_desk: The court calendar, bookings and customers.\nroleAccess.manager: Runs the day: the till, desk and kitchen, plus menu, prices, stock, day close, reports and the audit log. Approves discounts and voids with a PIN.\nroleAccess.owner: Everything, including staff accounts, Telegram, marketing and the business figures.\nroleAccess.head_barista: The kitchen screen only, the same as a barista for now.\nroleAccess.barista: The kitchen screen only.\nroleAccess.head_chef: The kitchen screen only, the same as a chef for now.\nroleAccess.chef: The kitchen screen only.\nroleAccess.driver: My tasks, where purchases will be given to them. No till, desk or kitchen.\nroleAccess.marketing: My tasks, where marketing tasks will be given to them. No till, desk or kitchen.\nretired: Retired\nadd.lead: They sign in with this email and password.\nadd.nameHint: As staff and the records will see it.\nadd.emailHint: Used only to sign in.\nadd.emailInvalid: This does not look like an email address.\nadd.passwordShort: Too short: add {count} more.\nadd.notReady: Fill in a name, a valid email and a long enough password.\npassword.title: Password\npassword.panelNote: Set a new one when they forget theirs.\npassword.label: New password\npassword.lead: Their current password stops working as soon as you save.\npassword.save: Set password",
       "route": "/admin/staff"
     },
     {
@@ -8942,7 +8998,7 @@
       "ref": "label:ws.owner.staff#2",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "pin.noPin: غير محدّد. لا يستطيع اعتماد الخصومات أو الإلغاءات ولا أخذ استراحة حتى يُحدَّد.\npin.hasPinBreakOnly: محدّد. يبدأ به الاستراحة وينهيها ويفتح قفل المحطة.\npin.noPinBreakOnly: غير محدّد. لا يستطيع أخذ استراحة حتى يُحدَّد.\npin.removeConfirm: إزالة الرقم السري لـ {name}؟\npin.removeBody: لن يستطيع اعتماد الخصومات أو الإلغاءات أو تغيير الأسعار على الصندوق حتى يُحدَّد رقم سري جديد.\npin.removed: أُزيل الرقم السري.\npin.saved: حُفظ الرقم السري.\nrefusals.pinWeak: هذا الرقم السري سهل التخمين. تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 6 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\nstations.title: المحطات\nstations.lead: يُعرض للتغطية على شاشة الاستراحة في هذه المحطات.\nstations.management: المديرون والمالكون يستطيعون تغطية أي محطة.\nstations.none: لم تُبلّغ أي محطة بعد. تظهر المحطة هنا بعد تشغيل تطبيقها.\nstations.save: حفظ المحطات\nstations.saved: حُفظت المحطات.\nbreaks.title: الاستراحات\nbreaks.allowance: وقت الاستراحة لكل شخص في اليوم\nbreaks.minutes: دقيقة\nbreaks.hint: قد تتجمّع عدة استراحات حتى هذا الحد. الصفر يوقف الاستراحات. بدء الاستراحة أو إنهاؤها يتطلب الرمز السري للشخص نفسه.\nbreaks.save: حفظ\nbreaks.saved: حُفظت حصة الاستراحة.\neditor.close: إغلاق\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير بريد تسجيل الدخول هنا. لاستخدام بريد آخر أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم\neditor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: التغيير إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث قوائمه عند تسجيل دخوله التالي.\neditor.roleSaved: تغيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُخرجه من التطبيق وتمنعه من الدخول. تبقى سجلاته باسمه.",
+      "body": "pin.lead: يُكتب على الصندوق لبدء الاستراحة وفتح قفل المحطة. رقم المدير أو المالك يعتمد أيضًا الخصم أو الإلغاء أو تغيير السعر.\npin.hint: من {min} إلى {max} أرقام. تُرفض الأرقام المكررة (111111) والمتتالية (123456).\npin.length: أدخل من {min} إلى {max} أرقام.\npin.setFor: تحديد رقم سري لـ {name}\npin.changeFor: تغيير الرقم السري لـ {name}\npin.hasPin: محدّد. يستطيع اعتماد الخصومات والإلغاءات على الصندوق، وأخذ الاستراحات، وفتح قفل المحطة.\npin.noPin: غير محدّد. لا يستطيع اعتماد الخصومات أو الإلغاءات ولا أخذ استراحة حتى يُحدَّد.\npin.hasPinBreakOnly: محدّد. يبدأ به الاستراحة وينهيها ويفتح قفل المحطة.\npin.noPinBreakOnly: غير محدّد. لا يستطيع أخذ استراحة حتى يُحدَّد.\npin.removeConfirm: إزالة الرقم السري لـ {name}؟\npin.removeBody: لن يستطيع اعتماد الخصومات أو الإلغاءات أو تغيير الأسعار على الصندوق حتى يُحدَّد رقم سري جديد.\npin.removed: أُزيل الرقم السري.\npin.saved: حُفظ الرقم السري.\nrefusals.pinWeak: هذا الرقم السري سهل التخمين. تجنّب الأرقام المكررة والمتتالية مثل 123456.\nrefusals.pinFormat: الرقم السري من 6 إلى 12 رقمًا.\nrefusals.emailInUse: يوجد حساب بهذا البريد الإلكتروني بالفعل.\nrefusals.lastOwner: هذا هو المالك الوحيد. اجعل شخصًا آخر مالكًا أولًا.\nstations.title: المحطات\nstations.lead: يُعرض للتغطية على شاشة الاستراحة في هذه المحطات.\nstations.management: المديرون والمالكون يستطيعون تغطية أي محطة.\nstations.none: لم تُبلّغ أي محطة بعد. تظهر المحطة هنا بعد تشغيل تطبيقها.\nstations.save: حفظ المحطات\nstations.saved: حُفظت المحطات.\nbreaks.title: الاستراحات\nbreaks.allowance: وقت الاستراحة لكل شخص في اليوم\nbreaks.minutes: دقيقة\nbreaks.hint: قد تتجمّع عدة استراحات حتى هذا الحد. الصفر يوقف الاستراحات. بدء الاستراحة أو إنهاؤها يتطلب الرمز السري للشخص نفسه.\nbreaks.save: حفظ\nbreaks.saved: حُفظت حصة الاستراحة.\neditor.close: إغلاق\neditor.selfNote: هذا حسابك. وحده مالك آخر يستطيع تغيير دورك أو إزالة صلاحيتك.\neditor.name: الاسم الظاهر في التطبيق\neditor.nameHint: لا يمكن تغيير بريد تسجيل الدخول هنا. لاستخدام بريد آخر أضف حسابًا جديدًا وأزل الصلاحية عن هذا الحساب.\neditor.saveName: حفظ الاسم",
       "route": "/admin/staff"
     },
     {
@@ -8950,7 +9006,7 @@
       "ref": "label:ws.owner.staff#2",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "pin.hasPin: Set. They can approve discounts and voids at the till, take breaks and unlock the station.\npin.noPin: Not set. They cannot approve discounts or voids, or take a break, until one is set.\npin.hasPinBreakOnly: Set. It starts and ends their breaks and unlocks the station.\npin.noPinBreakOnly: Not set. They cannot take a break until one is set.\npin.removeConfirm: Remove the PIN for {name}?\npin.removeBody: They will not be able to approve discounts, voids or price changes at the till until a new PIN is set.\npin.removed: PIN removed.\npin.saved: PIN saved.\nrefusals.pinWeak: That PIN is too easy to guess. Avoid repeated digits and runs like 123456.\nrefusals.pinFormat: A PIN is 6 to 12 digits.\nrefusals.emailInUse: An account with this email already exists.\nrefusals.lastOwner: This is the only owner. Make someone else an owner first.\nstations.title: Stations\nstations.lead: Offered as cover on these stations’ break screens.\nstations.management: Managers and owners can cover any station.\nstations.none: No station has reported in yet. A station appears here once its app has run.\nstations.save: Save stations\nstations.saved: Stations saved.\nbreaks.title: Breaks\nbreaks.allowance: Break time per person per day\nbreaks.minutes: minutes\nbreaks.hint: Several breaks may add up to this. 0 switches breaks off. Starting or ending one takes the person’s own PIN.\nbreaks.save: Save\nbreaks.saved: Break allowance saved.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.\neditor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}",
+      "body": "password.tooShort: Use at least {min} characters.\npin.title: PIN\npin.label: New PIN\npin.lead: Typed at the till to go on break and unlock the station. A manager’s or owner’s PIN also approves a discount, a void or a price change.\npin.hint: {min} to {max} digits. Repeated digits (111111) and runs (123456) are refused.\npin.length: Enter {min} to {max} digits.\npin.setFor: Set a PIN for {name}\npin.changeFor: Change the PIN for {name}\npin.hasPin: Set. They can approve discounts and voids at the till, take breaks and unlock the station.\npin.noPin: Not set. They cannot approve discounts or voids, or take a break, until one is set.\npin.hasPinBreakOnly: Set. It starts and ends their breaks and unlocks the station.\npin.noPinBreakOnly: Not set. They cannot take a break until one is set.\npin.removeConfirm: Remove the PIN for {name}?\npin.removeBody: They will not be able to approve discounts, voids or price changes at the till until a new PIN is set.\npin.removed: PIN removed.\npin.saved: PIN saved.\nrefusals.pinWeak: That PIN is too easy to guess. Avoid repeated digits and runs like 123456.\nrefusals.pinFormat: A PIN is 6 to 12 digits.\nrefusals.emailInUse: An account with this email already exists.\nrefusals.lastOwner: This is the only owner. Make someone else an owner first.\nstations.title: Stations\nstations.lead: Offered as cover on these stations’ break screens.\nstations.management: Managers and owners can cover any station.\nstations.none: No station has reported in yet. A station appears here once its app has run.\nstations.save: Save stations\nstations.saved: Stations saved.\nbreaks.title: Breaks\nbreaks.allowance: Break time per person per day\nbreaks.minutes: minutes\nbreaks.hint: Several breaks may add up to this. 0 switches breaks off. Starting or ending one takes the person’s own PIN.\nbreaks.save: Save\nbreaks.saved: Break allowance saved.\neditor.close: Close\neditor.selfNote: This is your own account. Only another owner can change your role or remove your access.",
       "route": "/admin/staff"
     },
     {
@@ -8958,7 +9014,7 @@
       "ref": "label:ws.owner.staff#3",
       "lang": "ar",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "editor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مجددًا بكلمة مروره القديمة، بالدور الظاهر. سيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
+      "body": "editor.saveRole: تغيير الدور\neditor.roleInactive: أعد الصلاحية لهذا الشخص قبل تغيير دوره.\neditor.roleConfirm: تغيير دور {name} إلى {role}؟\neditor.roleConfirmAction: التغيير إلى {role}\neditor.roleWhen: يسري التغيير فورًا، وتتحدّث قوائمه عند تسجيل دخوله التالي.\neditor.roleSaved: تغيّر الدور.\neditor.accessTitle: الصلاحية\neditor.enabledNote: إزالة الصلاحية تُخرجه من التطبيق وتمنعه من الدخول. تبقى سجلاته باسمه.\neditor.disabledNote: لا يستطيع هذا الشخص تسجيل الدخول. يبقى عمله السابق في السجلات باسمه.\neditor.removeConfirm: إزالة صلاحية {name}؟\neditor.restoreConfirm: إعادة الصلاحية إلى {name}؟\neditor.restoreBody: يستطيع تسجيل الدخول مجددًا بكلمة مروره القديمة، بالدور الظاهر. سيحتاج إلى رقم سري جديد.\neditor.accessRemoved: أُزيلت الصلاحية.\neditor.accessRestored: أُعيدت الصلاحية.",
       "route": "/admin/staff"
     },
     {
@@ -8966,7 +9022,7 @@
       "ref": "label:ws.owner.staff#3",
       "lang": "en",
       "title": "ws.owner.staff (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "editor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
+      "body": "editor.name: Name shown in the app\neditor.nameHint: The sign-in email cannot be changed here. To use a different email, add a new account and remove access from this one.\neditor.saveName: Save name\neditor.saveRole: Change role\neditor.roleInactive: Give this person access again before changing their role.\neditor.roleConfirm: Change {name}’s role to {role}?\neditor.roleConfirmAction: Change to {role}\neditor.roleWhen: The change applies straight away; their menus update the next time they sign in.\neditor.roleSaved: Role changed.\neditor.accessTitle: Access\neditor.enabledNote: Removing access signs them out and stops them signing in. Their records stay under their name.\neditor.disabledNote: This person cannot sign in. Their past work stays in the records under their name.\neditor.removeConfirm: Remove access for {name}?\neditor.restoreConfirm: Give {name} access again?\neditor.restoreBody: They can sign in again with their old password, in the role shown. They will need a new PIN.\neditor.accessRemoved: Access removed.\neditor.accessRestored: Access given back.",
       "route": "/admin/staff"
     },
     {
@@ -9374,7 +9430,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "today: اليوم\ncalendar: التقويم\ncustomers: العملاء\nnewSeries: سلسلة جديدة\nblockCourt: حجب ملعب\ntill: الكاشير\nopenTabs: الحسابات المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الكاشير\ndayClose: إغلاق اليوم\nmenu: القائمة\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار القائمة\ninventory: إدارة المخزون\nstockValue: قيمة المخزون\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: الطلبات\nmarketing: التسويق\ntelegram: تيليجرام\nassistant: المساعد\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nskipToMain: تخطَّ إلى المحتوى الرئيسي\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nleaveTitle: {destination}؟\nleaveBody: أنت على وشك مغادرة هذه الشاشة. لن يضيع شيء هنا، ويمكنك العودة بالطريقة نفسها.\nleaveConfirm: نعم، انتقل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: هذا ينهي جلستك على هذه المحطة. كل ما تم إرساله محفوظ؛ وسيحتاج الشخص التالي إلى تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة\nquit: الخروج إلى سطح المكتب\nquitConfirm: هذا ينهي الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز خارج الاتصال.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: أعد التشغيل للتحديث إلى {version}",
+      "body": "today: اليوم\ncalendar: التقويم\ncustomers: العملاء\nnewSeries: سلسلة جديدة\nblockCourt: حجب ملعب\ntill: الكاشير\nopenTabs: الحسابات المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الكاشير\ndayClose: إغلاق اليوم\nmenu: القائمة\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار القائمة\ninventory: إدارة المخزون\nstockValue: قيمة المخزون\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: الطلبات\nmarketing: التسويق\ntelegram: تيليجرام\nassistant: المساعد\nmyTasks: مهامي\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nskipToMain: تخطَّ إلى المحتوى الرئيسي\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nleaveTitle: {destination}؟\nleaveBody: أنت على وشك مغادرة هذه الشاشة. لن يضيع شيء هنا، ويمكنك العودة بالطريقة نفسها.\nleaveConfirm: نعم، انتقل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: هذا ينهي جلستك على هذه المحطة. كل ما تم إرساله محفوظ؛ وسيحتاج الشخص التالي إلى تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة\nquit: الخروج إلى سطح المكتب\nquitConfirm: هذا ينهي الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز خارج الاتصال.\nleavePin: الرمز السري للمدير\nleavePinHint: يجب أن يُدخل مدير غيرك رمزه السري.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: أعد التشغيل للتحديث إلى {version}",
       "route": null
     },
     {
@@ -9382,7 +9438,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\ninventory: Inventory\nstockValue: Stock value\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\ngroupOperations: Operations\ngroupRun: Run the day\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nskipToMain: Skip to main content\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nleaveTitle: {destination}?\nleaveBody: You are about to leave this screen. Nothing here is lost; you can come back the same way.\nleaveConfirm: Yes, go\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}",
+      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\ninventory: Inventory\nstockValue: Stock value\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nmyTasks: My tasks\ngroupOperations: Operations\ngroupRun: Run the day\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nskipToMain: Skip to main content\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nleaveTitle: {destination}?\nleaveBody: You are about to leave this screen. Nothing here is lost; you can come back the same way.\nleaveConfirm: Yes, go\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}",
       "route": null
     },
     {
@@ -9510,7 +9566,7 @@
       "ref": "label:ws.shell.workspace",
       "lang": "ar",
       "title": "ws.shell.workspace (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "courtDesk: مكتب الملاعب\ncashier: الكاشير\nprep: المطبخ\nmanager: العمليات\nowner: الإدارة",
+      "body": "courtDesk: مكتب الملاعب\ncashier: الكاشير\nprep: المطبخ\nmanager: العمليات\nowner: الإدارة\nteam: الفريق",
       "route": null
     },
     {
@@ -9518,7 +9574,7 @@
       "ref": "label:ws.shell.workspace",
       "lang": "en",
       "title": "ws.shell.workspace (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "courtDesk: Court desk\ncashier: Till\nprep: Kitchen\nmanager: Operations\nowner: Management",
+      "body": "courtDesk: Court desk\ncashier: Till\nprep: Kitchen\nmanager: Operations\nowner: Management\nteam: Team",
       "route": null
     },
     {
@@ -9526,7 +9582,7 @@
       "ref": "label:ws.shell.workspaceLead",
       "lang": "ar",
       "title": "ws.shell.workspaceLead (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "courtDesk: الحجوزات والوصول والعملاء\ncashier: الطلبات والحسابات والدفع\nprep: لوحة التذاكر التي يعمل منها الطهاة\nmanager: الصالة والمخزون وإغلاق اليوم والتقارير\nowner: كل النشاط في مكان واحد",
+      "body": "courtDesk: الحجوزات والوصول والعملاء\ncashier: الطلبات والحسابات والدفع\nprep: لوحة التذاكر التي يعمل منها الطهاة\nmanager: الصالة والمخزون وإغلاق اليوم والتقارير\nowner: كل النشاط في مكان واحد\nteam: المشتريات والمهام وقوائم التحقق المسندة إليك",
       "route": null
     },
     {
@@ -9534,8 +9590,24 @@
       "ref": "label:ws.shell.workspaceLead",
       "lang": "en",
       "title": "ws.shell.workspaceLead (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "courtDesk: Bookings, arrivals and customers\ncashier: Orders, tabs and payment\nprep: The ticket board the cooks work from\nmanager: Floor, stock, day close and reports\nowner: The whole business in one place",
+      "body": "courtDesk: Bookings, arrivals and customers\ncashier: Orders, tabs and payment\nprep: The ticket board the cooks work from\nmanager: Floor, stock, day close and reports\nowner: The whole business in one place\nteam: Purchases, tasks and checklists given to you",
       "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.team.tasks",
+      "lang": "ar",
+      "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.ar.ts)",
+      "body": "title: مهامي\nempty.title: لا شيء مسند إليك بعد\nempty.body: ستظهر هنا المشتريات ومهام التسويق وقوائم التحقق عندما تُسند إليك.",
+      "route": "/tasks"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.team.tasks",
+      "lang": "en",
+      "title": "ws.team.tasks (packages/i18n/src/catalogs/ws/team.en.ts)",
+      "body": "title: My tasks\nempty.title: Nothing is assigned to you yet\nempty.body: Purchases, marketing tasks and checklists will appear here once they are assigned to you.",
+      "route": "/tasks"
     },
     {
       "kind": "rule",
@@ -9894,7 +9966,7 @@
       "ref": "system:edge:staff-admin",
       "lang": "en",
       "title": "edge function staff-admin",
-      "body": "verify_jwt = true (supabase/config.toml).\nstaff-admin — create a staff account, and reset a staff password.\n\nSOW L234: \"Staff accounts created and managed by the owner role\", and L997\nmakes the role matrix a phase-acceptance condition. Everything about a staff\nmember that is only a row change lives in migration 0051 as an owner-gated\nRPC. The two things here need the GoTrue **admin** API, which is service-role\nonly and therefore cannot be an RPC:\n\n  POST { action: 'create',         email, password, display_name, role }\n  POST { action: 'reset_password', staff_id, password }\n\nWHY A PASSWORD AND NOT AN EMAIL INVITE. `inviteUserByEmail` needs working\nSMTP, and the venue is a padel club in Iraq whose staff are onboarded in\nperson during training week (SOW L766). The owner sets an opening password\nand hands it over; the staff member changes it from the sign-in screen. An\ninvite that lands in an inbox nobody checks is not onboarding.\n\nThe caller must be an active OWNER — checked against the `staff` table by\n`requireStaffRole`, not against a claim in the token.",
+      "body": "verify_jwt = true (supabase/config.toml).\nstaff-admin — create a staff account, and reset a staff password.\n\nSOW L234: \"Staff accounts created and managed by the owner role\", and L997\nmakes the role matrix a phase-acceptance condition. Everything about a staff\nmember that is only a row change lives in migration 0051 as an owner-gated\nRPC. The two things here need the GoTrue **admin** API, which is service-role\nonly and therefore cannot be an RPC:\n\n  POST { action: 'create',         email, password, display_name, role }\n  POST { action: 'reset_password', staff_id, password }\n\nWHY A PASSWORD AND NOT AN EMAIL INVITE. `inviteUserByEmail` needs working\nSMTP, and the venue is a padel club in Iraq whose staff are onboarded in\nperson during training week (SOW L766). The owner sets an opening password\nand hands it over; the staff member changes it from the sign-in screen. An\ninvite that lands in an inbox nobody checks is not onboarding.\n\nThe caller must be an active OWNER — checked against the `staff` table by\n`requireStaffRole`, not against a claim in the token.\n\n`prep` is retired (0155) and no new account starts on it: a create with it is\nrefused with 400 ROLE_RETIRED, naming barista and chef. Existing prep\naccounts are untouched, and moving one is a role change through\n`app.set_staff_role`, which this function does not handle.",
       "route": null
     },
     {
@@ -12534,12 +12606,20 @@
       "ref": "doc:docs/design/assistant/pages.md#10",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Financial section",
-      "body": "en, plus \"Export\".\n- /reports/staff — The staff activity report (app.report_staff_activity): one row per person with the \"Show\" views Activity, \"Discounts, voids & refunds\", Waiter calls and Day closes, a staff filter and \"Export\"; each row's \"Audit\" opens /admin/audit for that person, and rows drill their transactions through app.report_drill.\n- /admin/day-close — The day-close screen: when no trading day is open it shows an opening-float field and \"Open day\" (app.open_day); otherwise it walks the steps (settle open tabs, wait for tills to sync, count the cash, enter the card batch) and \"Close day\" calls app.close_day, with \"Export CSV\" for the day's figures; unpaid played bookings warn but do not block.",
+      "body": "- /financial — The Financial section's landing screen: a \"This month so far\" card from app.panel_headline (earned, cash, card) beside \"Cash at recent day closes\" read from day_sessions; \"Open the management panel\" goes to /panel, \"Go to day close\" to /admin/day-close, and the cards below open the section's screens.\n- /reports — A layout with no content of its own that redirects to /reports/courts; the tab strip (Revenue, Courts, Cafe, Stock, Staff activity) shows the reports the current role and Management section may open.\n- /reports/revenue — The owner-only revenue report (app.report_revenue, or app.report_compare when a comparison is chosen): headline figures grouped as Earned, Money taken, Given away and Tax, a day, week or month breakdown with the \"Show\" views Earned, Money taken, Given away and Tax, staff and payment-method filters, \"Export\", and pressing a figure or row opens its transactions through app.report_drill.\n- /reports/courts — The courts report (app.report_courts, or app.report_compare): totals for bookings, booked hours, occupancy, court revenue, cancellations and no-shows with the \"Show\" views By court, Cancellations, Peak times, By start time and By day, a court filter and \"Export\"; a court or day row drills its bookings through app.report_drill.\n- /reports/cafe — The cafe report (app.report_cafe, or app.report_compare): revenue, orders, average order, items sold, gross profit and margin and prep time with the \"Show\" views Best sellers, Cost & profit, By category and Waste, a \"See waste\" button that lists every write-off in the period, \"Export\", and item rows that drill their sold lines through app.report_drill.\n- /reports/stock — The stock value report (app.report_stock): headline stock value plus counts for running low, below par, expiring soon and expired, with the \"Show\" views Running low, Below par, Expiring soon, Expired, Used and Count differences (with an \"Only differences\" toggle); each list has a button opening the matching /stock scre",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#11",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Financial section",
+      "body": "en, plus \"Export\".\n- /reports/staff — The staff activity report (app.report_staff_activity): one row per person with the \"Show\" views Activity, \"Discounts, voids & refunds\", Waiter calls and Day closes, a staff filter and \"Export\"; each row's \"Audit\" opens /admin/audit for that person, and rows drill their transactions through app.report_drill.\n- /admin/day-close — The day-close screen: when no trading day is open it shows an opening-float field and \"Open day\" (app.open_day); otherwise it walks the steps (settle open tabs, wait for tills to sync, count the cash, enter the card batch) and \"Close day\" calls app.close_day, with \"Export CSV\" for the day's figures; unpaid played bookings warn but do not block.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#12",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Observe section",
       "body": "## Observe section\n\n- /observation — The Observe section's landing screen: a \"Waiting on you\" list built from app.staff_requests_page and app.marketing_overview with \"Answer requests\" and \"Review campaigns\", the Live floor 3D plan, and screen cards fed by app.ops_overview.\n- /observation/courts — A view-only \"Bookings\" board for a chosen day or month: a figure strip, one card per court right now, the night in two-hour rows and a month heat calendar, all read from reservations; \"Refresh\" re-reads, and pressing a booking opens a read-only panel whose only button is \"Open in Court desk\".\n- /observation/tills — A view-only \"Tills\" board of the cafe floor for one business day: running, settled, voided and waiter-call figures, occupied and free tables, and lists of open, settled and void tabs read from tabs; \"Refresh\" re-reads, and a tab opens a read-only panel whose only button is \"Open in Cashier\".\n- /observation/requests — The owner's decision queue for leave, shift swaps, wage advances and record corrections from app.staff_requests_page, filtered by Awaiting decision, Decided or All; \"Approve\" and \"Decline\" open a dialog that calls app.decide_staff_request (a decline needs a reason), and a decision is final.\n- /marketing — The owner's campaign list from app.marketing_overview showing status, window, audience and what each campaign brought in (or \"Not measurable\"); \"New campaign\" and \"Edit campaign\" save through app.save_marketing_campaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promotions\" and \"Open Telegram\" link out.\n- /admin/audit — The read-only \"Audit log\": who did what and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.",
@@ -12547,7 +12627,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#12",
+      "ref": "doc:docs/design/assistant/pages.md#13",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Stock section",
       "body": "## Stock section",
@@ -12555,7 +12635,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#13",
+      "ref": "doc:docs/design/assistant/pages.md#14",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Stock section",
       "body": "- /stock — \"On hand\", the stock landing screen: a \"Needs attention\" list (running low, expired, sold past records, below par, expiring soon, open alerts) whose buttons are \"Show which\", \"Open expiry\" and \"Open alerts\", a searchable on-hand table from v_ingredient_on_hand and app.report_stock, header buttons \"Record a delivery\", \"Record waste\" and \"Count stock\" (or \"Continue the count\"), and a per-row \"History\" ledger drawer.\n- /stock/ingredients — Ingredient master data (unit, supplier, pack size and price, shelf life, par, reorder point, yield, expected waste) from the ingredients table; \"New ingredient\" and per-row \"Edit\" open a dialog whose \"Save\" writes app.upsert_ingredient, and on-hand is a read-only figure linking to \"Count stock\".\n- /stock/receive — \"Goods in\": one delivery per submit with supplier and notes and per-line ingredient, received and ordered quantities, cost per unit and batch expiry; \"Add another ingredient\" adds a line and \"Record delivery\" posts the whole delivery through app.receive_delivery.\n- /stock/waste — \"Waste & production\", two forms side by side: \"Record waste\" (ingredient, quantity, Spill or Spoilage, a required note) writes app.record_waste, and \"Record production\" (prepared item, amount made) writes app.record_production, which consumes the components by recipe and reports the batch cost.\n- /stock/recipes — Recipes tabbed by Menu items, Add-ons and Prepared items with an All or No-recipe filter; \"Add\" or \"Edit\" opens a dialog where \"Add an ingredient\" adds lines and \"Save\" replaces the whole recipe atomically through app.set_recipe.\n- /stock/counts — \"Stock count\": \"Start count\" opens a count (app.start_count), a blind-entry table follows (drafts saved locally, with a \"Show recorded amounts\" toggle), and \"Finish count\" confirms and calls app.finalize_count, then opens Count differences.\n- /stock/variance — \"Count differences\" for a chosen finished count from v_variance_report, defaulting to \"Only differences\" with a toggle to \"All",
@@ -12563,7 +12643,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#14",
+      "ref": "doc:docs/design/assistant/pages.md#15",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Stock section",
       "body": "ingredients\", with columns Records said, Counted, Difference, Sold, Expected waste, Recorded waste, Voids and Expired; each row has \"History\" and the header has \"Export\".\n- /stock/margins — Margins per menu item from v_item_margin: an \"Items that earn too little\" panel with \"Show which\" for \"Sell at a loss\" and \"Margin under 30%\", over a searchable Price, Cost to make, Margin and Margin % table; read-only, and the empty state links to Recipes.\n- /stock/alerts — Stock alerts from manager_alerts grouped by kind (sold past what was on record, expired, running low, expiring soon, offline sale not applied), each group with \"Dismiss all\" and each row with \"Dismiss\" (app.acknowledge_alert) and a jump such as \"Count stock\", \"Open expiry\" or \"See what is low\".\n- /stock/products — \"Shop products\": one row per size of every Touch Shop product (a menu item in a shop section) with SKU, barcode, price, on hand and supplier; \"New product\" writes app.upsert_menu_item then app.upsert_retail_variant, \"Add size\" and \"Edit\" write app.upsert_retail_variant, which keeps each size's own stock row (unit pc) in step.\n- /stock/suppliers — \"Suppliers\": who the venue buys from (name, phone, notes, in use), picked on goods in and on shop products; \"New supplier\" and \"Edit\" write app.upsert_supplier, which refuses a second live supplier with the same spelling.\n- /stock/expiry — Expiry, from app.report_stock: an \"Expired: throw out and write off\" panel and an \"Expiring soon: use first\" panel listing batches with quantity left, worth and date; \"Write off\" opens a manager-PIN and reason dialog that calls app.write_off_expired, and the header has \"Export\".",
@@ -12571,7 +12651,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#15",
+      "ref": "doc:docs/design/assistant/pages.md#16",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
       "body": "## Setup section and admin",
@@ -12579,7 +12659,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#16",
+      "ref": "doc:docs/design/assistant/pages.md#17",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
       "body": "- /setup — The Setup section's landing screen: a \"Worth checking\" panel flags a broken Telegram link, managers or owners without a PIN and a single owner account, each with a jump button (\"Open Telegram\", \"Set PINs\", \"Go to Staff\"), above cards opening the Setup screens.\n- /admin — A layout with no content of its own: it draws the section tab strip for the Menu and Guest-app families and its index redirects to /admin/menu.\n- /admin/menu — The \"Menu items\" editor listing categories and their items with sold-out switches; \"New category\" and \"New item\" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out.\n- /admin/categories — The \"Categories\" screen for the menu sections' order, photo, tax group and shown or hidden switch; \"New category\" or a row opens the form whose \"Save\" calls app.upsert_menu_category, and the order arrows call app.reorder_menu_categories.\n- /admin/addons — The \"Add-ons\" screen listing item groups and sub-groups of guest choices; \"New group\" and \"New sub-group\" open an editor that saves with app.upsert_modifier_group and app.link_item_modifier_group, options save through app.upsert_modifier, and reveals through app.set_modifier_reveals.\n- /admin/suggested — The \"Suggested items\" screen picking the \"Goes well with\" list shown under an item on the guest menu; add or \"Remove\" suggestions up to the cap, then \"Save\" (or \"Discard changes\") writes app.set_addon_suggestions.\n- /admin/hero — The \"Guest site home screen\" builder choosing what sits above the guest menu (\"Menu only\", \"Photo or video\" or \"Featured item\"), the ticker lines and the bell tutorial switch; \"Save\" writes the cafe settings in one call (app.set_cafe_settings) and \"Discard changes\" reverts.\n- /admin/qr — The \"Tables & QR\" screen listing cafe tables with zone, seats and a waiter-bell switch (app.set_table_bell); \"Add table\" and a row edit a table (app.upsert_cafe_table),",
@@ -12587,7 +12667,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#17",
+      "ref": "doc:docs/design/assistant/pages.md#18",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
       "body": "\"Print all cards\" and \"Print this card\" print A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/courts — The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts).\n- /admin/rates — The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules.\n- /admin/hours — The \"Opening hours\" page setting each day's open and close times and the closed dates; \"Save\" calls app.set_opening_hours, and the same editor is the first tab of /admin/settings.\n- /admin/promotions — The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted.\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.\n- /admin/settings — \"Venue settings\" in four tabs: Opening hours (app.set_opening_hours), Day & service (business-day start hour, waiter-call wait via app.set_waiter_call_cooldown, idle lock), Analytics (owner-only exclusions and engagement floor) and Venue details (name, phone, timezone through app.set_venue_details).\n- /admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function, \"Manage\" opens an editor (",
@@ -12595,7 +12675,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#18",
+      "ref": "doc:docs/design/assistant/pages.md#19",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
       "body": "app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's \"Save\" writes break_allowance_minutes.\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
@@ -12606,7 +12686,7 @@
       "ref": "doc:docs/design/assistant/pages.md#2",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Entry",
-      "body": "## Entry\n\n- / — No screen of its own: it shows the boot screen until the staff row loads, then redirects to /workspaces when the account holds several workspaces and none is stored on this station, otherwise to the role's home (/till, /kds, /desk/today, /ops or /panel).\n- /workspaces — The \"Choose a workspace\" switcher, shown when an account holds more than one role; each workspace tile is a button that makes that workspace active and opens its home, with a \"You are here\" badge on the current one.",
+      "body": "## Entry\n\n- / — No screen of its own: it shows the boot screen until the staff row loads, then redirects to /workspaces when the account holds several workspaces and none is stored on this station, otherwise to the role's home (/till, /kds, /desk/today, /ops, /panel or /tasks).\n- /workspaces — The \"Choose a workspace\" switcher, shown when an account holds more than one role; each workspace tile is a button that makes that workspace active and opens its home, with a \"You are here\" badge on the current one.",
       "route": null
     },
     {
@@ -12637,13 +12717,21 @@
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#6",
       "lang": "en",
+      "title": "docs/design/assistant/pages.md › Team (driver, marketing)",
+      "body": "## Team (driver, marketing)\n\n- /tasks — \"My tasks\", the driver's and marketing's landing screen and the team workspace's one rail row; nothing can be assigned yet, so it shows only the empty state saying that purchases, marketing tasks and checklists will appear here, with no buttons and no data read.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#7",
+      "lang": "en",
       "title": "docs/design/assistant/pages.md › Operations (manager)",
       "body": "## Operations (manager)\n\n- /ops — The manager's \"Today\" screen, refreshed from app.ops_overview every 30 seconds: a \"Needs you now\" list with \"Open the day\", \"Answer calls\", \"See which\" and \"Review expired\"; courts, cafe and stock cards with \"Open bookings\", \"Open tabs\" and \"Open stock\"; the day-close steps ending in \"Go to day close\"; exceptions, staff activity, and \"Refresh\".",
       "route": null
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#7",
+      "ref": "doc:docs/design/assistant/pages.md#8",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Management (owner)",
       "body": "## Management (owner)\n\n- /panel — The owner's read-only landing screen: app.panel_headline fills an \"Earned\" and \"Taken in payments\" band plus padel, cafe and losses figure rows for a chosen range and comparison, each figure opening its transactions through app.report_drill; \"Export CSV\" writes the window, every figure and every drill transaction to one file, and buttons open the Courts, Cafe, Revenue, Stock and Staff reports.\n- /analytics — A layout that validates the shared search params (range, custom dates, compare basis, court) and redirects to /analytics/courts, carrying the search along; the Courts and Cafe tabs switch between the two analytics screens.\n- /analytics/courts — Owner-only Courts analytics: Summary, What stands out, When courts are busy, Courts compared, Cancellations and no-shows, How people book, Guests, and Court players at the cafe, fed by app.analytics_courts_summary, _demand, _endings, _guests and _cafe for the period and its comparison window; the bar sets range, compare basis and court, \"Export\" saves the figures, and tiles drill into transactions.\n- /analytics/cafe — Owner-only Cafe analytics: Summary, What stands out, Menu, Sales and the guest menu, and Busy times, fed by app.analytics_daily_sales, _sold_items, _best_sellers, _bought_together, _item_margins, _price_bands, _promo, _menu_snapshot and _hourly plus PostHog guest data; the bar carries period, compare and the \"Business day\" and \"Excluded items\" settings, \"Export\" saves the figures, and the AI card's \"Ask for findings\" and \"Check they still hold\" call the insights function and save its results.",
@@ -12651,18 +12739,10 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#8",
-      "lang": "en",
-      "title": "docs/design/assistant/pages.md › Financial section",
-      "body": "## Financial section",
-      "route": null
-    },
-    {
-      "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#9",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Financial section",
-      "body": "- /financial — The Financial section's landing screen: a \"This month so far\" card from app.panel_headline (earned, cash, card) beside \"Cash at recent day closes\" read from day_sessions; \"Open the management panel\" goes to /panel, \"Go to day close\" to /admin/day-close, and the cards below open the section's screens.\n- /reports — A layout with no content of its own that redirects to /reports/courts; the tab strip (Revenue, Courts, Cafe, Stock, Staff activity) shows the reports the current role and Management section may open.\n- /reports/revenue — The owner-only revenue report (app.report_revenue, or app.report_compare when a comparison is chosen): headline figures grouped as Earned, Money taken, Given away and Tax, a day, week or month breakdown with the \"Show\" views Earned, Money taken, Given away and Tax, staff and payment-method filters, \"Export\", and pressing a figure or row opens its transactions through app.report_drill.\n- /reports/courts — The courts report (app.report_courts, or app.report_compare): totals for bookings, booked hours, occupancy, court revenue, cancellations and no-shows with the \"Show\" views By court, Cancellations, Peak times, By start time and By day, a court filter and \"Export\"; a court or day row drills its bookings through app.report_drill.\n- /reports/cafe — The cafe report (app.report_cafe, or app.report_compare): revenue, orders, average order, items sold, gross profit and margin and prep time with the \"Show\" views Best sellers, Cost & profit, By category and Waste, a \"See waste\" button that lists every write-off in the period, \"Export\", and item rows that drill their sold lines through app.report_drill.\n- /reports/stock — The stock value report (app.report_stock): headline stock value plus counts for running low, below par, expiring soon and expired, with the \"Show\" views Running low, Below par, Expiring soon, Expired, Used and Count differences (with an \"Only differences\" toggle); each list has a button opening the matching /stock scre",
+      "body": "## Financial section",
       "route": null
     },
     {

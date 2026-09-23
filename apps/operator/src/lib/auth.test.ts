@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CAPABILITY_ROLES,
   ROUTE_ROLES,
+  STAFF_ROLES,
   SUB_ROUTES,
   allowedRoutes,
   allowedSubRoutes,
@@ -12,7 +13,11 @@ import {
   type StaffRole,
 } from './auth';
 
-const ALL_ROLES: readonly StaffRole[] = ['cashier', 'prep', 'court_desk', 'manager', 'owner'];
+const ALL_ROLES: readonly StaffRole[] = STAFF_ROLES;
+/** Bar and kitchen (0155): prep's access exactly, and nothing more. */
+const KITCHEN_FAMILY = ['head_barista', 'barista', 'head_chef', 'chef'] as const;
+/** The any-staff baseline plus My tasks. */
+const TEAM = ['driver', 'marketing'] as const;
 
 describe('canAccess — longest-prefix match, default deny', () => {
   it('denies every role on a route that matches no prefix', () => {
@@ -74,6 +79,29 @@ describe('canAccess — longest-prefix match, default deny', () => {
     expect(canAccess('court_desk', '/admin')).toBe(false);
     expect(canAccess('manager', '/stock')).toBe(true);
   });
+
+  it('gives the bar and kitchen family the kitchen display, and only that', () => {
+    for (const role of KITCHEN_FAMILY) {
+      expect(canAccess(role, '/kds'), role).toBe(true);
+      // Every other route answers exactly as it does for prep.
+      for (const route of Object.keys(ROUTE_ROLES)) {
+        expect(canAccess(role, route), `${role} ${route}`).toBe(canAccess('prep', route));
+      }
+    }
+  });
+
+  it('gives driver and marketing My tasks and nothing else', () => {
+    for (const role of TEAM) {
+      expect(canAccess(role, '/tasks'), role).toBe(true);
+      for (const route of Object.keys(ROUTE_ROLES).filter((r) => r !== '/tasks')) {
+        expect(canAccess(role, route), `${role} ${route}`).toBe(false);
+      }
+    }
+    // My tasks is theirs: no other role, the jokers included, lands on it.
+    for (const role of ALL_ROLES.filter((r) => !(TEAM as readonly string[]).includes(r))) {
+      expect(canAccess(role, '/tasks'), role).toBe(false);
+    }
+  });
 });
 
 describe('allowedRoutes — top-level entries only', () => {
@@ -88,6 +116,8 @@ describe('allowedRoutes — top-level entries only', () => {
   it('filters by role', () => {
     expect(allowedRoutes('cashier')).toEqual(['/till']);
     expect(allowedRoutes('prep')).toEqual(['/kds']);
+    expect(allowedRoutes('chef')).toEqual(['/kds']);
+    expect(allowedRoutes('driver')).toEqual(['/tasks']);
     expect(allowedRoutes('manager')).toContain('/admin');
     expect(allowedRoutes('manager')).not.toContain('/analytics');
     expect(allowedRoutes('owner')).toContain('/analytics');
@@ -124,6 +154,12 @@ describe('homeRoute', () => {
     expect(homeRoute('court_desk')).toBe('/desk/today');
     expect(homeRoute('manager')).toBe('/ops');
     expect(homeRoute('owner')).toBe('/panel');
+    for (const role of KITCHEN_FAMILY) expect(homeRoute(role), role).toBe('/kds');
+    for (const role of TEAM) expect(homeRoute(role), role).toBe('/tasks');
+  });
+
+  it('lands every role on a screen it may open', () => {
+    for (const role of ALL_ROLES) expect(canAccess(role, homeRoute(role)), role).toBe(true);
   });
 });
 
@@ -190,6 +226,12 @@ describe('permissionsFor (spec §03 can.*)', () => {
     const owner = permissionsFor('owner');
     expect(owner.manageStaff).toBe(true);
     expect(owner.viewFinancials).toBe(true);
+  });
+  it('gives the six 0155 roles no permission at all', async () => {
+    const { permissionsFor } = await import('./auth');
+    for (const role of [...KITCHEN_FAMILY, ...TEAM]) {
+      expect(Object.values(permissionsFor(role)).every((v) => v === false), role).toBe(true);
+    }
   });
   it('lets the court desk take court payment without the till (0106)', async () => {
     const { permissionsFor, canAccess, requiredRoleFor } = await import('./auth');

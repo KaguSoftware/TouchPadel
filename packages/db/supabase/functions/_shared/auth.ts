@@ -13,7 +13,19 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { getCallerUserId } from './supabase.ts';
 import { json } from './http.ts';
 
-export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
+export type StaffRole =
+  | 'cashier'
+  | 'prep'
+  | 'court_desk'
+  | 'manager'
+  | 'owner'
+  // 0155: the bar and kitchen roles that replace prep, and driver and marketing.
+  | 'head_barista'
+  | 'barista'
+  | 'head_chef'
+  | 'chef'
+  | 'driver'
+  | 'marketing';
 
 export interface StaffCaller {
   userId: string;

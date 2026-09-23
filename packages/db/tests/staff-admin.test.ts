@@ -40,7 +40,18 @@ describe.skipIf(!up)('0051 staff administration', () => {
 
   async function makeStaff(
     tag: string,
-    role: 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner' = 'cashier',
+    role:
+      | 'cashier'
+      | 'prep'
+      | 'court_desk'
+      | 'manager'
+      | 'owner'
+      | 'head_barista'
+      | 'barista'
+      | 'head_chef'
+      | 'chef'
+      | 'driver'
+      | 'marketing' = 'cashier',
   ): Promise<string> {
     const email = `staffadmin-${tag}-${Date.now()}-${created.length}@test.touch.local`;
     const { data, error } = await svc.auth.admin.createUser({

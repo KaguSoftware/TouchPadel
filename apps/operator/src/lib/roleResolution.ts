@@ -34,7 +34,32 @@
  * Pure: no supabase, no react. The policy is what has to be right, so the
  * policy is what is tested (`roleResolution.test.ts`).
  */
-export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
+/**
+ * Every value of the `staff_role` enum this build knows, in the enum's own
+ * order. The type is derived from the list, so a role cannot be added to one
+ * and forgotten in the other.
+ *
+ * The last six arrived together (0155): the bar and kitchen split into
+ * head barista, barista, head chef and chef, each with exactly the kitchen
+ * display prep had, and driver and marketing, who hold the any-staff baseline
+ * and land on My tasks. `prep` is soft-retired: existing prep accounts keep
+ * working, and the Staff page no longer offers it for a new account.
+ */
+export const STAFF_ROLES = [
+  'cashier',
+  'prep',
+  'court_desk',
+  'manager',
+  'owner',
+  'head_barista',
+  'barista',
+  'head_chef',
+  'chef',
+  'driver',
+  'marketing',
+] as const;
+
+export type StaffRole = (typeof STAFF_ROLES)[number];
 
 export interface StaffInfo {
   id: string;
@@ -58,7 +83,7 @@ export interface StaffRow {
   is_active: boolean;
 }
 
-const ROLES: readonly string[] = ['cashier', 'prep', 'court_desk', 'manager', 'owner'];
+const ROLES: readonly string[] = STAFF_ROLES;
 
 /**
  * Classify one staff lookup.

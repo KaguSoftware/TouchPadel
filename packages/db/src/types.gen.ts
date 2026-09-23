@@ -6574,7 +6574,18 @@ export type Database = {
         | "expired"
       staff_request_kind: "leave" | "shift_swap" | "advance" | "correction"
       staff_request_status: "pending" | "approved" | "rejected" | "withdrawn"
-      staff_role: "cashier" | "prep" | "court_desk" | "manager" | "owner"
+      staff_role:
+        | "cashier"
+        | "prep"
+        | "court_desk"
+        | "manager"
+        | "owner"
+        | "head_barista"
+        | "barista"
+        | "head_chef"
+        | "chef"
+        | "driver"
+        | "marketing"
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
       ticket_status: "queued" | "preparing" | "ready" | "completed" | "voided"
@@ -6754,7 +6765,19 @@ export const Constants = {
       ],
       staff_request_kind: ["leave", "shift_swap", "advance", "correction"],
       staff_request_status: ["pending", "approved", "rejected", "withdrawn"],
-      staff_role: ["cashier", "prep", "court_desk", "manager", "owner"],
+      staff_role: [
+        "cashier",
+        "prep",
+        "court_desk",
+        "manager",
+        "owner",
+        "head_barista",
+        "barista",
+        "head_chef",
+        "chef",
+        "driver",
+        "marketing",
+      ],
       stock_unit: ["g", "ml", "pc"],
       tab_status: ["open", "awaiting_payment", "settled", "void"],
       ticket_status: ["queued", "preparing", "ready", "completed", "voided"],

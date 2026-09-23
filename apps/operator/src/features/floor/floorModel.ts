@@ -200,15 +200,23 @@ export function roomForRole(role: string): Room {
   switch (role) {
     case 'court_desk':
       return 'reception';
+    // The bar and kitchen split of 0155: baristas work the bar beside the
+    // cashier, chefs the kitchen beside whoever is still on prep.
     case 'cashier':
+    case 'head_barista':
+    case 'barista':
       return 'bar';
     case 'prep':
+    case 'head_chef':
+    case 'chef':
       return 'kitchen';
     // The two jokers share the office: whoever is running the building sits
     // there, and a second desk in a meeting room said nothing true.
     case 'manager':
     case 'owner':
       return 'office';
+    // Driver and marketing (0155) have no room of their own on the plan, so
+    // they stand where any role without one does.
     default:
       return 'floor';
   }

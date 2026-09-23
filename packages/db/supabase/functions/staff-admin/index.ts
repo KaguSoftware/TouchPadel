@@ -18,13 +18,32 @@
  *
  * The caller must be an active OWNER — checked against the `staff` table by
  * `requireStaffRole`, not against a claim in the token.
+ *
+ * `prep` is retired (0155) and no new account starts on it: a create with it is
+ * refused with 400 ROLE_RETIRED, naming barista and chef. Existing prep
+ * accounts are untouched, and moving one is a role change through
+ * `app.set_staff_role`, which this function does not handle.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
 import { json, mapPgError } from '../_shared/http.ts';
 
-const ROLES = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
-type Role = (typeof ROLES)[number];
+/** Every role a new account can start on; 0155 added the six after court_desk. */
+const ROLES = [
+  'cashier',
+  'court_desk',
+  'head_barista',
+  'barista',
+  'head_chef',
+  'chef',
+  'driver',
+  'marketing',
+  'manager',
+  'owner',
+] as const;
+
+/** Still a staff_role, and every guard still admits it, but never a new account's. */
+const RETIRED_ROLES = ['prep'] as const;
 
 /** Long enough to be worth typing once, short enough to read aloud accurately. */
 const MIN_PASSWORD = 10;
@@ -35,7 +54,8 @@ interface CreateBody {
   email: string;
   password: string;
   display_name: string;
-  role: Role;
+  /** Untrusted until checked against ROLES below. */
+  role: string;
 }
 
 interface ResetBody {
@@ -76,7 +96,15 @@ Deno.serve(async (req) => {
 
     if (!email.includes('@')) return badRequest('a valid email is required');
     if (!displayName) return badRequest('display_name is required');
-    if (!ROLES.includes(role)) return badRequest(`role must be one of ${ROLES.join(', ')}`);
+    if ((RETIRED_ROLES as readonly string[]).includes(role)) {
+      return json(
+        { error: 'ROLE_RETIRED', message: `${role} is retired: create the account as barista or chef instead` },
+        400,
+      );
+    }
+    if (!(ROLES as readonly string[]).includes(role)) {
+      return badRequest(`role must be one of ${ROLES.join(', ')}`);
+    }
     if (!password) {
       return badRequest(`password must be ${MIN_PASSWORD}-${MAX_PASSWORD} characters`);
     }

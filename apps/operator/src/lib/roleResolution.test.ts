@@ -14,6 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ROLE_RECHECK_MS,
+  STAFF_ROLES,
   nextStaff,
   resolveStaffRow,
   shouldDropRealtime,
@@ -68,6 +69,33 @@ describe('resolveStaffRow — an error is never an answer', () => {
 
   it('refuses a row with no id', () => {
     expect(resolveStaffRow({ ...ACTIVE, id: '' }, null).kind).toBe('revoked');
+  });
+
+  it('admits the six roles 0155 added, and prep while accounts still hold it', () => {
+    // A role missing here reads as 'revoked', so a new barista would sign in
+    // to "you are not staff" rather than to the kitchen display.
+    for (const role of ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing', 'prep']) {
+      const r = resolveStaffRow({ ...ACTIVE, role }, null);
+      expect(r, role).toEqual({ kind: 'active', info: { ...PREV, role } });
+    }
+  });
+});
+
+describe('STAFF_ROLES', () => {
+  it('lists the staff_role enum in its own order', () => {
+    expect(STAFF_ROLES).toEqual([
+      'cashier',
+      'prep',
+      'court_desk',
+      'manager',
+      'owner',
+      'head_barista',
+      'barista',
+      'head_chef',
+      'chef',
+      'driver',
+      'marketing',
+    ]);
   });
 });
 

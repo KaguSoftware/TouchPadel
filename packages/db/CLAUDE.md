@@ -17,12 +17,14 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0150`
-  (`20260923000150_my_reservations.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0156`
+  (`20260923000156_new_roles_access.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
-  0149 assistant-cap, 0150 my-reservations); the next is `0151`. **Check the directory, not this
-  line** — it said 0146 while 0147–0149 were already on disk, and a reused ordinal fails
-  `check-migrations.mjs` after the file is written.
+  0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
+  0153 terms-consent, 0154 analytics-returning-guest, 0155–0156 six new staff roles); the next is
+  `0157`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
+  file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).
@@ -52,8 +54,8 @@ is a line in that file.
   `llm_record_usage`, `venue_mode` since 0137). `tests/rpc-overloads.test.ts` proves
   the same list against `pg_proc` when Docker is up.
 - Enum widening (`alter type … add value`) is its own migration file, landing strictly before the
-  file that uses the value. No migration does this yet; do not put the first one beside its first
-  use.
+  file that uses the value. Precedents: 0143 (`ingredient_kind` `retail`, first used by 0144) and
+  0155 (six `staff_role` values, first used by 0156).
 - New push kind: `notification_outbox.kind` is a closed CHECK (`0024:22`, re-issued by
   `0075:36-58`); widen it by migration and add EN/AR copy to `STRINGS` in
   `supabase/functions/send-push/index.ts:48`.
@@ -112,6 +114,10 @@ is a line in that file.
 - `security definer`, `set search_path`, `revoke … from public, anon`,
   `grant execute … to authenticated`; dollar tag `$<name>_0NNN$` (as `$confirm_booking_0092$`); the
   role or venue guard is the first statement.
+- A guard that means "any active staff" is `if app.staff_role() is null then raise …` in a function
+  and `app.staff_role() is not null` in a policy (the 0072 form), never a list of every role. 0156
+  converted the old five-role lists, so a new role needs no re-issue; a guard for a subset (kitchen,
+  till, money, stock) still names its roles.
 - Errors are `raise exception 'CODE'` (P0001). Every new code gets a client mapping in the same
   commit: `MAPPED_CODES` (`apps/operator/src/lib/errors.ts:10`), `RPC_ERROR_KEYS`
   (`apps/web/src/lib/appRpc.ts:21`) or `CODE_TO_KEY`

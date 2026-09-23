@@ -89,6 +89,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     prep: 'المطبخ',
     manager: 'العمليات',
     owner: 'الإدارة',
+    team: 'الفريق',
   },
   section: {
     financial: 'المالية',
@@ -108,6 +109,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     prep: 'لوحة التذاكر التي يعمل منها الطهاة',
     manager: 'الصالة والمخزون وإغلاق اليوم والتقارير',
     owner: 'كل النشاط في مكان واحد',
+    team: 'المشتريات والمهام وقوائم التحقق المسندة إليك',
   },
   nav: {
     today: 'اليوم',
@@ -144,6 +146,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     marketing: 'التسويق',
     telegram: 'تيليجرام',
     assistant: 'المساعد',
+    myTasks: 'مهامي',
     groupOperations: 'العمليات',
     groupRun: 'إدارة اليوم',
     groupRecords: 'السجلات',

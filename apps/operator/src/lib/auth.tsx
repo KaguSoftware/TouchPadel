@@ -18,6 +18,7 @@ import { touch } from '../ipc/bridge';
 import { setMutateStaffId } from './mutate';
 import {
   ROLE_RECHECK_MS,
+  STAFF_ROLES,
   nextStaff,
   resolveStaffRow,
   shouldDropRealtime,
@@ -29,6 +30,7 @@ import {
 // Defined in the pure roleResolution module so the SEC-35 policy can be tested
 // under plain node; re-exported so every existing import site is unchanged.
 export type { StaffInfo, StaffRole };
+export { STAFF_ROLES };
 
 interface AuthContextValue {
   session: Session | null;
@@ -225,7 +227,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Customers are shared between the desk and the till (spec 06.8: attach to booking OR tab).
   '/desk/customers': ['court_desk', 'cashier', 'manager', 'owner'],
   '/desk/customers/new': ['court_desk', 'manager', 'owner'],
-  '/kds': ['prep', 'manager', 'owner'],
+  // The bar and kitchen family (0155) has exactly what prep had: this board
+  // and nothing else. Prep stays listed while accounts still hold it.
+  '/kds': ['prep', 'head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
@@ -250,6 +254,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // the audit access and the money figures it reads are all owner-level.
   '/assistant': ['owner'],
   '/workspaces': ['manager', 'owner'],
+  // Driver and marketing hold the any-staff baseline and nothing else; this
+  // is the one screen they land on until purchases and protocols exist.
+  '/tasks': ['driver', 'marketing'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -363,6 +370,10 @@ export function homeRoute(role: StaffRole): string {
     case 'cashier':
       return '/till';
     case 'prep':
+    case 'head_barista':
+    case 'barista':
+    case 'head_chef':
+    case 'chef':
       return '/kds';
     case 'court_desk':
       return '/desk/today';
@@ -370,6 +381,9 @@ export function homeRoute(role: StaffRole): string {
       return '/ops';
     case 'owner':
       return '/panel';
+    case 'driver':
+    case 'marketing':
+      return '/tasks';
   }
 }
 

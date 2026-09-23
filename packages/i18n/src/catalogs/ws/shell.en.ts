@@ -107,6 +107,8 @@ export const shellEn = {
     prep: 'Kitchen',
     manager: 'Operations',
     owner: 'Management',
+    // Driver and marketing (0155): one rail row, My tasks, for now.
+    team: 'Team',
   },
   // A section of a workspace with its own landing screen and its own rail
   // (lib/workspaces.ts). Management shows one button per section instead of
@@ -129,6 +131,7 @@ export const shellEn = {
     prep: 'The ticket board the cooks work from',
     manager: 'Floor, stock, day close and reports',
     owner: 'The whole business in one place',
+    team: 'Purchases, tasks and checklists given to you',
   },
   nav: {
     today: 'Today',
@@ -172,6 +175,8 @@ export const shellEn = {
     // The owner assistant: a rail row on Management's own list and the drawer
     // button in the rail footer share this label.
     assistant: 'Assistant',
+    // The team workspace's one row (driver, marketing).
+    myTasks: 'My tasks',
     groupOperations: 'Operations',
     groupRun: 'Run the day',
     groupRecords: 'Records',

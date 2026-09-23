@@ -3,7 +3,7 @@ import type { StaffRole } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { ErrorText, Field, Select } from '../../../components/ui';
 import { MessagePresenter } from '../../../components/kit';
-import { ROLES, staffRefusal } from './staffModel';
+import { roleChoices, staffRefusal } from './staffModel';
 
 /** A refusal in this screen's own words when it has them; the shared mapping otherwise. */
 export function StaffErrorText({ error }: { error: unknown }) {
@@ -14,20 +14,29 @@ export function StaffErrorText({ error }: { error: unknown }) {
   return <ErrorText error={error} />;
 }
 
-/** The role picker with what the chosen role can open, said beneath it. */
+/**
+ * The role picker with what the chosen role can open, said beneath it.
+ * `current` is the role the account holds now: when it is retired (prep,
+ * 0155) the picker still names it, greyed out, and the hint beneath says to
+ * move the person on. A new account has no current role, so it never sees
+ * prep at all.
+ */
 export function RoleField({
   value,
+  current,
   onChange,
   disabled,
 }: {
   value: StaffRole;
+  current?: StaffRole;
   onChange: (role: StaffRole) => void;
   disabled?: boolean;
 }) {
   const { tr } = useLocale();
+  const options = roleChoices(current ?? value).map((c) => ({ value: c.role, label: tr(`op.roles.${c.role}`), disabled: c.retired }));
   return (
     <Field label={tr('op.staff.role')} hint={tr(`ws.owner.staff.roleAccess.${value}`)} style={{ marginBlockEnd: 0 }}>
-      <Select<StaffRole> value={value} disabled={disabled} onChange={onChange} options={ROLES.map((r) => ({ value: r, label: tr(`op.roles.${r}`) }))} />
+      <Select<StaffRole> value={value} disabled={disabled} onChange={onChange} options={options} />
     </Field>
   );
 }

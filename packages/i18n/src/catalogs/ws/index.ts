@@ -22,6 +22,8 @@ import { reportsEn } from './reports.en';
 import { reportsAr } from './reports.ar';
 import { analyticsEn } from './analytics.en';
 import { analyticsAr } from './analytics.ar';
+import { teamEn } from './team.en';
+import { teamAr } from './team.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -33,6 +35,7 @@ export const wsEn = {
   owner: ownerEn,
   reports: reportsEn,
   analytics: analyticsEn,
+  team: teamEn,
 } as const;
 
 export const wsAr = {
@@ -45,4 +48,5 @@ export const wsAr = {
   owner: ownerAr,
   reports: reportsAr,
   analytics: analyticsAr,
+  team: teamAr,
 } as const;

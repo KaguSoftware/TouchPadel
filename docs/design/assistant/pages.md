@@ -10,7 +10,7 @@ here.
 
 ## Entry
 
-- / — No screen of its own: it shows the boot screen until the staff row loads, then redirects to /workspaces when the account holds several workspaces and none is stored on this station, otherwise to the role's home (/till, /kds, /desk/today, /ops or /panel).
+- / — No screen of its own: it shows the boot screen until the staff row loads, then redirects to /workspaces when the account holds several workspaces and none is stored on this station, otherwise to the role's home (/till, /kds, /desk/today, /ops, /panel or /tasks).
 - /workspaces — The "Choose a workspace" switcher, shown when an account holds more than one role; each workspace tile is a button that makes that workspace active and opens its home, with a "You are here" badge on the current one.
 
 ## Till (cashier)
@@ -31,6 +31,10 @@ here.
 ## Kitchen
 
 - /kds — The kitchen display board: per-ticket "Start", "Ready" and "Complete" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and "Leave kitchen display" appears only for staff who hold another workspace.
+
+## Team (driver, marketing)
+
+- /tasks — "My tasks", the driver's and marketing's landing screen and the team workspace's one rail row; nothing can be assigned yet, so it shows only the empty state saying that purchases, marketing tasks and checklists will appear here, with no buttons and no data read.
 
 ## Operations (manager)
 

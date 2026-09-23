@@ -161,7 +161,7 @@ export function StaffAccountEditor({
       </Section>
 
       <Section>
-        <RoleField value={role} onChange={setRole} disabled={locked || busy || !staff.is_active} />
+        <RoleField value={role} current={staff.role} onChange={setRole} disabled={locked || busy || !staff.is_active} />
         {!staff.is_active && <Note>{tr('ws.owner.staff.editor.roleInactive')}</Note>}
         {roleDirty && (
           <Actions>

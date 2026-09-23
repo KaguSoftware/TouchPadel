@@ -192,7 +192,20 @@ export interface PrintResult {
   error?: string;
 }
 
-export type Role = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
+// Mirrors StaffRole (apps/operator/src/lib/roleResolution.ts) and the
+// renderer's copy in apps/operator/src/ipc/bridge.ts; the last six are 0155's.
+export type Role =
+  | 'cashier'
+  | 'prep'
+  | 'court_desk'
+  | 'manager'
+  | 'owner'
+  | 'head_barista'
+  | 'barista'
+  | 'head_chef'
+  | 'chef'
+  | 'driver'
+  | 'marketing';
 
 export type StationMode = 'till' | 'desk' | 'kds';
 

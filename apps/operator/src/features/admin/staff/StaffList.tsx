@@ -55,6 +55,7 @@ import {
   PIN_MIN,
   STAFF_QUERY_KEY,
   approvesWithPin,
+  isRetiredRole,
   looksLikeEmail,
   pinFormatOk,
   type StaffRow,
@@ -104,7 +105,12 @@ export function StaffList() {
       header: tr('ws.owner.staff.columns.role'),
       render: (s) => (
         <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-          <span style={{ fontWeight: 600 }}>{tr(`op.roles.${s.role}`)}</span>
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 600 }}>{tr(`op.roles.${s.role}`)}</span>
+            {/* Prep since 0155: it still works but is no longer given. The badge
+                stays when the panel is open and the line beneath does not. */}
+            {isRetiredRole(s.role) && <StatusBadge size="sm" tone="warn" dot={false} label={tr('ws.owner.staff.retired')} />}
+          </span>
           {/* With the panel open the panel says it, and the column is too narrow to. */}
           {!open && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`ws.owner.staff.roleAccess.${s.role}`)}</span>}
         </span>

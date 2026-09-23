@@ -1020,10 +1020,18 @@ export const en = {
     },
     roles: {
       cashier: 'Cashier',
+      // Soft-retired (0155): existing accounts keep it, new ones are Barista
+      // or Chef.
       prep: 'Kitchen',
       court_desk: 'Court desk',
       manager: 'Manager',
       owner: 'Owner',
+      head_barista: 'Head barista',
+      barista: 'Barista',
+      head_chef: 'Head chef',
+      chef: 'Chef',
+      driver: 'Driver',
+      marketing: 'Marketing',
     },
     days: {
       sun: 'Sun',

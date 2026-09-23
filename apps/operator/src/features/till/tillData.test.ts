@@ -84,6 +84,11 @@ describe('canReadBookings — the mirror of the reservations read policies', () 
 
   it('refuses kitchen staff and a missing role', () => {
     expect(canReadBookings('prep')).toBe(false);
+    // 0155: the bar and kitchen roles hold exactly what prep held, and driver
+    // and marketing hold no reservations read at all.
+    for (const role of ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing']) {
+      expect(canReadBookings(role)).toBe(false);
+    }
     expect(canReadBookings(null)).toBe(false);
     expect(canReadBookings(undefined)).toBe(false);
   });

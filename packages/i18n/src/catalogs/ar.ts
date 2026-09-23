@@ -937,6 +937,12 @@ export const ar: Messages = {
       court_desk: 'مكتب الملاعب',
       manager: 'مدير',
       owner: 'مالك',
+      head_barista: 'رئيس الباريستا',
+      barista: 'باريستا',
+      head_chef: 'رئيس الطهاة',
+      chef: 'شيف',
+      driver: 'سائق',
+      marketing: 'التسويق',
     },
     days: {
       sun: 'الأحد',

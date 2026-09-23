@@ -498,6 +498,7 @@
     "/stock/recipes": "map:page",
     "/stock/variance": "map:page",
     "/stock/waste": "map:page",
+    "/tasks": "map:page",
     "/till": "map:page",
     "/workspaces": "map:page"
   },

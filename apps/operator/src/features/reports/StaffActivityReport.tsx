@@ -23,6 +23,7 @@ import { useNavigate } from '@tanstack/react-router';
 import type { MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { appRpc } from '../../lib/appRpc';
+import { STAFF_ROLES, type StaffRole } from '../../lib/roleResolution';
 import { Button } from '../../components/ui';
 import { MessagePresenter, StatusBadge } from '../../components/kit';
 import {
@@ -54,7 +55,6 @@ import { dayClosesOf, readStaff, type CountAmount, type DayCloseRow, type StaffR
 
 type View = 'activity' | 'exceptions' | 'calls' | 'dayCloses';
 const VIEWS: readonly View[] = ['activity', 'exceptions', 'calls', 'dayCloses'];
-const ROLE_KEYS = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
 type Locale = ReturnType<typeof useLocale>['locale'];
 
 export function StaffActivityReportScreen() {
@@ -167,7 +167,7 @@ function staffColumns(tr: Tr, locale: Locale, openAudit: (id: string) => void) {
       <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
         <bdi style={{ fontWeight: 600 }}>{r.name}</bdi>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-          {r.role && (ROLE_KEYS as readonly string[]).includes(r.role) ? tr(`op.roles.${r.role as (typeof ROLE_KEYS)[number]}`) : (r.role ?? '')}
+          {r.role && (STAFF_ROLES as readonly string[]).includes(r.role) ? tr(`op.roles.${r.role as StaffRole}`) : (r.role ?? '')}
           {!r.isActive && <StatusBadge size="sm" tone="neutral" label={tr('ws.reports.frame.formerStaff')} />}
         </span>
       </span>
