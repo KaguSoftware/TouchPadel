@@ -1,5 +1,5 @@
 {
-  "generated_from": "e775e5ee0415d35ffc40d853930fa3c190a67bf0",
+  "generated_from": "ed461a7574fceb4e9d857e27c7cd4828996b4efe",
   "chunks": [
     {
       "kind": "page",
@@ -2102,7 +2102,7 @@
       "ref": "action:app.decide_staff_request",
       "lang": "en",
       "title": "app.decide_staff_request",
-      "body": "Signature: app.decide_staff_request(p_id uuid, p_approve boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff_request.decide.\nError codes: FORBIDDEN, REQUEST_NOT_FOUND, REQUEST_NOT_PENDING, CANNOT_DECIDE_OWN, REASON_REQUIRED.\nCalled from: apps/operator/src/features/observation/StaffRequests.tsx (pages /observation).\nDefined in migration 0072 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0072 + staff_push. Owner-only, never on their own request; a refusal needs a note. Queues staff_decided / request_approved or request_rejected for the requester.\nSignature: app.decide_staff_request(p_id uuid, p_approve boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff_request.decide.\nError codes: FORBIDDEN, REQUEST_NOT_FOUND, REQUEST_NOT_PENDING, CANNOT_DECIDE_OWN, REASON_REQUIRED.\nCalled from: apps/operator/src/features/observation/StaffRequests.tsx (pages /observation).\nDefined in migration 0160 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/observation"
     },
     {
@@ -2726,7 +2726,7 @@
       "ref": "action:app.set_staff_active",
       "lang": "en",
       "title": "app.set_staff_active",
-      "body": "0081 = 0051 + SEC-35. Owner-only. Deactivating also nulls the authorisation PIN and REVOKES every session (auth.sessions delete, refresh tokens cascade), so a leaver is signed out rather than merely unprivileged. An access token already issued stays valid until jwt_expiry.\nSignature: app.set_staff_active(p_staff_id uuid, p_active boolean, p_reason_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.active_set.\nError codes: FORBIDDEN, CANNOT_EDIT_SELF, STAFF_NOT_FOUND, LAST_OWNER.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0081 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0081 = 0051 + SEC-35, + staff_push. Owner-only. Deactivating also nulls the authorisation PIN, REVOKES every session (auth.sessions delete, refresh tokens cascade) and clears profiles.expo_push_token, so a leaver is signed out and gets no more work pushes. An access token already issued stays valid until jwt_expiry.\nSignature: app.set_staff_active(p_staff_id uuid, p_active boolean, p_reason_code text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.active_set.\nError codes: FORBIDDEN, CANNOT_EDIT_SELF, STAFF_NOT_FOUND, LAST_OWNER.\nCalled from: apps/operator/src/features/admin/staff/StaffAccountEditor.tsx (pages /admin).\nDefined in migration 0160 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -2894,7 +2894,7 @@
       "ref": "action:app.submit_staff_request",
       "lang": "en",
       "title": "app.submit_staff_request",
-      "body": "Signature: app.submit_staff_request(p_kind text, p_from date default null, p_to date default null, p_amount_iqd int default null, p_note text default '') returns uuid.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: staff_request.submit.\nError codes: FORBIDDEN, BAD_KIND, REQUEST_ALREADY_PENDING.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0072 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0072 + staff_push. Any active staff member, for themselves: a leave, shift swap, advance or correction request. Queues staff_decide / request_submitted for every active owner (the caller excepted), at most once per requester in 15 minutes (dedupe request:<requester id>).\nSignature: app.submit_staff_request(p_kind text, p_from date default null, p_to date default null, p_amount_iqd int default null, p_note text default '') returns uuid.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: staff_request.submit.\nError codes: FORBIDDEN, BAD_KIND, REQUEST_ALREADY_PENDING.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0160 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {

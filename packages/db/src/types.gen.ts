@@ -1086,6 +1086,15 @@ export type Database = {
         }[]
       }
       normalize_finding: { Args: { p_text: string }; Returns: string }
+      notify_staff: {
+        Args: {
+          p_dedupe?: string
+          p_kind: string
+          p_payload: Json
+          p_staff_ids: string[]
+        }
+        Returns: number
+      }
       open_day: {
         Args: {
           p_business_date?: string
@@ -1559,6 +1568,13 @@ export type Database = {
           p_start_at: string
         }
         Returns: Json
+      }
+      staff_ids_with_roles: {
+        Args: {
+          p_roles: Database["public"]["Enums"]["staff_role"][]
+          p_venue: string
+        }
+        Returns: string[]
       }
       staff_media_folder: { Args: { p_name: string }; Returns: string }
       staff_media_slot: {
