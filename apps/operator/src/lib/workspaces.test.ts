@@ -84,10 +84,19 @@ describe('navigation sets', () => {
     const targets = new Set(Object.values(WORKSPACES).flatMap((ws) => workspaceItems(ws).map((i) => i.to)));
     // Telegram lives in the admin sub-nav (System group), not on a rail.
     const shell = new Set(['/workspaces', '/kds', '/reports', '/reports/revenue', '/desk/customers/new', '/admin/telegram']);
+    // Routes that land before their rail row: /protocols is registered first
+    // (D1) so other screens can link to it, and its Observe and manager rows
+    // come with the page (D2, build-contracts-2026-09-23 §5.1).
+    const railPending = new Set(['/protocols']);
     for (const prefix of Object.keys(ROUTE_ROLES)) {
-      const covered =
-        shell.has(prefix) || [...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`));
-      expect(covered, prefix).toBe(true);
+      const railed = [...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`));
+      expect(shell.has(prefix) || railPending.has(prefix) || railed, prefix).toBe(true);
+    }
+    // A pending route leaves the list the moment its row lands, so the
+    // exemption cannot outlive the reason for it.
+    for (const prefix of railPending) {
+      expect(ROUTE_ROLES[prefix], `${prefix} is in ROUTE_ROLES`).toBeDefined();
+      expect([...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`)), `${prefix} has a rail row now`).toBe(false);
     }
   });
 });
@@ -142,6 +151,8 @@ describe('workspaceForRoute', () => {
     expect(workspaceForRoute('/ops')).toBe('manager');
     expect(workspaceForRoute('/tasks')).toBe('team');
     expect(workspaceForRoute('/desk')).toBeNull();
+    // Manager and owner share it, so a link in keeps whichever rail is open.
+    expect(workspaceForRoute('/protocols')).toBeNull();
     expect(workspaceForRoute('/till/tabs')).toBeNull();
   });
 });

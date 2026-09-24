@@ -28,6 +28,7 @@ import { assistantRoute } from './routes/assistant';
 import { assistantChildren } from './routes/assistant/_children';
 import { workspacesRoute } from './routes/workspaces';
 import { tasksRoute } from './routes/tasks';
+import { protocolsRoute } from './routes/protocols';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
@@ -60,6 +61,7 @@ const routeTree = rootRoute.addChildren([
   adminRoute.addChildren([...adminChildren]),
   analyticsRoute.addChildren([...analyticsChildren]),
   tasksRoute,
+  protocolsRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */

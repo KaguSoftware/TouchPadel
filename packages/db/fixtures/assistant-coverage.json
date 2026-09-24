@@ -484,6 +484,7 @@
     "/observation": "map:page",
     "/ops": "map:page",
     "/panel": "map:page",
+    "/protocols": "map:page",
     "/reports": "map:page",
     "/reports/revenue": "map:page",
     "/setup": "map:page",

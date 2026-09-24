@@ -57,6 +57,17 @@ describe('canAccess — longest-prefix match, default deny', () => {
     expect(canAccess('owner', '/admin/telegram/outbox')).toBe(true);
   });
 
+  it('gives /protocols to management alone', () => {
+    // Every other actor works its steps from /tasks or the phone
+    // (build-contracts-2026-09-23 §5.1).
+    expect(canAccess('manager', '/protocols')).toBe(true);
+    expect(canAccess('owner', '/protocols')).toBe(true);
+    expect(canAccess('manager', '/protocols?start=price_promo&change=price')).toBe(true);
+    for (const role of ALL_ROLES.filter((r) => r !== 'manager' && r !== 'owner')) {
+      expect(canAccess(role, '/protocols'), role).toBe(false);
+    }
+  });
+
   it('keeps /analytics owner-only', () => {
     expect(canAccess('owner', '/analytics')).toBe(true);
     for (const role of ALL_ROLES.filter((r) => r !== 'owner')) {
@@ -121,6 +132,8 @@ describe('allowedRoutes — top-level entries only', () => {
     expect(allowedRoutes('manager')).toContain('/admin');
     expect(allowedRoutes('manager')).not.toContain('/analytics');
     expect(allowedRoutes('owner')).toContain('/analytics');
+    expect(allowedRoutes('manager')).toContain('/protocols');
+    expect(allowedRoutes('owner')).toContain('/protocols');
   });
 });
 
@@ -164,10 +177,16 @@ describe('homeRoute', () => {
 });
 
 describe('capability matrix', () => {
-  // These four were inline `staff?.role === 'owner'` comparisons inside two
+  // The first five were inline `staff?.role === 'owner'` comparisons inside two
   // components. SOW L185 promises "one place to change a permission", and a
   // route matrix that only covers routes is not one place.
   const ALL_CAPS = Object.keys(CAPABILITY_ROLES) as Capability[];
+  /** The two protocol starts: the only capabilities a non-owner holds. */
+  const STARTS: Partial<Record<Capability, readonly StaffRole[]>> = {
+    startProtocolRelease: ['head_barista', 'head_chef', 'manager', 'owner'],
+    startProtocolPriceChange: ['marketing', 'manager', 'owner'],
+  };
+  const OWNER_ONLY = ALL_CAPS.filter((c) => !(c in STARTS));
 
   it('is default-deny for a signed-out caller', () => {
     for (const capability of ALL_CAPS) expect(can(undefined, capability)).toBe(false);
@@ -177,9 +196,9 @@ describe('capability matrix', () => {
     for (const capability of ALL_CAPS) expect(can('owner', capability)).toBe(true);
   });
 
-  it('withholds all four from every non-owner role', () => {
+  it('withholds every owner-only capability from every other role', () => {
     for (const role of ALL_ROLES.filter((r) => r !== 'owner')) {
-      for (const capability of ALL_CAPS) {
+      for (const capability of OWNER_ONLY) {
         expect(can(role, capability), `${role} / ${capability}`).toBe(false);
       }
     }
@@ -189,13 +208,46 @@ describe('capability matrix', () => {
     // Named explicitly so deleting one from the matrix fails here rather
     // than silently exposing the control.
     expect(ALL_CAPS.sort()).toEqual(
-      ['editVenueDetails', 'rotateTableToken', 'setAnalyticsExclusions', 'setBusinessDayStart', 'setEngagementFloor'].sort(),
+      [
+        'editChecklists',
+        'editLaunchedPrices',
+        'editProtocols',
+        'editVenueDetails',
+        'launchDirectly',
+        'rotateTableToken',
+        'setAnalyticsExclusions',
+        'setBusinessDayStart',
+        'setEngagementFloor',
+        'startProtocolPriceChange',
+        'startProtocolRelease',
+      ].sort(),
     );
   });
 
   it('leaves the venue details to the owner, as app.set_venue_details does', () => {
     expect(can('owner', 'editVenueDetails')).toBe(true);
     expect(can('manager', 'editVenueDetails')).toBe(false);
+  });
+
+  it('lets exactly the proposing roles start a release or a price change (§5.1)', () => {
+    for (const [capability, roles] of Object.entries(STARTS) as [Capability, readonly StaffRole[]][]) {
+      for (const role of ALL_ROLES) {
+        expect(can(role, capability), `${role} / ${capability}`).toBe(roles.includes(role));
+      }
+    }
+    // The heads propose; the barista and chef under them, the retired
+    // kitchen role and the till do not.
+    for (const role of ['barista', 'chef', 'prep', 'cashier', 'court_desk', 'driver'] as const) {
+      expect(can(role, 'startProtocolRelease'), role).toBe(false);
+      expect(can(role, 'startProtocolPriceChange'), role).toBe(false);
+    }
+  });
+
+  it('keeps launched prices and launching itself with the owner, never the manager (#51-#53)', () => {
+    expect(can('manager', 'editLaunchedPrices')).toBe(false);
+    expect(can('manager', 'launchDirectly')).toBe(false);
+    expect(can('manager', 'editProtocols')).toBe(false);
+    expect(can('manager', 'editChecklists')).toBe(false);
   });
 
   it('never lists an unknown role', () => {
