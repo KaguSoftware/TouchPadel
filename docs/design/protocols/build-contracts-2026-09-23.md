@@ -1424,7 +1424,7 @@ with the lists inside `app.notify_staff`; the phone's `pushRoutes.ts` test compa
 | Scheduled launch not ready | `staff_task` | `launch_not_ready` | owners | `staff-step`, launch step |
 | Scheduled apply not ready | `staff_task` | `apply_not_ready` | managers | `staff-step`, apply step |
 | Day-30 review written | `staff_info` | `review_ready` | owners and the run venue's managers; never a non-MGMT starter, who cannot read the review (#54, §2.10) | `staff-run`, run |
-| Staff request submitted / decided | `staff_decide` / `staff_decided` | `request_submitted` / `request_approved`, `request_rejected` | owners / requester | `staff-request`, request |
+| Staff request submitted / decided | `staff_decide` / `staff_decided` | `request_submitted` (dedupe `request:<requester>`, 15 min: a submit, withdraw, submit loop buzzes each owner once) / `request_approved`, `request_rejected` | owners / requester | `staff-request`, request |
 | New shopping items | `staff_task` | `shopping_new` (dedupe `shopping:<venue>`, 15 min) | drivers at the venue | `staff-shopping`, – |
 | Purchase recorded | `staff_task` | `purchase_to_receive` | managers at the venue | `staff`, – |
 
@@ -1488,7 +1488,7 @@ phone's staff area never reads the board (§6.7).
 
 | RPC | Args | Returns | Guard | Errors |
 |---|---|---|---|---|
-| `kitchen_board` | `p_venue_id uuid default null` (no window argument) | `{tickets: [TicketRow]}`, each row in exactly the `TICKET_SELECT` shape (same keys and nesting: `order`, `tab`, `table`, `reservation`, `order_items`, `menu_item`, `variant`, `order_item_modifiers`, `modifier`), so `ticketView.ts` and `TicketList` are unchanged; the venue's tickets with status `queued`, `preparing` or `ready`, or `completed` at or after `now() - interval '2 minutes'`, hard-coded (the board's own linger, `COMPLETED_LINGER_MS`, `KdsBoard.tsx:28`), ordered by `created_at`. No caller can widen the window: BOARD passes on a bar or kitchen phone (§6.7), so a window argument would let a head role's personal session read every completed ticket's lines and count any item's sales, which #54 and #60 close. `reservation` is filled only for the roles whose own policy reads that booking today (cashier, manager, owner) and is null for the bar and kitchen family and prep, so every role sees what it sees now. **No money anywhere**: no `unit_price_iqd`, `line_total_iqd`, `cost_iqd`, `price_delta_iqd`, tab or order total, and no other column | BOARD at venue (`app.is_staff(<BOARD>)`, then the venue from the argument, §2.1); `stable` | `FORBIDDEN` |
+| `kitchen_board` | `p_venue_id uuid default null` (no window argument) | `{tickets: [TicketRow]}`, each row in exactly the `TICKET_SELECT` shape (same keys and nesting: `order`, `tab`, `table`, `reservation`, `order_items`, `menu_item`, `variant`, `order_item_modifiers`, `modifier`), so `ticketView.ts` and `TicketList` are unchanged; the venue's tickets with status `queued`, `preparing` or `ready`, or `completed` at or after `now() - interval '2 minutes'`, hard-coded (the board's own linger, `COMPLETED_LINGER_MS`, `KdsBoard.tsx:28`), ordered by `created_at`. No caller can widen the window: BOARD passes on a bar or kitchen phone (§6.7), so a window argument would let a head role's personal session read every completed ticket's lines and count any item's sales, which #54 and #60 close. `reservation` is filled only for the roles whose own policy reads that booking today (cashier, manager, owner) and is null for the bar and kitchen family and prep, so every role sees what it sees now. **No money anywhere**: no `unit_price_iqd`, `line_total_iqd`, `cost_iqd`, `price_delta_iqd`, tab or order total, and no other column | BOARD (`app.is_staff(<BOARD>)`). A venue named must pass `app.is_staff_at(<venue>, <BOARD>)` and is the only venue read. None named (the board's call) reads every venue in `app.staff_venue_ids()`, the `tickets_staff_read` axis (0156:788), and never resolves through `app.current_venue()`: with a second venue active that raises `VENUE_REQUIRED` for the owner (no `staff_venues` rows) and for anyone with two memberships. `stable` | `FORBIDDEN` |
 
 `comment on` the function; `rpc-allowlist.json` and a matrix row (BOARD execute, court_desk,
 guest and anon denied); coverage `map:action`. `kitchen-board.test.ts` asserts the payload has no
@@ -2079,6 +2079,7 @@ The context default is `guest`.
 
 | Input | Next |
 |---|---|
+| Session still restoring (AuthProvider `initializing`), a hint on this phone | `pending` (the tabs never mount on a staff cold start) |
 | No session | `none` |
 | Session, row read in flight, hint uid = session uid | `pending` |
 | Session, row read in flight, no matching hint | `guest` |
@@ -2098,7 +2099,12 @@ The context default is `guest`.
 - `staffGate(status, roles?)` → `'loading' | 'allow' | 'redirect-guest' | 'redirect-staff-home' | 'revoked' | 'unsupported'`.
   `guestTabsGate(status)` → `'tabs' | 'loading' | 'redirect-staff'` (`pending` → `loading`;
   `staff`, `revoked`, `unsupported` → redirect). `noSessionGate` gains `staff?: StaffStatus['kind']`:
-  `pending` → `loading`; `staff` → redirect to `/staff` before the complete-profile branch.
+  `pending` → `loading`; `staff` → redirect to `/staff` before the complete-profile branch. It also
+  gains `staffAnswered?: boolean`, the provider's `answered` (the signed-in account's row has been
+  read, or failed; an active row held at `guest` for a refusal is not answered): `false` →
+  `loading`, because an unread staff account reads `guest` and would be sent to complete-profile.
+  `useTermsGate` reads no consent until `answered`. `guestTabsGate` does not wait on it, so a
+  guest's cold start is unchanged.
 - `revoked` and `unsupported` render full-screen on `/staff` with Sign out, never the guest UI.
 
 ### 6.6 Sign-in
@@ -2107,7 +2113,10 @@ The context default is `guest`.
   gains `'staff'`: an active staff row returns it before the profile branch; the screen writes the
   hint and replaces to `/staff`.
 - A Google or Apple sign-in that lands on an active staff row signs out and shows
-  `staff.shell.socialRefused` ("Staff accounts sign in with email and password").
+  `staff.shell.socialRefused` ("Staff accounts sign in with email and password"). Only a row known
+  to be active refuses: a failed read signs no guest out. `StaffStatusProvider` holds the rule for
+  the rest: a session whose JWT `amr` names `oauth` never resolves to `staff`, and is signed out
+  with the same message once its row read shows an active row (a check that failed, a cold start).
 - `useTermsGate` returns `'none'` for staff. The staff area links no change-password or
   forgot-password screen; the owner resets passwords on the Staff page.
 

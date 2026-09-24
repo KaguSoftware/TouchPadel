@@ -5,6 +5,9 @@
  * Interpolation placeholders use single braces: {name}, {phone}, {count}.
  */
 import { wsEn } from './ws';
+import { staffEn } from './staff';
+import { workEn } from './work.en';
+import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { legalEn } from './legal.en';
 
 export const en = {
@@ -1302,6 +1305,8 @@ export const en = {
         expired_writeoff: 'Expired, written off',
         count_adjustment: 'Count correction',
         refund_reversal: 'Returned by a refund',
+        // product_test_movement (build-contracts-2026-09-23 §4).
+        product_test: 'Used in a product test',
       },
     },
     // SOW L299-301: court records — name, indoor/outdoor, description, photo,
@@ -1867,9 +1872,16 @@ export const en = {
       REFUND_EXCEEDS_PAYMENT: 'The refund is more than what is left on this payment.',
       PAYMENT_NOT_FOUND: 'That payment could not be found.',
       ITEM_NOT_ON_TAB: 'That line is not on this tab.',
-      IDEMPOTENCY_CONFLICT: 'This write was already recorded from another session. Refresh and check the tab.',
+      IDEMPOTENCY_CONFLICT: 'This was already saved from another session. Refresh to see the latest.',
+      // Protocols and the staff phone (build-contracts-2026-09-23 §3), one file pair:
+      // opErrors.protocols.*.ts.
+      ...opErrorsProtocolsEn,
     },
   },
+  // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps
+  // share (work.*.ts) and the staff phone's pages, one file pair per lane (catalogs/staff/*).
+  work: workEn,
+  staff: staffEn,
 } as const;
 
 /**

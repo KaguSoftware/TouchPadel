@@ -1,5 +1,8 @@
 import type { Messages } from './en';
 import { wsAr } from './ws';
+import { staffAr } from './staff';
+import { workAr } from './work.ar';
+import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { legalAr } from './legal.ar';
 
 /**
@@ -1210,6 +1213,7 @@ export const ar: Messages = {
         expired_writeoff: 'منتهي الصلاحية، شُطب',
         count_adjustment: 'تصحيح بالجرد',
         refund_reversal: 'أُعيد باسترداد',
+        product_test: 'استُخدم في تجربة صنف',
       },
     },
     courts: {
@@ -1770,7 +1774,10 @@ export const ar: Messages = {
       REFUND_EXCEEDS_PAYMENT: 'المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.',
       PAYMENT_NOT_FOUND: 'لم يتم العثور على هذه الدفعة.',
       ITEM_NOT_ON_TAB: 'هذا السطر ليس على هذا الحساب.',
-      IDEMPOTENCY_CONFLICT: 'سُجّل هذا الإجراء من جلسة أخرى. حدّث الصفحة وتحقق من الحساب.',
+      IDEMPOTENCY_CONFLICT: 'حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.',
+      ...opErrorsProtocolsAr,
     },
   },
+  work: workAr,
+  staff: staffAr,
 };
