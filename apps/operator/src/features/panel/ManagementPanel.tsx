@@ -56,12 +56,16 @@ import {
 import { Icon } from '../../components/icons';
 import { downloadCsv, toCsvSections } from '../analytics/csv';
 import { DrillDialog } from '../reports/DrillDialog';
+import { FigureGroup } from '../reports/FigureGroup';
 import { readDrill } from '../reports/reportPayloads';
 import { LiveFloor } from '../floor/LiveFloor';
 import { FIGURES, figuresIn, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
+
+/** The coloured strip on a figure panel; inline because Panel's own inline border would win over a class. */
+const FIGURE_PANEL_STRIP: CSSProperties = { borderBlockStart: '3px solid var(--tp-tone)' };
 
 export function ManagementPanelScreen() {
   const { tr, locale } = useLocale();
@@ -177,38 +181,38 @@ export function ManagementPanelScreen() {
               { title: 'ws.owner.panel.taken', hint: 'ws.owner.panel.takenHint', keys: ['cash', 'card'] },
             ] as const
           ).map((group) => (
-            <div key={group.title} style={{ gridColumn: `span ${group.keys.length}`, gridRow: 'span 2', display: 'grid', gridTemplateRows: 'subgrid', gap: 'var(--tp-sp-2)' }}>
-              <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', alignContent: 'start' }}>
-                <h2 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{tr(group.title)}</h2>
-                <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '60ch' }}>{tr(group.hint)}</p>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${group.keys.length}, minmax(0, 1fr))`, gap: 'var(--tp-sp-3)' }}>
-                {group.keys.map((key) => {
-                  const meta = FIGURES[key];
-                  const f = figures.get(key);
-                  return (
-                    <HeadlineFigure
-                      key={key}
-                      label={label(key)}
-                      value={valueOf(meta, f)}
-                      comparison={compare === 'none' || !f ? null : f}
-                      format={meta.kind === 'money' ? money : count}
-                      invert={meta.invert}
-                      drillable={Boolean(f)}
-                      onDrill={() => setDrill(key)}
-                      busy={headlineQ.isFetching && !headlineQ.data}
-                    />
-                  );
-                })}
-              </div>
-            </div>
+            // The revenue report's group card, so Earned and Money taken wear
+            // the same colours here as there (blue, then green).
+            <FigureGroup key={group.title} title={tr(group.title)} hint={tr(group.hint)} span={group.keys.length}>
+              {group.keys.map((key) => {
+                const meta = FIGURES[key];
+                const f = figures.get(key);
+                return (
+                  <HeadlineFigure
+                    key={key}
+                    label={label(key)}
+                    value={valueOf(meta, f)}
+                    comparison={compare === 'none' || !f ? null : f}
+                    format={meta.kind === 'money' ? money : count}
+                    invert={meta.invert}
+                    drillable={Boolean(f)}
+                    onDrill={() => setDrill(key)}
+                    busy={headlineQ.isFetching && !headlineQ.data}
+                  />
+                );
+              })}
+            </FigureGroup>
           ))}
         </section>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(19rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+          {/* Same colour order as the cards above (blue, green, black), as a
+              strip only. */}
           <Panel
             title={tr('ws.owner.panel.padel')}
             padded={false}
+            className="tp-figure-panel"
+            style={FIGURE_PANEL_STRIP}
             actions={<Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/reports/courts')}>{tr('ws.owner.panel.openCourts')}</Button>}
           >
             <FigureRows metas={figuresIn('padel')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
@@ -216,11 +220,13 @@ export function ManagementPanelScreen() {
           <Panel
             title={tr('ws.owner.panel.cafe')}
             padded={false}
+            className="tp-figure-panel"
+            style={FIGURE_PANEL_STRIP}
             actions={<Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/reports/cafe')}>{tr('ws.owner.panel.openCafe')}</Button>}
           >
             <FigureRows metas={figuresIn('cafe')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
           </Panel>
-          <Panel title={tr('ws.owner.panel.losses')} padded={false}>
+          <Panel title={tr('ws.owner.panel.losses')} padded={false} className="tp-figure-panel" style={FIGURE_PANEL_STRIP}>
             <FigureRows metas={figuresIn('losses')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
           </Panel>
         </div>

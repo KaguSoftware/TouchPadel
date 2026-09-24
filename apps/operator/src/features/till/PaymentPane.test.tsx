@@ -35,8 +35,9 @@ describe('PaymentPane — cash', () => {
     renderCash();
     expect(screen.getAllByText('18,000 IQD')).toHaveLength(1);
     expect(screen.queryByText(/short/i)).toBeNull();
-    // Record says why it cannot be pressed yet — once.
-    expect(screen.getAllByText('Enter what the guest handed over.')).toHaveLength(1);
+    // Record says why it cannot be pressed yet, as its tooltip only.
+    expect(screen.queryByText('Enter what the guest handed over.')).toBeNull();
+    expect(screen.getAllByTitle('Enter what the guest handed over.')).toHaveLength(1);
   });
 
   it('a note button tenders it and says the change to give', async () => {

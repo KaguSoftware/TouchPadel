@@ -399,7 +399,6 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         data-workspace={active}
         style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
       >
-        <SkipToMain />
         <IdleLock />
         <BreakOverlay />
         <AssistantDrawer />
@@ -442,54 +441,6 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
       </AssistantDrawerProvider>
       </BreakProvider>
     </WorkspaceContext.Provider>
-  );
-}
-
-/**
- * The first thing a keyboard reaches on every screen. The owner's rail renders
- * 17 links and four footer controls ahead of the routed content, so without it
- * every navigation costs up to 21 Tab presses on a workspace PRODUCT.md calls
- * keyboard-first. Invisible until it is focused, so a mouse never meets it.
- *
- * It moves focus to #tp-main itself instead of letting the browser follow the
- * fragment: a bare hash href would push '#tp-main' into the router's location
- * and leave it hanging off every URL after it.
- */
-function SkipToMain() {
-  const { tr } = useLocale();
-  const [shown, setShown] = useState(false);
-  return (
-    <a
-      href="#tp-main"
-      className={shown ? undefined : 'tp-sr-only'}
-      onFocus={() => setShown(true)}
-      onBlur={() => setShown(false)}
-      onClick={(e) => {
-        e.preventDefault();
-        document.getElementById('tp-main')?.focus();
-      }}
-      style={
-        shown
-          ? {
-              position: 'fixed',
-              insetBlockStart: 'var(--tp-sp-2)',
-              insetInlineStart: 'var(--tp-sp-2)',
-              zIndex: 'var(--tp-z-popover)',
-              background: 'var(--tp-surface)',
-              color: 'var(--tp-accent)',
-              border: '1px solid var(--tp-border-input)',
-              borderRadius: 'var(--tp-radius-ctl)',
-              boxShadow: 'var(--tp-shadow-popover)',
-              paddingBlock: 'var(--tp-sp-2)',
-              paddingInline: 'var(--tp-sp-3)',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }
-          : undefined
-      }
-    >
-      {tr('ws.shell.nav.skipToMain')}
-    </a>
   );
 }
 
@@ -714,8 +665,21 @@ function WorkspaceNav({
               macOS traffic lights, and at 26 the lockup read as small against
               it. Still below the sign-in screen's 40, which is the hero. */}
           <BrandLockup size={34} tone="onDark" />
-          {/* The way out of a section, in the place a browser back button
-              would be and above the name of where you are. Sizing, surface and
+          {/* The title sits straight under the lockup; in a section the back
+              control follows the lead, below. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
+            <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
+              <Icon name={section ? section.icon : workspace.icon} size={16} />
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
+              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
+            </span>
+          </div>
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
+            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
+          </p>
+          {/* The way out of a section, below the name of where you are and
+              its lead, so the title reads first. Sizing, surface and
               colour live in .tp-rail-back (GlobalStyles) — this is a control,
               not a footnote: a section is somewhere the operator passes
               through, so leaving it is the most-pressed row on the panel. */}
@@ -742,21 +706,6 @@ function WorkspaceNav({
               </span>
             </button>
           )}
-          {/* One gap either way now. The section case used to be tightened to
-              --tp-sp-1 so the back link read as part of the title below it;
-              the back link is a bordered control now, and crowding a title
-              against its edge just looks like a mistake. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
-            <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
-              <Icon name={section ? section.icon : workspace.icon} size={16} />
-            </span>
-            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
-              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
-            </span>
-          </div>
-          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
-            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
-          </p>
         </div>
       </div>
 

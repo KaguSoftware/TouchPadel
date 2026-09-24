@@ -140,12 +140,14 @@ input:disabled, select:disabled, textarea:disabled {
      lag on the till, which is the highest-frequency surface in the venue. */
   transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
 }
-.tp-btn:hover:not(:disabled) { background: var(--tp-surface-2); border-color: var(--tp-muted-fg); }
+.tp-btn:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-btn:active:not(:disabled) { transform: translateY(1px); }
 .tp-btn:disabled { cursor: not-allowed; opacity: var(--tp-opacity-disabled); }
 .tp-btn[data-busy='true'] { cursor: progress; }
 .tp-btn[data-kind='primary'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); }
-.tp-btn[data-kind='primary']:hover:not(:disabled) { background: var(--tp-accent-hover); border-color: var(--tp-accent-hover); }
+/* Primary keeps its own darker-blue hover, not the shared --tp-hover (owner
+   call, 2026-09-24); the ink is restated because the plain hover rule sets it. */
+.tp-btn[data-kind='primary']:hover:not(:disabled) { background: var(--tp-accent-hover); border-color: var(--tp-accent-hover); color: var(--tp-accent-contrast); }
 /* --tp-accent-active existed in the token file and was used by zero rules. */
 .tp-btn[data-kind='primary']:active:not(:disabled) { background: var(--tp-accent-active); border-color: var(--tp-accent-active); }
 .tp-btn[data-kind='danger'] { background: var(--tp-danger); border-color: var(--tp-danger); color: var(--tp-danger-contrast); }
@@ -155,11 +157,16 @@ input:disabled, select:disabled, textarea:disabled {
    --tp-danger-contrast (white) stayed on the label — the destructive control went
    unreadable at the exact moment a finger was on it. Every other kind already
    restates its own ground here; danger was the one that only asked for a filter. */
-.tp-btn[data-kind='danger']:hover:not(:disabled) { background: var(--tp-danger); border-color: var(--tp-danger); filter: brightness(0.92); }
+.tp-btn[data-kind='danger']:hover:not(:disabled) { background: var(--tp-danger); border-color: var(--tp-danger); color: var(--tp-danger-contrast); filter: brightness(0.92); }
 .tp-btn[data-kind='ghost'] { background: transparent; border-color: transparent; }
-.tp-btn[data-kind='ghost']:hover:not(:disabled) { background: var(--tp-surface-3); border-color: transparent; }
-.tp-btn[data-kind='soft'] { background: var(--tp-accent-soft); border-color: transparent; color: var(--tp-accent-soft-fg); }
-.tp-btn[data-kind='soft']:hover:not(:disabled) { background: var(--tp-info-soft); filter: brightness(0.97); }
+.tp-btn[data-kind='ghost']:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
+/* The border is what keeps a soft button visible inside a hovered row: its ground
+   is the same tint as --tp-hover, so with a transparent border it vanished. */
+.tp-btn[data-kind='soft'] { background: var(--tp-accent-soft); border-color: color-mix(in srgb, var(--tp-accent) 60%, transparent); color: var(--tp-accent-soft-fg); }
+.tp-btn[data-kind='soft']:hover:not(:disabled) { background: var(--tp-hover); border-color: var(--tp-accent); color: var(--tp-hover-fg); }
+/* A hovered customer row is already the blue --tp-hover tint, so a secondary
+   action on it (Book) goes gray on hover instead of disappearing into the row. */
+.tp-btn.tp-btn-gray-hover:hover:not(:disabled) { background: var(--tp-surface-3); color: var(--tp-fg); }
 .tp-btn[data-size='sm'] { min-block-size: 1.85rem; padding-block: 0.25rem; padding-inline: 0.6rem; font-size: var(--tp-fs-sm); }
 .tp-btn[data-size='lg'] { min-block-size: var(--tp-touch); padding-block: 0.6rem; padding-inline: 1.1rem; font-size: var(--tp-fs-lg); }
 .tp-btn[data-size='xl'] { min-block-size: 3.5rem; padding-block: 0.8rem; padding-inline: 1.4rem; font-size: var(--tp-fs-xl); border-radius: var(--tp-radius-panel); }
@@ -173,7 +180,7 @@ input:disabled, select:disabled, textarea:disabled {
 /* Without this, a toggle carrying BOTH aria-pressed and data-kind='primary'
    renders soft at rest and flips to solid accent on hover, because the
    :hover rule above out-specifies the bare attribute selector. */
-.tp-btn[aria-pressed='true']:hover:not(:disabled) { background: var(--tp-accent-soft); border-color: var(--tp-accent); color: var(--tp-accent-soft-fg); filter: brightness(0.97); }
+.tp-btn[aria-pressed='true']:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-iconbtn { padding-inline: 0.45rem; inline-size: 2.25rem; }
 .tp-iconbtn[data-size='sm'] { inline-size: 1.85rem; }
 /* Fingers, not mice: the till and the kitchen board get the real target. */
@@ -190,14 +197,17 @@ input:disabled, select:disabled, textarea:disabled {
 /* ---- generic interactive surfaces ---- */
 .tp-row { transition: background var(--tp-dur-fast) var(--tp-ease-out); }
 .tp-row[data-clickable='true'] { cursor: pointer; }
-.tp-row[data-clickable='true']:hover { background: var(--tp-surface-2); }
+/* A row-actions menu item (kit.tsx): a <button>, so clear its ground here,
+   below the hover rule, rather than inline, above it. */
+.tp-row[role='menuitem'] { background: none; }
+.tp-row[data-clickable='true']:hover { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-row[data-selected='true'] { background: var(--tp-accent-soft); }
 .tp-tile {
   cursor: pointer; text-align: start;
   /* Same reason as .tp-btn: no 'transform' in the transition list. */
   transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out);
 }
-.tp-tile:hover:not(:disabled) { border-color: var(--tp-accent); background: var(--tp-accent-soft); }
+.tp-tile:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-tile:active:not(:disabled) { transform: scale(0.99); }
 .tp-tile:disabled { cursor: not-allowed; }
 /* The report switcher (features/reports/ReportTabs). Filled when open, so the
@@ -211,7 +221,7 @@ input:disabled, select:disabled, textarea:disabled {
   cursor: pointer; min-inline-size: 0;
   transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
 }
-.tp-report-tab:hover:not([aria-selected='true']) { border-color: var(--tp-accent); background: var(--tp-accent-soft); }
+.tp-report-tab:hover:not([aria-selected='true']) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-report-tab[aria-selected='true'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); cursor: default; }
 .tp-report-tab-icon {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -220,7 +230,7 @@ input:disabled, select:disabled, textarea:disabled {
 }
 .tp-report-tab[aria-selected='true'] .tp-report-tab-icon { background: color-mix(in srgb, var(--tp-accent-contrast) 20%, transparent); color: inherit; }
 .tp-link { color: var(--tp-accent); text-decoration: none; }
-.tp-link:hover { text-decoration: underline; }
+.tp-link:hover { text-decoration: underline; background: var(--tp-hover); color: var(--tp-hover-fg); }
 
 /* ---- info tip (components/InfoTip.tsx) ---- */
 /* Always mounted so aria-describedby resolves while closed; hidden by
@@ -235,7 +245,8 @@ input:disabled, select:disabled, textarea:disabled {
 }
 .tp-infotip[data-open='true'] { visibility: visible; opacity: 1; pointer-events: auto; }
 .tp-infotip-trigger { color: var(--tp-muted-fg); }
-.tp-infotip-trigger:hover:not(:disabled), .tp-infotip-trigger:focus-visible { color: var(--tp-fg); }
+.tp-infotip-trigger:focus-visible { color: var(--tp-fg); }
+.tp-infotip-trigger:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
 
 /* ---- navigation rail ---- */
 .tp-nav-item {
@@ -246,9 +257,14 @@ input:disabled, select:disabled, textarea:disabled {
   min-block-size: var(--tp-touch);
   transition: background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
 }
+/* A rail row that is a <button> (railStyles navButtonStyle): transparent at
+   rest. Scores below :hover and [data-active], so both still paint it. */
+button.tp-nav-item { background: transparent; }
 .tp-nav-item:hover { background: var(--tp-rail-2); }
 .tp-nav-item[data-active='true'] { background: var(--tp-rail-active); color: var(--tp-rail-fg-active); font-weight: 700; }
-.tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); }
+/* Drawn INSIDE the row: the collapsible groups' body is overflow: hidden, so
+   the default 2px outset ring was cut off on every edge of a nested row. */
+.tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); outline-offset: -2px; }
 .tp-nav-item svg { opacity: 0.85; }
 /* A .tp-btn standing ON the rail (the rail foot's Sign out). .tp-btn's ground
    is --tp-surface/--tp-fg, which are the LIGHT tokens: on a 25%-lightness rail
@@ -353,9 +369,9 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-table [data-align='end'] { text-align: end; }
 .tp-table [data-align='center'] { text-align: center; }
 .tp-table th[data-sortable='true'] { cursor: pointer; }
-.tp-table th[data-sortable='true']:hover { color: var(--tp-fg); }
+.tp-table th[data-sortable='true']:hover { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-table tbody tr[data-clickable='true'] { cursor: pointer; }
-.tp-table tbody tr[data-clickable='true']:hover td { background: var(--tp-surface-2); }
+.tp-table tbody tr[data-clickable='true']:hover td { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-table tbody tr[data-selected='true'] td { background: var(--tp-accent-soft); }
 .tp-table[data-dense='true'] td { block-size: var(--tp-row-h-dense); padding-block: 0.25rem; }
 
@@ -363,7 +379,8 @@ input:disabled, select:disabled, textarea:disabled {
 [data-workspace='prep'] { background: var(--tp-kds-bg); color: var(--tp-kds-fg); }
 [data-workspace='prep'] .tp-btn { background: var(--tp-kds-card-2); border-color: var(--tp-kds-border); color: var(--tp-kds-fg); }
 [data-workspace='prep'] .tp-btn[data-kind='primary'] { background: var(--tp-kds-fresh); border-color: var(--tp-kds-fresh); color: var(--tp-brand-black); }
-[data-workspace='prep'] .tp-btn:hover:not(:disabled) { filter: brightness(1.1); }
+[data-workspace='prep'] .tp-btn:hover:not(:disabled) { background: var(--tp-hover); color: var(--tp-hover-fg); }
+[data-workspace='prep'] .tp-btn[data-kind='primary']:hover:not(:disabled) { background: var(--tp-kds-fresh); border-color: var(--tp-kds-fresh); color: var(--tp-brand-black); filter: brightness(1.1); }
 [data-workspace='prep'] :focus-visible { outline-color: var(--tp-kds-fg); }
 [data-workspace='prep'] input[type='checkbox'] { accent-color: var(--tp-kds-fresh); }
 [data-workspace='prep'] kbd { background: var(--tp-kds-card-2); border-color: var(--tp-kds-border); color: var(--tp-kds-muted); }
@@ -427,19 +444,49 @@ input:disabled, select:disabled, textarea:disabled {
 /* A report figure group (FigureGroup in reports/ReportParts): a brand-colour
    strip on top and a tint of the same colour behind the tiles. The colour
    comes from the group's place in its band, in the owner's order (2026-09-24):
-   blue, black, green, light blue, then round again from blue for a fifth.
+   blue, green, black, light blue, then round again from blue for a fifth.
    Blue mode keeps the strip but not the tint, which vanished for blue and went
    murky for the rest on a blue panel, and swaps the strips a blue ground
    swallows: brand blue for a lighter blue, black for white. */
 .tp-figure-group { background: color-mix(in oklab, var(--tp-tone) var(--tp-tone-tint), var(--tp-surface)); }
-.tp-figure-group:nth-child(4n + 1) { --tp-tone: var(--tp-brand-blue); --tp-tone-tint: 12%; }
-.tp-figure-group:nth-child(4n + 2) { --tp-tone: var(--tp-brand-black); --tp-tone-tint: 6%; }
-.tp-figure-group:nth-child(4n + 3) { --tp-tone: var(--tp-brand-green); --tp-tone-tint: 22%; }
-.tp-figure-group:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); --tp-tone-tint: 22%; }
+.tp-figure-group:nth-child(4n + 1), .tp-figure-panel:nth-child(4n + 1) { --tp-tone: var(--tp-brand-blue); --tp-tone-tint: 12%; }
+.tp-figure-group:nth-child(4n + 2), .tp-figure-panel:nth-child(4n + 2) { --tp-tone: var(--tp-brand-green); --tp-tone-tint: 22%; }
+.tp-figure-group:nth-child(4n + 3), .tp-figure-panel:nth-child(4n + 3) { --tp-tone: var(--tp-brand-black); --tp-tone-tint: 6%; }
+.tp-figure-group:nth-child(4n + 4), .tp-figure-panel:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); --tp-tone-tint: 22%; }
+/* The same colours on a figure-row Panel (the management panel's Padel, Cafe
+   and Discounts columns): only the strip on top, no tint. */
 :root[data-theme='operator'][data-mode='blue'] .tp-figure-group { background: var(--tp-surface-2); }
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 1) { --tp-tone: var(--tp-border-strong); }
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 2) { --tp-tone: var(--tp-brand-white); }
-:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 1),
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-panel:nth-child(4n + 1) { --tp-tone: var(--tp-border-strong); }
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 3),
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-panel:nth-child(4n + 3) { --tp-tone: var(--tp-brand-white); }
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 4),
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-panel:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+
+/* The same four colours picked by name rather than by place: the analytics
+   cards (CardShell) mix them, so each card says which one it wears. */
+.tp-tone-card[data-tone='blue'] { --tp-tone: var(--tp-brand-blue); }
+.tp-tone-card[data-tone='green'] { --tp-tone: var(--tp-brand-green); }
+.tp-tone-card[data-tone='black'] { --tp-tone: var(--tp-brand-black); }
+.tp-tone-card[data-tone='sky'] { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); }
+:root[data-theme='operator'][data-mode='blue'] .tp-tone-card[data-tone='blue'] { --tp-tone: var(--tp-border-strong); }
+:root[data-theme='operator'][data-mode='blue'] .tp-tone-card[data-tone='black'] { --tp-tone: var(--tp-brand-white); }
+:root[data-theme='operator'][data-mode='blue'] .tp-tone-card[data-tone='sky'] { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+
+/* Every figure tile in the app (HeadlineFigure) wears the same strip, by its
+   place in its row: blue, green, black, light blue, then round again. Inside
+   a report figure group the group's card carries the colour, so its tiles
+   drop back to the plain border (initial = unset, so the inline fallback). */
+.tp-headline-tile:nth-child(4n + 1) { --tp-tile-strip: 3px solid var(--tp-brand-blue); }
+.tp-headline-tile:nth-child(4n + 2) { --tp-tile-strip: 3px solid var(--tp-brand-green); }
+.tp-headline-tile:nth-child(4n + 3) { --tp-tile-strip: 3px solid var(--tp-brand-black); }
+.tp-headline-tile:nth-child(4n + 4) { --tp-tile-strip: 3px solid color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); }
+:root[data-theme='operator'][data-mode='blue'] .tp-headline-tile:nth-child(4n + 1) { --tp-tile-strip: 3px solid var(--tp-border-strong); }
+:root[data-theme='operator'][data-mode='blue'] .tp-headline-tile:nth-child(4n + 3) { --tp-tile-strip: 3px solid var(--tp-brand-white); }
+:root[data-theme='operator'][data-mode='blue'] .tp-headline-tile:nth-child(4n + 4) { --tp-tile-strip: 3px solid color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+/* Weighted past the blue-mode rules above (:root + two attributes + class +
+   nth-child), so a grouped tile stays plain in both modes. */
+:root .tp-figure-group .tp-headline-tile.tp-headline-tile.tp-headline-tile.tp-headline-tile { --tp-tile-strip: initial; }
 
 /* ---- keyframes ---- */
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
@@ -623,7 +670,7 @@ input:disabled, select:disabled, textarea:disabled {
 /* Hover tints only what the pointer is on; the keyboard's row is marked by
    [data-active] from the component and wins, so the two never disagree. */
 .tp-menu-glass [role='option']:hover:not(:disabled):not([data-active='true']) {
-  background: var(--tp-surface-2);
+  background: var(--tp-hover); color: var(--tp-hover-fg);
 }
 
 /* ---- the frosted sticky bar, and the controls standing on it ----

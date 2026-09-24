@@ -43,6 +43,21 @@ const head: CSSProperties = {
 export const cardTitle: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 700 };
 export const muted: CSSProperties = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 };
 
+/**
+ * Every analytics card wears a brand-colour strip on top, the same palette as
+ * the reports' figure groups (GlobalStyles, .tp-tone-card). The owner asked
+ * for the colours mixed rather than in order (2026-09-24), so the colour is
+ * picked from the card's title: it looks random across a page but a card
+ * keeps its colour from one render, and one visit, to the next.
+ */
+const TONES = ['blue', 'green', 'black', 'sky'] as const;
+
+function toneFor(title: string): (typeof TONES)[number] {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) | 0;
+  return TONES[Math.abs(h) % TONES.length]!;
+}
+
 export function CardShell({
   title,
   state,
@@ -76,7 +91,8 @@ export function CardShell({
 }) {
   const { tr } = useLocale();
   return (
-    <div style={{ ...card, ...style }}>
+    // The strip is inline because card's own inline border would win over a class.
+    <div className="tp-tone-card" data-tone={toneFor(title)} style={{ ...card, borderBlockStart: '3px solid var(--tp-tone)', ...style }}>
       <div style={head}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
           <h3 style={cardTitle}>{title}</h3>

@@ -344,7 +344,6 @@ function PasswordDialog({ staff, onClose }: { staff: StaffRow; onClose(): void }
             kind="primary"
             icon="lock"
             disabled={short}
-            disabledReason={short ? tr('ws.owner.staff.password.tooShort', { min: formatNumber(MIN_PASSWORD, locale) }) : undefined}
             busy={reset.isPending}
             onClick={() => reset.mutate()}
           >
@@ -465,7 +464,6 @@ function PinDialog({ staff, onClose, onSaved }: { staff: StaffRow; onClose(): vo
             kind="primary"
             icon="lock"
             disabled={!valid}
-            disabledReason={!valid ? tr('ws.owner.staff.pin.length', { min: n(PIN_MIN), max: n(PIN_MAX) }) : undefined}
             busy={save.isPending}
             onClick={() => save.mutate()}
           >

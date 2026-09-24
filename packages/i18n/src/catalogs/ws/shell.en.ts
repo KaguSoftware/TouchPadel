@@ -178,9 +178,6 @@ export const shellEn = {
     groupSetup: 'Setup',
     // The way out of a section rail, back to the workspace's own.
     backTo: 'Back to {workspace}',
-    // The owner's rail puts 17 links and four controls before the routed
-    // screen; without this every navigation costs up to 21 Tab presses.
-    skipToMain: 'Skip to main content',
     // The four station controls — workspace, assistant, language,
     // appearance — live behind one rail row rather than four (owner call,
     // 2026-09-21), so the foot of the rail reads as one thing to press.

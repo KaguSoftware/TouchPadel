@@ -149,7 +149,6 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     groupRecords: 'السجلات',
     groupSetup: 'الإعداد',
     backTo: 'العودة إلى {workspace}',
-    skipToMain: 'تخطَّ إلى المحتوى الرئيسي',
     // "Options" — خيارات — not "المزيد" ("more"); see the EN catalog.
     more: 'خيارات',
     moreMenu: 'إعدادات المحطة',

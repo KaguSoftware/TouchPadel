@@ -19,7 +19,7 @@
  * change', button 'Shorten −30 min', button 'Cancel booking' (click → the
  * cancel panel with label 'Reason' → click again to confirm).
  */
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
@@ -123,10 +123,7 @@ export function ReservationActionsDialog({
   const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
   const title = r.kind === 'maintenance' ? tr('op.desk.maintenance') : r.kind === 'hold' ? tr('op.desk.hold') : (guestNameOf(r) ?? tr('op.desk.walkIn'));
 
-  // The pair shares a border, so the floor hint sits under it and is tied to
-  // the minus button by id rather than through Button's own disabledReason.
   const shortenBelowFloor = durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000;
-  const shortenFloorId = useId();
 
   const canComplete = marks.includes('completed');
   const canArrive = marks.includes('arrived');
@@ -201,11 +198,7 @@ export function ReservationActionsDialog({
           <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockEnd: '0.5rem' }}>{tr('ws.courtDesk.calendar.changeTitle')}</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start' }}>
             {/* Shorten and extend are one control — the same dial, both ways —
-                so they share a border and sit flush, seam in the middle. The
-                floor hint lives under the pair rather than on the minus
-                button: Button renders its own reason in a grid wrapper, which
-                would break the shared border and wrap "Extend" to the next
-                row. */}
+                so they share a border and sit flush, seam in the middle. */}
             <span style={{ display: 'grid', justifyItems: 'start', rowGap: 'var(--tp-sp-1)' }}>
               <span
                 style={{
@@ -219,7 +212,7 @@ export function ReservationActionsDialog({
                   icon="minus"
                   busy={busy}
                   disabled={shortenBelowFloor}
-                  aria-describedby={shortenBelowFloor ? shortenFloorId : undefined}
+                  title={shortenBelowFloor ? tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) }) : undefined}
                   style={{ border: 'none', borderRadius: 0 }}
                   onClick={() =>
                     void run(() =>
@@ -253,16 +246,6 @@ export function ReservationActionsDialog({
                   {tr('op.desk.extend30')}
                 </Button>
               </span>
-              {/* Rulebook 4.3: the floor is the court's own shortest priced
-                  length, which is not guessable from a greyed button. */}
-              {shortenBelowFloor && (
-                <span
-                  id={shortenFloorId}
-                  style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: 1.3, textAlign: 'start' }}
-                >
-                  {tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
-                </span>
-              )}
             </span>
             {movable && (
               <Button icon="repeat" busy={busy} onClick={() => setShowMove(true)}>

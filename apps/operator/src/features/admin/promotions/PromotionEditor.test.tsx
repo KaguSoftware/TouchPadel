@@ -100,7 +100,7 @@ describe('PromotionEditorScreen', () => {
     expect(screen.queryByText('Without a code this promotion can never apply.')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Only with a code' }));
     expect(screen.getByText('Without a code this promotion can never apply.')).toBeTruthy();
-    expect(screen.getByText('Save the promotion first, then generate a code.')).toBeTruthy();
+    expect(screen.getByTitle('Save the promotion first, then generate a code.')).toBeTruthy();
   });
 
   it('saves through upsert_promotion with the draft', async () => {
