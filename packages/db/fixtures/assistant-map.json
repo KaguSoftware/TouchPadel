@@ -1,5 +1,5 @@
 {
-  "generated_from": "a95009f5c9069829c4bcf2aa7243902cf75ae22a",
+  "generated_from": "9c2a99cf34e984fda08ca6e1239b6896b83a2793",
   "chunks": [
     {
       "kind": "page",
@@ -9998,7 +9998,7 @@
       "ref": "system:edge:send-push",
       "lang": "en",
       "title": "edge function send-push",
-      "body": "verify_jwt = true (supabase/config.toml).\nsend-push — outbox sender for Expo push notifications.\n\nInvoked through app.push_nudge (service-role Authorization header; see\npackages/db/README.md \"Edge functions\") — the moment a booking notification\nis queued, and by the tp_push_sweep cron every 30 s (migration 0090). Flow:\n  1. app.claim_due_notifications(limit) — due, unsent, attempts < 5, not\n     claimed in the last 60 s, SKIP LOCKED; claiming increments `attempts`\n     and stamps `claimed_at` (0024, lease 0090). Overlapping invocations\n     therefore never send the same row twice — as long as this function\n     finishes inside the lease, which is what EXPO_TIMEOUT_MS guarantees.\n  2. Resolve each row's CURRENT expo_push_token + preferred_lang from\n     profiles (tokens rot, language is a live preference) and court names.\n  3. Batch to https://exp.host/--/api/v2/push/send (max 100/request).\n  4. Per-ticket: ok -> sent_at; error -> last_error (row retries once its\n     lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears\n     the profile's token so future bookings stop enqueueing.",
+      "body": "verify_jwt = true (supabase/config.toml).\nsend-push — outbox sender for Expo push notifications.\n\nInvoked through app.push_nudge (service-role Authorization header; see\npackages/db/README.md \"Edge functions\") — the moment a booking notification\nis queued, and by the tp_push_sweep cron every 30 s (migration 0090). Flow:\n  1. app.claim_due_notifications(limit) — due, unsent, attempts < 5, not\n     claimed in the last 60 s, SKIP LOCKED; claiming increments `attempts`\n     and stamps `claimed_at` (0024, lease 0090). Overlapping invocations\n     therefore never send the same row twice — as long as this function\n     finishes inside the lease, which is what EXPO_TIMEOUT_MS guarantees.\n  2. Resolve each row's CURRENT expo_push_token + preferred_lang from\n     profiles (tokens rot, language is a live preference) and court names.\n  3. Batch to https://exp.host/--/api/v2/push/send (max 100/request).\n  4. Per-ticket: ok -> sent_at; error -> last_error (row retries once its\n     lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears\n     the profile's token so future bookings stop enqueueing.\n\nTwo families of kind. The booking kinds (and `test`) take their copy from\nSTRINGS below, with the court and time. The staff kinds, queued only by\napp.notify_staff, name their copy by payload.title_key and read it from\nstaffStrings.ts (build-contracts-2026-09-23 §2.21); _shared/staff-push.json\nis the one list of their kinds, title keys and routes. This function must be\ndeployed before the migration that lets the outbox hold a staff kind: a kind\nor title key it does not know is terminal.",
       "route": null
     },
     {
