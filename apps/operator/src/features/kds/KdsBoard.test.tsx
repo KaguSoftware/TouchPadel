@@ -4,13 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 import { mutate } from '../../lib/mutate';
+import { appRpc } from '../../lib/appRpc';
 import { KdsBoard } from './KdsBoard';
 import type { TicketRow } from './ticketView';
 import type { WorkspaceKey } from '../../lib/workspaces';
 
-// The container: a real query client over a mocked table read, the single
-// write path mocked at `mutate()`. The alarms hook is stubbed so no realtime
-// channel or WebAudio is touched.
+// The container: a real query client over a mocked app.kitchen_board read,
+// the single write path mocked at `mutate()`. The alarms hook is stubbed so no
+// realtime channel or WebAudio is touched.
 
 // The "server": the read returns whatever the last write left behind.
 let serverRows: TicketRow[] = [];
@@ -43,17 +44,6 @@ const rows: TicketRow[] = [
   },
 ];
 
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({
-        or: () => ({
-          order: async () => ({ data: serverRows, error: null }),
-        }),
-      }),
-    }),
-  },
-}));
 vi.mock('../../lib/mutate', () => ({
   mutate: vi.fn(async (_type: string, payload: { ticketId: string; status: TicketRow['status'] }) => {
     serverRows = serverRows.map((r) => (r.id === payload.ticketId ? { ...r, status: payload.status } : r));
@@ -61,7 +51,9 @@ vi.mock('../../lib/mutate', () => ({
   }),
   isElectron: () => false,
 }));
-vi.mock('../../lib/appRpc', () => ({ appRpc: vi.fn(async () => null) }));
+vi.mock('../../lib/appRpc', () => ({
+  appRpc: vi.fn(async (fn: string) => (fn === 'kitchen_board' ? { tickets: serverRows } : null)),
+}));
 vi.mock('./useKdsAlarms', () => ({
   useKdsAlarms: () => ({ stale: new Set<string>(), unseen: 0, status: 'live' }),
 }));
@@ -93,6 +85,7 @@ beforeEach(() => {
   workspaceCtx = null;
   navigate.mockClear();
   vi.mocked(mutate).mockClear();
+  vi.mocked(appRpc).mockClear();
   // The browser-mode bridge mock warns on every cache miss; expected here.
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
@@ -103,6 +96,8 @@ describe('KdsBoard', () => {
     renderBoard();
     expect(await screen.findByText('Table 9')).toBeTruthy();
     expect(screen.getByTestId('connection-pill').getAttribute('data-status')).toBe('live');
+    // The venue and nothing else: the completed window is the server's.
+    expect(appRpc).toHaveBeenCalledWith('kitchen_board', { p_venue_id: null });
 
     await user.keyboard('1');
     await user.keyboard('s');

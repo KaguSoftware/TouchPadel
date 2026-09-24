@@ -1,6 +1,7 @@
 /**
- * KDS container — live ticket queue. Initial fetch from tables; 'kds' private
- * broadcast (0022 + 0061 item_ready) invalidates. Item-level ready marks are
+ * KDS container — live ticket queue. Initial fetch through app.kitchen_board
+ * (money-free, build-contracts-2026-09-23 §2.23); 'kds' private broadcast
+ * (0022 + 0061 item_ready) invalidates. Item-level ready marks are
  * SERVER state since 0061 (app.set_order_item_ready) — they survive a reload
  * and a second prep station sees them. Ticket lifecycle goes through
  * app.set_ticket_status; both are optimistic here (transition-idempotent
@@ -12,7 +13,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { isElectron, mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
@@ -23,7 +23,7 @@ import { asyncStatus, type AsyncStatus } from '../../components/kit';
 import { lanTicketViews, useLanTickets, useVariantNames } from './LanBoard';
 import { useKdsAlarms } from './useKdsAlarms';
 import { KitchenDisplayScreen } from './KitchenDisplayScreen';
-import { TICKET_SELECT, ticketViews, type TicketAction, type TicketRow } from './ticketView';
+import { ticketViews, type TicketAction, type TicketRow } from './ticketView';
 
 const COMPLETED_LINGER_MS = 2 * 60 * 1000;
 
@@ -44,14 +44,12 @@ export function KdsBoard() {
   const ticketsQ = useQuery({
     queryKey: ['tickets'],
     queryFn: async (): Promise<TicketRow[]> => {
-      const since = new Date(Date.now() - COMPLETED_LINGER_MS).toISOString();
-      const { data, error } = await supabase
-        .from('tickets')
-        .select(TICKET_SELECT)
-        .or(`status.in.(queued,preparing,ready),and(status.eq.completed,completed_at.gte.${since})`)
-        .order('created_at');
-      if (error) throw error;
-      return data as unknown as TicketRow[];
+      // The server fixes the completed window (the same two minutes as
+      // COMPLETED_LINGER_MS) and takes no argument to widen it. p_venue_id null:
+      // the operator holds no venue of its own, so the board shows every venue
+      // the signed-in staff member works at, as the tickets select did.
+      const { tickets } = await appRpc<{ tickets: TicketRow[] }>('kitchen_board', { p_venue_id: null });
+      return tickets;
     },
     refetchInterval: 30_000, // safety net under the broadcast — no control in the UI
   });

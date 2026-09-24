@@ -30,7 +30,7 @@ here.
 
 ## Kitchen
 
-- /kds — The kitchen display board: per-ticket "Start", "Ready" and "Complete" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and "Leave kitchen display" appears only for staff who hold another workspace.
+- /kds — The kitchen display board: its live tickets, and those completed in the last two minutes, are read through app.kitchen_board with their lines, add-ons, notes and ready marks and no prices; per-ticket "Start", "Ready" and "Complete" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and "Leave kitchen display" appears only for staff who hold another workspace.
 
 ## Team (driver, marketing)
 

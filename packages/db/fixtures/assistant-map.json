@@ -1,5 +1,5 @@
 {
-  "generated_from": "dca68611024ad1c806e39d9fc31cbc1d61994997",
+  "generated_from": "fbd41aa2b653c6393a94d3bc8265e22d1a0498da",
   "chunks": [
     {
       "kind": "page",
@@ -238,7 +238,7 @@
       "ref": "page:/kds",
       "lang": "en",
       "title": "/kds",
-      "body": "The kitchen display board: per-ticket \"Start\", \"Ready\" and \"Complete\" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and \"Leave kitchen display\" appears only for staff who hold another workspace.\nRoles: prep, head_barista, barista, head_chef, chef, manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "The kitchen display board: its live tickets, and those completed in the last two minutes, are read through app.kitchen_board with their lines, add-ons, notes and ready marks and no prices; per-ticket \"Start\", \"Ready\" and \"Complete\" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and \"Leave kitchen display\" appears only for staff who hold another workspace.\nRoles: prep, head_barista, barista, head_chef, chef, manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/kds"
     },
     {
@@ -12718,7 +12718,7 @@
       "ref": "doc:docs/design/assistant/pages.md#5",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Kitchen",
-      "body": "## Kitchen\n\n- /kds — The kitchen display board: per-ticket \"Start\", \"Ready\" and \"Complete\" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and \"Leave kitchen display\" appears only for staff who hold another workspace.",
+      "body": "## Kitchen\n\n- /kds — The kitchen display board: its live tickets, and those completed in the last two minutes, are read through app.kitchen_board with their lines, add-ons, notes and ready marks and no prices; per-ticket \"Start\", \"Ready\" and \"Complete\" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and \"Leave kitchen display\" appears only for staff who hold another workspace.",
       "route": null
     },
     {
