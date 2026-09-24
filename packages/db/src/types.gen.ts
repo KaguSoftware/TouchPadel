@@ -742,6 +742,15 @@ export type Database = {
         }
       }
       claim_replay: { Args: { p_fn: string; p_key: string }; Returns: Json }
+      claim_staff_media: {
+        Args: {
+          p_folders: string[]
+          p_paths: string[]
+          p_used_by: string
+          p_venue: string
+        }
+        Returns: undefined
+      }
       clear_pin_lockout: { Args: { p_staff_id: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       clear_table_token_secret_prev: { Args: never; Returns: Json }
@@ -946,6 +955,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_staff_media_path: { Args: { p_name: string }; Returns: boolean }
       item_active_groups: {
         Args: { p_chosen_modifier_ids: string[]; p_item_id: string }
         Returns: string[]
@@ -1550,6 +1560,12 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_media_folder: { Args: { p_name: string }; Returns: string }
+      staff_media_slot: {
+        Args: { p_ext: string; p_folder: string; p_venue_id: string }
+        Returns: Json
+      }
+      staff_media_venue: { Args: { p_name: string }; Returns: string }
       staff_requests_page: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
@@ -4944,6 +4960,51 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_breaks_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_media_uploads: {
+        Row: {
+          created_at: string
+          folder: string
+          path: string
+          uploader: string
+          used_at: string | null
+          used_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder: string
+          path: string
+          uploader: string
+          used_at?: string | null
+          used_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          folder?: string
+          path?: string
+          uploader?: string
+          used_at?: string | null
+          used_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_media_uploads_uploader_fkey"
+            columns: ["uploader"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_media_uploads_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

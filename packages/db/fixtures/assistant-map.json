@@ -1,5 +1,5 @@
 {
-  "generated_from": "b92ca7b707a0541e5435971748a7607863ba2ab7",
+  "generated_from": "e775e5ee0415d35ffc40d853930fa3c190a67bf0",
   "chunks": [
     {
       "kind": "page",
@@ -2251,6 +2251,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.is_staff_media_path",
+      "lang": "en",
+      "title": "app.is_staff_media_path",
+      "body": "staff_media_bucket (§2.3). True when a storage object name is a staff-media path, <venue_id>/<folder>/<uuid>.<jpg|png|webp>; false for anything else, NULL included. Pure text, never raises. Granted to anon, authenticated and service_role because the staff-media storage policies evaluate it as the reading role.\nSignature: app.is_staff_media_path(p_name text) returns boolean.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.item_active_groups",
       "lang": "en",
       "title": "app.item_active_groups",
@@ -2823,6 +2831,30 @@
       "lang": "en",
       "title": "app.staff_create_reservation",
       "body": "Signature: app.staff_create_reservation(p_court_id uuid, p_kind reservation_kind, p_start_at timestamptz, p_end_at timestamptz, p_guest_name text default null, p_guest_phone text default null, p_guest_id uuid default null, p_notes text default null, p_idempotency_key text default null, p_client_ref text default null, p_device_id text default null, p_price_override_iqd bigint default null, p_players int default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: reservation.create, reservation.price_override.\nError codes: FORBIDDEN, INVALID_RANGE, IDEMPOTENCY_CONFLICT, GUEST_REQUIRED, INVALID_PRICE, NO_RATE, SLOT_TAKEN.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0147 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_media_folder",
+      "lang": "en",
+      "title": "app.staff_media_folder",
+      "body": "staff_media_bucket (§2.3). The folder of a staff-media path (proposals, tests, steps, marketing, campaigns or receipts); NULL for a name that is not a staff-media path. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_folder(p_name text) returns text.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_media_slot",
+      "lang": "en",
+      "title": "app.staff_media_slot",
+      "body": "staff_media_bucket (§2.3). Any active staff member at the venue: mints an upload slot and returns {path, bucket: staff-media, expires_at}. The client uploads to exactly that path within the hour, then passes it to the recording RPC. INVALID_ARGUMENT (hint folder or ext); UPLOAD_LIMIT past 30 unused slots in the last hour.\nSignature: app.staff_media_slot(p_venue_id uuid, p_folder text, p_ext text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, UPLOAD_LIMIT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_media_venue",
+      "lang": "en",
+      "title": "app.staff_media_venue",
+      "body": "staff_media_bucket (§2.3). The venue a staff-media path belongs to (its first segment); NULL for a name that is not a staff-media path, so a menu-media name never reaches the cast. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_venue(p_name text) returns uuid.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3575,6 +3607,14 @@
       "lang": "en",
       "title": "table staff_breaks",
       "body": "0105: one row per break. ended_at null = still away. covered_by is who took the station over meanwhile, verified by their own PIN (app.cover_station). Written only through app.start_break / app.end_break / app.cover_station.\nCreated in migration 0105.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  staff_id uuid not null references staff(id)\n  station_id text not null — 0105: the station the person was covering. 0131: deliberately NOT a foreign key to stations(id) — a break row is history and must outlive the station it names, both ways round: retiring or renaming a till may not make old breaks unwritable, and an old break may not keep a dismantled station alive. The shape is enforced by the RPCs that write it (app.start_break / app.cover_station), and the venue is answered by staff_breaks.venue_id, not by a join.\n  business_date date not null\n  started_at timestamptz not null default now()\n  ended_at timestamptz\n  covered_by uuid references staff(id)\n  cover_started_at timestamptz\n  venue_id uuid",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_media_uploads",
+      "lang": "en",
+      "title": "table staff_media_uploads",
+      "body": "staff_media_bucket (§2.3): upload slots for work photos. staff_media_slot mints the path; the staff-media storage INSERT policy admits only an unused slot of the uploader from the last hour; app.claim_staff_media marks it used by the record that names it. Bookkeeping no screen reads; excluded from the owner assistant.\nCreated in migration 0159.\nColumns:\n  path text primary key — The storage object name in bucket staff-media: <venue_id>/<folder>/<uuid>.<jpg|png|webp>.\n  venue_id uuid not null references venues(id) — The venue the photo belongs to; also the path's first segment. Readers are staff at this venue.\n  folder text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts')) — What the photo is for: proposals, tests, steps, marketing, campaigns or receipts (receipts are read by their uploader and management only).\n  uploader uuid not null references staff(id) — The staff member the slot was minted for; only they may upload to it.\n  created_at timestamptz not null default now() — When the slot was minted. The upload must happen within an hour of it.\n  used_at timestamptz — When a record first claimed the path (app.claim_staff_media); NULL = not claimed yet.\n  used_by text — The record that claims the path, as <kind>:<id> (for example protocol_submission:<uuid>); NULL = not claimed yet.",
       "route": null
     },
     {
@@ -5215,6 +5255,62 @@
       "lang": "en",
       "title": "staff_breaks.station_id",
       "body": "text not null\n0105: the station the person was covering. 0131: deliberately NOT a foreign key to stations(id) — a break row is history and must outlive the station it names, both ways round: retiring or renaming a till may not make old breaks unwritable, and an old break may not keep a dismantled station alive. The shape is enforced by the RPCs that write it (app.start_break / app.cover_station), and the venue is answered by staff_breaks.venue_id, not by a join.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_media_uploads.created_at",
+      "lang": "en",
+      "title": "staff_media_uploads.created_at",
+      "body": "timestamptz not null default now()\nWhen the slot was minted. The upload must happen within an hour of it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_media_uploads.folder",
+      "lang": "en",
+      "title": "staff_media_uploads.folder",
+      "body": "text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts'))\nWhat the photo is for: proposals, tests, steps, marketing, campaigns or receipts (receipts are read by their uploader and management only).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_media_uploads.path",
+      "lang": "en",
+      "title": "staff_media_uploads.path",
+      "body": "text primary key\nThe storage object name in bucket staff-media: <venue_id>/<folder>/<uuid>.<jpg|png|webp>.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_media_uploads.uploader",
+      "lang": "en",
+      "title": "staff_media_uploads.uploader",
+      "body": "uuid not null references staff(id)\nThe staff member the slot was minted for; only they may upload to it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_media_uploads.used_at",
+      "lang": "en",
+      "title": "staff_media_uploads.used_at",
+      "body": "timestamptz\nWhen a record first claimed the path (app.claim_staff_media); NULL = not claimed yet.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_media_uploads.used_by",
+      "lang": "en",
+      "title": "staff_media_uploads.used_by",
+      "body": "text\nThe record that claims the path, as <kind>:<id> (for example protocol_submission:<uuid>); NULL = not claimed yet.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_media_uploads.venue_id",
+      "lang": "en",
+      "title": "staff_media_uploads.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue the photo belongs to; also the path's first segment. Readers are staff at this venue.",
       "route": null
     },
     {
