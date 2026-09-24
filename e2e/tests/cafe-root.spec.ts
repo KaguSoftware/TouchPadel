@@ -1,10 +1,12 @@
 /**
- * The site root IS the cafe app (owner decision: the padel landing was dropped).
+ * The café menu at /{locale}/menu (2026-09-23: it was the site root until the
+ * Touch Padel landing page took /{locale}; site-landing.spec.ts covers that).
  *
  * Covers the routing contract from web-slice §1 — Arabic default, locale
- * negotiation, the legacy /menu alias, server-rendered menu content — and the
- * scan-gate: a guest with no table may browse everything but may not send an
- * order or ring the bell.
+ * negotiation (still exercised through /, which now lands on the landing
+ * page), /menu rendering rather than redirecting, server-rendered menu
+ * content — and the scan-gate: a guest with no table may browse everything
+ * but may not send an order or ring the bell.
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -20,7 +22,7 @@ async function assertNoHorizontalScroll(page: Page) {
   expect(overflow, 'page must not scroll horizontally on mobile').toBeLessThanOrEqual(1);
 }
 
-test.describe('cafe at the site root', () => {
+test.describe('cafe menu at /{locale}/menu', () => {
   test.use({ viewport: MOBILE });
 
   test('/ falls back to Arabic when the browser asks for nothing we speak', async ({ browser }) => {
@@ -43,13 +45,31 @@ test.describe('cafe at the site root', () => {
     await ctx.close();
   });
 
-  test('/en/menu is a permanent redirect to /en', async ({ page }) => {
+  test('/en/menu renders the menu itself, not a redirect', async ({ page }) => {
+    // Until 2026-09-23 next.config.ts sent /:locale/menu → /:locale with a 308.
+    // That entry is gone; the page must answer on its own URL.
     const res = await page.goto('/en/menu');
-    expect(new URL(page.url()).pathname).toBe('/en');
-    // 308 on the redirect hop itself (Playwright reports the final response).
-    const chain = res?.request().redirectedFrom();
-    expect(chain, 'the alias must redirect, not render').not.toBeNull();
+    expect(new URL(page.url()).pathname).toBe('/en/menu');
+    expect(res?.status()).toBe(200);
+    expect(res?.request().redirectedFrom(), '/en/menu must render, not redirect').toBeNull();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+  });
+
+  test('a locale-less /menu follows the negotiated locale', async ({ browser }) => {
+    const ctx = await browser.newContext({ extraHTTPHeaders: { 'accept-language': 'en-GB,en;q=0.9' } });
+    const page = await ctx.newPage();
+    await page.goto('/menu');
+    expect(new URL(page.url()).pathname).toBe('/en/menu');
+    await ctx.close();
+  });
+
+  test('the footer leads out to Touch Padel, support, privacy and terms', async ({ page }) => {
+    await page.goto('/en/menu');
+    const row = page.getByRole('navigation', { name: 'Touch Padel' });
+    await expect(row.getByRole('link')).toHaveText(['Touch Padel', 'Support', 'Privacy Policy', 'Terms of Service']);
+    await expect(row.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/en/privacy');
+    await expect(page.getByText('Developed by Kagu')).toHaveCount(0);
   });
 
   test('the menu is server-rendered — readable with JavaScript disabled', async ({ browser }) => {
@@ -57,14 +77,14 @@ test.describe('cafe at the site root', () => {
     // the anonymous sign-in or any client fetch.
     const ctx = await browser.newContext({ javaScriptEnabled: false, viewport: MOBILE });
     const page = await ctx.newPage();
-    await page.goto('/ar');
+    await page.goto('/ar/menu');
     await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText('مشروبات ساخنة').first()).toBeVisible();
     await ctx.close();
   });
 
-  test('EN root renders the fixture menu and the pay-at-desk notice', async ({ page }) => {
-    await page.goto('/en');
+  test('EN menu renders the fixture menu and the pay-at-desk notice', async ({ page }) => {
+    await page.goto('/en/menu');
     await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
     for (const cat of ['Hot Drinks', 'Cold Drinks', 'Breakfast', 'Desserts']) {
       await expect(page.getByRole('button', { name: cat, exact: true }).first()).toBeVisible();
@@ -73,7 +93,7 @@ test.describe('cafe at the site root', () => {
   });
 
   test('no table: sending the basket asks for the QR instead of ordering', async ({ page }) => {
-    await page.goto('/en');
+    await page.goto('/en/menu');
     await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
 
     await page.getByRole('button', { name: /Cappuccino/ }).first().click();
@@ -93,7 +113,7 @@ test.describe('cafe at the site root', () => {
   });
 
   test('no table: the bell is gated the same way', async ({ page }) => {
-    await page.goto('/en');
+    await page.goto('/en/menu');
     await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
     await page.getByRole('button', { name: 'Call a waiter' }).click();
     await expect(page.getByRole('dialog', { name: 'Scan the QR on your table' })).toBeVisible();
@@ -104,7 +124,7 @@ test.describe('cafe at the site root', () => {
     page.on('request', (r) => {
       if (/posthog\.com/i.test(r.url())) posthogHits.push(r.url());
     });
-    await page.goto('/en');
+    await page.goto('/en/menu');
     await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
     await page.getByRole('button', { name: /Cappuccino/ }).first().click();
     await page.waitForTimeout(3_000); // past the idle-load window
@@ -112,11 +132,11 @@ test.describe('cafe at the site root', () => {
   });
 });
 
-test.describe('cafe at the site root (AR) @ar', () => {
+test.describe('cafe menu at /ar/menu @ar', () => {
   test.use({ viewport: MOBILE });
 
-  test('Arabic root is RTL, branded and horizontally clean', async ({ page }) => {
-    await page.goto('/ar');
+  test('Arabic menu is RTL, branded and horizontally clean', async ({ page }) => {
+    await page.goto('/ar/menu');
     const html = page.locator('html');
     await expect(html).toHaveAttribute('dir', 'rtl');
     await expect(html).toHaveAttribute('lang', 'ar');
@@ -126,11 +146,11 @@ test.describe('cafe at the site root (AR) @ar', () => {
     await assertNoHorizontalScroll(page);
   });
 
-  test('the locale switcher keeps you on the cafe app', async ({ page }) => {
-    await page.goto('/ar');
+  test('the locale switcher keeps you on the cafe menu', async ({ page }) => {
+    await page.goto('/ar/menu');
     await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
     await page.getByRole('link', { name: 'English' }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    expect(new URL(page.url()).pathname).toBe('/en');
+    expect(new URL(page.url()).pathname).toBe('/en/menu');
   });
 });

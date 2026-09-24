@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { makeT, isolate, type Locale } from '@touch/i18n';
+import { makeT, type Locale } from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
 import { DAY_LABEL, todayHours, weekHours } from '@/lib/cafe/hours';
+import { displayPhone, telUrl } from '@/lib/site/contact';
+import { formatWindows } from '@/lib/site/hours';
 
 /**
  * The design's footer: a blue field with a shallow arched top that caps the
@@ -15,8 +17,18 @@ import { DAY_LABEL, todayHours, weekHours } from '@/lib/cafe/hours';
  * page a guest can find them, so they keep their home here in the design's
  * type and colour.
  *
- * The phone is `dir="ltr"` + isolated: an Iraqi number inside an Arabic
- * sentence otherwise renders with its `+` at the wrong end.
+ * The phone is `dir="ltr"`: an Iraqi number inside an Arabic sentence otherwise
+ * renders with its `+` at the wrong end. It is printed and dialled the way the
+ * site footer and the legal pages print and dial it (lib/site/contact.ts:
+ * `+964 770 123 4567`, `tel:+9647701234567`), and the hours read in the same
+ * order as theirs (lib/site/hours.ts), so a number or a window never appears two
+ * ways on the public pages. A number that cannot be dialled is not printed.
+ *
+ * The last row (2026-09-23) is a quiet way off the menu: Touch Padel's home
+ * page, Support, Privacy and Terms, in the site footer's words (`site.footer.*`).
+ * Plain `<a>`, not `next/link`: these pages are full documents in another
+ * shell, and nothing here should prefetch. The "Developed by Kagu" credit moved
+ * to the site footer with the landing page; the menu no longer carries it.
  *
  * An IntersectionObserver reports visibility upward so the FABs can get out of
  * the way when the guest reaches the bottom.
@@ -50,7 +62,8 @@ export function Footer({
   }, []);
 
   const today = todayHours(venue);
-  const phone = venue?.phone?.trim() ?? '';
+  const phone = displayPhone(venue?.phone);
+  const tel = telUrl(venue?.phone);
   const venueName = venue?.venue_name?.trim() ?? '';
 
   return (
@@ -86,28 +99,30 @@ export function Footer({
                   {tr(DAY_LABEL[dayKey])}
                 </dt>
                 <dd data-today={dayKey === today.dayKey ? 'true' : undefined}>
-                  {windows.length === 0
-                    ? tr('cafe.footer.closed')
-                    : windows
-                        .map(([from, to]) => `${isolate(from)}-${isolate(to)}`)
-                        .join(locale === 'ar' ? '، ' : ', ')}
+                  {windows.length === 0 ? tr('cafe.footer.closed') : formatWindows(windows, locale)}
                 </dd>
               </div>
             ))}
           </dl>
         </section>
 
-        {phone && (
+        {phone && tel && (
           <section>
             <h2 className="tp-footer__title">{tr('cafe.footer.phone')}</h2>
-            <a className="tp-footer__phone" href={`tel:${phone.replace(/\s+/g, '')}`} dir="ltr">
+            <a className="tp-footer__phone" href={tel} dir="ltr">
               {phone}
             </a>
           </section>
         )}
 
         <p>{tr('cafe.payAtDesk')}</p>
-        <p className="tp-footer__credit">{tr('cafe.footer.developedBy')}</p>
+
+        <nav className="tp-footer__links" aria-label={tr('site.footer.exploreTitle')}>
+          <a href={`/${locale}`}>{tr('site.footer.exploreTitle')}</a>
+          <a href={`/${locale}/support`}>{tr('site.footer.support')}</a>
+          <a href={`/${locale}/privacy`}>{tr('site.footer.privacy')}</a>
+          <a href={`/${locale}/terms`}>{tr('site.footer.terms')}</a>
+        </nav>
       </div>
     </footer>
   );

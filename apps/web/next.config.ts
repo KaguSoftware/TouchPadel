@@ -101,7 +101,18 @@ const nextConfig: NextConfig = {
         headers: [...TABLE_ROUTE_HEADERS],
       },
       {
+        // The old session URL, now a 307 to /menu in proxy.ts (bookmarks and
+        // cookies set before 2026-09-23). The hop itself stays uncacheable.
         source: '/:locale(en|ar)/t',
+        headers: [...TABLE_ROUTE_HEADERS],
+      },
+      {
+        // The café menu, which is where the exchange lands since 2026-09-23 and
+        // which reads the tp-table cookie: a bound response carries the token in
+        // its RSC payload, so it gets the table set too. proxy.ts re-applies
+        // both values, because Next's own Cache-Control on a dynamic page wins
+        // over this list.
+        source: '/:locale(en|ar)/menu',
         headers: [...TABLE_ROUTE_HEADERS],
       },
       {
@@ -127,12 +138,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async redirects() {
-    return [
-      // Legacy /{locale}/menu alias → the cafe app root (web-slice §1).
-      { source: '/:locale(en|ar)/menu', destination: '/:locale', permanent: true },
-    ];
-  },
+  // No redirects(). The `/:locale/menu → /:locale` permanent alias that lived
+  // here until 2026-09-23 is gone: /{locale}/menu is the café menu again and
+  // /{locale} is the Touch Padel landing. Config redirects run BEFORE proxy.ts
+  // and the filesystem, so that entry would have shadowed the menu page, and
+  // its hop carried no CSP. Moves between routes belong in proxy.ts, as 307s.
 };
 
 export default nextConfig;

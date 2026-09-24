@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { t, type Locale } from '@touch/i18n';
 import { resetServerData, serverData, VENUE_FIXTURE } from '@/test/fixtures';
 import { renderServerPage } from '@/test/renderPage';
@@ -17,6 +17,15 @@ vi.mock('@/lib/menu.server', async () => {
     getCachedMenu: () => Promise.resolve(serverData.menu),
     getCachedCafeSettings: () => Promise.resolve(serverData.settings),
     getCachedVenue: () => Promise.resolve(serverData.venue),
+  };
+});
+
+// The site shell (header, footer, mode) reads the mode cookie and the CSP nonce.
+vi.mock('@/lib/site/mode.server', async () => {
+  const { siteRequest } = await import('@/lib/site/testSupport');
+  return {
+    getSiteMode: () => Promise.resolve(siteRequest.mode),
+    getRequestNonce: () => Promise.resolve(siteRequest.nonce),
   };
 });
 
@@ -56,7 +65,9 @@ describe.each(LOCALES)('support page (%s)', (locale: Locale) => {
   it('prints the week when the venue has published hours', async () => {
     await renderServerPage(SupportPage, locale);
 
-    expect(screen.getByText(t(locale, 'legal.contact.hours'))).toBeTruthy();
+    // Scoped to the document: in Arabic the site footer's "Hours" title is the same words.
+    const doc = within(document.querySelector<HTMLElement>('.tp-legal')!);
+    expect(doc.getByText(t(locale, 'legal.contact.hours'))).toBeTruthy();
     // Seven days, each a <dt>/<dd> pair inside the hours list.
     expect(document.querySelectorAll('.tp-legal__hours dt')).toHaveLength(7);
   });
@@ -65,7 +76,9 @@ describe.each(LOCALES)('support page (%s)', (locale: Locale) => {
     serverData.venue = { ...VENUE_FIXTURE, opening_hours: {} };
     await renderServerPage(SupportPage, locale);
 
-    expect(screen.queryByText(t(locale, 'legal.contact.hours'))).toBeNull();
+    expect(
+      within(document.querySelector<HTMLElement>('.tp-legal')!).queryByText(t(locale, 'legal.contact.hours')),
+    ).toBeNull();
     expect(document.querySelector('.tp-legal__hours')).toBeNull();
   });
 

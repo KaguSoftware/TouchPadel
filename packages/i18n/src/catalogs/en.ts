@@ -9,6 +9,7 @@ import { staffEn } from './staff';
 import { workEn } from './work.en';
 import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { legalEn } from './legal.en';
+import { siteEn } from './site.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -885,13 +886,15 @@ export const en = {
   },
   // Public legal pages (privacy, terms, support, delete-account): one file pair, catalogs/legal.*.ts.
   legal: legalEn,
+  // The public website: landing page, site header/footer, 404/error (site.en.ts).
+  site: siteEn,
   seo: {
-    siteTitle: 'Touch Cafe — Menu',
-    siteDescription:
-      'Padel courts and a specialty cafe in Iraq. Book a court in the app; browse the cafe menu and order from your table.',
+    // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
+    // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
+    siteTitle: 'Touch Padel',
     menuTitle: 'Touch Cafe Menu',
     menuDescription:
-      'The full Touch Cafe menu — hot and cold drinks, breakfast, mains, desserts and snacks, in English and Arabic.',
+      'The Touch Cafe menu: specialty coffee, tea, fresh juice, smoothies, mojitos, milkshakes and desserts, in Arabic and English.',
     tableTitle: 'Your table — Touch Cafe',
   },
   errors: {

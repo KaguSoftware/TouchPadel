@@ -44,7 +44,7 @@ import { useCafeActions } from './useCafeActions';
  */
 export interface CafeAppProps {
   locale: Locale;
-  /** null = browsing without a table (site root) */
+  /** null = browsing without a table (a walk-in on `/{locale}/menu`, no `tp-table` cookie) */
   token: string | null;
   initialMenu: MenuCategory[];
   menuStatus: MenuStatus;
@@ -181,29 +181,32 @@ export function CafeApp({
 
       {/* The ONLY scroller in the app (the shell is position: fixed). */}
       <div className="tp-app__scroll" ref={scrollRef} onScroll={onScroll} inert={anySheet}>
-        <Hero
-          locale={locale}
-          settings={menu.settings}
-          featured={menu.featured}
-          onOpenFeatured={(item) => {
-            track.featuredItemClicked({ item_id: item.id });
-            actions.openItem(item, 'featured');
-          }}
-        />
-
-        <CategoryPills
-          locale={locale}
-          categories={menu.menu}
-          activeId={spy.activeId}
-          onSelect={(cat) => {
-            tap();
-            spy.jumpTo(cat.id);
-            track.categorySelected({ category_id: cat.id, category_name_en: cat.name_en });
-          }}
-        />
-
-        {/* No page gutter here: every section carries the design's own 24 px. */}
+        {/* <main> opens above the hero: the hero carries the page's h1 ("THE MENU"), which
+            sat outside every landmark when main started at the menu stage (a11y review
+            2026-09-24, axe "region"). The footer stays outside it. */}
         <main>
+          <Hero
+            locale={locale}
+            settings={menu.settings}
+            featured={menu.featured}
+            onOpenFeatured={(item) => {
+              track.featuredItemClicked({ item_id: item.id });
+              actions.openItem(item, 'featured');
+            }}
+          />
+
+          <CategoryPills
+            locale={locale}
+            categories={menu.menu}
+            activeId={spy.activeId}
+            onSelect={(cat) => {
+              tap();
+              spy.jumpTo(cat.id);
+              track.categorySelected({ category_id: cat.id, category_name_en: cat.name_en });
+            }}
+          />
+
+          {/* No page gutter here: every section carries the design's own 24 px. */}
           <OrdersStrip locale={locale} live={orders.live} onOpen={() => setOrdersOpen(true)} />
           {menu.status === 'ok' ? (
             <MenuStage

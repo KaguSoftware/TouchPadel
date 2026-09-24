@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { t, type Locale } from '@touch/i18n';
 import { resetServerData, serverData, VENUE_PHONE } from '@/test/fixtures';
 import { renderServerPage } from '@/test/renderPage';
@@ -19,6 +19,15 @@ vi.mock('@/lib/menu.server', async () => {
     getCachedMenu: () => Promise.resolve(serverData.menu),
     getCachedCafeSettings: () => Promise.resolve(serverData.settings),
     getCachedVenue: () => Promise.resolve(serverData.venue),
+  };
+});
+
+// The site shell (header, footer, mode) reads the mode cookie and the CSP nonce.
+vi.mock('@/lib/site/mode.server', async () => {
+  const { siteRequest } = await import('@/lib/site/testSupport');
+  return {
+    getSiteMode: () => Promise.resolve(siteRequest.mode),
+    getRequestNonce: () => Promise.resolve(siteRequest.nonce),
   };
 });
 
@@ -70,7 +79,10 @@ describe.each(LOCALES)('privacy page (%s)', (locale: Locale) => {
   it('prints the venue phone as an isolated ltr tel: link', async () => {
     await renderServerPage(PrivacyPage, locale);
 
-    const phone = screen.getByRole('link', { name: VENUE_PHONE });
+    // The site footer prints the same number; this is the document's own.
+    const phone = within(document.querySelector<HTMLElement>('.tp-legal')!).getByRole('link', {
+      name: VENUE_PHONE,
+    });
     expect(phone.getAttribute('href')).toBe('tel:+9647700000000');
     expect(phone.getAttribute('dir')).toBe('ltr');
   });

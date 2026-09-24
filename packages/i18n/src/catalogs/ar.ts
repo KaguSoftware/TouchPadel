@@ -4,6 +4,7 @@ import { staffAr } from './staff';
 import { workAr } from './work.ar';
 import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { legalAr } from './legal.ar';
+import { siteAr } from './site.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -811,13 +812,12 @@ export const ar: Messages = {
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',
   },
   legal: legalAr,
+  site: siteAr,
   seo: {
-    siteTitle: 'تتش كافيه — القائمة',
-    siteDescription:
-      'ملاعب بادل وكافيه مختص في العراق. احجز ملعبك من التطبيق، وتصفّح قائمة الكافيه واطلب من طاولتك.',
+    siteTitle: 'تتش بادل',
     menuTitle: 'قائمة تتش كافيه',
     menuDescription:
-      'قائمة تتش كافيه الكاملة — مشروبات ساخنة وباردة وفطور وأطباق رئيسية وحلويات ووجبات خفيفة، بالعربية والإنجليزية.',
+      'منيو تتش كافيه: قهوة مختصة وشاي وعصائر طازجة وسموذي وموهيتو وميلك شيك وحلويات، بالعربية والإنجليزية.',
     tableTitle: 'طاولتك — تتش كافيه',
   },
   errors: {

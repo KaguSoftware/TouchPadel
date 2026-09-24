@@ -9,7 +9,9 @@
  * `entity.*` holds the operating company's details. Every legal string can use them as
  * {company}, {tradingName}, {registration}, {address}, {email}, {city} and {minPlayAge}
  * (LegalDocument passes them to every lookup), plus {cancelHours} — the free-cancellation
- * window read live from venue_settings_public, so the terms never contradict the app.
+ * window read live from venue_settings_public, so the terms never contradict the app. It
+ * arrives as a whole counted phrase ("4 hours", «12 ساعة»: apps/web/src/lib/site/plural.ts),
+ * never a bare number, because Arabic picks the noun's form by the count.
  * Values still reading `[FILL: …]` are for the partner to complete — see
  * docs/legal/LEGAL-DETAILS-TO-FILL.md and scripts/check-legal-placeholders.mjs.
  * The venue phone and hours come from venue_settings_public, never from here.
@@ -196,7 +198,7 @@ export const legalEn = {
       price:
         'Prices are shown in Iraqi dinars (IQD) before you confirm. Unless the app says otherwise, you pay at the venue — there is no online payment.',
       cancel:
-        'You can cancel for free in the app until {cancelHours} hours before your slot. Less than {cancelHours} hours before, only the front desk can change or cancel it.',
+        'You can cancel for free in the app until {cancelHours} before your slot. Less than {cancelHours} before, only the front desk can change or cancel it.',
       noShow:
         'If you do not come and have not cancelled, the booking may be marked as a no-show. Repeated no-shows may lead us to limit or suspend booking from your account.',
       time: 'Please arrive on time. A slot ends at its scheduled time even if play starts late.',
@@ -277,8 +279,8 @@ export const legalEn = {
     },
     cancel: {
       title: 'Cancelling',
-      free: 'You can cancel for free in the app until {cancelHours} hours before your slot.',
-      late: 'Less than {cancelHours} hours before, contact the front desk to change or cancel.',
+      free: 'You can cancel for free in the app until {cancelHours} before your slot.',
+      late: 'Less than {cancelHours} before, contact the front desk to change or cancel.',
       noShow:
         'If you do not come and have not cancelled, the venue may mark the booking as a no-show. Repeated no-shows may limit booking in the app.',
       more: 'The full booking rules are in our Terms of Service',

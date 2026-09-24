@@ -56,7 +56,7 @@ function location(res: Response): string {
 
 describe('proxy matcher', () => {
   it('reaches every page route, with and without a locale prefix', () => {
-    for (const p of ['/', '/en', '/ar', '/ar/', '/en/t', '/ar/t/', '/t/abc123', '/en/t/abc123', '/en/download', '/en/menu', '/ar/privacy']) {
+    for (const p of ['/', '/en', '/ar', '/ar/', '/en/t', '/ar/t/', '/t', '/t/abc123', '/en/t/abc123', '/en/download', '/en/menu', '/ar/menu/', '/menu', '/ar/privacy']) {
       expect(matches(p), `${p} must be proxied`).toBe(true);
     }
   });
@@ -77,6 +77,7 @@ describe('proxy matcher', () => {
       '/favicon.ico',
       '/manifest.webmanifest',
       '/robots.txt',
+      '/sitemap.xml',
       '/.well-known/assetlinks.json',
       '/fonts/lama/LamaSans-Regular.woff2',
       '/brand/cafe/icon-192.png',
@@ -88,7 +89,7 @@ describe('proxy matcher', () => {
 
 describe('proxy()', () => {
   it('stamps a fresh nonce CSP on a locale route and hands the nonce to the renderer', () => {
-    const res = proxy(req('/en/t'));
+    const res = proxy(req('/en/privacy'));
     const csp = res.headers.get('content-security-policy') ?? '';
     const nonce = res.headers.get('x-nonce') ?? '';
     expect(res.status).toBe(200);
@@ -99,7 +100,56 @@ describe('proxy()', () => {
     expect(res.headers.get('x-middleware-request-x-nonce')).toBe(nonce);
     expect(res.headers.get('x-middleware-request-content-security-policy')).toBe(csp);
     // Each request gets its own nonce, or the policy is a static allowlist.
-    expect(proxy(req('/en/t')).headers.get('x-nonce')).not.toBe(nonce);
+    expect(proxy(req('/en/privacy')).headers.get('x-nonce')).not.toBe(nonce);
+  });
+
+  it('passes the café menu through with the table envelope: no-store, private, no-referrer', () => {
+    // /{locale}/menu is where the exchange lands and it reads the tp-table
+    // cookie, so a bound response carries the token in its RSC payload. Next
+    // stamps its own Cache-Control on a dynamic page over next.config.ts, so
+    // this override is the copy that has to hold.
+    for (const p of ['/en/menu', '/ar/menu', '/ar/menu/']) {
+      const res = proxy(req(p, { cookie: `${TABLE_COOKIE}=abc123` }));
+      expect(res.status, p).toBe(200);
+      expect(res.headers.get('x-middleware-next'), p).toBe('1');
+      expect(res.headers.get('cache-control'), p).toBe('no-store, no-cache, must-revalidate, private');
+      expect(res.headers.get('referrer-policy'), p).toBe('no-referrer');
+      expect(res.headers.get('content-security-policy'), p).toMatch(/script-src 'nonce-/);
+      expect(res.headers.get('set-cookie'), `${p} must not mint a cookie`).toBeNull();
+    }
+    // …and only the menu: the landing and the legal pages keep Next's caching
+    // and the site-wide Referrer-Policy.
+    for (const p of ['/en', '/ar/privacy', '/en/menus', '/en/menu/x']) {
+      const res = proxy(req(p));
+      expect(res.headers.get('cache-control'), p).toBeNull();
+      expect(res.headers.get('referrer-policy'), p).toBeNull();
+    }
+  });
+
+  it('sends a locale-less /menu to the negotiated locale', () => {
+    expect(location(proxy(req('/menu')))).toBe('/ar/menu');
+    expect(location(proxy(req('/menu', { cookie: 'tp-locale=en' })))).toBe('/en/menu');
+  });
+
+  it('redirects the old session URL /{locale}/t to the menu: a 307, the CSP and the table envelope on the hop, no cookie', () => {
+    for (const [p, to] of [
+      ['/en/t', '/en/menu'],
+      ['/ar/t/', '/ar/menu'],
+      ['/t', '/ar/menu'],
+    ] as const) {
+      const res = proxy(req(p));
+      expect(res.status, p).toBe(307);
+      expect(location(res), p).toBe(to);
+      expect(res.headers.get('content-security-policy'), p).toMatch(/script-src 'nonce-/);
+      expect(res.headers.get('cache-control'), p).toMatch(/no-store/);
+      expect(res.headers.get('referrer-policy'), p).toBe('no-referrer');
+      expect(res.headers.get('set-cookie'), `${p} must not touch the table cookie`).toBeNull();
+    }
+    // The query survives the hop (?analytics=off and the like).
+    const res = proxy(req('/en/t?analytics=off'));
+    expect(new URL(res.headers.get('location') ?? '', ORIGIN).search).toBe('?analytics=off');
+    // A locale-less /t follows the guest's language like every other path.
+    expect(location(proxy(req('/t', { cookie: 'tp-locale=en' })))).toBe('/en/menu');
   });
 
   it('never renders a bad first segment: /api/t and /x.y/t are sent to a locale, with the CSP on the hop', () => {
@@ -112,10 +162,10 @@ describe('proxy()', () => {
     }
   });
 
-  it('exchanges /t/{token} for the HttpOnly cookie and a token-less URL', () => {
+  it('exchanges /t/{token} for the HttpOnly cookie and the token-less café menu', () => {
     const res = proxy(req('/t/abc123'));
     expect(res.status).toBe(307);
-    expect(location(res)).toBe('/ar/t');
+    expect(location(res)).toBe('/ar/menu');
     const cookie = res.headers.get('set-cookie') ?? '';
     expect(cookie).toMatch(new RegExp(`^${TABLE_COOKIE}=abc123;`));
     expect(cookie).toMatch(/HttpOnly/);
@@ -127,7 +177,8 @@ describe('proxy()', () => {
   });
 
   it('keeps the locale a switch produced through the exchange', () => {
-    expect(location(proxy(req('/en/t/abc123')))).toBe('/en/t');
+    expect(location(proxy(req('/en/t/abc123')))).toBe('/en/menu');
+    expect(location(proxy(req('/t/abc123', { cookie: 'tp-locale=en' })))).toBe('/en/menu');
   });
 
   it('negotiates the locale in the documented order: path, cookie, Accept-Language, ar', () => {
@@ -152,10 +203,10 @@ describe('the route-level exchange (proxy bypassed)', () => {
   // request the proxy matcher did not see. Driven directly, as Next would.
   const params = (locale: string, token: string) => ({ params: Promise.resolve({ locale, token }) });
 
-  it('sets the HttpOnly cookie and 307s to the token-less route', async () => {
+  it('sets the HttpOnly cookie and 307s to the token-less café menu', async () => {
     const res = await GET(req('/en/t/abc123'), params('en', 'abc123'));
     expect(res.status).toBe(307);
-    expect(location(res)).toBe('/en/t');
+    expect(location(res)).toBe('/en/menu');
     expect(res.headers.get('set-cookie')).toMatch(new RegExp(`^${TABLE_COOKIE}=abc123;.*HttpOnly`));
     expect(res.headers.get('cache-control')).toMatch(/no-store/);
     expect(res.headers.get('referrer-policy')).toBe('no-referrer');

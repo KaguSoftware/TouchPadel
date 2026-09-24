@@ -375,6 +375,9 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      three:
+        specifier: 0.160.0
+        version: 0.160.0
     devDependencies:
       '@next/eslint-plugin-next':
         specifier: ^16.0.0
@@ -397,6 +400,9 @@ importers:
       '@types/react-dom':
         specifier: 19.2.7
         version: 19.2.7(@types/react@19.2.18)
+      '@types/three':
+        specifier: 0.160.0
+        version: 0.160.0
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1

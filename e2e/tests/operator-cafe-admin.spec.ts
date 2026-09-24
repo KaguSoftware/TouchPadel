@@ -81,7 +81,7 @@ test.describe('operator cafe admin', () => {
     const guest = await context.newPage();
     await guest.setViewportSize({ width: 390, height: 844 });
     const joined = channelJoined(guest);
-    await guest.goto('/en');
+    await guest.goto('/en/menu');
     await expect(guest.locator('.tp-hero__marquee')).toBeVisible({ timeout: 60_000 });
     await joined;
 
@@ -113,7 +113,7 @@ test.describe('operator cafe admin', () => {
     const guest = await context.newPage();
     await guest.setViewportSize({ width: 390, height: 844 });
     const joined = channelJoined(guest);
-    await guest.goto('/en');
+    await guest.goto('/en/menu');
     const card = guest.locator('.tp-menu-item', { hasText: 'Turkish Coffee' }).first();
     await expect(card).toBeVisible({ timeout: 60_000 });
     await joined;

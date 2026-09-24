@@ -18,6 +18,7 @@ import { fontFaceCss } from './fontFace';
 import { cafeBrandVars, dirVars, statusVars } from './tokens/cafeBrand';
 import { operatorVars } from './tokens/operator';
 import { OPERATOR_BLUE_MODE, operatorBlueVars } from './tokens/operatorBlue';
+import { SITE_NIGHT_MODE, siteLightVars, siteNightVars, siteScaleVars } from './tokens/site';
 
 function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): string {
   return Object.entries(vars)
@@ -40,6 +41,9 @@ function themeBlock(name: ThemeName): string {
     ...palettes[name],
     ...(name === 'operator' ? {} : statusVars),
     ...(name === 'cafe' ? cafeBrandVars : {}),
+    // The public site (tokens/site.ts): light extras + the shared scale. Its night mode
+    // is a separate block below, keyed like the operator's blue mode.
+    ...(name === 'padel' ? { ...siteLightVars, ...siteScaleVars } : {}),
     ...(name === 'operator' ? operatorVars : {}),
   };
   return `:root[data-theme='${name}'],\n[data-theme='${name}'] {\n${varsBlock(vars)}\n}`;
@@ -57,6 +61,16 @@ function operatorBlueBlock(): string {
   return `:root${sel},\n${sel} {\n  color-scheme: dark;\n${varsBlock(operatorBlueVars)}\n}`;
 }
 
+/**
+ * The public site's night mode (tokens/site.ts) — the guest app's blue mode on the web.
+ * Same two-attribute mechanism as the operator's: `[data-theme='padel'][data-mode='night']`
+ * (0,3,0) out-specifies the padel block (0,2,0), so only the colours it names change.
+ */
+function siteNightBlock(): string {
+  const sel = `[data-theme='padel'][data-mode='${SITE_NIGHT_MODE}']`;
+  return `:root${sel},\n${sel} {\n  color-scheme: dark;\n${varsBlock(siteNightVars)}\n}`;
+}
+
 export const themeCss: string = [
   `/* Generated from @touch/ui tokens — do not edit by hand. */`,
   // The brand faces ride with the tokens, so every surface that inlines
@@ -69,6 +83,7 @@ export const themeCss: string = [
   // the `[dir='rtl']` override below (0,1,0) and pin the sign to +1.
   `:root {\n${varsBlock({ ...fontVars, ...dirVars })}\n}`,
   themeBlock('padel'),
+  siteNightBlock(),
   themeBlock('cafe'),
   themeBlock('operator'),
   operatorBlueBlock(),

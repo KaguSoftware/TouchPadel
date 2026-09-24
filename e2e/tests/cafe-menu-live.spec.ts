@@ -35,7 +35,7 @@ test.describe('live menu updates', () => {
     await appRpc(manager, 'set_item_sold_out', { p_item_id: TURKISH_COFFEE, p_sold_out: false });
 
     const joined = channelJoined(page);
-    await page.goto('/en');
+    await page.goto('/en/menu');
     const card = page.locator('.tp-menu-item', { hasText: 'Turkish Coffee' }).first();
     await expect(card).toBeVisible({ timeout: 60_000 });
     await expect(card).not.toHaveAttribute('data-sold-out', 'true');
@@ -56,7 +56,7 @@ test.describe('live menu updates', () => {
 
   test('the fixture sold-out item renders its stamp from SSR', async ({ page }) => {
     await appRpc(manager, 'set_item_sold_out', { p_item_id: MIXED_NUTS, p_sold_out: true });
-    await page.goto('/en');
+    await page.goto('/en/menu');
     const nuts = page.locator('.tp-menu-item', { hasText: 'Mixed Nuts' }).first();
     await expect(nuts).toHaveAttribute('data-sold-out', 'true', { timeout: 60_000 });
   });
@@ -65,7 +65,7 @@ test.describe('live menu updates', () => {
     const owner = await signedInClient(SEED_STAFF.owner);
     try {
       const joined = channelJoined(page);
-      await page.goto('/en');
+      await page.goto('/en/menu');
       await expect(page.locator('.tp-hero__marquee-item').first()).toBeVisible({ timeout: 60_000 });
       await joined;
 

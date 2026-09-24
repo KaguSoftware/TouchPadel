@@ -1,0 +1,431 @@
+// COPIED from apps/mobile/src/features/courtTransition/scene.ts on 2026-09-23 — keep byte-identical except WEB: lines
+/**
+ * The three.js court from `Court Transition Prototype.html` (`buildCourt`),
+ * ported 1:1 for expo-gl: real net, lime glass + mesh cage with the brand's
+ * white window stickers, four 3D rackets, a ball with a seam, a 36-ghost
+ * trail, a ground disc AND a real cast shadow on the turf. The rackets are the
+ * SECOND design, `padel-racket.html` — its mesh in racket.ts, its swing clip in
+ * swing.ts, scheduled onto the rally by rally.ts. As in the
+ * prototype the ball, its trail and its disc live in a SECOND scene
+ * (`overlay`) drawn on a transparent surface stacked above the native button,
+ * so the rally flies over the button; an invisible caster in the main scene
+ * keeps the ball's real shadow on the turf, under the button (see
+ * `docs/design/mobile-ui/Court Transition Prototype.html` header for the spec).
+ *
+ * All motion numbers come from rally.ts (unit-tested); this file only builds
+ * meshes and applies those numbers each frame. The `lite` tier (quality.ts,
+ * low-end phones) builds the same court with no shadow pass — no caster, no
+ * receiver, no invisible ball caster — and a plainer racket (racket.ts); the
+ * ball's ground disc stands in for its shadow. The trail is the same on both.
+ * Colours are the prototype's own (its brand stickers); the page colour behind
+ * the court is the renderer's clear colour, set by the component per theme.
+ */
+import * as THREE from 'three';
+import {
+  nearCageOpacity,
+  PLAYERS,
+  playerYaw,
+  rallyAt,
+  BALL_RADIUS,
+  layAngle,
+  RACKET_Y,
+  LEG_SECONDS,
+} from './rally';
+import { buildRacketKit } from './racket';
+// WEB: no patternBackdrop import. The canvas is transparent and the page paints the pattern behind it.
+import { makeCamera, poseCamera } from './camera';
+import { lerp, slice, SPEC } from './spec';
+import type { CourtQuality } from './quality';
+
+// Brand ramp values (see src/theme/tokens.ts — the palette is closed to five
+// colours). NAVY and TURF are exact shades of brand blue #3360AB; LIME and BLUE
+// are the brand colours themselves. NOTE: these are MeshStandardMaterial colours
+// under a hemisphere light + directional sun, so they do NOT render as these
+// hexes on screen — lighting lifts and desaturates them. Judge on a device.
+const NAVY = 0x172c4f;
+const LIME = 0xa5d06f;
+const BLUE = 0x3360ab;
+const TURF = 0x2d5495;
+/**
+ * The ghost trail: 36 fading spheres over the ball's last 0.367 s of flight.
+ *
+ * The ghosts are the ball re-evaluated at fixed times behind the rally clock,
+ * NOT a buffer of past frames. A per-frame buffer ties ghost spacing to the
+ * framerate: the ball crosses the court at ~11 m/s, so at 60 fps it moves
+ * ~0.18 m per frame and consecutive ghosts overlap into a streak, while at
+ * 30 fps they land ~0.36 m apart — past the 0.44 m the spheres span — and the
+ * trail reads as a row of separate circles. That is why it beaded on Android
+ * and not on iOS. Sampling on a time grid makes the two identical.
+ *
+ * 0.367 s is the old 22-frames-at-60fps span, kept so the trail's length on
+ * screen is unchanged. The count is what keeps it continuous rather than
+ * beaded, so it is not a tier knob; lite saves its frame time on the shadow
+ * pass (quality.ts), and these spheres are unlit and never write depth.
+ */
+const TRAIL_N = 36;
+const TRAIL_LAG = 22 / 60;
+
+export interface CourtScene {
+  /** The court: cage, net, rackets, turf with the ball's cast shadow. Opaque, under the button. */
+  scene: THREE.Scene;
+  /** The ball, its trail and its ground disc. Transparent, drawn above the button with the same camera. */
+  overlay: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  /** Apply camera + rally + fades for time t (s) and eased pitch camK; p is the raw progress. */
+  update(t: number, p: number, camK: number): void;
+  // WEB: setBackdropViewport / setBackdropInk dropped with the pattern backdrop.
+  /** Everything with a `dispose()`: geometries, materials. */
+  dispose(): void;
+}
+
+export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
+  const shadows = quality === 'full';
+  const disposables: { dispose(): void }[] = [];
+  const scene = new THREE.Scene();
+  const overlay = new THREE.Scene();
+  const camera = makeCamera(390 / 844);
+  // The pattern behind the court. Parented to the CAMERA so it stays put on
+  // the glass while the camera orbits, and the camera is parented to the SCENE
+  // so `renderer.render(scene, camera)` updates the group's world matrix with
+  // everything else. See patternBackdrop.ts for why this is geometry and not a
+  // transparent clear colour.
+  scene.add(camera); // WEB: kept parented (update() relies on it); no backdrop group, no viewport.
+
+  // the overlay is lit like the court, minus the shadow pass
+  overlay.add(new THREE.HemisphereLight(0xffffff, 0xb0c5e8, 0.95));
+  const sun2 = new THREE.DirectionalLight(0xffffff, 1.4);
+  sun2.position.set(6, 30, 10);
+  overlay.add(sun2);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb0c5e8, 0.95));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+  sun.position.set(6, 30, 10);
+  sun.castShadow = shadows;
+  if (shadows) {
+    // 2048 in the prototype; 1024 keeps the shadow pass cheap on a phone.
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.bias = -0.0002;
+    sun.shadow.normalBias = 0.05;
+    sun.shadow.radius = 4;
+    /* eslint-disable no-restricted-syntax -- WEB: a shadow camera's frustum, not CSS (apps/mobile exempts this folder in its eslint config) */
+    Object.assign(sun.shadow.camera, {
+      left: -8,
+      right: 8,
+      top: 12,
+      bottom: -12,
+      near: 5,
+      far: 60,
+    });
+    /* eslint-enable no-restricted-syntax -- WEB: */
+  }
+  scene.add(sun);
+
+  const Mat = (color: number, o: Partial<THREE.MeshStandardMaterialParameters> = {}) => {
+    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, ...o });
+    disposables.push(m);
+    return m;
+  };
+  const geo = <G extends THREE.BufferGeometry>(g: G): G => {
+    disposables.push(g);
+    return g;
+  };
+  const add = (
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material,
+    x: number,
+    y: number,
+    z: number,
+    shadow = false,
+  ) => {
+    const m = new THREE.Mesh(geo(geometry), material);
+    m.position.set(x, y, z);
+    m.castShadow = shadow && shadows;
+    scene.add(m);
+    return m;
+  };
+
+  // ground + turf (base top sits 6 cm below the turf; lines use polygonOffset — no z-fighting)
+  add(new THREE.BoxGeometry(11.4, 0.3, 21.4), Mat(NAVY), 0, -0.21, 0);
+  const turf = add(new THREE.PlaneGeometry(10, 20), Mat(TURF), 0, 0, 0);
+  turf.rotation.x = -Math.PI / 2;
+  turf.receiveShadow = shadows;
+
+  // lines (opacity driven by p)
+  const lineMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 1,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  disposables.push(lineMat);
+  const line = (w: number, d: number, x: number, z: number) => {
+    const m = add(new THREE.PlaneGeometry(w, d), lineMat, x, 0.02, z);
+    m.rotation.x = -Math.PI / 2;
+  };
+  const LW = 0.1;
+  line(10, LW, 0, -10 + LW / 2);
+  line(10, LW, 0, 10 - LW / 2);
+  line(LW, 20, -5 + LW / 2, 0);
+  line(LW, 20, 5 - LW / 2, 0);
+  line(10, LW, 0, -7);
+  line(10, LW, 0, 7);
+  line(LW, 3, 0, -8.5);
+  line(LW, 3, 0, 8.5);
+
+  // net
+  const netMat = new THREE.MeshBasicMaterial({
+    color: NAVY,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.55,
+  });
+  disposables.push(netMat);
+  add(new THREE.PlaneGeometry(10.3, 0.86, 62, 6), netMat, 0, 0.45, 0);
+  add(new THREE.BoxGeometry(10.3, 0.07, 0.035), Mat(0xffffff, { roughness: 0.5 }), 0, 0.9, 0);
+  add(new THREE.BoxGeometry(0.06, 0.9, 0.04), Mat(0xffffff), 0, 0.45, 0);
+  const postMat = Mat(NAVY, { roughness: 0.4 });
+  for (const x of [-5.3, 5.3])
+    add(new THREE.CylinderGeometry(0.07, 0.07, 1.05, 14), postMat, x, 0.52, 0);
+
+  // cage: lime glass panels with white "window" squares (brand sticker) + dark mesh fence.
+  // The near side (z > 0) gets its own materials so it can fade as the camera pitches.
+  const glassFar = new THREE.MeshStandardMaterial({
+    color: LIME,
+    transparent: true,
+    opacity: 0.55,
+    roughness: 0.6,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const paneFar = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.75,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const fenceFar = new THREE.MeshBasicMaterial({
+    color: NAVY,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.42,
+  });
+  const frameFar = Mat(NAVY, { roughness: 0.4, transparent: true });
+  const glassNear = glassFar.clone();
+  const paneNear = paneFar.clone();
+  const fenceNear = fenceFar.clone();
+  const frameNear = frameFar.clone();
+  disposables.push(glassFar, paneFar, fenceFar, glassNear, paneNear, fenceNear, frameNear);
+  const capMat = Mat(0x9fe0c8, { roughness: 0.5 });
+
+  const panel = (
+    w: number,
+    h: number,
+    x: number,
+    y: number,
+    z: number,
+    ry: number,
+    mat: THREE.Material,
+    mesh = false,
+  ) => {
+    const m = add(
+      new THREE.PlaneGeometry(w, h, mesh ? Math.round(w * 4) : 1, mesh ? Math.round(h * 4) : 1),
+      mat,
+      x,
+      y,
+      z,
+    );
+    m.rotation.y = ry;
+    return m;
+  };
+  // white window squares inset in each 2 m glass bay
+  const windows = (
+    w: number,
+    h: number,
+    x: number,
+    y: number,
+    z: number,
+    ry: number,
+    mat: THREE.Material,
+  ) => {
+    const n = Math.round(w / 2);
+    const dx = Math.cos(ry);
+    const dz = -Math.sin(ry);
+    for (let i = 0; i < n; i++) {
+      const o = (i - (n - 1) / 2) * 2;
+      panel(1.4, h - 0.8, x + dx * o, y, z + dz * o, ry, mat);
+    }
+  };
+  for (const s of [-1, 1] as const) {
+    const near = s > 0;
+    const glass = near ? glassNear : glassFar;
+    const pane = near ? paneNear : paneFar;
+    const fence = near ? fenceNear : fenceFar;
+    const frame = near ? frameNear : frameFar;
+    const post = (x: number, z: number, h: number) => {
+      add(new THREE.BoxGeometry(0.1, h, 0.1), frame, x, h / 2, z);
+      add(new THREE.BoxGeometry(0.18, 0.08, 0.18), capMat, x, h + 0.04, z);
+    };
+    const rail = (len: number, x: number, y: number, z: number, ry: number) => {
+      const m = add(new THREE.BoxGeometry(len, 0.08, 0.08), frame, x, y, z);
+      m.rotation.y = ry;
+    };
+    panel(10, 3, 0, 1.5, s * 10, 0, glass);
+    windows(10, 3, 0, 1.5, s * 10 - s * 0.01, 0, pane);
+    panel(10, 1, 0, 3.5, s * 10, 0, fence, true);
+    rail(10.1, 0, 4, s * 10, 0);
+    rail(10.1, 0, 3, s * 10, 0);
+    for (const x of [-2.5, 0, 2.5]) post(x, s * 10, 4);
+    for (const sx of [-1, 1] as const) {
+      const x = sx * 5;
+      panel(4, 3, x, 1.5, s * 8, Math.PI / 2, glass);
+      windows(4, 3, x - sx * 0.01, 1.5, s * 8, Math.PI / 2, pane);
+      panel(4, 1, x, 3.5, s * 8, Math.PI / 2, fence, true);
+      panel(6, 3, x, 1.5, s * 3, Math.PI / 2, fence, true);
+      rail(4.1, x, 4, s * 8, Math.PI / 2);
+      rail(4.1, x, 3, s * 8, Math.PI / 2);
+      rail(6.1, x, 3, s * 3, Math.PI / 2);
+      post(x, s * 10, 4);
+      post(x, s * 6, 4);
+      post(x, s * 2, 3);
+    }
+  }
+
+  // racket (brand sticker): the design's teardrop frame, blue face plate with
+  // white perforations,
+  // rim highlights, lofted collar and wrapped lime grip (racket.ts). One shared
+  // build; each player gets the rig — mount (stance) → pivot (hand) → lay (the
+  // top-view cheat) → the racket — and the rally drives all three per frame.
+  const kit = buildRacketKit(quality);
+  disposables.push(...kit.disposables);
+  const rackets = PLAYERS.map((pl) => {
+    const rig = kit.create(pl.hand);
+    rig.mount.position.set(pl.x, RACKET_Y.flat, pl.z);
+    rig.mount.rotation.y = playerYaw(pl);
+    rig.lay.rotation.x = layAngle(0);
+    scene.add(rig.mount);
+    return rig;
+  });
+
+  // ball (brand sticker): lime with a white + blue wavy seam — in the overlay, over the button
+  const ball = new THREE.Group();
+  ball.add(
+    new THREE.Mesh(
+      geo(new THREE.SphereGeometry(BALL_RADIUS, 32, 24)),
+      Mat(LIME, { roughness: 0.55 }),
+    ),
+  );
+  const seamW = new THREE.Mesh(
+    geo(new THREE.TorusGeometry(0.215, 0.022, 8, 64)),
+    Mat(0xf3f5f9, { roughness: 0.6 }),
+  );
+  seamW.rotation.set(0.9, 0.4, 0);
+  const seamB = new THREE.Mesh(
+    geo(new THREE.TorusGeometry(0.212, 0.014, 8, 64)),
+    Mat(BLUE, { roughness: 0.6 }),
+  );
+  seamB.rotation.set(0.9, 0.4, 0);
+  seamB.position.set(0.012, -0.012, 0.01);
+  ball.add(seamW, seamB);
+  overlay.add(ball);
+  // invisible caster in the court scene so the ball still throws a real shadow on the turf
+  let caster: THREE.Mesh | null = null;
+  if (shadows) {
+    const casterMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+    disposables.push(casterMat);
+    caster = add(new THREE.SphereGeometry(BALL_RADIUS, 16, 12), casterMat, 0, 0, 0, true);
+  }
+
+  // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N)
+  const trail: THREE.Mesh[] = [];
+  for (let i = 0; i < TRAIL_N; i++) {
+    const k = 1 - i / TRAIL_N;
+    const m = new THREE.Mesh(
+      geo(new THREE.SphereGeometry(BALL_RADIUS * (0.25 + 0.7 * k), 12, 10)),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.1 * k,
+        depthWrite: false,
+      }),
+    );
+    disposables.push(m.material as THREE.Material);
+    m.visible = false;
+    overlay.add(m);
+    trail.push(m);
+  }
+
+  // the ground disc under the ball (overlay too: the prototype's disc rides over the button)
+  const shadeMat = new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.28 });
+  disposables.push(shadeMat);
+  const shade = new THREE.Mesh(geo(new THREE.CircleGeometry(0.24, 24)), shadeMat);
+  shade.position.set(0, 0.012, 0);
+  shade.rotation.x = -Math.PI / 2;
+  overlay.add(shade);
+
+  return {
+    scene,
+    overlay,
+    camera,
+    // WEB: no setBackdropViewport / setBackdropInk methods (no pattern backdrop).
+    update(t, p, camK) {
+      poseCamera(camera, camK);
+      // WEB: no backdrop.place (no pattern backdrop on the web).
+      // The overlay pass reuses this camera, and three skips updateMatrixWorld
+      // for a camera that has a parent — which this one now does. Doing it here
+      // means neither pass depends on the other having run first.
+      camera.updateMatrixWorld(true);
+
+      lineMat.opacity = lerp(
+        SPEC.lines.opacity[0],
+        SPEC.lines.opacity[1],
+        slice(p, SPEC.lines.range),
+      );
+      const cage = nearCageOpacity(camK);
+      fenceNear.opacity = cage.fence;
+      glassNear.opacity = cage.glass;
+      frameNear.opacity = cage.frame;
+      paneNear.opacity = cage.pane;
+
+      const state = rallyAt(t, camK);
+      const lay = layAngle(camK);
+      state.rackets.forEach((r, i) => {
+        const rig = rackets[i]!;
+        rig.mount.position.set(r.position.x, r.position.y, r.position.z);
+        rig.mount.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z);
+        rig.pivot.position.set(r.swing.position.x, r.swing.position.y, r.swing.position.z);
+        rig.pivot.rotation.set(r.swing.rotation.x, r.swing.rotation.y, r.swing.rotation.z);
+        rig.lay.rotation.x = lay;
+      });
+      ball.position.set(state.ball.x, state.ball.y, state.ball.z);
+      caster?.position.copy(ball.position);
+      ball.rotation.x = t * 7.2; // WEB: time-based (0.12 rad/frame at 60 fps); the phone's per-frame step spun 2x on 120 Hz screens.
+      ball.rotation.z = t * 4.2; // WEB: time-based (0.07 rad/frame at 60 fps).
+      // Each ghost is the ball re-evaluated at a fixed time BEHIND t, so the
+      // spacing is the same at 30fps as at 60 (see TRAIL_LAG). The lookback
+      // stops at the current leg's start — the ball turns at the racket, and a
+      // trail that reached past it would cut a straight chord through the bat.
+      const legStart = Math.floor(t / LEG_SECONDS) * LEG_SECONDS;
+      trail.forEach((m, i) => {
+        const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
+        const at = t - back;
+        m.visible = at > legStart;
+        if (m.visible) {
+          const p = rallyAt(at, camK).ball;
+          m.position.set(p.x, p.y, p.z);
+        }
+      });
+      shade.position.set(state.shade.x, 0.012, state.shade.z);
+      shade.scale.setScalar(state.shade.scale);
+      shadeMat.opacity = state.shade.opacity;
+    },
+    dispose() {
+      // WEB: no backdrop.dispose().
+      for (const d of disposables) d.dispose();
+      scene.clear();
+      overlay.clear();
+    },
+  };
+}
