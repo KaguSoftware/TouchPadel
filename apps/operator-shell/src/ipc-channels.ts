@@ -192,8 +192,9 @@ export interface PrintResult {
   error?: string;
 }
 
-// Mirrors StaffRole (apps/operator/src/lib/roleResolution.ts) and the
-// renderer's copy in apps/operator/src/ipc/bridge.ts; the last six are 0155's.
+// Mirrors StaffRole (@touch/core/staff/roles) and the renderer's copy in
+// apps/operator/src/ipc/bridge.ts; the last six are 0155's.
+// packages/db/tests/staff-roles-parity.test.ts fails when they drift.
 export type Role =
   | 'cashier'
   | 'prep'

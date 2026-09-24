@@ -55,3 +55,48 @@ export function idemKeyFor(intent: string): string {
 export function clearIdemKey(intent: string): void {
   intentKeys.delete(intent);
 }
+
+/**
+ * The staff writes that take `p_idempotency_key` (build-contracts-2026-09-23
+ * §6.4): each one's server body brackets its work with `app.claim_replay`, so a
+ * retry that reuses the key replays the first answer instead of recording
+ * twice. Decisions, ticks, withdrawals, skips and stops are state-idempotent
+ * (a repeat hits a state code) and take no key.
+ */
+export type StaffMutation =
+  | 'start'
+  | 'submit'
+  | 'launch'
+  | 'shopping.add'
+  | 'purchase'
+  | 'batch'
+  | 'note'
+  | 'marketing_note'
+  | 'campaign'
+  | 'event_block'
+  | 'candidate';
+
+/** Fresh staff key, `MOBILE:staff.<mutation>:<ulid>`. Only for a genuinely new intent. */
+export function staffIdemKey(mutation: StaffMutation): string {
+  return `MOBILE:staff.${mutation}:${ulid()}`;
+}
+
+/**
+ * Stable staff key for one intent, the `idemKeyFor` rule for staff writes: a
+ * form mints it when it opens (the intent names the form, e.g.
+ * `submit:<runStepId>`), every retry reuses it, and `clearStaffIntentKey` drops
+ * it once the write has succeeded, so the next submission is a new intent.
+ */
+const staffIntentKeys = new Map<string, string>();
+
+export function staffIntentKey(intent: string, mutation: StaffMutation): string {
+  const existing = staffIntentKeys.get(intent);
+  if (existing) return existing;
+  const key = staffIdemKey(mutation);
+  staffIntentKeys.set(intent, key);
+  return key;
+}
+
+export function clearStaffIntentKey(intent: string): void {
+  staffIntentKeys.delete(intent);
+}

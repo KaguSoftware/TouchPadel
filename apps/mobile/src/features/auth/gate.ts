@@ -10,6 +10,8 @@
  * than a copy of it).
  */
 
+import type { StaffStatusKind } from '../staff/status';
+
 /** What a guard should render. */
 export type GateDecision = 'loading' | 'redirect' | 'allow';
 
@@ -50,6 +52,16 @@ export function sessionGate(input: { initializing: boolean; hasSession: boolean 
  * `profile: 'pending'` holds on `loading` so the tabs never flash before the
  * row arrives; an errored query reports 'complete' and fails open to the tabs,
  * because the booking path re-checks the phone anyway.
+ *
+ * `staff` (build-contracts-2026-09-23 §6.5) comes BEFORE the profile: a staff
+ * account has no phone, and the complete-profile step is the guest's. `pending`
+ * (a hinted staff read in flight) waits; a staff, switched-off or
+ * update-the-app account goes to the staff area, never to the guest tabs.
+ * `staffAnswered: false` (the signed-in account's own row not read yet) waits
+ * too: a staff account reads `guest` until then, and its missing phone would
+ * send it to complete-profile. For a guest that is one round trip, alongside
+ * the profile's. Left out, or `guest` / `none` once answered, the rule is
+ * exactly what it was.
  */
 export type ProfileCompletion = 'pending' | 'incomplete' | 'complete';
 
@@ -58,9 +70,15 @@ export function noSessionGate(input: {
   hasSession: boolean;
   hasPendingSlot: boolean;
   profile?: ProfileCompletion;
-}): GateDecision | 'redirect-complete-profile' {
+  staff?: StaffStatusKind;
+  staffAnswered?: boolean;
+}): GateDecision | 'redirect-complete-profile' | 'redirect-staff' {
   if (input.initializing) return 'loading';
   if (input.hasSession && !input.hasPendingSlot) {
+    if (input.staff === 'pending' || input.staffAnswered === false) return 'loading';
+    if (input.staff === 'staff' || input.staff === 'revoked' || input.staff === 'unsupported') {
+      return 'redirect-staff';
+    }
     if (input.profile === 'pending') return 'loading';
     if (input.profile === 'incomplete') return 'redirect-complete-profile';
     return 'redirect';

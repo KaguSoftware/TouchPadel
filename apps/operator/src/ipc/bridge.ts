@@ -117,8 +117,9 @@ export interface PrintResult {
   error?: string;
 }
 
-// Mirrors StaffRole (lib/roleResolution.ts) and the shell's copy in
+// Mirrors StaffRole (@touch/core/staff/roles) and the shell's copy in
 // apps/operator-shell/src/ipc-channels.ts.
+// packages/db/tests/staff-roles-parity.test.ts fails when they drift.
 export type Role =
   | 'cashier'
   | 'prep'
