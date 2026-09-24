@@ -1,12 +1,19 @@
 /**
- * kitchen_board_read (build-contracts-2026-09-23 §2.23, plan #60): the kitchen
- * board reads its tickets through app.kitchen_board.
+ * kitchen_board_read and kitchen_money_reads (build-contracts-2026-09-23
+ * §2.23, plan #60): the kitchen board reads its tickets through
+ * app.kitchen_board, and the bar and kitchen family and prep lose their
+ * direct reads of tabs, orders and order lines.
  *
  *   * app.kitchen_board gives every kitchen-list role the board's tickets in
  *     the shape the old embedded select returned, refuses driver, marketing
  *     and the desk, answers for one venue, carries no money key at any depth,
  *     fills the booking for cashier and MGMT only, and keeps a completed
  *     ticket for two minutes: no caller can widen that window.
+ *   * After kitchen_money_reads (the nested block at the end): the till, the
+ *     desk and MGMT still read tabs, orders and lines, only at their own
+ *     venue; set_ticket_status and set_order_item_ready still work for every
+ *     kitchen-list role; the board still shows its lines to a role that now
+ *     reads none of them directly.
  *
  * Self-contained like new-roles.test.ts: one auth user + staff row per new
  * role, deleted in afterAll. The probe tabs and tickets at venue A stay
@@ -500,4 +507,77 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
       expect(out).toEqual(['owner|t|t|f', 'manager|t|t|f']);
     },
   );
+
+  // ── kitchen_money_reads ────────────────────────────────────────────────────
+  // Runs only once kitchen_money_reads is applied: it commits after
+  // kitchen_board_read (§1.1), so the kitchen_board_read commit carries this
+  // file without this block.
+  describe('after kitchen_money_reads', () => {
+    it('the till, the desk and MGMT still read tabs, orders and lines', async () => {
+      for (const [who, c] of [
+        ['cashier', cashier],
+        ['court_desk', desk],
+        ['manager', manager],
+        ['owner', owner],
+      ] as [string, SupabaseClient][]) {
+        for (const [table, column, id] of [
+          ['tabs', 'id', tabId],
+          ['orders', 'id', orderId],
+          ['order_items', 'id', lineIds[0]],
+          ['order_item_modifiers', 'order_item_id', lineIds[0]],
+        ] as const) {
+          const rows = await c.from(table).select(column).eq(column, id!);
+          expect(rows.error).toBeNull();
+          expect(rows.data, `${who} reads the ${table} row`).toHaveLength(1);
+        }
+      }
+    });
+
+    it('lines are read at the reader’s own venue only', async () => {
+      for (const [who, c] of [
+        ['cashier', cashier],
+        ['court_desk', desk],
+        ['manager', manager],
+      ] as [string, SupabaseClient][]) {
+        for (const [table, column, id] of [
+          ['tabs', 'id', B_TAB],
+          ['orders', 'id', B_ORDER],
+          ['order_items', 'id', B_LINE],
+          ['order_item_modifiers', 'order_item_id', B_LINE],
+        ] as const) {
+          const rows = await c.from(table).select(column).eq(column, id);
+          expect(rows.error).toBeNull();
+          expect(rows.data, `${who} reads no venue B ${table} row`).toHaveLength(0);
+        }
+      }
+    });
+
+    it('the board still shows its lines to roles that read none of them directly', async () => {
+      for (const [role, c] of [
+        ...KITCHEN.map((r) => [r, as[r]] as [string, SupabaseClient]),
+        ['prep', prep] as [string, SupabaseClient],
+      ]) {
+        const direct = await c.from('order_items').select('id').in('id', lineIds);
+        expect(direct.error).toBeNull();
+        expect(direct.data, `${role} reads no line directly`).toHaveLength(0);
+        const probe = (await boardOf(c, role)).find((t) => t.id === ticketId);
+        expect(probe?.order?.order_items.map((l) => l.id), `${role} board lines`).toEqual(lineIds);
+      }
+    });
+
+    it('set_ticket_status and set_order_item_ready still work for every kitchen-list role', async () => {
+      const bump = await ticketOnTable('kitchen-board-bump');
+      const line = await svc.from('order_items').select('id').eq('order_id', bump.orderId).single();
+      expect(line.error).toBeNull();
+      const lineId = (line.data as { id: string }).id;
+      for (const [role, c] of board) {
+        // queued -> preparing for the first caller, an idempotent repeat after.
+        const status = await appRpc(c, 'set_ticket_status', { p_ticket_id: bump.ticketId, p_status: 'preparing' });
+        expect(status.error, `${role} set_ticket_status`).toBeNull();
+        expect((status.data as { status: string }).status).toBe('preparing');
+        const mark = await appRpc(c, 'set_order_item_ready', { p_order_item_id: lineId, p_ready: true });
+        expect(mark.error, `${role} set_order_item_ready`).toBeNull();
+      }
+    });
+  });
 });

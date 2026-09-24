@@ -586,13 +586,14 @@ export const matrix: MatrixRule[] = [
   },
 
   // ── tabs / orders / order_items (guest sees only own session's) ───────────
+  // kitchen_money_reads (build-contracts §2.23): prep reads none of the three;
+  // its board reads app.kitchen_board, below.
   {
     kind: 'select',
     name: 'tabs',
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
-      prep: 'rows',
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
@@ -606,7 +607,6 @@ export const matrix: MatrixRule[] = [
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
-      prep: 'rows',
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
@@ -619,7 +619,6 @@ export const matrix: MatrixRule[] = [
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
-      prep: 'rows',
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',

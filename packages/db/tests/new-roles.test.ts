@@ -7,8 +7,11 @@
  *   * driver and marketing hold the baseline only — no board, no stock, no
  *     money;
  *   * prep is soft-retired, not removed: it still passes the kitchen guard;
- *   * 0157: tabs, orders and order lines are read by the station roles only,
- *     never driver or marketing, and set_staff_role moves nobody onto prep.
+ *   * 0157: set_staff_role moves nobody onto prep. Tabs, orders and order
+ *     lines are read by the till, the desk and MGMT only: 0157 took them from
+ *     driver and marketing, kitchen_money_reads (build-contracts §2.23) from
+ *     the bar and kitchen family and prep, whose board reads them through
+ *     app.kitchen_board (tests/kitchen-board.test.ts).
  *
  * The baseline is what 0156 made role-agnostic (`app.staff_role() is null`):
  * breaks, the own-PIN check, the heartbeat, staff requests and the any-staff
@@ -297,9 +300,14 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
     }
   });
 
-  it('0157: tabs, orders and order lines stay with the station roles', async () => {
-    for (const role of NO_STATION) {
-      const c = as[role];
+  it('0157: tabs, orders and order lines stay with the till, the desk and MGMT', async () => {
+    // Driver and marketing since 0157; the bar and kitchen family and prep
+    // since kitchen_money_reads, their board reading app.kitchen_board.
+    const none: [string, SupabaseClient][] = [
+      ...NEW_ROLES.map((role) => [role, as[role]] as [string, SupabaseClient]),
+      ['prep', prep],
+    ];
+    for (const [role, c] of none) {
       for (const [table, column, id] of [
         ['tabs', 'id', tabId],
         ['orders', 'id', orderId],
@@ -311,12 +319,8 @@ describe.skipIf(!up)('0155/0156/0157 new staff roles', () => {
         expect(rows.data, `${role} reads no ${table}`).toHaveLength(0);
       }
     }
-    // The bar and kitchen board reads order lines, as prep always has.
-    const station: [string, SupabaseClient][] = [
-      ...KITCHEN.map((role) => [role, as[role]] as [string, SupabaseClient]),
-      ['prep', prep],
-      ['cashier', cashier],
-    ];
+    // The till still reads them.
+    const station: [string, SupabaseClient][] = [['cashier', cashier]];
     for (const [role, c] of station) {
       for (const [table, id] of [
         ['tabs', tabId],
