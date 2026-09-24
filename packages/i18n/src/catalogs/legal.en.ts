@@ -79,7 +79,7 @@ export const legalEn = {
       technical:
         'Our systems record sign-ins, errors and every change staff make to bookings, orders and payments, with the time and the account or device that made it.',
       notCollected:
-        'The app does not collect your location, contacts or photos, and it has no advertising, no tracking and no third-party analytics or crash reporting. There is no online payment, so we never collect card details.',
+        'The app does not collect your location or contacts, and a guest account cannot upload photos: only venue staff accounts can attach work photos, in the app’s staff area. The app has no advertising, no tracking and no third-party analytics or crash reporting. There is no online payment, so we never collect card details.',
       website:
         'This website: the café menu pages can use privacy-friendly analytics (PostHog, hosted in the EU) to count page views. It sets no cookies, keeps only an anonymous identifier in your browser’s storage, never identifies you and does not record your screen. The legal pages do not load it, and the app does not use it.',
     },

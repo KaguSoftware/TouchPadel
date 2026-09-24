@@ -93,8 +93,15 @@ moves. To re-do setup on a machine, delete `station.json` and relaunch.
 
 ## 5. Day-one checklist (per station)
 
-1. Launch, sign in with the station's staff account **while online** — the
-   sync worker and the offline caches are fed by a signed-in session.
+1. Launch and sign in **while online** — the sync worker and the offline
+   caches are fed by a signed-in session. The till and the desk sign in with
+   the station's staff account. The kitchen board is signed in by whoever runs
+   it, with their own account: every bar and kitchen worker has one (head
+   barista, barista, head chef, chef), created on the Staff page, and a prep
+   account is moved to barista or chef first (Setup ▸ Worth checking lists
+   them). Personal work (tasks, checklists, the shopping list, requests) is on
+   the staff area of the phone app, not on the station
+   (`docs/design/protocols/plan-2026-09-23.md` §9).
 2. Till: confirm the banner is absent (venue not degraded) and open the day.
 3. KDS: confirm a test ticket appears; unplug the WAN briefly and confirm the
    board switches to LAN tickets.

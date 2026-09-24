@@ -7,4 +7,20 @@
  * camera and photo-library usage text) are native strings in
  * apps/mobile/locales/ios.{en,ar}.json, not here.
  */
-export const staffMediaEn = {} as const;
+export const staffMediaEn = {
+  add: 'Add photo',
+  // The source sheet: the platform's own action sheet (iOS) or alert (Android).
+  sourceTitle: 'Add a photo',
+  camera: 'Take photo',
+  library: 'Choose from library',
+  cancel: 'Cancel',
+  uploading: 'Uploading photo…',
+  // Accessibility labels; {n} counts from 1.
+  photo: 'Photo {n}',
+  remove: 'Remove photo {n}',
+  count: '{count} of {max} photos',
+  cameraOff: 'Camera access is off for Touch Padel. Turn it on in Settings to take a work photo.',
+  openSettings: 'Open Settings',
+  unavailable: 'This version of the app cannot attach photos. Update Touch Padel, then try again.',
+  failed: 'The photo did not upload. Try again.',
+} as const;

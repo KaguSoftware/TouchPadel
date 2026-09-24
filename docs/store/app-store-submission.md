@@ -23,6 +23,8 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
 | 3 | The review account exists on the hosted project | `node scripts/create-review-account.mjs` prints `Signed in with phone + password: OK` |
 | 4 | A build ≥ 10 with version 1.0.0 is processed | App Store Connect → TestFlight shows it with no "Missing Compliance" |
 | 5 | The desk knows "App Review" bookings are test bookings | Tell them |
+| 6 | The staff review account exists on the hosted project | `node scripts/create-staff-review-account.mjs` prints `Signed in with email + password as driver: OK` |
+| 7 | The manager knows the "App Review" driver's shopping purchases are test entries | Tell them |
 
 ---
 
@@ -60,6 +62,11 @@ Also set `EXPO_PUBLIC_SITE_URL` for the next build so the in-app links follow.
 Answered from what the binary does. The mobile app has **no analytics, crash-reporting or advertising SDK**
 (`apps/mobile/package.json`; `src/lib/telemetry.ts` is a local seam with no reporter).
 
+The binary has two kinds of account. **Guests** book courts. **Venue staff**, whose accounts the owner creates on
+the operator (there is no staff sign-up), sign in with email and password and see a separate staff area: their
+tasks in the venue's protocols, checklists, the shopping list, notes on new menu items and their requests
+(`docs/design/protocols/plan-2026-09-23.md` §6). The two User Content rows below come from staff accounts only.
+
 **Do you or your third-party partners collect data from this app? → Yes**
 
 | Data type | Collected | Linked to user | Tracking | Purpose |
@@ -69,12 +76,20 @@ Answered from what the binary does. The mobile app has **no analytics, crash-rep
 | Contact Info → **Phone Number** | Yes | Yes | No | App Functionality. Required: sign-in, the one-time WhatsApp code at sign-up, the desk calling about a booking |
 | Identifiers → **User ID** | Yes | Yes | No | App Functionality. The account id, and the push token reminders go to |
 | Other Data → **Other Data Types** | Yes | Yes | No | App Functionality. The bookings (court, date, time, group size) |
+| User Content → **Photos or Videos** | Yes | Yes | No | App Functionality. **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task). Re-encoded on the phone without location or camera metadata. A guest account cannot upload a photo |
+| User Content → **Other User Content** | Yes | Yes | No | App Functionality. **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item or a marketing draft |
 
 For each: "Is this data used for tracking?" → **No**. Purposes: tick **App Functionality** only.
 
-**Not collected:** Health & Fitness, Financial Info, Location, Sensitive Info, Contacts, User Content, Browsing
-History, Search History, Purchases, Usage Data (Product Interaction, Advertising Data, Other Usage Data),
-Diagnostics (Crash Data, Performance Data, Other Diagnostic Data), Device ID, Physical Address, Other Contact Info.
+**Not collected:** Health & Fitness, Financial Info, Location, Sensitive Info, Contacts, User Content (Emails or
+Text Messages, Audio Data, Gameplay Content, Customer Support), Browsing History, Search History, Purchases,
+Usage Data (Product Interaction, Advertising Data, Other Usage Data), Diagnostics (Crash Data, Performance Data,
+Other Diagnostic Data), Device ID, Physical Address, Other Contact Info.
+
+The iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`) lists the same seven types. The
+camera and photo-library prompts (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, EN and AR in
+`apps/mobile/locales/ios.{en,ar}.json`) appear only in the staff area, when a staff member adds a work photo. The
+app never asks for the microphone.
 
 The WhatsApp verification-code provider, Supabase, Expo push and Apple/Google sign-in all process data **for the
 app's own functionality**, which is not "tracking" in Apple's definition. No ATT prompt, no
@@ -102,7 +117,7 @@ nudity, simulated or real gambling, contests, loot boxes.
 | Capability question | Answer | Why |
 |---|---|---|
 | Unrestricted web access | **No** | No in-app browser. The Privacy/Support links open Safari, and "Call" opens the dialer |
-| User-generated content | **No** | A guest's name and phone go to the venue only. Nothing is published to other users |
+| User-generated content | **No** | Nothing is published to the public or to other guests. A guest's name and phone go to the venue only; staff notes and work photos are seen only by colleagues and managers at the same venue, inside their staff accounts |
 | Messaging or chat | **No** | |
 | Advertising | **No** | |
 | Parental controls / age assurance | **No** / not applicable | |
@@ -140,10 +155,25 @@ Password:  <the password the script printed>
 
 Don't rotate the password until the version is live. If you must, re-run the script and update both fields.
 
+### The staff account
+
+Created by `node scripts/create-staff-review-account.mjs`, which the owner runs with the hosted service-role key. It:
+
+- creates an email + password account with the **driver** role at the real venue. After 0157 the driver is the
+  role with the least access: no prices, no order lines, no other person's data; it sees the shopping list and
+  records its own purchases
+- prints the email and password **once**. The password is generated, never committed, and a re-run sets a new one
+- `--deactivate` switches the account off after the decision (`app.set_staff_active`: sessions ended, push token
+  cleared). The account is kept, not deleted, like any leaver's, so its records keep their name
+
+It sits at the real venue and sees the real shopping list: anything the reviewer records shows up for the
+manager like any driver's work, so tell the manager (§0 item 7). The staff login goes in the review notes below;
+the Sign-in Information fields hold the guest account.
+
 ### Review notes — paste this
 
 ```
-Touch Padel is the booking app for a single padel venue in Iraq. Guests check court availability and reserve a court; that is the entire app. Availability can be browsed without an account; reserving needs one.
+Touch Padel is the booking app for a single padel venue in Iraq. Guests check court availability and reserve a court. Availability can be browsed without an account; reserving needs one. The same app has a staff area for the venue's own employees (see STAFF AREA below).
 
 SIGN IN
 Use the account in Sign-in Information. On the sign-in screen choose country Iraq (+964), enter the phone number without the +964 prefix, then the password. No verification code is needed to sign in. Sign in with Apple and Google are also offered; Sign in with Apple is provided as required by guideline 4.8. New accounts confirm their phone number once with a WhatsApp code, which is why a ready account is provided.
@@ -158,6 +188,14 @@ Profile > Delete account, in the app. It deletes the login, the guest's name and
 
 PRIVACY
 Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking.
+
+STAFF AREA
+Venue employees use the same app on their own phones for their work: their tasks in the venue's workflows (for example proposing a new menu item, a checklist, the shopping list), notes on new menu items and requests to the owner. Staff accounts are created by the venue owner; there is no staff sign-up, and staff sign in with email and password only. To see it, sign out and sign in with email and password:
+
+Email:    <the email create-staff-review-account.mjs printed>
+Password: <the password it printed>
+
+This is a driver account at the real venue, the staff role with the least access. It shows the venue's real shopping list; anything you record there reaches the venue manager like any driver's work, so please type test text. The camera and photo library are used only here, when a staff member attaches a work photo (for example a receipt); guests are never asked. The app never uses the microphone or location.
 
 LANGUAGES
 English and Arabic with full right-to-left layout. Settings > Language switches immediately, no restart.
@@ -187,8 +225,10 @@ eas submit --platform ios --profile production   # uses submit.production.ios: t
 
 1. Push the repo work to main. Vercel deploys, then check §0 item 1.
 2. Chrome prompt task 2 (Sign in with Apple key). Owner downloads the .p8, sets the secrets, and deploys `apple-revoke`.
-3. `node scripts/create-review-account.mjs`, and tell the desk.
+3. `node scripts/create-review-account.mjs` and `node scripts/create-staff-review-account.mjs`; put the staff
+   login into the review notes, and tell the desk and the manager.
 4. `eas build` then `eas submit`.
 5. Chrome prompt tasks 1 and 3–7 (metadata can start while the build processes; build selection comes last).
 6. Owner reads the agent's report, then presses **Add for Review → Submit for Review**.
-7. After approval: `node scripts/create-review-account.mjs --delete`.
+7. After approval: `node scripts/create-review-account.mjs --delete` and
+   `node scripts/create-staff-review-account.mjs --deactivate`.

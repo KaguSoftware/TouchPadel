@@ -46,15 +46,26 @@ management** where noted). Nothing is used for advertising, analytics or fraud-p
 | Financial info → **Purchase history** | Yes | Required | App functionality | Court bookings and their prices (paid at the venue; no card data is ever collected) |
 | App activity → **Other actions** | Yes | Required | App functionality | Bookings made and cancelled |
 | Device or other IDs → **Device or other IDs** | Yes | Optional | App functionality | The push-notification token, only if notifications are allowed |
+| Photos and videos → **Photos** | Yes | Optional | App functionality | **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task), re-encoded on the phone without location metadata. A guest account cannot upload a photo |
+| App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item or a marketing draft |
 
-**Not collected:** location (approximate or precise), web browsing, contacts, calendar, photos/videos, audio, files,
+**Not collected:** location (approximate or precise), web browsing, contacts, calendar, videos, audio, files,
 health and fitness, messages, app info and performance (crash logs, diagnostics), financial info other than purchase
-history (no card or bank details), race/religion/political or other sensitive info.
+history (no card or bank details), race/religion/political or other sensitive info. Photos only as above: from staff
+accounts, never from a guest.
 
 > Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes
 > guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app
-> are all outside it. The Privacy Policy discloses each of them. The app itself has no free-text field that reaches
-> the server, which is why "User-generated content" is **not** declared, matching the App Store label.
+> are all outside it. The Privacy Policy discloses each of them. The guest side of the app has no free-text field
+> that reaches the server. The staff area does, and it can attach work photos, so Photos and Other user-generated
+> content are declared, for staff accounts only, matching the App Store label (`docs/store/app-store-submission.md`
+> §2). Staff accounts are created by the owner; there is no staff sign-up in the app.
+>
+> The photo picker is the system one, which needs no media permission: `app.config.ts` blocks
+> `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `READ_EXTERNAL_STORAGE` and `RECORD_AUDIO`, so Play's Photo and video
+> permissions declaration should not apply. Confirm it on the first Android build's merged manifest (UNVERIFIED
+> against SDK 57, build-contracts-2026-09-23 §8.4). The camera permission is asked only when a staff member takes a
+> work photo.
 
 ## Data deletion section
 
@@ -64,6 +75,7 @@ history (no card or bank details), race/religion/political or other sensitive in
 | Can users request that some or all of their data is deleted without deleting their account? | Yes: by emailing the privacy contact or asking at the front desk (Privacy Policy → Your rights) |
 | What is deleted | Login, name, phone, email, linked Google/Apple sign-in, push token, staff notes and labels about the guest, queued notifications. Immediately |
 | What is kept, and why | Bookings and café orders stay **anonymised** (no name, phone or notes) because the venue must keep its accounts, and the record of which Terms version was accepted stays on the anonymised row. Stated on the deletion page and in the Privacy Policy |
+| Staff accounts | Not deleted through this page. The owner switches a leaver's account off (sessions ended, push token cleared); the account and its work records stay, as the staff privacy notice (`docs/legal/staff-privacy-notice.md`) tells every employee |
 
 ## Before submitting
 
@@ -71,3 +83,6 @@ history (no card or bank details), race/religion/political or other sensitive in
 - [ ] Migration 0153 is on the hosted project (the app's consent gate calls `app.accept_terms`).
 - [ ] The web deletion page works against hosted: sign in with the review account and stop at the confirmation word.
       Deleting the review account for real means recreating it with `scripts/create-review-account.mjs`.
+- [ ] The staff review account exists (`scripts/create-staff-review-account.mjs`) and its login is in the review
+      notes; switch it off with `--deactivate` after the decision.
+- [ ] The first Android build's merged manifest carries none of the four blocked permissions.

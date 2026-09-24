@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Touch Padel uses the camera only when you take a work photo.",
+    "NSPhotoLibraryUsageDescription": "Touch Padel uses your photos only when you attach a work photo."
+  }
+}
