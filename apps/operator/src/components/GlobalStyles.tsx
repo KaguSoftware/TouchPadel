@@ -163,10 +163,12 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-btn[data-size='sm'] { min-block-size: 1.85rem; padding-block: 0.25rem; padding-inline: 0.6rem; font-size: var(--tp-fs-sm); }
 .tp-btn[data-size='lg'] { min-block-size: var(--tp-touch); padding-block: 0.6rem; padding-inline: 1.1rem; font-size: var(--tp-fs-lg); }
 .tp-btn[data-size='xl'] { min-block-size: 3.5rem; padding-block: 0.8rem; padding-inline: 1.4rem; font-size: var(--tp-fs-xl); border-radius: var(--tp-radius-panel); }
-/* The page's own "add" action (New rule, New product…) is the one thing on the
-   header an owner reaches for, so a default-size primary there renders at lg. */
-.tp-page-actions .tp-btn[data-kind='primary'][data-size='md']:not(.tp-iconbtn) { min-block-size: var(--tp-touch); padding-block: 0.6rem; padding-inline: 1.25rem; font-size: var(--tp-fs-lg); }
-.tp-page-actions .tp-btn[data-kind='primary'][data-size='md']:not(.tp-iconbtn) svg { inline-size: 20px; block-size: 20px; }
+/* A page header's actions (New rule, and the Export / Print beside it) are the
+   things an owner reaches for, so every default-size button there renders at
+   lg, and an icon-only one grows to the same height so the row stays level. */
+.tp-page-actions .tp-btn[data-size='md']:not(.tp-iconbtn) { min-block-size: var(--tp-touch); padding-block: 0.6rem; padding-inline: 1.25rem; font-size: var(--tp-fs-lg); }
+.tp-page-actions .tp-btn[data-size='md'] svg { inline-size: 20px; block-size: 20px; }
+.tp-page-actions .tp-iconbtn[data-size='md'] { min-block-size: var(--tp-touch); inline-size: var(--tp-touch); }
 .tp-btn[aria-pressed='true'] { background: var(--tp-accent-soft); border-color: var(--tp-accent); color: var(--tp-accent-soft-fg); }
 /* Without this, a toggle carrying BOTH aria-pressed and data-kind='primary'
    renders soft at rest and flips to solid accent on hover, because the
@@ -422,6 +424,23 @@ input:disabled, select:disabled, textarea:disabled {
   --tp-zoom-thumb-ring: var(--tp-brand-white);
 }
 
+/* A report figure group (FigureGroup in reports/ReportParts): a brand-colour
+   strip on top and a tint of the same colour behind the tiles. The colour
+   comes from the group's place in its band, in the owner's order (2026-09-24):
+   blue, black, green, light blue, then round again from blue for a fifth.
+   Blue mode keeps the strip but not the tint, which vanished for blue and went
+   murky for the rest on a blue panel, and swaps the strips a blue ground
+   swallows: brand blue for a lighter blue, black for white. */
+.tp-figure-group { background: color-mix(in oklab, var(--tp-tone) var(--tp-tone-tint), var(--tp-surface)); }
+.tp-figure-group:nth-child(4n + 1) { --tp-tone: var(--tp-brand-blue); --tp-tone-tint: 12%; }
+.tp-figure-group:nth-child(4n + 2) { --tp-tone: var(--tp-brand-black); --tp-tone-tint: 6%; }
+.tp-figure-group:nth-child(4n + 3) { --tp-tone: var(--tp-brand-green); --tp-tone-tint: 22%; }
+.tp-figure-group:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 45%, var(--tp-brand-white)); --tp-tone-tint: 22%; }
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-group { background: var(--tp-surface-2); }
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 1) { --tp-tone: var(--tp-border-strong); }
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 2) { --tp-tone: var(--tp-brand-white); }
+:root[data-theme='operator'][data-mode='blue'] .tp-figure-group:nth-child(4n + 4) { --tp-tone: color-mix(in oklab, var(--tp-brand-blue) 30%, var(--tp-brand-white)); }
+
 /* ---- keyframes ---- */
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 @keyframes tpSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -562,8 +581,12 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-grid { display: grid; }
 .tp-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .tp-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Four across only where each column still holds a figure tile (revenue's
+   groups); a half-width panel gets 2 x 2 rather than four slivers. */
+.tp-grid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@container (max-width: 60rem) { .tp-grid[data-cols="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (max-width: 30rem) { .tp-grid[data-cols="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@container (max-width: 22rem) { .tp-grid[data-cols="2"], .tp-grid[data-cols="3"] { grid-template-columns: minmax(0, 1fr); } }
+@container (max-width: 22rem) { .tp-grid[data-cols="2"], .tp-grid[data-cols="3"], .tp-grid[data-cols="4"] { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---- the glass menu (components/SelectMenu.tsx) ----
    The floating panel of a dropdown, frosted so the data it covers stays
