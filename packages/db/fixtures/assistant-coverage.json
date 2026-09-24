@@ -263,6 +263,7 @@
     "item_active_groups": "map:action",
     "item_required_ingredients": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "jsonb_top_keys_text": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "kitchen_board": "map:action",
     "like_escape": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "link_item_modifier_group": "map:action",
     "list_staff": "tool:list_staff",

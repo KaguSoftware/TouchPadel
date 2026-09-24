@@ -1,5 +1,5 @@
 {
-  "generated_from": "006df65387abaf3a76bfa1a530db010ebc34abda",
+  "generated_from": "dca68611024ad1c806e39d9fc31cbc1d61994997",
   "chunks": [
     {
       "kind": "page",
@@ -2247,6 +2247,14 @@
       "lang": "en",
       "title": "app.item_active_groups",
       "body": "Signature: app.item_active_groups(p_item_id uuid, p_chosen_modifier_ids uuid[]) returns setof uuid.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0028 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.kitchen_board",
+      "lang": "en",
+      "title": "app.kitchen_board",
+      "body": "kitchen_board_read (build-contracts §2.23, plan #60): the kitchen board's tickets at the venue named, or with none at every venue the caller works at (app.staff_venue_ids(), the old tickets_staff_read axis), in the shape the board renders: live tickets and those completed in the last two minutes, a window fixed here; order, tab tag, lines, add-ons, notes and ready marks; no price, total or cost. The booking is filled for cashier, manager and owner only. Kitchen list of set_ticket_status at the venue; FORBIDDEN otherwise.\nSignature: app.kitchen_board(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0158 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {

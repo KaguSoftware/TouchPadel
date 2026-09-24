@@ -958,6 +958,7 @@ export type Database = {
         }[]
       }
       jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
+      kitchen_board: { Args: { p_venue_id?: string }; Returns: Json }
       like_escape: { Args: { p_text: string }; Returns: string }
       link_item_modifier_group: {
         Args: {

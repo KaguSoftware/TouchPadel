@@ -2726,4 +2726,15 @@ export const matrix: MatrixRule[] = [
       'refused with ACCOUNT_REQUIRED. anon holds no grant.',
     drop: 16,
   },
+
+  // ── kitchen board read (kitchen_board_read, build-contracts §2.23) ────────
+  {
+    kind: 'rpc', schema: 'app', name: 'kitchen_board',
+    args: {}, expect: PREP_UP,
+    note:
+      'the kitchen list of set_ticket_status at the venue (the bar and kitchen roles too, not in ' +
+      'this matrix); court_desk and guests are refused FORBIDDEN, anon holds no grant. No window ' +
+      'argument: the two-minute completed window is fixed in the body.',
+    drop: 17,
+  },
 ];
