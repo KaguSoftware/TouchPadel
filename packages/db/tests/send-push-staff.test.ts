@@ -7,7 +7,11 @@
  * it) and the phone's pushRoutes.ts test reads for `routes`.
  *
  * This file ships in the send-push commit, which deploys before the staff_push
- * migration (§1.6 step 2), so nothing here may need that migration.
+ * migration (§1.6 step 2), so nothing here may need that migration. The role
+ * spec's eleven title keys (§2.24.1) ship their copy the same way, one commit
+ * ahead of staff_push_keys, which lists them in the JSON and in
+ * app.notify_staff: until then every JSON key has copy, and so does each of
+ * the eleven; from there the copy and the list are equal again.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +28,20 @@ const here = dirname(fileURLToPath(import.meta.url));
 const INDEX = readFileSync(resolve(here, '../supabase/functions/send-push/index.ts'), 'utf8');
 
 const ROUTES = new Set(staffPush.routes);
+/** The role spec's eleven title keys (§2.21, §2.24.1); staff_push_keys adds them to the JSON, in this order. */
+const ROLE_SPEC_KEYS = [
+  'idea_submitted',
+  'idea_started',
+  'idea_declined',
+  'teaching_new',
+  'recipe_change_submitted',
+  'recipe_change_approved',
+  'recipe_change_declined',
+  'shopping_to_approve',
+  'shopping_declined',
+  'marketing_request_new',
+  'marketing_request_answered',
+];
 const FSI = '\u2068';
 const PDI = '\u2069';
 const iso = (s: string) => `${FSI}${s}${PDI}`;
@@ -58,10 +76,12 @@ describe('staff-push.json', () => {
     ]);
   });
 
-  it('has copy in both languages for exactly its title keys', () => {
+  // Until staff_push_keys lists the eleven role-spec keys in the JSON (§2.24.1):
+  // every JSON key has copy, and so does each of the eleven.
+  it('has copy in both languages for every title key and each role-spec key', () => {
     for (const lang of ['en', 'ar'] as const) {
-      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual([...staffPush.title_keys].sort());
-      for (const key of staffPush.title_keys) {
+      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual([...staffPush.title_keys, ...ROLE_SPEC_KEYS].sort());
+      for (const key of [...staffPush.title_keys, ...ROLE_SPEC_KEYS]) {
         expect(
           STAFF_STRINGS[lang][key as keyof (typeof STAFF_STRINGS)['en']].title.trim(),
         ).not.toBe('');
@@ -70,7 +90,7 @@ describe('staff-push.json', () => {
   });
 
   it('writes every Arabic title in Arabic', () => {
-    for (const key of staffPush.title_keys) {
+    for (const key of [...staffPush.title_keys, ...ROLE_SPEC_KEYS]) {
       const ar = STAFF_STRINGS.ar[key as keyof (typeof STAFF_STRINGS)['ar']].title;
       expect(ar).toMatch(/[\u0600-\u06FF]/);
       expect(ar).not.toBe(STAFF_STRINGS.en[key as keyof (typeof STAFF_STRINGS)['en']].title);
@@ -111,6 +131,58 @@ describe('staffMessage — the EN copy of §2.21', () => {
       'Purchase to receive',
       'Receive it in Stock ▸ Goods in on the operator.',
     ],
+    // Role spec (§2.21).
+    [
+      'idea_submitted',
+      { name: 'Yusuf', title: 'Rose latte' },
+      'New item idea',
+      `${iso('Yusuf')}: ${iso('Rose latte')}`,
+    ],
+    [
+      'idea_started',
+      { title: 'Rose latte' },
+      'Idea started',
+      `${iso('Rose latte')} is now a new-item proposal.`,
+    ],
+    ['idea_declined', { title: 'Rose latte' }, 'Idea declined', iso('Rose latte')],
+    [
+      'teaching_new',
+      { name: 'Bareq', title: 'Milk texture' },
+      'New teaching',
+      `${iso('Bareq')}: ${iso('Milk texture')}`,
+    ],
+    [
+      'recipe_change_submitted',
+      { name: 'Rusul', step: { en: 'Brownie', ar: 'براوني' } },
+      'Recipe change',
+      `${iso('Rusul')}: ${iso('Brownie')}`,
+    ],
+    [
+      'recipe_change_approved',
+      { step: { en: 'Brownie', ar: 'براوني' } },
+      'Recipe change approved',
+      iso('Brownie'),
+    ],
+    [
+      'recipe_change_declined',
+      { step: { en: 'Brownie', ar: 'براوني' } },
+      'Recipe change declined',
+      iso('Brownie'),
+    ],
+    [
+      'shopping_to_approve',
+      { name: 'Tiba' },
+      'Shopping list',
+      `${iso('Tiba')} added items for your OK.`,
+    ],
+    ['shopping_declined', {}, 'Shopping list', 'An item you added was declined.'],
+    [
+      'marketing_request_new',
+      { name: 'Hasan', title: 'Poster' },
+      'Marketing request',
+      `${iso('Hasan')}: ${iso('Poster')}`,
+    ],
+    ['marketing_request_answered', { title: 'Poster' }, 'Marketing answered', iso('Poster')],
   ];
 
   it.each(cases)('%s', (key, params, title, body) => {
@@ -119,8 +191,8 @@ describe('staffMessage — the EN copy of §2.21', () => {
     expect(m.body).toBe(body);
   });
 
-  it('covers every title key in the list', () => {
-    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys].sort());
+  it('covers every title key in the list, and each role-spec key', () => {
+    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys, ...ROLE_SPEC_KEYS].sort());
   });
 });
 
@@ -148,6 +220,17 @@ describe('staffMessage — params', () => {
     expect(msg('ar', 'run_live', { title: 'Matcha latte' }).body).toBe(
       `${iso('Matcha latte')} متوفر الآن في القائمة.`,
     );
+    expect(msg('ar', 'shopping_to_approve', { name: 'Tiba' }).body).toBe(
+      `أضاف ${iso('Tiba')} أغراضًا بانتظار موافقتك.`,
+    );
+  });
+
+  it('sends one half of a role-spec pair when the other is missing', () => {
+    expect(msg('en', 'idea_submitted', { title: 'Rose latte' }).body).toBe(iso('Rose latte'));
+    expect(msg('en', 'teaching_new', { name: 'Bareq' }).body).toBe(iso('Bareq'));
+    expect(msg('ar', 'recipe_change_submitted', { name: 'Rusul' }).body).toBe(iso('Rusul'));
+    expect(msg('en', 'recipe_change_approved').body).toBe('');
+    expect(msg('ar', 'idea_started').body).toBe('');
   });
 });
 
