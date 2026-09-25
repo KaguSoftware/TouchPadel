@@ -175,22 +175,50 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     expect(today, `no row for business day ${day}`).toBeDefined();
 
     // Raw truth (service role): every tab SETTLED in the window, whichever
-    // suite wrote it, with its stamped breakdown and its refunds.
+    // suite wrote it, with its stamped breakdown and its refunds. A shared
+    // database keeps every earlier run's tabs, so each read is paged
+    // (PostgREST returns at most max_rows = 1000 rows) and the ids go 100 to a
+    // request: every id rides in the URL, and past ~200 of them the gateway
+    // answers HTTP 414. Any error fails here; ignored, it read as zero money.
+    type Res<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+    const PAGE = 500;
+    const readAll = async <T>(what: string, page: (lo: number, hi: number) => Res<T>): Promise<T[]> => {
+      const out: T[] = [];
+      for (let lo = 0; ; lo += PAGE) {
+        const { data, error } = await page(lo, lo + PAGE - 1);
+        expect(error, `${what}, rows ${lo}+`).toBeNull();
+        out.push(...(data ?? []));
+        if ((data ?? []).length < PAGE) return out;
+      }
+    };
+    const readByIds = async <T>(what: string, ids: string[], page: (chunk: string[], lo: number, hi: number) => Res<T>): Promise<T[]> => {
+      const out: T[] = [];
+      for (let i = 0; i < ids.length; i += 100) {
+        const chunk = ids.slice(i, i + 100);
+        out.push(...(await readAll(`${what}, ids ${i}+`, (lo, hi) => page(chunk, lo, hi))));
+      }
+      return out;
+    };
     type Tab = { id: string; subtotal_iqd: number; discount_iqd: number; court_iqd: number; total_iqd: number; tax_iqd: number };
-    const { data: tabs } = await svc
-      .from('tabs')
-      .select('id, subtotal_iqd, discount_iqd, court_iqd, total_iqd, tax_iqd')
-      .eq('status', 'settled')
-      .is('merged_into_tab_id', null)
-      .gte('settled_at', window.ts_from)
-      .lt('settled_at', window.ts_to);
-    const tabRows = (tabs ?? []) as Tab[];
+    const tabRows = await readAll<Tab>('settled tabs', (lo, hi) =>
+      svc
+        .from('tabs')
+        .select('id, subtotal_iqd, discount_iqd, court_iqd, total_iqd, tax_iqd')
+        .eq('status', 'settled')
+        .is('merged_into_tab_id', null)
+        .gte('settled_at', window.ts_from)
+        .lt('settled_at', window.ts_to)
+        .order('id')
+        .range(lo, hi),
+    );
     const tabIds = tabRows.map((t) => t.id);
-    const { data: pays } = await svc.from('payments').select('id, tab_id, amount_iqd, method').in('tab_id', tabIds);
     type Pay = { id: string; tab_id: string; amount_iqd: number; method: string };
-    const payRows = (pays ?? []) as Pay[];
-    const { data: refs } = await svc.from('refunds').select('amount_iqd, payment_id').in('payment_id', payRows.map((p) => p.id));
-    const refRows = (refs ?? []) as { amount_iqd: number; payment_id: string }[];
+    const payRows = await readByIds<Pay>('payments', tabIds, (chunk, lo, hi) =>
+      svc.from('payments').select('id, tab_id, amount_iqd, method').in('tab_id', chunk).order('id').range(lo, hi),
+    );
+    const refRows = await readByIds<{ amount_iqd: number; payment_id: string }>('refunds', payRows.map((p) => p.id), (chunk, lo, hi) =>
+      svc.from('refunds').select('id, amount_iqd, payment_id').in('payment_id', chunk).order('id').range(lo, hi),
+    );
     const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
     const gross = sum(tabRows.map((t) => Number(t.total_iqd) - Number(t.court_iqd)));
     const goods = sum(tabRows.map((t) => Number(t.subtotal_iqd) - Number(t.discount_iqd)));
@@ -259,14 +287,23 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     type Best = { menu_item_id: string; name_en: string; name_ar: string; qty: number; revenue_iqd: number; share_pct: number; orders: number };
     const rows = best.data as Best[];
     const mine = rows.find((r) => r.menu_item_id === costed.itemId);
-    expect(mine).toBeDefined();
-    // 2 sold, 1 refunded: one NET unit, worth its discounted price.
-    expect(Number(mine!.qty)).toBe(1);
-    expect(Number(mine!.revenue_iqd)).toBe(3_600);
-    expect(mine!.orders).toBeGreaterThanOrEqual(1);
-    expect(mine!.name_ar.length).toBeGreaterThan(0);
-    const totalQty = rows.reduce((s, r) => s + Number(r.qty), 0);
-    expect(Number(mine!.share_pct)).toBeCloseTo((Number(mine!.qty) * 100) / totalQty, 0);
+    // A shared database keeps every earlier run's items, and this one sold a
+    // single net unit: under 500 rows the list is whole and must hold it; at
+    // 500 the limit held and it may have ranked below the cut.
+    if (rows.length < 500) expect(mine).toBeDefined();
+    else expect(rows).toHaveLength(500);
+    if (mine) {
+      // 2 sold, 1 refunded: one NET unit, worth its discounted price.
+      expect(Number(mine.qty)).toBe(1);
+      expect(Number(mine.revenue_iqd)).toBe(3_600);
+      expect(mine.orders).toBeGreaterThanOrEqual(1);
+      expect(mine.name_ar.length).toBeGreaterThan(0);
+      // share_pct is over every item sold, so only a whole list can check it.
+      if (rows.length < 500) {
+        const totalQty = rows.reduce((s, r) => s + Number(r.qty), 0);
+        expect(Number(mine.share_pct)).toBeCloseTo((Number(mine.qty) * 100) / totalQty, 0);
+      }
+    }
     // Sorted by qty desc.
     for (let i = 1; i < rows.length; i++) expect(Number(rows[i - 1]!.qty)).toBeGreaterThanOrEqual(Number(rows[i]!.qty));
 
@@ -330,16 +367,20 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     const pairs = res.data as Pair[];
     const [lo, hi] = [costed.itemId, uncosted.itemId].sort();
     const pair = pairs.find((p) => p.item_a === lo && p.item_b === hi);
-    expect(pair, 'seeded pair missing').toBeDefined();
-    expect(pair!.both).toBeGreaterThanOrEqual(1);
-    expect(pair!.count_a).toBeGreaterThanOrEqual(pair!.both);
-    expect(pair!.count_b).toBeGreaterThanOrEqual(pair!.both);
-    expect(Number(pair!.confidence_ab)).toBeCloseTo(pair!.both / pair!.count_a, 3);
-    expect(Number(pair!.confidence_ba)).toBeCloseTo(pair!.both / pair!.count_b, 3);
-    expect(Number(pair!.lift)).toBeCloseTo((pair!.both * pair!.orders_total) / (pair!.count_a * pair!.count_b), 2);
-    expect(pair!.orders_total).toBeGreaterThanOrEqual(1);
-    expect(pair!.name_a_en.length).toBeGreaterThan(0);
-    expect(pair!.name_b_ar.length).toBeGreaterThan(0);
+    // As best sellers: under 500 pairs the list is whole; at 500 the limit held.
+    if (pairs.length < 500) expect(pair, 'seeded pair missing').toBeDefined();
+    else expect(pairs).toHaveLength(500);
+    if (pair) {
+      expect(pair.both).toBeGreaterThanOrEqual(1);
+      expect(pair.count_a).toBeGreaterThanOrEqual(pair.both);
+      expect(pair.count_b).toBeGreaterThanOrEqual(pair.both);
+      expect(Number(pair.confidence_ab)).toBeCloseTo(pair.both / pair.count_a, 3);
+      expect(Number(pair.confidence_ba)).toBeCloseTo(pair.both / pair.count_b, 3);
+      expect(Number(pair.lift)).toBeCloseTo((pair.both * pair.orders_total) / (pair.count_a * pair.count_b), 2);
+      expect(pair.orders_total).toBeGreaterThanOrEqual(1);
+      expect(pair.name_a_en.length).toBeGreaterThan(0);
+      expect(pair.name_b_ar.length).toBeGreaterThan(0);
+    }
     // item_a < item_b invariant on every pair.
     for (const p of pairs) expect(p.item_a < p.item_b).toBe(true);
 
@@ -468,7 +509,9 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
       expect(best.ok, best.errorMessage).toBe(true);
       const ids = (best.data as { menu_item_id: string }[]).map((r) => r.menu_item_id);
       expect(ids).not.toContain(uncosted.itemId);
-      expect(ids).toContain(costed.itemId);
+      // Whole under 500 rows; at 500 this suite's single unit may rank below the cut.
+      if (ids.length < 500) expect(ids).toContain(costed.itemId);
+      else expect(ids).toHaveLength(500);
 
       const pairs = await appRpc(owner, 'analytics_bought_together', { p_from: from, p_to: to, p_min_support: 1, p_limit: 500 }).then(outcome);
       const touching = (pairs.data as { item_a: string; item_b: string }[]).filter(
