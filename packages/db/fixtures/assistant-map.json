@@ -1,5 +1,5 @@
 {
-  "generated_from": "275845e52240e0eee42f1d77815c9b165a01793a",
+  "generated_from": "2eda81d41de6461d9bada2d6ffebddd1dae1473a",
   "chunks": [
     {
       "kind": "page",
@@ -2126,7 +2126,7 @@
       "ref": "action:app.checklist_day_state",
       "lang": "en",
       "title": "app.checklist_day_state",
-      "body": "checklists (§2.14, plan §7.3). MGMT at the venue: {business_date, lists: [{role, slot, name_en, name_ar, total, done, open_items: [{text_en, text_ar}]}]} for the business day asked (default today): every list with lines whose role an active staff member holds at the venue, from its day's run when opened, else from the template with nothing done. Day close shows it as a warning, never a block. Creates nothing.\nSignature: app.checklist_day_state(p_venue_id uuid default null, p_business_date date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "checklists (§2.14, plan §7.3), re-issued by checklist_day_state_asof (R7). MGMT at the venue: {business_date, lists: [{role, slot, name_en, name_ar, total, done, open_items: [{text_en, text_ar}]}]} for the business day asked (default today): every list with lines whose role an active staff member holds at the venue, from its day's run when opened, else from the template with nothing done. For a past day only what stood at the end of that day (the venue's business day) counts: a list first saved later is left out, and a list saved since counts with the number of lines its last save by then recorded, its lines not named. Day close shows it as a warning, never a block. Creates nothing.\nSignature: app.checklist_day_state(p_venue_id uuid default null, p_business_date date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0188 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -10574,7 +10574,7 @@
       "ref": "label:ws.events.block",
       "lang": "ar",
       "title": "ws.events.block (packages/i18n/src/catalogs/ws/events.ar.ts)",
-      "body": "title: حجز الملاعب لبطولة\nlead: الملاعب والأوقات مأخوذة من خطة البطولة. تُحجز باسم البطولة: يعرضها التقويم كحجوزات مغلقة، وتحسبها تحليلات الملاعب ساعات فعاليات لا وقتاً مغلقاً.\nloadFailed: تعذّر تحميل البطولة.\ncapacity.players: {count} لاعباً\ncapacity.pairs: {count} زوجاً\nclassLabel: الفئة {class}\nwindows: الملاعب والأوقات\nnoWindows: الخطة لا تسمّي أي ملعب بعد. اطلب من المدير مراجعة الخطة.\ncolumns.court: الملعب\ncolumns.when: الوقت\ncolumns.state: الحالة\nstate.blocked: محجوز\nstate.toBlock: بانتظار الحجز\nblockAll: احجز الـ{count} المتبقية\nallBlocked: كل الملاعب والأوقات في الخطة محجوزة.\nblockedDone: تم الحجز. يعرضها التقويم الآن.\nconflictBody: هذه الحجوزات تشغل جزءاً من وقت البطولة. لم يُحجز شيء. انقلها أو ألغِها، ثم تحقّق مرة أخرى.\nconflictKind.booking: حجز\nconflictKind.hold: قيد الحجز\nconflictKind.maintenance: إغلاق\nopenBooking: افتح الحجز\ncheckAgain: تحقّق مرة أخرى\nnotOpen: خطوة الملاعب هذه غير مفتوحة، فلا يمكن حجز شيء هنا. حالتها: {status}.\nnotCourts: هذا الرابط ليس خطوة الملاعب لبطولة.\nsend.title: أرسل خطوة الملاعب\nsend.note: ما الذي نُقل (اختياري)\nsend.noteHint: للمدير الذي يراجع هذه الخطوة: الحجوزات التي نقلتها، أو سبب عدم حجز وقت ما.\nsend.submit: أرسل خطوة الملاعب\nsend.remaining: {count} من أوقات الخطة لم تُحجز بعد. احجزها أولاً، أو اذكر السبب في الملاحظة.\nsend.needsBlock: احجز ملعباً واحداً على الأقل قبل الإرسال.\nsend.done: تم الإرسال. يراجع المدير خطوة الملاعب بعد ذلك.\nback: العودة إلى البطولة\nopenCalendar: افتح التقويم",
+      "body": "title: حجز الملاعب لبطولة\nlead: الملاعب والأوقات مأخوذة من خطة البطولة. حجزها يحفظ الملاعب للبطولة، ويعرضها التقويم كحجوزات مغلقة.\nloadFailed: تعذّر تحميل البطولة.\ncapacity.players: {count} لاعباً\ncapacity.pairs: {count} زوجاً\nclassLabel: الفئة {class}\nwindows: الملاعب والأوقات\nnoWindows: الخطة لا تسمّي أي ملعب بعد. اطلب من المدير مراجعة الخطة.\ncolumns.court: الملعب\ncolumns.when: الوقت\ncolumns.state: الحالة\nstate.blocked: محجوز\nstate.toBlock: بانتظار الحجز\nblockAll: احجز الكل ({count})\nblockRest: احجز الباقي ({count})\nallBlocked: كل الملاعب والأوقات في الخطة محجوزة.\nblockedDone: تم الحجز. يعرضها التقويم الآن.\nconflictBody: هذه الحجوزات تشغل جزءاً من وقت البطولة. لم يُحجز شيء. انقلها أو ألغِها، ثم تحقّق مرة أخرى.\nconflictKind.booking: حجز\nconflictKind.hold: قيد الحجز\nconflictKind.maintenance: إغلاق\nopenBooking: افتح الحجز\ncheckAgain: تحقّق مرة أخرى\nnotOpen: خطوة الملاعب هذه غير مفتوحة، فلا يمكن حجز شيء هنا. حالتها: {status}.\nnotCourts: هذا الرابط ليس خطوة الملاعب لبطولة.\nsend.title: أرسلها للمراجعة\nsend.note: ما الذي نُقل\nsend.noteHint: للمدير الذي يراجع هذه الخطوة: الحجوزات التي نقلتها، أو سبب عدم حجز وقت ما.\nsend.submit: أرسل خطوة الملاعب\nsend.remaining: لم يُحجز بعد: {count} من أوقات الخطة. احجزها أولاً، أو اذكر السبب في الملاحظة.\nsend.needsBlock: احجز ملعباً واحداً على الأقل قبل الإرسال.\nsend.done: تم الإرسال. يراجع المدير خطوة الملاعب بعد ذلك.\nback: العودة إلى البطولة\nopenCalendar: افتح التقويم",
       "route": "/desk/block"
     },
     {
@@ -10582,7 +10582,7 @@
       "ref": "label:ws.events.block",
       "lang": "en",
       "title": "ws.events.block (packages/i18n/src/catalogs/ws/events.en.ts)",
-      "body": "title: Block courts for a tournament\nlead: The courts and times come from the tournament plan. They are held as the tournament’s event: the calendar shows them as blocks, and court analytics counts them as event hours, not as closed time.\nloadFailed: The tournament could not be loaded.\ncapacity.players: {count} players\ncapacity.pairs: {count} pairs\nclassLabel: Class {class}\nwindows: Courts and times\nnoWindows: The plan names no courts yet. Ask the manager to check the plan.\ncolumns.court: Court\ncolumns.when: When\ncolumns.state: State\nstate.blocked: Blocked\nstate.toBlock: To block\nblockAll: Block {count} remaining\nallBlocked: Every court and time in the plan is blocked.\nblockedDone: Blocked. The calendar shows them now.\nconflictBody: These reservations hold part of the tournament’s time. Nothing was blocked. Move or cancel them, then check again.\nconflictKind.booking: Booking\nconflictKind.hold: Being booked\nconflictKind.maintenance: Block\nopenBooking: Open booking\ncheckAgain: Check again\nnotOpen: This courts step is not open, so nothing can be blocked here. It is: {status}.\nnotCourts: This link is not a tournament’s courts step.\nsend.title: Send the courts step\nsend.note: What was moved (optional)\nsend.noteHint: For the manager who checks this step: bookings you moved, or why a time is not blocked.\nsend.submit: Send courts step\nsend.remaining: {count} of the plan’s times are not blocked yet. Block them first, or say why in the note.\nsend.needsBlock: Block at least one court before sending.\nsend.done: Sent. A manager checks the courts step next.\nback: Back to the tournament\nopenCalendar: Open calendar",
+      "body": "title: Block courts for a tournament\nlead: The courts and times come from the tournament plan. Blocking them holds the courts for the tournament, and the calendar shows them as blocks.\nloadFailed: The tournament could not be loaded.\ncapacity.players: {count} players\ncapacity.pairs: {count} pairs\nclassLabel: Class {class}\nwindows: Courts and times\nnoWindows: The plan names no courts yet. Ask the manager to check the plan.\ncolumns.court: Court\ncolumns.when: When\ncolumns.state: State\nstate.blocked: Blocked\nstate.toBlock: To block\nblockAll: Block all ({count})\nblockRest: Block the rest ({count})\nallBlocked: Every court and time in the plan is blocked.\nblockedDone: Blocked. The calendar shows them now.\nconflictBody: These reservations hold part of the tournament’s time. Nothing was blocked. Move or cancel them, then check again.\nconflictKind.booking: Booking\nconflictKind.hold: Being booked\nconflictKind.maintenance: Block\nopenBooking: Open booking\ncheckAgain: Check again\nnotOpen: This courts step is not open, so nothing can be blocked here. It is: {status}.\nnotCourts: This link is not a tournament’s courts step.\nsend.title: Send for checking\nsend.note: What was moved\nsend.noteHint: For the manager who checks this step: bookings you moved, or why a time is not blocked.\nsend.submit: Send courts step\nsend.remaining: Not blocked yet: {count} of the plan’s times. Block them first, or say why in the note.\nsend.needsBlock: Block at least one court before sending.\nsend.done: Sent. A manager checks the courts step next.\nback: Back to the tournament\nopenCalendar: Open calendar",
       "route": "/desk/block"
     },
     {
@@ -10606,7 +10606,7 @@
       "ref": "label:ws.events.hire",
       "lang": "ar",
       "title": "ws.events.hire (packages/i18n/src/catalogs/ws/events.ar.ts)",
-      "body": "title: التوظيف: أضف الموظف الجديد\nbody: اختير {name} لوظيفة {role}. أضف حسابه هنا؛ تنتهي عملية التوظيف عند حفظه.\nbodyNoName: اختارت عملية التوظيف شخصاً لوظيفة {role}. أضف حسابه هنا؛ تنتهي العملية عند حفظه.\nadd: أضف الموظف الجديد\nloading: جارٍ تحميل عملية التوظيف…\nloadFailed: تعذّر تحميل عملية التوظيف.\nnotOpen: خطوة التوظيف هذه لا تنتظرك، لذلك لم يُملأ شيء.\nroleLocked: تحدّده عملية التوظيف: يجب أن يكون الحساب بالدور الذي سمّته الوظيفة.\ndone: أُضيف الحساب. انتهت عملية التوظيف.\nsubmitFailed: أُنشئ الحساب، لكن خطوة التوظيف لم تُرسل.\nretry: أرسل خطوة التوظيف مرة أخرى\ndismiss: إغلاق",
+      "body": "title: من عملية توظيف\nbody: اختير {name} لوظيفة {role}. أضف حسابه هنا؛ تنتهي عملية التوظيف عند حفظه.\nbodyNoName: اختارت عملية التوظيف شخصاً لوظيفة {role}. أضف حسابه هنا؛ تنتهي العملية عند حفظه.\nadd: أضف الموظف الجديد\naddNamed: أضف {name}\ndialogLead: حفظ الحساب يُنهي عملية التوظيف.\nloading: جارٍ تحميل عملية التوظيف…\nloadFailed: تعذّر تحميل عملية التوظيف.\nnotOpen: خطوة التوظيف هذه لا تنتظرك، لذلك لم يُملأ شيء.\nnoRole: الوظيفة تسمّي دوراً لا يمكن منحه لحساب هنا، لذلك لم يُملأ شيء. راجع الوظيفة في عملية التوظيف.\nopenRun: افتح عملية التوظيف\nroleLocked: تحدّده عملية التوظيف: يجب أن يكون الحساب بالدور الذي سمّته الوظيفة.\ndone: أُضيف الحساب. انتهت عملية التوظيف.\nsubmitFailed: أُنشئ الحساب، لكن خطوة التوظيف لم تُرسل.\nretry: أرسل خطوة التوظيف مرة أخرى\ndismiss: إغلاق",
       "route": null
     },
     {
@@ -10614,7 +10614,7 @@
       "ref": "label:ws.events.hire",
       "lang": "en",
       "title": "ws.events.hire (packages/i18n/src/catalogs/ws/events.en.ts)",
-      "body": "title: Hiring: add the new staff member\nbody: {name} was picked for {role}. Add their account here; the hiring run finishes when it is saved.\nbodyNoName: The run picked someone for {role}. Add their account here; the hiring run finishes when it is saved.\nadd: Add the new staff member\nloading: Loading the hiring run…\nloadFailed: The hiring run could not be loaded.\nnotOpen: This hiring step is not waiting for you, so nothing is filled in.\nroleLocked: Set by the hiring run: the account must be in the role the position named.\ndone: Account added. The hiring run is finished.\nsubmitFailed: The account was created, but the hiring step was not sent.\nretry: Send the hiring step again\ndismiss: Close",
+      "body": "title: From a hiring run\nbody: {name} was picked for {role}. Add their account here; the hiring run finishes when it is saved.\nbodyNoName: The run picked someone for {role}. Add their account here; the hiring run finishes when it is saved.\nadd: Add the new staff member\naddNamed: Add {name}\ndialogLead: Saving the account finishes the hiring run.\nloading: Loading the hiring run…\nloadFailed: The hiring run could not be loaded.\nnotOpen: This hiring step is not waiting for you, so nothing is filled in.\nnoRole: The position names a role an account cannot be given here, so nothing is filled in. Check the position on the hiring run.\nopenRun: Open the hiring run\nroleLocked: Set by the hiring run: the account must be in the role the position named.\ndone: Account added. The hiring run is finished.\nsubmitFailed: The account was created, but the hiring step was not sent.\nretry: Send the hiring step again\ndismiss: Close",
       "route": null
     },
     {
@@ -12134,7 +12134,7 @@
       "ref": "label:ws.pricing",
       "lang": "ar",
       "title": "ws.pricing (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
-      "body": "changePrice: غيّر السعر\nchangePriceFor: غيّر السعر: {name}\nputOnSale: اطرحه للبيع\nputOnSaleFor: اطرحه للبيع: {name}\nsavedHidden: يُحفظ مخفيًا حتى يوافق المالك على سعره",
+      "body": "changePrice: غيّر السعر\nchangePriceFor: غيّر السعر: {name}\nputOnSale: اطرحه للبيع\nputOnSaleFor: اطرحه للبيع: {name}\nsavedHidden: يُحفظ مخفيًا، ثم يرسل «اطرحه للبيع» سعره إلى المالك.",
       "route": null
     },
     {
@@ -12142,7 +12142,7 @@
       "ref": "label:ws.pricing",
       "lang": "en",
       "title": "ws.pricing (packages/i18n/src/catalogs/ws/pricing.en.ts)",
-      "body": "changePrice: Change the price\nchangePriceFor: Change the price: {name}\nputOnSale: Put on sale\nputOnSaleFor: Put on sale: {name}\nsavedHidden: Saved hidden until the owner approves its price",
+      "body": "changePrice: Change the price\nchangePriceFor: Change the price: {name}\nputOnSale: Put on sale\nputOnSaleFor: Put on sale: {name}\nsavedHidden: Saved hidden. “Put on sale” then sends its price to the owner.",
       "route": null
     },
     {
@@ -12198,7 +12198,7 @@
       "ref": "label:ws.pricing.promotions",
       "lang": "ar",
       "title": "ws.pricing.promotions (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
-      "body": "note: يوافق المالك على العروض الجديدة وعلى تغييرها وعلى إعادة تشغيلها. اقترح ذلك من هنا وتابعه في البروتوكولات. ويبقى بإمكانك إطفاء أي عرض.\neditorNote: المالك وحده يعدّل العرض مباشرة. اقترح تغييرًا ويوافق عليه المالك في البروتوكولات.\nnewNote: يبدأ العرض الجديد اقتراحًا في البروتوكولات، ويوافق عليه المالك.\npropose: اقترح عرضًا\nchange: غيّر هذا العرض\nswitchOn: شغّله\nswitchOnFor: شغّله: {name}",
+      "body": "note: يوافق المالك على العروض الجديدة وعلى تغييرها وعلى إعادة تشغيلها: اقترح ذلك من هنا وتابعه في البروتوكولات. ويبقى بإمكانك إطفاء أي عرض.\neditorNote: المالك وحده يعدّل العرض مباشرة. اقترح تغييرًا ويوافق عليه المالك في البروتوكولات.\nnewNote: يبدأ العرض الجديد اقتراحًا في البروتوكولات، ويوافق عليه المالك.\npropose: اقترح عرضًا\nchange: غيّر هذا العرض\nswitchOn: شغّله\nswitchOnFor: شغّله: {name}\nnoneChosen: لم يُختر شيء",
       "route": "/admin/promotions"
     },
     {
@@ -12206,7 +12206,7 @@
       "ref": "label:ws.pricing.promotions",
       "lang": "en",
       "title": "ws.pricing.promotions (packages/i18n/src/catalogs/ws/pricing.en.ts)",
-      "body": "note: The owner approves new promotions, changes to them and switching one back on. Propose it here and follow it in Protocols. You can still switch a promotion off.\neditorNote: Only the owner edits a promotion directly. Propose a change and the owner approves it in Protocols.\nnewNote: A new promotion starts as a proposal in Protocols, and the owner approves it.\npropose: Propose a promotion\nchange: Change this promotion\nswitchOn: Switch on\nswitchOnFor: Switch on: {name}",
+      "body": "note: The owner approves new promotions, changes to them and switching one back on: propose these here and follow them in Protocols. You can still switch a promotion off.\neditorNote: Only the owner edits a promotion directly. Propose a change and the owner approves it in Protocols.\nnewNote: A new promotion starts as a proposal in Protocols, and the owner approves it.\npropose: Propose a promotion\nchange: Change this promotion\nswitchOn: Switch on\nswitchOnFor: Switch on: {name}\nnoneChosen: None chosen",
       "route": "/admin/promotions"
     },
     {

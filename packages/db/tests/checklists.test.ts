@@ -395,9 +395,9 @@ describe.skipIf(!docker)('checklists (rolled-back transactions)', () => {
       .toEqual(['Check the milk', 'Wipe the bar']);
     // Now that a chef holds the role, the kitchen's list is due, unopened.
     expect(state.find((l) => l.role === 'chef')).toMatchObject({ slot: 'close', total: 1, done: 0 });
-    // Yesterday nobody opened the bar's list: the template stands, nothing done.
-    expect(ok<State>(r, 'state_yesterday').lists.find((l) => l.role === 'barista'))
-      .toMatchObject({ total: 3, done: 0 });
+    // Yesterday the bar's list did not exist yet (saved today): nothing to warn
+    // about for that day (R7, checklist-day-state.test.ts).
+    expect(ok<State>(r, 'state_yesterday').lists.find((l) => l.role === 'barista')).toBeUndefined();
     expect(refused(r, 'helper')).toMatch(/permission denied/);
 
     for (const label of ['bar_board', 'bar_state', 'cashier_board', 'drv_board', 'drv_state', 'mkt_board',
