@@ -48,6 +48,18 @@ Majed's per-role spec (plan decisions #61–#74) is applied here:
 
 Every item on the Parked list (§0) stays out of the build.
 
+**Revision 2026-09-25 (wave 3 review).** The review of E's and F's drafts is applied here, each in
+its section: the compulsory add-on lock and three more add-on writers (§2.13, §2.18), the locked
+reads of the size and add-on locks (§2.13), `shop_launch` never taking a release draft and a
+manager's shop-to-cafe move refused for any item (§2.9, §2.13), the approving owner named as an
+applied promotion's authoriser (§2.13), a moved tournament plan giving back its old blocks
+(§2.11), the launch-now copy checked in storage (§2.8) and removed again by `protocol-action` when
+no launch takes it (§2.20). Running the gates also showed two committed tests that F's drafts
+break and this file had not listed: `shop.test.ts`'s `retailVariant` helper (the size lock) and
+one case of `protocols-engine.test.ts` (the desk's tournament start); F now owns those two lines
+(§1.2, §2.11, §2.13). One finding is open for Majed: renaming a live item's sizes (or a
+launched add-on) is not refused, so two renames swap what each size costs (§2.13, "Open").
+
 **Markers.** **PROPOSAL** marks a shape chosen here that nobody has decided; build it unless someone
 objects. **UNVERIFIED** marks a fact to check before relying on it.
 
@@ -147,7 +159,7 @@ starts one "to save time". The right-hand column is what exists until he answers
 | **B** Mobile shell and shared core | `@touch/core` role module (§7.1) and protocol form module (§7.2), staff sign-in, `StaffStatusProvider`, device hint, `GuestTabsGate`, `app/staff.tsx` (Today shell), `app/staff-request.tsx`, push tap routing, no-station-RPC guard | 0; G's `send-push` commit (the `pushRoutes` parity test reads `_shared/staff-push.json`) | now |
 | **C** Staff-page DB | `checklists`, `shopping_purchases`, `staff_production`, `marketing_staff` | G; A's `staff_ingredient_options` (for `shopping_purchases`) and `protocols_engine_tables` (for `marketing_staff`) | now |
 | **D** Operator protocols | **D1, shell:** `protocolsRoute` with its `validateSearch` and a placeholder page, registered in `op/main.tsx`; the `QK` keys (§5.2) and the `CAPABILITY_ROLES` entries (§5.1). **D2, pages:** `/protocols`, every operator step form and decision, How it works, per-run edits, the `/tasks` widening and forms, rail rows and badges, `/ops` rows, Observe row, audit keys; for the role spec (#61–#74, §5.4): the ideas list and start from an idea, the Recipe changes card and the owner's decision, `/suggestions`, the court desk's tournament start on `/tasks`, `/tasks`' read-only role-page sections, and the "Chef assistant" label | D1: 0. D2: A, B (§7.2), C, E, F, I (the RPCs it reads, and I's `ChecklistsCard`) and J (the role-extras RPCs), and K's board commit (the shared `KdsBoard.tsx`, §1.2) | D1 now; D2 after A's RPC shapes (this file) |
-| **E** Product release | `product_test_movement`, `product_release` (with the manager new-item guard, #52, #53, and the ideas pre-step, #65, §2.9); `release_post_launch`; `protocol-action`, `release-review`; menu-editor UI (in-release notice, the manager price lock and the manager new-item guard); ledger and variance | A; `product_release` also after J's `staff_push_keys` and `staff_media_folders` (the idea pushes, the idea photos' read rule and their re-claim, §2.24.1, §2.24.2); `release_post_launch` also after C's `marketing_staff` (`release_review_input` reads `marketing_notes`, §2.10). The menu-editor UI commit also after D1 (typed `/protocols` link) and F's `price_promo` (the lock it shows) | now (drafts) |
+| **E** Product release | `product_test_movement`, `product_release` (with the manager new-item guard, #52, #53, and the ideas pre-step, #65, §2.9); `release_post_launch`; `protocol-action`, `release-review`; menu-editor UI (in-release notice, the manager price lock and the manager new-item guard); ledger and variance | A; `product_release` also after J's `staff_push_keys` and `staff_media_folders` (the idea pushes, the idea photos' read rule and their re-claim, §2.24.1, §2.24.2); `release_post_launch` also after C's `marketing_staff` (`release_review_input` reads `marketing_notes`, §2.10). The menu-editor UI commit also after D1 (typed `/protocols` link), F's `price_promo` (the lock it shows) and F's pricing UI commit (`isRequiredAddonRefusal` in `addonsLogic.ts`, `ws.pricing.addons.requiredAddon`, used by `ItemModifierGroups.tsx`) | now (drafts) |
 | **F** Tournament, hiring, price/promo | `event_court_blocks`, `event_block_run_index`, `hiring`, `price_promo` (with the manager price lock on sizes, shop products and add-ons, the add-on launch guard, and the promotion, rate and featured-discount locks, #41, #51, #53, #57); `tournament_desk_start` (the court desk starts a tournament, #67, §2.11); desk event-block dialog; Staff hire prefill; courts analytics and courts report events line; the pricing UI commit: the manager locks in Stock ▸ Products, Add-ons, Promotions, Rates and the hero's featured discount (§5.5) | A; `price_promo` also after E's `product_release`; `tournament_desk_start` after `event_court_blocks` (its tests need the tournament hooks); F's UI commits also after D1 (the pricing UI commit also after `price_promo`) | now (drafts) |
 | **H** Mobile pages | every `app/staff-*.tsx` except `staff.tsx` and `staff-request.tsx`, the role pages of #62–#74 included (§6.1): ideas, teachings, suggestions, stock, recipes and recipe changes, requests to marketing and results, the photo tick, the chef assistant's lines and the head chef's OK, the driver's run with receipts and Delivered, the court desk's tournament start; the Today row changes (Vacation and requests) | B; G's photo commit (`photo.ts`, `PhotoButton.tsx`, expo-image-picker) for every page with a photo; and the RPCs each page calls (A, C, E, F, J) | after B |
 | **I** Operator stock and day close | Goods in "Bought by the driver", "Made today", day-close soft section, Daily checklists card and editor, marketing "From marketing", Setup "Worth checking" additions; for the role spec: the checklist editor's "Needs a photo" switch and the photos in the day view (#69), Goods in's delivered state (#70), and `/marketing`'s "Requests to marketing" list (#73), §5.5 | C; I's UI commits also after D1 (`QK` keys, `editChecklists`); the three role-spec parts after J's `checklist_photos`, `purchase_delivery_confirm` and `marketing_requests` | after C's RPC shapes (this file) |
@@ -179,7 +191,7 @@ order, append-only, re-read immediately before editing.
 | C | `packages/db/supabase/drafts/{checklists,shopping_purchases,staff_production,marketing_staff}.sql`; `packages/db/tests/{checklists,shopping-purchases,staff-production,marketing-staff}.test.ts` (each with its own driver and marketing denials, §8.2) |
 | D | `op/features/protocols/**`; `op/routes/protocols.tsx`; `op/routes/tasks.tsx`; `op/features/tasks/**`; the "My tasks (N)" header button in `op/features/kds/KitchenDisplayScreen.tsx` (its count and handler come from `KdsBoard.tsx`, a shared file, second table); `op/routes/__root.tsx` (`RailLink` renders a `NavItem` badge); `packages/i18n/src/catalogs/ws/protocols.*`; `e2e/tests/operator-protocols.spec.ts`; for the role spec (D2): `op/features/roleExtras/**` (new: the Suggestions page, the Recipe changes card and sheet, the ideas list and review, `/tasks`' role-page sections), `op/routes/suggestions.tsx` (new), `packages/i18n/src/catalogs/ws/rolePages.{en,ar}.ts` (new), `e2e/tests/operator-role-pages.spec.ts` (new) |
 | E | drafts `{product_test_movement,product_release,release_post_launch}.sql` (`product_release` carries `release_ideas`, its RPCs and the start hook's idea path, §2.9); `packages/db/supabase/functions/{protocol-action,release-review}/**`; `packages/db/tests/{product-release,release-post-launch,protocol-action,release-review}.test.ts` (each with its own driver and marketing denials; the idea cases in `product-release.test.ts`); `op/features/admin/menu/**` (in-release notice, the manager price lock and the manager new-item guard); `packages/i18n/src/catalogs/ws/release.*` |
-| F | drafts `{event_court_blocks,event_block_run_index,hiring,price_promo,tournament_desk_start}.sql`; `packages/db/tests/{event-court-blocks,hiring,price-promo,tournament-desk-start}.test.ts` (each with its own driver and marketing denials); in `tournament_desk_start`'s commit, the tournament lines of `packages/core/src/protocols/steps.ts` and `protocols.test.ts` (shared files after B, second table, §2.11); `op/features/desk/CourtBlock.tsx` (event mode); `op/routes/desk/_children.ts` (`validateBlockSearch` gains `run`, `step`); `op/routes/admin/staff.tsx` (`validateSearch` for `hire`); `op/features/stock/products/**` and `op/features/admin/addons/**` (the manager locks, #51, #53); `op/features/admin/promotions/**`, `op/features/admin/{RateRuleEditor.tsx,rateRuleLogic.ts,rateRuleLogic.test.ts}` and `op/features/admin/hero/HeroBuilder.tsx` (the manager locks, #57, §5.5); `op/features/stock/stockKeys.ts` (only `fetchShopCatalogue`, whose select gains `launched_at`, and the `ShopProductRow` type, §5.5; no other lane edits the file, and one that must moves it to the shared-file table first); `packages/db/tests/promotions.test.ts` (its `mk` helper creates as the owner once the lock lands; the manager case moves to `price-promo.test.ts`); `packages/i18n/src/catalogs/ws/{events,pricing}.*` |
+| F | drafts `{event_court_blocks,event_block_run_index,hiring,price_promo,tournament_desk_start}.sql`; `packages/db/tests/{event-court-blocks,hiring,price-promo,tournament-desk-start}.test.ts` (each with its own driver and marketing denials); in `tournament_desk_start`'s commit, the tournament lines of `packages/core/src/protocols/steps.ts` and `protocols.test.ts` (shared files after B, second table, §2.11); `op/features/desk/CourtBlock.tsx` (event mode); `op/routes/desk/_children.ts` (`validateBlockSearch` gains `run`, `step`); `op/routes/admin/staff.tsx` (`validateSearch` for `hire`); `op/features/stock/products/**` and `op/features/admin/addons/**` (the manager locks, #51, #53); `op/features/admin/promotions/**`, `op/features/admin/{RateRuleEditor.tsx,rateRuleLogic.ts,rateRuleLogic.test.ts}` and `op/features/admin/hero/HeroBuilder.tsx` (the manager locks, #57, §5.5); `op/features/stock/stockKeys.ts` (only `fetchShopCatalogue`, whose select gains `launched_at`, and the `ShopProductRow` type, §5.5; no other lane edits the file, and one that must moves it to the shared-file table first); `packages/db/tests/promotions.test.ts` (its `mk` helper creates as the owner once the lock lands; the manager case moves to `price-promo.test.ts`); in `price_promo`'s commit, the `retailVariant` helper of `packages/db/tests/shop.test.ts` (it runs as the owner, §2.13); in `tournament_desk_start`'s commit, the court desk's tournament case in `packages/db/tests/protocols-engine.test.ts` (§2.11); `packages/i18n/src/catalogs/ws/{events,pricing}.*` |
 | G | drafts `{staff_media_bucket,staff_push}.sql`; `packages/db/supabase/functions/send-push/**`; `packages/db/supabase/functions/_shared/staff-push.json`; `packages/db/tests/{staff-media,staff-push,send-push-staff}.test.ts`; `mob/src/features/staff/photo.ts` (its `PhotoFolder` type is shared with J after G, second table), `mob/src/components/PhotoButton.tsx`; `mob/locales/ios.{en,ar}.json` (new); `packages/i18n/src/catalogs/staff/media.*`; `docs/store/app-store-submission.md`, `docs/store/google-play-data-safety.md`, `docs/legal/staff-privacy-notice.md`, `docs/install-runbook.md`, `packages/i18n/src/catalogs/legal.{en,ar}.ts`; `scripts/create-staff-review-account.mjs` (new) |
 | H | `mob/app/staff-{checklist,start,runs,run,step,production,shopping,purchase,marketing,notes}.tsx`; `mob/src/features/staff/{protocols,checklists,supplies,marketing,notes}/**`; new `mob/src/components/{ChecklistRow,DecisionBar}.tsx`; `mob/src/smoke/staffPages.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/{protocols,checklists,supplies,marketing,notes}.*`; for the role spec: `mob/app/staff-{ideas,teachings,suggestions,stock,recipes,recipe-change,marketing-requests}.tsx` (new), `mob/src/features/staff/{ideas,teachings,suggestions,stock,recipes,marketingRequests}/**` (new), `mob/src/smoke/staffRolePages.smoke.test.tsx` (new), `packages/i18n/src/catalogs/staff/rolePages.{en,ar}.ts` (new) |
 | I | `op/features/checklists/**` (new); `op/features/stock/{ReceiveDelivery,WasteAndProduction}.tsx` and new `op/features/stock/DriverPurchases.tsx`; `op/routes/stock/_children.ts` (`validateSearch` on the `receive` child for `purchase`); `op/features/admin/{DayClose.tsx,dayCloseLogic.ts}` (+ test); `op/features/marketing/MarketingPanel.tsx`; `op/features/admin/SetupHome.tsx` (+ test); `packages/i18n/src/catalogs/ws/supplies.*`. The role-spec additions of §5.5 (the photo switch, delivered, requests to marketing) stay in these files, so they stay I's |
@@ -475,7 +487,7 @@ Push in batches: every push to `main` is a Vercel production build and a full CI
 | `event_court_blocks` | F | `protocols_engine_rpcs` | reservation columns; `block_courts_for_event`, `tournament_context`; tournament hooks; analytics and `report_courts` re-issues |
 | `event_block_run_index` | F | `event_court_blocks` | one partial index on `reservations` |
 | `hiring` | F | `protocols_engine_rpcs` | `hiring_candidates`; hiring hooks; purge cron |
-| `price_promo` | F | `protocols_engine_rpcs`, `product_release` (`upsert_variant_internal` and the `upsert_variant` wrapper body it re-issues from; `upsert_menu_item_internal` and `menu_items.launched_at`, which the `shop_launch` apply uses) | promotion internals and wrappers with the manager promotion lock, and `generate_promo_code` re-issued with it; `upsert_rate_rule_internal` plus the `upsert_rate_rule` wrapper (rate lock); `set_cafe_setting_internal` plus the `set_cafe_setting` wrapper (featured-discount lock, `hero_mode` included); `upsert_variant` re-issued with the manager price lock on every launched item, shop included; `modifiers.launched_at`; `upsert_modifier_internal` plus the `upsert_modifier` wrapper (add-on price lock and launch guard); the eight change kinds, their apply and its target check; `price_promo_targets`, `price_promo_numbers`; price/promo hooks; apply cron |
+| `price_promo` | F | `protocols_engine_rpcs`, `product_release` (`upsert_variant_internal` and the `upsert_variant` wrapper body it re-issues from; `upsert_menu_item_internal` and `menu_items.launched_at`, which the `shop_launch` apply uses) | promotion internals and wrappers with the manager promotion lock, and `generate_promo_code` re-issued with it; `upsert_rate_rule_internal` plus the `upsert_rate_rule` wrapper (rate lock); `set_cafe_setting_internal` plus the `set_cafe_setting` wrapper (featured-discount lock, `hero_mode` included); `upsert_variant` re-issued with the manager price lock on every launched item, shop included; `modifiers.launched_at`; `upsert_modifier_internal` plus the `upsert_modifier` wrapper (add-on price lock and launch guard); the compulsory add-on lock (`upsert_modifier_group`, `link_item_modifier_group`, `set_modifier_reveals` re-issued, five internal helpers); the eight change kinds, their apply and its target check; `price_promo_targets`, `price_promo_numbers`; price/promo hooks; apply cron |
 | `checklists` | C | `staff_push` | four checklist tables and RPCs |
 | `shopping_purchases` | C | `staff_push`, `staff_media_bucket`, `staff_ingredient_options` | three tables and RPCs |
 | `staff_production` | C | – | `record_production_internal`, `record_batch`, two reads |
@@ -872,7 +884,7 @@ send-back resets by dependency, not position (§2.7), so neither swap changes wh
 | release `test` | `{servings: [{variant_id, count: 1..50}]` (≥ 1)`, notes?}` | – |
 | release `analysis` | `{prices: [{variant_id, price_iqd > 0}]` (every active size)`, name_en, name_ar` (both, ≤ 60)`, notes?}` | – (Q12: approve or send back, no override) |
 | release `marketing` | `{highlights_en, highlights_ar` (≤ 300)`, hero?: {en, ar}` (≤ 80)`, ticker?: {en, ar}` (≤ 120)`, campaign_id?, notes?}` | – |
-| release `launch` | `{when: 'now'\|'date', at?` (future, ≤ 90 days, required for `date`)`, photo_path` (a `tests` or `marketing` photo of this run)`, menu_photo_path?}`. For `now`, `menu_photo_path` is required and must equal `items/<run.menu_item_id>/<run.id>.<ext of photo_path>`, the path `protocol-action` writes after its copy (§2.20); else `RECORD_INVALID`, hint `menu_photo_path`. So a direct `submit_step` of a launch-now without the copy cannot pass. For `date` it is absent | – |
+| release `launch` | `{when: 'now'\|'date', at?` (future, ≤ 90 days, required for `date`)`, photo_path` (a `tests` or `marketing` photo of this run)`, menu_photo_path?}`. For `now`, `menu_photo_path` is required and must equal `items/<run.menu_item_id>/<run.id>.<ext of photo_path>`, the path `protocol-action` writes after its copy (§2.20), and that object must exist in `menu-media` (`storage.objects`); else `RECORD_INVALID`, hint `menu_photo_path`. So a direct `submit_step` of a launch-now without the copy cannot pass. For `date` it is absent | – |
 | tournament `plan` | `{class: 'A'\|'B'\|'C', name_en, name_ar` (both, public)`, format?: 'americano'\|'mexicano'\|'knockout'\|'league'` (required for type1/type3)`, ranges: [{court_ids: uuid[], from, to}]` (1–14)`, capacity: {unit: 'players'\|'pairs', count: 2..512}, entry_fee_iqd?, prize?: {text?, iqd?}, budget_iqd?, expected_entries?, risks?, notes?, sponsor?: {name, contact, contribution_iqd, branding?, invoice?}}` (type2 short form: class, names, ranges, capacity, notes; type3 requires `sponsor`: `SPONSOR_DETAILS_REQUIRED`, raised by `protocol_check_tournament_plan`, so `start_protocol` refuses a type 3 start without it). Figures are planning only. | – |
 | tournament `feasibility` | `{staffing, income_iqd ≥ 0, cost_iqd ≥ 0, risks, notes?}` | – |
 | tournament `marketing` | as release `marketing` | – |
@@ -927,8 +939,13 @@ decider. A manager-started release therefore carries `category_id` in its `propo
 - `app.upsert_menu_item` (same 12-argument signature, same guard and grant), re-issued as a
   wrapper, then `return app.upsert_menu_item_internal(…)`. After the guard, in this order:
   1. **In release, everyone:** `p_is_active` on an item whose `release_run_id` run is not `live` or
-     `done` raises `ITEM_IN_RELEASE`.
-  2. **Manager new-item guard** (#52, #53), when `app.staff_role() = 'manager'` and the call
+     `done`, or a move of that item into a category whose kind is not `cafe`, raises
+     `ITEM_IN_RELEASE` (a release draft goes on sale at the owner's Launch, never through a
+     `shop_launch`).
+  2. **Shop into cafe, a manager, any item** (wave 3 review): a move of an existing item from a
+     `shop` category into a `cafe` one raises `ITEM_VIA_RELEASE`, launched or not (a product put on
+     sale by a `shop_launch` would otherwise become a cafe item with no release, #52).
+  3. **Manager new-item guard** (#52, #53), when `app.staff_role() = 'manager'` and the call
      creates an item (`p_id is null`) or saves one with `launched_at is null` and no release run
      (a never-launched item is always switched off, so `p_is_active` on it is a switch-on). The
      kind is that of `p_category_id`'s category:
@@ -1190,8 +1207,14 @@ Blocks take every `app.lock_court` in court-id order first, are written as `kind
 render notes), and a desk moves conflicts through the normal move and cancel path. Hooks:
 `protocol_start_tournament` (`data` `{}`), `protocol_check_tournament_*` per §2.8 (the `plan`
 check holds the variant rules and raises `SPONSOR_DETAILS_REQUIRED` for type3),
-`protocol_pass_tournament_plan` (run `data` := the plan record), `protocol_stop_tournament`
-(cancels the run's future event blocks). The court desk (`courts`) and marketing (`marketing`) read
+`protocol_pass_tournament_plan` (run `data` := the plan record; then, courts locked in court-id
+order, every event block of the run that has not started and is on no court and window of the
+new plan is cancelled, audit `reservation.cancel`, so a plan sent back and moved gives its old
+courts back and a shifted window blocks with no conflict against the run's own old block),
+`protocol_stop_tournament` (cancels the run's future event blocks). The `courts` check counts only
+live event blocks of the run on a court and window of the passed plan
+(`app.tournament_plan_has_window`, internal), and the desk sends only those. The court desk
+(`courts`) and marketing (`marketing`) read
 what they need through `tournament_context`, on both apps (§5.5, §6.1).
 
 **`tournament_desk_start` (F, role spec #67).** The court desk starts a tournament run. The desk
@@ -1242,7 +1265,10 @@ because its tests need the tournament hooks.
   - `save_protocol_template` passes on a tournament template carrying the new actors, and refuses
     `plan` actors `{manager}` with `PROTOCOL_STEP_FIXED`;
   - a run started before the migration keeps its snapshot;
-  - `protocol-engine*.test.ts` still pass against the re-issued bodies.
+  - `protocol-engine*.test.ts` still pass against the re-issued bodies, with one change made in
+    this commit (found in the wave 3 review; F owns that one line): the "checks its starter by
+    kind" case of `protocols-engine.test.ts` (:250-255) no longer expects `FORBIDDEN` for the court
+    desk's tournament start, which this file now admits.
 
 ### 2.12 `hiring` (F)
 
@@ -1295,6 +1321,7 @@ every migration, under both `create function` and `create or replace function`),
 | `modifiers.price_delta_iqd` (add-ons) | `app.upsert_modifier` (writes at 0013:323, 0013:334) | 0013:298 (defined once; `reorder_modifiers`, 0050:170, writes `sort_order` only) | split into `upsert_modifier_internal` and a wrapper with the add-on lock below |
 | `promotions` (every column: value, scope, dates, limits, switch, code) | `app.upsert_promotion` (0067:428, :449), `app.set_promotion_enabled` (0067:507), `app.generate_promo_code` (0067:560) | 0067:258, 0067:484, 0067:525 (each defined once) | the first two split into internals and wrappers, the third re-issued; the promotion lock below (#57) |
 | `rate_rules` and `rate_rule_prices` (court prices) | `app.upsert_rate_rule` (0071:223-246) | 0071:153 (after 0013:452 and 0048:135) | split into `upsert_rate_rule_internal` and a wrapper with the rate lock below (#57) |
+| what a guest must add to an item: `modifier_groups.min_select`, `menu_item_modifier_groups` (links) and `modifier_reveals`, which make a paid add-on compulsory (`add_order_items` refuses a line short of a group's `min_select`, 0095:230-247) (wave 3 review) | `app.upsert_modifier_group` (0013:256), `app.link_item_modifier_group` (0013:377), `app.set_modifier_reveals` (0028:76), and `app.upsert_modifier` (an option switched off or moved) | each defined once | re-issued verbatim with the compulsory add-on lock below; `upsert_modifier`'s wrapper gains it too |
 | `cafe_settings` `featured_discount_pct`, the `featured_item_id` it applies to, and `hero_mode`, which puts it live only at `featured` (0095:135, :169) | `app.set_cafe_setting` (0029:312), also reached through `app.set_cafe_settings` (0050:242), which calls the public `set_cafe_setting` per key | 0029:280 (defined once); `set_cafe_settings` 0050:242 (defined once) | `set_cafe_setting` split into `set_cafe_setting_internal` and a wrapper with the featured-discount lock below, `hero_mode` included (#57); `set_cafe_settings` **not re-issued**: the lock reaches it through its call, which `price-promo.test.ts` pins |
 
 Not list prices, unchanged: `order_item_modifiers.price_delta_iqd` and the till's order lines are
@@ -1376,7 +1403,9 @@ changes apply at every venue, whichever venue's run carries them; slice 2 owns s
   `VARIANT_NOT_FOUND`. A name, default or order change is never refused, so a manager still edits a
   launched product's SKU, barcode, supplier, pack cost and low-stock level while its price stays the
   same. A new size on a launched item counts as a price change. The lock lives here, not in
-  `product_release`, so it arrives with the protocol that replaces direct editing.
+  `product_release`, so it arrives with the protocol that replaces direct editing. Both checks
+  read the item row `for update` (the price and `shop_launch` apply lock it first), so a save that
+  races an apply waits and then sees the item launched.
 - **`modifiers.launched_at timestamptz`**, the §2.9 drill: `add column if not exists launched_at
   timestamptz default now()`, then `alter column launched_at drop default`. Every add-on that
   exists at migration time counts as launched, switched on or off, with no rewrite and no UPDATE.
@@ -1397,17 +1426,37 @@ changes apply at every venue, whichever venue's run carries them; slice 2 owns s
     (**PROPOSAL**): it carries no price, and the internal stamps it launched, so giving it a price
     later is a price change;
   - renaming, moving to another group, reordering and switching a launched add-on off and on are
-    unchanged. A missing group or add-on falls through to `GROUP_NOT_FOUND` or
-    `MODIFIER_NOT_FOUND`;
+    unchanged, unless the save trips the compulsory add-on lock below. A missing group or add-on
+    falls through to `GROUP_NOT_FOUND` or `MODIFIER_NOT_FOUND`. The wrapper reads the add-on row
+    `for update` (the `addon_price` apply locks it first);
   - the §2.9 accepted limit applies here too (decided, plan #59): every add-on that exists at
     migration time counts as launched, so a manager can rename an old switched-off paid add-on and
     switch it on at its old price, which `price-promo.test.ts` pins as unchanged.
+- **The compulsory add-on lock** (wave 3 review, under #51 and #53). A paid add-on made
+  compulsory raises what a guest pays as surely as a new price. `app.addon_item_prices(item)`
+  (internal) is `{floor, <modifier_id>: cost}`: the floor is, per group linked to the item, its
+  `min_select` cheapest switched-on choices; a choice costs its price plus
+  `app.addon_group_floor` of every group it reveals that the item does not link (the `min_select`
+  cheapest switched-on options; 0 when the group asks for none or too few are on to satisfy it).
+  For a manager, `upsert_modifier_group` (the group's items), `link_item_modifier_group` (the
+  item), `set_modifier_reveals` (the option group's items) and `upsert_modifier` (the old and new
+  group's items; `app.addon_items_of` also takes items that reach a group as a reveal) snapshot
+  those prices before the write (`app.addon_prices_snapshot`) and raise `PRICE_VIA_PROTOCOL`, hint
+  `required_addon`, when any floor or listed choice now costs more (`app.addon_prices_guard`); the
+  raise rolls the write back. So a manager may add a choice that has a free option, link a group
+  nobody must pick, and switch off or move an option while a free one is left, but not make a paid
+  one compulsory. Limit: in a compulsory group where every option is paid (the owner's), a manager
+  cannot switch the cheapest off, since that raises what every guest pays; the owner can. No change
+  kind carries this, so the Add-ons screen says the owner makes it (`ws.pricing.addons.requiredAddon`,
+  §5.5). All five helpers are internal.
 - **When each lock arrives.** The size, add-on, promotion, rate and featured-discount locks arrive
   here, with the protocol, so managers are never locked out of pricing before it exists. The menu-item and shop-product launch
   guard arrived with `product_release` (§2.9). Both reach hosted in the same migrations push.
 - **Lock tests that break today** (F updates them in `price_promo`'s commit): `promotions.test.ts`
   creates promotions as the manager (`mk`, :80), so its helper moves to the owner and the manager
-  case becomes a lock case in `price-promo.test.ts`; `booking-integrity.test.ts` and
+  case becomes a lock case in `price-promo.test.ts`; `shop.test.ts`'s `retailVariant` helper
+  prices a size of a product that is on sale as the manager (:83), so it runs as the owner (found
+  in the wave 3 review; F owns that one line); `booking-integrity.test.ts` and
   `booking-hardening.test.ts` already save rate rules as the owner; `cafe-menu-ext.test.ts:391-430`
   sets the discount as the owner; the `rls-matrix.ts` rows keep `manager: 'execute'`, because each
   lock raises past the guard, and only their notes change (§1.2).
@@ -1418,8 +1467,9 @@ changes apply at every venue, whichever venue's run carries them; slice 2 owns s
   - any kind: a target no longer exists (the item, each approved size, each add-on, the promotion,
     the rule);
   - `price`: the item is no longer launched, or is in release;
-  - `shop_launch`: the product is switched on or has `launched_at` set, or its sizes are no longer
-    exactly the approved ones, so a size added after the owner's approval never goes on sale;
+  - `shop_launch`: the product is switched on or has `launched_at` set, is in a release whose run
+    is not `live` or `done`, or its sizes are no longer exactly the approved ones, so a size added
+    after the owner's approval never goes on sale;
   - `promotion`: the record's code is no longer free;
   - `promotion_edit`, `promotion_enable`: the promotion's `updated_at` differs from the record's
     `base_updated_at` (anyone wrote it since the proposal, a manager's switch-off included), or,
@@ -1429,13 +1479,13 @@ changes apply at every venue, whichever venue's run carries them; slice 2 owns s
     differs from the record's `before`, or the item to feature is no longer active.
 - Hooks: `protocol_start_price_promo`: `data` `{}`. `protocol_check_price_promo_propose`: the eight
   shapes of §2.8 and the target's state at submit (a `price` item launched and not in release; a
-  `shop_launch` product in a `shop` category, never launched, switched off; each add-on at the run's
+  `shop_launch` product in a `shop` category, never launched, switched off, not in release; each add-on at the run's
   venue; a promotion that exists, and is off for `promotion_enable`; a rule and a court at the run's
   venue; an active item to feature), and it writes the `base_updated_at` and `before` snapshots
   into the normalised record; marketing's `shop_launch` raises `NOT_STEP_ACTOR`. A target-state
   failure at propose raises `RECORD_INVALID` with hint `menu_item_id` (a `price` item not launched
-  or in release, a `shop_launch` product already launched, switched on or not in a `shop`
-  category, a featured item that is off), `prices`, `addons` (an add-on at another venue),
+  or in release, a `shop_launch` product already launched, switched on, in release or not in a
+  `shop` category, a featured item that is off), `prices`, `addons` (an add-on at another venue),
   `promotion_id`, `rule_id`, `promotion.<field>` or `rule.<field>`, never a menu, promotion or rate
   writer's code: marketing reaches this hook on the phone through `start_protocol`, and those codes
   are operator only or belong to other screens (§3).
@@ -1481,18 +1531,30 @@ changes apply at every venue, whichever venue's run carries them; slice 2 owns s
     the one that goes live (the hero then shows the featured item); all in the apply's one
     transaction, each writing its own `settings.cafe` audit.
 
+  The three promotion kinds then set `promotions.created_by` to the owner who approved `numbers`
+  (the `decided_by` of its passed submission): `apply_best_promotion` writes that column as every
+  redemption's `tab_adjustments.authorized_by`, and day close names that person (0067:800-809), so
+  a proposer, marketing included, is never named as the authoriser (wave 3 review).
   Run → done. Audit `protocol.price.apply` (payload `{run_id, change, counts}`) for `price`,
   `shop_launch`, `addon_price`, `rate` and `featured_discount`; `protocol.promo.apply` for
-  `promotion`, `promotion_edit` and `promotion_enable`.
+  `promotion`, `promotion_edit` and `promotion_enable`, whose payload also carries
+  `authorized_by`.
 - `app.price_promo_apply_due()` (cron): takes each due scheduled run, one at a time, in its own
   `begin … exception` block, so one bad run never fails the statement, and calls
   `price_promo_apply_internal` with a null actor, which runs the same target check. A run that
   fails goes back to `active`, the `apply` step reopens with `round + 1`, and the venue's managers
   get `staff_task / apply_not_ready` (§2.21), the same shape as a reverted launch (§2.10).
+- **Open (needs Majed, wave 3 review).** The size lock compares prices only, and a name, default
+  or order change is never refused. So on an item that is on sale a manager can rename sizes (two
+  renames swap them: "Large" now at the old Regular price), and the recipe moves with each row; the
+  same holds for a launched add-on's name and group. Either a manager's rename of a size of a
+  launched item, and of a launched paid add-on, is refused with `PRICE_VIA_PROTOCOL` (order and
+  default still pass), or #59 is widened to accept it and `price-promo.test.ts` pins it. Until he
+  answers, nothing is built for it.
 
 | RPC | Args | Returns | Guard | Errors |
 |---|---|---|---|---|
-| `price_promo_targets` (**PROPOSAL** shape; the plan names it only) | `p_change text, p_venue_id uuid default null` | `price`: `{items: [{menu_item_id, name_en, name_ar, category_kind, is_active, sizes: [{variant_id, name_en, name_ar, price_iqd}]}]}`, launched items not in release, cafe and shop; `shop_launch`: the same shape, hidden never-launched shop products; `addon_price`: `{addons: [{modifier_id, group_id, group_name_en, group_name_ar, name_en, name_ar, price_delta_iqd, is_active, launched}]}`, launched add-ons, plus hidden never-launched ones for MGMT; `promotion_edit` and `promotion_enable`: `{promotions: [{promotion_id, name_en, name_ar, type, value, starts_at, ends_at, weekdays, hour_from, hour_to, scope, limits, auto, public_code, code_single_use, enabled, updated_at}]}` (every promotion for an edit, switched-off ones for a switch-on; the columns any staff session already reads, 0156:718-722, and no redemption count); `rate`: `{rules: [{rule_id, name, court_id, court_name_en, court_name_ar, days_of_week, start_time, end_time, priority, valid_from, valid_to, is_active, prices: {"<duration_min>": price_iqd}}]}`, the venue's rules on or off; `featured_discount`: `{featured_item_id, featured_discount_pct, hero_mode, items: [{menu_item_id, name_en, name_ar, category_kind, sizes: [{variant_id, name_en, name_ar, price_iqd}]}]}`, active items at the venue. List prices, rules and discounts only, which staff (and mostly guests) already see: no cost, no sales | manager, marketing, owner at venue; `shop_launch` MGMT only | `FORBIDDEN`, `INVALID_ARGUMENT` (`p_change` not one of `price`, `shop_launch`, `addon_price`, `promotion_edit`, `promotion_enable`, `rate`, `featured_discount`) |
+| `price_promo_targets` (**PROPOSAL** shape; the plan names it only) | `p_change text, p_venue_id uuid default null` | `price`: `{items: [{menu_item_id, name_en, name_ar, category_kind, is_active, sizes: [{variant_id, name_en, name_ar, price_iqd}]}]}`, launched items not in release, cafe and shop; `shop_launch`: the same shape, hidden never-launched shop products not in release; `addon_price`: `{addons: [{modifier_id, group_id, group_name_en, group_name_ar, name_en, name_ar, price_delta_iqd, is_active, launched}]}`, launched add-ons, plus hidden never-launched ones for MGMT; `promotion_edit` and `promotion_enable`: `{promotions: [{promotion_id, name_en, name_ar, type, value, starts_at, ends_at, weekdays, hour_from, hour_to, scope, limits, auto, public_code, code_single_use, enabled, updated_at}]}` (every promotion for an edit, switched-off ones for a switch-on; the columns any staff session already reads, 0156:718-722, and no redemption count); `rate`: `{rules: [{rule_id, name, court_id, court_name_en, court_name_ar, days_of_week, start_time, end_time, priority, valid_from, valid_to, is_active, prices: {"<duration_min>": price_iqd}}]}`, the venue's rules on or off; `featured_discount`: `{featured_item_id, featured_discount_pct, hero_mode, items: [{menu_item_id, name_en, name_ar, category_kind, sizes: [{variant_id, name_en, name_ar, price_iqd}]}]}`, active items at the venue. List prices, rules and discounts only, which staff (and mostly guests) already see: no cost, no sales | manager, marketing, owner at venue; `shop_launch` MGMT only | `FORBIDDEN`, `INVALID_ARGUMENT` (`p_change` not one of `price`, `shop_launch`, `addon_price`, `promotion_edit`, `promotion_enable`, `rate`, `featured_discount`) |
 | `price_promo_numbers` | `p_run_id uuid` | `{change, sizes: [{variant_id` (null for a new size)`, name_en, name_ar, current_price_iqd` (null for a new size)`, new_price_iqd, cost_iqd, cost_known, margin_before_iqd, margin_after_iqd, units_30d, revenue_30d_iqd}], addons: [{modifier_id, group_name_en, group_name_ar, name_en, name_ar, current_delta_iqd, new_delta_iqd, count_30d, revenue_30d_iqd}], promotion: {current_value, new_value, discount_cost_30d_iqd, units_30d, revenue_30d_iqd} \| null, rate: {durations: [{duration_min, current_price_iqd` (null for a new rule or duration)`, new_price_iqd}], bookings_30d, revenue_30d_iqd} \| null, featured: {current_item_id, new_item_id, current_pct, new_pct, current_hero_mode, sizes: [{variant_id, name_en, name_ar, price_iqd}], units_30d, discount_cost_30d_iqd} \| null}`. Cost from `v_item_cogs` (a shop size's is its retail stock row's batch or pack cost, so `cost_known` works the same); an add-on has no cost row. Units, counts and revenue are 0 for a new size, a hidden product and a never-launched add-on. A promotion's discount cost is the approved value applied to the last 30 days' matching lines (the `promotion` kind's figure, for all three promotion kinds). A rule's bookings and revenue are the last 30 days' reservations whose `rate_rule_id` is that rule (none for a new rule). The featured figures use the new item's last 30 days of units; `current_hero_mode` lets the form say that the discount is not live today and that applying one above 0 switches the hero to Featured | MGMT at venue | `PROTOCOL_NOT_FOUND` |
 
 ### 2.14 `checklists` (C)
@@ -1667,7 +1729,8 @@ Each object below has one owning lane, with one exception: `upsert_variant`. E c
 | `app.submit_staff_request`, `app.decide_staff_request` | 0072 | G | one notify each |
 | `app.upsert_variant` | 0013:203 | E, then F | E: `upsert_variant_internal` + wrapper with `ITEM_IN_RELEASE`; F (`price_promo`), from E's wrapper body: + `PRICE_VIA_PROTOCOL` for a manager on any launched item, shop included (§2.13) |
 | `app.upsert_menu_item` | 0054:48 | E | `upsert_menu_item_internal` (with the `launched_at` stamp) + wrapper with `ITEM_IN_RELEASE` and the manager new-item guard (`ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`, §2.9) |
-| `app.upsert_modifier` | 0013:298 | F | `upsert_modifier_internal` (with the `launched_at` stamp) + wrapper with the add-on lock (`PRICE_VIA_PROTOCOL`, `LAUNCH_VIA_PROTOCOL`, §2.13) |
+| `app.upsert_modifier` | 0013:298 | F | `upsert_modifier_internal` (with the `launched_at` stamp) + wrapper with the add-on lock (`PRICE_VIA_PROTOCOL`, `LAUNCH_VIA_PROTOCOL`) and the compulsory add-on lock (§2.13) |
+| `app.upsert_modifier_group`, `app.link_item_modifier_group`, `app.set_modifier_reveals` | 0013:256, 0013:377, 0028:76 | F (`price_promo`) | verbatim + the compulsory add-on lock for a manager (`PRICE_VIA_PROTOCOL`, hint `required_addon`, §2.13; wave 3 review) |
 | `v_variance_report` | 0019:205 | E | `product_test_qty` last |
 | `app.report_stock` | 0068 | E | `productTestQty` |
 | `app.record_production` | 0018:342 | C | wrapper |
@@ -1751,9 +1814,13 @@ existing `tp_` convention and replace the plan's names.
   `{when, at, photo_path, menu_photo_path}`, where `menu_photo_path` is
   `items/<menu_item_id>/<run_id>.<ext>`, the only value the launch check accepts (§2.8). For
   `date`: submit without copying. Returns the
-  `submit_step` result.
+  `submit_step` result. `menu-media` is public, so a copy no launch takes is removed again: a
+  refused submit removes the object it just copied, unless the item's `photo_path` is that path
+  (a launch that went through meanwhile); and when the item already shows that path, a retry
+  copies nothing, so a live photo is never overwritten (wave 3 review).
 - `POST {action:'tick'}`, service role (`isServiceRoleRequest`): due launches
-  (`release_due_launches` → copy → `release_launch_scheduled`), then photo purges
+  (`release_due_launches` → copy → `release_launch_scheduled`; a `reverted` or `skipped` answer, or
+  a refusal after the copy, removes the copy the same way), then photo purges
   (`protocol_photo_purge_due` → storage remove → `protocol_photos_purged`). Returns
   `{launched, reverted, purged}`.
 - Errors: SQL codes pass through `mapPgError` (`_shared/http.ts:76`) as `{error: '<CODE>', message}`
@@ -2866,7 +2933,12 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
   is saved with `p_is_active: false` and shows "Put on sale" (the same link); a never-launched paid
   add-on's switch is off; a free option (0 IQD) is added and switched as today. The optimistic
   switch (`OptionsEditor.tsx:73`) and the reorder, which re-send `upsert_modifier` with the price
-  unchanged, keep working. Copy in `ws.pricing.*`.
+  unchanged, keep working. The group editor, the reveals editor, the options and E's item group
+  switches (`ItemModifierGroups.tsx`) show
+  `ws.pricing.addons.requiredAddon` ("only the owner makes this change") for the compulsory add-on
+  refusal (`PRICE_VIA_PROTOCOL` with hint `required_addon`, §2.13) in place of the Protocols
+  message; the choice limits, links and reveals stay editable, since only a save that raises what
+  a guest pays is refused. Copy in `ws.pricing.*`.
 - F, Promotions (`/admin/promotions`, `op/features/admin/promotions/**`; #57). `permissionsFor`'s
   `editPromotions` (`op/lib/auth.tsx`) becomes `['owner']` in this commit, so for a manager
   `PromotionEditor` renders read-only as it already does for a role without the flag
@@ -3468,13 +3540,20 @@ here, and visually by Majed on a phone through Metro on the new dev client (scre
   and by `release_launch_internal`, and is null on a new hidden item. The accepted limit (plan
   #59): a manager renames an item that existed before the migration and is off, and switches it
   on, without a refusal. `release_review_input` returns `notes` and `marketing_take` with no
-  author name.
+  author name. Wave 3 review: a launch-now naming the right path with no object in `menu-media`
+  refused `RECORD_INVALID:menu_photo_path`; a release draft moved into a shop category refused
+  `ITEM_IN_RELEASE` for the manager and the owner; a shop product on sale moved into a cafe
+  category refused `ITEM_VIA_RELEASE` for a manager, hidden or on, and passing for the owner;
+  `protocol-action`'s refused launch-now and a reverted, skipped or failed tick remove the copy,
+  and a retry of a launch that went through copies nothing.
 - C: `receive_purchase` retried with the same key books stock once; a second key refuses
   `PURCHASE_ALREADY_RECEIVED`; a receive that leaves out a stock line refused; `suggest_campaign`
   with one name and no channel gives `BAD_CHANNEL`, not a 23502.
 - F: an event block with a conflict writes nothing; event minutes stay open capacity and appear in
   `event_minutes` in all three re-issued outputs, `report_courts` included; `tournament_context`
-  gives the court desk the ranges and no money; the purge deletes candidates and overwrites
+  gives the court desk the ranges and no money; a plan sent back and moved a day cancels the old
+  block ("Tournament moved"), the courts step refuses it, and a same-day shift blocks with no
+  conflict against the run's own block (wave 3 review); the purge deletes candidates and overwrites
   decision notes, skip notes and the stop reason with the marker, on a run with a send-back;
   `app.assistant_readable_columns` has no `hiring_candidates` row. **The price locks** (#41, #51,
   #53), each as manager and as owner: `PRICE_VIA_PROTOCOL` for a manager on a launched cafe item's
@@ -3527,6 +3606,15 @@ here, and visually by Majed on a phone through Metro on the new dev client (scre
   `INVALID_TIME_RANGE`), a rule at another venue (hint `rule_id`), a taken promotion code (hint
   `promotion.public_code`), and a `promotion_enable` on a promotion that is on (hint
   `promotion_id`); `price_promo_targets` for the four new kinds carries no cost or sales.
+  **Wave 3 review:** the compulsory add-on lock (a manager's link of a paid-only compulsory group,
+  a second pick, a free option switched off or moved out, a paid-only side revealed, also while
+  the option is off, and the limit in an all-paid group, each `PRICE_VIA_PROTOCOL:required_addon`;
+  a choice with a free option, a rename, a free side revealed and an unlink passing; the owner
+  passing); a `shop_launch` on a release draft refused at propose, left out of its targets, and
+  `PRICE_TARGET_CHANGED:item` when the product enters a release after approval; a product launched
+  by a `shop_launch` moved into a cafe category refused `ITEM_VIA_RELEASE` for a manager; an
+  applied promotion from marketing, an edit and a switch-on each name the approving owner as
+  `created_by` (the redemption's `authorized_by`).
 - K: §2.23's tests (the money-free `kitchen_board`, the narrowed policies, the venue conjunct, the
   kitchen RPCs still working, and the guest suites unchanged).
 - **Role spec (plan #61–#74):**
