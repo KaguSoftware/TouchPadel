@@ -199,10 +199,10 @@ export const siteBaseCss = `
 .tp-pattern { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; pointer-events: none; opacity: var(--tp-site-pattern-opacity); }
 .tp-pattern__bands { stroke: var(--tp-site-pattern); fill: none; }
 .tp-on-dark .tp-pattern, .tp-on-blue .tp-pattern { opacity: var(--tp-site-pattern-opacity-on-dark); }
-/* Where the bands carry no text (behind the court, the Visit picture, the events poster,
-   whose letters are knocked out of them) they are the exact Padel Green: at 0.45 green
+/* Where the bands carry no text (behind the court, the events poster, whose letters
+   are knocked out of them) they are the exact Padel Green: at 0.45 green
    over blue mixes into a teal (retired) and over black into an olive. */
-.tp-club__field .tp-pattern, .tp-visit__art .tp-pattern, .tp-events .tp-events__pattern { opacity: 1; }
+.tp-club__field .tp-pattern, .tp-events .tp-events__pattern { opacity: 1; }
 
 /* The title squiggle sits on the leading edge, so it mirrors in Arabic. */
 .tp-squiggle { display: block; inline-size: 5.5rem; block-size: 0.6rem; overflow: visible; }

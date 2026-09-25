@@ -34,10 +34,8 @@ export const SITE_NIGHT_MODE = 'night';
  */
 export const siteLightVars = {
   '--tp-site-page': '#FFFFFF', // full-bleed paper sections
-  '--tp-site-surface-2': '#EDF0F5', // subdued fills
   '--tp-site-tint': '#EFF3FA', // blue-tinted chips / bands (brand blue L96)
   '--tp-site-ink-2': '#41567A', // stronger secondary text
-  '--tp-site-faint': '#8495B2', // decorative labels only — not body copy
   '--tp-site-border-strong': '#D6DEEA',
   '--tp-site-accent-hover': '#274982', // brand blue L33
   '--tp-site-green': '#A5D06F',
@@ -51,7 +49,6 @@ export const siteLightVars = {
   // The poster ground: brand black, both modes.
   '--tp-site-poster': '#000000',
   '--tp-site-poster-fg': '#FFFFFF',
-  '--tp-site-poster-muted': '#BCBDBF', // brand gray, 11.17:1 on black
   '--tp-site-navy': '#172C4F', // brand navy (L20), the app's success/hold ground
   // Header once the page has scrolled under it. Solid, never glass.
   '--tp-site-header-bg': '#FFFFFF',
@@ -88,9 +85,8 @@ export const siteLightVars = {
   // white wordmark + green→white swoosh on every dark ground.
   '--tp-site-lockup-ink': '#3360AB',
   '--tp-site-lockup-swoosh-end': '#3360AB',
-  // The app's own screen redrawn (the app band): apps/mobile palettes + brand constants.
-  '--tp-site-green-strong': '#527F19', // app gstrong: "free" on a slot cell
-  '--tp-site-warn-fg': '#8A6116', // app ambstrong: "1 court left"
+  // apps/mobile palettes + brand constants.
+  '--tp-site-warn-fg': '#8A6116', // app ambstrong: the closed dot of the open-now pill
   '--tp-site-navy-card': '#1E3966', // app brand.navyCard, L26 (both modes)
   // Amber for a status mark that sits on a dark ground in EITHER mode (the open-now
   // pill over the hero photo): the night value of --tp-site-warn-fg.
@@ -123,10 +119,8 @@ export const siteNightVars = {
   '--tp-border': '#2D5495', // L38
   '--tp-danger': '#C93B30',
   '--tp-site-page': '#172C4F', // L20 — the deepest ground
-  '--tp-site-surface-2': '#274982', // L33
   '--tp-site-tint': '#284B86', // L34
   '--tp-site-ink-2': '#E0E0E1',
-  '--tp-site-faint': '#ACADAF',
   '--tp-site-border-strong': '#3360AB', // the brand blue itself
   '--tp-site-accent-hover': '#E0E0E1',
   '--tp-site-green-text': '#A5D06F', // brand green reads on navy (7.85:1 on #172C4F)
@@ -148,7 +142,6 @@ export const siteNightVars = {
   '--tp-site-display-2': '#A5D06F', // 7.85:1 on #172C4F (style reference §3.3)
   '--tp-site-lockup-ink': '#FFFFFF',
   '--tp-site-lockup-swoosh-end': '#FFFFFF',
-  '--tp-site-green-strong': '#BCDC93',
   '--tp-site-warn-fg': '#E3AF4F',
   // The app's blue-mode red family: a dusky rose, not an alarm.
   '--tp-site-error-bg': '#4A2A3A',

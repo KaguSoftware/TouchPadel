@@ -6,8 +6,9 @@
  *  - CourtIllustration: server-safe flat court (SVG + CSS keyframes).
  *  - courtCss: every rule both need; SiteStyles inlines it.
  *
- * Nothing here imports three.js statically: courtCanvas.ts and the copied scene
- * modules are reached only through CourtStage's `import()`.
+ * Nothing here imports three.js statically: courtCanvas.ts and the court itself
+ * (@touch/court3d, the same package the phone app draws) are reached only
+ * through CourtStage's `import()`.
  */
 export { CourtStage } from './CourtStage';
 export type { CourtStageProps } from './CourtStage';

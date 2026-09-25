@@ -1,29 +1,39 @@
 /**
- * Scroll → camera for the landing hero. Pure, so the mapping is tested rather
+ * Scroll → camera for the club section. Pure, so the mapping is tested rather
  * than eyeballed.
  *
- * p is the phone's transition progress (spec.ts): 0 = the top-down court,
- * 1 = the booking view's 40° pitch. On the site the scroll only ever takes it
- * to SCROLL_P_MAX: far enough that the court tips toward the visitor as the hero
- * leaves, not so far that the near corners run out of a portrait box.
+ * k is the phone's eased camera pitch (@touch/court3d rally.ts cameraPose):
+ * 0 = the flat top-down diagram, 1 = the booking view's 40° pitch. The site never
+ * shows either end. It rests at K_REST, where the cage, the lime glass and its
+ * window panes, the net and the standing rackets all read as a 3D model, and the
+ * scroll only sways it between K_FROM and K_TO, so the model is what a visitor
+ * sees at every point of the section.
  */
-export const SCROLL_P_MAX = 0.75;
+import { clamp01, EASE_IO, lerp } from '@touch/court3d/spec';
 
-/** How much of the stage has scrolled out of the top when p reaches SCROLL_P_MAX. */
-export const SCROLL_OUT_AT = 0.6;
+/** Pitch as the section comes up the screen: 67° elevation, 12.6° around. */
+export const K_FROM = 0.45;
+/** The court at rest (no scroll link, reduced motion): 60° elevation, 16.8° around. */
+export const K_REST = 0.6;
+/** Pitch as the section leaves the top: 52° elevation, 21° around. */
+export const K_TO = 0.75;
 
 /**
- * Progress from the stage's own box: 0 while its top edge is still in the
- * viewport (the upper third on a desktop hero, lower on a phone), rising
- * linearly to SCROLL_P_MAX by the time SCROLL_OUT_AT of its height has left the
- * top, so the pitched court is still on screen when it gets there.
+ * How far the section has travelled through the viewport: 0 when its top edge is
+ * at the bottom of the screen, 1 when its bottom edge leaves the top. Measured on
+ * the SECTION, not the court's box, because on a desktop that box is sticky and
+ * its own rect hardly moves while the section scrolls past.
  */
-export function scrollProgress(top: number, height: number, viewportH: number): number {
-  void viewportH; // kept in the signature: the start line may move off the top later
-  const span = height * SCROLL_OUT_AT;
+export function sectionProgress(top: number, height: number, viewportH: number): number {
+  const span = height + viewportH;
   if (!(span > 0)) return 0;
-  const raw = -top / span;
-  return Math.min(1, Math.max(0, raw)) * SCROLL_P_MAX;
+  const p = (viewportH - top) / span;
+  return Number.isFinite(p) ? clamp01(p) : 0;
+}
+
+/** The camera pitch for a section progress (0..1), eased in and out. */
+export function kFor(progress: number): number {
+  return lerp(K_FROM, K_TO, EASE_IO(clamp01(progress)));
 }
 
 /**

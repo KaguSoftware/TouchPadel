@@ -109,10 +109,12 @@ export const siteClubCss = `
     inset-inline-start: calc(-1 * clamp(1.5rem, 3.5vw, 3rem));
     inset-inline-end: calc(-1 * (max(0px, (100vw - var(--tp-site-max)) / 2) + var(--tp-site-gutter)));
   }
+  /* The court fills its box at every pitch (features/court3d/framing.ts), so the box is
+     the court's size: most of the screen's height, capped for tall monitors. */
   .tp-club__court-box {
     position: sticky;
-    inset-block-start: calc(var(--tp-site-header-h) + max(1rem, (100svh - var(--tp-site-header-h) - 72svh) / 2));
-    inline-size: min(100%, calc(72svh * 320 / 396), 34rem);
+    inset-block-start: calc(var(--tp-site-header-h) + max(1rem, (100svh - var(--tp-site-header-h) - 80svh) / 2));
+    inline-size: min(100%, calc(80svh * 320 / 396), 40rem);
   }
 }
 `;

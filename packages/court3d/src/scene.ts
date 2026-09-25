@@ -1,4 +1,3 @@
-// COPIED from apps/mobile/src/features/courtTransition/scene.ts on 2026-09-23 — keep byte-identical except WEB: lines
 /**
  * The three.js court from `Court Transition Prototype.html` (`buildCourt`),
  * ported 1:1 for expo-gl: real net, lime glass + mesh cage with the brand's
@@ -13,12 +12,18 @@
  * `docs/design/mobile-ui/Court Transition Prototype.html` header for the spec).
  *
  * All motion numbers come from rally.ts (unit-tested); this file only builds
- * meshes and applies those numbers each frame. The `lite` tier (quality.ts,
- * low-end phones) builds the same court with no shadow pass — no caster, no
+ * meshes and applies those numbers each frame. The `lite` tier (low-end phones,
+ * decided by the app) builds the same court with no shadow pass — no caster, no
  * receiver, no invisible ball caster — and a plainer racket (racket.ts); the
  * ball's ground disc stands in for its shadow. The trail is the same on both.
  * Colours are the prototype's own (its brand stickers); the page colour behind
  * the court is the renderer's clear colour, set by the component per theme.
+ *
+ * ONE court, two hosts. apps/mobile (components/Court3D.tsx, expo-gl) and
+ * apps/web (features/court3d/courtCanvas.ts, a browser canvas) both build it
+ * here. Where they differ it is an option (CourtSceneOptions). Every default is the
+ * phone's EXCEPT the backdrop: with none, nothing is drawn behind the court, and the
+ * phone passes its brand pattern (apps/mobile courtTransition/phoneCourt.ts).
  */
 import * as THREE from 'three';
 import {
@@ -32,12 +37,63 @@ import {
   LEG_SECONDS,
 } from './rally';
 import { buildRacketKit } from './racket';
-// WEB: no patternBackdrop import. The canvas is transparent and the page paints the pattern behind it.
 import { makeCamera, poseCamera } from './camera';
 import { lerp, slice, SPEC } from './spec';
 import type { CourtQuality } from './quality';
 
-// Brand ramp values (see src/theme/tokens.ts — the palette is closed to five
+/** Where the court's surface sits in its window (the phone's pattern backdrop places itself by it). */
+export interface BackdropViewport {
+  /**
+   * The box the pattern is sliced over, in dp: the box the PAGE's copy of it
+   * occupies. Both are measured by onLayout in the same coordinate space (see
+   * the Book tab), so neither has to know what that space is.
+   */
+  boxWidth: number;
+  boxHeight: number;
+  /** The GL view's top-left corner inside that box, in dp. */
+  offsetX: number;
+  offsetY: number;
+  /** The GL view's own size, in dp. */
+  viewWidth: number;
+  viewHeight: number;
+}
+
+/**
+ * Something drawn behind the court, hung off the camera (the phone's brand
+ * pattern: apps/mobile/src/features/courtTransition/patternBackdrop.ts).
+ */
+export interface CourtBackdrop {
+  /** Added to the camera, so it stays on the glass while the camera orbits. */
+  group: THREE.Group;
+  /** Put it where the page has it; `lift` is the court layer's own translateY. */
+  place(view: BackdropViewport, lift: number): void;
+  /** Its colour, already blended into the page colour behind it. */
+  setInk(color: string): void;
+  dispose(): void;
+}
+
+export interface CourtSceneOptions {
+  /**
+   * A backdrop to hang behind the court, built for the camera's vertical fov.
+   * The phone passes its brand pattern; without one (the web) nothing is drawn
+   * there and the renderer's clear colour shows.
+   */
+  backdrop?: (fovDeg: number) => CourtBackdrop;
+  /**
+   * How the ball spins. `frame` (default, the phone) turns it a fixed step per
+   * drawn frame, so a 120 Hz screen spins it twice as fast as a 60 Hz one;
+   * `time` turns it by the rally clock (0.12 / 0.07 rad per 1/60 s), the same on
+   * every screen.
+   */
+  spin?: 'frame' | 'time';
+  /** The sun's shadow map, px square. Default 1024 (the phone's saving); the prototype drew 2048. */
+  shadowMapSize?: number;
+}
+
+/** The ball's spin in rad/s under `spin: 'time'`: the phone's 0.12 / 0.07 rad a frame, at 60 fps. */
+export const BALL_SPIN = { x: 7.2, z: 4.2 } as const;
+
+// Brand ramp values (see apps/mobile/src/theme/tokens.ts — the palette is closed to five
 // colours). NAVY and TURF are exact shades of brand blue #3360AB; LIME and BLUE
 // are the brand colours themselves. NOTE: these are MeshStandardMaterial colours
 // under a hemisphere light + directional sun, so they do NOT render as these
@@ -60,7 +116,7 @@ const TURF = 0x2d5495;
  * 0.367 s is the old 22-frames-at-60fps span, kept so the trail's length on
  * screen is unchanged. The count is what keeps it continuous rather than
  * beaded, so it is not a tier knob; lite saves its frame time on the shadow
- * pass (quality.ts), and these spheres are unlit and never write depth.
+ * pass, and these spheres are unlit and never write depth.
  */
 const TRAIL_N = 36;
 const TRAIL_LAG = 22 / 60;
@@ -73,23 +129,45 @@ export interface CourtScene {
   camera: THREE.PerspectiveCamera;
   /** Apply camera + rally + fades for time t (s) and eased pitch camK; p is the raw progress. */
   update(t: number, p: number, camK: number): void;
-  // WEB: setBackdropViewport / setBackdropInk dropped with the pattern backdrop.
+  /**
+   * Where this surface sits in the app window, so the brand pattern behind the
+   * court lines up with the page's copy of it (the phone's patternBackdrop). Call it on
+   * layout and whenever the window changes; until it is called the backdrop
+   * has nothing to place itself against and stays where it was built. A no-op
+   * without a backdrop.
+   */
+  setBackdropViewport(view: BackdropViewport): void;
+  /**
+   * The pattern's ink, ALREADY blended into the page colour behind it — the
+   * page's copy carries a different alpha in each appearance and this one has
+   * to be opaque, so the caller does the blend (apps/mobile theme/brandPattern.ts,
+   * patternInk) and re-does it on a theme flip. A no-op without a backdrop.
+   */
+  setBackdropInk(color: string): void;
   /** Everything with a `dispose()`: geometries, materials. */
   dispose(): void;
 }
 
-export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
+export function buildCourtScene(
+  quality: CourtQuality = 'full',
+  opts: CourtSceneOptions = {},
+): CourtScene {
   const shadows = quality === 'full';
+  const spinByTime = opts.spin === 'time';
   const disposables: { dispose(): void }[] = [];
   const scene = new THREE.Scene();
   const overlay = new THREE.Scene();
   const camera = makeCamera(390 / 844);
-  // The pattern behind the court. Parented to the CAMERA so it stays put on
-  // the glass while the camera orbits, and the camera is parented to the SCENE
-  // so `renderer.render(scene, camera)` updates the group's world matrix with
-  // everything else. See patternBackdrop.ts for why this is geometry and not a
-  // transparent clear colour.
-  scene.add(camera); // WEB: kept parented (update() relies on it); no backdrop group, no viewport.
+  // The backdrop (the phone's pattern) is parented to the CAMERA so it stays
+  // put on the glass while the camera orbits, and the camera is parented to the
+  // SCENE so `renderer.render(scene, camera)` updates the group's world matrix
+  // with everything else. The camera is parented with or without a backdrop:
+  // update() relies on it. See apps/mobile's patternBackdrop.ts for why the pattern
+  // is geometry and not a transparent clear colour.
+  const backdrop = opts.backdrop?.(SPEC.camera.fov) ?? null;
+  if (backdrop) camera.add(backdrop.group);
+  scene.add(camera);
+  let viewport: BackdropViewport | null = null;
 
   // the overlay is lit like the court, minus the shadow pass
   overlay.add(new THREE.HemisphereLight(0xffffff, 0xb0c5e8, 0.95));
@@ -102,12 +180,12 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   sun.position.set(6, 30, 10);
   sun.castShadow = shadows;
   if (shadows) {
-    // 2048 in the prototype; 1024 keeps the shadow pass cheap on a phone.
-    sun.shadow.mapSize.set(1024, 1024);
+    // 2048 in the prototype; the 1024 default keeps the shadow pass cheap on a phone.
+    const mapSize = opts.shadowMapSize ?? 1024;
+    sun.shadow.mapSize.set(mapSize, mapSize);
     sun.shadow.bias = -0.0002;
     sun.shadow.normalBias = 0.05;
     sun.shadow.radius = 4;
-    /* eslint-disable no-restricted-syntax -- WEB: a shadow camera's frustum, not CSS (apps/mobile exempts this folder in its eslint config) */
     Object.assign(sun.shadow.camera, {
       left: -8,
       right: 8,
@@ -116,7 +194,6 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
       near: 5,
       far: 60,
     });
-    /* eslint-enable no-restricted-syntax -- WEB: */
   }
   scene.add(sun);
 
@@ -369,10 +446,22 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     scene,
     overlay,
     camera,
-    // WEB: no setBackdropViewport / setBackdropInk methods (no pattern backdrop).
+    setBackdropViewport(view) {
+      viewport = view;
+    },
+    setBackdropInk(color) {
+      backdrop?.setInk(color);
+    },
     update(t, p, camK) {
       poseCamera(camera, camK);
-      // WEB: no backdrop.place (no pattern backdrop on the web).
+      if (backdrop && viewport) {
+        // The court layer's own lift, so the backdrop can cancel it and stay
+        // with the window. The Book tab (apps/mobile app/(tabs)/index.tsx)
+        // drives that lift through a 24-sample table of the same ease
+        // (sampleEased) rather than the ease itself, so the two agree to well
+        // under a pixel but not to the bit.
+        backdrop.place(viewport, lerp(SPEC.court.y[0], SPEC.court.y[1], camK));
+      }
       // The overlay pass reuses this camera, and three skips updateMatrixWorld
       // for a camera that has a parent — which this one now does. Doing it here
       // means neither pass depends on the other having run first.
@@ -401,8 +490,13 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
       });
       ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       caster?.position.copy(ball.position);
-      ball.rotation.x = t * 7.2; // WEB: time-based (0.12 rad/frame at 60 fps); the phone's per-frame step spun 2x on 120 Hz screens.
-      ball.rotation.z = t * 4.2; // WEB: time-based (0.07 rad/frame at 60 fps).
+      if (spinByTime) {
+        ball.rotation.x = t * BALL_SPIN.x;
+        ball.rotation.z = t * BALL_SPIN.z;
+      } else {
+        ball.rotation.x += 0.12;
+        ball.rotation.z += 0.07;
+      }
       // Each ghost is the ball re-evaluated at a fixed time BEHIND t, so the
       // spacing is the same at 30fps as at 60 (see TRAIL_LAG). The lookback
       // stops at the current leg's start — the ball turns at the racket, and a
@@ -422,7 +516,7 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
       shadeMat.opacity = state.shade.opacity;
     },
     dispose() {
-      // WEB: no backdrop.dispose().
+      backdrop?.dispose();
       for (const d of disposables) d.dispose();
       scene.clear();
       overlay.clear();

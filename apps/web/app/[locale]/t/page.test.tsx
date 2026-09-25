@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Locale } from '@touch/i18n';
-import TableSessionRedirect, { generateMetadata } from './page';
+import TableSessionRedirect from './page';
 
 /**
  * `/{locale}/t` — the table session's URL until 2026-09-23, now a redirect to
@@ -22,18 +21,12 @@ vi.mock('next/navigation', () => ({
 
 const params = (locale: string) => ({ params: Promise.resolve({ locale }) });
 
-describe.each(['en', 'ar'] as const)('table session redirect (%s)', (locale: Locale) => {
+describe('table session redirect', () => {
   it('sends the old session URL to the café menu in the same locale', async () => {
-    await expect(TableSessionRedirect(params(locale))).rejects.toThrow(`NEXT_REDIRECT /${locale}/menu`);
+    await expect(TableSessionRedirect(params('ar'))).rejects.toThrow('NEXT_REDIRECT /ar/menu');
   });
 
-  it('is never indexed', async () => {
-    expect((await generateMetadata(params(locale))).robots).toEqual({ index: false, follow: false });
-  });
-});
-
-describe('a foreign locale segment', () => {
-  it('404s instead of redirecting', async () => {
+  it('404s a foreign locale segment instead of redirecting', async () => {
     await expect(TableSessionRedirect(params('xx'))).rejects.toThrow('NEXT_NOT_FOUND');
   });
 });

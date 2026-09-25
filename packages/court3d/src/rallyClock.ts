@@ -1,7 +1,7 @@
 /**
  * HOW MUCH RALLY TIME ONE DRAWN FRAME IS WORTH.
  *
- * The court's rally is drawn from a JS `requestAnimationFrame` loop (Court3D),
+ * The court's rally is drawn from a JS `requestAnimationFrame` loop (apps/mobile Court3D),
  * on the same thread React commits on. So anything expensive the Book tab does
  * — mounting the booking sheet, rebuilding the time grid for a new day, a GC
  * pause — is time the loop does not get, and the rally misses frames.

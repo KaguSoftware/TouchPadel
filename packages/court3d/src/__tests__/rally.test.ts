@@ -5,10 +5,7 @@ import {
   layAngle,
   LEG_SECONDS,
   LOOP_SECONDS,
-  nearCageOpacity,
-  nextLegStart,
   PLAYERS,
-  playerYaw,
   RACKET_Y,
   RALLY_ORDER,
   rallyAt,
@@ -43,15 +40,6 @@ describe('camera orbit (prototype updateCamera)', () => {
       expect(near(Math.hypot(up.x, up.y, up.z), 1)).toBe(true);
     }
   });
-
-  it('near cage: mesh .42→.10, glass .55→.12, frame 1→.25, panes .75→.10', () => {
-    expect(nearCageOpacity(0)).toEqual({ fence: 0.42, glass: 0.55, frame: 1, pane: 0.75 });
-    const end = nearCageOpacity(1);
-    expect(near(end.fence, 0.1)).toBe(true);
-    expect(near(end.glass, 0.12)).toBe(true);
-    expect(near(end.frame, 0.25)).toBe(true);
-    expect(near(end.pane, 0.1)).toBe(true);
-  });
 });
 
 describe('rally (prototype updateRally)', () => {
@@ -75,25 +63,6 @@ describe('rally (prototype updateRally)', () => {
     expect(near(end.ball.y, recv.y, 1e-6)).toBe(true);
   });
 
-  it('the arc is fixed at the strike, so the follow-through does not drag it', () => {
-    // A and B are read at the leg's own boundaries; the hitter's face keeps
-    // moving for another 1.34 s and must not pull the ball's start with it.
-    const legStart = rallyAt(0, 0).ball;
-    for (const u of [0.2, 0.5, 0.9]) {
-      const later = rallyAt(u * LEG_SECONDS, 0);
-      const w = Math.min(u / 0.62, 1);
-      if (u >= 0.62) continue;
-      // The flight arc is a straight lerp in x/z from where the ball was struck.
-      const bounceX = later.ball.x;
-      expect(Math.sign(bounceX - legStart.x)).toBe(Math.sign(w));
-    }
-    // Same leg sampled twice: the launch point is the same both times.
-    expect(rallyAt(0.4 * LEG_SECONDS, 0).ball).not.toEqual(rallyAt(0.5 * LEG_SECONDS, 0).ball);
-    const a = rallyAt(0, 0).ball;
-    const b = rallyAt(1e-12, 0).ball;
-    expect(near(a.x, b.x, 1e-6) && near(a.z, b.z, 1e-6)).toBe(true);
-  });
-
   it('two arcs: bounces on the ground at 62 % of the leg, peaks 1.9 m up in flight', () => {
     const atBounce = rallyAt(0.62 * LEG_SECONDS, 0);
     expect(near(atBounce.ball.y, BALL_RADIUS, 1e-6)).toBe(true);
@@ -103,11 +72,6 @@ describe('rally (prototype updateRally)', () => {
     const a = rallyAt(0, 0).rackets[0]!.contact.y;
     expect(near(mid.ball.y, (a + BALL_RADIUS) / 2 + 1.9, 1e-6)).toBe(true);
     expect(rallyAt(0.81 * LEG_SECONDS, 0).ball.y).toBeLessThan(1.2); // the low bounce arc
-  });
-
-  it('newLeg flags the first 2 % of a leg (trail reset)', () => {
-    expect(rallyAt(0.01, 0).newLeg).toBe(true);
-    expect(rallyAt(0.5, 0).newLeg).toBe(false);
   });
 
   it('rackets lie flat in the top view and stand up in the front view', () => {
@@ -216,13 +180,6 @@ describe('rally (prototype updateRally)', () => {
     }
   });
 
-  it('yaw: far pair faces −z, near pair +z, each angled toward the centre', () => {
-    expect(playerYaw(PLAYERS[0]!)).toBe(0.3);
-    expect(playerYaw(PLAYERS[1]!)).toBe(-0.3);
-    expect(near(playerYaw(PLAYERS[2]!), Math.PI - 0.3)).toBe(true);
-    expect(near(playerYaw(PLAYERS[3]!), Math.PI + 0.3)).toBe(true);
-  });
-
   it('the ground disc sits opposite the sun and fades with height', () => {
     const s = rallyAt(0.31 * LEG_SECONDS, 0); // high ball
     expect(s.shade.x).toBeLessThan(s.ball.x);
@@ -230,26 +187,5 @@ describe('rally (prototype updateRally)', () => {
     const low = rallyAt(0.62 * LEG_SECONDS, 0);
     expect(low.shade.opacity).toBeGreaterThan(s.shade.opacity);
     expect(low.shade.scale).toBeGreaterThan(s.shade.scale);
-  });
-});
-
-describe('nextLegStart (where the idle hold lands)', () => {
-  it('is the next multiple of LEG_SECONDS, itself when already on one', () => {
-    expect(near(nextLegStart(0), 0)).toBe(true);
-    expect(near(nextLegStart(0.01), LEG_SECONDS)).toBe(true);
-    expect(near(nextLegStart(LEG_SECONDS), LEG_SECONDS)).toBe(true);
-    expect(near(nextLegStart(3 * LEG_SECONDS + 1.2), 4 * LEG_SECONDS)).toBe(true);
-  });
-
-  it('holds on the instant of contact: the ball ON the striking face', () => {
-    for (const t of [0.4, 5.7, 12.9]) {
-      const s = rallyAt(nextLegStart(t), 0);
-      const striker = s.rackets[s.from]!;
-      expect(near(s.ball.x, striker.contact.x, 1e-6)).toBe(true);
-      expect(near(s.ball.z, striker.contact.z, 1e-6)).toBe(true);
-      expect(near(s.ball.y, striker.contact.y, 1e-6)).toBe(true);
-      expect(near(striker.hit, 1, 1e-6)).toBe(true);
-      expect(s.newLeg).toBe(true);
-    }
   });
 });

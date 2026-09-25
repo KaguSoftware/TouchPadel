@@ -892,7 +892,7 @@ imported by `src/i18n/nativeDirection.ts` only (lint + `headerDirection.test.ts`
 **Exceptions, on purpose:** `Field`'s TextInput keeps a physical `textAlign` (Fabric never feeds
 an input its layout direction, on either platform) plus `writingDirection: dir`;
 `CourtIllustration` roots in `LtrIsland` (`direction: 'ltr'`) so its physical art is invariant;
-three.js camera bounds in `courtTransition/` are geometry. SVG paths never mirror by themselves —
+three.js camera bounds in `packages/court3d` (`@touch/court3d/camera`) are geometry. SVG paths never mirror by themselves —
 `mirror(dir)` (chevrons, title squiggle, welcome art). No horizontal FlatList: virtualized-lists
 keys its RTL math on the pinned native flag (`direction.test.ts` forbids it).
 
@@ -1825,9 +1825,12 @@ calls worth knowing before touching anything venue-shaped:
   + `main/print/` — the durable queue, replay worker, offline PIN, LAN KDS, ESC/POS printing.
 - `docs/{install-runbook,drill-runbook}.md` — installing the till (incl. SmartScreen step) and
   the 16-step disconnection drill.
-- `apps/mobile/src/features/courtTransition/` — the court → booking transition: `spec.ts` (pure motion
-  spec + tests), `rally.ts` (camera orbit + rally maths, pure, tested), `scene.ts` (the three.js
-  scene, 1:1 from the prototype), `useCourtTransition.ts` (the spring driver); rendered by
+- `packages/court3d` (`@touch/court3d`) — the ONE 3D court, imported by the app and the site:
+  `spec.ts` (pure motion spec), `rally.ts` (camera orbit + rally maths, pure), `scene.ts` (the
+  three.js scene, 1:1 from the prototype; host differences are options), with their tests.
+- `apps/mobile/src/features/courtTransition/` — the phone's side of the court → booking transition:
+  `phoneCourt.ts` (the shared scene + the brand pattern backdrop), `patternBackdrop.ts`,
+  `logoMark.ts`, `useCourtTransition.ts` (the spring driver); rendered by
   `components/Court3D.tsx` (expo-gl), `components/BookingSheet.tsx` and `app/(tabs)/index.tsx`;
   `components/CourtIllustration.tsx` is the flat fallback; the shared flow is
   `features/availability/useAvailabilityBooking.ts`.

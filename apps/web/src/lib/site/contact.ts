@@ -1,6 +1,6 @@
 /**
  * How a visitor reaches the club (docs/design/web-site/contracts-2026-09-23.md §0,
- * "Contact plumbing"): WhatsApp, a call, the map, Instagram.
+ * "Contact plumbing"): WhatsApp, a call, the map.
  *
  * Every WhatsApp and Call button on the site is built from the ONE venue phone in
  * `venue_settings_public`, so correcting that setting in the operator app corrects every
@@ -8,8 +8,7 @@
  * from abroad is worse than no button: anything that does not normalise to a plausible
  * international number gives `null`, and the page falls back to "Plan your visit".
  *
- * Pure and client-safe; the env readers name each variable LITERALLY because Next
- * inlines `process.env.NEXT_PUBLIC_*` at build only where the full name is written out.
+ * Pure and client-safe.
  */
 
 /** Arabic-Indic (٠–٩) and Extended Arabic-Indic (۰–۹) digits, typed in the operator app. */
@@ -97,64 +96,11 @@ export function telUrl(phone: string | null | undefined): string | null {
   return digits ? `tel:+${digits}` : null;
 }
 
-/** An https URL with no credentials and the default port, or null. */
-function httpsUrl(raw: string | null | undefined): URL | null {
-  const value = raw?.trim();
-  if (!value) return null;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return null;
-  }
-  return url.protocol === 'https:' && !url.username && !url.password && !url.port ? url : null;
-}
-
 /** Where the club is, as Google Maps searches it (owner, 2026-09-23: "darra karbela"). */
-export const MAPS_QUERY = 'درّة كربلاء، كربلاء';
-
-/** The fallback when no pinned link is configured: a Google Maps search for the club. */
-export const DEFAULT_MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(MAPS_QUERY)}`;
+const MAPS_QUERY = 'درّة كربلاء، كربلاء';
 
 /**
- * Google Maps and its share links, and nothing else: the button says "Open in Google
- * Maps", so a typo in the env var must never put another site behind it (the same rule
- * stores.ts keeps for the store badges). `google.com` and `goo.gl` only under `/maps`.
+ * "Open in Google Maps": a search for Durrat Karbala. A link out, never an iframe (the
+ * CSP has no frame-src). When the owner sends a pinned place link, it replaces this.
  */
-function isGoogleMaps(url: URL): boolean {
-  const host = url.hostname;
-  if (host === 'maps.google.com' || host === 'maps.app.goo.gl') return true;
-  if (host === 'www.google.com' || host === 'google.com' || host === 'goo.gl') {
-    return url.pathname === '/maps' || url.pathname.startsWith('/maps/');
-  }
-  return false;
-}
-
-/**
- * "Open in Google Maps": `NEXT_PUBLIC_MAPS_URL` when it is an https Google Maps link
- * (a pinned place or a share link), else a search for Durrat Karbala. A link out, never
- * an iframe (the CSP has no frame-src).
- */
-export function mapsUrl(env: string | undefined = process.env.NEXT_PUBLIC_MAPS_URL): string {
-  const url = httpsUrl(env);
-  return url && isGoogleMaps(url) ? url.toString() : DEFAULT_MAPS_URL;
-}
-
-const INSTAGRAM_HOSTS = new Set(['instagram.com', 'www.instagram.com']);
-
-/**
- * The club's Instagram profile from `NEXT_PUBLIC_INSTAGRAM_URL`, as
- * `https://www.instagram.com/<handle>/…`, or null (and the link is not drawn) for
- * anything else: another host, http, credentials, a port, or no profile path. No handle is
- * confirmed yet, so today this is null and the page shows no Instagram at all.
- */
-export function instagramUrl(
-  env: string | undefined = process.env.NEXT_PUBLIC_INSTAGRAM_URL,
-): string | null {
-  const url = httpsUrl(env);
-  if (!url || !INSTAGRAM_HOSTS.has(url.hostname) || url.pathname.replace(/\//g, '') === '') {
-    return null;
-  }
-  url.hostname = 'www.instagram.com';
-  return url.toString();
-}
+export const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(MAPS_QUERY)}`;

@@ -3,12 +3,12 @@
  * `SiteStyles` into those pages only (never into the root layout, so the café menu and a
  * table guest on venue wifi never download it), after the layout's theme tokens.
  *
- * Rules (enforced by site-css.test.ts, which also runs over the court's `courtCss`):
- * CSS logical properties only; colours only via `var(--tp-*)` (raw literals only in the
- * tokens bridge); z-index only via `--tp-site-z-*`; only transform / opacity / clip-path /
- * stroke-dashoffset animate; a `prefers-reduced-motion` block in every module that moves;
- * and none of the café's own scale (`--tp-fs-*`, `--tp-radius-*`, `--tp-space-*`,
- * `--tp-cafe-*`) inside the site.
+ * Enforced by site-css.test.ts (which also runs over the court's `courtCss`): CSS logical
+ * properties only; colours only via `var(--tp-*)` (raw literals only in the tokens
+ * bridge); a `prefers-reduced-motion` block in every module that moves. House style, not
+ * tested: z-index via `--tp-site-z-*`, animate only transform / opacity / clip-path /
+ * stroke-dashoffset, and none of the café's own scale (`--tp-fs-*`, `--tp-radius-*`,
+ * `--tp-space-*`, `--tp-cafe-*`) inside the site.
  */
 import { siteTokensBridgeCss } from './tokens-bridge.css';
 import { siteBaseCss } from './base.css';

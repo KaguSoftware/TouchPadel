@@ -13,22 +13,14 @@ import { BALL_BOX, BALL_D, SWOOSH_D, VB, WORDMARK_D } from './brandPaths';
  *
  * The swoosh gradient is the only gradient in the system and fills the swoosh only.
  */
-export function BrandLockup({
-  title,
-  className,
-}: {
-  /** Accessible name; omitted = decorative (a link around it names it instead). */
-  title?: string;
-  className?: string;
-}) {
+/** Always decorative: the link around it (`site.brandHome`) carries the name. */
+export function BrandLockup({ className }: { className?: string }) {
   const gid = `tp-swoosh-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   return (
     <svg
       viewBox={`0 0 ${VB.w} ${VB.h}`}
       className={['tp-lockup', className].filter(Boolean).join(' ')}
-      role={title ? 'img' : undefined}
-      aria-label={title}
-      aria-hidden={title ? undefined : true}
+      aria-hidden="true"
       focusable="false"
     >
       <defs>
@@ -66,17 +58,14 @@ function BallPaths() {
 }
 
 /**
- * The ball alone: the brand's atom, legible at 14px. Decorative by default. Used as
- * the "open now" dot's big sibling, the footer bullet and the 404's lost ball.
+ * The ball alone: the brand's atom, legible at 14px. Decorative: the club's fact bullets.
  */
-export function BrandBall({ className, title }: { className?: string; title?: string }) {
+export function BrandBall({ className }: { className?: string }) {
   return (
     <svg
       viewBox={`${BALL_BOX.x} ${BALL_BOX.y} ${BALL_BOX.w} ${BALL_BOX.h}`}
       className={['tp-ballmark', className].filter(Boolean).join(' ')}
-      role={title ? 'img' : undefined}
-      aria-label={title}
-      aria-hidden={title ? undefined : true}
+      aria-hidden="true"
       focusable="false"
     >
       <BallPaths />

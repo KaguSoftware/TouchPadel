@@ -60,6 +60,9 @@ importers:
       '@touch/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@touch/court3d':
+        specifier: workspace:*
+        version: link:../../packages/court3d
       '@touch/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -351,6 +354,9 @@ importers:
       '@touch/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@touch/court3d':
+        specifier: workspace:*
+        version: link:../../packages/court3d
       '@touch/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -443,6 +449,27 @@ importers:
       eslint:
         specifier: ^9.15.0
         version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)(lightningcss@1.33.0)(terser@5.51.2)
+
+  packages/court3d:
+    devDependencies:
+      '@touch/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/three':
+        specifier: 0.160.0
+        version: 0.160.0
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.5(jiti@2.7.0)
+      three:
+        specifier: 0.160.0
+        version: 0.160.0
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

@@ -74,9 +74,8 @@ export const BALL_MASK_NOT_WARM = '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -12 12 0 0 1
  * ball is blue, so no halo of source pixels forms around it):
  * - BRIGHT: 8·luma − 5.6, so luma ≥ 0.825 is fully in and the turf (≈ 0.47) out.
  * - NOT_BLUE: 12·(G − B) + 1, so neutral whites are in and blue-leaning pixels out.
- * NOT_WARM applies too, so a lit face next to a ball stays graded. `gradePixel` below
- * is the per-pixel part of the filter; this spatial part needs neighbours, so the
- * browser is its test (the screenshots in the fix-pass report).
+ * NOT_WARM applies too, so a lit face next to a ball stays graded. The masks need
+ * neighbours, so the browser is their test (the screenshots in the fix-pass report).
  */
 export const BALL_FILL_BLUR = 6;
 export const BALL_FILL_SLOPE = 6;
@@ -94,28 +93,4 @@ export function rampTables(stops: readonly string[]): { r: string; g: string; b:
   const rgb = stops.map(channels);
   const table = (i: 0 | 1 | 2) => rgb.map((c) => (c[i] / 255).toFixed(4)).join(' ');
   return { r: table(0), g: table(1), b: table(2) };
-}
-
-/**
- * The grade applied to one pixel, exactly as the filter computes it (sRGB, 0–255 in and
- * out): used by the tests to prove what the filter does to a ball, a face or a line.
- */
-export function gradePixel(grade: PhotoGrade, [r, g, b]: [number, number, number]) {
-  const [R, G, B] = [r / 255, g / 255, b / 255];
-  const clamp = (v: number) => Math.min(1, Math.max(0, v));
-  const luma = clamp(0.2126 * R + 0.7152 * G + 0.0722 * B);
-  const stops = PHOTO_GRADE_RAMP[grade].map(channels);
-  const span = stops.length - 1;
-  const k = Math.min(Math.floor(luma * span), span - 1);
-  const t = luma * span - k;
-  const duo = [0, 1, 2].map((i) => stops[k]![i]! * (1 - t) + stops[k + 1]![i]! * t);
-  const keep = clamp(6 * (G - B) - 0.3) * clamp(12 * (G - R) + 1);
-  return {
-    rgb: [r, g, b].map((c, i) => Math.round(c * keep + duo[i]! * (1 - keep))) as [
-      number,
-      number,
-      number,
-    ],
-    keep,
-  };
 }

@@ -1,5 +1,5 @@
-// DATA copied from apps/mobile/src/theme/brandPattern.ts (the panel box, the eleven bands
-// and the band weight only; the mobile file's tiling code is not copied). Keep every value
+// DATA copied from apps/mobile/src/theme/brandPattern.ts (the panel box and the eleven bands
+// only; the mobile file's tiling code is not copied). Keep every value
 // identical to the source.
 //
 // The Touch Padel court-line pattern, recovered (not redrawn) from docs/brand/identity.pdf
@@ -33,9 +33,6 @@ export const PATTERN_LINES: readonly (readonly [number, number, number, number])
   [237.23, 216.86, -2.38, 291.85],
   [241.32, 330.1, 111.56, 357.28],
 ];
-
-/** The board's own band weight, for anyone who wants the poster back. */
-export const PATTERN_BAND_WIDTH = 16;
 
 // The mobile file's PATTERN_DEFAULT_OPACITY is not copied: the site's opacities are the
 // tokens --tp-site-pattern-opacity(-on-dark), one value per ground, in one place.

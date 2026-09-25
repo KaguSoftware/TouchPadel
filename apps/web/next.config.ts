@@ -34,9 +34,15 @@ const nextConfig: NextConfig = {
   // (guest cafe journey / bell-gate specs). Dev-only chrome; nothing in
   // production is affected.
   devIndicators: false,
+  // Dev-only. Next 16 serves its dev scripts and HMR socket to `localhost`
+  // alone, so a page opened on 127.0.0.1 (which dodges the 431 the shared
+  // localhost cookie jar causes) or from a phone on the office LAN rendered
+  // but never hydrated — the court stayed the flat SVG and nothing clicked
+  // (2026-09-25). Production ignores this setting.
+  allowedDevOrigins: ['127.0.0.1', '192.168.*.*', '10.*.*.*'],
   // Internal packages export raw .ts with no build step (HANDOFF conventions) —
   // Next must transpile them itself.
-  transpilePackages: ['@touch/core', '@touch/db', '@touch/i18n', '@touch/ui'],
+  transpilePackages: ['@touch/core', '@touch/court3d', '@touch/db', '@touch/i18n', '@touch/ui'],
   images: {
     // Only the public `menu-media` bucket (0027/0031), on the ONE project this
     // deployment talks to, plus the local stack.

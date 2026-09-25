@@ -17,14 +17,12 @@
  * two indoor courts; the hours (always interpolated from venue_settings_public, never
  * typed, and no line says "late" or "every day" unless the live window says so); rackets
  * and balls to rent; lockers; lessons (no levels, format or coach to promise); tournaments
- * and events coming; pay at the desk; the free-cancellation window of app bookings
- * (interpolated). Not confirmed, so absent: prices, durations, court features beyond
+ * and events coming; pay at the desk. Not confirmed, so absent: prices, durations, court features beyond
  * "indoor", court names, what to wear, minimum age, changing rooms, social handles.
  *
  * Placeholders: {hours} a display window like "09:00–02:00" (each time bidi-isolated by
- * lib/site/hours.ts), {cancelHours} the free-cancellation window as a counted phrase
- * ("4 hours", built from `hoursCount` by lib/site/plural.ts), {categories} a
- * locale-joined list of café category names, {count}, {store}, {time}, {year}.
+ * lib/site/hours.ts), {categories} a locale-joined list of café category names, {count}
+ * (`hoursCount`, which /terms uses for its cancellation window), {time}, {year}.
  */
 export const siteEn = {
   skipToContent: 'Skip to content',
@@ -75,9 +73,8 @@ export const siteEn = {
   hero: {
     lineOne: 'Touch is',
     lineTwo: 'a lifestyle',
-    lead: 'A padel club and café in Durrat Karbala. Two indoor courts, open every day {hours}.',
-    // The venue read failed or the days differ: nothing about days or hours at all.
-    leadNoHours: 'A padel club and café in Durrat Karbala, with two indoor courts.',
+    // No hours here: the open-now pill right above it carries them.
+    lead: 'A padel club and café in Durrat Karbala, with two indoor courts.',
     ctaWhatsApp: 'Book on WhatsApp',
     ctaCall: 'Call the desk',
     ctaVisit: 'Plan your visit',
@@ -85,13 +82,11 @@ export const siteEn = {
   club: {
     titleOne: 'Pure game,',
     titleTwo: 'perfect touch.',
-    body: 'Two indoor courts in Durrat Karbala. Book a slot, rent a racket at the desk if you need one, and play.',
+    body: 'Book a slot and play.',
     pointIndoor: 'Two indoor courts',
-    pointHours: 'Open every day, {hours}',
-    pointHoursNoHours: 'Ask the desk for today’s hours',
     pointRent: 'Rackets and balls to rent at the desk',
     pointLockers: 'Lockers for your things',
-    courtLabel: 'A padel court seen from above, four rackets keeping a rally going.',
+    courtLabel: 'A 3D padel court behind glass, four rackets keeping a rally going.',
     // The rally's pause switch (WCAG 2.2.2): one name, its state is aria-pressed.
     courtPause: 'Pause the rally',
     courtCta: 'Book a court',
@@ -126,22 +121,13 @@ export const siteEn = {
   app: {
     title: 'Booking in the app. Soon.',
     body: 'The Touch Padel app is on its way: see free courts live, hold a slot while you confirm, and keep every booking in one place. Until then, book on WhatsApp or call the desk.',
-    comingSoon: 'Coming soon',
-    appStore: 'App Store',
-    googlePlay: 'Google Play',
-    comingSoonLabel: '{store}, coming soon',
     downloadOnAppStore: 'Download on the App Store',
     getItOnGooglePlay: 'Get it on Google Play',
-    // The app's own screen, redrawn; these mirror the app's strings.
-    vTwoCourtsFree: '2 courts free',
-    vOneCourtLeft: '1 court left',
-    vBooked: 'Booked',
-    vReserve: 'Reserve court',
   },
   faq: {
     title: 'Your first visit',
     bookQ: 'How do I book a court?',
-    bookA: 'Message us on WhatsApp, call the front desk, or walk in while we are open. Booking in the app is coming soon.',
+    bookA: 'Message us on WhatsApp, call the front desk, or walk in while we are open.',
     payQ: 'How do I pay?',
     payA: 'At the front desk when you arrive. There is no online payment.',
     racketQ: 'I do not have a racket. Can I still play?',
@@ -151,7 +137,7 @@ export const siteEn = {
     beginnerQ: 'I have never played padel. Is that a problem?',
     beginnerA: 'Not at all. We run lessons. Ask us on WhatsApp.',
     cancelQ: 'What if I need to cancel?',
-    cancelA: 'Message or call the front desk as early as you can. Once the app is live, app bookings can be cancelled free up to {cancelHours} before.',
+    cancelA: 'Message or call the front desk as early as you can.',
     hoursQ: 'When are you open?',
     hoursA: 'Every day, {hours}.',
     // Only when the live window closes after midnight (lib/site/hours.ts crossesMidnight).
@@ -169,7 +155,6 @@ export const siteEn = {
     whatsapp: 'WhatsApp',
     call: 'Call the desk',
     walkIn: 'Or just walk in while we are open.',
-    instagram: 'Instagram',
   },
   // Alt text for the page's photographs. Stock placeholders until Touch's own photos
   // arrive (docs/design/web-site/photo-credits.md): describe what is IN the frame, never
@@ -189,7 +174,6 @@ export const siteEn = {
     addressTitle: 'Find us',
     exploreTitle: 'Touch Padel',
     legalTitle: 'Legal',
-    home: 'Home',
     lessons: 'Lessons',
     menu: 'Café menu',
     support: 'Support',

@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 /**
  * The canvas factory's rules, with three's renderer swapped for a recorder
- * (jsdom has no WebGL). The scene itself is the real copied one.
+ * (jsdom has no WebGL). The scene itself is the real shared one (@touch/court3d).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ThreeModule from 'three';
 
 const renders: string[] = [];
+let lastCourt: ThreeModule.Scene | null = null;
 const renderer = {
   shadowMap: { enabled: false, type: 0 },
   autoClear: true,
@@ -14,8 +15,10 @@ const renderer = {
   setPixelRatio: vi.fn(),
   setSize: vi.fn(),
   clearDepth: vi.fn(),
-  render: vi.fn((scene: { isScene?: boolean; children: unknown[] }) => {
-    renders.push(scene.children.length > 50 ? 'court' : 'overlay');
+  render: vi.fn((scene: ThreeModule.Scene) => {
+    const isCourt = scene.children.length > 50;
+    if (isCourt) lastCourt = scene;
+    renders.push(isCourt ? 'court' : 'overlay');
   }),
   compileAsync: vi.fn(() => Promise.resolve()),
   dispose: vi.fn(),
@@ -26,7 +29,7 @@ vi.mock('three', async (importOriginal) => {
   return { ...actual, WebGLRenderer: vi.fn(() => renderer) };
 });
 
-import { createCourtCanvas } from '../courtCanvas';
+import { createCourtCanvas, PIXEL_BUDGET } from '../courtCanvas';
 
 let rafQueue: FrameRequestCallback[] = [];
 function host(w = 360, h = 450, top = 100): HTMLElement {
@@ -39,8 +42,22 @@ function host(w = 360, h = 450, top = 100): HTMLElement {
 }
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
+/** Force the reduced-motion query to match (jsdom's stub never does). */
+function withReducedMotion() {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query: string) =>
+      ({
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as unknown as MediaQueryList,
+  );
+}
+
 beforeEach(() => {
   renders.length = 0;
+  lastCourt = null;
   rafQueue = [];
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
     rafQueue.push(cb);
@@ -60,7 +77,7 @@ describe('court canvas', () => {
   it('appends a transparent canvas and draws the court, then the ball over it, once warmed', async () => {
     const onFirstFrame = vi.fn();
     const h = host();
-    const c = createCourtCanvas({ host: h, tier: 'full', onFirstFrame });
+    const c = createCourtCanvas({ host: h, onFirstFrame });
     expect(h.querySelector('canvas')).toBe(c.canvas);
     expect(renderer.setClearColor).toHaveBeenCalledWith(0x000000, 0);
     expect(renderer.render).not.toHaveBeenCalled(); // shaders warm first
@@ -72,22 +89,34 @@ describe('court canvas', () => {
     c.dispose();
   });
 
-  it('caps the pixel ratio: 2 on full, 1.5 on lite, and no shadows on lite', async () => {
+  it("draws a phone's box at the screen's full 3x, and only an oversized box below it", async () => {
     Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 3 });
-    const a = createCourtCanvas({ host: host(), tier: 'full' });
+    const phone = createCourtCanvas({ host: host(357, 442) });
     await settle();
-    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(2);
+    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(3);
+    phone.dispose();
+    const huge = createCourtCanvas({ host: host(1200, 1200) });
+    await settle();
+    const ratio = renderer.setPixelRatio.mock.lastCall![0] as number;
+    expect(ratio).toBeLessThan(3);
+    expect(ratio * ratio * 1200 * 1200).toBeCloseTo(PIXEL_BUDGET, -2);
+    huge.dispose();
+  });
+
+  it('always draws the full court: shadows on, with the 2048 map', async () => {
+    const c = createCourtCanvas({ host: host() });
+    await settle();
     expect(renderer.shadowMap.enabled).toBe(true);
-    a.dispose();
-    const b = createCourtCanvas({ host: host(), tier: 'lite' });
-    await settle();
-    expect(renderer.setPixelRatio).toHaveBeenLastCalledWith(1.5);
-    expect(renderer.shadowMap.enabled).toBe(false);
-    b.dispose();
+    const sun = lastCourt!.children.find(
+      (o): o is ThreeModule.DirectionalLight => (o as ThreeModule.DirectionalLight).isDirectionalLight === true,
+    )!;
+    expect(sun.castShadow).toBe(true);
+    expect(sun.shadow.mapSize.x).toBe(2048);
+    c.dispose();
   });
 
   it('loops while on screen', async () => {
-    const c = createCourtCanvas({ host: host(), tier: 'full' });
+    const c = createCourtCanvas({ host: host() });
     await settle();
     expect(rafQueue.length).toBe(1);
     rafQueue.shift()!(16);
@@ -96,7 +125,7 @@ describe('court canvas', () => {
   });
 
   it('does not loop when the box starts off screen', async () => {
-    const c = createCourtCanvas({ host: host(360, 450, 2000), tier: 'full' });
+    const c = createCourtCanvas({ host: host(360, 450, 2000) });
     await settle();
     expect(renders).toEqual(['court', 'overlay']); // the first frame still goes out
     expect(rafQueue.length).toBe(0);
@@ -104,7 +133,8 @@ describe('court canvas', () => {
   });
 
   it('reduced motion: draws the rest frame once and never loops', async () => {
-    const c = createCourtCanvas({ host: host(), tier: 'full', reducedMotion: true, scrollLinked: true });
+    withReducedMotion();
+    const c = createCourtCanvas({ host: host(), scrollLinked: true });
     await settle();
     expect(renders).toEqual(['court', 'overlay']);
     expect(rafQueue.length).toBe(0);
@@ -112,7 +142,7 @@ describe('court canvas', () => {
   });
 
   it('stops while the document is hidden and resumes when it is shown', async () => {
-    const c = createCourtCanvas({ host: host(), tier: 'full' });
+    const c = createCourtCanvas({ host: host() });
     await settle();
     rafQueue = [];
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
@@ -125,7 +155,7 @@ describe('court canvas', () => {
   });
 
   it('holds still while the visitor has paused it, and picks up again (WCAG 2.2.2)', async () => {
-    const c = createCourtCanvas({ host: host(), tier: 'full' });
+    const c = createCourtCanvas({ host: host() });
     await settle();
     rafQueue = [];
     c.setPaused(true);
@@ -136,7 +166,7 @@ describe('court canvas', () => {
   });
 
   it('starts held still when created paused, but still draws its first frame', async () => {
-    const c = createCourtCanvas({ host: host(), tier: 'full', paused: true });
+    const c = createCourtCanvas({ host: host(), paused: true });
     await settle();
     expect(renders).toEqual(['court', 'overlay']);
     expect(rafQueue.length).toBe(0);
@@ -144,7 +174,7 @@ describe('court canvas', () => {
   });
 
   it('pauses on context loss (and asks for a restore), draws again on restore', async () => {
-    const c = createCourtCanvas({ host: host(), tier: 'full' });
+    const c = createCourtCanvas({ host: host() });
     await settle();
     rafQueue = [];
     const lost = new Event('webglcontextlost', { cancelable: true });
@@ -156,20 +186,38 @@ describe('court canvas', () => {
     c.dispose();
   });
 
-  it('reports the net tape relative to the box centre', async () => {
+  it('reports the net tape relative to the box centre, inside the box', async () => {
     const onNet = vi.fn();
-    const c = createCourtCanvas({ host: host(), tier: 'full', onNet });
+    const c = createCourtCanvas({ host: host(360, 450), onNet });
     await settle();
     const net = onNet.mock.calls[0]![0];
-    expect(Math.abs(net.dx)).toBeLessThan(1); // the rest camera sits on x = 0
-    expect(net.dy).toBeGreaterThan(0); // a little below the middle at rest
-    expect(net.width).toBeGreaterThan(100);
+    expect(Math.abs(net.dx)).toBeLessThan(360 / 4);
+    expect(Math.abs(net.dy)).toBeLessThan(450 / 4);
+    expect(net.width).toBeGreaterThan(360 * 0.4);
+    expect(net.width).toBeLessThan(360);
+    c.dispose();
+  });
+
+  it('sways with the SECTION scrolling past, not with its sticky box', async () => {
+    const onNet = vi.fn();
+    const h = host(360, 450, 100); // sticky: its rect never moves
+    const section = document.createElement('section');
+    let top = 600;
+    section.getBoundingClientRect = () => new DOMRect(0, top, 360, 1600);
+    const c = createCourtCanvas({ host: h, scrollLinked: true, scrollRoot: section, onNet });
+    await settle();
+    const entering = onNet.mock.lastCall![0];
+    top = -1200; // the section is nearly gone off the top
+    window.dispatchEvent(new Event('scroll'));
+    for (let i = 1; i <= 90; i++) rafQueue.shift()!(i * 16); // the camera eases into place
+    const leaving = onNet.mock.lastCall![0];
+    expect(leaving).not.toEqual(entering);
     c.dispose();
   });
 
   it('dispose removes the canvas at once and releases the GPU once warmed', async () => {
     const h = host();
-    const c = createCourtCanvas({ host: h, tier: 'full' });
+    const c = createCourtCanvas({ host: h });
     c.dispose(); // before the warm-up settles: strict mode's unmount
     expect(h.querySelector('canvas')).toBeNull();
     await settle();

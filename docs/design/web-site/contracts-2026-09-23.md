@@ -36,26 +36,30 @@ Revision B makes **the club** the subject. Interview answers (owner, 2026-09-23)
 2. **Hero** — full-bleed night-court action PHOTO (stock) with the two-weight "TOUCH IS / A LIFESTYLE";
    lead "A padel club and café in Durrat Karbala. Two indoor courts, open every day {hours}.";
    **Book on WhatsApp** (green) + **Call the desk**; open-now pill.
-3. **The club** (`#club`) — "PURE GAME, / PERFECT TOUCH."; body; four points (indoor · hours · rackets
-   & balls to rent · lockers); the **live 3D court** (Lane A's `CourtStage`) as the "two courts"
-   visual with **Book a court** riding its net (→ WhatsApp); a photo of a court may join it.
+3. **The club** (`#club`) — "PURE GAME, / PERFECT TOUCH."; one line of body; three points (two indoor
+   courts · rackets & balls to rent · lockers — the hours point was cut 2026-09-25, the hero already
+   says them); the **live 3D court** (`@touch/court3d`, always the full scene, angled camera) with
+   **Book a court** riding its net (→ WhatsApp) and the WCAG 2.2.2 pause switch; a court photo.
 4. **Lessons** (`#lessons`) — photo + "NEW TO PADEL? / START HERE." + **Ask about lessons** (WhatsApp, pre-filled).
 5. **Events** — the PLAY / SMASH / WIN poster as a **coming soon** announcement + **Join the list** (WhatsApp, pre-filled).
 6. **Touch Cafe** — photo + "BEFORE THE GAME. / AFTER IT." + live categories + **Open the menu**.
-7. **The app** — ONE compact band: "Booking in the app. Soon." + one redrawn app screen + coming-soon store buttons.
-   (Heading reworded in the 2026-09-24 fix pass: WhatsApp and a call already book from a phone.
-   The redrawn screen is an example: weekday names only, no "Today", no real dates, 24-hour times.)
+7. **The app** — ONE compact band: "Booking in the app. Soon." and one sentence. A store badge appears only
+   once that store's listing URL is set (the inert "coming soon" buttons were cut 2026-09-25).
+   (Heading reworded 2026-09-24; the redrawn app screen was cut 2026-09-25 as decoration that said
+   nothing the sentence does not.)
 8. **First visit** (`#faq`) — native `<details>` questions: book · pay · racket rental · lockers · beginners · cancel · hours.
 9. **Visit** (`#visit`) — "FIND US / IN KARBALA."; address; **Open in Google Maps** (link out, no iframe:
-   CSP has no frame-src); live hours; WhatsApp · Call · "or just walk in"; Instagram only if configured.
-10. **Footer** — as before plus address + WhatsApp.
+   CSP has no frame-src); live hours; WhatsApp · Call · "or just walk in". (No Instagram: no handle exists.)
+10. **Footer** — address + hours + desk + WhatsApp on every page except the home page, where the Visit block
+    right above already shows them (cut 2026-09-25, with the footer "Home" link and the Visit map-pin art).
 
 **Contact plumbing:** every WhatsApp/Call button is built from the ONE venue phone in
 `venue_settings_public` (today the unverified +995 number — fixing it in the operator app fixes every
 button). `wa.me/<international digits>?text=<site.whatsapp.* pre-fill>`; `tel:` the same number. No
-phone → the buttons fall back to **Plan your visit** (`#visit`). Optional env: `NEXT_PUBLIC_MAPS_URL`
-(default: a Google Maps search for درّة كربلاء، كربلاء), `NEXT_PUBLIC_INSTAGRAM_URL` (https + instagram.com
-only, else hidden). JSON-LD gains the address (Durrat Karbala, Karbala, IQ); still no telephone.
+phone → the buttons fall back to **Plan your visit** (`#visit`). The maps link is a fixed Google Maps
+search for درّة كربلاء، كربلاء (`MAPS_URL` in src/lib/site/contact.ts); the env hooks for a maps URL and an
+Instagram URL were cut 2026-09-25 (no data behind them). JSON-LD gains the address (Durrat Karbala,
+Karbala, IQ); still no telephone.
 
 **Fix pass (2026-09-24), where this file changed:** an address under a locale that matches
 no page is caught by `app/[locale]/[...rest]/page.tsx` (it throws `notFound()`), and its own
@@ -179,9 +183,12 @@ checkout / reset / clean`. Never delete a file you did not create, except where 
 ### Lane A — the 3D court on the web
 Owns: `apps/web/src/features/court3d/**` (new), `apps/web/package.json` (add `three` 0.160.0,
 dev `@types/three` 0.160.0) and the `pnpm-lock.yaml` change that follows from `pnpm install`.
-- Copy the plain three.js modules from `apps/mobile/src/features/courtTransition/` (+
-  `apps/mobile/src/theme/brandPattern.ts` only if needed) with the operator-style header
-  `// COPIED from apps/mobile/… — keep byte-identical except WEB: lines`, plus their node tests.
+- **Superseded 2026-09-25:** the plain three.js modules are no longer copied. They live ONCE in
+  `packages/court3d` (`@touch/court3d`: spec, rally, rallyClock, camera, racket, swing, smileyMark,
+  smileyPaths, svgPath, scene, with their tests), imported by both `apps/web` and `apps/mobile`.
+  Only the expo-specific files (`patternBackdrop`, `logoMark`, `deviceQuality`, `phoneCourt`, the
+  surface/frame helpers) stay in mobile's `courtTransition/`. Where the hosts differ it is a
+  `buildCourtScene` option (backdrop, spin, shadow map size).
 - Exports (contract):
   - `CourtStage` — `'use client'`. Props: `{ label: string; className?: string; scrollLinked?:
     boolean; children?: ReactNode }`. Fills its parent box (the parent sets size/aspect). Renders
@@ -196,10 +203,10 @@ dev `@types/three` 0.160.0) and the `pnpm-lock.yaml` change that follows from `p
   - `courtCss` — a string exported from `apps/web/src/features/court3d/court.css.ts` holding every
     rule the court needs (Lane B's `SiteStyles` inlines it). Same CSS rules as §5.
 - Behaviour: dynamic `import()` of three after mount (never in the first-load chunk); WebGL
-  probe with try/catch; tier: `lite` on `navigator.connection.saveData`, `deviceMemory < 4`,
-  `hardwareConcurrency <= 4` or coarse pointer + small screen, else `full`; loop only while
-  intersecting (IntersectionObserver) and `document.visibilityState === 'visible'`; DPR capped
-  2 (full) / 1.5 (lite); ResizeObserver; `webglcontextlost/restored`; full dispose (strict mode
+  probe with try/catch (`webgl.ts`). **Revised 2026-09-25:** no tiers: every browser with WebGL
+  gets the full court (shadows on, 2048 shadow map, time-based spin), DPR up to 3 within a
+  2.4-megapixel budget; the flat SVG is only the no-WebGL / failed-load fallback. Loop only while
+  intersecting (IntersectionObserver) and `document.visibilityState === 'visible'`; ResizeObserver; `webglcontextlost/restored`; full dispose (strict mode
   mounts twice); fix the per-frame ball spin to be time-based on the web (WEB: line);
   reduced motion → rest frame (`t = 0`, no trail), no scroll link, `renderOnce` on resize;
   `scrollLinked` → progress p from the stage's own rect (0 while its top is in the upper third of

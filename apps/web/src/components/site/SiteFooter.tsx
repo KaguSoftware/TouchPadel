@@ -1,7 +1,7 @@
 import { isolateLtr, makeT, VENUE_TZ, type Locale } from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
 import { otherLocale } from '@/lib/locales';
-import { displayPhone, mapsUrl, telUrl, whatsappUrl } from '@/lib/site/contact';
+import { displayPhone, MAPS_URL, telUrl, whatsappUrl } from '@/lib/site/contact';
 import { BrandLockup } from './brand/BrandLockup';
 import { HoursList, hasPublishedHours } from './HoursList';
 import { ChatIcon, ExternalIcon } from './icons';
@@ -14,6 +14,10 @@ import { LanguageLink } from './LanguageLink';
  * failed); the front desk (the venue phone as a call link and a WhatsApp chat, both from
  * venue settings so correcting the setting corrects every page, and omitted when there is
  * no dialable number); the site's links; the language, the year and the vendor credit.
+ *
+ * The home page leaves the address, hours and desk out: its #visit block, right above the
+ * footer, has just said all three. Every other page (the legal pages, the 404) keeps
+ * them, since there the footer is the only place they appear.
  */
 function Desk({ locale, phone }: { locale: Locale; phone: string | null | undefined }) {
   const tr = makeT(locale);
@@ -60,6 +64,7 @@ export function SiteFooter({
 }) {
   const tr = makeT(locale);
   const other = otherLocale(locale);
+  const facts = path !== '';
   const year = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: VENUE_TZ }).format(
     new Date(),
   );
@@ -72,34 +77,35 @@ export function SiteFooter({
   );
   return (
     <footer className="tp-site-footer tp-on-dark">
-      <div className="tp-site-footer__inner">
+      <div className={`tp-site-footer__inner${facts ? '' : ' tp-site-footer__inner--short'}`}>
         <div className="tp-site-footer__brand">
           <a href={`/${locale}`} aria-label={tr('site.brandHome')} className="tp-site-footer__home">
             <BrandLockup />
           </a>
           <p className="tp-site-footer__tagline">{tr('site.footer.tagline')}</p>
         </div>
-        <div className="tp-site-footer__facts">
-          <div className="tp-site-footer__block">
-            <h2 className="tp-site-footer__title">{tr('site.footer.addressTitle')}</h2>
-            <p className="tp-site-footer__address">{tr('site.visit.address')}</p>
-            <a className="tp-site-footer__maps" href={mapsUrl()}>
-              {tr('site.visit.maps')}
-              <ExternalIcon />
-            </a>
-          </div>
-          {hasPublishedHours(venue) ? (
+        {facts ? (
+          <div className="tp-site-footer__facts">
             <div className="tp-site-footer__block">
-              <h2 className="tp-site-footer__title">{tr('site.footer.hoursTitle')}</h2>
-              <HoursList locale={locale} venue={venue} className="tp-site-footer__hours" />
+              <h2 className="tp-site-footer__title">{tr('site.footer.addressTitle')}</h2>
+              <p className="tp-site-footer__address">{tr('site.visit.address')}</p>
+              <a className="tp-site-footer__maps" href={MAPS_URL}>
+                {tr('site.visit.maps')}
+                <ExternalIcon />
+              </a>
             </div>
-          ) : null}
-          <Desk locale={locale} phone={venue?.phone} />
-        </div>
+            {hasPublishedHours(venue) ? (
+              <div className="tp-site-footer__block">
+                <h2 className="tp-site-footer__title">{tr('site.footer.hoursTitle')}</h2>
+                <HoursList locale={locale} venue={venue} className="tp-site-footer__hours" />
+              </div>
+            ) : null}
+            <Desk locale={locale} phone={venue?.phone} />
+          </div>
+        ) : null}
         <nav className="tp-site-footer__nav" aria-label={tr('site.footer.exploreTitle')}>
           <h2 className="tp-site-footer__title">{tr('site.footer.exploreTitle')}</h2>
           <ul>
-            {link('', tr('site.footer.home'))}
             {link('#lessons', tr('site.footer.lessons'))}
             {link('/menu', tr('site.footer.menu'))}
             {link('/support', tr('site.footer.support'))}

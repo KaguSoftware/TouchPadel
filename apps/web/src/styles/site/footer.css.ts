@@ -1,6 +1,7 @@
 /**
  * Site footer, on the brand navy in both modes (one step deeper at night): the white
- * lockup (42px tall) and the tagline; where the club is, the hours and the front desk;
+ * lockup (42px tall) and the tagline; where the club is, the hours and the front desk
+ * (not on the home page, whose #visit block has just said them: the `--short` grid);
  * two link lists; then the base line with the year, the language and the vendor credit.
  * Links are full touch targets.
  */
@@ -56,6 +57,7 @@ export const siteFooterCss = `
 .tp-site-footer__phone { font-weight: 700; unicode-bidi: isolate; }
 .tp-site-footer__chat .tp-icon { color: var(--tp-brand-green); }
 .tp-site-footer__maps { color: var(--tp-site-block-muted); }
+.tp-site-footer__maps .tp-icon { inline-size: 1.1em; block-size: 1.1em; }
 .tp-site-footer__nav ul { display: grid; }
 .tp-site-footer__nav a[aria-current='page'] { color: var(--tp-brand-green); }
 @media (hover: hover) {
@@ -86,5 +88,6 @@ export const siteFooterCss = `
 @media (min-width: 64rem) {
   .tp-site-footer__inner { grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr) minmax(0, 0.8fr) minmax(0, 0.8fr); column-gap: clamp(2rem, 4vw, 3.5rem); }
   .tp-site-footer__brand, .tp-site-footer__facts { grid-column: auto; }
+  .tp-site-footer__inner--short { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
 }
 `;

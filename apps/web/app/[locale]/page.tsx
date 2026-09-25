@@ -32,8 +32,8 @@ import { PhotoGrade } from '@/components/landing/PhotoGrade';
  *
  * Dynamic like every page here (the layout's nonce read, C11); it also reads the mode
  * cookie, so night or light is painted by the server. Live data, all through the cached
- * `menu`-tagged readers: the hours, phone and cancellation window
- * (venue_settings_public) and the café category names (the menu). Each read degrades on
+ * `menu`-tagged readers: the hours and phone (venue_settings_public) and the café
+ * category names (the menu). Each read degrades on
  * its own: no venue → no hours line, no open pill and no WhatsApp or call buttons ("Plan
  * your visit" instead); no menu → the category-free café line.
  */
@@ -58,18 +58,9 @@ export async function generateMetadata({
   return {
     title: { absolute: title },
     description,
-    applicationName: tr('common.appName'),
     alternates: {
       canonical: `/${locale}`,
       languages: { en: '/en', ar: '/ar', 'x-default': '/ar' },
-    },
-    icons: {
-      icon: [
-        { url: '/brand/site/favicon.svg', type: 'image/svg+xml' },
-        { url: '/brand/site/icon-192.png', sizes: '192x192', type: 'image/png' },
-        { url: '/brand/site/icon-512.png', sizes: '512x512', type: 'image/png' },
-      ],
-      apple: '/brand/site/apple-icon-180.png',
     },
     openGraph: {
       title,
@@ -102,8 +93,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const everyDay = everyDayWindow(venue);
   const hours = everyDay ? formatWindow(everyDay) : null;
   const phone = venue?.phone ?? null;
-  // 4 h is what 0056 configured; the fallback when the venue read fails, as on /terms.
-  const cancelHours = venue?.cancellation_window_hours ?? 4;
   const jsonLd = buildLandingJsonLd({ locale, origin: siteOrigin(), venue });
 
   return (
@@ -116,17 +105,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         closedDates={venue?.closed_dates ?? []}
         phone={phone}
       />
-      <Club locale={locale} hours={hours} phone={phone} />
+      <Club locale={locale} phone={phone} />
       <Lessons locale={locale} phone={phone} />
       <Events locale={locale} phone={phone} />
       <CafeHandoff locale={locale} categories={cafeCategoryList(menu.categories, locale)} />
       <AppBand locale={locale} stores={getStoreLinks()} />
-      <Faq
-        locale={locale}
-        hours={hours}
-        late={everyDay ? crossesMidnight(everyDay) : false}
-        cancelHours={cancelHours}
-      />
+      <Faq locale={locale} hours={hours} late={everyDay ? crossesMidnight(everyDay) : false} />
       <Visit locale={locale} venue={venue} />
       <script
         type="application/ld+json"

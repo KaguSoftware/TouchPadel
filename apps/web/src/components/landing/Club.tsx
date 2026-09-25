@@ -7,27 +7,17 @@ import { Photo } from './Photo';
 
 /**
  * `#club`, "PURE GAME, / PERFECT TOUCH." (the deck's roll-ups, full-brand2.pdf p18): what
- * playing here is. The words and the club's four confirmed facts (indoor, the live hours,
- * rackets and balls to rent, lockers) on one side, each marked with the brand's own ball;
- * on the other, the app's live court, rallying on a full-bleed Touch Blue field with the
+ * playing here is. The words and the club's confirmed facts (indoor, rackets and balls to
+ * rent, lockers; the hours are the hero's pill) on one side, each marked with the brand's
+ * own ball; on the other, the app's live court, rallying on a full-bleed Touch Blue field with the
  * court-line bands, standing for the two courts, and "Book a court" riding its net the way
  * "Check availability" does in the app (WhatsApp, pre-filled). A photo of a court under
  * the facts says the rest.
  */
-export function Club({
-  locale,
-  hours,
-  phone,
-}: {
-  locale: Locale;
-  /** The every-day window, formatted and isolated (lib/site/hours.ts), or null. */
-  hours: string | null;
-  phone: string | null;
-}) {
+export function Club({ locale, phone }: { locale: Locale; phone: string | null }) {
   const tr = makeT(locale);
   const points = [
     tr('site.club.pointIndoor'),
-    hours ? tr('site.club.pointHours', { hours }) : tr('site.club.pointHoursNoHours'),
     tr('site.club.pointRent'),
     tr('site.club.pointLockers'),
   ];
@@ -59,7 +49,7 @@ export function Club({
           {/* The court's own field: a full-bleed Touch Blue block with the court-line
               bands, bleeding off the page's inline end (and across it on phones). */}
           <div className="tp-club__field" aria-hidden="true">
-            <CourtPattern weight="texture" />
+            <CourtPattern band={2.2} />
           </div>
           <div className="tp-club__court-box">
             <CourtStage

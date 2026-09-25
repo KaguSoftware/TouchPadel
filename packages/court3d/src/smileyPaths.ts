@@ -3,7 +3,7 @@
  *
  * Split out of smileyMark.ts (2026-09-08) so the mark can be drawn twice from
  * ONE source: as three.js geometry on the racket face (./smileyMark) and as
- * flat SVG on the boot loading screen (components/SmileyBall.tsx). This file
+ * flat SVG on the boot loading screen (apps/mobile components/SmileyBall.tsx). This file
  * imports NOTHING — reaching a string through the three.js builder would have
  * pulled three into the app's very first frame.
  *

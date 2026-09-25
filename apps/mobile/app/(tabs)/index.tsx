@@ -30,12 +30,12 @@ import {
   sampleEased,
   SPEC,
   type Range,
-} from '../../src/features/courtTransition/spec';
+} from '@touch/court3d/spec';
 import {
   courtTopFraction,
   makeCamera,
   projectNet,
-} from '../../src/features/courtTransition/camera';
+} from '@touch/court3d/camera';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { brand, radius, space, useTheme, withAlpha } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';

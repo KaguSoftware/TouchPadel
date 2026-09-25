@@ -14,11 +14,6 @@ import { ArrowIcon, CallIcon, ChatIcon } from './icons';
  * Plain `<a>` in every case: wa.me and tel: leave the site, and #visit is on the page.
  */
 
-/** Where "Plan your visit" goes: the section itself on the home page, else home#visit. */
-export function visitHref(locale: Locale, onHome: boolean): string {
-  return onHome ? '#visit' : `/${locale}#visit`;
-}
-
 export function WhatsAppButton({
   locale,
   phone,
@@ -26,7 +21,6 @@ export function WhatsAppButton({
   label,
   onHome,
   className,
-  icon = true,
   cue,
 }: {
   locale: Locale;
@@ -36,7 +30,6 @@ export function WhatsAppButton({
   label: string;
   onHome: boolean;
   className: string;
-  icon?: boolean;
   /**
    * For a label that does not say WhatsApp itself ("Book a court", "Ask about lessons"):
    * read after it by screen readers only (`site.onWhatsApp`, ", on WhatsApp"), so a
@@ -49,16 +42,17 @@ export function WhatsAppButton({
   if (href) {
     return (
       <a className={className} href={href} data-contact="whatsapp">
-        {icon ? <ChatIcon /> : null}
+        <ChatIcon />
         {label}
         {cue ? <span className="tp-site-sr">{cue}</span> : null}
       </a>
     );
   }
+  // "Plan your visit" goes to the section itself on the home page, else home#visit.
   return (
-    <a className={className} href={visitHref(locale, onHome)} data-contact="visit">
+    <a className={className} href={onHome ? '#visit' : `/${locale}#visit`} data-contact="visit">
       {makeT(locale)('site.hero.ctaVisit')}
-      {icon ? <ArrowIcon /> : null}
+      <ArrowIcon />
     </a>
   );
 }

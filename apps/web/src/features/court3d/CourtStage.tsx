@@ -6,12 +6,13 @@
  *
  * What a visitor sees, in order:
  *  1. SSR / no JS: the flat court, animated by CSS (still under reduced motion).
- *  2. After mount, if the tier allows (tier.ts: Save-Data and weak devices keep
- *     the flat court) and WebGL is there, three.js is fetched with a dynamic
- *     `import()` (never in the first-load chunk) once the stage comes within a
- *     screen of the viewport (an IntersectionObserver, rootMargin 100%): the court
- *     sits below a full-screen photo, and a visitor who books from the hero never
- *     pays for three.js (fix pass 2026-09-24). The canvas then draws its first
+ *  2. After mount, if the browser has WebGL (webgl.ts, the only gate: every
+ *     browser that can draw it gets the full court), three.js arrives through a
+ *     dynamic `import()`, never in the first-load chunk. The chunk is fetched
+ *     once the page is idle (requestIdleCallback; skipped under Save-Data, whose
+ *     visitors fetch it only on the way to the court), and the canvas is created
+ *     once the stage comes within a screen of the viewport (an
+ *     IntersectionObserver, rootMargin 100%). The canvas then draws its first
  *     frame behind the flat court.
  *  3. That first frame cross-fades the canvas in over 260 ms
  *     (--tp-site-dur-base); the flat court fades out and stops animating.
@@ -36,14 +37,14 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CourtIllustration } from './CourtIllustration';
-import { canDrawWebGL, courtTierFor, readTierSignals } from './tier';
+import { canDrawWebGL } from './webgl';
 import type { CourtCanvas, NetPlacement } from './courtCanvas';
 
 export interface CourtStageProps {
   /** Accessible name for the picture (from the catalogs). */
   label: string;
   className?: string;
-  /** Pitch the camera as the stage scrolls out (the landing hero). */
+  /** Sway the camera as the stage's section scrolls past (the club section). */
   scrollLinked?: boolean;
   /** Rendered centred on the net tape, above the court. */
   children?: ReactNode;
@@ -55,6 +56,9 @@ type CourtState = 'flat' | 'live';
 
 /** How long the net anchor glides from the flat court's net to the projected one. */
 const SETTLE_MS = 320;
+
+/** How long after mount an idle-less browser waits before fetching three.js. */
+const PREFETCH_FALLBACK_MS = 1500;
 
 /** Where this visitor's pause choice is kept (per browser; never shared, never read back). */
 export const COURT_PAUSED_KEY = 'tp-court-paused';
@@ -120,8 +124,7 @@ export function CourtStage({
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
     let near: IntersectionObserver | null = null;
 
-    const tier = courtTierFor(readTierSignals());
-    if (tier === 'flat' || !canDrawWebGL()) return;
+    if (!canDrawWebGL()) return;
 
     const placeNet = (net: NetPlacement) => {
       const el = netRef.current ?? netEl;
@@ -137,8 +140,10 @@ export function CourtStage({
           if (cancelled) return;
           instance = createCourtCanvas({
             host,
-            tier,
             scrollLinked,
+            // The section drives the sway: on a desktop the court's box is sticky,
+            // and a sticky box's own rect hardly moves while the page scrolls.
+            scrollRoot: host.closest('section') ?? host,
             paused: pausedRef.current,
             canvasClassName: 'tp-court-stage__canvas',
             onNet: placeNet,
@@ -160,7 +165,25 @@ export function CourtStage({
           instance = null;
         });
 
-    // Fetch three.js only once the stage is within a screen of the viewport.
+    // Fetch the chunk while the page is idle, so the court is ready to draw by the
+    // time the visitor reaches it. Only the download: nothing is created until the
+    // stage is near. Save-Data asked us not to spend their bundle ahead of need.
+    const saveData =
+      (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    const prefetch = () => {
+      if (!cancelled) void import('./courtCanvas').catch(() => undefined);
+    };
+    let idleId: number | null = null;
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    if (!saveData) {
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(prefetch, { timeout: 4000 });
+      } else {
+        idleTimer = setTimeout(prefetch, PREFETCH_FALLBACK_MS);
+      }
+    }
+
+    // Create the canvas once the stage is within a screen of the viewport.
     if (typeof IntersectionObserver === 'function') {
       near = new IntersectionObserver(
         (entries) => {
@@ -178,6 +201,8 @@ export function CourtStage({
 
     return () => {
       cancelled = true;
+      if (idleId !== null) window.cancelIdleCallback?.(idleId);
+      if (idleTimer !== null) clearTimeout(idleTimer);
       near?.disconnect();
       instanceRef.current = null;
       if (settleTimer !== null) clearTimeout(settleTimer);

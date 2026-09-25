@@ -13,8 +13,6 @@ const createCourtCanvas = vi.fn((opts: CourtCanvasOptions) => {
   created.push(opts);
   return {
     canvas: document.createElement('canvas'),
-    setProgress: vi.fn(),
-    renderOnce: vi.fn(),
     setPaused,
     dispose,
   };
@@ -65,19 +63,12 @@ function withWebGL(available: boolean) {
   return lose;
 }
 
-function withSignals(s: { saveData?: boolean; cores?: number; memory?: number }) {
-  Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: s.saveData ?? false } });
-  Object.defineProperty(navigator, 'hardwareConcurrency', { configurable: true, value: s.cores ?? 8 });
-  Object.defineProperty(navigator, 'deviceMemory', { configurable: true, value: s.memory ?? 8 });
-}
-
 beforeEach(() => {
   created.length = 0;
   observers.length = 0;
   dispose.mockClear();
   setPaused.mockClear();
   createCourtCanvas.mockClear();
-  withSignals({});
   vi.stubGlobal('IntersectionObserver', FakeIO);
   try {
     window.localStorage.removeItem(COURT_PAUSED_KEY);
@@ -133,20 +124,14 @@ describe('CourtStage — in the browser', () => {
     expect(container.querySelector('.tp-court-stage')?.getAttribute('data-court')).toBe('flat');
   });
 
-  it('with Save-Data: never fetches three.js even when WebGL is there', async () => {
-    withWebGL(true);
-    withSignals({ saveData: true });
-    render(<CourtStage label={LABEL} />);
-    await flush();
-    expect(createCourtCanvas).not.toHaveBeenCalled();
-  });
-
   it('with WebGL: loads the canvas into its host, cross-fades on the first frame, rides the net', async () => {
     const lose = withWebGL(true);
     const { container } = render(
-      <CourtStage label={LABEL} scrollLinked>
-        <button type="button">Book</button>
-      </CourtStage>,
+      <section>
+        <CourtStage label={LABEL} scrollLinked>
+          <button type="button">Book</button>
+        </CourtStage>
+      </section>,
     );
     await flush();
     expect(lose).toHaveBeenCalled(); // the probe hands its context back
@@ -156,9 +141,10 @@ describe('CourtStage — in the browser', () => {
     await nearView();
     expect(createCourtCanvas).toHaveBeenCalledTimes(1);
     const opts = created[0]!;
-    expect(opts.tier).toBe('full');
     expect(opts.scrollLinked).toBe(true);
     expect(opts.host.classList.contains('tp-court-stage__gl')).toBe(true);
+    // The section drives the camera: the court's own box is sticky on a desktop.
+    expect(opts.scrollRoot).toBe(container.querySelector('section'));
 
     const stage = container.querySelector('.tp-court-stage')!;
     expect(stage.getAttribute('data-court')).toBe('flat');
@@ -171,14 +157,6 @@ describe('CourtStage — in the browser', () => {
     const net = container.querySelector<HTMLElement>('.tp-court-stage__net')!;
     expect(net.style.getPropertyValue('--tp-court-net-dx')).toBe('2.5px');
     expect(net.style.getPropertyValue('--tp-court-net-dy')).toBe('-14px');
-  });
-
-  it('a weak device gets the lite court', async () => {
-    withWebGL(true);
-    withSignals({ cores: 4 });
-    render(<CourtStage label={LABEL} />);
-    await nearView();
-    expect(created[0]?.tier).toBe('lite');
   });
 
   it('disposes the canvas on unmount (strict mode mounts twice)', async () => {

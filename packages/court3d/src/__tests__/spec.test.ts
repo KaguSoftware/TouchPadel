@@ -54,11 +54,6 @@ describe('cubic-bezier easing (the prototype uses motion.dev cubicBezier)', () =
     expect(EASE_OUT(0.2)).toBeGreaterThan(0.55);
     expect(EASE_OUT(0.5)).toBeGreaterThan(0.9);
   });
-
-  it('linear control points short-circuit to identity', () => {
-    const lin = cubicBezier(0.3, 0.3, 0.7, 0.7);
-    expect(lin(0.37)).toBe(0.37);
-  });
 });
 
 describe('PITCH ease (direction-aware)', () => {

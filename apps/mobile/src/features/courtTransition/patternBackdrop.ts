@@ -34,6 +34,7 @@
  * pattern instead of over a flat colour.
  */
 import * as THREE from 'three';
+import type { CourtBackdrop } from '@touch/court3d/scene';
 import {
   PATTERN_DEFAULT_WIDTH,
   PATTERN_FIELD,
@@ -45,51 +46,13 @@ import {
  * How far in front of the camera the backdrop hangs.
  *
  * Nothing depth-tests it, so the only thing this has to clear is the FRUSTUM:
- * makeCamera builds its perspective camera with near 5, far 200 (camera.ts),
+ * makeCamera builds its perspective camera with near 5, far 200 (@touch/court3d/camera),
  * and a backdrop nearer than 5 is clipped away in its entirety — which is
  * exactly what happened when this was 1, and it cost a device round trip to
  * find. `place` scales the artwork by the frustum size at this depth, so the
  * value itself does not change what is drawn, only whether it survives.
  */
 const DISTANCE = 10;
-
-export interface BackdropViewport {
-  /**
-   * The box the pattern is sliced over, in dp: the box the PAGE's copy of it
-   * occupies. Both are measured by onLayout in the same coordinate space (see
-   * the Book tab), so neither has to know what that space is.
-   */
-  boxWidth: number;
-  boxHeight: number;
-  /** The GL view's top-left corner inside that box, in dp. */
-  offsetX: number;
-  offsetY: number;
-  /** The GL view's own size, in dp. */
-  viewWidth: number;
-  viewHeight: number;
-}
-
-export interface PatternBackdrop {
-  /** Add this to the camera. */
-  group: THREE.Group;
-  /**
-   * Put the pattern where the page has it.
-   *
-   * `liftPx` is the court layer's own translateY (0 at the court view, -60 at
-   * the booking view). The GL surface rides inside that lifted Animated.View,
-   * so anything drawn in it rides too — and a backdrop that rode would tear a
-   * 60 px seam against the page's copy of the pattern, which does not move.
-   * Subtracting the lift here pins the artwork to the PAGE instead of to the
-   * surface, which is the whole point of slicing over the page's own box.
-   */
-  place(view: BackdropViewport, liftPx: number): void;
-  /**
-   * Follows the theme. Takes the ink ALREADY blended into the page colour —
-   * see patternInk, and `transparent: false` below for why it has to be.
-   */
-  setInk(color: string): void;
-  dispose(): void;
-}
 
 /**
  * The field's bands as quads, in the panel's own y-down units.
@@ -134,10 +97,26 @@ function bandGeometry(width: number): THREE.BufferGeometry {
   return geometry;
 }
 
+/**
+ * The pattern as the shared court's backdrop (@touch/court3d/scene,
+ * CourtBackdrop): Court3D hands `buildPatternBackdrop` to buildCourtScene, which
+ * hangs the group off its camera.
+ *
+ * `place(view, liftPx)`: `liftPx` is the court layer's own translateY (0 at the
+ * court view, -60 at the booking view). The GL surface rides inside that lifted
+ * Animated.View, so anything drawn in it rides too — and a backdrop that rode
+ * would tear a 60 px seam against the page's copy of the pattern, which does not
+ * move. Subtracting the lift here pins the artwork to the PAGE instead of to the
+ * surface, which is the whole point of slicing over the page's own box.
+ *
+ * `setInk(color)` follows the theme. It takes the ink ALREADY blended into the
+ * page colour — see patternInk, and `transparent: false` below for why it has
+ * to be.
+ */
 export function buildPatternBackdrop(
   fovDeg: number,
   bandWidth: number = PATTERN_DEFAULT_WIDTH,
-): PatternBackdrop {
+): CourtBackdrop {
   const geometry = bandGeometry(bandWidth);
   const material = new THREE.MeshBasicMaterial({
     depthTest: false,

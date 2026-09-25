@@ -1,4 +1,3 @@
-// COPIED from apps/mobile/src/features/courtTransition/rally.ts on 2026-09-23 — keep byte-identical except WEB: lines
 /**
  * The 3D court's motion, as pure numbers — ported 1:1 from the three.js
  * prototype (`Court Transition Prototype.html`: `updateCamera` / `updateRally`)
@@ -129,15 +128,6 @@ export function layAngle(camK: number): number {
   return ((camK - 1) * Math.PI) / 2;
 }
 
-/**
- * The first leg start at or after t. There the ball is ON the striker's face at
- * the instant of contact and everyone else is somewhere in their own wind-up —
- * the freeze frame the idle hold and reduced motion both rest on.
- */
-export function nextLegStart(t: number): number {
-  return Math.ceil(t / LEG_SECONDS - 1e-9) * LEG_SECONDS;
-}
-
 /** Resting yaw: far pair faces −z, near pair +z, each angled 0.3 rad toward the centre line. */
 export function playerYaw(p: Player): number {
   return (p.face < 0 ? 0 : Math.PI) + (p.x < 0 ? -0.3 * p.face : 0.3 * p.face);
@@ -169,8 +159,6 @@ export interface RallyState {
   to: number;
   /** 0..1 inside the current leg. */
   u: number;
-  /** True in the first 2 % of a leg — the prototype resets the ball's trail here. */
-  newLeg: boolean;
   ball: Vec3;
   rackets: RacketPose[];
   /** The ball's ground disc: offset opposite the sun, larger and fainter when the ball is high. */
@@ -222,8 +210,8 @@ function racketAt(i: number, t: number, camK: number): RacketPose {
  * flat on the turf (y 0.75) → front view upright at chest height (y 1.55).
  */
 export function rallyAt(t: number, camK: number): RallyState {
-  // Snap a t that is a leg start within float noise (nextLegStart's n × LEG_SECONDS)
-  // onto u = 0 rather than u ≈ 1 of the leg before.
+  // Snap a t that is a leg start within float noise (n × LEG_SECONDS) onto
+  // u = 0 rather than u ≈ 1 of the leg before.
   const legs = t / LEG_SECONDS;
   let leg = Math.floor(legs);
   let u = legs - leg;
@@ -260,7 +248,6 @@ export function rallyAt(t: number, camK: number): RallyState {
     from,
     to,
     u,
-    newLeg: u < 0.02,
     ball,
     rackets,
     shade: {

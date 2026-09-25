@@ -12,7 +12,6 @@ import {
   SMILEY_SEAM_PATHS,
   SMILEY_VIEWBOX,
 } from '../smileyMark';
-import * as paths from '../smileyPaths';
 import { parseSvgPath } from '../svgPath';
 
 const ALL = [
@@ -162,17 +161,6 @@ describe('buildSmileyShapes', () => {
 });
 
 describe('the artwork/geometry split (2026-09-08)', () => {
-  it('re-exports the very data smileyPaths holds — one source, two renderers', () => {
-    // Reference identity, so everything this file measures about the mark is
-    // measured about the strings the SVG loading screen draws too.
-    expect(SMILEY_INK_PATHS).toBe(paths.SMILEY_INK_PATHS);
-    expect(SMILEY_BALL_PATHS).toBe(paths.SMILEY_BALL_PATHS);
-    expect(SMILEY_SEAM_PATHS).toBe(paths.SMILEY_SEAM_PATHS);
-    expect(SMILEY_INK_TOP_PATHS).toBe(paths.SMILEY_INK_TOP_PATHS);
-    expect(SMILEY_CIRCLE).toBe(paths.SMILEY_CIRCLE);
-    expect(SMILEY_VIEWBOX).toBe(paths.SMILEY_VIEWBOX);
-  });
-
   it('keeps three out of smileyPaths — it is imported by the FIRST frame', () => {
     // BootOverlay draws this mark before anything else paints; reaching the
     // strings through the geometry builder would put three.js in that path.

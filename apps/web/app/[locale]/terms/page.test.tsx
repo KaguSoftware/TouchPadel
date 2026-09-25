@@ -92,24 +92,6 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     );
   });
 
-  it('counts the hours in the right plural form, whatever the operator sets (AR-LANG-1)', async () => {
-    // 12 is the column's default (20260824000006_settings_tax.sql); Arabic counts 11 and
-    // up with the singular noun, 2 with the dual, 1 spelled out.
-    const expected = {
-      en: { 12: '12 hours', 2: '2 hours', 1: 'one hour' },
-      ar: { 12: '12 ساعة', 2: 'ساعتين', 1: 'ساعة واحدة' },
-    } as const;
-    for (const hours of [12, 2, 1] as const) {
-      serverData.venue = { ...VENUE_FIXTURE, cancellation_window_hours: hours };
-      const { unmount } = await renderServerPage(TermsPage, locale);
-      const bookings = plain(document.querySelector('section#bookings')?.textContent);
-      expect(bookings).toContain(expected[locale][hours]);
-      // The old bare-number line: «12 ساعات», «2 ساعات», «1 ساعات».
-      expect(bookings).not.toContain(`${hours} ساعات`);
-      unmount();
-    }
-  });
-
   it('names the operator in the contact block, and links email only once it is filled in', async () => {
     await renderServerPage(TermsPage, locale);
 

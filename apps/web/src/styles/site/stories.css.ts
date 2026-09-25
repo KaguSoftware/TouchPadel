@@ -1,9 +1,8 @@
 /**
- * The two photo-and-words sections. With the court (#club), the poster photo (events) and
- * the app screen all standing at the inline end, these two put their photo on the
- * reading-start side, so the photographs alternate as the page scrolls: court at the end,
- * lessons at the start, the poster at the end, the café at the start, the app screen at
- * the end.
+ * The two photo-and-words sections. With the court (#club) and the poster photo (events)
+ * standing at the inline end, these two put their photo on the reading-start side, so the
+ * photographs alternate as the page scrolls: court at the end, lessons at the start, the
+ * poster at the end, the café at the start.
  *
  * - Lessons: the photo runs to the screen's edge on the reading-start side for the
  *   section's full height; the words sit in the other half, the action under them. Side

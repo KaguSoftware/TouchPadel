@@ -1,34 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { follow, SCROLL_OUT_AT, SCROLL_P_MAX, scrollProgress } from '../progress';
+import { follow, K_FROM, K_TO, kFor, sectionProgress } from '../progress';
 
-describe('scroll progress', () => {
+describe('section progress → camera pitch', () => {
   const VH = 900;
-  const H = 600;
+  const H = 1600;
 
-  it('is 0 while the stage top is still in the viewport (upper third or lower)', () => {
-    expect(scrollProgress(120, H, VH)).toBe(0);
-    expect(scrollProgress(VH / 3, H, VH)).toBe(0);
-    expect(scrollProgress(700, H, VH)).toBe(0);
-    expect(scrollProgress(0, H, VH)).toBe(0);
+  it('runs 0 → 1 from the section entering at the bottom to leaving at the top, clamped outside', () => {
+    expect(sectionProgress(VH, H, VH)).toBe(0);
+    expect(sectionProgress(VH + 500, H, VH)).toBe(0);
+    expect(sectionProgress(-H, H, VH)).toBe(1);
+    expect(sectionProgress(-H - 500, H, VH)).toBe(1);
+    expect(sectionProgress(0, 0, 0)).toBe(0);
   });
 
-  it('reaches SCROLL_P_MAX while part of the stage is still on screen', () => {
-    expect(scrollProgress(-H * SCROLL_OUT_AT, H, VH)).toBeCloseTo(SCROLL_P_MAX, 6);
-    expect(scrollProgress(-H, H, VH)).toBeCloseTo(SCROLL_P_MAX, 6);
-    expect(scrollProgress(-5000, H, VH)).toBeCloseTo(SCROLL_P_MAX, 6);
-  });
-
-  it('rises monotonically in between', () => {
-    let last = -1;
-    for (let top = VH / 3; top >= -H; top -= 25) {
-      const p = scrollProgress(top, H, VH);
-      expect(p).toBeGreaterThanOrEqual(last);
-      last = p;
+  it('pitches monotonically from K_FROM to K_TO, and never past either', () => {
+    let last = -Infinity;
+    for (let top = VH + 200; top >= -H - 200; top -= 50) {
+      const k = kFor(sectionProgress(top, H, VH));
+      expect(k).toBeGreaterThanOrEqual(last);
+      expect(k).toBeGreaterThanOrEqual(K_FROM);
+      expect(k).toBeLessThanOrEqual(K_TO);
+      last = k;
     }
-  });
-
-  it('never divides by nothing', () => {
-    expect(scrollProgress(0, 0, 0)).toBe(0);
+    expect(kFor(0)).toBe(K_FROM);
+    expect(kFor(1)).toBe(K_TO);
   });
 });
 

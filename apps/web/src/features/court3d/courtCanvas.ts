@@ -1,9 +1,15 @@
 /**
- * The live court on a web page: the phone's three.js scene (scene.ts, copied)
- * drawn on a transparent canvas inside a host element. Not React: CourtStage
- * owns the component side and loads this module with a dynamic `import()`, so
- * three.js is never in the first-load chunk. The scratchpad harness mounts the
- * same factory directly.
+ * The live court on a web page: the app's own three.js court (@touch/court3d,
+ * the same scene the phone draws) on a transparent canvas inside a host element.
+ * Not React: CourtStage owns the component side and loads this module with a
+ * dynamic `import()`, so three.js is never in the first-load chunk.
+ *
+ * ONE BUILD: the full court, at its best. Any browser with WebGL gets it (the
+ * flat SVG court is only for a browser without): shadows on with the prototype's
+ * 2048² map, the full racket, MSAA, and a pixel ratio up to 3 inside a pixel
+ * budget (PIXEL_BUDGET) that is below what the phone app already draws full
+ * screen. The ball spins by the rally clock, so a 120 Hz screen does not spin it
+ * twice as fast.
  *
  * What it takes over from apps/mobile/src/components/Court3D.tsx is the SHAPE of
  * its loop, not its code (most of that file is expo-gl surface workarounds):
@@ -12,9 +18,13 @@
  *    so the ball, its trail and its disc are never hidden by the cage;
  *  - the rally clock (rallyClock.advance) billed only for drawn frames, and
  *    `lastFrameAt = null` on every stop, so hidden time is never rallied through;
- *  - the camera re-aspected before every render (scene.ts builds it at 390/844);
- *  - reduced motion = the rest frame (t = 0, which hides every trail ghost) drawn
- *    once, and again on resize, with no loop and no scroll link.
+ *  - reduced motion = the rest frame (t = 0, which hides every trail ghost, at
+ *    K_REST) drawn once, and again on resize, with no loop and no scroll link.
+ *
+ * The camera is the site's, not the phone's: it never shows the flat top-down
+ * diagram. It rests at a pitch where the court reads as a 3D model (progress.ts)
+ * and, scroll-linked, sways a little as the section passes; frameCourt
+ * (framing.ts) fills the box with the court at every pitch.
  *
  * The loop runs only while the host intersects the viewport AND the document is
  * visible AND the context is alive AND motion is allowed AND the visitor has not
@@ -28,15 +38,11 @@
  * dead context to the next getContext().
  */
 import * as THREE from 'three';
-import { advance } from './rallyClock';
-import { projectNet } from './camera';
-import { buildCourtScene, type CourtScene } from './scene';
-import { pitchEase } from './spec';
-import { follow, scrollProgress } from './progress';
-import { DPR_CAP } from './tier';
-import { applyFit } from './framing';
-
-export type CanvasTier = 'full' | 'lite';
+import { advance } from '@touch/court3d/rallyClock';
+import { projectNet } from '@touch/court3d/camera';
+import { buildCourtScene, type CourtScene } from '@touch/court3d/scene';
+import { follow, K_REST, kFor, sectionProgress } from './progress';
+import { frameCourt } from './framing';
 
 /** The net tape's centre relative to the host's centre, and its span, in CSS px. */
 export interface NetPlacement {
@@ -48,13 +54,14 @@ export interface NetPlacement {
 export interface CourtCanvasOptions {
   /** The box the canvas fills. Observed for size and visibility. */
   host: HTMLElement;
-  tier: CanvasTier;
-  /** Drive p from the host's position in the viewport (the landing hero). */
+  /** Sway the camera with the page's scroll. Without it the court rests at K_REST. */
   scrollLinked?: boolean;
-  /** A fixed p instead (0..1). Ignored when scrollLinked. Default 0. */
-  progress?: number;
-  /** Force the reduced-motion path regardless of the media query (harness, tests). */
-  reducedMotion?: boolean;
+  /**
+   * The element whose passage through the viewport drives the sway (the club
+   * section). Default: the host. Pass the section when the host is sticky: a
+   * sticky box's own rect hardly moves while the page scrolls.
+   */
+  scrollRoot?: HTMLElement;
   /** Start held still (the visitor paused the rally on an earlier visit). */
   paused?: boolean;
   /** Called once, after the first frame has been drawn. */
@@ -67,13 +74,27 @@ export interface CourtCanvasOptions {
 
 export interface CourtCanvas {
   readonly canvas: HTMLCanvasElement;
-  /** Set a fixed p (0..1); a no-op while scroll-linked. */
-  setProgress(p: number): void;
-  /** Draw one frame now at the current state (no clock advance). */
-  renderOnce(): void;
   /** Hold the rally where it is (true) or let it run again (false). */
   setPaused(paused: boolean): void;
   dispose(): void;
+}
+
+/**
+ * Most device pixels the canvas may hold. A 544 × 673 desktop box at 2x is
+ * 1.46 MP and a 357 × 442 phone box at 3x is 1.42 MP, so both draw at their
+ * screen's full density; the phone app draws ~2.96 MP full screen with 4x MSAA.
+ * Only an unusually large box is scaled back, never below 1x.
+ */
+export const PIXEL_BUDGET = 2_400_000;
+/** The densest screen worth drawing for. */
+export const DPR_MAX = 3;
+/** The sun's shadow map, px square: the prototype's own (the phone saves at 1024). */
+export const SHADOW_MAP_SIZE = 2048;
+
+/** The pixel ratio for a w × h CSS-px box on a screen of density `dpr`. */
+export function pixelRatioFor(w: number, h: number, dpr: number): number {
+  const budget = Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h));
+  return Math.max(1, Math.min(dpr > 0 ? dpr : 1, DPR_MAX, budget));
 }
 
 const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
@@ -83,7 +104,8 @@ const WARM_CAP_MS = 2500;
 const RELEASE_CAP_MS = 10_000;
 
 export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
-  const { host, tier } = opts;
+  const { host } = opts;
+  const scrollRoot = opts.scrollRoot ?? host;
   const canvas = document.createElement('canvas');
   if (opts.canvasClassName) canvas.className = opts.canvasClassName;
   canvas.setAttribute('aria-hidden', 'true');
@@ -102,11 +124,13 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
     throw err;
   }
   renderer.setClearColor(0x000000, 0); // transparent: the page paints behind the court
-  renderer.shadowMap.enabled = tier === 'full';
+  renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  const court: CourtScene = buildCourtScene(tier);
-  const ease = pitchEase(1, 0);
+  const court: CourtScene = buildCourtScene('full', {
+    spin: 'time',
+    shadowMapSize: SHADOW_MAP_SIZE,
+  });
 
   // ── state ───────────────────────────────────────────────────────────────
   let width = 0;
@@ -119,17 +143,16 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
   let contextLost = false;
   let disposed = false;
   let firstFrameDone = false;
-  let fixedP = clamp01(opts.progress ?? 0);
-  let targetP = fixedP;
-  let shownP = fixedP;
+  let targetK = K_REST;
+  let shownK = K_REST;
   let rectDirty = true;
   let lastNet: NetPlacement | null = null;
-  let fitFor = ''; // the aspect + k the camera zoom was last fitted for
+  let framedFor = ''; // the size + k the camera was last framed for
   let compiled = false; // shaders warmed off the main thread (see the bottom)
   let paused = Boolean(opts.paused);
 
   const mql = typeof window.matchMedia === 'function' ? window.matchMedia(REDUCED_QUERY) : null;
-  let reduced = opts.reducedMotion ?? mql?.matches ?? false;
+  let reduced = mql?.matches ?? false;
   const scrollLinked = () => Boolean(opts.scrollLinked) && !reduced;
 
   // ── drawing ─────────────────────────────────────────────────────────────
@@ -140,39 +163,35 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
     if (w !== width || h !== height) {
       width = w;
       height = h;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, DPR_CAP[tier]));
+      renderer.setPixelRatio(pixelRatioFor(w, h, window.devicePixelRatio));
       renderer.setSize(w, h, false); // CSS size comes from the stylesheet
       rectDirty = true;
-    }
-    if (court.camera.aspect !== w / h) {
-      court.camera.aspect = w / h;
-      court.camera.updateProjectionMatrix();
     }
     return true;
   }
 
   function readScroll(): void {
     if (!scrollLinked()) {
-      targetP = reduced ? 0 : fixedP;
+      targetK = K_REST;
       return;
     }
     if (!rectDirty) return;
     rectDirty = false;
-    const r = host.getBoundingClientRect();
-    targetP = scrollProgress(r.top, r.height, window.innerHeight || r.height);
+    const r = scrollRoot.getBoundingClientRect();
+    targetK = kFor(sectionProgress(r.top, r.height, window.innerHeight || r.height));
   }
 
   function draw(): void {
     if (!compiled || contextLost || disposed || !fit()) return;
-    const p = reduced ? 0 : shownP;
-    const k = ease(p);
-    // Web framing: pull back only as far as the box needs to hold the whole court (framing.ts).
-    const fitKey = `${court.camera.aspect.toFixed(4)}:${k.toFixed(4)}`;
-    if (fitKey !== fitFor) {
-      fitFor = fitKey;
-      applyFit(court.camera, k);
+    const k = reduced ? K_REST : shownK;
+    const frameKey = `${width}x${height}:${k.toFixed(4)}`;
+    if (frameKey !== framedFor) {
+      framedFor = frameKey;
+      frameCourt(court.camera, k, width, height);
     }
-    court.update(reduced ? 0 : t, p, k);
+    // p = 0: the lines keep their full strength (the phone fades them under its
+    // booking sheet; the site has no sheet).
+    court.update(reduced ? 0 : t, 0, k);
     renderer.autoClear = true;
     renderer.render(court.scene, court.camera);
     renderer.autoClear = false;
@@ -211,7 +230,7 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
     lastFrameAt = now;
     t = advance(t, since);
     readScroll();
-    shownP = since === null ? targetP : follow(shownP, targetP, since / 1000);
+    shownK = since === null ? targetK : follow(shownK, targetK, since / 1000);
     try {
       draw();
     } finally {
@@ -241,7 +260,7 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
     oncePending = requestAnimationFrame(() => {
       oncePending = null;
       readScroll();
-      shownP = targetP;
+      shownK = targetK;
       draw();
     });
   }
@@ -280,7 +299,6 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
   }
 
   const onReduced = (e: MediaQueryListEvent) => {
-    if (opts.reducedMotion !== undefined) return; // forced by the caller
     reduced = e.matches;
     t = reduced ? 0 : t;
     sync();
@@ -324,7 +342,7 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
     // The first frame goes out now, whether or not the loop starts: it is what
     // lets the stage cross-fade from the SVG to the canvas.
     readScroll();
-    shownP = targetP;
+    shownK = targetK;
     draw();
     // Seed visibility from the box itself: the observer's first report waits for
     // a rendering update, which an otherwise idle page may not have for a while,
@@ -335,17 +353,6 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
 
   return {
     canvas,
-    setProgress(p) {
-      fixedP = clamp01(p);
-      if (!scrollLinked()) {
-        targetP = fixedP;
-        shownP = fixedP;
-        if (raf === null) requestOnce();
-      }
-    },
-    renderOnce() {
-      draw();
-    },
     setPaused(next) {
       if (paused === next) return;
       paused = next;
@@ -392,8 +399,4 @@ function inViewport(el: HTMLElement): boolean {
   const vh = window.innerHeight || document.documentElement.clientHeight;
   const vw = window.innerWidth || document.documentElement.clientWidth;
   return r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw && r.width > 0 && r.height > 0;
-}
-
-function clamp01(v: number): number {
-  return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
 }

@@ -1,7 +1,7 @@
 /**
  * SVG path data → three.js shapes, for the brand artwork this folder draws.
  *
- * Shared by `logoMark` (the Touch Padel lockup) and `smileyMark` (the smiley
+ * Shared by `logoMark` (apps/mobile: the Touch Padel lockup) and `smileyMark` (the smiley
  * ball on the racket face), and split out of the first when the second arrived
  * — not for tidiness, but for weight: Metro bundles what is reachable, and the
  * racket now draws only the ball, so leaving the parser inside `logoMark` would
@@ -10,8 +10,7 @@
  *
  * PURE — three's curve/shape maths and nothing else. No React, no react-native,
  * no material, mesh or scene code, which is what lets it be unit-tested under
- * plain node (vitest.config.ts collects only `__tests__` folders under `src/`,
- * and only modules that import no react-native or expo).
+ * plain node.
  *
  * Deliberately NOT a general SVG library. Both marks were lifted from the
  * brand's own PDFs with pdftocairo, which emits absolute M, L, C and Z and

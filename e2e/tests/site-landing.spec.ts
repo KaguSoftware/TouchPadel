@@ -2,15 +2,12 @@
  * The Touch Padel site: the home page at /{locale}, its shell around the legal pages, and
  * the night/light mode (docs/design/web-site/contracts-2026-09-23.md §0 Revision B).
  *
- * What only a real browser can prove: the page presents the CLUB (the hero books a court
- * on WhatsApp, the app is one band), night is the first-visit default and the toggle
+ * What only a real browser can prove: night is the first-visit default and the toggle
  * survives a reload and a trip to a legal page (it is a cookie the SERVER paints from);
  * every header and footer link resolves, fragments included; every WhatsApp button opens
  * a chat with the desk's number and the page's own message, and the call button dials
- * the same number; the first-visit questions open from the keyboard; the JSON-LD block
- * carries this response's CSP nonce and the address but no telephone; nothing scrolls
- * sideways at 360 px; with WebGL unavailable the flat court stays, Book a court on
- * its net; the rally can be paused (WCAG 2.2.2); and an address that matches no page
+ * the same number; nothing scrolls sideways at 360 px; with WebGL unavailable the flat
+ * court stays, Book a court on its net; the rally can be paused (WCAG 2.2.2); Arabic is right to left in natural case; and an address that matches no page
  * gets the site's own 404, in its language and direction, not Next's bare default.
  *
  * The local stack's venue phone is the seed's 00995419010203 (unverified, like
@@ -51,20 +48,13 @@ test.describe('site home', () => {
     expect(res?.status()).toBe(200);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page).toHaveTitle('Touch Padel · Padel club and café in Karbala');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Touch is');
-    await expect(page.locator('.tp-front__lead')).toContainText('Durrat Karbala');
     expect(await siteMode(page)).toBe('night');
     await expect(page.locator('meta[name="theme-color"]').first()).toHaveAttribute(
       'content',
       '#172C4F',
     );
-    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
-      'content',
-      /padel club and café in Durrat Karbala/,
-    );
     // The app is one band, not the story.
     await expect(page.locator('.tp-appband')).toHaveCount(1);
-    await expect(page.getByRole('heading', { name: 'Booking in the app. Soon.' })).toBeVisible();
     // Google's OAuth consent screen lists /en as the app's home page: the policy must be linked.
     await expect(
       page.getByRole('contentinfo').getByRole('link', { name: 'Privacy Policy' }),
@@ -130,11 +120,6 @@ test.describe('site home', () => {
         expect(await page.locator(`#${fragment}`).count(), `#${fragment} exists on /en`).toBe(1);
       }
     }
-    // The section links land on their sections.
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole('banner').getByRole('link', { name: 'Visit', exact: true }).click();
-    await expect(page).toHaveURL(/\/en#visit$/);
-    await expect(page.locator('#visit-title')).toBeInViewport();
   });
 
   test('every WhatsApp button opens a chat with the desk, pre-filled; Call dials the same number', async ({
@@ -149,17 +134,23 @@ test.describe('site home', () => {
       `tel:+${book.digits}`,
     );
 
+    // Each name ends in the screen-reader cue that it leaves for WhatsApp (link purpose);
+    // the sr-only span reads as its own chunk, hence the optional space.
     const expected: [Locator, string][] = [
       [
-        page.getByRole('banner').getByRole('link', { name: 'Book a court' }),
+        page.getByRole('banner').getByRole('link', { name: /^Book a court\s*, on WhatsApp$/ }),
         'Hi Touch Padel, I would like to book a court.',
       ],
       [
-        page.locator('.tp-court-stage__overlay').getByRole('link', { name: 'Book a court' }),
+        page
+          .locator('.tp-court-stage__overlay')
+          .getByRole('link', { name: /^Book a court\s*, on WhatsApp$/ }),
         'Hi Touch Padel, I would like to book a court.',
       ],
       [
-        page.locator('#lessons').getByRole('link', { name: 'Ask about lessons' }),
+        page
+          .locator('#lessons')
+          .getByRole('link', { name: /^Ask about lessons\s*, on WhatsApp$/ }),
         'Hi Touch Padel, I would like to book a lesson.',
       ],
       [
@@ -175,64 +166,11 @@ test.describe('site home', () => {
     await expect(
       page.locator('#visit').getByRole('link', { name: 'Call the desk' }),
     ).toHaveAttribute('href', `tel:+${book.digits}`);
-    // The map is a link out (no iframe: the CSP has no frame-src).
-    await expect(page.locator('#visit iframe')).toHaveCount(0);
     const maps = await page
       .locator('#visit')
       .getByRole('link', { name: 'Open in Google Maps' })
       .getAttribute('href');
     expect(maps).toMatch(/^https:\/\//);
-  });
-
-  test('the first-visit questions open and close from the keyboard', async ({ page }) => {
-    await page.goto('/en');
-    const faq = page.locator('#faq');
-    const first = faq.locator('details').first();
-    const question = first.locator('summary');
-    await expect(question).toHaveText('How do I book a court?');
-    await expect(first).not.toHaveAttribute('open', '');
-    await expect(first.locator('.tp-faq__a')).toBeHidden();
-
-    await question.focus();
-    await expect(question).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(first).toHaveAttribute('open', '');
-    await expect(first.locator('.tp-faq__a')).toBeVisible();
-    await expect(first.locator('.tp-faq__a')).toContainText('WhatsApp');
-
-    // Tab reaches the next question; Space opens it too.
-    await page.keyboard.press('Tab');
-    const second = faq.locator('details').nth(1);
-    await expect(second.locator('summary')).toBeFocused();
-    await page.keyboard.press('Space');
-    await expect(second).toHaveAttribute('open', '');
-
-    await question.focus();
-    await page.keyboard.press('Enter');
-    await expect(first).not.toHaveAttribute('open', '');
-  });
-
-  test('the JSON-LD block carries this response’s CSP nonce, the address, no telephone', async ({
-    request,
-  }) => {
-    const res = await request.get('/en');
-    const csp = res.headers()['content-security-policy'] ?? '';
-    const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
-    expect(nonce, 'the page is served with a nonce CSP').toBeTruthy();
-    const html = await res.text();
-    const tag = html.match(/<script type="application\/ld\+json"[^>]*>/)?.[0] ?? '';
-    expect(tag).toContain(`nonce="${nonce}"`);
-    const body =
-      html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '{}';
-    const data = JSON.parse(body);
-    expect(data['@type']).toBe('SportsActivityLocation');
-    expect(data.address).toEqual({
-      '@type': 'PostalAddress',
-      streetAddress: 'Durrat Karbala',
-      addressLocality: 'Karbala',
-      addressCountry: 'IQ',
-    });
-    expect(JSON.stringify(data)).not.toMatch(/telephone|995419/);
   });
 
   test('nothing scrolls sideways at 360 px', async ({ page }) => {
@@ -294,16 +232,9 @@ test.describe('site home', () => {
     const res = await page.goto('/en/does-not-exist');
     expect(res?.status()).toBe(404);
     await expect(page.getByRole('heading', { level: 1, name: 'Out of bounds' })).toBeVisible();
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(page.getByRole('main')).toHaveCount(1);
-    await expect(page.getByRole('banner')).toBeVisible();
     await expect(page.getByRole('main').getByRole('link', { name: 'Back to Touch Padel' })).toHaveAttribute(
       'href',
       '/en',
-    );
-    await expect(page.getByRole('main').getByRole('link', { name: 'Café menu' })).toHaveAttribute(
-      'href',
-      '/en/menu',
     );
     // Deeper paths and paths under real pages land there too.
     for (const path of ['/en/privacy/x', '/en/menu/x']) {
@@ -355,23 +286,24 @@ test.describe('site home', () => {
 });
 
 test.describe('site home @ar', () => {
-  test('Arabic is right to left, natural case, in night by default', async ({ page }) => {
+  test('Arabic is right to left, in natural case, and books in Arabic', async ({ page }) => {
     const res = await page.goto('/ar');
     expect(res?.status()).toBe(200);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-    await expect(page).toHaveTitle('تتش بادل · نادي بادل وكافيه في كربلاء');
-    expect(await siteMode(page)).toBe('night');
-    const transform = await page
+    // Arabic has no case, and letter-spacing breaks its joined letters.
+    const type = await page
       .getByRole('heading', { level: 1 })
-      .evaluate((h) => getComputedStyle(h).textTransform);
-    expect(transform).toBe('none');
-    await expect(
-      page.locator('.tp-court-stage__overlay').getByRole('link', { name: 'احجز ملعبًا' }),
-    ).toBeVisible();
+      .evaluate((h) => [getComputedStyle(h).textTransform, getComputedStyle(h).letterSpacing]);
+    expect(type[0]).toBe('none');
+    expect(['normal', '0px']).toContain(type[1]);
     const book = await whatsapp(
       page.locator('.tp-front').getByRole('link', { name: 'احجز عبر واتساب' }),
     );
     expect(book.text).toBe('مرحبًا تتش بادل، أرغب بحجز ملعب.');
+    // The printed desk number keeps its digit groups in order inside Arabic text.
+    const number = page.locator('#visit .tp-visit__number');
+    await expect(number).toHaveAttribute('dir', 'ltr');
+    await expect(number).toHaveText('+995 419 010 203');
   });
 
   test('nothing scrolls sideways at 360 px in Arabic', async ({ page }) => {

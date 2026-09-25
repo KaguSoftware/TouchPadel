@@ -77,7 +77,6 @@ export function Events({ locale, phone }: { locale: Locale; phone: string | null
         {EVENTS_CROPS[locale].map(({ key, band, crop }) => (
           <CourtPattern
             key={key}
-            weight="poster"
             band={band}
             crop={crop}
             className={`tp-events__pattern tp-events__pattern--${key}`}
