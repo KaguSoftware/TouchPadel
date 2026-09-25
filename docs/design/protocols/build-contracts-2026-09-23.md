@@ -1,15 +1,19 @@
 # Protocols and the staff phone: build contracts between lanes (2026-09-23)
 
 Companion to `plan-2026-09-23.md`. The plan says what and why. This file says the exact shapes each
-lane produces and consumes, so the lanes of §1.1 (0, K and A to I; plan §10) can build in parallel
+lane produces and consumes, so the lanes of §1.1 (0, K and A to J; plan §10) can build in parallel
 without meeting. Every contract here is binding until someone edits this file.
 
-**Precedence.** Majed's §11 answers (rounds 7 and 8, 2026-09-23), his round 9 answers
-(2026-09-24, plan decisions #51–#55) and his round 10 answers (2026-09-24, plan §11 Q3–Q7,
-decisions #56–#60), all restated in §0, win over the plan wherever they differ, and this file
-already applies them. Where this file and the plan differ, this file wins. The plan
-and this file follow the same numbering rule (§1.3); the plan names migrations by feature only, and
-this file's names (for example `protocols_engine_tables`) replace the plan's where they differ.
+**Precedence.** These all win over the plan wherever they differ, are restated in §0, and are
+already applied in this file:
+- Majed's §11 answers (rounds 7 and 8, 2026-09-23);
+- his round 9 answers (2026-09-24, plan decisions #51–#55);
+- his round 10 answers (2026-09-24, plan §11 Q3–Q7, decisions #56–#60);
+- his per-role spec (2026-09-25, plan decisions #61–#74, with the Parked list).
+
+Where this file and the plan differ, this file wins. The plan and this file follow the same
+numbering rule (§1.3); the plan names migrations by feature only, and this file's names (for
+example `protocols_engine_tables`) replace the plan's where they differ.
 
 **Revision.** 2026-09-24: the review round's findings are applied here and the plan was aligned in
 the same edit, so the two should not disagree. If they do, this file wins and the plan is the bug.
@@ -27,6 +31,22 @@ too: the hero's Featured mode joins the featured-discount lock (§2.13), `kitche
 ticket completed more than two minutes ago (§2.23), a manager keeps the promotion off switch
 (§5.5), the desk's per-booking price override is listed as unchanged (§2.13), and `KdsBoard.tsx` is
 a shared file (§1.2). Plan §11 Q8 is the one open choice.
+
+**Revision 2026-09-25 (Majed's role spec).** Waves 0–2 are committed as 0155–0168 (lanes K, D1,
+G, B, A and C). 0155–0160 are on hosted. 0161 is on `origin/main` but hosted has not applied it:
+it waits for operator 0.2.20 on every kitchen machine. 0162–0168 are local commits. The engine
+(0162–0164: `protocol_step_defs`, the templates, `start_protocol` and the rest) and the
+staff-page data (0165 `checklists`, 0166 `shopping_purchases`, 0167 `staff_production`, 0168
+`marketing_staff`) now exist as committed migrations. So any change to them below is a **new**
+migration that re-issues from the committed body (§2.1). No committed file is ever edited.
+Majed's per-role spec (plan decisions #61–#74) is applied here:
+- §0 lists his answers and the parked questions.
+- A new lane J builds the role extras (§1.1, §2.24).
+- E's `product_release` gains the ideas pre-step (§2.9).
+- F gains `tournament_desk_start` (§2.11).
+- H and D2 gain the new pages (§5, §6), and I gains three additions (§5.5).
+
+Every item on the Parked list (§0) stays out of the build.
 
 **Markers.** **PROPOSAL** marks a shape chosen here that nobody has decided; build it unless someone
 objects. **UNVERIFIED** marks a fact to check before relying on it.
@@ -74,6 +94,44 @@ objects. **UNVERIFIED** marks a fact to check before relying on it.
 | 59 | The rename gap is **accepted as a limit**. | No guard. `product-release.test.ts` pins the rename and switch-on of a pre-migration item, `price-promo.test.ts` its locked price (§2.9, §2.13, §8.2). |
 | 60 | The kitchen money read is **closed in this work**, inside line 10: a money-free definer read for the board, a venue conjunct on `order_items`, and no direct priced reads for the bar and kitchen roles. | New lane K (§1.1): `kitchen_board_read` (`app.kitchen_board`) and the board reading through it, then `kitchen_money_reads`, which drops head_barista, barista, head_chef, chef and prep from the four order-side read policies and adds the venue conjunct (§2.23). The LAN board, the `kds` topic and the till, desk and MGMT reads are unchanged. Deploy order in §1.6. |
 
+**Role spec (2026-09-25; plan decisions #61–#74, binding).** Majed's spec lists the pages of each
+named staff member (plan §3.1). His standing rule is to keep building and pause only the sections
+that need his opinion. So the defaults below are built, and the Parked list after them is not.
+"*Default*" marks what the plan records as "default, per Majed's role spec 2026-09-25".
+
+| # | Answer (binding) | Consequence in these contracts |
+|---|---|---|
+| 61 | Standing rule: keep building. A section that needs Majed's opinion pauses alone. | The Parked list below; everything else here is built. |
+| 62 | *Default.* "Vacation" is the existing staff request of kind `leave` (0072). | No DB change. H relabels the Today Requests row "Vacation and requests" (§6.1). `staff-request.tsx` already opens on `leave` (`staff-request.tsx:57`). The owner still decides on the operator (#16, #56). |
+| 63 | *Default.* A general suggestion box. Every staff role posts, and the manager and owner read. | J `suggestions` (§2.24.4); D2 `/suggestions` (§5.4); H `staff-suggestions.tsx` (§6.1). No guest data. |
+| 64 | *Default.* Teachings: the head roles write them for their team, and the team reads them. | J `teachings` (§2.24.3). There are two teams: bar (head_barista, barista) and kitchen (head_chef, chef). MGMT reads both and may write (**PROPOSAL**). The text is staff-typed in one language (no bilingual requirement). There are no read receipts. |
+| 65 | *Default.* A barista's or chef assistant's new-item proposal goes to their head (head_barista or head_chef), who reviews it and starts the product release or declines it. | A **pre-step**, not a built-in step: `release_ideas` in E's `product_release` (§2.9). The engine's deciders, `propose` as the fixed first step, `app.protocol_step_defs` and `start_protocol` are all unchanged for it. `start_protocol` already hands `p_data` to the kind's start hook (0164). |
+| 66 | *Default.* A shopping line added by the chef assistant waits for the head chef's OK before the driver sees it. The head roles' lines still go straight to the driver (plan #26 stands for them). | J `shopping_head_approval` (§2.24.9) re-issues `add_shopping_item`, `shopping_list` and `cancel_shopping_item` from 0166. |
+| 67 | *Default.* The court desk may start a tournament run. | F `tournament_desk_start` (§2.11). `plan`'s actors become manager and court_desk, `plan` is assigned to the run's starter (so a reopened plan goes back to whoever started the run, never to every desk), and `start_protocol` admits court_desk for tournaments. The desk's plan waits for a manager. F's commit also updates the `@touch/core` twin (§7.2). |
+| 68 | *Default.* Stock is readable by quantity only, never cost, by the head roles and the desk. The desk sees the shop. | J `staff_stock_view` (§2.24.5), with the exact item set per role. |
+| 69 | *Default.* A checklist item may require a photo (the waiter's cleaning photos). | J `checklist_photos` (§2.24.8). |
+| 70 | *Default.* The driver's run is a checklist built from the shopping list, plus receipts and a delivery confirmation. | H's driver pages over `shopping_list` and `record_purchase` (as built, 0166), plus J `purchase_delivery_confirm` (§2.24.10). The manager's receive (plan #30) stays. |
+| 71 | The head barista and head chef edit recipes only with the owner's approval. | J `recipe_change_requests` (§2.24.7). A head proposes recipe lines for an item, and the owner approves them (applied through `app.set_recipe`) or declines with a reason. Nobody decides their own request. |
+| 72 | *PARKED-default* (P3 below). Recipes are shown as ingredient names only, with no quantities. | J `recipe_view` (§2.24.6) returns no quantity to anyone. |
+| 73 | Marketing: requests from staff, and results or feedback. ("Approval" is parked, P7.) | J `marketing_requests` (§2.24.11): staff ask and marketing answers. Results are marketing's own notes (§2.17) plus `marketing_campaign_results`, with counts only and no money (**PROPOSAL**). This revises §2.17's "no campaign performance read". |
+| 74 | The `chef` role is shown as "Chef assistant" (AR "مساعد شيف"). | A label only: the enum value stays `chef`. D2 makes the catalog change in one commit (§4). |
+
+### Parked (NOT TO BUILD until Majed answers)
+
+Majed was asked these on 2026-09-25 (plan §11 P1–P8). No lane builds any of them, and no lane
+starts one "to save time". The right-hand column is what exists until he answers.
+
+| P | Question | Until answered |
+|---|---|---|
+| 1 | The two new roles, **assistant barista** (Hussein) and **waiter** (Hasan). | No `staff_role` value is added, because a value can never be dropped (plan #1). No guard or list names them, and no page is built for them. Photo checklist items (#69) are built for every existing role. The waiter's cleaning list waits for the role. |
+| 2 | What "manage salaries of workers cut" means for the head roles. | Nothing. There is no pay, salary or deduction data anywhere. |
+| 3 | Whether recipes show quantities. | The default is **built**: names only (#72). If Majed says "yes", one re-issue of `recipe_view` adds `qty` and `unit` for the roles he names, and nothing else changes. |
+| 4 | What the cashier's session "day close" means. | Nothing new. Day close stays the manager's operator screen (§5.5), and the till is unchanged. |
+| 5 | "Log stock" versus "stock control" (head barista, head chef, cashier, chef assistant, and the desk's shop stock). | Staff get no stock write. Counts, waste and adjustments stay MGMT's on the operator. The head roles and the desk read quantities only (#68). Production (`record_batch`) stays as built for the chef tiers. |
+| 6 | The desk's "Report". | Nothing new. The desk keeps its current screens. |
+| 7 | Marketing's "Approval". | Nothing new. Going live stays owner-only (plan #14), and marketing's protocol steps are unchanged. |
+| 8 | The waiter being "moved to bakery panel". | Nothing. |
+
 ---
 
 ## 1. Lanes, ownership, numbering, commits
@@ -88,20 +146,24 @@ objects. **UNVERIFIED** marks a fact to check before relying on it.
 | **A** Engine DB | `staff_ingredient_options`, `protocols_engine_tables`, `protocols_engine_rpcs` | G's `staff_media_bucket` and `staff_push` (for `protocols_engine_rpcs`) | now (apply G's drafts locally) |
 | **B** Mobile shell and shared core | `@touch/core` role module (§7.1) and protocol form module (§7.2), staff sign-in, `StaffStatusProvider`, device hint, `GuestTabsGate`, `app/staff.tsx` (Today shell), `app/staff-request.tsx`, push tap routing, no-station-RPC guard | 0; G's `send-push` commit (the `pushRoutes` parity test reads `_shared/staff-push.json`) | now |
 | **C** Staff-page DB | `checklists`, `shopping_purchases`, `staff_production`, `marketing_staff` | G; A's `staff_ingredient_options` (for `shopping_purchases`) and `protocols_engine_tables` (for `marketing_staff`) | now |
-| **D** Operator protocols | **D1, shell:** `protocolsRoute` with its `validateSearch` and a placeholder page, registered in `op/main.tsx`; the `QK` keys (§5.2) and the `CAPABILITY_ROLES` entries (§5.1). **D2, pages:** `/protocols`, every operator step form and decision, How it works, per-run edits, the `/tasks` widening and forms, rail rows and badges, `/ops` rows, Observe row, audit keys | D1: 0. D2: A, B (§7.2), C, E, F, and I (the RPCs it reads, and I's `ChecklistsCard`), and K's board commit (the shared `KdsBoard.tsx`, §1.2) | D1 now; D2 after A's RPC shapes (this file) |
-| **E** Product release | `product_test_movement`, `product_release` (with the manager new-item guard, #52, #53); `release_post_launch`; `protocol-action`, `release-review`; menu-editor UI (in-release notice, the manager price lock and the manager new-item guard); ledger and variance | A; `release_post_launch` also after C's `marketing_staff` (`release_review_input` reads `marketing_notes`, §2.10). The menu-editor UI commit also after D1 (typed `/protocols` link) and F's `price_promo` (the lock it shows) | now (drafts) |
-| **F** Tournament, hiring, price/promo | `event_court_blocks`, `event_block_run_index`, `hiring`, `price_promo` (with the manager price lock on sizes, shop products and add-ons, the add-on launch guard, and the promotion, rate and featured-discount locks, #41, #51, #53, #57); desk event-block dialog; Staff hire prefill; courts analytics and courts report events line; the pricing UI commit: the manager locks in Stock ▸ Products, Add-ons, Promotions, Rates and the hero's featured discount (§5.5) | A; `price_promo` also after E's `product_release`; F's UI commits also after D1 (the pricing UI commit also after `price_promo`) | now (drafts) |
-| **H** Mobile pages | every `app/staff-*.tsx` except `staff.tsx` and `staff-request.tsx` | B; G's photo commit (`photo.ts`, `PhotoButton.tsx`, expo-image-picker) for every page with a photo; and the RPCs each page calls | after B |
-| **I** Operator stock and day close | Goods in "Bought by the driver", "Made today", day-close soft section, Daily checklists card and editor, marketing "From marketing", Setup "Worth checking" additions | C; I's UI commits also after D1 (`QK` keys, `editChecklists`) | after C's RPC shapes (this file) |
+| **D** Operator protocols | **D1, shell:** `protocolsRoute` with its `validateSearch` and a placeholder page, registered in `op/main.tsx`; the `QK` keys (§5.2) and the `CAPABILITY_ROLES` entries (§5.1). **D2, pages:** `/protocols`, every operator step form and decision, How it works, per-run edits, the `/tasks` widening and forms, rail rows and badges, `/ops` rows, Observe row, audit keys; for the role spec (#61–#74, §5.4): the ideas list and start from an idea, the Recipe changes card and the owner's decision, `/suggestions`, the court desk's tournament start on `/tasks`, `/tasks`' read-only role-page sections, and the "Chef assistant" label | D1: 0. D2: A, B (§7.2), C, E, F, I (the RPCs it reads, and I's `ChecklistsCard`) and J (the role-extras RPCs), and K's board commit (the shared `KdsBoard.tsx`, §1.2) | D1 now; D2 after A's RPC shapes (this file) |
+| **E** Product release | `product_test_movement`, `product_release` (with the manager new-item guard, #52, #53, and the ideas pre-step, #65, §2.9); `release_post_launch`; `protocol-action`, `release-review`; menu-editor UI (in-release notice, the manager price lock and the manager new-item guard); ledger and variance | A; `product_release` also after J's `staff_push_keys` and `staff_media_folders` (the idea pushes, the idea photos' read rule and their re-claim, §2.24.1, §2.24.2); `release_post_launch` also after C's `marketing_staff` (`release_review_input` reads `marketing_notes`, §2.10). The menu-editor UI commit also after D1 (typed `/protocols` link) and F's `price_promo` (the lock it shows) | now (drafts) |
+| **F** Tournament, hiring, price/promo | `event_court_blocks`, `event_block_run_index`, `hiring`, `price_promo` (with the manager price lock on sizes, shop products and add-ons, the add-on launch guard, and the promotion, rate and featured-discount locks, #41, #51, #53, #57); `tournament_desk_start` (the court desk starts a tournament, #67, §2.11); desk event-block dialog; Staff hire prefill; courts analytics and courts report events line; the pricing UI commit: the manager locks in Stock ▸ Products, Add-ons, Promotions, Rates and the hero's featured discount (§5.5) | A; `price_promo` also after E's `product_release`; `tournament_desk_start` after `event_court_blocks` (its tests need the tournament hooks); F's UI commits also after D1 (the pricing UI commit also after `price_promo`) | now (drafts) |
+| **H** Mobile pages | every `app/staff-*.tsx` except `staff.tsx` and `staff-request.tsx`, the role pages of #62–#74 included (§6.1): ideas, teachings, suggestions, stock, recipes and recipe changes, requests to marketing and results, the photo tick, the chef assistant's lines and the head chef's OK, the driver's run with receipts and Delivered, the court desk's tournament start; the Today row changes (Vacation and requests) | B; G's photo commit (`photo.ts`, `PhotoButton.tsx`, expo-image-picker) for every page with a photo; and the RPCs each page calls (A, C, E, F, J) | after B |
+| **I** Operator stock and day close | Goods in "Bought by the driver", "Made today", day-close soft section, Daily checklists card and editor, marketing "From marketing", Setup "Worth checking" additions; for the role spec: the checklist editor's "Needs a photo" switch and the photos in the day view (#69), Goods in's delivered state (#70), and `/marketing`'s "Requests to marketing" list (#73), §5.5 | C; I's UI commits also after D1 (`QK` keys, `editChecklists`); the three role-spec parts after J's `checklist_photos`, `purchase_delivery_confirm` and `marketing_requests` | after C's RPC shapes (this file) |
+| **J** Role extras DB (plan #61–#74) | first, **its own commit**: the EN and AR copy of the eleven new push title keys in `send-push/staffStrings.ts` and its test (§2.24.1, §1.6 step 2b); then `staff_push_keys`, `staff_media_folders`, `teachings`, `suggestions`, `staff_stock_view`, `recipe_view`, `recipe_change_requests`, `checklist_photos`, `shopping_head_approval`, `purchase_delivery_confirm`, `marketing_requests` (§2.24), each with its RPCs, tests, fixtures and catalog strings | C, which is committed (0165–0168), so J can start now. Within J: `staff_push_keys` after J's `send-push` commit; `staff_media_folders` after nothing; `teachings` and `marketing_requests` after `staff_push_keys` and `staff_media_folders`; `checklist_photos` after `staff_media_folders`; `recipe_change_requests` and `shopping_head_approval` after `staff_push_keys`; `suggestions`, `staff_stock_view`, `recipe_view` and `purchase_delivery_confirm` after nothing | now |
 
-Critical path: G, then A, then E and F, then D2, then acceptance (§8.3).
+Critical path: G, then A, then E and F, then D2, then acceptance (§8.3). E's `product_release`
+also waits for J's `send-push` commit, `staff_push_keys` and `staff_media_folders`. Those three
+depend on nothing uncommitted, so J lands them first.
 
 The commit graph has no cycle. One order that satisfies every row: 0; K's `kitchen_board_read`
 and board commit; D1; G `send-push`; B; K's `kitchen_money_reads`; G `staff_media_bucket`,
-`staff_push` and its photo commit; A's three; C's four; E's `product_test_movement`,
-`product_release`, `release_post_launch`; F's `event_court_blocks`, `event_block_run_index`,
-`hiring`, `price_promo`; the E, F and I UI commits; H's pages as their RPCs land; D2. Slice 2's
-commits interleave anywhere (§1.3).
+`staff_push` and its photo commit; A's three; C's four. Everything up to here is committed as
+0155–0168. Then: J's `send-push` commit, `staff_push_keys`, `staff_media_folders`; E's
+`product_test_movement`, `product_release`, `release_post_launch`; F's `event_court_blocks`,
+`event_block_run_index`, `hiring`, `price_promo`, `tournament_desk_start`; the rest of J; the E, F
+and I UI commits; H's pages as their RPCs land; D2. Slice 2's commits interleave anywhere (§1.3).
 
 ### 1.2 File ownership
 
@@ -113,25 +175,26 @@ order, append-only, re-read immediately before editing.
 | 0 | `packages/i18n/src/catalogs/{work,opErrors.protocols}.{en,ar}.ts` (new); `packages/i18n/src/catalogs/staff/index.ts` and empty `staff/{shell,protocols,checklists,supplies,marketing,notes,media}.{en,ar}.ts` (new); empty `ws/{protocols,release,events,supplies,pricing}.{en,ar}.ts` (new); the mount lines in `en.ts`/`ar.ts` and `ws/index.ts`, plus the reworded `op.errors.IDEMPOTENCY_CONFLICT` string there (§3); the `MAPPED_CODES` block in `op/lib/errors.ts`; the `CODE_TO_KEY` block in `mob/src/features/booking/errors.ts`; this file |
 | K | drafts `{kitchen_board_read,kitchen_money_reads}.sql` (then `migrations/`); `packages/db/tests/kitchen-board.test.ts` (new); the 0157 cases of `packages/db/tests/new-roles.test.ts` (the order-side read case moves the kitchen roles and prep to "reads nothing"); `op/features/kds/ticketView.ts` and the tests `KdsBoard.test.tsx`, `ticketView.test.ts`; `op/features/kds/KdsBoard.tsx` is shared with D (second table): K changes the tickets query only, and D owns the header button in `KitchenDisplayScreen.tsx` |
 | A | `packages/db/supabase/drafts/{staff_ingredient_options,protocols_engine_tables,protocols_engine_rpcs}.sql` (then `migrations/`); `packages/db/tests/protocols-engine*.test.ts`, `protocols-roles.test.ts` (A's tables and RPCs only, §8.2), `staff-ingredient-options.test.ts`; the read-policy case of G's committed `packages/db/tests/staff-media.test.ts` (A re-issues that policy, §2.3, §2.18) |
-| B | `packages/core/src/staff/**`, `packages/core/src/protocols/**` (§7.2); `op/lib/roleResolution.ts` (re-export only); `packages/db/tests/staff-roles-parity.test.ts`; the `Role` comment in `apps/operator-shell/src/ipc-channels.ts` and `op/ipc/bridge.ts` (§7.1); `mob/src/features/staff/{status,StaffStatusProvider,gate,RequireStaff,GuestTabsGate,hint,keys,api,venue,rows,edge,pushRoutes}.ts(x)` and their `__tests__`; `mob/app/staff.tsx`, `mob/app/staff-request.tsx`; `mob/src/smoke/staff.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/shell.*`; `packages/db/fixtures/staff-roles.sql` (dev logins for the six new roles, **PROPOSAL**, loaded with `pnpm --filter @touch/db db:fixtures fixtures/staff-roles.sql`) |
+| B | `packages/core/src/staff/**`, `packages/core/src/protocols/**` (§7.2; `steps.ts`, `protocols.test.ts` and `types.ts` are shared files after B, second table); `op/lib/roleResolution.ts` (re-export only); `packages/db/tests/staff-roles-parity.test.ts`; the `Role` comment in `apps/operator-shell/src/ipc-channels.ts` and `op/ipc/bridge.ts` (§7.1); `mob/src/features/staff/{status,StaffStatusProvider,gate,RequireStaff,GuestTabsGate,hint,keys,api,venue,rows,edge,pushRoutes}.ts(x)` and their `__tests__`; `mob/app/staff.tsx`, `mob/app/staff-request.tsx`; `mob/src/smoke/staff.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/shell.*`; `packages/db/fixtures/staff-roles.sql` (dev logins for the six new roles, **PROPOSAL**, loaded with `pnpm --filter @touch/db db:fixtures fixtures/staff-roles.sql`) |
 | C | `packages/db/supabase/drafts/{checklists,shopping_purchases,staff_production,marketing_staff}.sql`; `packages/db/tests/{checklists,shopping-purchases,staff-production,marketing-staff}.test.ts` (each with its own driver and marketing denials, §8.2) |
-| D | `op/features/protocols/**`; `op/routes/protocols.tsx`; `op/routes/tasks.tsx`; `op/features/tasks/**`; the "My tasks (N)" header button in `op/features/kds/KitchenDisplayScreen.tsx` (its count and handler come from `KdsBoard.tsx`, a shared file, second table); `op/routes/__root.tsx` (`RailLink` renders a `NavItem` badge); `packages/i18n/src/catalogs/ws/protocols.*`; `e2e/tests/operator-protocols.spec.ts` |
-| E | drafts `{product_test_movement,product_release,release_post_launch}.sql`; `packages/db/supabase/functions/{protocol-action,release-review}/**`; `packages/db/tests/{product-release,release-post-launch,protocol-action,release-review}.test.ts` (each with its own driver and marketing denials); `op/features/admin/menu/**` (in-release notice, the manager price lock and the manager new-item guard); `packages/i18n/src/catalogs/ws/release.*` |
-| F | drafts `{event_court_blocks,event_block_run_index,hiring,price_promo}.sql`; `packages/db/tests/{event-court-blocks,hiring,price-promo}.test.ts` (each with its own driver and marketing denials); `op/features/desk/CourtBlock.tsx` (event mode); `op/routes/desk/_children.ts` (`validateBlockSearch` gains `run`, `step`); `op/routes/admin/staff.tsx` (`validateSearch` for `hire`); `op/features/stock/products/**` and `op/features/admin/addons/**` (the manager locks, #51, #53); `op/features/admin/promotions/**`, `op/features/admin/{RateRuleEditor.tsx,rateRuleLogic.ts,rateRuleLogic.test.ts}` and `op/features/admin/hero/HeroBuilder.tsx` (the manager locks, #57, §5.5); `op/features/stock/stockKeys.ts` (only `fetchShopCatalogue`, whose select gains `launched_at`, and the `ShopProductRow` type, §5.5; no other lane edits the file, and one that must moves it to the shared-file table first); `packages/db/tests/promotions.test.ts` (its `mk` helper creates as the owner once the lock lands; the manager case moves to `price-promo.test.ts`); `packages/i18n/src/catalogs/ws/{events,pricing}.*` |
-| G | drafts `{staff_media_bucket,staff_push}.sql`; `packages/db/supabase/functions/send-push/**`; `packages/db/supabase/functions/_shared/staff-push.json`; `packages/db/tests/{staff-media,staff-push,send-push-staff}.test.ts`; `mob/src/features/staff/photo.ts`, `mob/src/components/PhotoButton.tsx`; `mob/locales/ios.{en,ar}.json` (new); `packages/i18n/src/catalogs/staff/media.*`; `docs/store/app-store-submission.md`, `docs/store/google-play-data-safety.md`, `docs/legal/staff-privacy-notice.md`, `docs/install-runbook.md`, `packages/i18n/src/catalogs/legal.{en,ar}.ts`; `scripts/create-staff-review-account.mjs` (new) |
-| H | `mob/app/staff-{checklist,start,runs,run,step,production,shopping,purchase,marketing,notes}.tsx`; `mob/src/features/staff/{protocols,checklists,supplies,marketing,notes}/**`; new `mob/src/components/{ChecklistRow,DecisionBar}.tsx`; `mob/src/smoke/staffPages.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/{protocols,checklists,supplies,marketing,notes}.*` |
-| I | `op/features/checklists/**` (new); `op/features/stock/{ReceiveDelivery,WasteAndProduction}.tsx` and new `op/features/stock/DriverPurchases.tsx`; `op/routes/stock/_children.ts` (`validateSearch` on the `receive` child for `purchase`); `op/features/admin/{DayClose.tsx,dayCloseLogic.ts}` (+ test); `op/features/marketing/MarketingPanel.tsx`; `op/features/admin/SetupHome.tsx` (+ test); `packages/i18n/src/catalogs/ws/supplies.*` |
+| D | `op/features/protocols/**`; `op/routes/protocols.tsx`; `op/routes/tasks.tsx`; `op/features/tasks/**`; the "My tasks (N)" header button in `op/features/kds/KitchenDisplayScreen.tsx` (its count and handler come from `KdsBoard.tsx`, a shared file, second table); `op/routes/__root.tsx` (`RailLink` renders a `NavItem` badge); `packages/i18n/src/catalogs/ws/protocols.*`; `e2e/tests/operator-protocols.spec.ts`; for the role spec (D2): `op/features/roleExtras/**` (new: the Suggestions page, the Recipe changes card and sheet, the ideas list and review, `/tasks`' role-page sections), `op/routes/suggestions.tsx` (new), `packages/i18n/src/catalogs/ws/rolePages.{en,ar}.ts` (new), `e2e/tests/operator-role-pages.spec.ts` (new) |
+| E | drafts `{product_test_movement,product_release,release_post_launch}.sql` (`product_release` carries `release_ideas`, its RPCs and the start hook's idea path, §2.9); `packages/db/supabase/functions/{protocol-action,release-review}/**`; `packages/db/tests/{product-release,release-post-launch,protocol-action,release-review}.test.ts` (each with its own driver and marketing denials; the idea cases in `product-release.test.ts`); `op/features/admin/menu/**` (in-release notice, the manager price lock and the manager new-item guard); `packages/i18n/src/catalogs/ws/release.*` |
+| F | drafts `{event_court_blocks,event_block_run_index,hiring,price_promo,tournament_desk_start}.sql`; `packages/db/tests/{event-court-blocks,hiring,price-promo,tournament-desk-start}.test.ts` (each with its own driver and marketing denials); in `tournament_desk_start`'s commit, the tournament lines of `packages/core/src/protocols/steps.ts` and `protocols.test.ts` (shared files after B, second table, §2.11); `op/features/desk/CourtBlock.tsx` (event mode); `op/routes/desk/_children.ts` (`validateBlockSearch` gains `run`, `step`); `op/routes/admin/staff.tsx` (`validateSearch` for `hire`); `op/features/stock/products/**` and `op/features/admin/addons/**` (the manager locks, #51, #53); `op/features/admin/promotions/**`, `op/features/admin/{RateRuleEditor.tsx,rateRuleLogic.ts,rateRuleLogic.test.ts}` and `op/features/admin/hero/HeroBuilder.tsx` (the manager locks, #57, §5.5); `op/features/stock/stockKeys.ts` (only `fetchShopCatalogue`, whose select gains `launched_at`, and the `ShopProductRow` type, §5.5; no other lane edits the file, and one that must moves it to the shared-file table first); `packages/db/tests/promotions.test.ts` (its `mk` helper creates as the owner once the lock lands; the manager case moves to `price-promo.test.ts`); `packages/i18n/src/catalogs/ws/{events,pricing}.*` |
+| G | drafts `{staff_media_bucket,staff_push}.sql`; `packages/db/supabase/functions/send-push/**`; `packages/db/supabase/functions/_shared/staff-push.json`; `packages/db/tests/{staff-media,staff-push,send-push-staff}.test.ts`; `mob/src/features/staff/photo.ts` (its `PhotoFolder` type is shared with J after G, second table), `mob/src/components/PhotoButton.tsx`; `mob/locales/ios.{en,ar}.json` (new); `packages/i18n/src/catalogs/staff/media.*`; `docs/store/app-store-submission.md`, `docs/store/google-play-data-safety.md`, `docs/legal/staff-privacy-notice.md`, `docs/install-runbook.md`, `packages/i18n/src/catalogs/legal.{en,ar}.ts`; `scripts/create-staff-review-account.mjs` (new) |
+| H | `mob/app/staff-{checklist,start,runs,run,step,production,shopping,purchase,marketing,notes}.tsx`; `mob/src/features/staff/{protocols,checklists,supplies,marketing,notes}/**`; new `mob/src/components/{ChecklistRow,DecisionBar}.tsx`; `mob/src/smoke/staffPages.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/{protocols,checklists,supplies,marketing,notes}.*`; for the role spec: `mob/app/staff-{ideas,teachings,suggestions,stock,recipes,recipe-change,marketing-requests}.tsx` (new), `mob/src/features/staff/{ideas,teachings,suggestions,stock,recipes,marketingRequests}/**` (new), `mob/src/smoke/staffRolePages.smoke.test.tsx` (new), `packages/i18n/src/catalogs/staff/rolePages.{en,ar}.ts` (new) |
+| I | `op/features/checklists/**` (new); `op/features/stock/{ReceiveDelivery,WasteAndProduction}.tsx` and new `op/features/stock/DriverPurchases.tsx`; `op/routes/stock/_children.ts` (`validateSearch` on the `receive` child for `purchase`); `op/features/admin/{DayClose.tsx,dayCloseLogic.ts}` (+ test); `op/features/marketing/MarketingPanel.tsx`; `op/features/admin/SetupHome.tsx` (+ test); `packages/i18n/src/catalogs/ws/supplies.*`. The role-spec additions of §5.5 (the photo switch, delivered, requests to marketing) stay in these files, so they stay I's |
+| J | drafts `{staff_push_keys,staff_media_folders,teachings,suggestions,staff_stock_view,recipe_view,recipe_change_requests,checklist_photos,shopping_head_approval,purchase_delivery_confirm,marketing_requests}.sql` (then `migrations/`); `packages/db/tests/{staff-push-keys,staff-media-folders,teachings,suggestions,staff-stock-view,recipe-view,recipe-change-requests,checklist-photos,shopping-head-approval,purchase-delivery-confirm,marketing-requests}.test.ts` (new, each with its own driver and marketing denials, §8.2); J's edits to the committed tests its re-issues change (`checklists.test.ts`, `shopping-purchases.test.ts`, `staff-media.test.ts`: the cases whose shapes grow, and nothing else); in `staff_media_folders`' commit, the three new folders in `mob/src/features/staff/photo.ts` (`PhotoFolder`) and `packages/core/src/protocols/types.ts` (`PHOTO_FOLDERS`) (shared files, second table, §2.24.2) |
 
 | Shared file | Lanes, in commit order | What each adds |
 |---|---|---|
-| `packages/db/fixtures/rpc-allowlist.json`, `rpc-coverage-floor.json`, `assistant-coverage.json`, `packages/db/tests/rls-matrix.ts` | K, G, A, C, E, F (and 0, D, E, F, I for coverage `routes`/`docs` keys) | own keys only; floor via `--update-floor`; G lists the three path helpers under `publicByDesign` (§2.3); K changes the `tabs`, `orders` and `order_items` select rows (prep no longer `rows`, §2.23); F rewrites the notes of the `upsert_promotion`, `set_promotion_enabled`, `generate_promo_code` and `upsert_rate_rule` rows (the manager stays `execute`: the lock raises past the guard) |
+| `packages/db/fixtures/rpc-allowlist.json`, `rpc-coverage-floor.json`, `assistant-coverage.json`, `packages/db/tests/rls-matrix.ts` | K, G, A, C, E, F, J (and 0, D, E, F, I for coverage `routes`/`docs` keys) | own keys only; J changes the rows of the functions it re-issues only where their shape or guard changes (`add_shopping_item` gains chef, `mark_checklist_item`'s new signature); floor via `--update-floor`; G lists the three path helpers under `publicByDesign` (§2.3); K changes the `tabs`, `orders` and `order_items` select rows (prep no longer `rows`, §2.23); F rewrites the notes of the `upsert_promotion`, `set_promotion_enabled`, `generate_promo_code` and `upsert_rate_rule` rows (the manager stays `execute`: the lock raises past the guard) |
 | `packages/db/src/types.gen.ts` | every DB lane, at commit (§1.4) | regenerated, never hand-edited |
 | three assistant-map outputs (§1.5) | every committing lane | regenerated from a clean tree |
 | `packages/db/tests/stored-fields.test.ts` | F | `reservations.block_purpose: n, protocol_run_id: n` |
 | `packages/db/scripts/check-analytics-payload.mjs` (SEC-29) | E, F (whichever commits first goes first) | E: an explicit `LLM_INPUT` list of functions scanned whatever their grant, starting with `release_review_input` (§2.10); F: `candidate_name`, `candidate_phone` in `FORBIDDEN` (a tripwire only: no scanned function touches candidates) |
 | `packages/db/supabase/config.toml` | E | `[functions.protocol-action]`, `[functions.release-review]`, both `verify_jwt = true` |
 | `docs/design/assistant/pages.md` | K, D1, E, F, I, D2 | own route sentences (§5.6); D1 lands the `/protocols` sentence and its coverage key with the route |
-| `op/lib/auth.tsx` | D (D1, then D2), and F in commit order | D: §5.1. F, in its pricing UI commit only: `permissionsFor`'s `editRates` and `editPromotions` become owner-only, and `requiredRoleFor('editPromotions')` and `requiredRoleFor('editRates')` return `'owner'` (today both fall to `default: return 'manager'`, §5.5). Not earlier, or managers lose the editors before the protocol exists |
+| `op/lib/auth.tsx` | D (D1, then D2), and F in commit order | D: §5.1, including D2's role-spec rows (`ROUTE_ROLES['/suggestions']`, `startProtocolTournament`, `reviewIdeas`, `writeTeachings`, `decideRecipeChanges`). F, in its pricing UI commit only: `permissionsFor`'s `editRates` and `editPromotions` become owner-only, and `requiredRoleFor('editPromotions')` and `requiredRoleFor('editRates')` return `'owner'` (today both fall to `default: return 'manager'`, §5.5). Not earlier, or managers lose the editors before the protocol exists |
 | `op/features/kds/KdsBoard.tsx` | K (the board commit), then D (D2) | K: the tickets query reads `kitchen_board` (§2.23). D: the My tasks count (`my_protocol_work`'s To do, §2.7) and the handler that opens `/tasks`, both passed to `KitchenDisplayScreen` beside `onExit` (§5.1). The file owns the board's queries and its way-out handler (`KdsBoard.tsx:9-10`, :190-216); `KitchenDisplayScreen.tsx` holds no query |
 | `op/lib/workspaces.ts` (+ test; the `NavItem` type gains an optional `badge` key), `op/lib/queryKeys.ts`, `op/lib/edge.ts`, `op/features/ops/*`, `op/features/observation/ObservationHome.tsx`, `op/features/admin/audit/auditLogic.ts` (+ test), `op/main.tsx`, `packages/i18n/src/catalogs/ws/{shell,manager,team}.*` | D (D1, then D2) | §5 |
 | `op/lib/analyticsApi.ts`, `op/features/analytics/**` (courts events line), `op/features/admin/staff/StaffList.tsx` (hire prefill) | F | §5.5 |
@@ -142,6 +205,17 @@ order, append-only, re-read immediately before editing.
 | `mob/src/smoke/routes.ts` | B, then H | rows under `// ── staff ──` (§6.2) |
 | `packages/config/src/eslint.js` (`testIdElements`) | B, G, H | each lane's new Pressable wrappers |
 | `mob/package.json`, `mob/app.config.ts`, `pnpm-lock.yaml` | G | expo-image-picker (§6.10) |
+| `packages/db/supabase/functions/send-push/staffStrings.ts`, `packages/db/tests/send-push-staff.test.ts` | G (done), then J | J's `send-push` commit: the eleven keys' EN and AR copy, and the test checks that every JSON key has copy (§2.24.1). `staff_push_keys`' commit: equality again, 26 keys |
+| `packages/db/supabase/functions/_shared/staff-push.json` | G (done), then J | J, in `staff_push_keys`' commit only: the eleven `title_keys`. No kind and no route is added, so `mob/src/features/staff/pushRoutes.ts` does not change |
+| `packages/i18n/src/catalogs/opErrors.protocols.{en,ar}.ts`, the protocols block of `MAPPED_CODES` in `op/lib/errors.ts`, the protocols block of `CODE_TO_KEY` in `mob/src/features/booking/errors.ts` | 0 (done), then J, then D2 | J (in `recipe_change_requests`' commit): `RECIPE_CHANGED` in both maps and both catalogs, and `RECIPE_CYCLE` joins `CODE_TO_KEY` (§3). D2: the `ROLE_RETIRED` string names "Chef assistant" (§4) |
+| `packages/i18n/src/catalogs/work.{en,ar}.ts` | 0 (done), then E and J in commit order | E (`product_release`): `work.idea.status.*`, `work.team.{bar,kitchen}`. J: `work.shopping.status.{pending,declined}`, `work.recipeChange.status.*`, `work.marketingRequest.status.*` (§4) |
+| `packages/i18n/src/catalogs/en.ts`, `ar.ts` (`op.roles.chef`), `packages/i18n/src/catalogs/ws/owner.{en,ar}.ts` (the role hints that name Chef) | D2 | the "Chef assistant" label (#74, §4), one commit |
+| `packages/i18n/src/catalogs/staff/index.ts`, `packages/i18n/src/catalogs/ws/index.ts` | 0 (done), then H and D2 | H mounts `rolePages` under `staff`, D2 under `ws` |
+| `packages/core/src/staff/roles.ts` (+ test) | B (done), then H | H adds `STAFF_TEAMS`, `teamOf(role): 'bar' \| 'kitchen' \| null` and `TEAM_HEAD`, the twins of `app.staff_team` and `app.staff_team_head` (§2.24); D2 imports them |
+| `mob/src/lib/idempotency.ts` (`StaffMutation`), `mob/src/features/staff/keys.ts` | B (done), then H | §6.4's wave-4 keys and mutations |
+| `mob/src/features/staff/rows.ts` | B (done), then H | H relabels the Requests row "Vacation and requests" (`staff.rolePages.vacation`, #62) and appends the role-page rows (§6.1) |
+| `packages/core/src/protocols/steps.ts`, `packages/core/src/protocols/protocols.test.ts` | B (done), then F | F, in `tournament_desk_start`'s commit only: `startableKinds('court_desk')` returns `['tournament']`; `TOURNAMENT_STEPS`' `plan` gets `actorRoles: ['manager', 'court_desk']` and `assignToStarter: true`; the "matches the start_protocol guard (§2.7)" case moves court_desk from `[]` to `['tournament']`, and a case pins the `plan` actors and assignment (§2.11, §7.2). Nothing else in either file |
+| `mob/src/features/staff/photo.ts` (`PhotoFolder`), `packages/core/src/protocols/types.ts` (`PHOTO_FOLDERS`) | G (done) and B (done), then J | J, in `staff_media_folders`' commit: append `'checklists'`, `'teachings'` and `'requests'` to both, matching the nine-folder SQL list (§2.24.2). If that commit has landed without them, H adds them in its first commit that uploads to a new folder. `PhotoButton.tsx` takes the widened type unchanged |
 
 `pnpm-lock.yaml`, `en.ts` and `ar.ts` currently carry another session's uncommitted hunks. Use the
 partial-staging recipe (§1.5) or ask that session to commit first.
@@ -229,6 +303,16 @@ partial-staging recipe (§1.5) or ask that session to commit first.
 
 ### 1.6 Pushing and deploy order
 
+**State on 2026-09-25.** Steps 1 and 2 are done:
+- Phase 1 (`dc3bf63..b92ca7b`) and phase 2 (`b92ca7b..088b8db`) are pushed.
+- 0155–0160 are on hosted.
+- operator-v0.2.20 is released.
+
+`origin/main` carries 0161 (`5f8b42f`), which another session's push took there, but hosted has
+not applied it. db-migrate runs on **any** push that touches `packages/db/supabase/migrations/**`.
+So no such push may go out until Majed confirms that every kitchen machine runs 0.2.20.
+0162–0168 are local.
+
 Push in batches: every push to `main` is a Vercel production build and a full CI run.
 1. `f6a0802`, `ed5c2e3` and the plan (already committed), and K's `kitchen_board_read` and board
    commit, which land before G's `send-push` commit (§1.1). If they are not ready for this push,
@@ -248,6 +332,19 @@ Push in batches: every push to `main` is a Vercel production build and a full CI
    a slice 2 commit below the sha does no harm, because it adds no staff kind, and neither do K's
    `kitchen_board_read` and board commit (step 1). K's `kitchen_money_reads` commits after the
    `send-push` commit, so this push never carries it.
+
+   **2b. J's `send-push` commit, before `staff_push_keys` (role spec, §2.24.1).** J's first commit
+   adds the EN and AR copy of the eleven new title keys to `send-push/staffStrings.ts`. `send-push`
+   finds a staff title key in `STAFF_STRINGS` (`staffMessage`, `staffStrings.ts:135-145`), not in
+   the JSON, so once this commit is deployed the new keys are delivered. It sits in history before
+   `staff_push_keys` and before every migration that sends a new key: E's `product_release` and
+   J's `teachings`, `recipe_change_requests`, `shopping_head_approval` and `marketing_requests`.
+   - Push exactly up to it (`git push origin <sha>:main`). That push also carries 0161–0168 and any
+     migration below the sha. None of them sends a new key, so it is safe, but it waits for the
+     same station confirmation as step 3.
+   - Wait for `functions-deploy.yml` to finish on hosted before the push that carries
+     `staff_push_keys`.
+   - What this push must never carry is `staff_push_keys` or any migration after it.
 3. The migrations (`db-migrate.yml`), `kitchen_money_reads` among them, only after step 1's
    operator install on every kitchen machine. Then `npx supabase migration list --linked` shows 0 pending;
    assert the `storage.objects` policies of `staff-media` (`staff_media_read` must read
@@ -296,6 +393,15 @@ Push in batches: every push to `main` is a Vercel production build and a full CI
   | BOARD | prep, cashier, manager, owner, head_barista, barista, head_chef, chef (the kitchen list of `tickets_staff_read` and `set_ticket_status`, 0156:605) |
   | CHEFS | head_chef, chef |
   | HIREABLE | cashier, court_desk, manager, head_barista, barista, head_chef, chef, driver, marketing |
+  | BAR_TEAM | head_barista, barista: team `bar`, whose head is head_barista (role spec #64, #65) |
+  | KITCHEN_TEAM | head_chef, chef: team `kitchen`, whose head is head_chef. `chef` is shown as "Chef assistant" (#74) |
+
+  A team is `'bar'` or `'kitchen'`. `app.staff_team(p_role staff_role) returns text` maps
+  head_barista and barista to `'bar'`, head_chef and chef to `'kitchen'`, and anything else to
+  NULL. `app.staff_team_head(p_team text) returns staff_role` returns head_barista for `'bar'` and
+  head_chef for `'kitchen'`. Both are immutable and internal, land in J's `staff_media_folders`
+  (§2.24.2), and are used by E and J. When the parked assistant barista role (§0 P1) is answered,
+  it joins `'bar'` there.
 
   `prep` passes ANY guards and is added to **no** new explicit list (**PROPOSAL**, consistent with
   the soft retirement). BOARD is the one exception: it is the existing kitchen list, and
@@ -364,7 +470,7 @@ Push in batches: every push to `main` is a Vercel production build and a full CI
 | `protocols_engine_tables` | A | – | seven engine tables, step definitions, state-machine functions, seeds |
 | `protocols_engine_rpcs` | A | `protocols_engine_tables`, `staff_media_bucket`, `staff_push` | §2.7 RPCs and the hook dispatcher; `app.staff_media_visible`, with `app.claim_staff_media` and the `staff_media_read` policy re-issued (§2.3, §2.18) |
 | `product_test_movement` | E | – | `alter type movement_type add value if not exists 'product_test';` and nothing else |
-| `product_release` | E | `protocols_engine_rpcs`, `product_test_movement` | menu columns (`launched_at` counts every existing item as launched); `upsert_variant_internal` plus the `upsert_variant` wrapper (`ITEM_IN_RELEASE`); `upsert_menu_item_internal` plus the `upsert_menu_item` wrapper (`ITEM_IN_RELEASE` and the manager new-item guard: `ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`); release hooks and reads; variance and `report_stock` |
+| `product_release` | E | `protocols_engine_rpcs`, `product_test_movement`, J's `staff_push_keys` and `staff_media_folders` (the ideas pre-step) | `release_ideas` and its RPCs (#65, §2.9); menu columns (`launched_at` counts every existing item as launched); `upsert_variant_internal` plus the `upsert_variant` wrapper (`ITEM_IN_RELEASE`); `upsert_menu_item_internal` plus the `upsert_menu_item` wrapper (`ITEM_IN_RELEASE` and the manager new-item guard: `ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`); release hooks and reads; variance and `report_stock` |
 | `release_post_launch` | E | `product_release`, `marketing_staff` (C; `release_review_input` reads `marketing_notes`) | `release_reviews`, `release_notes`; scheduler functions; two cron jobs |
 | `event_court_blocks` | F | `protocols_engine_rpcs` | reservation columns; `block_courts_for_event`, `tournament_context`; tournament hooks; analytics and `report_courts` re-issues |
 | `event_block_run_index` | F | `event_court_blocks` | one partial index on `reservations` |
@@ -374,6 +480,22 @@ Push in batches: every push to `main` is a Vercel production build and a full CI
 | `shopping_purchases` | C | `staff_push`, `staff_media_bucket`, `staff_ingredient_options` | three tables and RPCs |
 | `staff_production` | C | – | `record_production_internal`, `record_batch`, two reads |
 | `marketing_staff` | C | `protocols_engine_tables`, `staff_media_bucket` | campaign columns; `marketing_notes`; RPCs |
+| `tournament_desk_start` | F | `event_court_blocks` (and the committed 0163, 0164 it re-issues) | `app.protocol_step_defs` and `app.start_protocol` re-issued, with court_desk among `plan`'s actors and the tournament starters and `plan` assigned to the starter; the seeded templates' `plan` rows follow; the `@touch/core` twin in the same commit (§2.11, §7.2, #67) |
+| `staff_push_keys` | J | J's `send-push` commit (§1.6 step 2b) | `app.notify_staff` re-issued from 0160 with the eleven new title keys (§2.24.1) |
+| `staff_media_folders` | J | – (0159, 0164 committed) | folders `checklists`, `teachings`, `requests`; `app.staff_team`, `app.staff_team_head`; `claim_staff_media` and `staff_media_visible` re-issued with the idea re-claim and four new read rules (§2.24.2) |
+| `teachings` | J | `staff_push_keys`, `staff_media_folders` | `teachings`; three RPCs (§2.24.3) |
+| `suggestions` | J | – | `staff_suggestions`; four RPCs (§2.24.4) |
+| `staff_stock_view` | J | – | one money-free read of quantities (§2.24.5) |
+| `recipe_view` | J | – | one read of recipes as ingredient names, with no quantity (§2.24.6) |
+| `recipe_change_requests` | J | `staff_push_keys` | `recipe_change_requests`; five RPCs; `RECIPE_CHANGED` (§2.24.7) |
+| `checklist_photos` | J | `staff_media_folders` | photo columns; `my_checklists_today`, `checklist_board` and `save_checklist_template` re-issued; `mark_checklist_item` re-created with `p_photo_path` (§2.24.8) |
+| `shopping_head_approval` | J | `staff_push_keys` | `pending` and `declined` lines; `add_shopping_item`, `shopping_list` and `cancel_shopping_item` re-issued; `decide_shopping_item` (§2.24.9) |
+| `purchase_delivery_confirm` | J | – | `purchases.delivered_at`, `delivered_by`; `confirm_purchase_delivery`; `my_purchases` and `purchases_to_receive` re-issued (§2.24.10) |
+| `marketing_requests` | J | `staff_push_keys`, `staff_media_folders` | `marketing_requests`; five RPCs; `marketing_campaign_results` (§2.24.11) |
+
+E's `product_release` row also changes. It carries `release_ideas`, its five RPCs,
+`app.release_propose_check`, and the start hook's idea path (§2.9, #65). It now depends on J's
+`staff_push_keys` and `staff_media_folders` as well.
 
 ### 2.3 `staff_media_bucket` (G)
 
@@ -419,6 +541,10 @@ RLS: select own rows (uploader = auth.uid()). Index (uploader, created_at).
     of a hiring run counts as `mgmt`); for `marketing_note:<id>` also marketing at the venue;
     anything else (receipts, campaign images, unclaimed slots) the uploader and MGMT only. A lane
     that claims photos under a new `<kind>` re-issues it from A's body.
+    **Role spec (J's `staff_media_folders`, §2.24.2):** folders `checklists`, `teachings` and
+    `requests` join the six. `app.staff_media_visible` and `app.claim_staff_media` are re-issued
+    from 0164 with the kinds `release_idea:`, `checklist_item:`, `teaching:` and
+    `marketing_request:`, plus the idea re-claim. No storage policy is re-created.
   - `staff_media_delete` (delete, authenticated): MGMT at the path's venue. No update policy.
 
 | RPC | Args | Returns | Guard | Errors | Key | Audit |
@@ -610,7 +736,10 @@ protocol_run_items       id uuid pk, run_step_id uuid not null → protocol_run_
   **Every start hook takes `data = {}` in v1** and only marks its kind as ready. Work that needs
   the first record never goes in a start hook, which runs before that record is submitted:
   validation belongs in step 1's check hook and side effects in its submit hook, which also run
-  again when step 1 is sent back and resubmitted.
+  again when step 1 is sent back and resubmitted. **The one exception is product release's hook,
+  which also takes `{idea_id}`** (role spec #65, §2.9). It links the idea the run starts from, and
+  that idea is not the first record. `start_protocol` (0164) already passes `p_data` to the hook
+  and stores what the hook returns as the run's `data`, so it is not re-issued for this.
 
   Owner-added steps (`step_key` null) use the generic check (`{note?: text ≤ 2000}`, photos folder
   `steps`, 0 to 6) and no other hook. Photo claiming is the engine's: it calls
@@ -652,7 +781,7 @@ Can           {submit: boolean, withdraw_submission_id: uuid|null, decide_submis
 
 | RPC | Args | Returns | Guard | Errors | Key | Audit |
 |---|---|---|---|---|---|---|
-| `start_protocol` | `p_kind text, p_variant text default null, p_title_en text default null, p_title_ar text default null, p_data jsonb default '{}', p_first_record jsonb default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null` | `{run_id, status, first_step_id, submission_id, auto}` | by kind at venue: product_release HEADS + MGMT; tournament MGMT; hiring MGMT; price_promo manager, marketing, owner | `FORBIDDEN`, `INVALID_ARGUMENT` (kind, variant), `PROTOCOL_NOT_FOUND` (no template), `PROTOCOL_NOT_READY`, `TEXT_BOTH_LANGUAGES_REQUIRED` (owner), `TEXT_REQUIRED`, `TEXT_TOO_LONG`, `RECORD_INVALID` (hint `record`) when `p_first_record` is null, step 1's hook codes (`SPONSOR_DETAILS_REQUIRED`, `RECORD_INVALID`, `PHOTO_PATH_INVALID`, `NOT_STEP_ACTOR` for marketing's `shop_launch`, §2.8) | yes | `protocol.start`; `protocol.submit`/`protocol.auto` for step 1 |
+| `start_protocol` | `p_kind text, p_variant text default null, p_title_en text default null, p_title_ar text default null, p_data jsonb default '{}', p_first_record jsonb default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null` | `{run_id, status, first_step_id, submission_id, auto}` | by kind at venue: product_release HEADS + MGMT; tournament MGMT + court_desk (F's `tournament_desk_start` re-issue, role spec #67, §2.11); hiring MGMT; price_promo manager, marketing, owner | `FORBIDDEN`, `INVALID_ARGUMENT` (kind, variant), `PROTOCOL_NOT_FOUND` (no template), `PROTOCOL_NOT_READY`, `TEXT_BOTH_LANGUAGES_REQUIRED` (owner), `TEXT_REQUIRED`, `TEXT_TOO_LONG`, `RECORD_INVALID` (hint `record`) when `p_first_record` is null, step 1's hook codes (`SPONSOR_DETAILS_REQUIRED`, `RECORD_INVALID`, `PHOTO_PATH_INVALID`, `NOT_STEP_ACTOR` for marketing's `shop_launch`, §2.8), and product release's start-hook codes for a start from an idea (`RECORD_INVALID` hint `data`, `REF_NOT_FOUND` hint `idea_id`, `SUBMISSION_DECIDED`, `FORBIDDEN`, §2.9) | yes | `protocol.start`; `protocol.submit`/`protocol.auto` for step 1 |
 | `submit_step` | `p_run_step_id uuid, p_record jsonb, p_photos text[] default '{}', p_idempotency_key text default null` | `{submission_id, auto, step_status, run_status, opened_step_ids}` | ANY; then may act | `PROTOCOL_NOT_FOUND`, `PROTOCOL_CLOSED`, `STEP_NOT_OPEN`, `NOT_STEP_ACTOR`, `RECORD_INVALID`, `PHOTO_PATH_INVALID`, `TEXT_TOO_LONG`, hook codes | yes | `protocol.submit` (+ `protocol.auto`) |
 | `withdraw_step` | `p_submission_id uuid` | `{step_status}` | the submitter | `PROTOCOL_NOT_FOUND`, `FORBIDDEN`, `SUBMISSION_DECIDED` | – | `protocol.withdraw` |
 | `decide_step` | `p_submission_id uuid, p_decision text, p_note text default null, p_send_back_to uuid default null, p_data jsonb default '{}'` | `{submission_id, decision, step_status, run_status, opened_step_ids}` | a decider | `PROTOCOL_NOT_FOUND`, `PROTOCOL_CLOSED`, `SUBMISSION_DECIDED`, `NOT_DECIDER`, `CANNOT_DECIDE_OWN`, `REASON_REQUIRED`, `SEND_BACK_TARGET_INVALID`, `INVALID_ARGUMENT`, pass-hook codes | – | `protocol.decide` |
@@ -698,12 +827,16 @@ every change kind, the #57 ones included.
 | 4 | `marketing` | marketing | **on** | no | test | – | `marketing` 0–6 | run |
 | 5 | `launch` | **owner** | off (the owner is the author), fixed | no | analysis, marketing | last | – | run |
 
+**Ideas come before step 1 and are not a step** (role spec #65). A barista's or chef assistant's
+idea waits for their head in `release_ideas`. The head's Start is an ordinary `start_protocol` of
+this kind whose `propose` record the head submits (§2.9). The catalogue above does not change.
+
 **Tournament** (`tournament`): type1 and type3 run all five; type2 drops `feasibility`, and its
 `marketing` and `courts` come after `plan`. Type2 has every OK off (Q3).
 
 | # | Key | Actors | OK | Optional | After | Fixed | Photos | Vis |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `plan` | manager | off | no | – | first | – | mgmt |
+| 1 | `plan` | manager, court_desk, assigned to the starter (from F's `tournament_desk_start`, #67; the desk's plan waits for a manager, a manager's own passes automatically) | off | no | – | first | – | mgmt |
 | 2 | `feasibility` (type1, type3) | manager | **on** | no | plan | – | – | mgmt |
 | 3 | `marketing` | marketing | off | **yes** | feasibility (type2: plan) | – | `marketing` 0–6 | run |
 | 4 | `courts` | court_desk | off | no | feasibility (type2: plan) | – | – | run |
@@ -829,9 +962,11 @@ decider. A manager-started release therefore carries `category_id` in its `propo
   body. The public `release_readiness` is its MGMT-guarded wrapper. Every caller without a staff
   session (the cron path, §2.10) and every hook uses the internal.
 - Hooks:
-  - `protocol_start_product_release`: `data` must be `{}`.
+  - `protocol_start_product_release`: `data` is `{}`, or `{idea_id}` for a start from an idea (the
+    ideas block below, #65).
   - `protocol_check_product_release_{propose,test,analysis,marketing,launch}` per §2.8. `propose`
-    requires `category_id` when the submitter decides the step. `launch` also requires
+    requires `category_id` when the submitter decides the step. Its record check is
+    `app.release_propose_check` (below), shared with `submit_release_idea`. `launch` also requires
     `release_readiness_internal(run).ready` (`RELEASE_NOT_READY`, hint = failing keys) for both
     `now` and `date`, and the `menu_photo_path` rule of §2.8 for `now`.
   - `protocol_pass_product_release_propose`: validates `category_id` from `p_decision_data` (the
@@ -863,6 +998,103 @@ decider. A manager-started release therefore carries `category_id` in its `propo
 | `release_readiness` | `p_run_id uuid` | `{ready, checks: [{key: 'names'\|'prices'\|'photo'\|'recipe'\|'category', ok}], warnings: [{key: 'allergens'\|'serve_temp'}]}` (from `release_readiness_internal`) | MGMT at venue | `PROTOCOL_NOT_FOUND` |
 | `release_cost` | `p_run_id uuid` | `{sizes: [{variant_id, name_en, name_ar, cost_iqd, cost_known}], unknown_lines: [label]}` (`cost_known = false` when a line has no batch and no pack cost, or is free text) | MGMT at venue | `PROTOCOL_NOT_FOUND` |
 | `release_test_context` | `p_run_id uuid` | `{sizes: [{variant_id, name_en, name_ar, lines: [{ingredient_id, name_en, name_ar, qty, unit}]}]}` (no cost) | the test step's assignee, or MGMT | `PROTOCOL_NOT_FOUND`, `NOT_STEP_ACTOR` |
+
+**Ideas: the pre-step (role spec #65).** A barista's or chef assistant's new-item proposal is not
+a run. It waits for the head of their team (§2.1 BAR_TEAM, KITCHEN_TEAM). The head either starts a
+product release from it or declines it with a reason. A started release is an ordinary head's
+release: the head is its starter, submits `propose` and does the test (`assign_to_starter`), and
+the run goes on as §2.8 says. So nothing in the engine changes:
+- the deciders stay the owner and the managers;
+- `propose` stays the fixed first step;
+- `app.protocol_step_defs` and `start_protocol` are not re-issued.
+
+Heads and MGMT start their own proposals directly, as today. Ideas are for barista and chef only.
+
+```
+release_ideas  id uuid pk default gen_random_uuid(), venue_id uuid not null → venues,
+               team text not null check (team in ('bar','kitchen')),          -- app.staff_team(author's role) at submit
+               author_id uuid not null → staff,
+               record jsonb not null,                                          -- the §2.8 propose shape, no category_id
+               photos text[] not null default '{}' check (cardinality(photos) <= 6),   -- folder proposals
+               status text not null default 'waiting'
+                 check (status in ('waiting','started','declined','withdrawn')),
+               submitted_at timestamptz not null default now(),
+               decided_by uuid → staff, decided_at timestamptz,
+               decline_reason text check (decline_reason is null or length(decline_reason) <= 1000),
+               run_id uuid → protocol_runs on delete set null,
+               check ((status in ('waiting','withdrawn')) = (decided_by is null)),
+               check ((decided_by is null) = (decided_at is null)),
+               check (status <> 'declined' or coalesce(length(btrim(decline_reason)),0) > 0),
+               check (status <> 'started' or run_id is not null)
+Indexes (same file, waiver): release_ideas (venue_id, team) where status = 'waiting';
+release_ideas (author_id, submitted_at). RLS: MGMT at venue.
+```
+
+- `app.release_propose_check(p_record jsonb, p_venue uuid, p_category text) returns jsonb`
+  (internal) is the §2.8 `propose` record check, factored out of
+  `protocol_check_product_release_propose`, which calls it. `p_category` is one of:
+  - `'required'`: the submitter decides the step;
+  - `'optional'`: a head's proposal;
+  - `'refused'`: an idea. A `category_id` raises `RECORD_INVALID`, hint `category_id`, because
+    the head or the manager picks the category.
+- **The start hook's idea path.** `protocol_start_product_release(p_run_id, p_data)` takes `{}` or
+  `{idea_id: uuid}`. Any other key raises `RECORD_INVALID`, hint `data`. With `idea_id`, it locks
+  the idea (`for update`), then:
+  - raises `REF_NOT_FOUND` (hint `idea_id`) when there is no such idea at the run's venue;
+  - raises `SUBMISSION_DECIDED` when the idea is not `waiting`;
+  - raises `FORBIDDEN` unless the caller holds `app.staff_team_head(idea.team)` at the venue or
+    is MGMT there;
+  - otherwise sets `status = 'started'`, `decided_by`, `decided_at` and `run_id`, writes the audit
+    `protocol.release.idea_start`, notifies the author (`staff_decided / idea_started`, §2.24.1),
+    and returns `{idea_id}`, which becomes the run's `data`.
+
+  If step 1's check then fails, the whole start rolls back and the idea is `waiting` again. Two
+  heads starting or declining at once meet on the row lock, and the second gets
+  `SUBMISSION_DECIDED`.
+- **Step 1 from an idea.** The head's `p_first_record` is their own `propose` record. Both apps
+  prefill it from the idea, and the head may change anything. `p_photos` may name the idea's
+  photos: J's re-claim in `app.claim_staff_media` moves them to the submission, whoever uploaded
+  them (§2.24.2).
+- **The author is not made involved in the run** (**PROPOSAL**). `protocol_engine_involved` is not
+  re-issued. The `propose` record becomes the item's recipe, with quantities, which #72 keeps from
+  the author's role. The author follows the run through `my_release_ideas`, which returns the run's
+  status and step names and no record. They add item notes after launch as every role does (#43).
+- A stopped or withdrawn run leaves its idea `started` (**PROPOSAL**). The author sees how the run
+  ended, and may send a new idea.
+
+| RPC | Args | Returns | Guard | Errors | Key | Audit |
+|---|---|---|---|---|---|---|
+| `submit_release_idea` | `p_record jsonb, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null` | `{id}` | barista, chef at the venue | `FORBIDDEN`, `RECORD_INVALID` (hint = field, `category_id` included), `PHOTO_PATH_INVALID` (folder `proposals`, claimed `release_idea:<id>`), `TEXT_TOO_LONG` | yes | `protocol.release.idea_submit` |
+| `withdraw_release_idea` | `p_id uuid` | `{status}` | the author | `REF_NOT_FOUND`, `FORBIDDEN`, `SUBMISSION_DECIDED` | – | `protocol.release.idea_withdraw` |
+| `decline_release_idea` | `p_id uuid, p_reason text` | `{status}` | `app.staff_team_head(idea.team)` or MGMT at the idea's venue (row-addressed, §2.1) | `REF_NOT_FOUND`, `FORBIDDEN`, `SUBMISSION_DECIDED`, `REASON_REQUIRED`, `TEXT_TOO_LONG` (1000) | – | `protocol.release.idea_decline` |
+| `release_ideas_to_review` | `p_venue_id uuid default null` | `{ideas: [{id, team, author_name, submitted_at, record, photos}], count}`: waiting ideas, oldest first. head_barista gets the bar's, head_chef the kitchen's, MGMT both | HEADS + MGMT at venue | `FORBIDDEN` | – | – |
+| `my_release_ideas` | `p_venue_id uuid default null` | `{ideas: [{id, team, record, photos, status, submitted_at, decided_by_name, decided_at, decline_reason, run: {run_id, status, title_en, title_ar, current_steps: [{name_en, name_ar, status}]} \| null}]}`: the caller's own ideas from the last 90 days, newest first. `record` is the author's own. The run carries no record, data or figure | barista, chef at venue | `FORBIDDEN` | – | – |
+
+- **Pushes** (§2.24.1):
+  - `submit_release_idea` sends `staff_decide / idea_submitted` to the active holders of the team's
+    head role at the venue, or to the venue's managers when there is none (**PROPOSAL**, the
+    §2.21 fallback shape);
+  - `decline_release_idea` sends `staff_decided / idea_declined` to the author;
+  - the start hook sends `idea_started`.
+- The pushes need J's `staff_push_keys`, and the heads' read of the idea's photos and their
+  re-claim need J's `staff_media_folders`, so `product_release` commits after both (§1.1).
+- Coverage: `release_ideas` is `table_read` without `record` (jsonb is not a default read) and
+  gets readable-column rows for this table only (§1.5). The five RPCs are `map:action`, and
+  `release_propose_check` takes the excluded value.
+- **Tests** (`product-release.test.ts`):
+  - a barista's and a chef's idea reach only their own team's head, in the list and in the push;
+  - a head starts a release from an idea, and its photos are carried over;
+  - the idea is `started` and the author's `my_release_ideas` shows the run's steps and no record;
+  - a second start of the same idea is refused with `SUBMISSION_DECIDED`;
+  - a head of the other team is refused with `FORBIDDEN`;
+  - a decline without a reason is refused with `REASON_REQUIRED`;
+  - the author withdraws a waiting idea;
+  - a failing `propose` rolls the idea back to `waiting`;
+  - `category_id` in an idea is refused;
+  - head_barista, head_chef, cashier, court_desk, driver and marketing are refused
+    `submit_release_idea` with `FORBIDDEN`;
+  - driver and marketing are refused both reads;
+  - the idea's photos are readable by the uploader, the team's head and MGMT, and by nobody else.
 
 ### 2.10 `release_post_launch` (E)
 
@@ -961,6 +1193,56 @@ check holds the variant rules and raises `SPONSOR_DETAILS_REQUIRED` for type3),
 `protocol_pass_tournament_plan` (run `data` := the plan record), `protocol_stop_tournament`
 (cancels the run's future event blocks). The court desk (`courts`) and marketing (`marketing`) read
 what they need through `tournament_context`, on both apps (§5.5, §6.1).
+
+**`tournament_desk_start` (F, role spec #67).** The court desk starts a tournament run. The desk
+submits the `plan`, and a manager accepts it. The migration commits after `event_court_blocks`,
+because its tests need the tournament hooks.
+- `app.protocol_step_defs` is re-issued verbatim from 0163 (`$protocol_step_defs_0163$`). The
+  tournament `plan` step's `actor_roles` become `["manager", "court_desk"]` and its
+  `assign_to_starter` becomes `true`, in all three variants. Nothing else in the catalogue changes.
+  - Why the assignment: with `assign_to_starter` false, a reopened `plan` belongs to every holder
+    of its actor roles (0164:180-196, :226-233). An owner's send-back from `feasibility` on a
+    manager-started run would then push `step_open` to every court desk at the venue and put the
+    plan in their To do (0164:1211-1214, :351), for a `mgmt` step whose records the desk cannot
+    read (0164:653-655, :725). Assigned to the starter (`start_protocol` stamps `assigned_to` from
+    the def, 0164:915), a reopened plan goes back to whoever started the run, and the manager and
+    the owner still cover it (`protocol_engine_actor`'s `p_cover`).
+- The seeded templates' `plan` rows follow the def:
+  `update protocol_template_steps set actor_roles = '{manager,court_desk}' where step_key = 'plan' and template_id in (select id from protocol_templates where kind = 'tournament')`.
+  There is no version bump (**PROPOSAL**): no owner-typed text changes, and a run takes a built-in
+  step's actors from the def anyway (§2.7). The rows must still follow, because
+  `save_protocol_template` compares a built-in step's actors with the def and refuses a
+  difference with `PROTOCOL_STEP_FIXED` (0164).
+- `app.start_protocol` is re-issued verbatim from 0164 (`$start_protocol_0164$`). `court_desk`
+  joins the opening role list, and the tournament starters become `{manager,court_desk,owner}`.
+  The rest is unchanged, so the desk's start submits `plan` in the same transaction.
+- Who decides: `plan`'s OK stays off, so the desk's plan waits for a manager. The managers get
+  `step_submitted`, or the owners at a venue without a manager (§2.21). The manager approves,
+  sends it back or stops it. A manager's or the owner's own plan still passes automatically (#9,
+  #50). Type 3 still needs the sponsor details at start (`SPONSOR_DETAILS_REQUIRED`), from the
+  desk as from anyone.
+- The plan record stays `mgmt`. The desk sees its own submission (§2.7) and, at `courts`, what
+  `tournament_context` returns. It never sees the feasibility figures.
+- The phone's `staff-start.tsx?kind=tournament` and `/tasks`' "Start a tournament"
+  (`startProtocolTournament`, §5.1) are the desk's two starts.
+- **The `@touch/core` twin, in the same commit** (§1.2 shared files, §7.2). Both starts read
+  core's starter list, so it changes with the SQL: `startableKinds('court_desk')` returns
+  `['tournament']`, `TOURNAMENT_STEPS`' `plan` gets `actorRoles: ['manager', 'court_desk']` and
+  `assignToStarter: true` (`packages/core/src/protocols/steps.ts:65-72`, :133), and
+  `protocols.test.ts`' "matches the start_protocol guard (§2.7)" case (:120-131) expects
+  court_desk → `['tournament']`.
+- **Tests** (`tournament-desk-start.test.ts`, with driver and marketing denials):
+  - the desk starts type 1 and type 2 runs, and type 3 is refused without a sponsor;
+  - the desk's plan waits, and a manager approves it or sends it back;
+  - the desk cannot decide its own plan (`NOT_DECIDER`);
+  - the plan is assigned to its starter: on a manager-started type 1 run whose `feasibility` the
+    owner sends back to `plan`, no court desk gets `step_open` or sees the plan in To do, and the
+    starting manager does; on a desk-started run sent back, only that desk member does;
+  - barista, cashier, driver and marketing are refused a tournament start with `FORBIDDEN`;
+  - `save_protocol_template` passes on a tournament template carrying the new actors, and refuses
+    `plan` actors `{manager}` with `PROTOCOL_STEP_FIXED`;
+  - a run started before the migration keeps its snapshot;
+  - `protocol-engine*.test.ts` still pass against the re-issued bodies.
 
 ### 2.12 `hiring` (F)
 
@@ -1249,6 +1531,10 @@ RLS: MGMT at venue (children by exists). Index checklist_run_items (run_id).
 
 No per-person history and no report that ranks people (SOW:265, :480).
 
+**Role spec (J, §2.24.8).** `checklist_photos` adds "Needs a photo" to template items (#69). It
+re-issues `my_checklists_today`, `checklist_board` and `save_checklist_template` from 0165, and
+re-creates `mark_checklist_item` with `p_photo_path`. `checklist_day_state` is unchanged.
+
 ### 2.15 `shopping_purchases` (C)
 
 ```
@@ -1304,6 +1590,13 @@ RLS: MGMT at venue on all three; purchases also own rows (staff_id = auth.uid())
   anything, and `acknowledge_purchase_line` closes that line as it closes a label line; then the
   rest is received. Goods in (I) offers Acknowledge on a line with `ingredient_active = false`
   (review 2026-09-25).
+- **Role spec (J).** `shopping_head_approval` (§2.24.9) puts the chef assistant's lines through the
+  head chef's OK (#66). It re-issues `add_shopping_item`, `shopping_list` and
+  `cancel_shopping_item`, and adds `decide_shopping_item`. `purchase_delivery_confirm`
+  (§2.24.10) adds the driver's Delivered (#70) and re-issues `my_purchases` and
+  `purchases_to_receive`. `record_purchase` and `receive_purchase` are not re-issued: a `pending`
+  line is not `open`, so `record_purchase` already refuses it (`SHOPPING_ITEM_NOT_OPEN`), and
+  receiving never waits for the confirmation.
 
 ### 2.16 `staff_production` (C)
 
@@ -1355,7 +1648,9 @@ Index (venue_id, subject_kind, subject_id). RLS: MGMT at venue.
 | `my_marketing_notes` | `p_venue_id uuid default null, p_limit int default 50` | `{notes: [{id, subject_kind, subject_id, subject_name_en, subject_name_ar, body, photos, created_at}]}` | marketing | `FORBIDDEN` | – | – |
 
 `set_campaign_status` and `save_marketing_campaign` stay owner-only (0073). Marketing gets no
-campaign performance, revenue, tab or order read.
+campaign performance, revenue, tab or order read. **Revised by the role spec (#73, §2.24.11):**
+marketing now reads `marketing_campaign_results`, which has reach and redemption **counts** only,
+with no discount, revenue, tab or order figure (**PROPOSAL**). The rest of this line stands.
 
 ### 2.18 Re-issued objects: one owner each
 
@@ -1385,6 +1680,26 @@ Each object below has one owning lane, with one exception: `upsert_variant`. E c
 | `app.report_courts` | 0097:1299 | F | carry `event_minutes` (the courts report's Events line) |
 | policies `tabs_staff_read`, `orders_staff_read`, `order_items_staff_read`, `order_item_modifiers_staff_read` | 0157:36-61 | K | without the bar and kitchen family and prep; venue conjunct on the last two (#60, §2.23) |
 
+**Role spec (wave 4, plan #61–#74).** These re-issue bodies that are now committed (0159–0168).
+Each object has one wave-4 owner, and the owner copies the committed body verbatim, then changes
+only what the row says:
+
+| Object | Latest body today | Lane (migration) | Change |
+|---|---|---|---|
+| `app.protocol_step_defs` | 0163:392 | F (`tournament_desk_start`) | tournament `plan` actors `["manager", "court_desk"]` and `assign_to_starter` true, three variants (#67, §2.11) |
+| `protocol_template_steps` rows (data, not an object) | seeded by 0163 | F (`tournament_desk_start`) | `plan` rows of tournament templates take the new actors |
+| `app.start_protocol` | 0164:815 | F (`tournament_desk_start`) | court_desk in the opening list and the tournament starters (#67) |
+| `app.notify_staff` | 0160 | J (`staff_push_keys`) | eleven title keys (§2.24.1) |
+| `staff_media_uploads` folder CHECK and `staff_media_uploads_path_chk`; `app.is_staff_media_path`; `app.staff_media_slot` | 0159 | J (`staff_media_folders`) | folders `checklists`, `teachings`, `requests` (§2.24.2) |
+| `app.claim_staff_media`, `app.staff_media_visible` | 0164:2237, 0164:2323 | J (`staff_media_folders`) | the idea re-claim; the `release_idea:`, `checklist_item:`, `teaching:` and `marketing_request:` read rules (§2.24.2) |
+| `app.my_checklists_today`, `app.checklist_board`, `app.save_checklist_template` | 0165:201, 0165:354, 0165:422 | J (`checklist_photos`) | `photo_required`, `photo_path` (§2.24.8) |
+| `app.mark_checklist_item` | 0165:288 | J (`checklist_photos`) | **signature change** `(uuid, boolean, text)` → `(uuid, boolean, text, text)`: `drop function` by the exact old signature, create, `revoke … from public, anon`, `grant execute … to authenticated` (`packages/db/CLAUDE.md`) |
+| `shopping_items` status CHECK; `app.add_shopping_item`, `app.shopping_list`, `app.cancel_shopping_item` | 0166, 0166:265, 0166:192, 0166:355 | J (`shopping_head_approval`) | `pending` and `declined`; chef adds; the head chef's OK (§2.24.9) |
+| `app.my_purchases`, `app.purchases_to_receive` | 0166:553, 0166:613 | J (`purchase_delivery_confirm`) | `delivered_at` and the rest of §2.24.10 |
+
+E's ideas pre-step re-issues nothing that is already committed (§2.9). J owns the wave-4 re-issue
+of the staff-media functions, E's `release_idea:` rule included, so E does not re-issue them.
+
 "Latest body today" was checked on 2026-09-24 with `grep -n -E "(create|create or replace) function app\.<name>\(" supabase/migrations/*.sql | tail -1`;
 check it again at commit (§2.1).
 
@@ -1397,7 +1712,18 @@ to the public `upsert_variant`, §2.13), `reorder_modifiers` (0050:170, `sort_or
 `set_cafe_setting`), `cafe_setting_specs` (0105:158: the registry keeps `featured_discount_pct` and
 `hero_mode` manager keys; the lock is in the setter, §2.13), `eligible_promotions`, `apply_best_promotion` and
 `price_slot` (readers only), `tickets_staff_read` and the `kds` realtime policy (no money column;
-the kitchen list keeps prep, §2.23). If slice 2 needs any object in the first table, whoever
+the kitchen list keeps prep, §2.23). The role spec adds more to that list:
+- `record_purchase`: a `pending` line is not `open`, and the managers' push stays at record time;
+- `receive_purchase`: receiving never waits for Delivered;
+- `set_recipe` (0063): the owner's approve calls it as the owner;
+- `protocol_engine_involved`: an idea's author is not made involved, §2.9;
+- `checklist_day_state`;
+- `app.staff_media_venue` and `app.staff_media_folder`: they call `is_staff_media_path`, so only
+  their comments change;
+- every `storage.objects` policy;
+- `marketing_campaign_performance`: `marketing_campaign_results` is a new money-free read, §2.24.11.
+
+If slice 2 needs any object in the first table, whoever
 commits second rebases onto the other's body. The likely ones are `upsert_rate_rule` and
 `set_cafe_setting` (slice 2's venue axis and `platform_settings` split, `PHASE-2-PLAN.md:56`) and
 the four order-side policies (0136 left the leaf tables' venue axis to slice 2).
@@ -1464,6 +1790,21 @@ with the lists inside `app.notify_staff`; the phone's `pushRoutes.ts` test compa
 | Staff request submitted / decided | `staff_decide` / `staff_decided` | `request_submitted` (dedupe `request:<requester>`, 15 min: a submit, withdraw, submit loop buzzes each owner once) / `request_approved`, `request_rejected` | owners / requester | `staff-request`, request |
 | New shopping items | `staff_task` | `shopping_new` (dedupe `shopping:<venue>`, 15 min) | drivers at the venue | `staff-shopping`, – |
 | Purchase recorded | `staff_task` | `purchase_to_receive` | managers at the venue | `staff`, – |
+| An idea submitted (role spec #65) | `staff_decide` | `idea_submitted` | the team's head at the venue, or the managers when there is none | `staff`, – |
+| An idea started / declined | `staff_decided` | `idea_started` / `idea_declined` | the idea's author | `staff`, – |
+| A new teaching (#64) | `staff_info` | `teaching_new` (dedupe `teaching:<author>`, 15 min) | the team at the venue | `staff`, – |
+| A recipe change asked (#71) | `staff_decide` | `recipe_change_submitted` | owners | `staff`, – |
+| A recipe change decided | `staff_decided` | `recipe_change_approved` / `recipe_change_declined` | the head who asked | `staff`, – |
+| A chef assistant's shopping line (#66) | `staff_decide` | `shopping_to_approve` (dedupe `shopping-approve:<venue>`, 15 min) | head chefs at the venue, or the managers when there is none | `staff-shopping`, – |
+| A chef assistant's line declined | `staff_decided` | `shopping_declined` | the line's requester | `staff-shopping`, – |
+| A request to marketing (#73) | `staff_task` | `marketing_request_new` | marketing at the venue | `staff`, – |
+| A request answered | `staff_decided` | `marketing_request_answered` | the requester | `staff`, – |
+
+The role-spec rows add eleven title keys and no kind or route, so the phone's `pushRoutes.ts` and
+tap handling do not change. Each opens Today or the shopping page, which lists the item. The keys
+reach `send-push` first (J's own commit, §1.6 step 2b), then `app.notify_staff` and the JSON
+(`staff_push_keys`, §2.24.1). Their params use the existing keys only (`step`, `title`, `name`),
+and they never carry an amount, a quantity, a phone number or a candidate name.
 
 - Payload `{route, id, title_key, params: {step?: {en, ar}, title?: text, name?: text}}`. `title` is
   the run title, omitted for hiring runs; `name` is the requester's display name for
@@ -1484,6 +1825,16 @@ with the lists inside `app.notify_staff`; the phone's `pushRoutes.ts` test compa
   "Request declined"; `shopping_new` "Shopping list" / "New items to buy."; `purchase_to_receive`
   "Purchase to receive" / "Receive it in Stock ▸ Goods in on the operator." When `{title}` is
   absent the body is `{step}` alone.
+- Role-spec EN copy (AR written by J, parity tested): `idea_submitted` "New item idea" /
+  "{name}: {title}"; `idea_started` "Idea started" / "{title} is now a new-item proposal.";
+  `idea_declined` "Idea declined" / "{title}"; `teaching_new` "New teaching" / "{name}: {title}";
+  `recipe_change_submitted` "Recipe change" / "{name}: {step}" (`step` = the item's or prepared
+  ingredient's `{en, ar}` name); `recipe_change_approved` "Recipe change approved" / "{step}";
+  `recipe_change_declined` "Recipe change declined" / "{step}"; `shopping_to_approve` "Shopping
+  list" / "{name} added items for your OK."; `shopping_declined` "Shopping list" / "An item you
+  added was declined."; `marketing_request_new` "Marketing request" / "{name}: {title}";
+  `marketing_request_answered` "Marketing answered" / "{title}". `{title}` is the idea's name,
+  the teaching's title or the request's title, as typed.
 - No iOS icon badge in v1 (**PROPOSAL**): the badges are the in-app counts.
 
 ### 2.22 Audit actions (the exact strings; D adds them to `ACTION_KEYS`)
@@ -1501,6 +1852,21 @@ with the lists inside `app.notify_staff`; the phone's `pushRoutes.ts` test compa
 `shopping`, `purchase`. Entities: `protocol_run`, `protocol_template`, `checklist_template`,
 `shopping_item`, `purchase`, `marketing_campaigns`, `marketing_note`, `reservations`,
 `ingredients`.
+
+Role spec (plan #61–#74):
+- **Actions:** `protocol.release.idea_submit`, `protocol.release.idea_withdraw`,
+  `protocol.release.idea_decline`, `protocol.release.idea_start` (E); `teaching.save`,
+  `teaching.archive`, `stock.recipe.change_submit`, `stock.recipe.change_withdraw`,
+  `stock.recipe.change_approve`, `stock.recipe.change_decline` (the approve also writes
+  `set_recipe`'s own `stock.recipe.set`), `shopping.approve`, `shopping.decline`,
+  `purchase.deliver`, `marketing.request.add`, `marketing.request.withdraw`,
+  `marketing.request.answer` (J).
+- **New `FAMILY_KEYS`:** `teaching`. The others join the existing families `protocol`, `stock`,
+  `shopping`, `purchase` and `marketing`.
+- **Entities:** `release_idea`, `teaching`, `recipe_change_request`, `marketing_request`.
+- **Not audited (PROPOSAL):** suggestions, the seen mark and a checklist photo tick. The row keeps
+  who and when. Payloads carry ids, statuses and counts only, never a suggestion, teaching, answer
+  or recipe text.
 
 ### 2.23 `kitchen_board_read` and `kitchen_money_reads` (K, plan #60)
 
@@ -1588,6 +1954,504 @@ order_item_modifiers_staff_read  app.is_staff('cashier','court_desk','manager','
 - Operator: `KdsBoard.test.tsx` (the RPC is called with the venue only, and the board renders the
   same cards); the visual check on `/kds` against the local stack as a kitchen
   login (§8.1); `lan-kds.test.ts` unchanged and passing.
+
+### 2.24 Role extras (J, plan #61–#74)
+
+Lane J builds the database side of Majed's per-role spec. Every migration here follows §2.1:
+- it opens with `set lock_timeout`, and its header names the feature, this section and its
+  dependencies;
+- every new table has `venue_id` with no default, RLS on, and a select policy for MGMT at the
+  venue only. Everyone else reads through the definer RPCs below, and no client gets a write
+  grant;
+- every object gets a `comment on`.
+
+A re-issue copies the committed body verbatim (§2.18). Every test file asserts driver and
+marketing denials for every RPC that is not theirs (§8.2). Nothing here builds a Parked item (§0).
+
+Each migration's commit carries its fixtures (§1.5):
+- `rpc-allowlist.json` entries, and the floor through `--update-floor`;
+- `rls-matrix.ts` rows for every new table and granted RPC;
+- `assistant-coverage.json` keys (§5.7), and readable-column rows for its own `table_read`
+  tables only;
+- `types.gen.ts` after the §1.4 reset;
+- both catalogs of every string it adds (§4);
+- the three assistant-map outputs.
+
+`app.protocol_step_defs` is an immutable function in 0163, not a table of rows, so a catalogue
+change is a re-issue of that function (§2.11), never an insert.
+
+#### 2.24.1 `staff_push_keys`, and J's `send-push` commit
+
+- **J's `send-push` commit** (no migration, pushed as §1.6 step 2b):
+  - `send-push/staffStrings.ts` gains the EN and AR copy of the eleven keys in §2.21's role-spec
+    rows.
+  - `send-push-staff.test.ts` changes its "fifteen title keys" check and its
+    `STAFF_STRINGS`-equals-JSON check to "every JSON key has copy, and so does each of the eleven".
+  - `_shared/staff-push.json` is **not** changed in this commit. So `staff-push.test.ts`, which
+    compares the JSON with the live `app.notify_staff` through `pg_get_functiondef`, stays green
+    at this commit.
+- **`staff_push_keys`:**
+  - `app.notify_staff(uuid[], text, jsonb, text)` is re-issued verbatim from 0160.
+    `c_title_keys` gains eleven keys after `purchase_to_receive`, in this order:
+    `idea_submitted`, `idea_started`, `idea_declined`, `teaching_new`,
+    `recipe_change_submitted`, `recipe_change_approved`, `recipe_change_declined`,
+    `shopping_to_approve`, `shopping_declined`, `marketing_request_new`,
+    `marketing_request_answered`.
+  - `c_kinds` and `c_routes` are unchanged.
+  - In the same commit, the JSON's `title_keys` gain the same eleven in the same order (the DB
+    test compares order), and `send-push-staff.test.ts` goes back to equality, with 26 keys.
+- **Tests** (`staff-push-keys.test.ts`):
+  - each new key queues a row for an active recipient;
+  - an unknown key still raises `INVALID_ARGUMENT` (hint `title_key`);
+  - `shopping_to_approve` on the `staff-shopping` route passes the route check;
+  - the existing `staff-push.test.ts` parity case passes.
+
+#### 2.24.2 `staff_media_folders`
+
+- **Folders.** Three folders join the six: `checklists` (photo ticks, #69), `teachings` (#64) and
+  `requests` (requests to marketing, #73).
+  - `staff_media_uploads`: drop two constraints, scoped by `conrelid`. One is the folder column's
+    CHECK, auto-named `staff_media_uploads_folder_check` (confirm the name in `pg_constraint`
+    first); the other is `staff_media_uploads_path_chk`. Add both back `not valid` with the
+    nine-folder list, then validate them inside the §2.1 guard.
+  - `app.is_staff_media_path(text)` is re-issued from 0159 with the nine-folder regex. It keeps
+    its signature, `language sql immutable`, its grants (anon, authenticated, service_role) and
+    its rule that it never raises. `staff_media_venue` and `staff_media_folder` call it, so only
+    their comments change.
+  - `app.staff_media_slot` is re-issued from 0159 and accepts the nine folders.
+  - No storage policy is dropped or created. `staff_media_insert` reads the slot row, and
+    `staff_media_read` asks `staff_media_visible`, so the NOTICE risk of §1.6 step 3 does not
+    arise here.
+  - The client folder types follow in the same commit (§1.2 shared files): `PhotoFolder` in
+    `mob/src/features/staff/photo.ts:37` and `PHOTO_FOLDERS` in
+    `packages/core/src/protocols/types.ts:46` gain `'checklists'`, `'teachings'` and `'requests'`,
+    so H's `uploadStaffPhoto(venue, 'checklists', …)` and `PhotoButton`'s `folder` typecheck.
+- **Teams.** `app.staff_team(staff_role) returns text` and
+  `app.staff_team_head(text) returns staff_role` (§2.1). Both are `immutable` and internal.
+- **`app.claim_staff_media`** is re-issued from 0164 with one more re-claim. A path whose
+  `used_by` is `release_idea:<id>` may be claimed as `protocol_submission:<sid>` when that
+  submission belongs to the `propose` step of a run whose `data->>'idea_id'` is `<id>`, whoever
+  uploaded it (#65: the head's proposal keeps the idea's photos). `used_by` then names the
+  submission, and the idea keeps the path in its `photos`. The check sits behind
+  `to_regclass('public.release_ideas')`, the 0164 pattern, because E's `product_release` creates
+  that table later.
+- **`app.staff_media_visible`** is re-issued from 0164. The uploader and MGMT at the venue still
+  see everything, and protocol-submission and marketing-note photos keep their rules. Four
+  `used_by` kinds join, each behind its table's `to_regclass`:
+
+  | `used_by` | Also readable by |
+  |---|---|
+  | `release_idea:<id>` | holders of `app.staff_team_head(idea.team)` at the idea's venue |
+  | `checklist_item:<id>` | holders of the item's run's role at its venue, who share the list |
+  | `teaching:<id>` | the teaching's team at its venue (`app.staff_team(role) = team`), while it is not archived |
+  | `marketing_request:<id>` | marketing at the request's venue |
+
+  Everything else stays readable by the uploader and MGMT only.
+- **Coverage.** The two team helpers take the standard excluded value.
+- **Tests** (`staff-media-folders.test.ts`):
+  - a slot is minted in each new folder, and the old six still are;
+  - a new-folder path passes the table CHECK and `is_staff_media_path`;
+  - the helpers still return NULL or `false` on `items/…`;
+  - an authenticated staff user still reads and uploads a `menu-media` object;
+  - a `checklist_item:` photo is readable by exactly its readers, and by no driver or marketing
+    account outside them;
+  - the three kinds whose tables do not exist yet read as uploader and MGMT only.
+
+  The other kinds' cases live in their own files: `teachings.test.ts`,
+  `marketing-requests.test.ts`, and E's `product-release.test.ts` (the idea rule and the
+  re-claim).
+
+#### 2.24.3 `teachings` (#64)
+
+```
+teachings  id uuid pk default gen_random_uuid(), venue_id uuid not null → venues,
+           team text not null check (team in ('bar','kitchen')),
+           author_id uuid not null → staff,
+           title text not null check (length(btrim(title)) between 1 and 120),
+           body text not null check (length(btrim(body)) between 1 and 4000),
+           photos text[] not null default '{}' check (cardinality(photos) <= 6),   -- folder teachings
+           created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+           archived_at timestamptz, archived_by uuid → staff,
+           check ((archived_at is null) = (archived_by is null))
+Index (same file, waiver): teachings (venue_id, team, created_at desc) where archived_at is null.
+RLS: MGMT at venue.
+```
+
+- **Text.** Staff-typed in one language (#48): one `title` and one `body`. Both apps show them as
+  typed, wrapped in `isolate()` (§4).
+- **No read receipts.** Nothing records who opened a teaching (SOW:265, :480).
+- **Writers:** head_barista for `bar`, head_chef for `kitchen`, and MGMT for either
+  (**PROPOSAL**).
+- **Readers:** the team (BAR_TEAM or KITCHEN_TEAM) and MGMT. Cashier, court_desk, driver,
+  marketing and prep read none (**PROPOSAL**: the spec gives teachings to the bar and the kitchen).
+
+| RPC | Args | Returns | Guard | Errors | Key | Audit |
+|---|---|---|---|---|---|---|
+| `save_teaching` | `p_title text, p_body text, p_team text default null, p_photos text[] default '{}', p_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null` | `{id}` | A new teaching (`p_id` null): HEADS for their own team at the venue (`p_team` defaults to `app.staff_team(role)`, and another team is `FORBIDDEN`), or MGMT for either team (`p_team` required). An edit: the author, or MGMT at its venue. The team never changes | `FORBIDDEN`, `INVALID_ARGUMENT` (hint `team`), `REF_NOT_FOUND` (`p_id` unknown, archived or at another venue), `TEXT_REQUIRED` (hint `title`, `body`), `TEXT_TOO_LONG`, `PHOTO_PATH_INVALID` (folder `teachings`, claimed `teaching:<id>`) | yes (new) | `teaching.save` |
+| `archive_teaching` | `p_id uuid` | void | the author, or MGMT at its venue | `REF_NOT_FOUND`, `FORBIDDEN` | – | `teaching.archive` |
+| `teachings_for_me` | `p_venue_id uuid default null, p_team text default null, p_limit int default 50, p_offset int default 0` | `{teachings: [{id, team, title, body, photos, author_name, created_at, updated_at, mine, editable}], total}`: not archived, newest first. MGMT may filter by `p_team`; anyone else may name only their own team | BAR_TEAM and KITCHEN_TEAM (their own team), MGMT (both teams), at the venue | `FORBIDDEN`, `INVALID_ARGUMENT` (team) | – | – |
+
+- **Push.** A new teaching, not an edit, sends `staff_info / teaching_new` to the team at the
+  venue (**PROPOSAL**). `notify_staff` skips the author, and the push is deduped
+  `teaching:<author>`.
+- **Coverage.** `teachings` is `table_read`, with readable-column rows for this table only.
+- **Tests** (`teachings.test.ts`):
+  - a head writes for their own team and is refused the other team;
+  - MGMT writes for either team;
+  - the barista reads the bar's teachings and not the kitchen's; the chef the reverse;
+  - cashier, court_desk, driver and marketing are refused all three RPCs with `FORBIDDEN`;
+  - the author and a manager may edit; another head may not;
+  - an archived teaching leaves the list, and its photo leaves the team's reads;
+  - the push reaches the team only.
+
+#### 2.24.4 `suggestions` (#63)
+
+```
+staff_suggestions  id uuid pk default gen_random_uuid(), venue_id uuid not null → venues,
+                   author_id uuid not null → staff,
+                   body text not null check (length(btrim(body)) between 1 and 1000),
+                   created_at timestamptz not null default now(),
+                   seen_by uuid → staff, seen_at timestamptz,
+                   check ((seen_by is null) = (seen_at is null))
+Index (same file, waiver): staff_suggestions (venue_id, created_at desc). RLS: MGMT at venue.
+```
+
+- **Who posts.** Every staff role, prep included (the ANY guard).
+- **Signed, not anonymous** (**PROPOSAL**). The manager can follow a suggestion up, and the author
+  sees whether it was seen.
+- **Nothing else** (**PROPOSAL**): no photo, no reply and no push. The badge is `new_count`.
+- **No guest data.** The form asks for no guest names or phone numbers, in the same words as item
+  notes (plan #43).
+
+| RPC | Args | Returns | Guard | Errors | Key | Audit |
+|---|---|---|---|---|---|---|
+| `add_suggestion` | `p_body text, p_venue_id uuid default null, p_idempotency_key text default null` | `{id}` | ANY at venue | `FORBIDDEN`, `TEXT_REQUIRED`, `TEXT_TOO_LONG` | yes | – |
+| `my_suggestions` | `p_venue_id uuid default null, p_limit int default 30` | `{suggestions: [{id, body, created_at, seen, seen_at}]}`, newest first, 1 to 100 | ANY at venue | `FORBIDDEN` | – | – |
+| `suggestions_page` | `p_venue_id uuid default null, p_filter text default 'new', p_limit int default 50, p_offset int default 0` | `{suggestions: [{id, author_name, author_role, body, created_at, seen_by_name, seen_at}], new_count, total}` | MGMT at venue | `FORBIDDEN`, `INVALID_ARGUMENT` (filter not `new \| seen \| all`) | – | – |
+| `mark_suggestion_seen` | `p_id uuid` | `{seen_at}`. State-idempotent: a repeat keeps the first mark | MGMT at its venue (row-addressed) | `REF_NOT_FOUND`, `FORBIDDEN` | – | – |
+
+- **Coverage.** `staff_suggestions` is `excluded: staff free text for the manager and owner, not
+  sent to the LLM` (**PROPOSAL**), so it gets no readable-column rows.
+- **Tests** (`suggestions.test.ts`):
+  - every role, driver and marketing included, posts and reads only its own;
+  - the manager and the owner read every suggestion with its author and role;
+  - a non-MGMT caller is refused `suggestions_page` and `mark_suggestion_seen`;
+  - another venue's suggestion is `REF_NOT_FOUND`;
+  - `app.assistant_readable_columns` has no `staff_suggestions` row.
+
+#### 2.24.5 `staff_stock_view` (#68)
+
+| RPC | Args | Returns | Guard | Errors |
+|---|---|---|---|---|
+| `staff_stock_view` | `p_venue_id uuid default null, p_kind text default null` | `{as_of, items: [{ingredient_id, kind, name_en, name_ar, unit, pack_size, on_hand, par_level, low_stock_threshold, low, below_par, next_expiry, product: {menu_item_id, name_en, name_ar, size_name_en, size_name_ar} \| null}]}` | head_barista, head_chef, court_desk, manager, owner at the venue | `FORBIDDEN` (also for a `p_kind` outside the caller's kinds, hint `kind`), `INVALID_ARGUMENT` (an unknown kind) |
+
+- **Items by role.** Each role sees active ingredients at the venue, of these kinds:
+
+  | Role | Kinds it sees |
+  |---|---|
+  | head_barista, head_chef | `purchased` and `prepared`: the cafe's stock. Ingredients have no bar or kitchen column, so both heads read the same list (**PROPOSAL**; a split needs a new column and the owner tagging every ingredient) |
+  | court_desk | `retail`: the Touch Shop's stock. Each row carries the shop product and size it backs (`product`, found through that size's recipe line, 0145:216) |
+  | manager, owner | all three |
+
+- **Figures:**
+  - `on_hand` is the sum of `stock_batches.qty_remaining`, the same expression as
+    `production_today` (0167);
+  - `next_expiry` is the earliest `expiry_date` of a batch with stock left;
+  - `low` is `low_stock_threshold is not null and on_hand <= low_stock_threshold`;
+  - `below_par` is `par_level is not null and on_hand < par_level`, strictly below, the
+    `production_today` expression (0167:224) and 0068's `belowPar`, so the head chef's Stock page
+    and the chef tiers' "What to make today" agree when stock sits exactly at par.
+
+  Rows are ordered low first, then by name. The function is `stable` and `security definer`,
+  granted to `authenticated`.
+- **No money and no supplier.** The payload has no `pack_cost_iqd`, no batch or unit cost, no
+  price, no supplier, no delivery, and no key ending in `_iqd`. `pack_size` is a size, not a cost.
+- **Refused:** barista, chef, cashier, driver, marketing and prep. Logging and controlling stock
+  are parked (§0 P5), and a read for these roles waits for that answer.
+- **Tests** (`staff-stock-view.test.ts`):
+  - each role gets exactly its kinds;
+  - a head asking for `retail`, and the desk asking for `purchased`, are refused `FORBIDDEN`;
+  - no key at any depth ends in `_iqd` or starts with `cost` or `supplier`;
+  - barista, chef, cashier, driver and marketing are refused;
+  - another venue's items never appear;
+  - `on_hand` equals the batch sum after a delivery and a sale.
+
+#### 2.24.6 `recipe_view` (#72, the PARKED-default of §0 P3)
+
+| RPC | Args | Returns | Guard | Errors |
+|---|---|---|---|---|
+| `recipe_view` | `p_venue_id uuid default null, p_menu_item_id uuid default null` | `{items: [{menu_item_id, name_en, name_ar, category_name_en, category_name_ar, sizes: [{variant_id, name_en, name_ar, lines: [{recipe_line_id, ingredient_id, name_en, name_ar}]}]}], prepared: [{ingredient_id, name_en, name_ar, lines: [{recipe_line_id, ingredient_id, name_en, name_ar}]}]}` | BAR_KITCHEN + MGMT at the venue | `FORBIDDEN`, `REF_NOT_FOUND` (`p_menu_item_id` is not an active cafe item at one of the caller's venues) |
+
+- **What it lists.**
+  - `items`: active menu items in a `cafe` category at the venue, with each size's recipe lines.
+    That leaves out every shop product and every item in release, which is never active.
+  - `prepared`: active prepared ingredients at the venue that have an output recipe (the desserts
+    and syrups, plan #25).
+  - With `p_menu_item_id`, only that item is listed, and `prepared` is empty.
+- **No quantity and no unit, for anyone, MGMT included** (#72, the default of §0 P3). There is no
+  cost and no price either. The manager and the owner keep Stock ▸ Recipes on the operator for
+  the numbers.
+- `recipe_line_id` is returned so that a head's change request can name a line (§2.24.7). Add-on
+  recipe lines are not shown (**PROPOSAL**).
+- **Readers:** head_barista, barista, head_chef, chef, manager and owner. The spec does not name
+  the chef tier for recipes, so the chef's read is a **PROPOSAL**. The court desk, cashier, driver
+  and marketing read none.
+- **If §0 P3 is answered "show quantities"**, one re-issue adds `qty` and `unit` to `lines` for
+  the roles Majed names.
+- **Tests** (`recipe-view.test.ts`):
+  - for every reader, MGMT included, no key at any depth is named `qty`, `quantity` or `unit`, or
+    ends in `_iqd`;
+  - shop products and inactive items are absent;
+  - the four bar and kitchen roles and MGMT can read; everyone else is refused.
+
+#### 2.24.7 `recipe_change_requests` (#71)
+
+```
+recipe_change_requests  id uuid pk default gen_random_uuid(), venue_id uuid not null → venues,
+                        target text not null check (target in ('variant','output')),
+                        variant_id uuid → menu_item_variants on delete cascade,
+                        output_ingredient_id uuid → ingredients on delete cascade,
+                        check ((target = 'variant') = (variant_id is not null)
+                               and (target = 'output') = (output_ingredient_id is not null)),
+                        requested_by uuid not null → staff, requested_at timestamptz not null default now(),
+                        ops jsonb not null,      -- the head's changes, normalised (below)
+                        before jsonb not null,   -- [{recipe_line_id, ingredient_id, qty}]: the target's lines at submit
+                        after jsonb not null,    -- [{ingredient_id, qty}]: what an approval writes
+                        note text check (note is null or length(note) <= 1000),
+                        status text not null default 'waiting'
+                          check (status in ('waiting','approved','declined','withdrawn')),
+                        decided_by uuid → staff, decided_at timestamptz,
+                        decline_reason text check (decline_reason is null or length(decline_reason) <= 1000),
+                        check ((status in ('approved','declined')) = (decided_by is not null)),
+                        check ((decided_by is null) = (decided_at is null)),
+                        check (decided_by is null or decided_by <> requested_by),
+                        check (status <> 'declined' or coalesce(length(btrim(decline_reason)),0) > 0)
+Index (same file, waiver): recipe_change_requests (venue_id, status, requested_at). RLS: MGMT at venue.
+```
+
+- **Targets.**
+  - `variant`: a size of an active menu item in a `cafe` category at the venue.
+  - `output`: an active `prepared` ingredient at the venue (a dessert's or syrup's output recipe,
+    plan #25).
+  - Add-on recipes are not a target (**PROPOSAL**).
+- **Ops** (1 to 30). The head writes them without the current quantities, which they cannot read
+  (#72):
+  - `{op: 'set', recipe_line_id, qty}` gives a current line of the target a new quantity;
+  - `{op: 'remove', recipe_line_id}` removes a line;
+  - `{op: 'add', ingredient_id, qty}` adds an active `purchased` or `prepared` ingredient at the
+    venue. The ingredient comes from `staff_ingredient_options`, which gives its unit. It must not
+    be on the target already and must not be the target itself.
+
+  `qty` is above 0 and below 10^9, in the ingredient's base unit, rounded to 3 places. These raise
+  `RECORD_INVALID` (hint `ops.<n>.<field>` or `ops`): a line named twice, an op on another
+  target's line, an add that is already on the target, and a result with no line. The server
+  computes `before` from the target's current lines, and `after` by applying the ops.
+- **The owner decides, and nobody decides their own request** (#71).
+  - The approve checks that the target's current lines match `before` (the same ids, ingredients
+    and quantities) and that the target is still active. Otherwise it raises `RECIPE_CHANGED`:
+    a manager edited the recipe in Stock ▸ Recipes, or another request was applied first.
+  - It then calls the public `app.set_recipe(target, target_id, after)` (0063) **as the owner**,
+    who passes its MGMT guard. The change goes through the recipe path, with `set_recipe`'s own
+    `stock.recipe.set` audit and its cycle trigger (`RECIPE_CYCLE` surfaces unchanged).
+  - The manager's direct editing in Stock ▸ Recipes is unchanged.
+
+| RPC | Args | Returns | Guard | Errors | Key | Audit |
+|---|---|---|---|---|---|---|
+| `request_recipe_change` | `p_target text, p_target_id uuid, p_ops jsonb, p_note text default null, p_venue_id uuid default null, p_idempotency_key text default null` | `{id}` | HEADS at the venue | `FORBIDDEN`, `INVALID_ARGUMENT` (target), `REF_NOT_FOUND` (target), `INGREDIENT_NOT_FOUND` (an add), `RECORD_INVALID` (ops), `TEXT_TOO_LONG` | yes | `stock.recipe.change_submit` |
+| `withdraw_recipe_change` | `p_id uuid` | `{status}` | the requester | `REF_NOT_FOUND`, `FORBIDDEN`, `SUBMISSION_DECIDED` | – | `stock.recipe.change_withdraw` |
+| `decide_recipe_change` | `p_id uuid, p_approve boolean, p_reason text default null` | `{status, lines_written}` | the owner, with the request's venue in `app.staff_venue_ids()` (row-addressed) | `REF_NOT_FOUND`, `FORBIDDEN`, `CANNOT_DECIDE_OWN`, `SUBMISSION_DECIDED`, `REASON_REQUIRED` (decline), `TEXT_TOO_LONG`, `RECIPE_CHANGED` (approve), and `set_recipe`'s `RECIPE_CYCLE`, `INGREDIENT_NOT_FOUND`, `INVALID_QTY`, `VARIANT_NOT_FOUND` | – | `stock.recipe.change_approve` / `stock.recipe.change_decline` |
+| `recipe_changes_page` | `p_venue_id uuid default null, p_filter text default 'waiting', p_limit int default 50, p_offset int default 0` | `{requests: [{id, target, variant_id, output_ingredient_id, item_name_en, item_name_ar, size_name_en, size_name_ar, requested_by_name, requested_at, note, status, decided_by_name, decided_at, decline_reason, stale, before: [{recipe_line_id, ingredient_id, name_en, name_ar, qty, unit}], after: [{ingredient_id, name_en, name_ar, qty, unit}]}], waiting_count, total}`. `stale` is true when a waiting request's target no longer matches `before` | MGMT at venue (the manager reads, the owner decides) | `FORBIDDEN`, `INVALID_ARGUMENT` (filter not `waiting \| decided \| all`) | – | – |
+| `my_recipe_changes` | `p_venue_id uuid default null, p_limit int default 30` | `{requests: [{id, target, item_name_en, item_name_ar, size_name_en, size_name_ar, ops: [{op, ingredient_id, name_en, name_ar, qty, unit}], note, status, requested_at, decided_by_name, decided_at, decline_reason}]}`. `qty` appears only on the head's own `set` and `add` ops. `before`, `after` and every current quantity are never returned (#72) | HEADS at venue | `FORBIDDEN` | – | – |
+
+- **Pushes.** `request_recipe_change` sends `staff_decide / recipe_change_submitted` to the owners.
+  The decision sends `recipe_change_approved` or `recipe_change_declined` to the requester.
+- **New error code.** `RECIPE_CHANGED` is the role spec's only new code. J owns its keys and
+  mappings (§3).
+- **Coverage.** `recipe_change_requests` is `table_read`. Its jsonb columns are not default reads.
+- **Tests** (`recipe-change-requests.test.ts`):
+  - a head requests a change to a size, and to a prepared item;
+  - the owner's approve sets `recipe_lines` exactly to `after`, and `stock.recipe.set` is audited;
+  - a request made stale by a manager's `set_recipe` shows `stale` and is refused
+    `RECIPE_CHANGED`;
+  - a decline needs a reason;
+  - the manager reads but cannot decide (`FORBIDDEN`);
+  - barista, chef, cashier, driver and marketing are refused `request_recipe_change`;
+  - `my_recipe_changes` carries no current quantity;
+  - an add that closes a cycle surfaces `RECIPE_CYCLE`;
+  - a withdrawn request cannot be decided (`SUBMISSION_DECIDED`).
+
+#### 2.24.8 `checklist_photos` (#69)
+
+- **Columns.** `checklist_template_items.photo_required boolean not null default false`, plus
+  `checklist_run_items.photo_required boolean not null default false` and
+  `checklist_run_items.photo_path text`. The defaults are constants, so the tables are not
+  rewritten. A CHECK on `checklist_run_items` is added `not valid` and then validated:
+  `not photo_required or done_at is null or photo_path is not null`.
+- **`save_checklist_template`** (same signature) takes items `[{text_en, text_ar, photo_required?}]`.
+  A non-boolean `photo_required` is `INVALID_ARGUMENT`, hint `items`.
+- **`my_checklists_today`** (same signature) copies `photo_required` into the day's run and returns
+  `photo_required` and `photo_path` for each item.
+- **`mark_checklist_item` changes signature** to
+  `(p_item_id uuid, p_done boolean, p_note text default null, p_photo_path text default null)`.
+  - The migration drops `app.mark_checklist_item(uuid, boolean, text)` by that exact signature,
+    creates the four-argument function, and re-issues its revoke and grant
+    (`packages/db/CLAUDE.md`). `fixtures/rpc-overloads.json` gains nothing, and a call with
+    three named arguments still resolves through PostgREST.
+  - Ticking a `photo_required` item needs a photo: the one sent, or one already on the item.
+    Otherwise it raises `RECORD_INVALID`, hint `photo_path`. Any other item may carry a photo too.
+  - A photo is claimed with
+    `app.claim_staff_media(array[p_photo_path], venue, array['checklists'], 'checklist_item:<id>')`.
+  - Unticking clears `photo_path`. The slot stays the item's, so a re-tick may send it again.
+  - It returns the item with `photo_required` and `photo_path`.
+- **`checklist_board`** (same signature). Template items gain `photo_required`. Today's items gain
+  `photo_required` and `photo_path`, which the operator opens by signed URL (I, §5.5).
+- **Who reads a checklist photo:** the uploader, MGMT, and holders of the list's role at the venue
+  (§2.24.2).
+- **Tests** (`checklist-photos.test.ts`, plus the cases whose shapes grow in `checklists.test.ts`):
+  - a photo-required tick without a photo is refused, and one with a photo passes;
+  - an old three-argument call still works on an item without the flag;
+  - an owner edit in the middle of the day leaves today's snapshot as it was;
+  - a photo from another staff member's slot is `PHOTO_PATH_INVALID`;
+  - driver and marketing see no other role's photos.
+
+#### 2.24.9 `shopping_head_approval` (#66)
+
+- **`shopping_items` changes:**
+  - The status CHECK (auto-named `shopping_items_status_check`; confirm the name in
+    `pg_constraint`) is dropped, added back `not valid` with two more values, and then validated.
+    The new values are `pending` (waiting for the head chef's OK) and `declined`.
+  - New columns: `decided_by uuid → staff` (the FK is added `not valid`, then validated),
+    `decided_at timestamptz` and `decline_reason text`.
+  - New CHECKs, each added `not valid` and then validated:
+    `(decided_by is null) = (decided_at is null)`;
+    `decline_reason is null or length(decline_reason) <= 300`;
+    `status <> 'declined' or (decided_by is not null and coalesce(length(btrim(decline_reason)),0) > 0)`.
+  - No index on `pending`. An index on an existing table needs its own migration, and the waiting
+    list is small.
+- **`add_shopping_item`** (same signature). The guard gains `chef`, so it reads HEADS, chef and
+  MGMT at the venue.
+  - A chef's line is `pending` and reaches no driver. It sends `staff_decide /
+    shopping_to_approve` to the venue's head chefs, or to its managers when there is none
+    (**PROPOSAL**), deduped `shopping-approve:<venue>`.
+  - A head's or MGMT's line is `open` and sends the drivers `shopping_new`, as in 0166.
+  - The barista still only reads the list (**PROPOSAL**: the spec gives the barista no shopping).
+- **`shopping_list`** (same signature). `p_status` also takes `pending` and `declined` for
+  BAR_KITCHEN and MGMT. A driver asking for either is `FORBIDDEN`, so a driver never sees a line
+  before the OK. The result gains `pending_count`: the venue's pending lines, or 0 for a driver.
+- **`cancel_shopping_item`** (same signature). The requester or MGMT may also cancel a `pending`
+  line.
+
+| RPC | Args | Returns | Guard | Errors | Key | Audit |
+|---|---|---|---|---|---|---|
+| `decide_shopping_item` | `p_id uuid, p_approve boolean, p_reason text default null` | `{id, status}` | head_chef or MGMT at the line's venue (row-addressed: an unknown line, or one at another venue, is `SHOPPING_ITEM_NOT_OPEN`, the 0166 convention) | `SHOPPING_ITEM_NOT_OPEN`, `FORBIDDEN`, `SUBMISSION_DECIDED` (the line is not `pending`), `REASON_REQUIRED` (decline), `TEXT_TOO_LONG` (300) | – | `shopping.approve` / `shopping.decline` |
+
+- An approve makes the line `open` and sends the drivers `shopping_new`, deduped as
+  `add_shopping_item` does. A decline makes it `declined` and sends the requester
+  `shopping_declined`. Nobody decides their own line, because a head's or MGMT's line is never
+  `pending`.
+- `record_purchase` is not re-issued. It takes `open` lines only (0166), so a `pending` or
+  `declined` line can never be bought.
+- **Tests** (`shopping-head-approval.test.ts`, plus the cases whose shapes grow in
+  `shopping-purchases.test.ts`):
+  - a chef's line is `pending`, hidden from the driver (`FORBIDDEN` on `pending`, absent from
+    `open`), and pushed to the head chef only;
+  - the head chef approves it, and the driver gets `shopping_new`;
+  - a decline needs a reason and reaches the chef;
+  - a head barista's, a head chef's and a manager's lines go straight to `open`;
+  - the barista is still refused `add_shopping_item`;
+  - `record_purchase` refuses a `pending` line with `SHOPPING_ITEM_NOT_OPEN`;
+  - head_barista, barista, cashier, driver and marketing are refused `decide_shopping_item`.
+
+#### 2.24.10 `purchase_delivery_confirm` (#70)
+
+- **Columns.** `purchases` gains `delivered_at timestamptz` and `delivered_by uuid` (the FK to
+  staff is added `not valid`, then validated), with
+  `check ((delivered_by is null) = (delivered_at is null))`, also added `not valid` and then
+  validated.
+
+| RPC | Args | Returns | Guard | Errors | Key | Audit |
+|---|---|---|---|---|---|---|
+| `confirm_purchase_delivery` | `p_purchase_id uuid` | `{purchase_id, delivered_at, delivered_by_name}` | the purchase's buyer (`staff_id = auth.uid()`), or MGMT at its venue (row-addressed: an unknown purchase, or one at another venue, is `PURCHASE_NOT_FOUND`) | `PURCHASE_NOT_FOUND`, `FORBIDDEN` | – (state-idempotent: a confirmed purchase returns its first confirmation) | `purchase.deliver` |
+
+- It works whether the purchase is `to_receive` or `done`. Receiving never waits for it, and a
+  manager may receive first (**PROPOSAL**).
+- It sends no push (**PROPOSAL**): `record_purchase` already tells the managers.
+- **`my_purchases`** (same signature). Each purchase gains `receipt_path`, which is the buyer's own
+  receipt and readable to them as its uploader, so the driver's receipts show on the phone. Each
+  also gains `delivered_at`.
+- **`purchases_to_receive`** (same signature). Each purchase gains `delivered_at` and
+  `delivered_by_name` (Goods in, I, §5.5).
+- **The driver's run** (#70) is H's page over RPCs that already exist:
+  - the open list (`shopping_list`) is shown as a checklist. Its ticks are the phone's own state
+    until "Record purchase" (**PROPOSAL**: a tick is not stored, and a line leaves the list when a
+    purchase records it);
+  - each shop visit is one `record_purchase`, with its receipt photo;
+  - each purchase then gets Delivered (`confirm_purchase_delivery`).
+- **Tests** (`purchase-delivery-confirm.test.ts`):
+  - the buyer confirms once, and a repeat returns the first confirmation;
+  - another driver is `FORBIDDEN`;
+  - a manager can confirm;
+  - a purchase received first can still be confirmed;
+  - `purchases_to_receive` and `my_purchases` carry the new keys;
+  - cashier, marketing and the bar and kitchen roles are refused.
+
+#### 2.24.11 `marketing_requests` (#73)
+
+```
+marketing_requests  id uuid pk default gen_random_uuid(), venue_id uuid not null → venues,
+                    requested_by uuid not null → staff,
+                    title text not null check (length(btrim(title)) between 1 and 120),
+                    body text not null check (length(btrim(body)) between 1 and 2000),
+                    want_by date,
+                    menu_item_id uuid → menu_items on delete set null,    -- optional: the item it is about
+                    photos text[] not null default '{}' check (cardinality(photos) <= 4),   -- folder requests
+                    status text not null default 'open'
+                      check (status in ('open','done','declined','withdrawn')),
+                    answer text check (answer is null or length(answer) <= 2000),
+                    answered_by uuid → staff, answered_at timestamptz,
+                    check ((status in ('done','declined')) = (answered_by is not null)),
+                    check ((answered_by is null) = (answered_at is null)),
+                    check (status not in ('done','declined') or coalesce(length(btrim(answer)),0) > 0),
+                    created_at timestamptz not null default now()
+Index (same file, waiver): marketing_requests (venue_id, status, created_at). RLS: MGMT at venue.
+```
+
+- **Who asks.** Every staff role except marketing (**PROPOSAL**: marketing does not ask itself).
+- **Who answers.** Marketing, marking the request done or declined, with an answer. MGMT reads.
+- **What a request can name.** At most one menu item (**PROPOSAL**: naming a run or a campaign
+  would need visibility checks of its own).
+
+| RPC | Args | Returns | Guard | Errors | Key | Audit |
+|---|---|---|---|---|---|---|
+| `add_marketing_request` | `p_title text, p_body text, p_want_by date default null, p_menu_item_id uuid default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null` | `{id}` | ANY at venue except marketing | `FORBIDDEN`, `TEXT_REQUIRED` (hint `title`, `body`), `TEXT_TOO_LONG`, `INVALID_ARGUMENT` (`want_by` in the past), `ITEM_NOT_FOUND` (not an item at the venue), `PHOTO_PATH_INVALID` (folder `requests`, claimed `marketing_request:<id>`) | yes | `marketing.request.add` |
+| `withdraw_marketing_request` | `p_id uuid` | `{status}` | the requester | `REF_NOT_FOUND`, `FORBIDDEN`, `SUBMISSION_DECIDED` | – | `marketing.request.withdraw` |
+| `answer_marketing_request` | `p_id uuid, p_outcome text, p_answer text` | `{status, answered_at}` | marketing at the request's venue (row-addressed) | `REF_NOT_FOUND`, `FORBIDDEN`, `SUBMISSION_DECIDED`, `INVALID_ARGUMENT` (outcome not `done \| declined`), `TEXT_REQUIRED` (answer), `TEXT_TOO_LONG` | – | `marketing.request.answer` |
+| `my_marketing_requests` | `p_venue_id uuid default null, p_limit int default 30` | `{requests: [{id, title, body, want_by, menu_item_id, item_name_en, item_name_ar, photos, status, answer, answered_by_name, answered_at, created_at}]}` | ANY at venue except marketing | `FORBIDDEN` | – | – |
+| `marketing_requests_page` | `p_venue_id uuid default null, p_filter text default 'open', p_limit int default 50, p_offset int default 0` | `{requests: [<the my_marketing_requests row> + {requested_by_name, requested_by_role}], open_count, total}` | marketing + MGMT at venue | `FORBIDDEN`, `INVALID_ARGUMENT` (filter not `open \| answered \| all`) | – | – |
+| `marketing_campaign_results` | `p_venue_id uuid default null, p_limit int default 30` | `{campaigns: [{campaign_id, name_en, name_ar, channel, status, starts_at, ends_at, sends, delivered, failed, last_sent_at, attributable, redemptions, suggested_by_me}]}`, the venue's campaigns only (`marketing_campaigns.venue_id = v_venue`, as `my_campaign_drafts` filters, 0168:316-317), newest first, 1 to 100 | marketing + MGMT at venue, the §2.1 subset way: `app.is_staff('marketing','manager','owner')`, then `v_venue := coalesce(p_venue_id, app.current_venue())`, then `app.is_staff_at(v_venue,'marketing','manager','owner')` | `FORBIDDEN` | – | – |
+
+- **Pushes.** A new request sends `staff_task / marketing_request_new` to marketing at the venue.
+  An answer sends `marketing_request_answered` to the requester.
+- **Results and feedback** (#73). Marketing's phone shows its own notes (`my_marketing_notes`,
+  0168) beside `marketing_campaign_results`.
+  - That read gives the counts of 0073's `marketing_campaign_performance` (sends, delivered,
+    failed, redemptions) **without** `discountIqd` and `revenueIqd`, and never a tab or order
+    figure (**PROPOSAL**; it revises §2.17's "no campaign performance read" to counts only).
+  - It neither calls nor re-issues `marketing_campaign_performance`, which is MGMT-only and
+    returns money.
+- **Coverage.** `marketing_requests` is `table_read`.
+- **Tests** (`marketing-requests.test.ts`):
+  - a cashier, a driver and a barista each ask;
+  - marketing answers, and the requester sees the answer and gets the push;
+  - a second answer, or a withdraw after the answer, is `SUBMISSION_DECIDED`;
+  - marketing is refused `add_marketing_request`;
+  - a caller who is neither marketing nor MGMT is refused `marketing_requests_page` and
+    `answer_marketing_request`;
+  - a request photo is readable by the requester, marketing and MGMT only;
+  - `marketing_campaign_results` has no key ending in `_iqd` and none starting with `revenue` or
+    `discount`, and it refuses the bar and kitchen roles, the driver and the desk;
+  - another venue's campaigns never appear in `marketing_campaign_results`, for marketing or a
+    manager at the first venue (`marketing_campaigns.venue_id` is NOT NULL, 0126:60, 0129:99-101).
 
 ---
 
@@ -1696,6 +2560,36 @@ unchanged): `INVALID_TRANSITION`, `REASON_REQUIRED`, `CANNOT_DECIDE_OWN`, `IDEMP
 `ITEM_NOT_FOUND` → `errors.notFound`. `LABEL_REQUIRED`, `CAMPAIGN_LOCKED` and
 `INVALID_TIME_RANGE` are not mapped on the phone: nothing the phone calls raises them.
 
+**Role spec (plan #61–#74): lane 0's codes where possible, and one new code.** The role-spec
+RPCs (§2.9's ideas, §2.11's desk start, §2.24) reuse codes that both maps already carry, each for
+the meaning its string already states:
+
+| Situation | Code |
+|---|---|
+| Not found (an idea, teaching, suggestion, request or recipe target) | `REF_NOT_FOUND` |
+| Already decided, started, withdrawn or answered (an idea, a recipe change, a `pending` line, a request to marketing) | `SUBMISSION_DECIDED` |
+| A decline with no reason | `REASON_REQUIRED` |
+| The owner deciding their own recipe change | `CANNOT_DECIDE_OWN` |
+| A bad idea record, a bad recipe op, a photo-required tick with no photo, or `data` with an unknown key | `RECORD_INVALID` (hint = field) |
+| Text | `TEXT_REQUIRED`, `TEXT_TOO_LONG` |
+| A photo that is not the caller's slot | `PHOTO_PATH_INVALID` |
+| A shopping line that is gone or at another venue | `SHOPPING_ITEM_NOT_OPEN` |
+| A purchase that is gone or at another venue | `PURCHASE_NOT_FOUND` |
+| An unknown item | `ITEM_NOT_FOUND` (the phone's `errors.notFound`) |
+| A wrong role | `FORBIDDEN` |
+
+Lane 0 is done, so the lane that adds a new code owns its keys and mappings, in the commit of the
+migration that raises it (§1.2 shared-file row):
+
+| Code | Raised by | EN | Maps | Lane |
+|---|---|---|---|---|
+| `RECIPE_CHANGED` | `decide_recipe_change` on approve, when the target's lines changed after the request (§2.24.7) | The recipe changed after this request was sent. Ask for a new change. | both (`MAPPED_CODES`, `CODE_TO_KEY`), EN and AR in `opErrors.protocols.*` | J (`recipe_change_requests`) |
+
+Existing code the phone starts mapping (J, same commit): `RECIPE_CYCLE`, to its existing
+`op.errors.RECIPE_CYCLE`, because the owner's approve on the phone runs `set_recipe`'s cycle
+trigger. `set_recipe`'s other codes (`INGREDIENT_NOT_FOUND`, `INVALID_QTY`,
+`VARIANT_NOT_FOUND`) are mapped on the phone already.
+
 Edge failures: the operator maps `EdgeError.detail` through `MAPPED_CODES` when present
 (`op/features/protocols/errors.ts`, D), else `EDGE_<code>`. The phone reads the body's `error`
 through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → `errors.validation`.
@@ -1725,6 +2619,13 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
 | Phone: notes on new items | `staff.notes.*` | `staff/notes.*` | H |
 | Phone: photo picker and permissions | `staff.media.*` | `staff/media.*` | G |
 | Guest privacy policy line | `legal.*` | `legal.*` | G |
+| Phone, role spec: ideas, teachings, suggestions, stock, recipes and recipe changes, requests to marketing and results, the photo tick, the head chef's OK, the driver's run and Delivered, the "Vacation and requests" row | `staff.rolePages.*` | `staff/rolePages.*` (new; H mounts it in `staff/index.ts`) | H |
+| Operator, role spec: `/suggestions`, the Recipe changes card and sheet, ideas from the team, the desk's tournament start, `/tasks`' role-page sections | `ws.rolePages.*` | `ws/rolePages.*` (new; D2 mounts it in `ws/index.ts`) | D2 |
+| Operator, role spec, I's files: the "Needs a photo" switch, the photos in the day view, delivered on Goods in, "Requests to marketing" on `/marketing` | `ws.supplies.*` | `ws/supplies.*` | I |
+| Both apps, role-spec statuses | `work.idea.status.{waiting,started,declined,withdrawn}`, `work.team.{bar,kitchen}` (E); `work.shopping.status.{pending,declined}`, `work.recipeChange.status.{waiting,approved,declined,withdrawn}`, `work.marketingRequest.status.{open,done,declined,withdrawn}` (J) | `work.*` | E, J |
+| The chef label (#74) | `op.roles.chef` "Chef assistant" / "مساعد شيف"; the `ws.owner` role hints that name Chef (`retiredRoleHint`, the prep description, `roleRetired`); `op.errors.ROLE_RETIRED` ("Kitchen is retired. Choose barista or chef assistant.") | `en.ts`/`ar.ts`, `ws/owner.*`, `opErrors.protocols.*` | D2, one commit |
+| Error `RECIPE_CHANGED` | `op.errors.RECIPE_CHANGED` | `opErrors.protocols.*` | J |
+| Push copy of the eleven role-spec keys | – (not a catalog) | `send-push/staffStrings.ts` | J |
 
 - `work.*` holds the words both apps show: `work.protocol.kind.{product_release,tournament,hiring,price_promo}`,
   `work.protocol.variant.{type1,type2,type3}`, `work.protocol.runStatus.<status>`,
@@ -1737,7 +2638,8 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
   `work.checklist.slot.{open,close}`, `work.shopping.status.<status>`,
   `work.purchase.status.<status>`, `work.item.kind.{drink,dessert,food}`. Role names stay `op.roles.*`.
 - `staff/index.ts` assembles `staff = {shell, protocols, checklists, supplies, marketing, notes, media}`
-  like `ws/index.ts`; `en.ts` mounts `staff: staffEn` and `work: workEn` (0).
+  like `ws/index.ts`; `en.ts` mounts `staff: staffEn` and `work: workEn` (0). The role spec adds
+  `rolePages` to both assemblies (H for `staff`, D2 for `ws`).
 - Arabic parity: every AR fragment is typed `DeepMessages<typeof <en fragment>>`, so a missing key
   fails typecheck; `packages/i18n/src/__tests__/t.test.ts:35` asserts parity. Every screen string
   exists in both catalogs.
@@ -1792,6 +2694,27 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
   on, #52, #53, §5.5). Row-level buttons follow the RPC's `Can`; no inline role check. The
   `shop_launch` change is never offered on `/tasks`, which no MGMT role opens, so it needs no
   capability of its own.
+- **Role spec (D2, plan #61–#74):**
+  - `ROUTE_ROLES['/suggestions'] = ['manager', 'owner']`. The route is `op/routes/suggestions.tsx`,
+    lazy `features/roleExtras/SuggestionsPage`, registered in `op/main.tsx`, with no `SUB_ROUTES`
+    entry.
+  - Rail: `'suggestions'` joins the `labelKey` union.
+    `{ to: '/suggestions', labelKey: 'suggestions', icon: 'message' }` goes into
+    `OWNER_OBSERVATION` right after the `/protocols` row, and is appended to `MANAGER_RUN` (icon
+    **PROPOSAL**). `NavItem.badge` gains `'suggestionsNew'`, and `workspaces.test.ts` follows. The
+    owner rail keeps four sections.
+  - `CAPABILITY_ROLES` gains four entries:
+    - `startProtocolTournament: ['court_desk', 'manager', 'owner']` (#67: `/tasks`' "Start a
+      tournament");
+    - `reviewIdeas: ['head_barista', 'head_chef', 'manager', 'owner']` (#65);
+    - `writeTeachings: ['head_barista', 'head_chef', 'manager', 'owner']` (#64);
+    - `decideRecipeChanges: ['owner']` (#71).
+
+    Row-level buttons still follow what the RPCs return, with no inline role check.
+  - `protocolsRoute`'s search params gain `idea?: uuid` (a product release start prefilled from an
+    idea) and `recipeChange?: uuid` (opens that request's sheet).
+  - `/tasks` stays open to the eight roles of this section and gains the role-page sections of
+    §5.4. `homeRoute` is unchanged.
 - Other routes gain search params, each in its route file: `/desk/block?run=&step=` (F, event mode;
   `validateBlockSearch` in `op/routes/desk/_children.ts` returns `{date?, run?, step?}`),
   `/admin/staff?hire=<run_step_id>` (F, prefilled Add staff member; `validateSearch` on
@@ -1809,6 +2732,15 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
   `PK.targets(change)` (`price_promo_targets`), `PK.review(runId)` (`release_review`), all under
   `['protocols', …]`, so invalidating `['protocols']` refreshes the page. I keeps its own under
   `['checklists', …]` and `['purchases', …]`.
+- Role spec (D2):
+  - `QK` gains `suggestionsNew: ['suggestions', 'new']` (the rail badge and the page),
+    `recipeChangesWaiting: ['recipeChanges', 'waiting']` (the Protocols card) and
+    `ideasToReview: ['ideas', 'toReview']` (the New item card, `/tasks`, and the kitchen board's My
+    tasks count).
+  - Feature-private keys live in `op/features/roleExtras/keys.ts`, under `['roleExtras', …]` for
+    the teachings, stock, recipes, requests and results reads.
+  - A recipe decision invalidates `['recipeChanges']` and `['protocols']`. An idea start
+    invalidates `['ideas']` and `['protocols']`.
 - Realtime: none new. Protocol and badge queries refetch every 60 s and on focus.
 
 ### 5.3 Writes
@@ -1862,6 +2794,42 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
 - Observe home: a `WaitingOnYou` row (`op/features/observation/ObservationHome.tsx:140-190`); a
   count badge on the Observe rail button and on the Protocols row (the `NavItem` `badge` key,
   §5.1). `/panel` stays read-only.
+- **Role spec (D2, plan #61–#74).** Every new file lives under `op/features/roleExtras/**`, and
+  every string under `ws.rolePages.*`.
+  - **Ideas (#65).** The New item card on `/protocols` also shows "N ideas from the team". Each
+    idea (from `release_ideas_to_review`) opens a sheet with the idea, its photos, and two
+    buttons. Start opens the product release start form prefilled from the idea
+    (`/protocols?start=product_release&idea=<id>`, which calls `start_protocol` with
+    `p_data = {idea_id}` and carries the idea's photos). Decline asks for a reason
+    (`decline_release_idea`). MGMT reviews every team (`reviewIdeas`).
+  - **Recipe changes (#71): a sixth card on `/protocols`.** It shows the waiting count and the list
+    from `recipe_changes_page`. Each request opens a sheet with the target's lines before and
+    after, with quantities (this page is MGMT only), and a "Changed since it was sent" mark when
+    `stale` is set. The owner gets Approve and Decline with a reason (`decideRecipeChanges`), and
+    the manager only reads. `RECIPE_CHANGED` shows its mapped string.
+  - **`/suggestions` (#63).** New, Seen and All tabs from `suggestions_page`, each suggestion with
+    its author's name and role, and "Mark as seen" (`mark_suggestion_seen`). The rail badge counts
+    the new ones.
+  - **`/tasks` (#61–#74).** For the head roles, "Ideas from your team (N)", with Start (the same
+    start form on `/tasks`, prefilled from the idea) and Decline. The kitchen board's "My tasks
+    (N)" count adds the waiting ideas. For the court desk, "Start a tournament"
+    (`startProtocolTournament`), which opens the `plan` form. The phone-first role pages appear
+    as read-only copies marked "on your phone" (#11):
+    - Teachings, the caller's team;
+    - Stock, the heads' cafe or the desk's shop;
+    - Recipes, names only;
+    - My recipe changes (heads);
+    - My ideas (barista, chef);
+    - My suggestions;
+    - Vacation and requests;
+    - Requests to marketing (the caller's own, or marketing's inbox);
+    - Results (marketing).
+
+    Answering a request, writing a teaching or a suggestion, and ticking a photo item happen on the
+    phone.
+  - **The "Chef assistant" label (#74).** One commit changes `op.roles.chef` and the other
+    catalog strings of §4 that name the role. The operator shows it wherever it shows a role:
+    the Staff page, the audit log, and the kitchen board header.
 
 ### 5.5 Pages outside `/protocols`
 
@@ -1952,6 +2920,18 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
   (`dayCloseLogic.ts:290-294` pattern); `/marketing` gains a "From marketing" filter and badge
   (`marketing_suggestions`); Setup "Worth checking" lists prepared items with no par level and any
   prep accounts left.
+- I, role spec (plan #69, #70, #73), each part after J's migration for it:
+  - **Daily checklists** (after `checklist_photos`). The owner's editor gains a "Needs a photo"
+    switch per item (`save_checklist_template`'s `photo_required`). The manager's view of today
+    shows each ticked item's photo by signed URL (`checklist_board`). Photos are never ticked or
+    taken on the desktop.
+  - **Goods in, "Bought by the driver"** (after `purchase_delivery_confirm`). Each purchase shows
+    "Delivered <time> by <name>" or "Not confirmed yet", from `purchases_to_receive`'s new keys.
+    Receive stays available either way.
+  - **`/marketing`** (after `marketing_requests`). A read-only "Requests to marketing" list from
+    `marketing_requests_page`, beside "From marketing".
+
+  None of this changes day close. The cashier's "day close" is parked (§0 P4).
 
 ### 5.6 pages.md sentences
 
@@ -1964,6 +2944,14 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
   and `/admin/addons` (F: the price lock and "Put on sale"), `/admin/promotions`, `/admin/rates`
   and `/admin/hero` (F: read-only for a manager, with the starts of §5.5), `/stock/receive`,
   `/stock/waste`, `/admin/day-close`, `/marketing` and `/setup` for what they change.
+- Role spec:
+  - D2 adds `- /suggestions — Suggestions: the staff suggestion box for the manager and owner; New, Seen and All from app.suggestions_page, each with its author's name and role; Mark as seen calls app.mark_suggestion_seen.`
+  - D2 rewrites `/protocols` (ideas from the team through app.release_ideas_to_review and
+    app.decline_release_idea; the Recipe changes card through app.recipe_changes_page and
+    app.decide_recipe_change) and `/tasks` (ideas, the desk's tournament start, and the read-only
+    role pages).
+  - I updates `/stock/receive` (delivered) and `/marketing` (requests to marketing), and the
+    `/protocols` sentence's Daily checklists part if it names the photo switch.
 
 ### 5.7 Assistant-coverage keys
 
@@ -1979,6 +2967,11 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
 | `edge_functions` | `protocol-action`, `release-review` | `map:system` |
 | `cron_jobs` | the four in §2.19 | `map:system` |
 | `docs` | `docs/design/protocols/build-contracts-2026-09-23.md` | `index:doc` |
+| `routes` (role spec) | `/suggestions` | `map:page` (D2) |
+| `tables` (role spec) | `release_ideas` (E), `teachings`, `recipe_change_requests`, `marketing_requests` (J) | `table_read`, with readable-column rows for the migration's own tables only (§1.5); jsonb columns are not default reads |
+| `tables` (role spec) | `staff_suggestions` (J) | `excluded: staff free text for the manager and owner, not sent to the LLM` (**PROPOSAL**) |
+| `functions` (role spec) | every new client-granted RPC of §2.9 (ideas) and §2.24 | `map:action` |
+| `functions` (role spec) | `release_propose_check` (E), `staff_team`, `staff_team_head` (J) | the standard excluded value |
 
 ---
 
@@ -2009,6 +3002,33 @@ does not declare them (**PROPOSAL**). Each wraps itself in `<RequireStaff roles=
 | `staff-purchase.tsx?itemIds=` | H | driver, MGMT | `shopping_list`, `my_purchases` | `staff_media_slot`, `record_purchase` |
 | `staff-marketing.tsx` | H | marketing | `my_marketing_notes`, `my_campaign_drafts` | `add_marketing_note`, `suggest_campaign`, `staff_media_slot` |
 | `staff-notes.tsx?itemId=` | H | all | `release_notes_for_me`, `release_notes_for_item` | `add_release_note` |
+| `staff-ideas.tsx?id=` (role spec #65) | H | barista, chef: send and follow their own; HEADS: review their team's; MGMT: review all | `my_release_ideas`, `release_ideas_to_review`, `staff_ingredient_options` | `staff_media_slot` (folder `proposals`), `submit_release_idea`, `withdraw_release_idea`, `decline_release_idea`. Start opens `staff-start.tsx?kind=product_release&ideaId=` |
+| `staff-teachings.tsx?id=` (#64) | H | BAR_TEAM and KITCHEN_TEAM read their own team's; HEADS write for their team; MGMT read and write both | `teachings_for_me` | `staff_media_slot` (folder `teachings`), `save_teaching`, `archive_teaching` |
+| `staff-suggestions.tsx` (#63) | H | all post and see their own; MGMT also read everyone's | `my_suggestions`, `suggestions_page` (MGMT) | `add_suggestion`, `mark_suggestion_seen` (MGMT) |
+| `staff-stock.tsx` (#68) | H | HEADS (the cafe), court_desk (the shop), MGMT (all) | `staff_stock_view` | – |
+| `staff-recipes.tsx?itemId=` (#72) | H | BAR_KITCHEN, MGMT | `recipe_view` (names only, never a quantity) | – (for HEADS, "Ask for a change" opens `staff-recipe-change.tsx`) |
+| `staff-recipe-change.tsx?target=&targetId=&id=` (#71) | H | HEADS ask and follow their own; the owner decides; the manager reads | `recipe_view`, `staff_ingredient_options`, `my_recipe_changes` (HEADS), `recipe_changes_page` (MGMT: before and after, with quantities) | `request_recipe_change`, `withdraw_recipe_change`, `decide_recipe_change` (the owner) |
+| `staff-marketing-requests.tsx?id=` (#73) | H | every role but marketing asks and follows its own; marketing gets the inbox and answers; MGMT reads | `my_marketing_requests`, `marketing_requests_page` (marketing, MGMT) | `staff_media_slot` (folder `requests`), `add_marketing_request`, `withdraw_marketing_request`, `answer_marketing_request` (marketing) |
+
+**Existing H screens that change for the role spec:**
+- `staff-start.tsx`:
+  - `kind=tournament` is offered to court_desk (#67, `plan` form, every variant);
+  - `ideaId` prefills a product release's `propose` form and photos from the idea (HEADS, MGMT)
+    and passes `p_data = {idea_id}`.
+- `staff-checklist.tsx`: a photo-required item shows a camera button, and its tick sends
+  `p_photo_path` after `staff_media_slot` (folder `checklists`). A tick without the photo is
+  never sent (#69).
+- `staff-shopping.tsx`:
+  - the chef's Add shows "Waits for the head chef's OK" and lists their `pending` lines;
+  - the head chef and MGMT get a "Waiting for your OK (N)" section with Approve and Decline
+    (`decide_shopping_item`, #66);
+  - the driver's view is the run checklist (#70, §2.24.10).
+- `staff-purchase.tsx`: "Delivered" on each of the driver's purchases (`confirm_purchase_delivery`),
+  and the driver's own purchases with their receipt photos (`my_purchases`, signed URLs).
+- `staff-marketing.tsx`: a Results tab (`marketing_campaign_results` beside `my_marketing_notes`,
+  counts only, #73) and a Requests row that opens `staff-marketing-requests.tsx`.
+- `staff-request.tsx` (B's file) is unchanged. It already opens on `leave`, and the Today row
+  that opens it reads "Vacation and requests" (#62).
 
 `staff-start.tsx` is every start form ("Propose a new item", "Price or promo change", and the
 manager's and owner's tournament and hiring starts), and `staff-runs.tsx?filter=mine` is "My
@@ -2028,6 +3048,26 @@ server is the wall. PINs are still set on the operator.
 | driver | involved | – | – | read, buy | own | – | yes | yes |
 | marketing | involved | price_promo (every kind but `shop_launch`) | – | – | – | yes | yes | yes |
 | cashier, court_desk, prep | involved | – | – | – | – | – | yes | yes |
+
+**Role-spec rows** (plan #61–#74; H appends them to `rows.ts` as their screens land; "Vacation"
+is the Requests column above, relabelled "Vacation and requests" for every role):
+
+| Role (person) | Ideas | Teachings | Recipes | Stock | Suggestions | Ask marketing | Also |
+|---|---|---|---|---|---|---|---|
+| owner | review all | read and write both | names; decide changes | all | read all, mark seen; post | ask | Shopping: approve a chef assistant's line |
+| manager | review all | read and write both | names; read changes | all | read all, mark seen; post | ask | Shopping: approve a chef assistant's line |
+| head_barista (Bareq) | review the bar's | write and read (bar) | names; ask for a change | cafe | post, own | ask | – |
+| head_chef (Rusul) | review the kitchen's | write and read (kitchen) | names; ask for a change | cafe | post, own | ask | Shopping: approve a chef assistant's line |
+| barista (Yusuf) | send, own | read (bar) | names | – | post, own | ask | – |
+| chef, shown "Chef assistant" (Tiba) | send, own | read (kitchen) | names | – | post, own | ask | Shopping: add, which waits for the head chef |
+| court_desk (Hussein 2) | – | – | – | shop | post, own | ask | Start: tournament |
+| cashier (Maha) | – | – | – | – | post, own | ask | – |
+| driver | – | – | – | – | post, own | ask | Shopping: the run checklist; Purchases: receipts and Delivered |
+| marketing | – | – | – | – | post, own | inbox, answer | Marketing: Results |
+| prep (retired) | – | – | – | – | post, own | ask | – |
+
+Nothing on the Parked list (§0) has a row: no assistant barista or waiter, no salaries, no day
+close, no stock logging, no desk report and no marketing approval.
 
 Checklists sit at the top of To do for every role. Receiving purchases, templates, checklist
 templates, one run's changes (owner), deciding staff requests and making campaigns live are
@@ -2054,8 +3094,21 @@ start.
 { file: 'staff-notes.tsx',      route: 'staff-notes',      primary: 'staff-notes.add' },
 ```
 
-B's two cases live in `staff.smoke.test.tsx`, H's ten in `staffPages.smoke.test.tsx`; each route is
-named by exactly one suite, in EN and AR. `renderRoute` (`mob/src/test/smoke.tsx:79`) gains
+Role spec (H), in the same block:
+
+```
+{ file: 'staff-ideas.tsx',              route: 'staff-ideas',              primary: 'staff-ideas.submit' },
+{ file: 'staff-teachings.tsx',          route: 'staff-teachings',          primary: 'staff-teachings.list' },
+{ file: 'staff-suggestions.tsx',        route: 'staff-suggestions',        primary: 'staff-suggestions.submit' },
+{ file: 'staff-stock.tsx',              route: 'staff-stock',              primary: 'staff-stock.list' },
+{ file: 'staff-recipes.tsx',            route: 'staff-recipes',            primary: 'staff-recipes.list' },
+{ file: 'staff-recipe-change.tsx',      route: 'staff-recipe-change',      primary: 'staff-recipe-change.submit' },
+{ file: 'staff-marketing-requests.tsx', route: 'staff-marketing-requests', primary: 'staff-marketing-requests.submit' },
+```
+
+B's two cases live in `staff.smoke.test.tsx`, H's ten in `staffPages.smoke.test.tsx`, and H's seven
+role-spec cases in `staffRolePages.smoke.test.tsx`. Each route is named by exactly one suite, in EN
+and AR, and each is rendered with a role that sees its primary element. `renderRoute` (`mob/src/test/smoke.tsx:79`) gains
 `staff?: { role: StaffRole; venues?: string[] }`, which mounts `StaffStatusProvider` and seeds
 `staffKeys.status(<test uid>)` and `staffKeys.venues(<test uid>)` through `queryData`
 (`staleTime: Infinity`). Guest cases omit it.
@@ -2082,6 +3135,26 @@ forwards `${testID}.<child>`.
   `staff-marketing.tab.take`, `staff-marketing.tab.drafts`, `staff-marketing.note.add`,
   `staff-marketing.draft.<id>`; `staff-notes.add`, `staff-notes.item.<menuItemId>`;
   `staff-request.submit`, `staff-request.withdraw.<id>`.
+- Role spec (H):
+  - `staff-ideas.submit`, `staff-ideas.idea.<id>`, `staff-ideas.start.<id>`,
+    `staff-ideas.decline.<id>`, `staff-ideas.withdraw.<id>`;
+  - `staff-teachings.list`, `staff-teachings.item.<id>`, `staff-teachings.write`,
+    `staff-teachings.save`, `staff-teachings.archive.<id>`;
+  - `staff-suggestions.submit`, `staff-suggestions.item.<id>`, `staff-suggestions.seen.<id>`,
+    `staff-suggestions.filter.<filter>`;
+  - `staff-stock.list`, `staff-stock.item.<ingredientId>`;
+  - `staff-recipes.list`, `staff-recipes.item.<menuItemId>`, `staff-recipes.prepared.<ingredientId>`,
+    `staff-recipes.ask-change`;
+  - `staff-recipe-change.submit`, `staff-recipe-change.op.<n>`, `staff-recipe-change.op.add`,
+    `staff-recipe-change.approve`, `staff-recipe-change.decline`, `staff-recipe-change.withdraw`;
+  - `staff-marketing-requests.submit`, `staff-marketing-requests.item.<id>`,
+    `staff-marketing-requests.answer.done`, `staff-marketing-requests.answer.declined`,
+    `staff-marketing-requests.withdraw.<id>`;
+  - `staff-checklist.photo.<itemId>`;
+  - `staff-shopping.approve.<id>`, `staff-shopping.decline.<id>`, `staff-shopping.run.<id>`;
+  - `staff-purchase.delivered.<purchaseId>`, `staff-purchase.receipt.<purchaseId>`;
+  - `staff-marketing.tab.results`, `staff-marketing.requests`;
+  - `staff.row.<rowId>` for each new Today row.
 - New Pressable wrappers join `testIdElements` (`packages/config/src/eslint.js:178`):
   `ChecklistRow`, `DecisionBar` (H), `PhotoButton` (G), and any wrapper B adds.
 
@@ -2107,6 +3180,16 @@ forwards `${testID}.<child>`.
   `` `MOBILE:staff.${mutation}:${ulid()}` ``; `staffIntentKey(intent: string, mutation: StaffMutation)`
   memoised per intent; `clearStaffIntentKey(intent)`. `StaffMutation = 'start' | 'submit' | 'launch' | 'shopping.add' | 'purchase' | 'batch' | 'note' | 'marketing_note' | 'campaign' | 'event_block' | 'candidate'`.
   A retry reuses the key; a new intent gets a new one.
+- Role spec (H, in B's two files, §1.2):
+  - `staffKeys` gains `ideas(venue)`, `ideasToReview(venue)`, `teachings(venue, team)`,
+    `mySuggestions(venue)`, `suggestions(venue, filter)`, `stock(venue, kind)`,
+    `recipes(venue, itemId)`, `myRecipeChanges(venue)`, `recipeChanges(venue, filter)`,
+    `myMarketingRequests(venue)`, `marketingRequests(venue, filter)` and `campaignResults(venue)`.
+  - `StaffMutation` gains `'idea' | 'teaching' | 'suggestion' | 'recipe_change' | 'marketing_request'`,
+    the five keyed RPCs.
+  - The unkeyed writes are state-idempotent and take no key: the declines, the decisions, the
+    withdraws, `mark_suggestion_seen`, `decide_shopping_item`, `confirm_purchase_delivery` and
+    `mark_checklist_item`. Each still passes its `mutationKey` for the offline rule above.
 
 ### 6.5 StaffStatus
 
@@ -2176,7 +3259,10 @@ The context default is `guest`.
   `upsert_modifier`, `upsert_promotion`, `set_promotion_enabled`, `generate_promo_code`,
   `upsert_rate_rule`, `set_cafe_setting`, `set_cafe_settings`. So the menu and price writers' codes
   (`ITEM_IN_RELEASE`, `PRICE_VIA_PROTOCOL`, `ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`) cannot reach
-  the phone (§3).
+  the phone (§3);
+- role spec (H adds it to the list): `set_recipe`. The owner's recipe decision on the phone goes
+  through `decide_recipe_change`, which calls it on the server (§2.24.7). No staff file writes a
+  recipe directly.
 
 ### 6.8 Shared mobile files (B unless noted)
 
@@ -2196,7 +3282,9 @@ The context default is `guest`.
    `staff` → `/staff`; `staff-step` → `/staff-step?id=`; `staff-run` → `/staff-run?id=`;
    `staff-request` → `/staff-request?id=`; `staff-shopping` → `/staff-shopping`;
    `staff-checklist` → `/staff-checklist?id=`; `staff-notes` → `/staff-notes?itemId=`.
-   `src/features/profile/push.ts` routes the result.
+   `src/features/profile/push.ts` routes the result. The role spec's eleven title keys use only
+   the `staff` and `staff-shopping` routes (§2.21), so this mapping and `pushRoutes.ts` do not
+   change for them.
 9. Today's "Turn on work alerts" row calls `registerPushToken({ prompt: true })` until permission is
    granted; the Account section shows whether alerts are on and says "one account per phone".
 10. `src/test/smoke.tsx`, `src/smoke/routes.ts`: §6.2.
@@ -2281,6 +3369,14 @@ export function nextStaff(previous: StaffInfo | null, r: RoleResolution): StaffI
   `op/ipc/bridge.ts:120-133`, and (with the stack up) `enum_range(null::staff_role)` all equal
   `STAFF_ROLES`. The two `Role` comments ("Mirrors StaffRole (…roleResolution.ts)") are repointed
   at `@touch/core/staff/roles` and at this test.
+- Role spec (H appends, D2 imports):
+  - `export const STAFF_TEAMS = ['bar', 'kitchen'] as const`;
+  - `teamOf(role: StaffRole): 'bar' | 'kitchen' | null`;
+  - `TEAM_HEAD: Record<'bar' | 'kitchen', StaffRole>`.
+
+  These are the twins of `app.staff_team` and `app.staff_team_head` (§2.1), and a vitest case
+  pins the mapping. `STAFF_ROLES` gains nothing: the assistant barista and waiter are parked (§0
+  P1).
 
 ### 7.2 Protocol forms
 
@@ -2302,6 +3398,11 @@ form for a `step_key` (plan #38):
 The server's check hooks stay the authority. Labels come from each app's catalogs, never from
 this module. A vitest case in `packages/core` compares the caps with §2.1.
 
+B's lane is done, so two later SQL changes carry their core twin in their own commit (§1.2 shared
+files): F's `tournament_desk_start` (court_desk's `startableKinds` and the tournament `plan`'s
+actors and assignment, §2.11), and J's `staff_media_folders` (`PHOTO_FOLDERS` gains `checklists`,
+`teachings` and `requests`, §2.24.2).
+
 ---
 
 ## 8. Verification and acceptance
@@ -2314,7 +3415,7 @@ Report exact results. Stack-dependent tests skip without Docker; say so when the
 |---|---|
 | 0 | `pnpm --filter @touch/i18n typecheck test`; `pnpm --filter @touch/operator typecheck test -- errors`; `pnpm --filter @touch/mobile typecheck test` |
 | K | DB: as the DB row below, with `tests/kitchen-board.test.ts tests/new-roles.test.ts tests/rls-matrix.test.ts` and the guest cafe suites (`cafe-flow`, `kds-item-ready`); operator: `pnpm --filter @touch/operator typecheck lint test -- kds`; the visual check below on `/kds` as the seeded `prep@dev.touch.local` (and a head chef once B's `staff-roles.sql` exists); the LAN board has no database read, so `pnpm --filter @touch/operator-shell test -- lan-kds` passing unchanged is its check |
-| A, C, E, F, G (DB) | drafts applied (§1.4); `pnpm --filter @touch/db typecheck lint`; `pnpm --filter @touch/db test -- tests/<lane files> tests/rls-matrix.test.ts`; `MIGRATION_RISK_ACCEPTED='<reason>' pnpm --filter @touch/db check:migrations`; `pnpm --filter @touch/db check:rpc-registry check:assistant-coverage`; with the stack: `check:authz check:locks check:safeupdate check:invariants check:broadcast check:analytics`; at commit, §1.4 reset and `db:types` |
+| A, C, E, F, G, J (DB) | drafts applied (§1.4); J also runs the committed suites its re-issues touch (`checklists`, `shopping-purchases`, `staff-media`, `staff-push`, `send-push-staff`, `protocols-engine*` for F's `tournament_desk_start`); `pnpm --filter @touch/db typecheck lint`; `pnpm --filter @touch/db test -- tests/<lane files> tests/rls-matrix.test.ts`; `MIGRATION_RISK_ACCEPTED='<reason>' pnpm --filter @touch/db check:migrations`; `pnpm --filter @touch/db check:rpc-registry check:assistant-coverage`; with the stack: `check:authz check:locks check:safeupdate check:invariants check:broadcast check:analytics`; at commit, §1.4 reset and `db:types` |
 | E, G (edge) | `/opt/homebrew/bin/deno check --no-lock packages/db/supabase/functions/{protocol-action,send-push}/index.ts`; `release-review` imports `npm:@anthropic-ai/sdk`, so use the tsc-plus-shim recipe; the pure halves under vitest; `pnpm --filter @touch/db exec supabase functions serve <fn> --no-verify-jwt` for a real run |
 | B | `pnpm --filter @touch/core typecheck test`; `pnpm --filter @touch/operator typecheck lint test`; `pnpm --filter @touch/mobile typecheck lint test test:smoke` |
 | D, I (operator) | `pnpm --filter @touch/operator typecheck lint test`; `pnpm --filter @touch/i18n typecheck test`; the visual check (a second Vite on port 5199 against the local stack, seeded `manager@dev.touch.local` / `owner@dev.touch.local`, Playwright screenshots in EN and AR); D also `pnpm e2e -- operator-protocols` (EN and AR projects) |
@@ -2428,6 +3529,16 @@ here, and visually by Majed on a phone through Metro on the new dev client (scre
   `promotion_id`); `price_promo_targets` for the four new kinds carries no cost or sales.
 - K: §2.23's tests (the money-free `kitchen_board`, the narrowed policies, the venue conjunct, the
   kitchen RPCs still working, and the guest suites unchanged).
+- **Role spec (plan #61–#74):**
+  - E's idea cases are in §2.9, F's `tournament_desk_start` cases in §2.11, and J's cases in each
+    §2.24 subsection.
+  - Every J file carries its own driver and marketing denials, as C's do.
+  - Three money-free reads each assert, at every depth, that no key ends in `_iqd`, starts with
+    `cost`, `supplier`, `revenue` or `discount`, or (for `recipe_view`) is named `qty`,
+    `quantity` or `unit`: `staff_stock_view`, `recipe_view` and `marketing_campaign_results`.
+  - The **Parked** guard for §0 P1 already exists. `staff-roles-parity.test.ts` (B) holds
+    `enum_range(null::staff_role)` equal to the eleven values of `STAFF_ROLES`, and no wave-4
+    lane edits either.
 - G: `notify_staff` skips inactive staff and the caller, dedupes shopping pushes; storage policies
   refuse a path without a slot; the three path helpers return NULL or `false` on `items/…`, and an
   authenticated staff user still reads and uploads a `menu-media` object with the staff-media
@@ -2481,6 +3592,49 @@ here, and visually by Majed on a phone through Metro on the new dev client (scre
     every ticket, item, size, add-on, note and ready mark as before, cloud and in degraded (LAN)
     mode; the same login reads no `tabs`, `orders`, `order_items` or `order_item_modifiers` row
     through a direct query; the till, the desk and the manager's screens read orders as before.
+
+Role spec (plan #61–#74), with the named people's roles:
+
+16. **Ideas.**
+    - The barista (Yusuf) sends an idea with a photo. The head barista (Bareq) gets the push,
+      starts a product release from it on the phone with the photo carried over, and the run
+      continues as item 1.
+    - The chef assistant (Tiba) sends an idea, and the head chef (Rusul) declines it with a reason,
+      which Tiba sees.
+    - Yusuf's idea page shows the run's step names and status, never its records.
+17. **Teachings.** Bareq writes a teaching with a photo. Yusuf gets the push and reads it. Tiba
+    does not see it. The manager reads both teams' teachings.
+18. **Suggestions.** A driver and a barista post one each. The manager marks one seen on
+    `/suggestions`, and the barista sees "seen".
+19. **Stock.** Bareq sees the cafe's quantities, with no money anywhere. The desk (Hussein 2)
+    sees only the shop's. A barista and a driver are refused.
+20. **Recipes.**
+    - Yusuf sees a drink's ingredients with no quantities.
+    - Rusul asks to change a dessert's recipe. The owner approves on the phone, and Stock ▸
+      Recipes shows the new lines.
+    - A second request, made stale by a manager's edit, is refused `RECIPE_CHANGED`.
+    - A third is declined with a reason.
+21. **A photo checklist item.** The owner marks an item "Needs a photo". A tick without a photo is
+    impossible, and a tick with one shows the photo to the manager on the operator.
+22. **Shopping.**
+    - Tiba adds a line, and the driver does not see it.
+    - Rusul approves it, and the driver gets the push.
+    - Another line is declined, and Tiba sees why.
+    - Bareq's line goes straight to the driver.
+23. **The driver's run.**
+    - The list is shown as a checklist. The driver records two purchases at two shops, each with
+      its receipt, and marks each Delivered.
+    - Goods in shows both as delivered.
+    - The manager receives a third purchase before the driver confirms it, and the confirmation
+      still records.
+24. **Marketing.** The cashier (Maha) asks marketing for a post about a new item. Marketing answers
+    "done", and Maha sees the answer. Marketing's Results show reach and redemption counts, with
+    no amount.
+25. **Tournament from the desk.** Hussein 2 starts a type 1 tournament from the phone. A manager
+    accepts the plan, and the run continues as item 2.
+26. **Labels.** The chef role reads "Chef assistant" in EN and AR, on both apps.
+27. **Parked.** Nothing on §0's Parked list exists: no new role value, and no salary, day-close,
+    report, stock-logging or marketing-approval screen.
 
 ### 8.4 Open facts to check (UNVERIFIED items in one place)
 
