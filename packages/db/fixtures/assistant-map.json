@@ -1,5 +1,5 @@
 {
-  "generated_from": "4101972de3804313d7db3977f25ca66dc57afe28",
+  "generated_from": "8a4c1ea99dfec9416de1b36d7d2ddb6cf39ba7c5",
   "chunks": [
     {
       "kind": "page",
@@ -1843,6 +1843,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.acknowledge_purchase_line",
+      "lang": "en",
+      "title": "app.acknowledge_purchase_line",
+      "body": "shopping_purchases (§2.15). MGMT at the purchase's venue: acknowledges a purchase line that is not stock, or a stock line whose ingredient was switched off since it was bought (its shopping-list line becomes acknowledged); the purchase is done once no line is left to receive. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint line: a stock line of an active ingredient is received, not acknowledged). Audit purchase.acknowledge.\nSignature: app.acknowledge_purchase_line(p_line_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.acknowledge.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, INVALID_ARGUMENT, PURCHASE_ALREADY_RECEIVED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.add_customer_note",
       "lang": "en",
       "title": "app.add_customer_note",
@@ -1851,10 +1859,26 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.add_marketing_note",
+      "lang": "en",
+      "title": "app.add_marketing_note",
+      "body": "marketing_staff (§2.17). Marketing at the venue: its own take (1 to 2000 characters, photos: marketing slots of the caller, at most 6) on a menu item, a protocol run or a campaign of that venue. Returns {id}. Idempotent by key. INVALID_ARGUMENT (hint subject_kind or photos), REF_NOT_FOUND, TEXT_REQUIRED, TEXT_TOO_LONG, PHOTO_PATH_INVALID. Audit marketing.note.add.\nSignature: app.add_marketing_note(p_venue_id uuid, p_subject_kind text, p_subject_id uuid, p_body text, p_photos text[] default '{}', p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nAudit actions written: marketing.note.add.\nError codes: FORBIDDEN, INVALID_ARGUMENT, REF_NOT_FOUND, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.add_run_step",
       "lang": "en",
       "title": "app.add_run_step",
       "body": "protocols_engine_rpcs (§2.7). Owner only (Q11): adds an owner step to one active run, right after p_after_run_step_id and below the terminal step, where every step above it (the terminal step included) is still waiting (else PROTOCOL_ORDER_INVALID, hint the lowest step in the way), from p_step {name_en, name_ar, actor_roles, needs_owner_ok, optional, items}. PROTOCOL_CLOSED, PROTOCOL_ORDER_INVALID, INVALID_ROLE, LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED. Returns the StepRow. Audit protocol.run.add_step.\nSignature: app.add_run_step(p_run_id uuid, p_after_run_step_id uuid, p_step jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: protocol.run.add_step.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, PROTOCOL_ORDER_INVALID, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.add_shopping_item",
+      "lang": "en",
+      "title": "app.add_shopping_item",
+      "body": "shopping_purchases (§2.15). The head barista, the head chef and MGMT at the venue: puts a line on the shopping list, an active ingredient of the venue (unit its base unit or pack) or a label (at most 80), with a quantity and an optional note (at most 200), and tells the venue's drivers (staff_task / shopping_new, deduped shopping:<venue> for 15 minutes). Returns {id}. Idempotent by key. INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED, INVALID_QTY, INVALID_ARGUMENT (hint unit), TEXT_TOO_LONG. Audit shopping.add.\nSignature: app.add_shopping_item(p_venue_id uuid, p_ingredient_id uuid, p_label text, p_qty numeric, p_unit text, p_note text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nAudit actions written: shopping.add.\nError codes: FORBIDDEN, INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED, TEXT_TOO_LONG, INVALID_QTY, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2027,10 +2051,34 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.cancel_shopping_item",
+      "lang": "en",
+      "title": "app.cancel_shopping_item",
+      "body": "shopping_purchases (§2.15). The requester, or MGMT at the venue: takes an open line off the shopping list. SHOPPING_ITEM_NOT_OPEN for a line that is not open (or at a venue the caller does not work at); FORBIDDEN for anyone else. Audit shopping.cancel.\nSignature: app.cancel_shopping_item(p_id uuid) returns void.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: shopping.cancel.\nError codes: FORBIDDEN, SHOPPING_ITEM_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.cancel_tab",
       "lang": "en",
       "title": "app.cancel_tab",
       "body": "0120 (0106, 0100). Voids an OPEN tab with no orders, payments or adjustments, and no court fee still owed on its booking (cashier, court_desk, manager, owner). p_reason_code is mandatory. Raises TAB_NOT_EMPTY (detail names which) when there is anything to reconcile. p_idempotency_key: a replay echoes the first result with duplicate:true (app.claim_replay). Audited as tab.cancel, with the device.\nSignature: app.cancel_tab(p_tab_id uuid, p_reason_code text default null, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,court_desk,manager,owner).\nAudit actions written: tab.cancel.\nError codes: FORBIDDEN, REASON_REQUIRED, NO_OPEN_DAY, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, TAB_DAY_MISMATCH, TAB_NOT_EMPTY.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0120 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.checklist_board",
+      "lang": "en",
+      "title": "app.checklist_board",
+      "body": "checklists (§2.14). MGMT at the venue: {business_date, templates: [{template_id, role, slot, name_en, name_ar, version, items: [{position, text_en, text_ar}], today: {run_id, done, total, items: [{text_en, text_ar, done_by_name, done_at, note}]} | null}]} for the business day asked (default today). Creates nothing. FORBIDDEN for anyone else.\nSignature: app.checklist_board(p_venue_id uuid default null, p_business_date date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.checklist_day_state",
+      "lang": "en",
+      "title": "app.checklist_day_state",
+      "body": "checklists (§2.14, plan §7.3). MGMT at the venue: {business_date, lists: [{role, slot, name_en, name_ar, total, done, open_items: [{text_en, text_ar}]}]} for the business day asked (default today): every list with lines whose role an active staff member holds at the venue, from its day's run when opened, else from the template with nothing done. Day close shows it as a warning, never a block. Creates nothing.\nSignature: app.checklist_day_state(p_venue_id uuid default null, p_business_date date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2339,6 +2387,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.mark_checklist_item",
+      "lang": "en",
+      "title": "app.mark_checklist_item",
+      "body": "checklists (§2.14). Ticks (p_done true) or unticks one line of a day's list: anyone holding the list's role at its venue, or MGMT. A repeat tick keeps the first ticker and time. p_note (at most 300) sets the line's note, blank clears it, NULL leaves it. Returns the line {id, position, text_en, text_ar, done_by_name, done_at, note}. CHECKLIST_NOT_FOUND for a line at a venue the caller does not work at; FORBIDDEN for another role; TEXT_TOO_LONG (hint note).\nSignature: app.mark_checklist_item(p_item_id uuid, p_done boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, CHECKLIST_NOT_FOUND, INVALID_ARGUMENT, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.mark_reservation",
       "lang": "en",
       "title": "app.mark_reservation",
@@ -2351,6 +2407,22 @@
       "lang": "en",
       "title": "app.marketing_audience_reach",
       "body": "Signature: app.marketing_audience_reach(p_rule jsonb) returns int.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0073 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.marketing_notes_for",
+      "lang": "en",
+      "title": "app.marketing_notes_for",
+      "body": "marketing_staff (§2.17). MGMT and marketing at the subject's venue: {notes: [{id, author_name, body, photos, created_at}]}, the marketing notes on one item, run or campaign, newest first. INVALID_ARGUMENT (hint subject_kind); REF_NOT_FOUND for a subject at a venue the caller does not work at; FORBIDDEN for anyone else.\nSignature: app.marketing_notes_for(p_subject_kind text, p_subject_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.marketing_suggestions",
+      "lang": "en",
+      "title": "app.marketing_suggestions",
+      "body": "marketing_staff (§2.17). Owner only: {drafts: [{campaign_id, suggested_by, suggested_by_name, suggested_at, images, run_id, menu_item_id, suggestion_note}]}, every campaign at the venue that marketing suggested, newest first. The owner's panel joins it to marketing_overview by id. FORBIDDEN for anyone else.\nSignature: app.marketing_suggestions(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2379,10 +2451,42 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_campaign_drafts",
+      "lang": "en",
+      "title": "app.my_campaign_drafts",
+      "body": "marketing_staff (§2.17). Marketing at the venue: {drafts: [{id, name_en, name_ar, channel, status, starts_at, ends_at, body_en, body_ar, note, images, run_id, menu_item_id, suggested_at, editable}]}, the caller's own suggestions, newest first (at most 100). editable = still a draft nobody else has saved. No audience, promotion or performance. FORBIDDEN for anyone else.\nSignature: app.my_campaign_drafts(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_checklists_today",
+      "lang": "en",
+      "title": "app.my_checklists_today",
+      "body": "checklists (§2.14). Any active staff member at the venue: today's lists for the caller's own role, {business_date, lists: [{run_id, role, slot, name_en, name_ar, done, total, items: [{id, position, text_en, text_ar, done_by_name, done_at, note}]}]}, open before close. Creates today's run of each of the role's lists that has lines, as a snapshot of the template. FORBIDDEN for a venue the caller does not work at.\nSignature: app.my_checklists_today(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_marketing_notes",
+      "lang": "en",
+      "title": "app.my_marketing_notes",
+      "body": "marketing_staff (§2.17). Marketing at the venue: {notes: [{id, subject_kind, subject_id, subject_name_en, subject_name_ar, body, photos, created_at}]}, the caller's own notes, newest first, p_limit 1 to 200 (default 50). A run's name is its title in either language. FORBIDDEN for anyone else.\nSignature: app.my_marketing_notes(p_venue_id uuid default null, p_limit int default 50) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_protocol_work",
       "lang": "en",
       "title": "app.my_protocol_work",
       "body": "protocols_engine_rpcs (§2.7). Any active staff member at the venue: {todo, waiting, decided (7 days), to_decide, counts: {todo, waiting, to_decide}}: the open steps they are expected to do, their pending submissions, the decisions on their submissions, and the submissions whose decision waits on them.\nSignature: app.my_protocol_work(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_purchases",
+      "lang": "en",
+      "title": "app.my_purchases",
+      "body": "shopping_purchases (§2.15). The driver (their own purchases) and MGMT (every purchase) at the venue: {purchases: [{id, bought_at, shop_name, total_iqd, status, lines: [{label, name_en, name_ar, qty, unit, price_iqd, status}]}]}, newest first, p_limit 1 to 100 (default 30). FORBIDDEN for anyone else.\nSignature: app.my_purchases(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (driver,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2459,6 +2563,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.production_log_today",
+      "lang": "en",
+      "title": "app.production_log_today",
+      "body": "staff_production (§2.16). The head chef, the chef and MGMT at the venue: {rows: [{movement_id, ingredient_id, name_en, name_ar, qty, unit, staff_name, at}]}, the business day's production_in movements, newest first. No cost. FORBIDDEN for anyone else.\nSignature: app.production_log_today(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0167 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.production_today",
+      "lang": "en",
+      "title": "app.production_today",
+      "body": "staff_production (§2.16). The head chef, the chef and MGMT at the venue: {items: [{ingredient_id, name_en, name_ar, unit, on_hand, par_level, below_par, made_today, shelf_life_days}]}, every active prepared ingredient with an output recipe, below par first; made_today is the business day's production_in. No cost. FORBIDDEN for anyone else.\nSignature: app.production_today(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0167 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.protocol_run_detail",
       "lang": "en",
       "title": "app.protocol_run_detail",
@@ -2507,6 +2627,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.purchases_to_receive",
+      "lang": "en",
+      "title": "app.purchases_to_receive",
+      "body": "shopping_purchases (§2.15). MGMT at the venue: {count, purchases: [{id, staff_name, bought_at, shop_name, total_iqd, receipt_path, lines: [{id, ingredient_id, ingredient_active, name_en, name_ar, unit, pack_size, label, qty, price_iqd, status}]}]}, the purchases still to receive, oldest first; ingredient_active false marks a stock line whose ingredient was switched off since (acknowledged, not received). FORBIDDEN for anyone else.\nSignature: app.purchases_to_receive(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.raise_waiter_call",
       "lang": "en",
       "title": "app.raise_waiter_call",
@@ -2523,6 +2651,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.receive_purchase",
+      "lang": "en",
+      "title": "app.receive_purchase",
+      "body": "shopping_purchases (§2.15). MGMT at the purchase's venue, one transaction: p_lines [{purchase_line_id, qty_received, expiry_date?}] must name every stock line still to receive (a short line receives less than was bought); they are booked through app.receive_delivery as ONE delivery (cost per base unit = price ÷ quantity; named p_supplier_name, else the supplier p_supplier_id, else the shop), purchases.delivery_id links it, the lines become received and the purchase done once no line is left. Returns {delivery_id, received_line_ids}. Idempotent by key. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint lines: a missing, unknown, repeated or non-stock line), INGREDIENT_NOT_FOUND (hint lines, detail the line: a stock line whose ingredient was switched off since, to acknowledge first), INVALID_QTY, SUPPLIER_NOT_FOUND and receive_delivery's codes. Audit purchase.receive.\nSignature: app.receive_purchase(p_purchase_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.receive.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, INVALID_QTY.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.record_batch",
+      "lang": "en",
+      "title": "app.record_batch",
+      "body": "staff_production (§2.16). The head chef, the chef and MGMT at the venue: records a batch of a prepared ingredient of that venue through app.record_production_internal (components consumed FEFO; audit stock.record_production). Returns {batch_id, qty, expiry_date}, never the unit cost. Idempotent by key: a retry never deducts twice. INGREDIENT_NOT_FOUND (not an ingredient of the venue), INVALID_QTY, NOT_PREPARED, NO_RECIPE; FORBIDDEN for anyone else.\nSignature: app.record_batch(p_ingredient_id uuid, p_qty numeric, p_expiry_date date default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INGREDIENT_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0167 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.record_drawer_open",
       "lang": "en",
       "title": "app.record_drawer_open",
@@ -2534,7 +2678,15 @@
       "ref": "action:app.record_production",
       "lang": "en",
       "title": "app.record_production",
-      "body": "Signature: app.record_production(p_ingredient_id uuid, p_qty numeric, p_expiry_date date default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.record_production.\nError codes: FORBIDDEN, INVALID_QTY, NOT_PREPARED, NO_RECIPE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0018 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0018 + staff_production (§2.16). MGMT: explicit sub-recipe production through app.record_production_internal (components consumed FEFO, a production_in batch costed at what was consumed). Returns {batch_id, unit_cost_iqd, expiry_date}.\nSignature: app.record_production(p_ingredient_id uuid, p_qty numeric, p_expiry_date date default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0167 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.record_purchase",
+      "lang": "en",
+      "title": "app.record_purchase",
+      "body": "shopping_purchases (§2.15). The driver and MGMT at the venue: records one purchase, p_lines [{shopping_item_id?, ingredient_id?, label?, qty, price_iqd}] (1 to 40; a stock line's qty in the ingredient's base unit), the total paid, the shop (at most 80) and the receipt photo (a receipts slot of the caller, claimed as purchase:<id>). Marks the list's lines bought and tells the venue's managers (staff_task / purchase_to_receive). Never touches the till, the drawer or day close. Returns {purchase_id}. Idempotent by key. SHOPPING_ITEM_NOT_OPEN, INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED, INVALID_QTY, INVALID_AMOUNT, INVALID_ARGUMENT (lines, bought_at), PHOTO_PATH_INVALID, TEXT_TOO_LONG. Audit purchase.record.\nSignature: app.record_purchase(p_venue_id uuid, p_lines jsonb, p_total_iqd bigint, p_shop text, p_receipt_path text, p_bought_at timestamptz default now(), p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (driver,manager,owner).\nAudit actions written: purchase.record.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INVALID_AMOUNT, TEXT_TOO_LONG, INVALID_QTY, SHOPPING_ITEM_NOT_OPEN, INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2655,6 +2807,14 @@
       "lang": "en",
       "title": "app.save_analytics_patterns",
       "body": "Signature: app.save_analytics_patterns(p_range_from date, p_range_to date, p_locale text, p_patterns jsonb, p_scope text default 'cafe', p_court_id uuid default null) returns uuid.\nGranted to: authenticated. Guard: owner only (app.analytics_guard).\nAudit actions written: analytics.patterns.save.\nError codes: INVALID_RANGE, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0098 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.save_checklist_template",
+      "lang": "en",
+      "title": "app.save_checklist_template",
+      "body": "checklists (§2.14). Owner only: writes the venue's open or close list for one role, names and lines ([{text_en, text_ar}], at most 30, both languages, 200 characters each) replaced whole. p_expected_version is 0 (or NULL) for a new list, else the version read. Returns {template_id, version}. INVALID_ROLE (prep), INVALID_ARGUMENT (slot), TEMPLATE_CHANGED, LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG. Audit checklist.template.save. A day's list already opened keeps its snapshot.\nSignature: app.save_checklist_template(p_venue_id uuid, p_role staff_role, p_slot text, p_expected_version int, p_name_en text, p_name_ar text, p_items jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: checklist.template.save.\nError codes: FORBIDDEN, INVALID_ROLE, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG, LIST_TOO_LONG, TEMPLATE_CHANGED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2907,6 +3067,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.shopping_list",
+      "lang": "en",
+      "title": "app.shopping_list",
+      "body": "shopping_purchases (§2.15). The bar and kitchen family, the driver and MGMT at the venue: {items: [{id, ingredient_id, name_en, name_ar, label, qty, unit, note, requested_by_name, requested_at, status, mine}], open_count} for one status (default open: oldest first; the others newest first; at most 200). No price. INVALID_ARGUMENT (hint status); FORBIDDEN for anyone else.\nSignature: app.shopping_list(p_venue_id uuid default null, p_status text default 'open') returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,driver,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.skip_step",
       "lang": "en",
       "title": "app.skip_step",
@@ -3039,6 +3207,14 @@
       "lang": "en",
       "title": "app.submit_step",
       "body": "protocols_engine_rpcs (§2.7). Any active staff member who may act on the open step (its assignee or actor, or a manager or owner covering): sends its record and photos. Passes at once when the sender decides the step. Returns {submission_id, auto, step_status, run_status, opened_step_ids}. PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, STEP_NOT_OPEN, NOT_STEP_ACTOR, RECORD_INVALID, PHOTO_PATH_INVALID, TEXT_TOO_LONG and the check hook's codes. Idempotent on p_idempotency_key. Audit protocol.submit (+ protocol.auto).\nSignature: app.submit_step(p_run_step_id uuid, p_record jsonb, p_photos text[] default '{}', p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, STEP_NOT_OPEN, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.suggest_campaign",
+      "lang": "en",
+      "title": "app.suggest_campaign",
+      "body": "marketing_staff (§2.17). Marketing at the venue: a new campaign draft (p_id NULL; idempotent by key) or a change to the caller's own draft while nobody else has saved it. One name is enough (copied into the other language), the channel is required, images are campaigns slots of the caller (at most 6), p_run_id and p_menu_item_id must be of the venue. The owner completes and makes it live. Returns {id}. TEXT_REQUIRED (hint name), BAD_CHANNEL, INVALID_RANGE, CAMPAIGN_DRAFT_LOCKED, CAMPAIGN_NOT_FOUND, PHOTO_PATH_INVALID, REF_NOT_FOUND, TEXT_TOO_LONG, INVALID_ARGUMENT (hint images). Audit marketing.campaign.suggest.\nSignature: app.suggest_campaign(p_id uuid default null, p_venue_id uuid default null, p_name_en text default null, p_name_ar text default null, p_channel text default null, p_starts_at timestamptz default null, p_ends_at timestamptz default null, p_body_en text default '', p_body_ar text default '', p_images text[] default '{}', p_run_id uuid default null, p_menu_item_id uuid default null, p_note text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nAudit actions written: marketing.campaign.suggest.\nError codes: FORBIDDEN, CAMPAIGN_NOT_FOUND, CAMPAIGN_DRAFT_LOCKED, TEXT_REQUIRED, TEXT_TOO_LONG, BAD_CHANNEL, INVALID_RANGE, INVALID_ARGUMENT, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3451,6 +3627,38 @@
     },
     {
       "kind": "table",
+      "ref": "table:checklist_run_items",
+      "lang": "en",
+      "title": "table checklist_run_items",
+      "body": "checklists (§2.14): the lines of one day's list and their ticks. Ticked through app.mark_checklist_item by anyone holding the role at the venue, or MGMT; the row keeps who and when.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Run line id.\n  run_id uuid not null references checklist_runs(id) on delete cascade — The day's list.\n  position int not null — Order in the list, from 1.\n  text_en text not null — Checklist line, English, as snapshotted.\n  text_ar text not null — Checklist line, Arabic, as snapshotted.\n  done_by uuid references staff(id) — Who ticked it; NULL while open.\n  done_at timestamptz — When it was ticked; NULL while open.\n  note text check (note is null or length(note) <= 300) — An optional note on the line (at most 300 characters), in the writer's language.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:checklist_runs",
+      "lang": "en",
+      "title": "table checklist_runs",
+      "body": "checklists (§2.14): one role's list for one business day, created by the first read of that day (app.my_checklists_today) as a snapshot of the template, so a later edit of the template never orphans a tick. Read by MGMT at the venue.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Checklist run id.\n  venue_id uuid not null references venues(id) — The venue.\n  template_id uuid not null references checklist_templates(id) — The template it was snapshotted from.\n  role staff_role not null — The role the list is for (copied from the template).\n  slot text not null check (slot in ('open','close')) — open or close (copied from the template).\n  business_date date not null — The business day, in the venue's timezone with the analytics start hour (app.venue_business_date).\n  created_at timestamptz not null default now() — When the day's list was first opened.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:checklist_template_items",
+      "lang": "en",
+      "title": "table checklist_template_items",
+      "body": "checklists (§2.14): the lines of a checklist template, in order. Copied into each day's run on its first read.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Template line id.\n  template_id uuid not null references checklist_templates(id) on delete cascade — The checklist template.\n  position int not null check (position >= 1) — Order in the list, from 1.\n  text_en text not null check (coalesce(length(btrim(text_en)),0) > 0) — Checklist line, English.\n  text_ar text not null check (coalesce(length(btrim(text_ar)),0) > 0) — Checklist line, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:checklist_templates",
+      "lang": "en",
+      "title": "table checklist_templates",
+      "body": "checklists (§2.14): the owner's open or close list for one role at one venue, EN and AR, saved through app.save_checklist_template. Each business day's list is a checklist_runs snapshot of it. Read by MGMT at the venue.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Checklist template id.\n  venue_id uuid not null references venues(id) — The venue the list belongs to.\n  role staff_role not null — The role whose list this is; everyone holding it at the venue ticks the same list. Never prep (soft-retired).\n  slot text not null check (slot in ('open','close')) — open (start of the day) or close (end of the day).\n  name_en text not null check (coalesce(length(btrim(name_en)),0) > 0) — List name, English.\n  name_ar text not null check (coalesce(length(btrim(name_ar)),0) > 0) — List name, Arabic.\n  version int not null default 1 — Bumped by every save; a save with a stale version is refused TEMPLATE_CHANGED.\n  updated_by uuid references staff(id) — The owner who saved it last.\n  updated_at timestamptz not null default now() — When it was last saved.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:courts",
       "lang": "en",
       "title": "table courts",
@@ -3558,7 +3766,15 @@
       "ref": "table:marketing_campaigns",
       "lang": "en",
       "title": "table marketing_campaigns",
-      "body": "0073: audience + message + window + optional promotion. Status moves only through app.set_campaign_status; attribution counts the promotion's redemptions inside the window.\nCreated in migration 0073.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  channel marketing_channel not null\n  status campaign_status not null default 'draft' — A message channel with no message is a campaign that cannot be sent.\n  audience_id uuid references marketing_audiences(id)\n  promotion_id uuid references promotions(id)\n  starts_at timestamptz — Anything past draft has to say when it runs, or \"live\" means nothing and attribution has no window to count inside.\n  ends_at timestamptz\n  body_en text not null default ''\n  body_ar text not null default ''\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  venue_id uuid",
+      "body": "0073: audience + message + window + optional promotion. Status moves only through app.set_campaign_status; attribution counts the promotion's redemptions inside the window.\nCreated in migration 0073.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  channel marketing_channel not null\n  status campaign_status not null default 'draft' — A message channel with no message is a campaign that cannot be sent.\n  audience_id uuid references marketing_audiences(id)\n  promotion_id uuid references promotions(id)\n  starts_at timestamptz — Anything past draft has to say when it runs, or \"live\" means nothing and attribution has no window to count inside.\n  ends_at timestamptz\n  body_en text not null default ''\n  body_ar text not null default ''\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  venue_id uuid\n  suggested_by uuid — marketing_staff (§2.17): the marketing staff member who suggested this draft (app.suggest_campaign); NULL for a campaign the owner started.\n  suggested_at timestamptz — When the suggester last saved it. While updated_at still equals it, the suggester may change the draft; the owner's save moves updated_at and locks it.\n  images text[] not null default '{}' — Images the suggester attached: staff-media paths in the campaigns folder (at most 6).\n  protocol_run_id uuid — The protocol run the suggestion is for (a launch, a tournament, a price change), if any.\n  menu_item_id uuid — The menu item the suggestion is about, if any.\n  suggestion_note text — The suggester's note to the owner (at most 2000 characters).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:marketing_notes",
+      "lang": "en",
+      "title": "table marketing_notes",
+      "body": "marketing_staff (§2.17): the marketing role's own take on a menu item, a protocol run or a campaign, with photos. Written only by marketing (app.add_marketing_note); read by MGMT at the venue, and by marketing through app.marketing_notes_for and app.my_marketing_notes. Not a customer-feedback log.\nCreated in migration 0168.\nColumns:\n  id uuid primary key default gen_random_uuid() — Note id.\n  venue_id uuid not null references venues(id) — The venue of the subject.\n  subject_kind text not null check (subject_kind in ('item','run','campaign')) — item (menu_items), run (protocol_runs) or campaign (marketing_campaigns).\n  subject_id uuid not null — The item, run or campaign the note is about.\n  author_id uuid not null references staff(id) — The marketing staff member who wrote it.\n  body text not null check (coalesce(length(btrim(body)),0) > 0 and length(body) <= 2000) — The note, in the writer's language (1 to 2000 characters).\n  photos text[] not null default '{}' check (cardinality(photos) <= 6) — Photos attached: staff-media paths in the marketing folder (at most 6).\n  created_at timestamptz not null default now() — When it was written. Notes are never edited.",
       "route": null
     },
     {
@@ -3763,6 +3979,22 @@
     },
     {
       "kind": "table",
+      "ref": "table:purchase_lines",
+      "lang": "en",
+      "title": "table purchase_lines",
+      "body": "shopping_purchases (§2.15): what one purchase bought, line by line, and what each cost. A stock line's quantity is in the ingredient's base unit. Read by MGMT at the venue and by the purchase's buyer.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Purchase line id.\n  purchase_id uuid not null references purchases(id) on delete cascade — The purchase.\n  shopping_item_id uuid references shopping_items(id) — The shopping-list line it bought, if any.\n  ingredient_id uuid references ingredients(id) — The stock ingredient bought; NULL for a line that is not stock.\n  label text check (label is null or length(label) <= 80) — What was bought, as typed, when it is not stock (or as a note beside the ingredient).\n  qty numeric(12,3) not null check (qty > 0) — How much was bought: the ingredient's base unit (g, ml or pc) for a stock line.\n  price_iqd iqd not null — What this line cost, in IQD. Receiving books price ÷ quantity as the cost per base unit.\n  status text not null default 'to_receive' check (status in ('to_receive','received','acknowledged')) — to_receive, received (booked into stock) or acknowledged (not stock).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:purchases",
+      "lang": "en",
+      "title": "table purchases",
+      "body": "shopping_purchases (§2.15): one shop visit by the driver (or a manager): where, when, the total paid and the receipt photo. Recorded by app.record_purchase; received into stock by app.receive_purchase, which links the delivery. Never touches the till, the drawer or day close. Read by MGMT at the venue, and by the staff member who made it.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Purchase id.\n  venue_id uuid not null references venues(id) — The venue the purchase was for.\n  staff_id uuid not null references staff(id) — Who bought it (the driver, or a manager).\n  bought_at timestamptz not null — When it was bought.\n  shop_name text check (shop_name is null or length(shop_name) <= 80) — Where it was bought, as typed (at most 80 characters); suppliers stay management's.\n  total_iqd iqd not null — What the receipt came to, in IQD. Paying the driver back happens outside the system.\n  receipt_path text — The receipt photo: a staff-media path in the receipts folder, read by its uploader and management only.\n  status text not null default 'to_receive' check (status in ('to_receive','done')) — to_receive until every line is received or acknowledged, then done.\n  delivery_id uuid references deliveries(id) — The delivery app.receive_purchase booked its stock lines into (one purchase, one delivery).\n  received_by uuid references staff(id) — The manager or owner who received it.\n  received_at timestamptz — When it was received.\n  created_at timestamptz not null default now() — When it was recorded.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:rate_rule_prices",
       "lang": "en",
       "title": "table rate_rule_prices",
@@ -3815,6 +4047,14 @@
       "lang": "en",
       "title": "table reservations",
       "body": "Created in migration 0008.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  court_id uuid not null references courts(id)\n  kind reservation_kind not null\n  status reservation_status not null default 'pending'\n  start_at timestamptz not null\n  end_at timestamptz not null\n  period tstzrange generated always as (tstzrange(start_at, end_at, '[)')) stored\n  guest_id uuid references profiles(id)\n  guest_name text — walk-in without account\n  guest_phone text\n  created_by_staff_id uuid references staff(id)\n  source reservation_source not null\n  rate_rule_id uuid references rate_rules(id) — PRICE PROVENANCE\n  price_iqd iqd — snapshot at confirm; explainable forever\n  hold_expires_at timestamptz — kind='hold' only\n  cancelled_at timestamptz\n  cancellation_reason text\n  notes text\n  device_id text\n  idempotency_key text unique — '{station}:{mutation_type}:{ulid}' (override #2)\n  client_ref text unique — '{station}-{ulid}' client entity ref (override #2)\n  created_at timestamptz not null default now()\n  series_id uuid references reservation_series(id)\n  cancelled_by cancellation_actor — 0088. Who cancelled this booking, stamped by app.cancel_reservation. NULL = cancelled before 0088 with no audit row to recover the actor from, or never cancelled at all — read it together with status, never on its own. A no_show leaves it null: that stamps cancelled_at (0075) but was not cancelled by anybody.\n  venue_id uuid",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:shopping_items",
+      "lang": "en",
+      "title": "table shopping_items",
+      "body": "shopping_purchases (§2.15): the shopping list. Added by the head barista, the head chef or management through app.add_shopping_item and sent straight to the venue's drivers, with no approval. Read by MGMT at the venue; the bar and kitchen family and the driver read it through app.shopping_list.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Shopping line id.\n  venue_id uuid not null references venues(id) — The venue it is for.\n  ingredient_id uuid references ingredients(id) — The stock ingredient to buy; NULL for something that is not stock, named by the label.\n  label text check (label is null or length(label) <= 80) — What to buy, as typed (at most 80 characters): required when there is no ingredient.\n  qty numeric(12,3) not null check (qty > 0) — How much to buy, in the unit.\n  unit text not null check (unit in ('g','ml','pc','pack')) — g, ml, pc or pack. For an ingredient, its base unit or pack.\n  note text check (note is null or length(note) <= 200) — An optional note for the driver (at most 200 characters).\n  requested_by uuid not null references staff(id) — Who added it.\n  requested_at timestamptz not null default now() — When it was added.\n  status text not null default 'open' check (status in ('open','bought','cancelled','received','acknowledged')) — open, bought (on a purchase), cancelled, received (its purchase line was received into stock) or acknowledged (a non-stock line the manager acknowledged).\n  purchase_id uuid references purchases(id) — The purchase that bought it.\n  cancelled_by uuid references staff(id) — Who took it off the list (the requester or management).\n  cancelled_at timestamptz — When it was taken off the list.",
       "route": null
     },
     {
@@ -4843,6 +5083,230 @@
     },
     {
       "kind": "column",
+      "ref": "column:checklist_run_items.done_at",
+      "lang": "en",
+      "title": "checklist_run_items.done_at",
+      "body": "timestamptz\nWhen it was ticked; NULL while open.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.done_by",
+      "lang": "en",
+      "title": "checklist_run_items.done_by",
+      "body": "uuid references staff(id)\nWho ticked it; NULL while open.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.id",
+      "lang": "en",
+      "title": "checklist_run_items.id",
+      "body": "uuid primary key default gen_random_uuid()\nRun line id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.note",
+      "lang": "en",
+      "title": "checklist_run_items.note",
+      "body": "text check (note is null or length(note) <= 300)\nAn optional note on the line (at most 300 characters), in the writer's language.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.position",
+      "lang": "en",
+      "title": "checklist_run_items.position",
+      "body": "int not null\nOrder in the list, from 1.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.run_id",
+      "lang": "en",
+      "title": "checklist_run_items.run_id",
+      "body": "uuid not null references checklist_runs(id) on delete cascade\nThe day's list.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.text_ar",
+      "lang": "en",
+      "title": "checklist_run_items.text_ar",
+      "body": "text not null\nChecklist line, Arabic, as snapshotted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.text_en",
+      "lang": "en",
+      "title": "checklist_run_items.text_en",
+      "body": "text not null\nChecklist line, English, as snapshotted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_runs.business_date",
+      "lang": "en",
+      "title": "checklist_runs.business_date",
+      "body": "date not null\nThe business day, in the venue's timezone with the analytics start hour (app.venue_business_date).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_runs.created_at",
+      "lang": "en",
+      "title": "checklist_runs.created_at",
+      "body": "timestamptz not null default now()\nWhen the day's list was first opened.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_runs.id",
+      "lang": "en",
+      "title": "checklist_runs.id",
+      "body": "uuid primary key default gen_random_uuid()\nChecklist run id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_runs.role",
+      "lang": "en",
+      "title": "checklist_runs.role",
+      "body": "staff_role not null\nThe role the list is for (copied from the template).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_runs.slot",
+      "lang": "en",
+      "title": "checklist_runs.slot",
+      "body": "text not null check (slot in ('open','close'))\nopen or close (copied from the template).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_runs.template_id",
+      "lang": "en",
+      "title": "checklist_runs.template_id",
+      "body": "uuid not null references checklist_templates(id)\nThe template it was snapshotted from.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_template_items.id",
+      "lang": "en",
+      "title": "checklist_template_items.id",
+      "body": "uuid primary key default gen_random_uuid()\nTemplate line id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_template_items.position",
+      "lang": "en",
+      "title": "checklist_template_items.position",
+      "body": "int not null check (position >= 1)\nOrder in the list, from 1.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_template_items.template_id",
+      "lang": "en",
+      "title": "checklist_template_items.template_id",
+      "body": "uuid not null references checklist_templates(id) on delete cascade\nThe checklist template.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_template_items.text_ar",
+      "lang": "en",
+      "title": "checklist_template_items.text_ar",
+      "body": "text not null check (coalesce(length(btrim(text_ar)),0) > 0)\nChecklist line, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_template_items.text_en",
+      "lang": "en",
+      "title": "checklist_template_items.text_en",
+      "body": "text not null check (coalesce(length(btrim(text_en)),0) > 0)\nChecklist line, English.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.id",
+      "lang": "en",
+      "title": "checklist_templates.id",
+      "body": "uuid primary key default gen_random_uuid()\nChecklist template id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.name_ar",
+      "lang": "en",
+      "title": "checklist_templates.name_ar",
+      "body": "text not null check (coalesce(length(btrim(name_ar)),0) > 0)\nList name, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.name_en",
+      "lang": "en",
+      "title": "checklist_templates.name_en",
+      "body": "text not null check (coalesce(length(btrim(name_en)),0) > 0)\nList name, English.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.role",
+      "lang": "en",
+      "title": "checklist_templates.role",
+      "body": "staff_role not null\nThe role whose list this is; everyone holding it at the venue ticks the same list. Never prep (soft-retired).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.slot",
+      "lang": "en",
+      "title": "checklist_templates.slot",
+      "body": "text not null check (slot in ('open','close'))\nopen (start of the day) or close (end of the day).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.updated_at",
+      "lang": "en",
+      "title": "checklist_templates.updated_at",
+      "body": "timestamptz not null default now()\nWhen it was last saved.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.updated_by",
+      "lang": "en",
+      "title": "checklist_templates.updated_by",
+      "body": "uuid references staff(id)\nThe owner who saved it last.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.venue_id",
+      "lang": "en",
+      "title": "checklist_templates.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue the list belongs to.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_templates.version",
+      "lang": "en",
+      "title": "checklist_templates.version",
+      "body": "int not null default 1\nBumped by every save; a save with a stale version is refused TEMPLATE_CHANGED.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:courts.active_from",
       "lang": "en",
       "title": "courts.active_from",
@@ -5043,6 +5507,30 @@
     },
     {
       "kind": "column",
+      "ref": "column:marketing_campaigns.images",
+      "lang": "en",
+      "title": "marketing_campaigns.images",
+      "body": "text[] not null default '{}'\nImages the suggester attached: staff-media paths in the campaigns folder (at most 6).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_campaigns.menu_item_id",
+      "lang": "en",
+      "title": "marketing_campaigns.menu_item_id",
+      "body": "uuid\nThe menu item the suggestion is about, if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_campaigns.protocol_run_id",
+      "lang": "en",
+      "title": "marketing_campaigns.protocol_run_id",
+      "body": "uuid\nThe protocol run the suggestion is for (a launch, a tournament, a price change), if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:marketing_campaigns.starts_at",
       "lang": "en",
       "title": "marketing_campaigns.starts_at",
@@ -5055,6 +5543,86 @@
       "lang": "en",
       "title": "marketing_campaigns.status",
       "body": "campaign_status not null default 'draft'\nA message channel with no message is a campaign that cannot be sent.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_campaigns.suggested_at",
+      "lang": "en",
+      "title": "marketing_campaigns.suggested_at",
+      "body": "timestamptz\nWhen the suggester last saved it. While updated_at still equals it, the suggester may change the draft; the owner's save moves updated_at and locks it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_campaigns.suggested_by",
+      "lang": "en",
+      "title": "marketing_campaigns.suggested_by",
+      "body": "uuid\nmarketing_staff (§2.17): the marketing staff member who suggested this draft (app.suggest_campaign); NULL for a campaign the owner started.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_campaigns.suggestion_note",
+      "lang": "en",
+      "title": "marketing_campaigns.suggestion_note",
+      "body": "text\nThe suggester's note to the owner (at most 2000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_notes.author_id",
+      "lang": "en",
+      "title": "marketing_notes.author_id",
+      "body": "uuid not null references staff(id)\nThe marketing staff member who wrote it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_notes.body",
+      "lang": "en",
+      "title": "marketing_notes.body",
+      "body": "text not null check (coalesce(length(btrim(body)),0) > 0 and length(body) <= 2000)\nThe note, in the writer's language (1 to 2000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_notes.created_at",
+      "lang": "en",
+      "title": "marketing_notes.created_at",
+      "body": "timestamptz not null default now()\nWhen it was written. Notes are never edited.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_notes.photos",
+      "lang": "en",
+      "title": "marketing_notes.photos",
+      "body": "text[] not null default '{}' check (cardinality(photos) <= 6)\nPhotos attached: staff-media paths in the marketing folder (at most 6).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_notes.subject_id",
+      "lang": "en",
+      "title": "marketing_notes.subject_id",
+      "body": "uuid not null\nThe item, run or campaign the note is about.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_notes.subject_kind",
+      "lang": "en",
+      "title": "marketing_notes.subject_kind",
+      "body": "text not null check (subject_kind in ('item','run','campaign'))\nitem (menu_items), run (protocol_runs) or campaign (marketing_campaigns).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_notes.venue_id",
+      "lang": "en",
+      "title": "marketing_notes.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue of the subject.",
       "route": null
     },
     {
@@ -5963,6 +6531,166 @@
     },
     {
       "kind": "column",
+      "ref": "column:purchase_lines.id",
+      "lang": "en",
+      "title": "purchase_lines.id",
+      "body": "uuid primary key default gen_random_uuid()\nPurchase line id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchase_lines.ingredient_id",
+      "lang": "en",
+      "title": "purchase_lines.ingredient_id",
+      "body": "uuid references ingredients(id)\nThe stock ingredient bought; NULL for a line that is not stock.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchase_lines.label",
+      "lang": "en",
+      "title": "purchase_lines.label",
+      "body": "text check (label is null or length(label) <= 80)\nWhat was bought, as typed, when it is not stock (or as a note beside the ingredient).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchase_lines.price_iqd",
+      "lang": "en",
+      "title": "purchase_lines.price_iqd",
+      "body": "iqd not null\nWhat this line cost, in IQD. Receiving books price ÷ quantity as the cost per base unit.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchase_lines.purchase_id",
+      "lang": "en",
+      "title": "purchase_lines.purchase_id",
+      "body": "uuid not null references purchases(id) on delete cascade\nThe purchase.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchase_lines.qty",
+      "lang": "en",
+      "title": "purchase_lines.qty",
+      "body": "numeric(12,3) not null check (qty > 0)\nHow much was bought: the ingredient's base unit (g, ml or pc) for a stock line.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchase_lines.shopping_item_id",
+      "lang": "en",
+      "title": "purchase_lines.shopping_item_id",
+      "body": "uuid references shopping_items(id)\nThe shopping-list line it bought, if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchase_lines.status",
+      "lang": "en",
+      "title": "purchase_lines.status",
+      "body": "text not null default 'to_receive' check (status in ('to_receive','received','acknowledged'))\nto_receive, received (booked into stock) or acknowledged (not stock).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.bought_at",
+      "lang": "en",
+      "title": "purchases.bought_at",
+      "body": "timestamptz not null\nWhen it was bought.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.created_at",
+      "lang": "en",
+      "title": "purchases.created_at",
+      "body": "timestamptz not null default now()\nWhen it was recorded.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.delivery_id",
+      "lang": "en",
+      "title": "purchases.delivery_id",
+      "body": "uuid references deliveries(id)\nThe delivery app.receive_purchase booked its stock lines into (one purchase, one delivery).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.id",
+      "lang": "en",
+      "title": "purchases.id",
+      "body": "uuid primary key default gen_random_uuid()\nPurchase id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.receipt_path",
+      "lang": "en",
+      "title": "purchases.receipt_path",
+      "body": "text\nThe receipt photo: a staff-media path in the receipts folder, read by its uploader and management only.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.received_at",
+      "lang": "en",
+      "title": "purchases.received_at",
+      "body": "timestamptz\nWhen it was received.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.received_by",
+      "lang": "en",
+      "title": "purchases.received_by",
+      "body": "uuid references staff(id)\nThe manager or owner who received it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.shop_name",
+      "lang": "en",
+      "title": "purchases.shop_name",
+      "body": "text check (shop_name is null or length(shop_name) <= 80)\nWhere it was bought, as typed (at most 80 characters); suppliers stay management's.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.staff_id",
+      "lang": "en",
+      "title": "purchases.staff_id",
+      "body": "uuid not null references staff(id)\nWho bought it (the driver, or a manager).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.status",
+      "lang": "en",
+      "title": "purchases.status",
+      "body": "text not null default 'to_receive' check (status in ('to_receive','done'))\nto_receive until every line is received or acknowledged, then done.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.total_iqd",
+      "lang": "en",
+      "title": "purchases.total_iqd",
+      "body": "iqd not null\nWhat the receipt came to, in IQD. Paying the driver back happens outside the system.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.venue_id",
+      "lang": "en",
+      "title": "purchases.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue the purchase was for.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:rate_rules.court_id",
       "lang": "en",
       "title": "rate_rules.court_id",
@@ -6111,6 +6839,110 @@
       "lang": "en",
       "title": "reservations.rate_rule_id",
       "body": "uuid references rate_rules(id)\nPRICE PROVENANCE",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.cancelled_at",
+      "lang": "en",
+      "title": "shopping_items.cancelled_at",
+      "body": "timestamptz\nWhen it was taken off the list.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.cancelled_by",
+      "lang": "en",
+      "title": "shopping_items.cancelled_by",
+      "body": "uuid references staff(id)\nWho took it off the list (the requester or management).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.id",
+      "lang": "en",
+      "title": "shopping_items.id",
+      "body": "uuid primary key default gen_random_uuid()\nShopping line id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.ingredient_id",
+      "lang": "en",
+      "title": "shopping_items.ingredient_id",
+      "body": "uuid references ingredients(id)\nThe stock ingredient to buy; NULL for something that is not stock, named by the label.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.label",
+      "lang": "en",
+      "title": "shopping_items.label",
+      "body": "text check (label is null or length(label) <= 80)\nWhat to buy, as typed (at most 80 characters): required when there is no ingredient.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.note",
+      "lang": "en",
+      "title": "shopping_items.note",
+      "body": "text check (note is null or length(note) <= 200)\nAn optional note for the driver (at most 200 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.purchase_id",
+      "lang": "en",
+      "title": "shopping_items.purchase_id",
+      "body": "uuid references purchases(id)\nThe purchase that bought it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.qty",
+      "lang": "en",
+      "title": "shopping_items.qty",
+      "body": "numeric(12,3) not null check (qty > 0)\nHow much to buy, in the unit.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.requested_at",
+      "lang": "en",
+      "title": "shopping_items.requested_at",
+      "body": "timestamptz not null default now()\nWhen it was added.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.requested_by",
+      "lang": "en",
+      "title": "shopping_items.requested_by",
+      "body": "uuid not null references staff(id)\nWho added it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.status",
+      "lang": "en",
+      "title": "shopping_items.status",
+      "body": "text not null default 'open' check (status in ('open','bought','cancelled','received','acknowledged'))\nopen, bought (on a purchase), cancelled, received (its purchase line was received into stock) or acknowledged (a non-stock line the manager acknowledged).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.unit",
+      "lang": "en",
+      "title": "shopping_items.unit",
+      "body": "text not null check (unit in ('g','ml','pc','pack'))\ng, ml, pc or pack. For an ingredient, its base unit or pack.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.venue_id",
+      "lang": "en",
+      "title": "shopping_items.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue it is for.",
       "route": null
     },
     {

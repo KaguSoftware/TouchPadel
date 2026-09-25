@@ -203,9 +203,24 @@ export type Database = {
       accept_terms: { Args: { p_version?: string }; Returns: Json }
       ack_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       acknowledge_alert: { Args: { p_alert_id: string }; Returns: undefined }
+      acknowledge_purchase_line: {
+        Args: { p_line_id: string }
+        Returns: undefined
+      }
       add_customer_note: {
         Args: { p_body: string; p_customer_id: string }
         Returns: string
+      }
+      add_marketing_note: {
+        Args: {
+          p_body: string
+          p_idempotency_key?: string
+          p_photos?: string[]
+          p_subject_id: string
+          p_subject_kind: string
+          p_venue_id: string
+        }
+        Returns: Json
       }
       add_order_items: {
         Args: { p_items: Json; p_order_id: string }
@@ -213,6 +228,18 @@ export type Database = {
       }
       add_run_step: {
         Args: { p_after_run_step_id: string; p_run_id: string; p_step: Json }
+        Returns: Json
+      }
+      add_shopping_item: {
+        Args: {
+          p_idempotency_key?: string
+          p_ingredient_id: string
+          p_label: string
+          p_note?: string
+          p_qty: number
+          p_unit: string
+          p_venue_id: string
+        }
         Returns: Json
       }
       analytics_assert_basis: { Args: { p_basis: string }; Returns: undefined }
@@ -707,6 +734,7 @@ export type Database = {
         Args: { p_reason_code: string; p_scope: string; p_series_id: string }
         Returns: Json
       }
+      cancel_shopping_item: { Args: { p_id: string }; Returns: undefined }
       cancel_tab: {
         Args: {
           p_device_id?: string
@@ -714,6 +742,14 @@ export type Database = {
           p_reason_code?: string
           p_tab_id: string
         }
+        Returns: Json
+      }
+      checklist_board: {
+        Args: { p_business_date?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      checklist_day_state: {
+        Args: { p_business_date?: string; p_venue_id?: string }
         Returns: Json
       }
       claim_due_index: {
@@ -1052,6 +1088,10 @@ export type Database = {
           }
       llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
+      mark_checklist_item: {
+        Args: { p_done: boolean; p_item_id: string; p_note?: string }
+        Returns: Json
+      }
       mark_reservation: {
         Args: {
           p_reason?: string
@@ -1065,7 +1105,12 @@ export type Database = {
         Args: { p_campaign: string }
         Returns: Json
       }
+      marketing_notes_for: {
+        Args: { p_subject_id: string; p_subject_kind: string }
+        Returns: Json
+      }
       marketing_overview: { Args: never; Returns: Json }
+      marketing_suggestions: { Args: { p_venue_id?: string }; Returns: Json }
       menu_availability: {
         Args: never
         Returns: {
@@ -1087,7 +1132,17 @@ export type Database = {
         }
         Returns: Json
       }
+      my_campaign_drafts: { Args: { p_venue_id?: string }; Returns: Json }
+      my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
+      my_marketing_notes: {
+        Args: { p_limit?: number; p_venue_id?: string }
+        Returns: Json
+      }
       my_protocol_work: { Args: { p_venue_id?: string }; Returns: Json }
+      my_purchases: {
+        Args: { p_limit?: number; p_venue_id?: string }
+        Returns: Json
+      }
       my_reservations: {
         Args: { p_reservation_id?: string }
         Returns: {
@@ -1186,6 +1241,8 @@ export type Database = {
           rule_id: string
         }[]
       }
+      production_log_today: { Args: { p_venue_id?: string }; Returns: Json }
+      production_today: { Args: { p_venue_id?: string }; Returns: Json }
       promotion_amount_iqd: {
         Args: { p_base: number; p_type: string; p_value: number }
         Returns: number
@@ -1316,6 +1373,7 @@ export type Database = {
       }
       protocols_overview: { Args: { p_venue_id?: string }; Returns: Json }
       protocols_waiting_count: { Args: { p_venue_id?: string }; Returns: Json }
+      purchases_to_receive: { Args: { p_venue_id?: string }; Returns: Json }
       push_nudge: { Args: never; Returns: undefined }
       raise_waiter_call: {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
@@ -1333,6 +1391,26 @@ export type Database = {
         }
         Returns: Json
       }
+      receive_purchase: {
+        Args: {
+          p_idempotency_key?: string
+          p_lines: Json
+          p_purchase_id: string
+          p_supplier_id?: string
+          p_supplier_name?: string
+        }
+        Returns: Json
+      }
+      record_batch: {
+        Args: {
+          p_expiry_date?: string
+          p_idempotency_key?: string
+          p_ingredient_id: string
+          p_qty: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       record_drawer_open: {
         Args: { p_device_id?: string; p_reason_code: string; p_tab_id?: string }
         Returns: undefined
@@ -1343,6 +1421,27 @@ export type Database = {
           p_expiry_date?: string
           p_ingredient_id: string
           p_qty: number
+        }
+        Returns: Json
+      }
+      record_production_internal: {
+        Args: {
+          p_device_id: string
+          p_expiry_date: string
+          p_ingredient_id: string
+          p_qty: number
+        }
+        Returns: Json
+      }
+      record_purchase: {
+        Args: {
+          p_bought_at?: string
+          p_idempotency_key?: string
+          p_lines: Json
+          p_receipt_path: string
+          p_shop: string
+          p_total_iqd: number
+          p_venue_id: string
         }
         Returns: Json
       }
@@ -1476,6 +1575,18 @@ export type Database = {
           p_scope?: string
         }
         Returns: string
+      }
+      save_checklist_template: {
+        Args: {
+          p_expected_version: number
+          p_items: Json
+          p_name_ar: string
+          p_name_en: string
+          p_role: Database["public"]["Enums"]["staff_role"]
+          p_slot: string
+          p_venue_id: string
+        }
+        Returns: Json
       }
       save_marketing_audience: {
         Args: {
@@ -1679,6 +1790,10 @@ export type Database = {
         }
         Returns: Json
       }
+      shopping_list: {
+        Args: { p_status?: string; p_venue_id?: string }
+        Returns: Json
+      }
       skip_step: {
         Args: { p_note: string; p_run_step_id: string }
         Returns: Json
@@ -1791,6 +1906,25 @@ export type Database = {
           p_photos?: string[]
           p_record: Json
           p_run_step_id: string
+        }
+        Returns: Json
+      }
+      suggest_campaign: {
+        Args: {
+          p_body_ar?: string
+          p_body_en?: string
+          p_channel?: string
+          p_ends_at?: string
+          p_id?: string
+          p_idempotency_key?: string
+          p_images?: string[]
+          p_menu_item_id?: string
+          p_name_ar?: string
+          p_name_en?: string
+          p_note?: string
+          p_run_id?: string
+          p_starts_at?: string
+          p_venue_id?: string
         }
         Returns: Json
       }
@@ -2028,6 +2162,10 @@ export type Database = {
       validate_cafe_setting: {
         Args: { p_jtype: string; p_key: string; p_value: Json }
         Returns: undefined
+      }
+      venue_business_date: {
+        Args: { p_at?: string; p_venue: string }
+        Returns: string
       }
       venue_mode:
         | { Args: never; Returns: Json }
@@ -2865,6 +3003,182 @@ export type Database = {
           },
         ]
       }
+      checklist_run_items: {
+        Row: {
+          done_at: string | null
+          done_by: string | null
+          id: string
+          note: string | null
+          position: number
+          run_id: string
+          text_ar: string
+          text_en: string
+        }
+        Insert: {
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          note?: string | null
+          position: number
+          run_id: string
+          text_ar: string
+          text_en: string
+        }
+        Update: {
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          note?: string | null
+          position?: number
+          run_id?: string
+          text_ar?: string
+          text_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_run_items_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_run_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_runs: {
+        Row: {
+          business_date: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["staff_role"]
+          slot: string
+          template_id: string
+          venue_id: string
+        }
+        Insert: {
+          business_date: string
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["staff_role"]
+          slot: string
+          template_id: string
+          venue_id: string
+        }
+        Update: {
+          business_date?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["staff_role"]
+          slot?: string
+          template_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_runs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_runs_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_template_items: {
+        Row: {
+          id: string
+          position: number
+          template_id: string
+          text_ar: string
+          text_en: string
+        }
+        Insert: {
+          id?: string
+          position: number
+          template_id: string
+          text_ar: string
+          text_en: string
+        }
+        Update: {
+          id?: string
+          position?: number
+          template_id?: string
+          text_ar?: string
+          text_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_templates: {
+        Row: {
+          id: string
+          name_ar: string
+          name_en: string
+          role: Database["public"]["Enums"]["staff_role"]
+          slot: string
+          updated_at: string
+          updated_by: string | null
+          venue_id: string
+          version: number
+        }
+        Insert: {
+          id?: string
+          name_ar: string
+          name_en: string
+          role: Database["public"]["Enums"]["staff_role"]
+          slot: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id: string
+          version?: number
+        }
+        Update: {
+          id?: string
+          name_ar?: string
+          name_en?: string
+          role?: Database["public"]["Enums"]["staff_role"]
+          slot?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_templates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courts: {
         Row: {
           active_from: string | null
@@ -3583,11 +3897,17 @@ export type Database = {
           created_by: string
           ends_at: string | null
           id: string
+          images: string[]
+          menu_item_id: string | null
           name_ar: string
           name_en: string
           promotion_id: string | null
+          protocol_run_id: string | null
           starts_at: string | null
           status: Database["public"]["Enums"]["campaign_status"]
+          suggested_at: string | null
+          suggested_by: string | null
+          suggestion_note: string | null
           updated_at: string
           venue_id: string | null
         }
@@ -3600,11 +3920,17 @@ export type Database = {
           created_by: string
           ends_at?: string | null
           id?: string
+          images?: string[]
+          menu_item_id?: string | null
           name_ar: string
           name_en: string
           promotion_id?: string | null
+          protocol_run_id?: string | null
           starts_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
+          suggested_at?: string | null
+          suggested_by?: string | null
+          suggestion_note?: string | null
           updated_at?: string
           venue_id?: string | null
         }
@@ -3617,11 +3943,17 @@ export type Database = {
           created_by?: string
           ends_at?: string | null
           id?: string
+          images?: string[]
+          menu_item_id?: string | null
           name_ar?: string
           name_en?: string
           promotion_id?: string | null
+          protocol_run_id?: string | null
           starts_at?: string | null
           status?: Database["public"]["Enums"]["campaign_status"]
+          suggested_at?: string | null
+          suggested_by?: string | null
+          suggestion_note?: string | null
           updated_at?: string
           venue_id?: string | null
         }
@@ -3641,6 +3973,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "marketing_campaigns_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "marketing_campaigns_promotion_id_fkey"
             columns: ["promotion_id"]
             isOneToOne: false
@@ -3648,7 +3987,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "marketing_campaigns_protocol_run_id_fkey"
+            columns: ["protocol_run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_suggested_by_fkey"
+            columns: ["suggested_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "marketing_campaigns_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_notes: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          photos: string[]
+          subject_id: string
+          subject_kind: string
+          venue_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          photos?: string[]
+          subject_id: string
+          subject_kind: string
+          venue_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          photos?: string[]
+          subject_id?: string
+          subject_kind?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_notes_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -5048,6 +5449,142 @@ export type Database = {
           },
         ]
       }
+      purchase_lines: {
+        Row: {
+          id: string
+          ingredient_id: string | null
+          label: string | null
+          price_iqd: number
+          purchase_id: string
+          qty: number
+          shopping_item_id: string | null
+          status: string
+        }
+        Insert: {
+          id?: string
+          ingredient_id?: string | null
+          label?: string | null
+          price_iqd: number
+          purchase_id: string
+          qty: number
+          shopping_item_id?: string | null
+          status?: string
+        }
+        Update: {
+          id?: string
+          ingredient_id?: string | null
+          label?: string | null
+          price_iqd?: number
+          purchase_id?: string
+          qty?: number
+          shopping_item_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "purchase_lines_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_lines_shopping_item_id_fkey"
+            columns: ["shopping_item_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchases: {
+        Row: {
+          bought_at: string
+          created_at: string
+          delivery_id: string | null
+          id: string
+          receipt_path: string | null
+          received_at: string | null
+          received_by: string | null
+          shop_name: string | null
+          staff_id: string
+          status: string
+          total_iqd: number
+          venue_id: string
+        }
+        Insert: {
+          bought_at: string
+          created_at?: string
+          delivery_id?: string | null
+          id?: string
+          receipt_path?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          shop_name?: string | null
+          staff_id: string
+          status?: string
+          total_iqd: number
+          venue_id: string
+        }
+        Update: {
+          bought_at?: string
+          created_at?: string
+          delivery_id?: string | null
+          id?: string
+          receipt_path?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          shop_name?: string | null
+          staff_id?: string
+          status?: string
+          total_iqd?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_rule_prices: {
         Row: {
           duration_min: number
@@ -5523,6 +6060,97 @@ export type Database = {
           },
           {
             foreignKeyName: "reservations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_items: {
+        Row: {
+          cancelled_at: string | null
+          cancelled_by: string | null
+          id: string
+          ingredient_id: string | null
+          label: string | null
+          note: string | null
+          purchase_id: string | null
+          qty: number
+          requested_at: string
+          requested_by: string
+          status: string
+          unit: string
+          venue_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          id?: string
+          ingredient_id?: string | null
+          label?: string | null
+          note?: string | null
+          purchase_id?: string | null
+          qty: number
+          requested_at?: string
+          requested_by: string
+          status?: string
+          unit: string
+          venue_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          id?: string
+          ingredient_id?: string | null
+          label?: string | null
+          note?: string | null
+          purchase_id?: string | null
+          qty?: number
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          unit?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_items_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "shopping_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_items_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_items_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
