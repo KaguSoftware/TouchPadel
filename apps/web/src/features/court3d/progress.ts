@@ -3,20 +3,25 @@
  * than eyeballed.
  *
  * k is the phone's eased camera pitch (@touch/court3d rally.ts cameraPose):
- * 0 = the flat top-down diagram, 1 = the booking view's 40° pitch. The site never
- * shows either end. It rests at K_REST, where the cage, the lime glass and its
- * window panes, the net and the standing rackets all read as a 3D model, and the
- * scroll only sways it between K_FROM and K_TO, so the model is what a visitor
- * sees at every point of the section.
+ * 0 = the flat top-down diagram, 1 = the booking view's 40° pitch. The scroll plays
+ * the app's "Check availability" move (owner, 2026-09-25): the court comes up the
+ * screen as the flat diagram and, as the section scrolls on, tilts up to the booking
+ * view, turning 28° round with the rackets standing up, on the app's own ease-in-out.
+ * The move runs over MOVE, the middle of the section's passage, so it starts once the
+ * court is on screen and has landed before it leaves. Without the scroll link it
+ * rests at K_REST, where the cage, the glass, the net and the standing rackets all
+ * read as a 3D model.
  */
 import { clamp01, EASE_IO, lerp } from '@touch/court3d/spec';
 
-/** Pitch as the section comes up the screen: 67° elevation, 12.6° around. */
-export const K_FROM = 0.45;
+/** Pitch before the move: the flat top-down diagram (89.5° elevation, 0° around). */
+export const K_FROM = 0;
 /** The court at rest (no scroll link, reduced motion): 60° elevation, 16.8° around. */
 export const K_REST = 0.6;
-/** Pitch as the section leaves the top: 52° elevation, 21° around. */
-export const K_TO = 0.75;
+/** Pitch after the move: the booking view (40° elevation, 28° around). */
+export const K_TO = 1;
+/** The span of section progress the move plays over. */
+export const MOVE = [0.15, 0.6] as const;
 
 /**
  * How far the section has travelled through the viewport: 0 when its top edge is
@@ -31,9 +36,10 @@ export function sectionProgress(top: number, height: number, viewportH: number):
   return Number.isFinite(p) ? clamp01(p) : 0;
 }
 
-/** The camera pitch for a section progress (0..1), eased in and out. */
+/** The camera pitch for a section progress (0..1): the app's move, eased in and out over MOVE. */
 export function kFor(progress: number): number {
-  return lerp(K_FROM, K_TO, EASE_IO(clamp01(progress)));
+  const [a, b] = MOVE;
+  return lerp(K_FROM, K_TO, EASE_IO(clamp01((progress - a) / (b - a))));
 }
 
 /**

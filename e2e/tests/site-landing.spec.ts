@@ -122,6 +122,33 @@ test.describe('site home', () => {
     }
   });
 
+  test('the events ticket tears, then leaves for WhatsApp with the name written on it', async ({
+    page,
+  }) => {
+    await page.goto('/en');
+    const events = page.locator('.tp-events');
+    const join = events.getByRole('link', { name: /^Join a tournament\s*, on WhatsApp$/ });
+    await expect(join).toHaveAttribute('aria-disabled', 'true');
+
+    const name = events.getByLabel('Your name');
+    await name.fill('Sara Ahmed');
+    await expect(join).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(events.locator('.tp-ticket__main')).toContainText('Sara Ahmed');
+
+    // Hold the hand-off: the test only needs to see where the page goes, and when.
+    let left: URL | null = null;
+    await page.route('https://wa.me/**', async (route) => {
+      left = new URL(route.request().url());
+      await route.fulfill({ status: 204 });
+    });
+    await join.click();
+    await expect(events.locator('.tp-ticket[data-torn]')).toHaveCount(1);
+    await expect(name).toHaveJSProperty('readOnly', true);
+    await expect.poll(() => left?.searchParams.get('text') ?? null).toBe(
+      "Hi Touch Padel, this is Sara Ahmed. I'd like to sign up for the next tournament. Can you send me the details?",
+    );
+  });
+
   test('every WhatsApp button opens a chat with the desk, pre-filled; Call dials the same number', async ({
     page,
   }) => {
@@ -154,8 +181,9 @@ test.describe('site home', () => {
         'Hi Touch Padel, I would like to book a lesson.',
       ],
       [
-        page.locator('.tp-events').getByRole('link', { name: 'Join the list' }),
-        'Hi Touch Padel, please add me to the list for tournaments and events.',
+        // The ticket's link before a name is written (and the whole of it with no JS).
+        page.locator('.tp-events').getByRole('link', { name: /^Join a tournament\s*, on WhatsApp$/ }),
+        "Hi Touch Padel, I'd like to sign up for the next tournament. Can you send me the details?",
       ],
       [page.locator('#visit').getByRole('link', { name: 'WhatsApp' }), 'Hi Touch Padel,'],
     ];
@@ -181,21 +209,23 @@ test.describe('site home', () => {
     }
   });
 
-  test('on a phone the section links fold away but Book a court stays in the bar', async ({
+  test('on a phone the section links and Book a court fold into the menu sheet', async ({
     page,
   }) => {
     await page.setViewportSize(SMALL);
     await page.goto('/en');
     const banner = page.getByRole('banner');
-    await expect(banner.getByRole('link', { name: 'Book a court' })).toBeVisible();
+    // The bar is just the lockup and the toggle.
+    await expect(banner.getByRole('link', { name: 'Book a court' })).toBeHidden();
     await expect(banner.getByRole('link', { name: 'Lessons' })).toBeHidden();
     const toggle = banner.getByRole('button', { name: 'Site menu' });
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    // Open, the sheet has it, full width, at the thumb's end of the screen.
+    await expect(page.locator('#tp-site-menu').getByRole('link', { name: 'Book a court' })).toBeVisible();
     await banner.getByRole('link', { name: 'Lessons' }).click();
     await expect(page).toHaveURL(/\/en#lessons$/);
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(banner.getByRole('link', { name: 'Book a court' })).toBeVisible();
   });
 
   test('the rally stops when the pause switch is pressed, and stays stopped on reload', async ({

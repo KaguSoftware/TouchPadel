@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { MenuCategory, VenueOpeningHours } from '@/lib/menu';
+import type { MenuCategory, MenuItem, VenueOpeningHours } from '@/lib/menu';
 import { parseSiteMode, siteModeCookie, siteModeFromCookieString, SITE_MODE_COOKIE } from './mode';
 import { getStoreLinks, validStoreUrl } from './stores';
 import { openState, venueClock } from './openNow';
@@ -13,7 +13,7 @@ import {
 import { hoursPhrase, pluralForm } from './plural';
 import { PRODUCTION_ORIGIN, siteOrigin } from './origin';
 import { buildLandingJsonLd, jsonLdString } from './jsonLd';
-import { cafeCategoryList } from './landing';
+import { cafePhoneMenu } from './landing';
 import { PHOTO_GRADE_RAMP } from './photoGrade';
 import { displayPhone, internationalDigits, telUrl, whatsappUrl } from './contact';
 
@@ -51,7 +51,8 @@ const PDI = '\u2069';
 
 describe('site mode', () => {
   it('is night unless the cookie says exactly light, on the server or in document.cookie', () => {
-    for (const value of [undefined, '', 'dark', 'LIGHT']) expect(parseSiteMode(value)).toBe('night');
+    for (const value of [undefined, '', 'dark', 'LIGHT'])
+      expect(parseSiteMode(value)).toBe('night');
     expect(parseSiteMode('light')).toBe('light');
     expect(siteModeFromCookieString('a=1; tp-site-mode=light; b=2')).toBe('light');
     // Another cookie whose name merely ends in ours is not ours.
@@ -110,7 +111,10 @@ describe('open now, on the venue’s clock', () => {
   });
 
   it('survives a malformed blob', () => {
-    expect(openState({ wed: 'nope' }, null, baghdad('20:00'))).toEqual({ open: false, opensAt: null });
+    expect(openState({ wed: 'nope' }, null, baghdad('20:00'))).toEqual({
+      open: false,
+      opensAt: null,
+    });
   });
 });
 
@@ -172,36 +176,63 @@ describe('landing JSON-LD', () => {
   });
 });
 
-describe('café categories for the hand-off line', () => {
-  const cat = (id: string, en: string, ar: string, order: number, items = 1): MenuCategory => ({
+describe('the café section drawn on the landing phone', () => {
+  const variant = (price: number, order: number, isDefault = false) => ({
+    id: `v${price}`,
+    name_en: '',
+    name_ar: '',
+    price_iqd: price,
+    is_default: isDefault,
+    sort_order: order,
+  });
+  const item = (id: string, order: number, over: Partial<MenuItem> = {}): MenuItem =>
+    ({
+      id,
+      name_en: `Item ${id}`,
+      name_ar: `صنف ${id}`,
+      sort_order: order,
+      orderable: true,
+      sold_out: false,
+      variants: [variant(3000, 1, true)],
+      ...over,
+    }) as MenuItem;
+  const cat = (id: string, order: number, items: MenuItem[]): MenuCategory => ({
     id,
-    name_en: en,
-    name_ar: ar,
+    name_en: `Section ${id}`,
+    name_ar: `قسم ${id}`,
     sort_order: order,
     serve_temp: 'none',
     photo_path: null,
     photo_url: null,
     photo_blur: null,
-    items: Array.from({ length: items }, () => ({}) as MenuCategory['items'][number]),
-  });
-  const menu = [
-    cat('c', 'Smoothies', 'سموذي', 3),
-    cat('a', 'Coffee', 'قهوة', 1),
-    cat('e', 'Empty', 'فارغ', 2, 0),
-    cat('b', 'Tea', 'شاي', 2),
-  ];
-
-  it('names real, non-empty categories in menu order, joined for the language', () => {
-    // English drops the menu's capitals inside a sentence.
-    expect(cafeCategoryList(menu, 'en')).toEqual({ list: 'coffee, tea, and smoothies', more: false });
-    expect(cafeCategoryList(menu, 'ar', 2)?.list).toBe('قهوة وشاي');
+    items,
   });
 
-  it('says when it stopped at the limit, and says nothing when there is nothing to say', () => {
-    // A cut list must not read as the whole menu: no closing "and", and `more` set so the
-    // page says "… and more" (site.cafe.bodyMore).
-    expect(cafeCategoryList(menu, 'en', 2)).toEqual({ list: 'coffee, tea', more: true });
-    expect(cafeCategoryList([], 'en')).toBeNull();
+  it('takes the first section in menu order with two orderable, priced items', () => {
+    const menu = [
+      cat('b', 2, [
+        item('b2', 2, { variants: [variant(5000, 1), variant(4000, 2, true)] }),
+        item('b1', 1),
+        item('b3', 3),
+      ]),
+      // First in menu order, but one item is off and the other has no price.
+      cat('a', 1, [item('a1', 1, { orderable: false }), item('a2', 2, { variants: [] })]),
+    ];
+    expect(cafePhoneMenu(menu, 'en', 2)).toEqual({
+      section: 'Section b',
+      rows: [
+        { id: 'b1', name: 'Item b1', priceIqd: 3000 },
+        { id: 'b2', name: 'Item b2', priceIqd: 4000 },
+      ],
+    });
+    expect(cafePhoneMenu(menu, 'ar')?.section).toBe('قسم b');
+  });
+
+  it('is null when no section qualifies', () => {
+    expect(cafePhoneMenu([], 'en')).toBeNull();
+    expect(
+      cafePhoneMenu([cat('a', 1, [item('a1', 1, { sold_out: true }), item('a2', 2)])], 'en'),
+    ).toBeNull();
   });
 });
 

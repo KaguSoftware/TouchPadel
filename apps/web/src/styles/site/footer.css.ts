@@ -2,7 +2,7 @@
  * Site footer, on the brand navy in both modes (one step deeper at night): the white
  * lockup (42px tall) and the tagline; where the club is, the hours and the front desk
  * (not on the home page, whose #visit block has just said them: the `--short` grid);
- * two link lists; then the base line with the year, the language and the vendor credit.
+ * two link lists; then the base line with the year and the vendor credit.
  * Links are full touch targets.
  */
 export const siteFooterCss = `
@@ -17,7 +17,16 @@ export const siteFooterCss = `
   padding-inline: var(--tp-site-gutter);
 }
 .tp-site-footer__brand, .tp-site-footer__facts { grid-column: 1 / -1; }
-.tp-site-footer__brand { display: grid; gap: 1rem; justify-items: start; align-content: start; }
+.tp-site-footer__brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+/* The tagline takes its own line under the lockup. */
+.tp-site-footer__tagline { order: 1; flex-basis: 100%; }
 .tp-site-footer__home { display: flex; block-size: 2.625rem; border-radius: var(--tp-site-radius-sm); }
 .tp-site-footer__tagline {
   font-family: var(--tp-font-display);
@@ -44,8 +53,7 @@ export const siteFooterCss = `
 .tp-site-footer__phone,
 .tp-site-footer__chat,
 .tp-site-footer__maps,
-.tp-site-footer__nav a,
-.tp-site-footer__lang {
+.tp-site-footer__nav a {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -62,7 +70,6 @@ export const siteFooterCss = `
 .tp-site-footer__nav a[aria-current='page'] { color: var(--tp-brand-green); }
 @media (hover: hover) {
   .tp-site-footer__nav a:hover,
-  .tp-site-footer__lang:hover,
   .tp-site-footer__phone:hover,
   .tp-site-footer__chat:hover,
   .tp-site-footer__maps:hover { text-decoration-line: underline; text-underline-offset: 0.3em; }
@@ -80,7 +87,6 @@ export const siteFooterCss = `
   border-block-start: 1px solid color-mix(in srgb, var(--tp-brand-white) 16%, transparent);
   color: var(--tp-muted-fg);
 }
-.tp-site-footer__lang { font-family: var(--tp-font-arabic); color: var(--tp-fg); }
 .tp-site-footer__credit { font-size: var(--tp-site-fs-xs); }
 @media (min-width: 40rem) {
   .tp-site-footer__facts { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }

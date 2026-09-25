@@ -6,8 +6,8 @@
  *
  * The crop and the words are composed per screen shape, for hero.jpg (photo-credits.md):
  * the player centre-right, his head high, the ball low on the left.
- * - Landscape: the whole width of the frame shows, so the words stand at the top, clear of
- *   the ball, which keeps the lower left to itself; the thin green line runs under it like
+ * - Landscape: the whole width of the frame shows, so the words stand in the upper half (set
+ *   down from the header by up to 14vh), clear of the ball, which keeps the lower left to itself; the thin green line runs under it like
  *   its path. The player starts at about 47 % of the frame's width, whatever the screen
  *   (the frame fills the width, and the page's column is centred), so the copy column is
  *   capped to end at 44 % of the SCREEN's width, not the column's: the headline ends
@@ -80,7 +80,7 @@ export const siteHeroCss = `
 @media (min-width: 48rem) and (orientation: landscape) {
   .tp-front__photo .tp-photo__img { object-position: 50% 25%; }
   .tp-front__line { display: block; }
-  .tp-front__inner { align-content: start; padding-block: calc(var(--tp-site-header-h) + 1.5rem) var(--tp-front-band); }
+  .tp-front__inner { align-content: start; padding-block: calc(var(--tp-site-header-h) + clamp(3rem, 14vh, 10rem)) var(--tp-front-band); }
   .tp-front__copy {
     max-inline-size: min(42rem, calc(44vw - max(0px, (100vw - var(--tp-site-max)) / 2) - var(--tp-site-gutter)));
   }

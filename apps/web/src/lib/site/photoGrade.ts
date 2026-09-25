@@ -72,16 +72,22 @@ export const BALL_MASK_NOT_WARM = '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -12 12 0 0 1
  * (and its alpha steepened by `BALL_FILL_SLOPE`) to reach the ball's whole disc, and
  * inside that reach only what is bright and not blue is added back (the turf around the
  * ball is blue, so no halo of source pixels forms around it):
- * - BRIGHT: 8·luma − 5.6, so luma ≥ 0.825 is fully in and the turf (≈ 0.47) out.
- * - NOT_BLUE: 12·(G − B) + 1, so neutral whites are in and blue-leaning pixels out.
- * NOT_WARM applies too, so a lit face next to a ball stays graded. The masks need
- * neighbours, so the browser is their test (the screenshots in the fix-pass report).
+ * - BRIGHT: 5·luma − 2.25, so luma ≥ 0.65 is fully in and the turf (≈ 0.40) out.
+ * - NOT_BLUE: 25·(G − B) + 2.5, so whites up to B − G = 0.06 are in and the turf
+ *   (B − G ≥ 0.11 around the ball) out.
+ * - LIT_NOT_WARM: 12·(G − R) + 1.5, NOT_WARM with a little slack for the lit side's
+ *   near-whites (R a hair over G), while a lit face next to a ball stays graded.
+ * Second pass (2026-09-25): the first thresholds (8·luma − 5.6, 12·(G − B) + 1, a 6 px
+ * reach, the core's NOT_WARM) left a blue crescent on the hero ball's lit edge and blue
+ * specks in its white. The reach is 12 px because the blur is in CSS px while the ball
+ * grows with the screen (≈ 22 px radius at 1920). Checked by simulating the filter on
+ * hero.jpg at 1080, 1440 and 1920 wide; the browser is still the final test.
  */
-export const BALL_FILL_BLUR = 6;
+export const BALL_FILL_BLUR = 12;
 export const BALL_FILL_SLOPE = 6;
-export const BALL_MASK_BRIGHT =
-  '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.7008 5.7216 0.5776 0 -5.6';
-export const BALL_MASK_NOT_BLUE = '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 12 -12 0 1';
+export const BALL_MASK_BRIGHT = '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.063 3.576 0.361 0 -2.25';
+export const BALL_MASK_NOT_BLUE = '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 25 -25 0 2.5';
+export const BALL_MASK_LIT_NOT_WARM = '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -12 12 0 0 1.5';
 
 function channels(hex: string): [number, number, number] {
   const n = Number.parseInt(hex.slice(1), 16);

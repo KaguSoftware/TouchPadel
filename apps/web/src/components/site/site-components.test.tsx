@@ -53,12 +53,17 @@ describe('SiteShell', () => {
     expect(document.querySelector('.tp-site')?.getAttribute('data-page')).toBe('page');
   });
 
-  it('keeps Book a court in the bar; the menu opens and closes from the keyboard', async () => {
+  it('has Book a court in the bar and the sheet; the menu opens and closes from the keyboard', async () => {
     renderShell();
     const banner = screen.getByRole('banner');
     const panel = banner.querySelector<HTMLElement>('.tp-site-menu')!;
+    // One in the bar (desktop, and no JS); the phone sheet has its own, full width. The
+    // sheet's is display:none until opened, so it has no accessible name to query by.
     const book = within(banner).getByRole('link', { name: new RegExp(t('en', 'site.nav.book')) });
     expect(panel.contains(book)).toBe(false);
+    const sheetBook = panel.querySelector('a[data-contact="whatsapp"]');
+    expect(sheetBook?.textContent).toContain(t('en', 'site.nav.book'));
+    expect(sheetBook?.getAttribute('href')).toBe(book.getAttribute('href'));
     // Screen readers hear that it leaves for WhatsApp (link purpose).
     expect(book.querySelector('.tp-site-sr')?.textContent).toBe(t('en', 'site.onWhatsApp'));
 
@@ -67,9 +72,13 @@ describe('SiteShell', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     await userEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    // The open sheet covers the page: nothing under it can be tabbed to or read.
+    const main = document.querySelector<HTMLElement>('main')!;
+    expect(main.inert).toBe(true);
     await userEvent.keyboard('{Escape}');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(toggle);
+    expect(main.inert).toBe(false);
   });
 
   it('prints the desk’s number left to right inside an Arabic footer, dialled as +digits', () => {
@@ -110,11 +119,14 @@ describe('SiteShell', () => {
 });
 
 describe('StoreButtons', () => {
-  it('draws nothing without a listing, and the official badge for each listing set', () => {
-    const { container } = render(
+  it('shows a dimmed "soon" badge without a listing, and links the badge once one is set', () => {
+    const { unmount } = render(
       <StoreButtons locale="en" links={{ appStore: null, googlePlay: null }} />,
     );
-    expect(container.innerHTML).toBe('');
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    expect(screen.getByRole('img', { name: t('en', 'site.app.appStoreSoon') })).toBeTruthy();
+    expect(screen.getByRole('img', { name: t('en', 'site.app.googlePlaySoon') })).toBeTruthy();
+    unmount();
 
     render(
       <StoreButtons

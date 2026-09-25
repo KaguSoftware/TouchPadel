@@ -1,11 +1,9 @@
 import { isolateLtr, makeT, VENUE_TZ, type Locale } from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
-import { otherLocale } from '@/lib/locales';
 import { displayPhone, MAPS_URL, telUrl, whatsappUrl } from '@/lib/site/contact';
 import { BrandLockup } from './brand/BrandLockup';
 import { HoursList, hasPublishedHours } from './HoursList';
 import { ChatIcon, ExternalIcon } from './icons';
-import { LanguageLink } from './LanguageLink';
 
 /**
  * The site footer, on the brand navy in both modes: the lockup and the tagline; where
@@ -13,7 +11,8 @@ import { LanguageLink } from './LanguageLink';
  * when the venue keeps one window every day, the week otherwise, nothing when the read
  * failed); the front desk (the venue phone as a call link and a WhatsApp chat, both from
  * venue settings so correcting the setting corrects every page, and omitted when there is
- * no dialable number); the site's links; the language, the year and the vendor credit.
+ * no dialable number); the site's links; the year and the vendor credit. The language
+ * switch lives in the header only.
  *
  * The home page leaves the address, hours and desk out: its #visit block, right above the
  * footer, has just said all three. Every other page (the legal pages, the 404) keeps
@@ -57,13 +56,12 @@ export function SiteFooter({
   locale: Locale;
   venue: VenueOpeningHours | null;
   /**
-   * The current page without its locale prefix, for the language link and aria-current
+   * The current page without its locale prefix, for aria-current
    * (null: the 404, which is none of the listed pages).
    */
   path: string | null;
 }) {
   const tr = makeT(locale);
-  const other = otherLocale(locale);
   const facts = path !== '';
   const year = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: VENUE_TZ }).format(
     new Date(),
@@ -122,14 +120,6 @@ export function SiteFooter({
       </div>
       <div className="tp-site-footer__base">
         <p className="tp-num">{tr('site.footer.copyright', { year: isolateLtr(year) })}</p>
-        <LanguageLink
-          className="tp-site-footer__lang"
-          href={`/${other}${path ?? ''}`}
-          target={other}
-          label={tr('site.nav.languageLabel')}
-        >
-          {tr('site.nav.language')}
-        </LanguageLink>
         <p className="tp-site-footer__credit">{tr('site.footer.developedBy')}</p>
       </div>
     </footer>

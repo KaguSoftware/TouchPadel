@@ -3,6 +3,7 @@ import {
   BALL_FILL_SLOPE,
   BALL_MASK_BRIGHT,
   BALL_MASK_GREEN_OVER_BLUE,
+  BALL_MASK_LIT_NOT_WARM,
   BALL_MASK_NOT_BLUE,
   BALL_MASK_NOT_WARM,
   LUMA_MATRIX,
@@ -78,7 +79,13 @@ export function PhotoGrade() {
               />
               <feComposite in="reach" in2="bright" operator="in" result="litA" />
               <feComposite in="litA" in2="notBlue" operator="in" result="litB" />
-              <feComposite in="litB" in2="notWarm" operator="in" result="lit" />
+              <feColorMatrix
+                in="SourceGraphic"
+                type="matrix"
+                values={BALL_MASK_LIT_NOT_WARM}
+                result="litNotWarm"
+              />
+              <feComposite in="litB" in2="litNotWarm" operator="in" result="lit" />
               <feComposite in="core" in2="lit" operator="over" result="ballMask" />
               <feComposite in="SourceGraphic" in2="ballMask" operator="in" result="ball" />
               <feMerge>

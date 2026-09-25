@@ -27,7 +27,7 @@
  * is exactly the artefact faux-italic produces.
  */
 
-import { BRAND_FAMILY } from './tokens/typography';
+import { BRAND_FAMILY, HAND_ARABIC_FAMILY, HAND_LATIN_FAMILY } from './tokens/typography';
 
 /** Where the .woff2 files are served from. Same in web and operator. */
 export const FONT_BASE = '/fonts/lama';
@@ -127,4 +127,44 @@ export function fontFaceCss(base: string = FONT_BASE): string {
         : [`${base}/${file}`, `${documentRelative}/${file}`],
     );
   }).join('\n\n');
+}
+
+/** Where the site's handwriting faces are served from (apps/web/public/fonts/hand). */
+export const HAND_FONT_BASE = '/fonts/hand';
+
+/**
+ * @font-face rules for `--tp-font-hand` (tokens/typography.ts), for the site's stylesheet
+ * only: the café menu and the operator never set a line in it. Each face carries its
+ * script's `unicode-range`, so a browser fetches the Latin hand only for Latin text and
+ * the Arabic hand only for Arabic: the English page never downloads Ruqaa.
+ */
+export function handFontFaceCss(base: string = HAND_FONT_BASE): string {
+  const faces = [
+    {
+      family: HAND_LATIN_FAMILY,
+      file: 'Yesteryear-Regular',
+      weight: 400,
+      range: 'U+0000-00FF, U+2018-201D, U+2026',
+    },
+    {
+      family: HAND_ARABIC_FAMILY,
+      file: 'ArefRuqaa-Bold',
+      weight: 700,
+      range: 'U+0600-06FF, U+0750-077F, U+200C-200F, U+2066-2069',
+    },
+  ] as const;
+  return faces
+    .map((face) =>
+      [
+        '@font-face {',
+        `  font-family: '${face.family}';`,
+        `  src: url('${base}/${face.file}.woff2') format('woff2');`,
+        `  font-weight: ${face.weight};`,
+        '  font-style: normal;',
+        '  font-display: swap;',
+        `  unicode-range: ${face.range};`,
+        '}',
+      ].join('\n'),
+    )
+    .join('\n\n');
 }

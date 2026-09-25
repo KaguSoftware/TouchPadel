@@ -60,7 +60,6 @@ vi.mock('@/components/landing/photos', () => {
       hero: still('hero'),
       club: still('club'),
       lessons: still('lessons'),
-      cafe: still('cafe'),
       events: still('events'),
     },
   };
@@ -118,6 +117,11 @@ describe('home page', () => {
     const items = [...section('#faq').querySelectorAll('details')];
     expect(items).toHaveLength(7);
     for (const d of items) expect(d.open).toBe(false);
+    // One shared name: the browser keeps only one answer open at a time.
+    expect(new Set(items.map((d) => d.getAttribute('name')))).toEqual(new Set(['tp-faq']));
+    // The stack ends on "still wondering?", handing over to the desk on WhatsApp.
+    const ask = section('#faq').querySelector('.tp-faq__ask a[data-contact="whatsapp"]');
+    expect(ask?.textContent).toContain(tr('site.faq.askCta'));
     // 09:00–23:00 closes before midnight: the plain answer.
     expect(faqAnswers()[6]).toBe(plain(tr('site.faq.hoursA', { hours: '09:00–23:00' })));
 
@@ -142,8 +146,9 @@ describe('home page', () => {
 
     expect(document.querySelector('a[href*="wa.me"], a[href^="tel:"]')).toBeNull();
     const fallbacks = [...document.querySelectorAll('a[data-contact="visit"]')];
-    // Header, hero, the court's net, lessons, events.
-    expect(fallbacks).toHaveLength(5);
+    // Header (the bar's, and the phone sheet's), hero, the court's net, lessons, events,
+    // the app band, the FAQ's ask card.
+    expect(fallbacks).toHaveLength(8);
     for (const a of fallbacks) {
       expect(a.getAttribute('href')).toBe('#visit');
       expect(a.textContent).toBe(tr('site.hero.ctaVisit'));
@@ -165,11 +170,25 @@ describe('home page', () => {
     expect(within(section('#visit')).getByText(tr('site.visit.address'))).toBeTruthy();
   });
 
-  it('falls back to the category-free café line when the menu read fails', async () => {
+  it('draws a real menu section on the café phone, and the mark when the menu read fails', async () => {
+    await renderServerPage(HomePage, 'en');
+    let cafe = section('.tp-cafe-handoff');
+    expect(section('.tp-cafe-handoff__body').textContent).toBe(tr('site.cafe.body'));
+    const steps = within(cafe).getByRole('list', { name: tr('site.cafe.stepsLabel') });
+    expect(within(steps).getAllByRole('listitem')).toHaveLength(3);
+    const rows = [...cafe.querySelectorAll('.tp-cafe-phone__row b')].map((b) => b.textContent);
+    expect(rows).toEqual(['Fixture Flat White', 'Fixture Iced Tea']);
+    // The drawings picture the steps' words, so they stay out of the accessibility tree.
+    for (const art of cafe.querySelectorAll('.tp-cafe-step__art')) {
+      expect(art.getAttribute('aria-hidden')).toBe('true');
+    }
+
+    document.body.innerHTML = '';
     serverData.menu = MENU_ERROR;
     await renderServerPage(HomePage, 'en');
-
-    expect(section('.tp-cafe-handoff__body').textContent).toBe(tr('site.cafe.bodyNoCategories'));
+    cafe = section('.tp-cafe-handoff');
+    expect(cafe.querySelector('.tp-cafe-phone__row')).toBeNull();
+    expect(cafe.querySelector('.tp-cafe-phone__mark')).not.toBeNull();
     expect(screen.getByRole('link', { name: tr('site.cafe.cta') }).getAttribute('href')).toBe(
       '/en/menu',
     );
@@ -178,7 +197,7 @@ describe('home page', () => {
   it('describes every photograph by what is in it; the poster words are read once', async () => {
     await renderServerPage(HomePage, 'en');
 
-    for (const key of ['heroAlt', 'clubAlt', 'lessonsAlt', 'eventsAlt', 'cafeAlt'] as const) {
+    for (const key of ['heroAlt', 'clubAlt', 'lessonsAlt', 'eventsAlt'] as const) {
       expect(screen.getByRole('img', { name: tr(`site.photos.${key}`) })).toBeTruthy();
     }
     // PLAY / SMASH / WIN are the poster's picture: hidden, and read once as the label.

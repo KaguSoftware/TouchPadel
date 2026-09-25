@@ -1,40 +1,44 @@
 import type { Locale } from '@touch/i18n';
 import type { MenuCategory } from '@/lib/menu';
 
-/** The café's category names as a phrase, and whether the menu has more than it names. */
-export interface CafeCategories {
-  list: string;
-  more: boolean;
+/** One row on the landing's drawn phone: a real item's name and list price. */
+export interface CafePhoneRow {
+  id: string;
+  name: string;
+  priceIqd: number;
+}
+
+/** What the drawn phone in the Touch Cafe section shows: one real menu section. */
+export interface CafePhoneMenu {
+  section: string;
+  rows: CafePhoneRow[];
 }
 
 /**
- * Café category names for the landing's Touch Cafe hand-off. Real names from the live
- * menu, in the page's language, in menu order, only categories that carry at least one
- * item, and at most `limit` of them so the sentence stays a sentence.
- *
- * A cut list must not read as the whole menu (copy finding, 2026-09-24: "Coffee,
- * Smoothie, Tea, Fresh Juice, and Frappuccino." named five of thirteen sections). So
- * `more` says the menu goes on, and the page then says "… and more" (`site.cafe.bodyMore`).
- * English names drop their menu capitals inside the sentence ("coffee, tea"), and a cut
- * English list is joined without its own "and" ("coffee, tea, fresh juice and more");
- * Arabic joins with و either way (Intl.ListFormat). Null when the menu read failed or is
- * empty: the page then uses `site.cafe.bodyNoCategories`.
+ * The live menu section the Touch Cafe hand-off's third step ("Order from your phone")
+ * draws on its phone: the first section in menu order with at least two orderable items
+ * that carry a price, cut to `limit`, in the page's language. A row's price is its default
+ * variant's (else its first variant's) list price, as the menu lists it. Null when the
+ * menu read failed or no section qualifies: the phone then shows the café's mark.
  */
-export function cafeCategoryList(
+export function cafePhoneMenu(
   categories: readonly MenuCategory[],
   locale: Locale,
-  limit = 5,
-): CafeCategories | null {
-  const names = [...categories]
-    .filter((c) => c.items.length > 0)
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((c) => (locale === 'ar' ? c.name_ar : c.name_en).trim())
-    .filter((name) => name.length > 0);
-  if (names.length === 0) return null;
-  const shown = names
-    .slice(0, limit)
-    .map((name) => (locale === 'en' ? name.toLocaleLowerCase('en') : name));
-  const more = names.length > shown.length;
-  const type = more && locale === 'en' ? 'unit' : 'conjunction';
-  return { list: new Intl.ListFormat(locale, { style: 'long', type }).format(shown), more };
+  limit = 3,
+): CafePhoneMenu | null {
+  const pick = (en: string, ar: string) => (locale === 'ar' ? ar : en).trim();
+  for (const c of [...categories].sort((a, b) => a.sort_order - b.sort_order)) {
+    const rows: CafePhoneRow[] = [...c.items]
+      .filter((i) => i.orderable && !i.sold_out)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .flatMap((i) => {
+        const variants = [...i.variants].sort((a, b) => a.sort_order - b.sort_order);
+        const variant = variants.find((v) => v.is_default) ?? variants[0];
+        const name = pick(i.name_en, i.name_ar);
+        return variant && name ? [{ id: i.id, name, priceIqd: variant.price_iqd }] : [];
+      });
+    const section = pick(c.name_en, c.name_ar);
+    if (section && rows.length >= 2) return { section, rows: rows.slice(0, limit) };
+  }
+  return null;
 }

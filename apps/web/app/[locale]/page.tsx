@@ -5,7 +5,7 @@ import { getCachedMenu, getCachedVenue } from '@/lib/menu.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { crossesMidnight, everyDayWindow, formatWindow } from '@/lib/site/hours';
-import { cafeCategoryList } from '@/lib/site/landing';
+import { cafePhoneMenu } from '@/lib/site/landing';
 import { siteOrigin } from '@/lib/site/origin';
 import { buildLandingJsonLd, jsonLdString } from '@/lib/site/jsonLd';
 import { getStoreLinks } from '@/lib/site/stores';
@@ -23,7 +23,7 @@ import { PhotoGrade } from '@/components/landing/PhotoGrade';
 /**
  * The Touch Padel home page, `/{locale}` (docs/design/web-site/contracts-2026-09-23.md
  * §0, Revision B): THE CLUB, not the app. A padel club and café in Durrat Karbala: the
- * courts and what playing there is, lessons, events (coming), Touch Cafe, the app in one
+ * courts and what playing there is, lessons, tournaments and events, Touch Cafe, the app in one
  * short band, the first-visit questions, and where to find it. Booking today is WhatsApp,
  * a call or walking in, so every booking button is a WhatsApp chat pre-filled in the
  * page's language, built from the one venue phone. It is also what Google's OAuth
@@ -33,9 +33,9 @@ import { PhotoGrade } from '@/components/landing/PhotoGrade';
  * Dynamic like every page here (the layout's nonce read, C11); it also reads the mode
  * cookie, so night or light is painted by the server. Live data, all through the cached
  * `menu`-tagged readers: the hours and phone (venue_settings_public) and the café
- * category names (the menu). Each read degrades on
+ * section the Touch Cafe steps draw on their phone (the menu). Each read degrades on
  * its own: no venue → no hours line, no open pill and no WhatsApp or call buttons ("Plan
- * your visit" instead); no menu → the category-free café line.
+ * your visit" instead); no menu → the café's mark on that phone.
  */
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -108,9 +108,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <Club locale={locale} phone={phone} />
       <Lessons locale={locale} phone={phone} />
       <Events locale={locale} phone={phone} />
-      <CafeHandoff locale={locale} categories={cafeCategoryList(menu.categories, locale)} />
-      <AppBand locale={locale} stores={getStoreLinks()} />
-      <Faq locale={locale} hours={hours} late={everyDay ? crossesMidnight(everyDay) : false} />
+      <CafeHandoff locale={locale} phone={cafePhoneMenu(menu.categories, locale)} />
+      <AppBand locale={locale} stores={getStoreLinks()} phone={phone} />
+      <Faq
+        locale={locale}
+        hours={hours}
+        late={everyDay ? crossesMidnight(everyDay) : false}
+        phone={phone}
+      />
       <Visit locale={locale} venue={venue} />
       <script
         type="application/ld+json"
