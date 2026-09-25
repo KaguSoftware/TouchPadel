@@ -211,6 +211,10 @@ export type Database = {
         Args: { p_items: Json; p_order_id: string }
         Returns: number
       }
+      add_run_step: {
+        Args: { p_after_run_step_id: string; p_run_id: string; p_step: Json }
+        Returns: Json
+      }
       analytics_assert_basis: { Args: { p_basis: string }; Returns: undefined }
       analytics_best_sellers: {
         Args: {
@@ -698,6 +702,7 @@ export type Database = {
         Args: { p_reason?: string; p_reservation_id: string }
         Returns: Json
       }
+      cancel_schedule: { Args: { p_run_id: string }; Returns: Json }
       cancel_series: {
         Args: { p_reason_code: string; p_scope: string; p_series_id: string }
         Returns: Json
@@ -867,6 +872,16 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
         Returns: Json
       }
+      decide_step: {
+        Args: {
+          p_data?: Json
+          p_decision: string
+          p_note?: string
+          p_send_back_to?: string
+          p_submission_id: string
+        }
+        Returns: Json
+      }
       default_venue: { Args: never; Returns: string }
       delete_court: { Args: { p_id: string }; Returns: Json }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
@@ -882,6 +897,10 @@ export type Database = {
       }
       edit_customer_note: {
         Args: { p_body: string; p_note_id: string }
+        Returns: Json
+      }
+      edit_run_items: {
+        Args: { p_items: Json; p_run_step_id: string }
         Returns: Json
       }
       eligible_promotions: {
@@ -1068,6 +1087,7 @@ export type Database = {
         }
         Returns: Json
       }
+      my_protocol_work: { Args: { p_venue_id?: string }; Returns: Json }
       my_reservations: {
         Args: { p_reservation_id?: string }
         Returns: {
@@ -1174,6 +1194,128 @@ export type Database = {
         Args: { p_scope: Json; p_tab_id: string }
         Returns: number
       }
+      protocol_engine_actor: {
+        Args: {
+          p_actor_roles: Database["public"]["Enums"]["staff_role"][]
+          p_assigned_to: string
+          p_cover: boolean
+          p_venue: string
+        }
+        Returns: boolean
+      }
+      protocol_engine_actor_ids: {
+        Args: {
+          p_actor_roles: Database["public"]["Enums"]["staff_role"][]
+          p_assigned_to: string
+          p_venue: string
+        }
+        Returns: string[]
+      }
+      protocol_engine_can: {
+        Args: { p_run_id: string; p_step_id: string }
+        Returns: Json
+      }
+      protocol_engine_decider: {
+        Args: {
+          p_expected: boolean
+          p_needs_owner_ok: boolean
+          p_venue: string
+        }
+        Returns: boolean
+      }
+      protocol_engine_decider_ids: {
+        Args: { p_needs_owner_ok: boolean; p_venue: string }
+        Returns: string[]
+      }
+      protocol_engine_involved: { Args: { p_run_id: string }; Returns: boolean }
+      protocol_engine_items: { Args: { p_items: Json }; Returns: Json }
+      protocol_engine_notify: {
+        Args: {
+          p_id: string
+          p_ids: string[]
+          p_kind: string
+          p_route: string
+          p_run_id: string
+          p_step_id: string
+          p_title_key: string
+        }
+        Returns: number
+      }
+      protocol_engine_open: { Args: { p_run_id: string }; Returns: string[] }
+      protocol_engine_pass: {
+        Args: {
+          p_decision_data: Json
+          p_run_id: string
+          p_step_id: string
+          p_submission_id: string
+        }
+        Returns: string[]
+      }
+      protocol_engine_roles: {
+        Args: { p_roles: Json }
+        Returns: Database["public"]["Enums"]["staff_role"][]
+      }
+      protocol_engine_run_row: { Args: { p_run_id: string }; Returns: Json }
+      protocol_engine_step_row: {
+        Args: { p_full: boolean; p_step_id: string }
+        Returns: Json
+      }
+      protocol_engine_stop_hook: {
+        Args: { p_run_id: string }
+        Returns: undefined
+      }
+      protocol_engine_submit: {
+        Args: {
+          p_photos: string[]
+          p_record: Json
+          p_run_id: string
+          p_step_id: string
+        }
+        Returns: Json
+      }
+      protocol_engine_text: {
+        Args: { p_cap: number; p_hint: string; p_text: string }
+        Returns: string
+      }
+      protocol_engine_waiting_on_me: {
+        Args: { p_run_id: string }
+        Returns: boolean
+      }
+      protocol_run_allowed: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
+      }
+      protocol_run_detail: { Args: { p_run_id: string }; Returns: Json }
+      protocol_runs_page: {
+        Args: {
+          p_filter?: string
+          p_kind?: string
+          p_limit?: number
+          p_offset?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      protocol_seed_venue: { Args: { p_venue: string }; Returns: undefined }
+      protocol_step_allowed: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
+      }
+      protocol_step_def: {
+        Args: { p_kind: string; p_step_key: string; p_variant: string }
+        Returns: Json
+      }
+      protocol_step_defs: {
+        Args: { p_kind: string; p_variant: string }
+        Returns: Json
+      }
+      protocol_step_detail: { Args: { p_run_step_id: string }; Returns: Json }
+      protocol_template_detail: {
+        Args: { p_template_id: string }
+        Returns: Json
+      }
+      protocols_overview: { Args: { p_venue_id?: string }; Returns: Json }
+      protocols_waiting_count: { Args: { p_venue_id?: string }; Returns: Json }
       push_nudge: { Args: never; Returns: undefined }
       raise_waiter_call: {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
@@ -1359,6 +1501,16 @@ export type Database = {
         }
         Returns: string
       }
+      save_protocol_template: {
+        Args: {
+          p_expected_version: number
+          p_name_ar: string
+          p_name_en: string
+          p_steps: Json
+          p_template_id: string
+        }
+        Returns: Json
+      }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
       send_test_push: { Args: never; Returns: Json }
@@ -1527,6 +1679,10 @@ export type Database = {
         }
         Returns: Json
       }
+      skip_step: {
+        Args: { p_note: string; p_run_step_id: string }
+        Returns: Json
+      }
       sms_send_gate: {
         Args: { p_phone_e164: string; p_purpose?: string; p_user_id?: string }
         Returns: Json
@@ -1576,12 +1732,17 @@ export type Database = {
         }
         Returns: string[]
       }
+      staff_ingredient_options: {
+        Args: { p_query?: string; p_venue_id?: string }
+        Returns: Json
+      }
       staff_media_folder: { Args: { p_name: string }; Returns: string }
       staff_media_slot: {
         Args: { p_ext: string; p_folder: string; p_venue_id: string }
         Returns: Json
       }
       staff_media_venue: { Args: { p_name: string }; Returns: string }
+      staff_media_visible: { Args: { p_name: string }; Returns: boolean }
       staff_requests_page: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
@@ -1596,6 +1757,24 @@ export type Database = {
         Returns: Json
       }
       start_count: { Args: never; Returns: Json }
+      start_protocol: {
+        Args: {
+          p_data?: Json
+          p_first_record?: Json
+          p_idempotency_key?: string
+          p_kind: string
+          p_photos?: string[]
+          p_title_ar?: string
+          p_title_en?: string
+          p_variant?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      stop_protocol: {
+        Args: { p_note: string; p_run_id: string }
+        Returns: Json
+      }
       submit_staff_request: {
         Args: {
           p_amount_iqd?: number
@@ -1605,6 +1784,15 @@ export type Database = {
           p_to?: string
         }
         Returns: string
+      }
+      submit_step: {
+        Args: {
+          p_idempotency_key?: string
+          p_photos?: string[]
+          p_record: Json
+          p_run_step_id: string
+        }
+        Returns: Json
       }
       sweep_degraded_periods: { Args: never; Returns: undefined }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
@@ -1627,6 +1815,10 @@ export type Database = {
       telegram_send_test: { Args: never; Returns: Json }
       text_control_class: { Args: never; Returns: string }
       text_control_class_multiline: { Args: never; Returns: string }
+      tick_run_item: {
+        Args: { p_done: boolean; p_item_id: string }
+        Returns: Json
+      }
       ticket_transition: {
         Args: {
           p_actor_label?: string
@@ -1881,7 +2073,9 @@ export type Database = {
         }
         Returns: Json
       }
+      withdraw_protocol: { Args: { p_run_id: string }; Returns: Json }
       withdraw_staff_request: { Args: { p_id: string }; Returns: undefined }
+      withdraw_step: { Args: { p_submission_id: string }; Returns: Json }
       write_audit: {
         Args: {
           p_action: string
@@ -4401,6 +4595,455 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_run_items: {
+        Row: {
+          done_at: string | null
+          done_by: string | null
+          id: string
+          position: number
+          run_step_id: string
+          text_ar: string
+          text_en: string
+        }
+        Insert: {
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          position: number
+          run_step_id: string
+          text_ar: string
+          text_en: string
+        }
+        Update: {
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          position?: number
+          run_step_id?: string
+          text_ar?: string
+          text_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_run_items_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_run_items_run_step_id_fkey"
+            columns: ["run_step_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_run_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_run_steps: {
+        Row: {
+          actor_roles: Database["public"]["Enums"]["staff_role"][]
+          after_keys: string[]
+          assigned_to: string | null
+          id: string
+          name_ar: string
+          name_en: string
+          needs_owner_ok: boolean
+          opened_at: string | null
+          optional: boolean
+          passed_at: string | null
+          position: number
+          round: number
+          run_id: string
+          skip_note: string | null
+          skipped_at: string | null
+          skipped_by: string | null
+          status: string
+          step_key: string | null
+        }
+        Insert: {
+          actor_roles: Database["public"]["Enums"]["staff_role"][]
+          after_keys?: string[]
+          assigned_to?: string | null
+          id?: string
+          name_ar: string
+          name_en: string
+          needs_owner_ok: boolean
+          opened_at?: string | null
+          optional: boolean
+          passed_at?: string | null
+          position: number
+          round?: number
+          run_id: string
+          skip_note?: string | null
+          skipped_at?: string | null
+          skipped_by?: string | null
+          status?: string
+          step_key?: string | null
+        }
+        Update: {
+          actor_roles?: Database["public"]["Enums"]["staff_role"][]
+          after_keys?: string[]
+          assigned_to?: string | null
+          id?: string
+          name_ar?: string
+          name_en?: string
+          needs_owner_ok?: boolean
+          opened_at?: string | null
+          optional?: boolean
+          passed_at?: string | null
+          position?: number
+          round?: number
+          run_id?: string
+          skip_note?: string | null
+          skipped_at?: string | null
+          skipped_by?: string | null
+          status?: string
+          step_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_run_steps_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_run_steps_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_run_steps_skipped_by_fkey"
+            columns: ["skipped_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_runs: {
+        Row: {
+          data: Json
+          finished_at: string | null
+          id: string
+          kind: string
+          live_at: string | null
+          menu_item_id: string | null
+          photos_purged_at: string | null
+          promotion_id: string | null
+          scheduled_for: string | null
+          started_at: string
+          started_by: string
+          status: string
+          stop_reason: string | null
+          template_id: string
+          template_version: number
+          title_ar: string | null
+          title_en: string | null
+          variant: string | null
+          venue_id: string
+        }
+        Insert: {
+          data?: Json
+          finished_at?: string | null
+          id?: string
+          kind: string
+          live_at?: string | null
+          menu_item_id?: string | null
+          photos_purged_at?: string | null
+          promotion_id?: string | null
+          scheduled_for?: string | null
+          started_at?: string
+          started_by: string
+          status?: string
+          stop_reason?: string | null
+          template_id: string
+          template_version: number
+          title_ar?: string | null
+          title_en?: string | null
+          variant?: string | null
+          venue_id: string
+        }
+        Update: {
+          data?: Json
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          live_at?: string | null
+          menu_item_id?: string | null
+          photos_purged_at?: string | null
+          promotion_id?: string | null
+          scheduled_for?: string | null
+          started_at?: string
+          started_by?: string
+          status?: string
+          stop_reason?: string | null
+          template_id?: string
+          template_version?: number
+          title_ar?: string | null
+          title_en?: string | null
+          variant?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_runs_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_runs_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_runs_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_runs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_runs_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_submissions: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          decision_note: string | null
+          id: string
+          photos: string[]
+          record: Json
+          round: number
+          run_id: string
+          run_step_id: string
+          send_back_to: string | null
+          submitted_at: string
+          submitted_by: string
+          superseded_at: string | null
+          withdrawn_at: string | null
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          decision_note?: string | null
+          id?: string
+          photos?: string[]
+          record: Json
+          round: number
+          run_id: string
+          run_step_id: string
+          send_back_to?: string | null
+          submitted_at?: string
+          submitted_by: string
+          superseded_at?: string | null
+          withdrawn_at?: string | null
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          decision_note?: string | null
+          id?: string
+          photos?: string[]
+          record?: Json
+          round?: number
+          run_id?: string
+          run_step_id?: string
+          send_back_to?: string | null
+          submitted_at?: string
+          submitted_by?: string
+          superseded_at?: string | null
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_submissions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_submissions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_submissions_run_step_id_fkey"
+            columns: ["run_step_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_run_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_submissions_send_back_to_fkey"
+            columns: ["send_back_to"]
+            isOneToOne: false
+            referencedRelation: "protocol_run_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_template_items: {
+        Row: {
+          id: string
+          position: number
+          step_id: string
+          text_ar: string
+          text_en: string
+        }
+        Insert: {
+          id?: string
+          position: number
+          step_id: string
+          text_ar: string
+          text_en: string
+        }
+        Update: {
+          id?: string
+          position?: number
+          step_id?: string
+          text_ar?: string
+          text_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_template_items_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_template_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_template_steps: {
+        Row: {
+          actor_roles: Database["public"]["Enums"]["staff_role"][]
+          id: string
+          name_ar: string
+          name_en: string
+          needs_owner_ok: boolean
+          optional: boolean
+          position: number
+          step_key: string | null
+          template_id: string
+        }
+        Insert: {
+          actor_roles: Database["public"]["Enums"]["staff_role"][]
+          id?: string
+          name_ar: string
+          name_en: string
+          needs_owner_ok?: boolean
+          optional?: boolean
+          position: number
+          step_key?: string | null
+          template_id: string
+        }
+        Update: {
+          actor_roles?: Database["public"]["Enums"]["staff_role"][]
+          id?: string
+          name_ar?: string
+          name_en?: string
+          needs_owner_ok?: boolean
+          optional?: boolean
+          position?: number
+          step_key?: string | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_template_steps_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_templates: {
+        Row: {
+          id: string
+          kind: string
+          name_ar: string
+          name_en: string
+          updated_at: string
+          updated_by: string | null
+          variant: string | null
+          venue_id: string
+          version: number
+        }
+        Insert: {
+          id?: string
+          kind: string
+          name_ar: string
+          name_en: string
+          updated_at?: string
+          updated_by?: string | null
+          variant?: string | null
+          venue_id: string
+          version?: number
+        }
+        Update: {
+          id?: string
+          kind?: string
+          name_ar?: string
+          name_en?: string
+          updated_at?: string
+          updated_by?: string | null
+          variant?: string | null
+          venue_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_templates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]

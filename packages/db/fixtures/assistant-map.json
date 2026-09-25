@@ -1,5 +1,5 @@
 {
-  "generated_from": "3b6ee86307e8990f87b4afed52ed78d09a3368e7",
+  "generated_from": "4101972de3804313d7db3977f25ca66dc57afe28",
   "chunks": [
     {
       "kind": "page",
@@ -1851,6 +1851,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.add_run_step",
+      "lang": "en",
+      "title": "app.add_run_step",
+      "body": "protocols_engine_rpcs (§2.7). Owner only (Q11): adds an owner step to one active run, right after p_after_run_step_id and below the terminal step, where every step above it (the terminal step included) is still waiting (else PROTOCOL_ORDER_INVALID, hint the lowest step in the way), from p_step {name_en, name_ar, actor_roles, needs_owner_ok, optional, items}. PROTOCOL_CLOSED, PROTOCOL_ORDER_INVALID, INVALID_ROLE, LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED. Returns the StepRow. Audit protocol.run.add_step.\nSignature: app.add_run_step(p_run_id uuid, p_after_run_step_id uuid, p_step jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: protocol.run.add_step.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, PROTOCOL_ORDER_INVALID, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.analytics_component",
       "lang": "en",
       "title": "app.analytics_component",
@@ -2003,6 +2011,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.cancel_schedule",
+      "lang": "en",
+      "title": "app.cancel_schedule",
+      "body": "protocols_engine_rpcs (§2.7). Whoever may act on the terminal step (launch, apply) cancels a scheduled run's date: the run goes back to active and that step reopens in a new round. INVALID_TRANSITION unless scheduled; NOT_STEP_ACTOR. Returns {run_status, reopened_step_id}. Audit protocol.unschedule.\nSignature: app.cancel_schedule(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.unschedule.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, INVALID_TRANSITION, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.cancel_series",
       "lang": "en",
       "title": "app.cancel_series",
@@ -2107,6 +2123,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.decide_step",
+      "lang": "en",
+      "title": "app.decide_step",
+      "body": "protocols_engine_rpcs (§2.7). A decider (the owner when the step needs the owner's OK, else a manager at the venue or the owner), never on their own submission: approve (p_data is the pass hook's decision data; no override of the figures), send_back to the step itself or a passed step below it (a new round; every step that waits for it by the opening rule goes back to waiting, and so does the sent-back step), or stop (the run stops). A reason is required to send back or stop. Returns {submission_id, decision, step_status, run_status, opened_step_ids}. Audit protocol.decide.\nSignature: app.decide_step(p_submission_id uuid, p_decision text, p_note text default null, p_send_back_to uuid default null, p_data jsonb default '{}') returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.decide.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, SUBMISSION_DECIDED, NOT_DECIDER, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, REASON_REQUIRED, SEND_BACK_TARGET_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.delete_court",
       "lang": "en",
       "title": "app.delete_court",
@@ -2128,6 +2152,14 @@
       "title": "app.edit_customer_note",
       "body": "Signature: app.edit_customer_note(p_note_id uuid, p_body text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: customer.note_edit.\nError codes: FORBIDDEN, NOTE_LENGTH, NOTE_NOT_FOUND.\nCalled from: apps/operator/src/features/desk/customers/CustomerRecord.tsx (pages /desk).\nDefined in migration 0065 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.edit_run_items",
+      "lang": "en",
+      "title": "app.edit_run_items",
+      "body": "protocols_engine_rpcs (§2.7). Owner only (Q11): replaces one run step's checklist with p_items [{id|null, text_en, text_ar}], at most 12; a kept id keeps its tick. PROTOCOL_CLOSED, STEP_CLOSED (passed, skipped or stopped), LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED. Returns the StepRow. Audit protocol.run.edit_items.\nSignature: app.edit_run_items(p_run_step_id uuid, p_items jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: protocol.run.edit_items.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, STEP_CLOSED, INVALID_ARGUMENT, LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -2347,6 +2379,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_protocol_work",
+      "lang": "en",
+      "title": "app.my_protocol_work",
+      "body": "protocols_engine_rpcs (§2.7). Any active staff member at the venue: {todo, waiting, decided (7 days), to_decide, counts: {todo, waiting, to_decide}}: the open steps they are expected to do, their pending submissions, the decisions on their submissions, and the submissions whose decision waits on them.\nSignature: app.my_protocol_work(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_reservations",
       "lang": "en",
       "title": "app.my_reservations",
@@ -2415,6 +2455,54 @@
       "lang": "en",
       "title": "app.price_slot",
       "body": "0139 (0007). The winning rate rule for (court, start, duration): the court's own venue only, court-specific before venue-wide, then priority. Zero rows when nothing prices it.\nSignature: app.price_slot(p_court_id uuid, p_start_at timestamptz, p_duration_min int) returns table (rule_id uuid, price_iqd bigint).\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0139 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.protocol_run_detail",
+      "lang": "en",
+      "title": "app.protocol_run_detail",
+      "body": "protocols_engine_rpcs (§2.7). MGMT at the venue, or anyone involved in the run: {run: RunRow + {template_name_en, template_name_ar, data}, steps: [StepRow], can: Can}, shaped by visibility (the run's data to MGMT and the starter only; a mgmt step's records to MGMT only). PROTOCOL_NOT_FOUND for anyone else.\nSignature: app.protocol_run_detail(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.protocol_runs_page",
+      "lang": "en",
+      "title": "app.protocol_runs_page",
+      "body": "protocols_engine_rpcs (§2.7). Any active staff member at the venue: {runs: [RunRow], total}, newest first. MGMT see every run, anyone else only the runs they are involved in. p_filter waiting (waiting on the caller), active (active, scheduled, live), finished (done, stopped, withdrawn) or mine (started by the caller); INVALID_ARGUMENT otherwise.\nSignature: app.protocol_runs_page(p_venue_id uuid default null, p_filter text default 'waiting', p_kind text default null, p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.protocol_step_detail",
+      "lang": "en",
+      "title": "app.protocol_step_detail",
+      "body": "protocols_engine_rpcs (§2.7). MGMT at the venue, or anyone involved in the run: {run: RunRow + {data}, step: StepRow, can: Can, def} for one step's form and decision, shaped by visibility. PROTOCOL_NOT_FOUND for anyone else.\nSignature: app.protocol_step_detail(p_run_step_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.protocol_template_detail",
+      "lang": "en",
+      "title": "app.protocol_template_detail",
+      "body": "protocols_engine_rpcs (§2.7). MGMT at the template's venue: {template: {id, kind, variant, name_en, name_ar, version, updated_at, updated_by_name}, steps: [{position, step_key, name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}], defs} for How it works. PROTOCOL_NOT_FOUND.\nSignature: app.protocol_template_detail(p_template_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.protocols_overview",
+      "lang": "en",
+      "title": "app.protocols_overview",
+      "body": "protocols_engine_rpcs (§2.7). MGMT at the venue: {templates: [{template_id, kind, variant, name_en, name_ar, version, running, waiting_on_me, finished_30d}]} for the Protocols cards; running counts active, scheduled and live runs.\nSignature: app.protocols_overview(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.protocols_waiting_count",
+      "lang": "en",
+      "title": "app.protocols_waiting_count",
+      "body": "protocols_engine_rpcs (§2.7). Any active staff member at the venue: {to_decide, todo}, the counts of my_protocol_work for the badges (/ops, Observe, the rail).\nSignature: app.protocols_waiting_count(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2584,6 +2672,14 @@
       "title": "app.save_marketing_campaign",
       "body": "Signature: app.save_marketing_campaign(p_id uuid, p_name_en text, p_name_ar text, p_channel text, p_audience_id uuid default null, p_promotion_id uuid default null, p_starts_at timestamptz default null, p_ends_at timestamptz default null, p_body_en text default '', p_body_ar text default '') returns uuid.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: marketing.campaign_save.\nError codes: FORBIDDEN, NAME_REQUIRED, BAD_CHANNEL, CAMPAIGN_NOT_FOUND, CAMPAIGN_LOCKED.\nCalled from: apps/operator/src/features/marketing/MarketingPanel.tsx (pages /marketing).\nDefined in migration 0073 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/marketing"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.save_protocol_template",
+      "lang": "en",
+      "title": "app.save_protocol_template",
+      "body": "protocols_engine_rpcs (§2.7). Owner only (How it works): replaces a template's name and ordered steps [{step_key|null, name_en, name_ar, needs_owner_ok, optional, actor_roles, items}] and bumps its version; running protocols keep their snapshot. Built-in steps stay present once with their actors and optional flag, and their OK where the def fixes it (PROTOCOL_STEP_FIXED); dependencies, first and last hold (PROTOCOL_ORDER_INVALID); owner steps take hireable actors (INVALID_ROLE); at most 20 steps and 12 lines a step (LIST_TOO_LONG); both languages; TEMPLATE_CHANGED on a stale version. Returns {template_id, version}. Audit protocol.template.save.\nSignature: app.save_protocol_template(p_template_id uuid, p_expected_version int, p_name_en text, p_name_ar text, p_steps jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: protocol.template.save.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, TEMPLATE_CHANGED, TEXT_BOTH_LANGUAGES_REQUIRED, INVALID_ARGUMENT, LIST_TOO_LONG, PROTOCOL_STEP_FIXED, PROTOCOL_ORDER_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -2811,6 +2907,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.skip_step",
+      "lang": "en",
+      "title": "app.skip_step",
+      "body": "protocols_engine_rpcs (§2.7). The step's decider skips an optional step that is waiting or open, with a reason; the steps it unblocked open. NOT_DECIDER, STEP_NOT_OPTIONAL, STEP_CLOSED, REASON_REQUIRED. Returns {step_status, opened_step_ids}. Audit protocol.skip.\nSignature: app.skip_step(p_run_step_id uuid, p_note text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.skip.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, NOT_DECIDER, STEP_NOT_OPTIONAL, STEP_CLOSED, REASON_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.split_by_item",
       "lang": "en",
       "title": "app.split_by_item",
@@ -2835,6 +2939,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.staff_ingredient_options",
+      "lang": "en",
+      "title": "app.staff_ingredient_options",
+      "body": "staff_ingredient_options (build-contracts §2.5). The bar and kitchen family, the driver and MGMT at the venue: the venue's active ingredients as {ingredients: [{id, name_en, name_ar, unit, kind, pack_size}]}, p_query matched on either name, at most 200, by English name. No cost, no on-hand, no supplier: the ingredient tables stay MGMT only (0136). FORBIDDEN for anyone else and for a venue the caller does not work at.\nSignature: app.staff_ingredient_options(p_venue_id uuid default null, p_query text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,driver,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0162 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.staff_media_folder",
       "lang": "en",
       "title": "app.staff_media_folder",
@@ -2855,6 +2967,14 @@
       "lang": "en",
       "title": "app.staff_media_venue",
       "body": "staff_media_bucket (§2.3). The venue a staff-media path belongs to (its first segment); NULL for a name that is not a staff-media path, so a menu-media name never reaches the cast. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_venue(p_name text) returns uuid.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_media_visible",
+      "lang": "en",
+      "title": "app.staff_media_visible",
+      "body": "protocols_engine_rpcs (§2.3, §2.7 \"Visibility\"). True when the caller may read a staff-media photo: its uploader and MGMT at its venue always; a protocol submission's photo also its step's sender and, on a step whose record is run-visible, anyone involved in the run; a marketing note's photo also marketing at the venue; nothing else to anyone else. False for a guest, another venue and any name that is not a staff-media path; never raises. The staff_media_read storage policy evaluates it as the reading role, hence the authenticated grant.\nSignature: app.staff_media_visible(p_name text) returns boolean.\nGranted to: authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2891,10 +3011,34 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.start_protocol",
+      "lang": "en",
+      "title": "app.start_protocol",
+      "body": "protocols_engine_rpcs (§2.7). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits step 1 from p_first_record in the same transaction. Starters by kind: product_release head_barista, head_chef, manager, owner; tournament and hiring manager, owner; price_promo manager, marketing, owner. The owner types both titles, anyone else at least one. Returns {run_id, status, first_step_id, submission_id, auto}. PROTOCOL_NOT_READY until the kind's start hook exists. Idempotent on p_idempotency_key. Audit protocol.start, protocol.submit (+ protocol.auto).\nSignature: app.start_protocol(p_kind text, p_variant text default null, p_title_en text default null, p_title_ar text default null, p_data jsonb default '{}', p_first_record jsonb default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner,marketing).\nAudit actions written: protocol.start.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_REQUIRED, RECORD_INVALID, PROTOCOL_NOT_FOUND, PROTOCOL_NOT_READY, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.stop_protocol",
+      "lang": "en",
+      "title": "app.stop_protocol",
+      "body": "protocols_engine_rpcs (§2.7). MGMT at the run's venue (PROPOSAL) stops an active or scheduled run with a reason; the kind's stop hook runs and the starter and the actors of open steps get run_stopped. REASON_REQUIRED, PROTOCOL_CLOSED. Returns {run_status}. Audit protocol.stop.\nSignature: app.stop_protocol(p_run_id uuid, p_note text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: protocol.stop.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, REASON_REQUIRED, PROTOCOL_CLOSED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.submit_staff_request",
       "lang": "en",
       "title": "app.submit_staff_request",
       "body": "0072 + staff_push. Any active staff member, for themselves: a leave, shift swap, advance or correction request. Queues staff_decide / request_submitted for every active owner (the caller excepted), at most once per requester in 15 minutes (dedupe request:<requester id>).\nSignature: app.submit_staff_request(p_kind text, p_from date default null, p_to date default null, p_amount_iqd int default null, p_note text default '') returns uuid.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: staff_request.submit.\nError codes: FORBIDDEN, BAD_KIND, REQUEST_ALREADY_PENDING.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0160 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.submit_step",
+      "lang": "en",
+      "title": "app.submit_step",
+      "body": "protocols_engine_rpcs (§2.7). Any active staff member who may act on the open step (its assignee or actor, or a manager or owner covering): sends its record and photos. Passes at once when the sender decides the step. Returns {submission_id, auto, step_status, run_status, opened_step_ids}. PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, STEP_NOT_OPEN, NOT_STEP_ACTOR, RECORD_INVALID, PHOTO_PATH_INVALID, TEXT_TOO_LONG and the check hook's codes. Idempotent on p_idempotency_key. Audit protocol.submit (+ protocol.auto).\nSignature: app.submit_step(p_run_step_id uuid, p_record jsonb, p_photos text[] default '{}', p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, STEP_NOT_OPEN, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2919,6 +3063,14 @@
       "lang": "en",
       "title": "app.telegram_send_test",
       "body": "Signature: app.telegram_send_test() returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TELEGRAM_NOT_CONFIGURED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0032 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.tick_run_item",
+      "lang": "en",
+      "title": "app.tick_run_item",
+      "body": "protocols_engine_rpcs (§2.7). Whoever may act on the open step ticks (p_done true) or unticks one of its checklist lines; the row keeps who and when. STEP_NOT_OPEN, NOT_STEP_ACTOR, PROTOCOL_NOT_FOUND. Returns the ItemRow.\nSignature: app.tick_run_item(p_item_id uuid, p_done boolean) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, STEP_NOT_OPEN, NOT_STEP_ACTOR, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3083,10 +3235,26 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.withdraw_protocol",
+      "lang": "en",
+      "title": "app.withdraw_protocol",
+      "body": "protocols_engine_rpcs (§2.7). The starter withdraws their run before any decision (an automatic pass counts): pending submissions are withdrawn and the kind's stop hook runs. FORBIDDEN for anyone else; INVALID_TRANSITION after a decision or once finished. Returns {run_status}. Audit protocol.withdraw_run.\nSignature: app.withdraw_protocol(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.withdraw_run.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, INVALID_TRANSITION.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.withdraw_staff_request",
       "lang": "en",
       "title": "app.withdraw_staff_request",
       "body": "Signature: app.withdraw_staff_request(p_id uuid) returns void.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: staff_request.withdraw.\nError codes: FORBIDDEN, REQUEST_NOT_FOUND, REQUEST_NOT_PENDING.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0072 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.withdraw_step",
+      "lang": "en",
+      "title": "app.withdraw_step",
+      "body": "protocols_engine_rpcs (§2.7). The sender takes back an undecided submission; the step reopens. FORBIDDEN for anyone else, SUBMISSION_DECIDED once decided, withdrawn or superseded. Returns {step_status}. Audit protocol.withdraw.\nSignature: app.withdraw_step(p_submission_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.withdraw.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, SUBMISSION_DECIDED, PROTOCOL_CLOSED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3535,6 +3703,62 @@
       "lang": "en",
       "title": "table promotions",
       "body": "0067: promotion configuration (spec 06.26/06.27). Written only through app.upsert_promotion / set_promotion_enabled / generate_promo_code; never deleted.\nCreated in migration 0067.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  type text not null check (type in ('percent','amount'))\n  value int not null — percent 1..99 | IQD > 0\n  starts_at timestamptz\n  ends_at timestamptz\n  weekdays int[] not null default '{}' — 0 = Sunday .. 6 = Saturday (extract(dow)); empty = any day.\n  hour_from time\n  hour_to time — null = any; from > to crosses midnight\n  scope jsonb not null default '{}'::jsonb — {courtIds:[uuid], categoryIds:[uuid], itemIds:[uuid]} — empty/absent = whole bill. courtIds filters eligibility (tab reservation court); item/category ids restrict the discount base.\n  limits jsonb not null default '{}'::jsonb — {total:int, perCustomer:int, minSpendIqd:int} — absent = unlimited / no minimum.\n  auto boolean not null default true — applied automatically vs by code\n  public_code text unique\n  code_single_use boolean not null default false\n  enabled boolean not null default true\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:protocol_run_items",
+      "lang": "en",
+      "title": "table protocol_run_items",
+      "body": "protocols_engine_tables (§2.6): a run step's checklist, snapshotted from the template; the owner may change one run's lists (app.edit_run_items).\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Run item id.\n  run_step_id uuid not null references protocol_run_steps(id) on delete cascade — The run step.\n  position int not null — Order in the checklist, from 1.\n  text_en text not null — Checklist line, English.\n  text_ar text not null — Checklist line, Arabic.\n  done_by uuid references staff(id) — Who ticked it; NULL while open.\n  done_at timestamptz — When it was ticked; NULL while open.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:protocol_run_steps",
+      "lang": "en",
+      "title": "table protocol_run_steps",
+      "body": "protocols_engine_tables (§2.6): a run's steps, snapshotted from the template at start. Status moves through app.protocol_step_allowed only.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Run step id.\n  run_id uuid not null references protocol_runs(id) on delete cascade — The run.\n  position int not null — Order in the run, from 1.\n  step_key text — The built-in step, or NULL for an owner-added step.\n  name_en text not null — Step name, English, as snapshotted.\n  name_ar text not null — Step name, Arabic, as snapshotted.\n  actor_roles staff_role[] not null — Who does the step. A manager may cover a step whose actors do not include the owner; the owner may cover any step.\n  assigned_to uuid references staff(id) — When set, only this person does the step (a release's test is the proposer's).\n  needs_owner_ok boolean not null — The owner decides; off, a manager at the venue or the owner. Taken from the def on a step whose OK is fixed.\n  optional boolean not null — May be skipped with a reason by its decider.\n  after_keys text[] not null default '{}' — The built-in steps this one waits for (from the def).\n  status text not null default 'waiting' check (status in ('waiting','open','submitted','passed','skipped','stopped')) — waiting, open, submitted, passed, skipped or stopped.\n  round int not null default 1 — Starts at 1; a send-back to this step (or below it) starts a new round.\n  opened_at timestamptz — When the step last opened.\n  passed_at timestamptz — When the step passed.\n  skip_note text — Why an optional step was skipped (required when skipped).\n  skipped_by uuid references staff(id) — Who skipped it.\n  skipped_at timestamptz — When it was skipped.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:protocol_runs",
+      "lang": "en",
+      "title": "table protocol_runs",
+      "body": "protocols_engine_tables (§2.6): one running protocol. Started by app.start_protocol, which snapshots the template and submits step 1 in the same transaction. Read by MGMT at the venue; everyone else through the definer reads, shaped by involvement.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Run id.\n  venue_id uuid not null references venues(id) — The venue the run belongs to.\n  template_id uuid not null references protocol_templates(id) — The template the run was started from.\n  template_version int not null — The template version snapshotted at start; later template edits do not reach this run.\n  kind text not null check (kind in ('product_release','tournament','hiring','price_promo')) — product_release, tournament, hiring or price_promo.\n  variant text — Tournament only: type1, type2 or type3.\n  title_en text — Run title as the starter typed it in English (staff may type one language; the owner types both). At least one of the two is set.\n  title_ar text — Run title as the starter typed it in Arabic.\n  status text not null default 'active' check (status in ('active','scheduled','live','done','stopped','withdrawn')) — active, scheduled (the last step passed for a date), live (a released item, until its day-30 review), done, stopped or withdrawn.\n  started_by uuid not null references staff(id) — Who started the run.\n  started_at timestamptz not null default now() — When it was started.\n  scheduled_for timestamptz — The launch or apply date while the run is scheduled.\n  live_at timestamptz — When a released item went on sale.\n  finished_at timestamptz — When the run reached done, stopped or withdrawn; NULL before.\n  stop_reason text — Why the run was stopped (required when stopped).\n  menu_item_id uuid references menu_items(id) on delete set null — The item the run is about: a release's draft item, a price change's target.\n  promotion_id uuid references promotions(id) on delete set null — The promotion a promotion change is about.\n  data jsonb not null default '{}' — Kind-level fields written by the kind's hooks (a tournament's plan once it passes). Returned only to MGMT and the starter.\n  photos_purged_at timestamptz — When a stopped or withdrawn run's photos were removed from storage (90 days after it finished).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:protocol_submissions",
+      "lang": "en",
+      "title": "table protocol_submissions",
+      "body": "protocols_engine_tables (§2.6): one piece of work sent on a run step, and its decision. Never edited: withdrawn, superseded by a send-back, or decided once. Earlier rounds stay as history.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Submission id.\n  run_step_id uuid not null references protocol_run_steps(id) on delete cascade — The run step.\n  run_id uuid not null references protocol_runs(id) on delete cascade — The run (denormalised for the run's reads).\n  round int not null — The step's round when it was sent.\n  submitted_by uuid not null references staff(id) — Who sent it (the actor, or a manager or owner covering).\n  submitted_at timestamptz not null default now() — When it was sent.\n  record jsonb not null — The step's form, as the kind's check hook normalised it (a note only for an owner-added step).\n  photos text[] not null default '{}' check (cardinality(photos) <= 8) — staff-media paths attached, claimed through app.claim_staff_media (at most 8).\n  withdrawn_at timestamptz — When the sender took it back before a decision.\n  superseded_at timestamptz — When a send-back to an earlier step set this undecided submission aside.\n  decided_by uuid references staff(id) — Who decided it (the sender for an automatic pass).\n  decided_at timestamptz — When it was decided.\n  decision text check (decision in ('approve','auto','send_back','stop')) — approve, auto (the sender decides this step), send_back or stop.\n  decision_note text — The decider's note; required for send_back and stop.\n  send_back_to uuid references protocol_run_steps(id) — The step a send_back reopened (this step or a passed step below it).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:protocol_template_items",
+      "lang": "en",
+      "title": "table protocol_template_items",
+      "body": "protocols_engine_tables (§2.6): a template step's checklist, copied into each new run.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Template item id.\n  step_id uuid not null references protocol_template_steps(id) on delete cascade — The template step.\n  position int not null — Order in the checklist, from 1.\n  text_en text not null check (coalesce(length(btrim(text_en)),0) > 0) — Checklist line, English.\n  text_ar text not null check (coalesce(length(btrim(text_ar)),0) > 0) — Checklist line, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:protocol_template_steps",
+      "lang": "en",
+      "title": "table protocol_template_steps",
+      "body": "protocols_engine_tables (§2.6): a template's ordered steps. step_key names a built-in step of app.protocol_step_defs (fixed actors, optional flag and dependencies); NULL is the owner's own step.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Template step id.\n  template_id uuid not null references protocol_templates(id) on delete cascade — The template.\n  position int not null check (position >= 1) — Order in the template, from 1. A built-in step comes after its dependencies; the first and last built-in steps keep their places.\n  step_key text — The built-in step (app.protocol_step_defs), or NULL for a step the owner added.\n  name_en text not null check (coalesce(length(btrim(name_en)),0) > 0) — Step name, English (the owner may rename a built-in step).\n  name_ar text not null check (coalesce(length(btrim(name_ar)),0) > 0) — Step name, Arabic.\n  actor_roles staff_role[] not null check (cardinality(actor_roles) >= 1) — Who does the step. Fixed for a built-in step; the owner's pick among the hireable roles for their own.\n  needs_owner_ok boolean not null default false — \"Needs my OK\": the owner decides the step; off, a manager at the venue (or the owner) decides. Fixed where the def says ok_fixed.\n  optional boolean not null default false — An optional step may be skipped with a reason by its decider. Fixed for a built-in step.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:protocol_templates",
+      "lang": "en",
+      "title": "table protocol_templates",
+      "body": "protocols_engine_tables (§2.6): one template per venue, kind and tournament variant, the steps a new run of that kind snapshots. Edited by the owner through app.save_protocol_template (How it works); seeded by app.protocol_seed_venue. Read by MGMT at the venue.\nCreated in migration 0163.\nColumns:\n  id uuid primary key default gen_random_uuid() — Template id.\n  venue_id uuid not null references venues(id) — The venue the template belongs to; runs start from their venue's template.\n  kind text not null check (kind in ('product_release','tournament','hiring','price_promo')) — product_release, tournament, hiring or price_promo.\n  variant text check (variant in ('type1','type2','type3')) — Tournament only: type1, type2 (community) or type3 (sponsor or client); NULL for every other kind.\n  name_en text not null check (coalesce(length(btrim(name_en)),0) > 0) — Template name, English.\n  name_ar text not null check (coalesce(length(btrim(name_ar)),0) > 0) — Template name, Arabic.\n  version int not null default 1 — Bumped by every save; runs record the version they started from, and a save with a stale version is refused TEMPLATE_CHANGED.\n  updated_by uuid references staff(id) — The owner who saved it last; NULL for the seed.\n  updated_at timestamptz not null default now() — When it was last saved.",
       "route": null
     },
     {
@@ -5095,6 +5319,646 @@
       "lang": "en",
       "title": "promotions.weekdays",
       "body": "int[] not null default '{}'\n0 = Sunday .. 6 = Saturday (extract(dow)); empty = any day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_items.done_at",
+      "lang": "en",
+      "title": "protocol_run_items.done_at",
+      "body": "timestamptz\nWhen it was ticked; NULL while open.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_items.done_by",
+      "lang": "en",
+      "title": "protocol_run_items.done_by",
+      "body": "uuid references staff(id)\nWho ticked it; NULL while open.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_items.id",
+      "lang": "en",
+      "title": "protocol_run_items.id",
+      "body": "uuid primary key default gen_random_uuid()\nRun item id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_items.position",
+      "lang": "en",
+      "title": "protocol_run_items.position",
+      "body": "int not null\nOrder in the checklist, from 1.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_items.run_step_id",
+      "lang": "en",
+      "title": "protocol_run_items.run_step_id",
+      "body": "uuid not null references protocol_run_steps(id) on delete cascade\nThe run step.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_items.text_ar",
+      "lang": "en",
+      "title": "protocol_run_items.text_ar",
+      "body": "text not null\nChecklist line, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_items.text_en",
+      "lang": "en",
+      "title": "protocol_run_items.text_en",
+      "body": "text not null\nChecklist line, English.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.actor_roles",
+      "lang": "en",
+      "title": "protocol_run_steps.actor_roles",
+      "body": "staff_role[] not null\nWho does the step. A manager may cover a step whose actors do not include the owner; the owner may cover any step.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.after_keys",
+      "lang": "en",
+      "title": "protocol_run_steps.after_keys",
+      "body": "text[] not null default '{}'\nThe built-in steps this one waits for (from the def).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.assigned_to",
+      "lang": "en",
+      "title": "protocol_run_steps.assigned_to",
+      "body": "uuid references staff(id)\nWhen set, only this person does the step (a release's test is the proposer's).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.id",
+      "lang": "en",
+      "title": "protocol_run_steps.id",
+      "body": "uuid primary key default gen_random_uuid()\nRun step id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.name_ar",
+      "lang": "en",
+      "title": "protocol_run_steps.name_ar",
+      "body": "text not null\nStep name, Arabic, as snapshotted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.name_en",
+      "lang": "en",
+      "title": "protocol_run_steps.name_en",
+      "body": "text not null\nStep name, English, as snapshotted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.needs_owner_ok",
+      "lang": "en",
+      "title": "protocol_run_steps.needs_owner_ok",
+      "body": "boolean not null\nThe owner decides; off, a manager at the venue or the owner. Taken from the def on a step whose OK is fixed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.opened_at",
+      "lang": "en",
+      "title": "protocol_run_steps.opened_at",
+      "body": "timestamptz\nWhen the step last opened.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.optional",
+      "lang": "en",
+      "title": "protocol_run_steps.optional",
+      "body": "boolean not null\nMay be skipped with a reason by its decider.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.passed_at",
+      "lang": "en",
+      "title": "protocol_run_steps.passed_at",
+      "body": "timestamptz\nWhen the step passed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.position",
+      "lang": "en",
+      "title": "protocol_run_steps.position",
+      "body": "int not null\nOrder in the run, from 1.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.round",
+      "lang": "en",
+      "title": "protocol_run_steps.round",
+      "body": "int not null default 1\nStarts at 1; a send-back to this step (or below it) starts a new round.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.skip_note",
+      "lang": "en",
+      "title": "protocol_run_steps.skip_note",
+      "body": "text\nWhy an optional step was skipped (required when skipped).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.skipped_at",
+      "lang": "en",
+      "title": "protocol_run_steps.skipped_at",
+      "body": "timestamptz\nWhen it was skipped.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.skipped_by",
+      "lang": "en",
+      "title": "protocol_run_steps.skipped_by",
+      "body": "uuid references staff(id)\nWho skipped it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.status",
+      "lang": "en",
+      "title": "protocol_run_steps.status",
+      "body": "text not null default 'waiting' check (status in ('waiting','open','submitted','passed','skipped','stopped'))\nwaiting, open, submitted, passed, skipped or stopped.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_run_steps.step_key",
+      "lang": "en",
+      "title": "protocol_run_steps.step_key",
+      "body": "text\nThe built-in step, or NULL for an owner-added step.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.data",
+      "lang": "en",
+      "title": "protocol_runs.data",
+      "body": "jsonb not null default '{}'\nKind-level fields written by the kind's hooks (a tournament's plan once it passes). Returned only to MGMT and the starter.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.finished_at",
+      "lang": "en",
+      "title": "protocol_runs.finished_at",
+      "body": "timestamptz\nWhen the run reached done, stopped or withdrawn; NULL before.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.kind",
+      "lang": "en",
+      "title": "protocol_runs.kind",
+      "body": "text not null check (kind in ('product_release','tournament','hiring','price_promo'))\nproduct_release, tournament, hiring or price_promo.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.live_at",
+      "lang": "en",
+      "title": "protocol_runs.live_at",
+      "body": "timestamptz\nWhen a released item went on sale.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.menu_item_id",
+      "lang": "en",
+      "title": "protocol_runs.menu_item_id",
+      "body": "uuid references menu_items(id) on delete set null\nThe item the run is about: a release's draft item, a price change's target.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.photos_purged_at",
+      "lang": "en",
+      "title": "protocol_runs.photos_purged_at",
+      "body": "timestamptz\nWhen a stopped or withdrawn run's photos were removed from storage (90 days after it finished).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.promotion_id",
+      "lang": "en",
+      "title": "protocol_runs.promotion_id",
+      "body": "uuid references promotions(id) on delete set null\nThe promotion a promotion change is about.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.scheduled_for",
+      "lang": "en",
+      "title": "protocol_runs.scheduled_for",
+      "body": "timestamptz\nThe launch or apply date while the run is scheduled.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.started_at",
+      "lang": "en",
+      "title": "protocol_runs.started_at",
+      "body": "timestamptz not null default now()\nWhen it was started.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.started_by",
+      "lang": "en",
+      "title": "protocol_runs.started_by",
+      "body": "uuid not null references staff(id)\nWho started the run.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.status",
+      "lang": "en",
+      "title": "protocol_runs.status",
+      "body": "text not null default 'active' check (status in ('active','scheduled','live','done','stopped','withdrawn'))\nactive, scheduled (the last step passed for a date), live (a released item, until its day-30 review), done, stopped or withdrawn.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.stop_reason",
+      "lang": "en",
+      "title": "protocol_runs.stop_reason",
+      "body": "text\nWhy the run was stopped (required when stopped).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.template_id",
+      "lang": "en",
+      "title": "protocol_runs.template_id",
+      "body": "uuid not null references protocol_templates(id)\nThe template the run was started from.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.template_version",
+      "lang": "en",
+      "title": "protocol_runs.template_version",
+      "body": "int not null\nThe template version snapshotted at start; later template edits do not reach this run.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.title_ar",
+      "lang": "en",
+      "title": "protocol_runs.title_ar",
+      "body": "text\nRun title as the starter typed it in Arabic.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.title_en",
+      "lang": "en",
+      "title": "protocol_runs.title_en",
+      "body": "text\nRun title as the starter typed it in English (staff may type one language; the owner types both). At least one of the two is set.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.variant",
+      "lang": "en",
+      "title": "protocol_runs.variant",
+      "body": "text\nTournament only: type1, type2 or type3.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_runs.venue_id",
+      "lang": "en",
+      "title": "protocol_runs.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue the run belongs to.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.decided_at",
+      "lang": "en",
+      "title": "protocol_submissions.decided_at",
+      "body": "timestamptz\nWhen it was decided.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.decided_by",
+      "lang": "en",
+      "title": "protocol_submissions.decided_by",
+      "body": "uuid references staff(id)\nWho decided it (the sender for an automatic pass).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.decision",
+      "lang": "en",
+      "title": "protocol_submissions.decision",
+      "body": "text check (decision in ('approve','auto','send_back','stop'))\napprove, auto (the sender decides this step), send_back or stop.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.decision_note",
+      "lang": "en",
+      "title": "protocol_submissions.decision_note",
+      "body": "text\nThe decider's note; required for send_back and stop.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.id",
+      "lang": "en",
+      "title": "protocol_submissions.id",
+      "body": "uuid primary key default gen_random_uuid()\nSubmission id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.photos",
+      "lang": "en",
+      "title": "protocol_submissions.photos",
+      "body": "text[] not null default '{}' check (cardinality(photos) <= 8)\nstaff-media paths attached, claimed through app.claim_staff_media (at most 8).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.record",
+      "lang": "en",
+      "title": "protocol_submissions.record",
+      "body": "jsonb not null\nThe step's form, as the kind's check hook normalised it (a note only for an owner-added step).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.round",
+      "lang": "en",
+      "title": "protocol_submissions.round",
+      "body": "int not null\nThe step's round when it was sent.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.run_id",
+      "lang": "en",
+      "title": "protocol_submissions.run_id",
+      "body": "uuid not null references protocol_runs(id) on delete cascade\nThe run (denormalised for the run's reads).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.run_step_id",
+      "lang": "en",
+      "title": "protocol_submissions.run_step_id",
+      "body": "uuid not null references protocol_run_steps(id) on delete cascade\nThe run step.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.send_back_to",
+      "lang": "en",
+      "title": "protocol_submissions.send_back_to",
+      "body": "uuid references protocol_run_steps(id)\nThe step a send_back reopened (this step or a passed step below it).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.submitted_at",
+      "lang": "en",
+      "title": "protocol_submissions.submitted_at",
+      "body": "timestamptz not null default now()\nWhen it was sent.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.submitted_by",
+      "lang": "en",
+      "title": "protocol_submissions.submitted_by",
+      "body": "uuid not null references staff(id)\nWho sent it (the actor, or a manager or owner covering).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.superseded_at",
+      "lang": "en",
+      "title": "protocol_submissions.superseded_at",
+      "body": "timestamptz\nWhen a send-back to an earlier step set this undecided submission aside.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_submissions.withdrawn_at",
+      "lang": "en",
+      "title": "protocol_submissions.withdrawn_at",
+      "body": "timestamptz\nWhen the sender took it back before a decision.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_items.id",
+      "lang": "en",
+      "title": "protocol_template_items.id",
+      "body": "uuid primary key default gen_random_uuid()\nTemplate item id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_items.position",
+      "lang": "en",
+      "title": "protocol_template_items.position",
+      "body": "int not null\nOrder in the checklist, from 1.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_items.step_id",
+      "lang": "en",
+      "title": "protocol_template_items.step_id",
+      "body": "uuid not null references protocol_template_steps(id) on delete cascade\nThe template step.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_items.text_ar",
+      "lang": "en",
+      "title": "protocol_template_items.text_ar",
+      "body": "text not null check (coalesce(length(btrim(text_ar)),0) > 0)\nChecklist line, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_items.text_en",
+      "lang": "en",
+      "title": "protocol_template_items.text_en",
+      "body": "text not null check (coalesce(length(btrim(text_en)),0) > 0)\nChecklist line, English.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.actor_roles",
+      "lang": "en",
+      "title": "protocol_template_steps.actor_roles",
+      "body": "staff_role[] not null check (cardinality(actor_roles) >= 1)\nWho does the step. Fixed for a built-in step; the owner's pick among the hireable roles for their own.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.id",
+      "lang": "en",
+      "title": "protocol_template_steps.id",
+      "body": "uuid primary key default gen_random_uuid()\nTemplate step id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.name_ar",
+      "lang": "en",
+      "title": "protocol_template_steps.name_ar",
+      "body": "text not null check (coalesce(length(btrim(name_ar)),0) > 0)\nStep name, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.name_en",
+      "lang": "en",
+      "title": "protocol_template_steps.name_en",
+      "body": "text not null check (coalesce(length(btrim(name_en)),0) > 0)\nStep name, English (the owner may rename a built-in step).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.needs_owner_ok",
+      "lang": "en",
+      "title": "protocol_template_steps.needs_owner_ok",
+      "body": "boolean not null default false\n\"Needs my OK\": the owner decides the step; off, a manager at the venue (or the owner) decides. Fixed where the def says ok_fixed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.optional",
+      "lang": "en",
+      "title": "protocol_template_steps.optional",
+      "body": "boolean not null default false\nAn optional step may be skipped with a reason by its decider. Fixed for a built-in step.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.position",
+      "lang": "en",
+      "title": "protocol_template_steps.position",
+      "body": "int not null check (position >= 1)\nOrder in the template, from 1. A built-in step comes after its dependencies; the first and last built-in steps keep their places.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.step_key",
+      "lang": "en",
+      "title": "protocol_template_steps.step_key",
+      "body": "text\nThe built-in step (app.protocol_step_defs), or NULL for a step the owner added.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_template_steps.template_id",
+      "lang": "en",
+      "title": "protocol_template_steps.template_id",
+      "body": "uuid not null references protocol_templates(id) on delete cascade\nThe template.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.id",
+      "lang": "en",
+      "title": "protocol_templates.id",
+      "body": "uuid primary key default gen_random_uuid()\nTemplate id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.kind",
+      "lang": "en",
+      "title": "protocol_templates.kind",
+      "body": "text not null check (kind in ('product_release','tournament','hiring','price_promo'))\nproduct_release, tournament, hiring or price_promo.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.name_ar",
+      "lang": "en",
+      "title": "protocol_templates.name_ar",
+      "body": "text not null check (coalesce(length(btrim(name_ar)),0) > 0)\nTemplate name, Arabic.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.name_en",
+      "lang": "en",
+      "title": "protocol_templates.name_en",
+      "body": "text not null check (coalesce(length(btrim(name_en)),0) > 0)\nTemplate name, English.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.updated_at",
+      "lang": "en",
+      "title": "protocol_templates.updated_at",
+      "body": "timestamptz not null default now()\nWhen it was last saved.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.updated_by",
+      "lang": "en",
+      "title": "protocol_templates.updated_by",
+      "body": "uuid references staff(id)\nThe owner who saved it last; NULL for the seed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.variant",
+      "lang": "en",
+      "title": "protocol_templates.variant",
+      "body": "text check (variant in ('type1','type2','type3'))\nTournament only: type1, type2 (community) or type3 (sponsor or client); NULL for every other kind.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.venue_id",
+      "lang": "en",
+      "title": "protocol_templates.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue the template belongs to; runs start from their venue's template.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:protocol_templates.version",
+      "lang": "en",
+      "title": "protocol_templates.version",
+      "body": "int not null default 1\nBumped by every save; runs record the version they started from, and a save with a stale version is refused TEMPLATE_CHANGED.",
       "route": null
     },
     {
@@ -17918,7 +18782,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#100",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "- `record_purchase` marks the lines' shopping items `bought`, notifies managers\n  `purchase_to_receive`, never touches the till, the drawer or day close.\n- `add_shopping_item` notifies the venue's drivers `shopping_new` with dedupe `shopping:<venue_id>`.\n- `receive_purchase` locks the purchase row, refuses a received line, calls the public\n  `app.receive_delivery` (0145:242) with `p_idempotency_key => null` (the outer claim covers it) and\n  lines `{ingredient_id, qty_expected: line.qty, qty_received, unit_cost_iqd: price_iqd / qty, expiry_date}`\n  (a cost per base unit, 0017:108), sets `purchases.delivery_id` to the returned `delivery_id`,\n  marks the received lines `received`, and sets the purchase `done` when no line is `to_receive`.\n  One transaction. `p_lines` names every stock line still `to_receive` (else `INVALID_ARGUMENT`,\n  hint `lines`; a short line is `qty_received` below the bought quantity), so one purchase makes\n  exactly one delivery. The link is at purchase level on purpose: `receive_delivery` returns only\n  `{delivery_id, batch_ids}` (0145:333) and `delivery_lines` has no ordering column and no\n  reference back (0017:103-111), so two purchase lines of the same ingredient could not be matched\n  to their delivery lines.\n\n### 2.16 `staff_production` (C)\n\n- `app.record_production_internal(p_ingredient_id uuid, p_qty numeric, p_expiry_date date, p_device_id text) returns jsonb`:\n  the 0018:342-399 body without its guard, internal.\n- `app.record_production` (same signature `(uuid, numeric, date, text)`, same MGMT guard) calls it.",
+      "body": "- `record_purchase` marks the lines' shopping items `bought`, notifies managers\n  `purchase_to_receive`, never touches the till, the drawer or day close.\n- `add_shopping_item` notifies the venue's drivers `shopping_new` with dedupe `shopping:<venue_id>`.\n- `receive_purchase` locks the purchase row, refuses a received line, calls the public\n  `app.receive_delivery` (0145:242) with `p_idempotency_key => null` (the outer claim covers it) and\n  lines `{ingredient_id, qty_expected: line.qty, qty_received, unit_cost_iqd: price_iqd / qty, expiry_date}`\n  (a cost per base unit, 0017:108), sets `purchases.delivery_id` to the returned `delivery_id`,\n  marks the received lines `received`, and sets the purchase `done` when no line is `to_receive`.\n  One transaction. `p_lines` names every stock line still `to_receive` (else `INVALID_ARGUMENT`,\n  hint `lines`; a short line is `qty_received` below the bought quantity), so one purchase makes\n  exactly one delivery. The link is at purchase level on purpose: `receive_delivery` returns only\n  `{delivery_id, batch_ids}` (0145:333) and `delivery_lines` has no ordering column and no\n  reference back (0017:103-111), so two purchase lines of the same ingredient could not be matched\n  to their delivery lines.\n- A stock line whose ingredient is switched off after the purchase cannot be booked\n  (`receive_delivery` takes active ingredients only, 0145:295). `receive_purchase` refuses the\n  whole purchase with `INGREDIENT_NOT_FOUND` (hint `lines`, detail the line) before it books\n  anything, and `acknowledge_purchase_line` closes that line as it closes a label line; then the\n  rest is received. Goods in (I) offers Acknowledge on a line with `ingredient_active = false`\n  (review 2026-09-25).\n\n### 2.16 `staff_production` (C)",
       "route": null
     },
     {
@@ -17926,7 +18790,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#101",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "| RPC | Args | Returns | Guard | Errors | Key | Audit |\n|---|---|---|---|---|---|---|\n| `production_today` | `p_venue_id uuid default null` | `{items: [{ingredient_id, name_en, name_ar, unit, on_hand, par_level, below_par, made_today, shelf_life_days}]}` (active prepared ingredients with an output recipe; no cost) | CHEFS + MGMT at venue | `FORBIDDEN` | – | – |\n| `record_batch` | `p_ingredient_id uuid, p_qty numeric, p_expiry_date date default null, p_venue_id uuid default null, p_idempotency_key text default null` | `{batch_id, qty, expiry_date}` (never `unit_cost_iqd`) | CHEFS + MGMT at venue | `INVALID_QTY`, `NOT_PREPARED`, `NO_RECIPE`, `INGREDIENT_NOT_FOUND` | yes | `stock.record_production` (from the body) |\n| `production_log_today` | `p_venue_id uuid default null` | `{rows: [{movement_id, ingredient_id, name_en, name_ar, qty, unit, staff_name, at}]}` (`production_in` today) | CHEFS + MGMT at venue | `FORBIDDEN` | – | – |\n\nBar batches (syrups) are not in v1 (**PROPOSAL**; the decision names chef production).\n\n### 2.17 `marketing_staff` (C)",
+      "body": "- `app.record_production_internal(p_ingredient_id uuid, p_qty numeric, p_expiry_date date, p_device_id text) returns jsonb`:\n  the 0018:342-399 body without its guard, internal.\n- `app.record_production` (same signature `(uuid, numeric, date, text)`, same MGMT guard) calls it.\n\n| RPC | Args | Returns | Guard | Errors | Key | Audit |\n|---|---|---|---|---|---|---|\n| `production_today` | `p_venue_id uuid default null` | `{items: [{ingredient_id, name_en, name_ar, unit, on_hand, par_level, below_par, made_today, shelf_life_days}]}` (active prepared ingredients with an output recipe; no cost) | CHEFS + MGMT at venue | `FORBIDDEN` | – | – |\n| `record_batch` | `p_ingredient_id uuid, p_qty numeric, p_expiry_date date default null, p_venue_id uuid default null, p_idempotency_key text default null` | `{batch_id, qty, expiry_date}` (never `unit_cost_iqd`) | CHEFS + MGMT at venue | `INVALID_QTY`, `NOT_PREPARED`, `NO_RECIPE`, `INGREDIENT_NOT_FOUND` | yes | `stock.record_production` (from the body) |\n| `production_log_today` | `p_venue_id uuid default null` | `{rows: [{movement_id, ingredient_id, name_en, name_ar, qty, unit, staff_name, at}]}` (`production_in` today) | CHEFS + MGMT at venue | `FORBIDDEN` | – | – |\n\nBar batches (syrups) are not in v1 (**PROPOSAL**; the decision names chef production).\n\n### 2.17 `marketing_staff` (C)",
       "route": null
     },
     {
@@ -17958,7 +18822,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#105",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "| Object | Latest body today | Lane | Change |\n|---|---|---|---|\n| `notification_outbox` kind CHECK | 0075:45-60 | G | four staff kinds |\n| `app.set_staff_active` | 0081:67 | G | clear the push token on deactivate |\n| `app.submit_staff_request`, `app.decide_staff_request` | 0072 | G | one notify each |\n| `app.upsert_variant` | 0013:203 | E, then F | E: `upsert_variant_internal` + wrapper with `ITEM_IN_RELEASE`; F (`price_promo`), from E's wrapper body: + `PRICE_VIA_PROTOCOL` for a manager on any launched item, shop included (§2.13) |\n| `app.upsert_menu_item` | 0054:48 | E | `upsert_menu_item_internal` (with the `launched_at` stamp) + wrapper with `ITEM_IN_RELEASE` and the manager new-item guard (`ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`, §2.9) |\n| `app.upsert_modifier` | 0013:298 | F | `upsert_modifier_internal` (with the `launched_at` stamp) + wrapper with the add-on lock (`PRICE_VIA_PROTOCOL`, `LAUNCH_VIA_PROTOCOL`, §2.13) |\n| `v_variance_report` | 0019:205 | E | `product_test_qty` last |\n| `app.report_stock` | 0068 | E | `productTestQty` |\n| `app.record_production` | 0018:342 | C | wrapper |\n| `app.upsert_promotion`, `app.set_promotion_enabled` | 0067:258, 0067:484 | F | internals + wrappers with the manager promotion lock (#57, §2.13) |\n| `app.generate_promo_code` | 0067:525 | F | the manager refusal after its guard (#57, §2.13) |\n| `app.upsert_rate_rule` | 0071:153 | F | `upsert_rate_rule_internal` + wrapper with the manager rate lock (#57, §2.13) |\n| `app.set_cafe_setting` | 0029:280 | F | `set_cafe_setting_internal` + wrapper with the manager featured-discount lock (#57, §2.13) |\n| `app.analytics_open_minutes` | 0097:236 | F | event minutes; drop and recreate |\n| `app.analytics_courts_summary`, `app.analytics_courts_cafe` | 0147 | F | carry `event_minutes` |\n| `app.report_courts` | 0097:1299 | F | carry `event_minutes` (the courts report's Events line) |\n| policies `tabs_staff_read`, `orders_staff_read`, `order_items_staff_read`, `order_item_modifiers_staff_r",
+      "body": "| Object | Latest body today | Lane | Change |\n|---|---|---|---|\n| `notification_outbox` kind CHECK | 0075:45-60 | G | four staff kinds |\n| `app.set_staff_active` | 0081:67 | G | clear the push token on deactivate |\n| `app.claim_staff_media` | 0159 (G) | A (`protocols_engine_rpcs`) | re-claim from an earlier round of the same run step (§2.3) |\n| policy `staff_media_read` on `storage.objects` | 0159 (G) | A (`protocols_engine_rpcs`) | `bucket_id = 'staff-media' and app.staff_media_visible(name)`, dropped and created in one guarded block (§2.3) |\n| `app.submit_staff_request`, `app.decide_staff_request` | 0072 | G | one notify each |\n| `app.upsert_variant` | 0013:203 | E, then F | E: `upsert_variant_internal` + wrapper with `ITEM_IN_RELEASE`; F (`price_promo`), from E's wrapper body: + `PRICE_VIA_PROTOCOL` for a manager on any launched item, shop included (§2.13) |\n| `app.upsert_menu_item` | 0054:48 | E | `upsert_menu_item_internal` (with the `launched_at` stamp) + wrapper with `ITEM_IN_RELEASE` and the manager new-item guard (`ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`, §2.9) |\n| `app.upsert_modifier` | 0013:298 | F | `upsert_modifier_internal` (with the `launched_at` stamp) + wrapper with the add-on lock (`PRICE_VIA_PROTOCOL`, `LAUNCH_VIA_PROTOCOL`, §2.13) |\n| `v_variance_report` | 0019:205 | E | `product_test_qty` last |\n| `app.report_stock` | 0068 | E | `productTestQty` |\n| `app.record_production` | 0018:342 | C | wrapper |\n| `app.upsert_promotion`, `app.set_promotion_enabled` | 0067:258, 0067:484 | F | internals + wrappers with the manager promotion lock (#57, §2.13) |\n| `app.generate_promo_code` | 0067:525 | F | the manager refusal after its guard (#57, §2.13) |\n| `app.upsert_rate_rule` | 0071:153 | F | `upsert_rate_rule_internal` + wrapper with the manager rate lock (#57, §2.13) |\n| `app.set_cafe_setting` | 0029:280 | F | `set_cafe_setting_internal` + wrapper with the manager featured-discount lock (#57, §2.13) |\n| `app.analytics_open_minutes` | 0097:236 | F | eve",
       "route": null
     },
     {
@@ -17966,7 +18830,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#106",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "ead` | 0157:36-61 | K | without the bar and kitchen family and prep; venue conjunct on the last two (#60, §2.23) |",
+      "body": "nt minutes; drop and recreate |\n| `app.analytics_courts_summary`, `app.analytics_courts_cafe` | 0147 | F | carry `event_minutes` |\n| `app.report_courts` | 0097:1299 | F | carry `event_minutes` (the courts report's Events line) |\n| policies `tabs_staff_read`, `orders_staff_read`, `order_items_staff_read`, `order_item_modifiers_staff_read` | 0157:36-61 | K | without the bar and kitchen family and prep; venue conjunct on the last two (#60, §2.23) |",
       "route": null
     },
     {
@@ -18494,7 +19358,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#166",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 8. Verification and acceptance",
-      "body": "- `rls-matrix.ts` rows for every new table and granted RPC across the eight principals.\n- Driver and marketing denials (the `new-roles.test.ts` style), **each DB lane for its own tables\n  and RPCs, in its own test files** (A in `protocols-roles.test.ts`; C, E and F in the files §1.2\n  gives them): no read of a new table, no record of an `mgmt` step, no purchase price except their\n  own purchases (driver), no cost anywhere.\n- Engine: every transition in both allowed-tables, send back (history kept, later steps reset),\n  stop, skip, withdraw, automatic pass for manager and owner, `CANNOT_DECIDE_OWN`, the dependency\n  rule in template saves, owner-only per-run edits, idempotent `start_protocol` and `submit_step`\n  replays, a missing hook's `PROTOCOL_NOT_READY`, a null `p_first_record` refused, a resubmission\n  that re-claims the earlier round's photos, and the reason CHECKs refusing a NULL\n  `stop_reason`, `skip_note` and send-back or stop `decision_note` at the table. The fixed OK\n  (#58): `save_protocol_template` refuses `needs_owner_ok = false` on release `analysis` and\n  price/promo `numbers`, and any change of it on `launch` and `add_staff`, with\n  `PROTOCOL_STEP_FIXED`, while a rename and a checklist edit of the same steps pass; a template\n  row set to false through the service role still snapshots `needs_owner_ok = true` on those two\n  steps of a new run, so a manager's submission there goes to the owner.\n- E: `ITEM_IN_RELEASE` on activation and on a price change or new size of an item in release, for\n  the manager and the owner, while `protocol_pass_product_release_analysis` still writes the\n  prices; a manager-started release (its `propose` record carries `category_id` and passes at\n  once); test consumption as `product_test` (not waste); the variance column; scheduled launch\n  launched and reverted; a launch-now with a missing or foreign `menu_photo_path` refused;\n  `release_launch_scheduled` and `release_review_input` called as `service_role` without\n  `FORB",
+      "body": "- `rls-matrix.ts` rows for every new table and granted RPC across the eight principals.\n- Driver and marketing denials (the `new-roles.test.ts` style), **each DB lane for its own tables\n  and RPCs, in its own test files** (A in `protocols-roles.test.ts`; C, E and F in the files §1.2\n  gives them): no read of a new table, no record of an `mgmt` step, no purchase price except their\n  own purchases (driver), no cost anywhere.\n- Engine: every transition in both allowed-tables, send back (history kept, later steps reset),\n  stop, skip, withdraw, automatic pass for manager and owner, `CANNOT_DECIDE_OWN`, the dependency\n  rule in template saves, owner-only per-run edits, idempotent `start_protocol` and `submit_step`\n  replays, a missing hook's `PROTOCOL_NOT_READY`, a null `p_first_record` refused, a resubmission\n  that re-claims the earlier round's photos (an approved one sent back from a later step\n  included), a send-back that leaves a step not waiting on its target as it was (in the default\n  and the swapped order), an owner-added step refused above a started step, storage showing a\n  photo to exactly those the engine's reads show it to, and the reason CHECKs refusing a NULL\n  `stop_reason`, `skip_note` and send-back or stop `decision_note` at the table. The fixed OK\n  (#58): `save_protocol_template` refuses `needs_owner_ok = false` on release `analysis` and\n  price/promo `numbers`, and any change of it on `launch` and `add_staff`, with\n  `PROTOCOL_STEP_FIXED`, while a rename and a checklist edit of the same steps pass; a template\n  row set to false through the service role still snapshots `needs_owner_ok = true` on those two\n  steps of a new run, so a manager's submission there goes to the owner.\n- E: `ITEM_IN_RELEASE` on activation and on a price change or new size of an item in release, for\n  the manager and the owner, while `protocol_pass_product_release_analysis` still writes the\n  prices; a manager-started release (its `propose` record carries `category_id` and pa",
       "route": null
     },
     {
@@ -18502,7 +19366,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#167",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 8. Verification and acceptance",
-      "body": "IDDEN`. Day-30 access (#54): `release_review` refuses a non-MGMT starter (a head chef) and\n  every other non-MGMT role with `FORBIDDEN`, and returns the full review to a manager and the\n  owner; `release_review_save` queues `review_ready` for the owners and the venue's managers and\n  none for a non-MGMT starter. New-item guard (#52, #53): a manager's new item in a cafe category\n  refused `ITEM_VIA_RELEASE` hidden or on; a manager's switch-on of a never-launched cafe item (the\n  owner's hidden draft) refused `ITEM_VIA_RELEASE`, and its move from a shop category into a cafe\n  one too; a manager's new shop product saved on, and a switch-on of a hidden one, refused\n  `LAUNCH_VIA_PROTOCOL`, while saved hidden it passes; a manager switches a launched item (one that\n  existed before the migration and is off) back on; the owner creates and switches on cafe items\n  and shop products directly; a manager's accept of a release proposal still creates the draft\n  (through `upsert_menu_item_internal`); `launched_at` is set by a save that leaves an item active\n  and by `release_launch_internal`, and is null on a new hidden item. The accepted limit (plan\n  #59): a manager renames an item that existed before the migration and is off, and switches it\n  on, without a refusal. `release_review_input` returns `notes` and `marketing_take` with no\n  author name.\n- C: `receive_purchase` retried with the same key books stock once; a second key refuses\n  `PURCHASE_ALREADY_RECEIVED`; a receive that leaves out a stock line refused; `suggest_campaign`\n  with one name and no channel gives `BAD_CHANNEL`, not a 23502.\n- F: an event block with a conflict writes nothing; event minutes stay open capacity and appear in\n  `event_minutes` in all three re-issued outputs, `report_courts` included; `tournament_context`\n  gives the court desk the ranges and no money; the purge deletes candidates and overwrites\n  decision notes, skip notes and the stop reason with the marker, on a run with a send-back;\n  `app.",
+      "body": "sses at\n  once); test consumption as `product_test` (not waste); the variance column; scheduled launch\n  launched and reverted; a launch-now with a missing or foreign `menu_photo_path` refused;\n  `release_launch_scheduled` and `release_review_input` called as `service_role` without\n  `FORBIDDEN`. Day-30 access (#54): `release_review` refuses a non-MGMT starter (a head chef) and\n  every other non-MGMT role with `FORBIDDEN`, and returns the full review to a manager and the\n  owner; `release_review_save` queues `review_ready` for the owners and the venue's managers and\n  none for a non-MGMT starter. New-item guard (#52, #53): a manager's new item in a cafe category\n  refused `ITEM_VIA_RELEASE` hidden or on; a manager's switch-on of a never-launched cafe item (the\n  owner's hidden draft) refused `ITEM_VIA_RELEASE`, and its move from a shop category into a cafe\n  one too; a manager's new shop product saved on, and a switch-on of a hidden one, refused\n  `LAUNCH_VIA_PROTOCOL`, while saved hidden it passes; a manager switches a launched item (one that\n  existed before the migration and is off) back on; the owner creates and switches on cafe items\n  and shop products directly; a manager's accept of a release proposal still creates the draft\n  (through `upsert_menu_item_internal`); `launched_at` is set by a save that leaves an item active\n  and by `release_launch_internal`, and is null on a new hidden item. The accepted limit (plan\n  #59): a manager renames an item that existed before the migration and is off, and switches it\n  on, without a refusal. `release_review_input` returns `notes` and `marketing_take` with no\n  author name.\n- C: `receive_purchase` retried with the same key books stock once; a second key refuses\n  `PURCHASE_ALREADY_RECEIVED`; a receive that leaves out a stock line refused; `suggest_campaign`\n  with one name and no channel gives `BAD_CHANNEL`, not a 23502.\n- F: an event block with a conflict writes nothing; event minutes stay open capacity and appear in",
       "route": null
     },
     {
@@ -18510,7 +19374,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#168",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 8. Verification and acceptance",
-      "body": "assistant_readable_columns` has no `hiring_candidates` row. **The price locks** (#41, #51,\n  #53), each as manager and as owner: `PRICE_VIA_PROTOCOL` for a manager on a launched cafe item's\n  size price, on a new size of a launched item, on an item that existed before the migration and\n  is off today, on a launched shop product's price through `upsert_variant` **and through\n  `upsert_retail_variant`** (the pin of §2.13), and on a launched add-on's `price_delta_iqd`\n  (including one that existed before the migration and is off); allowed for a manager: a\n  never-launched hidden draft's prices (item, shop product, add-on), a launched product's SKU,\n  barcode, supplier, pack cost and low-stock level with the price unchanged, a size rename,\n  default or reorder, an add-on rename, reorder and off-and-on switch; `LAUNCH_VIA_PROTOCOL` for a\n  manager's new paid add-on saved on and a never-launched paid add-on switched on; a free (0 IQD)\n  option added switched on by a manager and then stamped launched, so its later price is locked;\n  the owner passes every lock. The accepted limit (plan #59): an item and a paid add-on that\n  existed before the migration, renamed by a manager and switched back on, still refuse a price\n  change with `PRICE_VIA_PROTOCOL`. **The round 10 locks** (#57), each as manager and as owner:\n  `PRICE_VIA_PROTOCOL` for a manager's `upsert_promotion` (a new one, and an edit of an existing\n  one, on or off), `set_promotion_enabled(true)` on a switched-off promotion and\n  `generate_promo_code`, while `set_promotion_enabled(false)` passes; for a manager's\n  `upsert_rate_rule` (a new rule, an edit, a switch-off); for a manager's `set_cafe_setting` and\n  `set_cafe_settings` changing `featured_discount_pct` to 20, and changing `featured_item_id`\n  while the discount is 15, while setting the discount to 0, then moving the item, passes; a\n  manager's `hero_mode` → `featured` (from `media`) refused with the stored discount at 15 and\n  passing with it at 0, a move f",
+      "body": "`event_minutes` in all three re-issued outputs, `report_courts` included; `tournament_context`\n  gives the court desk the ranges and no money; the purge deletes candidates and overwrites\n  decision notes, skip notes and the stop reason with the marker, on a run with a send-back;\n  `app.assistant_readable_columns` has no `hiring_candidates` row. **The price locks** (#41, #51,\n  #53), each as manager and as owner: `PRICE_VIA_PROTOCOL` for a manager on a launched cafe item's\n  size price, on a new size of a launched item, on an item that existed before the migration and\n  is off today, on a launched shop product's price through `upsert_variant` **and through\n  `upsert_retail_variant`** (the pin of §2.13), and on a launched add-on's `price_delta_iqd`\n  (including one that existed before the migration and is off); allowed for a manager: a\n  never-launched hidden draft's prices (item, shop product, add-on), a launched product's SKU,\n  barcode, supplier, pack cost and low-stock level with the price unchanged, a size rename,\n  default or reorder, an add-on rename, reorder and off-and-on switch; `LAUNCH_VIA_PROTOCOL` for a\n  manager's new paid add-on saved on and a never-launched paid add-on switched on; a free (0 IQD)\n  option added switched on by a manager and then stamped launched, so its later price is locked;\n  the owner passes every lock. The accepted limit (plan #59): an item and a paid add-on that\n  existed before the migration, renamed by a manager and switched back on, still refuse a price\n  change with `PRICE_VIA_PROTOCOL`. **The round 10 locks** (#57), each as manager and as owner:\n  `PRICE_VIA_PROTOCOL` for a manager's `upsert_promotion` (a new one, and an edit of an existing\n  one, on or off), `set_promotion_enabled(true)` on a switched-off promotion and\n  `generate_promo_code`, while `set_promotion_enabled(false)` passes; for a manager's\n  `upsert_rate_rule` (a new rule, an edit, a switch-off); for a manager's `set_cafe_setting` and\n  `set_cafe_settings` ch",
       "route": null
     },
     {
@@ -18518,7 +19382,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#169",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 8. Verification and acceptance",
-      "body": "rom `featured` to `media` or `none` passing with the discount at\n  15, and a one-call `set_cafe_settings({featured_discount_pct: 0, hero_mode: 'featured'})`\n  passing; the labels, badges, ticker, hero media and bell keys pass as before; the owner passes\n  all of them. The\n  `set_cafe_settings` pin: the lock reaches it with no re-issue. **Propose-time target checks:** a `price` proposal on a\n  never-launched item or one in release, a `shop_launch` proposal on a launched or switched-on\n  product, and an `addon_price` proposal naming an add-on at another venue are refused\n  `RECORD_INVALID` with hint `menu_item_id` or `addons`, never a menu-writer code, including when\n  marketing starts the run. **The change kinds:** each of `price` (with a new size on a cafe\n  item, and a new size on a shop product refused `RECORD_INVALID`), `shop_launch` (prices written,\n  product switched on, `launched_at` stamped) and `addon_price` (a never-launched add-on switched on\n  and stamped, a launched off add-on left off) applied now and on a date; marketing's\n  `shop_launch` refused `NOT_STEP_ACTOR` and `price_promo_targets('shop_launch')` refused to\n  marketing; `PRICE_TARGET_CHANGED` for a removed size, a `price` item put in release, a\n  `shop_launch` product switched on by the owner and one given an extra size after approval; a\n  scheduled apply whose target changed reverts with `apply_not_ready` while another due run\n  applies. **The round 10 change kinds:** `promotion_edit` applied changes the fields and keeps\n  the switch (a live promotion stays on, a switched-off one stays off); `promotion_enable`\n  switches one on; a `rate` run creates a new rule and another edits a rule's prices (the old\n  prices gone, the booking price at a slot of that rule changed through `price_slot`); a\n  `featured_discount` run moves the featured item and sets the discount, and another, with the\n  hero on Media and that item and discount already stored, switches the hero to Featured at apply,\n  so `add_orde",
+      "body": "anging `featured_discount_pct` to 20, and changing `featured_item_id`\n  while the discount is 15, while setting the discount to 0, then moving the item, passes; a\n  manager's `hero_mode` → `featured` (from `media`) refused with the stored discount at 15 and\n  passing with it at 0, a move from `featured` to `media` or `none` passing with the discount at\n  15, and a one-call `set_cafe_settings({featured_discount_pct: 0, hero_mode: 'featured'})`\n  passing; the labels, badges, ticker, hero media and bell keys pass as before; the owner passes\n  all of them. The\n  `set_cafe_settings` pin: the lock reaches it with no re-issue. **Propose-time target checks:** a `price` proposal on a\n  never-launched item or one in release, a `shop_launch` proposal on a launched or switched-on\n  product, and an `addon_price` proposal naming an add-on at another venue are refused\n  `RECORD_INVALID` with hint `menu_item_id` or `addons`, never a menu-writer code, including when\n  marketing starts the run. **The change kinds:** each of `price` (with a new size on a cafe\n  item, and a new size on a shop product refused `RECORD_INVALID`), `shop_launch` (prices written,\n  product switched on, `launched_at` stamped) and `addon_price` (a never-launched add-on switched on\n  and stamped, a launched off add-on left off) applied now and on a date; marketing's\n  `shop_launch` refused `NOT_STEP_ACTOR` and `price_promo_targets('shop_launch')` refused to\n  marketing; `PRICE_TARGET_CHANGED` for a removed size, a `price` item put in release, a\n  `shop_launch` product switched on by the owner and one given an extra size after approval; a\n  scheduled apply whose target changed reverts with `apply_not_ready` while another due run\n  applies. **The round 10 change kinds:** `promotion_edit` applied changes the fields and keeps\n  the switch (a live promotion stays on, a switched-off one stays off); `promotion_enable`\n  switches one on; a `rate` run creates a new rule and another edits a rule's prices (the old\n  price",
       "route": null
     },
     {
@@ -18534,7 +19398,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#170",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 8. Verification and acceptance",
-      "body": "r_items` charges the approved discount; each started by marketing too, and applied\n  now and on a date; `PRICE_TARGET_CHANGED` for a promotion written after the proposal (hint\n  `promotion`), a rule edited by the owner after approval (hint `rule`), and a featured item,\n  discount or hero mode changed after approval (hint `featured`); propose-time\n  `RECORD_INVALID` for a rule with its end before its start (hint `rule.end_time`, never\n  `INVALID_TIME_RANGE`), a rule at another venue (hint `rule_id`), a taken promotion code (hint\n  `promotion.public_code`), and a `promotion_enable` on a promotion that is on (hint\n  `promotion_id`); `price_promo_targets` for the four new kinds carries no cost or sales.\n- K: §2.23's tests (the money-free `kitchen_board`, the narrowed policies, the venue conjunct, the\n  kitchen RPCs still working, and the guest suites unchanged).\n- G: `notify_staff` skips inactive staff and the caller, dedupes shopping pushes; storage policies\n  refuse a path without a slot; the three path helpers return NULL or `false` on `items/…`, and an\n  authenticated staff user still reads and uploads a `menu-media` object with the staff-media\n  policies installed; `app.assistant_readable_columns` has no `staff_media_uploads` row.",
+      "body": "s gone, the booking price at a slot of that rule changed through `price_slot`); a\n  `featured_discount` run moves the featured item and sets the discount, and another, with the\n  hero on Media and that item and discount already stored, switches the hero to Featured at apply,\n  so `add_order_items` charges the approved discount; each started by marketing too, and applied\n  now and on a date; `PRICE_TARGET_CHANGED` for a promotion written after the proposal (hint\n  `promotion`), a rule edited by the owner after approval (hint `rule`), and a featured item,\n  discount or hero mode changed after approval (hint `featured`); propose-time\n  `RECORD_INVALID` for a rule with its end before its start (hint `rule.end_time`, never\n  `INVALID_TIME_RANGE`), a rule at another venue (hint `rule_id`), a taken promotion code (hint\n  `promotion.public_code`), and a `promotion_enable` on a promotion that is on (hint\n  `promotion_id`); `price_promo_targets` for the four new kinds carries no cost or sales.\n- K: §2.23's tests (the money-free `kitchen_board`, the narrowed policies, the venue conjunct, the\n  kitchen RPCs still working, and the guest suites unchanged).\n- G: `notify_staff` skips inactive staff and the caller, dedupes shopping pushes; storage policies\n  refuse a path without a slot; the three path helpers return NULL or `false` on `items/…`, and an\n  authenticated staff user still reads and uploads a `menu-media` object with the staff-media\n  policies installed; `app.assistant_readable_columns` has no `staff_media_uploads` row.",
       "route": null
     },
     {
@@ -18574,7 +19438,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#175",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 8. Verification and acceptance",
-      "body": "### 8.4 Open facts to check (UNVERIFIED items in one place)\n\n- `storage.objects.owner_id` on the hosted storage version (§2.3 read policy).\n- `storage.copy` with `destinationBucket` on hosted (§2.20).\n- Android blocked permissions on SDK 57, and GPS EXIF after re-encoding (§6.9, §6.10).\n- Whether the recipe editor lists inactive (draft) items (§2.9).\n- Storage policies and cron rows after the hosted push (NOTICE-only DO blocks).",
+      "body": "### 8.4 Open facts to check (UNVERIFIED items in one place)\n\n- `storage.objects.owner_id` on the hosted storage version (§2.3 read policy; only 0159's form\n  reads it; A's re-issue in `protocols_engine_rpcs` does not).\n- `storage.copy` with `destinationBucket` on hosted (§2.20).\n- Android blocked permissions on SDK 57, and GPS EXIF after re-encoding (§6.9, §6.10).\n- Whether the recipe editor lists inactive (draft) items (§2.9).\n- Storage policies and cron rows after the hosted push (NOTICE-only DO blocks).",
       "route": null
     },
     {
@@ -18582,7 +19446,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#18",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 1. Lanes, ownership, numbering, commits",
-      "body": "| Lane | Owns |\n|---|---|\n| 0 | `packages/i18n/src/catalogs/{work,opErrors.protocols}.{en,ar}.ts` (new); `packages/i18n/src/catalogs/staff/index.ts` and empty `staff/{shell,protocols,checklists,supplies,marketing,notes,media}.{en,ar}.ts` (new); empty `ws/{protocols,release,events,supplies,pricing}.{en,ar}.ts` (new); the mount lines in `en.ts`/`ar.ts` and `ws/index.ts`, plus the reworded `op.errors.IDEMPOTENCY_CONFLICT` string there (§3); the `MAPPED_CODES` block in `op/lib/errors.ts`; the `CODE_TO_KEY` block in `mob/src/features/booking/errors.ts`; this file |\n| K | drafts `{kitchen_board_read,kitchen_money_reads}.sql` (then `migrations/`); `packages/db/tests/kitchen-board.test.ts` (new); the 0157 cases of `packages/db/tests/new-roles.test.ts` (the order-side read case moves the kitchen roles and prep to \"reads nothing\"); `op/features/kds/ticketView.ts` and the tests `KdsBoard.test.tsx`, `ticketView.test.ts`; `op/features/kds/KdsBoard.tsx` is shared with D (second table): K changes the tickets query only, and D owns the header button in `KitchenDisplayScreen.tsx` |\n| A | `packages/db/supabase/drafts/{staff_ingredient_options,protocols_engine_tables,protocols_engine_rpcs}.sql` (then `migrations/`); `packages/db/tests/protocols-engine*.test.ts`, `protocols-roles.test.ts` (A's tables and RPCs only, §8.2), `staff-ingredient-options.test.ts` |\n| B | `packages/core/src/staff/**`, `packages/core/src/protocols/**` (§7.2); `op/lib/roleResolution.ts` (re-export only); `packages/db/tests/staff-roles-parity.test.ts`; the `Role` comment in `apps/operator-shell/src/ipc-channels.ts` and `op/ipc/bridge.ts` (§7.1); `mob/src/features/staff/{status,StaffStatusProvider,gate,RequireStaff,GuestTabsGate,hint,keys,api,venue,rows,edge,pushRoutes}.ts(x)` and their `__tests__`; `mob/app/staff.tsx`, `mob/app/staff-request.tsx`; `mob/src/smoke/staff.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/shell.*`; `packages/db/fixtures/staff-roles.sql` (dev logins for the six new roles, **PROPOSAL**",
+      "body": "| Lane | Owns |\n|---|---|\n| 0 | `packages/i18n/src/catalogs/{work,opErrors.protocols}.{en,ar}.ts` (new); `packages/i18n/src/catalogs/staff/index.ts` and empty `staff/{shell,protocols,checklists,supplies,marketing,notes,media}.{en,ar}.ts` (new); empty `ws/{protocols,release,events,supplies,pricing}.{en,ar}.ts` (new); the mount lines in `en.ts`/`ar.ts` and `ws/index.ts`, plus the reworded `op.errors.IDEMPOTENCY_CONFLICT` string there (§3); the `MAPPED_CODES` block in `op/lib/errors.ts`; the `CODE_TO_KEY` block in `mob/src/features/booking/errors.ts`; this file |\n| K | drafts `{kitchen_board_read,kitchen_money_reads}.sql` (then `migrations/`); `packages/db/tests/kitchen-board.test.ts` (new); the 0157 cases of `packages/db/tests/new-roles.test.ts` (the order-side read case moves the kitchen roles and prep to \"reads nothing\"); `op/features/kds/ticketView.ts` and the tests `KdsBoard.test.tsx`, `ticketView.test.ts`; `op/features/kds/KdsBoard.tsx` is shared with D (second table): K changes the tickets query only, and D owns the header button in `KitchenDisplayScreen.tsx` |\n| A | `packages/db/supabase/drafts/{staff_ingredient_options,protocols_engine_tables,protocols_engine_rpcs}.sql` (then `migrations/`); `packages/db/tests/protocols-engine*.test.ts`, `protocols-roles.test.ts` (A's tables and RPCs only, §8.2), `staff-ingredient-options.test.ts`; the read-policy case of G's committed `packages/db/tests/staff-media.test.ts` (A re-issues that policy, §2.3, §2.18) |\n| B | `packages/core/src/staff/**`, `packages/core/src/protocols/**` (§7.2); `op/lib/roleResolution.ts` (re-export only); `packages/db/tests/staff-roles-parity.test.ts`; the `Role` comment in `apps/operator-shell/src/ipc-channels.ts` and `op/ipc/bridge.ts` (§7.1); `mob/src/features/staff/{status,StaffStatusProvider,gate,RequireStaff,GuestTabsGate,hint,keys,api,venue,rows,edge,pushRoutes}.ts(x)` and their `__tests__`; `mob/app/staff.tsx`, `mob/app/staff-request.tsx`; `mob/src/smoke/staff.smoke.test.tsx`; `packages/i1",
       "route": null
     },
     {
@@ -18590,7 +19454,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#19",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 1. Lanes, ownership, numbering, commits",
-      "body": ", loaded with `pnpm --filter @touch/db db:fixtures fixtures/staff-roles.sql`) |\n| C | `packages/db/supabase/drafts/{checklists,shopping_purchases,staff_production,marketing_staff}.sql`; `packages/db/tests/{checklists,shopping-purchases,staff-production,marketing-staff}.test.ts` (each with its own driver and marketing denials, §8.2) |\n| D | `op/features/protocols/**`; `op/routes/protocols.tsx`; `op/routes/tasks.tsx`; `op/features/tasks/**`; the \"My tasks (N)\" header button in `op/features/kds/KitchenDisplayScreen.tsx` (its count and handler come from `KdsBoard.tsx`, a shared file, second table); `op/routes/__root.tsx` (`RailLink` renders a `NavItem` badge); `packages/i18n/src/catalogs/ws/protocols.*`; `e2e/tests/operator-protocols.spec.ts` |\n| E | drafts `{product_test_movement,product_release,release_post_launch}.sql`; `packages/db/supabase/functions/{protocol-action,release-review}/**`; `packages/db/tests/{product-release,release-post-launch,protocol-action,release-review}.test.ts` (each with its own driver and marketing denials); `op/features/admin/menu/**` (in-release notice, the manager price lock and the manager new-item guard); `packages/i18n/src/catalogs/ws/release.*` |\n| F | drafts `{event_court_blocks,event_block_run_index,hiring,price_promo}.sql`; `packages/db/tests/{event-court-blocks,hiring,price-promo}.test.ts` (each with its own driver and marketing denials); `op/features/desk/CourtBlock.tsx` (event mode); `op/routes/desk/_children.ts` (`validateBlockSearch` gains `run`, `step`); `op/routes/admin/staff.tsx` (`validateSearch` for `hire`); `op/features/stock/products/**` and `op/features/admin/addons/**` (the manager locks, #51, #53); `op/features/admin/promotions/**`, `op/features/admin/{RateRuleEditor.tsx,rateRuleLogic.ts,rateRuleLogic.test.ts}` and `op/features/admin/hero/HeroBuilder.tsx` (the manager locks, #57, §5.5); `op/features/stock/stockKeys.ts` (only `fetchShopCatalogue`, whose select gains `launched_at`, and the `ShopProductRow` type, §5.5; n",
+      "body": "8n/src/catalogs/staff/shell.*`; `packages/db/fixtures/staff-roles.sql` (dev logins for the six new roles, **PROPOSAL**, loaded with `pnpm --filter @touch/db db:fixtures fixtures/staff-roles.sql`) |\n| C | `packages/db/supabase/drafts/{checklists,shopping_purchases,staff_production,marketing_staff}.sql`; `packages/db/tests/{checklists,shopping-purchases,staff-production,marketing-staff}.test.ts` (each with its own driver and marketing denials, §8.2) |\n| D | `op/features/protocols/**`; `op/routes/protocols.tsx`; `op/routes/tasks.tsx`; `op/features/tasks/**`; the \"My tasks (N)\" header button in `op/features/kds/KitchenDisplayScreen.tsx` (its count and handler come from `KdsBoard.tsx`, a shared file, second table); `op/routes/__root.tsx` (`RailLink` renders a `NavItem` badge); `packages/i18n/src/catalogs/ws/protocols.*`; `e2e/tests/operator-protocols.spec.ts` |\n| E | drafts `{product_test_movement,product_release,release_post_launch}.sql`; `packages/db/supabase/functions/{protocol-action,release-review}/**`; `packages/db/tests/{product-release,release-post-launch,protocol-action,release-review}.test.ts` (each with its own driver and marketing denials); `op/features/admin/menu/**` (in-release notice, the manager price lock and the manager new-item guard); `packages/i18n/src/catalogs/ws/release.*` |\n| F | drafts `{event_court_blocks,event_block_run_index,hiring,price_promo}.sql`; `packages/db/tests/{event-court-blocks,hiring,price-promo}.test.ts` (each with its own driver and marketing denials); `op/features/desk/CourtBlock.tsx` (event mode); `op/routes/desk/_children.ts` (`validateBlockSearch` gains `run`, `step`); `op/routes/admin/staff.tsx` (`validateSearch` for `hire`); `op/features/stock/products/**` and `op/features/admin/addons/**` (the manager locks, #51, #53); `op/features/admin/promotions/**`, `op/features/admin/{RateRuleEditor.tsx,rateRuleLogic.ts,rateRuleLogic.test.ts}` and `op/features/admin/hero/HeroBuilder.tsx` (the manager locks, #57, §5.5); `op/features/st",
       "route": null
     },
     {
@@ -18606,7 +19470,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#20",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 1. Lanes, ownership, numbering, commits",
-      "body": "o other lane edits the file, and one that must moves it to the shared-file table first); `packages/db/tests/promotions.test.ts` (its `mk` helper creates as the owner once the lock lands; the manager case moves to `price-promo.test.ts`); `packages/i18n/src/catalogs/ws/{events,pricing}.*` |\n| G | drafts `{staff_media_bucket,staff_push}.sql`; `packages/db/supabase/functions/send-push/**`; `packages/db/supabase/functions/_shared/staff-push.json`; `packages/db/tests/{staff-media,staff-push,send-push-staff}.test.ts`; `mob/src/features/staff/photo.ts`, `mob/src/components/PhotoButton.tsx`; `mob/locales/ios.{en,ar}.json` (new); `packages/i18n/src/catalogs/staff/media.*`; `docs/store/app-store-submission.md`, `docs/store/google-play-data-safety.md`, `docs/legal/staff-privacy-notice.md`, `docs/install-runbook.md`, `packages/i18n/src/catalogs/legal.{en,ar}.ts`; `scripts/create-staff-review-account.mjs` (new) |\n| H | `mob/app/staff-{checklist,start,runs,run,step,production,shopping,purchase,marketing,notes}.tsx`; `mob/src/features/staff/{protocols,checklists,supplies,marketing,notes}/**`; new `mob/src/components/{ChecklistRow,DecisionBar}.tsx`; `mob/src/smoke/staffPages.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/{protocols,checklists,supplies,marketing,notes}.*` |\n| I | `op/features/checklists/**` (new); `op/features/stock/{ReceiveDelivery,WasteAndProduction}.tsx` and new `op/features/stock/DriverPurchases.tsx`; `op/routes/stock/_children.ts` (`validateSearch` on the `receive` child for `purchase`); `op/features/admin/{DayClose.tsx,dayCloseLogic.ts}` (+ test); `op/features/marketing/MarketingPanel.tsx`; `op/features/admin/SetupHome.tsx` (+ test); `packages/i18n/src/catalogs/ws/supplies.*` |",
+      "body": "ock/stockKeys.ts` (only `fetchShopCatalogue`, whose select gains `launched_at`, and the `ShopProductRow` type, §5.5; no other lane edits the file, and one that must moves it to the shared-file table first); `packages/db/tests/promotions.test.ts` (its `mk` helper creates as the owner once the lock lands; the manager case moves to `price-promo.test.ts`); `packages/i18n/src/catalogs/ws/{events,pricing}.*` |\n| G | drafts `{staff_media_bucket,staff_push}.sql`; `packages/db/supabase/functions/send-push/**`; `packages/db/supabase/functions/_shared/staff-push.json`; `packages/db/tests/{staff-media,staff-push,send-push-staff}.test.ts`; `mob/src/features/staff/photo.ts`, `mob/src/components/PhotoButton.tsx`; `mob/locales/ios.{en,ar}.json` (new); `packages/i18n/src/catalogs/staff/media.*`; `docs/store/app-store-submission.md`, `docs/store/google-play-data-safety.md`, `docs/legal/staff-privacy-notice.md`, `docs/install-runbook.md`, `packages/i18n/src/catalogs/legal.{en,ar}.ts`; `scripts/create-staff-review-account.mjs` (new) |\n| H | `mob/app/staff-{checklist,start,runs,run,step,production,shopping,purchase,marketing,notes}.tsx`; `mob/src/features/staff/{protocols,checklists,supplies,marketing,notes}/**`; new `mob/src/components/{ChecklistRow,DecisionBar}.tsx`; `mob/src/smoke/staffPages.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/{protocols,checklists,supplies,marketing,notes}.*` |\n| I | `op/features/checklists/**` (new); `op/features/stock/{ReceiveDelivery,WasteAndProduction}.tsx` and new `op/features/stock/DriverPurchases.tsx`; `op/routes/stock/_children.ts` (`validateSearch` on the `receive` child for `purchase`); `op/features/admin/{DayClose.tsx,dayCloseLogic.ts}` (+ test); `op/features/marketing/MarketingPanel.tsx`; `op/features/admin/SetupHome.tsx` (+ test); `packages/i18n/src/catalogs/ws/supplies.*` |",
       "route": null
     },
     {
@@ -18670,7 +19534,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#28",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 1. Lanes, ownership, numbering, commits",
-      "body": "Push in batches: every push to `main` is a Vercel production build and a full CI run.\n1. `f6a0802`, `ed5c2e3` and the plan (already committed), and K's `kitchen_board_read` and board\n   commit, which land before G's `send-push` commit (§1.1). If they are not ready for this push,\n   step 2's push carries them: they add no push kind, so they do the `send-push` push no harm.\n   After whichever push carries them, the operator is tagged and installed on every station (the\n   install that must precede any new role anyway, step 4). `kitchen_money_reads` takes the kitchen\n   roles' direct order reads away, so a board still reading `tickets` with embedded orders would\n   show every ticket without its lines; step 3 therefore waits until the operator that reads\n   through `kitchen_board` runs on every kitchen machine.\n2. **`send-push` alone**, with no staff migration in the push (none of this work's migrations\n   except K's `kitchen_board_read`, which adds no push kind). G's `send-push` commit (`send-push/**`,\n   `_shared/staff-push.json`, `send-push/staffStrings.ts` and their tests) sits in history before\n   every migration commit of this work but K's `kitchen_board_read`, so push exactly up to it:\n   `git push origin <send-push sha>:main`. Wait for `functions-deploy.yml` to finish on hosted\n   before any later push. An unknown push kind is terminal in the deployed function\n   (`send-push/index.ts:172-178`). What this push must never carry is the `staff_push` migration;\n   a slice 2 commit below the sha does no harm, because it adds no staff kind, and neither do K's\n   `kitchen_board_read` and board commit (step 1). K's `kitchen_money_reads` commits after the\n   `send-push` commit, so this push never carries it.\n3. The migrations (`db-migrate.yml`), `kitchen_money_reads` among them, only after step 1's\n   operator install on every kitchen machine. Then `npx supabase migration list --linked` shows 0 pending;\n   assert the `storage.objects` policies of `staff-media` and the fou",
+      "body": "Push in batches: every push to `main` is a Vercel production build and a full CI run.\n1. `f6a0802`, `ed5c2e3` and the plan (already committed), and K's `kitchen_board_read` and board\n   commit, which land before G's `send-push` commit (§1.1). If they are not ready for this push,\n   step 2's push carries them: they add no push kind, so they do the `send-push` push no harm.\n   After whichever push carries them, the operator is tagged and installed on every station (the\n   install that must precede any new role anyway, step 4). `kitchen_money_reads` takes the kitchen\n   roles' direct order reads away, so a board still reading `tickets` with embedded orders would\n   show every ticket without its lines; step 3 therefore waits until the operator that reads\n   through `kitchen_board` runs on every kitchen machine.\n2. **`send-push` alone**, with no staff migration in the push (none of this work's migrations\n   except K's `kitchen_board_read`, which adds no push kind). G's `send-push` commit (`send-push/**`,\n   `_shared/staff-push.json`, `send-push/staffStrings.ts` and their tests) sits in history before\n   every migration commit of this work but K's `kitchen_board_read`, so push exactly up to it:\n   `git push origin <send-push sha>:main`. Wait for `functions-deploy.yml` to finish on hosted\n   before any later push. An unknown push kind is terminal in the deployed function\n   (`send-push/index.ts:172-178`). What this push must never carry is the `staff_push` migration;\n   a slice 2 commit below the sha does no harm, because it adds no staff kind, and neither do K's\n   `kitchen_board_read` and board commit (step 1). K's `kitchen_money_reads` commits after the\n   `send-push` commit, so this push never carries it.\n3. The migrations (`db-migrate.yml`), `kitchen_money_reads` among them, only after step 1's\n   operator install on every kitchen machine. Then `npx supabase migration list --linked` shows 0 pending;\n   assert the `storage.objects` policies of `staff-media` (`staff_med",
       "route": null
     },
     {
@@ -18678,7 +19542,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#29",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 1. Lanes, ownership, numbering, commits",
-      "body": "r `cron.job` rows (§2.19).\n   `protocol-action` and `release-review` deploy with whichever functions push comes first; they are\n   inert until the cron rows exist.\n4. The operator tag: the next annotated `operator-vX.Y.Z` on the pushed commit fires\n   `operator-release.yml`. Install it on every station **before** any account is given a new role\n   (an older build reads the six roles as revoked), and right after the migration push: an older\n   build still offers a manager the locked prices, promotions, rate rules and featured discount,\n   switching the hero to Featured while a discount is stored, new cafe items and switch-ons, and shows `PRICE_VIA_PROTOCOL`, `ITEM_VIA_RELEASE` and\n   `LAUNCH_VIA_PROTOCOL` unmapped (until it is installed, a manager cannot change a promotion or a\n   rate at all). Its Stock ▸\n   Products \"New product\" (`upsert_menu_item` with the default `p_is_active` true,\n   `ProductsAdmin.tsx:277-281`) and its new paid option in Add-ons (`OptionsEditor.tsx:146`) are\n   refused with `LAUNCH_VIA_PROTOCOL` until the new operator is installed. Tell the managers the\n   day before.\n5. The mobile build (a person runs production `eas build` and submits).",
+      "body": "ia_read` must read\n   `bucket_id = 'staff-media' and app.staff_media_visible(name)`: its re-issue degrades to a\n   NOTICE on a privilege refusal and would leave 0159's wider policy, §2.3) and the four\n   `cron.job` rows (§2.19).\n   `protocol-action` and `release-review` deploy with whichever functions push comes first; they are\n   inert until the cron rows exist.\n4. The operator tag: the next annotated `operator-vX.Y.Z` on the pushed commit fires\n   `operator-release.yml`. Install it on every station **before** any account is given a new role\n   (an older build reads the six roles as revoked), and right after the migration push: an older\n   build still offers a manager the locked prices, promotions, rate rules and featured discount,\n   switching the hero to Featured while a discount is stored, new cafe items and switch-ons, and shows `PRICE_VIA_PROTOCOL`, `ITEM_VIA_RELEASE` and\n   `LAUNCH_VIA_PROTOCOL` unmapped (until it is installed, a manager cannot change a promotion or a\n   rate at all). Its Stock ▸\n   Products \"New product\" (`upsert_menu_item` with the default `p_is_active` true,\n   `ProductsAdmin.tsx:277-281`) and its new paid option in Add-ons (`OptionsEditor.tsx:146`) are\n   refused with `LAUNCH_VIA_PROTOCOL` until the new operator is installed. Tell the managers the\n   day before.\n5. The mobile build (a person runs production `eas build` and submits).",
       "route": null
     },
     {
@@ -18742,7 +19606,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#36",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "| Migration | Lane | Depends on | Contents |\n|---|---|---|---|\n| `kitchen_board_read` | K | – | `app.kitchen_board`, the money-free read the kitchen board uses (§2.23) |\n| `kitchen_money_reads` | K | `kitchen_board_read` (and, by commit order, K's board commit and G's `send-push` commit, §1.1) | the four order-side read policies of 0157 without the bar and kitchen family and prep; venue conjunct on `order_items` and `order_item_modifiers` (§2.23) |\n| `staff_media_bucket` | G | – | `staff_media_uploads`; bucket `staff-media` and its storage policies; path helpers; `staff_media_slot`; `app.claim_staff_media` |\n| `staff_push` | G | – | push kind CHECK widened; `app.staff_ids_with_roles`; `app.notify_staff`; `set_staff_active`, `submit_staff_request`, `decide_staff_request` re-issued |\n| `staff_ingredient_options` | A | – | narrow ingredient read |\n| `protocols_engine_tables` | A | – | seven engine tables, step definitions, state-machine functions, seeds |\n| `protocols_engine_rpcs` | A | `protocols_engine_tables`, `staff_media_bucket`, `staff_push` | §2.7 RPCs and the hook dispatcher |\n| `product_test_movement` | E | – | `alter type movement_type add value if not exists 'product_test';` and nothing else |\n| `product_release` | E | `protocols_engine_rpcs`, `product_test_movement` | menu columns (`launched_at` counts every existing item as launched); `upsert_variant_internal` plus the `upsert_variant` wrapper (`ITEM_IN_RELEASE`); `upsert_menu_item_internal` plus the `upsert_menu_item` wrapper (`ITEM_IN_RELEASE` and the manager new-item guard: `ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`); release hooks and reads; variance and `report_stock` |\n| `release_post_launch` | E | `product_release`, `marketing_staff` (C; `release_review_input` reads `marketing_notes`) | `release_reviews`, `release_notes`; scheduler functions; two cron jobs |\n| `event_court_blocks` | F | `protocols_engine_rpcs` | reservation columns; `block_courts_for_event`, `tournament_context`; tournament hooks; an",
+      "body": "| Migration | Lane | Depends on | Contents |\n|---|---|---|---|\n| `kitchen_board_read` | K | – | `app.kitchen_board`, the money-free read the kitchen board uses (§2.23) |\n| `kitchen_money_reads` | K | `kitchen_board_read` (and, by commit order, K's board commit and G's `send-push` commit, §1.1) | the four order-side read policies of 0157 without the bar and kitchen family and prep; venue conjunct on `order_items` and `order_item_modifiers` (§2.23) |\n| `staff_media_bucket` | G | – | `staff_media_uploads`; bucket `staff-media` and its storage policies; path helpers; `staff_media_slot`; `app.claim_staff_media` |\n| `staff_push` | G | – | push kind CHECK widened; `app.staff_ids_with_roles`; `app.notify_staff`; `set_staff_active`, `submit_staff_request`, `decide_staff_request` re-issued |\n| `staff_ingredient_options` | A | – | narrow ingredient read |\n| `protocols_engine_tables` | A | – | seven engine tables, step definitions, state-machine functions, seeds |\n| `protocols_engine_rpcs` | A | `protocols_engine_tables`, `staff_media_bucket`, `staff_push` | §2.7 RPCs and the hook dispatcher; `app.staff_media_visible`, with `app.claim_staff_media` and the `staff_media_read` policy re-issued (§2.3, §2.18) |\n| `product_test_movement` | E | – | `alter type movement_type add value if not exists 'product_test';` and nothing else |\n| `product_release` | E | `protocols_engine_rpcs`, `product_test_movement` | menu columns (`launched_at` counts every existing item as launched); `upsert_variant_internal` plus the `upsert_variant` wrapper (`ITEM_IN_RELEASE`); `upsert_menu_item_internal` plus the `upsert_menu_item` wrapper (`ITEM_IN_RELEASE` and the manager new-item guard: `ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`); release hooks and reads; variance and `report_stock` |\n| `release_post_launch` | E | `product_release`, `marketing_staff` (C; `release_review_input` reads `marketing_notes`) | `release_reviews`, `release_notes`; scheduler functions; two cron jobs |\n| `event_court_blocks` | F |",
       "route": null
     },
     {
@@ -18750,7 +19614,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#37",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "alytics and `report_courts` re-issues |\n| `event_block_run_index` | F | `event_court_blocks` | one partial index on `reservations` |\n| `hiring` | F | `protocols_engine_rpcs` | `hiring_candidates`; hiring hooks; purge cron |\n| `price_promo` | F | `protocols_engine_rpcs`, `product_release` (`upsert_variant_internal` and the `upsert_variant` wrapper body it re-issues from; `upsert_menu_item_internal` and `menu_items.launched_at`, which the `shop_launch` apply uses) | promotion internals and wrappers with the manager promotion lock, and `generate_promo_code` re-issued with it; `upsert_rate_rule_internal` plus the `upsert_rate_rule` wrapper (rate lock); `set_cafe_setting_internal` plus the `set_cafe_setting` wrapper (featured-discount lock, `hero_mode` included); `upsert_variant` re-issued with the manager price lock on every launched item, shop included; `modifiers.launched_at`; `upsert_modifier_internal` plus the `upsert_modifier` wrapper (add-on price lock and launch guard); the eight change kinds, their apply and its target check; `price_promo_targets`, `price_promo_numbers`; price/promo hooks; apply cron |\n| `checklists` | C | `staff_push` | four checklist tables and RPCs |\n| `shopping_purchases` | C | `staff_push`, `staff_media_bucket`, `staff_ingredient_options` | three tables and RPCs |\n| `staff_production` | C | – | `record_production_internal`, `record_batch`, two reads |\n| `marketing_staff` | C | `protocols_engine_tables`, `staff_media_bucket` | campaign columns; `marketing_notes`; RPCs |",
+      "body": "`protocols_engine_rpcs` | reservation columns; `block_courts_for_event`, `tournament_context`; tournament hooks; analytics and `report_courts` re-issues |\n| `event_block_run_index` | F | `event_court_blocks` | one partial index on `reservations` |\n| `hiring` | F | `protocols_engine_rpcs` | `hiring_candidates`; hiring hooks; purge cron |\n| `price_promo` | F | `protocols_engine_rpcs`, `product_release` (`upsert_variant_internal` and the `upsert_variant` wrapper body it re-issues from; `upsert_menu_item_internal` and `menu_items.launched_at`, which the `shop_launch` apply uses) | promotion internals and wrappers with the manager promotion lock, and `generate_promo_code` re-issued with it; `upsert_rate_rule_internal` plus the `upsert_rate_rule` wrapper (rate lock); `set_cafe_setting_internal` plus the `set_cafe_setting` wrapper (featured-discount lock, `hero_mode` included); `upsert_variant` re-issued with the manager price lock on every launched item, shop included; `modifiers.launched_at`; `upsert_modifier_internal` plus the `upsert_modifier` wrapper (add-on price lock and launch guard); the eight change kinds, their apply and its target check; `price_promo_targets`, `price_promo_numbers`; price/promo hooks; apply cron |\n| `checklists` | C | `staff_push` | four checklist tables and RPCs |\n| `shopping_purchases` | C | `staff_push`, `staff_media_bucket`, `staff_ingredient_options` | three tables and RPCs |\n| `staff_production` | C | – | `record_production_internal`, `record_batch`, two reads |\n| `marketing_staff` | C | `protocols_engine_tables`, `staff_media_bucket` | campaign columns; `marketing_notes`; RPCs |",
       "route": null
     },
     {
@@ -18782,7 +19646,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#40",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "exists on the hosted storage version.\n  - `staff_media_delete` (delete, authenticated): MGMT at the path's venue. No update policy.",
+      "body": "exists on the hosted storage version.\n    **Re-issued by `protocols_engine_rpcs` (A)** (review 2026-09-25: the 0159 form let any staff\n    member at the venue list and open photos §2.7 hides) as\n    `bucket_id = 'staff-media' and app.staff_media_visible(name)`. `app.staff_media_visible(text)\n    returns boolean` (definer, stable, never raises, granted to `authenticated` and `service_role`,\n    `publicByDesign`, coverage `map:action`) reads the slot row: false for a guest, another venue\n    or a name that is not a staff-media path; true for the uploader and MGMT at the venue; for\n    `protocol_submission:<id>` also the sender of a submission of that step naming the path, and\n    anyone involved in the run when the step's `record_visibility` is `run` (an owner-added step\n    of a hiring run counts as `mgmt`); for `marketing_note:<id>` also marketing at the venue;\n    anything else (receipts, campaign images, unclaimed slots) the uploader and MGMT only. A lane\n    that claims photos under a new `<kind>` re-issues it from A's body.\n  - `staff_media_delete` (delete, authenticated): MGMT at the path's venue. No update policy.",
       "route": null
     },
     {
@@ -18790,7 +19654,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#41",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "| RPC | Args | Returns | Guard | Errors | Key | Audit |\n|---|---|---|---|---|---|---|\n| `staff_media_slot` | `p_venue_id uuid, p_folder text, p_ext text` | `{path, bucket: 'staff-media', expires_at}` | ANY at venue | `FORBIDDEN`, `INVALID_ARGUMENT` (folder, ext), `UPLOAD_LIMIT` (more than 30 unused slots in the last hour) | – | – |\n| `app.claim_staff_media` (internal) | `p_paths text[], p_venue uuid, p_folders text[], p_used_by text` | void | – | `PHOTO_PATH_INVALID` when a path is not a slot of `auth.uid()` at that venue in an allowed folder, or is used by something else (except the re-claim below) | – | – |\n\nEvery recording RPC calls `app.claim_staff_media` for its photo arguments. **Re-claim on\nresubmission:** a path whose `used_by` is `protocol_submission:<id>` may be claimed again by a new\nsubmission of the same run step when that earlier submission is withdrawn, superseded or decided\n`send_back`, whoever uploaded it; `used_by` then names the new submission, and the earlier row keeps\nthe path in its history. So both apps keep the attached photos on a resubmission. Reading is by\nsigned URL (`createSignedUrl(path, 600)`), on both apps. Only the launch copies a photo out (§2.20).\n`staff_media_uploads` never gets `app.assistant_readable_columns` rows (§1.5).\n\n### 2.4 `staff_push` (G)",
+      "body": "| RPC | Args | Returns | Guard | Errors | Key | Audit |\n|---|---|---|---|---|---|---|\n| `staff_media_slot` | `p_venue_id uuid, p_folder text, p_ext text` | `{path, bucket: 'staff-media', expires_at}` | ANY at venue | `FORBIDDEN`, `INVALID_ARGUMENT` (folder, ext), `UPLOAD_LIMIT` (more than 30 unused slots in the last hour) | – | – |\n| `app.claim_staff_media` (internal) | `p_paths text[], p_venue uuid, p_folders text[], p_used_by text` | void | – | `PHOTO_PATH_INVALID` when a path is not a slot of `auth.uid()` at that venue in an allowed folder, or is used by something else (except the re-claim below) | – | – |\n\nEvery recording RPC calls `app.claim_staff_media` for its photo arguments. **Re-claim on\nresubmission:** a path whose `used_by` is `protocol_submission:<id>` may be claimed again by a new\nsubmission of the same run step when that earlier submission is withdrawn, superseded or decided\n`send_back`, or belongs to an earlier round (an approved or automatic submission whose step a\nsend-back or `cancel_schedule` reopened; A re-issues `app.claim_staff_media` for this in\n`protocols_engine_rpcs`), whoever uploaded it; `used_by` then names the new submission, and the earlier row keeps\nthe path in its history. So both apps keep the attached photos on a resubmission. Reading is by\nsigned URL (`createSignedUrl(path, 600)`), on both apps. Only the launch copies a photo out (§2.20).\n`staff_media_uploads` never gets `app.assistant_readable_columns` rows (§1.5).\n\n### 2.4 `staff_push` (G)",
       "route": null
     },
     {
@@ -18838,7 +19702,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#47",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "- Indexes (same file, waiver): `protocol_runs (venue_id, status)`, `protocol_runs (started_by)`,\n  `protocol_run_steps (run_id, status)`, `protocol_run_steps (assigned_to) where assigned_to is not null`,\n  `protocol_submissions (run_step_id, round)`, `protocol_submissions (submitted_by)`,\n  unique `protocol_submissions (run_step_id, round) where withdrawn_at is null and superseded_at is null`,\n  `protocol_run_items (run_step_id)`, `protocol_template_items (step_id)`.\n- RLS: select policy MGMT at venue on `protocol_templates` and `protocol_runs`; the other five by\n  `exists` on their parent under the same predicate.\n- `app.protocol_step_defs(p_kind text, p_variant text) returns jsonb` (immutable, internal): the\n  built-in steps of §2.8 as `[{step_key, name_en, name_ar, actor_roles, assign_to_starter, needs_owner_ok, ok_fixed, optional, after, fixed, photo_folder, photos_min, photos_max, record_visibility}]`\n  with `fixed` in `first | last | null` and `record_visibility` in `run | mgmt`. `ok_fixed` is true\n  on the two price steps, release `analysis` and price/promo `numbers` (always on, plan #58), and\n  on the two owner-only steps, release `launch` and hiring `add_staff` (the owner is the actor, so\n  the flag means nothing there); the editor hides the switch wherever it is true.\n- `app.protocol_step_allowed(p_from text, p_to text)` and `app.protocol_run_allowed(p_from text, p_to text)`,\n  `immutable`, the 0112 transition-table shape. Allowed step moves:\n  `waiting→open`, `waiting→skipped`, `open→submitted`, `open→skipped`, `open→waiting`,\n  `submitted→open`, `submitted→passed`, `submitted→stopped`, `submitted→waiting`,\n  `passed→open`, `passed→waiting`. Allowed run moves: `active→scheduled|live|done|stopped|withdrawn`,\n  `scheduled→active|live|done|stopped`, `live→done`.\n- `app.protocol_seed_venue(p_venue uuid) returns void` (internal): writes the four kinds' templates\n  (three tournament variants) from the defs, EN and AR. The migration runs it for every active\n  ve",
+      "body": "- Indexes (same file, waiver): `protocol_runs (venue_id, status)`, `protocol_runs (started_by)`,\n  `protocol_run_steps (run_id, status)`, `protocol_run_steps (assigned_to) where assigned_to is not null`,\n  `protocol_submissions (run_step_id, round)`, `protocol_submissions (submitted_by)`,\n  unique `protocol_submissions (run_step_id, round) where withdrawn_at is null and superseded_at is null`,\n  `protocol_run_items (run_step_id)`, `protocol_template_items (step_id)`.\n- RLS: select policy MGMT at venue on `protocol_templates` and `protocol_runs`; the other five by\n  `exists` on their parent under the same predicate.\n- `app.assistant_readable_columns` (§1.5) takes the seven tables **without**\n  `protocol_submissions.decision_note`, `protocol_submissions.record`,\n  `protocol_run_steps.skip_note` and `protocol_runs.stop_reason`, for every kind: a hiring run's\n  may name a candidate until the 90-day purge (§2.12), what the assistant reads goes to the LLM,\n  and a column cannot be left out for one kind only (review 2026-09-25).\n- `app.protocol_step_defs(p_kind text, p_variant text) returns jsonb` (immutable, internal): the\n  built-in steps of §2.8 as `[{step_key, name_en, name_ar, actor_roles, assign_to_starter, needs_owner_ok, ok_fixed, optional, after, fixed, photo_folder, photos_min, photos_max, record_visibility}]`\n  with `fixed` in `first | last | null` and `record_visibility` in `run | mgmt`. `ok_fixed` is true\n  on the two price steps, release `analysis` and price/promo `numbers` (always on, plan #58), and\n  on the two owner-only steps, release `launch` and hiring `add_staff` (the owner is the actor, so\n  the flag means nothing there); the editor hides the switch wherever it is true.\n- `app.protocol_step_allowed(p_from text, p_to text)` and `app.protocol_run_allowed(p_from text, p_to text)`,\n  `immutable`, the 0112 transition-table shape. Allowed step moves:\n  `waiting→open`, `waiting→skipped`, `open→submitted`, `open→skipped`, `open→waiting`,\n  `submitted→open`, `",
       "route": null
     },
     {
@@ -18846,7 +19710,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#48",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "nue. **Coordination with slice 2:** venue creation calls it (the `PHASE-2-PLAN.md:25` copy rule).",
+      "body": "submitted→passed`, `submitted→stopped`, `submitted→waiting`,\n  `passed→open`, `passed→waiting`. Allowed run moves: `active→scheduled|live|done|stopped|withdrawn`,\n  `scheduled→active|live|done|stopped`, `live→done`.\n- `app.protocol_seed_venue(p_venue uuid) returns void` (internal): writes the four kinds' templates\n  (three tournament variants) from the defs, EN and AR. The migration runs it for every active\n  venue. **Coordination with slice 2:** venue creation calls it (the `PHASE-2-PLAN.md:25` copy rule).",
       "route": null
     },
     {
@@ -18870,7 +19734,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#50",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "**Engine rules.**\n- **Snapshot.** `start_protocol` copies the template's steps and items into run rows and stores\n  `template_version`. Template edits change only new runs. For a step whose def has `ok_fixed`,\n  the run takes `needs_owner_ok` from the def, never from the template row, so a row written\n  around `save_protocol_template` cannot switch the owner's OK off (plan #58).\n- **Opening.** After every transition the engine opens each `waiting` step whose `after_keys` are\n  all `passed` or `skipped`, and whose lower-positioned owner-added steps are all `passed` or\n  `skipped`. An owner-added step waits for every step below it. The terminal (`fixed = last`) step\n  also waits for every other step to be `passed` or `skipped`.\n- **Who may act.** The `assigned_to` person when set (then only them); otherwise a holder of one of\n  `actor_roles` at the venue. A manager may cover any step whose actors do not include `owner`; the\n  owner may cover any step. The record shows who submitted.\n- **Who decides.** `needs_owner_ok` on: the owner. Off: a manager at the venue, or the owner\n  (**PROPOSAL**: the owner as well, so no step stalls without a manager).\n- **Automatic pass.** When the submitter is one of the step's possible deciders, the submission is\n  decided at once: `decision = 'auto'`, `decided_by = submitted_by`, audit `protocol.auto`. This\n  covers the manager's own steps (#9) and the owner's own steps (Q12). An automatic pass has no\n  decision dialog, so the engine hands the pass hook the submission's normalised record as\n  `p_decision_data`; a step whose approval needs decision data asks for it in the record when the\n  submitter is a decider (release `propose`, §2.8).\n- **Send back** to target T (the submitted step itself or any `passed` step below it): T → `open`,\n  `round + 1`; every step above T that is `passed`, `open` or `submitted` → `waiting`, their\n  undecided submissions get `superseded_at`; then the opening rule runs. Earlier rounds stay.\n- **Stop** (a deci",
+      "body": "**Engine rules.**\n- **Snapshot.** `start_protocol` copies the template's steps and items into run rows and stores\n  `template_version`. Template edits change only new runs. For a step whose def has `ok_fixed`,\n  the run takes `needs_owner_ok` from the def, never from the template row, so a row written\n  around `save_protocol_template` cannot switch the owner's OK off (plan #58).\n- **Opening.** After every transition the engine opens each `waiting` step whose `after_keys` are\n  all `passed` or `skipped`, and whose lower-positioned owner-added steps are all `passed` or\n  `skipped`. An owner-added step waits for every step below it. The terminal (`fixed = last`) step\n  also waits for every other step to be `passed` or `skipped`.\n- **Who may act.** The `assigned_to` person when set (then only them); otherwise a holder of one of\n  `actor_roles` at the venue. A manager may cover any step whose actors do not include `owner`; the\n  owner may cover any step. The record shows who submitted.\n- **Who decides.** `needs_owner_ok` on: the owner. Off: a manager at the venue, or the owner\n  (**PROPOSAL**: the owner as well, so no step stalls without a manager).\n- **Automatic pass.** When the submitter is one of the step's possible deciders, the submission is\n  decided at once: `decision = 'auto'`, `decided_by = submitted_by`, audit `protocol.auto`. This\n  covers the manager's own steps (#9) and the owner's own steps (Q12). An automatic pass has no\n  decision dialog, so the engine hands the pass hook the submission's normalised record as\n  `p_decision_data`; a step whose approval needs decision data asks for it in the record when the\n  submitter is a decider (release `propose`, §2.8).\n- **Send back** to target T (the submitted step itself or any `passed` step below it): T → `open`,\n  `round + 1`; every step that waits for T by the opening rule, transitively (a built-in step\n  through its `after` keys, any step above an owner-added one, an owner-added step above any step,\n  the termin",
       "route": null
     },
     {
@@ -18878,7 +19742,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#51",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "sion, or `stop_protocol`): the step → `stopped`, the run → `stopped`, the kind's\n  stop hook runs. A reason is required.\n- **Terminal pass:** the kind's finish hook returns the run status (`done`, `live` or `scheduled`).\n- **Hooks** decouple the engine from E and F. The engine calls a hook only when it exists\n  (`to_regprocedure`), through `execute format('select app.%I(…)', name)`. Hooks are internal\n  (revoked from every client role), run in the caller's transaction and see the caller's\n  `auth.uid()`. A hook may call a public RPC only when every caller that reaches it passes that\n  RPC's guard; otherwise it calls an `_internal` body.",
+      "body": "al step), and the sent-back step itself when T is another step, goes from `passed`,\n  `open` or `submitted` to `waiting` (`round + 1` where it holds a decided submission of its\n  current round), their undecided submissions get `superseded_at`; then the opening rule runs.\n  A step that does not wait for T keeps its state, so the order of two parallel steps never\n  changes what a send-back undoes (review 2026-09-25; this replaced \"every step above T\").\n  Earlier rounds stay.\n- **Stop** (a decision, or `stop_protocol`): the step → `stopped`, the run → `stopped`, the kind's\n  stop hook runs. A reason is required.\n- **Terminal pass:** the kind's finish hook returns the run status (`done`, `live` or `scheduled`).\n- **Hooks** decouple the engine from E and F. The engine calls a hook only when it exists\n  (`to_regprocedure`), through `execute format('select app.%I(…)', name)`. Hooks are internal\n  (revoked from every client role), run in the caller's transaction and see the caller's\n  `auth.uid()`. A hook may call a public RPC only when every caller that reaches it passes that\n  RPC's guard; otherwise it calls an `_internal` body.",
       "route": null
     },
     {
@@ -18894,7 +19758,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#53",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "Owner-added steps (`step_key` null) use the generic check (`{note?: text ≤ 2000}`, photos folder\n  `steps`, 0 to 6) and no other hook. Photo claiming is the engine's: it calls\n  `app.claim_staff_media(p_photos, venue, {def.photo_folder}, 'protocol_submission:<id>')` (with\n  the §2.3 re-claim for a resubmission) and enforces `photos_min` and `photos_max`\n  (`RECORD_INVALID`, hint `photos`).\n- **Visibility for anyone who is not MGMT.** \"Involved\" = the starter, or an actor or assignee of\n  any step of the run. Involved staff see the run header, every step's status and names, their own\n  submissions, and the records and photos of steps whose def says `record_visibility = 'run'`.\n  Records of `mgmt` steps and the run's `data` are returned as `null` (the starter also sees\n  `data`). Nobody outside the run sees it. A step whose actors need facts from a `mgmt` record gets\n  a narrow context read instead of wider visibility: `tournament_context` for the tournament\n  `courts` and `marketing` steps (§2.11), `release_test_context` for the release `test` step\n  (§2.9). The day-30 review is not part of any run shape: only MGMT reads it, through\n  `release_review` (§2.10, #54), so an involved starter sees the run reach `done` with no figures\n  and no write-up.\n\n**Shared JSON shapes** (returned by several RPCs; all keys always present, nulls allowed):",
+      "body": "Owner-added steps (`step_key` null) use the generic check (`{note?: text ≤ 2000}`, photos folder\n  `steps`, 0 to 6) and no other hook. Photo claiming is the engine's: it calls\n  `app.claim_staff_media(p_photos, venue, {def.photo_folder}, 'protocol_submission:<id>')` (with\n  the §2.3 re-claim for a resubmission) and enforces `photos_min` and `photos_max`\n  (`RECORD_INVALID`, hint `photos`).\n- **Visibility for anyone who is not MGMT.** \"Involved\" = the starter, or an actor or assignee of\n  any step of the run. Involved staff see the run header, every step's status and names, their own\n  submissions, and the records and photos of steps whose def says `record_visibility = 'run'`.\n  Records of `mgmt` steps and the run's `data` are returned as `null` (the starter also sees\n  `data`). Nobody outside the run sees it. A step whose actors need facts from a `mgmt` record gets\n  a narrow context read instead of wider visibility: `tournament_context` for the tournament\n  `courts` and `marketing` steps (§2.11), `release_test_context` for the release `test` step\n  (§2.9). The day-30 review is not part of any run shape: only MGMT reads it, through\n  `release_review` (§2.10, #54), so an involved starter sees the run reach `done` with no figures\n  and no write-up. The staff-media read policy follows the same rule (`app.staff_media_visible`,\n  §2.3), so a signed URL or a listing shows no photo these reads hide.\n\n**Shared JSON shapes** (returned by several RPCs; all keys always present, nulls allowed):",
       "route": null
     },
     {
@@ -18918,7 +19782,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#56",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "ol.decide` |\n| `skip_step` | `p_run_step_id uuid, p_note text` | `{step_status, opened_step_ids}` | the step's decider | `STEP_NOT_OPTIONAL`, `STEP_CLOSED` (submitted, passed, stopped), `REASON_REQUIRED`, `NOT_DECIDER` | – | `protocol.skip` |\n| `tick_run_item` | `p_item_id uuid, p_done boolean` | `ItemRow` | may act on the step | `STEP_NOT_OPEN`, `NOT_STEP_ACTOR`, `PROTOCOL_NOT_FOUND` | – | – (the row keeps who and when, **PROPOSAL**) |\n| `withdraw_protocol` | `p_run_id uuid` | `{run_status}` | the starter, before any decision (an automatic pass counts) | `FORBIDDEN`, `INVALID_TRANSITION` | – | `protocol.withdraw_run` |\n| `stop_protocol` | `p_run_id uuid, p_note text` | `{run_status}` | MGMT at venue (**PROPOSAL**) | `REASON_REQUIRED`, `PROTOCOL_CLOSED` | – | `protocol.stop` |\n| `cancel_schedule` | `p_run_id uuid` | `{run_status, reopened_step_id}` | may act on the terminal step | `INVALID_TRANSITION`, `NOT_STEP_ACTOR` | – | `protocol.unschedule` |\n| `edit_run_items` | `p_run_step_id uuid, p_items jsonb` (`[{id: uuid\\|null, text_en, text_ar}]`, max 12; kept ids keep their ticks) | `StepRow` | owner | `STEP_CLOSED`, `LIST_TOO_LONG`, `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.run.edit_items` |\n| `add_run_step` | `p_run_id uuid, p_after_run_step_id uuid, p_step jsonb` (`{name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}`) | `StepRow` | owner; run active; inserted below the terminal step | `PROTOCOL_CLOSED`, `PROTOCOL_ORDER_INVALID`, `INVALID_ROLE`, `LIST_TOO_LONG`, `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.run.add_step` |\n| `save_protocol_template` | `p_template_id uuid, p_expected_version int, p_name_en text, p_name_ar text, p_steps jsonb` (ordered `[{step_key\\|null, name_en, name_ar, needs_owner_ok, optional, actor_roles, items: [{text_en, text_ar}]}]`; `optional` and `actor_roles` are read only for owner-added steps) | `{template_id, version}` | owner | `TEMPLATE_CHANGED`, `PROTOCOL_STEP_FIXED` (a built-in step missing, u",
+      "body": "ol.decide` |\n| `skip_step` | `p_run_step_id uuid, p_note text` | `{step_status, opened_step_ids}` | the step's decider | `STEP_NOT_OPTIONAL`, `STEP_CLOSED` (submitted, passed, stopped), `REASON_REQUIRED`, `NOT_DECIDER` | – | `protocol.skip` |\n| `tick_run_item` | `p_item_id uuid, p_done boolean` | `ItemRow` | may act on the step | `STEP_NOT_OPEN`, `NOT_STEP_ACTOR`, `PROTOCOL_NOT_FOUND` | – | – (the row keeps who and when, **PROPOSAL**) |\n| `withdraw_protocol` | `p_run_id uuid` | `{run_status}` | the starter, before any decision (an automatic pass counts) | `FORBIDDEN`, `INVALID_TRANSITION` | – | `protocol.withdraw_run` |\n| `stop_protocol` | `p_run_id uuid, p_note text` | `{run_status}` | MGMT at venue (**PROPOSAL**) | `REASON_REQUIRED`, `PROTOCOL_CLOSED` | – | `protocol.stop` |\n| `cancel_schedule` | `p_run_id uuid` | `{run_status, reopened_step_id}` | may act on the terminal step | `INVALID_TRANSITION`, `NOT_STEP_ACTOR` | – | `protocol.unschedule` |\n| `edit_run_items` | `p_run_step_id uuid, p_items jsonb` (`[{id: uuid\\|null, text_en, text_ar}]`, max 12; kept ids keep their ticks) | `StepRow` | owner | `STEP_CLOSED`, `LIST_TOO_LONG`, `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.run.edit_items` |\n| `add_run_step` | `p_run_id uuid, p_after_run_step_id uuid, p_step jsonb` (`{name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}`) | `StepRow` | owner; run active; inserted below the terminal step, which is still `waiting`, and above no other step that has left `waiting` (the engine never takes a started step back; hint = the lowest step in the way; right below the terminal step is always allowed, so `Can.add_step` stays run-level) | `PROTOCOL_CLOSED`, `PROTOCOL_ORDER_INVALID`, `INVALID_ROLE`, `LIST_TOO_LONG`, `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.run.add_step` |\n| `save_protocol_template` | `p_template_id uuid, p_expected_version int, p_name_en text, p_name_ar text, p_steps jsonb` (ordered `[{step_key\\|null, name_en, name_ar, need",
       "route": null
     },
     {
@@ -18926,7 +19790,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#57",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "nknown or duplicated, or its actors/optional changed, or `needs_owner_ok` differing from the def on an `ok_fixed` step, plan #58), `PROTOCOL_ORDER_INVALID` (a built-in step above one of its `after` keys, the first not first, the last not last), `INVALID_ROLE` (owner-added actors outside HIREABLE), `LIST_TOO_LONG` (more than 20 steps or 12 items per step), `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.template.save` |\n| `protocol_template_detail` | `p_template_id uuid` | `{template: {id, kind, variant, name_en, name_ar, version, updated_at, updated_by_name}, steps: [{position, step_key, name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}], defs: <protocol_step_defs>}` | MGMT at venue | `PROTOCOL_NOT_FOUND` | – | – |\n| `protocols_overview` | `p_venue_id uuid default null` | `{templates: [{template_id, kind, variant, name_en, name_ar, version, running, waiting_on_me, finished_30d}]}` | MGMT at venue | `FORBIDDEN` | – | – |\n| `protocol_runs_page` | `p_venue_id uuid default null, p_filter text default 'waiting', p_kind text default null, p_limit int default 50, p_offset int default 0` | `{runs: [RunRow], total}` | ANY at venue; MGMT see every run, others only runs they are involved in | `INVALID_ARGUMENT` (filter not `waiting \\| active \\| finished \\| mine`) | – | – |\n| `protocol_run_detail` | `p_run_id uuid` | `{run: RunRow + {template_name_en, template_name_ar, data}, steps: [StepRow], can: Can}` (shaped by visibility) | ANY; MGMT at venue or involved | `PROTOCOL_NOT_FOUND` | – | – |\n| `protocol_step_detail` | `p_run_step_id uuid` | `{run: RunRow + {data}, step: StepRow, can: Can, def: <this step's def>}` | ANY; MGMT at venue or involved | `PROTOCOL_NOT_FOUND` | – | – |\n| `my_protocol_work` | `p_venue_id uuid default null` | `{todo: [{run_step_id, run_id, kind, variant, title_en, title_ar, step_key, name_en, name_ar, opened_at, round}], waiting: [{submission_id, run_step_id, run_id, kind, title_en, title_ar, name_en, name_ar, submitted",
+      "body": "s_owner_ok, optional, actor_roles, items: [{text_en, text_ar}]}]`; `optional` and `actor_roles` are read only for owner-added steps) | `{template_id, version}` | owner | `TEMPLATE_CHANGED`, `PROTOCOL_STEP_FIXED` (a built-in step missing, unknown or duplicated, or its actors/optional changed, or `needs_owner_ok` differing from the def on an `ok_fixed` step, plan #58), `PROTOCOL_ORDER_INVALID` (a built-in step above one of its `after` keys, the first not first, the last not last), `INVALID_ROLE` (owner-added actors outside HIREABLE), `LIST_TOO_LONG` (more than 20 steps or 12 items per step), `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.template.save` |\n| `protocol_template_detail` | `p_template_id uuid` | `{template: {id, kind, variant, name_en, name_ar, version, updated_at, updated_by_name}, steps: [{position, step_key, name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}], defs: <protocol_step_defs>}` | MGMT at venue | `PROTOCOL_NOT_FOUND` | – | – |\n| `protocols_overview` | `p_venue_id uuid default null` | `{templates: [{template_id, kind, variant, name_en, name_ar, version, running, waiting_on_me, finished_30d}]}` | MGMT at venue | `FORBIDDEN` | – | – |\n| `protocol_runs_page` | `p_venue_id uuid default null, p_filter text default 'waiting', p_kind text default null, p_limit int default 50, p_offset int default 0` | `{runs: [RunRow], total}` | ANY at venue; MGMT see every run, others only runs they are involved in | `INVALID_ARGUMENT` (filter not `waiting \\| active \\| finished \\| mine`) | – | – |\n| `protocol_run_detail` | `p_run_id uuid` | `{run: RunRow + {template_name_en, template_name_ar, data}, steps: [StepRow], can: Can}` (shaped by visibility) | ANY; MGMT at venue or involved | `PROTOCOL_NOT_FOUND` | – | – |\n| `protocol_step_detail` | `p_run_step_id uuid` | `{run: RunRow + {data}, step: StepRow, can: Can, def: <this step's def>}` | ANY; MGMT at venue or involved | `PROTOCOL_NOT_FOUND` | – | – |\n| `my_protocol_work` | `p_venue",
       "route": null
     },
     {
@@ -18934,7 +19798,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#58",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "_at}], decided: [… + {decision, decision_note, decided_at, decided_by_name}] (7 days), to_decide: [{submission_id, run_step_id, run_id, kind, title_en, title_ar, name_en, name_ar, submitted_by_name, submitted_at, needs_owner_ok}], counts: {todo, waiting, to_decide}}` | ANY at venue | `FORBIDDEN` | – | – |\n| `protocols_waiting_count` | `p_venue_id uuid default null` | `{to_decide, todo}` | ANY at venue | `FORBIDDEN` | – | – |",
+      "body": "_id uuid default null` | `{todo: [{run_step_id, run_id, kind, variant, title_en, title_ar, step_key, name_en, name_ar, opened_at, round}], waiting: [{submission_id, run_step_id, run_id, kind, title_en, title_ar, name_en, name_ar, submitted_at}], decided: [… + {decision, decision_note, decided_at, decided_by_name}] (7 days), to_decide: [{submission_id, run_step_id, run_id, kind, title_en, title_ar, name_en, name_ar, submitted_by_name, submitted_at, needs_owner_ok}], counts: {todo, waiting, to_decide}}` | ANY at venue | `FORBIDDEN` | – | – |\n| `protocols_waiting_count` | `p_venue_id uuid default null` | `{to_decide, todo}` | ANY at venue | `FORBIDDEN` | – | – |",
       "route": null
     },
     {
@@ -18958,7 +19822,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#60",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "| # | Key | Actors | OK | Optional | After | Fixed | Photos | Vis |\n|---|---|---|---|---|---|---|---|---|\n| 1 | `plan` | manager | off | no | – | first | – | mgmt |\n| 2 | `feasibility` (type1, type3) | manager | **on** | no | plan | – | – | mgmt |\n| 3 | `marketing` | marketing | off | **yes** | feasibility (type2: plan) | – | `marketing` 0–6 | run |\n| 4 | `courts` | court_desk | off | no | feasibility (type2: plan) | – | – | run |\n| 5 | `ready` | manager | off | no | courts, marketing | last | `steps` 0–6 | run |\n\n**Hiring** (`hiring`)\n\n| # | Key | Actors | OK | Optional | After | Fixed | Photos | Vis |\n|---|---|---|---|---|---|---|---|---|\n| 1 | `open_position` | manager | **on** | no | – | first | – | mgmt |\n| 2 | `interviews` | manager | **on** | no | open_position | – | – | mgmt |\n| 3 | `add_staff` | owner | off, fixed | no | interviews | last | – | mgmt |\n\n**Price or promotion change** (`price_promo`)\n\n| # | Key | Actors | OK | Optional | After | Fixed | Photos | Vis |\n|---|---|---|---|---|---|---|---|---|\n| 1 | `propose` | manager, marketing | off (the manager reviews marketing's proposal) | no | – | first | – | run |\n| 2 | `numbers` | manager | **on**, fixed (#58) | no | propose | – | – | mgmt |\n| 3 | `announce` | marketing | off | **yes** | numbers | – | `marketing` 0–6 | run |\n| 4 | `apply` | manager | off | no | numbers, announce | last | – | run |\n\nOrder stays fixed where it matters (Q7): a built-in step can move only where no dependency says\notherwise, which leaves exactly two swaps, price and marketing in a product release, marketing and\ncourts in a tournament (**PROPOSAL** that these two count as \"where it does not matter\").\n\n**Record shapes** (validated by the check hooks; `?` = optional; text caps per §2.1):",
+      "body": "| # | Key | Actors | OK | Optional | After | Fixed | Photos | Vis |\n|---|---|---|---|---|---|---|---|---|\n| 1 | `plan` | manager | off | no | – | first | – | mgmt |\n| 2 | `feasibility` (type1, type3) | manager | **on** | no | plan | – | – | mgmt |\n| 3 | `marketing` | marketing | off | **yes** | feasibility (type2: plan) | – | `marketing` 0–6 | run |\n| 4 | `courts` | court_desk | off | no | feasibility (type2: plan) | – | – | run |\n| 5 | `ready` | manager | off | no | courts, marketing | last | `steps` 0–6 | run |\n\n**Hiring** (`hiring`)\n\n| # | Key | Actors | OK | Optional | After | Fixed | Photos | Vis |\n|---|---|---|---|---|---|---|---|---|\n| 1 | `open_position` | manager | **on** | no | – | first | – | mgmt |\n| 2 | `interviews` | manager | **on** | no | open_position | – | – | mgmt |\n| 3 | `add_staff` | owner | off, fixed | no | interviews | last | – | mgmt |\n\n**Price or promotion change** (`price_promo`)\n\n| # | Key | Actors | OK | Optional | After | Fixed | Photos | Vis |\n|---|---|---|---|---|---|---|---|---|\n| 1 | `propose` | manager, marketing | off (the manager reviews marketing's proposal) | no | – | first | – | run |\n| 2 | `numbers` | manager | **on**, fixed (#58) | no | propose | – | – | mgmt |\n| 3 | `announce` | marketing | off | **yes** | numbers | – | `marketing` 0–6 | run |\n| 4 | `apply` | manager | off | no | numbers, announce | last | – | run |\n\nOrder stays fixed where it matters (Q7): a built-in step can move only where no dependency says\notherwise, which leaves exactly two swaps, price and marketing in a product release, marketing and\ncourts in a tournament (**PROPOSAL** that these two count as \"where it does not matter\"). A\nsend-back resets by dependency, not position (§2.7), so neither swap changes what it undoes.\n\n**Record shapes** (validated by the check hooks; `?` = optional; text caps per §2.1):",
       "route": null
     },
     {
@@ -19286,7 +20150,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#98",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "| RPC | Args | Returns | Guard | Errors | Key | Audit |\n|---|---|---|---|---|---|---|\n| `shopping_list` | `p_venue_id uuid default null, p_status text default 'open'` | `{items: [{id, ingredient_id, name_en, name_ar, label, qty, unit, note, requested_by_name, requested_at, status, mine}], open_count}` | BAR_KITCHEN, driver, MGMT at venue | `FORBIDDEN`, `INVALID_ARGUMENT` | – | – |\n| `add_shopping_item` | `p_venue_id uuid, p_ingredient_id uuid, p_label text, p_qty numeric, p_unit text, p_note text default null, p_idempotency_key text default null` | `{id}` | HEADS + MGMT at venue | `INGREDIENT_NOT_FOUND`, `SHOPPING_LABEL_REQUIRED`, `INVALID_QTY`, `INVALID_ARGUMENT` (unit), `TEXT_TOO_LONG` | yes | `shopping.add` |\n| `cancel_shopping_item` | `p_id uuid` | void | the requester, or MGMT | `SHOPPING_ITEM_NOT_OPEN`, `FORBIDDEN` | – | `shopping.cancel` |\n| `record_purchase` | `p_venue_id uuid, p_lines jsonb` (`[{shopping_item_id?, ingredient_id?, label?, qty, price_iqd}]`, 1–40)`, p_total_iqd bigint, p_shop text, p_receipt_path text, p_bought_at timestamptz default now(), p_idempotency_key text default null` | `{purchase_id}` | driver + MGMT at venue | `SHOPPING_ITEM_NOT_OPEN`, `INVALID_QTY`, `INVALID_AMOUNT`, `PHOTO_PATH_INVALID` (folder `receipts`), `TEXT_TOO_LONG` | yes | `purchase.record` |\n| `my_purchases` | `p_venue_id uuid default null, p_limit int default 30` | `{purchases: [{id, bought_at, shop_name, total_iqd, status, lines: [{label, name_en, name_ar, qty, unit, price_iqd, status}]}]}` (driver: own; MGMT: all) | driver + MGMT | `FORBIDDEN` | – | – |\n| `purchases_to_receive` | `p_venue_id uuid default null` | `{count, purchases: [{id, staff_name, bought_at, shop_name, total_iqd, receipt_path, lines: [{id, ingredient_id, name_en, name_ar, unit, pack_size, label, qty, price_iqd, status}]}]}` | MGMT at venue | `FORBIDDEN` | – | – |\n| `receive_purchase` | `p_purchase_id uuid, p_lines jsonb` (`[{purchase_line_id, qty_received, expiry_date?}]`)`, p_supplier_id uuid defau",
+      "body": "| RPC | Args | Returns | Guard | Errors | Key | Audit |\n|---|---|---|---|---|---|---|\n| `shopping_list` | `p_venue_id uuid default null, p_status text default 'open'` | `{items: [{id, ingredient_id, name_en, name_ar, label, qty, unit, note, requested_by_name, requested_at, status, mine}], open_count}` | BAR_KITCHEN, driver, MGMT at venue | `FORBIDDEN`, `INVALID_ARGUMENT` | – | – |\n| `add_shopping_item` | `p_venue_id uuid, p_ingredient_id uuid, p_label text, p_qty numeric, p_unit text, p_note text default null, p_idempotency_key text default null` | `{id}` | HEADS + MGMT at venue | `INGREDIENT_NOT_FOUND`, `SHOPPING_LABEL_REQUIRED`, `INVALID_QTY`, `INVALID_ARGUMENT` (unit), `TEXT_TOO_LONG` | yes | `shopping.add` |\n| `cancel_shopping_item` | `p_id uuid` | void | the requester, or MGMT | `SHOPPING_ITEM_NOT_OPEN`, `FORBIDDEN` | – | `shopping.cancel` |\n| `record_purchase` | `p_venue_id uuid, p_lines jsonb` (`[{shopping_item_id?, ingredient_id?, label?, qty, price_iqd}]`, 1–40)`, p_total_iqd bigint, p_shop text, p_receipt_path text, p_bought_at timestamptz default now(), p_idempotency_key text default null` | `{purchase_id}` | driver + MGMT at venue | `SHOPPING_ITEM_NOT_OPEN`, `INVALID_QTY`, `INVALID_AMOUNT`, `PHOTO_PATH_INVALID` (folder `receipts`), `TEXT_TOO_LONG` | yes | `purchase.record` |\n| `my_purchases` | `p_venue_id uuid default null, p_limit int default 30` | `{purchases: [{id, bought_at, shop_name, total_iqd, status, lines: [{label, name_en, name_ar, qty, unit, price_iqd, status}]}]}` (driver: own; MGMT: all) | driver + MGMT | `FORBIDDEN` | – | – |\n| `purchases_to_receive` | `p_venue_id uuid default null` | `{count, purchases: [{id, staff_name, bought_at, shop_name, total_iqd, receipt_path, lines: [{id, ingredient_id, ingredient_active, name_en, name_ar, unit, pack_size, label, qty, price_iqd, status}]}]}` (`ingredient_active`: null on a label line, false on a stock line whose ingredient was switched off since) | MGMT at venue | `FORBIDDEN` | – | – |\n| `receive_p",
       "route": null
     },
     {
@@ -19294,7 +20158,7 @@
       "ref": "doc:docs/design/protocols/build-contracts-2026-09-23.md#99",
       "lang": "en",
       "title": "docs/design/protocols/build-contracts-2026-09-23.md › 2. Database",
-      "body": "lt null, p_supplier_name text default null, p_idempotency_key text default null` | `{delivery_id, received_line_ids}` | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a non-stock line), `receive_delivery`'s codes | yes | `purchase.receive` |\n| `acknowledge_purchase_line` | `p_line_id uuid` | void | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a stock line) | – | `purchase.acknowledge` |",
+      "body": "urchase` | `p_purchase_id uuid, p_lines jsonb` (`[{purchase_line_id, qty_received, expiry_date?}]`)`, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null` | `{delivery_id, received_line_ids}` | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a non-stock line), `INGREDIENT_NOT_FOUND` (hint `lines`, detail the line id: a stock line still to receive whose ingredient was switched off), `receive_delivery`'s codes | yes | `purchase.receive` |\n| `acknowledge_purchase_line` | `p_line_id uuid` | void | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a stock line of an active ingredient) | – | `purchase.acknowledge` |",
       "route": null
     },
     {

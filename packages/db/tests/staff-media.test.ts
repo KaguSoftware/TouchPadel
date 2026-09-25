@@ -8,8 +8,10 @@
  *   * the storage INSERT policy admits only the uploader's own unused slot
  *     from the last hour, so a path without a slot, someone else's slot, an
  *     expired slot and a used slot are all refused;
- *   * any staff member at the venue reads a photo, except receipts (uploader
- *     and management only); management deletes; guests read nothing;
+ *   * a photo is read by its uploader and management, a receipt by nobody
+ *     else; who else reads a claimed protocol or marketing photo follows its
+ *     record (protocols_engine_rpcs re-issues the read policy, §2.3);
+ *     management deletes; guests read nothing;
  *   * the path helpers never raise and answer false / NULL on a menu-media
  *     name, and menu-media keeps working with these policies installed;
  *   * app.claim_staff_media claims the caller's own slot at the right venue
@@ -360,13 +362,15 @@ describe.skipIf(!up)('staff_media_bucket', () => {
       ).not.toBeNull();
     });
 
-    it('lets staff at the venue read a photo, and nobody else', async (ctx) => {
+    it('keeps an unclaimed photo to its uploader and management', async (ctx) => {
       if (!storageUp) return ctx.skip();
       const path = await mint(barista, 'proposals');
       expect((await upload(barista, path)).error).toBeNull();
-      for (const c of [barista, driver, cashier, manager, owner])
-        expect(await canRead(c, path)).toBe(true);
-      expect(await canRead(guest, path)).toBe(false);
+      for (const c of [barista, manager, owner]) expect(await canRead(c, path)).toBe(true);
+      // Who else reads a claimed photo follows the record that claimed it
+      // (app.staff_media_visible, re-issued by protocols_engine_rpcs, §2.3;
+      // protocols-engine-flow.test.ts).
+      for (const c of [driver, cashier, guest]) expect(await canRead(c, path)).toBe(false);
       // Private: no public URL serves it.
       const res = await fetch(svc.storage.from(BUCKET).getPublicUrl(path).data.publicUrl);
       expect(res.ok).toBe(false);

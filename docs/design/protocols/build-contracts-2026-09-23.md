@@ -112,7 +112,7 @@ order, append-only, re-read immediately before editing.
 |---|---|
 | 0 | `packages/i18n/src/catalogs/{work,opErrors.protocols}.{en,ar}.ts` (new); `packages/i18n/src/catalogs/staff/index.ts` and empty `staff/{shell,protocols,checklists,supplies,marketing,notes,media}.{en,ar}.ts` (new); empty `ws/{protocols,release,events,supplies,pricing}.{en,ar}.ts` (new); the mount lines in `en.ts`/`ar.ts` and `ws/index.ts`, plus the reworded `op.errors.IDEMPOTENCY_CONFLICT` string there (§3); the `MAPPED_CODES` block in `op/lib/errors.ts`; the `CODE_TO_KEY` block in `mob/src/features/booking/errors.ts`; this file |
 | K | drafts `{kitchen_board_read,kitchen_money_reads}.sql` (then `migrations/`); `packages/db/tests/kitchen-board.test.ts` (new); the 0157 cases of `packages/db/tests/new-roles.test.ts` (the order-side read case moves the kitchen roles and prep to "reads nothing"); `op/features/kds/ticketView.ts` and the tests `KdsBoard.test.tsx`, `ticketView.test.ts`; `op/features/kds/KdsBoard.tsx` is shared with D (second table): K changes the tickets query only, and D owns the header button in `KitchenDisplayScreen.tsx` |
-| A | `packages/db/supabase/drafts/{staff_ingredient_options,protocols_engine_tables,protocols_engine_rpcs}.sql` (then `migrations/`); `packages/db/tests/protocols-engine*.test.ts`, `protocols-roles.test.ts` (A's tables and RPCs only, §8.2), `staff-ingredient-options.test.ts` |
+| A | `packages/db/supabase/drafts/{staff_ingredient_options,protocols_engine_tables,protocols_engine_rpcs}.sql` (then `migrations/`); `packages/db/tests/protocols-engine*.test.ts`, `protocols-roles.test.ts` (A's tables and RPCs only, §8.2), `staff-ingredient-options.test.ts`; the read-policy case of G's committed `packages/db/tests/staff-media.test.ts` (A re-issues that policy, §2.3, §2.18) |
 | B | `packages/core/src/staff/**`, `packages/core/src/protocols/**` (§7.2); `op/lib/roleResolution.ts` (re-export only); `packages/db/tests/staff-roles-parity.test.ts`; the `Role` comment in `apps/operator-shell/src/ipc-channels.ts` and `op/ipc/bridge.ts` (§7.1); `mob/src/features/staff/{status,StaffStatusProvider,gate,RequireStaff,GuestTabsGate,hint,keys,api,venue,rows,edge,pushRoutes}.ts(x)` and their `__tests__`; `mob/app/staff.tsx`, `mob/app/staff-request.tsx`; `mob/src/smoke/staff.smoke.test.tsx`; `packages/i18n/src/catalogs/staff/shell.*`; `packages/db/fixtures/staff-roles.sql` (dev logins for the six new roles, **PROPOSAL**, loaded with `pnpm --filter @touch/db db:fixtures fixtures/staff-roles.sql`) |
 | C | `packages/db/supabase/drafts/{checklists,shopping_purchases,staff_production,marketing_staff}.sql`; `packages/db/tests/{checklists,shopping-purchases,staff-production,marketing-staff}.test.ts` (each with its own driver and marketing denials, §8.2) |
 | D | `op/features/protocols/**`; `op/routes/protocols.tsx`; `op/routes/tasks.tsx`; `op/features/tasks/**`; the "My tasks (N)" header button in `op/features/kds/KitchenDisplayScreen.tsx` (its count and handler come from `KdsBoard.tsx`, a shared file, second table); `op/routes/__root.tsx` (`RailLink` renders a `NavItem` badge); `packages/i18n/src/catalogs/ws/protocols.*`; `e2e/tests/operator-protocols.spec.ts` |
@@ -250,7 +250,10 @@ Push in batches: every push to `main` is a Vercel production build and a full CI
    `send-push` commit, so this push never carries it.
 3. The migrations (`db-migrate.yml`), `kitchen_money_reads` among them, only after step 1's
    operator install on every kitchen machine. Then `npx supabase migration list --linked` shows 0 pending;
-   assert the `storage.objects` policies of `staff-media` and the four `cron.job` rows (§2.19).
+   assert the `storage.objects` policies of `staff-media` (`staff_media_read` must read
+   `bucket_id = 'staff-media' and app.staff_media_visible(name)`: its re-issue degrades to a
+   NOTICE on a privilege refusal and would leave 0159's wider policy, §2.3) and the four
+   `cron.job` rows (§2.19).
    `protocol-action` and `release-review` deploy with whichever functions push comes first; they are
    inert until the cron rows exist.
 4. The operator tag: the next annotated `operator-vX.Y.Z` on the pushed commit fires
@@ -359,7 +362,7 @@ Push in batches: every push to `main` is a Vercel production build and a full CI
 | `staff_push` | G | – | push kind CHECK widened; `app.staff_ids_with_roles`; `app.notify_staff`; `set_staff_active`, `submit_staff_request`, `decide_staff_request` re-issued |
 | `staff_ingredient_options` | A | – | narrow ingredient read |
 | `protocols_engine_tables` | A | – | seven engine tables, step definitions, state-machine functions, seeds |
-| `protocols_engine_rpcs` | A | `protocols_engine_tables`, `staff_media_bucket`, `staff_push` | §2.7 RPCs and the hook dispatcher |
+| `protocols_engine_rpcs` | A | `protocols_engine_tables`, `staff_media_bucket`, `staff_push` | §2.7 RPCs and the hook dispatcher; `app.staff_media_visible`, with `app.claim_staff_media` and the `staff_media_read` policy re-issued (§2.3, §2.18) |
 | `product_test_movement` | E | – | `alter type movement_type add value if not exists 'product_test';` and nothing else |
 | `product_release` | E | `protocols_engine_rpcs`, `product_test_movement` | menu columns (`launched_at` counts every existing item as launched); `upsert_variant_internal` plus the `upsert_variant` wrapper (`ITEM_IN_RELEASE`); `upsert_menu_item_internal` plus the `upsert_menu_item` wrapper (`ITEM_IN_RELEASE` and the manager new-item guard: `ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`); release hooks and reads; variance and `report_stock` |
 | `release_post_launch` | E | `product_release`, `marketing_staff` (C; `release_review_input` reads `marketing_notes`) | `release_reviews`, `release_notes`; scheduler functions; two cron jobs |
@@ -405,6 +408,17 @@ RLS: select own rows (uploader = auth.uid()). Index (uploader, created_at).
 - Policies on `storage.objects`:
   - `staff_media_insert` (insert, authenticated): `bucket_id = 'staff-media' and exists (select 1 from public.staff_media_uploads u where u.path = name and u.uploader = auth.uid() and u.used_at is null and u.created_at > now() - interval '1 hour')`.
   - `staff_media_read` (select, authenticated): `bucket_id = 'staff-media' and app.staff_role() is not null and app.staff_media_venue(name) = any(app.staff_venue_ids()) and (app.staff_media_folder(name) <> 'receipts' or owner_id = auth.uid()::text or app.is_staff('manager','owner'))`. **UNVERIFIED:** `owner_id` exists on the hosted storage version.
+    **Re-issued by `protocols_engine_rpcs` (A)** (review 2026-09-25: the 0159 form let any staff
+    member at the venue list and open photos §2.7 hides) as
+    `bucket_id = 'staff-media' and app.staff_media_visible(name)`. `app.staff_media_visible(text)
+    returns boolean` (definer, stable, never raises, granted to `authenticated` and `service_role`,
+    `publicByDesign`, coverage `map:action`) reads the slot row: false for a guest, another venue
+    or a name that is not a staff-media path; true for the uploader and MGMT at the venue; for
+    `protocol_submission:<id>` also the sender of a submission of that step naming the path, and
+    anyone involved in the run when the step's `record_visibility` is `run` (an owner-added step
+    of a hiring run counts as `mgmt`); for `marketing_note:<id>` also marketing at the venue;
+    anything else (receipts, campaign images, unclaimed slots) the uploader and MGMT only. A lane
+    that claims photos under a new `<kind>` re-issues it from A's body.
   - `staff_media_delete` (delete, authenticated): MGMT at the path's venue. No update policy.
 
 | RPC | Args | Returns | Guard | Errors | Key | Audit |
@@ -415,7 +429,9 @@ RLS: select own rows (uploader = auth.uid()). Index (uploader, created_at).
 Every recording RPC calls `app.claim_staff_media` for its photo arguments. **Re-claim on
 resubmission:** a path whose `used_by` is `protocol_submission:<id>` may be claimed again by a new
 submission of the same run step when that earlier submission is withdrawn, superseded or decided
-`send_back`, whoever uploaded it; `used_by` then names the new submission, and the earlier row keeps
+`send_back`, or belongs to an earlier round (an approved or automatic submission whose step a
+send-back or `cancel_schedule` reopened; A re-issues `app.claim_staff_media` for this in
+`protocols_engine_rpcs`), whoever uploaded it; `used_by` then names the new submission, and the earlier row keeps
 the path in its history. So both apps keep the attached photos on a resubmission. Reading is by
 signed URL (`createSignedUrl(path, 600)`), on both apps. Only the launch copies a photo out (§2.20).
 `staff_media_uploads` never gets `app.assistant_readable_columns` rows (§1.5).
@@ -521,6 +537,11 @@ protocol_run_items       id uuid pk, run_step_id uuid not null → protocol_run_
   `protocol_run_items (run_step_id)`, `protocol_template_items (step_id)`.
 - RLS: select policy MGMT at venue on `protocol_templates` and `protocol_runs`; the other five by
   `exists` on their parent under the same predicate.
+- `app.assistant_readable_columns` (§1.5) takes the seven tables **without**
+  `protocol_submissions.decision_note`, `protocol_submissions.record`,
+  `protocol_run_steps.skip_note` and `protocol_runs.stop_reason`, for every kind: a hiring run's
+  may name a candidate until the 90-day purge (§2.12), what the assistant reads goes to the LLM,
+  and a column cannot be left out for one kind only (review 2026-09-25).
 - `app.protocol_step_defs(p_kind text, p_variant text) returns jsonb` (immutable, internal): the
   built-in steps of §2.8 as `[{step_key, name_en, name_ar, actor_roles, assign_to_starter, needs_owner_ok, ok_fixed, optional, after, fixed, photo_folder, photos_min, photos_max, record_visibility}]`
   with `fixed` in `first | last | null` and `record_visibility` in `run | mgmt`. `ok_fixed` is true
@@ -560,8 +581,14 @@ protocol_run_items       id uuid pk, run_step_id uuid not null → protocol_run_
   `p_decision_data`; a step whose approval needs decision data asks for it in the record when the
   submitter is a decider (release `propose`, §2.8).
 - **Send back** to target T (the submitted step itself or any `passed` step below it): T → `open`,
-  `round + 1`; every step above T that is `passed`, `open` or `submitted` → `waiting`, their
-  undecided submissions get `superseded_at`; then the opening rule runs. Earlier rounds stay.
+  `round + 1`; every step that waits for T by the opening rule, transitively (a built-in step
+  through its `after` keys, any step above an owner-added one, an owner-added step above any step,
+  the terminal step), and the sent-back step itself when T is another step, goes from `passed`,
+  `open` or `submitted` to `waiting` (`round + 1` where it holds a decided submission of its
+  current round), their undecided submissions get `superseded_at`; then the opening rule runs.
+  A step that does not wait for T keeps its state, so the order of two parallel steps never
+  changes what a send-back undoes (review 2026-09-25; this replaced "every step above T").
+  Earlier rounds stay.
 - **Stop** (a decision, or `stop_protocol`): the step → `stopped`, the run → `stopped`, the kind's
   stop hook runs. A reason is required.
 - **Terminal pass:** the kind's finish hook returns the run status (`done`, `live` or `scheduled`).
@@ -599,7 +626,8 @@ protocol_run_items       id uuid pk, run_step_id uuid not null → protocol_run_
   `courts` and `marketing` steps (§2.11), `release_test_context` for the release `test` step
   (§2.9). The day-30 review is not part of any run shape: only MGMT reads it, through
   `release_review` (§2.10, #54), so an involved starter sees the run reach `done` with no figures
-  and no write-up.
+  and no write-up. The staff-media read policy follows the same rule (`app.staff_media_visible`,
+  §2.3), so a signed URL or a listing shows no photo these reads hide.
 
 **Shared JSON shapes** (returned by several RPCs; all keys always present, nulls allowed):
 
@@ -634,7 +662,7 @@ Can           {submit: boolean, withdraw_submission_id: uuid|null, decide_submis
 | `stop_protocol` | `p_run_id uuid, p_note text` | `{run_status}` | MGMT at venue (**PROPOSAL**) | `REASON_REQUIRED`, `PROTOCOL_CLOSED` | – | `protocol.stop` |
 | `cancel_schedule` | `p_run_id uuid` | `{run_status, reopened_step_id}` | may act on the terminal step | `INVALID_TRANSITION`, `NOT_STEP_ACTOR` | – | `protocol.unschedule` |
 | `edit_run_items` | `p_run_step_id uuid, p_items jsonb` (`[{id: uuid\|null, text_en, text_ar}]`, max 12; kept ids keep their ticks) | `StepRow` | owner | `STEP_CLOSED`, `LIST_TOO_LONG`, `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.run.edit_items` |
-| `add_run_step` | `p_run_id uuid, p_after_run_step_id uuid, p_step jsonb` (`{name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}`) | `StepRow` | owner; run active; inserted below the terminal step | `PROTOCOL_CLOSED`, `PROTOCOL_ORDER_INVALID`, `INVALID_ROLE`, `LIST_TOO_LONG`, `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.run.add_step` |
+| `add_run_step` | `p_run_id uuid, p_after_run_step_id uuid, p_step jsonb` (`{name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}`) | `StepRow` | owner; run active; inserted below the terminal step, which is still `waiting`, and above no other step that has left `waiting` (the engine never takes a started step back; hint = the lowest step in the way; right below the terminal step is always allowed, so `Can.add_step` stays run-level) | `PROTOCOL_CLOSED`, `PROTOCOL_ORDER_INVALID`, `INVALID_ROLE`, `LIST_TOO_LONG`, `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.run.add_step` |
 | `save_protocol_template` | `p_template_id uuid, p_expected_version int, p_name_en text, p_name_ar text, p_steps jsonb` (ordered `[{step_key\|null, name_en, name_ar, needs_owner_ok, optional, actor_roles, items: [{text_en, text_ar}]}]`; `optional` and `actor_roles` are read only for owner-added steps) | `{template_id, version}` | owner | `TEMPLATE_CHANGED`, `PROTOCOL_STEP_FIXED` (a built-in step missing, unknown or duplicated, or its actors/optional changed, or `needs_owner_ok` differing from the def on an `ok_fixed` step, plan #58), `PROTOCOL_ORDER_INVALID` (a built-in step above one of its `after` keys, the first not first, the last not last), `INVALID_ROLE` (owner-added actors outside HIREABLE), `LIST_TOO_LONG` (more than 20 steps or 12 items per step), `TEXT_BOTH_LANGUAGES_REQUIRED` | – | `protocol.template.save` |
 | `protocol_template_detail` | `p_template_id uuid` | `{template: {id, kind, variant, name_en, name_ar, version, updated_at, updated_by_name}, steps: [{position, step_key, name_en, name_ar, actor_roles, needs_owner_ok, optional, items: [{text_en, text_ar}]}], defs: <protocol_step_defs>}` | MGMT at venue | `PROTOCOL_NOT_FOUND` | – | – |
 | `protocols_overview` | `p_venue_id uuid default null` | `{templates: [{template_id, kind, variant, name_en, name_ar, version, running, waiting_on_me, finished_30d}]}` | MGMT at venue | `FORBIDDEN` | – | – |
@@ -700,7 +728,8 @@ every change kind, the #57 ones included.
 
 Order stays fixed where it matters (Q7): a built-in step can move only where no dependency says
 otherwise, which leaves exactly two swaps, price and marketing in a product release, marketing and
-courts in a tournament (**PROPOSAL** that these two count as "where it does not matter").
+courts in a tournament (**PROPOSAL** that these two count as "where it does not matter"). A
+send-back resets by dependency, not position (§2.7), so neither swap changes what it undoes.
 
 **Record shapes** (validated by the check hooks; `?` = optional; text caps per §2.1):
 
@@ -1251,9 +1280,9 @@ RLS: MGMT at venue on all three; purchases also own rows (staff_id = auth.uid())
 | `cancel_shopping_item` | `p_id uuid` | void | the requester, or MGMT | `SHOPPING_ITEM_NOT_OPEN`, `FORBIDDEN` | – | `shopping.cancel` |
 | `record_purchase` | `p_venue_id uuid, p_lines jsonb` (`[{shopping_item_id?, ingredient_id?, label?, qty, price_iqd}]`, 1–40)`, p_total_iqd bigint, p_shop text, p_receipt_path text, p_bought_at timestamptz default now(), p_idempotency_key text default null` | `{purchase_id}` | driver + MGMT at venue | `SHOPPING_ITEM_NOT_OPEN`, `INVALID_QTY`, `INVALID_AMOUNT`, `PHOTO_PATH_INVALID` (folder `receipts`), `TEXT_TOO_LONG` | yes | `purchase.record` |
 | `my_purchases` | `p_venue_id uuid default null, p_limit int default 30` | `{purchases: [{id, bought_at, shop_name, total_iqd, status, lines: [{label, name_en, name_ar, qty, unit, price_iqd, status}]}]}` (driver: own; MGMT: all) | driver + MGMT | `FORBIDDEN` | – | – |
-| `purchases_to_receive` | `p_venue_id uuid default null` | `{count, purchases: [{id, staff_name, bought_at, shop_name, total_iqd, receipt_path, lines: [{id, ingredient_id, name_en, name_ar, unit, pack_size, label, qty, price_iqd, status}]}]}` | MGMT at venue | `FORBIDDEN` | – | – |
-| `receive_purchase` | `p_purchase_id uuid, p_lines jsonb` (`[{purchase_line_id, qty_received, expiry_date?}]`)`, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null` | `{delivery_id, received_line_ids}` | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a non-stock line), `receive_delivery`'s codes | yes | `purchase.receive` |
-| `acknowledge_purchase_line` | `p_line_id uuid` | void | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a stock line) | – | `purchase.acknowledge` |
+| `purchases_to_receive` | `p_venue_id uuid default null` | `{count, purchases: [{id, staff_name, bought_at, shop_name, total_iqd, receipt_path, lines: [{id, ingredient_id, ingredient_active, name_en, name_ar, unit, pack_size, label, qty, price_iqd, status}]}]}` (`ingredient_active`: null on a label line, false on a stock line whose ingredient was switched off since) | MGMT at venue | `FORBIDDEN` | – | – |
+| `receive_purchase` | `p_purchase_id uuid, p_lines jsonb` (`[{purchase_line_id, qty_received, expiry_date?}]`)`, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null` | `{delivery_id, received_line_ids}` | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a non-stock line), `INGREDIENT_NOT_FOUND` (hint `lines`, detail the line id: a stock line still to receive whose ingredient was switched off), `receive_delivery`'s codes | yes | `purchase.receive` |
+| `acknowledge_purchase_line` | `p_line_id uuid` | void | MGMT at venue | `PURCHASE_NOT_FOUND`, `PURCHASE_ALREADY_RECEIVED`, `INVALID_ARGUMENT` (a stock line of an active ingredient) | – | `purchase.acknowledge` |
 
 - `record_purchase` marks the lines' shopping items `bought`, notifies managers
   `purchase_to_receive`, never touches the till, the drawer or day close.
@@ -1269,6 +1298,12 @@ RLS: MGMT at venue on all three; purchases also own rows (staff_id = auth.uid())
   `{delivery_id, batch_ids}` (0145:333) and `delivery_lines` has no ordering column and no
   reference back (0017:103-111), so two purchase lines of the same ingredient could not be matched
   to their delivery lines.
+- A stock line whose ingredient is switched off after the purchase cannot be booked
+  (`receive_delivery` takes active ingredients only, 0145:295). `receive_purchase` refuses the
+  whole purchase with `INGREDIENT_NOT_FOUND` (hint `lines`, detail the line) before it books
+  anything, and `acknowledge_purchase_line` closes that line as it closes a label line; then the
+  rest is received. Goods in (I) offers Acknowledge on a line with `ingredient_active = false`
+  (review 2026-09-25).
 
 ### 2.16 `staff_production` (C)
 
@@ -1332,6 +1367,8 @@ Each object below has one owning lane, with one exception: `upsert_variant`. E c
 |---|---|---|---|
 | `notification_outbox` kind CHECK | 0075:45-60 | G | four staff kinds |
 | `app.set_staff_active` | 0081:67 | G | clear the push token on deactivate |
+| `app.claim_staff_media` | 0159 (G) | A (`protocols_engine_rpcs`) | re-claim from an earlier round of the same run step (§2.3) |
+| policy `staff_media_read` on `storage.objects` | 0159 (G) | A (`protocols_engine_rpcs`) | `bucket_id = 'staff-media' and app.staff_media_visible(name)`, dropped and created in one guarded block (§2.3) |
 | `app.submit_staff_request`, `app.decide_staff_request` | 0072 | G | one notify each |
 | `app.upsert_variant` | 0013:203 | E, then F | E: `upsert_variant_internal` + wrapper with `ITEM_IN_RELEASE`; F (`price_promo`), from E's wrapper body: + `PRICE_VIA_PROTOCOL` for a manager on any launched item, shop included (§2.13) |
 | `app.upsert_menu_item` | 0054:48 | E | `upsert_menu_item_internal` (with the `launched_at` stamp) + wrapper with `ITEM_IN_RELEASE` and the manager new-item guard (`ITEM_VIA_RELEASE`, `LAUNCH_VIA_PROTOCOL`, §2.9) |
@@ -2300,7 +2337,10 @@ here, and visually by Majed on a phone through Metro on the new dev client (scre
   stop, skip, withdraw, automatic pass for manager and owner, `CANNOT_DECIDE_OWN`, the dependency
   rule in template saves, owner-only per-run edits, idempotent `start_protocol` and `submit_step`
   replays, a missing hook's `PROTOCOL_NOT_READY`, a null `p_first_record` refused, a resubmission
-  that re-claims the earlier round's photos, and the reason CHECKs refusing a NULL
+  that re-claims the earlier round's photos (an approved one sent back from a later step
+  included), a send-back that leaves a step not waiting on its target as it was (in the default
+  and the swapped order), an owner-added step refused above a started step, storage showing a
+  photo to exactly those the engine's reads show it to, and the reason CHECKs refusing a NULL
   `stop_reason`, `skip_note` and send-back or stop `decision_note` at the table. The fixed OK
   (#58): `save_protocol_template` refuses `needs_owner_ok = false` on release `analysis` and
   price/promo `numbers`, and any change of it on `launch` and `add_staff`, with
@@ -2444,7 +2484,8 @@ here, and visually by Majed on a phone through Metro on the new dev client (scre
 
 ### 8.4 Open facts to check (UNVERIFIED items in one place)
 
-- `storage.objects.owner_id` on the hosted storage version (§2.3 read policy).
+- `storage.objects.owner_id` on the hosted storage version (§2.3 read policy; only 0159's form
+  reads it; A's re-issue in `protocols_engine_rpcs` does not).
 - `storage.copy` with `destinationBucket` on hosted (§2.20).
 - Android blocked permissions on SDK 57, and GPS EXIF after re-encoding (§6.9, §6.10).
 - Whether the recipe editor lists inactive (draft) items (§2.9).

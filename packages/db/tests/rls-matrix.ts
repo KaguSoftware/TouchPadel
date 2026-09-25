@@ -2781,4 +2781,223 @@ export const matrix: MatrixRule[] = [
     note: 'pure text: NULL for a name that is not a staff-media path; policy-evaluated, hence the anon grant',
     drop: 17,
   },
+
+  // ── ingredient names for the staff phone (staff_ingredient_options, §2.5) ──
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_ingredient_options',
+    args: { p_venue_id: VENUE_A, p_query: 'matrix-never' }, expect: MANAGER_UP,
+    note:
+      'the bar and kitchen family, the driver and MGMT (the new roles are not in this matrix: ' +
+      'tests/staff-ingredient-options.test.ts); names, unit, kind and pack size only, no cost',
+    drop: 17,
+  },
+
+  // ── protocol engine (protocols_engine_tables / _rpcs, §2.6, §2.7) ─────────
+  // Select rules for the two template tables only: the seed gives MGMT rows to
+  // read. The run-side tables have no probe row here, so their reads (MGMT
+  // rows, everyone else silence) are proven in tests/protocols-roles.test.ts
+  // against a probe run; every one of the seven refuses a client write.
+  {
+    kind: 'select',
+    name: 'protocol_templates',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    note: 'MGMT at the venue; everyone else reads protocols through the definer RPCs',
+    drop: 17,
+  },
+  {
+    kind: 'select',
+    name: 'protocol_template_steps',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    note: 'MGMT at the venue, by exists on the template',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'protocol_templates',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: every write is a definer RPC (start_protocol, submit_step, save_protocol_template, …)',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'protocol_template_steps',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: definer RPCs only',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'protocol_template_items',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: definer RPCs only',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'protocol_runs',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: definer RPCs only',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'protocol_run_steps',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: definer RPCs only',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'protocol_submissions',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: definer RPCs only',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'protocol_run_items',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: definer RPCs only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'start_protocol',
+    args: { p_kind: 'price_promo' }, expect: MANAGER_UP,
+    note:
+      'starters by kind (product_release adds the heads, price_promo marketing; not in this matrix); ' +
+      'no title and no first record, so a caller past the guard stops at TEXT_REQUIRED or RECORD_INVALID',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'submit_step',
+    args: { p_run_step_id: NIL_UUID, p_record: {} }, expect: STAFF_ANY,
+    note: 'any active staff member; then who may act on the step. An unknown step is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'withdraw_step',
+    args: { p_submission_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the sender only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'decide_step',
+    args: { p_submission_id: NIL_UUID, p_decision: 'approve' }, expect: STAFF_ANY,
+    note: 'any active staff member; then the step’s decider (NOT_DECIDER), never on their own submission',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'skip_step',
+    args: { p_run_step_id: NIL_UUID, p_note: 'matrix' }, expect: STAFF_ANY,
+    note: 'any active staff member; then the step’s decider, on an optional step',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'tick_run_item',
+    args: { p_item_id: NIL_UUID, p_done: true }, expect: STAFF_ANY,
+    note: 'any active staff member; then who may act on the open step',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'withdraw_protocol',
+    args: { p_run_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the starter, before any decision',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'stop_protocol',
+    args: { p_run_id: NIL_UUID, p_note: 'matrix' }, expect: MANAGER_UP,
+    note: 'MGMT at the run’s venue',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'cancel_schedule',
+    args: { p_run_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then who may act on the terminal step',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'edit_run_items',
+    args: { p_run_step_id: NIL_UUID, p_items: [] }, expect: OWNER_ONLY,
+    note: 'the owner’s per-run edit (Q11)',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'add_run_step',
+    args: { p_run_id: NIL_UUID, p_after_run_step_id: NIL_UUID, p_step: {} }, expect: OWNER_ONLY,
+    note: 'the owner’s per-run edit (Q11)',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'save_protocol_template',
+    args: { p_template_id: NIL_UUID, p_expected_version: 1, p_name_en: 'x', p_name_ar: 'x', p_steps: [] },
+    expect: OWNER_ONLY,
+    note: 'How it works is the owner’s',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'protocol_template_detail',
+    args: { p_template_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the template’s venue',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'protocols_overview',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'MGMT at the venue: the Protocols cards',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'protocol_runs_page',
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue (MGMT every run, others the runs they are in); an unknown filter fails INVALID_ARGUMENT past the guard',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'protocol_run_detail',
+    args: { p_run_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; MGMT or involved, else PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'protocol_step_detail',
+    args: { p_run_step_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; MGMT or involved, else PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_protocol_work',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue: their To do, waiting, decided and to decide',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'protocols_waiting_count',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue: the badge counts',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_media_visible',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: ex<RpcExpectation>('execute', { anon: 'denied' }),
+    note:
+      'the staff_media_read policy\'s helper (re-issued here from 0159): answers false, never raises, so a ' +
+      'menu-media name passes through; authenticated only, as the policy is. Who reads a claimed photo is ' +
+      'tests/protocols-engine-flow.test.ts',
+    drop: 17,
+  },
 ];
