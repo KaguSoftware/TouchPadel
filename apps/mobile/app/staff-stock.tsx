@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDate, formatNumber, formatTime } from '@touch/i18n';
+import { formatDate, formatTime } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
@@ -24,8 +24,9 @@ import {
 } from '../src/features/staff/stock/logic';
 import type { StockUnit } from '../src/features/staff/supplies/production';
 import { localName } from '../src/features/staff/checklists/logic';
-import { Tag } from '../src/features/staff/checklists/parts';
+import { Lead, Tag } from '../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
+import { formatQty } from '../src/features/staff/supplies/logic';
 
 /**
  * Stock by quantity (build-contracts-2026-09-23 §2.24.5, §6.1; plan #68): the
@@ -60,7 +61,8 @@ function StockScreen() {
   const pull = usePullRefresh(() => stock.refetch());
 
   const qtyText = (qty: number, unit: StockUnit) =>
-    t('staff.checklists.qty', { qty: formatNumber(qty, locale), unit: t(`staff.checklists.units.${unit}`) });
+    // "1 piece", "12 pieces": the phone's one quantity format (shopping and purchases use it too).
+    formatQty(t, locale, qty, unit);
 
   const productLine = (item: StockItem): string | null => {
     if (!item.product) return null;
@@ -87,6 +89,8 @@ function StockScreen() {
         />
       );
     }
+    // A search that finds nothing is not an empty stock: say which it is.
+    if (rows.length === 0 && query.trim() !== '') return <Hint>{t('staff.checklists.stock.noMatch')}</Hint>;
     if (rows.length === 0) {
       return (
         <EmptyState
@@ -155,9 +159,7 @@ function StockScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t(role === 'court_desk' ? 'staff.checklists.stock.leadShop' : 'staff.checklists.stock.lead')}
-        </Text>
+        <Lead>{t(role === 'court_desk' ? 'staff.checklists.stock.leadShop' : 'staff.checklists.stock.lead')}</Lead>
         {filters.length > 0 ? (
           <SegmentedControl<StockFilter>
             testID="staff-stock.filter"

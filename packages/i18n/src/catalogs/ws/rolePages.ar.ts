@@ -4,7 +4,7 @@ import type { DeepMessages } from './types';
 export const rolePagesAr: DeepMessages<typeof rolePagesEn> = {
   suggestions: {
     title: 'الاقتراحات',
-    lead: 'ما يقترحه الفريق من هاتف الموظفين. الاقتراح موقَّع لتتابعه، ووضع علامة «اطُّلع عليه» يُعلم صاحبه.',
+    lead: 'تصل من هاتف الموظفين موقَّعةً، لتتابع أيًّا منها. وضع علامة «اطُّلع عليه» يُعلم صاحبه.',
     filterLabel: 'اعرض الاقتراحات',
     filter: {
       new: 'جديدة',

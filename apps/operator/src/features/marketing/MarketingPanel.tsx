@@ -136,10 +136,12 @@ const REQUEST_FILTERS: readonly RequestFilter[] = ['open', 'answered', 'all'];
 /** The page the panel reads; the rest is counted, not listed. */
 const REQUESTS_SHOWN = 50;
 
-const REQUEST_TONE: Record<RequestStatus, 'info' | 'success' | 'neutral'> = {
-  open: 'info',
+// The tones the same statuses carry in the /tasks copy and on the phone:
+// waiting for someone is amber, declined is red.
+const REQUEST_TONE: Record<RequestStatus, 'warn' | 'success' | 'danger' | 'neutral'> = {
+  open: 'warn',
   done: 'success',
-  declined: 'neutral',
+  declined: 'danger',
   withdrawn: 'neutral',
 };
 
@@ -536,7 +538,7 @@ function MarketingRequestsPanel({ onPhotos }: { onPhotos: (paths: readonly strin
       data-testid="marketing-requests"
       actions={
         q.isSuccess && data.open_count > 0 ? (
-          <StatusBadge tone="info" label={tr('ws.supplies.requests.waitingBadge', { count: formatNumber(data.open_count, locale) })} />
+          <StatusBadge tone="warn" label={tr('ws.supplies.requests.waitingBadge', { count: formatNumber(data.open_count, locale) })} />
         ) : undefined
       }
     >

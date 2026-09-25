@@ -166,10 +166,68 @@ function DeliveryForm() {
     <div style={{ maxInlineSize: '64rem' }}>
       <PageHeader title={tr('op.stockNav.receive')} subtitle={tr('ws.manager.stock.goodsIn.lead')} />
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      {/* The driver's purchases, then one delivery typed in by hand: the lines
+          first, then who it came from. The supplier fills itself from the first
+          ingredient chosen, so it sits under the lines, where that shows, and
+          the Record button closes the form rather than sharing a row with
+          "Add another ingredient" above a supplier still to check. */}
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
         <DriverPurchasesPanel />
-        <Panel>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }}>
+
+        <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
+          {/* The order of the work, said once at the top rather than hidden in
+              the Record button's tooltip, where it only showed up too late. */}
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
+            {tr('ws.manager.stock.goodsIn.recordEmpty')}
+          </p>
+          {/* A failed ingredient read left an empty "Choose…" list with no word
+              about why: say so, with the way to read it again. */}
+          {ingredientsQ.isError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-3)' }}>
+              <ErrorText error={ingredientsQ.error} style={{ marginBlock: 0 }} />
+              <Button size="sm" icon="refresh" busy={ingredientsQ.isFetching} onClick={() => void ingredientsQ.refetch()}>
+                {tr('ws.kit.async.retry')}
+              </Button>
+            </div>
+          )}
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {lines.map((l, i) => (
+              <LineEditor
+                key={l.key}
+                index={i}
+                line={l}
+                today={today}
+                ingredients={ingredients}
+                ingredient={byId.get(l.ingredientId) ?? null}
+                busy={busy}
+                removable={lines.length > 1}
+                onChoose={(id) => chooseIngredient(l, id)}
+                onPatch={(part) => patch(l.key, part)}
+                onRemove={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
+              />
+            ))}
+          </ol>
+
+          {shortCount > 0 && (
+            <MessagePresenter tone="info" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
+          )}
+
+          <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
+            <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+              {tr('ws.manager.stock.goodsIn.addLine')}
+            </Button>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))',
+              columnGap: 'var(--tp-sp-2-5)',
+              marginBlockStart: 'var(--tp-sp-5)',
+              paddingBlockStart: 'var(--tp-sp-4)',
+              borderBlockStart: '1px solid var(--tp-border)',
+            }}
+          >
             <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
               {suppliers.length > 0 ? (
                 <Select
@@ -196,51 +254,13 @@ function DeliveryForm() {
               <input style={inputStyle} value={notes} disabled={busy} placeholder={tr('ws.manager.stock.goodsIn.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
             </Field>
           </div>
-        </Panel>
 
-        <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
-          {/* The order of the work, said once at the top rather than hidden in
-              the Record button's tooltip, where it only showed up too late. */}
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
-            {tr('ws.manager.stock.goodsIn.recordEmpty')}
-          </p>
-          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-            {lines.map((l, i) => (
-              <LineEditor
-                key={l.key}
-                index={i}
-                line={l}
-                today={today}
-                ingredients={ingredients}
-                ingredient={byId.get(l.ingredientId) ?? null}
-                busy={busy}
-                removable={lines.length > 1}
-                onChoose={(id) => chooseIngredient(l, id)}
-                onPatch={(part) => patch(l.key, part)}
-                onRemove={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-              />
-            ))}
-          </ol>
-
-          {shortCount > 0 && (
-            <MessagePresenter tone="info" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBlockStart: 'var(--tp-sp-3)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-            <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
-              {tr('ws.manager.stock.goodsIn.addLine')}
-            </Button>
-            <Button
-              kind="primary"
-              icon="box"
-              busy={busy}
-              disabled={!canRecord}
-              onClick={() => void submit()}
-            >
+          <ErrorText error={error} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button kind="primary" icon="box" busy={busy} disabled={!canRecord} onClick={() => void submit()}>
               {tr('ws.manager.stock.goodsIn.record')}
             </Button>
           </div>
-          <ErrorText error={error} />
         </Panel>
 
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
@@ -339,7 +359,7 @@ function LineEditor({
           aria-label={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
           title={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
           onClick={onRemove}
-          style={{ marginBlockEnd: '0.3rem' }}
+          style={{ marginBlockEnd: 'var(--tp-sp-1)' }}
         />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 'var(--tp-sp-2)', alignItems: 'start' }}>
@@ -356,7 +376,7 @@ function LineEditor({
           <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
-          label={unit ? tr('ws.manager.stock.goodsIn.costPer', { unit }) : tr('ws.manager.stock.goodsIn.cost')}
+          label={ingredient ? tr('ws.manager.stock.goodsIn.costPer', { unit: fmt.one(ingredient.unit) }) : tr('ws.manager.stock.goodsIn.cost')}
           required
           style={{ marginBlockEnd: 0 }}
           error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}

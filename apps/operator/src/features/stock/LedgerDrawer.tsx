@@ -101,7 +101,7 @@ export function LedgerDrawer({
     },
     {
       key: 'cost',
-      header: tr('ws.manager.stock.ledger.costPer', { unit: fmt.unit(ingredient.unit) }),
+      header: tr('ws.manager.stock.ledger.costPer', { unit: fmt.one(ingredient.unit) }),
       numeric: true,
       render: (m) => <bdi style={{ color: 'var(--tp-muted-fg)' }}>{fmt.cost(m.unit_cost_iqd)}</bdi>,
     },

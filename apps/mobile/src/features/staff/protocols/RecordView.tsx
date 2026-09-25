@@ -136,8 +136,19 @@ function Entry({
     return (
       <View style={{ gap: 4 }}>
         <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.mut }}>{label}</Text>
+        {/* Rows are split by hairlines and set in by the same step as an
+            object's members; no coloured edge down their side. */}
         {value.map((row, i) => (
-          <View key={i} style={{ paddingStart: space.sm, gap: 2, borderStartWidth: 2, borderStartColor: colors.line }}>
+          <View
+            key={i}
+            style={{
+              paddingStart: space.sm,
+              paddingTop: i === 0 ? 0 : space.xs,
+              gap: 2,
+              borderTopWidth: i === 0 ? 0 : 1,
+              borderTopColor: colors.sub,
+            }}
+          >
             {isObj(row)
               ? (def.fields ?? []).map((child) => (
                   <Entry

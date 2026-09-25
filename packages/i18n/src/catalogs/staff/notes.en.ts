@@ -22,6 +22,6 @@ export const staffNotesEn = {
   none: 'No notes on this item yet.',
   mine: 'You',
   by: '{name}, {when}',
-  tooLong: 'Keep it under 2000 characters.',
+  tooLong: 'Keep it under 2,000 characters.',
   required: 'Write something first.',
 } as const;

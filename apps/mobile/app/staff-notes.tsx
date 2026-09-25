@@ -3,11 +3,11 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDateTime } from '@touch/i18n';
+import { formatDateTime, isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, Hint, MicroLabel, Screen } from '../src/components/ui';
-import { SkeletonList } from '../src/components/states';
+import { ErrorState, SkeletonList } from '../src/components/states';
 import { useToast } from '../src/components/overlays';
 import { RequireStaff } from '../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
@@ -21,6 +21,7 @@ import { NOTE_MAX, checkNote, daysLeft, initialItemId } from '../src/features/st
 import { Chip } from '../src/features/staff/protocols/FormFields';
 import { bilingual } from '../src/features/staff/protocols/logic';
 import { Muted, Section, Strong, useRefreshProtocols } from '../src/features/staff/protocols/parts';
+import { Lead, MULTILINE_BOX, MULTILINE_TEXT } from '../src/features/staff/checklists/parts';
 
 /**
  * Notes on new items (build-contracts-2026-09-23 §6.1 `staff-notes.tsx?itemId=`,
@@ -55,7 +56,17 @@ function ItemNotesPanel({ itemId }: { itemId: string }) {
   });
 
   if (notes.isPending) return <SkeletonList rows={2} height={72} />;
-  if (notes.isError) return <Hint>{t(mapStaffError(notes.error))}</Hint>;
+  if (notes.isError) {
+    return (
+      <ErrorState
+        testID="staff-notes.notes-error"
+        title={t('errors.loadFailedTitle')}
+        message={t(mapStaffError(notes.error))}
+        retryLabel={t('common.retry')}
+        onRetry={() => void notes.refetch()}
+      />
+    );
+  }
   const { item, notes: list } = notes.data;
   const left = daysLeft(item.window_ends_at);
 
@@ -81,6 +92,8 @@ function ItemNotesPanel({ itemId }: { itemId: string }) {
                 setProblem(null);
               }}
               multiline
+              boxStyle={MULTILINE_BOX}
+              style={MULTILINE_TEXT}
               maxLength={NOTE_MAX}
             />
             <Hint>{t('staff.notes.hint')}</Hint>
@@ -112,7 +125,7 @@ function ItemNotesPanel({ itemId }: { itemId: string }) {
             <Muted style={{ color: colors.ink }}>{n.body}</Muted>
             <Muted>
               {t('staff.notes.by', {
-                name: n.mine ? t('staff.notes.mine') : (n.author_name ?? ''),
+                name: n.mine ? t('staff.notes.mine') : isolate(n.author_name ?? ''),
                 when: formatDateTime(new Date(n.created_at), locale),
               })}
             </Muted>
@@ -145,11 +158,17 @@ function NotesScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Muted>{t('staff.notes.lead')}</Muted>
+        <Lead>{t('staff.notes.lead')}</Lead>
         {items.isPending && venue !== '' ? (
           <SkeletonList rows={1} height={44} />
         ) : items.isError ? (
-          <Hint>{t(mapStaffError(items.error))}</Hint>
+          <ErrorState
+            testID="staff-notes.error"
+            title={t('errors.loadFailedTitle')}
+            message={t(mapStaffError(items.error))}
+            retryLabel={t('common.retry')}
+            onRetry={() => void items.refetch()}
+          />
         ) : (items.data ?? []).length > 0 ? (
           <View style={{ gap: 6 }}>
             <MicroLabel style={{ paddingStart: 4 }}>{t('staff.notes.pick')}</MicroLabel>

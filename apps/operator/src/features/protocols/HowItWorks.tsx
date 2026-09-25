@@ -207,6 +207,8 @@ function DraftEditor({ detail, state, onState, onReload }: { detail: TemplateDet
         </Field>
       </div>
 
+      {/* Said once for the whole list, not under every step it applies to. */}
+      <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', maxInlineSize: '70ch' }}>{tr('ws.protocols.how.rules')}</p>
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
         {draft.steps.map((s, index) => (
           <StepEditor
@@ -255,7 +257,6 @@ function DraftEditor({ detail, state, onState, onReload }: { detail: TemplateDet
       ) : (
         <ErrorText error={error} />
       )}
-      <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.protocols.how.saveBody')}</p>
       <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         <Button
           kind="ghost"
@@ -336,7 +337,7 @@ function StepEditor({
           </div>
         </SettingsRow>
         {builtIn ? (
-          <SettingsRow description={tr('ws.protocols.how.actorsFixed')}>
+          <SettingsRow>
             <span style={{ fontWeight: 600 }}>
               {tr('ws.protocols.how.doneBy', { roles: step.actor_roles.map((r) => tr(`op.roles.${r}`)).join(tr('ws.protocols.view.listJoin')) })}
               {step.optional && ` · ${tr('work.protocol.optional')}`}
@@ -347,8 +348,8 @@ function StepEditor({
             <RolePicker value={step.actor_roles} onChange={(roles) => onChange({ actor_roles: roles })} invalid={problem === 'actors'} disabled={disabled} />
           </SettingsRow>
         )}
-        {/* Who decides follows the switch (§2.7 "Who decides"): the owner when it is on, else a manager. */}
-        <SettingsRow description={def?.ok_fixed ? undefined : tr('ws.protocols.how.okHint')}>
+        {/* Who decides follows the switch (§2.7 "Who decides"): the owner when it is on, else a manager (how.rules says so once, above the list). */}
+        <SettingsRow>
           {def?.ok_fixed ? (
             <span style={{ fontWeight: 600 }} data-testid="ok-fixed">
               {tr(def.actor_roles.includes('owner') ? 'ws.protocols.how.okYours' : 'ws.protocols.how.okAlways')}

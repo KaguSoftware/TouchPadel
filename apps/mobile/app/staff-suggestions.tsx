@@ -31,7 +31,7 @@ import {
   type SuggestionFilter,
   type SuggestionsPage,
 } from '../src/features/staff/suggestions/logic';
-import { Tag } from '../src/features/staff/checklists/parts';
+import { Lead, MULTILINE_BOX, MULTILINE_TEXT, Tag } from '../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 
 /**
@@ -134,10 +134,13 @@ function SuggestionsScreen() {
       <Card key={row.id} style={{ padding: space.m, gap: 6 }}>
         <View testID={`staff-suggestions.team.${row.id}`} style={{ gap: 4 }}>
           <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.mut2 }}>
-            {t('staff.checklists.suggestions.by', {
-              name: isolate(row.author_name ?? ''),
-              role: row.author_role ? t(`op.roles.${row.author_role}`) : '',
-            })}
+            {/* An author with no role on record reads as the name alone, not "Maha, ". */}
+            {row.author_role
+              ? t('staff.checklists.suggestions.by', {
+                  name: isolate(row.author_name ?? ''),
+                  role: t(`op.roles.${row.author_role}`),
+                })
+              : isolate(row.author_name ?? '')}
           </Text>
           <Text style={bodyText}>{row.body}</Text>
           <Text style={muted}>{dateOf(row.created_at)}</Text>
@@ -209,9 +212,7 @@ function SuggestionsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t('staff.checklists.suggestions.lead')}
-        </Text>
+        <Lead>{t('staff.checklists.suggestions.lead')}</Lead>
 
         <Card style={{ padding: space.m, gap: space.s }}>
           <Field
@@ -224,6 +225,8 @@ function SuggestionsScreen() {
               setError(null);
             }}
             multiline
+            boxStyle={MULTILINE_BOX}
+            style={MULTILINE_TEXT}
             maxLength={BODY_MAX + 200}
             error={
               issue === 'required'

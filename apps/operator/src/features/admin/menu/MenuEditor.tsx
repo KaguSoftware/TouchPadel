@@ -174,8 +174,12 @@ export function MenuEditor() {
         const block = stockBlockFor(i, availabilityQ.data, today);
         const category = crossCategory ? categoryById.get(i.category_id) : undefined;
         return (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0, opacity: i.is_active ? 1 : 0.55 }}>
-            <Thumb path={i.photo_path} size="2rem" />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+            {/* An inactive item fades its photo only: the Inactive badge says it
+                in words, and the name keeps its full contrast. */}
+            <span style={{ display: 'inline-flex', opacity: i.is_active ? 1 : 0.55 }}>
+              <Thumb path={i.photo_path} size="2rem" />
+            </span>
             <span style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-0)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: i.id === selectedItem ? 700 : 500 }}>
                 <HighlightDot highlight={i.highlight} />

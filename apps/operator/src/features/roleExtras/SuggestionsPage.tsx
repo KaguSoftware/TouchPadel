@@ -97,7 +97,7 @@ export function SuggestionsPageScreen() {
       >
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
           {data.rows.map((row) => (
-            <SuggestionItem key={row.id} row={row} busy={seen.isPending && seen.variables === row.id} onSeen={() => seen.mutate(row.id)} />
+            <SuggestionItem key={row.id} row={row} markUnseen={filter === 'all'} busy={seen.isPending && seen.variables === row.id} onSeen={() => seen.mutate(row.id)} />
           ))}
         </ul>
         {pageCount > 1 && <Pagination page={page} pageCount={pageCount} onChange={setPage} />}
@@ -106,7 +106,11 @@ export function SuggestionsPageScreen() {
   );
 }
 
-function SuggestionItem({ row, busy, onSeen }: { row: SuggestionRow; busy: boolean; onSeen: () => void }) {
+/**
+ * One suggestion. `markUnseen` puts "Not seen yet" on an unmarked one; under
+ * New every row is unmarked by definition, so there the tab says it once.
+ */
+function SuggestionItem({ row, markUnseen, busy, onSeen }: { row: SuggestionRow; markUnseen: boolean; busy: boolean; onSeen: () => void }) {
   const { tr, locale } = useLocale();
   const when = row.createdAt ? formatDateTime(new Date(row.createdAt), locale) : '';
   const who = row.authorName ?? tr('ws.rolePages.suggestions.someone');
@@ -148,7 +152,7 @@ function SuggestionItem({ row, busy, onSeen }: { row: SuggestionRow; busy: boole
           />
         ) : (
           <>
-            <StatusBadge size="sm" tone="warn" label={tr('ws.rolePages.suggestions.notSeen')} />
+            {markUnseen && <StatusBadge size="sm" tone="warn" label={tr('ws.rolePages.suggestions.notSeen')} />}
             <Button size="sm" icon="check" busy={busy} onClick={onSeen} style={{ marginInlineStart: 'auto' }}>
               {tr('ws.rolePages.suggestions.markSeen')}
             </Button>

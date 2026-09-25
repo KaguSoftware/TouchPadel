@@ -284,7 +284,8 @@ export function RecipeChangeSheet({ id, fallback, onClose }: { id: string; fallb
                   <Button onClick={close} disabled={decide.isPending}>
                     {tr('ws.rolePages.recipeChanges.close')}
                   </Button>
-                  <Button kind="danger" onClick={() => setDeclining(true)} disabled={decide.isPending}>
+                  {/* The way in to a decline; the confirm it leads to is the red one. */}
+                  <Button icon="x" onClick={() => setDeclining(true)} disabled={decide.isPending}>
                     {tr('ws.rolePages.recipeChanges.decline')}
                   </Button>
                   <Button kind="primary" icon="check" busy={decide.isPending} disabled={row.stale} onClick={() => decide.mutate({ approve: true })}>

@@ -12,7 +12,7 @@ import { Text } from '../../../i18n/text';
 import { useLocale } from '../../../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../../theme';
 import { CheckIcon, ChevronIcon } from '../../../components/icons';
-import { ErrorText, Field } from '../../../components/ui';
+import { ErrorText, Field, MicroLabel } from '../../../components/ui';
 
 export interface PickerOption {
   value: string;
@@ -43,7 +43,7 @@ export function OptionPicker({
   error?: string | null;
   disabled?: boolean;
 }) {
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
   const { colors, fonts } = useTheme();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -72,9 +72,7 @@ export function OptionPicker({
 
   return (
     <View style={{ gap: 6 }}>
-      {label ? (
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>{label}</Text>
-      ) : null}
+      {label ? <MicroLabel>{label}</MicroLabel> : null}
       <Pressable
         testID={testID}
         accessibilityRole="button"
@@ -92,8 +90,10 @@ export function OptionPicker({
           paddingTop: 13,
           paddingBottom: 13,
           borderRadius: radius.cell,
-          borderWidth: 1.5,
-          borderColor: error ? colors.redline : colors.line,
+          // The same boundary as the shared Field beside it (2px, line2), so a
+          // picker does not read as a weaker control than a text box.
+          borderWidth: 2,
+          borderColor: error ? colors.redline : colors.line2,
           backgroundColor: pressed ? colors.sub : colors.card,
           opacity: disabled ? 0.55 : 1,
         })}
@@ -109,7 +109,10 @@ export function OptionPicker({
         >
           {summary}
         </Text>
-        <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
+        {/* The chevron points to the END (it mirrors itself in Arabic); open,
+            it turns to point down, which is a quarter turn the other way
+            round when the glyph is mirrored. */}
+        <View style={{ transform: [{ rotate: open ? (dir === 'rtl' ? '-90deg' : '90deg') : '0deg' }] }}>
           <ChevronIcon size={15} color={colors.fnt2} />
         </View>
       </Pressable>
@@ -167,7 +170,8 @@ export function OptionPicker({
                       height: 20,
                       borderRadius: multi ? 6 : radius.pill,
                       borderWidth: 1.5,
-                      borderColor: on ? colors.blue : colors.line,
+                      // An empty box is still a control: fnt clears 3:1 on the card.
+                      borderColor: on ? colors.blue : colors.fnt,
                       backgroundColor: on ? colors.blue : 'transparent',
                       alignItems: 'center',
                       justifyContent: 'center',

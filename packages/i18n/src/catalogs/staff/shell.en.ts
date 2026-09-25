@@ -10,7 +10,12 @@ export const staffShellEn = {
     greeting: 'Hello, {name}',
     // "Head chef · Touch Padel"
     roleAtVenue: '{role} · {venue}',
-    rowsTitle: 'Your work',
+    // Today's pages, in three short lists (app/staff.tsx ROW_GROUPS).
+    groups: {
+      protocols: 'Protocols and ideas',
+      daily: 'Daily work',
+      team: 'Requests and suggestions',
+    },
   },
   venue: {
     label: 'Working at',
@@ -18,7 +23,7 @@ export const staffShellEn = {
   },
   alerts: {
     title: 'Turn on work alerts',
-    body: 'Get a notification when a task is waiting for you or something you sent is decided.',
+    body: 'Get a notification when a task is waiting on you or something you sent is decided.',
     enable: 'Turn on',
     deniedBody: 'Work alerts are off for this app. Turn them on in your phone’s settings.',
     openSettings: 'Open settings',
@@ -66,7 +71,7 @@ export const staffShellEn = {
     dateHint: 'Type the date as year-month-day, for example {example}.',
     amount: 'Amount (IQD)',
     note: 'Note',
-    noteOptional: 'Note (optional)',
+    noteOptional: 'Note · Optional',
     noteCorrection: 'What does the record get wrong?',
     submit: 'Send request',
     sent: 'Request sent',

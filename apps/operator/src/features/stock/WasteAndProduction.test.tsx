@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 
@@ -20,7 +21,7 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
   appRpc: vi.fn(),
 }));
 
-import { appRpc } from '../../lib/appRpc';
+import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { WasteAndProduction } from './WasteAndProduction';
 
 const rpc = vi.mocked(appRpc);
@@ -64,5 +65,36 @@ describe('Made today', () => {
   it('says so when nothing was made yet', async () => {
     renderScreen({ rows: [] });
     expect(await screen.findByText('Nothing made yet today.')).toBeTruthy();
+  });
+
+  it('says a failed read failed, and reads again on Try again', async () => {
+    let fail = true;
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn !== 'production_log_today') throw new Error(`unexpected ${fn}`);
+      if (fail) throw new AppRpcError('UNKNOWN', 'network down');
+      return { rows: [] };
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <LocaleProvider>
+          <WasteAndProduction />
+        </LocaleProvider>
+      </QueryClientProvider>,
+    );
+    const panel = await screen.findByTestId('made-today');
+    fail = false;
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Try again' }));
+    expect(await within(panel).findByText('Nothing made yet today.')).toBeTruthy();
+  });
+});
+
+describe('the quantity boxes', () => {
+  it('read digits typed on an Arabic keyboard and drop anything that is not a number, as Goods in does', async () => {
+    renderScreen({ rows: [] });
+    const box = (await screen.findByLabelText(/^Quantity/)) as HTMLInputElement;
+    await userEvent.type(box, '١٢٫٥kg');
+    expect(box.value).toBe('12.5');
+    expect(screen.queryByText('Enter a number above zero.')).toBeNull();
   });
 });

@@ -7,7 +7,8 @@
  *
  * TEST IDs are §6.3's: `staff.decide.<submissionId>`, `staff.todo.<runStepId>`,
  * `staff.waiting.<submissionId>`, `staff.decided.<submissionId>`, and
- * `staff.runs` for the way to every protocol.
+ * `staff.work.retry` when the read failed. The way to every protocol is
+ * Today's own Protocols row, just below; this list does not repeat it.
  */
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
@@ -16,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatDateTime, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../../../i18n/text';
 import { useLocale } from '../../../i18n/LocaleProvider';
-import { radius, space, useTheme } from '../../../theme';
+import { space, useTheme } from '../../../theme';
 import { ChevronIcon } from '../../../components/icons';
 import { Hint, LinkText, MicroLabel } from '../../../components/ui';
 import { SkeletonList } from '../../../components/states';
@@ -24,6 +25,7 @@ import { mapStaffError } from '../edge';
 import { staffKeys } from '../keys';
 import { fetchMyWork } from './api';
 import { bilingual } from './logic';
+import { ListCard } from './parts';
 
 function Row({
   testID,
@@ -78,22 +80,11 @@ function Row({
 }
 
 function Group({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  const { colors } = useTheme();
   if (count === 0) return null;
   return (
     <View style={{ gap: space.xs }}>
       <MicroLabel style={{ paddingStart: 4 }}>{`${title} · ${count}`}</MicroLabel>
-      <View
-        style={{
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.line,
-          borderRadius: radius.card,
-          overflow: 'hidden',
-        }}
-      >
-        {children}
-      </View>
+      <ListCard>{children}</ListCard>
     </View>
   );
 }
@@ -104,7 +95,16 @@ export function WorkList({ venueId }: { venueId: string }) {
   const work = useQuery({ queryKey: staffKeys.work(venueId), queryFn: () => fetchMyWork(venueId) });
 
   if (work.isPending) return <SkeletonList rows={2} height={64} />;
-  if (work.isError) return <Hint>{t(mapStaffError(work.error))}</Hint>;
+  if (work.isError) {
+    // Today is the home screen: a failed read says why and offers the retry
+    // right there, rather than relying on a pull the person may not know.
+    return (
+      <View style={{ gap: space.xs }}>
+        <Hint>{t(mapStaffError(work.error))}</Hint>
+        <LinkText testID="staff.work.retry" label={t('common.retry')} onPress={() => void work.refetch()} />
+      </View>
+    );
+  }
   const w = work.data;
   const title = (row: { title_en: string | null; title_ar: string | null; kind: string }) =>
     bilingual(locale, row.title_en, row.title_ar) ?? t(`work.protocol.kind.${row.kind}` as MessageKey);
@@ -123,7 +123,7 @@ export function WorkList({ venueId }: { venueId: string }) {
             sub={[
               stepName(row),
               t('staff.protocols.work.from', { name: row.submitted_by_name ?? '' }),
-              row.needs_owner_ok ? t('staff.protocols.work.needsOwner') : null,
+              row.needs_owner_ok ? t('work.protocol.needsOwnerOk') : null,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -173,12 +173,6 @@ export function WorkList({ venueId }: { venueId: string }) {
         ))}
       </Group>
       {empty ? <Hint>{t('staff.protocols.work.empty')}</Hint> : null}
-      <LinkText
-        testID="staff.runs"
-        label={t('staff.protocols.work.allRuns')}
-        onPress={() => router.push('/staff-runs')}
-        style={{ alignSelf: 'flex-start' }}
-      />
     </View>
   );
 }

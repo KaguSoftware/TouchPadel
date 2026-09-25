@@ -68,8 +68,9 @@ import {
 } from '../src/features/staff/recipes/logic';
 import type { StockUnit } from '../src/features/staff/supplies/production';
 import { localName } from '../src/features/staff/checklists/logic';
-import { Tag, type TagTone } from '../src/features/staff/checklists/parts';
+import { Lead, MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
+import { formatQty } from '../src/features/staff/supplies/logic';
 
 /**
  * Recipe changes (build-contracts-2026-09-23 §2.24.7, §6.1; plan #71, #72).
@@ -97,6 +98,11 @@ const STATUS_TONE: Record<RecipeChangeStatus, TagTone> = {
 };
 
 type Locale = 'en' | 'ar';
+
+/** Recipes listed before the head searches; the search reaches the rest (PickList shows as many). */
+const TARGETS_SHOWN = 8;
+/** Recipes listed for a search. */
+const TARGETS_FOUND = 40;
 
 /** "Latte · Large", "Latte", or the prepared item's name. */
 function targetLabel(
@@ -209,6 +215,9 @@ function RecipeChangeScreen() {
   // ── Decisions and withdrawals ─────────────────────────────────────────
   const [reason, setReason] = useState('');
   const [reasonIssue, setReasonIssue] = useState<'required' | 'tooLong' | null>(null);
+  // Decline asks why before it sends, as the shopping list's Decline does;
+  // until it is pressed the owner sees Approve and Decline side by side.
+  const [declining, setDeclining] = useState(false);
   const [decideError, setDecideError] = useState<string | null>(null);
 
   const refreshPages = () => {
@@ -235,6 +244,7 @@ function RecipeChangeScreen() {
       toast(t(v.approve ? 'staff.checklists.recipeChange.approved' : 'staff.checklists.recipeChange.declined'), 'success');
       setReason('');
       setReasonIssue(null);
+      setDeclining(false);
       refreshPages();
       // An approved change rewrites the recipe the names page lists.
       if (v.approve) void queryClient.invalidateQueries({ queryKey: staffKeys.recipes(venue, 'all') });
@@ -250,6 +260,7 @@ function RecipeChangeScreen() {
     setDecideError(null);
     setReason('');
     setReasonIssue(null);
+    setDeclining(false);
   };
 
   const confirmWithdraw = (id: string) =>
@@ -283,7 +294,7 @@ function RecipeChangeScreen() {
     qty === null
       ? t('staff.checklists.recipeChange.none')
       : unit
-        ? t('staff.checklists.qty', { qty: formatNumber(qty, locale), unit: t(`staff.checklists.units.${unit}`) })
+        ? formatQty(t, locale, qty, unit)
         : formatNumber(qty, locale);
   const dateOf = (iso: string) => formatDate(new Date(iso), locale);
   const small = { fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 18, color: colors.mut };
@@ -338,7 +349,8 @@ function RecipeChangeScreen() {
             (s) => typeof s === 'string' && s.toLocaleLowerCase().includes(q),
           ),
       )
-      .slice(0, 40);
+      .slice(0, q ? TARGETS_FOUND : TARGETS_SHOWN);
+    const rest = q ? 0 : targets.length - shown.length;
     return (
       <>
         <Field
@@ -359,6 +371,8 @@ function RecipeChangeScreen() {
             style={({ pressed }) => ({
               paddingTop: space.s,
               paddingBottom: space.s,
+              minHeight: 44,
+              justifyContent: 'center',
               borderBottomWidth: 1,
               borderBottomColor: colors.sub,
               opacity: pressed ? 0.7 : 1,
@@ -368,6 +382,7 @@ function RecipeChangeScreen() {
             {x.kind === 'output' ? <Text style={small}>{t('staff.checklists.recipeChange.prepared')}</Text> : null}
           </Pressable>
         ))}
+        {rest > 0 ? <Hint style={{ marginTop: 0 }}>{t('staff.checklists.recipeChange.moreRecipes', { count: rest })}</Hint> : null}
       </>
     );
   };
@@ -401,7 +416,7 @@ function RecipeChangeScreen() {
 
       {target ? (
         <>
-          <Text style={[strong, { marginTop: space.xs }]}>{t('staff.checklists.recipeChange.current')}</Text>
+          <MicroLabel style={{ marginTop: space.sm }}>{t('staff.checklists.recipeChange.current')}</MicroLabel>
           {target.lines.length === 0 ? <Hint style={{ marginTop: 0 }}>{t('staff.checklists.recipes.noLines')}</Hint> : null}
           {target.lines.map((line) => {
             const op = lineOp(draft, line.recipe_line_id);
@@ -517,7 +532,13 @@ function RecipeChangeScreen() {
                       setAdding(false);
                       setIngredientQuery('');
                     }}
-                    style={({ pressed }) => ({ paddingTop: 6, paddingBottom: 6, opacity: pressed ? 0.7 : 1 })}
+                    style={({ pressed }) => ({
+                      paddingTop: 6,
+                      paddingBottom: 6,
+                      minHeight: 44,
+                      justifyContent: 'center',
+                      opacity: pressed ? 0.7 : 1,
+                    })}
                   >
                     <Text style={strong}>{localName(o, locale)}</Text>
                   </Pressable>
@@ -548,6 +569,8 @@ function RecipeChangeScreen() {
             value={draft.note}
             onChangeText={(note) => change({ ...draft, note })}
             multiline
+            boxStyle={MULTILINE_BOX}
+            style={MULTILINE_TEXT}
             maxLength={NOTE_MAX}
             error={issues.some((i) => i.field === 'note') ? t('staff.checklists.recipeChange.errors.note') : null}
           />
@@ -562,7 +585,6 @@ function RecipeChangeScreen() {
         disabled={venue === ''}
         onPress={onSend}
       />
-      <Hint style={{ marginTop: 0 }}>{t('staff.checklists.recipes.askChangeHint')}</Hint>
     </Card>
   );
 
@@ -767,16 +789,34 @@ function RecipeChangeScreen() {
         ) : null}
         {decidedLine(r)}
         <ErrorText>{decideError}</ErrorText>
-        {r.status === 'waiting' && owner ? (
-          <>
+        {r.status === 'waiting' && owner && !declining ? (
+          <View style={{ flexDirection: 'row', gap: space.s, marginTop: space.xs }}>
             <Button
               testID="staff-recipe-change.approve"
               label={t('staff.checklists.recipeChange.approve')}
               variant="primary"
+              size="compact"
               disabled={!canApprove(r) || decide.isPending}
               busy={decide.isPending && decide.variables?.approve === true}
               onPress={() => confirmApprove(r.id)}
+              style={{ flex: 1 }}
             />
+            <Button
+              testID="staff-recipe-change.decline"
+              label={t('staff.checklists.recipeChange.decline')}
+              variant="dangerOutline"
+              size="compact"
+              disabled={decide.isPending}
+              onPress={() => {
+                setDecideError(null);
+                setDeclining(true);
+              }}
+              style={{ flex: 1 }}
+            />
+          </View>
+        ) : null}
+        {r.status === 'waiting' && owner && declining ? (
+          <View style={{ gap: space.s }}>
             <Field
               testID="staff-recipe-change.reason"
               label={t('staff.checklists.recipeChange.reason')}
@@ -786,19 +826,36 @@ function RecipeChangeScreen() {
                 setReasonIssue(null);
               }}
               multiline
+              boxStyle={MULTILINE_BOX}
+              style={MULTILINE_TEXT}
               maxLength={REASON_MAX}
               error={reasonIssue ? t('staff.checklists.recipeChange.errors.reason') : null}
             />
-            <Button
-              testID="staff-recipe-change.decline"
-              label={t('staff.checklists.recipeChange.decline')}
-              variant="dangerOutline"
-              size="compact"
-              disabled={decide.isPending}
-              busy={decide.isPending && decide.variables?.approve === false}
-              onPress={() => onDecline(r.id)}
-            />
-          </>
+            <View style={{ flexDirection: 'row', gap: space.s }}>
+              <Button
+                testID="staff-recipe-change.decline.confirm"
+                label={t('staff.checklists.recipeChange.confirmDecline')}
+                variant="dangerOutline"
+                size="compact"
+                busy={decide.isPending && decide.variables?.approve === false}
+                onPress={() => onDecline(r.id)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                testID="staff-recipe-change.decline.keep"
+                label={t('staff.checklists.recipeChange.keepWaiting')}
+                variant="secondary"
+                size="compact"
+                disabled={decide.isPending}
+                onPress={() => {
+                  setDeclining(false);
+                  setReason('');
+                  setReasonIssue(null);
+                }}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
         ) : null}
         {r.status === 'waiting' && !owner ? <Hint style={{ marginTop: 0 }}>{t('staff.checklists.recipeChange.ownerDecides')}</Hint> : null}
       </Card>
@@ -846,7 +903,7 @@ function RecipeChangeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>{t(lead)}</Text>
+        <Lead>{t(lead)}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
         {selectedId ? (
           detail()

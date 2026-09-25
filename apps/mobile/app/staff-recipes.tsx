@@ -23,6 +23,7 @@ import {
   type RecipeLine,
 } from '../src/features/staff/recipes/logic';
 import { localName } from '../src/features/staff/checklists/logic';
+import { Lead } from '../src/features/staff/checklists/parts';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 
 /**
@@ -213,9 +214,7 @@ function RecipesScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t('staff.checklists.recipes.lead')}
-        </Text>
+        <Lead>{t('staff.checklists.recipes.lead')}</Lead>
         {asksRecipeChanges(role) ? (
           <View>
             <Button

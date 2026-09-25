@@ -10,6 +10,10 @@ export const suppliesEn = {
   unit: {
     pack: 'packs',
   },
+  // One of it: "1 pack", "cost per pack".
+  unitOne: {
+    pack: 'pack',
+  },
   // Stock ▸ Goods in: the purchases the driver recorded (app.purchases_to_receive).
   driver: {
     title: 'Bought by the driver',
@@ -29,6 +33,9 @@ export const suppliesEn = {
   purchase: {
     title: 'Receive what the driver bought',
     back: 'Back to Goods in',
+    // The panel with who bought it, where, when and what was paid: the page title already says
+    // "the driver bought".
+    detailsTitle: 'Purchase details',
     gone: 'This purchase is not waiting to be received',
     goneBody: 'Someone may have received it already. Purchases still to receive are listed on Goods in.',
     boughtBy: 'Bought by',
@@ -130,7 +137,8 @@ export const suppliesEn = {
       emptyList: 'No lines yet. A list with no lines is not shown to anyone.',
       both: 'Write it in both English and Arabic.',
       tooLong: 'At most {max} characters.',
-      keepsToday: 'A list someone already opened today keeps its lines. Your change shows from the next one.',
+      // Shown only when this list was opened today (its run is a snapshot).
+      keepsToday: 'Someone already opened this list today, so today’s copy keeps its old lines. Your change shows from the next one.',
       save: 'Save the list',
       saved: 'List saved.',
       discard: 'Discard changes',

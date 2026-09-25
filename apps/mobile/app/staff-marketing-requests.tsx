@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import { localIsoDate, parseTypedDate, type StaffRole } from '@touch/core';
 import { formatDate, formatDateTime, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { radius, space, useTheme } from '../src/theme';
+import { space, useTheme } from '../src/theme';
 import { Button, Card, ErrorText, Field, Hint, LinkText, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { useToast } from '../src/components/overlays';
@@ -18,6 +18,8 @@ import { mapStaffError } from '../src/features/staff/edge';
 import { staffKeys } from '../src/features/staff/keys';
 import { clearStaffIntentKey, staffIntentKey } from '../src/lib/idempotency';
 import { StoredPhotos } from '../src/features/staff/supplies/StoredPhotos';
+import { GroupLabel, Lead, MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../src/features/staff/checklists/parts';
+import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { intentFor } from '../src/features/staff/supplies/logic';
 import { PickList, type PickOption } from '../src/features/staff/marketing/PickList';
 import {
@@ -61,12 +63,13 @@ import {
  * request a link named; it is listed first, and marketing's answer opens on it.
  */
 
-const STATUS_COLOR_KEY = {
-  open: 'ambstrong',
-  done: 'gtext',
-  declined: 'redtext',
-  withdrawn: 'mut',
-} as const;
+/** A request's status as a tag, the same tag every staff list uses. */
+const STATUS_TONE: Record<MarketingRequest['status'], TagTone> = {
+  open: 'warn',
+  done: 'good',
+  declined: 'bad',
+  withdrawn: 'plain',
+};
 
 /** A stored `YYYY-MM-DD` in the reader's language (noon UTC, so no zone moves the day). */
 function dayLabel(day: string, locale: 'en' | 'ar'): string {
@@ -111,6 +114,11 @@ function RequestsScreen() {
         .map((i) => ({ id: i.id, label: localName(i.name_en, i.name_ar, locale) }))
         .sort((a, b) => a.label.localeCompare(b.label, locale)),
     [items.data, locale],
+  );
+
+  // A pull reads again the lists this role sees: its own, and the inbox.
+  const pull = usePullRefresh(() =>
+    Promise.all([view.asks ? mine.refetch() : null, view.readsAll ? page.refetch() : null]),
   );
 
   const refresh = () => {
@@ -232,9 +240,7 @@ function RequestsScreen() {
     <>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.s }}>
         <Text style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>{r.title}</Text>
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors[STATUS_COLOR_KEY[r.status]] }}>
-          {t(`work.marketingRequest.status.${r.status}`)}
-        </Text>
+        <Tag tone={STATUS_TONE[r.status]} label={t(`work.marketingRequest.status.${r.status}`)} />
       </View>
       {from ? <Text style={small}>{from}</Text> : null}
       <Text style={body}>{r.body}</Text>
@@ -281,10 +287,9 @@ function RequestsScreen() {
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t(view.answers ? 'staff.marketing.requests.inboxLead' : 'staff.marketing.requests.lead')}
-        </Text>
+        <Lead>{t(view.answers ? 'staff.marketing.requests.inboxLead' : 'staff.marketing.requests.lead')}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         {view.asks ? (
@@ -304,6 +309,8 @@ function RequestsScreen() {
                 value={draft.body}
                 onChangeText={(text) => edit({ body: text })}
                 multiline
+                boxStyle={MULTILINE_BOX}
+                style={MULTILINE_TEXT}
                 error={fieldError('body')}
               />
               <Field
@@ -322,9 +329,7 @@ function RequestsScreen() {
               )}
               {pickingItem || draft.menuItemId ? (
                 <View style={{ gap: space.xs }}>
-                  <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-                    {t('staff.marketing.requests.item')}
-                  </Text>
+                  <GroupLabel>{t('staff.marketing.requests.item')}</GroupLabel>
                   <PickList
                     testID="staff-marketing-requests.menu-item"
                     options={itemOptions}
@@ -340,9 +345,7 @@ function RequestsScreen() {
                   onPress={() => setPickingItem(true)}
                 />
               )}
-              <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-                {t('staff.marketing.requests.photos')}
-              </Text>
+              <GroupLabel>{t('staff.marketing.requests.photos')}</GroupLabel>
               <PhotoButton
                 testID="staff-marketing-requests.photo"
                 venueId={venue}
@@ -393,9 +396,14 @@ function RequestsScreen() {
 
         {view.readsAll ? (
           <>
-            <MicroLabel style={{ paddingStart: 4, marginTop: view.asks ? space.s : 0 }}>
-              {t(view.answers ? 'staff.marketing.requests.title' : 'staff.marketing.requests.everyone')}
-            </MicroLabel>
+            {/* Marketing's inbox is this whole page, so it takes no heading that
+                restates the title; the manager's read of everyone's sits under
+                their own requests and is named. */}
+            {view.answers ? null : (
+              <MicroLabel style={{ paddingStart: 4, marginTop: view.asks ? space.s : 0 }}>
+                {t('staff.marketing.requests.everyone')}
+              </MicroLabel>
+            )}
             <SegmentedControl<RequestsFilter>
               testID="staff-marketing-requests.filter"
               options={REQUEST_FILTERS.map((f) => ({ value: f, label: t(`staff.marketing.requests.filters.${f}`) }))}
@@ -410,10 +418,14 @@ function RequestsScreen() {
               <Hint>{t('staff.marketing.requests.inboxEmpty')}</Hint>
             ) : (
               pageRows.map((r) => {
-                const from = t('staff.marketing.requests.from', {
-                  name: isolate(r.requested_by_name ?? ''),
-                  role: r.requested_by_role ? t(`op.roles.${r.requested_by_role as StaffRole}`) : '',
-                });
+                // A request whose asker has no role on record reads as the name
+                // alone, not "Yusuf · ".
+                const from = r.requested_by_role
+                  ? t('staff.marketing.requests.from', {
+                      name: isolate(r.requested_by_name ?? ''),
+                      role: t(`op.roles.${r.requested_by_role as StaffRole}`),
+                    })
+                  : isolate(r.requested_by_name ?? '');
                 const open = answering === r.id && canAnswer(view, r);
                 return (
                   <Card key={r.id} style={{ padding: space.m, gap: 4, ...namedStyle(r.id) }}>
@@ -449,7 +461,6 @@ function RequestsScreen() {
                           paddingTop: space.s,
                           borderTopWidth: 1,
                           borderTopColor: colors.sub,
-                          borderRadius: radius.cell,
                         }}
                       >
                         <Field
@@ -461,6 +472,8 @@ function RequestsScreen() {
                             setAnswerError(null);
                           }}
                           multiline
+                          boxStyle={MULTILINE_BOX}
+                          style={MULTILINE_TEXT}
                           error={answerError}
                         />
                         <Hint style={{ marginTop: 0 }}>{t('staff.marketing.requests.answerHint')}</Hint>

@@ -63,13 +63,16 @@ export function ideaName(idea: Pick<IdeaRow, 'nameEn' | 'nameAr'>, locale: 'en' 
 
 /**
  * The waiting ideas as a list, each opening its sheet. `onStart` hands the
- * idea to the caller's start (the sheet closes first).
+ * idea to the caller's start (the sheet closes first). A caller that is itself
+ * a dialog passes `onOpen` and shows the sheet in its place, so one dialog is
+ * never stacked on another.
  */
-export function IdeasToReviewList({ onStart, compact }: { onStart: (idea: IdeaRow) => void; compact?: boolean }) {
+export function IdeasToReviewList({ onStart, onOpen, compact }: { onStart: (idea: IdeaRow) => void; onOpen?: (idea: IdeaRow) => void; compact?: boolean }) {
   const { tr, locale } = useLocale();
   const q = useIdeasToReview();
   const { ideas } = readIdeasToReview(q.data);
-  const [open, setOpen] = useState<IdeaRow | null>(null);
+  const [ownOpen, setOpen] = useState<IdeaRow | null>(null);
+  const open = onOpen ? null : ownOpen;
 
   if (q.isError) return <ErrorText error={q.error} />;
   if (ideas.length === 0) {
@@ -82,7 +85,7 @@ export function IdeasToReviewList({ onStart, compact }: { onStart: (idea: IdeaRo
           <li key={idea.id}>
             <button
               type="button"
-              onClick={() => setOpen(idea)}
+              onClick={() => (onOpen ? onOpen(idea) : setOpen(idea))}
               data-testid={`idea-${idea.id}`}
               style={{
                 display: 'flex',
@@ -140,28 +143,34 @@ export function IdeasToReviewList({ onStart, compact }: { onStart: (idea: IdeaRo
 /**
  * "N ideas from the team" — the line the New item card on /protocols carries,
  * opening the same list in a dialog. Renders nothing while none wait.
+ *
+ * The list and an idea's sheet take turns in one place: picking an idea
+ * swaps the list for its sheet, and closing the sheet goes back to the list
+ * while others still wait, rather than piling one dialog on another.
  */
 export function IdeasFromTeamButton({ onStart }: { onStart: (idea: IdeaRow) => void }) {
   const { tr, locale } = useLocale();
   const q = useIdeasToReview();
-  const { count } = readIdeasToReview(q.data);
-  const [open, setOpen] = useState(false);
-  if (count === 0) return null;
+  const { count, ideas } = readIdeasToReview(q.data);
+  const [view, setView] = useState<'list' | IdeaRow | null>(null);
+  if (count === 0 && view === null) return null;
+  const start = (idea: IdeaRow) => {
+    setView(null);
+    onStart(idea);
+  };
   return (
     <>
-      <Button size="sm" kind="soft" icon="spark" onClick={() => setOpen(true)} data-testid="ideas-from-team">
-        {tr('ws.rolePages.ideas.fromTeam', { count: formatNumber(count, locale) })}
-      </Button>
-      {open && (
-        <Modal title={tr('ws.rolePages.ideas.title')} onClose={() => setOpen(false)} size="lg">
-          <IdeasToReviewList
-            onStart={(idea) => {
-              setOpen(false);
-              onStart(idea);
-            }}
-          />
+      {count > 0 && (
+        <Button size="sm" kind="soft" icon="spark" onClick={() => setView(count === 1 && ideas[0] ? ideas[0] : 'list')} data-testid="ideas-from-team">
+          {tr('ws.rolePages.ideas.fromTeam', { count: formatNumber(count, locale) })}
+        </Button>
+      )}
+      {view === 'list' && (
+        <Modal title={tr('ws.rolePages.ideas.title')} onClose={() => setView(null)} size="lg">
+          <IdeasToReviewList onStart={start} onOpen={(idea) => setView(idea)} />
         </Modal>
       )}
+      {view !== null && view !== 'list' && <IdeaSheet idea={view} onClose={() => setView(count > 1 ? 'list' : null)} onStart={start} />}
     </>
   );
 }
@@ -240,7 +249,8 @@ export function IdeaSheet({ idea, onClose, onStart }: { idea: IdeaRow; onClose: 
         ) : (
           <>
             <Button onClick={close}>{tr('ws.rolePages.ideas.close')}</Button>
-            <Button kind="danger" onClick={() => setDeclining(true)} data-testid="idea-decline">
+            {/* The way in to a decline; the confirm it leads to is the red one. */}
+            <Button icon="x" onClick={() => setDeclining(true)} data-testid="idea-decline">
               {tr('ws.rolePages.ideas.decline')}
             </Button>
             <Button kind="primary" icon="plus" onClick={() => onStart(idea)} data-testid="idea-start">

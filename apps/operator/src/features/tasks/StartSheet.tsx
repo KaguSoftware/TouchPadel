@@ -101,6 +101,23 @@ export function StartSheet({ start, idea, onClose, onStarted }: { start: TaskSta
 
   const title = tr(`ws.team.tasks.start.title.${start}`);
   const titleIssue = issues.find((i) => i.field === 'title');
+  const needsChange = start === 'price_promo' && change === null;
+  const titles = (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '0 var(--tp-sp-3)' }}>
+      <Field
+        label={tr('ws.team.tasks.start.titleEn')}
+        // A new item or a tournament falls back to its name; a price change needs one title.
+        optional={start !== 'price_promo'}
+        hint={start === 'price_promo' ? tr('ws.team.tasks.start.titleHint') : tr('ws.team.tasks.start.titleHintNamed')}
+        error={titleIssue ? tr(titleIssue.code === 'TEXT_TOO_LONG' ? 'ws.team.tasks.form.issue.tooLong' : 'ws.team.tasks.start.titleNeeded') : undefined}
+      >
+        <input style={inputStyle} dir="ltr" value={titleEn} maxLength={TITLE_MAX} disabled={submit.isPending} onChange={(e) => setTitleEn(e.target.value)} data-testid="start.title_en" />
+      </Field>
+      <Field label={tr('ws.team.tasks.start.titleAr')} optional={start !== 'price_promo'}>
+        <input style={inputStyle} dir="rtl" lang="ar" value={titleAr} maxLength={TITLE_MAX} disabled={submit.isPending} onChange={(e) => setTitleAr(e.target.value)} data-testid="start.title_ar" />
+      </Field>
+    </div>
+  );
 
   return (
     <Modal
@@ -114,7 +131,14 @@ export function StartSheet({ start, idea, onClose, onStarted }: { start: TaskSta
           <Button onClick={close} disabled={submit.isPending}>
             {tr('ws.team.tasks.cancel')}
           </Button>
-          <Button kind="primary" busy={submit.isPending} disabled={start === 'price_promo' && change === null} onClick={() => submit.mutate()} data-testid="start.submit">
+          <Button
+            kind="primary"
+            busy={submit.isPending}
+            // Why it is off is said under "What to change", beside the fix.
+            disabled={needsChange}
+            onClick={() => submit.mutate()}
+            data-testid="start.submit"
+          >
             {tr('ws.team.tasks.start.submit')}
           </Button>
         </>
@@ -134,22 +158,12 @@ export function StartSheet({ start, idea, onClose, onStarted }: { start: TaskSta
             />
           </Field>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '0 var(--tp-sp-3)' }}>
-          <Field
-            label={tr('ws.team.tasks.start.titleEn')}
-            // A new item or a tournament falls back to its name; a price change needs one title.
-            optional={start !== 'price_promo'}
-            hint={start === 'price_promo' ? tr('ws.team.tasks.start.titleHint') : tr('ws.team.tasks.start.titleHintNamed')}
-            error={titleIssue ? tr(titleIssue.code === 'TEXT_TOO_LONG' ? 'ws.team.tasks.form.issue.tooLong' : 'ws.team.tasks.start.titleNeeded') : undefined}
-          >
-            <input style={inputStyle} dir="ltr" value={titleEn} maxLength={TITLE_MAX} onChange={(e) => setTitleEn(e.target.value)} data-testid="start.title_en" />
-          </Field>
-          <Field label={tr('ws.team.tasks.start.titleAr')} optional={start !== 'price_promo'}>
-            <input style={inputStyle} dir="rtl" lang="ar" value={titleAr} maxLength={TITLE_MAX} onChange={(e) => setTitleAr(e.target.value)} data-testid="start.title_ar" />
-          </Field>
-        </div>
+        {start !== 'price_promo' && titles}
         {idea && idea.photos.length > 0 && <MessagePresenter tone="info" message={tr('ws.team.tasks.start.ideaPhotos')} />}
         <StepFormFields
+          // A price or promo start chooses what changes first; its title follows.
+          afterKind={start === 'price_promo' ? titles : undefined}
+          changeHint={needsChange ? tr('ws.team.tasks.start.pickChangeFirst') : undefined}
           kind={start}
           stepKey={form.stepKey}
           form={form}

@@ -204,11 +204,11 @@ export function readCourts(payload: unknown): CourtsReport {
   return { rows, totals, byHour, trend };
 }
 
-/** No courts, or nothing booked, cancelled or missed on any of them. */
+/** No courts, or nothing booked, cancelled, missed or held for a tournament on any of them. */
 export function courtsIsEmpty(r: CourtsReport): boolean {
   if (r.rows.length === 0) return true;
   const t = r.totals;
-  return t !== null && !t.bookings && !t.cancellations && !t.noShows;
+  return t !== null && !t.bookings && !t.cancellations && !t.noShows && !t.eventMinutes;
 }
 
 // ---------------------------------------------------------------------------

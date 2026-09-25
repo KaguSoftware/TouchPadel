@@ -27,7 +27,7 @@ import {
   type ChecklistsToday,
   type MarkArgs,
 } from '../src/features/staff/checklists/logic';
-import { StaffPhotoThumb, Tag } from '../src/features/staff/checklists/parts';
+import { Lead, StaffPhotoThumb, Tag } from '../src/features/staff/checklists/parts';
 import { useBack } from '../src/navigation/back';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 
@@ -247,9 +247,7 @@ function ChecklistScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t('staff.checklists.lead')}
-        </Text>
+        <Lead>{t('staff.checklists.lead')}</Lead>
         {data ? (
           <MicroLabel style={{ paddingStart: 4 }}>
             {t('staff.checklists.businessDay', {

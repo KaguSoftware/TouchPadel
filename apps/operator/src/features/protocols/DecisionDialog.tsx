@@ -103,10 +103,11 @@ export function DecisionDialog({
       dismissible={!busy}
       footer={(close) => (
         <>
-          <Button kind="ghost" onClick={close} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
-          <Button kind={choice === 'approve' ? 'primary' : 'danger'} busy={busy} onClick={() => void send()} data-testid="decision-send">
+          {/* Only Stop is red: sending work back is part of the job, not a loss (the phone's DecisionBar agrees). */}
+          <Button kind={choice === 'stop' ? 'danger' : 'primary'} busy={busy} onClick={() => void send()} data-testid="decision-send">
             {tr(`ws.protocols.decision.send.${choice}` as MessageKey)}
           </Button>
         </>
@@ -157,12 +158,13 @@ export function DecisionDialog({
         )}
 
         <Field
-          label={tr(choice === 'approve' ? 'ws.protocols.decision.noteOptional' : 'ws.protocols.decision.reason')}
+          label={tr(choice === 'approve' ? 'ws.protocols.decision.note' : 'ws.protocols.decision.reason')}
           hint={tr('ws.protocols.decision.readBySender')}
           required={choice !== 'approve'}
+          optional={choice === 'approve'}
           error={noteIssue ? tr(`op.errors.${noteIssue.code}` as MessageKey) : undefined}
         >
-          <textarea value={note} rows={3} style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }} dir="auto" onChange={(e) => setNote(e.target.value)} />
+          <textarea value={note} rows={3} disabled={busy} style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }} dir="auto" onChange={(e) => setNote(e.target.value)} />
         </Field>
         {/* The two price steps: the owner approves or sends back, never retypes a figure (Q12). */}
         {choice === 'approve' && (step.step_key === 'analysis' || step.step_key === 'numbers') && (
@@ -208,7 +210,7 @@ export function ReasonDialog({
       dismissible={!busy}
       footer={(close) => (
         <>
-          <Button kind="ghost" onClick={close} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -241,7 +243,7 @@ export function ReasonDialog({
         required
         error={tried && missing ? tr('op.errors.REASON_REQUIRED') : tried && tooLong ? tr('op.errors.TEXT_TOO_LONG') : undefined}
       >
-        <textarea value={reason} rows={3} dir="auto" style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }} onChange={(e) => setReason(e.target.value)} />
+        <textarea value={reason} rows={3} dir="auto" disabled={busy} style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical', fontFamily: 'inherit' }} onChange={(e) => setReason(e.target.value)} />
       </Field>
       {error != null && <ErrorText error={error} />}
     </Modal>

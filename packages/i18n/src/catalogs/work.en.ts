@@ -33,7 +33,7 @@ export const workEn = {
     stepStatus: {
       waiting: 'Not open yet',
       open: 'To do',
-      submitted: 'Awaiting decision',
+      submitted: 'Waiting for a decision',
       passed: 'Done',
       skipped: 'Skipped',
       stopped: 'Stopped',

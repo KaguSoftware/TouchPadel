@@ -31,9 +31,10 @@ import { can, useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useWorkspaceOrNull } from '../../routes/__root';
 import { Button, ErrorText } from '../../components/ui';
-import { PageHeader, Panel, StatusBadge, type Tone } from '../../components/kit';
+import { PageHeader, Panel, StatusBadge } from '../../components/kit';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { IdeasToReviewList, useIdeasToReview } from '../roleExtras/Ideas';
+import { decisionTone } from '../protocols/protocolLogic';
 import { readIdeasToReview, type IdeaRow } from '../roleExtras/roleExtrasLogic';
 import { TK } from './keys';
 import { fetchMyWork } from './api';
@@ -155,7 +156,6 @@ export function MyTasksScreen() {
   );
 }
 
-const DECISION_TONE: Record<string, Tone> = { approve: 'success', send_back: 'warn', stop: 'danger' };
 
 function WorkList({
   title,
@@ -212,9 +212,9 @@ function WorkList({
                 )}
               </span>
               {kind === 'decided' && item.decision && (
-                <StatusBadge size="sm" tone={DECISION_TONE[item.decision] ?? 'neutral'} label={tr(`work.protocol.decision.${item.decision}`)} />
+                <StatusBadge size="sm" tone={decisionTone(item.decision)} label={tr(`work.protocol.decision.${item.decision}`)} />
               )}
-              {kind === 'waiting' && <StatusBadge size="sm" tone="info" label={tr('work.protocol.stepStatus.submitted')} />}
+              {/* No badge under "Waiting for a decision": the heading says it for every row, as on the phone. */}
               <Button size="sm" kind={kind === 'todo' ? 'primary' : 'default'} iconEnd="arrowUpRight" onClick={() => onOpen(item)}>
                 {tr(kind === 'todo' ? 'ws.team.tasks.work.open' : 'ws.team.tasks.work.view')}
               </Button>

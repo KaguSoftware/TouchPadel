@@ -160,7 +160,7 @@ describe('/desk/block event mode', () => {
   it('a step that is not open is read only, and says what it is', async () => {
     stepStatus = 'submitted';
     renderScreen();
-    expect(await screen.findByText('This courts step is not open, so nothing can be blocked here. It is: Awaiting decision.')).toBeTruthy();
+    expect(await screen.findByText('This courts step is not open, so nothing can be blocked here. It is: Waiting for a decision.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Block (all|the rest)/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send courts step' })).toBeNull();
   });

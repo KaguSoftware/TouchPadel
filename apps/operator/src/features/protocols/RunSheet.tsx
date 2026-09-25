@@ -138,8 +138,11 @@ function RunBody({ d, selected, onStep }: { d: RunDetail; selected: string | nul
                 {tr('ws.protocols.run.withdraw')}
               </Button>
             )}
+            {/* The way in to a stop, not the stop: a quiet control beside the
+                run, so the step's own work stays the loudest thing on the
+                sheet. The reason prompt it opens is the red one. */}
             {can.stop && (
-              <Button size="sm" kind="danger" icon="ban" onClick={() => setStopping(true)}>
+              <Button size="sm" icon="ban" onClick={() => setStopping(true)}>
                 {tr('ws.protocols.run.stop')}
               </Button>
             )}

@@ -161,7 +161,8 @@ function Checklist({ step, canTick }: { step: StepRow; canTick: boolean }) {
                 marginTop: 1,
                 borderRadius: 6,
                 borderWidth: 1.5,
-                borderColor: done ? colors.gstrong : colors.line,
+                // An empty box is still a control: fnt clears 3:1 on the card.
+                borderColor: done ? colors.gstrong : colors.fnt,
                 backgroundColor: done ? colors.gstrong : 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',

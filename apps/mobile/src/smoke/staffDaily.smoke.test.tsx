@@ -14,6 +14,7 @@
  * manager's view of everyone's suggestions, and the owner's decision.
  */
 import { describe, expect, it } from '@jest/globals';
+import { fireEvent } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases } from '../test/smokeCase';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
@@ -362,6 +363,16 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       expect(owner.getByTestId('staff-recipe-change.approve')).toBeTruthy();
       expect(owner.getByTestId('staff-recipe-change.decline')).toBeTruthy();
       expect(owner.queryByTestId('staff-recipe-change.submit')).toBeNull();
+      // Decline asks why before it sends, as the shopping list's does: the
+      // reason opens on the press, and an empty one is refused in place.
+      expect(owner.queryByTestId('staff-recipe-change.reason')).toBeNull();
+      fireEvent.press(owner.getByTestId('staff-recipe-change.decline'));
+      expect(owner.getByTestId('staff-recipe-change.reason')).toBeTruthy();
+      expect(owner.queryByTestId('staff-recipe-change.approve')).toBeNull();
+      fireEvent.press(owner.getByTestId('staff-recipe-change.decline.confirm'));
+      expect(owner.getByText(t('staff.checklists.recipeChange.errors.reason'))).toBeTruthy();
+      fireEvent.press(owner.getByTestId('staff-recipe-change.decline.keep'));
+      expect(owner.getByTestId('staff-recipe-change.approve')).toBeTruthy();
     } finally {
       owner.unmount();
     }
@@ -404,6 +415,10 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
     try {
       expect(desk.queryByTestId('staff-stock.filter')).toBeNull();
       expect(desk.getByTestId('staff-stock.item.grip')).toBeTruthy();
+      // A search that finds nothing says so, rather than calling the stock empty.
+      fireEvent.changeText(desk.getByTestId('staff-stock.search'), 'zzz');
+      expect(desk.getByText(t('staff.checklists.stock.noMatch'))).toBeTruthy();
+      expect(desk.queryByTestId('staff-stock.empty')).toBeNull();
     } finally {
       desk.unmount();
     }

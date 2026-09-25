@@ -12,7 +12,7 @@
  *   - a price or promo change's targets: app.price_promo_targets (§2.13), and
  *     a promotion's scope from the menu and courts every staff session reads.
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import {
@@ -46,6 +46,13 @@ export interface StepFormFieldsProps {
   change?: PriceChangeKind | null;
   changeLocked?: boolean;
   onChangeKind?: (change: PriceChangeKind) => void;
+  /**
+   * Drawn right after the change-kind picker of a price or promo proposal: the
+   * start's title, which comes after the choice that shapes the whole form.
+   */
+  afterKind?: ReactNode;
+  /** Under the change-kind picker: why the start cannot be sent yet. */
+  changeHint?: string;
   /** The run, for a step's context read (a test's sizes). */
   runId?: string | null;
   draft: Draft;
@@ -193,7 +200,7 @@ export function StepFormFields(props: StepFormFieldsProps) {
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
       {isPropose && (
-        <Field label={tr('ws.team.tasks.form.field.change')} required>
+        <Field label={tr('ws.team.tasks.form.field.change')} hint={props.changeHint} required>
           <Select<PriceChangeKind>
             value={change ?? ''}
             disabled={props.disabled || props.changeLocked}
@@ -203,6 +210,7 @@ export function StepFormFields(props: StepFormFieldsProps) {
           />
         </Field>
       )}
+      {isPropose && props.afterKind}
       {isPropose && change === null ? null : (
         <>
           {wantTargets && targetsQ.isSuccess && Object.values(targetSources(targets!, draft, locale)).every((o) => o.length === 0) && (

@@ -142,10 +142,12 @@ export function SetupHomeScreen() {
       status={status}
       screensTitle={tr('ws.owner.setupHome.screens')}
     >
-      <WorthChecking staffQ={staffQ} outboxQ={outboxQ} noParQ={noParQ} cafe={cafe} />
-      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
-      <KitchenPairingPanel />
-      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
+      {/* The two panels that may need the owner sit together; the screen
+          cards below are a different job and get more room. */}
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-5)' }}>
+        <WorthChecking staffQ={staffQ} outboxQ={outboxQ} noParQ={noParQ} cafe={cafe} />
+        <KitchenPairingPanel />
+      </div>
     </SectionHome>
   );
 }

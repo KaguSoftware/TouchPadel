@@ -343,7 +343,7 @@ function RecipeDialog({
   const title = target.size ? `${target.name} · ${target.size}` : target.name;
   const perOne =
     target.kind === 'output'
-      ? tr('ws.manager.stock.recipes.perOne.output', { unit: fmt.unit(target.unit ?? '') })
+      ? tr('ws.manager.stock.recipes.perOne.output', { unit: fmt.one(target.unit ?? '') })
       : tr(`ws.manager.stock.recipes.perOne.${target.kind}`);
 
   return (

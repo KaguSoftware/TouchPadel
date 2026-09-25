@@ -158,7 +158,7 @@ describe('StaffList: adding a hiring run’s pick', () => {
     stepOpen = false;
     const user = userEvent.setup();
     renderList();
-    expect(await screen.findByText('This hiring step is not waiting for you, so nothing is filled in.')).toBeTruthy();
+    expect(await screen.findByText('This hiring step is not waiting on you, so nothing is filled in.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Add \u2068?Sara/ })).toBeNull();
     expect(rpc).not.toHaveBeenCalledWith('hiring_candidates', expect.anything());
     await user.click(screen.getByRole('button', { name: 'Open the hiring run' }));

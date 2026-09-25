@@ -8,7 +8,7 @@
 export const rolePagesEn = {
   suggestions: {
     title: 'Suggestions',
-    lead: 'What the team suggests, from the staff phone. Signed, so you can follow one up; marking one seen tells its author.',
+    lead: 'Sent from the staff phone and signed, so you can follow one up. Marking one seen tells its author.',
     filterLabel: 'Show suggestions',
     filter: {
       new: 'New',

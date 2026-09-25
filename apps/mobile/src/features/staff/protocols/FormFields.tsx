@@ -18,11 +18,11 @@
 import { useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 import { parseTypedDate, type FieldDef, type FieldIssue } from '@touch/core';
-import { formatDate, formatDateTime, formatIQD, type MessageKey } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../../../i18n/text';
 import { useLocale } from '../../../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../../../theme';
-import { Button, ErrorText, Field, Hint } from '../../../components/ui';
+import { Button, ErrorText, Field, Hint, MicroLabel } from '../../../components/ui';
 import {
   concretePath,
   parseTypedNumber,
@@ -37,6 +37,7 @@ import {
 import { fieldLabelKey, optionLabelKey, WEEKDAY_KEYS } from './labels';
 import { bilingual, type FixedRow } from './logic';
 import { OptionPicker, type PickerOption } from './OptionPicker';
+import { MULTILINE_BOX, MULTILINE_TEXT } from './multiline';
 import { issueMessageKey } from './parts';
 
 export interface FieldPicker {
@@ -92,7 +93,10 @@ export function FormFields(props: FormFieldsProps) {
   const [exampleDay] = useState(() => exampleVenueDay(Date.now()));
   const nodeProps: NodeProps = { ...props, exampleDay };
   return (
-    <View style={{ gap: space.m }}>
+    // Each field brings its own top margin (the shared Field's 12), so the
+    // gap between them is the small step: 20 from one field to the next, as
+    // on the other staff forms.
+    <View style={{ gap: space.s }}>
       {fields.map((def) => (
         <FieldNode key={def.name} def={def} path={[def.name]} value={draft[def.name]} props={nodeProps} />
       ))}
@@ -125,15 +129,20 @@ function FieldNode({
   const labelKey = fieldLabelKey(tpl);
   const baseLabel = labelKey ? t(labelKey) : def.name;
   const required = def.required || (def.deciderOnly === true && props.deciderFields === true);
-  const label = required ? baseLabel : `${baseLabel} · ${t('staff.protocols.form.optional')}`;
+  // "Notes · Optional": the one way every form on the phone marks a field that may stay empty.
+  const label = required ? baseLabel : t('staff.protocols.form.optionalLabel', { label: baseLabel });
   const set = (next: DraftValue) => props.onChange(setAt(props.draft, path, next));
   const issue = inRow ? undefined : props.issues.find((i) => i.field === tpl && i.index === undefined);
   const error = issue ? t(issueMessageKey(issue, isBlank(value))) : null;
   const hint = props.hints?.[tpl];
   const disabled = props.disabled;
 
-  const labelText = (
-    <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>{label}</Text>
+  // A field's label reads as the shared Field's does (MicroLabel), so a
+  // chip group or a picker sits in a form exactly like the text fields around
+  // it; a list or a group of fields is a heading one step up.
+  const fieldLabel = <MicroLabel>{label}</MicroLabel>;
+  const groupLabel = (
+    <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, lineHeight: 19, color: colors.ink }}>{label}</Text>
   );
 
   switch (def.type) {
@@ -142,7 +151,7 @@ function FieldNode({
       const picker = props.pickers?.[tpl];
       if (!picker) return null;
       return (
-        <View style={{ gap: 4 }}>
+        <View style={{ gap: 4, marginTop: space.sm }}>
           <OptionPicker
             testID={id}
             label={label}
@@ -160,8 +169,8 @@ function FieldNode({
     case 'enum': {
       const current = (value as string | undefined) ?? '';
       return (
-        <View style={{ gap: 6 }}>
-          {labelText}
+        <View style={{ gap: 6, marginTop: space.sm }}>
+          {fieldLabel}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
             {(def.options ?? []).map((option) => {
               const custom = props.optionLabels?.[tpl]?.[option];
@@ -186,8 +195,8 @@ function FieldNode({
     case 'ints': {
       const chosen = (value as string[] | undefined) ?? [];
       return (
-        <View style={{ gap: 6 }}>
-          {labelText}
+        <View style={{ gap: 6, marginTop: space.sm }}>
+          {fieldLabel}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {WEEKDAY_KEYS.map((key, n) => {
               const on = chosen.includes(String(n));
@@ -217,7 +226,9 @@ function FieldNode({
     case 'bool':
       return (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s }}>
-          <View style={{ flexShrink: 1 }}>{labelText}</View>
+          <Text style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 13.5, lineHeight: 19, color: colors.ink }}>
+            {label}
+          </Text>
           <Switch
             testID={id}
             accessibilityLabel={baseLabel}
@@ -247,16 +258,11 @@ function FieldNode({
           />
         );
       }
+      // A group of fields opens under a hairline and its own heading; no
+      // coloured edge down its side (impeccable: no side-stripe borders).
       return (
-        <View
-          style={{
-            gap: space.sm,
-            paddingStart: space.m,
-            borderStartWidth: 2,
-            borderStartColor: colors.line,
-          }}
-        >
-          {labelText}
+        <View style={{ gap: space.xs, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: colors.sub }}>
+          {groupLabel}
           {(def.fields ?? []).map((child) => (
             <FieldNode key={child.name} def={child} path={[...path, child.name]} value={obj[child.name]} props={props} inRow={inRow} />
           ))}
@@ -270,11 +276,13 @@ function FieldNode({
       const numeric = def.type === 'int' || def.type === 'iqd' || def.type === 'number';
       const typedTime = def.type === 'date' || def.type === 'time' || def.type === 'datetime';
       const example = props.exampleDay;
+      // The example is Latin digits inside an Arabic sentence: isolated, or the
+      // bidi algorithm puts the time before the date.
       const formatHint =
         def.type === 'date'
-          ? t('staff.protocols.form.dateHint', { example })
+          ? t('staff.protocols.form.dateHint', { example: isolate(example) })
           : def.type === 'datetime'
-            ? t('staff.protocols.form.datetimeHint', { example: `${example} 18:00` })
+            ? t('staff.protocols.form.datetimeHint', { example: isolate(`${example} 18:00`) })
             : def.type === 'time'
               ? t('staff.protocols.form.timeHint')
               : def.type === 'url'
@@ -299,6 +307,8 @@ function FieldNode({
             value={text}
             onChangeText={(v) => set(v)}
             multiline={def.type === 'longText'}
+            boxStyle={def.type === 'longText' ? MULTILINE_BOX : undefined}
+            style={def.type === 'longText' ? MULTILINE_TEXT : undefined}
             keyboardType={
               def.type === 'number'
                 ? 'decimal-pad'
@@ -356,9 +366,9 @@ function ListNode({
   };
 
   return (
-    <View style={{ gap: space.s }}>
-      <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>{label}</Text>
-      {hint ? <Hint>{hint}</Hint> : null}
+    <View style={{ gap: space.s, marginTop: space.sm }}>
+      <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, lineHeight: 19, color: colors.ink }}>{label}</Text>
+      {hint ? <Hint style={{ marginTop: 0 }}>{hint}</Hint> : null}
       {value.map((row, i) => {
         const rowIssue = props.issues.find((x) => x.field === tpl && x.index === i);
         const fixedRow = fixed ? fixed.rows.find((r) => r.id === row[fixed.key]) : undefined;
@@ -367,8 +377,9 @@ function ListNode({
           <View
             key={i}
             style={{
-              gap: space.sm,
+              gap: space.xs,
               padding: space.sm,
+              paddingTop: space.xs,
               borderRadius: radius.cell,
               borderWidth: 1,
               borderColor: rowIssue ? colors.redline : colors.line,
@@ -376,7 +387,7 @@ function ListNode({
             }}
           >
             {heading ? (
-              <View>
+              <View style={{ marginTop: space.s }}>
                 <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>{heading.title}</Text>
                 {heading.sub ? (
                   <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>{heading.sub}</Text>
@@ -445,8 +456,8 @@ function PriceMapNode({
   const set = (next: Draft[]) => props.onChange(setAt(props.draft, path, next));
   const current = value;
   return (
-    <View style={{ gap: space.s }}>
-      <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>{label}</Text>
+    <View style={{ gap: space.s, marginTop: space.sm }}>
+      <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, lineHeight: 19, color: colors.ink }}>{label}</Text>
       {current.map((row, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.s }}>
           <View style={{ flex: 1 }}>

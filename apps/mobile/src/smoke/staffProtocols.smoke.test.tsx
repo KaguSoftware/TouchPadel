@@ -322,10 +322,11 @@ describe.each(LOCALES)('the protocol pages’ other states in %s', (locale) => {
     try {
       const pct = (v: number) => t('staff.protocols.run.review.percent', { pct: formatPercent(v, locale) });
       expect(pct(12.3)).toContain('%');
-      expect(
-        screen.getByText(`${t('staff.protocols.run.review.margin')}: ${formatIQD(255000, locale)} (${pct(42.5)})`),
-      ).toBeTruthy();
-      expect(screen.getByText(`${t('staff.protocols.run.review.categoryShare')}: ${pct(12.3)}`)).toBeTruthy();
+      // Each figure is a label at the start and the server's number at the end.
+      expect(screen.getByText(t('staff.protocols.run.review.margin'))).toBeTruthy();
+      expect(screen.getByText(`${formatIQD(255000, locale)} (${pct(42.5)})`)).toBeTruthy();
+      expect(screen.getByText(t('staff.protocols.run.review.categoryShare'))).toBeTruthy();
+      expect(screen.getByText(pct(12.3))).toBeTruthy();
     } finally {
       screen.unmount();
     }

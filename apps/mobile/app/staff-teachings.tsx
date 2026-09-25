@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,7 +41,15 @@ import {
   type TeachingIssue,
   type TeachingsFilter,
 } from '../src/features/staff/teachings/logic';
-import { StaffPhotoThumb, Tag } from '../src/features/staff/checklists/parts';
+import {
+  GroupLabel,
+  Lead,
+  MULTILINE_BOX,
+  MULTILINE_TEXT,
+  StaffPhotoThumb,
+  Tag,
+} from '../src/features/staff/checklists/parts';
+import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 
 /**
@@ -152,6 +160,15 @@ function TeachingsScreen() {
     setError(null);
   };
 
+  // The form opens at the top of the page; an Edit pressed on a teaching far
+  // down the list must bring it into view, or the press looks like nothing.
+  const scroll = useRef<ScrollView>(null);
+  const reduceMotion = useReduceMotion();
+  const formOpen = draft !== null;
+  useEffect(() => {
+    if (formOpen) scroll.current?.scrollTo({ y: 0, animated: !reduceMotion });
+  }, [formOpen, reduceMotion]);
+
   const edit = (patch: Partial<TeachingDraft>) => {
     setDraft((d) => (d ? { ...d, ...patch } : d));
     setError(null);
@@ -203,9 +220,7 @@ function TeachingsScreen() {
         </MicroLabel>
         {mgmt && !draft.id ? (
           <>
-            <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-              {t('staff.checklists.teachings.team')}
-            </Text>
+            <GroupLabel>{t('staff.checklists.teachings.team')}</GroupLabel>
             {/* Two buttons, not a segmented control: nothing is picked until
                 the writer picks, and a segmented control always shows one. */}
             <View style={{ flexDirection: 'row', gap: space.s }}>
@@ -240,12 +255,12 @@ function TeachingsScreen() {
           value={draft.body}
           onChangeText={(body) => edit({ body })}
           multiline
+          boxStyle={MULTILINE_BOX}
+          style={MULTILINE_TEXT}
           maxLength={BODY_MAX}
           error={fieldError('body')}
         />
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-          {t('staff.checklists.teachings.photos')}
-        </Text>
+        <GroupLabel>{t('staff.checklists.teachings.photos')}</GroupLabel>
         <PhotoButton
           testID="staff-teachings.photo"
           venueId={venue}
@@ -364,14 +379,13 @@ function TeachingsScreen() {
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.checklists.teachings.title') }} />
       <ScrollView
+        ref={scroll}
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t(lead)}
-        </Text>
+        <Lead>{t(lead)}</Lead>
         {writer && !draft ? (
           <Button
             testID="staff-teachings.write"

@@ -130,6 +130,8 @@ export function PickList({
                 paddingEnd: space.m,
                 paddingTop: 11,
                 paddingBottom: 11,
+                minHeight: 44,
+                justifyContent: 'center',
                 borderTopWidth: i === 0 ? 0 : 1,
                 borderTopColor: colors.sub,
                 backgroundColor: pressed ? colors.sub : 'transparent',

@@ -173,10 +173,26 @@ describe('DriverPurchaseReceive', () => {
     mount(<DriverPurchaseReceive purchaseId="p1" onBack={vi.fn()} />);
     const receive = await screen.findByRole('button', { name: 'Receive into stock' });
     expect((receive as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/switched off after it was bought/)).toBeTruthy();
+    // Listed in Into stock, above the button it holds, not in a panel below it.
+    expect(within(receive.closest('section')!).getByText(/switched off after it was bought/)).toBeTruthy();
+    expect(screen.queryByText('Not for stock')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Mark checked' }));
     expect(confirm).toHaveBeenCalled();
     await waitFor(() => expect(calls.find((c) => c.fn === 'acknowledge_purchase_line')?.args).toEqual({ p_line_id: 'l-off' }));
+  });
+
+  it('shows a failed Mark checked under that line, not beside Receive into stock', async () => {
+    payload = { count: 1, purchases: [purchase([line({}), line({ id: 'l-bags', ingredient_id: null, ingredient_active: null, label: 'Bin bags', unit: 'pack', qty: 1 })])] };
+    mount(<DriverPurchaseReceive purchaseId="p1" onBack={vi.fn()} />);
+    const receive = await screen.findByRole('button', { name: 'Receive into stock' });
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'purchases_to_receive') return payload;
+      throw new AppRpcError('UNKNOWN', 'network down');
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Mark checked' }));
+    const row = document.querySelector('[data-line="l-bags"]') as HTMLElement;
+    expect(await within(row).findByRole('alert')).toBeTruthy();
+    expect(within(receive.closest('section')!).queryByRole('alert')).toBeNull();
   });
 
   it('goes back to Goods in once the last line is checked', async () => {

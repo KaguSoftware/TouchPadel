@@ -10,6 +10,7 @@ import { PROTOCOL_KINDS, type ProtocolKind, type TournamentVariant } from '@touc
 import { can, type StaffRole } from '../../lib/auth';
 import type { AppFunctionName } from '../../lib/appRpc';
 import type { Tone } from '../../components/kit';
+import { campaignTone } from '../marketing/marketingTypes';
 import { bilingual, isObject, list, num, str } from '../roleExtras/roleExtrasLogic';
 import type { TaskStart } from './search';
 
@@ -334,7 +335,7 @@ export function phoneRows(section: PhoneSection, payload: unknown, ctx: RowCtx):
             .join(' · '),
           status:
             status === 'draft' || status === 'scheduled' || status === 'live' || status === 'ended' || status === 'cancelled'
-              ? { label: tr(`ws.owner.marketing.statuses.${status}`), tone: status === 'live' ? 'success' : 'neutral' }
+              ? { label: tr(`ws.owner.marketing.statuses.${status}`), tone: campaignTone(status) }
               : undefined,
         };
       });

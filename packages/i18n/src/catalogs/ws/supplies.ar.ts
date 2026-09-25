@@ -5,6 +5,9 @@ export const suppliesAr: DeepMessages<typeof suppliesEn> = {
   unit: {
     pack: 'عبوة',
   },
+  unitOne: {
+    pack: 'عبوة',
+  },
   driver: {
     title: 'مشتريات السائق',
     badge: 'بانتظار الاستلام: {count}',
@@ -19,6 +22,7 @@ export const suppliesAr: DeepMessages<typeof suppliesEn> = {
   purchase: {
     title: 'استلام ما اشتراه السائق',
     back: 'العودة إلى الاستلام',
+    detailsTitle: 'تفاصيل الشراء',
     gone: 'هذه المشتريات ليست بانتظار الاستلام',
     goneBody: 'ربما استلمها أحد قبلك. المشتريات التي ما زالت بانتظار الاستلام تظهر في صفحة الاستلام.',
     boughtBy: 'اشتراها',
@@ -48,7 +52,7 @@ export const suppliesAr: DeepMessages<typeof suppliesEn> = {
     notStockTitle: 'ليست للمخزون',
     notStockLead: 'أشياء لا يحفظها المكان في المخزون، مثل مواد التنظيف. علّم كل واحد منها كمتحقق منه بعد أن تراه.',
     switchedOff: 'أُوقف هذا المكوّن بعد شرائه، لذا لا يمكن إدخاله المخزون. علّمه كمتحقق منه، أو أعد تشغيل المكوّن من صفحة المكوّنات.',
-    acknowledge: 'تم التحقق',
+    acknowledge: 'علّم كمتحقق منه',
     acknowledgedToast: 'عُلّم كمتحقق منه.',
     confirmSwitchedOffTitle: 'تعليم {name} كمتحقق منه؟',
     confirmSwitchedOffBody: 'لن يدخل المخزون، ولا يمكن التراجع عن ذلك.',
@@ -116,7 +120,7 @@ export const suppliesAr: DeepMessages<typeof suppliesEn> = {
       emptyList: 'لا توجد سطور بعد. القائمة بلا سطور لا تظهر لأحد.',
       both: 'اكتبه بالإنجليزية والعربية معًا.',
       tooLong: '{max} حرفًا على الأكثر.',
-      keepsToday: 'القائمة التي فتحها أحد اليوم تحتفظ بسطورها. يظهر تعديلك من القائمة التالية.',
+      keepsToday: 'فتح أحدهم هذه القائمة اليوم، لذا تحتفظ نسخة اليوم بسطورها القديمة. يظهر تعديلك من القائمة التالية.',
       save: 'احفظ القائمة',
       saved: 'حُفظت القائمة.',
       discard: 'تجاهل التعديلات',
@@ -162,7 +166,7 @@ export const suppliesAr: DeepMessages<typeof suppliesEn> = {
     alt: 'الصورة {n}',
   },
   setup: {
-    noPar: 'أصناف مُحضَّرة بلا حد',
+    noPar: 'أصناف مُحضَّرة لم يُحدَّد لها حد',
     noParHint: 'قائمة «ما يُحضَّر اليوم» في المطبخ لا تطلب هذه الأصناف أبدًا حتى يُحدَّد لكل منها حد.',
     noParAction: 'افتح المكوّنات',
   },

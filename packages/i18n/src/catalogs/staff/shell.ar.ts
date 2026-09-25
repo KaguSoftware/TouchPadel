@@ -6,7 +6,11 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     title: 'اليوم',
     greeting: 'أهلاً، {name}',
     roleAtVenue: '{role} · {venue}',
-    rowsTitle: 'عملك',
+    groups: {
+      protocols: 'البروتوكولات والأفكار',
+      daily: 'العمل اليومي',
+      team: 'الطلبات والاقتراحات',
+    },
   },
   venue: {
     label: 'مكان العمل',
@@ -60,7 +64,7 @@ export const staffShellAr: DeepMessages<typeof staffShellEn> = {
     dateHint: 'اكتب التاريخ بصيغة سنة-شهر-يوم، مثلاً {example}.',
     amount: 'المبلغ (دينار)',
     note: 'ملاحظة',
-    noteOptional: 'ملاحظة (اختياري)',
+    noteOptional: 'ملاحظة · اختياري',
     noteCorrection: 'ما الخطأ في السجل؟',
     submit: 'إرسال الطلب',
     sent: 'تم إرسال الطلب',

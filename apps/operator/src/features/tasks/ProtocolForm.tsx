@@ -9,7 +9,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import type { FieldDef } from '@touch/core/protocols';
 import type { FieldIssue } from '@touch/core/protocols';
-import { formatWeekdayShort, type MessageKey } from '@touch/i18n';
+import { formatNumber, formatWeekdayShort, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { Button, Field, Select, inputStyle } from '../../components/ui';
 import { DateField, MoneyInput } from '../../components/inputs';
@@ -284,7 +284,7 @@ function Group({ label, required, error, children, actions }: { label: string; r
 }
 
 function ListControl(props: ProtocolFormProps & { def: FieldDef; path: Path; label: string; error?: string; rows: Draft[] }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const { def, path, rows, draft, onChange, disabled } = props;
   const max = def.maxItems ?? 30;
   const min = def.required ? Math.max(1, def.minItems ?? 1) : 0;
@@ -323,7 +323,7 @@ function ListControl(props: ProtocolFormProps & { def: FieldDef; path: Path; lab
                 size="sm"
                 kind="ghost"
                 icon="trash"
-                aria-label={tr('ws.team.tasks.form.removeRow', { n: String(i + 1) })}
+                aria-label={tr('ws.team.tasks.form.removeRow', { n: formatNumber(i + 1, locale) })}
                 disabled={disabled}
                 onClick={() => setRows(rows.filter((__, j) => j !== i))}
                 style={{ marginBlockStart: 'var(--tp-sp-5)' }}
@@ -471,7 +471,7 @@ function WeekdayChips({ value, onChange, disabled }: { value: readonly number[];
 }
 
 function PriceMapRows({ rows, onChange, max, disabled }: { rows: PriceMapRow[]; onChange: (next: PriceMapRow[]) => void; max: number; disabled?: boolean }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const set = (i: number, patch: Partial<PriceMapRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
@@ -484,7 +484,7 @@ function PriceMapRows({ rows, onChange, max, disabled }: { rows: PriceMapRow[]; 
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.team.tasks.form.minutes')}</span>
           </span>
           <MoneyInput value={r.price} onChange={(v) => set(i, { price: v })} allowEmpty disabled={disabled} />
-          <Button size="sm" kind="ghost" icon="trash" aria-label={tr('ws.team.tasks.form.removeRow', { n: String(i + 1) })} disabled={disabled} onClick={() => onChange(rows.filter((_, j) => j !== i))} />
+          <Button size="sm" kind="ghost" icon="trash" aria-label={tr('ws.team.tasks.form.removeRow', { n: formatNumber(i + 1, locale) })} disabled={disabled} onClick={() => onChange(rows.filter((_, j) => j !== i))} />
         </div>
       ))}
       {rows.length < max && (

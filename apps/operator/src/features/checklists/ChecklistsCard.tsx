@@ -21,7 +21,7 @@ import { QK } from '../../lib/queries';
 import { can, useAuth, type StaffRole } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useBusinessToday } from '../../lib/settings';
-import { Button, ErrorText } from '../../components/ui';
+import { Button, ErrorText, Skeleton } from '../../components/ui';
 import { EmptyState, Panel, StatusBadge } from '../../components/kit';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
 import type { EditorState } from './ChecklistEditor';
@@ -70,7 +70,8 @@ export function ChecklistsCard() {
           {tr('ws.supplies.checklists.edit')}
         </Button>
       )}
-      <Button size="sm" iconEnd="arrowUpRight" onClick={() => setSheet('today')}>
+      {/* Opens the sheet over this page, so no "leaves the page" arrow. */}
+      <Button size="sm" onClick={() => setSheet('today')}>
         {tr('ws.supplies.checklists.open')}
       </Button>
     </span>
@@ -86,7 +87,7 @@ export function ChecklistsCard() {
           </Button>
         </div>
       ) : q.isPending ? (
-        <p style={{ color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('common.loading')}</p>
+        <Skeleton lines={3} />
       ) : summary.total === 0 ? (
         <EmptyState
           compact
@@ -108,6 +109,9 @@ export function ChecklistsCard() {
               ? tr('ws.supplies.checklists.allDone')
               : tr('ws.supplies.checklists.summary', { done: formatNumber(summary.finished, locale), total: formatNumber(summary.total, locale) })}
           </p>
+          {/* An unfinished list is not yet a problem: a closing list is 0 of 5 all
+              afternoon. So progress is neutral and only Finished takes a colour;
+              the warning tone is day close's, where an open list is one. */}
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
             {rows.slice(0, ROWS_SHOWN).map((l) => {
               const open = isUnfinished(l);
@@ -116,14 +120,14 @@ export function ChecklistsCard() {
                 <li key={`${l.role}:${l.slot}`} data-list={`${l.role}:${l.slot}`} style={{ display: 'grid', gap: 'var(--tp-sp-0)', fontSize: 'var(--tp-fs-sm)' }}>
                   <span style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)' }}>
                     <span>{tr('ws.supplies.checklists.row', { role: tr(`op.roles.${l.role}`), slot: tr(`work.checklist.slot.${l.slot}`) })}</span>
-                    <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: open ? MARK_FG.warn : MARK_FG.success }}>
+                    <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: open ? MARK_FG.neutral : MARK_FG.success }}>
                       {open
                         ? tr('ws.supplies.checklists.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })
                         : tr('ws.supplies.checklists.finished')}
                     </span>
                   </span>
-                  <span aria-hidden="true" style={{ blockSize: '0.3rem', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-2)', overflow: 'hidden' }}>
-                    <span style={{ display: 'block', blockSize: '100%', inlineSize: `${pct}%`, background: open ? MARK.warn : MARK.success }} />
+                  <span aria-hidden="true" style={{ blockSize: 'var(--tp-sp-1)', borderRadius: 'var(--tp-radius-pill)', background: 'var(--tp-surface-2)', overflow: 'hidden' }}>
+                    <span style={{ display: 'block', blockSize: '100%', inlineSize: `${pct}%`, background: open ? MARK.neutral : MARK.success }} />
                   </span>
                 </li>
               );

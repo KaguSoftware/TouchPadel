@@ -32,15 +32,19 @@ const isUnit = (u: string): u is Unit => (UNITS as readonly string[]).includes(u
 export function useStockFormat() {
   const { tr, locale } = useLocale();
   const unit = (u: string) => (isUnit(u) ? tr(`op.stock.unit.${u}`) : u);
+  /** The unit for one of it: "1 pc", "cost per pc" (never "1 pcs"). */
+  const one = (u: string) => (isUnit(u) ? tr(`op.stock.unitOne.${u}`) : u);
   const num = (n: number) => formatNumber(Number(n), locale);
+  const unitFor = (n: number, u: string) => (Math.abs(Number(n)) === 1 ? one(u) : unit(u));
   return {
     unit,
+    one,
     num,
-    /** "2,000 g" */
-    qty: (n: number, u: string) => tr('op.stock.qty', { qty: num(n), unit: unit(u) }),
+    /** "2,000 g", "1 pc" */
+    qty: (n: number, u: string) => tr('op.stock.qty', { qty: num(n), unit: unitFor(n, u) }),
     /** "+40 pcs" / "−40 pcs" — the sign is always printed on a change. */
     change: (n: number, u: string) =>
-      tr('op.stock.qty', { qty: `${Number(n) > 0 ? '+' : Number(n) < 0 ? '−' : ''}${num(Math.abs(Number(n)))}`, unit: unit(u) }),
+      tr('op.stock.qty', { qty: `${Number(n) > 0 ? '+' : Number(n) < 0 ? '−' : ''}${num(Math.abs(Number(n)))}`, unit: unitFor(n, u) }),
     /** "2.5 IQD" — per-unit costs are fractional; see the file comment. */
     cost: (n: number | null) => (n === null ? '—' : tr('op.stock.iqd', { amount: num(n) })),
   };

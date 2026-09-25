@@ -846,7 +846,8 @@ function ChecklistsOpen({ lists, error, onRetry }: { lists: readonly DayStateLis
   if (lists.length === 0 && error == null) return null;
   return (
     <Panel
-      title={<CardTitle icon="checkCircle">{tr('ws.supplies.dayClose.title')}</CardTitle>}
+      // An hourglass, not a tick: the panel lists what is NOT done.
+      title={<CardTitle icon="hourglass">{tr('ws.supplies.dayClose.title')}</CardTitle>}
       actions={lists.length > 0 ? <StatusBadge tone="warn" label={tr('ws.supplies.dayClose.badge', { count: formatNumber(lists.length, locale) })} /> : undefined}
       data-testid="day-close-checklists"
     >

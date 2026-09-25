@@ -22,11 +22,18 @@ import type { MessageKey } from '@touch/i18n';
 import { Text } from '../../../i18n/text';
 import { useLocale } from '../../../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../../theme';
-import { Button, Card, ErrorText, Field, MicroLabel } from '../../../components/ui';
+import { Button, Card, ErrorText, Field } from '../../../components/ui';
 import { staffKeys } from '../keys';
 import { staffPhotoUrl } from '../photo';
 import { isProtocolQueryKey } from './logic';
+import { MULTILINE_BOX, MULTILINE_TEXT } from './multiline';
+import { Tag } from '../checklists/parts';
 
+/**
+ * A titled card. The title is a heading one clear step above the field labels
+ * inside it (which are MicroLabels, like the shared Field's), so "Your record"
+ * and "Note" no longer read as the same size of thing.
+ */
 export function Section({
   title,
   children,
@@ -36,22 +43,50 @@ export function Section({
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { colors, fonts } = useTheme();
   return (
     <Card style={[{ padding: space.m, gap: space.s }, style]}>
-      {title ? <MicroLabel>{title}</MicroLabel> : null}
+      {title ? (
+        <Text accessibilityRole="header" style={{ fontFamily: fonts.body700, fontSize: 15, lineHeight: 21, color: colors.ink }}>
+          {title}
+        </Text>
+      ) : null}
       {children}
     </Card>
   );
 }
 
+/**
+ * One bordered surface holding a list of rows split by hairlines: Today's
+ * groups, the start page's choices, the notes on an item. A list is one
+ * surface, not a stack of cards.
+ */
+export function ListCard({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+        borderRadius: radius.card,
+        overflow: 'hidden',
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
 export type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'info';
 
+// The same tone per status as the operator's (protocolLogic.ts): a scheduled
+// run is planned, not a warning, so it is blue like a running one.
 export function runStatusTone(status: RunStatus): Tone {
   switch (status) {
     case 'active':
-      return 'info';
     case 'scheduled':
-      return 'warn';
+      return 'info';
     case 'live':
     case 'done':
       return 'good';
@@ -77,33 +112,13 @@ export function stepStatusTone(status: StepStatus): Tone {
   }
 }
 
+/**
+ * A status word on a tinted ground. It is the daily pages' Tag
+ * (checklists/parts.tsx), so a status looks the same on every staff page;
+ * this name and its `neutral` tone stay for the protocol pages' call sites.
+ */
 export function StatusPill({ label, tone }: { label: string; tone: Tone }) {
-  const { colors, fonts } = useTheme();
-  const palette: Record<Tone, { bg: string; fg: string; line: string }> = {
-    neutral: { bg: colors.sub, fg: colors.mut, line: colors.line },
-    good: { bg: colors.gtint, fg: colors.gtext, line: colors.gline },
-    warn: { bg: colors.amb, fg: colors.ambtext, line: colors.ambline },
-    bad: { bg: colors.redtint, fg: colors.redtext, line: colors.redline },
-    info: { bg: colors.tint, fg: colors.blue, line: colors.line },
-  };
-  const p = palette[tone];
-  return (
-    <View
-      style={{
-        alignSelf: 'flex-start',
-        paddingStart: 8,
-        paddingEnd: 8,
-        paddingTop: 3,
-        paddingBottom: 3,
-        borderRadius: radius.pill,
-        backgroundColor: p.bg,
-        borderWidth: 1,
-        borderColor: p.line,
-      }}
-    >
-      <Text style={{ fontFamily: fonts.body700, fontSize: 11.5, color: p.fg }}>{label}</Text>
-    </View>
-  );
+  return <Tag label={label} tone={tone === 'neutral' ? 'plain' : tone} />;
 }
 
 /** "Head chef, Manager": a step's actors in the reader's language. */
@@ -153,6 +168,8 @@ export function ReasonForm({
           if (v.trim()) setMissing(false);
         }}
         multiline
+        boxStyle={MULTILINE_BOX}
+        style={MULTILINE_TEXT}
         maxLength={1000}
         error={missing ? t('staff.protocols.step.decide.reasonRequired') : null}
       />

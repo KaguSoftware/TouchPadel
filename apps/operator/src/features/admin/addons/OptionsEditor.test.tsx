@@ -69,7 +69,7 @@ async function addOption(user: ReturnType<typeof userEvent.setup>, delta: string
   // Save, so its controls are the last of their kind.
   await user.type(screen.getAllByRole('textbox', { name: 'Name (English)' }).at(-1)!, 'Caramel');
   await user.type(screen.getAllByRole('textbox', { name: 'Name (Arabic)' }).at(-1)!, 'كراميل');
-  await user.type(screen.getByPlaceholderText('Price delta (IQD)'), delta);
+  await user.type(screen.getByPlaceholderText('Extra charge (IQD)'), delta);
 }
 
 beforeEach(() => {

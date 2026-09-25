@@ -33,7 +33,8 @@ const FILTER_ICONS = { waiting: BellIcon, active: ClockIcon, finished: CheckIcon
 function RunCard({ run, onPress }: { run: RunRow; onPress: () => void }) {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
-  const title = runTitle(run, locale) ?? t(`work.protocol.kind.${run.kind}`);
+  const typed = runTitle(run, locale);
+  const title = typed ?? t(`work.protocol.kind.${run.kind}`);
   const now = run.current_steps.map((s) => bilingual(locale, s.name_en, s.name_ar)).filter(Boolean);
   return (
     <Pressable
@@ -55,7 +56,8 @@ function RunCard({ run, onPress }: { run: RunRow; onPress: () => void }) {
         <Strong>{title}</Strong>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           <StatusPill label={t(`work.protocol.runStatus.${run.status}`)} tone={runStatusTone(run.status)} />
-          <Muted>{t(`work.protocol.kind.${run.kind}`)}</Muted>
+          {/* An untitled run is already headed by its kind; saying it twice is noise. */}
+          {typed ? <Muted>{t(`work.protocol.kind.${run.kind}`)}</Muted> : null}
           {run.waiting_on_me ? <Muted style={{ color: colors.blue }}>{t('staff.protocols.runs.waitingOnYou')}</Muted> : null}
         </View>
         {now.length > 0 ? <Muted>{t('staff.protocols.runs.now', { steps: now.join(locale === 'ar' ? '، ' : ', ') })}</Muted> : null}

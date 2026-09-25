@@ -22,6 +22,7 @@ import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { radius, space, useTheme } from '../theme';
 import { Button, ErrorText, Field, MicroLabel } from './ui';
+import { MULTILINE_BOX, MULTILINE_TEXT } from '../features/staff/protocols/multiline';
 
 export interface DecisionTarget {
   id: string;
@@ -108,9 +109,7 @@ export function DecisionBar({
       {choice === 'approve' ? approveExtra : null}
       {choice === 'send_back' && targets.length > 0 ? (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-            {t('staff.protocols.step.decide.target')}
-          </Text>
+          <MicroLabel>{t('staff.protocols.step.decide.target')}</MicroLabel>
           {targets.map((tg) => {
             const on = tg.id === target;
             return (
@@ -140,7 +139,8 @@ export function DecisionBar({
                     height: 18,
                     borderRadius: radius.pill,
                     borderWidth: on ? 6 : 1.5,
-                    borderColor: on ? colors.blue : colors.line,
+                    // An empty radio is still a control: fnt clears 3:1 on the card.
+                    borderColor: on ? colors.blue : colors.fnt,
                   }}
                 />
                 <Text style={{ flexShrink: 1, fontFamily: fonts.body600, fontSize: 13.5, color: colors.ink }}>
@@ -158,6 +158,8 @@ export function DecisionBar({
         value={note}
         onChangeText={setNote}
         multiline
+        boxStyle={MULTILINE_BOX}
+        style={MULTILINE_TEXT}
         maxLength={1000}
         error={noteError}
       />
@@ -172,7 +174,15 @@ export function DecisionBar({
         />
         <Button
           testID={`${testID}.confirm`}
-          label={t('staff.protocols.step.decide.confirm')}
+          // The confirm names what it does: "Approve it", "Send it back",
+          // "Stop the protocol", never a bare "Confirm".
+          label={t(
+            choice === 'approve'
+              ? 'staff.protocols.step.decide.confirmApprove'
+              : choice === 'send_back'
+                ? 'staff.protocols.step.decide.confirmSendBack'
+                : 'staff.protocols.step.decide.confirmStop',
+          )}
           variant={choice === 'stop' ? 'danger' : 'primary'}
           size="compact"
           busy={busy}
@@ -187,7 +197,10 @@ export function DecisionBar({
 
   return (
     <View style={{ gap: space.s }}>
-      <MicroLabel>{t('staff.protocols.step.decide.title')}</MicroLabel>
+      {/* The decision's heading, the same step as a protocol section's title. */}
+      <Text accessibilityRole="header" style={{ fontFamily: fonts.body700, fontSize: 15, lineHeight: 21, color: colors.ink }}>
+        {t('staff.protocols.step.decide.title')}
+      </Text>
       <View style={{ gap: space.s }}>
         <Button
           testID={`${testID}.approve`}

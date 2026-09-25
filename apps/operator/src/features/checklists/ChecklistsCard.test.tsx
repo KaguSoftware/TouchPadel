@@ -237,6 +237,18 @@ describe('ChecklistsCard', () => {
     expect((within(editor).getByRole('button', { name: 'Save the list' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('says a list keeps today’s lines only for a list someone opened today', async () => {
+    renderCard('owner');
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit the lists' }));
+    const dialog = await screen.findByRole('dialog');
+    const keeps = /today’s copy keeps its old lines/;
+    // Bar opening was opened today (it has a run); Bar closing was not.
+    await userEvent.click(dialog.querySelector<HTMLButtonElement>('[data-pick="barista:open"]')!);
+    expect(within(await within(dialog).findByTestId('checklist-editor')).getByText(keeps)).toBeTruthy();
+    await userEvent.click(dialog.querySelector<HTMLButtonElement>('[data-pick="barista:close"]')!);
+    expect(within(await within(dialog).findByTestId('checklist-editor')).queryByText(keeps)).toBeNull();
+  });
+
   it('refuses a line in one language before anything is sent', async () => {
     const calls: unknown[] = [];
     save = async (args) => {

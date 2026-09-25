@@ -291,7 +291,7 @@ describe('/protocols', () => {
     const panel = await screen.findByTestId('step-panel');
     await user.click(within(panel).getByTestId('decide'));
     const dialog = await screen.findByRole('dialog', { name: /Decide: Proposal/ });
-    expect(within(dialog).getByText('Menu section for the new item')).toBeTruthy();
+    expect(within(dialog).getByText('Menu category for the new item')).toBeTruthy();
     await user.click(within(dialog).getByTestId('decision-send'));
     expect(rpc).not.toHaveBeenCalledWith('decide_step', expect.anything());
   });
@@ -333,7 +333,7 @@ describe('/protocols', () => {
     let sheet = await screen.findByTestId('start-sheet');
     // Default: the manager decides the proposal, so it passes at once and asks for the menu section.
     expect(await within(sheet).findByText('You decide this first step, so it passes as soon as you start.')).toBeTruthy();
-    expect(within(sheet).getByText('Menu section')).toBeTruthy();
+    expect(within(sheet).getByText('Menu category')).toBeTruthy();
     first.unmount();
 
     // The owner turned "Needs my OK" on for it: the manager's start waits for the owner.
@@ -342,7 +342,7 @@ describe('/protocols', () => {
     sheet = await screen.findByTestId('start-sheet');
     expect(await within(sheet).findByText('Starting sends this first step for a decision.')).toBeTruthy();
     expect(within(sheet).queryByText('You decide this first step, so it passes as soon as you start.')).toBeNull();
-    expect(within(sheet).queryByText('Menu section')).toBeNull();
+    expect(within(sheet).queryByText('Menu category')).toBeNull();
     expect(rpc).toHaveBeenCalledWith('protocol_template_detail', { p_template_id: TPL });
   });
 

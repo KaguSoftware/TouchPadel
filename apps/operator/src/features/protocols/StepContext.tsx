@@ -9,7 +9,7 @@
  * A read the caller may not make fails quietly and its block is left out: the
  * server decides, not this file.
  */
-import { formatDateTime, formatIQD, formatNumber, formatTimeRange, type MessageKey } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, formatNumber, formatTimeRange, type Locale, type MessageKey } from '@touch/i18n';
 import type { ProtocolKind } from '@touch/core/protocols';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
@@ -85,8 +85,22 @@ function Money({ v }: { v: number | null | undefined }) {
   return <span dir="ltr">{v == null ? '—' : formatIQD(v, locale)}</span>;
 }
 
+/**
+ * "Oct 5, 2026 · 6:00 PM–10:00 PM" for a range inside one day, else both ends
+ * with the catalog's arrow, which points the way the language reads (→ in
+ * English, ← in Arabic): a bare "→" in an Arabic line points back at the start.
+ */
+function rangeText(from: string | null, to: string | null, locale: Locale, arrow: string): string {
+  if (!from || !to) return [from ? formatDateTime(new Date(from), locale) : '—', to ? formatDateTime(new Date(to), locale) : '—'].join(` ${arrow} `);
+  const a = new Date(from);
+  const b = new Date(to);
+  if (formatDate(a, locale) === formatDate(b, locale)) return `${formatDate(a, locale)} · ${formatTimeRange(a, b, locale)}`;
+  return `${formatDateTime(a, locale)} ${arrow} ${formatDateTime(b, locale)}`;
+}
+
 export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
   const { tr, locale } = useLocale();
+  const arrow = tr('ws.protocols.view.arrow');
   const blocks = [];
 
   if (ctx.test && ctx.test.sizes.length > 0) {
@@ -193,9 +207,7 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
         <ul style={{ margin: 0, paddingInlineStart: '1.1rem' }}>
           {t.ranges.map((r, i) => (
             <li key={i}>
-              {r.courts.map((c) => pickText(locale, c.en, c.ar)).join(tr('ws.protocols.view.listJoin'))} · {r.from ? formatDateTime(new Date(r.from), locale) : '—'}
-              {' → '}
-              {r.to ? formatDateTime(new Date(r.to), locale) : '—'}
+              {r.courts.map((c) => pickText(locale, c.en, c.ar)).join(tr('ws.protocols.view.listJoin'))} · {rangeText(r.from, r.to, locale, arrow)}
             </li>
           ))}
         </ul>
@@ -243,7 +255,7 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
           <ul style={{ margin: 0, paddingInlineStart: '1.1rem' }}>
             {n.addons.map((a) => (
               <li key={a.modifier_id}>
-                {pickText(locale, a.group_name_en, a.group_name_ar)} · {pickText(locale, a.name_en, a.name_ar)}: <Money v={a.current_delta_iqd} /> → <Money v={a.new_delta_iqd} />{' '}
+                {pickText(locale, a.group_name_en, a.group_name_ar)} · {pickText(locale, a.name_en, a.name_ar)}: <Money v={a.current_delta_iqd} /> {arrow} <Money v={a.new_delta_iqd} />{' '}
                 <span style={muted}>{tr('ws.protocols.context.numbers.addonSold', { count: formatNumber(a.count_30d, locale) })}</span>
               </li>
             ))}
@@ -264,7 +276,7 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
             <ul style={{ margin: 0, paddingInlineStart: '1.1rem' }}>
               {n.rate.durations.map((d) => (
                 <li key={d.duration_min}>
-                  {tr('ws.protocols.form.minutes', { n: formatNumber(d.duration_min, locale) })}: <Money v={d.current_price_iqd} /> → <Money v={d.new_price_iqd} />
+                  {tr('ws.protocols.form.minutes', { n: formatNumber(d.duration_min, locale) })}: <Money v={d.current_price_iqd} /> {arrow} <Money v={d.new_price_iqd} />
                 </li>
               ))}
             </ul>

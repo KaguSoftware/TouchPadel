@@ -20,9 +20,9 @@ import {
 import { formatIQD, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { radius, space, useTheme } from '../src/theme';
+import { space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, Hint, LinkText, Screen } from '../src/components/ui';
-import { SkeletonList } from '../src/components/states';
+import { ErrorState, SkeletonList } from '../src/components/states';
 import { useToast } from '../src/components/overlays';
 import { ChevronIcon } from '../src/components/icons';
 import { PhotoButton, type AttachedPhoto } from '../src/components/PhotoButton';
@@ -53,7 +53,7 @@ import {
   titlesFromRecord,
   type FixedRow,
 } from '../src/features/staff/protocols/logic';
-import { Muted, Section, Strong, serverIssue, useRefreshProtocols } from '../src/features/staff/protocols/parts';
+import { ListCard, Muted, Section, Strong, serverIssue, useRefreshProtocols } from '../src/features/staff/protocols/parts';
 import type { PriceTargets } from '../src/features/staff/protocols/types';
 import { useAttachedPhotos } from '../src/features/staff/protocols/useStepReads';
 import { fetchIdeasToReview } from '../src/features/staff/ideas/api';
@@ -72,7 +72,20 @@ import type { ReviewIdea } from '../src/features/staff/ideas/logic';
  * step's record, sent with the run (§2.8), so this page is that step's form.
  */
 
-function ChoiceRow({ testID, title, hint, onPress }: { testID: string; title: string; hint?: string | null; onPress: () => void }) {
+/** One choice in a ListCard: the choices are one list, split by hairlines, not a stack of cards. */
+function ChoiceRow({
+  testID,
+  title,
+  hint,
+  onPress,
+  last,
+}: {
+  testID: string;
+  title: string;
+  hint?: string | null;
+  onPress: () => void;
+  last?: boolean;
+}) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
@@ -84,10 +97,9 @@ function ChoiceRow({ testID, title, hint, onPress }: { testID: string; title: st
         alignItems: 'center',
         gap: space.s,
         padding: space.m,
-        borderRadius: radius.card,
-        borderWidth: 1,
-        borderColor: colors.line,
-        backgroundColor: pressed ? colors.sub : colors.card,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: colors.sub,
+        backgroundColor: pressed ? colors.sub : 'transparent',
       })}
     >
       <View style={{ flex: 1, gap: 3 }}>
@@ -153,18 +165,23 @@ function TargetChooser({
       <Strong>{t(`staff.protocols.start.targetTitle.${change as Exclude<PriceChangeKind, 'addon_price' | 'promotion'>}`)}</Strong>
       {kind === 'featured' ? (
         featured ? (
-          <ChoiceRow
-            testID="staff-start.target.featured"
-            title={t('staff.protocols.start.keepFeatured', { name: bilingual(locale, featured.name_en, featured.name_ar) ?? '' })}
-            hint={t('staff.protocols.start.featuredNow', { pct: String(targets.featured_discount_pct ?? 0) })}
-            onPress={() => onPick(null)}
-          />
+          <ListCard>
+            <ChoiceRow
+              testID="staff-start.target.featured"
+              title={t('staff.protocols.start.keepFeatured', { name: bilingual(locale, featured.name_en, featured.name_ar) ?? '' })}
+              hint={t('staff.protocols.start.featuredNow', { pct: String(targets.featured_discount_pct ?? 0) })}
+              onPress={() => onPick(null)}
+              last
+            />
+          </ListCard>
         ) : (
           <Hint>{t('staff.protocols.start.featuredNone')}</Hint>
         )
       ) : null}
       {kind === 'rule' ? (
-        <ChoiceRow testID="staff-start.target.new" title={t('staff.protocols.start.newRate')} onPress={() => onPick(null)} />
+        <ListCard>
+          <ChoiceRow testID="staff-start.target.new" title={t('staff.protocols.start.newRate')} onPress={() => onPick(null)} last />
+        </ListCard>
       ) : null}
       {rows.length > 8 ? (
         <Field
@@ -176,9 +193,20 @@ function TargetChooser({
         />
       ) : null}
       {rows.length === 0 && kind !== 'rule' ? <Hint>{t('staff.protocols.start.targetNone')}</Hint> : null}
-      {shown.map((r) => (
-        <ChoiceRow key={r.id} testID={`staff-start.target.${r.id}`} title={r.title} hint={r.hint} onPress={() => onPick(r.id)} />
-      ))}
+      {shown.length > 0 ? (
+        <ListCard>
+          {shown.map((r, i) => (
+            <ChoiceRow
+              key={r.id}
+              testID={`staff-start.target.${r.id}`}
+              title={r.title}
+              hint={r.hint}
+              onPress={() => onPick(r.id)}
+              last={i === shown.length - 1}
+            />
+          ))}
+        </ListCard>
+      ) : null}
     </View>
   );
 }
@@ -335,35 +363,44 @@ function StartForm({
     .filter(Boolean)
     .join(' ');
 
+  // A new item's or a tournament's title falls back to the name typed in the
+  // form, so it is asked for after the form, where "leave it empty to use the
+  // name" makes sense. A hire or a price change has no name to fall back on:
+  // its title is its subject and comes first.
+  const titleAfterForm = kind === 'product_release' || kind === 'tournament';
+  const titleSection = (
+    <Section title={t('staff.protocols.start.titleSection')}>
+      <Field
+        testID="staff-start.field.title_en"
+        label={t('staff.protocols.field.en')}
+        value={titleEn}
+        onChangeText={(v) => {
+          setTitleEn(v);
+          setIssues((all) => all.filter((i) => i.field !== 'title'));
+        }}
+        maxLength={120}
+      />
+      <Field
+        testID="staff-start.field.title_ar"
+        label={t('staff.protocols.field.ar')}
+        value={titleAr}
+        onChangeText={(v) => {
+          setTitleAr(v);
+          setIssues((all) => all.filter((i) => i.field !== 'title'));
+        }}
+        maxLength={120}
+        error={titleIssue ? t(`op.errors.${titleIssue.code}` as MessageKey) : null}
+      />
+      <Hint>{titleHint}</Hint>
+    </Section>
+  );
+
   return (
     <>
       {setup.idea ? (
         <Hint>{t('staff.protocols.start.fromIdea', { name: isolate(setup.idea.author_name ?? '') })}</Hint>
       ) : null}
-      <Section title={t('staff.protocols.start.titleSection')}>
-        <Field
-          testID="staff-start.field.title_en"
-          label={t('staff.protocols.start.titleEn')}
-          value={titleEn}
-          onChangeText={(v) => {
-            setTitleEn(v);
-            setIssues((all) => all.filter((i) => i.field !== 'title'));
-          }}
-          maxLength={120}
-        />
-        <Field
-          testID="staff-start.field.title_ar"
-          label={t('staff.protocols.start.titleAr')}
-          value={titleAr}
-          onChangeText={(v) => {
-            setTitleAr(v);
-            setIssues((all) => all.filter((i) => i.field !== 'title'));
-          }}
-          maxLength={120}
-          error={titleIssue ? t(`op.errors.${titleIssue.code}` as MessageKey) : null}
-        />
-        <Hint>{titleHint}</Hint>
-      </Section>
+      {titleAfterForm ? null : titleSection}
       <Section title={t(`work.protocol.kind.${kind}`)}>
         {change ? <Strong>{t(`work.protocol.change.${change}`)}</Strong> : null}
         <FormFields
@@ -397,6 +434,7 @@ function StartForm({
         ) : null}
         {featuredItem ? <Muted>{bilingual(locale, featuredItem.name_en, featuredItem.name_ar) ?? ''}</Muted> : null}
       </Section>
+      {titleAfterForm ? titleSection : null}
       {form.photoFolder && form.photosMax > 0 ? (
         <Section title={t('staff.protocols.start.photosTitle')}>
           <PhotoButton
@@ -494,6 +532,8 @@ function StartScreen() {
     return { kind, variant, change: null, draft, fixed: {}, hidden: [], idea: null };
   }, [kind, variant, change, needsTargets, targets.data, targetKind, target, ideaId, ideas.data]);
 
+  const offeredChanges = PRICE_CHANGE_KINDS.filter((c) => changes.includes(c));
+
   const reset = () => {
     setKind(kinds.length === 1 ? kinds[0]! : null);
     setVariant(null);
@@ -508,15 +548,18 @@ function StartScreen() {
       return (
         <View style={{ gap: space.s }}>
           <Strong>{t('staff.protocols.start.lead')}</Strong>
-          {kinds.map((k) => (
-            <ChoiceRow
-              key={k}
-              testID={`staff-start.kind.${k}`}
-              title={t(`work.protocol.kind.${k}`)}
-              hint={t(`staff.protocols.start.kindHint.${k}`)}
-              onPress={() => setKind(k)}
-            />
-          ))}
+          <ListCard>
+            {kinds.map((k, i) => (
+              <ChoiceRow
+                key={k}
+                testID={`staff-start.kind.${k}`}
+                title={t(`work.protocol.kind.${k}`)}
+                hint={t(`staff.protocols.start.kindHint.${k}`)}
+                onPress={() => setKind(k)}
+                last={i === kinds.length - 1}
+              />
+            ))}
+          </ListCard>
         </View>
       );
     }
@@ -524,15 +567,18 @@ function StartScreen() {
       return (
         <View style={{ gap: space.s }}>
           <Strong>{t('staff.protocols.start.variantTitle')}</Strong>
-          {TOURNAMENT_VARIANTS.map((v) => (
-            <ChoiceRow
-              key={v}
-              testID={`staff-start.field.variant.${v}`}
-              title={t(`work.protocol.variant.${v}`)}
-              hint={t(`staff.protocols.start.variantHint.${v}`)}
-              onPress={() => setVariant(v)}
-            />
-          ))}
+          <ListCard>
+            {TOURNAMENT_VARIANTS.map((v, i) => (
+              <ChoiceRow
+                key={v}
+                testID={`staff-start.field.variant.${v}`}
+                title={t(`work.protocol.variant.${v}`)}
+                hint={t(`staff.protocols.start.variantHint.${v}`)}
+                onPress={() => setVariant(v)}
+                last={i === TOURNAMENT_VARIANTS.length - 1}
+              />
+            ))}
+          </ListCard>
         </View>
       );
     }
@@ -540,15 +586,29 @@ function StartScreen() {
       return (
         <View style={{ gap: space.s }}>
           <Strong>{t('staff.protocols.start.changeTitle')}</Strong>
-          {PRICE_CHANGE_KINDS.filter((c) => changes.includes(c)).map((c) => (
-            <ChoiceRow key={c} testID={`staff-start.change.${c}`} title={t(`work.protocol.change.${c}`)} onPress={() => setChange(c)} />
-          ))}
+          <ListCard>
+            {offeredChanges.map((c, i) => (
+              <ChoiceRow
+                key={c}
+                testID={`staff-start.change.${c}`}
+                title={t(`work.protocol.change.${c}`)}
+                onPress={() => setChange(c)}
+                last={i === offeredChanges.length - 1}
+              />
+            ))}
+          </ListCard>
         </View>
       );
     }
     if (kind === 'price_promo' && change && needsTargets && !targets.data) {
       return targets.isError ? (
-        <Hint>{t(mapStaffError(targets.error))}</Hint>
+        <ErrorState
+          testID="staff-start.targets-error"
+          title={t('errors.loadFailedTitle')}
+          message={t(mapStaffError(targets.error))}
+          retryLabel={t('common.retry')}
+          onRetry={() => void targets.refetch()}
+        />
       ) : (
         <SkeletonList rows={3} height={72} />
       );

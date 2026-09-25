@@ -150,7 +150,7 @@ export function EditItemsDialog({ step, onClose }: { step: StepRow; onClose: () 
       size="lg"
       footer={(close) => (
         <>
-          <Button kind="ghost" onClick={close} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" busy={busy} onClick={() => void save()}>
@@ -218,7 +218,7 @@ export function AddStepDialog({ runId, after, onClose }: { runId: string; after:
       size="lg"
       footer={(close) => (
         <>
-          <Button kind="ghost" onClick={close} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" busy={busy} onClick={() => void save()}>
@@ -229,23 +229,23 @@ export function AddStepDialog({ runId, after, onClose }: { runId: string; after:
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <Field label={tr('ws.protocols.edits.after')} hint={tr('ws.protocols.edits.afterHint')} required>
-          <Select<string> value={afterId} options={after.map((s) => ({ value: s.id, label: pickText(locale, s.name_en, s.name_ar) }))} onChange={setAfterId} />
+          <Select<string> value={afterId} disabled={busy} options={after.map((s) => ({ value: s.id, label: pickText(locale, s.name_en, s.name_ar) }))} onChange={setAfterId} />
         </Field>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
           <Field label={tr('ws.protocols.how.stepNameEn')} required error={tried && nameEn.trim() === '' ? tr('op.errors.TEXT_BOTH_LANGUAGES_REQUIRED') : undefined}>
-            <input style={inputStyle} dir="ltr" maxLength={140} value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
+            <input style={inputStyle} dir="ltr" maxLength={140} value={nameEn} disabled={busy} onChange={(e) => setNameEn(e.target.value)} />
           </Field>
           <Field label={tr('ws.protocols.how.stepNameAr')} required error={tried && nameAr.trim() === '' ? tr('op.errors.TEXT_BOTH_LANGUAGES_REQUIRED') : undefined}>
-            <input style={inputStyle} dir="rtl" maxLength={140} value={nameAr} onChange={(e) => setNameAr(e.target.value)} />
+            <input style={inputStyle} dir="rtl" maxLength={140} value={nameAr} disabled={busy} onChange={(e) => setNameAr(e.target.value)} />
           </Field>
         </div>
-        <RolePicker value={roles} onChange={setRoles} invalid={tried && roles.length === 0} />
+        <RolePicker value={roles} onChange={setRoles} invalid={tried && roles.length === 0} disabled={busy} />
         <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap' }}>
-          <Switch checked={ok} label={tr('ws.protocols.how.needsOk')} onChange={setOk} />
-          <Switch checked={optional} label={tr('ws.protocols.how.optional')} onChange={setOptional} />
+          <Switch checked={ok} label={tr('ws.protocols.how.needsOk')} disabled={busy} onChange={setOk} />
+          <Switch checked={optional} label={tr('ws.protocols.how.optional')} disabled={busy} onChange={setOptional} />
         </div>
         <Field label={tr('ws.protocols.how.checklist')} optional group>
-          <ItemsEditor items={items} onChange={setItems} problems={tried ? problems : undefined} />
+          <ItemsEditor items={items} onChange={setItems} problems={tried ? problems : undefined} disabled={busy} />
         </Field>
         {error != null && <ErrorText error={error} />}
       </div>

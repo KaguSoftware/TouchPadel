@@ -14,7 +14,8 @@
  * sends the version the draft was started from; if someone saved in between
  * the server refuses (TEMPLATE_CHANGED) and "Load the latest" starts again
  * from what is saved. A list someone already opened today keeps its lines
- * (the day's run is a snapshot), which the editor says beside Save.
+ * (the day's run is a snapshot), which the editor says beside Save when the
+ * list it is editing is one of those.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -60,6 +61,7 @@ export function ChecklistEditor({
   onChange,
   onSaved,
   onReload,
+  openedToday = false,
 }: {
   role: StaffRole;
   slot: ChecklistSlot;
@@ -68,6 +70,8 @@ export function ChecklistEditor({
   onSaved: (next: EditorState) => void;
   /** Start again from what is saved now (after TEMPLATE_CHANGED). */
   onReload: () => void;
+  /** Someone opened this list today, so today's copy will not take the change. */
+  openedToday?: boolean;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
@@ -225,7 +229,9 @@ export function ChecklistEditor({
         )}
       </div>
 
-      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('ws.supplies.checklists.editor.keepsToday')}</p>
+      {/* Said only for a list that was opened today: for any other, a save
+          reaches today's copy too, and the sentence was a rule about nothing. */}
+      {openedToday && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('ws.supplies.checklists.editor.keepsToday')}</p>}
       {stale ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
           <ErrorText error={error} style={{ marginBlock: 0 }} />

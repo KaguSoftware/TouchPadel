@@ -46,7 +46,7 @@ import { QK } from '../../lib/queries';
 import { pickName, useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle, Select, Skeleton } from '../../components/ui';
 import { DescriptionList, EmptyState, MessagePresenter, Money, Panel, StatusBadge } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
@@ -109,7 +109,12 @@ function useUnitWord() {
   const { tr } = useLocale();
   const fmt = useStockFormat();
   // A shopping-list line may be in packs, which the stock units do not have.
-  return (u: string | null) => (u === 'pack' ? tr('ws.supplies.unit.pack') : u ? fmt.unit(u) : '');
+  // `count` 1 (or a "per" phrase) takes the unit for one: "1 pack", "per pc".
+  return (u: string | null, count?: number) => {
+    const single = count !== undefined && Math.abs(count) === 1;
+    if (u === 'pack') return tr(single ? 'ws.supplies.unitOne.pack' : 'ws.supplies.unit.pack');
+    return u ? (single ? fmt.one(u) : fmt.unit(u)) : '';
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -166,7 +171,9 @@ export function DriverPurchasesPanel() {
                   <DeliveredLine purchase={p} />
                 </span>
                 <Money amount={p.total_iqd} strong />
-                <Button size="sm" kind="primary" icon="box" onClick={() => void navigate({ to: '/stock/receive', search: { purchase: p.id } })}>
+                {/* Soft, not primary: one row per purchase, and the page's one
+                    primary action is Record delivery below. */}
+                <Button size="sm" kind="soft" icon="box" onClick={() => void navigate({ to: '/stock/receive', search: { purchase: p.id } })}>
                   {tr('ws.supplies.driver.receive')}
                 </Button>
               </li>
@@ -204,13 +211,16 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
   const [idemKey, setIdemKey] = useState(() => `purchase.receive:${crypto.randomUUID()}`);
   const [busy, setBusy] = useState(false);
   const [ackBusy, setAckBusy] = useState<string | null>(null);
+  /** The receive's refusal, shown beside Receive into stock. */
   const [error, setError] = useState<unknown>(null);
+  /** A Mark checked that failed, shown under that line rather than beside a button it did not come from. */
+  const [ackFailed, setAckFailed] = useState<{ lineId: string; error: unknown } | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
   if (q.isPending) {
     return (
       <Panel>
-        <p style={{ color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('common.loading')}</p>
+        <Skeleton lines={3} />
       </Panel>
     );
   }
@@ -254,6 +264,12 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
   const pending = purchase.lines.filter((l) => l.status === 'to_receive');
   const stockLines = pending.filter((l) => lineKind(l) === 'stock');
   const otherLines = pending.filter((l) => lineKind(l) !== 'stock');
+  // A switched-off line holds the receive, so it is listed inside Into stock,
+  // right above the button it holds; "Not for stock" used to carry it below
+  // that button, under a lead about cleaning supplies. With no stock line to
+  // receive there is no button to hold, and it joins the others.
+  const switchedLines = stockLines.length > 0 ? otherLines.filter((l) => lineKind(l) === 'switchedOff') : [];
+  const notStockLines = stockLines.length > 0 ? otherLines.filter((l) => lineKind(l) !== 'switchedOff') : otherLines;
   const doneLines = purchase.lines.filter((l) => l.status !== 'to_receive');
   const draftOf = (l: PurchaseLine): LineDraft => drafts[l.id] ?? { received: String(l.qty), expiry: '' };
   const problems = new Map(stockLines.map((l) => [l.id, lineDraftProblem(draftOf(l), today)]));
@@ -312,13 +328,14 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
     }
     setAckBusy(line.id);
     setError(null);
+    setAckFailed(null);
     try {
       await appRpc('acknowledge_purchase_line', { p_line_id: line.id });
       toast.ok(tr('ws.supplies.purchase.acknowledgedToast'));
       refresh();
       if (pending.length === 1) onBack();
     } catch (e) {
-      setError(e);
+      setAckFailed({ lineId: line.id, error: e });
     } finally {
       setAckBusy(null);
     }
@@ -326,10 +343,44 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
 
   const errorIsSwitchedOff = error instanceof AppRpcError && error.code === 'INGREDIENT_NOT_FOUND' && error.hint === 'lines';
 
+  /** A line that is only marked checked: not stock, or stock switched off since it was bought. */
+  const ackRow = (l: PurchaseLine) => (
+    <li
+      key={l.id}
+      data-line={l.id}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-2)',
+        flexWrap: 'wrap',
+        paddingBlock: 'var(--tp-sp-1-5)',
+        paddingInline: 'var(--tp-sp-2)',
+        borderRadius: 'var(--tp-radius-ctl)',
+        background: 'var(--tp-surface-2)',
+      }}
+    >
+      <span style={{ display: 'grid', flex: '1 1 14rem', minInlineSize: 0, gap: 'var(--tp-sp-0)' }}>
+        <bdi style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{lineName(l, locale)}</bdi>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          <bdi>
+            {l.unit ? tr('op.stock.qty', { qty: fmt.num(l.qty), unit: unitWord(l.unit, l.qty) }) : fmt.num(l.qty)}
+            {' · '}
+            {formatIQD(l.price_iqd, locale)}
+          </bdi>
+        </span>
+        {lineKind(l) === 'switchedOff' && <span style={{ fontSize: 'var(--tp-fs-sm)', color: MARK_FG.warn }}>{tr('ws.supplies.purchase.switchedOff')}</span>}
+      </span>
+      <Button size="sm" icon="check" busy={ackBusy === l.id} disabled={busy || (ackBusy !== null && ackBusy !== l.id)} onClick={() => void acknowledge(l)}>
+        {tr('ws.supplies.purchase.acknowledge')}
+      </Button>
+      {ackFailed?.lineId === l.id && <ErrorText error={ackFailed.error} style={{ flexBasis: '100%', marginBlock: 0 }} />}
+    </li>
+  );
+
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
       <Panel
-        title={<CardTitle icon="package">{tr('ws.supplies.driver.title')}</CardTitle>}
+        title={<CardTitle icon="package">{tr('ws.supplies.purchase.detailsTitle')}</CardTitle>}
         actions={
           purchase.receipt_path ? (
             <Button size="sm" icon="receipt" onClick={() => setShowReceipt(true)}>
@@ -382,7 +433,7 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
                     <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                       <bdi>{tr('ws.supplies.purchase.bought', { qty: fmt.qty(l.qty, l.unit ?? '') })}</bdi>
                       {' · '}
-                      <bdi>{tr('ws.supplies.purchase.costEach', { amount: formatIQD(l.price_iqd, locale), cost: fmt.cost(unitCost(l)), unit })}</bdi>
+                      <bdi>{tr('ws.supplies.purchase.costEach', { amount: formatIQD(l.price_iqd, locale), cost: fmt.cost(unitCost(l)), unit: unitWord(l.unit, 1) })}</bdi>
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(11rem, 1fr))', gap: 'var(--tp-sp-2)', alignItems: 'start' }}>
@@ -422,6 +473,9 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
               );
             })}
           </ol>
+          {switchedLines.length > 0 && (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-2)' }}>{switchedLines.map(ackRow)}</ul>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-3)' }}>
             <Field
@@ -463,43 +517,10 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
         </Panel>
       )}
 
-      {otherLines.length > 0 && (
+      {notStockLines.length > 0 && (
         <Panel title={tr('ws.supplies.purchase.notStockTitle')}>
           <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.supplies.purchase.notStockLead')}</p>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            {otherLines.map((l) => (
-              <li
-                key={l.id}
-                data-line={l.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--tp-sp-2)',
-                  flexWrap: 'wrap',
-                  paddingBlock: 'var(--tp-sp-1-5)',
-                  paddingInline: 'var(--tp-sp-2)',
-                  borderRadius: 'var(--tp-radius-ctl)',
-                  background: 'var(--tp-surface-2)',
-                }}
-              >
-                <span style={{ display: 'grid', flex: '1 1 14rem', minInlineSize: 0, gap: 'var(--tp-sp-0)' }}>
-                  <bdi style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{lineName(l, locale)}</bdi>
-                  <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-                    <bdi>
-                      {l.unit ? tr('op.stock.qty', { qty: fmt.num(l.qty), unit: unitWord(l.unit) }) : fmt.num(l.qty)}
-                      {' · '}
-                      {formatIQD(l.price_iqd, locale)}
-                    </bdi>
-                  </span>
-                  {lineKind(l) === 'switchedOff' && <span style={{ fontSize: 'var(--tp-fs-sm)', color: MARK_FG.warn }}>{tr('ws.supplies.purchase.switchedOff')}</span>}
-                </span>
-                <Button size="sm" icon="check" busy={ackBusy === l.id} disabled={busy || (ackBusy !== null && ackBusy !== l.id)} onClick={() => void acknowledge(l)}>
-                  {tr('ws.supplies.purchase.acknowledge')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-          {stockLines.length === 0 && <ErrorText error={error} />}
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>{notStockLines.map(ackRow)}</ul>
         </Panel>
       )}
 

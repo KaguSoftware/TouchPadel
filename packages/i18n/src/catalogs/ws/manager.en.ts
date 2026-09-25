@@ -655,7 +655,7 @@ export const managerEn = {
     empty: 'No rate rules yet.',
     emptyBody: 'Without a rule no slot can be priced. Add one covering every court, every day, all opening hours first, then add peak rules on top.',
     tieTitle: 'Rules that tie',
-    tieLead: 'Each pair covers the same time on the same courts with the same priority, so nothing decides which price a booking gets. Give one of them a higher priority.',
+    tieLead: 'Each pair covers the same time on the same courts with the same priority, so nothing decides which price a booking gets. Open one of them and change its priority so it wins.',
     tieFrom: 'first on {day}',
     tieBadge: 'Ties',
     tiesAll: 'Show all {count} pairs',

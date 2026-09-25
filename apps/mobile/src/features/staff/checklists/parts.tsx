@@ -1,14 +1,45 @@
 /**
  * Small pieces the daily-work pages share (checklists, production, stock,
- * teachings, suggestions, recipes): a status tag, and a stored work photo shown
- * by signed URL.
+ * teachings, suggestions, recipes, and the supplies, marketing and notes pages
+ * beside them): the page's lead line, a label over a group of controls, the
+ * long-text field's box, a status tag, and a stored work photo shown by
+ * signed URL.
  */
+import type { ReactNode } from 'react';
 import { Image, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Text } from '../../../i18n/text';
-import { radius, useTheme } from '../../../theme';
+import { radius, space, useTheme } from '../../../theme';
+import { MicroLabel } from '../../../components/ui';
 import { staffKeys } from '../keys';
 import { staffPhotoUrl } from '../photo';
+
+/** The sentence under a page's title that says what the page is for. One style on every staff page. */
+export function Lead({ children }: { children: ReactNode }) {
+  const { colors, fonts } = useTheme();
+  return <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>{children}</Text>;
+}
+
+/**
+ * The label over a group of controls that is not a Field (a segmented
+ * control, a photo row, a pair of choices). It reads as a Field's own label
+ * does, and sits the same distance from what came before and what it names,
+ * so a form keeps one vocabulary.
+ */
+export function GroupLabel({ children }: { children: ReactNode }) {
+  return <MicroLabel style={{ marginTop: space.sm, marginBottom: -3 }}>{children}</MicroLabel>;
+}
+
+/**
+ * Field pins its box to one line's height, `multiline` included
+ * (components/ui.tsx), so a teaching of up to 4,000 characters was typed and
+ * re-read through a 47 pt slot. A long-text field on these pages passes
+ * `boxStyle={MULTILINE_BOX}` and `style={MULTILINE_TEXT}`: the box opens at
+ * about five lines, grows with the text to about eleven, then scrolls, and
+ * Android starts the text at the top as iOS already does. One pair for the
+ * whole staff phone, defined beside the protocol forms that use it too.
+ */
+export { MULTILINE_BOX, MULTILINE_TEXT } from '../protocols/multiline';
 
 export type TagTone = 'good' | 'warn' | 'bad' | 'info' | 'plain';
 

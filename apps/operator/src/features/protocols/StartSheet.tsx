@@ -233,7 +233,7 @@ export function StartSheet({
       size="lg"
       footer={(close) => (
         <>
-          <Button kind="ghost" onClick={close} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" icon="play" busy={busy} disabled={templateLoading} onClick={() => void start()} data-testid="start-send">
@@ -280,7 +280,7 @@ export function StartSheet({
         )}
 
         <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-          <legend style={{ fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.protocols.start.titleLegend')}</legend>
+          <legend style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.protocols.start.titleLegend')}</legend>
           <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
             {tr(both ? 'ws.protocols.start.titleBoth' : 'ws.protocols.start.titleOne')}
             {namesTitle && ` ${tr('ws.protocols.start.titleFromName')}`}

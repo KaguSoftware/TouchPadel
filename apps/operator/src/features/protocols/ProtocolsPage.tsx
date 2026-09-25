@@ -86,24 +86,29 @@ export function ProtocolsPageScreen() {
     <div data-testid="protocols-page">
       <PageHeader title={tr('ws.protocols.title')} subtitle={tr('ws.protocols.lead')} />
 
-      <section
-        aria-label={tr('ws.protocols.cards.label')}
-        style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))', marginBlockEnd: 'var(--tp-sp-5)' }}
-      >
-        {cards.map((c) => (
-          <ProtocolCardView
-            key={c.kind}
-            card={c}
-            loading={overview.isPending}
-            owner={owner}
-            onStart={() => setSearch({ start: c.kind })}
-            onHow={() => setHow(c)}
-            onWaiting={() => setSearch({ filter: 'waiting' })}
-            extra={c.kind === 'product_release' ? <IdeasFromTeamButton onStart={(idea) => setSearch({ start: 'product_release', idea: idea.id })} /> : null}
-          />
-        ))}
-        <ChecklistsCard />
-        <RecipeChangesCard openId={search.recipeChange ?? null} onOpenChange={(id) => setSearch({ recipeChange: id ?? undefined })} />
+      <section aria-label={tr('ws.protocols.cards.label')} style={{ display: 'grid', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-5)' }}>
+        {/* The four protocols are peers and read as one row of four. The two
+            standing lists below are a different kind of card (a day's lists,
+            a queue of requests), so they take their own row and share its
+            whole width rather than leaving a hole beside them. */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))' }}>
+          {cards.map((c) => (
+            <ProtocolCardView
+              key={c.kind}
+              card={c}
+              loading={overview.isPending}
+              owner={owner}
+              onStart={() => setSearch({ start: c.kind })}
+              onHow={() => setHow(c)}
+              onWaiting={() => setSearch({ filter: 'waiting' })}
+              extra={c.kind === 'product_release' ? <IdeasFromTeamButton onStart={(idea) => setSearch({ start: 'product_release', idea: idea.id })} /> : null}
+            />
+          ))}
+        </div>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))' }}>
+          <ChecklistsCard />
+          <RecipeChangesCard openId={search.recipeChange ?? null} onOpenChange={(id) => setSearch({ recipeChange: id ?? undefined })} />
+        </div>
       </section>
       {overview.isError && <ErrorText error={overview.error} />}
 

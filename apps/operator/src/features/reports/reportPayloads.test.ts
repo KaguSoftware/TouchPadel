@@ -69,6 +69,8 @@ describe('readCourts', () => {
     expect(courtsIsEmpty(readCourts(payload))).toBe(false);
     expect(courtsIsEmpty(readCourts({ ...payload, totals: { bookings: 0, cancellations: 0, noShows: 0 } }))).toBe(true);
     expect(courtsIsEmpty(readCourts({ ...payload, totals: { bookings: 0, cancellations: 1, noShows: 0 } }))).toBe(false);
+    // A period with only tournament hours still has something to show: the Events line.
+    expect(courtsIsEmpty(readCourts({ ...payload, totals: { bookings: 0, cancellations: 0, noShows: 0, eventMinutes: 240 } }))).toBe(false);
     expect(courtsIsEmpty(readCourts({ rows: [] }))).toBe(true);
   });
 });

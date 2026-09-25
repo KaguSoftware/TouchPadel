@@ -61,7 +61,7 @@ export const eventsEn = {
     dialogLead: 'Saving the account finishes the hiring run.',
     loading: 'Loading the hiring run…',
     loadFailed: 'The hiring run could not be loaded.',
-    notOpen: 'This hiring step is not waiting for you, so nothing is filled in.',
+    notOpen: 'This hiring step is not waiting on you, so nothing is filled in.',
     noRole: 'The position names a role an account cannot be given here, so nothing is filled in. Check the position on the hiring run.',
     openRun: 'Open the hiring run',
     roleLocked: 'Set by the hiring run: the account must be in the role the position named.',

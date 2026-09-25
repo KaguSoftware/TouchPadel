@@ -39,9 +39,10 @@ import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { Button, ErrorText, Modal } from '../../components/ui';
-import { MessagePresenter, StatusBadge, type Tone } from '../../components/kit';
+import { AsyncStateWrapper, MessagePresenter, StatusBadge, asyncStatus, type Tone } from '../../components/kit';
 import { PhotoViewer, StaffPhotoThumb } from '../checklists/StaffPhoto';
 import { StepContextPanel, useStepContexts } from '../protocols/StepContext';
+import { stepStatusTone } from '../protocols/protocolLogic';
 import { bilingual, isObject, list, num, str } from '../roleExtras/roleExtrasLogic';
 import { TK } from './keys';
 import { StepFormFields } from './StepFormFields';
@@ -140,8 +141,6 @@ export function lastRecord(view: StepView): Submission | null {
   return [...view.submissions].reverse().find((s) => s.record !== null) ?? null;
 }
 
-const STEP_TONE: Record<string, Tone> = { open: 'warn', submitted: 'info', passed: 'success', skipped: 'neutral', stopped: 'danger', waiting: 'neutral' };
-
 export function StepSheet({ runStepId, onClose }: { runStepId: string; onClose: () => void }) {
   const { tr, locale } = useLocale();
   const q = useQuery({
@@ -154,18 +153,16 @@ export function StepSheet({ runStepId, onClose }: { runStepId: string; onClose: 
   return (
     <Modal
       title={title}
-      titleAfter={view ? <StatusBadge size="sm" tone={STEP_TONE[view.status] ?? 'neutral'} label={tr(`work.protocol.stepStatus.${view.status as 'open'}`)} /> : undefined}
+      // The same tone per status as /protocols and the phone (protocolLogic.stepStatusTone).
+      titleAfter={view ? <StatusBadge size="sm" tone={stepStatusTone(view.status as 'open') ?? 'neutral'} label={tr(`work.protocol.stepStatus.${view.status as 'open'}`)} /> : undefined}
       subtitle={view ? `${bilingual(locale, view.titleEn, view.titleAr) || tr(`work.protocol.kind.${view.kind}`)} · ${tr(`work.protocol.kind.${view.kind}`)}` : undefined}
       onClose={onClose}
       size="xl"
     >
-      {q.isError ? (
-        <ErrorText error={q.error} />
-      ) : !view ? (
-        <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('common.loading')}</p>
-      ) : (
-        <StepBody view={view} onClose={onClose} />
-      )}
+      {/* Loading, a failed read and its retry, as the step panel on /protocols shows them. */}
+      <AsyncStateWrapper status={asyncStatus(q, () => false)} error={q.error} onRetry={() => void q.refetch()}>
+        {view && <StepBody view={view} onClose={onClose} />}
+      </AsyncStateWrapper>
     </Modal>
   );
 }
@@ -320,6 +317,13 @@ function StepBody({ view, onClose }: { view: StepView; onClose: () => void }) {
                 {s.photos.length > 0 && (
                   <StaffPhotoThumb path={s.photos[0]!} label={tr('ws.team.tasks.photos.photo', { n: formatNumber(1, locale) })} onClick={() => setViewing(s.photos)} />
                 )}
+                {/* What the decider said, beside the send it answers (the latest
+                    send-back's already heads the sheet, so it is not said twice). */}
+                {s.decisionNote && !(showSentBack && s.id === sentBack?.id) && (
+                  <span dir="auto" style={{ flexBasis: '100%', color: 'var(--tp-muted-fg)', overflowWrap: 'anywhere' }}>
+                    {tr('ws.team.tasks.work.note', { name: isolate(s.decidedByName ?? '—'), note: isolate(s.decisionNote) })}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -404,7 +408,8 @@ function submissionTone(s: Submission): Tone {
   if (s.decision === 'approve' || s.decision === 'auto') return 'success';
   if (s.decision === 'send_back') return 'warn';
   if (s.decision === 'stop') return 'danger';
-  return 'info';
+  // Waiting for a decision: amber, as on /protocols.
+  return 'warn';
 }
 
 function submissionLabel(s: Submission, tr: ReturnType<typeof useLocale>['tr']): string {

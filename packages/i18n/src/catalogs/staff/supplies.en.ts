@@ -38,7 +38,7 @@ export const staffSuppliesEn = {
       change: 'Change',
       qty: 'How much',
       unit: 'Unit',
-      note: 'Note (optional)',
+      note: 'Note · Optional',
       submit: 'Add to the list',
       waitsForOk: 'Waits for the head chef’s OK before the driver sees it.',
       added: 'Added. The driver sees it now.',
@@ -83,13 +83,9 @@ export const staffSuppliesEn = {
     },
     run: {
       title: 'Your run ({count})',
-      lead: 'Tick what you bought at this shop, then record the purchase with its receipt.',
       record: 'Record purchase ({count})',
       recordNone: 'Record a purchase',
       purchases: 'Your purchases and receipts',
-      // Accessibility state of a run line.
-      ticked: 'Bought',
-      unticked: 'Not bought yet',
     },
   },
   purchase: {
@@ -109,7 +105,7 @@ export const staffSuppliesEn = {
       addLine: 'Add something not on the list',
       noLines: 'Tick what you bought on the shopping list, or add a line here.',
       gone: 'Some ticked lines are no longer on the list ({count}), so they are left out.',
-      shop: 'Shop (optional)',
+      shop: 'Shop · Optional',
       receipt: 'Receipt photo',
       receiptHint: 'A photo of the receipt lets the manager check the purchase.',
       total: 'Total paid',

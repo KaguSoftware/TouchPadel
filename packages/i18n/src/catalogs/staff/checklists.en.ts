@@ -28,9 +28,8 @@ export const staffChecklistsEn = {
   note: 'Note: {note}',
   done: 'Done',
 
-  // A quantity with its base unit: "250 g", "12 pcs".
-  qty: '{qty} {unit}',
-  units: { g: 'g', ml: 'ml', pc: 'pcs' },
+  // The unit in a label, "How much (pieces)"; a quantity itself reads through staff.supplies.units.
+  units: { g: 'g', ml: 'ml', pc: 'pieces' },
   // Under every free-text box a colleague reads (suggestions), as item notes say it.
   noGuestData: 'Do not write guests’ names or phone numbers.',
   // The Today row that opens the existing requests page (#62).
@@ -53,7 +52,7 @@ export const staffChecklistsEn = {
     item: 'You made',
     qty: 'How much ({unit})',
     qtyNoUnit: 'How much',
-    expiry: 'Use by (optional)',
+    expiry: 'Use by · Optional',
     expiryShelfLife: 'Leave it empty to use its shelf life of {days} days.',
     expiryHint: 'Type the date as year-month-day, for example {example}.',
     record: 'Record batch',
@@ -83,7 +82,9 @@ export const staffChecklistsEn = {
     listTitle: 'On hand',
     asOf: 'As of {time}',
     emptyTitle: 'Nothing here',
-    emptyBody: 'No stock item matches.',
+    emptyBody: 'No stock item of this kind yet.',
+    // The search found nothing; the list itself is not empty.
+    noMatch: 'No stock item matches your search.',
     onHand: '{qty} on hand',
     par: 'par {qty}',
     nextExpiry: 'use by {date}',
@@ -108,7 +109,7 @@ export const staffChecklistsEn = {
     forTeam: 'For the team: {team}',
     titleField: 'Title',
     body: 'What to know',
-    photos: 'Photos (optional)',
+    photos: 'Photos · Optional',
     save: 'Save teaching',
     saved: 'Teaching saved',
     bothTeams: 'Both teams',
@@ -180,6 +181,8 @@ export const staffChecklistsEn = {
     newTitle: 'New request',
     pickRecipe: 'Which recipe?',
     searchRecipe: 'Find an item',
+    // Under the first recipes, when there are more than it lists.
+    moreRecipes: 'Search to find the rest ({count}).',
     recipe: 'Recipe',
     prepared: 'Made in the kitchen',
     changeTarget: 'Change',
@@ -195,7 +198,7 @@ export const staffChecklistsEn = {
     addLine: 'Add an ingredient',
     searchIngredient: 'Find an ingredient',
     noIngredients: 'No other ingredient matches.',
-    note: 'Why (optional)',
+    note: 'Why · Optional',
     submit: 'Send to the owner',
     sent: 'Request sent to the owner',
     mine: 'Your requests',
@@ -228,8 +231,11 @@ export const staffChecklistsEn = {
     approveTitle: 'Approve this change?',
     approveBody: 'The recipe changes straight away.',
     approved: 'Change approved',
-    reason: 'Reason for declining',
+    reason: 'Why not? The head who asked sees this.',
     decline: 'Decline',
+    // Decline opens the reason; this sends it.
+    confirmDecline: 'Decline this change',
+    keepWaiting: 'Keep it',
     declined: 'Change declined',
     ownerDecides: 'The owner decides this request.',
     withdraw: 'Withdraw',

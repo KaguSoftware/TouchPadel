@@ -59,89 +59,83 @@ export function PhoneCopies() {
       data-testid="phone-copies"
     >
       <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.rolePages.phone.lead')}</p>
-      <div role="group" aria-label={tr('ws.rolePages.phone.title')} style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-3)' }}>
-        {sections.map((s) => (
-          <button
-            key={s}
-            type="button"
-            aria-pressed={s === section}
-            onClick={() => {
-              setPicked(s);
-              setExpanded(false);
-            }}
-            data-testid={`phone.${s}`}
-            style={{
-              font: 'inherit',
-              paddingBlock: 'var(--tp-sp-1)',
-              paddingInline: 'var(--tp-sp-2-5)',
-              borderRadius: 'var(--tp-radius-pill)',
-              border: `1px solid ${s === section ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-              background: s === section ? 'var(--tp-accent-soft)' : 'var(--tp-surface)',
-              color: s === section ? 'var(--tp-accent-soft-fg)' : 'var(--tp-fg)',
-              fontWeight: s === section ? 700 : 500,
-              fontSize: 'var(--tp-fs-sm)',
-              cursor: 'pointer',
-            }}
-          >
-            {tr(`ws.rolePages.phone.${s}.tab`)}
-          </button>
-        ))}
-      </div>
-      <div aria-live="polite">
-        {q.isError ? (
-          <ErrorText error={q.error} />
-        ) : q.isPending ? (
-          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('common.loading')}</p>
-        ) : rows.length === 0 ? (
-          <EmptyState compact kind="nothingToDo" titleAs="h3" title={tr(`ws.rolePages.phone.${section}.empty`)} />
-        ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-            {(expanded ? rows : rows.slice(0, FIRST_ROWS)).map((r, i) => (
-              <li
-                key={r.id || i}
-                style={{
-                  display: 'grid',
-                  gap: 'var(--tp-sp-0)',
-                  paddingBlock: 'var(--tp-sp-2)',
-                  paddingInline: 'var(--tp-sp-2)',
-                  borderRadius: 'var(--tp-radius-ctl)',
-                  background: 'var(--tp-surface-2)',
-                }}
-              >
-                <span style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'baseline', flexWrap: 'wrap' }}>
-                  <bdi style={{ fontWeight: 600 }}>{r.title}</bdi>
-                  {r.detail && <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{r.detail}</span>}
-                  {r.status && (
-                    <span style={{ marginInlineStart: 'auto' }}>
-                      <StatusBadge size="sm" tone={r.status.tone} label={r.status.label} />
-                    </span>
-                  )}
-                </span>
-                {r.body && (
-                  <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 'var(--tp-fs-sm)' }}>
-                    {r.body}
-                  </p>
-                )}
-                {r.lines && r.lines.length > 0 && (
-                  <ul style={{ margin: 0, paddingInlineStart: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-                    {r.lines.map((l, j) => (
-                      <li key={j}>
-                        <bdi>{l}</bdi>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {!expanded && rows.length > FIRST_ROWS && (
-          <div style={{ marginBlockStart: 'var(--tp-sp-2)' }}>
-            <Button size="sm" kind="ghost" icon="chevronDown" onClick={() => setExpanded(true)} data-testid="phone.show-all">
-              {tr('ws.rolePages.phone.showAll', { count: formatNumber(rows.length, locale) })}
+      {/* A role has up to ten copies. As a row of pills they wrapped into a
+          wall; as one column beside the copy they scan top to bottom and the
+          chosen one stays in view next to what it shows. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-4)', alignItems: 'flex-start' }}>
+        <div role="group" aria-label={tr('ws.rolePages.phone.title')} style={{ flex: '0 1 13rem', minInlineSize: '11rem', display: 'grid', gap: 'var(--tp-sp-0)' }}>
+          {sections.map((s) => (
+            <Button
+              key={s}
+              kind="ghost"
+              aria-pressed={s === section}
+              onClick={() => {
+                setPicked(s);
+                setExpanded(false);
+              }}
+              data-testid={`phone.${s}`}
+              style={{ justifyContent: 'flex-start', textAlign: 'start', inlineSize: '100%', fontSize: 'var(--tp-fs-sm)' }}
+            >
+              {tr(`ws.rolePages.phone.${s}.tab`)}
             </Button>
-          </div>
-        )}
+          ))}
+        </div>
+        <div aria-live="polite" style={{ flex: '1 1 24rem', minInlineSize: 0 }}>
+          {q.isError ? (
+            <ErrorText error={q.error} />
+          ) : q.isPending ? (
+            <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('common.loading')}</p>
+          ) : rows.length === 0 ? (
+            <EmptyState compact kind="nothingToDo" titleAs="h3" title={tr(`ws.rolePages.phone.${section}.empty`)} />
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+              {(expanded ? rows : rows.slice(0, FIRST_ROWS)).map((r, i) => (
+                <li
+                  key={r.id || i}
+                  style={{
+                    display: 'grid',
+                    gap: 'var(--tp-sp-0)',
+                    paddingBlock: 'var(--tp-sp-2)',
+                    paddingInline: 'var(--tp-sp-2)',
+                    borderRadius: 'var(--tp-radius-ctl)',
+                    background: 'var(--tp-surface-2)',
+                  }}
+                >
+                  <span style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    <bdi style={{ fontWeight: 600 }}>{r.title}</bdi>
+                    {r.detail && <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{r.detail}</span>}
+                    {r.status && (
+                      <span style={{ marginInlineStart: 'auto' }}>
+                        <StatusBadge size="sm" tone={r.status.tone} label={r.status.label} />
+                      </span>
+                    )}
+                  </span>
+                  {r.body && (
+                    <p dir="auto" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 'var(--tp-fs-sm)' }}>
+                      {r.body}
+                    </p>
+                  )}
+                  {r.lines && r.lines.length > 0 && (
+                    <ul style={{ margin: 0, paddingInlineStart: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                      {r.lines.map((l, j) => (
+                        <li key={j}>
+                          <bdi>{l}</bdi>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {!expanded && rows.length > FIRST_ROWS && (
+            <div style={{ marginBlockStart: 'var(--tp-sp-2)' }}>
+              <Button size="sm" kind="ghost" icon="chevronDown" onClick={() => setExpanded(true)} data-testid="phone.show-all">
+                {tr('ws.rolePages.phone.showAll', { count: formatNumber(rows.length, locale) })}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </Panel>
   );

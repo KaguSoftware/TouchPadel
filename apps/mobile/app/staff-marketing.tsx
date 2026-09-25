@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,9 @@ import { staffKeys } from '../src/features/staff/keys';
 import { staffPhotoUrl } from '../src/features/staff/photo';
 import { clearStaffIntentKey, staffIntentKey } from '../src/lib/idempotency';
 import { StoredPhotos } from '../src/features/staff/supplies/StoredPhotos';
+import { GroupLabel, Lead, MULTILINE_BOX, MULTILINE_TEXT, Tag, type TagTone } from '../src/features/staff/checklists/parts';
+import { usePullRefresh } from '../src/lib/usePullRefresh';
+import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { intentFor } from '../src/features/staff/supplies/logic';
 import { PickList, type PickOption } from '../src/features/staff/marketing/PickList';
 import {
@@ -78,6 +81,15 @@ import {
 
 const DRAFT_LINKS: readonly DraftLinkKind[] = ['none', 'item', 'run'];
 
+/** A campaign's status as a tag: live is good news, scheduled is on its way, cancelled did not happen. */
+const CAMPAIGN_TONE: Record<CampaignDraftRow['status'], TagTone> = {
+  draft: 'plain',
+  scheduled: 'info',
+  live: 'good',
+  ended: 'plain',
+  cancelled: 'bad',
+};
+
 /** A stored `YYYY-MM-DD` in the reader's language (noon UTC, so no zone moves the day). */
 function dayLabel(day: string, locale: 'en' | 'ar'): string {
   return formatDate(new Date(`${day}T12:00:00Z`), locale);
@@ -95,6 +107,8 @@ function MarketingScreen() {
   const example = localIsoDate(new Date());
 
   const [tab, setTab] = useState<MarketingTab>('take');
+  const scroll = useRef<ScrollView>(null);
+  const reduceMotion = useReduceMotion();
 
   // ── The take form's and the draft form's state ─────────────────────────────
   const [note, setNote] = useState<NoteDraft>(emptyNoteDraft);
@@ -143,6 +157,14 @@ function MarketingScreen() {
     queryFn: () => fetchActiveRuns(venue),
     enabled: venue !== '' && wantsRuns,
   });
+
+  // A pull reads again what the open tab shows, and the Requests row's count.
+  const pull = usePullRefresh(() =>
+    Promise.all([
+      requests.refetch(),
+      tab === 'take' ? notes.refetch() : tab === 'drafts' ? drafts.refetch() : results.refetch(),
+    ]),
+  );
 
   const itemOptions: PickOption[] = useMemo(
     () =>
@@ -232,6 +254,13 @@ function MarketingScreen() {
     );
     setCampaignPhotos(shown);
   };
+
+  // The draft form opens above the list; bring it into view, or a draft tapped
+  // low in the list looks as if the tap did nothing.
+  const openForm = campaign ? (campaign.id ?? 'new') : null;
+  useEffect(() => {
+    if (openForm) scroll.current?.scrollTo({ y: 0, animated: !reduceMotion });
+  }, [openForm, reduceMotion]);
 
   const editCampaign = (patch: Partial<CampaignDraft>) => {
     setCampaign((c) => (c ? { ...c, ...patch } : c));
@@ -334,12 +363,10 @@ function MarketingScreen() {
   // ── Tabs ───────────────────────────────────────────────────────────────────
   const takeTab = (
     <>
-      <Text style={body}>{t('staff.marketing.take.lead')}</Text>
+      <Lead>{t('staff.marketing.take.lead')}</Lead>
       <Card style={{ padding: space.m, gap: space.s }}>
         <MicroLabel>{t('staff.marketing.take.newTitle')}</MicroLabel>
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-          {t('staff.marketing.take.about')}
-        </Text>
+        <GroupLabel>{t('staff.marketing.take.about')}</GroupLabel>
         <SegmentedControl<NoteSubjectKind>
           testID="staff-marketing.note.kind"
           options={NOTE_SUBJECT_KINDS.map((k) => ({ value: k, label: t(`staff.marketing.take.kinds.${k}`) }))}
@@ -369,11 +396,11 @@ function MarketingScreen() {
             setNoteIssues((all) => all.filter((i) => i.field !== 'body'));
           }}
           multiline
+          boxStyle={MULTILINE_BOX}
+          style={MULTILINE_TEXT}
           error={noteFieldError('body')}
         />
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-          {t('staff.marketing.take.photos')}
-        </Text>
+        <GroupLabel>{t('staff.marketing.take.photos')}</GroupLabel>
         <PhotoButton
           testID="staff-marketing.note.photo"
           venueId={venue}
@@ -427,9 +454,7 @@ function MarketingScreen() {
         error={campaignFieldError('name')}
       />
       <Hint style={{ marginTop: 0 }}>{t('staff.marketing.drafts.nameHint')}</Hint>
-      <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-        {t('staff.marketing.drafts.channel')}
-      </Text>
+      <GroupLabel>{t('staff.marketing.drafts.channel')}</GroupLabel>
       <SegmentedControl<MarketingChannel>
         testID="staff-marketing.draft.channel"
         options={MARKETING_CHANNELS.map((c) => ({ value: c, label: t(`staff.marketing.channels.${c}`) }))}
@@ -464,6 +489,8 @@ function MarketingScreen() {
         value={campaign.bodyEn}
         onChangeText={(bodyEn) => editCampaign({ bodyEn })}
         multiline
+        boxStyle={MULTILINE_BOX}
+        style={MULTILINE_TEXT}
         error={campaignFieldError('bodyEn')}
       />
       <Field
@@ -472,6 +499,8 @@ function MarketingScreen() {
         value={campaign.bodyAr}
         onChangeText={(bodyAr) => editCampaign({ bodyAr })}
         multiline
+        boxStyle={MULTILINE_BOX}
+        style={MULTILINE_TEXT}
         error={campaignFieldError('bodyAr')}
       />
       <Field
@@ -480,11 +509,11 @@ function MarketingScreen() {
         value={campaign.note}
         onChangeText={(value) => editCampaign({ note: value })}
         multiline
+        boxStyle={MULTILINE_BOX}
+        style={MULTILINE_TEXT}
         error={campaignFieldError('note')}
       />
-      <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-        {t('staff.marketing.drafts.link')}
-      </Text>
+      <GroupLabel>{t('staff.marketing.drafts.link')}</GroupLabel>
       <SegmentedControl<DraftLinkKind>
         testID="staff-marketing.draft.link"
         options={DRAFT_LINKS.map((k) => ({ value: k, label: t(`staff.marketing.drafts.links.${k}`) }))}
@@ -501,9 +530,7 @@ function MarketingScreen() {
           error={campaignFieldError('link')}
         />
       ) : null}
-      <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-        {t('staff.marketing.drafts.images')}
-      </Text>
+      <GroupLabel>{t('staff.marketing.drafts.images')}</GroupLabel>
       <PhotoButton
         testID="staff-marketing.draft.photo"
         venueId={venue}
@@ -536,7 +563,7 @@ function MarketingScreen() {
 
   const draftsTab = (
     <>
-      <Text style={body}>{t('staff.marketing.drafts.lead')}</Text>
+      <Lead>{t('staff.marketing.drafts.lead')}</Lead>
       {draftForm ?? (
         <Button
           testID="staff-marketing.draft.new"
@@ -577,9 +604,7 @@ function MarketingScreen() {
                 <Text style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
                   {localName(d.name_en, d.name_ar, locale)}
                 </Text>
-                <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.mut }}>
-                  {t(`staff.marketing.campaignStatus.${d.status}`)}
-                </Text>
+                <Tag tone={CAMPAIGN_TONE[d.status]} label={t(`staff.marketing.campaignStatus.${d.status}`)} />
               </View>
               <Text style={small}>
                 {when
@@ -611,9 +636,7 @@ function MarketingScreen() {
           <Text style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
             {localName(c.name_en, c.name_ar, locale)}
           </Text>
-          <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.mut }}>
-            {t(`staff.marketing.campaignStatus.${c.status}`)}
-          </Text>
+          <Tag tone={CAMPAIGN_TONE[c.status]} label={t(`staff.marketing.campaignStatus.${c.status}`)} />
         </View>
         <Text style={small}>
           {when ? `${t(`staff.marketing.channels.${c.channel}`)} · ${when}` : t(`staff.marketing.channels.${c.channel}`)}
@@ -648,7 +671,7 @@ function MarketingScreen() {
 
   const resultsTab = (
     <>
-      <Text style={body}>{t('staff.marketing.results.lead')}</Text>
+      <Lead>{t('staff.marketing.results.lead')}</Lead>
       {results.isPending && venue !== '' ? (
         <SkeletonList rows={2} height={120} />
       ) : results.isError ? (
@@ -665,20 +688,14 @@ function MarketingScreen() {
     <Screen edges={[]}>
       <Stack.Screen options={{ title: t('staff.marketing.title') }} />
       <ScrollView
+        ref={scroll}
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.line,
-            borderRadius: radius.card,
-            overflow: 'hidden',
-          }}
-        >
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
           <MenuRow
             testID="staff-marketing.requests"
             icon={<EnvelopeIcon size={15} color={colors.gstrong} />}
@@ -690,7 +707,7 @@ function MarketingScreen() {
             onPress={() => router.push('/staff-marketing-requests')}
             last
           />
-        </View>
+        </Card>
         <SegmentedControl<MarketingTab>
           testID="staff-marketing.tab"
           options={MARKETING_TABS.map((k) => ({ value: k, label: t(`staff.marketing.tabs.${k}`) }))}

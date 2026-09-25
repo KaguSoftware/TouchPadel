@@ -312,6 +312,7 @@ function EditLists({
         onChange={(next) => onEditor(key, next)}
         onSaved={(next) => onEditor(key, next)}
         onReload={() => onReload(key)}
+        openedToday={findTemplate(board, selected.role, selected.slot)?.today != null}
       />
     </div>
   );

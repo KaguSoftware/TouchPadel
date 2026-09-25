@@ -90,10 +90,11 @@ export const kitEn = {
   },
   refused: {
     title: 'Not allowed for your role',
-    body: '{action} needs the {role} role. The control stays here so you can see what is available; ask a {role} to do it.',
+    body: '{action} needs the {role} role. The control stays here so you can see what is available; ask someone with that role to do it.',
   },
   conflict: {
-    title: 'The server refused this change',
+    // The desk's clashes: a slot, a court or a tournament's time already held.
+    title: 'Time clash',
     body: 'Someone else took this slot or changed this record first. Nothing was saved.',
     dismiss: 'Understood',
   },

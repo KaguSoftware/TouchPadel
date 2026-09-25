@@ -30,7 +30,7 @@ import {
 import { formatDateTime, isolate } from '@touch/i18n';
 import { useLocale } from '../../../i18n/LocaleProvider';
 import { space, useTheme } from '../../../theme';
-import { Button, ErrorText, Field, Hint } from '../../../components/ui';
+import { Button, ErrorText, Field, Hint, MicroLabel } from '../../../components/ui';
 import { SkeletonList } from '../../../components/states';
 import { useToast } from '../../../components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../../../components/PhotoButton';
@@ -76,6 +76,7 @@ import {
   type BlockConflict,
   type FixedRow,
 } from './logic';
+import { MULTILINE_BOX, MULTILINE_TEXT } from './multiline';
 import { Muted, Section, StoredPhoto, Strong, serverIssue, useRefreshProtocols, useRolesText } from './parts';
 import type { RunDetail, StepDetail, SubmitResult } from './types';
 import { useAttachedPhotos, type StepReads } from './useStepReads';
@@ -339,8 +340,8 @@ function GenericStepFormBody({
         disabled={send.isPending}
       />
       {form.photoFolder && form.photosMax > 0 ? (
-        <View style={{ gap: 6 }}>
-          <Strong style={{ fontSize: 12.5 }}>{t('staff.protocols.step.photos')}</Strong>
+        <View style={{ gap: 6, marginTop: space.sm }}>
+          <MicroLabel>{t('staff.protocols.step.photos')}</MicroLabel>
           <PhotoButton
             testID="staff-step.photo"
             venueId={venueId}
@@ -431,7 +432,7 @@ export function LaunchForm({ detail, runDetail, reads }: StepFormProps) {
     <Section title={t('staff.protocols.launch.title')}>
       {readiness ? (
         <View style={{ gap: 4 }}>
-          <Strong style={{ fontSize: 12.5 }}>{t('staff.protocols.context.readiness')}</Strong>
+          <MicroLabel>{t('staff.protocols.context.readiness')}</MicroLabel>
           <Strong style={{ fontSize: 13, color: readiness.ready ? colors.gtext : colors.redtext }}>
             {t(readiness.ready ? 'staff.protocols.context.ready' : 'staff.protocols.context.notReady')}
           </Strong>
@@ -447,7 +448,7 @@ export function LaunchForm({ detail, runDetail, reads }: StepFormProps) {
           ))}
         </View>
       ) : null}
-      <Strong style={{ fontSize: 12.5 }}>{t('staff.protocols.launch.photo')}</Strong>
+      <MicroLabel style={{ marginTop: space.s }}>{t('staff.protocols.launch.photo')}</MicroLabel>
       {choices.length === 0 ? (
         <Hint>{t('staff.protocols.launch.noPhotos')}</Hint>
       ) : (
@@ -489,7 +490,8 @@ export function LaunchForm({ detail, runDetail, reads }: StepFormProps) {
           {parseVenueDateTime(at) ? <Hint>{formatDateTime(new Date(parseVenueDateTime(at) as string), locale)}</Hint> : null}
           <Hint>
             {`${t('staff.protocols.form.datetimeHint', {
-              example: `${example} 10:00`,
+              // Latin digits in an Arabic sentence: isolated, or the time is drawn before the date.
+              example: isolate(`${example} 10:00`),
             })} ${t('staff.protocols.launch.atHint')}`}
           </Hint>
         </View>
@@ -615,6 +617,8 @@ export function CourtsForm({ detail, reads }: StepFormProps) {
         value={note}
         onChangeText={setNote}
         multiline
+        boxStyle={MULTILINE_BOX}
+        style={MULTILINE_TEXT}
         maxLength={2000}
       />
       <ErrorText>{error}</ErrorText>
@@ -778,7 +782,7 @@ export function CandidatesForm({ detail, reads }: StepFormProps) {
           />
           <Field
             testID="staff-step.candidate.interview-at"
-            label={`${t('staff.protocols.candidates.interviewAt')} · ${t('staff.protocols.form.optional')}`}
+            label={t('staff.protocols.form.optionalLabel', { label: t('staff.protocols.candidates.interviewAt') })}
             value={editing.interviewAt}
             onChangeText={(interviewAt) => setEditing({ ...editing, interviewAt })}
             keyboardType="numbers-and-punctuation"
@@ -786,19 +790,23 @@ export function CandidatesForm({ detail, reads }: StepFormProps) {
           />
           <Field
             testID="staff-step.candidate.brief"
-            label={`${t('staff.protocols.candidates.brief')} · ${t('staff.protocols.form.optional')}`}
+            label={t('staff.protocols.form.optionalLabel', { label: t('staff.protocols.candidates.brief') })}
             value={editing.brief}
             onChangeText={(brief) => setEditing({ ...editing, brief })}
             multiline
+            boxStyle={MULTILINE_BOX}
+            style={MULTILINE_TEXT}
             maxLength={1000}
           />
           {editing.picked ? (
             <Field
               testID="staff-step.candidate.pick-reason"
-              label={`${t('staff.protocols.candidates.pickReason')} · ${t('staff.protocols.form.optional')}`}
+              label={t('staff.protocols.form.optionalLabel', { label: t('staff.protocols.candidates.pickReason') })}
               value={editing.pickReason}
               onChangeText={(pickReason) => setEditing({ ...editing, pickReason })}
               multiline
+              boxStyle={MULTILINE_BOX}
+              style={MULTILINE_TEXT}
               maxLength={1000}
             />
           ) : null}
@@ -958,7 +966,7 @@ export function AddStaffForm({ detail, runDetail }: StepFormProps) {
         <>
           {found.length > 0 ? (
             <View style={{ gap: 6 }}>
-              <Strong style={{ fontSize: 12.5 }}>{t('staff.protocols.addStaff.existingTitle')}</Strong>
+              <Strong style={{ fontSize: 13.5 }}>{t('staff.protocols.addStaff.existingTitle')}</Strong>
               <Muted>{t('staff.protocols.addStaff.existingHint', { role: roleText([role]) })}</Muted>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
                 {found.map((h) => (

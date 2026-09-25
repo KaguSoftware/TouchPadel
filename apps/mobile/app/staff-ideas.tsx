@@ -8,7 +8,7 @@ import { formatDateTime, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
 import { Button, ErrorText, Hint, MicroLabel, Screen } from '../src/components/ui';
-import { SkeletonList } from '../src/components/states';
+import { ErrorState, SkeletonList } from '../src/components/states';
 import { useToast } from '../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../src/components/PhotoButton';
 import { RequireStaff } from '../src/features/staff/RequireStaff';
@@ -46,6 +46,7 @@ import {
   useRefreshProtocols,
 } from '../src/features/staff/protocols/parts';
 import { RecordView } from '../src/features/staff/protocols/RecordView';
+import { Lead } from '../src/features/staff/checklists/parts';
 
 /**
  * New-item ideas (build-contracts-2026-09-23 §6.1 `staff-ideas.tsx?id=`, role
@@ -222,17 +223,25 @@ function ReviewCard({ idea, names, focused }: { idea: ReviewIdea; names: Record<
       void refresh();
     },
   });
+  const name = ideaName(idea.record, locale);
+  // The card is headed by the idea's name; its record below does not say it again.
+  const shownAsTitle = new Set(
+    ['name_en', 'name_ar'].filter((k) => {
+      const v = idea.record[k];
+      return name !== null && typeof v === 'string' && v.trim() === name;
+    }),
+  );
   return (
     <View testID={`staff-ideas.idea.${idea.id}`}>
       <Section style={focused ? { borderColor: colors.blue, borderWidth: 1.5 } : undefined}>
-        <Strong>{ideaName(idea.record, locale) ?? t('staff.protocols.common.untitled')}</Strong>
+        <Strong>{name ?? t('staff.protocols.common.untitled')}</Strong>
         <Muted>
           {`${t(`work.team.${idea.team}`)} · ${t('staff.protocols.ideas.fromAuthor', {
             name: idea.author_name ?? '',
             when: formatDateTime(new Date(idea.submitted_at), locale),
           })}`}
         </Muted>
-        <RecordView fields={IDEA_FIELDS} record={idea.record} names={names} />
+        <RecordView fields={IDEA_FIELDS} record={idea.record} names={names} skip={shownAsTitle} />
         <PhotoStrip paths={idea.photos} label={(n) => t('staff.media.photo', { n })} />
         {declining ? (
           <ReasonForm
@@ -316,13 +325,20 @@ function IdeasScreen() {
         {!venueId ? <SkeletonList rows={2} height={72} /> : null}
         {author && venueId ? (
           <>
-            <Muted>{t('staff.protocols.ideas.lead')}</Muted>
+            <Lead>{t('staff.protocols.ideas.lead')}</Lead>
             <IdeaForm venueId={venueId} onSent={() => void queryClient.invalidateQueries({ queryKey: staffKeys.ideas(venue) })} />
             <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>{t('staff.protocols.ideas.mine')}</MicroLabel>
             {mine.isPending ? (
               <SkeletonList rows={2} height={72} />
             ) : mine.isError ? (
-              <Hint>{t(mapStaffError(mine.error))}</Hint>
+              // A failed read offers its retry, as every other staff list does.
+              <ErrorState
+                testID="staff-ideas.mine-error"
+                title={t('errors.loadFailedTitle')}
+                message={t(mapStaffError(mine.error))}
+                retryLabel={t('common.retry')}
+                onRetry={() => void mine.refetch()}
+              />
             ) : mine.data.length === 0 ? (
               <Hint>{t('staff.protocols.ideas.mineEmpty')}</Hint>
             ) : (
@@ -334,12 +350,18 @@ function IdeasScreen() {
         ) : null}
         {reviewer && venueId ? (
           <>
-            <Muted>{t('staff.protocols.ideas.reviewLead')}</Muted>
+            <Lead>{t('staff.protocols.ideas.reviewLead')}</Lead>
             <MicroLabel style={{ paddingStart: 4, marginTop: space.s }}>{t('staff.protocols.ideas.toReview')}</MicroLabel>
             {review.isPending ? (
               <SkeletonList rows={2} height={96} />
             ) : review.isError ? (
-              <Hint>{t(mapStaffError(review.error))}</Hint>
+              <ErrorState
+                testID="staff-ideas.review-error"
+                title={t('errors.loadFailedTitle')}
+                message={t(mapStaffError(review.error))}
+                retryLabel={t('common.retry')}
+                onRetry={() => void review.refetch()}
+              />
             ) : review.data.ideas.length === 0 ? (
               <Hint>{t('staff.protocols.ideas.reviewEmpty')}</Hint>
             ) : (

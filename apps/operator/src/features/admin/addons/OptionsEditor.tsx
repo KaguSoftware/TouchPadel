@@ -9,7 +9,7 @@
  * until the owner approves its price. A free option works as it always did.
  * The owner's screen is unchanged.
  */
-import { useState } from 'react';
+import { Fragment, useState, type CSSProperties } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
@@ -24,6 +24,27 @@ import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart
 import { addonLock, isRequiredAddonRefusal, newOptionActive, type AddonLock } from './addonsLogic';
 import { RevealsEditor } from './RevealsEditor';
 import { patchCachedModifiers, useAddons, type AddonsData, type GroupRow, type ModifierRow } from './useAddons';
+
+/*
+ * One grid for every option row, under one header: the English name, the
+ * Arabic name and the extra charge line up as columns, so the three boxes no
+ * longer need their own labels on every row, and the row's controls wrap
+ * inside their own cell instead of dragging the boxes onto a second line.
+ */
+const OPTIONS_GRID: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(8rem, 1fr) minmax(8rem, 1fr) 11rem auto',
+  columnGap: 'var(--tp-sp-1-5)',
+  rowGap: 'var(--tp-sp-1-5)',
+  alignItems: 'center',
+  marginBlockStart: 'var(--tp-sp-2)',
+};
+
+const OPTIONS_HEAD: CSSProperties = {
+  fontSize: 'var(--tp-fs-xs)',
+  fontWeight: 600,
+  color: 'var(--tp-muted-fg)',
+};
 
 function modifierArgs(m: ModifierRow, overrides: Partial<ModifierRow> = {}) {
   const r = { ...m, ...overrides };
@@ -103,29 +124,47 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
       {options.length === 0 && !draft && (
         <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('op.common.none')}</p>
       )}
-      {options.map((m, index) => (
-        <div key={m.id}>
-          <OptionRow
-            option={m}
-            lock={addonLock(m, caps)}
-            busy={upsert.isPending}
-            onSave={(next) => upsert.mutate(modifierArgs(next))}
-            onActive={(next) => setActive(m, next)}
-            revealsOpen={openReveals === m.id}
-            revealCount={data.reveals.filter((r) => r.modifier_id === m.id).length}
-            onToggleReveals={() => setOpenReveals(openReveals === m.id ? null : m.id)}
-            sort={
-              <SortButtons
-                onUp={() => reorder.mutate({ index, direction: 'up' })}
-                onDown={() => reorder.mutate({ index, direction: 'down' })}
-                disabledUp={index === 0 || reorder.isPending}
-                disabledDown={index === options.length - 1 || reorder.isPending}
+      {options.length > 0 && (
+        <div style={OPTIONS_GRID}>
+          <span style={OPTIONS_HEAD} aria-hidden="true">
+            {tr('op.menu.nameEn')}
+          </span>
+          <span style={OPTIONS_HEAD} aria-hidden="true">
+            {tr('op.menu.nameAr')}
+          </span>
+          <span style={OPTIONS_HEAD} aria-hidden="true">
+            {tr('op.addons.delta')}
+          </span>
+          <span />
+          {options.map((m, index) => (
+            <Fragment key={m.id}>
+              <OptionRow
+                option={m}
+                lock={addonLock(m, caps)}
+                busy={upsert.isPending}
+                onSave={(next) => upsert.mutate(modifierArgs(next))}
+                onActive={(next) => setActive(m, next)}
+                revealsOpen={openReveals === m.id}
+                revealCount={data.reveals.filter((r) => r.modifier_id === m.id).length}
+                onToggleReveals={() => setOpenReveals(openReveals === m.id ? null : m.id)}
+                sort={
+                  <SortButtons
+                    onUp={() => reorder.mutate({ index, direction: 'up' })}
+                    onDown={() => reorder.mutate({ index, direction: 'down' })}
+                    disabledUp={index === 0 || reorder.isPending}
+                    disabledDown={index === options.length - 1 || reorder.isPending}
+                  />
+                }
               />
-            }
-          />
-          {openReveals === m.id && <RevealsEditor key={m.id} modifier={m} data={data} />}
+              {openReveals === m.id && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <RevealsEditor key={m.id} modifier={m} data={data} />
+                </div>
+              )}
+            </Fragment>
+          ))}
         </div>
-      ))}
+      )}
       {draft && (
         <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-2)' }}>
           <input
@@ -149,6 +188,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
             value={draft.delta}
             onChange={(n) => setDraft({ ...draft, delta: n ?? 0 })}
             placeholder={tr('op.addons.delta')}
+            aria-label={tr('op.addons.delta')}
             style={{ inlineSize: '11rem' }}
           />
           <Button onClick={() => setDraft(null)}>{tr('common.cancel')}</Button>
@@ -204,71 +244,66 @@ function OptionRow({
   const [delta, setDelta] = useState<number>(option.price_delta_iqd);
   const dirty = nameEn !== option.name_en || nameAr !== option.name_ar || delta !== option.price_delta_iqd;
 
+  // Cells of OptionsEditor's grid. An option that is off says so by its
+  // switch; the row is no longer faded, which took its names under AA contrast.
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 'var(--tp-sp-1-5)',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        marginBlockStart: 'var(--tp-sp-1-5)',
-        opacity: option.is_active ? 1 : 0.6,
-      }}
-    >
+    <>
       <input
-        style={{ ...inputStyle, flex: 1, minInlineSize: '8rem' }}
+        style={{ ...inputStyle, inlineSize: '100%', minInlineSize: 0 }}
         dir="ltr"
         aria-label={tr('op.menu.nameEn')}
         value={nameEn}
         onChange={(e) => setNameEn(e.target.value)}
       />
       <input
-        style={{ ...inputStyle, flex: 1, minInlineSize: '8rem' }}
+        style={{ ...inputStyle, inlineSize: '100%', minInlineSize: 0 }}
         dir="rtl"
         lang="ar"
         aria-label={tr('op.menu.nameAr')}
         value={nameAr}
         onChange={(e) => setNameAr(e.target.value)}
       />
-      <MoneyInput value={delta} disabled={lock.priceLocked} onChange={(n) => setDelta(n ?? 0)} style={{ inlineSize: '11rem' }} />
-      {lock.priceLocked && (
-        <PriceChangeButton
-          size="sm"
-          kind="ghost"
-          target={{ change: 'addon_price', addon: option.id }}
-          label={tr('ws.pricing.changePrice')}
-          ariaLabel={tr('ws.pricing.changePriceFor', { name: pickName(locale, option) })}
+      <MoneyInput value={delta} disabled={lock.priceLocked} onChange={(n) => setDelta(n ?? 0)} aria-label={tr('op.addons.delta')} style={{ inlineSize: '11rem' }} />
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+        {lock.priceLocked && (
+          <PriceChangeButton
+            size="sm"
+            kind="ghost"
+            target={{ change: 'addon_price', addon: option.id }}
+            label={tr('ws.pricing.changePrice')}
+            ariaLabel={tr('ws.pricing.changePriceFor', { name: pickName(locale, option) })}
+          />
+        )}
+        <Switch
+          checked={option.is_active}
+          disabled={lock.needsLaunch}
+          onChange={onActive}
+          label={`${tr('op.addons.active')}: ${pickName(locale, option)}`}
+          hideLabel
         />
-      )}
-      <Switch
-        checked={option.is_active}
-        disabled={lock.needsLaunch}
-        onChange={onActive}
-        label={`${tr('op.addons.active')}: ${pickName(locale, option)}`}
-        hideLabel
-      />
-      {lock.needsLaunch && (
-        <PriceChangeButton
-          size="sm"
-          target={{ change: 'addon_price', addon: option.id }}
-          label={tr('ws.pricing.putOnSale')}
-          ariaLabel={tr('ws.pricing.putOnSaleFor', { name: pickName(locale, option) })}
-        />
-      )}
-      {sort}
-      {/* A chevron icon, not ▸/▾ text: the glyph pointed the wrong way in
-          Arabic and a screen reader spoke it. Same disclosure as "Show other
-          groups" on the item form. */}
-      <Button kind="ghost" iconEnd={revealsOpen ? 'chevronUp' : 'chevronDown'} onClick={onToggleReveals} aria-expanded={revealsOpen}>
-        {tr('op.addons.reveals')}
-        {revealCount > 0 && ` (${formatNumber(revealCount, locale)})`}
-      </Button>
-      <Button
-        disabled={!dirty || busy || !nameEn.trim() || !nameAr.trim()}
-        onClick={() => onSave({ ...option, name_en: nameEn.trim(), name_ar: nameAr.trim(), price_delta_iqd: delta })}
-      >
-        {tr('common.save')}
-      </Button>
-    </div>
+        {lock.needsLaunch && (
+          <PriceChangeButton
+            size="sm"
+            target={{ change: 'addon_price', addon: option.id }}
+            label={tr('ws.pricing.putOnSale')}
+            ariaLabel={tr('ws.pricing.putOnSaleFor', { name: pickName(locale, option) })}
+          />
+        )}
+        {sort}
+        {/* A chevron icon, not ▸/▾ text: the glyph pointed the wrong way in
+            Arabic and a screen reader spoke it. Same disclosure as "Show other
+            groups" on the item form. */}
+        <Button kind="ghost" iconEnd={revealsOpen ? 'chevronUp' : 'chevronDown'} onClick={onToggleReveals} aria-expanded={revealsOpen}>
+          {tr('op.addons.reveals')}
+          {revealCount > 0 && ` (${formatNumber(revealCount, locale)})`}
+        </Button>
+        <Button
+          disabled={!dirty || busy || !nameEn.trim() || !nameAr.trim()}
+          onClick={() => onSave({ ...option, name_en: nameEn.trim(), name_ar: nameAr.trim(), price_delta_iqd: delta })}
+        >
+          {tr('common.save')}
+        </Button>
+      </div>
+    </>
   );
 }

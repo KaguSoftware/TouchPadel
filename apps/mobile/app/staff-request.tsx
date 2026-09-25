@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +32,12 @@ import {
 } from '../src/features/staff/api';
 import { mapStaffError } from '../src/features/staff/edge';
 import { staffKeys } from '../src/features/staff/keys';
+import { Chip } from '../src/features/staff/protocols/FormFields';
+import { isMgmt } from '../src/features/staff/protocols/logic';
+import { MULTILINE_BOX, MULTILINE_TEXT } from '../src/features/staff/protocols/multiline';
+import { ListCard, StatusPill, type Tone } from '../src/features/staff/protocols/parts';
+import { usePullRefresh } from '../src/lib/usePullRefresh';
+import { Lead } from '../src/features/staff/checklists/parts';
 
 /**
  * Requests (migration 0072, unchanged): leave, a shift swap, a wage advance or
@@ -44,8 +50,6 @@ import { staffKeys } from '../src/features/staff/keys';
  *
  * `?id=` is a request a push named; it is listed first.
  */
-
-const MGMT = new Set(['manager', 'owner']);
 
 /** A stored `YYYY-MM-DD` in the reader's language (noon UTC, so no zone moves the day). */
 function dayLabel(day: string, locale: 'en' | 'ar'): string {
@@ -68,7 +72,7 @@ function RequestsScreen() {
 
   const staff = status.kind === 'staff' ? status.staff : null;
   const uid = staff?.id ?? '';
-  const mgmt = staff !== null && MGMT.has(staff.role);
+  const mgmt = isMgmt(staff?.role);
 
   const requests = useQuery({
     queryKey: staffKeys.requests(uid),
@@ -88,6 +92,9 @@ function RequestsScreen() {
   };
 
   const refetchList = () => queryClient.invalidateQueries({ queryKey: staffKeys.requests(uid) });
+  // Pull to refresh, as on every other staff page: a decision made on the
+  // operator shows here without leaving the page.
+  const pull = usePullRefresh(refetchList);
 
   const submit = useMutation({
     mutationKey: staffKeys.mutation('request'),
@@ -160,7 +167,12 @@ function RequestsScreen() {
   const dated = draft.kind === 'leave' || draft.kind === 'shift_swap';
   const noteLabel =
     draft.kind === 'correction' ? t('staff.shell.requests.noteCorrection') : t('staff.shell.requests.noteOptional');
-  const statusColor = { pending: colors.ambstrong, approved: colors.gtext, rejected: colors.redtext, withdrawn: colors.mut };
+  const statusTone: Record<StaffRequestRow['status'], Tone> = {
+    pending: 'warn',
+    approved: 'good',
+    rejected: 'bad',
+    withdrawn: 'neutral',
+  };
 
   return (
     <Screen edges={[]}>
@@ -168,31 +180,33 @@ function RequestsScreen() {
       <ScrollView
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t('staff.shell.requests.lead')}
-        </Text>
+        <Lead>{t('staff.shell.requests.lead')}</Lead>
         {staff?.role === 'owner' ? <Hint>{t('staff.shell.requests.decideOnOperator')}</Hint> : null}
         {staff?.role === 'manager' ? <Hint>{t('staff.shell.requests.managerNote')}</Hint> : null}
 
         <Card style={{ padding: space.m, gap: space.s }}>
-          <MicroLabel>{t('staff.shell.requests.newTitle')}</MicroLabel>
-          <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-            {t('staff.shell.requests.kind')}
+          <Text accessibilityRole="header" style={{ fontFamily: fonts.body700, fontSize: 15, lineHeight: 21, color: colors.ink }}>
+            {t('staff.shell.requests.newTitle')}
           </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
-            {STAFF_REQUEST_KINDS.map((kind: StaffRequestKind) => (
-              <Button
-                key={kind}
-                testID={`staff-request.kind.${kind}`}
-                label={t(`staff.shell.requests.kinds.${kind}`)}
-                variant={draft.kind === kind ? 'primary' : 'secondary'}
-                size="compact"
-                onPress={() => edit({ kind })}
-                style={{ flexGrow: 1, flexBasis: '45%' }}
-              />
-            ))}
+          {/* The kind is one choice of four: the same chips, with the same
+              selected state read out, as every other choice on the staff forms. */}
+          <View style={{ gap: 6, marginTop: space.xs }}>
+            <MicroLabel>{t('staff.shell.requests.kind')}</MicroLabel>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s }}>
+              {STAFF_REQUEST_KINDS.map((kind: StaffRequestKind) => (
+                <Chip
+                  key={kind}
+                  testID={`staff-request.kind.${kind}`}
+                  label={t(`staff.shell.requests.kinds.${kind}`)}
+                  selected={draft.kind === kind}
+                  onPress={() => edit({ kind })}
+                />
+              ))}
+            </View>
           </View>
 
           {dated ? (
@@ -253,6 +267,8 @@ function RequestsScreen() {
             value={draft.note}
             onChangeText={(note) => edit({ note })}
             multiline
+            boxStyle={MULTILINE_BOX}
+            style={MULTILINE_TEXT}
             error={fieldError('note')}
           />
           <ErrorText>{error}</ErrorText>
@@ -281,55 +297,60 @@ function RequestsScreen() {
         ) : rows.length === 0 ? (
           <Hint>{t('staff.shell.requests.empty')}</Hint>
         ) : (
-          rows.map((row) => {
-            const mine = row.staff_id === uid;
-            const detail = detailOf(row);
-            return (
-              <Card
-                key={row.id}
-                style={{
-                  padding: space.m,
-                  gap: 4,
-                  ...(row.id === params.id ? { borderColor: colors.blue, borderWidth: 1.5 } : null),
-                }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.s }}>
-                  <Text style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
-                    {t(`staff.shell.requests.kinds.${row.kind}`)}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: statusColor[row.status] }}>
-                    {t(`staff.shell.requests.statuses.${row.status}`)}
-                  </Text>
+          // One list, split by hairlines; the status is the same pill the
+          // protocol pages use, so "waiting" looks the same everywhere.
+          <ListCard>
+            {rows.map((row, i) => {
+              const mine = row.staff_id === uid;
+              const detail = detailOf(row);
+              return (
+                <View
+                  key={row.id}
+                  style={{
+                    padding: space.m,
+                    gap: 4,
+                    borderBottomWidth: i === rows.length - 1 ? 0 : 1,
+                    borderBottomColor: colors.sub,
+                    // The request a push opened is listed first and marked.
+                    backgroundColor: row.id === params.id ? colors.tint : 'transparent',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space.s }}>
+                    <Text style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 14, color: colors.ink }}>
+                      {t(`staff.shell.requests.kinds.${row.kind}`)}
+                    </Text>
+                    <StatusPill label={t(`staff.shell.requests.statuses.${row.status}`)} tone={statusTone[row.status]} />
+                  </View>
+                  {!mine ? (
+                    <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>{row.staff_name}</Text>
+                  ) : null}
+                  {detail ? (
+                    <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>{detail}</Text>
+                  ) : null}
+                  {row.note ? (
+                    <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 19, color: colors.mut2 }}>
+                      {row.note}
+                    </Text>
+                  ) : null}
+                  {row.decision_note ? (
+                    <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 19, color: colors.mut2 }}>
+                      {t('staff.shell.requests.ownerNote', { note: isolate(row.decision_note) })}
+                    </Text>
+                  ) : null}
+                  {mine && row.status === 'pending' ? (
+                    <Button
+                      testID={`staff-request.withdraw.${row.id}`}
+                      label={t('staff.shell.requests.withdraw')}
+                      variant="ghost"
+                      busy={withdraw.isPending && withdraw.variables === row.id}
+                      onPress={() => confirmWithdraw(row.id)}
+                      style={{ alignSelf: 'flex-start', marginTop: 4 }}
+                    />
+                  ) : null}
                 </View>
-                {!mine ? (
-                  <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: colors.mut }}>{row.staff_name}</Text>
-                ) : null}
-                {detail ? (
-                  <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>{detail}</Text>
-                ) : null}
-                {row.note ? (
-                  <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 }}>
-                    {row.note}
-                  </Text>
-                ) : null}
-                {row.decision_note ? (
-                  <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 }}>
-                    {t('staff.shell.requests.ownerNote', { note: isolate(row.decision_note) })}
-                  </Text>
-                ) : null}
-                {mine && row.status === 'pending' ? (
-                  <Button
-                    testID={`staff-request.withdraw.${row.id}`}
-                    label={t('staff.shell.requests.withdraw')}
-                    variant="ghost"
-                    busy={withdraw.isPending && withdraw.variables === row.id}
-                    onPress={() => confirmWithdraw(row.id)}
-                    style={{ alignSelf: 'flex-start', marginTop: 4 }}
-                  />
-                ) : null}
-              </Card>
-            );
-          })
+              );
+            })}
+          </ListCard>
         )}
       </ScrollView>
     </Screen>

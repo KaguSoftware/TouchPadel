@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,8 @@ import { mapStaffError } from '../src/features/staff/edge';
 import { staffKeys } from '../src/features/staff/keys';
 import { clearStaffIntentKey, staffIntentKey } from '../src/lib/idempotency';
 import { StoredPhotos } from '../src/features/staff/supplies/StoredPhotos';
+import { GroupLabel, Tag } from '../src/features/staff/checklists/parts';
+import { usePullRefresh } from '../src/lib/usePullRefresh';
 import {
   SHOPPING_LIST_STATUSES,
   confirmPurchaseDelivery,
@@ -94,6 +96,12 @@ function PurchaseScreen() {
     queryFn: () => fetchMyPurchases(venue),
     enabled: venue !== '',
   });
+
+  // A pull reads the purchases (a delivery another phone confirmed, a receipt
+  // the manager took in) and, for the driver, the list the form is filled from.
+  const pull = usePullRefresh(() =>
+    Promise.all([purchases.refetch(), buyer ? open.refetch() : null, buyer ? ingredients.refetch() : null]),
+  );
 
   const ingredientById = useMemo(() => {
     const map = new Map<string, IngredientOption>();
@@ -358,6 +366,7 @@ function PurchaseScreen() {
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
@@ -395,9 +404,7 @@ function PurchaseScreen() {
               }}
             />
             <View style={{ gap: space.xs }}>
-              <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-                {t('staff.supplies.purchase.form.receipt')}
-              </Text>
+              <GroupLabel>{t('staff.supplies.purchase.form.receipt')}</GroupLabel>
               <PhotoButton
                 testID="staff-purchase.receipt"
                 venueId={venue}
@@ -457,19 +464,11 @@ function PurchaseScreen() {
                     {formatDateTime(new Date(p.bought_at), locale)}
                   </Text>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
                     {formatIQD(p.total_iqd, locale)}
                   </Text>
-                  <Text
-                    style={{
-                      fontFamily: fonts.body700,
-                      fontSize: 12,
-                      color: p.status === 'done' ? colors.gtext : colors.ambstrong,
-                    }}
-                  >
-                    {t(`work.purchase.status.${p.status}`)}
-                  </Text>
+                  <Tag tone={p.status === 'done' ? 'good' : 'warn'} label={t(`work.purchase.status.${p.status}`)} />
                 </View>
               </View>
               {p.lines.map((l, i) => (

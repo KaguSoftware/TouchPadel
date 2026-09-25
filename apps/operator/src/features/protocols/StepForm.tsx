@@ -255,31 +255,44 @@ function FieldControl(props: ControlProps) {
   // ── By type ──
   switch (def.type) {
     case 'text':
-    case 'url':
-      return (
-        <Field label={label} hint={hint} error={error} required={req} optional={opt}>
-          <span style={{ display: 'flex', gap: 'var(--tp-sp-1-5)' }}>
-            <input
-              style={{ ...inputStyle, flex: 1, minInlineSize: 0 }}
-              dir={dirFor(def.name)}
-              value={typeof v === 'string' ? v : ''}
-              maxLength={def.max !== undefined ? def.max + 20 : undefined}
-              disabled={disabled}
-              aria-invalid={error ? true : undefined}
-              onChange={(e) => set(path, e.target.value)}
-            />
-            {joined === 'promotion.public_code' && !disabled && (
-              <Button
-                size="sm"
-                icon="refresh"
-                onClick={() => set(path, randomPromoCode((n) => crypto.getRandomValues(new Uint8Array(n))))}
-              >
-                {tr('ws.protocols.form.drawCode')}
-              </Button>
-            )}
-          </span>
-        </Field>
+    case 'url': {
+      const box = (
+        <input
+          style={{ ...inputStyle, flex: 1, minInlineSize: 0 }}
+          dir={dirFor(def.name)}
+          value={typeof v === 'string' ? v : ''}
+          maxLength={def.max !== undefined ? def.max + 20 : undefined}
+          disabled={disabled}
+          aria-invalid={error ? true : undefined}
+          onChange={(e) => set(path, e.target.value)}
+        />
       );
+      // The input is the Field's direct child, so the hint and the error are
+      // tied to it (Field describes its child); the code button sits beside the
+      // Field, not inside it, where it would have taken that description.
+      if (joined !== 'promotion.public_code' || disabled) {
+        return (
+          <Field label={label} hint={hint} error={error} required={req} optional={opt}>
+            {box}
+          </Field>
+        );
+      }
+      return (
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-start' }}>
+          <Field label={label} hint={hint} error={error} required={req} optional={opt} style={{ flex: 1, minInlineSize: 0 }}>
+            {box}
+          </Field>
+          {/* Level with the input: past the label's line (fs-sm at the body's 1.5) and its gap. */}
+          <Button
+            icon="refresh"
+            style={{ marginBlockStart: 'calc(var(--tp-fs-sm) * 1.5 + var(--tp-sp-2))' }}
+            onClick={() => set(path, randomPromoCode((n) => crypto.getRandomValues(new Uint8Array(n))))}
+          >
+            {tr('ws.protocols.form.drawCode')}
+          </Button>
+        </div>
+      );
+    }
     case 'longText':
       return (
         <Field label={label} hint={hint} error={error} required={req} optional={opt}>
@@ -706,7 +719,7 @@ function SizePriceTable({ path, value, set, env, disabled, label, error }: Contr
   }
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0 }}>
-      <legend style={{ fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
+      <legend style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
       {env.change === 'price' && env.stepKey === 'propose' && <p style={{ ...muted, marginBlock: '0 var(--tp-sp-1-5)' }}>{tr('ws.protocols.hints.prices_change')}</p>}
       <table style={{ inlineSize: '100%', borderCollapse: 'collapse' }}>
         <thead>
@@ -785,7 +798,7 @@ function AddonTable({ path, value, set, env, disabled, label, error }: ControlPr
   const flip = (a: AddonRow) => set(path, has(a.modifier_id) ? rows.filter((r) => r.modifier_id !== a.modifier_id) : [...rows, { modifier_id: a.modifier_id, price_delta_iqd: a.current }]);
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0 }}>
-      <legend style={{ fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
+      <legend style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
       {choices.length === 0 ? (
         <p style={{ ...muted, margin: 0 }}>{tr('ws.protocols.form.noTargets')}</p>
       ) : (
@@ -846,7 +859,7 @@ function RecipeLines({ path, value, set, issues, disabled, label, error }: Contr
   const NEW = '__new__';
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-      <legend style={{ fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
+      <legend style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
       <p style={{ ...muted, margin: 0 }}>{tr('ws.protocols.hints.lines')}</p>
       {error && rows.length === 0 && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{error}</p>}
       {rows.map((row, i) => {
@@ -920,7 +933,7 @@ function CourtRanges({ path, value, set, issues, disabled, label, error }: Contr
   const rows = (Array.isArray(value.ranges) ? value.ranges : []) as Obj[];
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-      <legend style={{ fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
+      <legend style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
       <p style={{ ...muted, margin: 0 }}>{tr('ws.protocols.hints.ranges')}</p>
       {error && rows.length === 0 && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{error}</p>}
       {rows.map((row, i) => {

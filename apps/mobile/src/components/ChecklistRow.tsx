@@ -14,12 +14,18 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Text } from '../i18n/text';
+import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../theme';
 import { CheckIcon } from './icons';
 
 export interface ChecklistRowProps {
   testID: string;
   label: string;
+  /**
+   * A short figure on the label's line, at its far end: how much of a run
+   * line to buy ("5 packs"). Part of the control, and of what it announces.
+   */
+  aside?: string | null;
   checked: boolean;
   onToggle: () => void;
   /** Under the label once ticked: who and when. */
@@ -38,6 +44,7 @@ const BOX = 24;
 export function ChecklistRow({
   testID,
   label,
+  aside,
   checked,
   onToggle,
   meta,
@@ -48,6 +55,13 @@ export function ChecklistRow({
   children,
 }: ChecklistRowProps) {
   const { colors, fonts } = useTheme();
+  const { locale } = useLocale();
+  const labelStyle = {
+    fontFamily: fonts.body600,
+    fontSize: 14,
+    lineHeight: 20,
+    color: checked ? colors.mut : colors.ink,
+  };
   return (
     <View
       style={{
@@ -60,7 +74,7 @@ export function ChecklistRow({
       <Pressable
         testID={testID}
         accessibilityRole="checkbox"
-        accessibilityLabel={label}
+        accessibilityLabel={aside ? `${label}${locale === 'ar' ? '، ' : ', '}${aside}` : label}
         accessibilityState={{ checked, disabled: !!(disabled || busy), busy: !!busy }}
         disabled={disabled || busy}
         onPress={onToggle}
@@ -92,16 +106,14 @@ export function ChecklistRow({
           ) : null}
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text
-            style={{
-              fontFamily: fonts.body600,
-              fontSize: 14,
-              lineHeight: 20,
-              color: checked ? colors.mut : colors.ink,
-            }}
-          >
-            {label}
-          </Text>
+          {aside ? (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: space.s }}>
+              <Text style={[labelStyle, { flexShrink: 1 }]}>{label}</Text>
+              <Text style={[labelStyle, { fontFamily: fonts.body700 }]}>{aside}</Text>
+            </View>
+          ) : (
+            <Text style={labelStyle}>{label}</Text>
+          )}
           {flag ? (
             <Text style={{ fontFamily: fonts.body700, fontSize: 12, lineHeight: 17, color: colors.ambstrong }}>
               {flag}

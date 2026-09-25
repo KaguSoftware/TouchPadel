@@ -49,6 +49,36 @@ import type { ReleaseReview, RunDetail } from '../src/features/staff/protocols/t
  * run reach Finished with no figures.
  */
 
+/**
+ * One figure of the review: its name at the start, the server's number at the
+ * end in ink, so the column of numbers reads down the card rather than being
+ * picked out of sentences.
+ */
+function Figure({ label, value }: { label: string; value: string }) {
+  const { colors, fonts } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        gap: space.s,
+        paddingTop: space.s,
+        paddingBottom: space.s,
+        borderTopWidth: 1,
+        borderTopColor: colors.sub,
+      }}
+    >
+      <Text style={{ flexShrink: 1, fontFamily: fonts.body400, fontSize: 13, lineHeight: 19, color: colors.mut }}>
+        {label}
+      </Text>
+      <Text style={{ fontFamily: fonts.body700, fontSize: 14, lineHeight: 19, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 function ReviewBlock({ review }: { review: ReleaseReview | null | undefined }) {
   const { t, locale } = useLocale();
   const { colors } = useTheme();
@@ -59,30 +89,28 @@ function ReviewBlock({ review }: { review: ReleaseReview | null | undefined }) {
   // The review's shares are percentages already (0173 `release_review_input`).
   const pct = (v: number) => t('staff.protocols.run.review.percent', { pct: formatPercent(v, locale) });
   const text = locale === 'ar' ? (review.write_up?.ar ?? review.write_up?.en) : (review.write_up?.en ?? review.write_up?.ar);
+  const boughtWith = (n.bought_with ?? [])
+    .map((b) => bilingual(locale, b.name_en, b.name_ar))
+    .filter(Boolean)
+    .join(locale === 'ar' ? '، ' : ', ');
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: space.s }}>
       {review.status === 'thin' ? <Hint>{t('staff.protocols.run.review.thin')}</Hint> : null}
       {review.status === 'failed' ? <Hint>{t('staff.protocols.run.review.failed')}</Hint> : null}
-      {text ? <Muted style={{ color: colors.ink, fontSize: 13.5, lineHeight: 20 }}>{text}</Muted> : null}
-      <Muted>{`${t('staff.protocols.run.review.units')}: ${num(n.units)}`}</Muted>
-      <Muted>{`${t('staff.protocols.run.review.revenue')}: ${money(n.revenue_iqd)}`}</Muted>
-      <Muted>
-        {`${t('staff.protocols.run.review.margin')}: ${money(n.margin_iqd)}${
-          typeof n.margin_pct === 'number' ? ` (${pct(n.margin_pct)})` : ''
-        }`}
-      </Muted>
-      <Muted>{`${t('staff.protocols.run.review.daysSold')}: ${num(n.days_sold)}`}</Muted>
-      {typeof n.category_share_pct === 'number' ? (
-        <Muted>{`${t('staff.protocols.run.review.categoryShare')}: ${pct(n.category_share_pct)}`}</Muted>
-      ) : null}
-      {n.bought_with && n.bought_with.length > 0 ? (
-        <Muted>
-          {`${t('staff.protocols.run.review.boughtWith')}: ${n.bought_with
-            .map((b) => bilingual(locale, b.name_en, b.name_ar))
-            .filter(Boolean)
-            .join(locale === 'ar' ? '، ' : ', ')}`}
-        </Muted>
-      ) : null}
+      {text ? <Muted style={{ color: colors.ink, fontSize: 14, lineHeight: 21 }}>{text}</Muted> : null}
+      <View>
+        <Figure label={t('staff.protocols.run.review.units')} value={num(n.units)} />
+        <Figure label={t('staff.protocols.run.review.revenue')} value={money(n.revenue_iqd)} />
+        <Figure
+          label={t('staff.protocols.run.review.margin')}
+          value={`${money(n.margin_iqd)}${typeof n.margin_pct === 'number' ? ` (${pct(n.margin_pct)})` : ''}`}
+        />
+        <Figure label={t('staff.protocols.run.review.daysSold')} value={num(n.days_sold)} />
+        {typeof n.category_share_pct === 'number' ? (
+          <Figure label={t('staff.protocols.run.review.categoryShare')} value={pct(n.category_share_pct)} />
+        ) : null}
+      </View>
+      {boughtWith ? <Muted>{`${t('staff.protocols.run.review.boughtWith')}: ${boughtWith}`}</Muted> : null}
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,10 +9,13 @@ import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
 import { Button, Card, ErrorText, Field, Hint, LinkText, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
+import { ChecklistRow } from '../src/components/ChecklistRow';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { MenuRow } from '../src/components/booking';
 import { CardIcon, CheckIcon, ChevronIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
+import { GroupLabel, Lead, MULTILINE_BOX, MULTILINE_TEXT } from '../src/features/staff/checklists/parts';
+import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { RequireStaff } from '../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { mapStaffError } from '../src/features/staff/edge';
@@ -115,6 +118,16 @@ function ShoppingScreen() {
     queryFn: () => fetchIngredientOptions(venue),
     enabled: venue !== '' && view.canAdd,
   });
+
+  // The list moves while it is open (a line added, approved, bought), so a
+  // pull reads every list this role sees again.
+  const pull = usePullRefresh(() =>
+    Promise.all([
+      open.refetch(),
+      statuses.includes('pending') ? pending.refetch() : null,
+      statuses.includes('declined') ? declined.refetch() : null,
+    ]),
+  );
 
   const refreshLists = () => {
     for (const s of SHOPPING_LIST_STATUSES) {
@@ -253,6 +266,12 @@ function ShoppingScreen() {
 
   const body = { fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 };
 
+  const byLine = (item: ShoppingItem) =>
+    t('staff.supplies.shopping.list.by', {
+      name: isolate(item.requested_by_name ?? ''),
+      when: formatDateTime(new Date(item.requested_at), locale),
+    });
+
   /** One line of a list: name and amount, its note as typed, who added it and when. */
   const lineText = (item: ShoppingItem) => (
     <>
@@ -265,12 +284,7 @@ function ShoppingScreen() {
         </Text>
       </View>
       {item.note ? <Text style={body}>{item.note}</Text> : null}
-      <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
-        {t('staff.supplies.shopping.list.by', {
-          name: isolate(item.requested_by_name ?? ''),
-          when: formatDateTime(new Date(item.requested_at), locale),
-        })}
-      </Text>
+      <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>{byLine(item)}</Text>
     </>
   );
 
@@ -302,10 +316,9 @@ function ShoppingScreen() {
         contentContainerStyle={{ paddingTop: space.m, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
-        <Text style={{ fontFamily: fonts.body400, fontSize: 13, lineHeight: 20, color: colors.mut2 }}>
-          {t(leadKey(status.staff.role))}
-        </Text>
+        <Lead>{t(leadKey(status.staff.role))}</Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
 
         {view.canDecide && pending.isError ? loadError('staff-shopping.pending-error', pending) : null}
@@ -328,6 +341,8 @@ function ShoppingScreen() {
                         value={declining.reason}
                         onChangeText={(reason) => setDeclining({ id: item.id, reason, error: null })}
                         multiline
+                        boxStyle={MULTILINE_BOX}
+                        style={MULTILINE_TEXT}
                         error={declining.error}
                       />
                       <View style={{ flexDirection: 'row', gap: space.s }}>
@@ -444,6 +459,7 @@ function ShoppingScreen() {
                           paddingEnd: space.m,
                           paddingTop: 11,
                           paddingBottom: 11,
+                          minHeight: 44,
                           borderTopWidth: i === 0 ? 0 : 1,
                           borderTopColor: colors.sub,
                           backgroundColor: pressed ? colors.sub : colors.card,
@@ -469,9 +485,7 @@ function ShoppingScreen() {
               latin
               error={addFieldError('qty')}
             />
-            <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.ink }}>
-              {t('staff.supplies.shopping.add.unit')}
-            </Text>
+            <GroupLabel>{t('staff.supplies.shopping.add.unit')}</GroupLabel>
             <SegmentedControl<ShoppingUnit>
               testID="staff-shopping.unit"
               options={units.map((u) => ({ value: u, label: t(`staff.supplies.units.many.${u}`) }))}
@@ -485,6 +499,8 @@ function ShoppingScreen() {
               value={draft.note}
               onChangeText={(note) => edit({ note })}
               multiline
+              boxStyle={MULTILINE_BOX}
+              style={MULTILINE_TEXT}
               error={addFieldError('note')}
             />
             {view.addWaitsForOk ? <Hint style={{ marginTop: 0 }}>{t('staff.supplies.shopping.add.waitsForOk')}</Hint> : null}
@@ -507,9 +523,6 @@ function ShoppingScreen() {
             {myPending.map((item) => (
               <Card key={item.id} style={{ padding: space.m, gap: 4 }}>
                 {lineText(item)}
-                <Text style={{ fontFamily: fonts.body700, fontSize: 12, color: colors.ambstrong }}>
-                  {t('work.shopping.status.pending')}
-                </Text>
                 {cancelLink(item)}
               </Card>
             ))}
@@ -544,48 +557,24 @@ function ShoppingScreen() {
         ) : openItems.length === 0 ? (
           <Hint>{t('staff.supplies.shopping.list.empty')}</Hint>
         ) : view.runChecklist ? (
-          <View style={{ gap: space.s }}>
-            <Hint style={{ marginTop: 0, paddingStart: 4 }}>{t('staff.supplies.shopping.run.lead')}</Hint>
-            {openItems.map((item) => {
-              const ticked = liveTicks.has(item.id);
-              return (
-                <Pressable
-                  key={item.id}
-                  testID={`staff-shopping.run.${item.id}`}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: ticked }}
-                  accessibilityHint={t(ticked ? 'staff.supplies.shopping.run.ticked' : 'staff.supplies.shopping.run.unticked')}
-                  onPress={() => setTicks((all) => toggleTick(pruneTicks(all, openItems.map((i) => i.id)), item.id))}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    gap: space.sm,
-                    padding: space.m,
-                    borderRadius: radius.card,
-                    borderWidth: 1,
-                    borderColor: ticked ? colors.gline : colors.line,
-                    backgroundColor: ticked ? colors.gtint : colors.card,
-                    opacity: pressed ? 0.85 : 1,
-                  })}
-                >
-                  <View
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 7,
-                      borderWidth: 1.5,
-                      borderColor: ticked ? colors.gstrong : colors.line2,
-                      backgroundColor: ticked ? colors.gstrong : colors.card,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {ticked ? <CheckIcon size={14} color={colors.card} strokeWidth={2.6} /> : null}
-                  </View>
-                  <View style={{ flex: 1, gap: 4 }}>{lineText(item)}</View>
-                </Pressable>
-              );
-            })}
-          </View>
+          // The run is a checklist like the day's lists, so it ticks like one:
+          // the shared row, one card, the amount on the line it belongs to.
+          <Card style={{ paddingTop: space.xs, paddingBottom: space.xs }}>
+            {openItems.map((item, i) => (
+              <ChecklistRow
+                key={item.id}
+                testID={`staff-shopping.run.${item.id}`}
+                label={lineName(item, locale)}
+                aside={formatQty(t, locale, item.qty, item.unit)}
+                checked={liveTicks.has(item.id)}
+                onToggle={() => setTicks((all) => toggleTick(pruneTicks(all, openItems.map((x) => x.id)), item.id))}
+                meta={byLine(item)}
+                last={i === openItems.length - 1}
+              >
+                {item.note ? <Text style={body}>{item.note}</Text> : null}
+              </ChecklistRow>
+            ))}
+          </Card>
         ) : (
           openItems.map((item) => (
             <Card key={item.id} style={{ padding: space.m, gap: 4 }}>
@@ -610,16 +599,7 @@ function ShoppingScreen() {
               onPress={onRecord}
               style={{ marginTop: space.s }}
             />
-            <View
-              style={{
-                backgroundColor: colors.card,
-                borderWidth: 1,
-                borderColor: colors.line,
-                borderRadius: radius.card,
-                overflow: 'hidden',
-                marginTop: space.s,
-              }}
-            >
+            <Card style={{ padding: 0, overflow: 'hidden', marginTop: space.s }}>
               <MenuRow
                 testID="staff-shopping.purchases"
                 icon={<CardIcon size={15} color={colors.gstrong} />}
@@ -627,7 +607,7 @@ function ShoppingScreen() {
                 onPress={() => router.push('/staff-purchase')}
                 last
               />
-            </View>
+            </Card>
           </>
         ) : null}
 

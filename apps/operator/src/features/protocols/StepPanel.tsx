@@ -88,6 +88,10 @@ function StepBody({ d, runDetail, ctx, mgmt }: { d: StepDetail; runDetail: RunDe
   const [skipping, setSkipping] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // The checklist's own refusal shows under the checklist, and a line being
+  // ticked is held until the server answers, so a double click is one tick.
+  const [ticking, setTicking] = useState<string | null>(null);
+  const [tickError, setTickError] = useState<unknown>(null);
   const steps = runDetail?.steps ?? [];
 
   const pending = step.submissions.find((s) => s.id === can.decide_submission_id) ?? null;
@@ -100,12 +104,15 @@ function StepBody({ d, runDetail, ctx, mgmt }: { d: StepDetail; runDetail: RunDe
   const decider = tr(ownersOwn ? 'ws.protocols.step.decider.self' : step.needs_owner_ok ? 'ws.protocols.step.decider.owner' : 'ws.protocols.step.decider.manager');
 
   async function tick(itemId: string, done: boolean) {
-    setError(null);
+    setTicking(itemId);
+    setTickError(null);
     try {
       await appRpc('tick_run_item', { p_item_id: itemId, p_done: done });
       await invalidateProtocols(qc);
     } catch (e) {
-      setError(e);
+      setTickError(e);
+    } finally {
+      setTicking(null);
     }
   }
 
@@ -159,24 +166,43 @@ function StepBody({ d, runDetail, ctx, mgmt }: { d: StepDetail; runDetail: RunDe
           <h4 style={{ margin: 0 }}>{tr('ws.protocols.step.checklist')}</h4>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
             {step.items.map((i) => (
-              <li key={i.id} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={i.done_at !== null}
-                  disabled={!can.tick}
-                  aria-label={pickText(locale, i.text_en, i.text_ar)}
-                  onChange={(e) => void tick(i.id, e.target.checked)}
-                />
-                <span style={{ flex: 1 }}>{pickText(locale, i.text_en, i.text_ar)}</span>
+              <li key={i.id} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* The line's text is the box's label, so the whole line ticks it, as on /tasks. */}
+                <label style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flex: 1, minInlineSize: 0, cursor: can.tick ? 'pointer' : 'default' }}>
+                  <input
+                    type="checkbox"
+                    checked={i.done_at !== null}
+                    disabled={!can.tick || ticking === i.id}
+                    onChange={(e) => void tick(i.id, e.target.checked)}
+                  />
+                  <bdi>{pickText(locale, i.text_en, i.text_ar)}</bdi>
+                </label>
                 {i.done_at && (
                   <span style={muted}>{tr('ws.protocols.step.tickedBy', { name: isolate(i.done_by_name ?? '—'), date: formatDateTime(new Date(i.done_at), locale) })}</span>
                 )}
               </li>
             ))}
           </ul>
+          {tickError != null && (
+            <p role="alert" style={{ margin: 0, color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+              {tr(protocolErrorKey(tickError))}
+            </p>
+          )}
         </section>
       )}
 
+      {can.submit && runDetail && <StepSubmit d={d} runDetail={runDetail} ctx={ctx} />}
+      {!can.submit && step.status === 'open' && (
+        <MessagePresenter tone="info" message={tr('ws.protocols.step.forSomeoneElse', { roles: step.actor_roles.map((r) => tr(`op.roles.${r}`)).join(tr('ws.protocols.view.listJoin')) })} />
+      )}
+      {step.status === 'submitted' && !pending && (
+        <MessagePresenter tone="info" message={tr('ws.protocols.step.awaitingDecision', { decider })} />
+      )}
+
+      <History d={d} steps={steps} names={names} />
+
+      {/* After what was sent, so a decider reads the record before deciding
+          it, and a sender sees what they would take back. */}
       {(pending || can.withdraw_submission_id || can.skip) && (
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center' }}>
           {pending && (
@@ -201,16 +227,6 @@ function StepBody({ d, runDetail, ctx, mgmt }: { d: StepDetail; runDetail: RunDe
           {tr(protocolErrorKey(error))}
         </p>
       )}
-
-      {can.submit && runDetail && <StepSubmit d={d} runDetail={runDetail} ctx={ctx} />}
-      {!can.submit && step.status === 'open' && (
-        <MessagePresenter tone="info" message={tr('ws.protocols.step.forSomeoneElse', { roles: step.actor_roles.map((r) => tr(`op.roles.${r}`)).join(tr('ws.protocols.view.listJoin')) })} />
-      )}
-      {step.status === 'submitted' && !pending && (
-        <MessagePresenter tone="info" message={tr('ws.protocols.step.awaitingDecision', { decider })} />
-      )}
-
-      <History d={d} steps={steps} names={names} />
 
       {deciding && pending && (
         <DecisionDialog
@@ -324,8 +340,9 @@ function SubmissionCard({ s, d, steps, names }: { s: SubmissionRow; d: StepDetai
         gap: 'var(--tp-sp-1-5)',
         padding: 'var(--tp-sp-2-5)',
         borderRadius: 'var(--tp-radius-ctl)',
-        border: '1px solid var(--tp-border)',
-        opacity: struck ? 0.7 : 1,
+        // A withdrawn or replaced send keeps full-contrast text (its badge says
+        // it no longer counts); only its outline steps back.
+        border: `1px ${struck ? 'dashed' : 'solid'} var(--tp-border)`,
       }}
     >
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -352,7 +369,7 @@ function SubmissionCard({ s, d, steps, names }: { s: SubmissionRow; d: StepDetai
       )}
       {s.decision === 'auto' && <p style={{ ...muted, margin: 0 }}>{tr('work.protocol.autoPassed')}</p>}
       {s.decision_note && (
-        <blockquote style={{ margin: 0, paddingInlineStart: 'var(--tp-sp-2)', borderInlineStart: '3px solid var(--tp-border)' }}>
+        <blockquote style={{ margin: 0, paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)' }}>
           <bdi dir="auto" style={{ whiteSpace: 'pre-wrap' }}>
             {isPurged(s.decision_note) ? tr('work.protocol.noteDeleted') : s.decision_note}
           </bdi>
