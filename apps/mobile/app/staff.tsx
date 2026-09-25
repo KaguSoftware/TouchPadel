@@ -1,14 +1,32 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
-import { Alert, AppState, Linking, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, AppState, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
 import { Button, Card, ErrorText, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { MenuRow } from '../src/components/booking';
-import { BellIcon, EnvelopeIcon, SlidersIcon, type IconProps } from '../src/components/icons';
+import {
+  BellIcon,
+  CalendarIcon,
+  CardIcon,
+  CheckIcon,
+  ChevronIcon,
+  ClockIcon,
+  EnvelopeIcon,
+  GlobeIcon,
+  LockIcon,
+  PencilIcon,
+  RoofIcon,
+  SearchIcon,
+  SlidersIcon,
+  StopwatchIcon,
+  SunIcon,
+  TagIcon,
+  type IconProps,
+} from '../src/components/icons';
 import {
   getPushPermissionState,
   permissionStateAfter,
@@ -20,6 +38,10 @@ import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../src/features/staff/keys';
 import { staffRows } from '../src/features/staff/rows';
 import { showsVenuePicker } from '../src/features/staff/venue';
+import { mapStaffError } from '../src/features/staff/edge';
+import { fetchChecklistsToday } from '../src/features/staff/checklists/api';
+import { checklistTodos, localName } from '../src/features/staff/checklists/logic';
+import { WorkList } from '../src/features/staff/protocols/WorkList';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { useToast } from '../src/components/overlays';
@@ -34,10 +56,102 @@ import { useToast } from '../src/components/overlays';
  * to and the back item is hidden.
  */
 
-/** The icon of each Today row; a page lane adds its row's icon with the row. */
+/**
+ * The icon of each Today row; a page lane adds its row's icon with the row.
+ * No two rows one role sees share an icon, and none is the Settings sliders.
+ */
 const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
+  protocols: ClockIcon,
+  start: PencilIcon,
+  production: StopwatchIcon,
+  shopping: TagIcon,
+  run: TagIcon,
+  purchases: CardIcon,
+  marketing: GlobeIcon,
   requests: EnvelopeIcon,
+  notes: CalendarIcon,
+  ideas: SunIcon,
+  teachings: CheckIcon,
+  recipes: SearchIcon,
+  'recipe-changes': LockIcon,
+  stock: RoofIcon,
+  suggestions: BellIcon,
+  'ask-marketing': GlobeIcon,
+  'marketing-inbox': CheckIcon,
 };
+
+/**
+ * Today's checklists still to finish, at the top of To do for every role
+ * (§6.1): one row per list (`staff.checklist.<runId>`) that opens it. A
+ * finished list leaves Today; the checklist page writes the same cache entry,
+ * so a tick there moves the count here. Nothing shows while the read is in
+ * flight: the work list below carries the loading state.
+ */
+function TodayChecklists({ venueId }: { venueId: string }) {
+  const { t, locale } = useLocale();
+  const { colors, fonts } = useTheme();
+  const router = useRouter();
+  const lists = useQuery({
+    queryKey: staffKeys.checklists(venueId),
+    queryFn: () => fetchChecklistsToday(venueId),
+  });
+
+  if (lists.isPending) return null;
+  const todos = lists.isError ? [] : checklistTodos(lists.data);
+  if (!lists.isError && todos.length === 0) return null;
+
+  return (
+    <View style={{ gap: space.xs }}>
+      <MicroLabel style={{ paddingStart: 4 }}>
+        {lists.isError ? t('staff.checklists.title') : `${t('staff.checklists.title')} · ${todos.length}`}
+      </MicroLabel>
+      {lists.isError ? (
+        <Hint>{t(mapStaffError(lists.error))}</Hint>
+      ) : (
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.line,
+            borderRadius: radius.card,
+            overflow: 'hidden',
+          }}
+        >
+          {todos.map((list, i) => (
+            <Pressable
+              key={list.runId}
+              testID={`staff.checklist.${list.runId}`}
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: '/staff-checklist', params: { id: list.runId } })}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: space.s,
+                paddingStart: space.l,
+                paddingEnd: space.l,
+                paddingTop: 12,
+                paddingBottom: 12,
+                borderBottomWidth: i === todos.length - 1 ? 0 : 1,
+                borderBottomColor: colors.sub,
+                backgroundColor: pressed ? colors.sub : 'transparent',
+              })}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text numberOfLines={2} style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+                  {localName(list, locale)}
+                </Text>
+                <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
+                  {t('staff.checklists.progress', { done: list.done, total: list.total })}
+                </Text>
+              </View>
+              <ChevronIcon size={16} color={colors.fnt2} />
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
 
 function useWorkAlerts() {
   const { t } = useLocale();
@@ -190,9 +304,11 @@ function TodayScreen() {
           </Card>
         ) : null}
 
-        {/* The work list (To do, Waiting, Decided, and Waiting on you for
-            management) mounts here, from my_protocol_work and
-            my_checklists_today, venue by `venueId` (lane H). */}
+        {/* The work list: today's checklists first, then what waits on the
+            person to decide, their open steps, what they sent and what was
+            decided (my_checklists_today, my_protocol_work), at `venueId`. */}
+        {venueId ? <TodayChecklists venueId={venueId} /> : null}
+        {venueId ? <WorkList venueId={venueId} /> : null}
 
         {rows.length > 0 ? (
           <View style={{ gap: space.xs }}>

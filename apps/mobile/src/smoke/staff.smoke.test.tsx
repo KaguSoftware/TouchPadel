@@ -23,8 +23,8 @@ runSmokeCases('staff', [
   {
     route: 'staff',
     Component: StaffToday,
-    // The requests row is on Today for every role.
-    labelKey: 'staff.shell.requests.row',
+    // The requests row is on Today for every role, as "Vacation and requests" (#62).
+    labelKey: 'staff.checklists.vacation.row',
     options: { staff: { role: 'head_chef' } },
   },
   {

@@ -31,7 +31,22 @@ export type StaffMutationName =
   | 'checklist.mark'
   | 'shopping.cancel'
   | 'candidate.delete'
-  | 'photo';
+  | 'photo'
+  // Role spec (H): teachings, suggestions, recipe changes.
+  | 'teaching.archive'
+  | 'suggestion.seen'
+  | 'recipe_change.withdraw'
+  | 'recipe_change.decide'
+  // Role spec (H): the head chef's OK, Delivered, requests to marketing.
+  | 'shopping.decide'
+  | 'purchase.deliver'
+  | 'marketing_request.withdraw'
+  | 'marketing_request.answer'
+  // Protocol pages (H): an idea withdrawn or declined, and the owner's new
+  // account at a hiring run's last step (staff-admin).
+  | 'idea.withdraw'
+  | 'idea.decline'
+  | 'staff.create';
 
 export const staffKeys = {
   all: ['staff'] as const,
@@ -58,6 +73,36 @@ export const staffKeys = {
   marketingNotes: (venue: string) => ['staff', 'marketingNotes', venue] as const,
   campaignDrafts: (venue: string) => ['staff', 'campaignDrafts', venue] as const,
   candidates: (runId: string) => ['staff', 'candidates', runId] as const,
+  // Role spec (H, §6.4). `team` is the list asked for (`all`, `bar`,
+  // `kitchen`), `kind` the stock filter (`all` or an ingredient kind),
+  // `itemId` one menu item or `all`.
+  teachings: (venue: string, team: string) => ['staff', 'teachings', venue, team] as const,
+  mySuggestions: (venue: string) => ['staff', 'mySuggestions', venue] as const,
+  suggestions: (venue: string, filter: string) => ['staff', 'suggestions', venue, filter] as const,
+  stock: (venue: string, kind: string) => ['staff', 'stock', venue, kind] as const,
+  recipes: (venue: string, itemId: string) => ['staff', 'recipes', venue, itemId] as const,
+  myRecipeChanges: (venue: string) => ['staff', 'myRecipeChanges', venue] as const,
+  recipeChanges: (venue: string, filter: string) =>
+    ['staff', 'recipeChanges', venue, filter] as const,
+  /** A 10-minute signed URL for one staff-media path (photo.ts `staffPhotoUrl`). */
+  photoUrl: (path: string) => ['staff', 'photoUrl', path] as const,
+  // Role spec (H, §6.4): requests to marketing (`filter` is open, answered or
+  // all) and marketing's campaign results. `menuItems` is the venue's launched
+  // menu items, for the pickers that name one (a request, a take, a draft).
+  myMarketingRequests: (venue: string) => ['staff', 'myMarketingRequests', venue] as const,
+  marketingRequests: (venue: string, filter: string) =>
+    ['staff', 'marketingRequests', venue, filter] as const,
+  campaignResults: (venue: string) => ['staff', 'campaignResults', venue] as const,
+  menuItems: (venue: string) => ['staff', 'menuItems', venue] as const,
+  // Protocol pages (H, §6.4): a barista's or chef assistant's own ideas and a
+  // head's review list; the venue's cafe categories (a new item's decider) and
+  // courts (a tournament plan, a court rate).
+  ideas: (venue: string) => ['staff', 'ideas', venue] as const,
+  ideasToReview: (venue: string) => ['staff', 'ideasToReview', venue] as const,
+  cafeCategories: (venue: string) => ['staff', 'cafeCategories', venue] as const,
+  courts: (venue: string) => ['staff', 'courts', venue] as const,
+  /** The accounts a hiring run's add_staff step may send (protocols/api.ts `fetchNewHires`). */
+  newHires: (runId: string) => ['staff', 'newHires', runId] as const,
   /** The prefix src/lib/queryClient.ts sets the staff write defaults on. */
   mutationRoot: ['staff', 'mutation'] as const,
   mutation: (name: StaffMutationName) => ['staff', 'mutation', name] as const,

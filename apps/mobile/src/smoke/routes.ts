@@ -65,10 +65,44 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
   // ── staff ─────────────────────────────────────────────────────────────────
   // build-contracts-2026-09-23 §6.2. Each page lane adds its rows with its
-  // screens; staff.smoke.test.tsx (Today, requests) and staffPages.smoke.test.tsx
-  // (the rest) case them, in EN and AR, as a staff session.
+  // screens. The suites that case them, in EN and AR, as a staff session:
+  // staff.smoke.test.tsx (Today, requests), staffProtocols.smoke.test.tsx
+  // (start, runs, run, step, ideas, notes), staffDaily.smoke.test.tsx
+  // (checklist, production, stock, teachings, suggestions, recipes, recipe
+  // change) and staffSuppliesMarketing.smoke.test.tsx (shopping, purchase,
+  // marketing, requests to marketing).
   { file: 'staff.tsx', route: 'staff', primary: 'staff.requests' },
   { file: 'staff-request.tsx', route: 'staff-request', primary: 'staff-request.submit' },
+  { file: 'staff-checklist.tsx', route: 'staff-checklist', primary: 'staff-checklist.done' },
+  { file: 'staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
+  { file: 'staff-runs.tsx', route: 'staff-runs', primary: 'staff-runs.filter.waiting' },
+  { file: 'staff-run.tsx', route: 'staff-run', primary: 'staff-run.current-step' },
+  { file: 'staff-step.tsx', route: 'staff-step', primary: 'staff-step.submit' },
+  { file: 'staff-production.tsx', route: 'staff-production', primary: 'staff-production.record' },
+  { file: 'staff-shopping.tsx', route: 'staff-shopping', primary: 'staff-shopping.add' },
+  { file: 'staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
+  { file: 'staff-marketing.tsx', route: 'staff-marketing', primary: 'staff-marketing.tab.take' },
+  { file: 'staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },
+  // Role spec (plan #61–#74).
+  { file: 'staff-ideas.tsx', route: 'staff-ideas', primary: 'staff-ideas.submit' },
+  { file: 'staff-teachings.tsx', route: 'staff-teachings', primary: 'staff-teachings.list' },
+  {
+    file: 'staff-suggestions.tsx',
+    route: 'staff-suggestions',
+    primary: 'staff-suggestions.submit',
+  },
+  { file: 'staff-stock.tsx', route: 'staff-stock', primary: 'staff-stock.list' },
+  { file: 'staff-recipes.tsx', route: 'staff-recipes', primary: 'staff-recipes.list' },
+  {
+    file: 'staff-recipe-change.tsx',
+    route: 'staff-recipe-change',
+    primary: 'staff-recipe-change.submit',
+  },
+  {
+    file: 'staff-marketing-requests.tsx',
+    route: 'staff-marketing-requests',
+    primary: 'staff-marketing-requests.submit',
+  },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so
