@@ -11,7 +11,9 @@ export const pricingEn = {
   changePriceFor: 'Change the price: {name}',
   putOnSale: 'Put on sale',
   putOnSaleFor: 'Put on sale: {name}',
-  savedHidden: 'Saved hidden until the owner approves its price',
+  // Under a new paid option before Save, and the toast after a new product:
+  // hidden is not the end of it, "Put on sale" is the next step.
+  savedHidden: 'Saved hidden. “Put on sale” then sends its price to the owner.',
   // Stock ▸ Products (#51, #53).
   products: {
     note: 'Prices of products on sale change through “Change the price”, with the owner’s OK. A new product is saved hidden: add its sizes and prices, then “Put on sale” sends it to the owner.',
@@ -27,13 +29,15 @@ export const pricingEn = {
   },
   // Promotions and the promotion editor (#57).
   promotions: {
-    note: 'The owner approves new promotions, changes to them and switching one back on. Propose it here and follow it in Protocols. You can still switch a promotion off.',
+    note: 'The owner approves new promotions, changes to them and switching one back on: propose these here and follow them in Protocols. You can still switch a promotion off.',
     editorNote: 'Only the owner edits a promotion directly. Propose a change and the owner approves it in Protocols.',
     newNote: 'A new promotion starts as a proposal in Protocols, and the owner approves it.',
     propose: 'Propose a promotion',
     change: 'Change this promotion',
     switchOn: 'Switch on',
     switchOnFor: 'Switch on: {name}',
+    // A read-only scope picker (courts, categories, items) with nothing in it.
+    noneChosen: 'None chosen',
   },
   // Court rates (#57).
   rates: {

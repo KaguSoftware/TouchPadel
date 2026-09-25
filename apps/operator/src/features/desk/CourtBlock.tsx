@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { VENUE_TZ, formatDateTime, formatTime, isolate } from '@touch/i18n';
+import { VENUE_TZ, formatDateTime, formatNumber, formatTime, isolate } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
@@ -192,9 +192,9 @@ function MaintenanceBlock() {
             <MessagePresenter
               tone={queued ? 'info' : 'success'}
               message={queued ? tr('ws.courtDesk.detail.queued') : tr('ws.courtDesk.block.done')}
-              style={{ marginBlockEnd: '0.75rem' }}
+              style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
             />
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
               <Button kind="primary" icon="calendar" onClick={() => void navigate({ to: '/desk', search: { date } as never })}>
                 {tr('ws.courtDesk.block.openCalendar')}
               </Button>
@@ -213,7 +213,7 @@ function MaintenanceBlock() {
           </Panel>
         ) : (
           <Panel>
-            {conflict && <ConflictNotice body={tr('ws.courtDesk.block.conflictBody')} onResolve={() => setConflict(false)} style={{ marginBlockEnd: '0.85rem' }} />}
+            {conflict && <ConflictNotice body={tr('ws.courtDesk.block.conflictBody')} onResolve={() => setConflict(false)} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />}
             {/* The four short fields flow into as many columns as the window
                 affords (one each on a narrow desk, four across on a wide one);
                 the reason spans the full row so it uses the width rather than
@@ -238,7 +238,7 @@ function MaintenanceBlock() {
               </Field>
             </div>
             <ErrorText error={error} />
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
               <Button kind="ghost" onClick={() => void navigate({ to: '/desk', search: { date } as never })}>
                 {tr('common.cancel')}
               </Button>
@@ -396,7 +396,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
   const facts = ctx
     ? [
         ctx.tournamentClass ? tr('ws.events.block.classLabel', { class: ctx.tournamentClass }) : null,
-        ctx.capacity ? tr(`ws.events.block.capacity.${ctx.capacity.unit}`, { count: String(ctx.capacity.count) }) : null,
+        ctx.capacity ? tr(`ws.events.block.capacity.${ctx.capacity.unit}`, { count: formatNumber(ctx.capacity.count, locale) }) : null,
       ].filter((x): x is string => x !== null)
     : [];
 
@@ -439,12 +439,18 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                     resolveLabel={tr('ws.events.block.checkAgain')}
                     style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
                   >
-                    <ul style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', margin: 0, paddingInlineStart: '1.1rem' }}>
+                    <ul style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', margin: 0, paddingInlineStart: 'var(--tp-sp-4)' }}>
                       {conflicts.map((c) => (
                         <li key={c.reservationId}>
                           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span>
-                              <bdi>{courtName(c.courtId)}</bdi> · {windowText(c.startAt, c.endAt)} · {kindLabel(c.kind)}
+                              {courtName(c.courtId) && (
+                                <>
+                                  <bdi>{courtName(c.courtId)}</bdi>
+                                  {' · '}
+                                </>
+                              )}
+                              {windowText(c.startAt, c.endAt)} · {kindLabel(c.kind)}
                             </span>
                             {c.kind === 'booking' && (
                               <Button size="sm" onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: c.reservationId } })}>
@@ -467,8 +473,9 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                     {remaining === 0 ? (
                       <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.events.block.allBlocked')}</span>
                     ) : (
+                      // "All" until one is held; after a conflict was moved, only the rest go.
                       <Button kind="primary" icon="ban" busy={block.isPending} onClick={() => block.mutate()}>
-                        {tr('ws.events.block.blockAll', { count: String(remaining) })}
+                        {tr(blockedCount === 0 ? 'ws.events.block.blockAll' : 'ws.events.block.blockRest', { count: formatNumber(remaining, locale) })}
                       </Button>
                     )}
                   </div>
@@ -477,8 +484,8 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
 
               {sent ? (
                 <Panel>
-                  <MessagePresenter tone="success" message={tr('ws.events.block.send.done')} style={{ marginBlockEnd: '0.75rem' }} />
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <MessagePresenter tone="success" message={tr('ws.events.block.send.done')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
+                  <div style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
                     <Button kind="primary" onClick={back}>
                       {tr('ws.events.block.back')}
                     </Button>
@@ -490,7 +497,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
               ) : (
                 canWork && (
                   <Panel title={tr('ws.events.block.send.title')}>
-                    <Field label={tr('ws.events.block.send.note')} hint={tr('ws.events.block.send.noteHint')}>
+                    <Field label={tr('ws.events.block.send.note')} optional hint={tr('ws.events.block.send.noteHint')}>
                       <textarea
                         style={{ ...inputStyle, minBlockSize: '4.5rem', resize: 'vertical' }}
                         value={note}
@@ -500,7 +507,7 @@ function EventBlockMode({ runId, stepId }: { runId: string; stepId: string }) {
                       />
                     </Field>
                     {blockedCount > 0 && remaining > 0 && (
-                      <MessagePresenter tone="refused" icon="alert" message={tr('ws.events.block.send.remaining', { count: String(remaining) })} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
+                      <MessagePresenter tone="refused" icon="alert" message={tr('ws.events.block.send.remaining', { count: formatNumber(remaining, locale) })} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
                     )}
                     <ErrorText error={submit.error} />
                     <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>

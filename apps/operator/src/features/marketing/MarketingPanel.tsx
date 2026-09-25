@@ -612,6 +612,9 @@ function MarketingRequestsPanel({ onPhotos }: { onPhotos: (paths: readonly strin
                       </Button>
                     </div>
                   )}
+                  {/* The answer sits on the toolbar ground with a hairline all round,
+                      not a coloured side stripe: the tint and its own heading line
+                      already set it apart from the request above it. */}
                   {r.answer && (
                     <div
                       data-answer
@@ -623,7 +626,7 @@ function MarketingRequestsPanel({ onPhotos }: { onPhotos: (paths: readonly strin
                         paddingInline: 'var(--tp-sp-2-5)',
                         borderRadius: 'var(--tp-radius-ctl)',
                         background: 'var(--tp-surface-2)',
-                        borderInlineStart: '3px solid var(--tp-border)',
+                        border: '1px solid var(--tp-border)',
                       }}
                     >
                       <span style={{ ...muted, fontWeight: 600 }}>

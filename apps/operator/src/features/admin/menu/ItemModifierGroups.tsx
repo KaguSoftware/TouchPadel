@@ -147,7 +147,7 @@ function GroupRowView({
         background: offered ? 'var(--tp-surface-2)' : 'transparent',
       }}
     >
-      <Switch checked={offered} disabled={disabled} onChange={onChange} label={`${tr('ws.manager.menu.form.groups.offered')} — ${pickName(locale, group)}`} hideLabel style={{ marginBlockStart: '0.1rem' }} />
+      <Switch checked={offered} disabled={disabled} onChange={onChange} label={`${tr('ws.manager.menu.form.groups.offered')}: ${pickName(locale, group)}`} hideLabel style={{ marginBlockStart: '0.1rem' }} />
       <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
         <span style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'baseline', flexWrap: 'wrap' }}>
           <bdi style={{ fontWeight: 600 }}>{pickName(locale, group)}</bdi>

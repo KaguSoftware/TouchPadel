@@ -11,6 +11,7 @@
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can, useAuth } from '../../../lib/auth';
@@ -100,7 +101,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
       </div>
       {!caps.editLaunchedPrices && <PriceLockNote message={tr('ws.pricing.addons.note')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />}
       {options.length === 0 && !draft && (
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</p>
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('op.common.none')}</p>
       )}
       {options.map((m, index) => (
         <div key={m.id}>
@@ -255,9 +256,12 @@ function OptionRow({
         />
       )}
       {sort}
-      <Button kind="ghost" onClick={onToggleReveals} aria-expanded={revealsOpen}>
-        {revealsOpen ? '▾' : '▸'} {tr('op.addons.reveals')}
-        {revealCount > 0 && ` (${revealCount})`}
+      {/* A chevron icon, not ▸/▾ text: the glyph pointed the wrong way in
+          Arabic and a screen reader spoke it. Same disclosure as "Show other
+          groups" on the item form. */}
+      <Button kind="ghost" iconEnd={revealsOpen ? 'chevronUp' : 'chevronDown'} onClick={onToggleReveals} aria-expanded={revealsOpen}>
+        {tr('op.addons.reveals')}
+        {revealCount > 0 && ` (${formatNumber(revealCount, locale)})`}
       </Button>
       <Button
         disabled={!dirty || busy || !nameEn.trim() || !nameAr.trim()}

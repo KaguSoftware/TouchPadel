@@ -35,7 +35,7 @@ import { Button, Field, Select, Skeleton } from '../../../components/ui';
 import { PageHeader, Panel } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import { heroLocks, lockedHeroDraft } from '../promotions/priceChange';
-import { PriceChangeButton } from '../promotions/PriceChangeStart';
+import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart';
 import { HeroPreview, type HeroPreviewItem } from './HeroPreview';
 import { TickerEditor } from './TickerEditor';
 import {
@@ -297,7 +297,8 @@ export function HeroBuilder() {
                       color: 'var(--tp-fg)',
                       font: 'inherit',
                       cursor: locked ? 'not-allowed' : 'pointer',
-                      opacity: locked ? 0.55 : 1,
+                      // DESIGN.md: disabled is opacity .5, the same as every control.
+                      opacity: locked ? 0.5 : 1,
                     }}
                   >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: 700 }}>
@@ -311,14 +312,21 @@ export function HeroBuilder() {
             </div>
             {locks.featuredMode && (
               <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', marginBlockStart: 'var(--tp-sp-3)' }}>
-                <p id="hero-featured-locked" style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-                  {storedItemName && (
-                    <>
-                      {tr('ws.pricing.hero.storedDiscount', { pct: formatNumber(settings.featured_discount_pct, locale), item: isolate(storedItemName) })}{' '}
-                    </>
-                  )}
-                  {tr('ws.pricing.hero.featuredLocked')}
-                </p>
+                {/* The owner's lock, said the way every other price lock is. */}
+                <div id="hero-featured-locked" style={{ justifySelf: 'stretch' }}>
+                  <PriceLockNote
+                    message={
+                      <>
+                        {storedItemName && (
+                          <>
+                            {tr('ws.pricing.hero.storedDiscount', { pct: formatNumber(settings.featured_discount_pct, locale), item: isolate(storedItemName) })}{' '}
+                          </>
+                        )}
+                        {tr('ws.pricing.hero.featuredLocked')}
+                      </>
+                    }
+                  />
+                </div>
                 <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
                   {switchOffButton}
                   {changeDiscountButton}

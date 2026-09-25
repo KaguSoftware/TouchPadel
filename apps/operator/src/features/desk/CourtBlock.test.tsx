@@ -110,7 +110,7 @@ describe('/desk/block event mode', () => {
     expect(screen.getByRole('button', { name: 'Send courts step' })).toHaveProperty('disabled', true);
 
     // A booking is in the way: nothing blocked, the booking listed with a way to it.
-    await user.click(screen.getByRole('button', { name: 'Block 2 remaining' }));
+    await user.click(screen.getByRole('button', { name: 'Block all (2)' }));
     const conflict = await screen.findByRole('alert');
     expect(within(conflict).getByText(/Court 1/)).toBeTruthy();
     expect(within(conflict).getByText(/Booking/)).toBeTruthy();
@@ -132,8 +132,9 @@ describe('/desk/block event mode', () => {
     expect(new Set(keys).size).toBe(2);
     expect(screen.getByText('Every court and time in the plan is blocked.')).toBeTruthy();
 
-    // The courts step goes with every block and the note.
-    await user.type(screen.getByRole('textbox'), 'Moved one booking to Saturday');
+    // The courts step goes with every block and the note. The note is marked
+    // optional beside its label, not inside its accessible name.
+    await user.type(screen.getByRole('textbox', { name: 'What was moved' }), 'Moved one booking to Saturday');
     await user.click(screen.getByRole('button', { name: 'Send courts step' }));
     expect(await screen.findByText('Sent. A manager checks the courts step next.')).toBeTruthy();
     const sent = rpc.mock.calls.find(([fn]) => fn === 'submit_step')![1] as Record<string, unknown>;
@@ -147,11 +148,20 @@ describe('/desk/block event mode', () => {
     expect(navigateSpy).toHaveBeenLastCalledWith(canAccess('court_desk', '/tasks') ? { to: '/tasks' } : { to: '/desk', search: {} });
   });
 
+  it('with part of the plan already held, it offers only the rest and says what is still open', async () => {
+    blocked.push({ reservation_id: '0d000000-0000-4000-8000-000000000001', court_id: C1, start_at: RANGE.from, end_at: RANGE.to });
+    renderScreen();
+    expect(await screen.findByRole('button', { name: 'Block the rest (1)' })).toBeTruthy();
+    expect(screen.getByText('Not blocked yet: 1 of the plan’s times. Block them first, or say why in the note.')).toBeTruthy();
+    // One block is enough to send, with the note saying why the rest is not held.
+    expect(screen.getByRole('button', { name: 'Send courts step' })).toHaveProperty('disabled', false);
+  });
+
   it('a step that is not open is read only, and says what it is', async () => {
     stepStatus = 'submitted';
     renderScreen();
     expect(await screen.findByText('This courts step is not open, so nothing can be blocked here. It is: Awaiting decision.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /remaining/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Block (all|the rest)/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send courts step' })).toBeNull();
   });
 

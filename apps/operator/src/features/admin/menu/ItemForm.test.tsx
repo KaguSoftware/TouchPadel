@@ -121,7 +121,7 @@ describe('ItemForm: prices on sale', () => {
     const user = userEvent.setup();
     renderForm(itemRow());
     const panel = within(sizesPanel());
-    expect(panel.queryByLabelText('Price (IQD) — Regular')).toBeNull();
+    expect(panel.queryByLabelText('Price (IQD): Regular')).toBeNull();
     expect(panel.queryByRole('button', { name: 'New size' })).toBeNull();
     expect(panel.getByText(/so its prices change through Change the price/)).toBeTruthy();
     await user.click(panel.getByRole('button', { name: 'Change the price' }));
@@ -144,7 +144,7 @@ describe('ItemForm: prices on sale', () => {
         ],
       }),
     );
-    await user.click(screen.getByRole('radio', { name: 'Default — Large' }));
+    await user.click(screen.getByRole('radio', { name: 'Default: Large' }));
     await user.click(within(sizesPanel()).getByRole('button', { name: 'Save' }));
     expect(rpc.appRpc).toHaveBeenCalledWith('upsert_variant', expect.objectContaining({ p_id: 'v-2', p_price_iqd: 6500, p_is_default: true }));
   });
@@ -153,7 +153,7 @@ describe('ItemForm: prices on sale', () => {
     auth.role = 'owner';
     renderForm(itemRow());
     const panel = within(sizesPanel());
-    expect(panel.getByLabelText('Price (IQD) — Regular')).toBeTruthy();
+    expect(panel.getByLabelText('Price (IQD): Regular')).toBeTruthy();
     expect(panel.getByRole('button', { name: 'New size' })).toBeTruthy();
     expect(panel.queryByRole('button', { name: 'Change the price' })).toBeNull();
   });
@@ -180,7 +180,7 @@ describe('ItemForm: an item in release', () => {
     expect((screen.getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Goes on sale when the owner launches its release.')).toBeTruthy();
     const panel = within(sizesPanel());
-    expect(panel.queryByLabelText('Price (IQD) — Regular')).toBeNull();
+    expect(panel.queryByLabelText('Price (IQD): Regular')).toBeNull();
     expect(panel.queryByRole('button', { name: 'New size' })).toBeNull();
     expect(panel.getByText('The release’s price step sets these prices.')).toBeTruthy();
   });
@@ -189,7 +189,7 @@ describe('ItemForm: an item in release', () => {
     auth.role = 'owner';
     renderForm(itemRow({ ...IN_RELEASE, is_active: true, launched_at: '2026-09-20T10:00:00Z', release_run: { ...IN_RELEASE.release_run, status: 'live' } }));
     expect(screen.queryByText(/^In release/)).toBeNull();
-    expect(within(sizesPanel()).getByLabelText('Price (IQD) — Regular')).toBeTruthy();
+    expect(within(sizesPanel()).getByLabelText('Price (IQD): Regular')).toBeTruthy();
   });
 
   it('reads in Arabic', () => {
@@ -204,7 +204,7 @@ describe('ItemForm: drafts and new items', () => {
     renderForm(itemRow(DRAFT));
     expect((screen.getByRole('switch', { name: 'Active' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Goes on sale when the owner launches it.')).toBeTruthy();
-    expect(within(sizesPanel()).getByLabelText('Price (IQD) — Regular')).toBeTruthy();
+    expect(within(sizesPanel()).getByLabelText('Price (IQD): Regular')).toBeTruthy();
   });
 
   it("offers Put on sale on a manager's hidden shop product", async () => {

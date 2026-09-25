@@ -227,7 +227,7 @@ export function MenuEditor() {
             checked={i.sold_out}
             disabled={!can.editMenu}
             onChange={(next) => setSoldOut(i.id, next)}
-            label={`${tr('op.menu.soldOutShort')} — ${pickName(locale, i)}`}
+            label={`${tr('op.menu.soldOutShort')}: ${pickName(locale, i)}`}
             hideLabel
             tone="danger"
           />
@@ -412,7 +412,7 @@ export function MenuEditor() {
                             icon="note"
                             disabled={!can.editMenu}
                             onClick={() => openCategoryForm(c)}
-                            aria-label={`${tr('ws.manager.menu.editCategory')} — ${pickName(locale, c)}`}
+                            aria-label={`${tr('ws.manager.menu.editCategory')}: ${pickName(locale, c)}`}
                             title={tr('ws.manager.menu.editCategory')}
                           />
                         </li>

@@ -106,7 +106,7 @@ describe('OptionsEditor as a manager', () => {
     const user = userEvent.setup();
     renderEditor();
     await addOption(user, '750');
-    expect(screen.getByText('Saved hidden until the owner approves its price')).toBeTruthy();
+    expect(screen.getByText('Saved hidden. “Put on sale” then sends its price to the owner.')).toBeTruthy();
     await user.click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
     await waitFor(() =>
       expect(rpc.appRpc).toHaveBeenCalledWith('upsert_modifier', expect.objectContaining({ p_name_en: 'Caramel', p_price_delta_iqd: 750, p_is_active: false })),
@@ -117,7 +117,7 @@ describe('OptionsEditor as a manager', () => {
     const user = userEvent.setup();
     renderEditor();
     await addOption(user, '0');
-    expect(screen.queryByText('Saved hidden until the owner approves its price')).toBeNull();
+    expect(screen.queryByText('Saved hidden. “Put on sale” then sends its price to the owner.')).toBeNull();
     await user.click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
     await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('upsert_modifier', expect.objectContaining({ p_price_delta_iqd: 0, p_is_active: true })));
   });

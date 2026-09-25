@@ -7,7 +7,7 @@ export const eventsEn = {
   // /desk/block?run=&step= — the courts step of a tournament.
   block: {
     title: 'Block courts for a tournament',
-    lead: 'The courts and times come from the tournament plan. They are held as the tournament’s event: the calendar shows them as blocks, and court analytics counts them as event hours, not as closed time.',
+    lead: 'The courts and times come from the tournament plan. Blocking them holds the courts for the tournament, and the calendar shows them as blocks.',
     loadFailed: 'The tournament could not be loaded.',
     capacity: {
       players: '{count} players',
@@ -25,7 +25,8 @@ export const eventsEn = {
       blocked: 'Blocked',
       toBlock: 'To block',
     },
-    blockAll: 'Block {count} remaining',
+    blockAll: 'Block all ({count})',
+    blockRest: 'Block the rest ({count})',
     allBlocked: 'Every court and time in the plan is blocked.',
     blockedDone: 'Blocked. The calendar shows them now.',
     conflictBody: 'These reservations hold part of the tournament’s time. Nothing was blocked. Move or cancel them, then check again.',
@@ -39,11 +40,11 @@ export const eventsEn = {
     notOpen: 'This courts step is not open, so nothing can be blocked here. It is: {status}.',
     notCourts: 'This link is not a tournament’s courts step.',
     send: {
-      title: 'Send the courts step',
-      note: 'What was moved (optional)',
+      title: 'Send for checking',
+      note: 'What was moved',
       noteHint: 'For the manager who checks this step: bookings you moved, or why a time is not blocked.',
       submit: 'Send courts step',
-      remaining: '{count} of the plan’s times are not blocked yet. Block them first, or say why in the note.',
+      remaining: 'Not blocked yet: {count} of the plan’s times. Block them first, or say why in the note.',
       needsBlock: 'Block at least one court before sending.',
       done: 'Sent. A manager checks the courts step next.',
     },
@@ -52,13 +53,17 @@ export const eventsEn = {
   },
   // /admin/staff?hire=<run step> — the owner adds the picked candidate.
   hire: {
-    title: 'Hiring: add the new staff member',
+    title: 'From a hiring run',
     body: '{name} was picked for {role}. Add their account here; the hiring run finishes when it is saved.',
     bodyNoName: 'The run picked someone for {role}. Add their account here; the hiring run finishes when it is saved.',
     add: 'Add the new staff member',
+    addNamed: 'Add {name}',
+    dialogLead: 'Saving the account finishes the hiring run.',
     loading: 'Loading the hiring run…',
     loadFailed: 'The hiring run could not be loaded.',
     notOpen: 'This hiring step is not waiting for you, so nothing is filled in.',
+    noRole: 'The position names a role an account cannot be given here, so nothing is filled in. Check the position on the hiring run.',
+    openRun: 'Open the hiring run',
     roleLocked: 'Set by the hiring run: the account must be in the role the position named.',
     done: 'Account added. The hiring run is finished.',
     submitFailed: 'The account was created, but the hiring step was not sent.',

@@ -8,7 +8,7 @@
  * /protocols: a manager or the owner. Marketing may start one too, but from
  * /tasks, and never reaches these screens.
  */
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { can, canAccess, useAuth } from '../../../lib/auth';
 import { Button, type ButtonKind, type ButtonSize } from '../../../components/ui';
@@ -54,6 +54,6 @@ export function PriceChangeButton({
  * Said once, where the read-only controls are, in place of the "needs the
  * owner role" notice: the manager is not refused, they propose.
  */
-export function PriceLockNote({ message, style }: { message: string; style?: CSSProperties }) {
+export function PriceLockNote({ message, style }: { message: ReactNode; style?: CSSProperties }) {
   return <MessagePresenter tone="info" icon="lock" message={message} style={style} />;
 }

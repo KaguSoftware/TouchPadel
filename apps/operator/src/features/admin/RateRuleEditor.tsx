@@ -51,13 +51,23 @@ import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/toast';
 import { MARK_FG, MARK_SOFT } from '../ops/OpsVisuals';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './promotions/PriceChangeStart';
-import { DAY_KEYS, coversEveryDay, findTies, tiesFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
+import { DAY_KEYS, coversEveryDay, dayRuns, findTies, tiesFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
 
 interface RuleRow extends RateRuleLike {
   rate_rule_prices: { duration_min: number; price_iqd: number }[];
 }
 
 const RATE_RULES_KEY = ['rateRules'] as const;
+
+/**
+ * One line break allowed in a price line, after its "·": "60 min" and
+ * "25,000 IQD" each stay whole. On one line when the table has room; beside
+ * the open form (Arabic runs longer) it folds in two, where a plain nowrap
+ * pushed the Priority column off the table.
+ */
+function breakAfterDot(line: string): string {
+  return line.replace(/ /g, '\u00a0').replace(/·\u00a0/g, '· ');
+}
 const NO_RULES: RuleRow[] = [];
 const NO_COURTS: CourtRow[] = [];
 
@@ -121,9 +131,36 @@ export function RateRuleEditor() {
     {
       key: 'days',
       header: tr('ws.manager.rates.days'),
-      render: (r) => (coversEveryDay(r.days_of_week) ? tr('ws.manager.rates.everyDay') : r.days_of_week.map(dayName).join(' ')),
+      // "Sun–Thu", not a word per line; a range or a day never splits.
+      render: (r) =>
+        coversEveryDay(r.days_of_week) ? (
+          <span style={{ whiteSpace: 'nowrap' }}>{tr('ws.manager.rates.everyDay')}</span>
+        ) : (
+          <span style={{ display: 'inline-flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-1-5)' }}>
+            {dayRuns(r.days_of_week).map((run) =>
+              'day' in run ? (
+                <span key={run.day}>{dayName(run.day)}</span>
+              ) : (
+                <span key={run.from} style={{ whiteSpace: 'nowrap' }}>
+                  {dayName(run.from)}–{dayName(run.to)}
+                </span>
+              ),
+            )}
+          </span>
+        ),
     },
-    { key: 'window', header: tr('ws.manager.rates.window'), render: (r) => <span dir="ltr">{r.start_time.slice(0, 5)}–{r.end_time.slice(0, 5)}</span> },
+    // A window is one reading, and a price line breaks only between its
+    // duration and its price: broken at every space ("09:00–" / "23:00",
+    // "60 min ·" / "25,000 IQD" on every line) each rule row stood six lines tall.
+    {
+      key: 'window',
+      header: tr('ws.manager.rates.window'),
+      render: (r) => (
+        <span dir="ltr" style={{ whiteSpace: 'nowrap' }}>
+          {r.start_time.slice(0, 5)}–{r.end_time.slice(0, 5)}
+        </span>
+      ),
+    },
     {
       key: 'prices',
       header: tr('ws.manager.rates.prices'),
@@ -132,7 +169,9 @@ export function RateRuleEditor() {
           {[...r.rate_rule_prices]
             .sort((a, b) => a.duration_min - b.duration_min)
             .map((p) => (
-              <bdi key={p.duration_min}>{tr('ws.manager.rates.priceLine', { minutes: formatNumber(p.duration_min, locale), price: formatIQD(p.price_iqd, locale) })}</bdi>
+              <bdi key={p.duration_min}>
+                {breakAfterDot(tr('ws.manager.rates.priceLine', { minutes: formatNumber(p.duration_min, locale), price: formatIQD(p.price_iqd, locale) }))}
+              </bdi>
             ))}
         </span>
       ),
@@ -406,17 +445,26 @@ function RuleForm({
           ))}
         </div>
       </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 5rem', gap: 'var(--tp-sp-2-5)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.startTime')}>
           <input style={inputStyle} dir="ltr" type="time" value={startTime} disabled={readOnly} onChange={(e) => setStartTime(e.target.value)} />
         </Field>
         <Field label={tr('op.rates.endTime')}>
           <input style={inputStyle} dir="ltr" type="time" value={endTime} disabled={readOnly} onChange={(e) => setEndTime(e.target.value)} />
         </Field>
-        <Field label={tr('op.rates.priority')} hint={tr('ws.manager.rates.priorityHint')}>
-          <input style={inputStyle} dir="ltr" type="number" value={priority} disabled={readOnly} onChange={(e) => setPriority(Number(e.target.value) || 0)} />
-        </Field>
       </div>
+      {/* Its own row: squeezed into a 5rem third column, the one hint that
+          explains priority wrapped to seven lines of two words. */}
+      <Field label={tr('op.rates.priority')} hint={tr('ws.manager.rates.priorityHint')}>
+        <input
+          style={{ ...inputStyle, inlineSize: '7rem' }}
+          dir="ltr"
+          type="number"
+          value={priority}
+          disabled={readOnly}
+          onChange={(e) => setPriority(Number(e.target.value) || 0)}
+        />
+      </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.validFrom')}>
           <input style={inputStyle} dir="ltr" type="date" value={validFrom} disabled={readOnly} onChange={(e) => setValidFrom(e.target.value)} />

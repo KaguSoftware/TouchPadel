@@ -116,7 +116,9 @@ export function ProductsAdmin() {
     },
     { key: 'sku', header: tr('ws.manager.stock.products.sku'), render: (l) => (l.variant.sku ? <bdi dir="ltr">{l.variant.sku}</bdi> : '—') },
     { key: 'barcode', header: tr('ws.manager.stock.products.barcode'), render: (l) => (l.variant.barcode ? <bdi dir="ltr">{l.variant.barcode}</bdi> : '—') },
-    { key: 'price', header: tr('ws.manager.stock.products.price'), numeric: true, render: (l) => <Money amount={l.variant.price_iqd} /> },
+    // The header already says IQD, as the menu list's does; with the unit in
+    // every cell too, each price broke onto a second line ("50,000" / "IQD").
+    { key: 'price', header: tr('ws.manager.stock.products.price'), numeric: true, render: (l) => <Money amount={l.variant.price_iqd} unit={false} /> },
     {
       key: 'onHand',
       header: tr('ws.manager.stock.onHand.table.onHand'),
@@ -125,7 +127,8 @@ export function ProductsAdmin() {
         l.ingredientId === null ? (
           <StatusBadge size="sm" tone="warn" label={tr('ws.manager.stock.products.notTracked')} />
         ) : (
-          <bdi>{fmt.qty(l.onHand ?? 0, 'pc')}</bdi>
+          // A count and its unit are one reading ("6" / "قطعة" split in Arabic).
+          <bdi style={{ whiteSpace: 'nowrap' }}>{fmt.qty(l.onHand ?? 0, 'pc')}</bdi>
         ),
     },
     { key: 'supplier', header: tr('ws.manager.stock.ingredients.supplier'), truncate: true, render: (l) => (l.supplier ? <bdi>{l.supplier.name}</bdi> : '—') },
@@ -216,7 +219,8 @@ export function ProductsAdmin() {
         }
       >
         <Toolbar end={<ResultCount shown={rows.length} total={lines.length} />}>
-          <span style={{ inlineSize: '18rem', maxInlineSize: '100%' }}>
+          {/* 18rem clipped the placeholder ("…or barcoc"). */}
+          <span style={{ inlineSize: '21rem', maxInlineSize: '100%' }}>
             <SearchField value={search} onChange={setSearch} placeholder={tr('ws.manager.stock.products.search')} />
           </span>
         </Toolbar>
@@ -425,7 +429,19 @@ function SizeForm({
         onEn={(nameEn) => set({ nameEn })}
         onAr={(nameAr) => set({ nameAr })}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-2)' }}>
+      {/* Said just above the greyed Price, the field it explains. It used to
+          sit under all six fields, read only after the manager had tried it. */}
+      {priceLocked && (
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-3)' }}>
+          <PriceLockNote message={tr('ws.pricing.products.priceLocked')} style={{ flex: '1 1 20rem' }} />
+          {start && (
+            <Button size="sm" iconEnd="arrowUpRight" onClick={() => void changePrice()}>
+              {tr('ws.pricing.changePrice')}
+            </Button>
+          )}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-3)' }}>
         <Field label={tr('ws.manager.stock.products.price')} error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}>
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} disabled={priceLocked} onChange={(e) => set({ price: e.target.value })} />
         </Field>
@@ -452,16 +468,6 @@ function SizeForm({
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />
         </Field>
       </div>
-      {priceLocked && (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', marginBlockStart: 'var(--tp-sp-1)' }}>
-          <PriceLockNote message={tr('ws.pricing.products.priceLocked')} />
-          {start && (
-            <Button size="sm" iconEnd="arrowUpRight" onClick={() => void changePrice()}>
-              {tr('ws.pricing.changePrice')}
-            </Button>
-          )}
-        </div>
-      )}
       <ErrorText error={error} />
     </Modal>
   );

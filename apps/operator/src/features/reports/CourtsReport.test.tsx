@@ -157,6 +157,11 @@ describe('CourtsReportScreen', () => {
     const band = screen.getByRole('region', { name: 'Courts' });
     expect(within(band).getByText('Event hours')).toBeTruthy();
     expect(within(band).getByText('Held for tournaments, counted as open hours')).toBeTruthy();
+    // Last in the band, so the lead figures keep their places with or without it.
+    const text = band.textContent ?? '';
+    expect(text.indexOf('Event hours')).toBeGreaterThan(text.indexOf('No-shows'));
+    // The column is explained under the table, like the other derived columns.
+    expect(screen.getByText(/Court hours held for tournaments\. They stay in open hours/)).toBeTruthy();
   });
 
   it('a period with no tournament shows no event line at all', async () => {
@@ -165,6 +170,7 @@ describe('CourtsReportScreen', () => {
     const table = await screen.findByRole('table', { name: 'By court' });
     expect(within(table).queryByRole('columnheader', { name: 'Event hours' })).toBeNull();
     expect(within(screen.getByRole('region', { name: 'Courts' })).queryByText('Event hours')).toBeNull();
+    expect(screen.queryByText(/Court hours held for tournaments/)).toBeNull();
   });
 
   it('a court row opens its bookings with the contract key', async () => {

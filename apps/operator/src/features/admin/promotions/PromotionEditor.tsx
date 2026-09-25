@@ -132,6 +132,9 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const start = usePriceChangeStart();
   // A manager: the promotion changes through a price or promo change instead.
   const proposes = readOnly && start !== null;
+  // A manager on /new has no promotion to read and no field to type in: the
+  // page is the proposal's start, not a wall of greyed, empty inputs.
+  const nothingToRead = proposes && row === null;
 
   useEffect(() => {
     if (row) {
@@ -258,24 +261,16 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
           </div>
         }
       >
-        <p
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 'var(--tp-sp-2)',
-            margin: 0,
-            paddingBlock: 'var(--tp-sp-2)',
-            paddingInline: 'var(--tp-sp-3)',
-            borderRadius: 'var(--tp-radius-ctl)',
-            background: 'var(--tp-surface)',
-            border: '1px solid var(--tp-border)',
-            borderInlineStart: '3px solid var(--tp-accent)',
-            fontWeight: 600,
-          }}
-        >
-          <Icon name="tag" size={16} style={{ color: 'var(--tp-muted-fg)', flex: '0 0 auto', marginBlockStart: '0.15rem' }} />
-          <bdi>{describePromotion(draft, tr, locale)}</bdi>
-        </p>
+        {/* The promotion in one sentence, read straight under its name. It sat
+            in a bordered box with a 3px accent stripe down one side; the words
+            carry it, so it is a line of the header, not a container. A
+            manager's new promotion has no draft to describe. */}
+        {!nothingToRead && (
+          <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-2)', margin: 0, fontSize: 'var(--tp-fs-lg)', fontWeight: 600 }}>
+            <Icon name="tag" size={16} style={{ color: 'var(--tp-accent)', flex: '0 0 auto', marginBlockStart: '0.2rem' }} />
+            <bdi>{describePromotion(draft, tr, locale)}</bdi>
+          </p>
+        )}
         {proposes ? (
           <PriceLockNote message={tr(row ? 'ws.pricing.promotions.editorNote' : 'ws.pricing.promotions.newNote')} />
         ) : (
@@ -283,7 +278,8 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
         )}
       </PageHeader>
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', alignItems: 'start' }}>
+      {/* Hidden, not unmounted, for a manager on /new (see nothingToRead). */}
+      <div style={{ display: nothingToRead ? 'none' : 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', alignItems: 'start' }}>
         {/* Basics */}
         <Panel title={tr('ws.manager.promotions.editor.basics')}>
           <div onBlur={leave('name')}>
@@ -585,6 +581,10 @@ function ChipPicker({
       ) : (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
           {chosen.length > 0 && <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>{chosen.map(chip)}</div>}
+          {/* Read-only with nothing chosen used to draw a bare heading: say so. */}
+          {disabled && chosen.length === 0 && (
+            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.pricing.promotions.noneChosen')}</span>
+          )}
           {!disabled && <SearchField value={q} onChange={setQ} aria-label={`${label}: ${tr('ws.kit.search.placeholder')}`} />}
           {!disabled &&
             (needle === '' ? (

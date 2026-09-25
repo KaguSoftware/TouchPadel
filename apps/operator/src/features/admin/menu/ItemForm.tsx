@@ -53,6 +53,7 @@ import {
   type CategoryKind,
 } from './menuLogic';
 import { savePhoto } from './photo';
+import { PriceChangeButton } from '../promotions/PriceChangeStart';
 import { VariantsEditor } from './VariantsEditor';
 import { ItemModifierGroups } from './ItemModifierGroups';
 import { todayIso, type StockBlock } from './availability';
@@ -99,7 +100,6 @@ export function ItemForm({
   const confirm = useConfirm();
   const can = usePermissions();
   const { staff } = useAuth();
-  const navigate = useNavigate();
   const { refresh } = useAdminMenu();
   const readOnly = !can.editMenu;
   const locks = itemLocks(item, categoryKind, {
@@ -416,16 +416,10 @@ export function ItemForm({
             <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
               {locks.switchOn ? tr(`ws.release.menu.switch.${locks.switchOn}`) : tr('ws.manager.menu.form.activeHint')}
             </p>
+            {/* The shared start, with the ↗ every other one wears. */}
             {locks.switchOn === 'putOnSale' && item && (
               <div>
-                <Button
-                  size="sm"
-                  icon="tag"
-                  disabled={readOnly}
-                  onClick={() => void navigate({ to: '/protocols', search: { start: 'price_promo', change: 'shop_launch', item: item.id } })}
-                >
-                  {tr('ws.release.menu.putOnSale')}
-                </Button>
+                <PriceChangeButton size="sm" target={{ change: 'shop_launch', item: item.id }} label={tr('ws.release.menu.putOnSale')} />
               </div>
             )}
           </div>

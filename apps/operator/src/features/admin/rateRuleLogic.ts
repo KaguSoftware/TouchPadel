@@ -138,3 +138,26 @@ export const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as con
 export function coversEveryDay(days: readonly number[]): boolean {
   return DAY_KEYS.every((_, i) => days.includes(i));
 }
+
+/**
+ * A rule's weekdays as runs, for the rates table: three or more days in a row
+ * are one range ("Sun–Thu"), anything shorter stays as its days. The column
+ * printed every day as a word, so a Sun-to-Thu rule stood five lines tall
+ * once the prices beside it stopped wrapping. Sunday-first, no wrap past
+ * Saturday: the rate card's week is the one DAY_KEYS names.
+ */
+export type DayRun = { from: number; to: number } | { day: number };
+
+export function dayRuns(days: readonly number[]): DayRun[] {
+  const sorted = [...new Set(days)].filter((d) => d >= 0 && d < DAY_KEYS.length).sort((a, b) => a - b);
+  const out: DayRun[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j]! + 1) j++;
+    if (j - i >= 2) out.push({ from: sorted[i]!, to: sorted[j]! });
+    else for (let k = i; k <= j; k++) out.push({ day: sorted[k]! });
+    i = j + 1;
+  }
+  return out;
+}

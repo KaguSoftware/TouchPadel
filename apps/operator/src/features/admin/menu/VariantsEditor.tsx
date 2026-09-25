@@ -18,15 +18,14 @@
  */
 import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { usePermissions } from '../../../lib/auth';
 import { Button, Field, inputStyle } from '../../../components/ui';
 import { Money, Panel } from '../../../components/kit';
 import { MoneyInput } from '../../../components/inputs';
-import { Icon } from '../../../components/icons';
 import { useToast } from '../../../components/toast';
+import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart';
 import type { PricesLock } from './menuLogic';
 import { useAdminMenu, type ItemRow, type VariantRow } from './useAdminMenu';
 
@@ -56,7 +55,6 @@ export function VariantsEditor({ item, pricesLock = null }: { item: ItemRow; pri
   const { tr, locale } = useLocale();
   const toast = useToast();
   const can = usePermissions();
-  const navigate = useNavigate();
   const { refresh } = useAdminMenu();
   const [draft, setDraft] = useState<{ nameEn: string; nameAr: string; price: number } | null>(null);
   const variants = [...item.menu_item_variants].sort((a, b) => a.sort_order - b.sort_order);
@@ -91,15 +89,10 @@ export function VariantsEditor({ item, pricesLock = null }: { item: ItemRow; pri
     <Panel
       title={tr('ws.manager.menu.form.sizes.title')}
       actions={
+        // The shared start: it leaves for Protocols, so it wears the same ↗ as
+        // every other price or promo start (it carried a tag icon here alone).
         pricesLock === 'onSale' ? (
-          <Button
-            size="sm"
-            icon="tag"
-            disabled={readOnly}
-            onClick={() => void navigate({ to: '/protocols', search: { start: 'price_promo', change: 'price', item: item.id } })}
-          >
-            {tr('ws.release.menu.sizes.changePrice')}
-          </Button>
+          <PriceChangeButton size="sm" target={{ change: 'price', item: item.id }} label={tr('ws.release.menu.sizes.changePrice')} />
         ) : pricesLock === 'inRelease' ? undefined : (
           <Button size="sm" icon="plus" onClick={() => setDraft({ nameEn: '', nameAr: '', price: 0 })} disabled={readOnly || !!draft}>
             {tr('ws.manager.menu.form.sizes.newSize')}
@@ -137,12 +130,8 @@ export function VariantsEditor({ item, pricesLock = null }: { item: ItemRow; pri
           )}
         </div>
       )}
-      {pricesLock && (
-        <p style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'baseline', marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          <Icon name="lock" size={13} style={{ alignSelf: 'center', flex: '0 0 auto' }} />
-          <span>{tr(`ws.release.menu.sizes.${pricesLock}`)}</span>
-        </p>
-      )}
+      {/* The lock said the way Add-ons and Shop products say it. */}
+      {pricesLock && <PriceLockNote message={tr(`ws.release.menu.sizes.${pricesLock}`)} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />}
       {draft && !pricesLock && (
         <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-end', marginBlockStart: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
           <Field label={tr('op.menu.nameEn')} style={{ marginBlockEnd: 0, flex: '1 1 8rem' }}>
@@ -218,7 +207,7 @@ function VariantRowEditor({
         </span>
       ) : (
         <span style={{ minInlineSize: 0 }}>
-          <label htmlFor={priceId} className="tp-sr-only">{`${tr('ws.manager.menu.form.sizes.price')} — ${name}`}</label>
+          <label htmlFor={priceId} className="tp-sr-only">{`${tr('ws.manager.menu.form.sizes.price')}: ${name}`}</label>
           <MoneyInput id={priceId} value={price} onChange={(n) => setPrice(n ?? 0)} disabled={readOnly} />
         </span>
       )}
@@ -229,7 +218,7 @@ function VariantRowEditor({
           checked={isDefault}
           disabled={readOnly}
           onChange={onPickDefault}
-          aria-label={`${tr('ws.manager.menu.form.sizes.default')} — ${name}`}
+          aria-label={`${tr('ws.manager.menu.form.sizes.default')}: ${name}`}
           style={{ inlineSize: '1rem', blockSize: '1rem' }}
         />
       </span>

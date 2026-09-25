@@ -38,7 +38,7 @@ import { formatNumber, isolate } from '@touch/i18n';
 import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
 import { appRpc } from '../../../lib/appRpc';
 import { callEdge } from '../../../lib/edge';
-import { useAuth, usePermissions, requiredRoleFor, type StaffRole } from '../../../lib/auth';
+import { canAccess, useAuth, usePermissions, requiredRoleFor, type StaffRole } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
@@ -277,10 +277,13 @@ interface HireIntent {
  * The banner for `?hire=`: reads the step, the run's records and its
  * candidates (all the owner's), and offers the filled-in form while the step
  * waits for them. A step that is not open, or not a hiring add_staff step,
- * says so and fills nothing in.
+ * says so and fills nothing in, and still leaves a way on: to the run (when
+ * the viewer can open Protocols) and out of the link.
  */
 function HireBanner({ stepId, onAdd }: { stepId: string; onAdd(intent: HireIntent): void }) {
   const { tr } = useLocale();
+  const navigate = useNavigate();
+  const { staff } = useAuth();
   const stepQ = useQuery({
     queryKey: ['protocols', 'step', stepId],
     queryFn: () => appRpc<unknown>('protocol_step_detail', { p_run_step_id: stepId }),
@@ -300,21 +303,59 @@ function HireBanner({ stepId, onAdd }: { stepId: string; onAdd(intent: HireInten
   });
 
   const box = { marginBlockEnd: 'var(--tp-sp-4)' };
+  // The way on from a link with nothing to add: the run itself, then out.
+  const exits = (run: string | null, retry?: () => void) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)' }}>
+      {retry && (
+        <Button size="sm" icon="refresh" onClick={retry}>
+          {tr('ws.kit.async.retry')}
+        </Button>
+      )}
+      {run && canAccess(staff?.role, '/protocols') && (
+        <Button size="sm" onClick={() => void navigate({ to: '/protocols', search: { run, step: stepId } })}>
+          {tr('ws.events.hire.openRun')}
+        </Button>
+      )}
+      <Button size="sm" kind="ghost" onClick={() => void navigate({ to: '/admin/staff', search: {} })}>
+        {tr('ws.events.hire.dismiss')}
+      </Button>
+    </div>
+  );
   if (stepQ.isError || runQ.isError || candidatesQ.isError) {
     return (
       <div style={box}>
         <MessagePresenter tone="error" message={tr('ws.events.hire.loadFailed')} />
         <ErrorText error={stepQ.error ?? runQ.error ?? candidatesQ.error} />
+        {exits(null, () => {
+          if (stepQ.isError) void stepQ.refetch();
+          if (runQ.isError) void runQ.refetch();
+          if (candidatesQ.isError) void candidatesQ.refetch();
+        })}
       </div>
     );
   }
   if (!step || (runId !== null && (!runQ.data || !candidatesQ.data))) {
     return <MessagePresenter tone="info" message={tr('ws.events.hire.loading')} style={box} />;
   }
-  if (runId === null) return <MessagePresenter tone="info" message={tr('ws.events.hire.notOpen')} style={box} />;
+  if (runId === null) {
+    return (
+      <div style={box}>
+        <MessagePresenter tone="info" message={tr('ws.events.hire.notOpen')} />
+        {exits(step.isHireStep ? step.runId : null)}
+      </div>
+    );
+  }
 
   const prefill = hirePrefill(runQ.data, candidatesQ.data);
-  if (!prefill.role) return <MessagePresenter tone="error" message={tr('ws.events.hire.loadFailed')} style={box} />;
+  // Loaded, but the position's role is not one an account can be given.
+  if (!prefill.role) {
+    return (
+      <div style={box}>
+        <MessagePresenter tone="refused" message={tr('ws.events.hire.noRole')} />
+        {exits(runId)}
+      </div>
+    );
+  }
   const role = tr(`op.roles.${prefill.role}`);
   const intent: HireIntent = { stepId, name: prefill.name, role: prefill.role };
   return (
@@ -325,7 +366,7 @@ function HireBanner({ stepId, onAdd }: { stepId: string; onAdd(intent: HireInten
           : tr('ws.events.hire.bodyNoName', { role })}
       </p>
       <Button kind="primary" icon="userPlus" onClick={() => onAdd(intent)}>
-        {tr('ws.events.hire.add')}
+        {prefill.name ? tr('ws.events.hire.addNamed', { name: isolate(prefill.name) }) : tr('ws.events.hire.add')}
       </Button>
     </Panel>
   );
@@ -338,7 +379,10 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
   const [name, setName] = useState(hire?.name ?? '');
   const [role, setRole] = useState<StaffRole>(hire?.role ?? 'cashier');
   const [password, setPassword] = useState('');
-  // Hiring: the account made, while its step is still to send.
+  // Hiring: the account is made (the form locks), and its id while the step is
+  // still to send. An answer without an id still locks: a second Add would
+  // only meet the same email already taken.
+  const [created, setCreated] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   // Minted when the form opens, reused on a retry (build-contracts §5.3).
   const submitKey = useRef(`protocol.submit:${crypto.randomUUID()}`);
@@ -372,11 +416,12 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
         return;
       }
       const id = createdStaffId(answer);
+      setCreated(true);
       setCreatedId(id);
       if (id) sendStep.mutate(id);
     },
   });
-  const locked = createdId !== null;
+  const locked = created;
 
   // Said while typing, not after a refused round trip — but only once there is
   // something to judge, so an empty form does not open in red.
@@ -390,14 +435,14 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
   return (
     <Modal
       title={tr('op.staff.add')}
-      subtitle={tr('ws.owner.staff.add.lead')}
+      subtitle={hire ? tr('ws.events.hire.dialogLead') : tr('ws.owner.staff.add.lead')}
       onClose={onClose}
       footer={(close) => (
         <>
           <Button onClick={close} disabled={create.isPending || sendStep.isPending}>
             {tr('common.cancel')}
           </Button>
-          {locked && createdId ? (
+          {createdId ? (
             // The account exists: only the hiring step is left to send.
             <Button kind="primary" busy={sendStep.isPending} onClick={() => sendStep.mutate(createdId)}>
               {tr('ws.events.hire.retry')}
@@ -418,14 +463,14 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
       )}
     >
       <Field label={tr('op.staff.name')} required hint={tr('ws.owner.staff.add.nameHint')}>
-        <input style={inputStyle} autoFocus value={name} maxLength={80} disabled={locked} onChange={(e) => setName(e.target.value)} />
+        {/* A hiring run fills the name in, so the first empty field takes the focus. */}
+        <input style={inputStyle} autoFocus={!hire?.name} value={name} maxLength={80} disabled={locked} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={tr('auth.emailLabel')} required hint={tr('ws.owner.staff.add.emailHint')} error={emailProblem}>
-        <input style={inputStyle} dir="ltr" type="email" autoComplete="off" value={email} disabled={locked} onChange={(e) => setEmail(e.target.value)} />
+        <input style={inputStyle} dir="ltr" type="email" autoComplete="off" autoFocus={Boolean(hire?.name)} value={email} disabled={locked} onChange={(e) => setEmail(e.target.value)} />
       </Field>
       {/* Hiring: the role is the position's; the run refuses any other. */}
-      <RoleField value={role} onChange={setRole} disabled={Boolean(hire) || locked} />
-      {hire && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'calc(-1 * var(--tp-sp-2))', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.events.hire.roleLocked')}</p>}
+      <RoleField value={role} onChange={setRole} disabled={Boolean(hire) || locked} note={hire ? tr('ws.events.hire.roleLocked') : undefined} />
       {/* Shown, not masked: the owner reads this out during training and the
           staff member changes it afterwards. Masking a value you must dictate
           aloud only produces typos. */}
@@ -433,7 +478,7 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
         <input style={inputStyle} dir="ltr" type="text" autoComplete="off" value={password} disabled={locked} onChange={(e) => setPassword(e.target.value)} />
       </Field>
       <StaffErrorText error={create.error} />
-      {locked && (sendStep.isError || !createdId) && <MessagePresenter tone="error" message={tr('ws.events.hire.submitFailed')} />}
+      {created && (sendStep.isError || !createdId) && <MessagePresenter tone="error" message={tr('ws.events.hire.submitFailed')} />}
       <ErrorText error={sendStep.error} />
     </Modal>
   );

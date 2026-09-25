@@ -1,4 +1,5 @@
 /** Pieces the staff list and the account panel share. */
+import type { ReactNode } from 'react';
 import type { StaffRole } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { ErrorText, Field, Select } from '../../../components/ui';
@@ -24,6 +25,9 @@ export function StaffErrorText({ error }: { error: unknown }) {
  * `flush` drops the field's own bottom margin for the account panel, whose
  * Section already spaces it; the add dialog keeps the normal gap, or its
  * one-sentence hint sits against the Password label below it.
+ *
+ * `note` is a second line of hint under what the role opens (a hiring run's
+ * fixed role says why here), so the select is described by both.
  */
 export function RoleField({
   value,
@@ -31,17 +35,32 @@ export function RoleField({
   onChange,
   disabled,
   flush,
+  note,
 }: {
   value: StaffRole;
   current?: StaffRole;
   onChange: (role: StaffRole) => void;
   disabled?: boolean;
   flush?: boolean;
+  note?: ReactNode;
 }) {
   const { tr } = useLocale();
   const options = roleChoices(current ?? value).map((c) => ({ value: c.role, label: tr(`op.roles.${c.role}`), disabled: c.retired }));
   return (
-    <Field label={tr('op.staff.role')} hint={tr(`ws.owner.staff.roleAccess.${value}`)} style={flush ? { marginBlockEnd: 0 } : undefined}>
+    <Field
+      label={tr('op.staff.role')}
+      hint={
+        note ? (
+          <span style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <span>{tr(`ws.owner.staff.roleAccess.${value}`)}</span>
+            <span>{note}</span>
+          </span>
+        ) : (
+          tr(`ws.owner.staff.roleAccess.${value}`)
+        )
+      }
+      style={flush ? { marginBlockEnd: 0 } : undefined}
+    >
       <Select<StaffRole> value={value} disabled={disabled} onChange={onChange} options={options} />
     </Field>
   );

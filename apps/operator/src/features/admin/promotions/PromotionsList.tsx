@@ -250,7 +250,12 @@ export function PromotionsListScreen() {
               label: (
                 <>
                   {tr(`ws.manager.promotions.filter.${f}`)}
-                  <span style={{ fontWeight: 400, color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(counts[f], locale)}</span>
+                  {/* The margin parts the count from its word on screen ("All37"
+                      read as one token); the space parts it for a screen reader. */}
+                  <span style={{ marginInlineStart: 'var(--tp-sp-1-5)', fontWeight: 400, color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
+                    {' '}
+                    {formatNumber(counts[f], locale)}
+                  </span>
                 </>
               ),
             }))}

@@ -52,11 +52,13 @@ const edge = vi.mocked(callEdge);
 
 let stepOpen = true;
 let submitFails = 0;
+let positionRole = 'cashier';
 
 beforeEach(() => {
   search.hire = STEP;
   stepOpen = true;
   submitFails = 0;
+  positionRole = 'cashier';
   navigateSpy.mockReset();
   toastOk.mockReset();
   edge.mockResolvedValue({ result: 'created', staff: { id: NEW_ID, display_name: 'Sara Kareem', role: 'cashier', is_active: true } });
@@ -70,7 +72,7 @@ beforeEach(() => {
         return {
           run: { id: RUN, kind: 'hiring' },
           steps: [
-            { step_key: 'open_position', submissions: [{ decision: 'approve', record: { role: 'cashier' } }] },
+            { step_key: 'open_position', submissions: [{ decision: 'approve', record: { role: positionRole } }] },
             { step_key: 'interviews', submissions: [{ decision: 'approve', record: { candidate_ids: [SARA], picked_id: SARA } }] },
           ],
           can: {},
@@ -101,13 +103,21 @@ function renderList() {
 }
 
 async function fillAndAdd(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Add the new staff member' }));
+  // The banner's button names the pick.
+  await user.click(await screen.findByRole('button', { name: /^Add \u2068?Sara Kareem\u2069?$/ }));
   const dialog = await screen.findByRole('dialog');
-  // Filled in from the run: the pick's name, the position's role, fixed.
+  // It says saving finishes the run, since the banner is now behind it.
+  expect(within(dialog).getByText('Saving the account finishes the hiring run.')).toBeTruthy();
+  // Filled in from the run: the pick's name, the position's role, fixed, and
+  // why it is fixed read with the role (its description, not a stray line).
   expect(within(dialog).getByDisplayValue('Sara Kareem')).toBeTruthy();
   const role = within(dialog).getByRole('combobox', { name: 'Role' });
   expect(role.textContent).toContain('Cashier');
   expect(role.hasAttribute('disabled') || role.getAttribute('aria-disabled') === 'true').toBe(true);
+  const describedBy = role.getAttribute('aria-describedby');
+  expect(describedBy && document.getElementById(describedBy)?.textContent).toContain('Set by the hiring run');
+  // The name is filled in, so the email takes the focus.
+  expect(document.activeElement).toBe(within(dialog).getByRole('textbox', { name: /email/i }));
   await user.type(within(dialog).getByRole('textbox', { name: /email/i }), 'sara@touch.local');
   await user.type(within(dialog).getAllByRole('textbox').at(-1)!, 'opening-pass-123');
   await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
@@ -144,12 +154,37 @@ describe('StaffList: adding a hiring run’s pick', () => {
     expect(sends[0]).toBe(sends[1]);
   });
 
-  it('a step that no longer waits fills nothing in', async () => {
+  it('a step that no longer waits fills nothing in, and leaves a way to the run and out', async () => {
     stepOpen = false;
+    const user = userEvent.setup();
     renderList();
     expect(await screen.findByText('This hiring step is not waiting for you, so nothing is filled in.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Add the new staff member' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Add \u2068?Sara/ })).toBeNull();
     expect(rpc).not.toHaveBeenCalledWith('hiring_candidates', expect.anything());
+    await user.click(screen.getByRole('button', { name: 'Open the hiring run' }));
+    expect(navigateSpy).toHaveBeenLastCalledWith({ to: '/protocols', search: { run: RUN, step: STEP } });
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(navigateSpy).toHaveBeenLastCalledWith({ to: '/admin/staff', search: {} });
+  });
+
+  it('a position role no account can be given says so, instead of claiming the run did not load', async () => {
+    positionRole = 'owner';
+    renderList();
+    expect(await screen.findByText(/The position names a role an account cannot be given here/)).toBeTruthy();
+    expect(screen.queryByText('The hiring run could not be loaded.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open the hiring run' })).toBeTruthy();
+  });
+
+  it('an account made without an id in the answer locks the form and says the step was not sent', async () => {
+    edge.mockResolvedValue({ result: 'created' });
+    const user = userEvent.setup();
+    renderList();
+    const dialog = await fillAndAdd(user);
+    expect(await within(dialog).findByText('The account was created, but the hiring step was not sent.')).toBeTruthy();
+    // No second account: the form is locked and Add cannot be pressed again.
+    expect(within(dialog).getByRole('textbox', { name: /email/i })).toHaveProperty('disabled', true);
+    expect(within(dialog).getByRole('button', { name: 'Add staff member' })).toHaveProperty('disabled', true);
+    expect(rpc).not.toHaveBeenCalledWith('submit_step', expect.anything());
   });
 
   it('without the link the page is as it was', async () => {

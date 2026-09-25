@@ -163,7 +163,8 @@ export function CourtsReportScreen() {
   }
 
   const notes: Record<View, Parameters<Tr>[0][]> = {
-    byCourt: ['ws.reports.courts.notes.occupancy', 'ws.reports.courts.notes.perOpenHour'],
+    // The event column says what it is where it appears, like the two derived figures.
+    byCourt: ['ws.reports.courts.notes.occupancy', 'ws.reports.courts.notes.perOpenHour', ...(hasEvents ? (['ws.events.courts.eventHoursTip'] as const) : [])],
     cancellations: ['ws.reports.courts.notes.rates'],
     peak: ['ws.reports.courts.notes.peak'],
     byHour: [],
@@ -234,12 +235,14 @@ export function CourtsReportScreen() {
                 value={percent(t?.occupancyPct ?? null, locale, tr)}
                 hint={t?.availableMinutes != null ? tr('ws.reports.courts.occupancyHint', { hours: count(Math.round(t.availableMinutes / 60), locale) }) : undefined}
               />
-              {hasEvents && (
-                <HeadlineFigure label={tr('ws.events.courts.eventHours')} value={hoursOf(t?.eventMinutes ?? null, locale, tr)} hint={tr('ws.events.courts.eventHoursHint')} />
-              )}
               <HeadlineFigure label={tr('ws.reports.courts.revenue')} value={money(t?.revenueIqd ?? null, locale)} comparison={changeOf(changes, 'revenueIqd')} format={(n) => money(n, locale)} />
               <HeadlineFigure label={tr('ws.reports.courts.cancellations')} value={count(t?.cancellations ?? null, locale)} tone={t?.cancellations ? 'warn' : 'neutral'} comparison={changeOf(changes, 'cancellations')} format={(n) => count(n, locale)} invert />
               <HeadlineFigure label={tr('ws.reports.courts.noShows')} value={count(t?.noShows ?? null, locale)} tone={t?.noShows ? 'danger' : 'neutral'} comparison={changeOf(changes, 'noShows')} format={(n) => count(n, locale)} invert />
+              {/* Last, so the six lead figures keep their places whether or not a
+                  tournament held a court in the period. */}
+              {hasEvents && (
+                <HeadlineFigure label={tr('ws.events.courts.eventHours')} value={hoursOf(t?.eventMinutes ?? null, locale, tr)} hint={tr('ws.events.courts.eventHoursHint')} />
+              )}
             </FigureBand>
 
             <ViewSwitch<View>
