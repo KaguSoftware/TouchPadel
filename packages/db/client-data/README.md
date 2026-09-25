@@ -46,6 +46,22 @@ pack answer key quoted in a comment beside every value. A reusable JSON→SQL im
 > court names in `courts.sql` are now verified against the originals (Court 1 follows the pack's
 > own spelling, `الملعب الاول` — plain alef).
 
+## Recipes (2026-09-25)
+
+The kitchen sent its recipes as WhatsApp text in Arabic. Three files hold them:
+
+| File | What it is |
+|---|---|
+| `recipes-2026-09-25.ar.txt` | The kitchen's text, verbatim. `---` only marks where one pasted block ends. |
+| `recipes-2026-09-25.en.txt` | Line-for-line English. Numbers exactly as written; `[brackets]` are translator's notes. |
+| `recipes-2026-09-25.json` | The structured form: ingredients, batch recipes, menu recipes, and the questions still open for the kitchen and the owner. Its `conventions` block explains every field. |
+
+Migration `0190` is generated from the JSON. It removes every example ingredient and loads the real
+ones, plus every recipe the JSON marks `ready`. It only acts where the real menu from
+`seeds/touch-cafe-menu.sql` is present, so dev and CI fixtures are untouched. Recipes marked
+`incomplete` or `needs-decision` wait on the JSON's `questions`, and land in a later migration once
+they are answered.
+
 ## Swap procedure
 
 Same as `../README.md` §"Fixture swap procedure": on staging first, delete fixture rows children
