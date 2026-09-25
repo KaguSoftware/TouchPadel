@@ -76,6 +76,9 @@ const FORBIDDEN = {
     'set_cafe_setting',
     'set_cafe_settings',
   ],
+  // Role spec (§6.7): the owner's recipe decision on the phone goes through
+  // decide_recipe_change, which writes the recipe on the server (§2.24.7).
+  recipes: ['set_recipe'],
 } as const;
 
 const NAMES = new Set<string>(Object.values(FORBIDDEN).flat());

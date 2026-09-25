@@ -236,6 +236,8 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'INVALID_WEEKDAYS',
   'CODE_TAKEN',
   'EMAIL_IN_USE',
+  // Role spec (lane J): decide_recipe_change's approve, both maps.
+  'RECIPE_CHANGED',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',

@@ -23,6 +23,10 @@
  *       - anyone who can sign in still on Kitchen (prep), retired by 0155:
  *         it keeps working, and a later migration drops it once nobody holds
  *         it, so each account is moved to barista or chef by hand.
+ *       - a prepared item (a sauce, a dessert) with no par level: the
+ *         kitchen's "What to make today" on the phone lists what is below par
+ *         (app.production_today, 0167), so without one the item is never
+ *         asked for (build-contracts-2026-09-23 §5.5).
  *     When nothing is wrong it says so plainly rather than disappearing.
  *  2. **Where do I go?** The section's screens as cards, each with one honest
  *     live line: accounts with access, courts open for booking, tables in use,
@@ -80,6 +84,20 @@ export function SetupHomeScreen() {
     },
   });
   const outboxQ = useOutbox();
+  // Counted, not listed: the fix is on Ingredients, which lists them.
+  const noParQ = useQuery({
+    queryKey: ['stock', 'setupHome', 'preparedNoPar'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('ingredients')
+        .select('id', { count: 'exact', head: true })
+        .eq('kind', 'prepared')
+        .eq('is_active', true)
+        .is('par_level', null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   const figure = (label: MessageKey, n: number | undefined) =>
     n === undefined ? null : (
@@ -124,10 +142,12 @@ export function SetupHomeScreen() {
       status={status}
       screensTitle={tr('ws.owner.setupHome.screens')}
     >
-      <WorthChecking staffQ={staffQ} outboxQ={outboxQ} cafe={cafe} />
-      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
-      <KitchenPairingPanel />
-      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
+      {/* The two panels that may need the owner sit together; the screen
+          cards below are a different job and get more room. */}
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-5)' }}>
+        <WorthChecking staffQ={staffQ} outboxQ={outboxQ} noParQ={noParQ} cafe={cafe} />
+        <KitchenPairingPanel />
+      </div>
     </SectionHome>
   );
 }
@@ -149,16 +169,18 @@ type Q<T> = { data?: T; isPending: boolean; isError: boolean; refetch: () => unk
 function WorthChecking({
   staffQ,
   outboxQ,
+  noParQ,
   cafe,
 }: {
   staffQ: Q<StaffRow[]>;
   outboxQ: Q<{ status: 'queued' | 'sent' | 'failed' | 'skipped'; created_at: string }[]>;
+  noParQ: Q<number>;
   cafe: ReturnType<typeof useCafeSettings>;
 }) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  const loading = staffQ.isPending || outboxQ.isPending || cafe.isLoading;
-  const failed = [staffQ, outboxQ].filter((q) => q.isError);
+  const loading = staffQ.isPending || outboxQ.isPending || noParQ.isPending || cafe.isLoading;
+  const failed = [staffQ, outboxQ, noParQ].filter((q) => q.isError);
 
   const rows: Check[] = [];
   if (cafe.isSuccess && outboxQ.data) {
@@ -218,6 +240,19 @@ function WorthChecking({
         href: '/admin/staff',
       });
     }
+  }
+
+  if (noParQ.data) {
+    rows.push({
+      key: 'noPar',
+      count: noParQ.data,
+      icon: 'cake',
+      tone: 'warn',
+      title: tr('ws.supplies.setup.noPar'),
+      hint: tr('ws.supplies.setup.noParHint'),
+      action: tr('ws.supplies.setup.noParAction'),
+      href: '/stock/ingredients',
+    });
   }
 
   const clear = !loading && failed.length === 0 && rows.length === 0;

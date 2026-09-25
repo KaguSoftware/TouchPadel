@@ -12,6 +12,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { formatDateTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -31,7 +32,12 @@ const MOVEMENT_TYPES = [
   'expired_writeoff',
   'count_adjustment',
   'refund_reversal',
+  // A new item's test servings (product_release): the note is the run.
+  'product_test',
 ] as const;
+
+/** A product test's reason code, `run:<run id>`: the release it was made for. */
+const RUN_REASON = /^run:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 export function LedgerDrawer({
   ingredient,
@@ -45,6 +51,7 @@ export function LedgerDrawer({
 }) {
   const { tr, locale } = useLocale();
   const fmt = useStockFormat();
+  const navigate = useNavigate();
   const [page, setPage] = useState(0);
 
   const ledgerQ = useQuery({
@@ -94,7 +101,7 @@ export function LedgerDrawer({
     },
     {
       key: 'cost',
-      header: tr('ws.manager.stock.ledger.costPer', { unit: fmt.unit(ingredient.unit) }),
+      header: tr('ws.manager.stock.ledger.costPer', { unit: fmt.one(ingredient.unit) }),
       numeric: true,
       render: (m) => <bdi style={{ color: 'var(--tp-muted-fg)' }}>{fmt.cost(m.unit_cost_iqd)}</bdi>,
     },
@@ -102,7 +109,26 @@ export function LedgerDrawer({
     {
       key: 'note',
       header: tr('ws.manager.stock.ledger.note'),
-      render: (m) => (m.reason_code ? <bdi>{m.reason_code}</bdi> : <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>),
+      render: (m) => {
+        // A product test names its release; open it rather than print its id.
+        const run = m.movement_type === 'product_test' ? RUN_REASON.exec(m.reason_code ?? '')?.[1] : undefined;
+        if (run) {
+          return (
+            <Button
+              kind="ghost"
+              size="sm"
+              icon="fileText"
+              onClick={() => {
+                onClose();
+                void navigate({ to: '/protocols', search: { run: run.toLowerCase() } });
+              }}
+            >
+              {tr('ws.release.ledger.openRun')}
+            </Button>
+          );
+        }
+        return m.reason_code ? <bdi>{m.reason_code}</bdi> : <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>;
+      },
     },
   ];
 

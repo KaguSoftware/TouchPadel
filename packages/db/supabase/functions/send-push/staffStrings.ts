@@ -20,7 +20,8 @@ export type Lang = 'en' | 'ar';
 /**
  * What a body may interpolate, already resolved to the reader's language and
  * bidi-isolated. An absent param is ''. `title` is the run title (hiring runs
- * omit it); `name` is the requester's display name on `request_submitted`.
+ * omit it); `name` is the display name of the person who sent the request,
+ * idea, teaching, recipe change or shopping line.
  */
 export interface StaffVars {
   step: string;
@@ -39,6 +40,8 @@ const subject = (v: StaffVars): string =>
   v.step && v.title ? `${v.step}: ${v.title}` : v.step || v.title;
 // "{title}", falling back to the step on a run without one.
 const named = (v: StaffVars): string => v.title || v.step;
+// "{a}: {b}", or whichever of the two the row carries (the role-spec keys).
+const pair = (a: string, b: string): string => (a && b ? `${a}: ${b}` : a || b);
 
 const EN = {
   step_open: { title: 'New task', body: subject },
@@ -69,6 +72,26 @@ const EN = {
     title: 'Purchase to receive',
     body: () => 'Receive it in Stock ▸ Goods in on the operator.',
   },
+  // Role spec (2026-09-25, §2.21): eleven keys, no new kind or route. `title`
+  // is the idea's name, the teaching's title or the request's title; `step`
+  // is the item's or prepared ingredient's name on a recipe change.
+  idea_submitted: { title: 'New item idea', body: (v) => pair(v.name, v.title) },
+  idea_started: {
+    title: 'Idea started',
+    body: (v) => (named(v) ? `${named(v)} is now a new-item proposal.` : ''),
+  },
+  idea_declined: { title: 'Idea declined', body: named },
+  teaching_new: { title: 'New teaching', body: (v) => pair(v.name, v.title) },
+  recipe_change_submitted: { title: 'Recipe change', body: (v) => pair(v.name, v.step) },
+  recipe_change_approved: { title: 'Recipe change approved', body: (v) => v.step },
+  recipe_change_declined: { title: 'Recipe change declined', body: (v) => v.step },
+  shopping_to_approve: {
+    title: 'Shopping list',
+    body: (v) => (v.name ? `${v.name} added items for your OK.` : ''),
+  },
+  shopping_declined: { title: 'Shopping list', body: () => 'An item you added was declined.' },
+  marketing_request_new: { title: 'Marketing request', body: (v) => pair(v.name, v.title) },
+  marketing_request_answered: { title: 'Marketing answered', body: named },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -103,6 +126,23 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
     title: 'مشتريات بانتظار الاستلام',
     body: () => 'استلمها من المخزون ← استلام البضائع في تطبيق التشغيل.',
   },
+  idea_submitted: { title: 'فكرة صنف جديد', body: (v) => pair(v.name, v.title) },
+  idea_started: {
+    title: 'بدأت الفكرة',
+    body: (v) => (named(v) ? `${named(v)} أصبح الآن اقتراح صنف جديد.` : ''),
+  },
+  idea_declined: { title: 'رُفضت الفكرة', body: named },
+  teaching_new: { title: 'درس جديد', body: (v) => pair(v.name, v.title) },
+  recipe_change_submitted: { title: 'تغيير وصفة', body: (v) => pair(v.name, v.step) },
+  recipe_change_approved: { title: 'تمت الموافقة على تغيير الوصفة', body: (v) => v.step },
+  recipe_change_declined: { title: 'رُفض تغيير الوصفة', body: (v) => v.step },
+  shopping_to_approve: {
+    title: 'قائمة المشتريات',
+    body: (v) => (v.name ? `أضاف ${v.name} أغراضًا بانتظار موافقتك.` : ''),
+  },
+  shopping_declined: { title: 'قائمة المشتريات', body: () => 'رُفض غرض أضفته.' },
+  marketing_request_new: { title: 'طلب تسويق', body: (v) => pair(v.name, v.title) },
+  marketing_request_answered: { title: 'ردّ التسويق', body: named },
 };
 
 export const STAFF_STRINGS: Record<Lang, Record<StaffTitleKey, StaffCopy>> = { en: EN, ar: AR };

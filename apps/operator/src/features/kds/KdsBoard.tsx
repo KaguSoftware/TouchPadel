@@ -17,6 +17,8 @@ import { appRpc } from '../../lib/appRpc';
 import { isElectron, mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { useLocale } from '../../lib/i18n';
+import { can, canAccess, useAuth } from '../../lib/auth';
+import { QK } from '../../lib/queryKeys';
 import { useWorkspaceOrNull } from '../../routes/__root';
 import { WORKSPACES, type WorkspaceKey } from '../../lib/workspaces';
 import { asyncStatus, type AsyncStatus } from '../../components/kit';
@@ -24,6 +26,11 @@ import { lanTicketViews, useLanTickets, useVariantNames } from './LanBoard';
 import { useKdsAlarms } from './useKdsAlarms';
 import { KitchenDisplayScreen } from './KitchenDisplayScreen';
 import { ticketViews, type TicketAction, type TicketRow } from './ticketView';
+import { TK } from '../tasks/keys';
+import { fetchMyWork } from '../tasks/api';
+import { kitchenTaskCount } from '../tasks/tasksLogic';
+import { fetchIdeasToReview } from '../roleExtras/api';
+import { ideasWaiting } from '../roleExtras/roleExtrasLogic';
 
 const COMPLETED_LINGER_MS = 2 * 60 * 1000;
 
@@ -199,6 +206,24 @@ export function KdsBoard() {
     return others[0] ?? null;
   }, [workspace]);
   const several = (workspace?.available.length ?? 0) > 2;
+
+  // "My tasks (N)" for the bar and kitchen roles (build-contracts-2026-09-23
+  // §5.1, §5.4): the board is their only screen, and /tasks holds their
+  // protocol steps and the read-only copy of their phone pages. N is what is
+  // theirs to do, plus the ideas a head has to review. Prep, the manager and
+  // the owner open no /tasks, so their board gets no button.
+  const { staff } = useAuth();
+  const hasTasks = canAccess(staff?.role, '/tasks');
+  const workQ = useQuery({ queryKey: TK.work, queryFn: fetchMyWork, enabled: hasTasks, refetchInterval: 60_000 });
+  const ideasQ = useQuery({
+    queryKey: QK.ideasToReview,
+    queryFn: fetchIdeasToReview,
+    enabled: hasTasks && can(staff?.role, 'reviewIdeas'),
+    refetchInterval: 60_000,
+  });
+  const taskCount = kitchenTaskCount(workQ.data, ideasWaiting(ideasQ.data));
+  // /tasks keeps the navless workspace, and its header leads back here.
+  const onTasks = useCallback(() => void navigate({ to: '/tasks', search: {} }), [navigate]);
   const onExit = useCallback(() => {
     if (!exitTo) return;
     // Leave the WORKSPACE, not just the route. The prep workspace carries the
@@ -228,6 +253,7 @@ export function KdsBoard() {
       onStatus={onStatus}
       onItemReady={onItemReady}
       onExit={exitTo ? onExit : undefined}
+      tasks={hasTasks ? { count: taskCount, onOpen: onTasks } : undefined}
     />
   );
 }

@@ -85,6 +85,15 @@ describe('built-in steps (§2.8)', () => {
     );
   });
 
+  it('gives a tournament plan to the manager or the court desk, assigned to its starter, in every variant (#67)', () => {
+    for (const variant of ['type1', 'type2', 'type3'] as const) {
+      const planStep = builtInStep('tournament', 'plan', variant)!;
+      expect([...planStep.actorRoles], variant).toEqual(['manager', 'court_desk']);
+      expect(planStep.assignToStarter, variant).toBe(true);
+      expect(planStep.needsOwnerOk, variant).toBe(false);
+    }
+  });
+
   it('assigns a release test to its starter and asks for 1 to 6 test photos', () => {
     const test = builtInStep('product_release', 'test')!;
     expect(test.assignToStarter).toBe(true);
@@ -126,7 +135,9 @@ describe('who starts what', () => {
     expect(table.head_barista).toEqual(['product_release']);
     expect(table.head_chef).toEqual(['product_release']);
     expect(table.marketing).toEqual(['price_promo']);
-    for (const r of ['cashier', 'prep', 'court_desk', 'barista', 'chef', 'driver'] as const) {
+    // tournament_desk_start (#67): the court desk starts a tournament.
+    expect(table.court_desk).toEqual(['tournament']);
+    for (const r of ['cashier', 'prep', 'barista', 'chef', 'driver'] as const) {
       expect(table[r], r).toEqual([]);
     }
     expect(startableKinds(null)).toEqual([]);

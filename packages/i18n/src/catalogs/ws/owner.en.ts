@@ -224,7 +224,7 @@ export const ownerEn = {
       // station still on an older version reads the new roles as no access,
       // so the hint puts the update first.
       retiredRole: 'Accounts still on the retired Kitchen role',
-      retiredRoleHint: 'Update every station to the latest version first: an older version will not let a Barista or Chef sign in. Then move each one to Barista or Chef. Their access keeps working until you do.',
+      retiredRoleHint: 'Update every station to the latest version first: an older version will not let a Barista or Chef assistant sign in. Then move each one to Barista or Chef assistant. Their access keeps working until you do.',
       retiredRoleAction: 'Go to Staff',
       error: 'Some checks could not load.',
     },
@@ -366,20 +366,23 @@ export const ownerEn = {
       inactive: 'No access',
     },
     roleAccess: {
-      cashier: 'The till, open tabs, the cash drawer and customer lookup.',
+      // Every hireable role but management also opens My tasks (/tasks,
+      // build-contracts-2026-09-23 §5.1).
+      cashier: 'The till, open tabs, the cash drawer and customer lookup, plus My tasks: their protocol steps and a copy of their phone pages.',
       // Retired by 0155: still works, no longer given (staffModel RETIRED_ROLES).
-      prep: 'The kitchen screen only. Retired: move this person to Barista or Chef.',
-      court_desk: 'The court calendar, bookings and customers.',
+      prep: 'The kitchen screen only. Retired: move this person to Barista or Chef assistant.',
+      court_desk: 'The court calendar, bookings and customers, plus My tasks, where they start a tournament and block its courts.',
       manager: 'Runs the day: the till, desk and kitchen, plus menu, prices, stock, day close, reports and the audit log. Approves discounts and voids with a PIN.',
       owner: 'Everything, including staff accounts, Telegram, marketing and the business figures.',
-      // 0155. The head roles open what their team opens, and nothing more yet.
-      head_barista: 'The kitchen screen only, the same as a barista for now.',
-      barista: 'The kitchen screen only.',
-      head_chef: 'The kitchen screen only, the same as a chef for now.',
-      chef: 'The kitchen screen only.',
+      // 0155. The head roles open what their team opens; on My tasks they also
+      // propose new items and review their team's ideas (#65).
+      head_barista: 'The kitchen screen, and My tasks from its header: proposing a new item, the bar team’s ideas, and their phone pages.',
+      barista: 'The kitchen screen, and My tasks from its header: their protocol steps and their phone pages.',
+      head_chef: 'The kitchen screen, and My tasks from its header: proposing a new item, the kitchen team’s ideas, and their phone pages.',
+      chef: 'The kitchen screen, and My tasks from its header: their protocol steps and their phone pages.',
       // The owner is reading, so the page is named as a page, not as "My tasks" of their own.
-      driver: 'A task list (My tasks) where purchases will be given to them. No till, desk or kitchen.',
-      marketing: 'A task list (My tasks) where marketing tasks will be given to them. No till, desk or kitchen.',
+      driver: 'A task list (My tasks) showing the shopping list and their purchases; the run itself is on the staff phone. No till, desk or kitchen.',
+      marketing: 'A task list (My tasks): their steps in new items, tournaments and price changes, and proposing a price or promo change. No till, desk or kitchen.',
     },
     // Beside a role that still works but is no longer given (prep, 0155).
     retired: 'Retired',
@@ -422,7 +425,7 @@ export const ownerEn = {
       pinFormat: 'A PIN is 6 to 12 digits.',
       emailInUse: 'An account with this email already exists.',
       // staff-admin's ROLE_RETIRED (0155): a new account on prep.
-      roleRetired: 'Kitchen is no longer given to anyone. Choose Barista or Chef.',
+      roleRetired: 'Kitchen is no longer given to anyone. Choose Barista or Chef assistant.',
       lastOwner: 'This is the only owner. Make someone else an owner first.',
     },
     // 0105: which stations offer this person as cover on their break screen.
@@ -598,6 +601,9 @@ export const ownerEn = {
       tills: 'Which tables are occupied, what the open tabs are carrying, and what was settled — day by day.',
       staffActivity: 'Who worked, what they authorised and where the discretion was used.',
       requests: 'Leave, shift swaps, advances and record corrections waiting on your confirmation.',
+      // Protocols and the suggestion box (build-contracts-2026-09-23 §5.1).
+      protocols: 'New items, tournaments, hiring and price changes: what is running and the steps waiting on you.',
+      suggestions: 'What the team suggests from the staff phone, signed, to read and mark seen.',
       marketing: 'Campaigns, who they reached and what they returned.',
       audit: 'The full trail. Where you go when one of the screens above raises a question.',
     },
@@ -607,6 +613,8 @@ export const ownerEn = {
       bookedToday: 'Booked today',
       openTabs: 'Open tabs',
       liveCampaigns: 'Live campaigns',
+      waitingOnYou: 'Waiting on you',
+      newSuggestions: 'New',
     },
     waiting: {
       title: 'Waiting on you',

@@ -22,6 +22,14 @@
  *  - "Applies to" says how a bill gets it (no code / its code) and what it
  *    covers, in words. The old chip literally read "What it applies to".
  *  - A row opens the editor, and has a chevron that says so.
+ *
+ * A MANAGER PROPOSES (#57, build-contracts-2026-09-23 §5.5). The owner alone
+ * edits promotions here (`editPromotions`); a manager gets "Propose a
+ * promotion" and, on a switched-off row that has not ended, "Switch on",
+ * both starting a price or promo change on /protocols, in place of a notice
+ * that names the owner.
+ * Switching a promotion off stays a manager's own, so the switch still works
+ * on a live row.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -49,6 +57,7 @@ import {
 } from '../../../components/kit';
 import { ChevronForward, Icon } from '../../../components/icons';
 import { Switch } from '../../../components/Switch';
+import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './PriceChangeStart';
 import {
   LIFECYCLES,
   countByLifecycle,
@@ -75,6 +84,9 @@ export function PromotionsListScreen() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const can = usePermissions();
+  // A manager: new promotions, edits and switch-ons go through a change.
+  const start = usePriceChangeStart();
+  const proposes = !can.editPromotions && start !== null;
   const search = (useSearch({ strict: false }) ?? {}) as { show?: unknown };
   const filter: PromotionFilter = isPromotionFilter(search.show) ? search.show : 'all';
   const [query, setQuery] = useState('');
@@ -165,7 +177,8 @@ export function PromotionsListScreen() {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)', whiteSpace: 'nowrap' }}>
             <Switch
               checked={p.enabled}
-              disabled={!can.editPromotions}
+              // Off stays direct for a manager; on is a promotion_enable change.
+              disabled={!can.editPromotions && !p.enabled}
               onChange={(next) => setEnabled(p.id, next)}
               label={tr('ws.manager.promotions.switchFor', { name: locale === 'ar' ? p.name_ar : p.name_en })}
               hideLabel
@@ -179,6 +192,16 @@ export function PromotionsListScreen() {
             >
               {statusText(p, tr, locale, now)}
             </span>
+            {/* Off, not ended: an ended one comes back through its dates, in the editor. */}
+            {proposes && lc === 'disabled' && (
+              <PriceChangeButton
+                size="sm"
+                kind="ghost"
+                target={{ change: 'promotion_enable', promotion: p.id }}
+                label={tr('ws.pricing.promotions.switchOn')}
+                ariaLabel={tr('ws.pricing.promotions.switchOnFor', { name: locale === 'ar' ? p.name_ar : p.name_en })}
+              />
+            )}
           </span>
         );
       },
@@ -192,7 +215,9 @@ export function PromotionsListScreen() {
     },
   ];
 
-  const newButton = (
+  const newButton = proposes ? (
+    <PriceChangeButton kind="primary" icon="plus" target={{ change: 'promotion' }} label={tr('ws.pricing.promotions.propose')} />
+  ) : (
     <Button kind="primary" icon="plus" disabled={!can.editPromotions} onClick={() => openEditor('new')}>
       {tr('ws.manager.promotions.create')}
     </Button>
@@ -201,7 +226,11 @@ export function PromotionsListScreen() {
   return (
     <div>
       <PageHeader title={tr('ws.manager.promotions.title')} subtitle={tr('ws.manager.promotions.lead')} actions={newButton}>
-        {!can.editPromotions && <PermissionRefusedNotice action={tr('ws.manager.promotions.create')} requiredRole={requiredRoleFor('editPromotions')} />}
+        {proposes ? (
+          <PriceLockNote message={tr('ws.pricing.promotions.note')} />
+        ) : (
+          !can.editPromotions && <PermissionRefusedNotice action={tr('ws.manager.promotions.create')} requiredRole={requiredRoleFor('editPromotions')} />
+        )}
       </PageHeader>
 
       <AsyncStateWrapper
@@ -221,7 +250,12 @@ export function PromotionsListScreen() {
               label: (
                 <>
                   {tr(`ws.manager.promotions.filter.${f}`)}
-                  <span style={{ fontWeight: 400, color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(counts[f], locale)}</span>
+                  {/* The margin parts the count from its word on screen ("All37"
+                      read as one token); the space parts it for a screen reader. */}
+                  <span style={{ marginInlineStart: 'var(--tp-sp-1-5)', fontWeight: 400, color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
+                    {' '}
+                    {formatNumber(counts[f], locale)}
+                  </span>
                 </>
               ),
             }))}

@@ -55,10 +55,13 @@ export const opErrorsProtocolsEn = {
   // Existing codes that had no op.errors string until now (both maps).
   NOT_PREPARED: 'Only prepared items can be made here.',
   NO_RECIPE: 'This item has no recipe yet. Ask a manager to add one.',
-  ROLE_RETIRED: 'Kitchen is retired. Choose barista or chef.',
+  ROLE_RETIRED: 'Kitchen is retired. Choose barista or chef assistant.',
   PROMOTION_NOT_FOUND: 'That promotion could not be found.',
   INVALID_WEEKDAYS: 'Those days of the week are not valid. Pick each day once.',
   CODE_TAKEN: 'That promo code is already used by another promotion.',
   // The staff-admin edge function's body code, for the phone's add-staff form.
   EMAIL_IN_USE: 'An account with this email already exists.',
+  // Role spec (lane J, recipe_change_requests): the owner's approve of a head's
+  // recipe change, when the recipe moved on since it was asked.
+  RECIPE_CHANGED: 'The recipe changed after this request was sent. Ask for a new change.',
 } as const;

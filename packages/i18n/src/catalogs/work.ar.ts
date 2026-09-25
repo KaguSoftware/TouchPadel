@@ -84,6 +84,8 @@ export const workAr: DeepMessages<typeof workEn> = {
       cancelled: 'أُلغي',
       received: 'استُلم',
       acknowledged: 'تم التحقق',
+      pending: 'بانتظار رئيس الطهاة',
+      declined: 'مرفوض',
     },
   },
   purchase: {
@@ -100,5 +102,33 @@ export const workAr: DeepMessages<typeof workEn> = {
       dessert: 'حلوى',
       food: 'طعام',
     },
+  },
+  marketingRequest: {
+    status: {
+      open: 'بانتظار التسويق',
+      done: 'تم',
+      declined: 'مرفوض',
+      withdrawn: 'مسحوب',
+    },
+  },
+  recipeChange: {
+    status: {
+      waiting: 'بانتظار المالك',
+      approved: 'تمت الموافقة',
+      declined: 'مرفوض',
+      withdrawn: 'مسحوب',
+    },
+  },
+  idea: {
+    status: {
+      waiting: 'بانتظار المراجعة',
+      started: 'بدأ كصنف جديد',
+      declined: 'مرفوضة',
+      withdrawn: 'مسحوبة',
+    },
+  },
+  team: {
+    bar: 'البار',
+    kitchen: 'المطبخ',
   },
 };

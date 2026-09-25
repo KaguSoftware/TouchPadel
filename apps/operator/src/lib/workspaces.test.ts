@@ -84,20 +84,30 @@ describe('navigation sets', () => {
     const targets = new Set(Object.values(WORKSPACES).flatMap((ws) => workspaceItems(ws).map((i) => i.to)));
     // Telegram lives in the admin sub-nav (System group), not on a rail.
     const shell = new Set(['/workspaces', '/kds', '/reports', '/reports/revenue', '/desk/customers/new', '/admin/telegram']);
-    // Routes that land before their rail row: /protocols is registered first
-    // (D1) so other screens can link to it, and its Observe and manager rows
-    // come with the page (D2, build-contracts-2026-09-23 §5.1).
-    const railPending = new Set(['/protocols']);
     for (const prefix of Object.keys(ROUTE_ROLES)) {
       const railed = [...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`));
-      expect(shell.has(prefix) || railPending.has(prefix) || railed, prefix).toBe(true);
+      expect(shell.has(prefix) || railed, prefix).toBe(true);
     }
-    // A pending route leaves the list the moment its row lands, so the
-    // exemption cannot outlive the reason for it.
-    for (const prefix of railPending) {
-      expect(ROUTE_ROLES[prefix], `${prefix} is in ROUTE_ROLES`).toBeDefined();
-      expect([...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`)), `${prefix} has a rail row now`).toBe(false);
+  });
+
+  it('puts My tasks last on the desk and the till, where a shift can reach its steps (§5.1)', () => {
+    for (const key of ['courtDesk', 'cashier'] as const) {
+      const items = WORKSPACES[key].groups.flatMap((g) => g.items);
+      expect(items.at(-1)?.to, key).toBe('/tasks');
+      expect(items.at(-1)?.labelKey, key).toBe('myTasks');
     }
+    // The kitchen board stays navless: its My tasks is a header button.
+    expect(WORKSPACES.prep.groups).toHaveLength(0);
+  });
+
+  it('badges the Protocols and Suggestions rows, and no other', () => {
+    const badged = Object.values(WORKSPACES)
+      .flatMap((ws) => workspaceItems(ws))
+      .filter((i) => i.badge)
+      .map((i) => [i.to, i.badge]);
+    expect(new Set(badged.map((b) => b.join(' ')))).toEqual(
+      new Set(['/protocols protocolsWaiting', '/suggestions suggestionsNew']),
+    );
   });
 });
 
@@ -149,10 +159,12 @@ describe('workspaceForRoute', () => {
     expect(workspaceForRoute('/analytics')).toBe('owner');
     expect(workspaceForRoute('/analytics/courts')).toBe('owner');
     expect(workspaceForRoute('/ops')).toBe('manager');
-    expect(workspaceForRoute('/tasks')).toBe('team');
+    // Eight roles open My tasks in their own workspace (§5.1), so it pins none.
+    expect(workspaceForRoute('/tasks')).toBeNull();
     expect(workspaceForRoute('/desk')).toBeNull();
     // Manager and owner share it, so a link in keeps whichever rail is open.
     expect(workspaceForRoute('/protocols')).toBeNull();
+    expect(workspaceForRoute('/suggestions')).toBeNull();
     expect(workspaceForRoute('/till/tabs')).toBeNull();
   });
 });
@@ -182,6 +194,8 @@ describe('sections', () => {
 
     expect(sectionForPath(owner, '/observation')?.key).toBe('observation');
     expect(sectionForPath(owner, '/observation/requests')?.key).toBe('observation');
+    expect(sectionForPath(owner, '/protocols')?.key).toBe('observation');
+    expect(sectionForPath(owner, '/suggestions')?.key).toBe('observation');
     expect(sectionForPath(owner, '/marketing')?.key).toBe('observation');
     expect(sectionForPath(owner, '/ops')?.key).toBe('observation');
     // Bookings and tills are Observe's own view-only boards...
@@ -236,6 +250,14 @@ describe('sections', () => {
     expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
   });
 
+  it('lists Protocols and Suggestions right after the requests they sit beside, and keeps four sections', () => {
+    const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
+    const rail = sectionRailItems(observation).map((i) => i.to);
+    const at = rail.indexOf('/observation/requests');
+    expect(rail.slice(at, at + 3)).toEqual(['/observation/requests', '/protocols', '/suggestions']);
+    expect(owner.sections).toHaveLength(4);
+  });
+
   it("rails Observe's bookings and tills to the view-only boards, not the workstations", () => {
     const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
     const rail = sectionRailItems(observation);
@@ -280,7 +302,12 @@ describe('workspaceOwnsPath', () => {
     expect(workspaceOwnsPath('owner', '/kds')).toBe(false);
     expect(workspaceOwnsPath('manager', '/panel')).toBe(false);
     expect(workspaceOwnsPath('team', '/tasks')).toBe(true);
+    expect(workspaceOwnsPath('courtDesk', '/tasks')).toBe(true);
+    expect(workspaceOwnsPath('cashier', '/tasks')).toBe(true);
     expect(workspaceOwnsPath('owner', '/tasks')).toBe(false);
+    // Protocols is on both management rails, so a link in keeps either.
+    expect(workspaceOwnsPath('owner', '/protocols')).toBe(true);
+    expect(workspaceOwnsPath('manager', '/protocols')).toBe(true);
   });
 });
 
@@ -291,7 +318,7 @@ describe('the manager rail', () => {
   it('groups its rows as Today, Run the day, Records and Setup', () => {
     expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
       [null, ['today']],
-      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose']],
+      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions']],
       ['groupRecords', ['reports', 'audit']],
       ['groupSetup', ['menu', 'rates', 'promotions']],
     ]);

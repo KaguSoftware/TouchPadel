@@ -254,6 +254,7 @@ function stockColumns(tr: Tr, locale: Locale) {
       q('theoreticalQty', 'ws.reports.stock.columns.expected'),
       q('countedQty', 'ws.reports.stock.columns.counted'),
       q('varianceQty', 'ws.reports.stock.columns.difference', { strong: true, tone: 'warn' }),
+      q('productTestQty', 'ws.release.variance.productTest'),
     ]),
   };
 }

@@ -1,0 +1,1353 @@
+{
+  "format": "touch-recipes",
+  "version": 2,
+  "source": {
+    "receivedAt": "2026-09-25",
+    "original": "recipes-2026-09-25.ar.txt",
+    "translation": "recipes-2026-09-25.en.txt",
+    "note": "Transcribed from the kitchen's Arabic text (bakery, café drinks, ice cream). \"---\" in the original file only marks where one pasted block ends. Checked by two independent blind transcriptions per section, four reviewers and three judges."
+  },
+  "conventions": {
+    "units": "g, ml or pc only. Every qty is in its ingredient's unit.",
+    "ids": "ingredients[].id and subRecipes[].id are fixed: uuid5(uuid5(NAMESPACE_URL, \"https://touch-padel.com/stock/ingredients\"), key), so a later migration can recompute an id from its key without a name lookup. menu.variant_id is the size's id from seeds/touch-cafe-menu.sql, checked against the live menu on 2026-09-25.",
+    "subRecipes": "Batch-made items become PREPARED ingredients. lines[].qty is for one whole batch as the kitchen wrote it; lines[].perUnit = qty / batchYield rounded to 3 decimals, which is what recipe_lines stores for the batch item. A sale takes the batch item from its own stock, so each batch must be recorded as made (only a head chef, chef, manager or owner can) or the sale overdraws and raises a negative-stock alert. active=false items are not on the menu and cannot be recorded as made.",
+    "menuRecipes": "One recipe per menu item size (menu.variant). A size carries one set of lines; add-ons can carry their own lines, added per add-on picked.",
+    "status": "ready = loaded by migration 20260925000190. incomplete = a line has no number or no confirmed ingredient (see its missing question), or batchYield is unknown (yieldMissing), or it waits on blockedBy. needs-decision = hot and iced differ; see Q04.",
+    "unitInferred": "true where the kitchen wrote a number with no unit and the unit was taken from the ingredient (grams for dry goods and fruit, ml for liquids).",
+    "notTracked": "Water and ice are not stock (Q30); they are kept per recipe so nothing written is lost.",
+    "goLive": "Owner decision 2026-09-25: ingredients and every ready recipe load together. A menu item with a recipe shows as blocked by stock at the till and greyed on the website while a bought ingredient it uses has 0 on hand. A batch-made item at 0 is looked through to its own ingredients, so desserts and ice-cream drinks become sellable once the raws are in even with no batch recorded; record a batch before service or those sales overdraw the batch item at no cost. Opening stock goes in as a delivery (Stock > Record a delivery, or Goods in for the driver's purchases) with a real unit cost on every line, never through a stock count: after this migration no ingredient has a live batch, so a count surplus creates a batch costed at 0. A sale's cost is fixed when the line is added to the order. An ingredient with no cost yet counts as 0, so the line records too low a cost (0 if nothing in it has a cost) unless the item has its own cost entered in the menu editor, and that is never corrected later. The first stock movement of any kind fixes an ingredient's unit (a delivery, a count, waste, a sale, or a recorded batch that uses it), so record nothing for passion fruit, coconut, peanuts or liquid cream until Q06, Q28 and Q17 are answered. Until then the Passion Fruit smoothie, Court Energy, Taj Special and San Sebastian stay blocked by stock, and no San Sebastian batch is recorded.",
+    "notIncluded": "Pack size, pack cost, supplier, shelf life, par and low-stock levels were not in the text; they are entered on the Ingredients page and at goods-in."
+  },
+  "counts": {
+    "ingredients": 63,
+    "batchItems": 12,
+    "batchRecipesReady": 8,
+    "menuRecipes": 66,
+    "menuRecipesReady": 28,
+    "menuRecipesIncomplete": 26,
+    "menuRecipesNeedDecision": 12,
+    "menuItemsWithoutRecipe": 13,
+    "questionsBlocking": 14,
+    "questionsTotal": 34
+  },
+  "ingredients": [
+    {"key": "flour", "id": "cc44830d-6114-556d-b3ce-fcf095e22a0f", "name_en": "Flour", "name_ar": "طحين", "unit": "g", "kind": "purchased", "saidAs": ["طحين"]},
+    {"key": "sugar", "id": "e3420129-d129-5eb8-b43f-9f9165375699", "name_en": "White sugar", "name_ar": "سكر أبيض", "unit": "g", "kind": "purchased", "saidAs": ["سكر", "سكر ابيض", "ملعقة سكر"]},
+    {"key": "brown-sugar", "id": "b07da026-caa9-501c-9119-fcc729864a2e", "name_en": "Brown sugar", "name_ar": "سكر أسمر", "unit": "g", "kind": "purchased", "saidAs": ["سكر اسمر", "سكر بني"]},
+    {"key": "milk", "id": "04ffec2a-a38a-5f0c-8b12-9beb42dfe10b", "name_en": "Milk", "name_ar": "حليب", "unit": "ml", "kind": "purchased", "saidAs": ["حليب", "حليب سائل", "حليب كاله", "حلسب"], "note": "Flat White names the brand: Kalleh (كاله). Bakery \"حليب سائل\" is treated as the same milk.", "questions": ["Q20"]},
+    {"key": "cake-improver", "id": "a9949857-aedc-581c-ad6f-f6cf7d5cd392", "name_en": "Cake improver", "name_ar": "محسن كيك", "unit": "g", "kind": "purchased", "saidAs": ["محسن كيك", "محسن"]},
+    {"key": "pastry-cream-powder", "id": "38e52981-875f-5a29-a4b9-bd501f17a210", "name_en": "Pastry cream powder (crème pâtissière)", "name_ar": "كريم باتيسير", "unit": "g", "kind": "purchased", "saidAs": ["كريم باتسير"]},
+    {"key": "eggs", "id": "ecff0312-c1ea-5bbf-b484-8bbbb245e506", "name_en": "Eggs", "name_ar": "بيض", "unit": "pc", "kind": "purchased", "saidAs": ["بيض", "بيضه", "بيضات"]},
+    {"key": "baking-powder", "id": "8438e980-c19f-5c47-9438-10d49b208774", "name_en": "Baking powder", "name_ar": "بيكنك باودر", "unit": "g", "kind": "purchased", "saidAs": ["بيكنك باودر"]},
+    {"key": "vanilla", "id": "9e026bb0-37c5-59cd-b034-7070826f70fc", "name_en": "Vanilla", "name_ar": "فانيلا", "unit": "g", "kind": "purchased", "saidAs": ["فانيلا"]},
+    {"key": "cocoa-powder", "id": "96920b08-bf9b-543c-b7bd-839158a4702d", "name_en": "Cocoa powder", "name_ar": "كاكاو بودرة", "unit": "g", "kind": "purchased", "saidAs": ["كاكو باودر", "كاكاو بودرة اسمها Today"], "questions": ["Q22"]},
+    {"key": "butter", "id": "85de1405-799c-5d92-83cd-6094e3961656", "name_en": "Butter", "name_ar": "زبدة", "unit": "g", "kind": "purchased", "saidAs": ["زبدة", "زبد", "زبد لورباك"], "note": "Cookies name the brand: Lurpak (لورباك). Counted as one butter everywhere for now.", "questions": ["Q19"]},
+    {"key": "belgian-chocolate", "id": "8469b576-e828-52ad-af67-6cd9d960a2c2", "name_en": "Belgian chocolate", "name_ar": "شوكولا بلجيكي", "unit": "g", "kind": "purchased", "saidAs": ["شوكولا بلجيكي"], "questions": ["Q21"]},
+    {"key": "belgian-dark-chocolate", "id": "b9af43a8-b899-53d3-999e-4e26f1376e7a", "name_en": "Belgian dark chocolate", "name_ar": "شوكولا بلجيكي دارك", "unit": "g", "kind": "purchased", "saidAs": ["بلجيكي دارك"], "questions": ["Q21"]},
+    {"key": "dark-chocolate", "id": "e0ced9b1-a36f-5abc-bfa5-c209f156fc95", "name_en": "Dark chocolate", "name_ar": "شوكولا دارك", "unit": "g", "kind": "purchased", "saidAs": ["شوكولا دارك"], "questions": ["Q21"]},
+    {"key": "blonde-chocolate", "id": "52a15a70-104a-5efa-a606-16f76402d867", "name_en": "Blonde chocolate", "name_ar": "شوكولا شقرة", "unit": "g", "kind": "purchased", "saidAs": ["شوكولا شقرة"], "note": "Read as milk chocolate until Q21 is answered.", "questions": ["Q21"]},
+    {"key": "cream-cheese", "id": "0dc193d6-9234-5dd6-9edb-588aecc0c893", "name_en": "Cream cheese", "name_ar": "كريم تشيز", "unit": "g", "kind": "purchased", "saidAs": ["جبن"], "note": "The kitchen wrote only \"جبن\".", "questions": ["Q18"]},
+    {"key": "bega-cheese", "id": "3ca7715c-f557-5bde-8164-03fc9832e533", "name_en": "Bega cream cheese", "name_ar": "جبن بيغا", "unit": "g", "kind": "purchased", "saidAs": ["جبن بيغا"], "questions": ["Q18"]},
+    {"key": "wili-cheese", "id": "5f21d315-c13b-5966-a9fa-589be883a2d9", "name_en": "Wili cheese", "name_ar": "جبن ويلي", "unit": "g", "kind": "purchased", "saidAs": ["جبن ويلي"], "note": "Brand not confirmed.", "questions": ["Q18"]},
+    {"key": "corn-starch", "id": "98b69ded-34cb-5bee-b7fc-12619c2830c0", "name_en": "Corn starch", "name_ar": "نشا", "unit": "g", "kind": "purchased", "saidAs": ["نشأ"]},
+    {"key": "liquid-cream", "id": "150d7364-4ad5-5733-86bb-c77648b61802", "name_en": "Liquid cream (pack)", "name_ar": "كريمة سائلة (علبة)", "unit": "pc", "kind": "purchased", "saidAs": ["كارتون كريمه سائله"], "note": "Counted in single packs; the kitchen wrote كارتون.", "questions": ["Q17"]},
+    {"key": "baking-soda", "id": "860791f5-85e1-50ce-84e4-daddb2e55e71", "name_en": "Baking soda", "name_ar": "صودا (بيكربونات)", "unit": "g", "kind": "purchased", "saidAs": ["صودا"]},
+    {"key": "yeast", "id": "b4203683-4d35-541d-b8f4-0c7951136021", "name_en": "Yeast", "name_ar": "خميرة", "unit": "g", "kind": "purchased", "saidAs": ["خميره"]},
+    {"key": "espresso-beans", "id": "02b871c3-14fd-567d-90b0-c8124591fd30", "name_en": "Espresso beans", "name_ar": "بن إسبريسو", "unit": "g", "kind": "purchased", "saidAs": ["بن", "اسبريسو سنكل10 غرام", "دبل اسبريسو 18 غرام"], "note": "A single shot is 10 g and a double 18 g, from the kitchen's Espresso line."},
+    {"key": "turkish-coffee", "id": "8d50a3ef-40dd-5c6e-9b87-22bdb99f6329", "name_en": "Turkish coffee (ground)", "name_ar": "بن تركي", "unit": "g", "kind": "purchased", "saidAs": ["تركيه"], "questions": ["Q25"]},
+    {"key": "karak-tea", "id": "e55fc649-917d-5aa4-87d0-10ffa0e48d38", "name_en": "Karak tea (dry)", "name_ar": "شاي كرك (ناشف)", "unit": "g", "kind": "purchased", "saidAs": ["شاي كرك 30 غرام"], "questions": ["Q26"]},
+    {"key": "lemon-tea", "id": "2220ca63-efe3-536f-95a3-65c9e67b4fcf", "name_en": "Lemon tea (dry)", "name_ar": "شاي ليمون (ناشف)", "unit": "g", "kind": "purchased", "saidAs": ["شاي ليمون 30 غرام"], "questions": ["Q26"]},
+    {"key": "hibiscus", "id": "febddf62-cb78-59f3-a23e-1173c7077866", "name_en": "Dried hibiscus", "name_ar": "كجرات (كركديه)", "unit": "g", "kind": "purchased", "saidAs": ["كجرات"]},
+    {"key": "lemon", "id": "355fee57-f8b6-5164-b7a7-aed985e07b12", "name_en": "Lemon", "name_ar": "ليمون", "unit": "pc", "kind": "purchased", "saidAs": ["ليمون", "ليمون فرش", "حبه ليمون", "شريحه ليمون"]},
+    {"key": "red-berry-syrup", "id": "30262671-0333-5fe0-acff-7a69f0946d63", "name_en": "Red berry syrup", "name_ar": "سيروب توت أحمر", "unit": "ml", "kind": "purchased", "saidAs": ["سيروب توت احمر"]},
+    {"key": "passion-fruit", "id": "352073ec-2519-52e3-b8e3-da06ee7bdd1b", "name_en": "Passion fruit", "name_ar": "باشن فروت", "unit": "ml", "kind": "purchased", "saidAs": ["باشن فروت"], "questions": ["Q06"]},
+    {"key": "spanish-sauce", "id": "20025951-d659-5695-afc3-f975d7400909", "name_en": "Spanish latte sauce", "name_ar": "صوص سبانش", "unit": "ml", "kind": "purchased", "saidAs": ["سبانش"]},
+    {"key": "mocha-sauce", "id": "9aee161a-5ad7-5549-b537-30d9f6bdf28d", "name_en": "Mocha sauce", "name_ar": "صوص موكا", "unit": "ml", "kind": "purchased", "saidAs": ["موكا"], "questions": ["Q24"]},
+    {"key": "caramel-sauce", "id": "3659fdf2-736a-5edf-9a23-3b287b85e1ff", "name_en": "Caramel sauce", "name_ar": "صوص كراميل", "unit": "ml", "kind": "purchased", "saidAs": ["كرميل"]},
+    {"key": "vanilla-sauce", "id": "a5c94334-91d6-5431-9782-a6fa21480b68", "name_en": "Vanilla sauce", "name_ar": "صوص فانيلا", "unit": "ml", "kind": "purchased", "saidAs": ["فانلا", "فانيلا"]},
+    {"key": "hazelnut-sauce", "id": "dfad096e-ad22-53a3-b844-bffaed8dd5ea", "name_en": "Hazelnut sauce", "name_ar": "صوص بندق", "unit": "ml", "kind": "purchased", "saidAs": ["بندق"]},
+    {"key": "chocolate-sauce", "id": "581c0400-8636-574f-a4b9-a7a510664803", "name_en": "Chocolate sauce", "name_ar": "صوص شوكولا", "unit": "ml", "kind": "purchased", "saidAs": ["صوص شوكلا", "صوص 35"], "questions": ["Q24"]},
+    {"key": "white-chocolate-sauce", "id": "197cc2e7-0846-5e54-a947-020c418f4613", "name_en": "White chocolate sauce", "name_ar": "صوص شوكولا بيضاء", "unit": "ml", "kind": "purchased", "saidAs": ["صوص 35"], "questions": ["Q24"]},
+    {"key": "strawberry-sauce", "id": "432081d1-474d-520c-a3df-72ed7fac29ce", "name_en": "Strawberry sauce", "name_ar": "صوص فراولة", "unit": "ml", "kind": "purchased", "saidAs": ["صوص 35", "30 مل صوص"], "questions": ["Q24"]},
+    {"key": "lotus-sauce", "id": "c2b7be04-8332-52fe-bb1a-06ff16d52d7c", "name_en": "Lotus sauce", "name_ar": "صوص لوتس", "unit": "ml", "kind": "purchased", "saidAs": ["صوص 35"], "questions": ["Q24"]},
+    {"key": "pistachio-sauce", "id": "665ad14d-d8ef-5e00-a42d-6054a3fe44f6", "name_en": "Pistachio sauce", "name_ar": "صوص بستاشيو", "unit": "ml", "kind": "purchased", "saidAs": ["صوص بستاشيو", "صوص 35"]},
+    {"key": "nutella-sauce", "id": "9d8bb645-4f1a-5e76-971b-87204d94f69c", "name_en": "Nutella sauce", "name_ar": "صوص نوتيلا", "unit": "ml", "kind": "purchased", "saidAs": ["35 صوص"]},
+    {"key": "peach-sauce", "id": "dd3c3b5b-b928-558c-b687-249d7428d1ac", "name_en": "Peach sauce", "name_ar": "صوص خوخ", "unit": "ml", "kind": "purchased", "saidAs": ["30 مل صوص"], "questions": ["Q24"]},
+    {"key": "mango-sauce", "id": "f528771b-3248-58a6-b5c5-dff55b842bb5", "name_en": "Mango sauce", "name_ar": "صوص منكا", "unit": "ml", "kind": "purchased", "saidAs": ["30 مل صوص"], "questions": ["Q24"]},
+    {"key": "pineapple-sauce", "id": "638c3b11-11ce-5b79-8d12-f1b5e959f72b", "name_en": "Pineapple sauce", "name_ar": "صوص أناناس", "unit": "ml", "kind": "purchased", "saidAs": ["30 مل صوص"], "questions": ["Q24"]},
+    {"key": "blue-syrup", "id": "ffa966ca-bfa5-5586-af83-d9328f8592e6", "name_en": "Blue syrup", "name_ar": "سيروب بلو", "unit": "ml", "kind": "purchased", "saidAs": ["سيروب بلو"]},
+    {"key": "blueberry-syrup", "id": "73291e9d-a9f4-598d-b9f0-65bcb6e511ee", "name_en": "Blueberry syrup", "name_ar": "سيروب بلو بيري", "unit": "ml", "kind": "purchased", "saidAs": ["سيروب بلو بيري"]},
+    {"key": "ice-cream-powder", "id": "abe794b6-d086-5158-bd64-e1e89fe788ee", "name_en": "Ice cream powder", "name_ar": "باودر آيس كريم", "unit": "g", "kind": "purchased", "saidAs": ["باودر", "بادور"], "note": "One powder for both batches; the chocolate sauce makes the chocolate one.", "questions": ["Q23"]},
+    {"key": "orange", "id": "504d3454-f26e-53a2-ac97-ba75aeddca9b", "name_en": "Orange", "name_ar": "برتقال", "unit": "pc", "kind": "purchased", "saidAs": ["برتقال"]},
+    {"key": "strawberries", "id": "3b1ef6cf-2460-55f1-a5ab-807b26223eeb", "name_en": "Strawberries", "name_ar": "فراولة", "unit": "g", "kind": "purchased", "saidAs": ["فراوله"]},
+    {"key": "mango", "id": "13e77b00-1bde-536a-ba26-f62c9c905a6b", "name_en": "Mango", "name_ar": "منكا", "unit": "g", "kind": "purchased", "saidAs": ["منكا"]},
+    {"key": "pineapple", "id": "273af7b7-8ab7-5536-bcf9-8d381d265dc2", "name_en": "Pineapple", "name_ar": "أناناس", "unit": "g", "kind": "purchased", "saidAs": ["أناناس"]},
+    {"key": "peach", "id": "0532f4c7-7832-5172-b013-4d7880f27d81", "name_en": "Peach", "name_ar": "خوخ", "unit": "g", "kind": "purchased", "saidAs": ["خوخ"], "questions": ["Q08"]},
+    {"key": "banana", "id": "0064529d-5b4c-5835-b98a-64fa1e3d4786", "name_en": "Banana", "name_ar": "موز", "unit": "pc", "kind": "purchased", "saidAs": ["موزه", "موزة"]},
+    {"key": "green-apple", "id": "564659ac-cc55-5f0d-91e9-f7ca918a26be", "name_en": "Green apple", "name_ar": "تفاح أخضر", "unit": "pc", "kind": "purchased", "saidAs": ["تفاح اخضر"]},
+    {"key": "carrot", "id": "e0d84674-3861-5493-9834-0ada19bb3e41", "name_en": "Carrot", "name_ar": "جزر", "unit": "pc", "kind": "purchased", "saidAs": ["جزر"]},
+    {"key": "mint", "id": "67fa3e51-6a68-5f7f-a58d-8e0344a7d84f", "name_en": "Mint leaves", "name_ar": "ورق نعناع", "unit": "pc", "kind": "purchased", "saidAs": ["ورقه نعناع"], "note": "Counted in leaves, as written."},
+    {"key": "dates", "id": "2935e71f-56bb-59dc-aac3-a05fe7bc16ef", "name_en": "Dates", "name_ar": "تمر", "unit": "pc", "kind": "purchased", "saidAs": ["تمر"]},
+    {"key": "peanuts", "id": "98c5cf6d-3535-5b64-ba95-e734c0ed8ce7", "name_en": "Peanuts", "name_ar": "فول سوداني", "unit": "g", "kind": "purchased", "saidAs": ["فول سوداني"], "questions": ["Q28"]},
+    {"key": "honey", "id": "84905bd3-500b-5e9e-b69e-a13daf6d82b3", "name_en": "Honey", "name_ar": "عسل", "unit": "g", "kind": "purchased", "saidAs": ["عسل"]},
+    {"key": "coconut", "id": "4edf8d96-cdec-5f88-9277-f22cbbb03380", "name_en": "Coconut", "name_ar": "جوز الهند", "unit": "g", "kind": "purchased", "saidAs": ["جوز الهند"], "questions": ["Q28"]},
+    {"key": "blueberries", "id": "45607610-4fd4-559d-a592-225de1356473", "name_en": "Fresh blueberries", "name_ar": "بلو بيري فرش", "unit": "g", "kind": "purchased", "saidAs": ["بلو بيري فرش"]},
+    {"key": "sprite", "id": "9ff1c117-c81e-50e4-b3b0-bc248cb9eeab", "name_en": "Sprite (can)", "name_ar": "سبرايت (قوطية)", "unit": "pc", "kind": "purchased", "saidAs": ["قوطيه سبرايت"]},
+    {"key": "red-bull", "id": "d7ba1fbf-75bf-53a7-ba66-34c7b19fab4e", "name_en": "Red Bull (can)", "name_ar": "ريد بول (قوطية)", "unit": "pc", "kind": "purchased", "saidAs": ["قوطيه ريد"], "note": "Only the mojito's Red Bull option uses it, and the menu has no place for that option yet.", "questions": ["Q31"]}
+  ],
+  "subRecipes": [
+    {
+      "key": "rainbow-cake",
+      "id": "a0a97013-8dd7-5c99-9a16-5db6fc274ad4",
+      "name_en": "Rainbow cake (piece)",
+      "name_ar": "رينبو (قطعة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": false,
+      "status": "ready",
+      "batchYield": 32,
+      "yieldFrom": "يطلع 32 قطعه رينبو",
+      "from": "رينبو الشكل والحجم الجديد",
+      "lines": [
+        {"ingredient": "flour", "qty": 550, "unit": "g", "perUnit": 17.188, "from": "550 طحين", "unitInferred": true},
+        {"ingredient": "sugar", "qty": 550, "unit": "g", "perUnit": 17.188, "from": "550 سكر", "unitInferred": true},
+        {"ingredient": "milk", "qty": 500, "unit": "ml", "perUnit": 15.625, "from": "500 حليب سائل", "unitInferred": true},
+        {"ingredient": "cake-improver", "qty": 250, "unit": "g", "perUnit": 7.813, "from": "250 محسن كيك", "unitInferred": true},
+        {"ingredient": "pastry-cream-powder", "qty": 100, "unit": "g", "perUnit": 3.125, "from": "100 غرام كريم باتسير"},
+        {"ingredient": "eggs", "qty": 40, "unit": "pc", "perUnit": 1.25, "from": "40 بيض"}
+      ],
+      "note": "Not on the menu: loaded switched off (see Q15).",
+      "questions": ["Q15", "Q20", "Q29"]
+    },
+    {
+      "key": "milk-cake",
+      "id": "ba416edf-c87f-59ed-a6df-9b06e2e2d92c",
+      "name_en": "Milk cake (piece)",
+      "name_ar": "كيك حليب (قطعة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": false,
+      "status": "ready",
+      "batchYield": 16,
+      "yieldFrom": "يطلع 2 قالب كيك حليب يعني 16 قطعه القالبين",
+      "from": "كيك حليب",
+      "lines": [
+        {"ingredient": "sugar", "qty": 150, "unit": "g", "perUnit": 9.375, "from": "150 سكر", "unitInferred": true},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "perUnit": 9.375, "from": "150 حليب سائل", "unitInferred": true},
+        {"ingredient": "cake-improver", "qty": 70, "unit": "g", "perUnit": 4.375, "from": "70 محسن", "unitInferred": true},
+        {"ingredient": "flour", "qty": 170, "unit": "g", "perUnit": 10.625, "from": "170 طحين", "unitInferred": true},
+        {"ingredient": "baking-powder", "qty": 25, "unit": "g", "perUnit": 1.563, "from": "25بيكنك باودر", "unitInferred": true},
+        {"ingredient": "pastry-cream-powder", "qty": 70, "unit": "g", "perUnit": 4.375, "from": "70 كريم باتسير", "unitInferred": true},
+        {"ingredient": "eggs", "qty": 12, "unit": "pc", "perUnit": 0.75, "from": "12 بيضه"},
+        {"ingredient": "vanilla", "qty": 5, "unit": "g", "perUnit": 0.313, "from": "5 غ فانيلا"}
+      ],
+      "note": "Not on the menu: loaded switched off (see Q15).",
+      "questions": ["Q15", "Q16", "Q20", "Q29"]
+    },
+    {
+      "key": "lazy-cake",
+      "id": "42c15c9e-e3be-5b6c-a8ed-7dde46e1fbf3",
+      "name_en": "Lazy cake (piece)",
+      "name_ar": "ليزي كيك (قطعة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": true,
+      "status": "incomplete",
+      "batchYield": 16,
+      "yieldFrom": "16قطعه",
+      "from": "ليزي كيك",
+      "lines": [
+        {"ingredient": "milk", "qty": null, "unit": "ml", "from": "5 كواب حليب", "missing": "Q01"},
+        {"ingredient": "cocoa-powder", "qty": null, "unit": "g", "from": "15 ملعقة كاكاو بودرة اسمها Today", "missing": "Q01"},
+        {"ingredient": "sugar", "qty": null, "unit": "g", "from": "20  ملعقة سكر", "missing": "Q01"},
+        {"ingredient": "butter", "qty": 400, "unit": "g", "perUnit": 25.0, "from": "قالبين زبدة 400 غرام", "note": "Read as 400 g for the two blocks together (Q01)."},
+        {"ingredient": "belgian-chocolate", "qty": 500, "unit": "g", "perUnit": 31.25, "from": "500 غرام شوكولا بلجيكي"},
+        {"ingredient": "dark-chocolate", "qty": 75, "unit": "g", "perUnit": 4.688, "from": "75 غ شوكولا دارك", "note": "Coating (شوكولا للتغطية)."},
+        {"ingredient": "blonde-chocolate", "qty": 75, "unit": "g", "perUnit": 4.688, "from": "75 غ شوكولا شقرة", "note": "Coating (شوكولا للتغطية)."},
+        {"ingredient": "milk", "qty": 100, "unit": "ml", "perUnit": 6.25, "from": "100 غ حليب", "note": "Coating. Written as 100 g, counted as 100 ml (Q20)."}
+      ],
+      "questions": ["Q01", "Q12", "Q19", "Q20", "Q21", "Q22"]
+    },
+    {
+      "key": "san-sebastian",
+      "id": "6521f51e-2deb-5035-bd6d-371d7950af03",
+      "name_en": "San Sebastian cheesecake (piece)",
+      "name_ar": "سان سباستيان (قطعة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": true,
+      "status": "ready",
+      "batchYield": 30,
+      "yieldFrom": "30قطعه",
+      "from": "سان سباستيان",
+      "lines": [
+        {"ingredient": "cream-cheese", "qty": 3000, "unit": "g", "perUnit": 100.0, "from": "3000جبن", "unitInferred": true},
+        {"ingredient": "bega-cheese", "qty": 2000, "unit": "g", "perUnit": 66.667, "from": "2000جبن بيغا", "unitInferred": true},
+        {"ingredient": "wili-cheese", "qty": 1000, "unit": "g", "perUnit": 33.333, "from": "1000 جبن ويلي", "unitInferred": true},
+        {"ingredient": "sugar", "qty": 700, "unit": "g", "perUnit": 23.333, "from": "700 سكر", "unitInferred": true},
+        {"ingredient": "corn-starch", "qty": 200, "unit": "g", "perUnit": 6.667, "from": "200 نشأ", "unitInferred": true},
+        {"ingredient": "liquid-cream", "qty": 3, "unit": "pc", "perUnit": 0.1, "from": "3 كارتون كريمه سائله"},
+        {"ingredient": "eggs", "qty": 25, "unit": "pc", "perUnit": 0.833, "from": "25 بيض"},
+        {"ingredient": "vanilla", "qty": 10, "unit": "g", "perUnit": 0.333, "from": "10 غرام فانيلا"}
+      ],
+      "questions": ["Q17", "Q18"]
+    },
+    {
+      "key": "cookie",
+      "id": "29ce7a4f-699b-52f9-a74e-7b1e63677c47",
+      "name_en": "Cookie (piece)",
+      "name_ar": "كوكيز (قطعة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": true,
+      "status": "ready",
+      "batchYield": 30,
+      "yieldFrom": "30قطعه",
+      "from": "كوكيز",
+      "lines": [
+        {"ingredient": "butter", "qty": 400, "unit": "g", "perUnit": 13.333, "from": "400 غرام زبد لورباك"},
+        {"ingredient": "eggs", "qty": 4, "unit": "pc", "perUnit": 0.133, "from": "4 بيضات"},
+        {"ingredient": "flour", "qty": 650, "unit": "g", "perUnit": 21.667, "from": "650 طحين", "unitInferred": true},
+        {"ingredient": "sugar", "qty": 120, "unit": "g", "perUnit": 4.0, "from": "120سكر ابيض", "unitInferred": true},
+        {"ingredient": "brown-sugar", "qty": 260, "unit": "g", "perUnit": 8.667, "from": "260 سكر اسمر", "unitInferred": true},
+        {"ingredient": "vanilla", "qty": 5, "unit": "g", "perUnit": 0.167, "from": "5 غ فانيلا"},
+        {"ingredient": "baking-soda", "qty": 6, "unit": "g", "perUnit": 0.2, "from": "6غ صودا"},
+        {"ingredient": "corn-starch", "qty": 20, "unit": "g", "perUnit": 0.667, "from": "20 غ نشأ"}
+      ],
+      "questions": ["Q19", "Q29"]
+    },
+    {
+      "key": "muffin",
+      "id": "cbb5d86d-575f-5c88-80bb-34d9ea441f08",
+      "name_en": "Muffin (piece)",
+      "name_ar": "مافن (قطعة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": false,
+      "status": "incomplete",
+      "batchYield": 12,
+      "yieldFrom": "12 قطعه",
+      "from": "مافن",
+      "lines": [
+        {"ingredient": "flour", "qty": 190, "unit": "g", "perUnit": 15.833, "from": "190 طحين", "unitInferred": true},
+        {"ingredient": "sugar", "qty": 250, "unit": "g", "perUnit": 20.833, "from": "250 سكر", "unitInferred": true},
+        {"ingredient": "cocoa-powder", "qty": 45, "unit": "g", "perUnit": 3.75, "from": "45كاكو باودر", "unitInferred": true},
+        {"ingredient": "eggs", "qty": 2, "unit": "pc", "perUnit": 0.167, "from": "2 بيض"},
+        {"ingredient": "baking-powder", "qty": null, "unit": "g", "from": "رشة بيكنك باودر", "missing": "Q02"},
+        {"ingredient": "baking-soda", "qty": null, "unit": "g", "from": "رشة صودا", "missing": "Q02"},
+        {"ingredient": "milk", "qty": null, "unit": "ml", "from": "1/3حليب سائل", "missing": "Q02"}
+      ],
+      "notTracked": ["نص كوب ماء"],
+      "note": "Not on the menu: the item is loaded switched off; its batch recipe waits on Q02 (see Q15).",
+      "questions": ["Q02", "Q15", "Q20", "Q22"]
+    },
+    {
+      "key": "brownie",
+      "id": "b388a551-9092-5469-a5c5-1ae0e9c7d69e",
+      "name_en": "Brownie (cup)",
+      "name_ar": "براونيز (كاسة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": true,
+      "status": "ready",
+      "batchYield": 35,
+      "yieldFrom": "35كاسه",
+      "from": "براونيز",
+      "lines": [
+        {"ingredient": "eggs", "qty": 15, "unit": "pc", "perUnit": 0.429, "from": "15 بيضه"},
+        {"ingredient": "brown-sugar", "qty": 750, "unit": "g", "perUnit": 21.429, "from": "750 سكر بني", "unitInferred": true},
+        {"ingredient": "sugar", "qty": 600, "unit": "g", "perUnit": 17.143, "from": "600 سكر ابيض", "unitInferred": true},
+        {"ingredient": "belgian-dark-chocolate", "qty": 1000, "unit": "g", "perUnit": 28.571, "from": "1000 بلجيكي دارك", "unitInferred": true},
+        {"ingredient": "butter", "qty": 500, "unit": "g", "perUnit": 14.286, "from": "500 زبد", "unitInferred": true},
+        {"ingredient": "flour", "qty": 500, "unit": "g", "perUnit": 14.286, "from": "500 طحين", "unitInferred": true},
+        {"ingredient": "cocoa-powder", "qty": 200, "unit": "g", "perUnit": 5.714, "from": "200 كاكو باودر", "unitInferred": true},
+        {"ingredient": "baking-powder", "qty": 12, "unit": "g", "perUnit": 0.343, "from": "12 غ بيكنك باودر"}
+      ],
+      "questions": ["Q19", "Q21", "Q22"]
+    },
+    {
+      "key": "donut",
+      "id": "f5f4d298-1595-529a-8e3e-b76dc351a6da",
+      "name_en": "Donut (piece)",
+      "name_ar": "دونات (قطعة)",
+      "kind": "prepared",
+      "unit": "pc",
+      "active": true,
+      "status": "ready",
+      "batchYield": 15,
+      "yieldFrom": "15قطعه",
+      "from": "دونات",
+      "lines": [
+        {"ingredient": "flour", "qty": 500, "unit": "g", "perUnit": 33.333, "from": "500 طحين", "unitInferred": true},
+        {"ingredient": "sugar", "qty": 75, "unit": "g", "perUnit": 5.0, "from": "75 سكر", "unitInferred": true},
+        {"ingredient": "eggs", "qty": 4, "unit": "pc", "perUnit": 0.267, "from": "4 بيضات"},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "perUnit": 10.0, "from": "150 غ حليب سائل", "note": "Written as 150 g, counted as 150 ml (Q20)."},
+        {"ingredient": "yeast", "qty": 10, "unit": "g", "perUnit": 0.667, "from": "10 غرام خميره"},
+        {"ingredient": "butter", "qty": 50, "unit": "g", "perUnit": 3.333, "from": "50 غرام زبد"}
+      ],
+      "questions": ["Q19", "Q20", "Q29"]
+    },
+    {
+      "key": "hibiscus-base-passion",
+      "id": "a47f57f0-484e-57df-ab52-6d0983b9ebc8",
+      "name_en": "Hibiscus base with passion fruit",
+      "name_ar": "خلطة كجرات مع باشن فروت",
+      "kind": "prepared",
+      "unit": "ml",
+      "active": true,
+      "status": "incomplete",
+      "batchYield": null,
+      "yieldFrom": null,
+      "yieldMissing": "Q03",
+      "from": "first كجرات block (1000 مل ماء حار)",
+      "lines": [
+        {"ingredient": "hibiscus", "qty": 20, "unit": "g", "from": "20 غ كجرات"},
+        {"ingredient": "sugar", "qty": 200, "unit": "g", "from": "200 غ سكر"},
+        {"ingredient": "lemon", "qty": 6, "unit": "pc", "from": "300 مل ليمون فرش", "derived": "300 ml ÷ 50 ml a lemon (your Bolo line: 3 lemons = 150 ml)"},
+        {"ingredient": "red-berry-syrup", "qty": 40, "unit": "ml", "from": "40 مل سيروب توت احمر"},
+        {"ingredient": "passion-fruit", "qty": 70, "unit": "ml", "from": "70 باشن فروت", "unitInferred": true}
+      ],
+      "notTracked": ["1000. مل ماء حار"],
+      "questions": ["Q03", "Q06", "Q14"]
+    },
+    {
+      "key": "hibiscus-base",
+      "id": "008a8a19-19d1-51a4-afc5-e38fbab09c0a",
+      "name_en": "Hibiscus base",
+      "name_ar": "خلطة كجرات",
+      "kind": "prepared",
+      "unit": "ml",
+      "active": true,
+      "status": "incomplete",
+      "batchYield": null,
+      "yieldFrom": null,
+      "yieldMissing": "Q03",
+      "from": "second كجرات block (750 مل ماء حار)",
+      "lines": [
+        {"ingredient": "hibiscus", "qty": 20, "unit": "g", "from": "20 غ كجرات"},
+        {"ingredient": "sugar", "qty": 175, "unit": "g", "from": "175 غ سكر"},
+        {"ingredient": "lemon", "qty": 6, "unit": "pc", "from": "300 مل ليمون فرش", "derived": "300 ml ÷ 50 ml a lemon (your Bolo line: 3 lemons = 150 ml)"},
+        {"ingredient": "red-berry-syrup", "qty": 40, "unit": "ml", "from": "40 مل سيروب توت احمر"}
+      ],
+      "notTracked": ["750. مل ماء حار"],
+      "questions": ["Q03", "Q14"]
+    },
+    {
+      "key": "vanilla-ice-cream",
+      "id": "24e433d4-dfe5-5f47-8cb9-029d60a58f7b",
+      "name_en": "Vanilla ice cream",
+      "name_ar": "آيس كريم فانيلا",
+      "kind": "prepared",
+      "unit": "g",
+      "active": true,
+      "status": "ready",
+      "batchYield": 2000,
+      "yieldFrom": "derived by weight: 1500 ml water (1500 g) + 500 g powder",
+      "from": "فانلا",
+      "lines": [
+        {"ingredient": "ice-cream-powder", "qty": 500, "unit": "g", "perUnit": 0.25, "from": "500 غ باودر"}
+      ],
+      "notTracked": ["1500مل ماء"],
+      "questions": ["Q23", "Q27", "Q33"]
+    },
+    {
+      "key": "chocolate-ice-cream",
+      "id": "55b92a66-e3d7-50ff-b7c1-a72bca748e5d",
+      "name_en": "Chocolate ice cream",
+      "name_ar": "آيس كريم شوكولا",
+      "kind": "prepared",
+      "unit": "g",
+      "active": false,
+      "status": "ready",
+      "batchYield": 2075,
+      "yieldFrom": "derived by weight: 1500 ml water (1500 g) + 500 g powder + 75 ml sauce (taken as 75 g)",
+      "from": "شوكلا",
+      "lines": [
+        {"ingredient": "ice-cream-powder", "qty": 500, "unit": "g", "perUnit": 0.241, "from": "500 غ بادور"},
+        {"ingredient": "chocolate-sauce", "qty": 75, "unit": "ml", "perUnit": 0.036, "from": "75 مل صوص شوكلا"}
+      ],
+      "notTracked": ["1500 مل ماء"],
+      "note": "No menu recipe uses it until Q23 is answered: loaded switched off.",
+      "questions": ["Q23", "Q24", "Q27", "Q33"]
+    }
+  ],
+  "recipes": [
+    {
+      "menu": {"category": "Coffee", "item_en": "Espresso", "item_ar": "إيسبريسو", "variant": "Single", "variant_id": "f1f70000-0000-4000-8000-0000b0001001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "اسبريسو سنكل10 غرام استخلاص 20",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "اسبريسو سنكل10 غرام"}
+      ]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Espresso", "item_ar": "إيسبريسو", "variant": "Double", "variant_id": "f1f70000-0000-4000-8000-0000b0001002"},
+      "serve": "any",
+      "status": "ready",
+      "from": "دبل اسبريسو 18 غرام استخلاص 36",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 18, "unit": "g", "from": "دبل اسبريسو 18 غرام"}
+      ]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Americano", "item_ar": "أميريكانو", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0002001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "أمريكانو ساخن سنكل اسبريسو / ايس امريكانو سنكل اسبريسو +50 ماء + 100 ثلج",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"}
+      ],
+      "notTracked": ["ماء", "+50 ماء", "100 ثلج"],
+      "note": "Hot and iced use the same shot; they only differ in water and ice, which are not tracked."
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Latte", "item_ar": "لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0003001"},
+      "serve": "hot",
+      "status": "needs-decision",
+      "from": "لاتيه كلاسك سنكل اسبريسو + 180 حليب",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"},
+        {"ingredient": "milk", "qty": 180, "unit": "ml", "from": "180 حليب"}
+      ],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Latte", "item_ar": "لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0003001"},
+      "serve": "iced",
+      "status": "needs-decision",
+      "from": "كلاسك 200 حليب 150 ثلج اسبريسو دبل",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 18, "unit": "g", "from": "اسبريسو دبل", "derived": "double shot = 18 g (your Espresso line)"},
+        {"ingredient": "milk", "qty": 200, "unit": "ml", "from": "200 حليب"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Spanish Latte", "item_ar": "سبانش لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0004001"},
+      "serve": "hot",
+      "status": "needs-decision",
+      "from": "اضافة صوص كرميل + موكا + بندق + فانلا + سبانش = سنكل اسبريسو + 20 + 150 حليب",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"},
+        {"ingredient": "spanish-sauce", "qty": 20, "unit": "ml", "from": "صوص سبانش + 20", "unitInferred": true},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"}
+      ],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Spanish Latte", "item_ar": "سبانش لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0004001"},
+      "serve": "iced",
+      "status": "needs-decision",
+      "from": "بندق + كرميل + فانيلا + سبانش + موكا / 180 حليب 150 ثلج اسبريسو دبل صوص 25 صوص",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 18, "unit": "g", "from": "اسبريسو دبل", "derived": "double shot = 18 g (your Espresso line)"},
+        {"ingredient": "spanish-sauce", "qty": 25, "unit": "ml", "from": "صوص 25", "unitInferred": true},
+        {"ingredient": "milk", "qty": 180, "unit": "ml", "from": "180 حليب"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Mocha Latte", "item_ar": "موكا لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0005001"},
+      "serve": "hot",
+      "status": "needs-decision",
+      "from": "اضافة صوص كرميل + موكا + بندق + فانلا + سبانش = سنكل اسبريسو + 20 + 150 حليب",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"},
+        {"ingredient": "mocha-sauce", "qty": 20, "unit": "ml", "from": "صوص موكا + 20", "unitInferred": true},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"}
+      ],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Mocha Latte", "item_ar": "موكا لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0005001"},
+      "serve": "iced",
+      "status": "needs-decision",
+      "from": "بندق + كرميل + فانيلا + سبانش + موكا / 180 حليب 150 ثلج اسبريسو دبل صوص 25 صوص",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 18, "unit": "g", "from": "اسبريسو دبل", "derived": "double shot = 18 g (your Espresso line)"},
+        {"ingredient": "mocha-sauce", "qty": 25, "unit": "ml", "from": "صوص 25", "unitInferred": true},
+        {"ingredient": "milk", "qty": 180, "unit": "ml", "from": "180 حليب"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Caramel Latte", "item_ar": "كراميل لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0006001"},
+      "serve": "hot",
+      "status": "needs-decision",
+      "from": "اضافة صوص كرميل + موكا + بندق + فانلا + سبانش = سنكل اسبريسو + 20 + 150 حليب",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"},
+        {"ingredient": "caramel-sauce", "qty": 20, "unit": "ml", "from": "صوص كرميل + 20", "unitInferred": true},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"}
+      ],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Caramel Latte", "item_ar": "كراميل لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0006001"},
+      "serve": "iced",
+      "status": "needs-decision",
+      "from": "بندق + كرميل + فانيلا + سبانش + موكا / 180 حليب 150 ثلج اسبريسو دبل صوص 25 صوص",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 18, "unit": "g", "from": "اسبريسو دبل", "derived": "double shot = 18 g (your Espresso line)"},
+        {"ingredient": "caramel-sauce", "qty": 25, "unit": "ml", "from": "صوص 25", "unitInferred": true},
+        {"ingredient": "milk", "qty": 180, "unit": "ml", "from": "180 حليب"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Vanilla Latte", "item_ar": "فانيلا لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0007001"},
+      "serve": "hot",
+      "status": "needs-decision",
+      "from": "اضافة صوص كرميل + موكا + بندق + فانلا + سبانش = سنكل اسبريسو + 20 + 150 حليب",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"},
+        {"ingredient": "vanilla-sauce", "qty": 20, "unit": "ml", "from": "صوص فانلا + 20", "unitInferred": true},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"}
+      ],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Vanilla Latte", "item_ar": "فانيلا لاتيه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0007001"},
+      "serve": "iced",
+      "status": "needs-decision",
+      "from": "بندق + كرميل + فانيلا + سبانش + موكا / 180 حليب 150 ثلج اسبريسو دبل صوص 25 صوص",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 18, "unit": "g", "from": "اسبريسو دبل", "derived": "double shot = 18 g (your Espresso line)"},
+        {"ingredient": "vanilla-sauce", "qty": 25, "unit": "ml", "from": "صوص 25", "unitInferred": true},
+        {"ingredient": "milk", "qty": 180, "unit": "ml", "from": "180 حليب"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Hazelnut Latte", "item_ar": "لاتيه بالبندق", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0008001"},
+      "serve": "hot",
+      "status": "needs-decision",
+      "from": "اضافة صوص كرميل + موكا + بندق + فانلا + سبانش = سنكل اسبريسو + 20 + 150 حليب",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"},
+        {"ingredient": "hazelnut-sauce", "qty": 20, "unit": "ml", "from": "صوص بندق + 20", "unitInferred": true},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"}
+      ],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Hazelnut Latte", "item_ar": "لاتيه بالبندق", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0008001"},
+      "serve": "iced",
+      "status": "needs-decision",
+      "from": "بندق + كرميل + فانيلا + سبانش + موكا / 180 حليب 150 ثلج اسبريسو دبل صوص 25 صوص",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 18, "unit": "g", "from": "اسبريسو دبل", "derived": "double shot = 18 g (your Espresso line)"},
+        {"ingredient": "hazelnut-sauce", "qty": 25, "unit": "ml", "from": "صوص 25", "unitInferred": true},
+        {"ingredient": "milk", "qty": 180, "unit": "ml", "from": "180 حليب"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Cortado", "item_ar": "كورتادو", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0009001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "كورتاد 20غرام بن استخلاص 40 غ+ 50 حليب",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 20, "unit": "g", "from": "20غرام بن"},
+        {"ingredient": "milk", "qty": 50, "unit": "ml", "from": "50 حليب"}
+      ]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Flat White", "item_ar": "فلات وايت", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0010001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "فلات وايت 20 غرام بن استخلاص 40 مل + 110 حليب كاله",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 20, "unit": "g", "from": "20 غرام بن"},
+        {"ingredient": "milk", "qty": 110, "unit": "ml", "from": "110 حليب كاله"}
+      ],
+      "questions": ["Q32", "Q04"]
+    },
+    {
+      "menu": {"category": "Coffee", "item_en": "Turkish Coffee", "item_ar": "قهوة تركية", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0011001"},
+      "serve": "any",
+      "status": "incomplete",
+      "blockedBy": "Q25",
+      "from": "تركيه + بندق 30 غرام + فنجان ونص ماء",
+      "lines": [
+        {"ingredient": "turkish-coffee", "qty": 30, "unit": "g", "from": "تركيه + بندق 30 غرام"}
+      ],
+      "notTracked": ["فنجان ونص ماء"],
+      "note": "30 g is about three times a usual cup, and بندق is read as the menu's Hazelnut choice of the same item; held until Q25.",
+      "questions": ["Q25"]
+    },
+    {
+      "menu": {"category": "Tea", "item_en": "Karak Tea", "item_ar": "شاي كرك", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0020001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "شاي كرك 30 غرام + 150 حلسب",
+      "lines": [
+        {"ingredient": "karak-tea", "qty": 30, "unit": "g", "from": "شاي كرك 30 غرام"},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حلسب"}
+      ],
+      "questions": ["Q26"]
+    },
+    {
+      "menu": {"category": "Tea", "item_en": "Lemon Tea", "item_ar": "شاي بالليمون", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0019001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "شاي ليمون 30 غرام",
+      "lines": [
+        {"ingredient": "lemon-tea", "qty": 30, "unit": "g", "from": "شاي ليمون 30 غرام"}
+      ],
+      "questions": ["Q26"]
+    },
+    {
+      "menu": {"category": "Tea", "item_en": "Hibiscus Tea", "item_ar": "شاي كركدية", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0021001"},
+      "serve": "any",
+      "status": "incomplete",
+      "blockedBy": "hibiscus-base",
+      "from": "the two كجرات blocks",
+      "lines": [
+        {"ingredient": "hibiscus-base", "qty": null, "unit": "ml", "from": "كجرات", "missing": "Q03"}
+      ],
+      "note": "Which of the two hibiscus batches this drink uses, and how many ml go in one cup, are not given.",
+      "questions": ["Q03", "Q04"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Strawberry", "item_ar": "فراولة", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0037001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": "strawberry-sauce", "qty": 35, "unit": "ml", "from": "صوص 35", "unitInferred": true}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Lotus", "item_ar": "لوتس", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0038001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": "lotus-sauce", "qty": 35, "unit": "ml", "from": "صوص 35", "unitInferred": true}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Pistachio", "item_ar": "بستاشيو", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0039001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": "pistachio-sauce", "qty": 35, "unit": "ml", "from": "صوص 35", "unitInferred": true}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Banana", "item_ar": "موز", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0036001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": null, "qty": 35, "from": "صوص 35", "note": "a Banana sauce, or the real banana? (Q24)", "missing": "Q24"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Snickers", "item_ar": "سنيكرز", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0040001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": null, "qty": 35, "from": "صوص 35", "note": "a Snickers sauce, or the real snickers? (Q24)", "missing": "Q24"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Kit Kat", "item_ar": "كت كات", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0041001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": null, "qty": 35, "from": "صوص 35", "note": "a Kit Kat sauce, or the real kit kat? (Q24)", "missing": "Q24"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Kinder", "item_ar": "كندر", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0042001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": null, "qty": 35, "from": "صوص 35", "note": "a Kinder sauce, or the real kinder? (Q24)", "missing": "Q24"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Milkshake", "item_en": "Chocolate", "item_ar": "شوكلاتة", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0043001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "ميلك شيك . 150 حليب + 175 ايسكريم + صوص 35",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": null, "qty": 175, "from": "175 ايسكريم", "note": "vanilla or chocolate ice cream? (Q23)", "missing": "Q23"},
+        {"ingredient": "chocolate-sauce", "qty": 35, "unit": "ml", "from": "صوص 35", "unitInferred": true}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Frappuccino", "item_en": "Caramel", "item_ar": "كراميل", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0030001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "فرابشينو. 150 حليب + 175 ايسكريم +صوص 35 + سنكل اسبريسو",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": "caramel-sauce", "qty": 35, "unit": "ml", "from": "صوص 35", "unitInferred": true},
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Frappuccino", "item_en": "White Chocolate", "item_ar": "شوكلاتة بيضاء", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0031001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "فرابشينو. 150 حليب + 175 ايسكريم +صوص 35 + سنكل اسبريسو",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": "white-chocolate-sauce", "qty": 35, "unit": "ml", "from": "صوص 35", "unitInferred": true},
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Frappuccino", "item_en": "Chocolate", "item_ar": "شوكولاتة", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0028001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "فرابشينو. 150 حليب + 175 ايسكريم +صوص 35 + سنكل اسبريسو",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": null, "qty": 175, "from": "175 ايسكريم", "note": "vanilla or chocolate ice cream? (Q23)", "missing": "Q23"},
+        {"ingredient": "chocolate-sauce", "qty": 35, "unit": "ml", "from": "صوص 35", "unitInferred": true},
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Frappuccino", "item_en": "Oreo", "item_ar": "اوريو", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0029001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "فرابشينو. 150 حليب + 175 ايسكريم +صوص 35 + سنكل اسبريسو",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": null, "qty": 35, "from": "صوص 35", "note": "an Oreo sauce, or Oreo biscuits? (Q24)", "missing": "Q24"},
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"}
+      ],
+      "questions": ["Q23", "Q24"]
+    },
+    {
+      "menu": {"category": "Frappuccino", "item_en": "Classic", "item_ar": "كلاسيك", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0032001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "فرابشينو. 150 حليب + 175 ايسكريم +صوص 35 + سنكل اسبريسو",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "vanilla-ice-cream", "qty": 175, "unit": "g", "from": "175 ايسكريم", "unitInferred": true},
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو", "derived": "single shot = 10 g (your Espresso line)"},
+        {"ingredient": null, "qty": 35, "from": "صوص 35", "missing": "Q11"}
+      ],
+      "questions": ["Q11", "Q23"]
+    },
+    {
+      "menu": {"category": "Cocktail", "item_en": "Fruit", "item_ar": "فواكه", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0034001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "فروتي منكا + أناناس 75 + فراوله 75 + ثلج وسكر",
+      "lines": [
+        {"ingredient": "mango", "qty": null, "unit": "g", "from": "منكا", "missing": "Q07"},
+        {"ingredient": "pineapple", "qty": 75, "unit": "g", "from": "أناناس 75", "unitInferred": true},
+        {"ingredient": "strawberries", "qty": 75, "unit": "g", "from": "فراوله 75", "unitInferred": true},
+        {"ingredient": "sugar", "qty": null, "unit": "g", "from": "سكر", "missing": "Q05"}
+      ],
+      "notTracked": ["ثلج"],
+      "questions": ["Q05", "Q07"]
+    },
+    {
+      "menu": {"category": "Cocktail", "item_en": "Taj Blue", "item_ar": "تاج بلو", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0033001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "تاج بلو . نص موزه + 75 أناناس + ثلج كثير + سيروب بلو 25",
+      "lines": [
+        {"ingredient": "banana", "qty": 0.5, "unit": "pc", "from": "نص موزه"},
+        {"ingredient": "pineapple", "qty": 75, "unit": "g", "from": "75 أناناس", "unitInferred": true},
+        {"ingredient": "blue-syrup", "qty": 25, "unit": "ml", "from": "سيروب بلو 25", "unitInferred": true}
+      ],
+      "notTracked": ["ثلج كثير"]
+    },
+    {
+      "menu": {"category": "Fresh Juice", "item_en": "Orange", "item_ar": "برتقال", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0022001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "برتقال 3 حبه = 300 مل + ثلج",
+      "lines": [
+        {"ingredient": "orange", "qty": 3, "unit": "pc", "from": "3 حبه = 300 مل"}
+      ],
+      "notTracked": ["ثلج"]
+    },
+    {
+      "menu": {"category": "Fresh Juice", "item_en": "Strawberry", "item_ar": "فراولة", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0023001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "فراوله 250 غ+ ماء",
+      "lines": [
+        {"ingredient": "strawberries", "qty": 250, "unit": "g", "from": "فراوله 250 غ"}
+      ],
+      "notTracked": ["ماء"]
+    },
+    {
+      "menu": {"category": "Fresh Juice", "item_en": "Bolo", "item_ar": "بولو", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0027001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "بولو 3 حبه ليمون 150 مل + 15 ورقه نعناع ثلج وسكر",
+      "lines": [
+        {"ingredient": "lemon", "qty": 3, "unit": "pc", "from": "3 حبه ليمون 150 مل"},
+        {"ingredient": "mint", "qty": 15, "unit": "pc", "from": "15 ورقه نعناع"},
+        {"ingredient": "sugar", "qty": null, "unit": "g", "from": "سكر", "missing": "Q05"}
+      ],
+      "notTracked": ["ثلج"],
+      "questions": ["Q05"]
+    },
+    {
+      "menu": {"category": "Fresh Juice", "item_en": "Mango", "item_ar": "مانغا", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0026001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "منكا 250 غ + ماء + 100 ثلج+ سكر",
+      "lines": [
+        {"ingredient": "mango", "qty": 250, "unit": "g", "from": "منكا 250 غ"},
+        {"ingredient": "sugar", "qty": null, "unit": "g", "from": "سكر", "missing": "Q05"}
+      ],
+      "notTracked": ["ماء", "100 ثلج"],
+      "questions": ["Q05"]
+    },
+    {
+      "menu": {"category": "Fresh Juice", "item_en": "Lemonade", "item_ar": "عصير ليمون", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0024001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "ليمون 3 حبه150 مل + 150 ثلج + سكر",
+      "lines": [
+        {"ingredient": "lemon", "qty": 3, "unit": "pc", "from": "3 حبه150 مل"},
+        {"ingredient": "sugar", "qty": null, "unit": "g", "from": "سكر", "missing": "Q05"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q05"]
+    },
+    {
+      "menu": {"category": "Smoothie", "item_en": "Peach", "item_ar": "خوخ", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0015001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "خوخ + منكا + فراوله + اناناس 30 مل صوص + حبه طبيعي + 150 ثلج",
+      "lines": [
+        {"ingredient": "peach-sauce", "qty": 30, "unit": "ml", "from": "30 مل صوص"},
+        {"ingredient": "peach", "qty": null, "unit": "g", "from": "حبه طبيعي", "missing": "Q08"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q08", "Q24"]
+    },
+    {
+      "menu": {"category": "Smoothie", "item_en": "Mango", "item_ar": "مانغا", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0016001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "خوخ + منكا + فراوله + اناناس 30 مل صوص + حبه طبيعي + 150 ثلج",
+      "lines": [
+        {"ingredient": "mango-sauce", "qty": 30, "unit": "ml", "from": "30 مل صوص"},
+        {"ingredient": "mango", "qty": null, "unit": "g", "from": "حبه طبيعي", "missing": "Q08"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q08", "Q24"]
+    },
+    {
+      "menu": {"category": "Smoothie", "item_en": "Strawberry", "item_ar": "فراولة", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0014001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "خوخ + منكا + فراوله + اناناس 30 مل صوص + حبه طبيعي + 150 ثلج",
+      "lines": [
+        {"ingredient": "strawberry-sauce", "qty": 30, "unit": "ml", "from": "30 مل صوص"},
+        {"ingredient": "strawberries", "qty": null, "unit": "g", "from": "حبه طبيعي", "missing": "Q08"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q08", "Q24"]
+    },
+    {
+      "menu": {"category": "Smoothie", "item_en": "Pineapple", "item_ar": "أناناس", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0012001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "خوخ + منكا + فراوله + اناناس 30 مل صوص + حبه طبيعي + 150 ثلج",
+      "lines": [
+        {"ingredient": "pineapple-sauce", "qty": 30, "unit": "ml", "from": "30 مل صوص"},
+        {"ingredient": "pineapple", "qty": null, "unit": "g", "from": "حبه طبيعي", "missing": "Q08"}
+      ],
+      "notTracked": ["150 ثلج"],
+      "questions": ["Q08", "Q24"]
+    },
+    {
+      "menu": {"category": "Smoothie", "item_en": "Passion Fruit", "item_ar": "باشن فروت", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0013001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "باشن فروت 50 مل + 200 ثلج + ماء",
+      "lines": [
+        {"ingredient": "passion-fruit", "qty": 50, "unit": "ml", "from": "باشن فروت 50 مل"}
+      ],
+      "notTracked": ["200 ثلج", "ماء"],
+      "questions": ["Q06"]
+    },
+    {
+      "menu": {"category": "Healthy", "item_en": "Green Apple", "item_ar": "تفاح اخضر", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0068001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "تفاح اخضر 1.5حبه + ثلج وماء",
+      "lines": [
+        {"ingredient": "green-apple", "qty": 1.5, "unit": "pc", "from": "تفاح اخضر 1.5حبه"}
+      ],
+      "notTracked": ["ثلج", "ماء"]
+    },
+    {
+      "menu": {"category": "Healthy", "item_en": "Orange & Carrot", "item_ar": "برتقال - جزر", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0070001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "برتقال جزر 2 برتقال + 1:5جزر + ثلج 100",
+      "lines": [
+        {"ingredient": "orange", "qty": 2, "unit": "pc", "from": "2 برتقال"},
+        {"ingredient": "carrot", "qty": 1.5, "unit": "pc", "from": "1:5جزر", "note": "\"1:5\" read as 1.5 carrots (Q28)."}
+      ],
+      "notTracked": ["ثلج 100"],
+      "questions": ["Q28"]
+    },
+    {
+      "menu": {"category": "Milk Drinks", "item_en": "Banana & Nutella Milk", "item_ar": "حليب موز ونوتيلا", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0044001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "موز حليب نوتلا نص موزه +150  حليب + 35 صوص  + ثلج",
+      "lines": [
+        {"ingredient": "banana", "qty": 0.5, "unit": "pc", "from": "نص موزه"},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150  حليب"},
+        {"ingredient": "nutella-sauce", "qty": 35, "unit": "ml", "from": "35 صوص", "unitInferred": true}
+      ],
+      "notTracked": ["ثلج"]
+    },
+    {
+      "menu": {"category": "Milk Drinks", "item_en": "Strawberry Milk", "item_ar": "حليب فراولة", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0045001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "فراوله حليب 150 حليب + 200 فراوله + سكر",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150 حليب"},
+        {"ingredient": "strawberries", "qty": 200, "unit": "g", "from": "200 فراوله", "unitInferred": true},
+        {"ingredient": "sugar", "qty": null, "unit": "g", "from": "سكر", "missing": "Q05"}
+      ],
+      "questions": ["Q05"]
+    },
+    {
+      "menu": {"category": "Milk Drinks", "item_en": "Banana Milk", "item_ar": "حليب موز", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0046001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "موز حليب 150حليب + نص موزه + 150 ثلج",
+      "lines": [
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "150حليب"},
+        {"ingredient": "banana", "qty": 0.5, "unit": "pc", "from": "نص موزه"}
+      ],
+      "notTracked": ["150 ثلج"]
+    },
+    {
+      "menu": {"category": "Mojito", "item_en": "Strawberry", "item_ar": "فراولة", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0061001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "موهيتو / ريد بول 20 سيروب + شريحه ليمون + ورقه نعناع + ثلج + 1.5 قوطيه سبرايت او قوطيه ريد كامله",
+      "lines": [
+        {"ingredient": null, "qty": 20, "from": "20 سيروب", "note": "strawberry syrup? (Q10)", "missing": "Q10"},
+        {"ingredient": "lemon", "qty": null, "unit": "pc", "from": "شريحه ليمون", "missing": "Q09"},
+        {"ingredient": "mint", "qty": null, "unit": "pc", "from": "ورقه نعناع", "missing": "Q09"},
+        {"ingredient": "sprite", "qty": 1.5, "unit": "pc", "from": "1.5 قوطيه سبرايت"}
+      ],
+      "notTracked": ["ثلج"],
+      "note": "Recipe uses the Sprite version. The Red Bull version (a whole can instead of 1.5 Sprite) has no place on the menu yet.",
+      "questions": ["Q09", "Q10", "Q31"]
+    },
+    {
+      "menu": {"category": "Mojito", "item_en": "Pomegranate & Blackberry", "item_ar": "رمان - توت اسود", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0062001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "موهيتو / ريد بول 20 سيروب + شريحه ليمون + ورقه نعناع + ثلج + 1.5 قوطيه سبرايت او قوطيه ريد كامله",
+      "lines": [
+        {"ingredient": null, "qty": 20, "from": "20 سيروب", "note": "pomegranate and blackberry syrup? (Q10)", "missing": "Q10"},
+        {"ingredient": "lemon", "qty": null, "unit": "pc", "from": "شريحه ليمون", "missing": "Q09"},
+        {"ingredient": "mint", "qty": null, "unit": "pc", "from": "ورقه نعناع", "missing": "Q09"},
+        {"ingredient": "sprite", "qty": 1.5, "unit": "pc", "from": "1.5 قوطيه سبرايت"}
+      ],
+      "notTracked": ["ثلج"],
+      "note": "Recipe uses the Sprite version. The Red Bull version (a whole can instead of 1.5 Sprite) has no place on the menu yet.",
+      "questions": ["Q09", "Q10", "Q31"]
+    },
+    {
+      "menu": {"category": "Mojito", "item_en": "Blue", "item_ar": "ازرق", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0063001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "موهيتو / ريد بول 20 سيروب + شريحه ليمون + ورقه نعناع + ثلج + 1.5 قوطيه سبرايت او قوطيه ريد كامله",
+      "lines": [
+        {"ingredient": "blue-syrup", "qty": 20, "unit": "ml", "from": "20 سيروب", "unitInferred": true, "note": "Same bottle as the Taj drinks? (Q10)"},
+        {"ingredient": "lemon", "qty": null, "unit": "pc", "from": "شريحه ليمون", "missing": "Q09"},
+        {"ingredient": "mint", "qty": null, "unit": "pc", "from": "ورقه نعناع", "missing": "Q09"},
+        {"ingredient": "sprite", "qty": 1.5, "unit": "pc", "from": "1.5 قوطيه سبرايت"}
+      ],
+      "notTracked": ["ثلج"],
+      "note": "Recipe uses the Sprite version. The Red Bull version (a whole can instead of 1.5 Sprite) has no place on the menu yet.",
+      "questions": ["Q09", "Q10", "Q31"]
+    },
+    {
+      "menu": {"category": "Mojito", "item_en": "Blueberry", "item_ar": "توت ازرق", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0064001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "موهيتو / ريد بول 20 سيروب + شريحه ليمون + ورقه نعناع + ثلج + 1.5 قوطيه سبرايت او قوطيه ريد كامله",
+      "lines": [
+        {"ingredient": "blueberry-syrup", "qty": 20, "unit": "ml", "from": "20 سيروب", "unitInferred": true, "note": "Same bottle as the Taj drinks? (Q10)"},
+        {"ingredient": "lemon", "qty": null, "unit": "pc", "from": "شريحه ليمون", "missing": "Q09"},
+        {"ingredient": "mint", "qty": null, "unit": "pc", "from": "ورقه نعناع", "missing": "Q09"},
+        {"ingredient": "sprite", "qty": 1.5, "unit": "pc", "from": "1.5 قوطيه سبرايت"}
+      ],
+      "notTracked": ["ثلج"],
+      "note": "Recipe uses the Sprite version. The Red Bull version (a whole can instead of 1.5 Sprite) has no place on the menu yet.",
+      "questions": ["Q09", "Q10", "Q31"]
+    },
+    {
+      "menu": {"category": "Mojito", "item_en": "Lemon & Mint", "item_ar": "ليمون - نعناع", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0065001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "موهيتو / ريد بول 20 سيروب + شريحه ليمون + ورقه نعناع + ثلج + 1.5 قوطيه سبرايت او قوطيه ريد كامله",
+      "lines": [
+        {"ingredient": null, "qty": 20, "from": "20 سيروب", "note": "which syrup? (Q10)", "missing": "Q10"},
+        {"ingredient": "lemon", "qty": null, "unit": "pc", "from": "شريحه ليمون", "missing": "Q09"},
+        {"ingredient": "mint", "qty": null, "unit": "pc", "from": "ورقه نعناع", "missing": "Q09"},
+        {"ingredient": "sprite", "qty": 1.5, "unit": "pc", "from": "1.5 قوطيه سبرايت"}
+      ],
+      "notTracked": ["ثلج"],
+      "note": "Recipe uses the Sprite version. The Red Bull version (a whole can instead of 1.5 Sprite) has no place on the menu yet.",
+      "questions": ["Q09", "Q10", "Q31"]
+    },
+    {
+      "menu": {"category": "Mojito", "item_en": "Pineapple", "item_ar": "أناناس", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0066001"},
+      "serve": "any",
+      "status": "incomplete",
+      "from": "موهيتو / ريد بول 20 سيروب + شريحه ليمون + ورقه نعناع + ثلج + 1.5 قوطيه سبرايت او قوطيه ريد كامله",
+      "lines": [
+        {"ingredient": null, "qty": 20, "from": "20 سيروب", "note": "pineapple syrup? (Q10)", "missing": "Q10"},
+        {"ingredient": "lemon", "qty": null, "unit": "pc", "from": "شريحه ليمون", "missing": "Q09"},
+        {"ingredient": "mint", "qty": null, "unit": "pc", "from": "ورقه نعناع", "missing": "Q09"},
+        {"ingredient": "sprite", "qty": 1.5, "unit": "pc", "from": "1.5 قوطيه سبرايت"}
+      ],
+      "notTracked": ["ثلج"],
+      "note": "Recipe uses the Sprite version. The Red Bull version (a whole can instead of 1.5 Sprite) has no place on the menu yet.",
+      "questions": ["Q09", "Q10", "Q31"]
+    },
+    {
+      "menu": {"category": "Signature", "item_en": "Court Energy", "item_ar": "كورت اينرجي", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0057001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "كورت اينرجي 15 فول سوداني + 100 حليب + عسل 10 غ + تمر 2 حبه + موزه نص",
+      "lines": [
+        {"ingredient": "peanuts", "qty": 15, "unit": "g", "from": "15 فول سوداني", "unitInferred": true},
+        {"ingredient": "milk", "qty": 100, "unit": "ml", "from": "100 حليب"},
+        {"ingredient": "honey", "qty": 10, "unit": "g", "from": "عسل 10 غ"},
+        {"ingredient": "dates", "qty": 2, "unit": "pc", "from": "تمر 2 حبه"},
+        {"ingredient": "banana", "qty": 0.5, "unit": "pc", "from": "موزه نص"}
+      ],
+      "questions": ["Q28"]
+    },
+    {
+      "menu": {"category": "Signature", "item_en": "Taj Special", "item_ar": "تاج سبيشل", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0058001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "توج سبيشل جوز الهند 5 + بلو بيري فرش 15 + سيروب بلو بيري 10 + ايسكريم 75 + 120 حليب + ثلج + ايسكريم 25غ و بلو بيري فرش 10غ للتزين",
+      "lines": [
+        {"ingredient": "coconut", "qty": 5, "unit": "g", "from": "جوز الهند 5", "unitInferred": true},
+        {"ingredient": "blueberries", "qty": 25, "unit": "g", "from": "بلو بيري فرش 15 + بلو بيري فرش 10غ للتزين", "note": "15 g in the drink + 10 g garnish."},
+        {"ingredient": "blueberry-syrup", "qty": 10, "unit": "ml", "from": "سيروب بلو بيري 10", "unitInferred": true},
+        {"ingredient": "vanilla-ice-cream", "qty": 100, "unit": "g", "from": "ايسكريم 75 + ايسكريم 25غ", "note": "75 g in the drink + 25 g garnish."},
+        {"ingredient": "milk", "qty": 120, "unit": "ml", "from": "120 حليب"}
+      ],
+      "notTracked": ["ثلج"],
+      "questions": ["Q23", "Q28"]
+    },
+    {
+      "menu": {"category": "Signature", "item_en": "Padel Fresh", "item_ar": "بادل فرش", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0060001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "بادل فريش فراوله 100 + موزة نص + 50 أناناس + منكا 75 + ايسكريم 25",
+      "lines": [
+        {"ingredient": "strawberries", "qty": 100, "unit": "g", "from": "فراوله 100", "unitInferred": true},
+        {"ingredient": "banana", "qty": 0.5, "unit": "pc", "from": "موزة نص"},
+        {"ingredient": "pineapple", "qty": 50, "unit": "g", "from": "50 أناناس", "unitInferred": true},
+        {"ingredient": "mango", "qty": 75, "unit": "g", "from": "منكا 75", "unitInferred": true},
+        {"ingredient": "vanilla-ice-cream", "qty": 25, "unit": "g", "from": "ايسكريم 25", "unitInferred": true}
+      ],
+      "questions": ["Q23"]
+    },
+    {
+      "menu": {"category": "Signature", "item_en": "Pistachino Macchiato", "item_ar": "بستاشينو ماكياتو", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0059001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "بستاشيو مكياتو سنكل اسبريسو 10غ + حليب 150 + ثلج 75 + صوص بستاشيو 60 مع التزين",
+      "lines": [
+        {"ingredient": "espresso-beans", "qty": 10, "unit": "g", "from": "سنكل اسبريسو 10غ"},
+        {"ingredient": "milk", "qty": 150, "unit": "ml", "from": "حليب 150"},
+        {"ingredient": "pistachio-sauce", "qty": 60, "unit": "ml", "from": "صوص بستاشيو 60 مع التزين", "unitInferred": true}
+      ],
+      "notTracked": ["ثلج 75"]
+    },
+    {
+      "menu": {"category": "Desserts", "item_en": "Donut", "item_ar": "دونات", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0049001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "batch recipe: donut",
+      "lines": [
+        {"ingredient": "donut", "qty": 1, "unit": "pc", "from": "15قطعه", "derived": "one order = one piece (Q13)"}
+      ],
+      "questions": ["Q13"]
+    },
+    {
+      "menu": {"category": "Desserts", "item_en": "Cookies", "item_ar": "كوكيز", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0050001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "batch recipe: cookie",
+      "lines": [
+        {"ingredient": "cookie", "qty": 1, "unit": "pc", "from": "30قطعه", "derived": "one order = one piece (Q13)"}
+      ],
+      "questions": ["Q13"]
+    },
+    {
+      "menu": {"category": "Desserts", "item_en": "San Sebastian", "item_ar": "سان سباسيتان", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0053001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "batch recipe: san-sebastian",
+      "lines": [
+        {"ingredient": "san-sebastian", "qty": 1, "unit": "pc", "from": "30قطعه", "derived": "one order = one piece (Q13)"}
+      ],
+      "questions": ["Q13"]
+    },
+    {
+      "menu": {"category": "Desserts", "item_en": "Brownies", "item_ar": "براونيز", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0054001"},
+      "serve": "any",
+      "status": "ready",
+      "from": "batch recipe: brownie",
+      "lines": [
+        {"ingredient": "brownie", "qty": 1, "unit": "pc", "from": "35كاسه", "derived": "one order = one piece (Q13)"}
+      ],
+      "questions": ["Q13"]
+    },
+    {
+      "menu": {"category": "Desserts", "item_en": "Mosaic Cake", "item_ar": "موزايك كيك", "variant": "Regular", "variant_id": "f1f70000-0000-4000-8000-0000b0052001"},
+      "serve": "any",
+      "status": "incomplete",
+      "blockedBy": "lazy-cake",
+      "from": "batch recipe: lazy-cake",
+      "lines": [
+        {"ingredient": "lazy-cake", "qty": 1, "unit": "pc", "from": "16قطعه", "derived": "one order = one piece (Q13)"}
+      ],
+      "note": "Lazy cake is matched to Mosaic Cake (Q12); held until the lazy-cake batch recipe is complete (Q01).",
+      "questions": ["Q01", "Q12", "Q13"]
+    }
+  ],
+  "menuItemsWithoutRecipe": [
+    {"category": "Smoothie", "item_en": "Mixed", "item_ar": "مكس"},
+    {"category": "Tea", "item_en": "Iraqi Tea", "item_ar": "شاي عراقي"},
+    {"category": "Fresh Juice", "item_en": "Watermelon", "item_ar": "بطيخ"},
+    {"category": "Cocktail", "item_en": "Pina Colada", "item_ar": "بينا كولادا"},
+    {"category": "Milk Drinks", "item_en": "Hot Chocolate", "item_ar": "شوكلاتة ساخنة"},
+    {"category": "Milk Drinks", "item_en": "Iced Chocolate", "item_ar": "شوكلاتة مثلجة"},
+    {"category": "Desserts", "item_en": "Cheesecake", "item_ar": "تشيز كيك"},
+    {"category": "Desserts", "item_en": "Tiramisu", "item_ar": "تيراميسو"},
+    {"category": "Desserts", "item_en": "Carrot Cake", "item_ar": "كيك جزر"},
+    {"category": "Healthy", "item_en": "Immunity Shot", "item_ar": "شوت المناعة"},
+    {"category": "Healthy", "item_en": "Protein", "item_ar": "بروتين"},
+    {"category": "Specialty Coffee", "item_en": "V60", "item_ar": "V60"},
+    {"category": "Specialty Coffee", "item_en": "Cold Brew", "item_ar": "كولد برو"}
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "blocking": true,
+      "for": "kitchen",
+      "about": ["lazy-cake", "Mosaic Cake"],
+      "en": "Lazy cake: please measure the 5 cups of milk in ml, and weigh one spoon of cocoa and one spoon of sugar (the same spoon you use) so the 15 and 20 spoons can be counted in grams. Is \"two blocks of butter, 400 g\" 400 g in total or 400 g each? If biscuits go in, which ones and how many grams?",
+      "ar": "ليزي كيك: ممكن تقيسون الـ 5 كواب حليب بالمل؟ وتوزنون ملعقة كاكاو وحدة وملعقة سكر وحدة (بنفس الملعقة اللي تستخدمونها) وتكولولنا كم غرام؟ حتى نحسب الـ 15 ملعقة كاكاو والـ 20 ملعقة سكر بالغرام. قالبين الزبدة 400 غرام: يعني القالبين سوة 400، لو كل قالب 400؟ وإذا يدخل بسكويت: كم غرام ونوعه شنو؟"
+    },
+    {
+      "id": "Q02",
+      "blocking": true,
+      "for": "kitchen",
+      "about": ["muffin"],
+      "en": "Muffin: roughly how many teaspoons are the pinch of baking powder and the pinch of baking soda (grams are better if you can weigh them)? Please measure the \"1/3\" milk in ml. The recipe has no oil or butter. Is that right?",
+      "ar": "مافن: رشة البيكنك باودر ورشة الصودا: تقريباً كم ملعقة صغيرة (وإذا تكدرون توزنوها بالغرام أحسن)؟ والـ 1/3 حليب: ممكن تقيسوه بالمل؟ والوصفة ما بيها زيت ولا زبدة، صحيح؟"
+    },
+    {
+      "id": "Q03",
+      "blocking": true,
+      "for": "kitchen",
+      "about": ["hibiscus-base-passion", "hibiscus-base", "Hibiscus Tea"],
+      "en": "Hibiscus: the two كجرات recipes have no name and no yield. Which drink is each one (hot hibiscus, iced hibiscus, or another drink)? How many ml does each batch make, and how many ml go in one cup? If one of them is a different drink, it has no place on the menu yet and would need its own item.",
+      "ar": "الكجرات: الوصفتين بدون اسم وما مكتوب كم تطلع. كل وحدة لأي مشروب (كجرات حار، كجرات بارد، لو مشروب ثاني)؟ كل خلطة كم مل تطلع؟ وكم مل نحط بالكوب الواحد؟ وإذا وحدة منهم مشروب ثاني، ماله مكان بالمنيو لحد الآن ويحتاج نضيفه."
+    },
+    {
+      "id": "Q04",
+      "blocking": true,
+      "for": "majed",
+      "about": ["Latte", "Spanish Latte", "Mocha Latte", "Caramel Latte", "Vanilla Latte", "Hazelnut Latte", "Hibiscus Tea", "Flat White"],
+      "en": "The six lattes are made differently hot and iced (hot: single shot, 150–180 ml milk, 20 ml sauce; iced: double shot, 180–200 ml milk, 25 ml sauce). The till does not record whether a latte was served hot or iced, so it cannot tell which recipe to use. (a) Split each latte into two sizes, Hot and Iced, at the same price; the cashier picks one on every latte, like Single/Double on Espresso. A manager cannot add a size to an item already on sale (it goes through a price change), so you would add these yourself; the free add-ons in (c) a manager can set up. (b) Use the hot recipe for both; every iced latte is then under-counted by 8 g beans, 20–30 ml milk and 5 ml sauce. (c) Keep the hot recipe on the size and add a free \"Iced\" add-on the cashier ticks, carrying those extra amounts; this takes six separate Iced add-ons, one per latte, because an add-on carries the same amounts on every item it is linked to and the extra milk and sauce differ from latte to latte. Until you choose, the lattes use no stock. Hibiscus Tea joins this choice if Q03 says the two كجرات batches are its hot and iced versions, and Flat White if Q32 says iced differs."
+    },
+    {"id": "Q05", "blocking": true, "for": "kitchen", "about": ["Fruit", "Bolo", "Mango", "Lemonade", "Strawberry Milk"], "en": "Sugar with no amount: how many grams of sugar go in one Fruit cocktail (فروتي), Bolo, Mango juice, Lemonade and Strawberry milk?", "ar": "السكر بدون كمية: كم غرام سكر نحط بكل واحد: كوكتيل فواكه (فروتي)، بولو، عصير منكا، عصير ليمون، حليب فراولة؟"},
+    {
+      "id": "Q06",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["passion-fruit", "hibiscus-base-passion", "Passion Fruit"],
+      "en": "Passion fruit: is it a purée, a syrup or fresh fruit? In the hibiscus recipe \"70 باشن فروت\" has no unit; it is counted as 70 ml. Please answer before the first delivery of it is recorded: after that its unit cannot change.",
+      "ar": "الباشن فروت: بيوريه لو سيروب لو فاكهة طبيعية؟ وبوصفة الكجرات مكتوب 70 بدون وحدة، حسبناها 70 مل. صحيح؟ (نحتاج الجواب قبل أول استلام إله، لأن بعدها ما نكدر نغير الوحدة)"
+    },
+    {"id": "Q07", "blocking": true, "for": "kitchen", "about": ["Fruit"], "en": "Fruit cocktail (فروتي): \"منكا + أناناس 75\" gives no amount for the mango. Is it 75 g of mango as well?", "ar": "كوكتيل فواكه (فروتي): المنكا ما مكتوب إلها كمية. هم 75 غرام مثل الأناناس؟"},
+    {"id": "Q08", "blocking": true, "for": "kitchen", "about": ["Peach", "Mango", "Strawberry", "Pineapple"], "en": "Smoothies (peach, mango, strawberry, pineapple): what is \"حبه طبيعي\"? How many grams of the real fruit go in one cup?", "ar": "السموذي (خوخ، منكا، فراولة، أناناس): شنو يعني \"حبه طبيعي\"؟ كم غرام فاكهة طبيعية نحط بالكوب؟"},
+    {"id": "Q09", "blocking": true, "for": "kitchen", "about": ["Mojito", "lemon", "mint"], "en": "Mojito: how many slices do you cut from one lemon? (Stock counts whole lemons.) And how many mint leaves go in one mojito?", "ar": "الموهيتو: الليمونة الوحدة كم شريحة تطلع؟ (المخزن يحسب الليمون بالحبة) وورق النعناع بالموهيتو كم ورقة؟"},
+    {
+      "id": "Q10",
+      "blocking": true,
+      "for": "kitchen",
+      "about": ["Mojito", "blue-syrup", "blueberry-syrup"],
+      "en": "Mojito syrups: which syrup is the 20 ml in each mojito? Our reading: Strawberry → strawberry syrup; Pomegranate & Blackberry → pomegranate and blackberry syrup (one bottle or two?); Blue → the blue syrup used in Taj Blue; Blueberry → the blueberry syrup used in Taj Special; Pineapple → pineapple syrup. Which syrup goes in Lemon & Mint? Is the rest right?",
+      "ar": "سيروب الموهيتو: الـ 20 مل سيروب بكل موهيتو شنو نوعه؟ احنا حطينا: فراولة ← سيروب فراولة، رمان - توت أسود ← سيروب رمان وتوت أسود (قنينة وحدة لو قنينتين؟)، أزرق ← سيروب البلو مال التاج بلو، توت أزرق ← سيروب البلو بيري مال التاج سبيشل، أناناس ← سيروب أناناس. وموهيتو ليمون نعناع شنو سيروبه؟ والباقي صحيح؟"
+    },
+    {"id": "Q11", "blocking": true, "for": "kitchen", "about": ["Classic"], "en": "Classic frappuccino: which sauce is its 35 ml, or does it take no sauce?", "ar": "فرابتشينو كلاسيك: الـ 35 مل صوص شنو نوعه؟ لو ما ينحط بيه صوص؟"},
+    {"id": "Q12", "blocking": true, "for": "kitchen", "about": ["lazy-cake", "Mosaic Cake"], "en": "Is the lazy cake what the menu calls Mosaic Cake (موزايك كيك)?", "ar": "الليزي كيك هو نفسه الموزايك كيك اللي بالمنيو؟"},
+    {"id": "Q13", "blocking": false, "for": "kitchen", "about": ["Desserts"], "en": "Is one dessert order one piece (one cookie, one donut, one slice, one brownie cup)?", "ar": "الطلب الواحد من الحلويات قطعة وحدة؟ (كوكيز وحدة، دونات وحدة، شريحة وحدة، كاسة براونيز وحدة)"},
+    {"id": "Q14", "blocking": false, "for": "kitchen", "about": ["hibiscus-base-passion", "hibiscus-base"], "en": "\"300 ml fresh lemon\" is counted as 6 lemons, using your Bolo line (3 lemons = 150 ml). Right?", "ar": "الـ 300 مل ليمون فرش حسبناها 6 حبات ليمون (حسب سطر البولو مالتكم: 3 حبات = 150 مل). صحيح؟"},
+    {
+      "id": "Q15",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["rainbow-cake", "milk-cake", "muffin", "Cheesecake", "Tiramisu", "Carrot Cake"],
+      "en": "Desserts: the menu sells Cheesecake, Tiramisu and Carrot Cake, but no recipe came for them. You sent Rainbow, Milk cake and Muffin, which are not on the menu (the three items are loaded switched off; Rainbow's and Milk cake's batch recipes are loaded, Muffin's waits on Q02). Are Cheesecake, Tiramisu and Carrot Cake still sold? If so, please send their recipes. Do Rainbow, Milk cake and Muffin replace them, or should they be added to the menu? (For Majed: you can add them yourself with New item on the Menu page; a manager's New item in a café category becomes Propose a new item, a product release that you launch. Their batch items must then be switched on too, or no batch can be recorded; Muffin also needs Q02.)",
+      "ar": "الحلويات: بالمنيو أكو تشيز كيك وتيراميسو وكيك جزر بس ما وصلتنا وصفاتهم، ودزيتوا رينبو وكيك حليب ومافن وهذني مو موجودين بالمنيو (دخلناهم بالبرنامج بس مطفيين حالياً). التشيز كيك والتيراميسو وكيك الجزر بعدهم ينباعون؟ إذا إي دزولنا وصفاتهم. والرينبو وكيك الحليب والمافن بدالهم، لو نضيفهم للمنيو؟"
+    },
+    {"id": "Q16", "blocking": false, "for": "kitchen", "about": ["milk-cake"], "en": "Milk cake: 25 g of baking powder for 170 g of flour is very high. Is it 25 g or 2.5 g?", "ar": "كيك الحليب: 25 غرام بيكنك باودر على 170 غرام طحين كثير. هي 25 غرام لو 2.5؟"},
+    {
+      "id": "Q17",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["liquid-cream", "san-sebastian"],
+      "en": "San Sebastian: is \"3 كارتون\" three single packs of cream (not three cases)? How many ml is one pack? Once we know, the cream can be counted in ml; please answer before any cream is received or a San Sebastian batch is recorded, because after that its unit cannot change.",
+      "ar": "سان سباستيان: الـ 3 كارتون كريمة سائلة يعني 3 علب (مو 3 صناديق كبار كل صندوق بي كذا علبة)؟ العلبة الوحدة كم مل؟ (نحتاج الجواب قبل أول استلام للكريمة وقبل ما تسجلون أول خلطة سان سباستيان، حتى نحسبها بالمل، لأن بعدها ما نكدر نغير الوحدة)"
+    },
+    {"id": "Q18", "blocking": false, "for": "kitchen", "about": ["cream-cheese", "bega-cheese", "wili-cheese"], "en": "San Sebastian cheeses: which cheese is the plain \"3000 جبن\", and what is \"جبن ويلي\" (which brand)? \"جبن بيغا\" is taken as Bega cream cheese.", "ar": "أجبان السان سباستيان: الـ 3000 جبن شنو نوعه؟ وجبن ويلي شنو (أي ماركة)؟ وجبن بيغا هو كريم تشيز ماركة Bega؟"},
+    {"id": "Q19", "blocking": false, "for": "kitchen", "about": ["butter"], "en": "Butter: is all the butter Lurpak, or do the brownies, donuts and lazy cake use a different butter? It is counted as one butter for now.", "ar": "الزبدة: كل الزبدة لورباك؟ لو نستخدم نوع ثاني بالبراونيز والدونات والليزي كيك؟ (حالياً حسبناها كلها زبدة وحدة)"},
+    {
+      "id": "Q20",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["milk"],
+      "en": "Milk: is the bakery \"liquid milk\" the same Kalleh milk as the café? Where the milk is written in grams (donut 150 g, lazy cake coating 100 g), it is counted in ml.",
+      "ar": "الحليب: الحليب السائل مال الحلويات نفس حليب كاله مال الكافيه؟ والحليب اللي مكتوب بالغرام (الدونات 150 غ، تغطية الليزي كيك 100 غ) حسبناه بالمل، يعني 150 مل و100 مل. صحيح؟"
+    },
+    {
+      "id": "Q21",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["belgian-chocolate", "belgian-dark-chocolate", "dark-chocolate", "blonde-chocolate"],
+      "en": "Chocolate: is the lazy cake's \"Belgian chocolate\" dark or milk, and is it the same as the brownies' Belgian dark? Is the coating's dark chocolate a different one? Is \"شوكولا شقرة\" milk chocolate?",
+      "ar": "الشوكولا: الشوكولا البلجيكي بالليزي كيك دارك لو حليب؟ نفس البلجيكي دارك مال البراونيز؟ الدارك مال التغطية نوع ثاني؟ والشوكولا الشقرة يعني شوكولا بالحليب؟"
+    },
+    {"id": "Q22", "blocking": false, "for": "kitchen", "about": ["cocoa-powder"], "en": "Cocoa: is the \"Today\" cocoa in the lazy cake the same cocoa as in the brownies and muffins?", "ar": "الكاكاو: كاكاو Today مال الليزي كيك نفس الكاكاو مال البراونيز والمافن؟"},
+    {
+      "id": "Q23",
+      "blocking": true,
+      "for": "kitchen",
+      "about": ["vanilla-ice-cream", "chocolate-ice-cream", "ice-cream-powder", "Chocolate"],
+      "en": "Ice cream: you make a chocolate ice cream, but no drink uses it yet. The Chocolate milkshake and Chocolate frappuccino wait on this; every other milkshake, frappuccino, Taj Special and Padel Fresh is set to vanilla. Which drinks take chocolate ice cream? Both batches are set to one ice cream powder, with the chocolate sauce making it chocolate. Does the chocolate batch use its own powder?",
+      "ar": "الآيس كريم: عندكم وصفة آيس كريم شوكولا، بس بالبرنامج هسه ولا مشروب مربوط بيها. ميلك شيك الشوكولا وفرابتشينو الشوكولا ينتظرون جوابكم، والباقي (الميلك شيك والفرابتشينو والتاج سبيشل والبادل فرش) حطيناه فانيلا. أي مشروبات ينحط بيها آيس كريم شوكولا؟ وحطينا نفس الباودر للفانيلا والشوكولا، والصوص هو اللي يخليه شوكولا. صحيح، لو الشوكولا إله باودر خاص؟"
+    },
+    {
+      "id": "Q24",
+      "blocking": true,
+      "for": "kitchen",
+      "about": ["sauces", "Banana", "Snickers", "Kit Kat", "Kinder", "Oreo"],
+      "en": "Sauces: the text says \"صوص 35\" for every milkshake and frappuccino and \"30 مل صوص\" for the smoothies. Our reading: Strawberry → strawberry sauce, Lotus → Lotus sauce, Pistachio → pistachio sauce, Chocolate → chocolate sauce, Caramel → caramel sauce, White Chocolate → white chocolate sauce, and a peach, mango, pineapple or strawberry sauce in the smoothies. Is that right? For Banana, Snickers, Kit Kat, Kinder and Oreo: what exactly goes in (a sauce, real banana, or the chocolate bar or biscuits), and how much? Are mocha sauce and chocolate sauce the same bottle? Is the strawberry smoothie sauce the same as the milkshake one?",
+      "ar": "الصوصات: مكتوب \"صوص 35\" لكل الميلك شيك والفرابتشينو و \"30 مل صوص\" للسموذي. احنا حطينا: فراولة ← صوص فراولة، لوتس ← صوص لوتس، بستاشيو ← صوص بستاشيو، شوكولا ← صوص شوكولا، كراميل ← صوص كراميل، شوكولا بيضاء ← صوص شوكولا بيضاء، وكل سموذي صوصه من نفس نوعه (خوخ ← صوص خوخ، منكا ← صوص منكا، أناناس ← صوص أناناس، فراولة ← صوص فراولة). صحيح؟ والموز والسنيكرز والكت كات والكندر والأوريو: شنو ينحط بالضبط؟ صوص، لو موز طبيعي، لو الشوكولاتة أو البسكويت نفسه؟ وكم؟ وصوص الموكا نفس صوص الشوكولا؟ وصوص الفراولة مال السموذي نفسه مال الميلك شيك؟"
+    },
+    {
+      "id": "Q25",
+      "blocking": true,
+      "for": "kitchen",
+      "about": ["Turkish Coffee"],
+      "en": "Turkish coffee: your line is \"تركيه + بندق 30 غرام + فنجان ونص ماء\". Is 30 g the coffee for one order? (A cup usually takes 7–10 g.) Is it the same for plain, medium and hazelnut? For hazelnut, do you use a separate hazelnut coffee, or the same coffee with hazelnut added, and how much?",
+      "ar": "القهوة التركية: مكتوب \"تركيه + بندق 30 غرام + فنجان ونص ماء\". الـ 30 غرام هي البن للطلب الواحد؟ (العادة 7 إلى 10 غرام للفنجان). ونفس الكمية للسادة والوسط والبندق؟ والبندق: قهوة بندق خاصة، لو نفس القهوة وتضيفون عليها بندق؟ وكم؟"
+    },
+    {"id": "Q26", "blocking": false, "for": "kitchen", "about": ["Karak Tea", "Lemon Tea"], "en": "Karak and lemon tea: what is the 30 g? A ready powder or mix, or tea leaves?", "ar": "شاي الكرك وشاي الليمون: الـ 30 غرام شنو بالضبط؟ باودر جاهز لو خلطة لو ورق شاي؟"},
+    {
+      "id": "Q27",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["vanilla-ice-cream", "chocolate-ice-cream"],
+      "en": "Ice cream yield: one batch is taken to make 2000 g (vanilla) and 2075 g (chocolate), the weight of what goes in. Weigh one finished batch to confirm.",
+      "ar": "الآيس كريم: حسبنا الخلطة تطلع 2000 غرام فانيلا و 2075 غرام شوكولا (يعني وزن اللي ينحط بيها: الماي والباودر، والشوكولا بيها الصوص هم). ممكن توزنون خلطة وحدة بعد ما تجهز حتى نتأكد؟"
+    },
+    {
+      "id": "Q28",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["peanuts", "coconut", "carrot"],
+      "en": "Units: \"15 فول سوداني\" is taken as 15 g (not 15 peanuts), \"جوز الهند 5\" as 5 g, and \"1:5 جزر\" as 1.5 carrots. Right? What form is the coconut: flakes, powder, or a coconut syrup or milk (then ml)?",
+      "ar": "الوحدات: 15 فول سوداني يعني 15 غرام (مو 15 حبة)؟ جوز الهند 5 يعني 5 غرام؟ و \"1:5 جزر\" يعني جزرة ونص؟ وجوز الهند شنو بالضبط: مبشور، باودر، لو سيروب أو حليب جوز هند (يعني بالمل)؟"
+    },
+    {
+      "id": "Q29",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["rainbow-cake", "milk-cake", "cookie", "donut"],
+      "en": "Anything missing? Rainbow has no colouring or oil, Milk cake has no milk soak, Cookies have no chocolate chips, and Donut has no frying oil or topping.",
+      "ar": "أكو شي ناقص بالوصفات؟ الرينبو بدون ألوان ولا زيت، كيك الحليب بدون خلطة الحليب اللي تنسقى بيها الكيكة، الكوكيز بدون حبيبات شوكولا، والدونات بدون زيت قلي ولا تغطية."
+    },
+    {"id": "Q30", "blocking": false, "for": "majed", "about": ["water", "ice"], "en": "Water and ice are left out of stock (they are not bought). Say if the café buys ice or bottled water and wants it counted."},
+    {"id": "Q31", "blocking": false, "for": "majed", "about": ["Mojito", "red-bull"], "en": "The Red Bull mojito (a whole can instead of 1.5 Sprite) cannot be counted yet, because the till would count Sprite. It needs its own menu item, or a Sprite / Red Bull choice on the mojitos where each choice carries its own can."},
+    {"id": "Q32", "blocking": false, "for": "kitchen", "about": ["Flat White"], "en": "Flat White is sold hot and iced; only one recipe was given. Is iced the same?", "ar": "الفلات وايت ينباع حار وبارد، ووصلتنا وصفة وحدة بس. البارد نفس الوصفة؟"},
+    {
+      "id": "Q33",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["vanilla-ice-cream", "chocolate-ice-cream"],
+      "en": "Who makes the ice cream mix and fills the machine: the bar or the kitchen chefs? Only a head chef, chef, manager or owner can record a batch in the app, and every milkshake takes its ice cream from recorded batches.",
+      "ar": "منو يسوي خلطة الآيس كريم ويعبي المكينة: البار لو الشيفات بالمطبخ؟ (بالبرنامج بس رئيس الطهاة أو مساعد الشيف أو المدير أو المالك يكدر يسجل الخلطة، وكل ميلك شيك ياخذ الآيس كريم مالته من الخلطات المسجلة)"
+    },
+    {
+      "id": "Q34",
+      "blocking": false,
+      "for": "kitchen",
+      "about": ["menuItemsWithoutRecipe"],
+      "en": "No recipe came for these menu items: Mixed smoothie, Iraqi Tea, Watermelon juice, Piña Colada, Immunity Shot, Protein, Hot Chocolate, Iced Chocolate, V60 and Cold Brew. Please send them.",
+      "ar": "هذني موجودة بالمنيو بس ما وصلتنا وصفاتهم: سموذي مكس، شاي عراقي، عصير بطيخ، بينا كولادا، شوت المناعة، بروتين، شوكولاتة ساخنة، شوكولاتة مثلجة، V60، كولد برو. ممكن تدزولنا وصفاتهم؟"
+    }
+  ]
+}

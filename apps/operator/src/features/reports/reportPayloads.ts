@@ -112,7 +112,7 @@ export function readRevenue(payload: unknown): RevenueReport {
 }
 
 // ---------------------------------------------------------------------------
-// Courts (report_courts, 0097)
+// Courts (report_courts, 0097; eventMinutes since event_court_blocks)
 // ---------------------------------------------------------------------------
 
 export interface CourtRow {
@@ -123,6 +123,8 @@ export interface CourtRow {
   bookings: number | null;
   bookedMinutes: number | null;
   availableMinutes: number | null;
+  /** The part of availableMinutes tournaments held: open time, not booked and not closed. */
+  eventMinutes: number | null;
   occupancyPct: number | null;
   revenueIqd: number | null;
   revenuePerOpenHourIqd: number | null;
@@ -138,6 +140,7 @@ export interface CourtTotals {
   bookings: number | null;
   bookedMinutes: number | null;
   availableMinutes: number | null;
+  eventMinutes: number | null;
   occupancyPct: number | null;
   revenueIqd: number | null;
   cancellations: number | null;
@@ -166,6 +169,7 @@ export function readCourts(payload: unknown): CourtsReport {
       bookings: num(r.bookings),
       bookedMinutes: num(r.bookedMinutes),
       availableMinutes: num(r.availableMinutes),
+      eventMinutes: num(r.eventMinutes),
       occupancyPct: num(r.occupancyPct),
       revenueIqd: num(r.revenueIqd),
       revenuePerOpenHourIqd: num(r.revenuePerAvailableHourIqd),
@@ -182,6 +186,7 @@ export function readCourts(payload: unknown): CourtsReport {
         bookings: num(t.bookings),
         bookedMinutes: num(t.bookedMinutes),
         availableMinutes: num(t.availableMinutes),
+        eventMinutes: num(t.eventMinutes),
         occupancyPct: num(t.occupancyPct),
         revenueIqd: num(t.revenueIqd),
         cancellations: num(t.cancellations),
@@ -199,11 +204,11 @@ export function readCourts(payload: unknown): CourtsReport {
   return { rows, totals, byHour, trend };
 }
 
-/** No courts, or nothing booked, cancelled or missed on any of them. */
+/** No courts, or nothing booked, cancelled, missed or held for a tournament on any of them. */
 export function courtsIsEmpty(r: CourtsReport): boolean {
   if (r.rows.length === 0) return true;
   const t = r.totals;
-  return t !== null && !t.bookings && !t.cancellations && !t.noShows;
+  return t !== null && !t.bookings && !t.cancellations && !t.noShows && !t.eventMinutes;
 }
 
 // ---------------------------------------------------------------------------
@@ -357,6 +362,8 @@ export interface VarianceRow extends StockBase {
   theoreticalQty: number | null;
   countedQty: number | null;
   varianceQty: number | null;
+  /** Used in new items' test servings in the period (product_release); null before it. */
+  productTestQty: number | null;
 }
 
 export interface StockReport {
@@ -405,6 +412,7 @@ export function readStock(payload: unknown): StockReport {
       theoreticalQty: num(r.theoreticalQty),
       countedQty: num(r.countedQty),
       varianceQty: num(r.varianceQty),
+      productTestQty: num(r.productTestQty),
     })),
   };
 }

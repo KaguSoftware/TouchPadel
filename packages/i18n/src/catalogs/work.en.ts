@@ -33,7 +33,7 @@ export const workEn = {
     stepStatus: {
       waiting: 'Not open yet',
       open: 'To do',
-      submitted: 'Awaiting decision',
+      submitted: 'Waiting for a decision',
       passed: 'Done',
       skipped: 'Skipped',
       stopped: 'Stopped',
@@ -91,6 +91,9 @@ export const workEn = {
       cancelled: 'Cancelled',
       received: 'Received',
       acknowledged: 'Checked',
+      // A chef assistant's line (role spec #66).
+      pending: 'Waiting for the head chef',
+      declined: 'Declined',
     },
   },
   // purchases.status (to_receive, done) and purchase_lines.status (to_receive,
@@ -109,5 +112,38 @@ export const workEn = {
       dessert: 'Dessert',
       food: 'Food',
     },
+  },
+  // marketing_requests.status (role spec #73).
+  marketingRequest: {
+    status: {
+      open: 'Waiting for marketing',
+      done: 'Done',
+      declined: 'Declined',
+      withdrawn: 'Withdrawn',
+    },
+  },
+  // recipe_change_requests.status (role spec #71).
+  recipeChange: {
+    status: {
+      waiting: 'Waiting for the owner',
+      approved: 'Approved',
+      declined: 'Declined',
+      withdrawn: 'Withdrawn',
+    },
+  },
+  // release_ideas.status (role spec #65): a barista's or chef assistant's
+  // idea for a new item, waiting for the head of their team.
+  idea: {
+    status: {
+      waiting: 'Waiting for review',
+      started: 'Started as a new item',
+      declined: 'Declined',
+      withdrawn: 'Withdrawn',
+    },
+  },
+  // release_ideas.team: bar (head barista, barista), kitchen (head chef, chef).
+  team: {
+    bar: 'Bar',
+    kitchen: 'Kitchen',
   },
 } as const;

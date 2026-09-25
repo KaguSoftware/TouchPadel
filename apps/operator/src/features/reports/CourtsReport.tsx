@@ -8,7 +8,11 @@
  * revenue, cancellations, no-shows). Below, one breakdown at a time:
  *
  *  - By court: bookings, hours, occupancy, revenue and revenue per open hour
- *    — sortable, so "which court earns least per hour" is one click.
+ *    — sortable, so "which court earns least per hour" is one click. When a
+ *    tournament held a court in the period, its event hours show as a column
+ *    here and as a figure in the band: they are open hours the venue gave to
+ *    an event, so without the line they would read as hours nobody booked
+ *    (event_court_blocks, #55).
  *  - Cancellations: counts and rates per court.
  *  - Peak times: peak against off-peak bookings per court.
  *  - By start time: `byHour`, drawn as bars (the old "By hour" view asked for
@@ -82,6 +86,8 @@ export function CourtsReportScreen() {
   // every court at zero.
   const status = asyncStatus(q, (d) => courtsIsEmpty(d.current));
   const t = data?.totals ?? null;
+  // Tournament hours: shown only for a period that had some.
+  const hasEvents = (t?.eventMinutes ?? 0) > 0 || (data?.rows.some((r) => (r.eventMinutes ?? 0) > 0) ?? false);
 
   const courtColumn: ReportColumn<CourtRow> = {
     key: 'court',
@@ -111,6 +117,7 @@ export function CourtsReportScreen() {
       courtColumn,
       n('bookings', c('ws.reports.courts.columns.bookings'), (v) => count(v, locale)),
       { ...n('bookedMinutes', c('ws.reports.courts.columns.hours'), (v) => hoursOf(v, locale, tr)) },
+      ...(hasEvents ? [n('eventMinutes', c('ws.events.courts.eventHours'), (v) => hoursOf(v, locale, tr))] : []),
       n('occupancyPct', c('ws.reports.courts.columns.occupancy'), (v) => percent(v, locale, tr)),
       n('revenueIqd', c('ws.reports.courts.columns.revenue'), (v) => money(v, locale), true),
       n('revenuePerOpenHourIqd', c('ws.reports.courts.columns.perOpenHour'), (v) => money(v, locale)),
@@ -156,7 +163,8 @@ export function CourtsReportScreen() {
   }
 
   const notes: Record<View, Parameters<Tr>[0][]> = {
-    byCourt: ['ws.reports.courts.notes.occupancy', 'ws.reports.courts.notes.perOpenHour'],
+    // The event column says what it is where it appears, like the two derived figures.
+    byCourt: ['ws.reports.courts.notes.occupancy', 'ws.reports.courts.notes.perOpenHour', ...(hasEvents ? (['ws.events.courts.eventHoursTip'] as const) : [])],
     cancellations: ['ws.reports.courts.notes.rates'],
     peak: ['ws.reports.courts.notes.peak'],
     byHour: [],
@@ -174,9 +182,23 @@ export function CourtsReportScreen() {
         body: data.byHour.map((h) => [h.hour, h.bookings]),
       });
     }
-    // Every court figure, whichever of the three court breakdowns is showing.
-    const all = [courtColumn, ...columns.byCourt.slice(1), ...columns.cancellations.slice(2), ...columns.peak.slice(1)];
-    exportTable(base, period, parts, tableCsv(all, data.rows, [{ header: tr('ws.reports.columns.available_hours'), value: (r) => r.availableMinutes }]));
+    // Every court figure, whichever of the three court breakdowns is showing;
+    // the event figure once, in minutes beside the available ones.
+    const all = [
+      courtColumn,
+      ...columns.byCourt.slice(1).filter((col) => col.key !== 'eventMinutes'),
+      ...columns.cancellations.slice(2),
+      ...columns.peak.slice(1),
+    ];
+    exportTable(
+      base,
+      period,
+      parts,
+      tableCsv(all, data.rows, [
+        { header: tr('ws.reports.columns.available_hours'), value: (r) => r.availableMinutes },
+        ...(hasEvents ? [{ header: tr('ws.events.courts.eventMinutesCsv'), value: (r: CourtRow) => r.eventMinutes }] : []),
+      ]),
+    );
   }
 
   return (
@@ -216,6 +238,11 @@ export function CourtsReportScreen() {
               <HeadlineFigure label={tr('ws.reports.courts.revenue')} value={money(t?.revenueIqd ?? null, locale)} comparison={changeOf(changes, 'revenueIqd')} format={(n) => money(n, locale)} />
               <HeadlineFigure label={tr('ws.reports.courts.cancellations')} value={count(t?.cancellations ?? null, locale)} tone={t?.cancellations ? 'warn' : 'neutral'} comparison={changeOf(changes, 'cancellations')} format={(n) => count(n, locale)} invert />
               <HeadlineFigure label={tr('ws.reports.courts.noShows')} value={count(t?.noShows ?? null, locale)} tone={t?.noShows ? 'danger' : 'neutral'} comparison={changeOf(changes, 'noShows')} format={(n) => count(n, locale)} invert />
+              {/* Last, so the six lead figures keep their places whether or not a
+                  tournament held a court in the period. */}
+              {hasEvents && (
+                <HeadlineFigure label={tr('ws.events.courts.eventHours')} value={hoursOf(t?.eventMinutes ?? null, locale, tr)} hint={tr('ws.events.courts.eventHoursHint')} />
+              )}
             </FigureBand>
 
             <ViewSwitch<View>

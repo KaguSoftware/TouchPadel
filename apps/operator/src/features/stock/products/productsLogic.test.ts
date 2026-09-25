@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenCatalogue, matchesProductLine, sizeArgs, sizeProblem, type SizeDraft } from './productsLogic';
+import { flattenCatalogue, matchesProductLine, productLaunched, productLock, sizeArgs, sizeProblem, type SizeDraft } from './productsLogic';
 import type { IngredientRow, OnHandRow, ShopCatalogue, SupplierRow } from '../stockKeys';
 
 const catalogue: ShopCatalogue = {
@@ -11,6 +11,7 @@ const catalogue: ShopCatalogue = {
       name_en: 'Bullpadel Vertex',
       name_ar: 'بولبادل فيرتكس',
       is_active: true,
+      launched_at: '2026-03-01T09:00:00Z',
       sort_order: 0,
       menu_item_variants: [
         { id: 'v-l', item_id: 'p1', name_en: 'L', name_ar: 'كبير', price_iqd: 300_000, is_default: false, sort_order: 2, sku: 'VTX-L', barcode: '8435000000022' },
@@ -49,6 +50,38 @@ describe('flattenCatalogue', () => {
     expect(rows[0]).toMatchObject({ ingredientId: 'i-m', onHand: 4, packCostIqd: 200_000, lowStockThreshold: 2, supplier });
     // A size made in the menu editor has no stock row yet.
     expect(rows[1]).toMatchObject({ ingredientId: null, onHand: null, supplier: null });
+    expect(rows.every((r) => r.launched)).toBe(true);
+  });
+});
+
+describe('productLaunched / productLock (#51, #53)', () => {
+  const manager = { editLaunchedPrices: false, launchDirectly: false };
+  const owner = { editLaunchedPrices: true, launchDirectly: true };
+
+  it('counts a product as launched once it has been on sale, or while it is on', () => {
+    expect(productLaunched({ launched_at: '2026-03-01T09:00:00Z', is_active: false })).toBe(true);
+    // Switched on by a seed or a fixture, never stamped: on sale all the same.
+    expect(productLaunched({ launched_at: null, is_active: true })).toBe(true);
+    expect(productLaunched({ launched_at: null, is_active: false })).toBe(false);
+  });
+
+  it('locks a manager out of a launched product’s prices, hidden or not', () => {
+    expect(productLock({ launched: true }, manager)).toEqual({ priceLocked: true, putOnSale: false });
+  });
+
+  it('leaves a manager’s hidden draft editable, with Put on sale', () => {
+    expect(productLock({ launched: false }, manager)).toEqual({ priceLocked: false, putOnSale: true });
+  });
+
+  it('changes nothing for the owner', () => {
+    expect(productLock({ launched: true }, owner)).toEqual({ priceLocked: false, putOnSale: false });
+    expect(productLock({ launched: false }, owner)).toEqual({ priceLocked: false, putOnSale: false });
+  });
+
+  it('reads launched from the catalogue row', () => {
+    const draft = { ...catalogue.products[0]!, id: 'p2', is_active: false, launched_at: null };
+    const rows = flattenCatalogue({ ...catalogue, products: [draft] }, [], [], []);
+    expect(rows.map((r) => r.launched)).toEqual([false, false]);
   });
 });
 

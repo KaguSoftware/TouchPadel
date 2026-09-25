@@ -7,6 +7,7 @@
 import type { MutationType } from '@touch/core/schemas/mutations';
 import { errorStringCode } from '../../lib/queueResults';
 import type { CsvCell } from '../analytics/csv';
+import { isUnfinished, readDayState, type DayStateList } from '../checklists/checklistLogic';
 
 export type DayCloseState =
   | 'loading'
@@ -299,6 +300,17 @@ export function unpaidPlayedRows(payload: unknown): UnpaidPlayedBooking[] {
     (r): r is UnpaidPlayedBooking =>
       r != null && typeof r === 'object' && typeof (r as { reservation_id?: unknown }).reservation_id === 'string',
   );
+}
+
+/**
+ * app.checklist_day_state (0165) for the day being closed: the daily lists
+ * that still have a line nobody ticked, in the server's role and slot order.
+ * Like the unpaid-played rows, a WARNING list, never a close block (plan
+ * §7.3): nothing in deriveDayCloseState or closeBlock reads it. A payload
+ * that is not the RPC's shape reads as nothing to warn about.
+ */
+export function unfinishedChecklists(payload: unknown): DayStateList[] {
+  return readDayState(payload).lists.filter(isUnfinished);
 }
 
 export type CloseBlock = 'openTabs' | 'unsynced' | 'noCount' | null;

@@ -52,6 +52,8 @@ export function PulseSection({
   const lostPrevPct = kp && kp.bookedTotal > 0 ? ((kp.cancellations + kp.noShows) / kp.bookedTotal) * 100 : null;
   const lostDelta = reliable && lostPct != null && lostPrevPct != null ? Math.round(lostPct - lostPrevPct) : null;
   const venueDelta = venue.current && venue.previous && reliable ? pctDelta(venue.current.venueIqd, venue.previous.venueIqd) : null;
+  const events = raw?.summary.eventMinutes ?? 0;
+  const eventsPrev = raw?.summaryPrev?.eventMinutes ?? 0;
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
@@ -125,6 +127,18 @@ export function PulseSection({
             unavailable={broken || noHours}
             f={f}
           />
+          {/* Tournament hours (event_court_blocks): inside the open hours the
+              rates above divide by, so they are named here rather than left to
+              read as unsold time. Shown only when a tournament held a court. */}
+          {(events > 0 || eventsPrev > 0) && (
+            <FigureLine
+              label={tr('ws.events.courts.eventHours')}
+              value={hoursText(f, events)}
+              previous={raw?.summaryPrev ? hoursText(f, eventsPrev) : null}
+              tip={tr('ws.events.courts.eventHoursTip')}
+              {...common}
+            />
+          )}
         </FigureGroup>
         <FigureGroup title={tr('ws.analytics.courts.summary.beyond')}>
           <FigureLine

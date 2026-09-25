@@ -42,8 +42,22 @@ export const PRICE_CHANGE_KINDS = [
 ] as const;
 export type PriceChangeKind = (typeof PRICE_CHANGE_KINDS)[number];
 
-/** `staff_media_uploads.folder`: where a slot's photo is filed. */
-export const PHOTO_FOLDERS = ['proposals', 'tests', 'steps', 'marketing', 'campaigns', 'receipts'] as const;
+/**
+ * `staff_media_uploads.folder`: where a slot's photo is filed. The last three
+ * are the role spec's (staff_media_folders, contracts §2.24.2): checklist
+ * ticks, teachings and requests to marketing.
+ */
+export const PHOTO_FOLDERS = [
+  'proposals',
+  'tests',
+  'steps',
+  'marketing',
+  'campaigns',
+  'receipts',
+  'checklists',
+  'teachings',
+  'requests',
+] as const;
 export type PhotoFolder = (typeof PHOTO_FOLDERS)[number];
 
 /** The built-in step keys of each kind, in their default order (§2.8). */

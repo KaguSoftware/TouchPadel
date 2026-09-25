@@ -262,7 +262,21 @@ export const OPS_ALERTS = [
   { key: 'expired', severity: 'danger', href: STOCK_HREF.expired, count: (o: OpsOverview) => o.stock.expired },
 ] as const;
 
-export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'];
+/**
+ * Two more rows from their own reads, not from ops_overview
+ * (build-contracts-2026-09-23 §5.4): protocol steps waiting on this person
+ * (app.protocols_waiting_count, the rail badge's read) and the driver's
+ * purchases still to be received as stock (app.purchases_to_receive, Goods
+ * in's read). Both wait on the manager rather than on a guest, so they follow
+ * the table above.
+ */
+export const OPS_WORK_ALERTS = [
+  { key: 'protocols', severity: 'warn', href: '/protocols?filter=waiting' },
+  { key: 'purchases', severity: 'warn', href: '/stock/receive' },
+] as const;
+
+export type OpsWorkKey = (typeof OPS_WORK_ALERTS)[number]['key'];
+export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'] | OpsWorkKey;
 export type OpsSeverity = 'danger' | 'warn';
 
 export interface OpsAlert {
@@ -275,6 +289,11 @@ export interface OpsAlert {
 /** The standing alarms, in table order. Nothing is sorted by value. */
 export function alertsFor(o: OpsOverview): OpsAlert[] {
   return OPS_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: a.count(o) })).filter((a) => a.count > 0);
+}
+
+/** The two work rows with their counts; a read that has not answered counts none. */
+export function workAlertsFor(counts: Readonly<Record<OpsWorkKey, number>>): OpsAlert[] {
+  return OPS_WORK_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: counts[a.key] })).filter((a) => a.count > 0);
 }
 
 /**

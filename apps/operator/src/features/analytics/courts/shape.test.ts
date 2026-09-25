@@ -23,6 +23,7 @@ describe('parseCourtsSummary', () => {
     expect(s.range).toEqual({ from: '2026-09-01', to: '2026-09-07' });
     expect(s.courtsCount).toBe(2);
     expect(s.openMinutes).toBe(11760);
+    expect(s.eventMinutes).toBe(240);
     expect(s.kpis).toEqual({
       bookings: 48,
       bookedMinutes: 3600,
@@ -100,6 +101,7 @@ describe('parseCourtsSummary', () => {
     expect(s.range).toEqual({ from: '', to: '' });
     expect(s.courtsCount).toBe(0);
     expect(s.openMinutes).toBe(0);
+    expect(s.eventMinutes).toBe(0);
     expect(s.kpis.bookings).toBe(0);
     expect(s.kpis.revenueIqd).toBe(0);
     expect(s.kpis.occupancyPct).toBeNull();

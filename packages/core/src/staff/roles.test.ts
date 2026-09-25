@@ -18,9 +18,12 @@ import {
   RETIRED_ROLES,
   ROLE_RECHECK_MS,
   STAFF_ROLES,
+  STAFF_TEAMS,
+  TEAM_HEAD,
   isStaffRole,
   nextStaff,
   resolveStaffRow,
+  teamOf,
   type StaffInfo,
 } from './roles';
 
@@ -150,5 +153,30 @@ describe('the re-check interval is what bounds a leaver’s live feed', () => {
   it('is well under the token lifetime it exists to shorten, and not a hammer', () => {
     expect(ROLE_RECHECK_MS).toBeLessThan(5 * 60_000);
     expect(ROLE_RECHECK_MS).toBeGreaterThanOrEqual(30_000);
+  });
+});
+
+describe('teams, the twins of app.staff_team and app.staff_team_head (0170)', () => {
+  it('puts the bar and kitchen roles in their team and every other role in none', () => {
+    const teams = Object.fromEntries(STAFF_ROLES.map((role) => [role, teamOf(role)]));
+    expect(teams).toEqual({
+      cashier: null,
+      prep: null,
+      court_desk: null,
+      manager: null,
+      owner: null,
+      head_barista: 'bar',
+      barista: 'bar',
+      head_chef: 'kitchen',
+      chef: 'kitchen',
+      driver: null,
+      marketing: null,
+    });
+  });
+
+  it('names each team’s head, who belongs to that team', () => {
+    expect(STAFF_TEAMS).toEqual(['bar', 'kitchen']);
+    expect(TEAM_HEAD).toEqual({ bar: 'head_barista', kitchen: 'head_chef' });
+    for (const team of STAFF_TEAMS) expect(teamOf(TEAM_HEAD[team])).toBe(team);
   });
 });

@@ -112,6 +112,9 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     device_id: { category: 'Device or other IDs', why: 'which till or phone made the booking; replay protection', onDelete: 'scrub' },
     idempotency_key: n, client_ref: n, created_at: n, series_id: n,
     venue_id: n,
+    // event_court_blocks: an event block's purpose and the tournament run
+    // that asked for it. Only on maintenance rows; identify nobody.
+    block_purpose: n, protocol_run_id: n,
   },
   reservation_series: {
     id: n, court_id: n, pattern: n, weekdays: n, start_time: n, duration_min: n,

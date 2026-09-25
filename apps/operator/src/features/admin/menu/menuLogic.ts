@@ -202,3 +202,95 @@ export function orderableState(
   if (blockedByStock) return 'blocked';
   return 'orderable';
 }
+
+/* ---------- product release and the manager locks (build-contracts-2026-09-23 §2.9, §2.13, §5.5) ---------- */
+
+export type CategoryKind = 'cafe' | 'shop';
+
+/** Run statuses after which a released item is an ordinary menu item. */
+const RELEASE_OVER: readonly string[] = ['live', 'done'];
+
+export interface ReleaseState {
+  is_active: boolean;
+  launched_at: string | null;
+  release_run_id: string | null;
+  release_run: { status: string } | null;
+}
+
+/**
+ * Still in its product release: the run is neither live nor done. The server
+ * then refuses a price change, a new size and the switch-on for everyone, the
+ * owner included (ITEM_IN_RELEASE): the price step sets the prices and the
+ * owner's Launch puts it on sale. A run this station cannot read counts as
+ * unfinished; the server is the wall either way.
+ */
+export function inRelease(item: ReleaseState): boolean {
+  return item.release_run_id !== null && !RELEASE_OVER.includes(item.release_run?.status ?? '');
+}
+
+/**
+ * Not a draft: on sale once, or on sale now. The server's size lock reads the
+ * same test (`launched_at is not null or is_active`), and every item that
+ * existed when product_release landed counts as launched.
+ */
+export function everOnSale(item: Pick<ReleaseState, 'is_active' | 'launched_at'>): boolean {
+  return item.launched_at !== null || item.is_active;
+}
+
+/** Why the sizes are read-only: the release sets them, or a price change does. */
+export type PricesLock = 'inRelease' | 'onSale';
+/** Why the Active switch cannot be switched on from this form. */
+export type SwitchLock = 'inRelease' | 'ownerLaunches' | 'putOnSale' | 'savedHidden';
+
+export interface ItemLocks {
+  prices: PricesLock | null;
+  switchOn: SwitchLock | null;
+}
+
+/**
+ * What the item form locks, and why, mirroring upsert_menu_item and
+ * upsert_variant; `item` null is a new item in a category of `kind`.
+ *  - In release: prices and the switch, for everyone.
+ *  - On sale, without editLaunchedPrices: prices, which change through a
+ *    price change. The switch works as before, so a launched item a manager
+ *    switched off is switched back on as today.
+ *  - A draft, without launchDirectly: prices stay editable (the draft
+ *    exception). A café draft goes on sale when the owner launches it, a shop
+ *    draft through Put on sale (a shop_launch change), and a new shop product
+ *    is saved hidden. A new café item never opens the form: its button is
+ *    "Propose a new item" (newItemMode).
+ */
+export function itemLocks(
+  item: ReleaseState | null,
+  kind: CategoryKind,
+  caps: { editLaunchedPrices: boolean; launchDirectly: boolean },
+): ItemLocks {
+  if (item === null) {
+    if (caps.launchDirectly) return { prices: null, switchOn: null };
+    return { prices: null, switchOn: kind === 'shop' ? 'savedHidden' : 'ownerLaunches' };
+  }
+  if (inRelease(item)) return { prices: 'inRelease', switchOn: 'inRelease' };
+  if (everOnSale(item)) return { prices: caps.editLaunchedPrices ? null : 'onSale', switchOn: null };
+  if (caps.launchDirectly) return { prices: null, switchOn: null };
+  return { prices: null, switchOn: kind === 'shop' ? 'putOnSale' : 'ownerLaunches' };
+}
+
+/**
+ * The page's add button. Without launchDirectly a new café item starts as a
+ * product release (ITEM_VIA_RELEASE, #52); a shop product is still created
+ * here, saved hidden.
+ */
+export function newItemMode(kind: CategoryKind | undefined, launchDirectly: boolean): 'create' | 'propose' {
+  return !launchDirectly && kind === 'cafe' ? 'propose' : 'create';
+}
+
+/** A run title as its starter typed it: staff may type one language, so fall back to the other. */
+export function runTitle(
+  locale: 'en' | 'ar',
+  run: { title_en: string | null; title_ar: string | null } | null,
+): string | null {
+  if (!run) return null;
+  const en = run.title_en?.trim() || null;
+  const ar = run.title_ar?.trim() || null;
+  return locale === 'ar' ? (ar ?? en) : (en ?? ar);
+}

@@ -42,6 +42,8 @@ export const summaryJson: Json = {
   range: { from: RANGE.from, to: RANGE.to },
   courts_count: 2,
   open_minutes: 11760,
+  // Four tournament hours, inside open_minutes (event_court_blocks).
+  event_minutes: 240,
   kpis: {
     bookings: 48,
     booked_minutes: 3600,

@@ -18,7 +18,9 @@ const data: {
   staff: StaffRow[];
   outbox: { status: 'queued' | 'sent' | 'failed' | 'skipped'; created_at: string }[];
   telegram: { telegram_enabled: boolean; telegram_chat_id: string | null };
-} = { staff: [], outbox: [], telegram: { telegram_enabled: false, telegram_chat_id: null } };
+  /** Active prepared ingredients with no par level (the ingredients count). */
+  noPar: number;
+} = { staff: [], outbox: [], telegram: { telegram_enabled: false, telegram_chat_id: null }, noPar: 0 };
 
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
@@ -30,13 +32,24 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
 }));
 vi.mock('../../lib/supabase', () => {
-  const chain: Record<string, unknown> = {};
-  chain.select = () => chain;
-  chain.order = () => chain;
-  // Courts and tables are counted (head: true); the outbox is listed.
-  chain.eq = () => Promise.resolve({ count: 4, error: null });
-  chain.limit = () => Promise.resolve({ data: data.outbox, error: null });
-  return { supabase: { from: () => chain }, supabaseUrl: '', supabaseAnonKey: '' };
+  const from = (table: string) => {
+    const chain: Record<string, unknown> = {};
+    chain.select = () => chain;
+    chain.order = () => chain;
+    chain.is = () => chain;
+    if (table === 'ingredients') {
+      // Prepared items with no par level: counted after three filters, so the
+      // chain itself is what is awaited.
+      chain.eq = () => chain;
+      chain.then = (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) => Promise.resolve({ count: data.noPar, error: null }).then(ok, fail);
+    } else {
+      // Courts and tables are counted (head: true); the outbox is listed.
+      chain.eq = () => Promise.resolve({ count: 4, error: null });
+    }
+    chain.limit = () => Promise.resolve({ data: data.outbox, error: null });
+    return chain;
+  };
+  return { supabase: { from }, supabaseUrl: '', supabaseAnonKey: '' };
 });
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -77,6 +90,7 @@ describe('SetupHomeScreen', () => {
     data.staff = [person({ id: 'o1', role: 'owner', has_pin: true }), person({ id: 'o2', role: 'owner', has_pin: true })];
     data.outbox = [];
     data.telegram = { telegram_enabled: false, telegram_chat_id: null };
+    data.noPar = 0;
   });
 
   it('offers every setup destination, each with what the screen decides', () => {
@@ -147,6 +161,16 @@ describe('SetupHomeScreen', () => {
     renderSetup('owner');
     expect(await screen.findByText('Nothing in setup needs attention.')).toBeTruthy();
     expect(check('retiredRole')).toBeNull();
+  });
+
+  it('raises prepared items with no par level, which the kitchen is never asked to make', async () => {
+    data.noPar = 3;
+    renderSetup('owner');
+    await waitFor(() => expect(check('noPar')).toBeTruthy());
+    expect(within(check('noPar')!).getByText('3')).toBeTruthy();
+    expect(within(check('noPar')!).getByText('Prepared items with no par level')).toBeTruthy();
+    await userEvent.click(within(check('noPar')!).getByRole('button', { name: 'Open Ingredients' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/stock/ingredients' });
   });
 
   it('raises Telegram when it is switched on but has no real group', async () => {

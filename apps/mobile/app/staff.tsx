@@ -1,14 +1,32 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
-import { Alert, AppState, Linking, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, AppState, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { radius, space, useTheme } from '../src/theme';
-import { Button, Card, ErrorText, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
+import { space, useTheme } from '../src/theme';
+import { Button, Card, ErrorText, Hint, LinkText, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { MenuRow } from '../src/components/booking';
-import { BellIcon, EnvelopeIcon, SlidersIcon, type IconProps } from '../src/components/icons';
+import {
+  BellIcon,
+  CalendarIcon,
+  CardIcon,
+  CheckIcon,
+  ChevronIcon,
+  ClockIcon,
+  EnvelopeIcon,
+  GlobeIcon,
+  LockIcon,
+  PencilIcon,
+  RoofIcon,
+  SearchIcon,
+  SlidersIcon,
+  StopwatchIcon,
+  SunIcon,
+  TagIcon,
+  type IconProps,
+} from '../src/components/icons';
 import {
   getPushPermissionState,
   permissionStateAfter,
@@ -18,8 +36,13 @@ import {
 import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../src/features/staff/keys';
-import { staffRows } from '../src/features/staff/rows';
+import { staffRows, type StaffRowDef } from '../src/features/staff/rows';
 import { showsVenuePicker } from '../src/features/staff/venue';
+import { mapStaffError } from '../src/features/staff/edge';
+import { fetchChecklistsToday } from '../src/features/staff/checklists/api';
+import { checklistTodos, localName } from '../src/features/staff/checklists/logic';
+import { WorkList } from '../src/features/staff/protocols/WorkList';
+import { ListCard } from '../src/features/staff/protocols/parts';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { useToast } from '../src/components/overlays';
@@ -34,10 +57,119 @@ import { useToast } from '../src/components/overlays';
  * to and the back item is hidden.
  */
 
-/** The icon of each Today row; a page lane adds its row's icon with the row. */
+/**
+ * The icon of each Today row; a page lane adds its row's icon with the row.
+ * No two rows one role sees share an icon, and none is the Settings sliders.
+ */
 const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
+  protocols: ClockIcon,
+  start: PencilIcon,
+  production: StopwatchIcon,
+  shopping: TagIcon,
+  run: TagIcon,
+  purchases: CardIcon,
+  marketing: GlobeIcon,
   requests: EnvelopeIcon,
+  notes: CalendarIcon,
+  ideas: SunIcon,
+  teachings: CheckIcon,
+  recipes: SearchIcon,
+  'recipe-changes': LockIcon,
+  stock: RoofIcon,
+  suggestions: BellIcon,
+  'ask-marketing': GlobeIcon,
+  'marketing-inbox': CheckIcon,
 };
+
+/**
+ * Today's pages in three short lists rather than one of up to fourteen rows:
+ * the protocols and what feeds them, the day's work, and what the person asks
+ * of others. A row this table does not name (a page lane's new row) joins the
+ * day's work, so it is never lost. Order inside a group is rows.ts's.
+ */
+const ROW_GROUPS = [
+  { key: 'protocols', titleKey: 'staff.shell.today.groups.protocols', ids: ['protocols', 'start', 'ideas', 'notes'] },
+  { key: 'daily', titleKey: 'staff.shell.today.groups.daily', ids: null },
+  { key: 'team', titleKey: 'staff.shell.today.groups.team', ids: ['requests', 'suggestions', 'ask-marketing'] },
+] as const;
+
+function groupRows(rows: readonly StaffRowDef[]): { key: string; titleKey: (typeof ROW_GROUPS)[number]['titleKey']; rows: StaffRowDef[] }[] {
+  const named = new Set<string>(ROW_GROUPS.flatMap((g) => (g.ids ? [...g.ids] : [])));
+  return ROW_GROUPS.map((g) => ({
+    key: g.key,
+    titleKey: g.titleKey,
+    rows: rows.filter((r) => (g.ids ? (g.ids as readonly string[]).includes(r.id) : !named.has(r.id))),
+  })).filter((g) => g.rows.length > 0);
+}
+
+/**
+ * Today's checklists still to finish, at the top of To do for every role
+ * (§6.1): one row per list (`staff.checklist.<runId>`) that opens it. A
+ * finished list leaves Today; the checklist page writes the same cache entry,
+ * so a tick there moves the count here. Nothing shows while the read is in
+ * flight: the work list below carries the loading state.
+ */
+function TodayChecklists({ venueId }: { venueId: string }) {
+  const { t, locale } = useLocale();
+  const { colors, fonts } = useTheme();
+  const router = useRouter();
+  const lists = useQuery({
+    queryKey: staffKeys.checklists(venueId),
+    queryFn: () => fetchChecklistsToday(venueId),
+  });
+
+  if (lists.isPending) return null;
+  const todos = lists.isError ? [] : checklistTodos(lists.data);
+  if (!lists.isError && todos.length === 0) return null;
+
+  return (
+    <View style={{ gap: space.xs }}>
+      <MicroLabel style={{ paddingStart: 4 }}>
+        {lists.isError ? t('staff.checklists.title') : `${t('staff.checklists.title')} · ${todos.length}`}
+      </MicroLabel>
+      {lists.isError ? (
+        // The same failed-read line as the work list below: why, then the retry.
+        <View style={{ gap: space.xs }}>
+          <Hint>{t(mapStaffError(lists.error))}</Hint>
+          <LinkText testID="staff.checklists.retry" label={t('common.retry')} onPress={() => void lists.refetch()} />
+        </View>
+      ) : (
+        <ListCard>
+          {todos.map((list, i) => (
+            <Pressable
+              key={list.runId}
+              testID={`staff.checklist.${list.runId}`}
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: '/staff-checklist', params: { id: list.runId } })}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: space.s,
+                paddingStart: space.l,
+                paddingEnd: space.l,
+                paddingTop: 12,
+                paddingBottom: 12,
+                borderBottomWidth: i === todos.length - 1 ? 0 : 1,
+                borderBottomColor: colors.sub,
+                backgroundColor: pressed ? colors.sub : 'transparent',
+              })}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text numberOfLines={2} style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+                  {localName(list, locale)}
+                </Text>
+                <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut }}>
+                  {t('staff.checklists.progress', { done: list.done, total: list.total })}
+                </Text>
+              </View>
+              <ChevronIcon size={16} color={colors.fnt2} />
+            </Pressable>
+          ))}
+        </ListCard>
+      )}
+    </View>
+  );
+}
 
 function useWorkAlerts() {
   const { t } = useLocale();
@@ -190,23 +322,17 @@ function TodayScreen() {
           </Card>
         ) : null}
 
-        {/* The work list (To do, Waiting, Decided, and Waiting on you for
-            management) mounts here, from my_protocol_work and
-            my_checklists_today, venue by `venueId` (lane H). */}
+        {/* The work list: today's checklists first, then what waits on the
+            person to decide, their open steps, what they sent and what was
+            decided (my_checklists_today, my_protocol_work), at `venueId`. */}
+        {venueId ? <TodayChecklists venueId={venueId} /> : null}
+        {venueId ? <WorkList venueId={venueId} /> : null}
 
-        {rows.length > 0 ? (
-          <View style={{ gap: space.xs }}>
-            <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.today.rowsTitle')}</MicroLabel>
-            <View
-              style={{
-                backgroundColor: colors.card,
-                borderWidth: 1,
-                borderColor: colors.line,
-                borderRadius: radius.card,
-                overflow: 'hidden',
-              }}
-            >
-              {rows.map((row, i) => {
+        {groupRows(rows).map((group) => (
+          <View key={group.key} style={{ gap: space.xs }}>
+            <MicroLabel style={{ paddingStart: 4 }}>{t(group.titleKey)}</MicroLabel>
+            <ListCard>
+              {group.rows.map((row, i) => {
                 const Icon = ROW_ICONS[row.id] ?? SlidersIcon;
                 return (
                   <MenuRow
@@ -215,38 +341,34 @@ function TodayScreen() {
                     icon={<Icon size={15} color={colors.gstrong} />}
                     label={t(row.labelKey)}
                     onPress={() => router.push(row.href)}
-                    last={i === rows.length - 1}
+                    last={i === group.rows.length - 1}
                   />
                 );
               })}
-            </View>
+            </ListCard>
           </View>
-        ) : null}
+        ))}
 
-        <Card style={{ padding: space.m, gap: space.s }}>
-          <MicroLabel>{t('staff.shell.account.title')}</MicroLabel>
-          <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.ink }}>
-            {t(alerts.state === 'granted' ? 'staff.shell.account.alertsOn' : 'staff.shell.account.alertsOff')}
-          </Text>
-          <Text style={bodyText}>{t('staff.shell.account.onePhone')}</Text>
-          <Text style={bodyText}>{t('staff.shell.account.passwordNote')}</Text>
-        </Card>
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.line,
-            borderRadius: radius.card,
-            overflow: 'hidden',
-          }}
-        >
-          <MenuRow
-            testID="staff.settings"
-            icon={<SlidersIcon size={15} color={colors.gstrong} />}
-            label={t('settings.title')}
-            onPress={() => router.push('/settings')}
-            last
-          />
+        {/* The account is one group like the lists above it: its caption
+            outside, what the phone is set to, then Settings. */}
+        <View style={{ gap: space.xs }}>
+          <MicroLabel style={{ paddingStart: 4 }}>{t('staff.shell.account.title')}</MicroLabel>
+          <ListCard>
+            <View style={{ padding: space.l, gap: space.s, borderBottomWidth: 1, borderBottomColor: colors.sub }}>
+              <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+                {t(alerts.state === 'granted' ? 'staff.shell.account.alertsOn' : 'staff.shell.account.alertsOff')}
+              </Text>
+              <Text style={bodyText}>{t('staff.shell.account.onePhone')}</Text>
+              <Text style={bodyText}>{t('staff.shell.account.passwordNote')}</Text>
+            </View>
+            <MenuRow
+              testID="staff.settings"
+              icon={<SlidersIcon size={15} color={colors.gstrong} />}
+              label={t('settings.title')}
+              onPress={() => router.push('/settings')}
+              last
+            />
+          </ListCard>
         </View>
         <ErrorText>{out.error}</ErrorText>
         <Button

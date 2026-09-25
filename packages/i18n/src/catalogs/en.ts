@@ -964,7 +964,7 @@ export const en = {
     // did-not-sync counts were removed from the strip entirely (see
     // components/VenueStatusBanner).
     status: {
-      degraded: 'Venue offline mode — guests cannot book the coming days or order online. Take bookings and orders at the desk.',
+      degraded: 'Venue offline mode: guests cannot book the coming days or order online. Take bookings and orders at the desk.',
     },
     // SOW L237-238: the shared-till idle lock (0064).
     lock: {
@@ -1027,7 +1027,7 @@ export const en = {
     roles: {
       cashier: 'Cashier',
       // Soft-retired (0155): existing accounts keep it, new ones are Barista
-      // or Chef.
+      // or Chef assistant.
       prep: 'Kitchen',
       court_desk: 'Court desk',
       manager: 'Manager',
@@ -1035,7 +1035,9 @@ export const en = {
       head_barista: 'Head barista',
       barista: 'Barista',
       head_chef: 'Head chef',
-      chef: 'Chef',
+      // The role is still `chef`; it is shown as the head chef's assistant
+      // (role spec #74, build-contracts-2026-09-23 §4).
+      chef: 'Chef assistant',
       driver: 'Driver',
       marketing: 'Marketing',
     },
@@ -1296,6 +1298,8 @@ export const en = {
       iqd: '{amount} IQD',
       unitLabel: 'Unit',
       unit: { g: 'g', ml: 'ml', pc: 'pcs' },
+      // One of a unit: "1 pc", "cost per pc".
+      unitOne: { g: 'g', ml: 'ml', pc: 'pc' },
       status: { out: 'Out of stock', low: 'Running low', belowPar: 'Below par', countNeeded: 'Count needed', ok: 'OK' },
       movement: {
         goods_in: 'Delivery',
@@ -1419,7 +1423,7 @@ export const en = {
       noCost: 'No cost',
       noCostCount: '{count} items without cost — needed for profit analytics',
       photo: 'Photo',
-      photoHint: 'Square, up to 1200 px — converted to WebP',
+      photoHint: 'Square, up to 1200 px. Saved as WebP.',
       search: 'Search items…',
       defaultPrice: 'Default price',
       reorder: 'Reorder',
@@ -1447,7 +1451,7 @@ export const en = {
     addons: {
       groups: 'Item groups',
       subGroups: 'Sub-groups',
-      subGroupsHint: 'Not linked to any item — revealed by an option in another group.',
+      subGroupsHint: 'Not linked to any item. An option in another group reveals it.',
       newGroup: 'New group',
       newSubGroup: 'New sub-group',
       linkedItems: 'Linked items',
@@ -1455,10 +1459,10 @@ export const en = {
       newOption: 'New option',
       reveals: 'Reveals',
       revealsHint: 'Sub-groups shown when this option is picked.',
-      noSubGroups: 'No sub-groups yet — create one to reveal it here.',
+      noSubGroups: 'No sub-groups yet. Create one to reveal it here.',
       minMax: 'Min / max choices',
       required: 'Required',
-      delta: 'Price delta (IQD)',
+      delta: 'Extra charge (IQD)',
       active: 'Active',
       lead: 'The choices a guest makes on an item, such as milk type or an extra shot. A sub-group is asked only after a guest picks a certain option, such as choosing a drink after “Make it a meal”.',
       pick: 'Choose a group to edit it, or add a new one.',

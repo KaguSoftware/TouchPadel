@@ -254,12 +254,18 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // the audit access and the money figures it reads are all owner-level.
   '/assistant': ['owner'],
   '/workspaces': ['manager', 'owner'],
-  // Driver and marketing hold the any-staff baseline and nothing else; this
-  // is the one screen they land on until purchases and protocols exist.
-  '/tasks': ['driver', 'marketing'],
+  // Every hireable role that is not management works its protocol steps here
+  // as well as on the phone (build-contracts-2026-09-23 §5.1, Q2): the
+  // driver's and marketing's landing screen, a rail row for the till and the
+  // desk, and the kitchen board's "My tasks" for the bar and kitchen. Manager
+  // and owner work theirs on /protocols; prep gets nothing new.
+  '/tasks': ['cashier', 'court_desk', 'head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing'],
   // Starting, deciding and shaping protocols is management's; every other
   // actor works its steps from /tasks or the phone (build-contracts-2026-09-23 §5.1).
   '/protocols': ['manager', 'owner'],
+  // The staff suggestion box (role spec #63): everyone posts on the phone,
+  // management reads here.
+  '/suggestions': ['manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -380,6 +386,48 @@ export const CAPABILITY_ROLES = {
    * (ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL).
    */
   launchDirectly: ['owner'],
+
+  // The role spec (build-contracts-2026-09-23 §5.1, plan #61–#74).
+  /** "Start a tournament" on /tasks: the court desk's plan waits for a manager (#67). */
+  startProtocolTournament: ['court_desk', 'manager', 'owner'],
+  /** Review the team's new-item ideas: start one as a release, or decline it (#65). */
+  reviewIdeas: ['head_barista', 'head_chef', 'manager', 'owner'],
+  /** Write teachings for a team (#64). The phone is where they are written. */
+  writeTeachings: ['head_barista', 'head_chef', 'manager', 'owner'],
+  /** Approve or decline a head's recipe change; the manager only reads (#71). */
+  decideRecipeChanges: ['owner'],
+
+  // Who decides a step (§2.7 "Who decides"), mirrored so a form asks a decider
+  // for what a decision carries (a new item's menu section, §2.8) and says
+  // when a start passes at once. The engine's `can` still gates every button.
+  /** Decide a step whose "Needs my OK" is off. */
+  decideSteps: ['manager', 'owner'],
+  /** Decide a step whose "Needs my OK" is on. */
+  decideOwnerOkSteps: ['owner'],
+  /** Title a run in both languages (TEXT_BOTH_LANGUAGES_REQUIRED); staff may type one (Q10). */
+  titleRunsInBoth: ['owner'],
+
+  // /tasks' read-only copies of the phone's pages (§5.4). Each is the guard of
+  // the read behind it, so a copy is never offered to a role its read refuses.
+  /** The kitchen's production today (app.production_today). */
+  readProduction: ['head_chef', 'chef', 'manager', 'owner'],
+  /** The shopping list (app.shopping_list). */
+  readShoppingList: ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'manager', 'owner'],
+  /** The driver's purchases (app.my_purchases). */
+  readPurchases: ['driver', 'manager', 'owner'],
+  /** A team's teachings (app.teachings_for_me, #64). */
+  readTeachings: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /** Stock by quantity (app.staff_stock_view, #68): the heads' cafe, the desk's shop. */
+  readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'manager', 'owner'],
+  /** Recipes by ingredient name (app.recipe_view, #72). */
+  readRecipes: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+  // A role's own work, which the owner does not do: its RPC refuses the owner.
+  /** Marketing's own pages: its take, campaign drafts, results and the requests inbox (#73). */
+  marketingWork: ['marketing'],
+  /** Ask the owner for a recipe change (app.request_recipe_change, #71). */
+  requestRecipeChanges: ['head_barista', 'head_chef'],
+  /** Send a new-item idea to the team's head (app.submit_release_idea, #65). */
+  sendIdeas: ['barista', 'chef'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;
@@ -462,8 +510,10 @@ export function permissionsFor(role: StaffRole | undefined): Permissions {
     adjustStock: is(MANAGEMENT),
     closeDay: is(MANAGEMENT),
     editMenu: is(MANAGEMENT),
-    editRates: is(MANAGEMENT),
-    editPromotions: is(MANAGEMENT),
+    // The owner's since price_promo (#57): a manager proposes a rate or a
+    // promotion as a price or promo change, and keeps a promotion's off switch.
+    editRates: is(['owner']),
+    editPromotions: is(['owner']),
     manageStaff: is(['owner']),
     viewReports: is(MANAGEMENT),
     viewFinancials: is(['owner']),
@@ -476,6 +526,8 @@ export function requiredRoleFor(permission: keyof Permissions): StaffRole {
   switch (permission) {
     case 'manageStaff':
     case 'viewFinancials':
+    case 'editRates':
+    case 'editPromotions':
       return 'owner';
     case 'takeCourtPayment':
       return 'court_desk';

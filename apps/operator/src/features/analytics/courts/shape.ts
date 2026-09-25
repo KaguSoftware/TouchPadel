@@ -80,6 +80,8 @@ export interface CourtsSummary {
   range: { from: string; to: string };
   courtsCount: number;
   openMinutes: number;
+  /** The part of openMinutes that tournaments held (event blocks): open capacity, not booked, not closed. */
+  eventMinutes: number;
   kpis: CourtsKpis;
   perCourt: CourtRow[];
   byDay: CourtsDay[];
@@ -94,6 +96,7 @@ export function parseCourtsSummary(json: unknown): CourtsSummary {
     range: { from: str(range.from), to: str(range.to) },
     courtsCount: num(o.courts_count),
     openMinutes: num(o.open_minutes),
+    eventMinutes: num(o.event_minutes),
     kpis: {
       bookings: num(k.bookings),
       bookedMinutes: num(k.booked_minutes),

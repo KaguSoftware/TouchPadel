@@ -24,10 +24,14 @@
  * carries an idempotency key, so a double tap on Record — or a retry after a
  * dropped reply — books the delivery once. Still online-only: goods-in is not
  * a queued mutation type.
+ *
+ * What the driver bought (0166) is listed above the form, and opening one
+ * (?purchase=<id>) swaps the form for that purchase's own: its lines are the
+ * driver's, and app.receive_purchase books them (DriverPurchases.tsx).
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
@@ -37,6 +41,8 @@ import { useStockFormat } from './stockUi';
 import { todayIso } from '../admin/menu/availability';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
 import { SK, fetchIngredients, fetchSuppliers, type IngredientRow } from './stockKeys';
+import { DriverPurchaseReceive, DriverPurchasesPanel } from './DriverPurchases';
+import { decimalKeystroke } from './decimalInput';
 
 export { isShort } from './stockLogic';
 
@@ -54,6 +60,29 @@ const emptyLine = (): DraftLine => ({
 });
 
 export function ReceiveDelivery() {
+  const { tr } = useLocale();
+  const navigate = useNavigate();
+  const { purchase } = useSearch({ strict: false }) as { purchase?: string };
+  if (purchase) {
+    return (
+      <div style={{ maxInlineSize: '64rem' }}>
+        <PageHeader
+          title={tr('ws.supplies.purchase.title')}
+          actions={
+            <Button kind="ghost" size="sm" icon="chevronStart" onClick={() => void navigate({ to: '/stock/receive' })}>
+              {tr('ws.supplies.purchase.back')}
+            </Button>
+          }
+        />
+        <DriverPurchaseReceive key={purchase} purchaseId={purchase} onBack={() => void navigate({ to: '/stock/receive' })} />
+      </div>
+    );
+  }
+  return <DeliveryForm />;
+}
+
+/** One delivery typed in by hand, with the driver's purchases above it. */
+function DeliveryForm() {
   const { tr } = useLocale();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -137,9 +166,68 @@ export function ReceiveDelivery() {
     <div style={{ maxInlineSize: '64rem' }}>
       <PageHeader title={tr('op.stockNav.receive')} subtitle={tr('ws.manager.stock.goodsIn.lead')} />
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-        <Panel>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }}>
+      {/* The driver's purchases, then one delivery typed in by hand: the lines
+          first, then who it came from. The supplier fills itself from the first
+          ingredient chosen, so it sits under the lines, where that shows, and
+          the Record button closes the form rather than sharing a row with
+          "Add another ingredient" above a supplier still to check. */}
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+        <DriverPurchasesPanel />
+
+        <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
+          {/* The order of the work, said once at the top rather than hidden in
+              the Record button's tooltip, where it only showed up too late. */}
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
+            {tr('ws.manager.stock.goodsIn.recordEmpty')}
+          </p>
+          {/* A failed ingredient read left an empty "Choose…" list with no word
+              about why: say so, with the way to read it again. */}
+          {ingredientsQ.isError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-3)' }}>
+              <ErrorText error={ingredientsQ.error} style={{ marginBlock: 0 }} />
+              <Button size="sm" icon="refresh" busy={ingredientsQ.isFetching} onClick={() => void ingredientsQ.refetch()}>
+                {tr('ws.kit.async.retry')}
+              </Button>
+            </div>
+          )}
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {lines.map((l, i) => (
+              <LineEditor
+                key={l.key}
+                index={i}
+                line={l}
+                today={today}
+                ingredients={ingredients}
+                ingredient={byId.get(l.ingredientId) ?? null}
+                busy={busy}
+                removable={lines.length > 1}
+                onChoose={(id) => chooseIngredient(l, id)}
+                onPatch={(part) => patch(l.key, part)}
+                onRemove={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
+              />
+            ))}
+          </ol>
+
+          {shortCount > 0 && (
+            <MessagePresenter tone="info" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
+          )}
+
+          <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
+            <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+              {tr('ws.manager.stock.goodsIn.addLine')}
+            </Button>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))',
+              columnGap: 'var(--tp-sp-2-5)',
+              marginBlockStart: 'var(--tp-sp-5)',
+              paddingBlockStart: 'var(--tp-sp-4)',
+              borderBlockStart: '1px solid var(--tp-border)',
+            }}
+          >
             <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
               {suppliers.length > 0 ? (
                 <Select
@@ -166,51 +254,13 @@ export function ReceiveDelivery() {
               <input style={inputStyle} value={notes} disabled={busy} placeholder={tr('ws.manager.stock.goodsIn.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
             </Field>
           </div>
-        </Panel>
 
-        <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
-          {/* The order of the work, said once at the top rather than hidden in
-              the Record button's tooltip, where it only showed up too late. */}
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
-            {tr('ws.manager.stock.goodsIn.recordEmpty')}
-          </p>
-          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-            {lines.map((l, i) => (
-              <LineEditor
-                key={l.key}
-                index={i}
-                line={l}
-                today={today}
-                ingredients={ingredients}
-                ingredient={byId.get(l.ingredientId) ?? null}
-                busy={busy}
-                removable={lines.length > 1}
-                onChoose={(id) => chooseIngredient(l, id)}
-                onPatch={(part) => patch(l.key, part)}
-                onRemove={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-              />
-            ))}
-          </ol>
-
-          {shortCount > 0 && (
-            <MessagePresenter tone="info" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBlockStart: 'var(--tp-sp-3)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-            <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
-              {tr('ws.manager.stock.goodsIn.addLine')}
-            </Button>
-            <Button
-              kind="primary"
-              icon="box"
-              busy={busy}
-              disabled={!canRecord}
-              onClick={() => void submit()}
-            >
+          <ErrorText error={error} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button kind="primary" icon="box" busy={busy} disabled={!canRecord} onClick={() => void submit()}>
               {tr('ws.manager.stock.goodsIn.record')}
             </Button>
           </div>
-          <ErrorText error={error} />
         </Panel>
 
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
@@ -254,31 +304,16 @@ function LineEditor({
   const unit = ingredient ? fmt.unit(ingredient.unit) : null;
   const withUnit = (label: string) => (unit ? `${label} (${unit})` : label);
 
-  // Quantities and costs are numbers, so the boxes take nothing else: digits
-  // and a single decimal point survive, every other keystroke is dropped, and
-  // the run stops at ten digits — past that it is a typo, not a delivery.
-  const onlyNumber = (raw: string) => {
-    const kept = raw.replace(/[^\d.]/g, '');
-    const dot = kept.indexOf('.');
-    const once = dot === -1 ? kept : `${kept.slice(0, dot + 1)}${kept.slice(dot + 1).replace(/\./g, '')}`;
-    let digits = 0;
-    let out = '';
-    for (const ch of once) {
-      if (ch === '.') out += ch;
-      else if (digits < 10) {
-        out += ch;
-        digits += 1;
-      }
-    }
-    return out;
-  };
-
   const expiryHint = !ingredient
     ? undefined
     : ingredient.shelf_life_days !== null
       ? tr('ws.manager.stock.goodsIn.expiryAuto', { days: fmt.num(ingredient.shelf_life_days) })
       : tr('ws.manager.stock.goodsIn.expiryNone');
 
+  // Quantities and costs are numbers, so the boxes take nothing else: digits
+  // (an Arabic keyboard's included) and a single decimal point survive, every
+  // other keystroke is dropped, and the run stops at ten digits — past that it
+  // is a typo, not a delivery (decimalKeystroke, decimalInput.ts).
   return (
     <li
       style={{
@@ -324,12 +359,12 @@ function LineEditor({
           aria-label={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
           title={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
           onClick={onRemove}
-          style={{ marginBlockEnd: '0.3rem' }}
+          style={{ marginBlockEnd: 'var(--tp-sp-1)' }}
         />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 'var(--tp-sp-2)', alignItems: 'start' }}>
         <Field label={withUnit(tr('ws.manager.stock.goodsIn.received'))} required style={{ marginBlockEnd: 0 }} error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: onlyNumber(e.target.value) })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
           label={withUnit(tr('ws.manager.stock.goodsIn.ordered'))}
@@ -338,10 +373,10 @@ function LineEditor({
           error={problem === 'ordered' ? tr('ws.manager.stock.goodsIn.problem.ordered') : undefined}
           hint={short ? <span style={{ color: 'var(--tp-warn-fg)', fontWeight: 600 }}>{tr('ws.manager.stock.goodsIn.short', { qty: fmt.num(Number(line.qtyExpected) - Number(line.qtyReceived)) })}</span> : undefined}
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: onlyNumber(e.target.value) })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
-          label={unit ? tr('ws.manager.stock.goodsIn.costPer', { unit }) : tr('ws.manager.stock.goodsIn.cost')}
+          label={ingredient ? tr('ws.manager.stock.goodsIn.costPer', { unit: fmt.one(ingredient.unit) }) : tr('ws.manager.stock.goodsIn.cost')}
           required
           style={{ marginBlockEnd: 0 }}
           error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}
@@ -353,7 +388,7 @@ function LineEditor({
             ) : undefined
           }
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: onlyNumber(e.target.value) })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
           label={tr('ws.manager.stock.goodsIn.expiry')}

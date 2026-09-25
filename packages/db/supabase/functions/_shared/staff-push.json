@@ -16,7 +16,18 @@
     "request_approved",
     "request_rejected",
     "shopping_new",
-    "purchase_to_receive"
+    "purchase_to_receive",
+    "idea_submitted",
+    "idea_started",
+    "idea_declined",
+    "teaching_new",
+    "recipe_change_submitted",
+    "recipe_change_approved",
+    "recipe_change_declined",
+    "shopping_to_approve",
+    "shopping_declined",
+    "marketing_request_new",
+    "marketing_request_answered"
   ],
   "routes": [
     "staff",

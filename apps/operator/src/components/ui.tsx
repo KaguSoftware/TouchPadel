@@ -635,6 +635,9 @@ export function Modal({
               display: 'flex',
               gap: 'var(--tp-sp-2)',
               justifyContent: 'flex-end',
+              // Top-aligned, not stretched: a button with a disabled reason
+              // under it is taller, and Cancel beside it kept growing to match.
+              alignItems: 'flex-start',
               paddingBlock: 'var(--tp-sp-3)',
               paddingInline: 'var(--tp-sp-4)',
               borderBlockStart: '1px solid var(--tp-border)',

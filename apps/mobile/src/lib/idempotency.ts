@@ -74,7 +74,15 @@ export type StaffMutation =
   | 'marketing_note'
   | 'campaign'
   | 'event_block'
-  | 'candidate';
+  | 'candidate'
+  // Role spec (H): save_teaching (a new one), add_suggestion, request_recipe_change.
+  | 'teaching'
+  | 'suggestion'
+  | 'recipe_change'
+  // Role spec (H): add_marketing_request.
+  | 'marketing_request'
+  // Role spec (H): submit_release_idea.
+  | 'idea';
 
 /** Fresh staff key, `MOBILE:staff.<mutation>:<ulid>`. Only for a genuinely new intent. */
 export function staffIdemKey(mutation: StaffMutation): string {

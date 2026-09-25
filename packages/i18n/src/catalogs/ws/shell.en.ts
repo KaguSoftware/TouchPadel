@@ -175,8 +175,15 @@ export const shellEn = {
     // The owner assistant: a rail row on Management's own list and the drawer
     // button in the rail footer share this label.
     assistant: 'Assistant',
-    // The team workspace's one row (driver, marketing).
+    // The team workspace's one row (driver, marketing), and the till's and
+    // the desk's last row.
     myTasks: 'My tasks',
+    // Protocols and the staff suggestion box, on the manager's rail and in
+    // Observe (build-contracts-2026-09-23 §5.1).
+    protocols: 'Protocols',
+    suggestions: 'Suggestions',
+    // A rail row's count, for a screen reader: the pill itself is only a number.
+    badge: '{count} waiting on you',
     groupOperations: 'Operations',
     groupRun: 'Run the day',
     groupRecords: 'Records',

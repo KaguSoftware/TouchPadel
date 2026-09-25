@@ -1,6 +1,169 @@
 /**
- * `staff.marketing.*` — the staff phone’s My take and campaign drafts.
+ * `staff.marketing.*` — the staff phone’s My take and campaign drafts, the
+ * results (counts only) and requests to marketing (role spec #73).
  * Owned by lane H (docs/design/protocols/build-contracts-2026-09-23.md §4).
  * Mirror every key in marketing.ar.ts.
+ *
+ * Request statuses are `work.marketingRequest.status.*`, shared with the
+ * operator; role names are `op.roles.*`.
  */
-export const staffMarketingEn = {} as const;
+export const staffMarketingEn = {
+  // Today's rows for these pages (rows.ts).
+  rows: {
+    marketing: 'Marketing',
+    // Every role but marketing.
+    ask: 'Ask marketing',
+    // Marketing's inbox.
+    inbox: 'Requests to marketing',
+  },
+  title: 'Marketing',
+  tabs: {
+    take: 'My take',
+    drafts: 'Drafts',
+    results: 'Results',
+  },
+  requestsRow: 'Requests to marketing',
+  requestsRowOpen: 'Requests to marketing ({count} open)',
+  // marketing_channel (0073).
+  channels: {
+    telegram: 'Telegram',
+    guest_site: 'Guest website',
+    in_venue: 'In the venue',
+  },
+  // campaign_status (0073).
+  campaignStatus: {
+    draft: 'Draft',
+    scheduled: 'Scheduled',
+    live: 'Live',
+    ended: 'Ended',
+    cancelled: 'Cancelled',
+  },
+  dateHint: 'Type the date as year-month-day, for example {example}.',
+  pick: {
+    search: 'Search',
+    change: 'Change',
+    loading: 'Loading…',
+    none: 'Nothing to choose from yet.',
+    noMatch: 'Nothing matches.',
+  },
+  take: {
+    lead: 'Your own view of items, launches, tournaments and campaigns. The manager and the owner read it. It is not a log of what guests said.',
+    newTitle: 'Add your take',
+    about: 'About',
+    kinds: {
+      item: 'Menu item',
+      run: 'Launch or tournament',
+      campaign: 'Campaign',
+    },
+    body: 'Your take',
+    photos: 'Photos · Optional',
+    submit: 'Save my take',
+    saved: 'Saved. The manager and the owner can read it.',
+    mine: 'Your notes',
+    empty: 'No notes yet.',
+    errors: {
+      subject: 'Choose what this is about.',
+      body: 'Write your take first.',
+      bodyTooLong: 'Keep it to 2,000 characters.',
+    },
+  },
+  drafts: {
+    lead: 'Suggest a campaign. The owner completes it and makes it live.',
+    new: 'New campaign draft',
+    newTitle: 'New campaign draft',
+    editTitle: 'Change your draft',
+    name: 'Name',
+    nameHint: 'One language is enough.',
+    channel: 'Channel',
+    starts: 'First day · Optional',
+    ends: 'Last day · Optional',
+    bodyEn: 'Message in English · Optional',
+    bodyAr: 'Message in Arabic · Optional',
+    note: 'Note for the owner · Optional',
+    images: 'Images · Optional',
+    link: 'Also about',
+    links: {
+      none: 'Nothing else',
+      item: 'A menu item',
+      run: 'A launch or tournament',
+    },
+    save: 'Save draft',
+    saveChanges: 'Save changes',
+    cancel: 'Cancel',
+    saved: 'Draft saved. The owner sees it on the operator.',
+    mine: 'Your drafts',
+    empty: 'No drafts yet.',
+    pickedUp: 'The owner has picked this up, so it can no longer be changed here.',
+    tapToChange: 'Tap to change it.',
+    window: '{from} to {to}',
+    from: 'From {day}',
+    until: 'Until {day}',
+    errors: {
+      name: 'Give the campaign a name.',
+      nameTooLong: 'Keep the name to 120 characters.',
+      channel: 'Choose a channel.',
+      date: 'Enter a date like {example}.',
+      order: 'The last day cannot come before the first.',
+      bodyTooLong: 'Keep the message to 2,000 characters.',
+      noteTooLong: 'Keep the note to 2,000 characters.',
+      link: 'Choose which one, or pick “Nothing else”.',
+    },
+  },
+  results: {
+    lead: 'What your venue’s campaigns reached. Counts only.',
+    empty: 'No campaigns yet.',
+    sends: 'Sent to',
+    delivered: 'Delivered',
+    failed: 'Failed',
+    redemptions: 'Promotion used',
+    noPromotion: 'No promotion is linked, so there are no redemptions to count.',
+    notSent: 'Not sent yet.',
+    lastSent: 'Last sent {when}',
+    yours: 'Your suggestion',
+  },
+  requests: {
+    title: 'Requests to marketing',
+    lead: 'Ask marketing for a post, a photo, a campaign idea or anything else. Marketing answers here.',
+    inboxLead: 'What the team asks of you. Answer each one: done, or declined with a reason.',
+    newTitle: 'Ask marketing',
+    titleField: 'What do you need?',
+    body: 'Details',
+    wantBy: 'Needed by · Optional',
+    item: 'About a menu item · Optional',
+    photos: 'Photos · Optional',
+    submit: 'Send to marketing',
+    sent: 'Sent to marketing.',
+    mine: 'Your requests',
+    empty: 'No requests yet.',
+    inboxEmpty: 'Nothing here.',
+    everyone: 'Everyone’s requests',
+    filters: {
+      open: 'Open',
+      answered: 'Answered',
+      all: 'All',
+    },
+    wantByDay: 'Needed by {day}',
+    about: 'About {item}',
+    from: '{name} · {role}',
+    answerBy: '{name}: {answer}',
+    answerTitle: 'Your answer',
+    answerHint: 'The person who asked sees this.',
+    reply: 'Answer',
+    done: 'Done',
+    decline: 'Decline',
+    answered: 'Answer sent.',
+    withdraw: 'Withdraw',
+    withdrawConfirm: 'Withdraw this request? Marketing will no longer see it as waiting.',
+    withdrawn: 'Request withdrawn.',
+    errors: {
+      title: 'Say what you need.',
+      titleTooLong: 'Keep it to 120 characters.',
+      body: 'Add the details.',
+      bodyTooLong: 'Keep it to 2,000 characters.',
+      date: 'Enter a date like {example}.',
+      past: 'Choose today or a later day.',
+      answer: 'Write an answer first.',
+      answerTooLong: 'Keep the answer to 2,000 characters.',
+    },
+  },
+} as const;

@@ -163,3 +163,34 @@ export function nextStaff(previous: StaffInfo | null, resolution: RoleResolution
       return previous;
   }
 }
+
+/**
+ * The two teams of the role spec (plan #64, #65): bar (head barista, barista)
+ * and kitchen (head chef, chef). Teachings and ideas are addressed by team.
+ * These are the twins of `app.staff_team` and `app.staff_team_head` (0170);
+ * roles.test.ts pins the mapping. When the parked assistant barista role
+ * (§0 P1) is answered, it joins `bar` in both places.
+ */
+export const STAFF_TEAMS = ['bar', 'kitchen'] as const;
+
+export type StaffTeam = (typeof STAFF_TEAMS)[number];
+
+/** The team a role belongs to, or null for a role outside both (`app.staff_team`). */
+export function teamOf(role: StaffRole): StaffTeam | null {
+  switch (role) {
+    case 'head_barista':
+    case 'barista':
+      return 'bar';
+    case 'head_chef':
+    case 'chef':
+      return 'kitchen';
+    default:
+      return null;
+  }
+}
+
+/** Each team's head role (`app.staff_team_head`). */
+export const TEAM_HEAD: Record<StaffTeam, StaffRole> = {
+  bar: 'head_barista',
+  kitchen: 'head_chef',
+};

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { clockIntervals, coversEveryDay, findOverlaps, findTies, overlapsFor, rulesOverlap, rulesTie, tiesFor, validityMeets, type RateRuleLike } from './rateRuleLogic';
+import { clockIntervals, coversEveryDay, dayRuns, findOverlaps, findTies, overlapsFor, rulesOverlap, rulesTie, tiesFor, validityMeets, type RateRuleLike } from './rateRuleLogic';
 
 // Overlap is a WARNING for the manager; app.price_slot decides. The helper must
 // find every pair that competes for a slot and stay quiet for pairs that
@@ -85,6 +85,22 @@ describe('coversEveryDay', () => {
   it('is true only for all seven days', () => {
     expect(coversEveryDay([0, 1, 2, 3, 4, 5, 6])).toBe(true);
     expect(coversEveryDay([1, 2, 3, 4, 5])).toBe(false);
+  });
+});
+
+describe('dayRuns', () => {
+  it('folds three or more days in a row into one range', () => {
+    expect(dayRuns([0, 1, 2, 3, 4])).toEqual([{ from: 0, to: 4 }]);
+    expect(dayRuns([4, 3, 2, 1, 0])).toEqual([{ from: 0, to: 4 }]);
+  });
+  it('keeps one or two days in a row as days', () => {
+    expect(dayRuns([5, 6])).toEqual([{ day: 5 }, { day: 6 }]);
+    expect(dayRuns([0, 6])).toEqual([{ day: 0 }, { day: 6 }]);
+    expect(dayRuns([3])).toEqual([{ day: 3 }]);
+  });
+  it('mixes runs and single days, drops repeats and out-of-range values', () => {
+    expect(dayRuns([0, 1, 2, 4, 6, 6, 9])).toEqual([{ from: 0, to: 2 }, { day: 4 }, { day: 6 }]);
+    expect(dayRuns([])).toEqual([]);
   });
 });
 

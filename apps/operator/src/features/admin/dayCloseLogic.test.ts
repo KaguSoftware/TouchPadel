@@ -10,6 +10,7 @@ import {
   varianceMagnitude,
   varianceSign,
   unpaidPlayedRows,
+  unfinishedChecklists,
   type CsvLabels,
   QUEUE_WRITE_KEY,
 } from './dayCloseLogic';
@@ -184,4 +185,34 @@ describe('played today, not paid', () => {
     expect(deriveDayCloseState(base)).toBe('ready');
     expect(closeBlock('ready', 125000)).toBeNull();
   });
+});
+
+describe('checklists not finished', () => {
+  const list = (role: string, slot: string, done: number, total: number) => ({
+    role,
+    slot,
+    name_en: 'List',
+    name_ar: 'قائمة',
+    done,
+    total,
+    open_items: total > done ? [{ text_en: 'Mop the floor', text_ar: 'امسح الأرض' }] : [],
+  });
+
+  it('lists only the lists with a line nobody ticked, in the server order', () => {
+    const rows = unfinishedChecklists({
+      business_date: '2026-09-25',
+      lists: [list('barista', 'open', 5, 5), list('barista', 'close', 2, 4), list('driver', 'open', 0, 3)],
+    });
+    expect(rows.map((r) => `${r.role}.${r.slot}`)).toEqual(['barista.close', 'driver.open']);
+    expect(rows[0]!.open_items).toEqual([{ text_en: 'Mop the floor', text_ar: 'امسح الأرض' }]);
+  });
+
+  it('reads anything that is not the RPC payload as nothing to warn about', () => {
+    expect(unfinishedChecklists(null)).toEqual([]);
+    expect(unfinishedChecklists([list('barista', 'open', 0, 1)])).toEqual([]);
+    expect(unfinishedChecklists({ lists: [{ role: 'barista' }] })).toEqual([]);
+  });
+
+  // That they never hold the close is proven on the screen, where the lists
+  // and the Close button meet (DayClose.test.tsx).
 });

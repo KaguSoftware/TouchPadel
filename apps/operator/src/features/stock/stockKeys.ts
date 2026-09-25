@@ -226,6 +226,8 @@ export interface ShopProductRow {
   name_en: string;
   name_ar: string;
   is_active: boolean;
+  /** When it first went on sale; null = a hidden draft never on sale (product_release). */
+  launched_at: string | null;
   sort_order: number;
   menu_item_variants: ShopVariantRow[];
 }
@@ -254,7 +256,7 @@ export async function fetchShopCatalogue(): Promise<ShopCatalogue> {
   if (ids.length === 0) return { sections: [], products: [] };
   const { data: products, error: pErr } = await supabase
     .from('menu_items')
-    .select('id, category_id, name_en, name_ar, is_active, sort_order, menu_item_variants(id, item_id, name_en, name_ar, price_iqd, is_default, sort_order, sku, barcode)')
+    .select('id, category_id, name_en, name_ar, is_active, launched_at, sort_order, menu_item_variants(id, item_id, name_en, name_ar, price_iqd, is_default, sort_order, sku, barcode)')
     .in('category_id', ids)
     .order('sort_order');
   if (pErr) throw pErr;
