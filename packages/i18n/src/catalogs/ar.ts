@@ -1,6 +1,10 @@
 import type { Messages } from './en';
 import { wsAr } from './ws';
+import { staffAr } from './staff';
+import { workAr } from './work.ar';
+import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { legalAr } from './legal.ar';
+import { siteAr } from './site.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -808,13 +812,12 @@ export const ar: Messages = {
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',
   },
   legal: legalAr,
+  site: siteAr,
   seo: {
-    siteTitle: 'تتش كافيه — القائمة',
-    siteDescription:
-      'ملاعب بادل وكافيه مختص في العراق. احجز ملعبك من التطبيق، وتصفّح قائمة الكافيه واطلب من طاولتك.',
+    siteTitle: 'تتش بادل',
     menuTitle: 'قائمة تتش كافيه',
     menuDescription:
-      'قائمة تتش كافيه الكاملة — مشروبات ساخنة وباردة وفطور وأطباق رئيسية وحلويات ووجبات خفيفة، بالعربية والإنجليزية.',
+      'منيو تتش كافيه: قهوة مختصة وشاي وعصائر طازجة وسموذي وموهيتو وميلك شيك وحلويات، بالعربية والإنجليزية.',
     tableTitle: 'طاولتك — تتش كافيه',
   },
   errors: {
@@ -937,6 +940,12 @@ export const ar: Messages = {
       court_desk: 'مكتب الملاعب',
       manager: 'مدير',
       owner: 'مالك',
+      head_barista: 'رئيس الباريستا',
+      barista: 'باريستا',
+      head_chef: 'رئيس الطهاة',
+      chef: 'شيف',
+      driver: 'سائق',
+      marketing: 'التسويق',
     },
     days: {
       sun: 'الأحد',
@@ -1204,6 +1213,7 @@ export const ar: Messages = {
         expired_writeoff: 'منتهي الصلاحية، شُطب',
         count_adjustment: 'تصحيح بالجرد',
         refund_reversal: 'أُعيد باسترداد',
+        product_test: 'استُخدم في تجربة صنف',
       },
     },
     courts: {
@@ -1764,7 +1774,10 @@ export const ar: Messages = {
       REFUND_EXCEEDS_PAYMENT: 'المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.',
       PAYMENT_NOT_FOUND: 'لم يتم العثور على هذه الدفعة.',
       ITEM_NOT_ON_TAB: 'هذا السطر ليس على هذا الحساب.',
-      IDEMPOTENCY_CONFLICT: 'سُجّل هذا الإجراء من جلسة أخرى. حدّث الصفحة وتحقق من الحساب.',
+      IDEMPOTENCY_CONFLICT: 'حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.',
+      ...opErrorsProtocolsAr,
     },
   },
+  work: workAr,
+  staff: staffAr,
 };

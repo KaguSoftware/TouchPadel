@@ -410,9 +410,13 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
   });
 
   it('reports the shop share of settled money as "of which shop"', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    // The report is keyed by the venue's business day, which does not turn
+    // over at UTC midnight, so a single UTC date misses the settle for part of
+    // every night (CI failed at 03:54 Baghdad). A window of the UTC day either
+    // side always holds it; the before/after difference keeps the check exact.
+    const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
     const read = async () => {
-      const res = await appRpc(owner, 'report_revenue', { p_from: today, p_to: today }).then(outcome);
+      const res = await appRpc(owner, 'report_revenue', { p_from: day(-1), p_to: day(1) }).then(outcome);
       expect(res.ok, res.errorMessage).toBe(true);
       const d = res.data as { totals: { shopIqd: number }; columns: { key: string }[] };
       expect(d.columns.map((c) => c.key)).toContain('shopIqd');

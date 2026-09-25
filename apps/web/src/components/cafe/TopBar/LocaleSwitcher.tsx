@@ -11,8 +11,8 @@ import { hrefForLocale, LOCALE_COOKIE, otherLocale } from '@/lib/locales';
  *
  * The href preserves the current path AND query, and rewrites a leading
  * /en|/ar or prefixes a locale-less printed `/t/{token}` URL. Path + search
- * are read from `window.location` (not `useSearchParams`, which would opt the
- * statically rendered `/{locale}` page out of SSR).
+ * are read from `window.location` (not `useSearchParams`, which would need a
+ * Suspense boundary around the top bar).
  *
  * The click also writes the `tp-locale` cookie so a re-scan of the printed,
  * locale-less QR keeps the guest's choice (web-slice §0).
@@ -27,10 +27,21 @@ import { hrefForLocale, LOCALE_COOKIE, otherLocale } from '@/lib/locales';
  * icon and the code keep the page's own order; `lang`/`hrefLang` still declare
  * where the link goes (the aria-label IS in the target language).
  */
-export function LocaleSwitcher({ locale, token }: { locale: Locale; token: string | null }) {
+export function LocaleSwitcher({
+  locale,
+}: {
+  locale: Locale;
+  /** Unused since 2026-09-23 (see the default below); TopBar still passes it. */
+  token?: string | null;
+}) {
   const other = otherLocale(locale);
   // SSR-safe default; refined to the live URL (with its query) after mount.
-  const [href, setHref] = useState(() => (token ? `/${other}/t/${token}` : `/${other}`));
+  // This switch only renders on the café menu, so the default is the menu in
+  // the other language, table or no table: since 2026-09-23 a bound guest's
+  // token lives in the `tp-table` cookie, which /{other}/menu reads, so it is
+  // never written into server-rendered HTML here (the old `/t/{token}` default
+  // was). Before hydration a click still lands on the menu, not the landing.
+  const [href, setHref] = useState(() => `/${other}/menu`);
 
   useEffect(() => {
     setHref(hrefForLocale(window.location.pathname, window.location.search, other));

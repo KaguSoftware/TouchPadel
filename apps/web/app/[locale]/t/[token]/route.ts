@@ -11,8 +11,9 @@ import { TABLE_COOKIE, tableCookieOptions } from '@/lib/security/headers';
  * the token would silently start living in the address bar again and nothing
  * would fail. So the exchange is implemented twice, and this copy is the one
  * that keeps working when the first is bypassed. It does the same thing — set
- * the cookie, 307 to the token-less route — and never renders the menu with a
- * token in the URL.
+ * the cookie, 307 to the token-less café menu at `/{locale}/menu` (the landing
+ * target since 2026-09-23; it was `/{locale}/t` before the landing page took
+ * the site root) — and never renders the menu with a token in the URL.
  *
  * A ROUTE HANDLER, NOT A PAGE (2026-09-20). Until now this was `page.tsx`
  * calling `cookies().set()` during render, with a `loading.tsx` beside it.
@@ -38,7 +39,7 @@ export async function GET(
   if (!isLocale(locale)) return new NextResponse(null, { status: 404 });
 
   const url = req.nextUrl.clone();
-  url.pathname = `/${locale}/t`;
+  url.pathname = `/${locale}/menu`;
   const res = NextResponse.redirect(url, 307);
   res.cookies.set(TABLE_COOKIE, token, tableCookieOptions(process.env.NODE_ENV !== 'production'));
   // The one request whose URL carries the credential: never stored, never

@@ -1,5 +1,5 @@
 /**
- * Five workspaces, one app (spec §04). A workspace is a landing screen plus
+ * Six workspaces, one app (spec §04). A workspace is a landing screen plus
  * its own navigation set; a staff role maps to the workspaces it may enter.
  * Nothing here grants access — ROUTE_ROLES and the RPC guards remain the wall.
  * The active workspace only chooses which rail the shell renders.
@@ -36,7 +36,7 @@
 import type { IconName } from '../components/icons';
 import type { StaffRole } from './auth';
 
-export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner';
+export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner' | 'team';
 
 export interface NavItem {
   to: string;
@@ -52,7 +52,9 @@ export interface NavItem {
     // Management's Stock section.
     | 'inventory' | 'stockValue'
     // The owner assistant (docs/design/assistant §5.1).
-    | 'assistant';
+    | 'assistant'
+    // The team workspace (driver, marketing).
+    | 'myTasks';
   icon: IconName;
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
@@ -262,6 +264,15 @@ const OWNER_SETUP: readonly NavItem[] = [
   { to: '/admin/hero', labelKey: 'guestSite', icon: 'globe', activePrefix: '/admin/hero' },
 ];
 
+/**
+ * TEAM — driver and marketing (0155). One row for now: My tasks, where
+ * purchases, marketing tasks and checklists will be assigned. It is a rail and
+ * not a navless board like the kitchen's because more rows are coming (the
+ * purchases list, the protocol steps), and a staff member who holds nothing
+ * but this still needs Options, Go on break and Sign out.
+ */
+const TEAM: readonly NavItem[] = [{ to: '/tasks', labelKey: 'myTasks', icon: 'checkCircle' }];
+
 const OWNER_SECTIONS: readonly NavSection[] = [
   { key: 'financial', home: '/financial', icon: 'banknote', items: OWNER_FINANCIAL },
   { key: 'observation', home: '/observation', icon: 'eye', items: OWNER_OBSERVATION },
@@ -296,6 +307,7 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
     groups: [{ labelKey: null, items: OWNER_PRIMARY }],
     sections: OWNER_SECTIONS,
   },
+  team: { key: 'team', home: '/tasks', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }] },
 };
 
 /** The workspaces a role may enter, own one first. */
@@ -303,10 +315,18 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
   switch (role) {
     case 'cashier':
       return ['cashier'];
+    // The bar and kitchen family has exactly prep's workspace (0155).
     case 'prep':
+    case 'head_barista':
+    case 'barista':
+    case 'head_chef':
+    case 'chef':
       return ['prep'];
     case 'court_desk':
       return ['courtDesk'];
+    case 'driver':
+    case 'marketing':
+      return ['team'];
     case 'manager':
       return ['manager', 'courtDesk', 'cashier', 'prep'];
     case 'owner':
@@ -365,6 +385,7 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
   if (path === '/ops') return 'manager';
+  if (path === '/tasks' || path.startsWith('/tasks/')) return 'team';
   return null;
 }
 

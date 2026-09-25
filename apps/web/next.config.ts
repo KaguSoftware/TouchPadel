@@ -34,9 +34,15 @@ const nextConfig: NextConfig = {
   // (guest cafe journey / bell-gate specs). Dev-only chrome; nothing in
   // production is affected.
   devIndicators: false,
+  // Dev-only. Next 16 serves its dev scripts and HMR socket to `localhost`
+  // alone, so a page opened on 127.0.0.1 (which dodges the 431 the shared
+  // localhost cookie jar causes) or from a phone on the office LAN rendered
+  // but never hydrated — the court stayed the flat SVG and nothing clicked
+  // (2026-09-25). Production ignores this setting.
+  allowedDevOrigins: ['127.0.0.1', '192.168.*.*', '10.*.*.*'],
   // Internal packages export raw .ts with no build step (HANDOFF conventions) —
   // Next must transpile them itself.
-  transpilePackages: ['@touch/core', '@touch/db', '@touch/i18n', '@touch/ui'],
+  transpilePackages: ['@touch/core', '@touch/court3d', '@touch/db', '@touch/i18n', '@touch/ui'],
   images: {
     // Only the public `menu-media` bucket (0027/0031), on the ONE project this
     // deployment talks to, plus the local stack.
@@ -101,7 +107,18 @@ const nextConfig: NextConfig = {
         headers: [...TABLE_ROUTE_HEADERS],
       },
       {
+        // The old session URL, now a 307 to /menu in proxy.ts (bookmarks and
+        // cookies set before 2026-09-23). The hop itself stays uncacheable.
         source: '/:locale(en|ar)/t',
+        headers: [...TABLE_ROUTE_HEADERS],
+      },
+      {
+        // The café menu, which is where the exchange lands since 2026-09-23 and
+        // which reads the tp-table cookie: a bound response carries the token in
+        // its RSC payload, so it gets the table set too. proxy.ts re-applies
+        // both values, because Next's own Cache-Control on a dynamic page wins
+        // over this list.
+        source: '/:locale(en|ar)/menu',
         headers: [...TABLE_ROUTE_HEADERS],
       },
       {
@@ -127,12 +144,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async redirects() {
-    return [
-      // Legacy /{locale}/menu alias → the cafe app root (web-slice §1).
-      { source: '/:locale(en|ar)/menu', destination: '/:locale', permanent: true },
-    ];
-  },
+  // No redirects(). The `/:locale/menu → /:locale` permanent alias that lived
+  // here until 2026-09-23 is gone: /{locale}/menu is the café menu again and
+  // /{locale} is the Touch Padel landing. Config redirects run BEFORE proxy.ts
+  // and the filesystem, so that entry would have shadowed the menu page, and
+  // its hop carried no CSP. Moves between routes belong in proxy.ts, as 307s.
 };
 
 export default nextConfig;

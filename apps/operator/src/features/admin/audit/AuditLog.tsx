@@ -56,6 +56,7 @@ import {
   type PeriodPreset,
 } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
+import { STAFF_ROLES } from '../../../lib/roleResolution';
 import { downloadCsv, toCsv } from '../../analytics/csv';
 import { knownReason } from '../dayCloseLogic';
 import {
@@ -84,7 +85,6 @@ const PAGE_SIZE = 200;
 const AUDIT_COLUMNS = 'id, at, actor_id, actor_role, authorizer_id, action, entity, entity_id, before, after, reason_code, device_id';
 const NO_ROWS: AuditRow[] = [];
 const PRESETS = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'last30'] as const;
-const ROLE_KEYS = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
 
 type Tr = ReturnType<typeof useLocale>['tr'];
 
@@ -439,7 +439,7 @@ function personName(id: string | null, role: string | null, serverName: string |
   if (serverName) return serverName;
   if (id && names.has(id)) return names.get(id)!;
   if (!id) return tr('ws.manager.audit.system');
-  if (role && (ROLE_KEYS as readonly string[]).includes(role)) return tr('ws.manager.audit.formerStaff');
+  if (role && (STAFF_ROLES as readonly string[]).includes(role)) return tr('ws.manager.audit.formerStaff');
   if (role === 'guest' || role === 'authenticated') return tr('ws.manager.audit.guest');
   return tr('ws.manager.audit.system');
 }

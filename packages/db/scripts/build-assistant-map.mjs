@@ -501,7 +501,7 @@ export function readCoverageFixture(file = PATHS.coverage) {
 const FEATURE_ROUTE = {
   till: '/till', desk: '/desk', kds: '/kds', stock: '/stock', admin: '/admin', analytics: '/analytics', ops: '/ops',
   panel: '/panel', reports: '/reports', setup: '/setup', financial: '/financial', observation: '/observation',
-  marketing: '/marketing', floor: '/ops', breaks: null,
+  marketing: '/marketing', floor: '/ops', breaks: null, tasks: '/tasks',
 };
 
 function operatorRpcCallers() {
@@ -551,7 +551,7 @@ const LABEL_ROUTE_HINTS = {
   hero: '/admin/hero', marketing: '/marketing', observation: '/observation', requests: '/observation/requests', financial: '/financial',
   setup: '/setup', hours: '/admin/hours', addons: '/admin/addons', suggested: '/admin/suggested', categories: '/admin/categories',
 };
-const CATALOG_FILE_ROUTE = { cashier: '/till', courtDesk: '/desk', prep: '/kds', manager: '/ops', owner: '/panel', reports: '/reports', analytics: '/analytics', shell: null, kit: null };
+const CATALOG_FILE_ROUTE = { cashier: '/till', courtDesk: '/desk', prep: '/kds', manager: '/ops', owner: '/panel', reports: '/reports', analytics: '/analytics', team: '/tasks', shell: null, kit: null };
 
 function labelChunks(lang) {
   const chunks = [];

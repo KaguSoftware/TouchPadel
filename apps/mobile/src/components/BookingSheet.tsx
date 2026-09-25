@@ -61,7 +61,7 @@ import {
   SPEC,
   type Dir,
   type Range,
-} from '../features/courtTransition/spec';
+} from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
 import { DayChip, SlotCell, slotTestID } from './booking';

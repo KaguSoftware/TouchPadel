@@ -5,7 +5,11 @@
  * Interpolation placeholders use single braces: {name}, {phone}, {count}.
  */
 import { wsEn } from './ws';
+import { staffEn } from './staff';
+import { workEn } from './work.en';
+import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { legalEn } from './legal.en';
+import { siteEn } from './site.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -882,13 +886,15 @@ export const en = {
   },
   // Public legal pages (privacy, terms, support, delete-account): one file pair, catalogs/legal.*.ts.
   legal: legalEn,
+  // The public website: landing page, site header/footer, 404/error (site.en.ts).
+  site: siteEn,
   seo: {
-    siteTitle: 'Touch Cafe — Menu',
-    siteDescription:
-      'Padel courts and a specialty cafe in Iraq. Book a court in the app; browse the cafe menu and order from your table.',
+    // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
+    // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
+    siteTitle: 'Touch Padel',
     menuTitle: 'Touch Cafe Menu',
     menuDescription:
-      'The full Touch Cafe menu — hot and cold drinks, breakfast, mains, desserts and snacks, in English and Arabic.',
+      'The Touch Cafe menu: specialty coffee, tea, fresh juice, smoothies, mojitos, milkshakes and desserts, in Arabic and English.',
     tableTitle: 'Your table — Touch Cafe',
   },
   errors: {
@@ -1020,10 +1026,18 @@ export const en = {
     },
     roles: {
       cashier: 'Cashier',
+      // Soft-retired (0155): existing accounts keep it, new ones are Barista
+      // or Chef.
       prep: 'Kitchen',
       court_desk: 'Court desk',
       manager: 'Manager',
       owner: 'Owner',
+      head_barista: 'Head barista',
+      barista: 'Barista',
+      head_chef: 'Head chef',
+      chef: 'Chef',
+      driver: 'Driver',
+      marketing: 'Marketing',
     },
     days: {
       sun: 'Sun',
@@ -1294,6 +1308,8 @@ export const en = {
         expired_writeoff: 'Expired, written off',
         count_adjustment: 'Count correction',
         refund_reversal: 'Returned by a refund',
+        // product_test_movement (build-contracts-2026-09-23 §4).
+        product_test: 'Used in a product test',
       },
     },
     // SOW L299-301: court records — name, indoor/outdoor, description, photo,
@@ -1859,9 +1875,16 @@ export const en = {
       REFUND_EXCEEDS_PAYMENT: 'The refund is more than what is left on this payment.',
       PAYMENT_NOT_FOUND: 'That payment could not be found.',
       ITEM_NOT_ON_TAB: 'That line is not on this tab.',
-      IDEMPOTENCY_CONFLICT: 'This write was already recorded from another session. Refresh and check the tab.',
+      IDEMPOTENCY_CONFLICT: 'This was already saved from another session. Refresh to see the latest.',
+      // Protocols and the staff phone (build-contracts-2026-09-23 §3), one file pair:
+      // opErrors.protocols.*.ts.
+      ...opErrorsProtocolsEn,
     },
   },
+  // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps
+  // share (work.*.ts) and the staff phone's pages, one file pair per lane (catalogs/staff/*).
+  work: workEn,
+  staff: staffEn,
 } as const;
 
 /**

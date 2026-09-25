@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { t, type Locale } from '@touch/i18n';
 import { CURRENT_TERMS_VERSION } from '@touch/core';
 import { resetServerData, serverData, VENUE_FIXTURE, VENUE_PHONE } from '@/test/fixtures';
 import { renderServerPage } from '@/test/renderPage';
+import { hoursPhrase } from '@/lib/site/plural';
 import TermsPage from './page';
 
 /**
@@ -18,6 +19,15 @@ vi.mock('@/lib/menu.server', async () => {
     getCachedMenu: () => Promise.resolve(serverData.menu),
     getCachedCafeSettings: () => Promise.resolve(serverData.settings),
     getCachedVenue: () => Promise.resolve(serverData.venue),
+  };
+});
+
+// The site shell (header, footer, mode) reads the mode cookie and the CSP nonce.
+vi.mock('@/lib/site/mode.server', async () => {
+  const { siteRequest } = await import('@/lib/site/testSupport');
+  return {
+    getSiteMode: () => Promise.resolve(siteRequest.mode),
+    getRequestNonce: () => Promise.resolve(siteRequest.nonce),
   };
 });
 
@@ -67,7 +77,9 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     await renderServerPage(TermsPage, locale);
 
     const bookings = plain(document.querySelector('section#bookings')?.textContent);
-    expect(bookings).toContain(plain(t(locale, 'legal.terms.bookings.cancel', { cancelHours: 6 })));
+    expect(bookings).toContain(
+      plain(t(locale, 'legal.terms.bookings.cancel', { cancelHours: hoursPhrase(6, locale) })),
+    );
   });
 
   it('falls back to the configured 4 hours when the venue read fails', async () => {
@@ -75,7 +87,9 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     await renderServerPage(TermsPage, locale);
 
     const bookings = plain(document.querySelector('section#bookings')?.textContent);
-    expect(bookings).toContain(plain(t(locale, 'legal.terms.bookings.cancel', { cancelHours: 4 })));
+    expect(bookings).toContain(
+      plain(t(locale, 'legal.terms.bookings.cancel', { cancelHours: hoursPhrase(4, locale) })),
+    );
   });
 
   it('names the operator in the contact block, and links email only once it is filled in', async () => {
@@ -85,7 +99,12 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     expect(plain(contact?.textContent)).toContain(t(locale, 'legal.entity.address'));
     // Still a [FILL: …] placeholder: printed, never a broken mailto: link.
     expect(contact?.querySelector('a[href^="mailto:"]')).toBeNull();
-    expect(screen.getByRole('link', { name: VENUE_PHONE }).getAttribute('href')).toBe('tel:+9647700000000');
+    // The site footer prints the same number; this is the document's own.
+    expect(
+      within(document.querySelector<HTMLElement>('.tp-legal')!)
+        .getByRole('link', { name: VENUE_PHONE })
+        .getAttribute('href'),
+    ).toBe('tel:+9647700000000');
   });
 
   it('links every legal page and the other language', async () => {

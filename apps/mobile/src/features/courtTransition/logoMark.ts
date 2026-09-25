@@ -40,7 +40,7 @@
  */
 import * as THREE from 'three';
 import { LOGO_BALL_CIRCLE, LOGO_BALL_PATHS, LOGO_WORDMARK_PATHS } from './logoPaths';
-import { groupSubpaths, parseSvgPath } from './svgPath';
+import { groupSubpaths, parseSvgPath } from '@touch/court3d/svgPath';
 
 // Re-exported where they have always lived in this module's API: the parser
 // moved to `svgPath` when `smileyMark` came to need it, not away.

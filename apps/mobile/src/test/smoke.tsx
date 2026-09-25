@@ -21,20 +21,32 @@
  * FRESH client per render: persistence is a disk read, `retry: false` turns a
  * failing fixture into a failing render immediately instead of three seconds
  * later, and a shared client would leak one case's data into the next.
+ *
+ * STAFF CASES (build-contracts-2026-09-23 §6.2). The app mounts
+ * `StaffStatusProvider` inside AuthProvider; a guest case leaves it out and
+ * reads the context default, `guest`, so it renders exactly as before. A case
+ * with `staff` signs the test session in, mounts the provider, and seeds its
+ * two reads (the own staff row with its venue ids, and the venue names) under
+ * `staffKeys`, which `staleTime: Infinity` keeps from being fetched again: the
+ * provider resolves `staff` on the first render, so `RequireStaff` lets the
+ * screen through synchronously.
  */
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { render, type RenderResult } from '@testing-library/react-native';
+import type { StaffRole } from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { DirectionRoot } from '../i18n/direction';
 import { ThemeProvider } from '../theme';
 import { AuthProvider } from '../features/auth/context';
+import { StaffStatusProvider } from '../features/staff/StaffStatusProvider';
+import { staffKeys } from '../features/staff/keys';
 import { ToastProvider } from '../components/overlays';
 import { resetRouterState } from './routerState';
-import { setTestSession } from './authState';
+import { TEST_SESSION, setTestSession } from './authState';
 
 /**
  * A real device's insets, so a screen that pads by them lays out as it does on
@@ -59,8 +71,29 @@ export interface RenderRouteOptions {
   /** `usePathname()` / `useSegments()`. */
   pathname?: string;
   session?: 'in' | 'out';
-  /** Seeded into the fresh QueryClient: `[queryKey, data]` pairs. */
+  /** Seeded into the fresh QueryClient: `[queryKey, data]` pairs, after the staff seeds. */
   queryData?: [readonly unknown[], unknown][];
+  /**
+   * A staff session: signed in, StaffStatusProvider mounted, the own row seeded
+   * with this role at these venues (one venue, venue A's id, when left out).
+   */
+  staff?: { role: StaffRole; venues?: string[] };
+}
+
+/** The venue a staff case works at unless it names others (packages/db tests' VENUE_A_ID). */
+export const TEST_VENUE_ID = 'c0000000-0000-4000-8000-000000000001';
+
+/** The two reads StaffStatusProvider makes, answered for the test session's uid. */
+export function staffSeeds(staff: NonNullable<RenderRouteOptions['staff']>): [readonly unknown[], unknown][] {
+  const uid = TEST_SESSION.user.id;
+  const venues = staff.venues ?? [TEST_VENUE_ID];
+  return [
+    [
+      staffKeys.status(uid),
+      { row: { id: uid, display_name: 'Test Staff', role: staff.role, is_active: true }, venueIds: venues },
+    ],
+    [staffKeys.venues(uid), venues.map((id, i) => ({ id, name_en: `Venue ${i + 1}`, name_ar: `المكان ${i + 1}` }))],
+  ];
 }
 
 export interface SmokeResult extends RenderResult {
@@ -84,10 +117,11 @@ export function renderRoute(
     pathname = '/',
     session = 'out',
     queryData = [],
+    staff,
   }: RenderRouteOptions = {},
 ): SmokeResult {
   resetRouterState(params, pathname);
-  setTestSession(session);
+  setTestSession(staff ? 'in' : session);
 
   const client = new QueryClient({
     defaultOptions: {
@@ -98,7 +132,11 @@ export function renderRoute(
       mutations: { retry: false },
     },
   });
-  for (const [key, data] of queryData) client.setQueryData(key, data);
+  for (const [key, data] of [...(staff ? staffSeeds(staff) : []), ...queryData]) client.setQueryData(key, data);
+
+  // The app's order: AuthProvider, the toasts, then (for staff) StaffStatusProvider.
+  const withStaff = (children: ReactNode) =>
+    staff ? <StaffStatusProvider>{children}</StaffStatusProvider> : children;
 
   const result = render(
     <QueryClientProvider client={client}>
@@ -107,9 +145,7 @@ export function renderRoute(
           <ThemeProvider>
             <DirectionRoot>
               <AuthProvider>
-                <ToastProvider>
-                  <Component />
-                </ToastProvider>
+                <ToastProvider>{withStaff(<Component />)}</ToastProvider>
               </AuthProvider>
             </DirectionRoot>
           </ThemeProvider>

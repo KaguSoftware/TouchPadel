@@ -586,13 +586,14 @@ export const matrix: MatrixRule[] = [
   },
 
   // ── tabs / orders / order_items (guest sees only own session's) ───────────
+  // kitchen_money_reads (build-contracts §2.23): prep reads none of the three;
+  // its board reads app.kitchen_board, below.
   {
     kind: 'select',
     name: 'tabs',
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
-      prep: 'rows',
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
@@ -606,7 +607,6 @@ export const matrix: MatrixRule[] = [
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
-      prep: 'rows',
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
@@ -619,7 +619,6 @@ export const matrix: MatrixRule[] = [
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
-      prep: 'rows',
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
@@ -2725,5 +2724,61 @@ export const matrix: MatrixRule[] = [
       '0153: any account may accept for itself; an anonymous café session has no profile and is ' +
       'refused with ACCOUNT_REQUIRED. anon holds no grant.',
     drop: 16,
+  },
+
+  // ── kitchen board read (kitchen_board_read, build-contracts §2.23) ────────
+  {
+    kind: 'rpc', schema: 'app', name: 'kitchen_board',
+    args: {}, expect: PREP_UP,
+    note:
+      'the kitchen list of set_ticket_status at the venue (the bar and kitchen roles too, not in ' +
+      'this matrix); court_desk and guests are refused FORBIDDEN, anon holds no grant. No window ' +
+      'argument: the two-minute completed window is fixed in the body.',
+    drop: 17,
+  },
+
+  // ── work photos (staff_media_bucket, build-contracts §2.3) ──────────────────
+  {
+    kind: 'select',
+    name: 'staff_media_uploads',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note:
+      'upload slots: each staff member reads only the slots minted for them (uploader = auth.uid()), ' +
+      'and none of the matrix principals holds one while it runs; a guest sees nothing. ' +
+      'tests/staff-media.test.ts proves the own-row read with real slots',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'staff_media_uploads',
+    op: 'insert',
+    payload: { path: 'matrix-probe-never', venue_id: VENUE_A, folder: 'steps', uploader: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'slots are minted only by app.staff_media_slot, which checks the venue and the hourly limit',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_media_slot',
+    args: { p_venue_id: VENUE_A, p_folder: 'matrix-never', p_ext: 'jpg' }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue; an unknown folder fails INVALID_ARGUMENT past the guard, so no slot is minted',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'is_staff_media_path',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: 'pure text, never raises; granted to anon because the staff-media storage policies evaluate it as the reading role',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_media_venue',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: 'pure text: NULL for a name that is not a staff-media path; policy-evaluated, hence the anon grant',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_media_folder',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: SELF_ANON_OK,
+    note: 'pure text: NULL for a name that is not a staff-media path; policy-evaluated, hence the anon grant',
+    drop: 17,
   },
 ];

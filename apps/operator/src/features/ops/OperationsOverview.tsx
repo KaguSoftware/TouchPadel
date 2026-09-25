@@ -38,6 +38,7 @@ import { formatDate, formatDateTime, formatNumber, formatTime, type MessageKey }
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useBroadcast } from '../../lib/realtime';
+import { STAFF_ROLES, type StaffRole } from '../../lib/roleResolution';
 import { touch } from '../../ipc/bridge';
 import { Button } from '../../components/ui';
 import {
@@ -532,14 +533,13 @@ function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
   return <DataTable columns={columns} rows={rows} rowKey={(r, i) => r.staffId || String(i)} dense aria-label={tr('ws.manager.ops.staff.title')} />;
 }
 
-const ROLE_KEYS = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
 function RoleLabel({ role }: { role: string }) {
   const { tr } = useLocale();
-  const known = (ROLE_KEYS as readonly string[]).includes(role);
+  const known = (STAFF_ROLES as readonly string[]).includes(role);
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
       <Icon name="user" size={13} />
-      {known ? tr(`op.roles.${role as (typeof ROLE_KEYS)[number]}`) : role}
+      {known ? tr(`op.roles.${role as StaffRole}`) : role}
     </span>
   );
 }

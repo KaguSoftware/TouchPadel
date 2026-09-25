@@ -123,6 +123,23 @@ export const queryClient = new QueryClient({
 });
 
 /**
+ * Staff writes run now or fail now (build-contracts-2026-09-23 §6.4).
+ *
+ * The app's mutation default above is `offlineFirst`, which can pause a write
+ * with no connection and fire it minutes later: right for a guest's booking
+ * retry, wrong for a staff decision or a purchase that must be seen to have
+ * landed before the person walks away. Every staff `useMutation` carries a key
+ * under `['staff', 'mutation']` (staffKeys.mutation, src/features/staff/keys.ts),
+ * and TanStack applies these defaults by that prefix. One retry, transport and
+ * server faults only, as everywhere else; a keyed write replays its first
+ * answer (`app.claim_replay`), so the retry cannot record twice.
+ */
+queryClient.setMutationDefaults(['staff', 'mutation'], {
+  networkMode: 'always',
+  retry: (failureCount, error) => failureCount < 1 && isRetriable(error),
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -136,7 +153,9 @@ export const persister = createAsyncStoragePersister({
 
 /**
  * Never persist authenticated, user-specific data we cannot re-authorise on
- * restore, and never persist a failed query.
+ * restore, and never persist a failed query. The whole `staff` family stays in
+ * memory: a staff row, a work list or a purchase read back from disk would be
+ * shown before the account is re-checked, possibly a previous account's.
  */
 export const persistOptions = {
   persister,
@@ -145,7 +164,8 @@ export const persistOptions = {
     shouldDehydrateQuery: (query: { state: { status: string }; queryKey: readonly unknown[] }) =>
       query.state.status === 'success' &&
       query.queryKey[0] !== 'my-bookings' &&
-      query.queryKey[0] !== 'reservation',
+      query.queryKey[0] !== 'reservation' &&
+      query.queryKey[0] !== 'staff',
   },
 } as const;
 

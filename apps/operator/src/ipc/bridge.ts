@@ -117,7 +117,21 @@ export interface PrintResult {
   error?: string;
 }
 
-export type Role = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
+// Mirrors StaffRole (@touch/core/staff/roles) and the shell's copy in
+// apps/operator-shell/src/ipc-channels.ts.
+// packages/db/tests/staff-roles-parity.test.ts fails when they drift.
+export type Role =
+  | 'cashier'
+  | 'prep'
+  | 'court_desk'
+  | 'manager'
+  | 'owner'
+  | 'head_barista'
+  | 'barista'
+  | 'head_chef'
+  | 'chef'
+  | 'driver'
+  | 'marketing';
 
 export type StationMode = 'till' | 'desk' | 'kds';
 

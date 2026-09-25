@@ -11,7 +11,7 @@
  *
  *  1. **Is anything set up in a way that will bite?** Setup screens are opened
  *     a few times a year, so nobody notices a half-finished one until a shift
- *     trips over it. Three checks, each from a read these screens already
+ *     trips over it. Four checks, each from a read these screens already
  *     make, each with a button to the screen that fixes it:
  *       - Telegram is switched on but not reaching the group (no group, the
  *         example id, the last message failed or is stuck) — staff are not
@@ -20,6 +20,9 @@
  *       - an active manager or owner with no PIN cannot approve a discount or
  *         a void at the till, which stops a sale mid-shift.
  *       - one active owner: if that account is lost, nobody can manage staff.
+ *       - anyone who can sign in still on Kitchen (prep), retired by 0155:
+ *         it keeps working, and a later migration drops it once nobody holds
+ *         it, so each account is moved to barista or chef by hand.
  *     When nothing is wrong it says so plainly rather than disappearing.
  *  2. **Where do I go?** The section's screens as cards, each with one honest
  *     live line: accounts with access, courts open for booking, tables in use,
@@ -45,7 +48,7 @@ import { Button, Skeleton } from '../../components/ui';
 import { Panel } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
 import { CardTitle, MARK, MARK_FG, MARK_SOFT, type MarkTone } from '../ops/OpsVisuals';
-import { STAFF_QUERY_KEY, approvesWithPin, type StaffRow } from './staff/staffModel';
+import { STAFF_QUERY_KEY, approvesWithPin, onRetiredRole, type StaffRow } from './staff/staffModel';
 import { useOutbox } from './telegram/OutboxList';
 import { telegramHealth, type TelegramHealth } from './telegram/telegramStatus';
 import { KitchenPairingPanel } from './KitchenPairing';
@@ -199,6 +202,19 @@ function WorthChecking({
         title: tr('ws.owner.setupHome.checks.oneOwner'),
         hint: tr('ws.owner.setupHome.checks.oneOwnerHint'),
         action: tr('ws.owner.setupHome.checks.oneOwnerAction'),
+        href: '/admin/staff',
+      });
+    }
+    const retired = onRetiredRole(staffQ.data);
+    if (retired > 0) {
+      rows.push({
+        key: 'retiredRole',
+        count: retired,
+        icon: 'users',
+        tone: 'warn',
+        title: tr('ws.owner.setupHome.checks.retiredRole'),
+        hint: tr('ws.owner.setupHome.checks.retiredRoleHint'),
+        action: tr('ws.owner.setupHome.checks.retiredRoleAction'),
         href: '/admin/staff',
       });
     }

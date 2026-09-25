@@ -1,19 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
-import { t, type Locale } from '@touch/i18n';
-import { MENU_ERROR, MENU_FIXTURE, resetServerData, serverData } from '@/test/fixtures';
+import type { ReactNode } from 'react';
+import { screen, within } from '@testing-library/react';
+import { t, type MessageKey, type TParams } from '@touch/i18n';
+import { MENU_ERROR, resetServerData, serverData, VENUE_FIXTURE } from '@/test/fixtures';
 import { renderServerPage } from '@/test/renderPage';
-import CafeRootPage from './page';
+import { resetSiteRequest } from '@/lib/site/testSupport';
+import { PHOTO_GRADE_ID } from '@/lib/site/photoGrade';
+import HomePage, { generateMetadata } from './page';
 
 /**
- * The cafe root — `/{locale}` — is the page a walk-in guest lands on: the whole
- * app with `token: null`, so "send" and "call waiter" ask for the table QR.
- *
- * This is a SMOKE render: it proves the page composes and picks the reading
- * language, not that the design is right (that is `e2e/tests/cafe-*.spec.ts`).
- * The reads are mocked at `@/lib/menu.server` so no Supabase stack is needed,
- * and `useSupabase` returns null so every live feature degrades exactly as it
- * does on a deployment with no public env vars.
+ * The Touch Padel home page, `/{locale}` (contracts-2026-09-23 §0, Revision B): THE CLUB,
+ * not the app. What only this render can prove cheaply: the owner's section order with
+ * one app band, and each degraded data state (no dialable phone, the venue read failed,
+ * the menu read failed). The Arabic page, the booking links and the look are Playwright's
+ * (e2e/tests/site-landing.spec.ts). The live court (a WebGL canvas) is a stand-in: a
+ * labelled picture plus the children riding the net.
  */
 vi.mock('@/lib/menu.server', async () => {
   const { serverData } = await import('@/test/fixtures');
@@ -24,84 +25,196 @@ vi.mock('@/lib/menu.server', async () => {
   };
 });
 
-vi.mock('@/hooks/cafe/useSupabase', () => ({
-  useSupabase: () => null,
-  __resetSupabaseForTests: () => {},
+vi.mock('@/lib/site/mode.server', async () => {
+  const { siteRequest } = await import('@/lib/site/testSupport');
+  return {
+    getSiteMode: () => Promise.resolve(siteRequest.mode),
+    getRequestNonce: () => Promise.resolve(siteRequest.nonce),
+  };
+});
+
+vi.mock('@/features/court3d', () => ({
+  CourtStage: ({ label, children }: { label: string; children?: ReactNode }) => (
+    <div className="tp-court-stage">
+      <div role="img" aria-label={label} />
+      <div className="tp-court-stage__overlay">{children}</div>
+    </div>
+  ),
+  courtCss: '.tp-court-stage{}',
 }));
+
+// What Next's loader makes of `import hero from '…/hero.jpg'` (size + blur placeholder);
+// Vite would hand over a bare URL string, which next/image rightly refuses to blur.
+vi.mock('@/components/landing/photos', () => {
+  const still = (name: string) => ({
+    src: `/_next/static/media/${name}.jpg`,
+    width: 2400,
+    height: 1600,
+    blurWidth: 8,
+    blurHeight: 5,
+    blurDataURL:
+      'data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/wAALCAAFAAgBAREA/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAA/AKp//9k=',
+  });
+  return {
+    PHOTOS: {
+      hero: still('hero'),
+      club: still('club'),
+      lessons: still('lessons'),
+      cafe: still('cafe'),
+      events: still('events'),
+    },
+  };
+});
 
 vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new Error('NEXT_NOT_FOUND');
   },
-  useParams: () => ({}),
-  usePathname: () => '/',
-  useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {}, back: () => {} }),
 }));
 
-const LOCALES = ['en', 'ar'] as const;
-
-/** The section band's only text: the design's Latin word, or the category's own name. */
-function bandWords(): string[] {
-  return Array.from(document.querySelectorAll('.tp-stage__word')).map((el) => el.textContent ?? '');
-}
+const tr = (key: MessageKey, vars?: TParams) => t('en', key, vars);
+/** Strip bidi isolates, so a sentence can be compared as the eye reads it. */
+const plain = (s: string | null | undefined) => (s ?? '').replace(/[\u2066-\u2069]/g, '');
+const section = (selector: string) => document.querySelector<HTMLElement>(selector)!;
+const faqAnswers = () =>
+  [...section('#faq').querySelectorAll('.tp-faq__a')].map((p) => plain(p.textContent));
 
 beforeEach(() => {
   resetServerData();
+  resetSiteRequest();
 });
 
-describe.each(LOCALES)('cafe root page (%s)', (locale: Locale) => {
-  it('renders the app shell with no table bound', async () => {
-    await renderServerPage(CafeRootPage, locale);
+describe('home page', () => {
+  it('presents the club, section by section, in the contract’s order, with one app band', async () => {
+    await renderServerPage(HomePage, 'en');
 
-    // The lockup's alt text is the cafe name in the reading language.
-    expect(screen.getByAltText(t(locale, 'common.cafeName'))).toBeTruthy();
-    // token === null ⇒ TableChip renders nothing, so no "scan again" affordance.
-    expect(screen.queryByRole('button', { name: t(locale, 'cafe.scanAgain') })).toBeNull();
-    expect(document.querySelector('.tp-cafe__table')).toBeNull();
-  });
-
-  it('names its categories in the reading language', async () => {
-    await renderServerPage(CafeRootPage, locale);
-
-    const expected = MENU_FIXTURE.map((c) =>
-      locale === 'ar' ? c.name_ar : c.name_en.toUpperCase(),
-    );
-    expect(bandWords()).toEqual(expected);
-
-    // The other language's category name must not be on the page at all.
-    const other = MENU_FIXTURE.map((c) => (locale === 'ar' ? c.name_en.toUpperCase() : c.name_ar));
-    for (const word of other) expect(bandWords()).not.toContain(word);
-  });
-
-  it('prints every item row in the reading language', async () => {
-    await renderServerPage(CafeRootPage, locale);
-
-    for (const category of MENU_FIXTURE) {
-      for (const item of category.items) {
-        expect(screen.getByText(locale === 'ar' ? item.name_ar : item.name_en)).toBeTruthy();
-      }
+    const main = document.querySelector('main')!;
+    const order = [
+      '.tp-front',
+      '#club',
+      '#lessons',
+      '.tp-events',
+      '.tp-cafe-handoff',
+      '.tp-appband',
+      '#faq',
+      '#visit',
+    ].map((sel) => main.querySelector(sel));
+    for (const el of order) expect(el).not.toBeNull();
+    for (let i = 1; i < order.length; i++) {
+      expect(
+        order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    expect(main.querySelectorAll('.tp-appband')).toHaveLength(1);
+    // Every section is named by its own heading.
+    for (const el of main.querySelectorAll('section')) {
+      const id = el.getAttribute('aria-labelledby');
+      expect(id && document.getElementById(id)?.textContent, el.className).toBeTruthy();
     }
   });
 
-  /**
-   * DIRECTION: `dir` is set in exactly one place in this app — `<html>` in
-   * `app/[locale]/layout.tsx:108`, from `dirAttr(locale)`. A page test renders
-   * the PAGE, not the layout, so there is no RTL wrapper below it to assert on
-   * (grep `dir=` under src/components/cafe: only the phone link and the brand
-   * wordmark force `ltr`, and the stylesheets key off `[dir='rtl']` on the
-   * document). So Arabic is asserted here as the Arabic catalog strings the
-   * page chose; the rendered direction is `e2e/tests/cafe-rtl-layout.spec.ts`.
-   */
-  it('renders a status, not a blank menu, when the read model failed', async () => {
-    serverData.menu = MENU_ERROR;
-    await renderServerPage(CafeRootPage, locale);
+  it('answers the first visit in closed native details; "past midnight" only when true', async () => {
+    await renderServerPage(HomePage, 'en');
+    const items = [...section('#faq').querySelectorAll('details')];
+    expect(items).toHaveLength(7);
+    for (const d of items) expect(d.open).toBe(false);
+    // 09:00–23:00 closes before midnight: the plain answer.
+    expect(faqAnswers()[6]).toBe(plain(tr('site.faq.hoursA', { hours: '09:00–23:00' })));
 
-    const status = screen.getByRole('status');
-    expect(status.className).toContain('tp-menu-unavailable');
-    expect(status.textContent).toContain(t(locale, 'cafe.menuUnavailable.title'));
-    expect(status.textContent).toContain(t(locale, 'cafe.menuUnavailable.body'));
-    expect(screen.getByRole('button', { name: t(locale, 'common.retry') })).toBeTruthy();
-    // and nothing from the menu stage
-    expect(bandWords()).toEqual([]);
+    document.body.innerHTML = '';
+    const overnight: [string, string][] = [
+      ['00:00', '02:00'],
+      ['09:00', '24:00'],
+    ];
+    serverData.venue = {
+      ...VENUE_FIXTURE,
+      opening_hours: Object.fromEntries(
+        ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((d) => [d, overnight]),
+      ),
+    };
+    await renderServerPage(HomePage, 'en');
+    expect(faqAnswers()[6]).toBe(plain(tr('site.faq.hoursALate', { hours: '09:00–02:00' })));
+  });
+
+  it('turns every booking button into Plan your visit when the phone cannot be dialled', async () => {
+    serverData.venue = { ...VENUE_FIXTURE, phone: '030 123 4567' };
+    await renderServerPage(HomePage, 'en');
+
+    expect(document.querySelector('a[href*="wa.me"], a[href^="tel:"]')).toBeNull();
+    const fallbacks = [...document.querySelectorAll('a[data-contact="visit"]')];
+    // Header, hero, the court's net, lessons, events.
+    expect(fallbacks).toHaveLength(5);
+    for (const a of fallbacks) {
+      expect(a.getAttribute('href')).toBe('#visit');
+      expect(a.textContent).toBe(tr('site.hero.ctaVisit'));
+    }
+    // #visit itself still says how: walking in. The hours stand: only the phone is missing.
+    expect(within(section('#visit')).getByText(tr('site.visit.walkIn'))).toBeTruthy();
+    expect(section('.tp-front').querySelector('.tp-open')).not.toBeNull();
+  });
+
+  it('drops the hours, the open pill and the phone when the venue read fails', async () => {
+    serverData.venue = null;
+    await renderServerPage(HomePage, 'en');
+
+    expect(document.querySelector('.tp-open')).toBeNull();
+    expect(faqAnswers()[6]).toBe(tr('site.faq.hoursANoHours'));
+    expect(within(section('#visit')).queryByText(tr('site.visit.hoursTitle'))).toBeNull();
+    expect(document.querySelector('a[href*="wa.me"], a[href^="tel:"]')).toBeNull();
+    // Where the club is does not depend on the read.
+    expect(within(section('#visit')).getByText(tr('site.visit.address'))).toBeTruthy();
+  });
+
+  it('falls back to the category-free café line when the menu read fails', async () => {
+    serverData.menu = MENU_ERROR;
+    await renderServerPage(HomePage, 'en');
+
+    expect(section('.tp-cafe-handoff__body').textContent).toBe(tr('site.cafe.bodyNoCategories'));
+    expect(screen.getByRole('link', { name: tr('site.cafe.cta') }).getAttribute('href')).toBe(
+      '/en/menu',
+    );
+  });
+
+  it('describes every photograph by what is in it; the poster words are read once', async () => {
+    await renderServerPage(HomePage, 'en');
+
+    for (const key of ['heroAlt', 'clubAlt', 'lessonsAlt', 'eventsAlt', 'cafeAlt'] as const) {
+      expect(screen.getByRole('img', { name: tr(`site.photos.${key}`) })).toBeTruthy();
+    }
+    // PLAY / SMASH / WIN are the poster's picture: hidden, and read once as the label.
+    const events = section('.tp-events');
+    const words = events.querySelectorAll('.tp-events__word');
+    expect(words).toHaveLength(3);
+    for (const w of words) expect(w.getAttribute('aria-hidden')).toBe('true');
+    expect(within(events).getByText(tr('site.events.label'))).toBeTruthy();
+  });
+
+  it('grades only the hero in its night exposure, under the white type (WCAG 1.4.3)', async () => {
+    await renderServerPage(HomePage, 'en');
+
+    // Each grade filter is drawn once; the CSS (site-css.test) points at these ids.
+    for (const id of Object.values(PHOTO_GRADE_ID)) {
+      expect(document.querySelectorAll(`filter#${id}`)).toHaveLength(1);
+    }
+    const night = [...document.querySelectorAll('.tp-photo--night')];
+    expect(night).toEqual([section('.tp-front').querySelector('.tp-photo')]);
+  });
+});
+
+describe('home page metadata', () => {
+  it('names its canonical, the hreflang pair and its language’s share image', async () => {
+    const meta = await generateMetadata({ params: Promise.resolve({ locale: 'ar' }) });
+    expect(meta.alternates).toEqual({
+      canonical: '/ar',
+      languages: { en: '/en', ar: '/ar', 'x-default': '/ar' },
+    });
+    const og = meta.openGraph as { images: { url: string }[] };
+    expect(og.images[0]!.url).toBe('/brand/site/og-touch-padel-ar.png');
+  });
+
+  it('404s a foreign locale', async () => {
+    await expect(generateMetadata({ params: Promise.resolve({ locale: 'fr' }) })).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
   });
 });

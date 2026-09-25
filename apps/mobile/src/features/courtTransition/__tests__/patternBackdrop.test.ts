@@ -13,9 +13,10 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { PATTERN_DEFAULT_WIDTH, PATTERN_FIELD, slicePattern } from '../../../theme/brandPattern';
-import { buildPatternBackdrop, type BackdropViewport } from '../patternBackdrop';
-import { makeCamera } from '../camera';
-import { SPEC } from '../spec';
+import type { BackdropViewport } from '@touch/court3d/scene';
+import { buildPatternBackdrop } from '../patternBackdrop';
+import { makeCamera } from '@touch/court3d/camera';
+import { SPEC } from '@touch/court3d/spec';
 
 const FOV = SPEC.camera.fov;
 

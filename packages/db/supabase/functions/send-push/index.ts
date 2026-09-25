@@ -15,9 +15,19 @@
  *   4. Per-ticket: ok -> sent_at; error -> last_error (row retries once its
  *      lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears
  *      the profile's token so future bookings stop enqueueing.
+ *
+ * Two families of kind. The booking kinds (and `test`) take their copy from
+ * STRINGS below, with the court and time. The staff kinds, queued only by
+ * app.notify_staff, name their copy by payload.title_key and read it from
+ * staffStrings.ts (build-contracts-2026-09-23 §2.21); _shared/staff-push.json
+ * is the one list of their kinds, title keys and routes. This function must be
+ * deployed before the migration that lets the outbox hold a staff kind: a kind
+ * or title key it does not know is terminal.
  */
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { json } from '../_shared/http.ts';
+import staffPush from '../_shared/staff-push.json' with { type: 'json' };
+import { staffMessage } from './staffStrings.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_BATCH_SIZE = 100;
@@ -42,9 +52,13 @@ const ANDROID_CHANNEL_ID = 'default';
 
 type Lang = 'en' | 'ar';
 
-// Notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
+const STAFF_KINDS: ReadonlySet<string> = new Set(staffPush.kinds);
+const STAFF_ROUTES: ReadonlySet<string> = new Set(staffPush.routes);
+
+// Booking notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
 // edge functions bundle standalone, so the few push strings are duplicated
-// here; keep in sync with the `push.*` keys there when they change.
+// here; keep in sync with the `push.*` keys there when they change. The staff
+// kinds' copy is in staffStrings.ts.
 const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string, when: string) => string }>> = {
   en: {
     booking_confirmed: {
@@ -110,8 +124,20 @@ function formatWhen(iso: string, lang: Lang): string {
 interface OutboxRow {
   id: number;
   profile_id: string;
-  kind: 'booking_confirmed' | 'booking_reminder' | 'booking_cancelled' | 'booking_no_show' | 'test';
-  /** Reservation snapshot for the booking kinds; `{ source }` only for `test`. */
+  kind:
+    | 'booking_confirmed'
+    | 'booking_reminder'
+    | 'booking_cancelled'
+    | 'booking_no_show'
+    | 'test'
+    | 'staff_task'
+    | 'staff_decide'
+    | 'staff_decided'
+    | 'staff_info';
+  /**
+   * Reservation snapshot for the booking kinds; `{ source }` only for `test`;
+   * `{ route, id, title_key, params, dedupe? }` for the staff kinds.
+   */
   payload: {
     reservation_id?: string;
     court_id?: string;
@@ -119,6 +145,10 @@ interface OutboxRow {
     end_at?: string;
     price_iqd?: number | null;
     source?: string;
+    route?: unknown;
+    id?: unknown;
+    title_key?: unknown;
+    params?: unknown;
   };
   attempts: number;
 }
@@ -168,6 +198,29 @@ Deno.serve(async (req) => {
       continue;
     }
     const lang: Lang = profile.preferred_lang === 'ar' ? 'ar' : 'en';
+    if (STAFF_KINDS.has(row.kind)) {
+      const m = staffMessage(lang, row.kind, row.payload, STAFF_ROUTES);
+      if (m.ok === false) {
+        // A title key this build does not know: terminal, never retried.
+        failed++;
+        await db
+          .from('notification_outbox')
+          .update({ last_error: m.error, attempts: RETRY_CAP })
+          .eq('id', row.id);
+        continue;
+      }
+      const message: Record<string, unknown> = {
+        to: token,
+        title: m.title,
+        sound: 'default',
+        priority: 'high', // as the booking kinds below
+        channelId: ANDROID_CHANNEL_ID,
+        data: m.data,
+      };
+      if (m.body) message.body = m.body;
+      prepared.push({ row, message });
+      continue;
+    }
     const s = STRINGS[lang][row.kind];
     if (!s) {
       // A kind this build does not know: terminal, never retried.

@@ -20,17 +20,38 @@ describe('workspacesForRole', () => {
     expect(workspacesForRole('prep')).toEqual(['prep']);
     expect(workspacesForRole('court_desk')).toEqual(['courtDesk']);
   });
+  it('gives the bar and kitchen family the kitchen and nothing else, as prep had', () => {
+    for (const role of ['head_barista', 'barista', 'head_chef', 'chef'] as const) {
+      expect(workspacesForRole(role), role).toEqual(['prep']);
+    }
+  });
+  it('gives driver and marketing the team workspace alone', () => {
+    expect(workspacesForRole('driver')).toEqual(['team']);
+    expect(workspacesForRole('marketing')).toEqual(['team']);
+  });
   it('lets managers and owners enter every floor workspace, own one first', () => {
     expect(workspacesForRole('manager')[0]).toBe('manager');
     expect(workspacesForRole('owner')[0]).toBe('owner');
     expect(workspacesForRole('owner')).toContain('prep');
     expect(defaultWorkspace('owner')).toBe('owner');
   });
+  it('leaves the manager and owner lists as they were', () => {
+    // The team workspace is not a floor workspace: its one screen is refused
+    // to both jokers (ROUTE_ROLES), so neither may switch into it.
+    expect(workspacesForRole('manager')).toEqual(['manager', 'courtDesk', 'cashier', 'prep']);
+    expect(workspacesForRole('owner')).toEqual(['owner', 'manager', 'courtDesk', 'cashier', 'prep']);
+  });
 });
 
 describe('navigation sets', () => {
   it('the prep workspace has no navigation at all (spec §04)', () => {
     expect(WORKSPACES.prep.groups).toHaveLength(0);
+  });
+  it('the team workspace is one untitled group holding My tasks', () => {
+    expect(WORKSPACES.team.home).toBe('/tasks');
+    expect(WORKSPACES.team.groups.map((g) => [g.labelKey, g.items.map((i) => [i.to, i.labelKey])])).toEqual([
+      [null, [['/tasks', 'myTasks']]],
+    ]);
   });
   it('every nav target is a route the workspace owner role may open', () => {
     const roleFor: Record<keyof typeof WORKSPACES, StaffRole> = {
@@ -39,6 +60,7 @@ describe('navigation sets', () => {
       prep: 'prep',
       manager: 'manager',
       owner: 'owner',
+      team: 'driver',
     };
     for (const ws of Object.values(WORKSPACES)) {
       for (const item of workspaceItems(ws)) {
@@ -49,15 +71,32 @@ describe('navigation sets', () => {
       }
       expect(canAccess(roleFor[ws.key], ws.home), `${ws.key} home`).toBe(true);
     }
+    // Every role that holds a workspace can open all of it, not just the one
+    // named above.
+    for (const role of ['head_barista', 'barista', 'head_chef', 'chef', 'marketing'] as const) {
+      for (const key of workspacesForRole(role)) {
+        for (const item of workspaceItems(WORKSPACES[key])) expect(canAccess(role, item.to), `${role} → ${item.to}`).toBe(true);
+        expect(canAccess(role, WORKSPACES[key].home), `${role} → ${key} home`).toBe(true);
+      }
+    }
   });
   it('every route prefix in ROUTE_ROLES is reachable from at least one rail or is a shell route', () => {
     const targets = new Set(Object.values(WORKSPACES).flatMap((ws) => workspaceItems(ws).map((i) => i.to)));
     // Telegram lives in the admin sub-nav (System group), not on a rail.
     const shell = new Set(['/workspaces', '/kds', '/reports', '/reports/revenue', '/desk/customers/new', '/admin/telegram']);
+    // Routes that land before their rail row: /protocols is registered first
+    // (D1) so other screens can link to it, and its Observe and manager rows
+    // come with the page (D2, build-contracts-2026-09-23 §5.1).
+    const railPending = new Set(['/protocols']);
     for (const prefix of Object.keys(ROUTE_ROLES)) {
-      const covered =
-        shell.has(prefix) || [...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`));
-      expect(covered, prefix).toBe(true);
+      const railed = [...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`));
+      expect(shell.has(prefix) || railPending.has(prefix) || railed, prefix).toBe(true);
+    }
+    // A pending route leaves the list the moment its row lands, so the
+    // exemption cannot outlive the reason for it.
+    for (const prefix of railPending) {
+      expect(ROUTE_ROLES[prefix], `${prefix} is in ROUTE_ROLES`).toBeDefined();
+      expect([...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`)), `${prefix} has a rail row now`).toBe(false);
     }
   });
 });
@@ -110,7 +149,10 @@ describe('workspaceForRoute', () => {
     expect(workspaceForRoute('/analytics')).toBe('owner');
     expect(workspaceForRoute('/analytics/courts')).toBe('owner');
     expect(workspaceForRoute('/ops')).toBe('manager');
+    expect(workspaceForRoute('/tasks')).toBe('team');
     expect(workspaceForRoute('/desk')).toBeNull();
+    // Manager and owner share it, so a link in keeps whichever rail is open.
+    expect(workspaceForRoute('/protocols')).toBeNull();
     expect(workspaceForRoute('/till/tabs')).toBeNull();
   });
 });
@@ -237,6 +279,8 @@ describe('workspaceOwnsPath', () => {
     // shell over to the prep workspace.
     expect(workspaceOwnsPath('owner', '/kds')).toBe(false);
     expect(workspaceOwnsPath('manager', '/panel')).toBe(false);
+    expect(workspaceOwnsPath('team', '/tasks')).toBe(true);
+    expect(workspaceOwnsPath('owner', '/tasks')).toBe(false);
   });
 });
 

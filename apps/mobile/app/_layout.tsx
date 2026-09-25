@@ -29,6 +29,7 @@ import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { useNavigationTheme } from '../src/navigation/theme';
 import { useNativeBarDirection } from '../src/navigation/headerDirection';
 import { AuthProvider, useAuth } from '../src/features/auth/context';
+import { StaffStatusProvider, settledStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -341,11 +342,14 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
   // Push: foreground display, the Android channel, and "tap opens the booking".
   // Once per app life — it does not depend on language or theme. The booking
   // screen carries its own RequireSession, so a tap while signed out lands on
-  // the sign-in it redirects to.
+  // the sign-in it redirects to. A staff tap opens its staff screen, and only
+  // once the phone is known to be signed in as staff (build-contracts §6.8).
   useEffect(
     () =>
       installNotificationHandler({
         onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
+        onOpenStaff: (href) => router.push(href),
+        staffStatus: settledStaffStatus,
       }),
     [],
   );
@@ -374,9 +378,15 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
               <DirectionRoot>
                 <AuthProvider>
                   <ToastProvider>
-                    <ThemedChrome />
-                    <RootStack />
-                    <ConnectivityBanner />
+                    {/* Guest or staff, for everything below (build-contracts §6.5).
+                        Inside AuthProvider: it reads the session's own staff row.
+                        Inside ToastProvider: it says why a Google or Apple
+                        session on a staff account was signed out (§6.6). */}
+                    <StaffStatusProvider>
+                      <ThemedChrome />
+                      <RootStack />
+                      <ConnectivityBanner />
+                    </StaffStatusProvider>
                   </ToastProvider>
                 </AuthProvider>
                 {/* Over the navigator and the native tab bar, outside every

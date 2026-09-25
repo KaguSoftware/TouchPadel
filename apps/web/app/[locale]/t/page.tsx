@@ -1,98 +1,38 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
-import { makeT } from '@touch/i18n';
+import { redirect } from 'next/navigation';
 import { requireLocale } from '@/lib/locales';
-import { getCachedCafeSettings, getCachedMenu, getCachedVenue } from '@/lib/menu.server';
-import { CafeApp } from '@/components/cafe/CafeApp';
-import { TABLE_COOKIE } from '@/lib/security/headers';
 
 /**
- * The table page, AFTER the token has left the URL.
+ * `/{locale}/t` — the table session's URL until 2026-09-23, now a 307 to the
+ * café menu at `/{locale}/menu`, which reads the same `tp-table` cookie.
  *
- * proxy.ts turns the printed `/t/{token}` into a 307 to this route carrying an
- * HttpOnly `tp-table` cookie, so the address bar reads `/{locale}/t` for the
- * rest of the session and the token is never handed to a third party in a
- * `Referer`, captured as `$current_url`, or left in browser history.
+ * proxy.ts performs this redirect before routing (with the CSP on the hop and
+ * no-store + no-referrer on it), so this page is the fallback for a request
+ * the proxy did not see, the same defence in depth as `t/[token]/route.ts`.
+ * It kept its URL for bookmarks, installed shortcuts and guests whose cookie
+ * was set before the move: the cookie is `path: '/'`, so the table still binds
+ * on the menu.
  *
- * A guest who lands here with no cookie is not an error: it is someone who
- * bookmarked the page, or whose cookie has aged out. They get the menu with no
- * table bound — exactly the walk-in browsing state the site root renders — and
- * a re-scan binds them again.
- *
- * `cookies()` opts this route into dynamic rendering. That is the intended
- * trade: the menu itself still comes from the shared cached read model
- * (getCachedMenu), so this costs a render, not a database round trip.
- *
- * ── KNOWN RESIDUAL, measured not assumed ─────────────────────────────────────
- * The token is read from the HttpOnly cookie here and then passed to <CafeApp>
- * as a prop, which means it is serialised into the RSC payload and IS readable
- * by page script. Verified: it appears exactly once in the rendered HTML.
- *
- * So what the exchange actually bought is precise, and worth stating plainly:
- *   FIXED     the token no longer sits in the address bar, so it is no longer
- *             sent in `Referer` to PostHog or the image CDN, no longer captured
- *             as `$current_url`, no longer written to browser history, and no
- *             longer visible in a screenshot or a shared link.
- *   NOT FIXED an XSS in this app could still read the token out of the RSC
- *             payload. HttpOnly stops `document.cookie`, not this.
- *
- * Closing that last gap means never sending the token to the client at all:
- * a route handler would read the cookie server-side and call
- * `app.open_table_session` as the guest (their Supabase session is already in
- * cookies via @supabase/ssr), returning only the resulting session. That is a
- * real refactor of the guest ordering boot in `useTableSession.ts`, and it is
- * NOT done here — it could not be validated without the e2e suite, which needs
- * the local Supabase stack. Tracked as the follow-up to this box.
+ * Temporary, never permanent: a browser that learned `/t` → `/menu` forever
+ * could not be taught otherwise if the session moves again (the old
+ * `/menu` → `/` 308 is exactly that lesson). `redirect()` in a Server
+ * Component is a 307, and there is no `loading.tsx` above this page, so no
+ * 200 shell flushes before it (see `t/[token]/route.ts`).
  */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
-  const locale = requireLocale((await params).locale);
-  const tr = makeT(locale);
-  return {
-    title: tr('seo.tableTitle'),
-    // A table URL must never be indexed — it is one guest's session.
-    robots: { index: false, follow: false },
-  };
+  requireLocale((await params).locale);
+  return { robots: { index: false, follow: false } };
 }
 
-export default async function TableSessionPage({
+export default async function TableSessionRedirect({
   params,
 }: {
   params: Promise<{ locale: string }>;
-}) {
-  /**
-   * FIRST STATEMENT, BEFORE ANY await ON DATA (2026-09-21).
-   *
-   * This was `requireLocale(rawLocale)` down in the JSX, after the cookie read
-   * and the three cached reads. It still 404'd — measured on the 16.3.4
-   * production build, `/.well-known/t` comes back 404 either way — but it made
-   * src/lib/locales.ts's own claim ("a 404 before anything under `[locale]`
-   * renders") false for this one page: every unknown first segment paid for a
-   * cookie read and three read-model reads first, and any of those throwing
-   * would have rendered the error boundary instead of the 404. Every other page
-   * under `[locale]` already resolves its locale on line one; this one now does
-   * too.
-   */
+}): Promise<never> {
   const locale = requireLocale((await params).locale);
-  const token = (await cookies()).get(TABLE_COOKIE)?.value ?? null;
-
-  const [menuResult, settings, venue] = await Promise.all([
-    getCachedMenu(),
-    getCachedCafeSettings(),
-    getCachedVenue(),
-  ]);
-
-  return (
-    <CafeApp
-      locale={locale}
-      token={token}
-      initialMenu={menuResult.categories}
-      menuStatus={menuResult.status}
-      settings={settings}
-      venue={venue}
-    />
-  );
+  redirect(`/${locale}/menu`);
 }

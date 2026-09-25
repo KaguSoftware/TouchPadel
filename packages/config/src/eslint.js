@@ -209,6 +209,8 @@ const testIdElements = [
   'CapsuleControl',
   'PlayersChip',
   'CountryRow',
+  // Staff phone (build-contracts-2026-09-23 §6.3)
+  'PhotoButton',
 ].join('|');
 
 const TEST_ID_MESSAGE =

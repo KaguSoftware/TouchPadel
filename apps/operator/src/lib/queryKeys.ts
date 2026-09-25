@@ -76,6 +76,20 @@ export const QK = {
   stock: {
     all: ['stock'] as const satisfies QueryKey,
   },
+
+  // Protocols and the staff phone (build-contracts-2026-09-23 §5.2). Each is
+  // read by more than one screen; the protocols page's own keys (PK) sit in
+  // features/protocols/keys.ts under the same ['protocols'] root, so
+  // invalidating that root refreshes the page and the waiting count together.
+  /** What waits on the caller (app.protocols_waiting_count): Protocols, /ops, Observe home and the rail badge. */
+  protocolsWaiting: ['protocols', 'waiting'] as const satisfies QueryKey,
+  /** The driver's purchases not yet received as stock: /ops and Goods in (app.purchases_to_receive). */
+  purchasesToReceive: ['purchases', 'toReceive'] as const satisfies QueryKey,
+  /** How far each daily checklist got on one business date (app.checklist_day_state): day close and the checklists card. */
+  checklistDayState: {
+    all: ['checklists', 'dayState'] as const satisfies QueryKey,
+    date: (date: string) => ['checklists', 'dayState', date] as const satisfies QueryKey,
+  },
 } as const;
 
 /**

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CAPABILITY_ROLES,
   ROUTE_ROLES,
+  STAFF_ROLES,
   SUB_ROUTES,
   allowedRoutes,
   allowedSubRoutes,
@@ -12,7 +13,11 @@ import {
   type StaffRole,
 } from './auth';
 
-const ALL_ROLES: readonly StaffRole[] = ['cashier', 'prep', 'court_desk', 'manager', 'owner'];
+const ALL_ROLES: readonly StaffRole[] = STAFF_ROLES;
+/** Bar and kitchen (0155): prep's access exactly, and nothing more. */
+const KITCHEN_FAMILY = ['head_barista', 'barista', 'head_chef', 'chef'] as const;
+/** The any-staff baseline plus My tasks. */
+const TEAM = ['driver', 'marketing'] as const;
 
 describe('canAccess — longest-prefix match, default deny', () => {
   it('denies every role on a route that matches no prefix', () => {
@@ -52,6 +57,17 @@ describe('canAccess — longest-prefix match, default deny', () => {
     expect(canAccess('owner', '/admin/telegram/outbox')).toBe(true);
   });
 
+  it('gives /protocols to management alone', () => {
+    // Every other actor works its steps from /tasks or the phone
+    // (build-contracts-2026-09-23 §5.1).
+    expect(canAccess('manager', '/protocols')).toBe(true);
+    expect(canAccess('owner', '/protocols')).toBe(true);
+    expect(canAccess('manager', '/protocols?start=price_promo&change=price')).toBe(true);
+    for (const role of ALL_ROLES.filter((r) => r !== 'manager' && r !== 'owner')) {
+      expect(canAccess(role, '/protocols'), role).toBe(false);
+    }
+  });
+
   it('keeps /analytics owner-only', () => {
     expect(canAccess('owner', '/analytics')).toBe(true);
     for (const role of ALL_ROLES.filter((r) => r !== 'owner')) {
@@ -74,6 +90,29 @@ describe('canAccess — longest-prefix match, default deny', () => {
     expect(canAccess('court_desk', '/admin')).toBe(false);
     expect(canAccess('manager', '/stock')).toBe(true);
   });
+
+  it('gives the bar and kitchen family the kitchen display, and only that', () => {
+    for (const role of KITCHEN_FAMILY) {
+      expect(canAccess(role, '/kds'), role).toBe(true);
+      // Every other route answers exactly as it does for prep.
+      for (const route of Object.keys(ROUTE_ROLES)) {
+        expect(canAccess(role, route), `${role} ${route}`).toBe(canAccess('prep', route));
+      }
+    }
+  });
+
+  it('gives driver and marketing My tasks and nothing else', () => {
+    for (const role of TEAM) {
+      expect(canAccess(role, '/tasks'), role).toBe(true);
+      for (const route of Object.keys(ROUTE_ROLES).filter((r) => r !== '/tasks')) {
+        expect(canAccess(role, route), `${role} ${route}`).toBe(false);
+      }
+    }
+    // My tasks is theirs: no other role, the jokers included, lands on it.
+    for (const role of ALL_ROLES.filter((r) => !(TEAM as readonly string[]).includes(r))) {
+      expect(canAccess(role, '/tasks'), role).toBe(false);
+    }
+  });
 });
 
 describe('allowedRoutes — top-level entries only', () => {
@@ -88,9 +127,13 @@ describe('allowedRoutes — top-level entries only', () => {
   it('filters by role', () => {
     expect(allowedRoutes('cashier')).toEqual(['/till']);
     expect(allowedRoutes('prep')).toEqual(['/kds']);
+    expect(allowedRoutes('chef')).toEqual(['/kds']);
+    expect(allowedRoutes('driver')).toEqual(['/tasks']);
     expect(allowedRoutes('manager')).toContain('/admin');
     expect(allowedRoutes('manager')).not.toContain('/analytics');
     expect(allowedRoutes('owner')).toContain('/analytics');
+    expect(allowedRoutes('manager')).toContain('/protocols');
+    expect(allowedRoutes('owner')).toContain('/protocols');
   });
 });
 
@@ -124,14 +167,26 @@ describe('homeRoute', () => {
     expect(homeRoute('court_desk')).toBe('/desk/today');
     expect(homeRoute('manager')).toBe('/ops');
     expect(homeRoute('owner')).toBe('/panel');
+    for (const role of KITCHEN_FAMILY) expect(homeRoute(role), role).toBe('/kds');
+    for (const role of TEAM) expect(homeRoute(role), role).toBe('/tasks');
+  });
+
+  it('lands every role on a screen it may open', () => {
+    for (const role of ALL_ROLES) expect(canAccess(role, homeRoute(role)), role).toBe(true);
   });
 });
 
 describe('capability matrix', () => {
-  // These four were inline `staff?.role === 'owner'` comparisons inside two
+  // The first five were inline `staff?.role === 'owner'` comparisons inside two
   // components. SOW L185 promises "one place to change a permission", and a
   // route matrix that only covers routes is not one place.
   const ALL_CAPS = Object.keys(CAPABILITY_ROLES) as Capability[];
+  /** The two protocol starts: the only capabilities a non-owner holds. */
+  const STARTS: Partial<Record<Capability, readonly StaffRole[]>> = {
+    startProtocolRelease: ['head_barista', 'head_chef', 'manager', 'owner'],
+    startProtocolPriceChange: ['marketing', 'manager', 'owner'],
+  };
+  const OWNER_ONLY = ALL_CAPS.filter((c) => !(c in STARTS));
 
   it('is default-deny for a signed-out caller', () => {
     for (const capability of ALL_CAPS) expect(can(undefined, capability)).toBe(false);
@@ -141,9 +196,9 @@ describe('capability matrix', () => {
     for (const capability of ALL_CAPS) expect(can('owner', capability)).toBe(true);
   });
 
-  it('withholds all four from every non-owner role', () => {
+  it('withholds every owner-only capability from every other role', () => {
     for (const role of ALL_ROLES.filter((r) => r !== 'owner')) {
-      for (const capability of ALL_CAPS) {
+      for (const capability of OWNER_ONLY) {
         expect(can(role, capability), `${role} / ${capability}`).toBe(false);
       }
     }
@@ -153,13 +208,46 @@ describe('capability matrix', () => {
     // Named explicitly so deleting one from the matrix fails here rather
     // than silently exposing the control.
     expect(ALL_CAPS.sort()).toEqual(
-      ['editVenueDetails', 'rotateTableToken', 'setAnalyticsExclusions', 'setBusinessDayStart', 'setEngagementFloor'].sort(),
+      [
+        'editChecklists',
+        'editLaunchedPrices',
+        'editProtocols',
+        'editVenueDetails',
+        'launchDirectly',
+        'rotateTableToken',
+        'setAnalyticsExclusions',
+        'setBusinessDayStart',
+        'setEngagementFloor',
+        'startProtocolPriceChange',
+        'startProtocolRelease',
+      ].sort(),
     );
   });
 
   it('leaves the venue details to the owner, as app.set_venue_details does', () => {
     expect(can('owner', 'editVenueDetails')).toBe(true);
     expect(can('manager', 'editVenueDetails')).toBe(false);
+  });
+
+  it('lets exactly the proposing roles start a release or a price change (§5.1)', () => {
+    for (const [capability, roles] of Object.entries(STARTS) as [Capability, readonly StaffRole[]][]) {
+      for (const role of ALL_ROLES) {
+        expect(can(role, capability), `${role} / ${capability}`).toBe(roles.includes(role));
+      }
+    }
+    // The heads propose; the barista and chef under them, the retired
+    // kitchen role and the till do not.
+    for (const role of ['barista', 'chef', 'prep', 'cashier', 'court_desk', 'driver'] as const) {
+      expect(can(role, 'startProtocolRelease'), role).toBe(false);
+      expect(can(role, 'startProtocolPriceChange'), role).toBe(false);
+    }
+  });
+
+  it('keeps launched prices and launching itself with the owner, never the manager (#51-#53)', () => {
+    expect(can('manager', 'editLaunchedPrices')).toBe(false);
+    expect(can('manager', 'launchDirectly')).toBe(false);
+    expect(can('manager', 'editProtocols')).toBe(false);
+    expect(can('manager', 'editChecklists')).toBe(false);
   });
 
   it('never lists an unknown role', () => {
@@ -190,6 +278,12 @@ describe('permissionsFor (spec §03 can.*)', () => {
     const owner = permissionsFor('owner');
     expect(owner.manageStaff).toBe(true);
     expect(owner.viewFinancials).toBe(true);
+  });
+  it('gives the six 0155 roles no permission at all', async () => {
+    const { permissionsFor } = await import('./auth');
+    for (const role of [...KITCHEN_FAMILY, ...TEAM]) {
+      expect(Object.values(permissionsFor(role)).every((v) => v === false), role).toBe(true);
+    }
   });
   it('lets the court desk take court payment without the till (0106)', async () => {
     const { permissionsFor, canAccess, requiredRoleFor } = await import('./auth');

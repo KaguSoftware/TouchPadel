@@ -12,6 +12,9 @@
  * never existed rather than one that arrives late.
  */
 
+import { isStaffPushRoute, staffPushHref, type StaffHref } from '../staff/pushRoutes';
+import type { StaffStatusKind } from '../staff/status';
+
 /** What a registration attempt concluded. See PushRegistrationResult. */
 export type PushOutcome = 'registered' | 'denied' | 'unavailable' | 'failed';
 
@@ -90,13 +93,53 @@ export function shouldRouteTap(args: { id: string | null; handled: ReadonlySet<s
   return !args.handled.has(args.id);
 }
 
+/** What a tapped notification's data may carry: a booking kind's reservation, or a staff kind's route. */
+export interface PushTapData {
+  kind?: unknown;
+  reservation_id?: unknown;
+  /** Staff kinds only (send-push, build-contracts-2026-09-23 §2.21). */
+  route?: unknown;
+  id?: unknown;
+}
+
+export type TapDestination =
+  | { kind: 'reservation'; id: string }
+  | { kind: 'staff'; href: StaffHref }
+  | null;
+
+/** A staff kind: its data names a route (the booking kinds never do). */
+export function isStaffTap(data: PushTapData | undefined): boolean {
+  return data?.route !== undefined && data?.route !== null;
+}
+
 /**
  * Where a tapped notification goes. Only the booking kinds carry a
  * reservation_id; `test` (and any future kind without one) routes nowhere, and
  * must NOT be breadcrumbed as an open — a log claiming a navigation that never
  * happened sent the last audit hunting a routing bug that did not exist.
+ *
+ * With the staff status (§6.8 item 8), a staff kind's `route` opens its staff
+ * screen, but only while this phone is signed in as staff and only for a route
+ * the phone lists (STAFF_PUSH_ROUTES, compared with _shared/staff-push.json):
+ * a staff push that reaches a phone now signed in as a guest, or names a route
+ * this build does not know, opens nothing. A booking kind opens its booking as
+ * it always has. Called with the data alone, it answers the booking half, the
+ * reservation id, as it always did.
  */
-export function tapDestination(data: { reservation_id?: unknown } | undefined): string | null {
+export function tapDestination(data: PushTapData | undefined): string | null;
+export function tapDestination(data: PushTapData | undefined, status: StaffStatusKind): TapDestination;
+export function tapDestination(
+  data: PushTapData | undefined,
+  status?: StaffStatusKind,
+): string | null | TapDestination {
   const id = data?.reservation_id;
-  return typeof id === 'string' && id ? id : null;
+  const reservationId = typeof id === 'string' && id ? id : null;
+  if (status === undefined) return reservationId;
+  if (isStaffTap(data)) {
+    const route = data?.route;
+    if (status !== 'staff' || !isStaffPushRoute(route)) return null;
+    const target = typeof data?.id === 'string' && data.id ? data.id : null;
+    return { kind: 'staff', href: staffPushHref(route, target) };
+  }
+  return reservationId ? { kind: 'reservation', id: reservationId } : null;
 }

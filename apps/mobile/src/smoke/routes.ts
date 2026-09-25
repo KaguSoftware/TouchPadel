@@ -63,6 +63,12 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
+  // ── staff ─────────────────────────────────────────────────────────────────
+  // build-contracts-2026-09-23 §6.2. Each page lane adds its rows with its
+  // screens; staff.smoke.test.tsx (Today, requests) and staffPages.smoke.test.tsx
+  // (the rest) case them, in EN and AR, as a staff session.
+  { file: 'staff.tsx', route: 'staff', primary: 'staff.requests' },
+  { file: 'staff-request.tsx', route: 'staff-request', primary: 'staff-request.submit' },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

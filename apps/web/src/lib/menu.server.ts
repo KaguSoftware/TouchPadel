@@ -12,10 +12,13 @@ import {
 } from './menu';
 
 /**
- * Server-side cached read model shared by `/{locale}` (ISR) and
- * `/{locale}/t/{token}` (dynamic): one `unstable_cache` entry tagged `menu`,
- * revalidated every 60 s. A failed or empty read is an explicit status — the
- * page must never render a silent blank (Vercel incident lesson).
+ * Server-side cached read model shared by every page that shows venue or menu
+ * data: the café menu at `/{locale}/menu` (walk-in and table-bound alike), the
+ * Touch Padel landing at `/{locale}` and the legal pages. Every one of them
+ * renders dynamically (the layout's nonce read), so this cache is the only one:
+ * one `unstable_cache` entry per read, tagged `menu`, revalidated every 60 s. A
+ * failed or empty read is an explicit status — the page must never render a
+ * silent blank (Vercel incident lesson).
  */
 export type MenuStatus = 'ok' | 'empty' | 'error';
 

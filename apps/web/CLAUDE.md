@@ -2,9 +2,12 @@
 
 # apps/web — rules for every change
 
-Next.js guest site under `app/[locale]/`: the root menu page, the QR table menu (`t/[token]`),
-`download`, `privacy` and `support`. `AGENTS.md` above is Next's generated guide to this Next
-version; read it before touching routing, caching or server code. Written 2026-09-20 (Phase 2,
+Next.js public site under `app/[locale]/`: the Touch Padel landing page at `/{locale}`, the café
+menu at `/{locale}/menu` (walk-in, or table-bound through the `tp-table` cookie that the QR exchange
+at `/t/{token}` sets; `t/[token]/route.ts` is its fallback and `/{locale}/t` a 307 to the menu),
+`download`, and the legal pages (`privacy`, `terms`, `support`, `delete-account`). The menu moved
+off the root on 2026-09-23 (`docs/design/web-site/contracts-2026-09-23.md`). `AGENTS.md` above is
+Next's generated guide to this Next version; read it before touching routing, caching or server code. Written 2026-09-20 (Phase 2,
 Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Database-side
 rules are in `packages/db/CLAUDE.md`.
 
@@ -21,9 +24,15 @@ rules are in `packages/db/CLAUDE.md`.
 
 - Every page lives under `app/[locale]/…`; the locale is the URL prefix (`/ar/...`), never a header
   or cookie. Test every touched screen at `/ar` before calling it done (`CONTRIBUTING.md`).
-- `app/[locale]/layout.tsx:104` reads `headers()` for the CSP nonce, which makes the whole tree
+- `app/[locale]/layout.tsx:130` reads `headers()` for the CSP nonce, which makes the whole tree
   dynamic today (C11). Do not add another `headers()` or `cookies()` read in a layout, and do not
   claim ISR for a page until C11 is fixed.
+- `app/[locale]/[...rest]/page.tsx` catches every address under a locale that no page matches and
+  throws `notFound()`, so a mistyped URL gets the site's own 404 (its sibling `not-found.tsx`, in
+  the site shell) instead of Next's bare default. `app/[locale]/not-found.tsx` is the light
+  segment fallback: Next serialises it into EVERY route's payload, the café menu's included, so it
+  must not import the site shell or its sheet. Each page family inlines its own stylesheet
+  (`SiteStyles`, `CafeStyles`); the layout inlines only the theme tokens and a document reset.
 - A server read returns an explicit status union (`MenuStatus = 'ok' | 'empty' | 'error'`,
   `src/lib/menu.server.ts:20`) and the page renders each state; never a silent blank.
 - Security headers and CSP live in `src/lib/security/headers.ts` (`buildCsp`,
@@ -67,7 +76,7 @@ rules are in `packages/db/CLAUDE.md`.
 
 - Two environments in one `vitest.config.ts`: `*.test.ts` runs under node (the default — pure logic
   keeps its speed), `*.test.tsx` under jsdom via `environmentMatchGlobs`. Both `src/` and `app/` are
-  in `include`, so a PAGE test sits next to its page (`app/[locale]/page.test.tsx`). Render a server
+  in `include`, so a PAGE test sits next to its page (`app/[locale]/menu/page.test.tsx`). Render a server
   page with `renderServerPage` from `src/test/renderPage.tsx` (it awaits the async component with
   `params: Promise.resolve({ locale })`); menu/settings/venue fixtures are in `src/test/fixtures.ts`
   and the reads are mocked at `@/lib/menu.server`, never against a live Supabase. `vitest.setup.ts`

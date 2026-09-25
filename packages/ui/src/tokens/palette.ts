@@ -19,6 +19,13 @@ export type ThemeName = 'padel' | 'cafe' | 'operator';
 /** A palette is a flat map of CSS custom property name → value. */
 export type PaletteVars = Readonly<Record<`--tp-${string}`, string>>;
 
+/**
+ * The public Touch Padel site, light mode (the night mode and the site scale live in
+ * tokens/site.ts). Values are the guest app's light palette (apps/mobile/src/theme/
+ * tokens.ts `palettes.light`), so the website and the app read as one surface. Until
+ * 2026-09-23 this block carried a black-on-white draft (#000 ink, #F6F6F6 surface) that
+ * nothing rendered; the site landing page is its first consumer.
+ */
 export const padelPalette = {
   // raw brand colors
   '--tp-brand-green': '#A5D06F',
@@ -28,16 +35,16 @@ export const padelPalette = {
   '--tp-brand-gray': '#BCBDBF',
 
   // semantic tokens (derived)
-  '--tp-bg': '#FFFFFF',
-  '--tp-fg': '#000000',
-  '--tp-surface': '#F6F6F6', // near-white: an exact shade of the brand gray
+  '--tp-bg': '#F3F5F9', // the app's light ground (brand blue L96, desaturated)
+  '--tp-fg': '#1B2C47', // the app's ink — 12.84:1 on the ground
+  '--tp-surface': '#FFFFFF', // cards
   '--tp-accent': '#3360AB', // primary interactive
   '--tp-accent-contrast': '#FFFFFF',
-  '--tp-accent-2': '#A5D06F', // secondary accent / success-ish highlights
-  '--tp-accent-2-contrast': '#000000',
-  '--tp-muted': '#BCBDBF',
-  '--tp-muted-fg': '#5C5E61', // brand gray at L37 — readable secondary text (6.5:1)
-  '--tp-border': '#DADBDC', // brand gray at L86
+  '--tp-accent-2': '#A5D06F', // the green "go"
+  '--tp-accent-2-contrast': '#000000', // white on the green is 1.77:1; black is 11.85:1
+  '--tp-muted': '#C3CCDB',
+  '--tp-muted-fg': '#5A6D8C', // the app's secondary text — 4.81:1 on the ground
+  '--tp-border': '#E2E8F2', // hairlines
   '--tp-danger': '#B42318', // one red across the product
   '--tp-danger-contrast': '#FFFFFF',
 } as const satisfies PaletteVars;

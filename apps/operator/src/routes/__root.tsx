@@ -3,7 +3,7 @@
  * WorkspaceSwitcher entry, SessionLockScreen, WorkspaceShell with the
  * per-workspace navigation rail and the global DegradedBanner region.
  *
- * Five workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
+ * Six workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
  * (lib/workspaces.ts), never by filtering one shared menu. The prep workspace
  * renders no navigation at all — a wall-mounted kitchen screen has nothing to
  * get lost in.
@@ -1902,8 +1902,25 @@ function SignInScreen() {
  * never a second copy of the rules — so the sentence a refused operator reads
  * cannot drift from the check that produced it. Nothing here decides access; it
  * only names what decided it.
+ *
+ * Driver and marketing hold the any-staff baseline alone, so they lead. Prep
+ * sits after the bar and kitchen family it was split into (0155): every route
+ * prep opens, they open too, so a refusal names a role the owner can still
+ * assign rather than the retired one.
  */
-const ROLE_ORDER: readonly StaffRole[] = ['prep', 'cashier', 'court_desk', 'manager', 'owner'];
+const ROLE_ORDER: readonly StaffRole[] = [
+  'driver',
+  'marketing',
+  'barista',
+  'chef',
+  'head_barista',
+  'head_chef',
+  'prep',
+  'cashier',
+  'court_desk',
+  'manager',
+  'owner',
+];
 function requiredRoleFor(route: string): StaffRole {
   return ROLE_ORDER.find((r) => canAccess(r, route)) ?? 'owner';
 }

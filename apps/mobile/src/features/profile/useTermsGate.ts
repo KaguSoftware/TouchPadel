@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { router, usePathname } from 'expo-router';
 import { useAuth } from '../auth/context';
+import { isStaffArea } from '../staff/status';
+import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { consentAction } from './consent';
 import { useAcceptTerms, useOwnConsent } from './hooks';
@@ -19,11 +21,18 @@ const EXEMPT = new Set(['/accept-terms', '/delete-account']);
  * see consent.ts) or shown app/accept-terms.tsx. An anonymous session has no
  * profile and is never gated; a consent row that has not loaded yet never
  * triggers anything, so the gate cannot flash over a guest who already agreed.
+ *
+ * A staff account is never gated either (build-contracts-2026-09-23 §6.6): the
+ * guest Terms are the booking app's, and a staff member works under the
+ * venue's staff notice. Nor is its consent row read, which is why nothing is
+ * read until the account's own staff row has answered: before that a staff
+ * account reads `guest`.
  */
 export function useTermsGate(): void {
   const { session } = useAuth();
+  const { status, answered } = useStaffStatus();
   const user = session?.user ?? null;
-  const uid = user && !user.is_anonymous ? user.id : null;
+  const uid = user && !user.is_anonymous && answered && !isStaffArea(status.kind) ? user.id : null;
   const pathname = usePathname();
   const consent = useOwnConsent(uid);
   const accept = useAcceptTerms();

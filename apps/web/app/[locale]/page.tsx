@@ -1,18 +1,48 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { makeT } from '@touch/i18n';
-import { requireLocale, LOCALES } from '@/lib/locales';
-import { getCachedCafeSettings, getCachedMenu, getCachedVenue } from '@/lib/menu.server';
-import { CafeApp } from '@/components/cafe/CafeApp';
+import { LOCALES, requireLocale } from '@/lib/locales';
+import { getCachedMenu, getCachedVenue } from '@/lib/menu.server';
+import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
+import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
+import { crossesMidnight, everyDayWindow, formatWindow } from '@/lib/site/hours';
+import { cafeCategoryList } from '@/lib/site/landing';
+import { siteOrigin } from '@/lib/site/origin';
+import { buildLandingJsonLd, jsonLdString } from '@/lib/site/jsonLd';
+import { getStoreLinks } from '@/lib/site/stores';
+import { SiteShell } from '@/components/site/SiteShell';
+import { Hero } from '@/components/landing/Hero';
+import { Club } from '@/components/landing/Club';
+import { Lessons } from '@/components/landing/Lessons';
+import { Events } from '@/components/landing/Events';
+import { CafeHandoff } from '@/components/landing/CafeHandoff';
+import { AppBand } from '@/components/landing/AppBand';
+import { Faq } from '@/components/landing/Faq';
+import { Visit } from '@/components/landing/Visit';
+import { PhotoGrade } from '@/components/landing/PhotoGrade';
 
 /**
- * Site root per locale = the cafe menu app WITHOUT a table (owner decision 7/9:
- * browse + basket work; "send" and "call waiter" ask for the table QR).
- * Static + ISR 60 s; must never read cookies/headers (that would force dynamic).
+ * The Touch Padel home page, `/{locale}` (docs/design/web-site/contracts-2026-09-23.md
+ * §0, Revision B): THE CLUB, not the app. A padel club and café in Durrat Karbala: the
+ * courts and what playing there is, lessons, events (coming), Touch Cafe, the app in one
+ * short band, the first-visit questions, and where to find it. Booking today is WhatsApp,
+ * a call or walking in, so every booking button is a WhatsApp chat pre-filled in the
+ * page's language, built from the one venue phone. It is also what Google's OAuth
+ * consent screen lists as the app's home page, so the privacy policy is one click away
+ * in the footer.
+ *
+ * Dynamic like every page here (the layout's nonce read, C11); it also reads the mode
+ * cookie, so night or light is painted by the server. Live data, all through the cached
+ * `menu`-tagged readers: the hours and phone (venue_settings_public) and the café
+ * category names (the menu). Each read degrades on
+ * its own: no venue → no hours line, no open pill and no WhatsApp or call buttons ("Plan
+ * your visit" instead); no menu → the category-free café line.
  */
-export const revalidate = 60;
-
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  return { themeColor: SITE_THEME_COLOR[await getSiteMode()] };
 }
 
 export async function generateMetadata({
@@ -22,25 +52,71 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const locale = requireLocale((await params).locale);
   const tr = makeT(locale);
-  return { title: tr('seo.siteTitle'), description: tr('seo.menuDescription') };
+  const title = tr('site.seo.title');
+  const description = tr('site.seo.description');
+  const og = `/brand/site/og-touch-padel-${locale}.png`;
+  return {
+    title: { absolute: title },
+    description,
+    alternates: {
+      canonical: `/${locale}`,
+      languages: { en: '/en', ar: '/ar', 'x-default': '/ar' },
+    },
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      url: `/${locale}`,
+      locale: locale === 'ar' ? 'ar_IQ' : 'en_US',
+      alternateLocale: locale === 'ar' ? 'en_US' : 'ar_IQ',
+      siteName: tr('common.appName'),
+      images: [{ url: og, width: 1200, height: 630, alt: tr('site.seo.ogAlt') }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [{ url: og, alt: tr('site.seo.ogAlt') }],
+    },
+    robots: { index: true, follow: true },
+  };
 }
 
-export default async function CafeRootPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params).locale);
-  const [menuResult, settings, venue] = await Promise.all([
-    getCachedMenu(),
-    getCachedCafeSettings(),
-    // Footer hours + phone and the hero strapline (web-slice §2).
+  const [venue, menu, mode, nonce] = await Promise.all([
     getCachedVenue(),
+    getCachedMenu(),
+    getSiteMode(),
+    getRequestNonce(),
   ]);
+  const everyDay = everyDayWindow(venue);
+  const hours = everyDay ? formatWindow(everyDay) : null;
+  const phone = venue?.phone ?? null;
+  const jsonLd = buildLandingJsonLd({ locale, origin: siteOrigin(), venue });
+
   return (
-    <CafeApp
-      locale={locale}
-      token={null}
-      initialMenu={menuResult.categories}
-      menuStatus={menuResult.status}
-      settings={settings}
-      venue={venue}
-    />
+    <SiteShell locale={locale} mode={mode} nonce={nonce} venue={venue} path="">
+      <PhotoGrade />
+      <Hero
+        locale={locale}
+        hours={hours}
+        openingHours={venue?.opening_hours ?? null}
+        closedDates={venue?.closed_dates ?? []}
+        phone={phone}
+      />
+      <Club locale={locale} phone={phone} />
+      <Lessons locale={locale} phone={phone} />
+      <Events locale={locale} phone={phone} />
+      <CafeHandoff locale={locale} categories={cafeCategoryList(menu.categories, locale)} />
+      <AppBand locale={locale} stores={getStoreLinks()} />
+      <Faq locale={locale} hours={hours} late={everyDay ? crossesMidnight(everyDay) : false} />
+      <Visit locale={locale} venue={venue} />
+      <script
+        type="application/ld+json"
+        nonce={nonce}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }}
+      />
+    </SiteShell>
   );
 }

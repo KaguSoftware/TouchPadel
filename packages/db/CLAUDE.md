@@ -17,12 +17,14 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0150`
-  (`20260923000150_my_reservations.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0157`
+  (`20260923000157_staff_money_reads_and_prep_retired.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
-  0149 assistant-cap, 0150 my-reservations); the next is `0151`. **Check the directory, not this
-  line** — it said 0146 while 0147–0149 were already on disk, and a reused ordinal fails
-  `check-migrations.mjs` after the file is written.
+  0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
+  0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles); the next is
+  `0158`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
+  file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).
@@ -38,9 +40,12 @@ is a line in that file.
   a plain `create function` (0049 `apply_discount`, `override_price`, `record_waste`; 0097
   `upsert_court`) is as much "the latest body" as `create or replace function`. Searching for the
   long form only is how 0115 re-issued two RPCs at an arity 0049 had dropped and created stray
-  overloads (fixed by 0119). The latest file is often not the obvious one: `is_degraded` 0026,
-  `heartbeat` 0107, `set_opening_hours` 0052, `verify_manager_pin` 0115, `apply_discount` and
-  `override_price` 0119, `staff_create_reservation` 0092, `cafe_setting_specs` 0105.
+  overloads (fixed by 0119). The latest file is often not the obvious one: `is_degraded()` 0137
+  and `is_degraded(uuid)` 0139, `set_opening_hours` 0052, `apply_discount` and `override_price`
+  0119, `staff_create_reservation` 0147, `cafe_setting_specs` 0105, `set_staff_role` 0157; 0156
+  holds `heartbeat`, `verify_manager_pin`, `verify_own_pin`, `consume_pin_grant`, `break_status`,
+  `start_break`, `end_break`, `cover_station`, `set_ticket_status` and `set_order_item_ready`
+  (copying an older body back brings a five-role guard with it and locks the 0155 roles out).
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
@@ -52,8 +57,8 @@ is a line in that file.
   `llm_record_usage`, `venue_mode` since 0137). `tests/rpc-overloads.test.ts` proves
   the same list against `pg_proc` when Docker is up.
 - Enum widening (`alter type … add value`) is its own migration file, landing strictly before the
-  file that uses the value. No migration does this yet; do not put the first one beside its first
-  use.
+  file that uses the value. Precedents: 0143 (`ingredient_kind` `retail`, first used by 0144) and
+  0155 (six `staff_role` values, first used by 0156).
 - New push kind: `notification_outbox.kind` is a closed CHECK (`0024:22`, re-issued by
   `0075:36-58`); widen it by migration and add EN/AR copy to `STRINGS` in
   `supabase/functions/send-push/index.ts:48`.
@@ -112,6 +117,10 @@ is a line in that file.
 - `security definer`, `set search_path`, `revoke … from public, anon`,
   `grant execute … to authenticated`; dollar tag `$<name>_0NNN$` (as `$confirm_booking_0092$`); the
   role or venue guard is the first statement.
+- A guard that means "any active staff" is `if app.staff_role() is null then raise …` in a function
+  and `app.staff_role() is not null` in a policy (the 0072 form), never a list of every role. 0156
+  converted the old five-role lists, so a new role needs no re-issue; a guard for a subset (kitchen,
+  till, money, stock) still names its roles.
 - Errors are `raise exception 'CODE'` (P0001). Every new code gets a client mapping in the same
   commit: `MAPPED_CODES` (`apps/operator/src/lib/errors.ts:10`), `RPC_ERROR_KEYS`
   (`apps/web/src/lib/appRpc.ts:21`) or `CODE_TO_KEY`

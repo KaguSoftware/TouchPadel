@@ -22,6 +22,19 @@ import { reportsEn } from './reports.en';
 import { reportsAr } from './reports.ar';
 import { analyticsEn } from './analytics.en';
 import { analyticsAr } from './analytics.ar';
+import { teamEn } from './team.en';
+import { teamAr } from './team.ar';
+// Protocols and the staff phone (build-contracts-2026-09-23 §4).
+import { protocolsEn } from './protocols.en';
+import { protocolsAr } from './protocols.ar';
+import { releaseEn } from './release.en';
+import { releaseAr } from './release.ar';
+import { eventsEn } from './events.en';
+import { eventsAr } from './events.ar';
+import { suppliesEn } from './supplies.en';
+import { suppliesAr } from './supplies.ar';
+import { pricingEn } from './pricing.en';
+import { pricingAr } from './pricing.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -33,6 +46,12 @@ export const wsEn = {
   owner: ownerEn,
   reports: reportsEn,
   analytics: analyticsEn,
+  team: teamEn,
+  protocols: protocolsEn,
+  release: releaseEn,
+  events: eventsEn,
+  supplies: suppliesEn,
+  pricing: pricingEn,
 } as const;
 
 export const wsAr = {
@@ -45,4 +64,10 @@ export const wsAr = {
   owner: ownerAr,
   reports: reportsAr,
   analytics: analyticsAr,
+  team: teamAr,
+  protocols: protocolsAr,
+  release: releaseAr,
+  events: eventsAr,
+  supplies: suppliesAr,
+  pricing: pricingAr,
 } as const;

@@ -7,7 +7,9 @@ import { resendSignUpCode, signIn, signInWithPhone } from '../src/features/auth/
 import { linkErrorParam } from '../src/features/auth/deepLink';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { getPendingSlot } from '../src/features/booking/pendingSlot';
+import { clearPendingSlot, getPendingSlot } from '../src/features/booking/pendingSlot';
+import { readOwnStaffRow } from '../src/features/staff/api';
+import { writeStaffHint } from '../src/features/staff/hint';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
 import { postSignInStep } from '../src/features/auth/social';
 import { classifyPhoneSignIn, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
@@ -135,14 +137,28 @@ function SignInScreen() {
     if (!password) return setPasswordError(t('auth.passwordRequired'));
     setBusy(true);
     try {
-      await signIn(supabase, email, password);
+      const { user } = await signIn(supabase, email, password);
+      // Staff sign in here (build-contracts-2026-09-23 §6.6). The row is read
+      // under the status provider's own key, so it asks nothing twice, and
+      // alongside the profile, because RequireNoSession waits for both. A read
+      // that fails is no answer: the guest path runs, and the provider routes
+      // a staff account to Today once its own read lands.
+      const staffRead = user ? readOwnStaffRow(queryClient, user.id).catch(() => null) : Promise.resolve(null);
       // Same cache entry RequireNoSession's useOwnProfile observes: one request.
       const profile = await queryClient.fetchQuery({
         queryKey: profileKeys.own,
         queryFn: () => fetchOwnProfile(supabase),
         staleTime: 0,
       });
-      switch (postSignInStep(profile, getPendingSlot() !== null)) {
+      const staffRow = await staffRead;
+      switch (postSignInStep(profile, getPendingSlot() !== null, staffRow)) {
+        case 'staff':
+          // A staff account books nothing: the slot a guest tapped is dropped.
+          clearPendingSlot();
+          if (user) await writeStaffHint(user.id);
+          toast(t('auth.welcomeBack'), 'info');
+          router.replace('/staff');
+          return;
         case 'complete-profile':
           router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
           return;

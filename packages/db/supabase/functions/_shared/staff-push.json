@@ -1,0 +1,30 @@
+{
+  "_readme": "The staff push catalogue, ONE list for three copies (docs/design/protocols/build-contracts-2026-09-23.md §2.21): send-push imports it (a staff kind reads its copy by title_key from send-push/staffStrings.ts, and only a route listed here reaches the phone as data.route); app.notify_staff checks p_kind, payload.title_key and payload.route against the same lists (packages/db/tests/staff-push.test.ts compares them); the phone's apps/mobile/src/features/staff/pushRoutes.ts opens only the routes listed here (its test compares `routes`). Deno cannot import a workspace package, so this JSON is the shared artefact, as mutation-types.json is. Add a kind or title_key here, in staffStrings.ts (EN and AR) and in app.notify_staff in the same change, and deploy send-push before the migration reaches hosted: an unknown kind or title_key is terminal in the deployed function.",
+  "kinds": ["staff_task", "staff_decide", "staff_decided", "staff_info"],
+  "title_keys": [
+    "step_open",
+    "step_submitted",
+    "step_approved",
+    "step_sent_back",
+    "step_stopped",
+    "run_stopped",
+    "run_live",
+    "launch_not_ready",
+    "apply_not_ready",
+    "review_ready",
+    "request_submitted",
+    "request_approved",
+    "request_rejected",
+    "shopping_new",
+    "purchase_to_receive"
+  ],
+  "routes": [
+    "staff",
+    "staff-step",
+    "staff-run",
+    "staff-request",
+    "staff-shopping",
+    "staff-checklist",
+    "staff-notes"
+  ]
+}
