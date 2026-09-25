@@ -2778,6 +2778,13 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
     - `decideRecipeChanges: ['owner']` (#71).
 
     Row-level buttons still follow what the RPCs return, with no inline role check.
+  - *Wave 4 review:* the role gates the pages had written inline became entries too, each the
+    guard of the RPC behind it. `decideSteps: ['manager', 'owner']`, `decideOwnerOkSteps: ['owner']`
+    and `titleRunsInBoth: ['owner']` back `decidesStep` and `titlesInBoth` (`protocolLogic.ts`).
+    `/tasks`' phone copies (`phoneSectionsFor`, `phoneRead` in `tasksLogic.ts`) read
+    `readProduction`, `readShoppingList`, `readPurchases`, `readTeachings`, `readStaffStock`,
+    `readRecipes` (each with MGMT, as its RPC), and the owner-less own work `marketingWork`
+    (marketing), `requestRecipeChanges` (the heads) and `sendIdeas` (barista, chef).
   - `protocolsRoute`'s search params gain `idea?: uuid` (a product release start prefilled from an
     idea) and `recipeChange?: uuid` (opens that request's sheet).
   - `/tasks` stays open to the eight roles of this section and gains the role-page sections of
@@ -2844,7 +2851,9 @@ through `rpcErrorCode` (`mob/src/features/staff/edge.ts`, B); `BAD_REQUEST` → 
   sheet; this is their only surface (they are not on the phone). Every form renders from
   `@touch/core/protocols` (§7.2).
 - `/tasks` (every non-MGMT hireable role, §5.1): `my_protocol_work` To do, Waiting and Decided; an
-  open step opens the same step sheet as `/protocols`, photos as files, ticks included (Q2: the
+  open step opens a step sheet with the same parts as `/protocols`' (the form, the step's context
+  read with the MGMT-only reads off, history; no decision, which these roles never make),
+  photos as files, ticks included (Q2: the
   head roles' propose and test, the court desk's courts step, marketing's steps, and owner-added
   steps whose actors include cashier, barista or chef). Start "Propose a new item" for
   `startProtocolRelease`, Start "Price or promo change" for `startProtocolPriceChange`, offering
@@ -3251,7 +3260,10 @@ forwards `${testID}.<child>`.
 - `mob/src/lib/idempotency.ts`: `staffIdemKey(mutation: StaffMutation): string` →
   `` `MOBILE:staff.${mutation}:${ulid()}` ``; `staffIntentKey(intent: string, mutation: StaffMutation)`
   memoised per intent; `clearStaffIntentKey(intent)`. `StaffMutation = 'start' | 'submit' | 'launch' | 'shopping.add' | 'purchase' | 'batch' | 'note' | 'marketing_note' | 'campaign' | 'event_block' | 'candidate'`.
-  A retry reuses the key; a new intent gets a new one.
+  A retry reuses the key; a new intent gets a new one. The intent names what the write sends
+  (`intentFor(write, args)`; a step's send: its id, round and submissions so far), never a
+  counter that starts again when a form reopens: the key of a lost answer must not replay into a
+  different later write.
 - Role spec (H, in B's two files, §1.2):
   - `staffKeys` gains `ideas(venue)`, `ideasToReview(venue)`, `teachings(venue, team)`,
     `mySuggestions(venue)`, `suggestions(venue, filter)`, `stock(venue, kind)`,

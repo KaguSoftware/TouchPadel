@@ -1027,7 +1027,7 @@ export const en = {
     roles: {
       cashier: 'Cashier',
       // Soft-retired (0155): existing accounts keep it, new ones are Barista
-      // or Chef.
+      // or Chef assistant.
       prep: 'Kitchen',
       court_desk: 'Court desk',
       manager: 'Manager',
@@ -1035,7 +1035,9 @@ export const en = {
       head_barista: 'Head barista',
       barista: 'Barista',
       head_chef: 'Head chef',
-      chef: 'Chef',
+      // The role is still `chef`; it is shown as the head chef's assistant
+      // (role spec #74, build-contracts-2026-09-23 §4).
+      chef: 'Chef assistant',
       driver: 'Driver',
       marketing: 'Marketing',
     },

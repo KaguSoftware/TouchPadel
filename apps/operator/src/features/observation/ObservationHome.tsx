@@ -6,9 +6,12 @@
  *
  *  1. **Is anything waiting on me?** One list, in the /ops "needs you now"
  *     shape: how many, what, what to do about it in a sentence, and one button
- *     to the screen that resolves it. Three things in Observe stop until the
+ *     to the screen that resolves it. These things in Observe stop until the
  *     owner acts, and nothing else in the venue will surface them:
  *       - staff requests (a person is waiting for an answer);
+ *       - protocol steps to decide or to do (app.protocols_waiting_count,
+ *         the rail badge's own read), and new staff suggestions
+ *         (build-contracts-2026-09-23 §5.4);
  *       - scheduled campaigns whose start date has passed, and live campaigns
  *         whose last day has passed. Nothing moves a campaign's status on its
  *         own (app.set_campaign_status is the only writer), so a campaign
@@ -24,7 +27,8 @@
  *
  * Figures come from reads the other Observe screens already make:
  * `ops_overview` (the Floor now screen's, under the same query key so the two
- * share a cache), `staff_requests_page` and `marketing_overview`.
+ * share a cache), `staff_requests_page`, `marketing_overview`, and the rail
+ * badges' QK.protocolsWaiting and QK.suggestionsNew.
  */
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -43,10 +47,14 @@ import { alertsFor, normalizeOverview } from '../ops/opsLogic';
 import { MARKETING_QUERY_KEY, overdueCampaigns, type MarketingOverview } from '../marketing/marketingTypes';
 import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from './requestTypes';
 import { LiveFloor } from '../floor/LiveFloor';
+import { QK } from '../../lib/queryKeys';
+import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../ops/protocolsWaiting';
+import { fetchSuggestionsNew } from '../roleExtras/api';
+import { newSuggestionCount } from '../roleExtras/roleExtrasLogic';
 
 type CardKey =
   | 'floorNow' | 'bookings' | 'tills'
-  | 'staffActivity' | 'requests' | 'marketing' | 'audit';
+  | 'staffActivity' | 'requests' | 'protocols' | 'suggestions' | 'marketing' | 'audit';
 
 export function ObservationHomeScreen() {
   const { tr, locale } = useLocale();
@@ -69,6 +77,10 @@ export function ObservationHomeScreen() {
     queryFn: async () => normalizeOverview(await appRpc<unknown>('ops_overview')),
     refetchInterval: OPS_REFETCH_MS,
   });
+  const canProtocols = canAccess(staff?.role, '/protocols');
+  const canSuggestions = canAccess(staff?.role, '/suggestions');
+  const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000, enabled: canProtocols });
+  const suggestionsQ = useQuery({ queryKey: QK.suggestionsNew, queryFn: fetchSuggestionsNew, refetchInterval: 60_000, enabled: canSuggestions });
 
   const count = (n: number) => <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(n, locale)}</strong>;
   const line = (label: MessageKey, n: number) => (
@@ -102,6 +114,10 @@ export function ObservationHomeScreen() {
         return floor ? line('ws.owner.observationHome.status.openTabs', floor.cafe.openTabs) : null;
       case 'marketing':
         return marketingQ.data ? line('ws.owner.observationHome.status.liveCampaigns', marketingQ.data.counts.live) : null;
+      case 'protocols':
+        return protocolsQ.data !== undefined ? line('ws.owner.observationHome.status.waitingOnYou', protocolsWaitingTotal(protocolsQ.data)) : null;
+      case 'suggestions':
+        return suggestionsQ.data !== undefined ? line('ws.owner.observationHome.status.newSuggestions', newSuggestionCount(suggestionsQ.data)) : null;
       default:
         return null;
     }
@@ -116,7 +132,12 @@ export function ObservationHomeScreen() {
       status={status}
       screensTitle={tr('ws.owner.observationHome.screens')}
     >
-      <WaitingOnYou pendingQ={pendingQ} marketingQ={canMarketing ? marketingQ : null} />
+      <WaitingOnYou
+        pendingQ={pendingQ}
+        marketingQ={canMarketing ? marketingQ : null}
+        protocolsQ={canProtocols ? protocolsQ : null}
+        suggestionsQ={canSuggestions ? suggestionsQ : null}
+      />
       <div style={{ blockSize: 'var(--tp-sp-4)' }} />
       {/* After what needs a decision, what the floor is doing right now (owner
           request, 2026-09-18). The Bookings and Tills cards below are the way
@@ -137,19 +158,27 @@ interface Waiting {
   icon: IconName;
 }
 
+type Read<T> = { data?: T; isPending: boolean; isError: boolean; refetch: () => unknown };
+
 function WaitingOnYou({
   pendingQ,
   marketingQ,
+  protocolsQ,
+  suggestionsQ,
 }: {
-  pendingQ: { data?: StaffRequestsPage; isPending: boolean; isError: boolean; refetch: () => unknown };
+  pendingQ: Read<StaffRequestsPage>;
   /** Null when the viewer may not open marketing at all. */
-  marketingQ: { data?: MarketingOverview; isPending: boolean; isError: boolean; refetch: () => unknown } | null;
+  marketingQ: Read<MarketingOverview> | null;
+  /** app.protocols_waiting_count and the suggestion box's New count; null when the viewer may not open them. */
+  protocolsQ: Read<unknown> | null;
+  suggestionsQ: Read<unknown> | null;
 }) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
 
-  const loading = pendingQ.isPending || (marketingQ?.isPending ?? false);
-  const failed = [pendingQ, marketingQ].filter((q): q is NonNullable<typeof q> => q !== null && q.isError);
+  const reads = [pendingQ, marketingQ, protocolsQ, suggestionsQ].filter((q): q is Read<unknown> => q !== null);
+  const loading = reads.some((q) => q.isPending);
+  const failed = reads.filter((q) => q.isError);
 
   const rows: Waiting[] = [];
   const pending = pendingQ.data?.pending ?? 0;
@@ -162,6 +191,32 @@ function WaitingOnYou({
       action: 'ws.owner.observationHome.waiting.requestsAction',
       href: '/observation/requests',
       icon: 'bell',
+    });
+  }
+  // A step waits on a decision the owner makes; it sits right after the
+  // requests, which are the other thing a person is held up on.
+  const protocols = protocolsQ?.data !== undefined ? protocolsWaitingTotal(protocolsQ.data) : 0;
+  if (protocols > 0) {
+    rows.push({
+      key: 'protocols',
+      count: protocols,
+      title: 'ws.manager.ops.now.protocols',
+      hint: 'ws.manager.ops.now.protocolsHint',
+      action: 'ws.manager.ops.now.protocolsAction',
+      href: '/protocols?filter=waiting',
+      icon: 'split',
+    });
+  }
+  const suggestions = suggestionsQ?.data !== undefined ? newSuggestionCount(suggestionsQ.data) : 0;
+  if (suggestions > 0) {
+    rows.push({
+      key: 'suggestions',
+      count: suggestions,
+      title: 'ws.rolePages.suggestions.waiting',
+      hint: 'ws.rolePages.suggestions.waitingHint',
+      action: 'ws.rolePages.suggestions.waitingAction',
+      href: '/suggestions',
+      icon: 'note',
     });
   }
   if (marketingQ?.data) {
@@ -210,7 +265,7 @@ function WaitingOnYou({
                 <strong>{tr(r.title)}</strong>
                 <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(r.hint)}</span>
               </span>
-              <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: r.href })}>
+              <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ href: r.href })}>
                 {tr(r.action)}
               </Button>
             </li>

@@ -7,7 +7,9 @@ import {
   normalizeCount,
   normalizeOverview,
   tillTabHref,
+  workAlertsFor,
 } from './opsLogic';
+import { protocolsWaitingTotal, readProtocolsWaiting } from './protocolsWaiting';
 
 // The overview renders server figures only. These tests pin the two things
 // the screen depends on: the contract shape (build plan §4, 0068) parses, and
@@ -167,6 +169,24 @@ describe('alertsFor', () => {
       low: '/stock?filter=low',
       expired: '/stock/expiry',
     });
+  });
+});
+
+describe('workAlertsFor', () => {
+  // Protocol steps and the driver's purchases come from their own reads, not
+  // ops_overview (build-contracts-2026-09-23 §5.4), after the standing alarms.
+  it('shows a row only when something waits, each opening the screen that clears it', () => {
+    expect(workAlertsFor({ protocols: 0, purchases: 0 })).toEqual([]);
+    expect(workAlertsFor({ protocols: 3, purchases: 2 })).toEqual([
+      { key: 'protocols', severity: 'warn', href: '/protocols?filter=waiting', count: 3 },
+      { key: 'purchases', severity: 'warn', href: '/stock/receive', count: 2 },
+    ]);
+  });
+
+  it('counts the steps to decide and to do as one "waiting on you"', () => {
+    expect(protocolsWaitingTotal({ to_decide: 2, todo: 1 })).toBe(3);
+    expect(readProtocolsWaiting({ to_decide: '4', todo: null })).toEqual({ toDecide: 4, todo: 0 });
+    expect(protocolsWaitingTotal(undefined)).toBe(0);
   });
 });
 

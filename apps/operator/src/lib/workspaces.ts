@@ -53,9 +53,19 @@ export interface NavItem {
     | 'inventory' | 'stockValue'
     // The owner assistant (docs/design/assistant §5.1).
     | 'assistant'
-    // The team workspace (driver, marketing).
-    | 'myTasks';
+    // The team workspace (driver, marketing), and the till's and the desk's row.
+    | 'myTasks'
+    // Protocols and the staff suggestion box (build-contracts-2026-09-23 §5.1).
+    | 'protocols' | 'suggestions';
   icon: IconName;
+  /**
+   * A live count beside the row's name: what waits on the signed-in person
+   * there. The shell reads it (RailLink), so a row names the count it wants
+   * and never fetches it. Protocols counts the steps to do and the
+   * submissions to decide (app.protocols_waiting_count), Suggestions the ones
+   * nobody has marked seen (app.suggestions_page's new_count).
+   */
+  badge?: 'protocolsWaiting' | 'suggestionsNew';
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
   /**
@@ -109,12 +119,21 @@ export interface Workspace {
   sections?: readonly NavSection[];
 }
 
+/**
+ * My tasks on the desk's and the till's rail: their protocol steps (the desk's
+ * courts step and tournament start) and the read-only copy of what they do on
+ * the phone (build-contracts-2026-09-23 §5.1). Last, because the working
+ * screens above it are what a shift moves between.
+ */
+const MY_TASKS: NavItem = { to: '/tasks', labelKey: 'myTasks', icon: 'checkCircle' };
+
 const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
   { to: '/desk', labelKey: 'calendar', icon: 'calendar', exact: true },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/desk/series/new', labelKey: 'newSeries', icon: 'repeat', activePrefix: '/desk/series' },
   { to: '/desk/block', labelKey: 'blockCourt', icon: 'ban' },
+  MY_TASKS,
 ];
 
 const CASHIER: readonly NavItem[] = [
@@ -122,6 +141,7 @@ const CASHIER: readonly NavItem[] = [
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt' },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
+  MY_TASKS,
 ];
 
 /**
@@ -143,11 +163,21 @@ const CASHIER: readonly NavItem[] = [
  */
 const MANAGER_TODAY: readonly NavItem[] = [{ to: '/ops', labelKey: 'today', icon: 'dashboard' }];
 
+/**
+ * Protocols and the suggestion box, on both management rails with their
+ * counts (build-contracts-2026-09-23 §5.1). One definition each, so the
+ * manager's row and the owner's Observe row cannot drift apart.
+ */
+const PROTOCOLS: NavItem = { to: '/protocols', labelKey: 'protocols', icon: 'split', badge: 'protocolsWaiting' };
+const SUGGESTIONS: NavItem = { to: '/suggestions', labelKey: 'suggestions', icon: 'note', badge: 'suggestionsNew' };
+
 const MANAGER_RUN: readonly NavItem[] = [
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till' },
   { to: '/stock', labelKey: 'stock', icon: 'package' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
+  PROTOCOLS,
+  SUGGESTIONS,
 ];
 
 const MANAGER_RECORDS: readonly NavItem[] = [
@@ -231,6 +261,10 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
   { to: '/observation/requests', labelKey: 'requests', icon: 'bell' },
+  // What waits on the owner in protocols (a step to decide or to do) and the
+  // staff suggestion box, right after the requests they sit beside.
+  PROTOCOLS,
+  SUGGESTIONS,
   { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing' },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
   // Opened from the marketing panel, not from the rail. See NavItem.hidden.
@@ -265,13 +299,12 @@ const OWNER_SETUP: readonly NavItem[] = [
 ];
 
 /**
- * TEAM — driver and marketing (0155). One row for now: My tasks, where
- * purchases, marketing tasks and checklists will be assigned. It is a rail and
- * not a navless board like the kitchen's because more rows are coming (the
- * purchases list, the protocol steps), and a staff member who holds nothing
- * but this still needs Options, Go on break and Sign out.
+ * TEAM — driver and marketing (0155). One row: My tasks, their protocol steps
+ * and the read-only copy of their phone pages. It is a rail and not a navless
+ * board like the kitchen's because a staff member who holds nothing but this
+ * still needs Options, Go on break and Sign out.
  */
-const TEAM: readonly NavItem[] = [{ to: '/tasks', labelKey: 'myTasks', icon: 'checkCircle' }];
+const TEAM: readonly NavItem[] = [MY_TASKS];
 
 const OWNER_SECTIONS: readonly NavSection[] = [
   { key: 'financial', home: '/financial', icon: 'banknote', items: OWNER_FINANCIAL },
@@ -385,7 +418,9 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
   if (path === '/ops') return 'manager';
-  if (path === '/tasks' || path.startsWith('/tasks/')) return 'team';
+  // /tasks is not pinned: eight roles open it in their own workspace (the
+  // desk's and the till's rail row, the kitchen board's My tasks), and only
+  // driver and marketing hold the team workspace.
   return null;
 }
 

@@ -55,7 +55,7 @@ export const opErrorsProtocolsEn = {
   // Existing codes that had no op.errors string until now (both maps).
   NOT_PREPARED: 'Only prepared items can be made here.',
   NO_RECIPE: 'This item has no recipe yet. Ask a manager to add one.',
-  ROLE_RETIRED: 'Kitchen is retired. Choose barista or chef.',
+  ROLE_RETIRED: 'Kitchen is retired. Choose barista or chef assistant.',
   PROMOTION_NOT_FOUND: 'That promotion could not be found.',
   INVALID_WEEKDAYS: 'Those days of the week are not valid. Pick each day once.',
   CODE_TAKEN: 'That promo code is already used by another promotion.',

@@ -54,11 +54,16 @@ import {
 } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
 import { CardTitle, FigureRow, MARK, MARK_FG, MARK_SOFT, RowGroupLabel, RowList, Step } from './OpsVisuals';
+import { QK } from '../../lib/queryKeys';
+import { fetchProtocolsWaiting, protocolsWaitingTotal } from './protocolsWaiting';
+import { fetchPurchasesToReceive } from '../stock/DriverPurchases';
+import { readPurchases } from '../stock/driverPurchasesLogic';
 import {
   DAY_CLOSE_TONE,
   STOCK_HREF,
   alertsFor,
   auditDrillHref,
+  workAlertsFor,
   dayCloseState,
   normalizeOverview,
   tillTabHref,
@@ -204,11 +209,19 @@ const ALERT_COPY: Record<OpsAlertKey, { title: MessageKey; hint: MessageKey; act
   ticketsLate: { title: 'ws.manager.ops.now.ticketsLate', hint: 'ws.manager.ops.now.ticketsLateHint', action: null, icon: 'clock' },
   low: { title: 'ws.manager.ops.now.low', hint: 'ws.manager.ops.now.lowHint', action: 'ws.manager.ops.now.lowAction', icon: 'package' },
   expired: { title: 'ws.manager.ops.now.expired', hint: 'ws.manager.ops.now.expiredHint', action: 'ws.manager.ops.now.expiredAction', icon: 'package' },
+  protocols: { title: 'ws.manager.ops.now.protocols', hint: 'ws.manager.ops.now.protocolsHint', action: 'ws.manager.ops.now.protocolsAction', icon: 'split' },
+  purchases: { title: 'ws.manager.ops.now.purchases', hint: 'ws.manager.ops.now.purchasesHint', action: 'ws.manager.ops.now.purchasesAction', icon: 'package' },
 };
 
 function NeedsYouNow({ data, go }: { data: OpsOverview; go: Go }) {
   const { tr } = useLocale();
-  const alerts = alertsFor(data);
+  // Their own reads, shared with the rail badge and Goods in (§5.4).
+  const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000 });
+  const purchasesQ = useQuery({ queryKey: QK.purchasesToReceive, queryFn: fetchPurchasesToReceive, refetchInterval: 60_000 });
+  const alerts = [
+    ...alertsFor(data),
+    ...workAlertsFor({ protocols: protocolsWaitingTotal(protocolsQ.data), purchases: readPurchases(purchasesQ.data).length }),
+  ];
 
   return (
     <Panel title={<CardTitle icon={alerts.length === 0 ? 'checkCircle' : 'alert'}>{tr('ws.manager.ops.now.title')}</CardTitle>}>

@@ -51,7 +51,7 @@ export const opErrorsProtocolsAr: DeepMessages<typeof opErrorsProtocolsEn> = {
   LAUNCH_VIA_PROTOCOL: 'احفظه مخفيًا. يُطرح للبيع عندما يوافق المالك على سعره في تغيير سعر.',
   NOT_PREPARED: 'لا يُحضَّر هنا إلا الأصناف المحضّرة.',
   NO_RECIPE: 'لا توجد وصفة لهذا الصنف بعد. اطلب من المدير إضافتها.',
-  ROLE_RETIRED: 'دور «المطبخ» أُوقف. اختر باريستا أو شيف.',
+  ROLE_RETIRED: 'دور «المطبخ» أُوقف. اختر باريستا أو مساعد شيف.',
   PROMOTION_NOT_FOUND: 'تعذّر العثور على هذا العرض.',
   INVALID_WEEKDAYS: 'أيام الأسبوع هذه غير صالحة. اختر كل يوم مرة واحدة.',
   CODE_TAKEN: 'رمز العرض هذا مستخدم في عرض آخر.',

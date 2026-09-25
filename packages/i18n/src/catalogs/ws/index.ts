@@ -35,6 +35,9 @@ import { suppliesEn } from './supplies.en';
 import { suppliesAr } from './supplies.ar';
 import { pricingEn } from './pricing.en';
 import { pricingAr } from './pricing.ar';
+// The role spec (build-contracts-2026-09-23 §4, plan #61–#74).
+import { rolePagesEn } from './rolePages.en';
+import { rolePagesAr } from './rolePages.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -52,6 +55,7 @@ export const wsEn = {
   events: eventsEn,
   supplies: suppliesEn,
   pricing: pricingEn,
+  rolePages: rolePagesEn,
 } as const;
 
 export const wsAr = {
@@ -70,4 +74,5 @@ export const wsAr = {
   events: eventsAr,
   supplies: suppliesAr,
   pricing: pricingAr,
+  rolePages: rolePagesAr,
 } as const;

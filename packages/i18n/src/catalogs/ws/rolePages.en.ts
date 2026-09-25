@@ -1,0 +1,198 @@
+/**
+ * `ws.rolePages.*` — the operator's side of Majed's per-role spec (plan
+ * #61–#74): the staff suggestion box (/suggestions), the Recipe changes card
+ * and sheet, the ideas from the team, and the read-only copies of the phone's
+ * pages on /tasks. Owned by lane D (docs/design/protocols/build-contracts-2026-09-23.md
+ * §4). Mirror every key in rolePages.ar.ts.
+ */
+export const rolePagesEn = {
+  suggestions: {
+    title: 'Suggestions',
+    lead: 'What the team suggests, from the staff phone. Signed, so you can follow one up; marking one seen tells its author.',
+    filterLabel: 'Show suggestions',
+    filter: {
+      new: 'New',
+      newCount: 'New ({count})',
+      seen: 'Seen',
+      all: 'All',
+    },
+    empty: {
+      new: 'No new suggestions',
+      newBody: 'Staff post suggestions from the phone. The new ones land here.',
+      seen: 'None marked seen yet',
+      all: 'No suggestions yet',
+    },
+    someone: 'Someone no longer on staff',
+    notSeen: 'Not seen yet',
+    markSeen: 'Mark as seen',
+    marked: 'Marked as seen.',
+    seenBy: 'Seen by {name}, {time}',
+    seenAt: 'Seen {time}',
+    // The Observe home's Waiting on you row.
+    waiting: 'New suggestions from staff',
+    waitingHint: 'Read them and mark them seen; the author sees that you did.',
+    waitingAction: 'Read suggestions',
+  },
+  recipeChanges: {
+    title: 'Recipe changes',
+    waitingBadge: '{count} waiting',
+    none: 'No recipe change is waiting.',
+    more: '{count} more waiting',
+    seeAll: 'See every request',
+    filterLabel: 'Show requests',
+    filter: {
+      waiting: 'Waiting',
+      decided: 'Decided',
+      all: 'All',
+    },
+    empty: {
+      waiting: 'No recipe change is waiting',
+      decided: 'None decided yet',
+      all: 'No recipe changes yet',
+    },
+    askedBy: '{name} asked, {time}',
+    targetVariant: 'A menu item’s recipe',
+    targetOutput: 'A prepared item’s recipe',
+    stale: 'Changed since it was sent',
+    staleBody: 'This recipe was changed after the request was sent, so approving it would undo that change. Decline it and ask for a new request.',
+    note: 'Their note',
+    colIngredient: 'Ingredient',
+    colNow: 'Now',
+    colAfter: 'After the change',
+    change: {
+      same: 'Same',
+      changed: 'Changed',
+      added: 'Added',
+      removed: 'Removed',
+    },
+    decidedBy: '{status} by {name}, {time}',
+    ownerDecides: 'Only the owner approves or declines a recipe change.',
+    approve: 'Approve',
+    decline: 'Decline',
+    declineConfirm: 'Decline the request',
+    reason: 'Why it is declined',
+    reasonHint: 'The head who asked reads this.',
+    back: 'Back',
+    close: 'Close',
+    approved: 'Approved. The recipe now reads as the request asked.',
+    declined: 'Declined.',
+  },
+  ideas: {
+    title: 'Ideas from the team',
+    fromTeam: '{count} ideas from the team',
+    none: 'No ideas are waiting.',
+    untitled: 'Untitled idea',
+    from: '{name}, {team}, {time}',
+    kind: 'Kind',
+    sizes: 'Sizes',
+    audience: 'Who it is for',
+    inspiration: 'Inspiration',
+    link: 'Link',
+    notes: 'Notes',
+    lines: 'Recipe',
+    photo: 'Photo {n}',
+    photosCarried: 'Starting it carries these photos into the proposal.',
+    start: 'Start as a new item',
+    decline: 'Decline',
+    declineConfirm: 'Decline the idea',
+    reason: 'Why it is declined',
+    reasonHint: 'Its author reads this.',
+    declined: 'Declined. Its author will see why.',
+    back: 'Back',
+    close: 'Close',
+  },
+  phone: {
+    title: 'On your phone',
+    readOnly: 'Read-only',
+    lead: 'What you do on the staff phone, shown here as it stands. Tick, add and answer there.',
+    // A long copy (a venue's recipes, its stock) shows its first rows until asked.
+    showAll: 'Show all {count}',
+    checklists: {
+      tab: 'Checklists',
+      empty: 'No checklist for you today',
+      progress: '{done} of {total} done',
+      finished: 'Finished',
+      needsPhoto: 'needs a photo',
+    },
+    production: {
+      tab: 'What to make',
+      empty: 'Nothing to make today',
+      line: 'On hand {onHand} · made today {made}',
+      belowPar: 'Below par',
+    },
+    shopping: {
+      tab: 'Shopping list',
+      empty: 'The shopping list is empty',
+      packs: 'Packs: {qty}',
+      // A chef assistant's lines wait for the head chef before the driver sees them (#66).
+      pending: 'Waiting for the head chef’s OK: {count}',
+    },
+    purchases: {
+      tab: 'My purchases',
+      empty: 'No purchases yet',
+      noShop: 'Shop not named',
+      delivered: 'Delivered {time}',
+      notDelivered: 'Not marked delivered yet',
+    },
+    marketingTake: {
+      tab: 'My take',
+      empty: 'No notes yet',
+      noSubject: 'Note',
+    },
+    campaignDrafts: {
+      tab: 'Campaign drafts',
+      empty: 'No drafts yet',
+    },
+    results: {
+      tab: 'Results',
+      empty: 'No campaigns yet',
+      line: 'Sent {sent} · delivered {delivered} · used {used}',
+      notMeasurable: 'Not measurable',
+    },
+    marketingRequests: {
+      tab: 'Requests to marketing',
+      empty: 'No requests',
+      wantBy: 'wanted by {date}',
+    },
+    teachings: {
+      tab: 'Teachings',
+      empty: 'No teachings for your team yet',
+    },
+    stock: {
+      tab: 'Stock',
+      empty: 'Nothing in stock to show',
+      low: 'Low',
+      belowPar: 'Below par',
+    },
+    recipes: {
+      tab: 'Recipes',
+      empty: 'No recipes yet',
+      prepared: 'Prepared item',
+      // A size whose recipe has no lines yet.
+      noLines: 'no recipe yet',
+    },
+    myRecipeChanges: {
+      tab: 'My recipe changes',
+      empty: 'You have not asked for a recipe change',
+    },
+    myIdeas: {
+      tab: 'My ideas',
+      empty: 'You have not sent an idea yet',
+    },
+    requests: {
+      tab: 'Vacation and requests',
+      empty: 'No requests',
+    },
+    itemNotes: {
+      tab: 'Notes on new items',
+      empty: 'No new item is taking notes',
+      line: 'Notes: {notes} · yours: {mine} · open until {until}',
+    },
+    mySuggestions: {
+      tab: 'My suggestions',
+      empty: 'You have not posted a suggestion',
+      seen: 'Seen',
+      notSeen: 'Not seen yet',
+    },
+  },
+} as const;

@@ -27,6 +27,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { formatNumber } from '@touch/i18n';
 import { useAuth, canAccess, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { useThemeMode } from '../lib/themeMode';
@@ -42,8 +44,13 @@ import {
   workspacesForRole,
   type NavGroup,
   type NavItem,
+  type NavSection,
   type WorkspaceKey,
 } from '../lib/workspaces';
+import { QK } from '../lib/queryKeys';
+import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../features/ops/protocolsWaiting';
+import { fetchSuggestionsNew } from '../features/roleExtras/api';
+import { newSuggestionCount } from '../features/roleExtras/roleExtrasLogic';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
@@ -359,9 +366,16 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   const value = useMemo(() => ({ active, available, setActive }), [active, available, setActive]);
   const workspace = WORKSPACES[active];
   const noNav = workspace.groups.length === 0;
-  // The kitchen board is a wall-mounted screen: no traffic lights over its
-  // header, and so no room to reserve for them either. Both follow noNav, and
-  // both are restored the moment the operator leaves the board.
+  // The dark wall-screen theme belongs to the BOARD, not to every screen of
+  // the navless workspace: the bar and kitchen roles open My tasks from the
+  // board's header (/tasks, build-contracts-2026-09-23 §5.1), and a desk page
+  // on the board's black ground would be unreadable. The page carries its own
+  // way back to the board.
+  const board = noNav && (path === '/kds' || path.startsWith('/kds/'));
+  // The kitchen screen is wall-mounted: no traffic lights over its header, and
+  // so no room to reserve for them either. Both follow noNav, not the board:
+  // My tasks opened from it has no rail to keep the lights off its title
+  // either. Both are restored the moment the operator leaves the workspace.
   useEffect(() => {
     touch.pushChromeless(noNav);
   }, [noNav]);
@@ -396,8 +410,8 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           and it is mounted once, beside the break overlay. */}
       <AssistantDrawerProvider>
       <div
-        data-workspace={active}
-        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
+        data-workspace={noNav && !board ? undefined : active}
+        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
       >
         <SkipToMain />
         <IdleLock />
@@ -493,10 +507,74 @@ function SkipToMain() {
   );
 }
 
+/**
+ * A rail row's live count (NavItem.badge): what waits on the signed-in person
+ * behind that row (build-contracts-2026-09-23 §5.1, §5.4). Each badge is one
+ * shared read, refetched every minute and on focus, so every row and screen
+ * that shows the same count agrees with the others.
+ */
+function useNavBadge(badge: NavItem['badge'] | undefined): number {
+  const protocols = useQuery({
+    queryKey: QK.protocolsWaiting,
+    queryFn: fetchProtocolsWaiting,
+    enabled: badge === 'protocolsWaiting',
+    refetchInterval: 60_000,
+  });
+  const suggestions = useQuery({
+    queryKey: QK.suggestionsNew,
+    queryFn: fetchSuggestionsNew,
+    enabled: badge === 'suggestionsNew',
+    refetchInterval: 60_000,
+  });
+  if (badge === 'protocolsWaiting') return protocolsWaitingTotal(protocols.data);
+  if (badge === 'suggestionsNew') return newSuggestionCount(suggestions.data);
+  return 0;
+}
+
+/**
+ * What a set of rows counts between them: a section's button (Observe) and a
+ * closed rail group (the manager's Run the day) show it, so a count is never
+ * tucked away where the operator cannot see it.
+ */
+function useRowsBadge(items: readonly NavItem[]): number {
+  const kinds = new Set(items.filter((i) => !i.hidden).map((i) => i.badge));
+  return useNavBadge(kinds.has('protocolsWaiting') ? 'protocolsWaiting' : undefined) + useNavBadge(kinds.has('suggestionsNew') ? 'suggestionsNew' : undefined);
+}
+
+/** The count at a row's end: nothing at zero, so a quiet rail stays quiet. */
+function RailCount({ count }: { count: number }) {
+  const { tr, locale } = useLocale();
+  if (count <= 0) return null;
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        style={{
+          flexShrink: 0,
+          minInlineSize: '1.4rem',
+          paddingInline: 'var(--tp-sp-1-5)',
+          borderRadius: 'var(--tp-radius-pill)',
+          background: 'var(--tp-rail-green)',
+          color: 'var(--tp-rail)',
+          fontSize: 'var(--tp-fs-xs)',
+          fontWeight: 700,
+          lineHeight: 1.6,
+          textAlign: 'center',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {formatNumber(count, locale)}
+      </span>
+      <span className="tp-sr-only">{tr('ws.shell.nav.badge', { count: formatNumber(count, locale) })}</span>
+    </>
+  );
+}
+
 /** One rail destination. Same row whether it comes from a group or a section. */
 function RailLink({ item, path }: { item: NavItem; path: string }) {
   const { tr } = useLocale();
   const active = isNavActive(item, path);
+  const count = useNavBadge(item.badge);
   return (
     <Link
       to={item.to}
@@ -509,6 +587,23 @@ function RailLink({ item, path }: { item: NavItem; path: string }) {
       <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {tr(`ws.shell.nav.${item.labelKey}`)}
       </span>
+      <RailCount count={count} />
+    </Link>
+  );
+}
+
+/** A section's row on the workspace rail: it opens a place, so a forward chevron, and its count. */
+function SectionLink({ section }: { section: NavSection }) {
+  const { tr } = useLocale();
+  const count = useRowsBadge(section.items);
+  return (
+    <Link to={section.home} className="tp-nav-item" style={navItemStyle}>
+      <Icon name={section.icon} size={17} />
+      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {tr(`ws.shell.section.${section.key}`)}
+      </span>
+      <RailCount count={count} />
+      <ChevronForward size={14} />
     </Link>
   );
 }
@@ -567,6 +662,8 @@ function RailGroup({
 }) {
   const { tr } = useLocale();
   const listId = `rail-group-${labelKey}`;
+  // Open, the rows show their own counts.
+  const count = useRowsBadge(items);
 
   return (
     <div style={{ display: 'grid' }}>
@@ -581,6 +678,7 @@ function RailGroup({
         <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {tr(`ws.shell.nav.${labelKey}`)}
         </span>
+        {!open && <RailCount count={count} />}
         <span className="tp-rail-group-chevron" style={{ display: 'inline-flex' }}>
           <Icon name="chevronDown" size={14} />
         </span>
@@ -814,13 +912,7 @@ function WorkspaceNav({
             {sections.length > 0 && (
               <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
                 {sections.map((sec) => (
-                  <Link key={sec.key} to={sec.home} className="tp-nav-item" style={navItemStyle}>
-                    <Icon name={sec.icon} size={17} />
-                    <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {tr(`ws.shell.section.${sec.key}`)}
-                    </span>
-                    <ChevronForward size={14} />
-                  </Link>
+                  <SectionLink key={sec.key} section={sec} />
                 ))}
               </div>
             )}

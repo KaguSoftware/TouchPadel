@@ -40,4 +40,10 @@ describe('validateProtocolsSearch', () => {
     expect(validateProtocolsSearch({ change: 'promotion_edit', promotion: ID })).toEqual({ change: 'promotion_edit', promotion: ID });
     expect(validateProtocolsSearch({ change: 'rate', rule: ID, item: 'not-a-uuid' })).toEqual({ change: 'rate', rule: ID });
   });
+
+  it('keeps the role spec links: a start from an idea, a recipe change', () => {
+    expect(validateProtocolsSearch({ start: 'product_release', idea: ID })).toEqual({ start: 'product_release', idea: ID });
+    expect(validateProtocolsSearch({ recipeChange: ID.toUpperCase() })).toEqual({ recipeChange: ID });
+    expect(validateProtocolsSearch({ idea: 'idea-1', recipeChange: 7 })).toEqual({});
+  });
 });

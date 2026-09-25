@@ -943,7 +943,7 @@ export const ar: Messages = {
       head_barista: 'رئيس الباريستا',
       barista: 'باريستا',
       head_chef: 'رئيس الطهاة',
-      chef: 'شيف',
+      chef: 'مساعد شيف',
       driver: 'سائق',
       marketing: 'التسويق',
     },

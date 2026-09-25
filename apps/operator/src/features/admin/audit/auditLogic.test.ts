@@ -267,6 +267,29 @@ describe('plain language', () => {
     }
   });
 
+  it('names every action the protocols and staff-phone work writes (build-contracts-2026-09-23 §2.22)', () => {
+    // The exact strings the migrations pass to app.write_audit; one missing
+    // here would print under its area with the stored code beside it.
+    const written = [
+      'protocol.start', 'protocol.submit', 'protocol.auto', 'protocol.withdraw', 'protocol.withdraw_run',
+      'protocol.decide', 'protocol.skip', 'protocol.stop', 'protocol.unschedule', 'protocol.run.edit_items',
+      'protocol.run.add_step', 'protocol.template.save', 'protocol.release.accept', 'protocol.release.launch',
+      'protocol.release.review', 'protocol.price.apply', 'protocol.promo.apply', 'protocol.hiring.candidate_save',
+      'protocol.hiring.candidate_delete', 'protocol.hiring.complete', 'protocol.hiring.purge', 'stock.product_test',
+      'checklist.template.save', 'shopping.add', 'shopping.cancel', 'purchase.record', 'purchase.receive',
+      'purchase.acknowledge', 'marketing.campaign.suggest', 'marketing.note.add', 'reservation.event_block',
+      // The role spec.
+      'protocol.release.idea_submit', 'protocol.release.idea_withdraw', 'protocol.release.idea_decline',
+      'protocol.release.idea_start', 'teaching.save', 'teaching.archive', 'stock.recipe.change_submit',
+      'stock.recipe.change_withdraw', 'stock.recipe.change_approve', 'stock.recipe.change_decline',
+      'shopping.approve', 'shopping.decline', 'purchase.deliver', 'marketing.request.add',
+      'marketing.request.withdraw', 'marketing.request.answer',
+    ];
+    for (const a of written) expect(knownActionKey(a), a).not.toBeNull();
+    expect(knownActionKey('protocol.withdraw_run')).toBe('protocolWithdrawRun');
+    for (const f of ['protocol', 'checklist', 'shopping', 'purchase', 'teaching']) expect(knownFamilyKey(f), f).toBe(f);
+  });
+
   it('offers every known area in the filter, plus any new one in the data', () => {
     // The area filter now runs on the server; options built from the loaded
     // page alone collapsed to the chosen area the moment it was chosen.

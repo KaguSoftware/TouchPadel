@@ -9,6 +9,9 @@
  *                             editor, Stock ▸ Products, Add-ons, Promotions,
  *                             Rates and the hero builder (§5.5)
  *   ?filter=waiting|active|finished   which list is showing
+ *   ?idea=<uuid>              a new-item start prefilled from a team idea
+ *                             (role spec #65, with ?start=product_release)
+ *   ?recipeChange=<uuid>      open that recipe change request (role spec #71)
  * Each param is checked on its own and anything malformed is dropped, so a
  * mangled link lands on the plain page rather than an error.
  */
@@ -45,6 +48,8 @@ export interface ProtocolsSearch {
   promotion?: string;
   rule?: string;
   filter?: ProtocolFilter;
+  idea?: string;
+  recipeChange?: string;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -57,7 +62,7 @@ function oneOf<T extends string>(list: readonly T[], v: unknown): T | undefined 
   return typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T) : undefined;
 }
 
-const UUID_PARAMS = ['run', 'step', 'item', 'addon', 'promotion', 'rule'] as const;
+const UUID_PARAMS = ['run', 'step', 'item', 'addon', 'promotion', 'rule', 'idea', 'recipeChange'] as const;
 
 export function validateProtocolsSearch(raw: Record<string, unknown>): ProtocolsSearch {
   const out: ProtocolsSearch = {};

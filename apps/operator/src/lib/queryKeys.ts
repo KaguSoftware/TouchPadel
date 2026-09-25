@@ -90,6 +90,17 @@ export const QK = {
     all: ['checklists', 'dayState'] as const satisfies QueryKey,
     date: (date: string) => ['checklists', 'dayState', date] as const satisfies QueryKey,
   },
+
+  // The role spec (build-contracts-2026-09-23 §5.2). Each holds its RPC's
+  // payload as returned, called with no argument but the ones named here, so
+  // any screen that shares the key reads the same shape; a screen that needs
+  // another filter or page keeps its own key under the same root.
+  /** app.suggestions_page, filter 'new', first page: the rail badge (new_count) and the page's New tab. */
+  suggestionsNew: ['suggestions', 'new'] as const satisfies QueryKey,
+  /** app.recipe_changes_page, filter 'waiting': the Recipe changes card on /protocols. */
+  recipeChangesWaiting: ['recipeChanges', 'waiting'] as const satisfies QueryKey,
+  /** app.release_ideas_to_review: the New item card, /tasks and the kitchen board's My tasks count. */
+  ideasToReview: ['ideas', 'toReview'] as const satisfies QueryKey,
 } as const;
 
 /**
