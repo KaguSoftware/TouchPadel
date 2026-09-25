@@ -33,8 +33,17 @@ import type * as AppClient from '../../lib/supabase';
 type Client = SupabaseClient<Database>;
 
 export const STAFF_MEDIA_BUCKET = 'staff-media';
-/** The folders staff_media_slot accepts (§2.3). */
-export type PhotoFolder = 'proposals' | 'tests' | 'steps' | 'marketing' | 'campaigns' | 'receipts';
+/** The folders staff_media_slot accepts (§2.3; the last three since staff_media_folders, §2.24.2). */
+export type PhotoFolder =
+  | 'proposals'
+  | 'tests'
+  | 'steps'
+  | 'marketing'
+  | 'campaigns'
+  | 'receipts'
+  | 'checklists'
+  | 'teachings'
+  | 'requests';
 export type PhotoSource = 'camera' | 'library';
 
 export interface PickedPhoto {

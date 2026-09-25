@@ -56,4 +56,5 @@ export const opErrorsProtocolsAr: DeepMessages<typeof opErrorsProtocolsEn> = {
   INVALID_WEEKDAYS: 'أيام الأسبوع هذه غير صالحة. اختر كل يوم مرة واحدة.',
   CODE_TAKEN: 'رمز العرض هذا مستخدم في عرض آخر.',
   EMAIL_IN_USE: 'يوجد حساب بهذا البريد الإلكتروني بالفعل.',
+  RECIPE_CHANGED: 'تغيّرت الوصفة بعد إرسال هذا الطلب. اطلب تغييرًا جديدًا.',
 };

@@ -4,8 +4,10 @@
  *
  *   * the head barista, the head chef and MGMT add to the list; it goes
  *     straight to the drivers (one shopping_new push per driver in 15
- *     minutes); the bar and kitchen family, the driver and MGMT read it, with
- *     no price; the requester or MGMT takes a line off;
+ *     minutes); the chef's line waits for the head chef's OK instead
+ *     (shopping_head_approval, tests/shopping-head-approval.test.ts); the bar
+ *     and kitchen family, the driver and MGMT read it, with no price; the
+ *     requester or MGMT takes a line off;
  *   * the driver records a purchase with a receipt photo: the list's lines
  *     become bought, the managers get purchase_to_receive, no stock moves and
  *     no till row is written; a retry with the same key records it once;
@@ -232,8 +234,12 @@ describe.skipIf(!docker)('shopping list and purchases (rolled-back transactions)
       Q('replay_rows', `select count(*)::text::jsonb from shopping_items
                          where requested_by = {{hc}}::uuid and qty = 1 and ingredient_id = {{flour}}::uuid`),
 
-      ...(['bar', 'chef', 'drv', 'mkt', 'cashier', 'desk', 'prep'] as const).map((who) =>
+      ...(['bar', 'drv', 'mkt', 'cashier', 'desk', 'prep'] as const).map((who) =>
         T(`add_${who}`, who, add('null', `'Ice'`, '1', 'pc'))),
+      // The chef's line waits for the head chef (shopping_head_approval).
+      T('add_chef', 'chef', add('null', `'Ice'`, '1', 'pc')),
+      RES('chef_line', 'add_chef', 'id'),
+      Q('chef_line_status', `select to_jsonb(status) from shopping_items where id = {{chef_line}}::uuid`),
       T('no_what', 'hc', add('null', `'   '`, '1', 'pc')),
       T('retired', 'hc', add('{{retired}}', 'null', '1', 'g')),
       T('elsewhere', 'hc', add('{{elsewhere}}', 'null', '1', 'g')),
@@ -283,9 +289,10 @@ describe.skipIf(!docker)('shopping list and purchases (rolled-back transactions)
     expect(ok<{ duplicate?: boolean }>(r, 'replay2').duplicate).toBe(true);
     expect(ok<number>(r, 'replay_rows')).toBe(1);
 
-    for (const who of ['bar', 'chef', 'drv', 'mkt', 'cashier', 'desk', 'prep']) {
+    for (const who of ['bar', 'drv', 'mkt', 'cashier', 'desk', 'prep']) {
       expect(refused(r, `add_${who}`), who).toBe('FORBIDDEN');
     }
+    expect(ok<string>(r, 'chef_line_status')).toBe('pending');
     expect(refused(r, 'no_what')).toBe('SHOPPING_LABEL_REQUIRED');
     expect(refused(r, 'retired')).toBe('INGREDIENT_NOT_FOUND');
     expect(refused(r, 'elsewhere')).toBe('INGREDIENT_NOT_FOUND');

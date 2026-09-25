@@ -8,10 +8,9 @@
  *
  * This file ships in the send-push commit, which deploys before the staff_push
  * migration (§1.6 step 2), so nothing here may need that migration. The role
- * spec's eleven title keys (§2.24.1) ship their copy the same way, one commit
- * ahead of staff_push_keys, which lists them in the JSON and in
- * app.notify_staff: until then every JSON key has copy, and so does each of
- * the eleven; from there the copy and the list are equal again.
+ * spec's eleven title keys (§2.24.1) shipped their copy the same way, one
+ * commit ahead of staff_push_keys, which lists them in the JSON and in
+ * app.notify_staff: from there the copy and the list are equal again.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +27,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const INDEX = readFileSync(resolve(here, '../supabase/functions/send-push/index.ts'), 'utf8');
 
 const ROUTES = new Set(staffPush.routes);
-/** The role spec's eleven title keys (§2.21, §2.24.1); staff_push_keys adds them to the JSON, in this order. */
+/** The role spec's eleven title keys (§2.21, §2.24.1), last in the JSON, in this order. */
 const ROLE_SPEC_KEYS = [
   'idea_submitted',
   'idea_started',
@@ -61,10 +60,11 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, fifteen title keys and seven routes, each once', () => {
+  it('lists the four staff kinds, twenty-six title keys and seven routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(15);
+    expect(staffPush.title_keys).toHaveLength(26);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
+    expect(staffPush.title_keys.slice(15)).toEqual(ROLE_SPEC_KEYS);
     expect(staffPush.routes).toEqual([
       'staff',
       'staff-step',
@@ -76,12 +76,10 @@ describe('staff-push.json', () => {
     ]);
   });
 
-  // Until staff_push_keys lists the eleven role-spec keys in the JSON (§2.24.1):
-  // every JSON key has copy, and so does each of the eleven.
-  it('has copy in both languages for every title key and each role-spec key', () => {
+  it('has copy in both languages for exactly its title keys', () => {
     for (const lang of ['en', 'ar'] as const) {
-      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual([...staffPush.title_keys, ...ROLE_SPEC_KEYS].sort());
-      for (const key of [...staffPush.title_keys, ...ROLE_SPEC_KEYS]) {
+      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual([...staffPush.title_keys].sort());
+      for (const key of staffPush.title_keys) {
         expect(
           STAFF_STRINGS[lang][key as keyof (typeof STAFF_STRINGS)['en']].title.trim(),
         ).not.toBe('');
@@ -90,7 +88,7 @@ describe('staff-push.json', () => {
   });
 
   it('writes every Arabic title in Arabic', () => {
-    for (const key of [...staffPush.title_keys, ...ROLE_SPEC_KEYS]) {
+    for (const key of staffPush.title_keys) {
       const ar = STAFF_STRINGS.ar[key as keyof (typeof STAFF_STRINGS)['ar']].title;
       expect(ar).toMatch(/[\u0600-\u06FF]/);
       expect(ar).not.toBe(STAFF_STRINGS.en[key as keyof (typeof STAFF_STRINGS)['en']].title);
@@ -191,8 +189,8 @@ describe('staffMessage — the EN copy of §2.21', () => {
     expect(m.body).toBe(body);
   });
 
-  it('covers every title key in the list, and each role-spec key', () => {
-    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys, ...ROLE_SPEC_KEYS].sort());
+  it('covers every title key in the list', () => {
+    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys].sort());
   });
 });
 

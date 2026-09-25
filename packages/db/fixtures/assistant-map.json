@@ -1,5 +1,5 @@
 {
-  "generated_from": "6b2230aa7681305e0314cc064d11762b9bbb054f",
+  "generated_from": "2cc0ec2963b8c8a69c85c49d3890e89668397f42",
   "chunks": [
     {
       "kind": "page",
@@ -1867,6 +1867,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.add_marketing_request",
+      "lang": "en",
+      "title": "app.add_marketing_request",
+      "body": "marketing_requests (§2.24.11). Any active staff member at the venue except marketing: asks marketing for something (title 1 to 120, body 1 to 2000, an optional want-by day not in the past, an optional menu item of the venue, up to 4 photos in the requests folder) and tells marketing at the venue (staff_task / marketing_request_new). Returns {id}. Idempotent by key. FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG (hint title or body), INVALID_ARGUMENT (hint want_by or photos), ITEM_NOT_FOUND, PHOTO_PATH_INVALID. Audit marketing.request.add.\nSignature: app.add_marketing_request(p_title text, p_body text, p_want_by date default null, p_menu_item_id uuid default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: marketing.request.add.\nError codes: FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG, INVALID_ARGUMENT, ITEM_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0187 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.add_release_note",
+      "lang": "en",
+      "title": "app.add_release_note",
+      "body": "release_post_launch (§2.10, Q9). Any active staff member at the item's venue adds a note (1 to 2000 characters; customer remarks welcome, no names or phone numbers) on an item a product release launched, in its first 30 days. Returns {id}. ITEM_NOT_FOUND, NOTE_WINDOW_CLOSED, TEXT_REQUIRED, TEXT_TOO_LONG. Idempotent on p_idempotency_key. Not audited (PROPOSAL): the row keeps who and when.\nSignature: app.add_release_note(p_menu_item_id uuid, p_body text, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_NOT_FOUND, NOTE_WINDOW_CLOSED, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0173 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.add_run_step",
       "lang": "en",
       "title": "app.add_run_step",
@@ -1878,7 +1894,15 @@
       "ref": "action:app.add_shopping_item",
       "lang": "en",
       "title": "app.add_shopping_item",
-      "body": "shopping_purchases (§2.15). The head barista, the head chef and MGMT at the venue: puts a line on the shopping list, an active ingredient of the venue (unit its base unit or pack) or a label (at most 80), with a quantity and an optional note (at most 200), and tells the venue's drivers (staff_task / shopping_new, deduped shopping:<venue> for 15 minutes). Returns {id}. Idempotent by key. INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED, INVALID_QTY, INVALID_ARGUMENT (hint unit), TEXT_TOO_LONG. Audit shopping.add.\nSignature: app.add_shopping_item(p_venue_id uuid, p_ingredient_id uuid, p_label text, p_qty numeric, p_unit text, p_note text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nAudit actions written: shopping.add.\nError codes: FORBIDDEN, INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED, TEXT_TOO_LONG, INVALID_QTY, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "shopping_purchases (§2.15), re-issued by shopping_head_approval (§2.24.9). The head barista, the head chef, the chef and MGMT at the venue: puts a line on the shopping list, an active ingredient of the venue (unit its base unit or pack) or a label (at most 80), with a quantity and an optional note (at most 200). A head's or MGMT's line is open and tells the venue's drivers (staff_task / shopping_new, deduped shopping:<venue>); a chef's line is pending and tells the venue's head chefs, or its managers when it has none (staff_decide / shopping_to_approve, deduped shopping-approve:<venue>), and no driver sees it until app.decide_shopping_item. Returns {id}. Idempotent by key. INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED, INVALID_QTY, INVALID_ARGUMENT (hint unit), TEXT_TOO_LONG. Audit shopping.add.\nSignature: app.add_shopping_item(p_venue_id uuid, p_ingredient_id uuid, p_label text, p_qty numeric, p_unit text, p_note text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,chef,manager,owner).\nAudit actions written: shopping.add.\nError codes: FORBIDDEN, INGREDIENT_NOT_FOUND, SHOPPING_LABEL_REQUIRED, TEXT_TOO_LONG, INVALID_QTY, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0185 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.add_suggestion",
+      "lang": "en",
+      "title": "app.add_suggestion",
+      "body": "suggestions (§2.24.4). Any active staff member at the venue: posts a signed suggestion (1 to 1000 characters). Returns {id}. Idempotent by key. FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG (hint body). Not audited; no push.\nSignature: app.add_suggestion(p_body text, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0180 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -1887,6 +1911,14 @@
       "lang": "en",
       "title": "app.analytics_component",
       "body": "0141. Owner-only, STABLE, never calls a model. {hit:true, content, sources, gate, generated_at, tokens, inputs_fingerprint, params_hash} when a live cache row exists for the component and these parameters, else {hit:false, params_hash, last:{…}|null} with the most recent superseded answer for the card to grey out. params_hash is computed here from the canonical parameters.\nSignature: app.analytics_component(p_key text, p_params jsonb default '{}'::jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0141 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.answer_marketing_request",
+      "lang": "en",
+      "title": "app.answer_marketing_request",
+      "body": "marketing_requests (§2.24.11). Marketing at the request's venue: answers an open request done or declined, with an answer (1 to 2000), and tells the asker (staff_decided / marketing_request_answered). Returns {status, answered_at}. REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED (already answered or withdrawn), INVALID_ARGUMENT (hint outcome), TEXT_REQUIRED, TEXT_TOO_LONG (hint answer). Audit marketing.request.answer.\nSignature: app.answer_marketing_request(p_id uuid, p_outcome text, p_answer text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: marketing.request.answer.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, INVALID_ARGUMENT, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0187 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -1903,6 +1935,14 @@
       "lang": "en",
       "title": "app.apply_discount",
       "body": "0119: the 0049 body (claim_replay) with the 0115 PIN grant; the only live signature.\nSignature: app.apply_discount(p_tab_id uuid, p_kind adjustment_kind, p_value int, p_pin text, p_reason_code text, p_order_item_id uuid default null, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, REASON_REQUIRED, TAB_NOT_FOUND, TAB_NOT_OPEN, ITEM_NOT_ON_TAB, INVALID_VALUE, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0119 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.archive_teaching",
+      "lang": "en",
+      "title": "app.archive_teaching",
+      "body": "teachings (§2.24.3). Its author, or MGMT at its venue: archives a teaching, which leaves the team's list, and its photos leave the team's reads. REF_NOT_FOUND (unknown, already archived or elsewhere), FORBIDDEN. Audit teaching.archive.\nSignature: app.archive_teaching(p_id uuid) returns void.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: teaching.archive.\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0179 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2011,6 +2051,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.block_courts_for_event",
+      "lang": "en",
+      "title": "app.block_courts_for_event",
+      "body": "event_court_blocks (§2.11). The court desk or MGMT at the run's venue, while the tournament's courts step is open: blocks p_blocks [{court_id, start_at, end_at}] (1-60) as event blocks (maintenance, block_purpose event, protocol_run_id, notes = the tournament's English name), every court locked in court-id order first. Returns {blocked: [{reservation_id, court_id, start_at, end_at}], conflicts: [{court_id, start_at, end_at, reservation_id, kind, status}]}; with any conflict nothing is written and blocked is empty. A block of this run with the same court and window is returned, not written again. PROTOCOL_NOT_FOUND, STEP_NOT_OPEN, INVALID_ARGUMENT (hint blocks), BLOCK_RANGE_INVALID, COURT_NOT_FOUND, SLOT_TAKEN (a race past the check). Idempotent on p_idempotency_key. Audit reservation.event_block.\nSignature: app.block_courts_for_event(p_run_id uuid, p_blocks jsonb, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, manager, owner).\nAudit actions written: reservation.event_block.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, STEP_NOT_OPEN, INVALID_ARGUMENT, BLOCK_RANGE_INVALID, COURT_NOT_FOUND, SLOT_TAKEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0174 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.booking_bill_states",
       "lang": "en",
       "title": "app.booking_bill_states",
@@ -2054,7 +2102,7 @@
       "ref": "action:app.cancel_shopping_item",
       "lang": "en",
       "title": "app.cancel_shopping_item",
-      "body": "shopping_purchases (§2.15). The requester, or MGMT at the venue: takes an open line off the shopping list. SHOPPING_ITEM_NOT_OPEN for a line that is not open (or at a venue the caller does not work at); FORBIDDEN for anyone else. Audit shopping.cancel.\nSignature: app.cancel_shopping_item(p_id uuid) returns void.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: shopping.cancel.\nError codes: FORBIDDEN, SHOPPING_ITEM_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "shopping_purchases (§2.15), re-issued by shopping_head_approval (§2.24.9). The requester, or MGMT at the venue: takes an open or pending line off the shopping list. SHOPPING_ITEM_NOT_OPEN for a line that is neither (or at a venue the caller does not work at); FORBIDDEN for anyone else. Audit shopping.cancel.\nSignature: app.cancel_shopping_item(p_id uuid) returns void.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: shopping.cancel.\nError codes: FORBIDDEN, SHOPPING_ITEM_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0185 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2070,7 +2118,7 @@
       "ref": "action:app.checklist_board",
       "lang": "en",
       "title": "app.checklist_board",
-      "body": "checklists (§2.14). MGMT at the venue: {business_date, templates: [{template_id, role, slot, name_en, name_ar, version, items: [{position, text_en, text_ar}], today: {run_id, done, total, items: [{text_en, text_ar, done_by_name, done_at, note}]} | null}]} for the business day asked (default today). Creates nothing. FORBIDDEN for anyone else.\nSignature: app.checklist_board(p_venue_id uuid default null, p_business_date date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "checklists (§2.14), re-issued by checklist_photos (§2.24.8). MGMT at the venue: {business_date, templates: [{template_id, role, slot, name_en, name_ar, version, items: [{position, text_en, text_ar, photo_required}], today: {run_id, done, total, items: [{text_en, text_ar, done_by_name, done_at, note, photo_required, photo_path}]} | null}]} for the business day asked (default today). The operator opens a photo_path by signed URL. Creates nothing. FORBIDDEN for anyone else.\nSignature: app.checklist_board(p_venue_id uuid default null, p_business_date date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0184 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2111,6 +2159,14 @@
       "lang": "en",
       "title": "app.confirm_booking",
       "body": "Signature: app.confirm_booking(p_hold_id uuid, p_guest_name text default null, p_guest_phone text default null, p_players int default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: reservation.confirm.\nError codes: AUTH_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, HOLD_EXPIRED, PHONE_REQUIRED, GUEST_REQUIRED, NO_RATE, PRICE_CHANGED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0147 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.confirm_purchase_delivery",
+      "lang": "en",
+      "title": "app.confirm_purchase_delivery",
+      "body": "purchase_delivery_confirm (§2.24.10, #70). The purchase's buyer, or MGMT at its venue: confirms the purchase was delivered to the venue, whether it is still to receive or already received. Returns {purchase_id, delivered_at, delivered_by_name}; a repeat returns the first confirmation. No push. PURCHASE_NOT_FOUND (unknown or elsewhere), FORBIDDEN. Audit purchase.deliver.\nSignature: app.confirm_purchase_delivery(p_purchase_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: purchase.deliver.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0186 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2163,6 +2219,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.decide_recipe_change",
+      "lang": "en",
+      "title": "app.decide_recipe_change",
+      "body": "recipe_change_requests (§2.24.7). The owner, at the request's venue, never on their own: an approve checks the target is still active and its lines still match the request's before (else RECIPE_CHANGED), writes after through app.set_recipe (its stock.recipe.set audit and cycle check: RECIPE_CYCLE, INGREDIENT_NOT_FOUND, INVALID_QTY, VARIANT_NOT_FOUND), and tells the head (recipe_change_approved); a decline needs a reason (at most 1000) and tells the head (recipe_change_declined). Returns {status, lines_written}. REF_NOT_FOUND, FORBIDDEN, CANNOT_DECIDE_OWN, SUBMISSION_DECIDED, INVALID_ARGUMENT (hint approve), REASON_REQUIRED, TEXT_TOO_LONG. Audit stock.recipe.change_approve or stock.recipe.change_decline.\nSignature: app.decide_recipe_change(p_id uuid, p_approve boolean, p_reason text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: stock.recipe.change_approve, stock.recipe.change_decline.\nError codes: FORBIDDEN, REF_NOT_FOUND, CANNOT_DECIDE_OWN, SUBMISSION_DECIDED, INVALID_ARGUMENT, RECIPE_CHANGED, REASON_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0183 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.decide_shopping_item",
+      "lang": "en",
+      "title": "app.decide_shopping_item",
+      "body": "shopping_head_approval (§2.24.9). The head chef or MGMT at the line's venue: approves a pending line (open; the drivers get staff_task / shopping_new, deduped shopping:<venue>) or declines it with a reason (at most 300; the requester gets staff_decided / shopping_declined). Returns {id, status}. SHOPPING_ITEM_NOT_OPEN (unknown or elsewhere), FORBIDDEN, SUBMISSION_DECIDED (not pending), CANNOT_DECIDE_OWN, INVALID_ARGUMENT (hint approve), REASON_REQUIRED, TEXT_TOO_LONG. Audit shopping.approve or shopping.decline.\nSignature: app.decide_shopping_item(p_id uuid, p_approve boolean, p_reason text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: shopping.approve, shopping.decline.\nError codes: FORBIDDEN, SHOPPING_ITEM_NOT_OPEN, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, REASON_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0185 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.decide_staff_request",
       "lang": "en",
       "title": "app.decide_staff_request",
@@ -2179,11 +2251,27 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.decline_release_idea",
+      "lang": "en",
+      "title": "app.decline_release_idea",
+      "body": "product_release (§2.9). The head of the idea's team (head_barista for bar, head_chef for kitchen) or MGMT at its venue declines a waiting idea with a reason (<= 1000), which the author reads; the author is told (staff_decided / idea_declined). REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG. Returns {status}. Audit protocol.release.idea_decline (no text).\nSignature: app.decline_release_idea(p_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.release.idea_decline.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.delete_court",
       "lang": "en",
       "title": "app.delete_court",
       "body": "0074: hard-delete a court that nothing references. Raises COURT_IN_USE (detail = {reservations, series, rate_rules}) when it has history — that court is deactivated via app.upsert_court instead, so the reports keep its name.\nSignature: app.delete_court(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: courts.delete.\nError codes: FORBIDDEN, COURT_NOT_FOUND, COURT_IN_USE.\nCalled from: apps/operator/src/features/admin/courts/CourtsAdmin.tsx (pages /admin).\nDefined in migration 0074 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.delete_hiring_candidate",
+      "lang": "en",
+      "title": "app.delete_hiring_candidate",
+      "body": "hiring (§2.12). MGMT at the run's venue while its interviews step is open: deletes one candidate. CANDIDATE_NOT_FOUND (a candidate at another venue included), STEP_NOT_OPEN. Audit protocol.hiring.candidate_delete (ids only).\nSignature: app.delete_hiring_candidate(p_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: protocol.hiring.candidate_delete.\nError codes: FORBIDDEN, CANDIDATE_NOT_FOUND, STEP_NOT_OPEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0176 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -2254,7 +2342,7 @@
       "ref": "action:app.generate_promo_code",
       "lang": "en",
       "title": "app.generate_promo_code",
-      "body": "Signature: app.generate_promo_code(p_id uuid) returns text.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: promotion.generate_code.\nError codes: FORBIDDEN, PROMOTION_NOT_FOUND, CODE_GENERATION_FAILED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0067 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Owner (the guard admits manager and owner; a manager is refused PRICE_VIA_PROTOCOL since price_promo, #57): draws an 8-character code from the unambiguous alphabet (PROMO_CODE_ALPHABET in @touch/core), unique across promotions, replacing any existing code (0067). PROMOTION_NOT_FOUND, CODE_GENERATION_FAILED. Audit promotion.generate_code.\nSignature: app.generate_promo_code(p_id uuid) returns text.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: promotion.generate_code.\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL, PROMOTION_NOT_FOUND, CODE_GENERATION_FAILED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2279,6 +2367,14 @@
       "lang": "en",
       "title": "app.heartbeat",
       "body": "Signature: app.heartbeat(p_device_id text, p_queue_depth int default 0, p_app_version text default null, p_is_till boolean default false) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: station.registered.\nError codes: FORBIDDEN, DEVICE_REQUIRED, INVALID_STATION, STATION_UNKNOWN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.hiring_candidates",
+      "lang": "en",
+      "title": "app.hiring_candidates",
+      "body": "hiring (§2.12). MGMT at the run's venue: {candidates: [{id, candidate_name, candidate_phone, brief, interview_at, picked, pick_reason}], purged} for one hiring run; purged is true once app.hiring_purge_due deleted its candidates. PROTOCOL_NOT_FOUND.\nSignature: app.hiring_candidates(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0176 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2334,7 +2430,7 @@
       "ref": "action:app.is_staff_media_path",
       "lang": "en",
       "title": "app.is_staff_media_path",
-      "body": "staff_media_bucket (§2.3). True when a storage object name is a staff-media path, <venue_id>/<folder>/<uuid>.<jpg|png|webp>; false for anything else, NULL included. Pure text, never raises. Granted to anon, authenticated and service_role because the staff-media storage policies evaluate it as the reading role.\nSignature: app.is_staff_media_path(p_name text) returns boolean.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "staff_media_bucket (§2.3), re-issued by staff_media_folders (§2.24.2). True when a storage object name is a staff-media path, <venue_id>/<folder>/<uuid>.<jpg|png|webp> with one of the nine folders; false for anything else, NULL included. Pure text, never raises. Granted to anon, authenticated and service_role because the staff-media storage policies evaluate it as the reading role.\nSignature: app.is_staff_media_path(p_name text) returns boolean.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0170 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2358,7 +2454,7 @@
       "ref": "action:app.link_item_modifier_group",
       "lang": "en",
       "title": "app.link_item_modifier_group",
-      "body": "Signature: app.link_item_modifier_group(p_item_id uuid, p_group_id uuid, p_sort_order int default 0, p_linked boolean default true) returns void.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.item.link_group.\nError codes: FORBIDDEN, ITEM_NOT_FOUND, GROUP_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/GroupEditor.tsx, apps/operator/src/features/admin/menu/ItemModifierGroups.tsx (pages /admin).\nDefined in migration 0013 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: links or unlinks one add-on group on one item (0013; price_promo adds the compulsory add-on lock). For a manager, PRICE_VIA_PROTOCOL (hint required_addon) when the link raises the least a guest pays in add-ons for the item or a choice on it (app.addon_item_prices). ITEM_NOT_FOUND, GROUP_NOT_FOUND.\nSignature: app.link_item_modifier_group(p_item_id uuid, p_group_id uuid, p_sort_order int default 0, p_linked boolean default true) returns void.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.item.link_group.\nError codes: FORBIDDEN, ITEM_NOT_FOUND, GROUP_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/GroupEditor.tsx, apps/operator/src/features/admin/menu/ItemModifierGroups.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -2390,7 +2486,7 @@
       "ref": "action:app.mark_checklist_item",
       "lang": "en",
       "title": "app.mark_checklist_item",
-      "body": "checklists (§2.14). Ticks (p_done true) or unticks one line of a day's list: anyone holding the list's role at its venue, or MGMT. A repeat tick keeps the first ticker and time. p_note (at most 300) sets the line's note, blank clears it, NULL leaves it. Returns the line {id, position, text_en, text_ar, done_by_name, done_at, note}. CHECKLIST_NOT_FOUND for a line at a venue the caller does not work at; FORBIDDEN for another role; TEXT_TOO_LONG (hint note).\nSignature: app.mark_checklist_item(p_item_id uuid, p_done boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, CHECKLIST_NOT_FOUND, INVALID_ARGUMENT, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "checklists (§2.14), re-created by checklist_photos (§2.24.8) with p_photo_path. Ticks (p_done true) or unticks one line of a day's list: anyone holding the list's role at its venue, or MGMT. A repeat tick keeps the first ticker and time. A line that needs a photo is ticked only with one, sent now (a checklists slot of the caller, claimed as checklist_item:<id>) or already on it; any line may carry one; a new photo replaces the line's; an untick clears it. p_note (at most 300) sets the line's note, blank clears it, NULL leaves it. Returns the line {id, position, text_en, text_ar, done_by_name, done_at, note, photo_required, photo_path}. CHECKLIST_NOT_FOUND for a line at a venue the caller does not work at; FORBIDDEN for another role; RECORD_INVALID (hint photo_path); PHOTO_PATH_INVALID; TEXT_TOO_LONG (hint note).\nSignature: app.mark_checklist_item(p_item_id uuid, p_done boolean, p_note text default null, p_photo_path text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, CHECKLIST_NOT_FOUND, INVALID_ARGUMENT, TEXT_TOO_LONG, RECORD_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0184 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2403,6 +2499,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.mark_suggestion_seen",
+      "lang": "en",
+      "title": "app.mark_suggestion_seen",
+      "body": "suggestions (§2.24.4). MGMT at the suggestion's venue: marks it seen and returns {seen_at}; a repeat keeps the first mark. REF_NOT_FOUND (unknown or elsewhere), FORBIDDEN. Not audited.\nSignature: app.mark_suggestion_seen(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0180 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.marketing_audience_reach",
       "lang": "en",
       "title": "app.marketing_audience_reach",
@@ -2411,10 +2515,26 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.marketing_campaign_results",
+      "lang": "en",
+      "title": "app.marketing_campaign_results",
+      "body": "marketing_requests (§2.24.11, #73). Marketing and MGMT at the venue: {campaigns: [{campaign_id, name_en, name_ar, channel, status, starts_at, ends_at, sends, delivered, failed, last_sent_at, attributable, redemptions, suggested_by_me}]}, the venue's campaigns newest first, p_limit 1 to 100 (default 30). Counts only: redemptions of the campaign's promotion inside its window (NULL without a promotion), never a discount, revenue, tab or order figure. FORBIDDEN for anyone else.\nSignature: app.marketing_campaign_results(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0187 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.marketing_notes_for",
       "lang": "en",
       "title": "app.marketing_notes_for",
       "body": "marketing_staff (§2.17). MGMT and marketing at the subject's venue: {notes: [{id, author_name, body, photos, created_at}]}, the marketing notes on one item, run or campaign, newest first. INVALID_ARGUMENT (hint subject_kind); REF_NOT_FOUND for a subject at a venue the caller does not work at; FORBIDDEN for anyone else.\nSignature: app.marketing_notes_for(p_subject_kind text, p_subject_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.marketing_requests_page",
+      "lang": "en",
+      "title": "app.marketing_requests_page",
+      "body": "marketing_requests (§2.24.11). Marketing and MGMT at the venue: {requests: [{id, title, body, want_by, menu_item_id, item_name_en, item_name_ar, photos, status, answer, answered_by_name, answered_at, created_at, requested_by_name, requested_by_role}], open_count, total} for p_filter open (oldest first), answered (done or declined) or all (newest first), p_limit 1 to 200. INVALID_ARGUMENT (hint filter); FORBIDDEN for anyone else.\nSignature: app.marketing_requests_page(p_venue_id uuid default null, p_filter text default 'open', p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0187 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2462,7 +2582,7 @@
       "ref": "action:app.my_checklists_today",
       "lang": "en",
       "title": "app.my_checklists_today",
-      "body": "checklists (§2.14). Any active staff member at the venue: today's lists for the caller's own role, {business_date, lists: [{run_id, role, slot, name_en, name_ar, done, total, items: [{id, position, text_en, text_ar, done_by_name, done_at, note}]}]}, open before close. Creates today's run of each of the role's lists that has lines, as a snapshot of the template. FORBIDDEN for a venue the caller does not work at.\nSignature: app.my_checklists_today(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "checklists (§2.14), re-issued by checklist_photos (§2.24.8). Any active staff member at the venue: today's lists for the caller's own role, {business_date, lists: [{run_id, role, slot, name_en, name_ar, done, total, items: [{id, position, text_en, text_ar, done_by_name, done_at, note, photo_required, photo_path}]}]}, open before close. Creates today's run of each of the role's lists that has lines, as a snapshot of the template, \"Needs a photo\" included. FORBIDDEN for a venue the caller does not work at.\nSignature: app.my_checklists_today(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0184 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2471,6 +2591,14 @@
       "lang": "en",
       "title": "app.my_marketing_notes",
       "body": "marketing_staff (§2.17). Marketing at the venue: {notes: [{id, subject_kind, subject_id, subject_name_en, subject_name_ar, body, photos, created_at}]}, the caller's own notes, newest first, p_limit 1 to 200 (default 50). A run's name is its title in either language. FORBIDDEN for anyone else.\nSignature: app.my_marketing_notes(p_venue_id uuid default null, p_limit int default 50) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0168 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_marketing_requests",
+      "lang": "en",
+      "title": "app.my_marketing_requests",
+      "body": "marketing_requests (§2.24.11). Any active staff member at the venue except marketing: {requests: [{id, title, body, want_by, menu_item_id, item_name_en, item_name_ar, photos, status, answer, answered_by_name, answered_at, created_at}]}, the caller's own, newest first, p_limit 1 to 100 (default 30). FORBIDDEN for marketing and anyone else.\nSignature: app.my_marketing_requests(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0187 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2486,7 +2614,23 @@
       "ref": "action:app.my_purchases",
       "lang": "en",
       "title": "app.my_purchases",
-      "body": "shopping_purchases (§2.15). The driver (their own purchases) and MGMT (every purchase) at the venue: {purchases: [{id, bought_at, shop_name, total_iqd, status, lines: [{label, name_en, name_ar, qty, unit, price_iqd, status}]}]}, newest first, p_limit 1 to 100 (default 30). FORBIDDEN for anyone else.\nSignature: app.my_purchases(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (driver,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "shopping_purchases (§2.15), re-issued by purchase_delivery_confirm (§2.24.10). The driver (their own purchases) and MGMT (every purchase) at the venue: {purchases: [{id, bought_at, shop_name, total_iqd, status, receipt_path, delivered_at, lines: [{label, name_en, name_ar, qty, unit, price_iqd, status}]}]}, newest first, p_limit 1 to 100 (default 30). The receipt is the buyer's own, readable to them as its uploader. FORBIDDEN for anyone else.\nSignature: app.my_purchases(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (driver,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0186 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_recipe_changes",
+      "lang": "en",
+      "title": "app.my_recipe_changes",
+      "body": "recipe_change_requests (§2.24.7). The head barista and the head chef at the venue: {requests: [{id, target, item_name_en, item_name_ar, size_name_en, size_name_ar, ops: [{op, ingredient_id, name_en, name_ar, qty, unit}], note, status, requested_at, decided_by_name, decided_at, decline_reason}]}, their own, newest first, p_limit 1 to 100. qty only on their own set and add ops; before, after and every current quantity are never returned (#72). FORBIDDEN for anyone else.\nSignature: app.my_recipe_changes(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0183 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_release_ideas",
+      "lang": "en",
+      "title": "app.my_release_ideas",
+      "body": "product_release (§2.9). A barista or chef assistant at the venue: {ideas: [{id, team, record, photos, status, submitted_at, decided_by_name, decided_at, decline_reason, run: {run_id, status, title_en, title_ar, current_steps: [{name_en, name_ar, status}]} | null}]}, their own ideas of the last 90 days, newest first. The run carries no record, data or figure. FORBIDDEN for anyone else.\nSignature: app.my_release_ideas(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (barista, chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2495,6 +2639,14 @@
       "lang": "en",
       "title": "app.my_reservations",
       "body": "0152. The caller's own reservations (guest_id = auth.uid()), newest first, capped at 100, with the court fee paid and still owed on each, and cancelled_at (0075: the moment the booking became history). Null id lists them; an id returns that one. The guest-side counterpart of booking_bill, which is staff-only.\nSignature: app.my_reservations(p_reservation_id uuid default null) returns table ( id uuid, court_id uuid, kind text, status text, start_at timestamptz, end_at timestamptz, price_iqd bigint, hold_expires_at timestamptz, cancelled_by text, cancelled_at timestamptz, court_paid_iqd bigint, court_remaining_iqd bigint ).\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0152 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_suggestions",
+      "lang": "en",
+      "title": "app.my_suggestions",
+      "body": "suggestions (§2.24.4). Any active staff member at the venue: {suggestions: [{id, body, created_at, seen, seen_at}]}, their own, newest first, p_limit 1 to 100 (default 30). Who marked it seen is not shown. FORBIDDEN for anyone else.\nSignature: app.my_suggestions(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0180 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2551,6 +2703,22 @@
       "lang": "en",
       "title": "app.preview_series",
       "body": "Signature: app.preview_series(p_court_id uuid, p_pattern text, p_weekdays int[], p_start_time time, p_duration_min int, p_starts_on date, p_ends_on date) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, COURT_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0066 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.price_promo_numbers",
+      "lang": "en",
+      "title": "app.price_promo_numbers",
+      "body": "price_promo (§2.13). MGMT at the run's venue: the figures behind a price or promotion change, from its standing proposal and numbers (a figure the numbers leave out is the proposal's): {change, sizes: [{variant_id (null for a new size), name_en, name_ar, current_price_iqd, new_price_iqd, cost_iqd, cost_known, margin_before_iqd, margin_after_iqd, units_30d, revenue_30d_iqd}], addons: [{modifier_id, group_name_en, group_name_ar, name_en, name_ar, current_delta_iqd, new_delta_iqd, count_30d, revenue_30d_iqd}], promotion: {current_value, new_value, discount_cost_30d_iqd, units_30d, revenue_30d_iqd} | null, rate: {durations: [{duration_min, current_price_iqd, new_price_iqd}], bookings_30d, revenue_30d_iqd} | null, featured: {current_item_id, new_item_id, current_pct, new_pct, current_hero_mode, sizes, units_30d, discount_cost_30d_iqd} | null}. Cost is the recipe cost (latest batch, else pack cost; unknown when a line has neither); sales are the last 30 days' settled lines. PROTOCOL_NOT_FOUND.\nSignature: app.price_promo_numbers(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.price_promo_targets",
+      "lang": "en",
+      "title": "app.price_promo_targets",
+      "body": "price_promo (§2.13). Manager, marketing or owner at the venue (shop_launch: MGMT only): the targets a price or promotion change may name. price: {items: [{menu_item_id, name_en, name_ar, category_kind, is_active, sizes: [{variant_id, name_en, name_ar, price_iqd}]}]}, launched items not in release, cafe and shop; shop_launch: the same shape, hidden never-launched shop products not in release; addon_price: {addons: [{modifier_id, group_id, group_name_en, group_name_ar, name_en, name_ar, price_delta_iqd, is_active, launched}]}, launched add-ons plus, for MGMT, hidden never-launched ones; promotion_edit / promotion_enable: {promotions: [...]} (every promotion / the switched-off ones), no redemption count; rate: {rules: [{rule_id, name, court_id, court_name_en, court_name_ar, days_of_week, start_time, end_time, priority, valid_from, valid_to, is_active, prices}]}; featured_discount: {featured_item_id, featured_discount_pct, hero_mode, items: [...]}, active items. No cost, no sales. FORBIDDEN, INVALID_ARGUMENT (hint change).\nSignature: app.price_promo_targets(p_change text, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, marketing, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2630,7 +2798,7 @@
       "ref": "action:app.purchases_to_receive",
       "lang": "en",
       "title": "app.purchases_to_receive",
-      "body": "shopping_purchases (§2.15). MGMT at the venue: {count, purchases: [{id, staff_name, bought_at, shop_name, total_iqd, receipt_path, lines: [{id, ingredient_id, ingredient_active, name_en, name_ar, unit, pack_size, label, qty, price_iqd, status}]}]}, the purchases still to receive, oldest first; ingredient_active false marks a stock line whose ingredient was switched off since (acknowledged, not received). FORBIDDEN for anyone else.\nSignature: app.purchases_to_receive(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "shopping_purchases (§2.15), re-issued by purchase_delivery_confirm (§2.24.10). MGMT at the venue: {count, purchases: [{id, staff_name, bought_at, shop_name, total_iqd, receipt_path, delivered_at, delivered_by_name, lines: [{id, ingredient_id, ingredient_active, name_en, name_ar, unit, pack_size, label, qty, price_iqd, status}]}]}, the purchases still to receive, oldest first; ingredient_active false marks a stock line whose ingredient was switched off since (acknowledged, not received); delivered_at NULL means the buyer has not confirmed the delivery yet. FORBIDDEN for anyone else.\nSignature: app.purchases_to_receive(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0186 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2655,6 +2823,22 @@
       "lang": "en",
       "title": "app.receive_purchase",
       "body": "shopping_purchases (§2.15). MGMT at the purchase's venue, one transaction: p_lines [{purchase_line_id, qty_received, expiry_date?}] must name every stock line still to receive (a short line receives less than was bought); they are booked through app.receive_delivery as ONE delivery (cost per base unit = price ÷ quantity; named p_supplier_name, else the supplier p_supplier_id, else the shop), purchases.delivery_id links it, the lines become received and the purchase done once no line is left. Returns {delivery_id, received_line_ids}. Idempotent by key. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint lines: a missing, unknown, repeated or non-stock line), INGREDIENT_NOT_FOUND (hint lines, detail the line: a stock line whose ingredient was switched off since, to acknowledge first), INVALID_QTY, SUPPLIER_NOT_FOUND and receive_delivery's codes. Audit purchase.receive.\nSignature: app.receive_purchase(p_purchase_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.receive.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, INVALID_QTY.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.recipe_changes_page",
+      "lang": "en",
+      "title": "app.recipe_changes_page",
+      "body": "recipe_change_requests (§2.24.7). MGMT at the venue: {requests: [{id, target, variant_id, output_ingredient_id, item_name_en, item_name_ar, size_name_en, size_name_ar, requested_by_name, requested_at, note, status, decided_by_name, decided_at, decline_reason, stale, before: [{recipe_line_id, ingredient_id, name_en, name_ar, qty, unit}], after: [{ingredient_id, name_en, name_ar, qty, unit}]}], waiting_count, total} for p_filter waiting (oldest first), decided or all (newest first), p_limit 1 to 200. stale: a waiting request whose target no longer matches its before. INVALID_ARGUMENT (hint filter); FORBIDDEN for anyone else.\nSignature: app.recipe_changes_page(p_venue_id uuid default null, p_filter text default 'waiting', p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0183 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.recipe_view",
+      "lang": "en",
+      "title": "app.recipe_view",
+      "body": "recipe_view (§2.24.6, #72). The bar and kitchen family and MGMT at the venue: {items: [{menu_item_id, name_en, name_ar, category_name_en, category_name_ar, sizes: [{variant_id, name_en, name_ar, lines: [{recipe_line_id, ingredient_id, name_en, name_ar}]}]}], prepared: [{ingredient_id, name_en, name_ar, lines: [...]}]}: the active cafe items and the active prepared ingredients with an output recipe, as ingredient names. No quantity, unit, cost or price for anyone (#72, §0 P3). With p_menu_item_id, that item only (REF_NOT_FOUND unless it is an active cafe item at one of the caller's venues) and prepared is empty. FORBIDDEN for anyone else.\nSignature: app.recipe_view(p_venue_id uuid default null, p_menu_item_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0182 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2715,10 +2899,66 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.release_cost",
+      "lang": "en",
+      "title": "app.release_cost",
+      "body": "product_release (§2.9). MGMT at the run's venue: {sizes: [{variant_id, name_en, name_ar, cost_iqd, cost_known}], unknown_lines: [label]}, the cost to make each size of the draft from its recipe (latest batch cost, else pack cost). cost_known is false when a line has neither, the size has no recipe, or the proposal still has free-text lines (listed in unknown_lines). PROTOCOL_NOT_FOUND.\nSignature: app.release_cost(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.release_hold",
       "lang": "en",
       "title": "app.release_hold",
       "body": "0058: guest hands back an OWN unconfirmed hold (kind=hold, status=pending) -> expired. Idempotent. Not a path around cancellation_window_hours: confirmed bookings still go through app.cancel_reservation.\nSignature: app.release_hold(p_reservation_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.release.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, NOT_A_HOLD.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0060 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.release_ideas_to_review",
+      "lang": "en",
+      "title": "app.release_ideas_to_review",
+      "body": "product_release (§2.9). The head roles and MGMT at the venue: {ideas: [{id, team, author_name, submitted_at, record, photos}], count}, the waiting ideas, oldest first; head_barista the bar's, head_chef the kitchen's, MGMT both. FORBIDDEN for anyone else.\nSignature: app.release_ideas_to_review(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista, head_chef, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.release_notes_for_item",
+      "lang": "en",
+      "title": "app.release_notes_for_item",
+      "body": "release_post_launch (§2.10). Any active staff member at the item's venue: {item: {id, name_en, name_ar, window_ends_at, open}, notes: [{id, author_name, body, created_at, mine}]} for an item a product release launched, newest note first. ITEM_NOT_FOUND for any other item or another venue's.\nSignature: app.release_notes_for_item(p_menu_item_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0173 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.release_notes_for_me",
+      "lang": "en",
+      "title": "app.release_notes_for_me",
+      "body": "release_post_launch (§2.10). Any active staff member at the venue: {items: [{menu_item_id, name_en, name_ar, launched_at, window_ends_at, run_id, notes, my_notes}]}, the released items still in their 30-day note window, newest launch first, with how many notes they have and how many are the caller's.\nSignature: app.release_notes_for_me(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0173 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.release_readiness",
+      "lang": "en",
+      "title": "app.release_readiness",
+      "body": "product_release (§2.9). MGMT at the run's venue: the launch readiness of a product release's draft, {ready, checks: [{key, ok}], warnings: [{key}]} (app.release_readiness_internal). PROTOCOL_NOT_FOUND.\nSignature: app.release_readiness(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.release_review",
+      "lang": "en",
+      "title": "app.release_review",
+      "body": "release_post_launch (§2.10, #54). MGMT at the run's venue only: the day-30 review of a product release, {status, numbers, write_up, model, written_at}, or NULL before it is written. FORBIDDEN for every other role, the run's starter included; PROTOCOL_NOT_FOUND.\nSignature: app.release_review(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0173 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.release_test_context",
+      "lang": "en",
+      "title": "app.release_test_context",
+      "body": "product_release (§2.7, §2.9). The test step's assignee (the proposer) or MGMT at the run's venue: {sizes: [{variant_id, name_en, name_ar, lines: [{ingredient_id, name_en, name_ar, qty, unit}]}]}, the draft's recipe to make the test servings from; no cost, no price. PROTOCOL_NOT_FOUND for anyone outside the run, NOT_STEP_ACTOR for anyone else in it.\nSignature: app.release_test_context(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2760,6 +3000,14 @@
       "title": "app.reorder_modifiers",
       "body": "Signature: app.reorder_modifiers(p_ids uuid[]) returns int.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.reorder.\nError codes: FORBIDDEN, DUPLICATE_ID, MODIFIER_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/OptionsEditor.tsx (pages /admin).\nDefined in migration 0050 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.request_recipe_change",
+      "lang": "en",
+      "title": "app.request_recipe_change",
+      "body": "recipe_change_requests (§2.24.7). The head barista and the head chef at the venue: asks for a change to a size's recipe (target variant, an active cafe item) or a prepared ingredient's output recipe (target output), p_ops 1 to 30 of {op: set, recipe_line_id, qty} | {op: remove, recipe_line_id} | {op: add, ingredient_id, qty} (qty above 0, below 10^9, base unit, 3 places), and tells the owners (staff_decide / recipe_change_submitted). Stores the target's lines (before) and what an approval writes (after). Returns {id}. Idempotent by key. FORBIDDEN, INVALID_ARGUMENT (hint target), REF_NOT_FOUND (hint target_id), INGREDIENT_NOT_FOUND (an add), RECORD_INVALID (hint ops.<n>.<field> or ops), TEXT_TOO_LONG (hint note). Audit stock.recipe.change_submit.\nSignature: app.request_recipe_change(p_target text, p_target_id uuid, p_ops jsonb, p_note text default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef).\nAudit actions written: stock.recipe.change_submit.\nError codes: FORBIDDEN, INVALID_ARGUMENT, REF_NOT_FOUND, TEXT_TOO_LONG, RECORD_INVALID, INGREDIENT_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0183 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -2814,7 +3062,15 @@
       "ref": "action:app.save_checklist_template",
       "lang": "en",
       "title": "app.save_checklist_template",
-      "body": "checklists (§2.14). Owner only: writes the venue's open or close list for one role, names and lines ([{text_en, text_ar}], at most 30, both languages, 200 characters each) replaced whole. p_expected_version is 0 (or NULL) for a new list, else the version read. Returns {template_id, version}. INVALID_ROLE (prep), INVALID_ARGUMENT (slot), TEMPLATE_CHANGED, LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG. Audit checklist.template.save. A day's list already opened keeps its snapshot.\nSignature: app.save_checklist_template(p_venue_id uuid, p_role staff_role, p_slot text, p_expected_version int, p_name_en text, p_name_ar text, p_items jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: checklist.template.save.\nError codes: FORBIDDEN, INVALID_ROLE, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG, LIST_TOO_LONG, TEMPLATE_CHANGED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0165 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "checklists (§2.14), re-issued by checklist_photos (§2.24.8). Owner only: writes the venue's open or close list for one role, names and lines ([{text_en, text_ar, photo_required?}], at most 30, both languages, 200 characters each, photo_required a boolean) replaced whole. p_expected_version is 0 (or NULL) for a new list, else the version read. Returns {template_id, version}. INVALID_ROLE (prep), INVALID_ARGUMENT (slot, items), TEMPLATE_CHANGED, LIST_TOO_LONG, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG. Audit checklist.template.save. A day's list already opened keeps its snapshot.\nSignature: app.save_checklist_template(p_venue_id uuid, p_role staff_role, p_slot text, p_expected_version int, p_name_en text, p_name_ar text, p_items jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: checklist.template.save.\nError codes: FORBIDDEN, INVALID_ROLE, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_TOO_LONG, LIST_TOO_LONG, TEMPLATE_CHANGED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0184 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.save_hiring_candidate",
+      "lang": "en",
+      "title": "app.save_hiring_candidate",
+      "body": "hiring (§2.12). MGMT at the run's venue while its interviews step is open: adds a candidate (p_id NULL) or replaces one from p_candidate {candidate_name (1-80), candidate_phone (<= 32, digits), brief? (<= 1000), interview_at?, picked?, pick_reason? (<= 1000)}; a pick unmarks the run's other. Returns {id}. PROTOCOL_NOT_FOUND, STEP_NOT_OPEN, CANDIDATE_NOT_FOUND, RECORD_INVALID, TEXT_TOO_LONG. Idempotent on p_idempotency_key. Audit protocol.hiring.candidate_save (ids only).\nSignature: app.save_hiring_candidate(p_run_id uuid, p_candidate jsonb, p_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: protocol.hiring.candidate_save.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, STEP_NOT_OPEN, RECORD_INVALID, CANDIDATE_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0176 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2843,6 +3099,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.save_teaching",
+      "lang": "en",
+      "title": "app.save_teaching",
+      "body": "teachings (§2.24.3). A new teaching (p_id NULL; idempotent by key): the head barista or head chef for their own team (p_team defaults to it, another team is FORBIDDEN), or MGMT for either (p_team required); tells the team (staff_info / teaching_new). An edit: its author, or MGMT at its venue; the team never changes. Title 1 to 120, body 1 to 4000, photos teachings slots of the caller (at most 6). Returns {id}. FORBIDDEN, INVALID_ARGUMENT (hint team or photos), REF_NOT_FOUND (unknown, archived or elsewhere), TEXT_REQUIRED, TEXT_TOO_LONG, PHOTO_PATH_INVALID. Audit teaching.save.\nSignature: app.save_teaching(p_title text, p_body text, p_team text default null, p_photos text[] default '{}', p_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nAudit actions written: teaching.save.\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0179 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.send_test_push",
       "lang": "en",
       "title": "app.send_test_push",
@@ -2862,7 +3126,7 @@
       "ref": "action:app.set_cafe_setting",
       "lang": "en",
       "title": "app.set_cafe_setting",
-      "body": "Signature: app.set_cafe_setting(p_key text, p_value jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: settings.cafe.\nError codes: FORBIDDEN, UNKNOWN_SETTING.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0029 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: writes one cafe setting (0029; a wrapper over app.set_cafe_setting_internal since price_promo): UNKNOWN_SETTING, FORBIDDEN on an owner key for a manager, then validation (INVALID_SETTING_VALUE, ITEM_NOT_FOUND); returns {key, value, is_public, updated_at}. For a manager (#57), PRICE_VIA_PROTOCOL on featured_discount_pct set to anything but 0 (when it changes), on featured_item_id moved while a discount is stored, and on hero_mode switched to featured while a discount is stored: the featured-item discount changes through a featured_discount change. Reached by app.set_cafe_settings per key.\nSignature: app.set_cafe_setting(p_key text, p_value jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, UNKNOWN_SETTING, PRICE_VIA_PROTOCOL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2942,7 +3206,7 @@
       "ref": "action:app.set_modifier_reveals",
       "lang": "en",
       "title": "app.set_modifier_reveals",
-      "body": "Signature: app.set_modifier_reveals(p_modifier_id uuid, p_group_ids uuid[]) returns void.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.reveals.\nError codes: FORBIDDEN, MODIFIER_NOT_FOUND, GROUP_NOT_FOUND, REVEAL_SELF, REVEAL_DEPTH.\nCalled from: apps/operator/src/features/admin/addons/RevealsEditor.tsx (pages /admin).\nDefined in migration 0028 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: replaces one option's reveal list (0028; price_promo adds the compulsory add-on lock). For a manager, PRICE_VIA_PROTOCOL (hint required_addon) when the reveals raise the least a guest pays for the option, or for an item that offers it (app.addon_item_prices). MODIFIER_NOT_FOUND, GROUP_NOT_FOUND, REVEAL_SELF, REVEAL_DEPTH.\nSignature: app.set_modifier_reveals(p_modifier_id uuid, p_group_ids uuid[]) returns void.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.reveals.\nError codes: FORBIDDEN, MODIFIER_NOT_FOUND, GROUP_NOT_FOUND, REVEAL_SELF, REVEAL_DEPTH.\nCalled from: apps/operator/src/features/admin/addons/RevealsEditor.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -2966,7 +3230,7 @@
       "ref": "action:app.set_promotion_enabled",
       "lang": "en",
       "title": "app.set_promotion_enabled",
-      "body": "Signature: app.set_promotion_enabled(p_id uuid, p_enabled boolean) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: promotion.set_enabled.\nError codes: FORBIDDEN, INVALID_VALUE, PROMOTION_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/promotions/PromotionsList.tsx (pages /admin).\nDefined in migration 0067 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: switches a promotion on or off (0067; a wrapper over app.set_promotion_enabled_internal since price_promo), {id, enabled, duplicate}. A manager's switch-on of a promotion that is off is refused PRICE_VIA_PROTOCOL (#57: a promotion_enable change); a switch-off passes. INVALID_VALUE, PROMOTION_NOT_FOUND.\nSignature: app.set_promotion_enabled(p_id uuid, p_enabled boolean) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/promotions/PromotionsList.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -3070,7 +3334,7 @@
       "ref": "action:app.shopping_list",
       "lang": "en",
       "title": "app.shopping_list",
-      "body": "shopping_purchases (§2.15). The bar and kitchen family, the driver and MGMT at the venue: {items: [{id, ingredient_id, name_en, name_ar, label, qty, unit, note, requested_by_name, requested_at, status, mine}], open_count} for one status (default open: oldest first; the others newest first; at most 200). No price. INVALID_ARGUMENT (hint status); FORBIDDEN for anyone else.\nSignature: app.shopping_list(p_venue_id uuid default null, p_status text default 'open') returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,driver,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "shopping_purchases (§2.15), re-issued by shopping_head_approval (§2.24.9). The bar and kitchen family, the driver and MGMT at the venue: {items: [{id, ingredient_id, name_en, name_ar, label, qty, unit, note, requested_by_name, requested_at, status, mine, decline_reason}], open_count, pending_count} for one status (default open; open and pending oldest first, the others newest first; at most 200). pending and declined are refused to the driver (FORBIDDEN, hint status), whose pending_count is 0. No price. INVALID_ARGUMENT (hint status); FORBIDDEN for anyone else.\nSignature: app.shopping_list(p_venue_id uuid default null, p_status text default 'open') returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,driver,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0185 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3118,7 +3382,7 @@
       "ref": "action:app.staff_media_folder",
       "lang": "en",
       "title": "app.staff_media_folder",
-      "body": "staff_media_bucket (§2.3). The folder of a staff-media path (proposals, tests, steps, marketing, campaigns or receipts); NULL for a name that is not a staff-media path. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_folder(p_name text) returns text.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "staff_media_bucket (§2.3). The folder of a staff-media path (proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings or requests); NULL for a name that is not a staff-media path. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_folder(p_name text) returns text.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3126,7 +3390,7 @@
       "ref": "action:app.staff_media_slot",
       "lang": "en",
       "title": "app.staff_media_slot",
-      "body": "staff_media_bucket (§2.3). Any active staff member at the venue: mints an upload slot and returns {path, bucket: staff-media, expires_at}. The client uploads to exactly that path within the hour, then passes it to the recording RPC. INVALID_ARGUMENT (hint folder or ext); UPLOAD_LIMIT past 30 unused slots in the last hour.\nSignature: app.staff_media_slot(p_venue_id uuid, p_folder text, p_ext text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, UPLOAD_LIMIT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "staff_media_bucket (§2.3), re-issued by staff_media_folders (§2.24.2). Any active staff member at the venue: mints an upload slot in one of the nine folders and returns {path, bucket: staff-media, expires_at}. The client uploads to exactly that path within the hour, then passes it to the recording RPC. INVALID_ARGUMENT (hint folder or ext); UPLOAD_LIMIT past 30 unused slots in the last hour.\nSignature: app.staff_media_slot(p_venue_id uuid, p_folder text, p_ext text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, UPLOAD_LIMIT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0170 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3142,7 +3406,7 @@
       "ref": "action:app.staff_media_visible",
       "lang": "en",
       "title": "app.staff_media_visible",
-      "body": "protocols_engine_rpcs (§2.3, §2.7 \"Visibility\"). True when the caller may read a staff-media photo: its uploader and MGMT at its venue always; a protocol submission's photo also its step's sender and, on a step whose record is run-visible, anyone involved in the run; a marketing note's photo also marketing at the venue; nothing else to anyone else. False for a guest, another venue and any name that is not a staff-media path; never raises. The staff_media_read storage policy evaluates it as the reading role, hence the authenticated grant.\nSignature: app.staff_media_visible(p_name text) returns boolean.\nGranted to: authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "protocols_engine_rpcs (§2.3, §2.7 \"Visibility\"), re-issued by staff_media_folders (§2.24.2). True when the caller may read a staff-media photo: its uploader and MGMT at its venue always; a protocol submission's photo also its step's sender and, on a step whose record is run-visible, anyone involved in the run; a marketing note's photo also marketing at the venue; an idea's photo also the holders of the idea's team head role at its venue; a checklist tick's photo also the holders of the list's role at its venue; a teaching's photo also its team at its venue while it is not archived; a request to marketing's photo also marketing at its venue; nothing else to anyone else. False for a guest, another venue and any name that is not a staff-media path; never raises. The staff_media_read storage policy evaluates it as the reading role, hence the authenticated grant.\nSignature: app.staff_media_visible(p_name text) returns boolean.\nGranted to: authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0170 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3151,6 +3415,14 @@
       "lang": "en",
       "title": "app.staff_role",
       "body": "Signature: app.staff_role() returns staff_role.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0003 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_stock_view",
+      "lang": "en",
+      "title": "app.staff_stock_view",
+      "body": "staff_stock_view (§2.24.5, #68). The head barista and head chef (purchased and prepared), the court desk (retail, with the shop product and size each row backs) and MGMT (all three) at the venue: {as_of, items: [{ingredient_id, kind, name_en, name_ar, unit, pack_size, on_hand, par_level, low_stock_threshold, low, below_par, next_expiry, product}]}, active ingredients, low first, then by name. on_hand is the sum of stock_batches.qty_remaining; low is on_hand at or under the threshold; below_par is strictly under par. No cost, price, supplier or delivery. FORBIDDEN for anyone else and (hint kind) for a kind outside the caller's; INVALID_ARGUMENT (hint kind) for an unknown kind.\nSignature: app.staff_stock_view(p_venue_id uuid default null, p_kind text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,court_desk,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0181 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3182,7 +3454,7 @@
       "ref": "action:app.start_protocol",
       "lang": "en",
       "title": "app.start_protocol",
-      "body": "protocols_engine_rpcs (§2.7). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits step 1 from p_first_record in the same transaction. Starters by kind: product_release head_barista, head_chef, manager, owner; tournament and hiring manager, owner; price_promo manager, marketing, owner. The owner types both titles, anyone else at least one. Returns {run_id, status, first_step_id, submission_id, auto}. PROTOCOL_NOT_READY until the kind's start hook exists. Idempotent on p_idempotency_key. Audit protocol.start, protocol.submit (+ protocol.auto).\nSignature: app.start_protocol(p_kind text, p_variant text default null, p_title_en text default null, p_title_ar text default null, p_data jsonb default '{}', p_first_record jsonb default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner,marketing).\nAudit actions written: protocol.start.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_REQUIRED, RECORD_INVALID, PROTOCOL_NOT_FOUND, PROTOCOL_NOT_READY, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "protocols_engine_rpcs (§2.7), re-issued by tournament_desk_start (§2.11). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits step 1 from p_first_record in the same transaction. Starters by kind: product_release head_barista, head_chef, manager, owner; tournament court_desk, manager, owner (tournament_desk_start, #67); hiring manager, owner; price_promo manager, marketing, owner. The owner types both titles, anyone else at least one. Returns {run_id, status, first_step_id, submission_id, auto}. PROTOCOL_NOT_READY until the kind's start hook exists. Idempotent on p_idempotency_key. Audit protocol.start, protocol.submit (+ protocol.auto).\nSignature: app.start_protocol(p_kind text, p_variant text default null, p_title_en text default null, p_title_ar text default null, p_data jsonb default '{}', p_first_record jsonb default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner,marketing,court_desk).\nAudit actions written: protocol.start.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_REQUIRED, RECORD_INVALID, PROTOCOL_NOT_FOUND, PROTOCOL_NOT_READY, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0178 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3191,6 +3463,14 @@
       "lang": "en",
       "title": "app.stop_protocol",
       "body": "protocols_engine_rpcs (§2.7). MGMT at the run's venue (PROPOSAL) stops an active or scheduled run with a reason; the kind's stop hook runs and the starter and the actors of open steps get run_stopped. REASON_REQUIRED, PROTOCOL_CLOSED. Returns {run_status}. Audit protocol.stop.\nSignature: app.stop_protocol(p_run_id uuid, p_note text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: protocol.stop.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, REASON_REQUIRED, PROTOCOL_CLOSED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.submit_release_idea",
+      "lang": "en",
+      "title": "app.submit_release_idea",
+      "body": "product_release (§2.9, #65). A barista or chef assistant at the venue sends an idea for a new item: the propose record with no category (app.release_propose_check, refused), up to 6 proposals photos of their own (claimed release_idea:<id>). It waits for the head of their team, who is told (staff_decide / idea_submitted; the venue's managers when the team has no head). Returns {id}. FORBIDDEN, RECORD_INVALID (hint the field, category_id included), TEXT_TOO_LONG, PHOTO_PATH_INVALID. Idempotent on p_idempotency_key. Audit protocol.release.idea_submit.\nSignature: app.submit_release_idea(p_record jsonb, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (barista, chef).\nAudit actions written: protocol.release.idea_submit.\nError codes: FORBIDDEN, PHOTO_PATH_INVALID, RECORD_INVALID.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3219,6 +3499,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.suggestions_page",
+      "lang": "en",
+      "title": "app.suggestions_page",
+      "body": "suggestions (§2.24.4). MGMT at the venue: {suggestions: [{id, author_name, author_role, body, created_at, seen_by_name, seen_at}], new_count, total} for p_filter new, seen or all, newest first, p_limit 1 to 200. INVALID_ARGUMENT (hint filter); FORBIDDEN for anyone else.\nSignature: app.suggestions_page(p_venue_id uuid default null, p_filter text default 'new', p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0180 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.tab_is_callers",
       "lang": "en",
       "title": "app.tab_is_callers",
@@ -3231,6 +3519,14 @@
       "lang": "en",
       "title": "app.table_qr_tokens",
       "body": "Signature: app.table_qr_tokens() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: table.qr_tokens_read.\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0031 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.teachings_for_me",
+      "lang": "en",
+      "title": "app.teachings_for_me",
+      "body": "teachings (§2.24.3). The bar team (head_barista, barista) and the kitchen team (head_chef, chef) read their own team's current teachings, MGMT both or the one p_team names: {teachings: [{id, team, title, body, photos, author_name, created_at, updated_at, mine, editable}], total}, newest first, p_limit 1 to 100. FORBIDDEN for anyone else and for another team; INVALID_ARGUMENT (hint team).\nSignature: app.teachings_for_me(p_venue_id uuid default null, p_team text default null, p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0179 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3255,6 +3551,22 @@
       "lang": "en",
       "title": "app.till_add_items",
       "body": "Signature: app.till_add_items(p_tab_id uuid, p_items jsonb, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, IDEMPOTENCY_CONFLICT, NO_OPEN_DAY, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, DAY_CLOSED.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0146 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.tournament_context",
+      "lang": "en",
+      "title": "app.tournament_context",
+      "body": "event_court_blocks (§2.11). The actor of a tournament's courts or marketing step who may act on it, or MGMT at the venue: {name_en, name_ar, class, format, capacity, ranges: [{court_ids, court_names: [{en, ar}], from, to}], blocked: [{reservation_id, court_id, start_at, end_at}]} from the run's passed plan and its live event blocks. No fee, prize, budget, sponsor or income. PROTOCOL_NOT_FOUND, NOT_STEP_ACTOR.\nSignature: app.tournament_context(p_run_step_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0174 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.tournament_feasibility",
+      "lang": "en",
+      "title": "app.tournament_feasibility",
+      "body": "event_court_blocks (§2.11). MGMT at the run's venue: {ranges: [{court_id, court_name_en, court_name_ar, from, to, bookings, guests}]}, one row per court of each plan range, with the live bookings overlapping the window and the distinct guests holding them. PROTOCOL_NOT_FOUND.\nSignature: app.tournament_feasibility(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0174 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3310,7 +3622,7 @@
       "ref": "action:app.upsert_menu_item",
       "lang": "en",
       "title": "app.upsert_menu_item",
-      "body": "Signature: app.upsert_menu_item(p_category_id uuid, p_name_en text, p_name_ar text, p_id uuid default null, p_description_en text default null, p_description_ar text default null, p_sort_order int default 0, p_is_active boolean default true, p_hook_en text default '', p_hook_ar text default '', p_highlight text default 'none', p_serve_temp text default null) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.item.create, menu.item.update.\nError codes: FORBIDDEN, CATEGORY_NOT_FOUND, INVALID_HIGHLIGHT, INVALID_SERVE_TEMP, HOOK_TOO_LONG, HOOK_PAIR_MISMATCH, ITEM_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0054 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: creates or updates a menu item or shop product (0054; a wrapper over app.upsert_menu_item_internal since product_release). ITEM_IN_RELEASE, for everyone, on switching on an item whose product release is not live or done, or moving it into a category that is not a cafe one. For a manager: ITEM_VIA_RELEASE on any item moved from a shop category into a cafe one; and on a new item or a draft (never launched, switched off, not in release), ITEM_VIA_RELEASE for a new cafe item or a cafe draft switched on, LAUNCH_VIA_PROTOCOL for a shop product saved switched on. CATEGORY_NOT_FOUND, ITEM_NOT_FOUND, INVALID_HIGHLIGHT, INVALID_SERVE_TEMP, HOOK_TOO_LONG, HOOK_PAIR_MISMATCH.\nSignature: app.upsert_menu_item(p_category_id uuid, p_name_en text, p_name_ar text, p_id uuid default null, p_description_en text default null, p_description_ar text default null, p_sort_order int default 0, p_is_active boolean default true, p_hook_en text default '', p_hook_ar text default '', p_highlight text default 'none', p_serve_temp text default null) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3318,7 +3630,7 @@
       "ref": "action:app.upsert_modifier",
       "lang": "en",
       "title": "app.upsert_modifier",
-      "body": "Signature: app.upsert_modifier(p_group_id uuid, p_name_en text, p_name_ar text, p_id uuid default null, p_price_delta_iqd bigint default 0, p_sort_order int default 0, p_is_active boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier.create, menu.modifier.update.\nError codes: FORBIDDEN, GROUP_NOT_FOUND, INVALID_PRICE, MODIFIER_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/addons/OptionsEditor.tsx (pages /admin).\nDefined in migration 0013 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: creates or updates one add-on (0013; a wrapper over app.upsert_modifier_internal since price_promo). For a manager: PRICE_VIA_PROTOCOL on a changed price of a launched add-on (launched_at set, or switched on); LAUNCH_VIA_PROTOCOL on a never-launched paid add-on saved switched on (saved hidden it passes and goes on sale through an addon_price change); PRICE_VIA_PROTOCOL (hint required_addon) on a save that raises the least a guest pays in add-ons for an item or a choice on it (app.addon_item_prices). A free option may be added and switched on. GROUP_NOT_FOUND, MODIFIER_NOT_FOUND, INVALID_PRICE.\nSignature: app.upsert_modifier(p_group_id uuid, p_name_en text, p_name_ar text, p_id uuid default null, p_price_delta_iqd bigint default 0, p_sort_order int default 0, p_is_active boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL, LAUNCH_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/addons/OptionsEditor.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -3326,7 +3638,7 @@
       "ref": "action:app.upsert_modifier_group",
       "lang": "en",
       "title": "app.upsert_modifier_group",
-      "body": "Signature: app.upsert_modifier_group(p_name_en text, p_name_ar text, p_id uuid default null, p_min_select int default 0, p_max_select int default 1) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier_group.create, menu.modifier_group.update.\nError codes: FORBIDDEN, INVALID_SELECT_RANGE, GROUP_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0013 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: creates or updates one add-on group (0013; price_promo adds the compulsory add-on lock). For a manager, PRICE_VIA_PROTOCOL (hint required_addon) when the new min_select raises the least a guest pays in add-ons for an item that offers the group, or for the choice that reveals it (app.addon_item_prices). INVALID_SELECT_RANGE, GROUP_NOT_FOUND.\nSignature: app.upsert_modifier_group(p_name_en text, p_name_ar text, p_id uuid default null, p_min_select int default 0, p_max_select int default 1) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.modifier_group.create, menu.modifier_group.update.\nError codes: FORBIDDEN, INVALID_SELECT_RANGE, GROUP_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3334,7 +3646,7 @@
       "ref": "action:app.upsert_promotion",
       "lang": "en",
       "title": "app.upsert_promotion",
-      "body": "Signature: app.upsert_promotion(p_id uuid default null, p_name_en text default null, p_name_ar text default null, p_type text default null, p_value int default null, p_starts_at timestamptz default null, p_ends_at timestamptz default null, p_weekdays int[] default '{}', p_hour_from time default null, p_hour_to time default null, p_scope jsonb default '{}'::jsonb, p_limits jsonb default '{}'::jsonb, p_auto boolean default true, p_public_code text default null, p_code_single_use boolean default false, p_enabled boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: promotion.upsert.\nError codes: FORBIDDEN, NAME_REQUIRED, INVALID_VALUE, INVALID_RANGE, INVALID_WEEKDAYS, CODE_TAKEN, PROMOTION_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0067 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Owner (the guard admits manager and owner; a manager is refused PRICE_VIA_PROTOCOL on every call since price_promo, #57: a promotion is proposed and edited through a price or promotion change): creates or replaces a promotion (0067; a wrapper over app.upsert_promotion_internal). NAME_REQUIRED, INVALID_VALUE, INVALID_RANGE, INVALID_WEEKDAYS, CODE_TAKEN, PROMOTION_NOT_FOUND.\nSignature: app.upsert_promotion(p_id uuid default null, p_name_en text default null, p_name_ar text default null, p_type text default null, p_value int default null, p_starts_at timestamptz default null, p_ends_at timestamptz default null, p_weekdays int[] default '{}', p_hour_from time default null, p_hour_to time default null, p_scope jsonb default '{}'::jsonb, p_limits jsonb default '{}'::jsonb, p_auto boolean default true, p_public_code text default null, p_code_single_use boolean default false, p_enabled boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3342,7 +3654,7 @@
       "ref": "action:app.upsert_rate_rule",
       "lang": "en",
       "title": "app.upsert_rate_rule",
-      "body": "Signature: app.upsert_rate_rule(p_name text, p_days_of_week int[], p_start_time time, p_end_time time, p_prices jsonb, p_id uuid default null, p_court_id uuid default null, p_priority int default 0, p_valid_from date default null, p_valid_to date default null, p_is_active boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, COURT_NOT_FOUND, INVALID_DAYS, INVALID_TIME_RANGE, INVALID_PRICES, INVALID_DURATION, RULE_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/RateRuleEditor.tsx (pages /admin).\nDefined in migration 0071 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Owner (the guard admits manager and owner; a manager is refused PRICE_VIA_PROTOCOL on every save since price_promo, #57: a court rate changes through a rate change): creates or updates a court rate rule and replaces its prices wholesale (0071; a wrapper over app.upsert_rate_rule_internal). COURT_NOT_FOUND, INVALID_DAYS, INVALID_TIME_RANGE, INVALID_PRICES, INVALID_DURATION, RULE_NOT_FOUND.\nSignature: app.upsert_rate_rule(p_name text, p_days_of_week int[], p_start_time time, p_end_time time, p_prices jsonb, p_id uuid default null, p_court_id uuid default null, p_priority int default 0, p_valid_from date default null, p_valid_to date default null, p_is_active boolean default true) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/RateRuleEditor.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -3366,7 +3678,7 @@
       "ref": "action:app.upsert_variant",
       "lang": "en",
       "title": "app.upsert_variant",
-      "body": "Signature: app.upsert_variant(p_item_id uuid, p_name_en text, p_name_ar text, p_price_iqd bigint, p_id uuid default null, p_is_default boolean default false, p_sort_order int default 0) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: menu.variant.create, menu.variant.update.\nError codes: FORBIDDEN, ITEM_NOT_FOUND, INVALID_PRICE, VARIANT_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/menu/VariantsEditor.tsx (pages /admin).\nDefined in migration 0013 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Manager or owner: creates or updates one size of a menu item or shop product (0013; a wrapper over app.upsert_variant_internal since product_release). ITEM_IN_RELEASE, for everyone, on a new size or a price change of an item whose product release is not live or done: its prices come from the price step. PRICE_VIA_PROTOCOL (price_promo, #51), for a manager, on a new size or a price change of any item that is not a draft (launched_at set, or switched on), cafe or shop, including through app.upsert_retail_variant: it goes through a price change. ITEM_NOT_FOUND, VARIANT_NOT_FOUND, INVALID_PRICE.\nSignature: app.upsert_variant(p_item_id uuid, p_name_en text, p_name_ar text, p_price_iqd bigint, p_id uuid default null, p_is_default boolean default false, p_sort_order int default 0) returns uuid.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_IN_RELEASE, PRICE_VIA_PROTOCOL.\nCalled from: apps/operator/src/features/admin/menu/VariantsEditor.tsx (pages /admin).\nDefined in migration 0177 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
     },
     {
@@ -3411,10 +3723,34 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.withdraw_marketing_request",
+      "lang": "en",
+      "title": "app.withdraw_marketing_request",
+      "body": "marketing_requests (§2.24.11). The asker takes back an open request. Returns {status}. REF_NOT_FOUND (unknown or elsewhere), FORBIDDEN (not theirs), SUBMISSION_DECIDED (already answered or withdrawn). Audit marketing.request.withdraw.\nSignature: app.withdraw_marketing_request(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: marketing.request.withdraw.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0187 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.withdraw_protocol",
       "lang": "en",
       "title": "app.withdraw_protocol",
       "body": "protocols_engine_rpcs (§2.7). The starter withdraws their run before any decision (an automatic pass counts): pending submissions are withdrawn and the kind's stop hook runs. FORBIDDEN for anyone else; INVALID_TRANSITION after a decision or once finished. Returns {run_status}. Audit protocol.withdraw_run.\nSignature: app.withdraw_protocol(p_run_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.withdraw_run.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, INVALID_TRANSITION.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.withdraw_recipe_change",
+      "lang": "en",
+      "title": "app.withdraw_recipe_change",
+      "body": "recipe_change_requests (§2.24.7). The requester takes back a waiting request. Returns {status}. REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED. Audit stock.recipe.change_withdraw.\nSignature: app.withdraw_recipe_change(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: stock.recipe.change_withdraw.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0183 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.withdraw_release_idea",
+      "lang": "en",
+      "title": "app.withdraw_release_idea",
+      "body": "product_release (§2.9). The author withdraws a waiting idea. REF_NOT_FOUND (unknown or elsewhere), FORBIDDEN for anyone else, SUBMISSION_DECIDED once started, declined or withdrawn. Returns {status}. Audit protocol.release.idea_withdraw.\nSignature: app.withdraw_release_idea(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.release.idea_withdraw.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3630,7 +3966,7 @@
       "ref": "table:checklist_run_items",
       "lang": "en",
       "title": "table checklist_run_items",
-      "body": "checklists (§2.14): the lines of one day's list and their ticks. Ticked through app.mark_checklist_item by anyone holding the role at the venue, or MGMT; the row keeps who and when.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Run line id.\n  run_id uuid not null references checklist_runs(id) on delete cascade — The day's list.\n  position int not null — Order in the list, from 1.\n  text_en text not null — Checklist line, English, as snapshotted.\n  text_ar text not null — Checklist line, Arabic, as snapshotted.\n  done_by uuid references staff(id) — Who ticked it; NULL while open.\n  done_at timestamptz — When it was ticked; NULL while open.\n  note text check (note is null or length(note) <= 300) — An optional note on the line (at most 300 characters), in the writer's language.",
+      "body": "checklists (§2.14): the lines of one day's list and their ticks. Ticked through app.mark_checklist_item by anyone holding the role at the venue, or MGMT; the row keeps who and when.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Run line id.\n  run_id uuid not null references checklist_runs(id) on delete cascade — The day's list.\n  position int not null — Order in the list, from 1.\n  text_en text not null — Checklist line, English, as snapshotted.\n  text_ar text not null — Checklist line, Arabic, as snapshotted.\n  done_by uuid references staff(id) — Who ticked it; NULL while open.\n  done_at timestamptz — When it was ticked; NULL while open.\n  note text check (note is null or length(note) <= 300) — An optional note on the line (at most 300 characters), in the writer's language.\n  photo_required boolean not null default false — checklist_photos (§2.24.8): copied from the template line when the day's list was opened; a tick needs a photo.\n  photo_path text — checklist_photos (§2.24.8): the tick's photo, a staff-media path in the checklists folder claimed as checklist_item:<id>; NULL while unticked or with no photo.",
       "route": null
     },
     {
@@ -3646,7 +3982,7 @@
       "ref": "table:checklist_template_items",
       "lang": "en",
       "title": "table checklist_template_items",
-      "body": "checklists (§2.14): the lines of a checklist template, in order. Copied into each day's run on its first read.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Template line id.\n  template_id uuid not null references checklist_templates(id) on delete cascade — The checklist template.\n  position int not null check (position >= 1) — Order in the list, from 1.\n  text_en text not null check (coalesce(length(btrim(text_en)),0) > 0) — Checklist line, English.\n  text_ar text not null check (coalesce(length(btrim(text_ar)),0) > 0) — Checklist line, Arabic.",
+      "body": "checklists (§2.14): the lines of a checklist template, in order. Copied into each day's run on its first read.\nCreated in migration 0165.\nColumns:\n  id uuid primary key default gen_random_uuid() — Template line id.\n  template_id uuid not null references checklist_templates(id) on delete cascade — The checklist template.\n  position int not null check (position >= 1) — Order in the list, from 1.\n  text_en text not null check (coalesce(length(btrim(text_en)),0) > 0) — Checklist line, English.\n  text_ar text not null check (coalesce(length(btrim(text_ar)),0) > 0) — Checklist line, Arabic.\n  photo_required boolean not null default false — checklist_photos (§2.24.8): ticking this line needs a photo (\"Needs a photo\").",
       "route": null
     },
     {
@@ -3731,6 +4067,14 @@
     },
     {
       "kind": "table",
+      "ref": "table:hiring_candidates",
+      "lang": "en",
+      "title": "table hiring_candidates",
+      "body": "hiring (§2.12): the candidates of one hiring run. Personal data of people who are not staff: read by MGMT at the venue only, never by the owner assistant, and deleted by app.hiring_purge_due 90 days after the decision. Written through app.save_hiring_candidate and app.delete_hiring_candidate while the interviews step is open.\nCreated in migration 0176.\nColumns:\n  id uuid primary key default gen_random_uuid() — Candidate id.\n  venue_id uuid not null references venues(id) — The run's venue.\n  run_id uuid not null references protocol_runs(id) on delete cascade — The hiring run.\n  candidate_name text not null check (coalesce(length(btrim(candidate_name)),0) between 1 and 80) — The candidate's name as the manager typed it (1-80).\n  candidate_phone text not null check (coalesce(length(btrim(candidate_phone)),0) between 1 and 32) — The candidate's phone number (at most 32).\n  brief text not null default '' check (length(brief) <= 1000) — The manager's notes on the candidate (at most 1000).\n  interview_at timestamptz — When the interview is or was.\n  picked boolean not null default false — The candidate the run picked; at most one per run. Follows the approved interviews record.\n  pick_reason text check (pick_reason is null or length(pick_reason) <= 1000) — Why this candidate (at most 1000).\n  created_by uuid not null references staff(id) — Who added the candidate.\n  created_at timestamptz not null default now() — When the candidate was added.\n  decided_at timestamptz — When the pick was approved, or the run stopped.\n  purge_after timestamptz — When app.hiring_purge_due deletes the row: 90 days after decided_at.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:ingredients",
       "lang": "en",
       "title": "table ingredients",
@@ -3775,6 +4119,14 @@
       "lang": "en",
       "title": "table marketing_notes",
       "body": "marketing_staff (§2.17): the marketing role's own take on a menu item, a protocol run or a campaign, with photos. Written only by marketing (app.add_marketing_note); read by MGMT at the venue, and by marketing through app.marketing_notes_for and app.my_marketing_notes. Not a customer-feedback log.\nCreated in migration 0168.\nColumns:\n  id uuid primary key default gen_random_uuid() — Note id.\n  venue_id uuid not null references venues(id) — The venue of the subject.\n  subject_kind text not null check (subject_kind in ('item','run','campaign')) — item (menu_items), run (protocol_runs) or campaign (marketing_campaigns).\n  subject_id uuid not null — The item, run or campaign the note is about.\n  author_id uuid not null references staff(id) — The marketing staff member who wrote it.\n  body text not null check (coalesce(length(btrim(body)),0) > 0 and length(body) <= 2000) — The note, in the writer's language (1 to 2000 characters).\n  photos text[] not null default '{}' check (cardinality(photos) <= 6) — Photos attached: staff-media paths in the marketing folder (at most 6).\n  created_at timestamptz not null default now() — When it was written. Notes are never edited.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:marketing_requests",
+      "lang": "en",
+      "title": "table marketing_requests",
+      "body": "marketing_requests (§2.24.11, #73): what staff ask marketing for, and marketing's answer. Asked through app.add_marketing_request by any role but marketing, answered done or declined by marketing (app.answer_marketing_request), withdrawn by the asker. Read by MGMT at the venue; the asker and marketing read through RPCs.\nCreated in migration 0187.\nColumns:\n  id uuid primary key default gen_random_uuid() — Request id.\n  venue_id uuid not null references venues(id) — The venue.\n  requested_by uuid not null references staff(id) — Who asked.\n  title text not null check (length(btrim(title)) between 1 and 120) — What it is, as typed (1 to 120 characters).\n  body text not null check (length(btrim(body)) between 1 and 2000) — What is wanted, as typed in the asker's language (1 to 2000 characters).\n  want_by date — The day it is wanted by, if any.\n  menu_item_id uuid references menu_items(id) on delete set null — The menu item it is about, if any.\n  photos text[] not null default '{}' check (cardinality(photos) <= 4) — Photos: staff-media paths in the requests folder (at most 4).\n  status text not null default 'open' check (status in ('open','done','declined','withdrawn')) — open, done or declined (marketing answered), or withdrawn (the asker took it back).\n  answer text check (answer is null or length(answer) <= 2000) — Marketing's answer, as typed (at most 2000 characters); required once done or declined.\n  answered_by uuid references staff(id) — The marketing staff member who answered.\n  answered_at timestamptz — When it was answered.\n  created_at timestamptz not null default now() — When it was asked.",
       "route": null
     },
     {
@@ -3830,7 +4182,7 @@
       "ref": "table:menu_items",
       "lang": "en",
       "title": "table menu_items",
-      "body": "Created in migration 0013.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  category_id uuid not null references menu_categories(id)\n  name_en text not null\n  name_ar text not null\n  description_en text\n  description_ar text\n  photo_path text — Supabase Storage key\n  is_active boolean not null default true\n  unavailable_on date — staff \"86\" for today; auto-restores (check is = current_date)\n  sort_order int not null default 0\n  hook_en text not null default '' — One-line hook shown under the name (<= 80 chars, set via app.upsert_menu_item). Empty in both languages or in neither.\n  hook_ar text not null default ''\n  highlight text not null default 'none' — Brand tint for the item card: none | blue (#3360AB) | brown (#603813).\n  sold_out boolean not null default false — Sticky sold-out flag (app.set_item_sold_out). Unlike unavailable_on (the 86, auto-restores tomorrow) it stays until cleared; the guest menu still renders the item with a stamp and app.menu_availability() reports orderable = false.\n  photo_blur text — Tiny placeholder (data-URI / blurhash, <= 400 chars) shown while the photo loads. Written only by app.set_item_photo.\n  serve_temp text not null default 'none' — Serve temperature chip on the guest menu: none | hot | cold | both.\n  venue_id uuid",
+      "body": "Created in migration 0013.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  category_id uuid not null references menu_categories(id)\n  name_en text not null\n  name_ar text not null\n  description_en text\n  description_ar text\n  photo_path text — Supabase Storage key\n  is_active boolean not null default true\n  unavailable_on date — staff \"86\" for today; auto-restores (check is = current_date)\n  sort_order int not null default 0\n  hook_en text not null default '' — One-line hook shown under the name (<= 80 chars, set via app.upsert_menu_item). Empty in both languages or in neither.\n  hook_ar text not null default ''\n  highlight text not null default 'none' — Brand tint for the item card: none | blue (#3360AB) | brown (#603813).\n  sold_out boolean not null default false — Sticky sold-out flag (app.set_item_sold_out). Unlike unavailable_on (the 86, auto-restores tomorrow) it stays until cleared; the guest menu still renders the item with a stamp and app.menu_availability() reports orderable = false.\n  photo_blur text — Tiny placeholder (data-URI / blurhash, <= 400 chars) shown while the photo loads. Written only by app.set_item_photo.\n  serve_temp text not null default 'none' — Serve temperature chip on the guest menu: none | hot | cold | both.\n  venue_id uuid\n  release_run_id uuid — product_release (§2.9): the product release run that created this item as a draft. While that run is not live or done the item is \"in release\": it cannot be switched on and its prices come from the release's price step only (ITEM_IN_RELEASE). NULL for items created any other way.\n  launched_at timestamptz default now() — product_release (§2.9): when the item first went on sale. Every item that existed when the column was added counts as launched; after that it is stamped by app.upsert_menu_item_internal whenever a save leaves the item switched on, and by app.release_launch_internal. NULL on a never-launched draft, which a manager cannot switch on (ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL).",
       "route": null
     },
     {
@@ -3854,7 +4206,7 @@
       "ref": "table:modifiers",
       "lang": "en",
       "title": "table modifiers",
-      "body": "Created in migration 0013.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  group_id uuid not null references modifier_groups(id) on delete cascade\n  name_en text not null\n  name_ar text not null\n  price_delta_iqd iqd not null default 0\n  sort_order int not null default 0\n  is_active boolean not null default true",
+      "body": "Created in migration 0013.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  group_id uuid not null references modifier_groups(id) on delete cascade\n  name_en text not null\n  name_ar text not null\n  price_delta_iqd iqd not null default 0\n  sort_order int not null default 0\n  is_active boolean not null default true\n  launched_at timestamptz default now() — price_promo (§2.13): when the add-on first went on sale. Every add-on that existed when the column was added counts as launched; after that app.upsert_modifier_internal stamps it whenever a save leaves the add-on switched on. NULL on a never-launched add-on, which a manager saves hidden and puts on sale through an addon_price change (LAUNCH_VIA_PROTOCOL).",
       "route": null
     },
     {
@@ -3990,7 +4342,7 @@
       "ref": "table:purchases",
       "lang": "en",
       "title": "table purchases",
-      "body": "shopping_purchases (§2.15): one shop visit by the driver (or a manager): where, when, the total paid and the receipt photo. Recorded by app.record_purchase; received into stock by app.receive_purchase, which links the delivery. Never touches the till, the drawer or day close. Read by MGMT at the venue, and by the staff member who made it.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Purchase id.\n  venue_id uuid not null references venues(id) — The venue the purchase was for.\n  staff_id uuid not null references staff(id) — Who bought it (the driver, or a manager).\n  bought_at timestamptz not null — When it was bought.\n  shop_name text check (shop_name is null or length(shop_name) <= 80) — Where it was bought, as typed (at most 80 characters); suppliers stay management's.\n  total_iqd iqd not null — What the receipt came to, in IQD. Paying the driver back happens outside the system.\n  receipt_path text — The receipt photo: a staff-media path in the receipts folder, read by its uploader and management only.\n  status text not null default 'to_receive' check (status in ('to_receive','done')) — to_receive until every line is received or acknowledged, then done.\n  delivery_id uuid references deliveries(id) — The delivery app.receive_purchase booked its stock lines into (one purchase, one delivery).\n  received_by uuid references staff(id) — The manager or owner who received it.\n  received_at timestamptz — When it was received.\n  created_at timestamptz not null default now() — When it was recorded.",
+      "body": "shopping_purchases (§2.15): one shop visit by the driver (or a manager): where, when, the total paid and the receipt photo. Recorded by app.record_purchase; received into stock by app.receive_purchase, which links the delivery. Never touches the till, the drawer or day close. Read by MGMT at the venue, and by the staff member who made it.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Purchase id.\n  venue_id uuid not null references venues(id) — The venue the purchase was for.\n  staff_id uuid not null references staff(id) — Who bought it (the driver, or a manager).\n  bought_at timestamptz not null — When it was bought.\n  shop_name text check (shop_name is null or length(shop_name) <= 80) — Where it was bought, as typed (at most 80 characters); suppliers stay management's.\n  total_iqd iqd not null — What the receipt came to, in IQD. Paying the driver back happens outside the system.\n  receipt_path text — The receipt photo: a staff-media path in the receipts folder, read by its uploader and management only.\n  status text not null default 'to_receive' check (status in ('to_receive','done')) — to_receive until every line is received or acknowledged, then done.\n  delivery_id uuid references deliveries(id) — The delivery app.receive_purchase booked its stock lines into (one purchase, one delivery).\n  received_by uuid references staff(id) — The manager or owner who received it.\n  received_at timestamptz — When it was received.\n  created_at timestamptz not null default now() — When it was recorded.\n  delivered_at timestamptz — purchase_delivery_confirm (§2.24.10): when the buyer (or a manager) confirmed the purchase was delivered to the venue; NULL until then. Receiving never waits for it.\n  delivered_by uuid — Who confirmed the delivery: the buyer, or a manager or the owner.",
       "route": null
     },
     {
@@ -4007,6 +4359,14 @@
       "lang": "en",
       "title": "table rate_rules",
       "body": "Created in migration 0007.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name text not null — 'Weekday off-peak' — internal, staff-facing\n  court_id uuid references courts(id) — NULL = all courts\n  days_of_week int[] not null — 0=Sun..6=Sat, venue-local\n  start_time time not null\n  end_time time not null\n  priority int not null default 0 — highest priority wins on overlap\n  valid_from date\n  valid_to date\n  is_active boolean not null default true\n  venue_id uuid",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:recipe_change_requests",
+      "lang": "en",
+      "title": "table recipe_change_requests",
+      "body": "recipe_change_requests (§2.24.7, #71): a head's asked-for change to a recipe, which the owner approves (written through app.set_recipe) or declines with a reason. Read by MGMT at the venue; a head reads their own through app.my_recipe_changes, without any current quantity.\nCreated in migration 0183.\nColumns:\n  id uuid primary key default gen_random_uuid() — Request id.\n  venue_id uuid not null references venues(id) — The venue.\n  target text not null check (target in ('variant','output')) — variant (a size of a cafe item) or output (a prepared ingredient's output recipe).\n  variant_id uuid references menu_item_variants(id) on delete cascade — The size whose recipe changes, when target = variant.\n  output_ingredient_id uuid references ingredients(id) on delete cascade — The prepared ingredient whose output recipe changes, when target = output.\n  requested_by uuid not null references staff(id) — The head who asked.\n  requested_at timestamptz not null default now() — When it was asked.\n  ops jsonb not null — The head's changes, normalised: [{op: set, recipe_line_id, ingredient_id, qty} | {op: remove, recipe_line_id, ingredient_id} | {op: add, ingredient_id, qty}], quantities in the ingredient's base unit.\n  before jsonb not null — The target's lines when it was asked: [{recipe_line_id, ingredient_id, qty}]. An approve refuses a target that no longer matches.\n  after jsonb not null — The lines an approval writes: [{ingredient_id, qty}].\n  note text check (note is null or length(note) <= 1000) — The head's note, as typed (at most 1000 characters).\n  status text not null default 'waiting' check (status in ('waiting','approved','declined','withdrawn')) — waiting, approved or declined (by the owner), or withdrawn (by the head).\n  decided_by uuid references staff(id) — The owner who decided; never the requester.\n  decided_at timestamptz — When it was decided.\n  decline_reason text check (decline_reason is null or length(decline_reason) <= 1000) — Why it was declined, as typed (at most 1000 characters); required on a decline.",
       "route": null
     },
     {
@@ -4035,6 +4395,30 @@
     },
     {
       "kind": "table",
+      "ref": "table:release_ideas",
+      "lang": "en",
+      "title": "table release_ideas",
+      "body": "product_release (§2.9, #65): a barista's or chef assistant's idea for a new item, in the propose shape with no category, waiting for the head of their team (head_barista for bar, head_chef for kitchen), who starts a product release from it or declines it with a reason. Written through app.submit_release_idea, app.withdraw_release_idea, app.decline_release_idea and the product release start hook; read by MGMT at the venue, by the heads through app.release_ideas_to_review and by the author through app.my_release_ideas.\nCreated in migration 0172.\nColumns:\n  id uuid primary key default gen_random_uuid() — Idea id.\n  venue_id uuid not null references venues(id) — The venue.\n  team text not null check (team in ('bar','kitchen')) — bar or kitchen: the author's team when they sent it (app.staff_team); its head reviews it.\n  author_id uuid not null references staff(id) — The barista or chef assistant who sent it.\n  record jsonb not null — The idea, in the product release propose shape (§2.8) without category_id, as app.release_propose_check normalised it.\n  photos text[] not null default '{}' check (cardinality(photos) <= 6) — Photos: staff-media paths in the proposals folder (at most 6). A release started from the idea may claim them for its proposal.\n  status text not null default 'waiting' check (status in ('waiting','started','declined','withdrawn')) — waiting, started (a release was started from it), declined (with a reason) or withdrawn (by its author).\n  submitted_at timestamptz not null default now() — When it was sent.\n  decided_by uuid references staff(id) — The head, manager or owner who started or declined it; NULL while waiting or withdrawn.\n  decided_at timestamptz — When it was started or declined.\n  decline_reason text check (decline_reason is null or length(decline_reason) <= 1000) — Why it was declined (required when declined), shown to the author.\n  run_id uuid references protocol_runs(id) on delete set null — The product release started from it.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:release_notes",
+      "lang": "en",
+      "title": "table release_notes",
+      "body": "release_post_launch (§2.10, Q9, #43): notes any staff member adds on a released item in its first 30 days, customer remarks included, feeding the day-30 review. Written through app.add_release_note; read by MGMT at the venue, and by staff through app.release_notes_for_me and app.release_notes_for_item.\nCreated in migration 0173.\nColumns:\n  id uuid primary key default gen_random_uuid() — Note id.\n  venue_id uuid not null references venues(id) — The item's venue.\n  menu_item_id uuid not null references menu_items(id) on delete cascade — The released item.\n  run_id uuid references protocol_runs(id) on delete set null — The product release that launched it.\n  author_id uuid not null references staff(id) — Who wrote it.\n  body text not null check (coalesce(length(btrim(body)), 0) between 1 and 2000) — The note, as typed (1 to 2000 characters); no guest names or phone numbers (the form says so).\n  created_at timestamptz not null default now() — When it was written.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:release_reviews",
+      "lang": "en",
+      "title": "table release_reviews",
+      "body": "release_post_launch (§2.10): the day-30 review of a released item, written once by the release-review edge function (app.release_review_save): the numbers it read and the write-up. Read by MGMT only (#54), through app.release_review.\nCreated in migration 0173.\nColumns:\n  run_id uuid primary key references protocol_runs(id) on delete cascade — The product release run reviewed.\n  venue_id uuid not null references venues(id) — The run's venue.\n  menu_item_id uuid references menu_items(id) on delete set null — The released item.\n  numbers jsonb not null — The figures of the item's first 30 days (app.release_review_input numbers): units, revenue, margin, share of its category, days sold, bought with, and the window.\n  write_up jsonb — The write-up, {en, ar}: from the venue's model, gated to the numbers it was given, or the template when the model is not available.\n  status text not null check (status in ('written','thin','fallback','failed')) — written (by the model), thin (too few units to say much), fallback (the template), failed (nothing written; the next day's tick tries again).\n  model text — The model that wrote it (the venue's llm_default_model); NULL for the template.\n  created_at timestamptz not null default now() — When the row was first saved.\n  written_at timestamptz — When the write-up was saved; NULL while failed.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:reservation_series",
       "lang": "en",
       "title": "table reservation_series",
@@ -4046,7 +4430,7 @@
       "ref": "table:reservations",
       "lang": "en",
       "title": "table reservations",
-      "body": "Created in migration 0008.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  court_id uuid not null references courts(id)\n  kind reservation_kind not null\n  status reservation_status not null default 'pending'\n  start_at timestamptz not null\n  end_at timestamptz not null\n  period tstzrange generated always as (tstzrange(start_at, end_at, '[)')) stored\n  guest_id uuid references profiles(id)\n  guest_name text — walk-in without account\n  guest_phone text\n  created_by_staff_id uuid references staff(id)\n  source reservation_source not null\n  rate_rule_id uuid references rate_rules(id) — PRICE PROVENANCE\n  price_iqd iqd — snapshot at confirm; explainable forever\n  hold_expires_at timestamptz — kind='hold' only\n  cancelled_at timestamptz\n  cancellation_reason text\n  notes text\n  device_id text\n  idempotency_key text unique — '{station}:{mutation_type}:{ulid}' (override #2)\n  client_ref text unique — '{station}-{ulid}' client entity ref (override #2)\n  created_at timestamptz not null default now()\n  series_id uuid references reservation_series(id)\n  cancelled_by cancellation_actor — 0088. Who cancelled this booking, stamped by app.cancel_reservation. NULL = cancelled before 0088 with no audit row to recover the actor from, or never cancelled at all — read it together with status, never on its own. A no_show leaves it null: that stamps cancelled_at (0075) but was not cancelled by anybody.\n  venue_id uuid",
+      "body": "Created in migration 0008.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  court_id uuid not null references courts(id)\n  kind reservation_kind not null\n  status reservation_status not null default 'pending'\n  start_at timestamptz not null\n  end_at timestamptz not null\n  period tstzrange generated always as (tstzrange(start_at, end_at, '[)')) stored\n  guest_id uuid references profiles(id)\n  guest_name text — walk-in without account\n  guest_phone text\n  created_by_staff_id uuid references staff(id)\n  source reservation_source not null\n  rate_rule_id uuid references rate_rules(id) — PRICE PROVENANCE\n  price_iqd iqd — snapshot at confirm; explainable forever\n  hold_expires_at timestamptz — kind='hold' only\n  cancelled_at timestamptz\n  cancellation_reason text\n  notes text\n  device_id text\n  idempotency_key text unique — '{station}:{mutation_type}:{ulid}' (override #2)\n  client_ref text unique — '{station}-{ulid}' client entity ref (override #2)\n  created_at timestamptz not null default now()\n  series_id uuid references reservation_series(id)\n  cancelled_by cancellation_actor — 0088. Who cancelled this booking, stamped by app.cancel_reservation. NULL = cancelled before 0088 with no audit row to recover the actor from, or never cancelled at all — read it together with status, never on its own. A no_show leaves it null: that stamps cancelled_at (0075) but was not cancelled by anybody.\n  venue_id uuid\n  block_purpose text — event_court_blocks (§2.11): 'event' on a maintenance block a tournament asked for (app.block_courts_for_event); NULL on every other row. Analytics counts an event block as open time and reports it as event_minutes; only a block that is not an event is subtracted from open time.\n  protocol_run_id uuid — event_court_blocks (§2.11): the tournament run an event block belongs to; its stop cancels the run's future blocks. NULL on every other row.",
       "route": null
     },
     {
@@ -4054,7 +4438,7 @@
       "ref": "table:shopping_items",
       "lang": "en",
       "title": "table shopping_items",
-      "body": "shopping_purchases (§2.15): the shopping list. Added by the head barista, the head chef or management through app.add_shopping_item and sent straight to the venue's drivers, with no approval. Read by MGMT at the venue; the bar and kitchen family and the driver read it through app.shopping_list.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Shopping line id.\n  venue_id uuid not null references venues(id) — The venue it is for.\n  ingredient_id uuid references ingredients(id) — The stock ingredient to buy; NULL for something that is not stock, named by the label.\n  label text check (label is null or length(label) <= 80) — What to buy, as typed (at most 80 characters): required when there is no ingredient.\n  qty numeric(12,3) not null check (qty > 0) — How much to buy, in the unit.\n  unit text not null check (unit in ('g','ml','pc','pack')) — g, ml, pc or pack. For an ingredient, its base unit or pack.\n  note text check (note is null or length(note) <= 200) — An optional note for the driver (at most 200 characters).\n  requested_by uuid not null references staff(id) — Who added it.\n  requested_at timestamptz not null default now() — When it was added.\n  status text not null default 'open' check (status in ('open','bought','cancelled','received','acknowledged')) — open, bought (on a purchase), cancelled, received (its purchase line was received into stock) or acknowledged (a non-stock line the manager acknowledged).\n  purchase_id uuid references purchases(id) — The purchase that bought it.\n  cancelled_by uuid references staff(id) — Who took it off the list (the requester or management).\n  cancelled_at timestamptz — When it was taken off the list.",
+      "body": "shopping_purchases (§2.15): the shopping list. Added by the head barista, the head chef or management through app.add_shopping_item and sent straight to the venue's drivers, with no approval. Read by MGMT at the venue; the bar and kitchen family and the driver read it through app.shopping_list.\nCreated in migration 0166.\nColumns:\n  id uuid primary key default gen_random_uuid() — Shopping line id.\n  venue_id uuid not null references venues(id) — The venue it is for.\n  ingredient_id uuid references ingredients(id) — The stock ingredient to buy; NULL for something that is not stock, named by the label.\n  label text check (label is null or length(label) <= 80) — What to buy, as typed (at most 80 characters): required when there is no ingredient.\n  qty numeric(12,3) not null check (qty > 0) — How much to buy, in the unit.\n  unit text not null check (unit in ('g','ml','pc','pack')) — g, ml, pc or pack. For an ingredient, its base unit or pack.\n  note text check (note is null or length(note) <= 200) — An optional note for the driver (at most 200 characters).\n  requested_by uuid not null references staff(id) — Who added it.\n  requested_at timestamptz not null default now() — When it was added.\n  status text not null default 'open' check (status in ('open','bought','cancelled','received','acknowledged')) — open, bought (on a purchase), cancelled, received (its purchase line was received into stock), acknowledged (a non-stock line the manager acknowledged), pending (a chef assistant's line waiting for the head chef's OK, which no driver sees) or declined (the head chef or MGMT said no).\n  purchase_id uuid references purchases(id) — The purchase that bought it.\n  cancelled_by uuid references staff(id) — Who took it off the list (the requester or management).\n  cancelled_at timestamptz — When it was taken off the list.\n  decided_by uuid — shopping_head_approval (§2.24.9): the head chef or manager who approved or declined a pending line.\n  decided_at timestamptz — When a pending line was approved or declined.\n  decline_reason text — Why a pending line was declined, as typed (at most 300 characters); required on a decline.",
       "route": null
     },
     {
@@ -4078,7 +4462,7 @@
       "ref": "table:staff_media_uploads",
       "lang": "en",
       "title": "table staff_media_uploads",
-      "body": "staff_media_bucket (§2.3): upload slots for work photos. staff_media_slot mints the path; the staff-media storage INSERT policy admits only an unused slot of the uploader from the last hour; app.claim_staff_media marks it used by the record that names it. Bookkeeping no screen reads; excluded from the owner assistant.\nCreated in migration 0159.\nColumns:\n  path text primary key — The storage object name in bucket staff-media: <venue_id>/<folder>/<uuid>.<jpg|png|webp>.\n  venue_id uuid not null references venues(id) — The venue the photo belongs to; also the path's first segment. Readers are staff at this venue.\n  folder text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts')) — What the photo is for: proposals, tests, steps, marketing, campaigns or receipts (receipts are read by their uploader and management only).\n  uploader uuid not null references staff(id) — The staff member the slot was minted for; only they may upload to it.\n  created_at timestamptz not null default now() — When the slot was minted. The upload must happen within an hour of it.\n  used_at timestamptz — When a record first claimed the path (app.claim_staff_media); NULL = not claimed yet.\n  used_by text — The record that claims the path, as <kind>:<id> (for example protocol_submission:<uuid>); NULL = not claimed yet.",
+      "body": "staff_media_bucket (§2.3): upload slots for work photos. staff_media_slot mints the path; the staff-media storage INSERT policy admits only an unused slot of the uploader from the last hour; app.claim_staff_media marks it used by the record that names it. Bookkeeping no screen reads; excluded from the owner assistant.\nCreated in migration 0159.\nColumns:\n  path text primary key — The storage object name in bucket staff-media: <venue_id>/<folder>/<uuid>.<jpg|png|webp>.\n  venue_id uuid not null references venues(id) — The venue the photo belongs to; also the path's first segment. Readers are staff at this venue.\n  folder text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts')) — What the photo is for: proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings or requests (receipts are read by their uploader and management only).\n  uploader uuid not null references staff(id) — The staff member the slot was minted for; only they may upload to it.\n  created_at timestamptz not null default now() — When the slot was minted. The upload must happen within an hour of it.\n  used_at timestamptz — When a record first claimed the path (app.claim_staff_media); NULL = not claimed yet.\n  used_by text — The record that claims the path, as <kind>:<id> (for example protocol_submission:<uuid>); NULL = not claimed yet.",
       "route": null
     },
     {
@@ -4087,6 +4471,14 @@
       "lang": "en",
       "title": "table staff_requests",
       "body": "0072: staff-originated asks (leave, shift swap, wage advance, record correction) with the owner's decision. Immutable once submitted apart from the decision block; withdraw rather than edit. Decisions are made only through app.decide_staff_request.\nCreated in migration 0072.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  staff_id uuid not null references staff(id)\n  kind staff_request_kind not null — The decision block is all-or-nothing, and only a settled row carries one. 'withdrawn' is the requester's own act, so it has no decider.\n  status staff_request_status not null default 'pending'\n  from_date date\n  to_date date\n  amount_iqd int\n  note text not null default ''\n  created_at timestamptz not null default now()\n  decided_by uuid references staff(id)\n  decided_at timestamptz\n  decision_note text — Payload coherence, per kind. A screen reads these as guarantees.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:staff_suggestions",
+      "lang": "en",
+      "title": "table staff_suggestions",
+      "body": "suggestions (§2.24.4, #63): the staff suggestion box. Any active staff member posts (app.add_suggestion), signed; the manager and the owner read every one and mark it seen. No photo, reply or push, and no guest data. Read by MGMT at the venue; an author reads their own through app.my_suggestions. Excluded from the owner assistant.\nCreated in migration 0180.\nColumns:\n  id uuid primary key default gen_random_uuid() — Suggestion id.\n  venue_id uuid not null references venues(id) — The venue.\n  author_id uuid not null references staff(id) — Who posted it (suggestions are signed).\n  body text not null check (length(btrim(body)) between 1 and 1000) — The suggestion, as typed in the writer's language (1 to 1000 characters).\n  created_at timestamptz not null default now() — When it was posted.\n  seen_by uuid references staff(id) — The manager or owner who first marked it seen; NULL while new.\n  seen_at timestamptz — When it was first marked seen; NULL while new.",
       "route": null
     },
     {
@@ -4183,6 +4575,14 @@
       "lang": "en",
       "title": "table tax_groups",
       "body": "Created in migration 0006.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  rate_bp smallint not null default 0 check (rate_bp between 0 and 10000) — 1000 = 10%\n  is_active boolean not null default true — seed ships 'Restaurant 10%' inactive\n  venue_id uuid",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:teachings",
+      "lang": "en",
+      "title": "table teachings",
+      "body": "teachings (§2.24.3, #64): what a head writes for their team (bar or kitchen), in one language, with photos. Written through app.save_teaching and app.archive_teaching; read by MGMT at the venue, and by the team through app.teachings_for_me. No read receipts.\nCreated in migration 0179.\nColumns:\n  id uuid primary key default gen_random_uuid() — Teaching id.\n  venue_id uuid not null references venues(id) — The venue.\n  team text not null check (team in ('bar','kitchen')) — bar (head_barista, barista) or kitchen (head_chef, chef): who reads it. Never changes.\n  author_id uuid not null references staff(id) — Who wrote it: the team's head, or a manager or the owner.\n  title text not null check (length(btrim(title)) between 1 and 120) — The title, as typed (1 to 120 characters).\n  body text not null check (length(btrim(body)) between 1 and 4000) — The teaching, as typed in the writer's language (1 to 4000 characters).\n  photos text[] not null default '{}' check (cardinality(photos) <= 6) — Photos: staff-media paths in the teachings folder (at most 6).\n  created_at timestamptz not null default now() — When it was written.\n  updated_at timestamptz not null default now() — When it was last edited.\n  archived_at timestamptz — When it was archived; an archived teaching leaves the team's list. NULL while current.\n  archived_by uuid references staff(id) — Who archived it.",
       "route": null
     },
     {
@@ -4334,7 +4734,7 @@
       "ref": "view:v_variance_report",
       "lang": "en",
       "title": "view v_variance_report",
-      "body": "View, defined in migration 0019.\nDefinition: with (security_invoker = on) as with counts as ( select c.id, c.finalized_at, c.counted_by, lag(c.finalized_at) over (order by c.finalized_at) as period_start from stock_counts c where c.finalized_at is not null ) select c.id as count_id, c.period_start, c.finalized_at as period_end, l.ingredient_id, i.name_en, i.name_ar, i.unit, l.theoretical_qty, l.counted_qty, l.counted_qty - l.theoretical_qty as variance_qty, p.sold_qty, round(p.sold_qty * i.waste_allowance_percent / 100.0, 3) as expected_waste_qty, p.recorded_waste_qty, p.void_qty, p.expired_qty, p.movement_ids from stock_count_lines l join counts c on c.id = l.count_id join ingredients i on i.id = l.ingredient_id left join lateral ( select coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'sale_consumption'), 0) as sold_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type in ('waste_spill','waste_spoilage')), 0) as recorded_waste_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'void_after_send'), 0) as void_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'expired_writeoff'), 0) as expired_qty, array_agg(sm.id order by sm.id) as movement_ids from stock_movements sm where sm.ingredient_id = l.ingredient_id and sm.at <= c.finalized_at and (c.period_start is null or sm.at > c.period_start) ) p on true",
+      "body": "View, defined in migration 0172.\nDefinition: with (security_invoker = on) as with counts as ( select c.id, c.finalized_at, c.counted_by, lag(c.finalized_at) over (order by c.finalized_at) as period_start from stock_counts c where c.finalized_at is not null ) select c.id as count_id, c.period_start, c.finalized_at as period_end, l.ingredient_id, i.name_en, i.name_ar, i.unit, l.theoretical_qty, l.counted_qty, l.counted_qty - l.theoretical_qty as variance_qty, p.sold_qty, round(p.sold_qty * i.waste_allowance_percent / 100.0, 3) as expected_waste_qty, p.recorded_waste_qty, p.void_qty, p.expired_qty, p.movement_ids, p.product_test_qty from stock_count_lines l join counts c on c.id = l.count_id join ingredients i on i.id = l.ingredient_id left join lateral ( select coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'sale_consumption'), 0) as sold_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type in ('waste_spill','waste_spoilage')), 0) as recorded_waste_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'void_after_send'), 0) as void_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'expired_writeoff'), 0) as expired_qty, array_agg(sm.id order by sm.id) as movement_ids, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'product_test'), 0) as product_test_qty from stock_movements sm where sm.ingredient_id = l.ingredient_id and sm.at <= c.finalized_at and (c.period_start is null or sm.at > c.period_start) ) p on true",
       "route": null
     },
     {
@@ -5115,6 +5515,22 @@
     },
     {
       "kind": "column",
+      "ref": "column:checklist_run_items.photo_path",
+      "lang": "en",
+      "title": "checklist_run_items.photo_path",
+      "body": "text\nchecklist_photos (§2.24.8): the tick's photo, a staff-media path in the checklists folder claimed as checklist_item:<id>; NULL while unticked or with no photo.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_run_items.photo_required",
+      "lang": "en",
+      "title": "checklist_run_items.photo_required",
+      "body": "boolean not null default false\nchecklist_photos (§2.24.8): copied from the template line when the day's list was opened; a tick needs a photo.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:checklist_run_items.position",
       "lang": "en",
       "title": "checklist_run_items.position",
@@ -5199,6 +5615,14 @@
       "lang": "en",
       "title": "checklist_template_items.id",
       "body": "uuid primary key default gen_random_uuid()\nTemplate line id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:checklist_template_items.photo_required",
+      "lang": "en",
+      "title": "checklist_template_items.photo_required",
+      "body": "boolean not null default false\nchecklist_photos (§2.24.8): ticking this line needs a photo (\"Needs a photo\").",
       "route": null
     },
     {
@@ -5427,6 +5851,110 @@
     },
     {
       "kind": "column",
+      "ref": "column:hiring_candidates.brief",
+      "lang": "en",
+      "title": "hiring_candidates.brief",
+      "body": "text not null default '' check (length(brief) <= 1000)\nThe manager's notes on the candidate (at most 1000).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.candidate_name",
+      "lang": "en",
+      "title": "hiring_candidates.candidate_name",
+      "body": "text not null check (coalesce(length(btrim(candidate_name)),0) between 1 and 80)\nThe candidate's name as the manager typed it (1-80).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.candidate_phone",
+      "lang": "en",
+      "title": "hiring_candidates.candidate_phone",
+      "body": "text not null check (coalesce(length(btrim(candidate_phone)),0) between 1 and 32)\nThe candidate's phone number (at most 32).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.created_at",
+      "lang": "en",
+      "title": "hiring_candidates.created_at",
+      "body": "timestamptz not null default now()\nWhen the candidate was added.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.created_by",
+      "lang": "en",
+      "title": "hiring_candidates.created_by",
+      "body": "uuid not null references staff(id)\nWho added the candidate.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.decided_at",
+      "lang": "en",
+      "title": "hiring_candidates.decided_at",
+      "body": "timestamptz\nWhen the pick was approved, or the run stopped.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.id",
+      "lang": "en",
+      "title": "hiring_candidates.id",
+      "body": "uuid primary key default gen_random_uuid()\nCandidate id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.interview_at",
+      "lang": "en",
+      "title": "hiring_candidates.interview_at",
+      "body": "timestamptz\nWhen the interview is or was.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.pick_reason",
+      "lang": "en",
+      "title": "hiring_candidates.pick_reason",
+      "body": "text check (pick_reason is null or length(pick_reason) <= 1000)\nWhy this candidate (at most 1000).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.picked",
+      "lang": "en",
+      "title": "hiring_candidates.picked",
+      "body": "boolean not null default false\nThe candidate the run picked; at most one per run. Follows the approved interviews record.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.purge_after",
+      "lang": "en",
+      "title": "hiring_candidates.purge_after",
+      "body": "timestamptz\nWhen app.hiring_purge_due deletes the row: 90 days after decided_at.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.run_id",
+      "lang": "en",
+      "title": "hiring_candidates.run_id",
+      "body": "uuid not null references protocol_runs(id) on delete cascade\nThe hiring run.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:hiring_candidates.venue_id",
+      "lang": "en",
+      "title": "hiring_candidates.venue_id",
+      "body": "uuid not null references venues(id)\nThe run's venue.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:ingredients.pack_cost_iqd",
       "lang": "en",
       "title": "ingredients.pack_cost_iqd",
@@ -5627,6 +6155,86 @@
     },
     {
       "kind": "column",
+      "ref": "column:marketing_requests.answer",
+      "lang": "en",
+      "title": "marketing_requests.answer",
+      "body": "text check (answer is null or length(answer) <= 2000)\nMarketing's answer, as typed (at most 2000 characters); required once done or declined.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.answered_at",
+      "lang": "en",
+      "title": "marketing_requests.answered_at",
+      "body": "timestamptz\nWhen it was answered.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.answered_by",
+      "lang": "en",
+      "title": "marketing_requests.answered_by",
+      "body": "uuid references staff(id)\nThe marketing staff member who answered.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.body",
+      "lang": "en",
+      "title": "marketing_requests.body",
+      "body": "text not null check (length(btrim(body)) between 1 and 2000)\nWhat is wanted, as typed in the asker's language (1 to 2000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.created_at",
+      "lang": "en",
+      "title": "marketing_requests.created_at",
+      "body": "timestamptz not null default now()\nWhen it was asked.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.menu_item_id",
+      "lang": "en",
+      "title": "marketing_requests.menu_item_id",
+      "body": "uuid references menu_items(id) on delete set null\nThe menu item it is about, if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.photos",
+      "lang": "en",
+      "title": "marketing_requests.photos",
+      "body": "text[] not null default '{}' check (cardinality(photos) <= 4)\nPhotos: staff-media paths in the requests folder (at most 4).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.status",
+      "lang": "en",
+      "title": "marketing_requests.status",
+      "body": "text not null default 'open' check (status in ('open','done','declined','withdrawn'))\nopen, done or declined (marketing answered), or withdrawn (the asker took it back).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.title",
+      "lang": "en",
+      "title": "marketing_requests.title",
+      "body": "text not null check (length(btrim(title)) between 1 and 120)\nWhat it is, as typed (1 to 120 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_requests.want_by",
+      "lang": "en",
+      "title": "marketing_requests.want_by",
+      "body": "date\nThe day it is wanted by, if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:menu_categories.serve_temp",
       "lang": "en",
       "title": "menu_categories.serve_temp",
@@ -5667,6 +6275,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:menu_items.launched_at",
+      "lang": "en",
+      "title": "menu_items.launched_at",
+      "body": "timestamptz default now()\nproduct_release (§2.9): when the item first went on sale. Every item that existed when the column was added counts as launched; after that it is stamped by app.upsert_menu_item_internal whenever a save leaves the item switched on, and by app.release_launch_internal. NULL on a never-launched draft, which a manager cannot switch on (ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL).",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:menu_items.photo_blur",
       "lang": "en",
       "title": "menu_items.photo_blur",
@@ -5679,6 +6295,14 @@
       "lang": "en",
       "title": "menu_items.photo_path",
       "body": "text\nSupabase Storage key",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:menu_items.release_run_id",
+      "lang": "en",
+      "title": "menu_items.release_run_id",
+      "body": "uuid\nproduct_release (§2.9): the product release run that created this item as a draft. While that run is not live or done the item is \"in release\": it cannot be switched on and its prices come from the release's price step only (ITEM_IN_RELEASE). NULL for items created any other way.",
       "route": null
     },
     {
@@ -5711,6 +6335,14 @@
       "lang": "en",
       "title": "modifier_reveals.sort_order",
       "body": "int not null default 0\nposition in the revealing modifier's list",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:modifiers.launched_at",
+      "lang": "en",
+      "title": "modifiers.launched_at",
+      "body": "timestamptz default now()\nprice_promo (§2.13): when the add-on first went on sale. Every add-on that existed when the column was added counts as launched; after that app.upsert_modifier_internal stamps it whenever a save leaves the add-on switched on. NULL on a never-launched add-on, which a manager saves hidden and puts on sale through an addon_price change (LAUNCH_VIA_PROTOCOL).",
       "route": null
     },
     {
@@ -6611,6 +7243,22 @@
     },
     {
       "kind": "column",
+      "ref": "column:purchases.delivered_at",
+      "lang": "en",
+      "title": "purchases.delivered_at",
+      "body": "timestamptz\npurchase_delivery_confirm (§2.24.10): when the buyer (or a manager) confirmed the purchase was delivered to the venue; NULL until then. Receiving never waits for it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:purchases.delivered_by",
+      "lang": "en",
+      "title": "purchases.delivered_by",
+      "body": "uuid\nWho confirmed the delivery: the buyer, or a manager or the owner.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:purchases.delivery_id",
       "lang": "en",
       "title": "purchases.delivery_id",
@@ -6723,6 +7371,110 @@
     },
     {
       "kind": "column",
+      "ref": "column:recipe_change_requests.after",
+      "lang": "en",
+      "title": "recipe_change_requests.after",
+      "body": "jsonb not null\nThe lines an approval writes: [{ingredient_id, qty}].",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.before",
+      "lang": "en",
+      "title": "recipe_change_requests.before",
+      "body": "jsonb not null\nThe target's lines when it was asked: [{recipe_line_id, ingredient_id, qty}]. An approve refuses a target that no longer matches.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.decided_at",
+      "lang": "en",
+      "title": "recipe_change_requests.decided_at",
+      "body": "timestamptz\nWhen it was decided.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.decided_by",
+      "lang": "en",
+      "title": "recipe_change_requests.decided_by",
+      "body": "uuid references staff(id)\nThe owner who decided; never the requester.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.decline_reason",
+      "lang": "en",
+      "title": "recipe_change_requests.decline_reason",
+      "body": "text check (decline_reason is null or length(decline_reason) <= 1000)\nWhy it was declined, as typed (at most 1000 characters); required on a decline.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.note",
+      "lang": "en",
+      "title": "recipe_change_requests.note",
+      "body": "text check (note is null or length(note) <= 1000)\nThe head's note, as typed (at most 1000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.ops",
+      "lang": "en",
+      "title": "recipe_change_requests.ops",
+      "body": "jsonb not null\nThe head's changes, normalised: [{op: set, recipe_line_id, ingredient_id, qty} | {op: remove, recipe_line_id, ingredient_id} | {op: add, ingredient_id, qty}], quantities in the ingredient's base unit.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.output_ingredient_id",
+      "lang": "en",
+      "title": "recipe_change_requests.output_ingredient_id",
+      "body": "uuid references ingredients(id) on delete cascade\nThe prepared ingredient whose output recipe changes, when target = output.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.requested_at",
+      "lang": "en",
+      "title": "recipe_change_requests.requested_at",
+      "body": "timestamptz not null default now()\nWhen it was asked.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.requested_by",
+      "lang": "en",
+      "title": "recipe_change_requests.requested_by",
+      "body": "uuid not null references staff(id)\nThe head who asked.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.status",
+      "lang": "en",
+      "title": "recipe_change_requests.status",
+      "body": "text not null default 'waiting' check (status in ('waiting','approved','declined','withdrawn'))\nwaiting, approved or declined (by the owner), or withdrawn (by the head).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.target",
+      "lang": "en",
+      "title": "recipe_change_requests.target",
+      "body": "text not null check (target in ('variant','output'))\nvariant (a size of a cafe item) or output (a prepared ingredient's output recipe).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:recipe_change_requests.variant_id",
+      "lang": "en",
+      "title": "recipe_change_requests.variant_id",
+      "body": "uuid references menu_item_variants(id) on delete cascade\nThe size whose recipe changes, when target = variant.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:recipe_lines.modifier_id",
       "lang": "en",
       "title": "recipe_lines.modifier_id",
@@ -6763,6 +7515,206 @@
     },
     {
       "kind": "column",
+      "ref": "column:release_ideas.author_id",
+      "lang": "en",
+      "title": "release_ideas.author_id",
+      "body": "uuid not null references staff(id)\nThe barista or chef assistant who sent it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.decided_at",
+      "lang": "en",
+      "title": "release_ideas.decided_at",
+      "body": "timestamptz\nWhen it was started or declined.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.decided_by",
+      "lang": "en",
+      "title": "release_ideas.decided_by",
+      "body": "uuid references staff(id)\nThe head, manager or owner who started or declined it; NULL while waiting or withdrawn.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.decline_reason",
+      "lang": "en",
+      "title": "release_ideas.decline_reason",
+      "body": "text check (decline_reason is null or length(decline_reason) <= 1000)\nWhy it was declined (required when declined), shown to the author.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.photos",
+      "lang": "en",
+      "title": "release_ideas.photos",
+      "body": "text[] not null default '{}' check (cardinality(photos) <= 6)\nPhotos: staff-media paths in the proposals folder (at most 6). A release started from the idea may claim them for its proposal.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.record",
+      "lang": "en",
+      "title": "release_ideas.record",
+      "body": "jsonb not null\nThe idea, in the product release propose shape (§2.8) without category_id, as app.release_propose_check normalised it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.run_id",
+      "lang": "en",
+      "title": "release_ideas.run_id",
+      "body": "uuid references protocol_runs(id) on delete set null\nThe product release started from it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.status",
+      "lang": "en",
+      "title": "release_ideas.status",
+      "body": "text not null default 'waiting' check (status in ('waiting','started','declined','withdrawn'))\nwaiting, started (a release was started from it), declined (with a reason) or withdrawn (by its author).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.submitted_at",
+      "lang": "en",
+      "title": "release_ideas.submitted_at",
+      "body": "timestamptz not null default now()\nWhen it was sent.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_ideas.team",
+      "lang": "en",
+      "title": "release_ideas.team",
+      "body": "text not null check (team in ('bar','kitchen'))\nbar or kitchen: the author's team when they sent it (app.staff_team); its head reviews it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_notes.author_id",
+      "lang": "en",
+      "title": "release_notes.author_id",
+      "body": "uuid not null references staff(id)\nWho wrote it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_notes.body",
+      "lang": "en",
+      "title": "release_notes.body",
+      "body": "text not null check (coalesce(length(btrim(body)), 0) between 1 and 2000)\nThe note, as typed (1 to 2000 characters); no guest names or phone numbers (the form says so).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_notes.created_at",
+      "lang": "en",
+      "title": "release_notes.created_at",
+      "body": "timestamptz not null default now()\nWhen it was written.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_notes.menu_item_id",
+      "lang": "en",
+      "title": "release_notes.menu_item_id",
+      "body": "uuid not null references menu_items(id) on delete cascade\nThe released item.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_notes.run_id",
+      "lang": "en",
+      "title": "release_notes.run_id",
+      "body": "uuid references protocol_runs(id) on delete set null\nThe product release that launched it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_notes.venue_id",
+      "lang": "en",
+      "title": "release_notes.venue_id",
+      "body": "uuid not null references venues(id)\nThe item's venue.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.created_at",
+      "lang": "en",
+      "title": "release_reviews.created_at",
+      "body": "timestamptz not null default now()\nWhen the row was first saved.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.menu_item_id",
+      "lang": "en",
+      "title": "release_reviews.menu_item_id",
+      "body": "uuid references menu_items(id) on delete set null\nThe released item.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.model",
+      "lang": "en",
+      "title": "release_reviews.model",
+      "body": "text\nThe model that wrote it (the venue's llm_default_model); NULL for the template.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.numbers",
+      "lang": "en",
+      "title": "release_reviews.numbers",
+      "body": "jsonb not null\nThe figures of the item's first 30 days (app.release_review_input numbers): units, revenue, margin, share of its category, days sold, bought with, and the window.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.run_id",
+      "lang": "en",
+      "title": "release_reviews.run_id",
+      "body": "uuid primary key references protocol_runs(id) on delete cascade\nThe product release run reviewed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.status",
+      "lang": "en",
+      "title": "release_reviews.status",
+      "body": "text not null check (status in ('written','thin','fallback','failed'))\nwritten (by the model), thin (too few units to say much), fallback (the template), failed (nothing written; the next day's tick tries again).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.venue_id",
+      "lang": "en",
+      "title": "release_reviews.venue_id",
+      "body": "uuid not null references venues(id)\nThe run's venue.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.write_up",
+      "lang": "en",
+      "title": "release_reviews.write_up",
+      "body": "jsonb\nThe write-up, {en, ar}: from the venue's model, gated to the numbers it was given, or the template when the model is not available.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:release_reviews.written_at",
+      "lang": "en",
+      "title": "release_reviews.written_at",
+      "body": "timestamptz\nWhen the write-up was saved; NULL while failed.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:reservation_series.idempotency_key",
       "lang": "en",
       "title": "reservation_series.idempotency_key",
@@ -6783,6 +7735,14 @@
       "lang": "en",
       "title": "reservation_series.weekdays",
       "body": "int[] not null default '{}'\n0 = Sunday; 'weekdays' pattern only",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:reservations.block_purpose",
+      "lang": "en",
+      "title": "reservations.block_purpose",
+      "body": "text\nevent_court_blocks (§2.11): 'event' on a maintenance block a tournament asked for (app.block_courts_for_event); NULL on every other row. Analytics counts an event block as open time and reports it as event_minutes; only a block that is not an event is subtracted from open time.",
       "route": null
     },
     {
@@ -6835,6 +7795,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:reservations.protocol_run_id",
+      "lang": "en",
+      "title": "reservations.protocol_run_id",
+      "body": "uuid\nevent_court_blocks (§2.11): the tournament run an event block belongs to; its stop cancels the run's future blocks. NULL on every other row.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:reservations.rate_rule_id",
       "lang": "en",
       "title": "reservations.rate_rule_id",
@@ -6855,6 +7823,30 @@
       "lang": "en",
       "title": "shopping_items.cancelled_by",
       "body": "uuid references staff(id)\nWho took it off the list (the requester or management).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.decided_at",
+      "lang": "en",
+      "title": "shopping_items.decided_at",
+      "body": "timestamptz\nWhen a pending line was approved or declined.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.decided_by",
+      "lang": "en",
+      "title": "shopping_items.decided_by",
+      "body": "uuid\nshopping_head_approval (§2.24.9): the head chef or manager who approved or declined a pending line.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:shopping_items.decline_reason",
+      "lang": "en",
+      "title": "shopping_items.decline_reason",
+      "body": "text\nWhy a pending line was declined, as typed (at most 300 characters); required on a decline.",
       "route": null
     },
     {
@@ -6926,7 +7918,7 @@
       "ref": "column:shopping_items.status",
       "lang": "en",
       "title": "shopping_items.status",
-      "body": "text not null default 'open' check (status in ('open','bought','cancelled','received','acknowledged'))\nopen, bought (on a purchase), cancelled, received (its purchase line was received into stock) or acknowledged (a non-stock line the manager acknowledged).",
+      "body": "text not null default 'open' check (status in ('open','bought','cancelled','received','acknowledged'))\nopen, bought (on a purchase), cancelled, received (its purchase line was received into stock), acknowledged (a non-stock line the manager acknowledged), pending (a chef assistant's line waiting for the head chef's OK, which no driver sees) or declined (the head chef or MGMT said no).",
       "route": null
     },
     {
@@ -6966,7 +7958,7 @@
       "ref": "column:staff_media_uploads.folder",
       "lang": "en",
       "title": "staff_media_uploads.folder",
-      "body": "text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts'))\nWhat the photo is for: proposals, tests, steps, marketing, campaigns or receipts (receipts are read by their uploader and management only).",
+      "body": "text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts'))\nWhat the photo is for: proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings or requests (receipts are read by their uploader and management only).",
       "route": null
     },
     {
@@ -7023,6 +8015,54 @@
       "lang": "en",
       "title": "staff_requests.kind",
       "body": "staff_request_kind not null\nThe decision block is all-or-nothing, and only a settled row carries one. 'withdrawn' is the requester's own act, so it has no decider.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_suggestions.author_id",
+      "lang": "en",
+      "title": "staff_suggestions.author_id",
+      "body": "uuid not null references staff(id)\nWho posted it (suggestions are signed).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_suggestions.body",
+      "lang": "en",
+      "title": "staff_suggestions.body",
+      "body": "text not null check (length(btrim(body)) between 1 and 1000)\nThe suggestion, as typed in the writer's language (1 to 1000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_suggestions.created_at",
+      "lang": "en",
+      "title": "staff_suggestions.created_at",
+      "body": "timestamptz not null default now()\nWhen it was posted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_suggestions.id",
+      "lang": "en",
+      "title": "staff_suggestions.id",
+      "body": "uuid primary key default gen_random_uuid()\nSuggestion id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_suggestions.seen_at",
+      "lang": "en",
+      "title": "staff_suggestions.seen_at",
+      "body": "timestamptz\nWhen it was first marked seen; NULL while new.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:staff_suggestions.seen_by",
+      "lang": "en",
+      "title": "staff_suggestions.seen_by",
+      "body": "uuid references staff(id)\nThe manager or owner who first marked it seen; NULL while new.",
       "route": null
     },
     {
@@ -7175,6 +8215,86 @@
       "lang": "en",
       "title": "tax_groups.is_active",
       "body": "boolean not null default true\nseed ships 'Restaurant 10%' inactive",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.archived_at",
+      "lang": "en",
+      "title": "teachings.archived_at",
+      "body": "timestamptz\nWhen it was archived; an archived teaching leaves the team's list. NULL while current.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.archived_by",
+      "lang": "en",
+      "title": "teachings.archived_by",
+      "body": "uuid references staff(id)\nWho archived it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.author_id",
+      "lang": "en",
+      "title": "teachings.author_id",
+      "body": "uuid not null references staff(id)\nWho wrote it: the team's head, or a manager or the owner.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.body",
+      "lang": "en",
+      "title": "teachings.body",
+      "body": "text not null check (length(btrim(body)) between 1 and 4000)\nThe teaching, as typed in the writer's language (1 to 4000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.created_at",
+      "lang": "en",
+      "title": "teachings.created_at",
+      "body": "timestamptz not null default now()\nWhen it was written.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.id",
+      "lang": "en",
+      "title": "teachings.id",
+      "body": "uuid primary key default gen_random_uuid()\nTeaching id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.photos",
+      "lang": "en",
+      "title": "teachings.photos",
+      "body": "text[] not null default '{}' check (cardinality(photos) <= 6)\nPhotos: staff-media paths in the teachings folder (at most 6).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.team",
+      "lang": "en",
+      "title": "teachings.team",
+      "body": "text not null check (team in ('bar','kitchen'))\nbar (head_barista, barista) or kitchen (head_chef, chef): who reads it. Never changes.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.title",
+      "lang": "en",
+      "title": "teachings.title",
+      "body": "text not null check (length(btrim(title)) between 1 and 120)\nThe title, as typed (1 to 120 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:teachings.updated_at",
+      "lang": "en",
+      "title": "teachings.updated_at",
+      "body": "timestamptz not null default now()\nWhen it was last edited.",
       "route": null
     },
     {
@@ -7846,7 +8966,7 @@
       "ref": "enum:movement_type",
       "lang": "en",
       "title": "enum movement_type",
-      "body": "Values: goods_in, production_in, sale_consumption, production_consume, waste_spill, waste_spoilage, void_after_send, expired_writeoff, count_adjustment, refund_reversal.\nDefined in migration 0002.",
+      "body": "Values: goods_in, production_in, sale_consumption, production_consume, waste_spill, waste_spoilage, void_after_send, expired_writeoff, count_adjustment, refund_reversal, product_test.\nDefined in migration 0002.",
       "route": null
     },
     {
@@ -11683,6 +12803,14 @@
     },
     {
       "kind": "system",
+      "ref": "system:cron:tp_hiring_purge",
+      "lang": "en",
+      "title": "cron job tp_hiring_purge",
+      "body": "Runs select app.hiring_purge_due();. Schedules seen in migrations, latest last: '40 3 * * *' (0176). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
       "ref": "system:cron:tp_hold_sweep",
       "lang": "en",
       "title": "cron job tp_hold_sweep",
@@ -11691,10 +12819,34 @@
     },
     {
       "kind": "system",
+      "ref": "system:cron:tp_price_promo_apply",
+      "lang": "en",
+      "title": "cron job tp_price_promo_apply",
+      "body": "Runs select app.price_promo_apply_due();. Schedules seen in migrations, latest last: '*/5 * * * *' (0177). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:cron:tp_protocol_tick",
+      "lang": "en",
+      "title": "cron job tp_protocol_tick",
+      "body": "Runs select app.protocol_tick_nudge();. Schedules seen in migrations, latest last: '*/5 * * * *' (0173). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
       "ref": "system:cron:tp_push_sweep",
       "lang": "en",
       "title": "cron job tp_push_sweep",
       "body": "Runs select app.push_nudge();. Schedules seen in migrations, latest last: '* * * * *' (0048), '30 seconds' (0090), '* * * * *' (0090). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:cron:tp_release_review",
+      "lang": "en",
+      "title": "cron job tp_release_review",
+      "body": "Runs select app.release_review_nudge();. Schedules seen in migrations, latest last: '20 4 * * *' (0173). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
       "route": null
     },
     {
@@ -11775,6 +12927,22 @@
       "lang": "en",
       "title": "edge function desk-customer-create",
       "body": "verify_jwt = true (supabase/config.toml).\ndesk-customer-create — a walk-in gets a real guest account from the desk\n(spec 06.10 CustomerCreateScreen; build plan §0 \"Customer creation at the\ndesk creates a real guest account (auth user + profile) through a\nstaff-gated edge function, so the guest can later claim it\").\n\n  POST { fullName, phone, email?, preferredLang: 'en' | 'ar' }  ->  201 { id }\n\nErrors (JSON `{ error, message }`):\n  400 BAD_REQUEST      — body shape, name length, preferredLang\n  400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised\n  409 DUPLICATE_PHONE  — a profile already carries the same number (canonical\n                         form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…)\n  409 DUPLICATE_EMAIL  — GoTrue already has that address\n  401 AUTH_REQUIRED / 403 FORBIDDEN — from requireStaffRole\n\nWHY AN EDGE FUNCTION. An account is an auth.users row, and only the GoTrue\nadmin API creates one — the same reason staff-admin (0051) exists. Every\nrow-level rule lives in migration 0065 (`app.find_customer_by_phone`,\n`app.desk_register_customer`, both service-role only); this file only\nsequences the two calls around `auth.admin.createUser`.\n\nTHE PASSWORD. Random, 32 bytes of entropy, never returned and never shown:\nthe guest claims the account later through \"forgot password\" (real email)\nor through a future phone-based claim flow — spec 06.10 gives the desk no\npassword field, and a password the operator can read aloud is a password\nthe operator knows.\n\nTHE EMAIL. Optional at the desk (spec 06.10 lists it as a field, the SOW\nmakes the phone the identity). When absent the account is created under\n`<digits>@guest.touch.local` — see phone.ts — with `email_confirm: true`,\nbecause nothing can receive a confirmation there and an unconfirmed account\ncannot sign in. A real email is also confirmed on creation: the operator\nhas the guest in front of them, and a confirmation mail that never gets\nclicked would leave the record half-made.\n\nThe caller must be active staff with role court",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:edge:protocol-action",
+      "lang": "en",
+      "title": "edge function protocol-action",
+      "body": "verify_jwt = true (supabase/config.toml).\nprotocol-action (build-contracts-2026-09-23 §2.20; plan §5.1 \"Launch\").\n\n  POST {action:'launch', run_step_id, when:'now'|'date', at?, photo_path, idempotency_key}\n    owner session (requireStaffRole ['owner']). For `now` the chosen photo\n    is copied from staff-media to menu-media/items/<menu_item_id>/<run_id>.<ext>\n    first (storage.copy with destinationBucket; download and upload over it\n    when that is refused, a retry's existing object included), then the\n    launch step is sent through app.submit_step WITH THE CALLER'S JWT, so\n    the engine sees the owner and the launch check accepts exactly that\n    path, copied. A refused step has its copy removed again. Returns the\n    submit_step result.\n  POST {action:'tick'}\n    service role (cron tp_protocol_tick through app.protocol_tick_nudge):\n    the due scheduled launches, then the photo purge. Returns\n    {launched, reverted, skipped, failed, purged}.\n\nverify_jwt = true (config.toml). The flows are in logic.ts, pure.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:edge:release-review",
+      "lang": "en",
+      "title": "edge function release-review",
+      "body": "verify_jwt = true (supabase/config.toml).\nrelease-review (build-contracts-2026-09-23 §2.20, §2.10; plan §5.1).\n\n  POST {action:'tick'}   service role only (cron tp_release_review through\n                         app.release_review_nudge)\n\nFor every product release live for 30 days (app.release_due_reviews): its\ninput (app.release_review_input, the model's only input), the model from\nthe run venue's llm_default_model (venue-qualified; Q13), one structured\ncall returning {en, ar} under the spend cap (app.llm_begin_request, then\napp.llm_record_usage with surface 'release_review'), the number gate and\nthe template fallback of analytics-insights, then app.release_review_save,\nwhich moves the run to done and tells the owners and the venue's managers.\nThe flow is in review.ts, pure.\n\nverify_jwt = true (config.toml).",
       "route": null
     },
     {

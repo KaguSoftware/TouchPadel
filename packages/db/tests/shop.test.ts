@@ -80,7 +80,9 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     itemId: string,
     over: Record<string, unknown> = {},
   ): Promise<{ variantId: string; ingredientId: string }> {
-    const res = await appRpc(manager, 'upsert_retail_variant', {
+    // As the owner: the product is on sale, so since price_promo a manager's
+    // size price goes through a price change (price-promo.test.ts).
+    const res = await appRpc(owner, 'upsert_retail_variant', {
       p_item_id: itemId,
       p_name_en: 'M',
       p_name_ar: 'وسط',

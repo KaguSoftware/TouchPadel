@@ -59,14 +59,16 @@ const HEADS: readonly StaffRole[] = ['head_barista', 'head_chef'];
 
 /**
  * The kinds a role may start (§2.7 `start_protocol`): a product release the
- * head roles and management; a tournament and a hiring run management; a price
- * or promotion change a manager, marketing or the owner.
+ * head roles and management; a tournament management and the court desk
+ * (tournament_desk_start, #67); a hiring run management; a price or promotion
+ * change a manager, marketing or the owner.
  */
 export function startableKinds(role: StaffRole | null | undefined): ProtocolKind[] {
   if (!role) return [];
   const kinds: ProtocolKind[] = [];
   if (HEADS.includes(role) || MGMT.includes(role)) kinds.push('product_release');
-  if (MGMT.includes(role)) kinds.push('tournament', 'hiring');
+  if (role === 'court_desk' || MGMT.includes(role)) kinds.push('tournament');
+  if (MGMT.includes(role)) kinds.push('hiring');
   if (role === 'marketing' || MGMT.includes(role)) kinds.push('price_promo');
   return kinds;
 }
@@ -129,8 +131,10 @@ const RELEASE_STEPS = seed('product_release', [
   { stepKey: 'launch', actorRoles: ['owner'], needsOwnerOk: false, okFixed: true, optional: false, after: ['analysis', 'marketing'], fixed: 'last', recordVisibility: 'run' },
 ]);
 
+// The plan is the manager's or the court desk's, assigned to the starter so a
+// reopened plan goes back to them and not to every desk (#67).
 const TOURNAMENT_STEPS = seed('tournament', [
-  { stepKey: 'plan', actorRoles: ['manager'], needsOwnerOk: false, optional: false, after: [], fixed: 'first', recordVisibility: 'mgmt' },
+  { stepKey: 'plan', actorRoles: ['manager', 'court_desk'], assignToStarter: true, needsOwnerOk: false, optional: false, after: [], fixed: 'first', recordVisibility: 'mgmt' },
   { stepKey: 'feasibility', actorRoles: ['manager'], needsOwnerOk: true, optional: false, after: ['plan'], fixed: null, recordVisibility: 'mgmt' },
   { stepKey: 'marketing', actorRoles: ['marketing'], needsOwnerOk: false, optional: true, after: ['feasibility'], fixed: null, photoFolder: 'marketing', photosMax: 6, recordVisibility: 'run' },
   { stepKey: 'courts', actorRoles: ['court_desk'], needsOwnerOk: false, optional: false, after: ['feasibility'], fixed: null, recordVisibility: 'run' },

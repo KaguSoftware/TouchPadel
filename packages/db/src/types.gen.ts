@@ -222,9 +222,29 @@ export type Database = {
         }
         Returns: Json
       }
+      add_marketing_request: {
+        Args: {
+          p_body: string
+          p_idempotency_key?: string
+          p_menu_item_id?: string
+          p_photos?: string[]
+          p_title: string
+          p_venue_id?: string
+          p_want_by?: string
+        }
+        Returns: Json
+      }
       add_order_items: {
         Args: { p_items: Json; p_order_id: string }
         Returns: number
+      }
+      add_release_note: {
+        Args: {
+          p_body: string
+          p_idempotency_key?: string
+          p_menu_item_id: string
+        }
+        Returns: Json
       }
       add_run_step: {
         Args: { p_after_run_step_id: string; p_run_id: string; p_step: Json }
@@ -242,6 +262,19 @@ export type Database = {
         }
         Returns: Json
       }
+      add_suggestion: {
+        Args: {
+          p_body: string
+          p_idempotency_key?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      addon_group_floor: { Args: { p_group_id: string }; Returns: number }
+      addon_item_prices: { Args: { p_item_id: string }; Returns: Json }
+      addon_items_of: { Args: { p_group_ids: string[] }; Returns: string[] }
+      addon_prices_guard: { Args: { p_before: Json }; Returns: undefined }
+      addon_prices_snapshot: { Args: { p_item_ids: string[] }; Returns: Json }
       analytics_assert_basis: { Args: { p_basis: string }; Returns: undefined }
       analytics_best_sellers: {
         Args: {
@@ -320,6 +353,7 @@ export type Database = {
         Returns: {
           court_id: string
           dow: number
+          event_minutes: number
           hour: number
           open_days: number
           open_minutes: number
@@ -370,6 +404,10 @@ export type Database = {
         Args: { p_basis?: string; p_from: string; p_to: string }
         Returns: Json
       }
+      answer_marketing_request: {
+        Args: { p_answer: string; p_id: string; p_outcome: string }
+        Returns: Json
+      }
       apply_best_promotion: {
         Args: {
           p_code?: string
@@ -396,6 +434,7 @@ export type Database = {
         Args: { p_list: number; p_pct: number }
         Returns: number
       }
+      archive_teaching: { Args: { p_id: string }; Returns: undefined }
       assert_bookable: {
         Args: { p_court_id: string; p_end_at: string; p_start_at: string }
         Returns: undefined
@@ -640,6 +679,10 @@ export type Database = {
       }
       b64url_decode: { Args: { p: string }; Returns: string }
       b64url_encode: { Args: { p: string }; Returns: string }
+      block_courts_for_event: {
+        Args: { p_blocks: Json; p_idempotency_key?: string; p_run_id: string }
+        Returns: Json
+      }
       booking_bill: { Args: { p_reservation_id: string }; Returns: Json }
       booking_bill_states: {
         Args: { p_reservation_ids: string[] }
@@ -823,6 +866,10 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_purchase_delivery: {
+        Args: { p_purchase_id: string }
+        Returns: Json
+      }
       consume_fefo: {
         Args: {
           p_device?: string
@@ -904,6 +951,14 @@ export type Database = {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
       }
+      decide_recipe_change: {
+        Args: { p_approve: boolean; p_id: string; p_reason?: string }
+        Returns: Json
+      }
+      decide_shopping_item: {
+        Args: { p_approve: boolean; p_id: string; p_reason?: string }
+        Returns: Json
+      }
       decide_staff_request: {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
         Returns: Json
@@ -918,8 +973,13 @@ export type Database = {
         }
         Returns: Json
       }
+      decline_release_idea: {
+        Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
       default_venue: { Args: never; Returns: string }
       delete_court: { Args: { p_id: string }; Returns: Json }
+      delete_hiring_candidate: { Args: { p_id: string }; Returns: undefined }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
       desk_register_customer: {
         Args: {
@@ -981,6 +1041,23 @@ export type Database = {
           p_queue_depth?: number
         }
         Returns: Json
+      }
+      hiring_candidates: { Args: { p_run_id: string }; Returns: Json }
+      hiring_iqd: { Args: { p_hint: string; p_value: Json }; Returns: number }
+      hiring_only_keys: {
+        Args: { p_allowed: string[]; p_record: Json }
+        Returns: undefined
+      }
+      hiring_position_role: { Args: { p_run_id: string }; Returns: string }
+      hiring_purge_due: { Args: never; Returns: Json }
+      hiring_text: {
+        Args: {
+          p_cap: number
+          p_hint: string
+          p_required: boolean
+          p_value: Json
+        }
+        Returns: string
       }
       hold_slot: {
         Args: {
@@ -1089,7 +1166,12 @@ export type Database = {
       llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
       mark_checklist_item: {
-        Args: { p_done: boolean; p_item_id: string; p_note?: string }
+        Args: {
+          p_done: boolean
+          p_item_id: string
+          p_note?: string
+          p_photo_path?: string
+        }
         Returns: Json
       }
       mark_reservation: {
@@ -1100,9 +1182,14 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_suggestion_seen: { Args: { p_id: string }; Returns: Json }
       marketing_audience_reach: { Args: { p_rule: Json }; Returns: number }
       marketing_campaign_performance: {
         Args: { p_campaign: string }
+        Returns: Json
+      }
+      marketing_campaign_results: {
+        Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
       marketing_notes_for: {
@@ -1110,6 +1197,15 @@ export type Database = {
         Returns: Json
       }
       marketing_overview: { Args: never; Returns: Json }
+      marketing_requests_page: {
+        Args: {
+          p_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       marketing_suggestions: { Args: { p_venue_id?: string }; Returns: Json }
       menu_availability: {
         Args: never
@@ -1138,11 +1234,20 @@ export type Database = {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      my_marketing_requests: {
+        Args: { p_limit?: number; p_venue_id?: string }
+        Returns: Json
+      }
       my_protocol_work: { Args: { p_venue_id?: string }; Returns: Json }
       my_purchases: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      my_recipe_changes: {
+        Args: { p_limit?: number; p_venue_id?: string }
+        Returns: Json
+      }
+      my_release_ideas: { Args: { p_venue_id?: string }; Returns: Json }
       my_reservations: {
         Args: { p_reservation_id?: string }
         Returns: {
@@ -1159,6 +1264,10 @@ export type Database = {
           start_at: string
           status: string
         }[]
+      }
+      my_suggestions: {
+        Args: { p_limit?: number; p_venue_id?: string }
+        Returns: Json
       }
       normalize_finding: { Args: { p_text: string }; Returns: string }
       notify_staff: {
@@ -1234,6 +1343,94 @@ export type Database = {
         }
         Returns: Json
       }
+      price_promo_addons: {
+        Args: { p_value: Json; p_venue: string }
+        Returns: Json
+      }
+      price_promo_apply_due: { Args: never; Returns: Json }
+      price_promo_apply_internal: { Args: { p_run_id: string }; Returns: Json }
+      price_promo_bool: {
+        Args: { p_hint: string; p_required: boolean; p_value: Json }
+        Returns: boolean
+      }
+      price_promo_check_targets: {
+        Args: { p_run_id: string }
+        Returns: undefined
+      }
+      price_promo_date: {
+        Args: { p_hint: string; p_value: Json }
+        Returns: string
+      }
+      price_promo_instant: {
+        Args: { p_hint: string; p_required: boolean; p_value: Json }
+        Returns: string
+      }
+      price_promo_int: {
+        Args: {
+          p_hint: string
+          p_max: number
+          p_min: number
+          p_required: boolean
+          p_value: Json
+        }
+        Returns: number
+      }
+      price_promo_line: {
+        Args: { p_cap: number; p_hint: string; p_value: Json }
+        Returns: Json
+      }
+      price_promo_new_sizes: { Args: { p_value: Json }; Returns: Json }
+      price_promo_numbers: { Args: { p_run_id: string }; Returns: Json }
+      price_promo_only_keys: {
+        Args: {
+          p_allowed: string[]
+          p_hint: string
+          p_prefix?: string
+          p_record: Json
+        }
+        Returns: undefined
+      }
+      price_promo_price_map: {
+        Args: { p_hint: string; p_value: Json }
+        Returns: Json
+      }
+      price_promo_promotion: {
+        Args: { p_own: string; p_value: Json }
+        Returns: Json
+      }
+      price_promo_record: {
+        Args: { p_run_id: string; p_step_key: string }
+        Returns: Json
+      }
+      price_promo_rule: {
+        Args: { p_value: Json; p_venue: string }
+        Returns: Json
+      }
+      price_promo_sizes: {
+        Args: { p_hint: string; p_item: string; p_min: number; p_value: Json }
+        Returns: Json
+      }
+      price_promo_targets: {
+        Args: { p_change: string; p_venue_id?: string }
+        Returns: Json
+      }
+      price_promo_text: {
+        Args: {
+          p_cap: number
+          p_hint: string
+          p_required: boolean
+          p_value: Json
+        }
+        Returns: string
+      }
+      price_promo_time: {
+        Args: { p_hint: string; p_required: boolean; p_value: Json }
+        Returns: string
+      }
+      price_promo_uuid: {
+        Args: { p_hint: string; p_required: boolean; p_value: Json }
+        Returns: string
+      }
       price_slot: {
         Args: { p_court_id: string; p_duration_min: number; p_start_at: string }
         Returns: {
@@ -1250,6 +1447,74 @@ export type Database = {
       promotion_base_iqd: {
         Args: { p_scope: Json; p_tab_id: string }
         Returns: number
+      }
+      protocol_check_hiring_add_staff: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_hiring_interviews: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_hiring_open_position: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_price_promo_announce: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_price_promo_apply: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_price_promo_numbers: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_price_promo_propose: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_product_release_analysis: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_product_release_launch: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_product_release_marketing: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_product_release_propose: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_product_release_test: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_tournament_courts: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_tournament_feasibility: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_tournament_marketing: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_tournament_plan: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
+      }
+      protocol_check_tournament_ready: {
+        Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
+        Returns: Json
       }
       protocol_engine_actor: {
         Args: {
@@ -1338,6 +1603,72 @@ export type Database = {
         Args: { p_run_id: string }
         Returns: boolean
       }
+      protocol_finish_price_promo: {
+        Args: { p_run_id: string }
+        Returns: string
+      }
+      protocol_finish_product_release: {
+        Args: { p_run_id: string }
+        Returns: string
+      }
+      protocol_pass_hiring_add_staff: {
+        Args: {
+          p_decision_data: Json
+          p_run_step_id: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      protocol_pass_hiring_interviews: {
+        Args: {
+          p_decision_data: Json
+          p_run_step_id: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      protocol_pass_price_promo_apply: {
+        Args: {
+          p_decision_data: Json
+          p_run_step_id: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      protocol_pass_product_release_analysis: {
+        Args: {
+          p_decision_data: Json
+          p_run_step_id: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      protocol_pass_product_release_launch: {
+        Args: {
+          p_decision_data: Json
+          p_run_step_id: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      protocol_pass_product_release_propose: {
+        Args: {
+          p_decision_data: Json
+          p_run_step_id: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      protocol_pass_tournament_plan: {
+        Args: {
+          p_decision_data: Json
+          p_run_step_id: string
+          p_submission_id: string
+        }
+        Returns: undefined
+      }
+      protocol_photo_purge_due: { Args: { p_limit?: number }; Returns: Json }
+      protocol_photos_purged: { Args: { p_run_id: string }; Returns: undefined }
       protocol_run_allowed: {
         Args: { p_from: string; p_to: string }
         Returns: boolean
@@ -1354,6 +1685,22 @@ export type Database = {
         Returns: Json
       }
       protocol_seed_venue: { Args: { p_venue: string }; Returns: undefined }
+      protocol_start_hiring: {
+        Args: { p_data: Json; p_run_id: string }
+        Returns: Json
+      }
+      protocol_start_price_promo: {
+        Args: { p_data: Json; p_run_id: string }
+        Returns: Json
+      }
+      protocol_start_product_release: {
+        Args: { p_data: Json; p_run_id: string }
+        Returns: Json
+      }
+      protocol_start_tournament: {
+        Args: { p_data: Json; p_run_id: string }
+        Returns: Json
+      }
       protocol_step_allowed: {
         Args: { p_from: string; p_to: string }
         Returns: boolean
@@ -1367,10 +1714,28 @@ export type Database = {
         Returns: Json
       }
       protocol_step_detail: { Args: { p_run_step_id: string }; Returns: Json }
+      protocol_stop_hiring: { Args: { p_run_id: string }; Returns: undefined }
+      protocol_stop_product_release: {
+        Args: { p_run_id: string }
+        Returns: undefined
+      }
+      protocol_stop_tournament: {
+        Args: { p_run_id: string }
+        Returns: undefined
+      }
+      protocol_submit_price_promo_propose: {
+        Args: { p_submission_id: string }
+        Returns: undefined
+      }
+      protocol_submit_product_release_test: {
+        Args: { p_submission_id: string }
+        Returns: undefined
+      }
       protocol_template_detail: {
         Args: { p_template_id: string }
         Returns: Json
       }
+      protocol_tick_nudge: { Args: never; Returns: undefined }
       protocols_overview: { Args: { p_venue_id?: string }; Returns: Json }
       protocols_waiting_count: { Args: { p_venue_id?: string }; Returns: Json }
       purchases_to_receive: { Args: { p_venue_id?: string }; Returns: Json }
@@ -1399,6 +1764,19 @@ export type Database = {
           p_supplier_id?: string
           p_supplier_name?: string
         }
+        Returns: Json
+      }
+      recipe_changes_page: {
+        Args: {
+          p_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      recipe_view: {
+        Args: { p_menu_item_id?: string; p_venue_id?: string }
         Returns: Json
       }
       record_batch: {
@@ -1481,7 +1859,79 @@ export type Database = {
         Args: { p_reason?: string; p_text: string }
         Returns: string
       }
+      release_cost: { Args: { p_run_id: string }; Returns: Json }
+      release_due_launches: { Args: { p_limit?: number }; Returns: Json }
+      release_due_reviews: { Args: { p_limit?: number }; Returns: Json }
       release_hold: { Args: { p_reservation_id: string }; Returns: Json }
+      release_idea_reviewer_ids: {
+        Args: { p_team: string; p_venue: string }
+        Returns: string[]
+      }
+      release_ideas_to_review: { Args: { p_venue_id?: string }; Returns: Json }
+      release_int: {
+        Args: { p_hint: string; p_max: number; p_min: number; p_value: Json }
+        Returns: number
+      }
+      release_launch_internal: {
+        Args: { p_menu_photo_path: string; p_run_id: string }
+        Returns: undefined
+      }
+      release_launch_record: { Args: { p_run_id: string }; Returns: Json }
+      release_launch_scheduled: {
+        Args: { p_menu_photo_path: string; p_run_id: string }
+        Returns: string
+      }
+      release_line: {
+        Args: { p_cap: number; p_hint: string; p_value: Json }
+        Returns: Json
+      }
+      release_menu_photo_path: {
+        Args: { p_photo_path: string; p_run_id: string }
+        Returns: string
+      }
+      release_notes_for_item: {
+        Args: { p_menu_item_id: string }
+        Returns: Json
+      }
+      release_notes_for_me: { Args: { p_venue_id?: string }; Returns: Json }
+      release_only_keys: {
+        Args: { p_allowed: string[]; p_hint: string; p_record: Json }
+        Returns: undefined
+      }
+      release_propose_check: {
+        Args: { p_category: string; p_record: Json; p_venue: string }
+        Returns: Json
+      }
+      release_readiness: { Args: { p_run_id: string }; Returns: Json }
+      release_readiness_internal: { Args: { p_run_id: string }; Returns: Json }
+      release_review: { Args: { p_run_id: string }; Returns: Json }
+      release_review_input: { Args: { p_run_id: string }; Returns: Json }
+      release_review_nudge: { Args: never; Returns: undefined }
+      release_review_save: {
+        Args: {
+          p_model: string
+          p_numbers: Json
+          p_run_id: string
+          p_status: string
+          p_write_up: Json
+        }
+        Returns: Json
+      }
+      release_run_photos: { Args: { p_run_id: string }; Returns: string[] }
+      release_test_context: { Args: { p_run_id: string }; Returns: Json }
+      release_text: {
+        Args: {
+          p_cap: number
+          p_hint: string
+          p_required: boolean
+          p_value: Json
+        }
+        Returns: string
+      }
+      release_uuid: {
+        Args: { p_hint: string; p_required: boolean; p_value: Json }
+        Returns: string
+      }
       rename_staff: {
         Args: { p_display_name: string; p_staff_id: string }
         Returns: Json
@@ -1544,6 +1994,17 @@ export type Database = {
         Args: { p_text: string }
         Returns: Record<string, unknown>
       }
+      request_recipe_change: {
+        Args: {
+          p_idempotency_key?: string
+          p_note?: string
+          p_ops: Json
+          p_target: string
+          p_target_id: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       resolve_venue: { Args: { p_station_id?: string }; Returns: string }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       retire_device: { Args: { p_device_id: string }; Returns: Json }
@@ -1588,6 +2049,15 @@ export type Database = {
         }
         Returns: Json
       }
+      save_hiring_candidate: {
+        Args: {
+          p_candidate: Json
+          p_id?: string
+          p_idempotency_key?: string
+          p_run_id: string
+        }
+        Returns: Json
+      }
       save_marketing_audience: {
         Args: {
           p_id: string
@@ -1622,6 +2092,18 @@ export type Database = {
         }
         Returns: Json
       }
+      save_teaching: {
+        Args: {
+          p_body: string
+          p_id?: string
+          p_idempotency_key?: string
+          p_photos?: string[]
+          p_team?: string
+          p_title: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
       send_test_push: { Args: never; Returns: Json }
@@ -1653,6 +2135,10 @@ export type Database = {
         Returns: undefined
       }
       set_cafe_setting: {
+        Args: { p_key: string; p_value: Json }
+        Returns: Json
+      }
+      set_cafe_setting_internal: {
         Args: { p_key: string; p_value: Json }
         Returns: Json
       }
@@ -1710,6 +2196,10 @@ export type Database = {
         Returns: Json
       }
       set_promotion_enabled: {
+        Args: { p_enabled: boolean; p_id: string }
+        Returns: Json
+      }
+      set_promotion_enabled_internal: {
         Args: { p_enabled: boolean; p_id: string }
         Returns: Json
       }
@@ -1866,6 +2356,18 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
       }
+      staff_stock_view: {
+        Args: { p_kind?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      staff_team: {
+        Args: { p_role: Database["public"]["Enums"]["staff_role"] }
+        Returns: string
+      }
+      staff_team_head: {
+        Args: { p_team: string }
+        Returns: Database["public"]["Enums"]["staff_role"]
+      }
       staff_venue_ids: { Args: never; Returns: string[] }
       start_break: {
         Args: { p_device_id: string; p_pin: string }
@@ -1888,6 +2390,15 @@ export type Database = {
       }
       stop_protocol: {
         Args: { p_note: string; p_run_id: string }
+        Returns: Json
+      }
+      submit_release_idea: {
+        Args: {
+          p_idempotency_key?: string
+          p_photos?: string[]
+          p_record: Json
+          p_venue_id?: string
+        }
         Returns: Json
       }
       submit_staff_request: {
@@ -1928,12 +2439,30 @@ export type Database = {
         }
         Returns: Json
       }
+      suggestions_page: {
+        Args: {
+          p_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       sweep_degraded_periods: { Args: never; Returns: undefined }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
       table_qr_tokens: { Args: never; Returns: Json }
       table_token_secret: { Args: never; Returns: string }
       table_token_secret_prev: { Args: never; Returns: string }
+      teachings_for_me: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_team?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       telegram_apply_action: {
         Args: {
           p_action: string
@@ -1980,6 +2509,39 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      tournament_context: { Args: { p_run_step_id: string }; Returns: Json }
+      tournament_feasibility: { Args: { p_run_id: string }; Returns: Json }
+      tournament_int: {
+        Args: {
+          p_hint: string
+          p_max: number
+          p_min: number
+          p_required: boolean
+          p_value: Json
+        }
+        Returns: number
+      }
+      tournament_line: {
+        Args: { p_cap: number; p_hint: string; p_value: Json }
+        Returns: Json
+      }
+      tournament_only_keys: {
+        Args: { p_allowed: string[]; p_hint: string; p_record: Json }
+        Returns: undefined
+      }
+      tournament_plan_has_window: {
+        Args: { p_court_id: string; p_from: string; p_plan: Json; p_to: string }
+        Returns: boolean
+      }
+      tournament_text: {
+        Args: {
+          p_cap: number
+          p_hint: string
+          p_required: boolean
+          p_value: Json
+        }
+        Returns: string
       }
       unpaid_played_bookings: {
         Args: { p_day_session_id?: string }
@@ -2061,6 +2623,23 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_menu_item_internal: {
+        Args: {
+          p_category_id: string
+          p_description_ar?: string
+          p_description_en?: string
+          p_highlight?: string
+          p_hook_ar?: string
+          p_hook_en?: string
+          p_id?: string
+          p_is_active?: boolean
+          p_name_ar: string
+          p_name_en: string
+          p_serve_temp?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
       upsert_modifier: {
         Args: {
           p_group_id: string
@@ -2080,6 +2659,18 @@ export type Database = {
           p_min_select?: number
           p_name_ar: string
           p_name_en: string
+        }
+        Returns: string
+      }
+      upsert_modifier_internal: {
+        Args: {
+          p_group_id: string
+          p_id?: string
+          p_is_active?: boolean
+          p_name_ar: string
+          p_name_en: string
+          p_price_delta_iqd?: number
+          p_sort_order?: number
         }
         Returns: string
       }
@@ -2104,7 +2695,44 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_promotion_internal: {
+        Args: {
+          p_auto?: boolean
+          p_code_single_use?: boolean
+          p_enabled?: boolean
+          p_ends_at?: string
+          p_hour_from?: string
+          p_hour_to?: string
+          p_id?: string
+          p_limits?: Json
+          p_name_ar?: string
+          p_name_en?: string
+          p_public_code?: string
+          p_scope?: Json
+          p_starts_at?: string
+          p_type?: string
+          p_value?: number
+          p_weekdays?: number[]
+        }
+        Returns: string
+      }
       upsert_rate_rule: {
+        Args: {
+          p_court_id?: string
+          p_days_of_week: number[]
+          p_end_time: string
+          p_id?: string
+          p_is_active?: boolean
+          p_name: string
+          p_prices: Json
+          p_priority?: number
+          p_start_time: string
+          p_valid_from?: string
+          p_valid_to?: string
+        }
+        Returns: string
+      }
+      upsert_rate_rule_internal: {
         Args: {
           p_court_id?: string
           p_days_of_week: number[]
@@ -2148,6 +2776,18 @@ export type Database = {
         Returns: string
       }
       upsert_variant: {
+        Args: {
+          p_id?: string
+          p_is_default?: boolean
+          p_item_id: string
+          p_name_ar: string
+          p_name_en: string
+          p_price_iqd: number
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      upsert_variant_internal: {
         Args: {
           p_id?: string
           p_is_default?: boolean
@@ -2211,7 +2851,10 @@ export type Database = {
         }
         Returns: Json
       }
+      withdraw_marketing_request: { Args: { p_id: string }; Returns: Json }
       withdraw_protocol: { Args: { p_run_id: string }; Returns: Json }
+      withdraw_recipe_change: { Args: { p_id: string }; Returns: Json }
+      withdraw_release_idea: { Args: { p_id: string }; Returns: Json }
       withdraw_staff_request: { Args: { p_id: string }; Returns: undefined }
       withdraw_step: { Args: { p_submission_id: string }; Returns: Json }
       write_audit: {
@@ -3009,6 +3652,8 @@ export type Database = {
           done_by: string | null
           id: string
           note: string | null
+          photo_path: string | null
+          photo_required: boolean
           position: number
           run_id: string
           text_ar: string
@@ -3019,6 +3664,8 @@ export type Database = {
           done_by?: string | null
           id?: string
           note?: string | null
+          photo_path?: string | null
+          photo_required?: boolean
           position: number
           run_id: string
           text_ar: string
@@ -3029,6 +3676,8 @@ export type Database = {
           done_by?: string | null
           id?: string
           note?: string | null
+          photo_path?: string | null
+          photo_required?: boolean
           position?: number
           run_id?: string
           text_ar?: string
@@ -3099,6 +3748,7 @@ export type Database = {
       checklist_template_items: {
         Row: {
           id: string
+          photo_required: boolean
           position: number
           template_id: string
           text_ar: string
@@ -3106,6 +3756,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          photo_required?: boolean
           position: number
           template_id: string
           text_ar: string
@@ -3113,6 +3764,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          photo_required?: boolean
           position?: number
           template_id?: string
           text_ar?: string
@@ -3662,6 +4314,76 @@ export type Database = {
           },
         ]
       }
+      hiring_candidates: {
+        Row: {
+          brief: string
+          candidate_name: string
+          candidate_phone: string
+          created_at: string
+          created_by: string
+          decided_at: string | null
+          id: string
+          interview_at: string | null
+          pick_reason: string | null
+          picked: boolean
+          purge_after: string | null
+          run_id: string
+          venue_id: string
+        }
+        Insert: {
+          brief?: string
+          candidate_name: string
+          candidate_phone: string
+          created_at?: string
+          created_by: string
+          decided_at?: string | null
+          id?: string
+          interview_at?: string | null
+          pick_reason?: string | null
+          picked?: boolean
+          purge_after?: string | null
+          run_id: string
+          venue_id: string
+        }
+        Update: {
+          brief?: string
+          candidate_name?: string
+          candidate_phone?: string
+          created_at?: string
+          created_by?: string
+          decided_at?: string | null
+          id?: string
+          interview_at?: string | null
+          pick_reason?: string | null
+          picked?: boolean
+          purge_after?: string | null
+          run_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hiring_candidates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hiring_candidates_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hiring_candidates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           id: string
@@ -4057,6 +4779,83 @@ export type Database = {
           },
         ]
       }
+      marketing_requests: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          answered_by: string | null
+          body: string
+          created_at: string
+          id: string
+          menu_item_id: string | null
+          photos: string[]
+          requested_by: string
+          status: string
+          title: string
+          venue_id: string
+          want_by: string | null
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          menu_item_id?: string | null
+          photos?: string[]
+          requested_by: string
+          status?: string
+          title: string
+          venue_id: string
+          want_by?: string | null
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          menu_item_id?: string | null
+          photos?: string[]
+          requested_by?: string
+          status?: string
+          title?: string
+          venue_id?: string
+          want_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_requests_answered_by_fkey"
+            columns: ["answered_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_requests_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_requests_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_sends: {
         Row: {
           at: string
@@ -4305,10 +5104,12 @@ export type Database = {
           hook_en: string
           id: string
           is_active: boolean
+          launched_at: string | null
           name_ar: string
           name_en: string
           photo_blur: string | null
           photo_path: string | null
+          release_run_id: string | null
           serve_temp: string
           sold_out: boolean
           sort_order: number
@@ -4324,10 +5125,12 @@ export type Database = {
           hook_en?: string
           id?: string
           is_active?: boolean
+          launched_at?: string | null
           name_ar: string
           name_en: string
           photo_blur?: string | null
           photo_path?: string | null
+          release_run_id?: string | null
           serve_temp?: string
           sold_out?: boolean
           sort_order?: number
@@ -4343,10 +5146,12 @@ export type Database = {
           hook_en?: string
           id?: string
           is_active?: boolean
+          launched_at?: string | null
           name_ar?: string
           name_en?: string
           photo_blur?: string | null
           photo_path?: string | null
+          release_run_id?: string | null
           serve_temp?: string
           sold_out?: boolean
           sort_order?: number
@@ -4359,6 +5164,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "menu_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_release_run_id_fkey"
+            columns: ["release_run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
             referencedColumns: ["id"]
           },
           {
@@ -4443,6 +5255,7 @@ export type Database = {
           group_id: string
           id: string
           is_active: boolean
+          launched_at: string | null
           name_ar: string
           name_en: string
           price_delta_iqd: number
@@ -4452,6 +5265,7 @@ export type Database = {
           group_id: string
           id?: string
           is_active?: boolean
+          launched_at?: string | null
           name_ar: string
           name_en: string
           price_delta_iqd?: number
@@ -4461,6 +5275,7 @@ export type Database = {
           group_id?: string
           id?: string
           is_active?: boolean
+          launched_at?: string | null
           name_ar?: string
           name_en?: string
           price_delta_iqd?: number
@@ -5515,6 +6330,8 @@ export type Database = {
         Row: {
           bought_at: string
           created_at: string
+          delivered_at: string | null
+          delivered_by: string | null
           delivery_id: string | null
           id: string
           receipt_path: string | null
@@ -5529,6 +6346,8 @@ export type Database = {
         Insert: {
           bought_at: string
           created_at?: string
+          delivered_at?: string | null
+          delivered_by?: string | null
           delivery_id?: string | null
           id?: string
           receipt_path?: string | null
@@ -5543,6 +6362,8 @@ export type Database = {
         Update: {
           bought_at?: string
           created_at?: string
+          delivered_at?: string | null
+          delivered_by?: string | null
           delivery_id?: string | null
           id?: string
           receipt_path?: string | null
@@ -5555,6 +6376,13 @@ export type Database = {
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "purchases_delivered_by_fkey"
+            columns: ["delivered_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchases_delivery_id_fkey"
             columns: ["delivery_id"]
@@ -5661,6 +6489,117 @@ export type Database = {
           },
           {
             foreignKeyName: "rate_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_change_requests: {
+        Row: {
+          after: Json
+          before: Json
+          decided_at: string | null
+          decided_by: string | null
+          decline_reason: string | null
+          id: string
+          note: string | null
+          ops: Json
+          output_ingredient_id: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          target: string
+          variant_id: string | null
+          venue_id: string
+        }
+        Insert: {
+          after: Json
+          before: Json
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          id?: string
+          note?: string | null
+          ops: Json
+          output_ingredient_id?: string | null
+          requested_at?: string
+          requested_by: string
+          status?: string
+          target: string
+          variant_id?: string | null
+          venue_id: string
+        }
+        Update: {
+          after?: Json
+          before?: Json
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          id?: string
+          note?: string | null
+          ops?: Json
+          output_ingredient_id?: string | null
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          target?: string
+          variant_id?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_change_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_change_requests_output_ingredient_id_fkey"
+            columns: ["output_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_change_requests_output_ingredient_id_fkey"
+            columns: ["output_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "recipe_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_change_requests_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "menu_item_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_change_requests_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_cogs"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "recipe_change_requests_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_margin"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "recipe_change_requests_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -5837,6 +6776,197 @@ export type Database = {
           },
         ]
       }
+      release_ideas: {
+        Row: {
+          author_id: string
+          decided_at: string | null
+          decided_by: string | null
+          decline_reason: string | null
+          id: string
+          photos: string[]
+          record: Json
+          run_id: string | null
+          status: string
+          submitted_at: string
+          team: string
+          venue_id: string
+        }
+        Insert: {
+          author_id: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          id?: string
+          photos?: string[]
+          record: Json
+          run_id?: string | null
+          status?: string
+          submitted_at?: string
+          team: string
+          venue_id: string
+        }
+        Update: {
+          author_id?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          id?: string
+          photos?: string[]
+          record?: Json
+          run_id?: string | null
+          status?: string
+          submitted_at?: string
+          team?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "release_ideas_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_ideas_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_ideas_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_ideas_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      release_notes: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          menu_item_id: string
+          run_id: string | null
+          venue_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          menu_item_id: string
+          run_id?: string | null
+          venue_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          menu_item_id?: string
+          run_id?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "release_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_notes_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_notes_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_notes_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      release_reviews: {
+        Row: {
+          created_at: string
+          menu_item_id: string | null
+          model: string | null
+          numbers: Json
+          run_id: string
+          status: string
+          venue_id: string
+          write_up: Json | null
+          written_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          menu_item_id?: string | null
+          model?: string | null
+          numbers: Json
+          run_id: string
+          status: string
+          venue_id: string
+          write_up?: Json | null
+          written_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          menu_item_id?: string | null
+          model?: string | null
+          numbers?: Json
+          run_id?: string
+          status?: string
+          venue_id?: string
+          write_up?: Json | null
+          written_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "release_reviews_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_reviews_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: true
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_reviews_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_series: {
         Row: {
           cancelled_at: string | null
@@ -5931,6 +7061,7 @@ export type Database = {
       }
       reservations: {
         Row: {
+          block_purpose: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: Database["public"]["Enums"]["cancellation_actor"] | null
@@ -5950,6 +7081,7 @@ export type Database = {
           notes: string | null
           period: unknown
           price_iqd: number | null
+          protocol_run_id: string | null
           rate_rule_id: string | null
           series_id: string | null
           source: Database["public"]["Enums"]["reservation_source"]
@@ -5958,6 +7090,7 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          block_purpose?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?:
@@ -5979,6 +7112,7 @@ export type Database = {
           notes?: string | null
           period?: unknown
           price_iqd?: number | null
+          protocol_run_id?: string | null
           rate_rule_id?: string | null
           series_id?: string | null
           source: Database["public"]["Enums"]["reservation_source"]
@@ -5987,6 +7121,7 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          block_purpose?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?:
@@ -6008,6 +7143,7 @@ export type Database = {
           notes?: string | null
           period?: unknown
           price_iqd?: number | null
+          protocol_run_id?: string | null
           rate_rule_id?: string | null
           series_id?: string | null
           source?: Database["public"]["Enums"]["reservation_source"]
@@ -6045,6 +7181,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reservations_protocol_run_id_fkey"
+            columns: ["protocol_run_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_runs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reservations_rate_rule_id_fkey"
             columns: ["rate_rule_id"]
             isOneToOne: false
@@ -6071,6 +7214,9 @@ export type Database = {
         Row: {
           cancelled_at: string | null
           cancelled_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decline_reason: string | null
           id: string
           ingredient_id: string | null
           label: string | null
@@ -6086,6 +7232,9 @@ export type Database = {
         Insert: {
           cancelled_at?: string | null
           cancelled_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
           id?: string
           ingredient_id?: string | null
           label?: string | null
@@ -6101,6 +7250,9 @@ export type Database = {
         Update: {
           cancelled_at?: string | null
           cancelled_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
           id?: string
           ingredient_id?: string | null
           label?: string | null
@@ -6117,6 +7269,13 @@ export type Database = {
           {
             foreignKeyName: "shopping_items_cancelled_by_fkey"
             columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_items_decided_by_fkey"
+            columns: ["decided_by"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
@@ -6355,6 +7514,58 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_suggestions: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          seen_at: string | null
+          seen_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          seen_at?: string | null
+          seen_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          seen_at?: string | null
+          seen_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_suggestions_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_suggestions_seen_by_fkey"
+            columns: ["seen_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_suggestions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -7114,6 +8325,70 @@ export type Database = {
           },
         ]
       }
+      teachings: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          photos: string[]
+          team: string
+          title: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          photos?: string[]
+          team: string
+          title: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          photos?: string[]
+          team?: string
+          title?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teachings_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teachings_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teachings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       telegram_actions: {
         Row: {
           action: string
@@ -7818,6 +9093,7 @@ export type Database = {
           name_en: string | null
           period_end: string | null
           period_start: string | null
+          product_test_qty: number | null
           recorded_waste_qty: number | null
           sold_qty: number | null
           theoretical_qty: number | null
@@ -7908,6 +9184,7 @@ export type Database = {
         | "expired_writeoff"
         | "count_adjustment"
         | "refund_reversal"
+        | "product_test"
       order_source: "guest_web" | "till"
       order_status: "sent" | "preparing" | "ready" | "served" | "voided"
       payment_method: "cash" | "card"
@@ -8097,6 +9374,7 @@ export const Constants = {
         "expired_writeoff",
         "count_adjustment",
         "refund_reversal",
+        "product_test",
       ],
       order_source: ["guest_web", "till"],
       order_status: ["sent", "preparing", "ready", "served", "voided"],

@@ -10,6 +10,11 @@
  * Promotions are never deleted (06.26), so every promotion this suite creates
  * is DISABLED in afterEach and the suite starts by disabling whatever an
  * earlier run left enabled.
+ *
+ * Since price_promo (build-contracts-2026-09-23 §2.13, #57) the owner
+ * configures promotions here: a manager's save, switch-on or code is
+ * PRICE_VIA_PROTOCOL and goes through a price or promotion change, which
+ * price-promo.test.ts covers. A manager still switches a promotion off.
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -62,6 +67,7 @@ interface Applied {
 
 describe.skipIf(!up)('0067 promotions', () => {
   let svc: SupabaseClient;
+  let owner: SupabaseClient;
   let manager: SupabaseClient;
   let cashier: SupabaseClient;
   let prep: SupabaseClient;
@@ -76,8 +82,8 @@ describe.skipIf(!up)('0067 promotions', () => {
 
   type PromoArgs = Record<string, unknown>;
   let promoN = 0;
-  /** Create a promotion as the manager with sensible defaults; throws on error. */
-  async function mk(over: PromoArgs = {}, as: SupabaseClient = manager): Promise<string> {
+  /** Create a promotion as the owner with sensible defaults; throws on error. */
+  async function mk(over: PromoArgs = {}, as: SupabaseClient = owner): Promise<string> {
     const n = promoN++;
     const res = await appRpc(as, 'upsert_promotion', {
       p_name_en: `Promo ${n}`,
@@ -195,6 +201,7 @@ describe.skipIf(!up)('0067 promotions', () => {
 
   beforeAll(async () => {
     svc = serviceClient();
+    owner = await signedInClient(SEED_STAFF.owner);
     manager = await signedInClient(SEED_STAFF.manager);
     cashier = await signedInClient(SEED_STAFF.cashier);
     prep = await signedInClient(SEED_STAFF.prep);
@@ -221,6 +228,7 @@ describe.skipIf(!up)('0067 promotions', () => {
   });
 
   afterAll(async () => {
+    await owner.auth.signOut();
     await manager.auth.signOut();
     await cashier.auth.signOut();
     await prep.auth.signOut();
@@ -239,12 +247,12 @@ describe.skipIf(!up)('0067 promotions', () => {
       expect(row.auto).toBe(true);
       expect(row.enabled).toBe(true);
       expect(row.weekdays).toEqual([]);
-      expect(row.created_by).toBe(SEED_STAFF_IDS.manager);
+      expect(row.created_by).toBe(SEED_STAFF_IDS.owner);
       // Canonical: empty arrays and null limits dropped, ids as lower-case uuid text.
       expect(row.scope).toEqual({ itemIds: [itemA.itemId] });
       expect(row.limits).toEqual({ total: 5 });
 
-      const upd = await appRpc(manager, 'upsert_promotion', {
+      const upd = await appRpc(owner, 'upsert_promotion', {
         p_id: id, p_name_en: 'Renamed', p_name_ar: 'أُعيدت تسميته', p_type: 'amount', p_value: 2500,
       });
       expect(upd.error).toBeNull();
@@ -266,7 +274,7 @@ describe.skipIf(!up)('0067 promotions', () => {
 
     it('validates by name', async () => {
       const err = async (args: PromoArgs) =>
-        outcome(await appRpc(manager, 'upsert_promotion', {
+        outcome(await appRpc(owner, 'upsert_promotion', {
           p_name_en: 'V', p_name_ar: 'ت', p_type: 'percent', p_value: 10, ...args,
         })).errorMessage;
 
@@ -296,13 +304,13 @@ describe.skipIf(!up)('0067 promotions', () => {
       const { data: r1 } = await svc.from('promotions').select('public_code').eq('id', a).single();
       expect((r1 as { public_code: string }).public_code).toBe(code);
 
-      const taken = outcome(await appRpc(manager, 'upsert_promotion', {
+      const taken = outcome(await appRpc(owner, 'upsert_promotion', {
         p_name_en: 'B', p_name_ar: 'ب', p_type: 'percent', p_value: 5, p_public_code: code,
       }));
       expect(taken.errorMessage).toBe('CODE_TAKEN');
 
       // null keeps
-      const keep = await appRpc(manager, 'upsert_promotion', {
+      const keep = await appRpc(owner, 'upsert_promotion', {
         p_id: a, p_name_en: 'A2', p_name_ar: 'أ٢', p_type: 'percent', p_value: 10,
       });
       expect(keep.error).toBeNull();
@@ -310,7 +318,7 @@ describe.skipIf(!up)('0067 promotions', () => {
       expect((r2 as { public_code: string }).public_code).toBe(code);
 
       // '' clears
-      const clear = await appRpc(manager, 'upsert_promotion', {
+      const clear = await appRpc(owner, 'upsert_promotion', {
         p_id: a, p_name_en: 'A3', p_name_ar: 'أ٣', p_type: 'percent', p_value: 10, p_public_code: '',
       });
       expect(clear.error).toBeNull();
@@ -328,7 +336,7 @@ describe.skipIf(!up)('0067 promotions', () => {
   });
 
   describe('app.set_promotion_enabled / app.generate_promo_code', () => {
-    it('toggles enabled with an audit row; manager only', async () => {
+    it('toggles enabled with an audit row; a manager switches one off; the cashier is refused', async () => {
       const id = await mk();
       const off = await appRpc(manager, 'set_promotion_enabled', { p_id: id, p_enabled: false });
       expect(off.error).toBeNull();
@@ -349,9 +357,9 @@ describe.skipIf(!up)('0067 promotions', () => {
       })).errorMessage).toBe('PROMOTION_NOT_FOUND');
     });
 
-    it('generates an 8-character unambiguous code, stored and audited; manager only', async () => {
+    it('generates an 8-character unambiguous code, stored and audited; the cashier is refused', async () => {
       const id = await mk({ p_auto: false });
-      const res = await appRpc(manager, 'generate_promo_code', { p_id: id });
+      const res = await appRpc(owner, 'generate_promo_code', { p_id: id });
       expect(res.error).toBeNull();
       const code = res.data as string;
       expect(code).toHaveLength(8);
@@ -361,7 +369,7 @@ describe.skipIf(!up)('0067 promotions', () => {
       expect((row as { public_code: string }).public_code).toBe(code);
 
       // Regenerating replaces the code.
-      const res2 = await appRpc(manager, 'generate_promo_code', { p_id: id });
+      const res2 = await appRpc(owner, 'generate_promo_code', { p_id: id });
       expect(res2.data).not.toBe(code);
 
       const { data: audit } = await svc
@@ -487,7 +495,7 @@ describe.skipIf(!up)('0067 promotions', () => {
     it('a code promotion is eligible only with its code; an unknown code is named', async () => {
       const tabId = await tabAB('elig-code');
       const id = await mk({ p_auto: false });
-      const code = (await appRpc(manager, 'generate_promo_code', { p_id: id })).data as string;
+      const code = (await appRpc(owner, 'generate_promo_code', { p_id: id })).data as string;
       expect((await eligible(tabId)).map((e) => e.promotionId)).toEqual([]);
       expect((await eligible(tabId, ` ${code.toLowerCase()} `)).map((e) => e.promotionId)).toEqual([id]);
       const bad = await appRpc(cashier, 'eligible_promotions', { p_tab_id: tabId, p_code: 'NOPE9999' });
@@ -509,7 +517,7 @@ describe.skipIf(!up)('0067 promotions', () => {
   // Applying
   // -------------------------------------------------------------------------
   describe('app.apply_best_promotion', () => {
-    it('applies the single best of two, as a promotion adjustment authorised by the configuring manager', async () => {
+    it('applies the single best of two, as a promotion adjustment authorised by the one who configured it', async () => {
       const tenPct = await mk({ p_value: 10 });                       // 1,000
       const fifteenHundred = await mk({ p_type: 'amount', p_value: 1500 }); // 1,500
       const tabId = await tabAB('apply-best');
@@ -531,7 +539,7 @@ describe.skipIf(!up)('0067 promotions', () => {
         reason_code: 'promotion',
         promotion_id: fifteenHundred,
         applied_by: SEED_STAFF_IDS.cashier,
-        authorized_by: SEED_STAFF_IDS.manager,
+        authorized_by: SEED_STAFF_IDS.owner,
       });
       const reds = await redemptions(tabId);
       expect(reds).toHaveLength(1);
@@ -543,7 +551,7 @@ describe.skipIf(!up)('0067 promotions', () => {
         .eq('entity_id', (res.data as Applied).adjustmentId)
         .eq('action', 'promotion.apply')
         .single();
-      expect(audit).toMatchObject({ reason_code: 'promotion', authorizer_id: SEED_STAFF_IDS.manager, device_id: 'TILL-TEST' });
+      expect(audit).toMatchObject({ reason_code: 'promotion', authorizer_id: SEED_STAFF_IDS.owner, device_id: 'TILL-TEST' });
     });
 
     it('reaches the bill: compute_tab_totals, settle_tab and the stamped tab agree', async () => {
@@ -629,7 +637,7 @@ describe.skipIf(!up)('0067 promotions', () => {
 
     it('a single-use code is refused the second time; a known ineligible code is named', async () => {
       const id = await mk({ p_auto: false, p_code_single_use: true });
-      const code = (await appRpc(manager, 'generate_promo_code', { p_id: id })).data as string;
+      const code = (await appRpc(owner, 'generate_promo_code', { p_id: id })).data as string;
       const tab1 = await tabAB('code-1');
       const r = await apply(tab1, code);
       expect(r.error).toBeNull();
@@ -725,7 +733,7 @@ describe.skipIf(!up)('0067 promotions', () => {
   // -------------------------------------------------------------------------
   // Day close + RLS
   // -------------------------------------------------------------------------
-  it('day close counts a promotion as a discount authorised by the configuring manager', async () => {
+  it('day close counts a promotion as a discount authorised by the one who configured it', async () => {
     await mk({ p_type: 'amount', p_value: 1234 });
     const tabId = await tabAB('dayclose');
     const applied = (await apply(tabId)).data as Applied;
@@ -733,8 +741,8 @@ describe.skipIf(!up)('0067 promotions', () => {
       p_tab_id: tabId, p_method: 'card', p_idempotency_key: testIdemKey('payment.record'),
     });
 
-    const { data: staffRow } = await svc.from('staff').select('display_name').eq('id', SEED_STAFF_IDS.manager).single();
-    const managerName = (staffRow as { display_name: string }).display_name;
+    const { data: staffRow } = await svc.from('staff').select('display_name').eq('id', SEED_STAFF_IDS.owner).single();
+    const configuredBy = (staffRow as { display_name: string }).display_name;
 
     const { data: summary, error } = await manager
       .from('v_day_close_summary')
@@ -745,7 +753,7 @@ describe.skipIf(!up)('0067 promotions', () => {
     const s = summary as { discounts_iqd: number; adjustment_count: number; authorizer_names: string[] };
     expect(Number(s.discounts_iqd)).toBeGreaterThanOrEqual(1234);
     expect(s.adjustment_count).toBeGreaterThanOrEqual(1);
-    expect(s.authorizer_names).toContain(managerName);
+    expect(s.authorizer_names).toContain(configuredBy);
 
     const { data: drill } = await manager
       .from('v_day_close_adjustments')
@@ -753,7 +761,7 @@ describe.skipIf(!up)('0067 promotions', () => {
       .eq('adjustment_id', applied.adjustmentId)
       .single();
     expect(drill).toMatchObject({
-      kind: 'discount_amount', amount_iqd: 1234, reason_code: 'promotion', authorized_by_name: managerName,
+      kind: 'discount_amount', amount_iqd: 1234, reason_code: 'promotion', authorized_by_name: configuredBy,
     });
   });
 

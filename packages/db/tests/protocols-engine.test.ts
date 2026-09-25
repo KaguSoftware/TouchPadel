@@ -250,6 +250,9 @@ describe.skipIf(!up)('protocols engine: the RPC surface through PostgREST', () =
     // A guest-safe probe: no first record, so nothing past the guard can write.
     for (const c of [cashier, prep, desk]) {
       for (const kind of ['product_release', 'tournament', 'hiring', 'price_promo']) {
+        // The court desk starts tournaments since tournament_desk_start (#67);
+        // tournament-desk-start.test.ts covers that start.
+        if (c === desk && kind === 'tournament') continue;
         const { error } = await appRpc(c, 'start_protocol', { p_kind: kind, p_title_en: 'x' });
         expect(error?.message, `${kind}`).toBe('FORBIDDEN');
       }

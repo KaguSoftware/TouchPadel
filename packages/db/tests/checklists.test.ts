@@ -295,7 +295,7 @@ describe.skipIf(!docker)('checklists (rolled-back transactions)', () => {
     ]);
     expect(t1.lists[0]!.items.map((i) => i.text_en)).toEqual(OPEN_ITEMS.map(([en]) => en));
     expect(Object.keys(t1.lists[0]!.items[0]!).sort()).toEqual(
-      ['done_at', 'done_by_name', 'id', 'note', 'position', 'text_ar', 'text_en'],
+      ['done_at', 'done_by_name', 'id', 'note', 'photo_path', 'photo_required', 'position', 'text_ar', 'text_en'],
     );
     // One run per list and day, whoever reads first: both baristas see it.
     const t2 = ok<Today>(r, 'today2');

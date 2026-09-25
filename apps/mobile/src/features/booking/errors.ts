@@ -121,6 +121,10 @@ const CODE_TO_KEY = {
   REF_NOT_FOUND: 'op.errors.REF_NOT_FOUND',
   NAME_REQUIRED: 'op.errors.NAME_REQUIRED',
   ITEM_NOT_FOUND: 'errors.notFound',
+  // Role spec (lane J, recipe_change_requests): the owner's approve on the
+  // phone, and set_recipe's cycle check it runs.
+  RECIPE_CHANGED: 'op.errors.RECIPE_CHANGED',
+  RECIPE_CYCLE: 'op.errors.RECIPE_CYCLE',
 } as const satisfies Record<string, MessageKey>;
 
 export type RpcErrorCode = keyof typeof CODE_TO_KEY;

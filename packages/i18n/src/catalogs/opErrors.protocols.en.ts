@@ -61,4 +61,7 @@ export const opErrorsProtocolsEn = {
   CODE_TAKEN: 'That promo code is already used by another promotion.',
   // The staff-admin edge function's body code, for the phone's add-staff form.
   EMAIL_IN_USE: 'An account with this email already exists.',
+  // Role spec (lane J, recipe_change_requests): the owner's approve of a head's
+  // recipe change, when the recipe moved on since it was asked.
+  RECIPE_CHANGED: 'The recipe changed after this request was sent. Ask for a new change.',
 } as const;

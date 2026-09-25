@@ -43,6 +43,10 @@ const FORBIDDEN = [
   /customer_id/i, /customer_name/i, /customer_phone/i,
   /profile_id/i, /auth_user_id/i, /\bphone\b/i, /email/i, /full_name/i,
   /\buser_id\b/i, /session_id/i, /device_id/i,
+  // hiring (build-contracts §2.12): a tripwire only. No scanned function
+  // touches a candidate; one that ever did would be sending a job applicant's
+  // name or phone to the LLM.
+  /candidate_name/i, /candidate_phone/i,
 ];
 
 /**
@@ -56,6 +60,17 @@ const FORBIDDEN = [
  * which is the fastest way to teach people to delete a gate. What leaves is what
  * a client can RETRIEVE, so that is what is judged.
  */
+/**
+ * LLM INPUT: functions whose output an edge function hands to a model, scanned
+ * by name WHATEVER their grant (build-contracts-2026-09-23 §1.2, §2.10). The
+ * client-callable rule above is right for the reports; it is wrong for these,
+ * which are service-role only precisely because a function, not a client,
+ * reads them and sends them on. release_review_input is the day-30 review's
+ * only input (release-review); a name here that no longer exists fails the
+ * gate, so a rename cannot drop the scan quietly.
+ */
+const LLM_INPUT = ['release_review_input'];
+
 const fns = JSON.parse(
   psql(`select coalesce(json_agg(json_build_object(
            'name', p.proname,
@@ -64,12 +79,14 @@ const fns = JSON.parse(
            'ret',  pg_get_function_result(p.oid))), '[]')
           from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'app'
-           and (p.proname like 'analytics!_%' escape '!'
-             or p.proname like 'panel!_%' escape '!'
-             or p.proname like 'report!_%' escape '!')
-           and (has_function_privilege('anon', p.oid, 'EXECUTE')
-             or has_function_privilege('authenticated', p.oid, 'EXECUTE'));`).trim(),
+           and (((p.proname like 'analytics!_%' escape '!'
+                  or p.proname like 'panel!_%' escape '!'
+                  or p.proname like 'report!_%' escape '!')
+                 and (has_function_privilege('anon', p.oid, 'EXECUTE')
+                   or has_function_privilege('authenticated', p.oid, 'EXECUTE')))
+             or p.proname = any(array[${LLM_INPUT.map((n) => `'${n}'`).join(', ')}]::text[]));`).trim(),
 );
+const missingLlmInput = LLM_INPUT.filter((name) => !fns.some((f) => f.name === name));
 
 const findings = [];
 
@@ -86,11 +103,18 @@ for (const f of fns) {
 }
 
 console.log('Analytics payload gate — SEC-29');
-console.log(`  client-callable analytics/report/panel fns    ${fns.length}`);
-console.log('  destination                                  Groq (third-party LLM), via analytics-insights');
+console.log(`  client-callable analytics/report/panel fns    ${fns.length - (LLM_INPUT.length - missingLlmInput.length)}`);
+console.log(`  LLM input fns (by name, any grant)           ${LLM_INPUT.length - missingLlmInput.length}/${LLM_INPUT.length}`);
+console.log('  destination                                  third-party LLMs, via analytics-insights and release-review');
 
 if (fns.length === 0) {
   console.error('\nFAIL  scanned nothing — the naming convention or the schema moved.');
+  process.exit(1);
+}
+
+if (missingLlmInput.length > 0) {
+  console.error(`\nFAIL  LLM input function(s) not found: ${missingLlmInput.map((n) => `app.${n}`).join(', ')}.`);
+  console.error('A renamed model input must be renamed in LLM_INPUT too, or it leaves unscanned.');
   process.exit(1);
 }
 

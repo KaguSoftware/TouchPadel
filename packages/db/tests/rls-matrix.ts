@@ -1918,7 +1918,7 @@ export const matrix: MatrixRule[] = [
       manager: 'execute',
       owner: 'execute',
     }),
-    note: 'manager|owner configure promotions; empty args fail NAME_REQUIRED past the guard — no side effect',
+    note: 'the guard admits manager|owner; since price_promo (#57) a manager is refused PRICE_VIA_PROTOCOL past it on every save (a promotion is proposed through a price or promotion change), the owner fails NAME_REQUIRED on empty args — no side effect',
     drop: 5,
   },
   {
@@ -1931,7 +1931,7 @@ export const matrix: MatrixRule[] = [
       manager: 'execute',
       owner: 'execute',
     }),
-    note: 'nil id fails PROMOTION_NOT_FOUND past the guard',
+    note: 'nil id fails PROMOTION_NOT_FOUND past the guard; since price_promo (#57) a manager\'s switch-on of a promotion that is off is PRICE_VIA_PROTOCOL, a switch-off passes',
     drop: 5,
   },
   {
@@ -1944,7 +1944,7 @@ export const matrix: MatrixRule[] = [
       manager: 'execute',
       owner: 'execute',
     }),
-    note: 'nil id fails PROMOTION_NOT_FOUND past the guard',
+    note: 'the owner fails PROMOTION_NOT_FOUND on a nil id past the guard; since price_promo (#57) a manager is refused PRICE_VIA_PROTOCOL past it (a code travels in the change\'s record)',
     drop: 5,
   },
   {
@@ -2337,6 +2337,7 @@ export const matrix: MatrixRule[] = [
       p_name: 'matrix probe', p_days_of_week: [1], p_start_time: '10:00', p_end_time: '11:00',
       p_prices: {}, p_court_id: NIL_UUID,
     },
+    note: 'the owner fails COURT_NOT_FOUND past the guard; since price_promo (#57) a manager is refused PRICE_VIA_PROTOCOL past it on every save (a court rate changes through a rate change)',
     expect: MANAGER_UP, drop: 7,
   },
   { kind: 'rpc', schema: 'app', name: 'upsert_variant', args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1000 }, expect: MANAGER_UP, drop: 7 },
@@ -3054,8 +3055,8 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'mark_checklist_item',
-    args: { p_item_id: NIL_UUID, p_done: true }, expect: STAFF_ANY,
-    note: 'any active staff member; then the list\'s role or MGMT. An unknown line is CHECKLIST_NOT_FOUND',
+    args: { p_item_id: NIL_UUID, p_done: true, p_photo_path: null }, expect: STAFF_ANY,
+    note: 'any active staff member; then the list\'s role or MGMT. An unknown line is CHECKLIST_NOT_FOUND. Since checklist_photos the four-argument signature (p_photo_path); a three-argument call still resolves (tests/checklist-photos.test.ts)',
     drop: 17,
   },
   {
@@ -3116,7 +3117,7 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'add_shopping_item',
     args: { p_venue_id: VENUE_A, p_ingredient_id: null, p_label: null, p_qty: 1, p_unit: 'pc' },
     expect: MANAGER_UP,
-    note: 'the head barista, the head chef and MGMT; no ingredient and no label stops at SHOPPING_LABEL_REQUIRED',
+    note: 'the head barista, the head chef and MGMT; since shopping_head_approval (#66) the chef too, whose line waits as pending for the head chef\'s OK (tests/shopping-head-approval.test.ts); no ingredient and no label stops at SHOPPING_LABEL_REQUIRED',
     drop: 17,
   },
   {
@@ -3221,6 +3222,378 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'my_marketing_notes',
     args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
     note: 'marketing at the venue only: its own notes',
+    drop: 17,
+  },
+
+  // ── tournaments and hiring, lane F (event_court_blocks, hiring, §2.11,
+  // §2.12). The driver and marketing are not among the eight principals:
+  // their refusals are in tests/{event-court-blocks,hiring}.test.ts, and so
+  // are hiring_candidates' reads (MGMT rows, everyone else silence), proven
+  // against a probe run. ─────────────────────────────────────────────────────
+  {
+    kind: 'rpc', schema: 'app', name: 'block_courts_for_event',
+    args: { p_run_id: NIL_UUID, p_blocks: [] },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: 'the court desk and MGMT at the run\'s venue, while the courts step is open; an unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'tournament_context',
+    args: { p_run_step_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the actor of the courts or marketing step, or MGMT (NOT_STEP_ACTOR). An unknown step is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'tournament_feasibility',
+    args: { p_run_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue: bookings and guests in the plan\'s windows',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'hiring_candidates',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: save_hiring_candidate and delete_hiring_candidate only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'hiring_candidates',
+    args: { p_run_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue: candidate names and phones; an unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'save_hiring_candidate',
+    args: { p_run_id: NIL_UUID, p_candidate: {} }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue, while the interviews step is open; an unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'delete_hiring_candidate',
+    args: { p_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue, while the interviews step is open; an unknown candidate is CANDIDATE_NOT_FOUND',
+    drop: 17,
+  },
+
+  // ── product release, lane E (product_release, release_post_launch, §2.9,
+  // §2.10). The heads, the barista, the chef, the driver and marketing are not
+  // among the eight principals: their cases, the service-role functions'
+  // refusals and the tables' MGMT-only reads (no probe row here) are in
+  // tests/{product-release,release-post-launch,release-review,protocol-action}.test.ts.
+  // upsert_menu_item and upsert_variant keep their rows above: the release
+  // rules raise past the guard. ────────────────────────────────────────────
+  {
+    kind: 'write',
+    name: 'release_ideas',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: submit_release_idea, withdraw_release_idea, decline_release_idea and the start hook only',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'release_notes',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: add_release_note only',
+    drop: 17,
+  },
+  {
+    kind: 'write',
+    name: 'release_reviews',
+    op: 'insert',
+    payload: { run_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: release_review_save, service role only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'submit_release_idea',
+    args: { p_record: {}, p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: 'the barista and the chef (chef assistant) at the venue only (#65); every principal here is refused',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'withdraw_release_idea',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the author only. An unknown idea is REF_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'decline_release_idea',
+    args: { p_id: NIL_UUID, p_reason: 'matrix' }, expect: STAFF_ANY,
+    note: 'any active staff member; then the head of the idea\'s team or MGMT. An unknown idea is REF_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'release_ideas_to_review',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'the head barista, the head chef and MGMT at the venue (the heads: tests/product-release.test.ts)',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_release_ideas',
+    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: 'the barista and the chef at the venue only: their own ideas',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'release_readiness',
+    args: { p_run_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue; an unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'release_cost',
+    args: { p_run_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue: cost to make each size; an unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'release_test_context',
+    args: { p_run_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the test step\'s assignee or MGMT, no cost. An unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'release_notes_for_me',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue: new items in their 30-day note window',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'release_notes_for_item',
+    args: { p_menu_item_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member at the item\'s venue; an item no release launched is ITEM_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'add_release_note',
+    args: { p_menu_item_id: NIL_UUID, p_body: 'matrix' }, expect: STAFF_ANY,
+    note: 'any active staff member at the item\'s venue, in its 30-day window; an unknown item is ITEM_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'release_review',
+    args: { p_run_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue only (#54): the starter and every other role are FORBIDDEN; an unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+
+  // ── price and promotion changes, lane F (price_promo, §2.13). Marketing and
+  // the driver are not among the eight principals: marketing's targets (every
+  // kind but shop_launch) and both refusals are in tests/price-promo.test.ts,
+  // as are the manager locks. upsert_variant, upsert_modifier,
+  // upsert_promotion, set_promotion_enabled, generate_promo_code,
+  // upsert_rate_rule and set_cafe_setting keep their rows above: each lock
+  // raises past the guard. ─────────────────────────────────────────────────
+  {
+    kind: 'rpc', schema: 'app', name: 'price_promo_targets',
+    args: { p_change: 'price', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'manager, marketing and owner at the venue (shop_launch: MGMT only): list prices, rules and discounts, no cost and no sales',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'price_promo_numbers',
+    args: { p_run_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the run\'s venue: cost, margin and 30-day sales of a change\'s targets; an unknown run is PROTOCOL_NOT_FOUND',
+    drop: 17,
+  },
+
+  // ── role extras, lane J (build-contracts §2.24). staff_push_keys and
+  // staff_media_folders grant no new RPC, so they have no rows here. Every
+  // new table refuses a client write; their reads (MGMT rows, everyone else
+  // silence) are proven against rolled-back probe rows in each lane file's
+  // read_* cases: this matrix has no probe row in them. The heads, the
+  // barista, the chef, the driver and marketing are not among the eight
+  // principals; their cases live in those files too. ──────────────────────
+  // teachings (§2.24.3)
+  {
+    kind: 'write',
+    name: 'teachings',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: save_teaching and archive_teaching only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'save_teaching',
+    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'a new teaching: the head barista and the head chef for their own team (tests/teachings.test.ts), MGMT for either; MGMT with no team stops at INVALID_ARGUMENT (hint team), so nothing is written',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'archive_teaching',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the author or MGMT at its venue. An unknown teaching is REF_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'teachings_for_me',
+    args: { p_venue_id: VENUE_A, p_team: 'matrix-never' }, expect: MANAGER_UP,
+    note: 'the bar and kitchen teams (their own team) and MGMT at the venue; an unknown team fails INVALID_ARGUMENT past the guard',
+    drop: 17,
+  },
+  // suggestions (§2.24.4)
+  {
+    kind: 'write',
+    name: 'staff_suggestions',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: add_suggestion and mark_suggestion_seen only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'add_suggestion',
+    args: { p_body: '', p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue; an empty body stops at TEXT_REQUIRED, so nothing is written',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_suggestions',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue: their own suggestions',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'suggestions_page',
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    note: 'MGMT at the venue: every suggestion with its author; an unknown filter fails INVALID_ARGUMENT past the guard',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'mark_suggestion_seen',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then MGMT at the suggestion\'s venue. An unknown suggestion is REF_NOT_FOUND',
+    drop: 17,
+  },
+  // staff_stock_view (§2.24.5)
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_stock_view',
+    args: { p_venue_id: VENUE_A, p_kind: 'matrix-never' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: 'the head barista and the head chef (not in this matrix), the court desk and MGMT at the venue: quantities only, no cost; an unknown kind fails INVALID_ARGUMENT past the guard',
+    drop: 17,
+  },
+  // recipe_view (§2.24.6)
+  {
+    kind: 'rpc', schema: 'app', name: 'recipe_view',
+    args: { p_venue_id: VENUE_A, p_menu_item_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'the bar and kitchen family (not in this matrix) and MGMT: ingredient names, no quantity; an unknown item is REF_NOT_FOUND',
+    drop: 17,
+  },
+  // recipe_change_requests (§2.24.7)
+  {
+    kind: 'write',
+    name: 'recipe_change_requests',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: request_recipe_change, withdraw_recipe_change and decide_recipe_change only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'request_recipe_change',
+    args: { p_target: 'variant', p_target_id: NIL_UUID, p_ops: [], p_venue_id: VENUE_A },
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: 'the head barista and the head chef at the venue only (#71); every principal here is refused',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'withdraw_recipe_change',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the requester only. An unknown request is REF_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'decide_recipe_change',
+    args: { p_id: NIL_UUID, p_approve: false }, expect: STAFF_ANY,
+    note: 'any active staff member; then the owner at the request\'s venue, never on their own request. An unknown request is REF_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'recipe_changes_page',
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    note: 'MGMT at the venue (the manager reads, the owner decides); an unknown filter fails INVALID_ARGUMENT past the guard',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_recipe_changes',
+    args: { p_venue_id: VENUE_A }, expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: 'the head barista and the head chef at the venue only: their own requests, no current quantity',
+    drop: 17,
+  },
+  // shopping_head_approval (§2.24.9). add_shopping_item keeps its row above:
+  // the chef it admits is not among the eight principals.
+  {
+    kind: 'rpc', schema: 'app', name: 'decide_shopping_item',
+    args: { p_id: NIL_UUID, p_approve: false }, expect: STAFF_ANY,
+    note: 'any active staff member; then the head chef or MGMT at the line\'s venue. An unknown line is SHOPPING_ITEM_NOT_OPEN',
+    drop: 17,
+  },
+  // purchase_delivery_confirm (§2.24.10)
+  {
+    kind: 'rpc', schema: 'app', name: 'confirm_purchase_delivery',
+    args: { p_purchase_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the purchase\'s buyer or MGMT at its venue. An unknown purchase is PURCHASE_NOT_FOUND',
+    drop: 17,
+  },
+  // marketing_requests (§2.24.11). Marketing is not among the eight
+  // principals: its answer, its page and its results are in
+  // tests/marketing-requests.test.ts.
+  {
+    kind: 'write',
+    name: 'marketing_requests',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: add_marketing_request, withdraw_marketing_request and answer_marketing_request only',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'add_marketing_request',
+    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue except marketing; an empty title stops at TEXT_REQUIRED, so nothing is written',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'withdraw_marketing_request',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the requester only. An unknown request is REF_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'answer_marketing_request',
+    args: { p_id: NIL_UUID, p_outcome: 'done', p_answer: 'matrix' }, expect: STAFF_ANY,
+    note: 'any active staff member; then marketing at the request\'s venue. An unknown request is REF_NOT_FOUND',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_marketing_requests',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue except marketing: their own requests',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'marketing_requests_page',
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    note: 'marketing and MGMT at the venue; an unknown filter fails INVALID_ARGUMENT past the guard',
+    drop: 17,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'marketing_campaign_results',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'marketing and MGMT at the venue: the venue\'s campaigns with send and redemption counts, no money',
     drop: 17,
   },
 ];
