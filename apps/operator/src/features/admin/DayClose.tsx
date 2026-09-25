@@ -29,6 +29,10 @@
  * opens that booking, and bookings that were played but never paid are listed
  * above the record as a WARNING. They never hold the close: nothing about them
  * reaches deriveDayCloseState or closeBlock.
+ *
+ * The daily checklists (0165) follow the same rule: a list with a line nobody
+ * ticked on this business day is listed under "Checklists not finished"
+ * (app.checklist_day_state), and the close stays open.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -59,6 +63,7 @@ import {
 import { MoneyInput } from '../../components/inputs';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { downloadCsv, toCsv } from '../analytics/csv';
+import type { DayStateList } from '../checklists/checklistLogic';
 import { auditDrillHref, tillTabHref, type ExceptionKey } from '../ops/opsLogic';
 import { CardTitle, FigureRow, MARK_FG, RowList, Step } from '../ops/OpsVisuals';
 import {
@@ -69,6 +74,7 @@ import {
   knownReason,
   queueErrorCode,
   queueWriteKey,
+  unfinishedChecklists,
   unpaidPlayedRows,
   varianceMagnitude,
   varianceSign,
@@ -165,6 +171,16 @@ export function DayClose() {
     enabled: Boolean(day),
     refetchInterval: 60_000,
     queryFn: async () => unpaidPlayedRows(await appRpc<unknown>('unpaid_played_bookings', { p_day_session_id: day?.id ?? null })),
+  });
+
+  // Daily checklists still open on this business day (0165): a warning list.
+  // The cache holds the RPC's payload as returned, so the checklists card on
+  // /protocols can share the key.
+  const checklistsQ = useQuery({
+    queryKey: QK.checklistDayState.date(day?.business_date ?? ''),
+    enabled: Boolean(day),
+    refetchInterval: 60_000,
+    queryFn: () => appRpc<unknown>('checklist_day_state', { p_business_date: day?.business_date ?? null }),
   });
 
   // Day summary (v_day_close_summary, 0020): cash / card payments so far while
@@ -280,6 +296,7 @@ export function DayClose() {
     void queryClient.invalidateQueries({ queryKey: ['dayCloseSummary'] });
     void queryClient.invalidateQueries({ queryKey: ['dayCloseAdjustments'] });
     void queryClient.invalidateQueries({ queryKey: ['unpaidPlayedBookings'] });
+    void queryClient.invalidateQueries({ queryKey: QK.checklistDayState.all });
     void queryClient.invalidateQueries({ queryKey: ['dayLastClose'] });
     void queryClient.invalidateQueries({ queryKey: ['tabs'] });
   }
@@ -636,6 +653,9 @@ export function DayClose() {
               onOpenBooking={(id) => void navigate({ to: '/desk/bookings/$id', params: { id } })}
             />
           )}
+          {!closeResult && (
+            <ChecklistsOpen lists={unfinishedChecklists(checklistsQ.data)} error={checklistsQ.error} onRetry={() => void checklistsQ.refetch()} />
+          )}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
           <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>}>
             <ErrorText error={adjustmentsQ.error} />
@@ -801,6 +821,72 @@ function UnpaidPlayed({
                   <Button size="sm" kind="soft" icon="calendar" iconEnd="arrowUpRight" onClick={() => onOpenBooking(r.reservation_id)}>
                     {tr('ws.manager.dayClose.openBooking')}
                   </Button>
+                </li>
+              );
+            })}
+          </ul>
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/** How many of a list's open lines are named before "+N more": the list is a reminder, not the checklist. */
+const OPEN_LINES_SHOWN = 3;
+
+/**
+ * The daily lists that still have a line nobody ticked. A warning in the warn
+ * tone, never a block (plan §7.3): the staff tick them on their phones, and a
+ * forgotten tick must not hold the venue's day. Nothing to list, nothing
+ * rendered.
+ */
+function ChecklistsOpen({ lists, error, onRetry }: { lists: readonly DayStateList[]; error: unknown; onRetry: () => void }) {
+  const { tr, locale } = useLocale();
+  if (lists.length === 0 && error == null) return null;
+  return (
+    <Panel
+      title={<CardTitle icon="checkCircle">{tr('ws.supplies.dayClose.title')}</CardTitle>}
+      actions={lists.length > 0 ? <StatusBadge tone="warn" label={tr('ws.supplies.dayClose.badge', { count: formatNumber(lists.length, locale) })} /> : undefined}
+      data-testid="day-close-checklists"
+    >
+      {lists.length === 0 ? (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+          <Button size="sm" icon="refresh" onClick={onRetry}>
+            {tr('ws.kit.async.retry')}
+          </Button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.supplies.dayClose.lead')}</p>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            {lists.map((l) => {
+              const shown = l.open_items.slice(0, OPEN_LINES_SHOWN);
+              const more = l.open_items.length - shown.length;
+              return (
+                <li
+                  key={`${l.role}:${l.slot}`}
+                  style={{
+                    display: 'grid',
+                    gap: 'var(--tp-sp-0)',
+                    paddingBlock: 'var(--tp-sp-1)',
+                    paddingInline: 'var(--tp-sp-2)',
+                    borderRadius: 'var(--tp-radius-ctl)',
+                    background: 'var(--tp-surface-2)',
+                    fontSize: 'var(--tp-fs-sm)',
+                  }}
+                >
+                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                    <strong>{tr('ws.supplies.dayClose.list', { role: tr(`op.roles.${l.role}`), slot: tr(`work.checklist.slot.${l.slot}`) })}</strong>
+                    <span style={{ color: MARK_FG.warn, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {tr('ws.supplies.dayClose.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })}
+                    </span>
+                  </span>
+                  <span style={{ color: 'var(--tp-muted-fg)', overflowWrap: 'anywhere' }}>
+                    <bdi>{shown.map((i) => (locale === 'ar' ? i.text_ar : i.text_en)).join(locale === 'ar' ? '، ' : ', ')}</bdi>
+                    {more > 0 ? ` ${tr('ws.supplies.dayClose.more', { count: formatNumber(more, locale) })}` : ''}
+                  </span>
                 </li>
               );
             })}

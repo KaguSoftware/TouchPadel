@@ -21,6 +21,13 @@
  *    code-only without a code is called out: it would never apply.
  *  - Long pickers (menu items) start from what is chosen plus a search, rather
  *    than ~190 chips in a clipped scroll box.
+ *
+ * A manager reads a promotion here and proposes (#57, build-contracts-2026-09-23
+ * §5.5): the form is read-only, and Save gives way to "Change this promotion"
+ * (and "Switch on" for one that is off and not ended), or "Propose a
+ * promotion" on a new one, each a price or promo change on /protocols.
+ * Generate code is the owner's: a manager's code is drawn in the change's
+ * own form.
  */
 import { useEffect, useState, type FocusEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -50,6 +57,7 @@ import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { useAdminMenu } from '../menu/useAdminMenu';
+import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './PriceChangeStart';
 import {
   EMPTY_DRAFT,
   describePromotion,
@@ -121,6 +129,9 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
   const errors = validateDraft(draft, saved.startsOn, saved.endsOn);
   const blocker = saveBlocker(errors);
   const readOnly = !can.editPromotions;
+  const start = usePriceChangeStart();
+  // A manager: the promotion changes through a price or promo change instead.
+  const proposes = readOnly && start !== null;
 
   useEffect(() => {
     if (row) {
@@ -211,24 +222,39 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
             {dirty && <StatusBadge tone="warn" label={tr('ws.manager.promotions.editor.dirty')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />}
             {row && lc && !dirty && <StatusBadge tone={LIFECYCLE_TONE[lc]} label={statusText(row, tr, locale)} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />}
             <Button onClick={() => void navigate({ to: '/admin/promotions' })}>{tr('ws.kit.actions.back')}</Button>
-            <Button kind="ghost" disabled={!dirty || save.isPending} onClick={() => setDraft(saved)}>
-              {tr('ws.kit.actions.discard')}
-            </Button>
-            <Button
-              kind="primary"
-              icon="check"
-              busy={save.isPending}
-              disabled={saveDisabled}
-              // One reason, and only the one a manager can act on here: the
-              // permission notice below covers read-only, and "nothing changed"
-              // needs no sentence. The empty name is not one either — it is the
-              // state every new promotion opens in, so it would greet the
-              // manager as a complaint before they have typed anything.
-              disabledReason={!readOnly && blocker && blocker !== 'name' ? tr(`ws.manager.promotions.editor.saveNeeds.${blocker}`) : undefined}
-              onClick={() => save.mutate()}
-            >
-              {tr('ws.kit.actions.save')}
-            </Button>
+            {proposes ? (
+              <>
+                {lc === 'disabled' && row && (
+                  <PriceChangeButton target={{ change: 'promotion_enable', promotion: row.id }} label={tr('ws.pricing.promotions.switchOn')} />
+                )}
+                <PriceChangeButton
+                  kind="primary"
+                  target={row ? { change: 'promotion_edit', promotion: row.id } : { change: 'promotion' }}
+                  label={tr(row ? 'ws.pricing.promotions.change' : 'ws.pricing.promotions.propose')}
+                />
+              </>
+            ) : (
+              <>
+                <Button kind="ghost" disabled={!dirty || save.isPending} onClick={() => setDraft(saved)}>
+                  {tr('ws.kit.actions.discard')}
+                </Button>
+                <Button
+                  kind="primary"
+                  icon="check"
+                  busy={save.isPending}
+                  disabled={saveDisabled}
+                  // One reason, and only the one a manager can act on here: the
+                  // permission notice below covers read-only, and "nothing changed"
+                  // needs no sentence. The empty name is not one either — it is the
+                  // state every new promotion opens in, so it would greet the
+                  // manager as a complaint before they have typed anything.
+                  disabledReason={!readOnly && blocker && blocker !== 'name' ? tr(`ws.manager.promotions.editor.saveNeeds.${blocker}`) : undefined}
+                  onClick={() => save.mutate()}
+                >
+                  {tr('ws.kit.actions.save')}
+                </Button>
+              </>
+            )}
           </div>
         }
       >
@@ -250,7 +276,11 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
           <Icon name="tag" size={16} style={{ color: 'var(--tp-muted-fg)', flex: '0 0 auto', marginBlockStart: '0.15rem' }} />
           <bdi>{describePromotion(draft, tr, locale)}</bdi>
         </p>
-        {readOnly && <PermissionRefusedNotice action={tr('ws.kit.actions.save')} requiredRole={requiredRoleFor('editPromotions')} />}
+        {proposes ? (
+          <PriceLockNote message={tr(row ? 'ws.pricing.promotions.editorNote' : 'ws.pricing.promotions.newNote')} />
+        ) : (
+          readOnly && <PermissionRefusedNotice action={tr('ws.kit.actions.save')} requiredRole={requiredRoleFor('editPromotions')} />
+        )}
       </PageHeader>
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', alignItems: 'start' }}>
@@ -433,16 +463,19 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
                         {tr('ws.manager.promotions.editor.noCode')}
                       </span>
                     )}
-                    <Button
-                      size="sm"
-                      icon="refresh"
-                      busy={generate.isPending}
-                      disabled={readOnly || id === null || dirty}
-                      disabledReason={!readOnly && (id === null || dirty) ? tr('ws.manager.promotions.editor.generateHint') : undefined}
-                      onClick={() => generate.mutate()}
-                    >
-                      {tr('ws.manager.promotions.editor.generate')}
-                    </Button>
+                    {/* The owner's alone (generate_promo_code refuses a manager, #57). */}
+                    {!readOnly && (
+                      <Button
+                        size="sm"
+                        icon="refresh"
+                        busy={generate.isPending}
+                        disabled={id === null || dirty}
+                        disabledReason={id === null || dirty ? tr('ws.manager.promotions.editor.generateHint') : undefined}
+                        onClick={() => generate.mutate()}
+                      >
+                        {tr('ws.manager.promotions.editor.generate')}
+                      </Button>
+                    )}
                   </div>
                   {codeOnly && !draft.publicCode && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-warn-fg)', fontWeight: 600 }}>

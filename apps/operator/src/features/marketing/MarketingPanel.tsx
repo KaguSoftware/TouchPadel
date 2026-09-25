@@ -34,15 +34,34 @@
  *  - Audiences could be listed but not made (the RPC existed, the screen did
  *    not), so every campaign went to "Everyone". They can be created and
  *    edited here now.
+ *
+ * FROM MARKETING (build-contracts-2026-09-23 §2.17, §5.5). The marketing role
+ * suggests drafts from the phone (app.suggest_campaign); they arrive here as
+ * ordinary drafts, marked with who suggested them, their note and their
+ * photos, with a "From marketing" filter. app.marketing_suggestions says which
+ * campaigns they are, joined by id (marketing_overview is slice 2's to
+ * re-issue). The owner completes the audience and promotion and makes them
+ * live, as with any draft: marketing never does.
+ *
+ * REQUESTS TO MARKETING (build-contracts-2026-09-23 §2.24.11, §5.5; plan #73).
+ * Staff ask marketing for something (a post about a new item, photos of the
+ * courts) from their phones, and marketing answers there, done or declined.
+ * The owner reads them here, from app.marketing_requests_page: Waiting,
+ * Answered or All, with who asked, the item it is about, the photos and the
+ * answer. Read-only: answering is marketing's, on the phone.
+ *
+ * Both payload readers (readSuggestions, readRequests) and isPastWanted are in
+ * marketingStaffLogic.ts, with a node test.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
-import { VENUE_TZ, formatDate, formatIQD, formatNumber } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatDateTime, formatIQD, formatNumber, isolate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { supabase } from '../../lib/supabase';
 import { fetchPromotions, PROMOTIONS_KEY } from '../admin/promotions/promotionsApi';
+import { todayIso } from '../admin/menu/availability';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
@@ -62,6 +81,9 @@ import {
   type RowAction,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { CardTitle } from '../ops/OpsVisuals';
+import { PhotoViewer } from '../checklists/StaffPhoto';
+import { isPastWanted, readRequests, readSuggestions, type RequestFilter, type RequestStatus } from './marketingStaffLogic';
 import {
   MARKETING_QUERY_KEY,
   campaignTone,
@@ -101,6 +123,26 @@ const CONFIRMED_MOVES: Partial<Record<CampaignStatus, { title: string; body: str
 
 const FILTERS: readonly CampaignFilter[] = ['all', 'live', 'scheduled', 'draft', 'finished'];
 
+/** The list's filters: the status ones, and the drafts marketing suggested. */
+type PanelFilter = CampaignFilter | 'fromMarketing';
+
+const SUGGESTIONS_KEY = ['marketing', 'suggestions'] as const;
+
+// ---------------------------------------------------------------------------
+// Requests to marketing (app.marketing_requests_page)
+// ---------------------------------------------------------------------------
+
+const REQUEST_FILTERS: readonly RequestFilter[] = ['open', 'answered', 'all'];
+/** The page the panel reads; the rest is counted, not listed. */
+const REQUESTS_SHOWN = 50;
+
+const REQUEST_TONE: Record<RequestStatus, 'info' | 'success' | 'neutral'> = {
+  open: 'info',
+  done: 'success',
+  declined: 'neutral',
+  withdrawn: 'neutral',
+};
+
 /** A 'YYYY-MM-DD' printed as a date, without a timezone shifting it a day. */
 function dayLabel(date: string, locale: 'en' | 'ar'): string {
   return formatDate(new Date(`${date}T12:00:00Z`), locale, 'UTC');
@@ -115,13 +157,22 @@ export function MarketingPanelScreen() {
   const [editing, setEditing] = useState<CampaignRow | 'new' | null>(null);
   const [editingAudience, setEditingAudience] = useState<AudienceRow | 'new' | null>(null);
   const [confirming, setConfirming] = useState<{ campaign: CampaignRow; status: CampaignStatus } | null>(null);
-  const [filter, setFilter] = useState<CampaignFilter>('all');
+  const [filter, setFilter] = useState<PanelFilter>('all');
+  const [photos, setPhotos] = useState<{ title: string; paths: readonly string[] } | null>(null);
 
   const q = useQuery({
     queryKey: MARKETING_QUERY_KEY,
     queryFn: () => appRpc<MarketingOverview>('marketing_overview'),
     refetchInterval: 60_000,
   });
+  // Which campaigns marketing suggested. A failed read only loses the marks:
+  // the campaigns themselves come from the overview.
+  const suggestionsQ = useQuery({
+    queryKey: SUGGESTIONS_KEY,
+    queryFn: () => appRpc<unknown>('marketing_suggestions'),
+    refetchInterval: 60_000,
+  });
+  const suggestions = useMemo(() => readSuggestions(suggestionsQ.data), [suggestionsQ.data]);
 
   const move = useMutation({
     mutationFn: ({ id, status }: { id: string; status: CampaignStatus }) =>
@@ -142,7 +193,10 @@ export function MarketingPanelScreen() {
   }
 
   const campaigns = useMemo(() => q.data?.campaigns ?? [], [q.data]);
-  const shown = useMemo(() => campaigns.filter((c) => matchesFilter(c.status, filter)), [campaigns, filter]);
+  const matches = (c: CampaignRow, f: PanelFilter) => (f === 'fromMarketing' ? suggestions.has(c.id) : matchesFilter(c.status, f));
+  const shown = campaigns.filter((c) => matches(c, filter));
+  const fromMarketingWaiting = campaigns.filter((c) => c.status === 'draft' && suggestions.has(c.id)).length;
+  const filters: readonly PanelFilter[] = suggestions.size > 0 ? [...FILTERS.slice(0, 4), 'fromMarketing', ...FILTERS.slice(4)] : FILTERS;
   const overdue = useMemo(() => {
     const o = overdueCampaigns(campaigns, Date.now());
     return { toStart: new Set(o.toStart), toEnd: new Set(o.toEnd) };
@@ -154,21 +208,44 @@ export function MarketingPanelScreen() {
     {
       key: 'campaign',
       header: tr('ws.owner.marketing.cols.campaign'),
-      render: (c) => (
-        <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-          <span style={{ fontWeight: 600 }}>
-            <bdi>{name(c.name_en, c.name_ar)}</bdi>
-          </span>
-          <span style={muted}>
-            {tr(`ws.owner.marketing.channels.${c.channel}`)} ·{' '}
-            {c.promotion_id ? (
-              <bdi>{tr('ws.owner.marketing.promotionLine', { name: name(c.promotion_en, c.promotion_ar) })}</bdi>
-            ) : (
-              tr('ws.owner.marketing.noPromotionLine')
+      render: (c) => {
+        const from = suggestions.get(c.id);
+        return (
+          <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+            <span style={{ fontWeight: 600 }}>
+              <bdi>{name(c.name_en, c.name_ar)}</bdi>
+            </span>
+            <span style={muted}>
+              {tr(`ws.owner.marketing.channels.${c.channel}`)} ·{' '}
+              {c.promotion_id ? (
+                <bdi>{tr('ws.owner.marketing.promotionLine', { name: name(c.promotion_en, c.promotion_ar) })}</bdi>
+              ) : (
+                tr('ws.owner.marketing.noPromotionLine')
+              )}
+            </span>
+            {from && (
+              <span data-from-marketing style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-0)' }}>
+                <StatusBadge
+                  size="sm"
+                  tone="info"
+                  icon="spark"
+                  label={from.suggested_by_name ? tr('ws.supplies.fromMarketing.from', { name: isolate(from.suggested_by_name) }) : tr('ws.supplies.fromMarketing.fromUnknown')}
+                />
+                {from.images.length > 0 && (
+                  <Button size="sm" kind="ghost" icon="eye" onClick={() => setPhotos({ title: tr('ws.supplies.fromMarketing.photosTitle'), paths: from.images })}>
+                    {tr('ws.supplies.fromMarketing.photos', { count: formatNumber(from.images.length, locale) })}
+                  </Button>
+                )}
+                {from.suggestion_note && (
+                  <span style={{ ...muted, fontStyle: 'italic', flexBasis: '100%', overflowWrap: 'anywhere' }}>
+                    <bdi>{tr('ws.supplies.fromMarketing.note', { note: isolate(from.suggestion_note) })}</bdi>
+                  </span>
+                )}
+              </span>
             )}
           </span>
-        </span>
-      ),
+        );
+      },
       truncateTitle: (c) => name(c.name_en, c.name_ar),
     },
     {
@@ -301,7 +378,8 @@ export function MarketingPanelScreen() {
   ];
 
   const status = asyncStatus(q, (d) => (d?.campaigns ?? []).length === 0);
-  const countOf = (f: CampaignFilter) => campaigns.filter((c) => matchesFilter(c.status, f)).length;
+  const countOf = (f: PanelFilter) => campaigns.filter((c) => matches(c, f)).length;
+  const filterLabel = (f: PanelFilter) => (f === 'fromMarketing' ? tr('ws.supplies.fromMarketing.filter') : tr(`ws.owner.marketing.filter.${f}`));
 
   return (
     <div>
@@ -324,16 +402,22 @@ export function MarketingPanelScreen() {
       />
 
       {campaigns.length > 0 && (
-        <Toolbar>
-          <SegmentedControl<CampaignFilter>
+        <Toolbar
+          end={
+            fromMarketingWaiting > 0 ? (
+              <StatusBadge tone="info" icon="spark" label={tr('ws.supplies.fromMarketing.waiting', { count: formatNumber(fromMarketingWaiting, locale) })} />
+            ) : undefined
+          }
+        >
+          <SegmentedControl<PanelFilter>
             value={filter}
             onChange={setFilter}
             aria-label={tr('ws.owner.marketing.filter.label')}
-            options={FILTERS.map((f) => ({
+            options={filters.map((f) => ({
               value: f,
               label: (
                 <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'baseline' }}>
-                  {tr(`ws.owner.marketing.filter.${f}`)}
+                  {filterLabel(f)}
                   <span style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(countOf(f), locale)}</span>
                 </span>
               ),
@@ -368,6 +452,8 @@ export function MarketingPanelScreen() {
       </AsyncStateWrapper>
 
       <div style={{ blockSize: 'var(--tp-sp-4)' }} />
+      <MarketingRequestsPanel onPhotos={(paths, title) => setPhotos({ title, paths })} />
+      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
       {q.data && <AudiencePanel audiences={q.data.audiences} onNew={() => setEditingAudience('new')} onEdit={setEditingAudience} />}
 
       {editing && (
@@ -393,6 +479,7 @@ export function MarketingPanelScreen() {
           }}
         />
       )}
+      {photos && <PhotoViewer title={photos.title} paths={photos.paths} onClose={() => setPhotos(null)} />}
       {confirming && (
         <Modal
           title={tr(CONFIRMED_MOVES[confirming.status]!.title as never)}
@@ -421,6 +508,149 @@ export function MarketingPanelScreen() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/**
+ * What staff asked marketing for, and what marketing answered. Read-only:
+ * marketing answers on the phone. Its own read, so a failure here leaves the
+ * campaigns above untouched.
+ */
+function MarketingRequestsPanel({ onPhotos }: { onPhotos: (paths: readonly string[], title: string) => void }) {
+  const { tr, locale } = useLocale();
+  const [filter, setFilter] = useState<RequestFilter>('open');
+  const q = useQuery({
+    queryKey: ['marketing', 'requests', filter],
+    queryFn: () => appRpc<unknown>('marketing_requests_page', { p_filter: filter, p_limit: REQUESTS_SHOWN }),
+    refetchInterval: 60_000,
+  });
+  const data = useMemo(() => readRequests(q.data), [q.data]);
+  const today = todayIso();
+  const muted = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' } as const;
+  const pad = { paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)' } as const;
+
+  return (
+    <Panel
+      title={<CardTitle icon="mail">{tr('ws.supplies.requests.title')}</CardTitle>}
+      padded={false}
+      data-testid="marketing-requests"
+      actions={
+        q.isSuccess && data.open_count > 0 ? (
+          <StatusBadge tone="info" label={tr('ws.supplies.requests.waitingBadge', { count: formatNumber(data.open_count, locale) })} />
+        ) : undefined
+      }
+    >
+      <div style={{ ...pad, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+        <p style={{ ...muted, margin: 0 }}>{tr('ws.supplies.requests.lead')}</p>
+        <div>
+          <SegmentedControl<RequestFilter>
+            size="sm"
+            value={filter}
+            onChange={setFilter}
+            aria-label={tr('ws.supplies.requests.filterLabel')}
+            options={REQUEST_FILTERS.map((f) => ({ value: f, label: tr(`ws.supplies.requests.filter.${f}`) }))}
+          />
+        </div>
+      </div>
+      {q.isError ? (
+        <div style={{ ...pad, display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', borderBlockStart: '1px solid var(--tp-border)' }}>
+          <ErrorText error={q.error} style={{ marginBlock: 0 }} />
+          <Button size="sm" icon="refresh" onClick={() => void q.refetch()}>
+            {tr('ws.kit.async.retry')}
+          </Button>
+        </div>
+      ) : q.isPending ? (
+        <p style={{ ...pad, ...muted, margin: 0, borderBlockStart: '1px solid var(--tp-border)' }}>{tr('common.loading')}</p>
+      ) : data.requests.length === 0 ? (
+        <div style={{ borderBlockStart: '1px solid var(--tp-border)' }}>
+          <EmptyState compact titleAs="h3" icon="mail" title={tr(`ws.supplies.requests.empty.${filter}`)} />
+        </div>
+      ) : (
+        <>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {data.requests.map((r) => {
+              const late = isPastWanted(r, today);
+              const item = locale === 'ar' ? (r.item_name_ar ?? r.item_name_en) : (r.item_name_en ?? r.item_name_ar);
+              return (
+                <li key={r.id} data-request={r.id} style={{ ...pad, paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gap: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                    <strong style={{ overflowWrap: 'anywhere', minInlineSize: 0 }}>
+                      <bdi>{r.title}</bdi>
+                    </strong>
+                    <StatusBadge size="sm" tone={REQUEST_TONE[r.status]} label={tr(`work.marketingRequest.status.${r.status}`)} />
+                  </div>
+                  {/* Each piece of data isolated on its own, so a Latin name keeps its place in an Arabic line. */}
+                  <span style={muted} data-asked-by>
+                    <bdi>{r.requested_by_name ?? '—'}</bdi>
+                    {r.requested_by_role && ` · ${tr(`op.roles.${r.requested_by_role}`)}`}
+                    {r.created_at && (
+                      <>
+                        {' · '}
+                        <bdi>{formatDateTime(new Date(r.created_at), locale)}</bdi>
+                      </>
+                    )}
+                    {item && (
+                      <>
+                        {' · '}
+                        <bdi>{tr('ws.supplies.requests.about', { item: isolate(item) })}</bdi>
+                      </>
+                    )}
+                  </span>
+                  {r.want_by && (
+                    <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: late ? 'var(--tp-warn-fg)' : muted.color, fontWeight: late ? 600 : undefined }}>
+                      <Icon name="calendar" size={12} />
+                      <bdi>{tr(late ? 'ws.supplies.requests.wantByLate' : 'ws.supplies.requests.wantBy', { date: dayLabel(r.want_by, locale) })}</bdi>
+                    </span>
+                  )}
+                  <p style={{ margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    <bdi>{r.body}</bdi>
+                  </p>
+                  {r.photos.length > 0 && (
+                    <div>
+                      <Button size="sm" kind="ghost" icon="eye" onClick={() => onPhotos(r.photos, tr('ws.supplies.requests.photosTitle', { title: isolate(r.title) }))}>
+                        {tr('ws.supplies.requests.photos', { count: formatNumber(r.photos.length, locale) })}
+                      </Button>
+                    </div>
+                  )}
+                  {r.answer && (
+                    <div
+                      data-answer
+                      style={{
+                        display: 'grid',
+                        gap: 'var(--tp-sp-0)',
+                        marginBlockStart: 'var(--tp-sp-1)',
+                        paddingBlock: 'var(--tp-sp-1-5)',
+                        paddingInline: 'var(--tp-sp-2-5)',
+                        borderRadius: 'var(--tp-radius-ctl)',
+                        background: 'var(--tp-surface-2)',
+                        borderInlineStart: '3px solid var(--tp-border)',
+                      }}
+                    >
+                      <span style={{ ...muted, fontWeight: 600 }}>
+                        <bdi>
+                          {tr('ws.supplies.requests.answeredBy', {
+                            name: isolate(r.answered_by_name ?? '—'),
+                            time: r.answered_at ? formatDateTime(new Date(r.answered_at), locale) : '—',
+                          })}
+                        </bdi>
+                      </span>
+                      <p style={{ margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                        <bdi>{r.answer}</bdi>
+                      </p>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {data.total > data.requests.length && (
+            <p style={{ ...pad, ...muted, margin: 0, borderBlockStart: '1px solid var(--tp-border)' }}>
+              {tr('ws.supplies.requests.more', { shown: formatNumber(data.requests.length, locale), total: formatNumber(data.total, locale) })}
+            </p>
+          )}
+        </>
+      )}
+    </Panel>
   );
 }
 

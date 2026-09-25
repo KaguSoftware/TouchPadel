@@ -124,6 +124,64 @@ export function choiceRule(min: number, max: number): ChoiceRule {
   return { kind: 'range', min, max };
 }
 
+/**
+ * The compulsory add-on lock (price_promo, build-contracts-2026-09-23 §2.13):
+ * a manager's choice limit, item link, reveal or option switch that makes
+ * guests pay more for an item or a choice is refused with PRICE_VIA_PROTOCOL,
+ * hint required_addon. No price change covers it, so the screen says the
+ * owner makes it instead of pointing at Protocols.
+ */
+export function isRequiredAddonRefusal(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const e = error as { code?: unknown; hint?: unknown };
+  return e.code === 'PRICE_VIA_PROTOCOL' && e.hint === 'required_addon';
+}
+
+/**
+ * Launched = on sale now or at some point: launched_at set, or switched on,
+ * the same test app.upsert_modifier's lock makes (price_promo, #51, #53).
+ */
+export function addonLaunched(m: { launched_at: string | null; is_active: boolean }): boolean {
+  return m.launched_at !== null || m.is_active;
+}
+
+export interface AddonLock {
+  /** The price is read-only: "Change the price", an addon_price change. */
+  priceLocked: boolean;
+  /**
+   * A paid option never on sale: its switch is off and "Put on sale" sends
+   * its price to the owner. Its price stays editable until then.
+   */
+  needsLaunch: boolean;
+}
+
+/**
+ * What an option row offers a caller without `editLaunchedPrices` or
+ * `launchDirectly` (a manager, build-contracts-2026-09-23 §5.5). Renaming,
+ * reordering and switching a launched option off and on stay as they are:
+ * each re-sends the stored price, which the lock lets through. A free option
+ * (0 IQD) carries no price, so it may be switched on directly.
+ */
+export function addonLock(
+  m: { launched_at: string | null; is_active: boolean; price_delta_iqd: number },
+  caps: { editLaunchedPrices: boolean; launchDirectly: boolean },
+): AddonLock {
+  const launched = addonLaunched(m);
+  return {
+    priceLocked: !caps.editLaunchedPrices && launched,
+    needsLaunch: !caps.launchDirectly && !launched && m.price_delta_iqd > 0,
+  };
+}
+
+/**
+ * A new option's switch as it is saved: a manager's paid one goes in hidden
+ * (upsert_modifier's p_is_active defaults to true, which would be refused
+ * LAUNCH_VIA_PROTOCOL); a free one, and anything the owner adds, goes on.
+ */
+export function newOptionActive(deltaIqd: number, launchDirectly: boolean): boolean {
+  return launchDirectly || deltaIqd <= 0;
+}
+
 /** The options (in any group) that reveal `groupId`, in a stable order. */
 export function revealersOf<M extends ModifierLike>(
   groupId: string,

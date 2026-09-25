@@ -12,15 +12,22 @@
  * arrows do, less safely (a typed number could tie with another item), so it is
  * gone; the item's own sort_order is sent back unchanged, and a new item goes
  * to the end of its category.
+ *
+ * Product release and the manager locks (build-contracts-2026-09-23 §5.5,
+ * `itemLocks`): an item in release says so and links its run, and neither its
+ * switch nor its prices can be changed here by anyone; a price on sale is the
+ * owner's unless it goes through "Change the price"; a draft goes on sale when
+ * the owner launches it, or, for a shop product, through "Put on sale". The
+ * server refuses the same things, so this only saves a refusal after typing.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useBlocker } from '@tanstack/react-router';
-import { formatDate } from '@touch/i18n';
+import { useBlocker, useNavigate } from '@tanstack/react-router';
+import { formatDate, isolate } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { removeMedia } from '../../../lib/storage';
 import { useLocale, pickName } from '../../../lib/i18n';
-import { usePermissions } from '../../../lib/auth';
+import { can as hasCapability, useAuth, usePermissions } from '../../../lib/auth';
 import { Button, ErrorText, Field } from '../../../components/ui';
 import { BilingualFieldPair, MessagePresenter, Money, Panel, StatusBadge } from '../../../components/kit';
 import { MoneyInput } from '../../../components/inputs';
@@ -32,7 +39,19 @@ import { useConfirm } from '../../../components/ConfirmDialog';
 import { MARK, MARK_FG } from '../../ops/OpsVisuals';
 import { HIGHLIGHT_COLOR, MarginChip } from './chips';
 import { FormBar } from './FormBar';
-import { DESCRIPTION_MAX, HOOK_MAX, NAME_MAX, defaultPrice, hookError, nextDayIso, orderableState } from './menuLogic';
+import {
+  DESCRIPTION_MAX,
+  HOOK_MAX,
+  NAME_MAX,
+  defaultPrice,
+  hookError,
+  inRelease,
+  itemLocks,
+  nextDayIso,
+  orderableState,
+  runTitle,
+  type CategoryKind,
+} from './menuLogic';
 import { savePhoto } from './photo';
 import { VariantsEditor } from './VariantsEditor';
 import { ItemModifierGroups } from './ItemModifierGroups';
@@ -46,6 +65,7 @@ export function ItemForm({
   item,
   categoryId,
   categoryName,
+  categoryKind,
   newSortOrder = 0,
   groups,
   modifiers,
@@ -59,6 +79,8 @@ export function ItemForm({
   categoryId: string;
   /** The item's category, shown under the title. */
   categoryName?: string;
+  /** Its kind: what a draft needs to go on sale differs for café and shop. */
+  categoryKind: CategoryKind;
   /** sort_order for a NEW item: the end of its category. */
   newSortOrder?: number;
   groups: GroupRow[];
@@ -76,14 +98,23 @@ export function ItemForm({
   const toast = useToast();
   const confirm = useConfirm();
   const can = usePermissions();
+  const { staff } = useAuth();
+  const navigate = useNavigate();
   const { refresh } = useAdminMenu();
   const readOnly = !can.editMenu;
+  const locks = itemLocks(item, categoryKind, {
+    editLaunchedPrices: hasCapability(staff?.role, 'editLaunchedPrices'),
+    launchDirectly: hasCapability(staff?.role, 'launchDirectly'),
+  });
+  // A new item that cannot go on sale from here starts switched off, and that
+  // is its resting state, not an unsaved change.
+  const activeAtRest = item?.is_active ?? locks.switchOn === null;
 
   const [name, setName] = useState({ en: item?.name_en ?? '', ar: item?.name_ar ?? '' });
   const [desc, setDesc] = useState({ en: item?.description_en ?? '', ar: item?.description_ar ?? '' });
   const [hook, setHook] = useState({ en: item?.hook_en ?? '', ar: item?.hook_ar ?? '' });
   const [highlight, setHighlight] = useState<Highlight>(item?.highlight ?? 'none');
-  const [isActive, setIsActive] = useState(item?.is_active ?? true);
+  const [isActive, setIsActive] = useState(activeAtRest);
   const [photo, setPhoto] = useState<string | null>(item?.photo_path ?? null);
   const [costDraft, setCostDraft] = useState<number | null>(cost);
   const [error, setError] = useState<unknown>(null);
@@ -106,7 +137,7 @@ export function ItemForm({
     hook.en !== (item?.hook_en ?? '') ||
     hook.ar !== (item?.hook_ar ?? '') ||
     highlight !== (item?.highlight ?? 'none') ||
-    isActive !== (item?.is_active ?? true) ||
+    isActive !== activeAtRest ||
     (!item && (pendingPhoto.current !== null || costDraft !== null));
   const dirty = formDirty || (item !== null && costDraft !== cost);
 
@@ -133,7 +164,7 @@ export function ItemForm({
     setDesc({ en: item?.description_en ?? '', ar: item?.description_ar ?? '' });
     setHook({ en: item?.hook_en ?? '', ar: item?.hook_ar ?? '' });
     setHighlight(item?.highlight ?? 'none');
-    setIsActive(item?.is_active ?? true);
+    setIsActive(activeAtRest);
     setCostDraft(cost);
     setError(null);
   }
@@ -288,6 +319,7 @@ export function ItemForm({
         }
       />
       <ErrorText error={error} style={{ marginBlock: 0 }} />
+      {item && inRelease(item) && <ReleaseNotice item={item} />}
 
       {/* Details */}
       <Panel title={tr('ws.manager.menu.form.details')}>
@@ -380,8 +412,22 @@ export function ItemForm({
             </span>
           </Field>
           <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', maxInlineSize: '20rem', paddingBlockStart: 'var(--tp-sp-5)' }}>
-            <Switch checked={isActive} disabled={readOnly} onChange={setIsActive} label={tr('op.menu.isActive')} />
-            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.activeHint')}</p>
+            <Switch checked={isActive} disabled={readOnly || locks.switchOn !== null} onChange={setIsActive} label={tr('op.menu.isActive')} />
+            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+              {locks.switchOn ? tr(`ws.release.menu.switch.${locks.switchOn}`) : tr('ws.manager.menu.form.activeHint')}
+            </p>
+            {locks.switchOn === 'putOnSale' && item && (
+              <div>
+                <Button
+                  size="sm"
+                  icon="tag"
+                  disabled={readOnly}
+                  onClick={() => void navigate({ to: '/protocols', search: { start: 'price_promo', change: 'shop_launch', item: item.id } })}
+                >
+                  {tr('ws.release.menu.putOnSale')}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </Panel>
@@ -450,11 +496,40 @@ export function ItemForm({
 
       {item && (
         <>
-          <VariantsEditor item={item} />
+          <VariantsEditor item={item} pricesLock={locks.prices} />
           <ItemModifierGroups item={item} groups={groups} modifiers={modifiers} />
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * "In release: <run>": the draft a product release made, which its price step
+ * prices and the owner's Launch puts on sale. The run title is as its starter
+ * typed it, in either language.
+ */
+function ReleaseNotice({ item }: { item: ItemRow }) {
+  const { tr, locale } = useLocale();
+  const navigate = useNavigate();
+  const title = runTitle(locale, item.release_run) ?? tr('work.protocol.kind.product_release');
+  const runId = item.release_run_id;
+  return (
+    <MessagePresenter
+      tone="info"
+      icon="split"
+      message={
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-1)', justifyItems: 'start' }}>
+          <strong>{tr('ws.release.menu.inRelease', { run: isolate(title) })}</strong>
+          <span>{tr('ws.release.menu.inReleaseBody')}</span>
+          {runId && (
+            <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/protocols', search: { run: runId } })}>
+              {tr('ws.release.menu.openRun')}
+            </Button>
+          )}
+        </span>
+      }
+    />
   );
 }
 

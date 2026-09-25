@@ -23,17 +23,25 @@
  * (StaffAccountEditor), where every change says what it does and the ones that
  * take something away are confirmed. People who no longer have access fold
  * away, the way switched-off rate rules do, so the table is the team as it is.
+ *
+ * HIRING (`?hire=<run step>`, build-contracts-2026-09-23 §5.5). Opened from a
+ * hiring run's add_staff step: a banner names the pick and the role, and Add
+ * staff member opens filled in from them, the role fixed to the position's.
+ * Once the account exists the step is sent with its id (submit_step), which
+ * finishes the run; if that send fails the account is kept and only the send
+ * is offered again.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatNumber } from '@touch/i18n';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { formatNumber, isolate } from '@touch/i18n';
 import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
 import { appRpc } from '../../../lib/appRpc';
 import { callEdge } from '../../../lib/edge';
 import { useAuth, usePermissions, requiredRoleFor, type StaffRole } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
-import { Button, Field, Modal, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -49,6 +57,7 @@ import {
 } from '../../../components/kit';
 import { StaffAccountEditor } from './StaffAccountEditor';
 import { RoleField, StaffErrorText } from './staffParts';
+import { createdStaffId, hirePrefill, readHireStep } from './hirePrefill';
 import {
   MIN_PASSWORD,
   PIN_MAX,
@@ -68,7 +77,11 @@ export function StaffList() {
   const queryClient = useQueryClient();
   const { staff: me } = useAuth();
   const can = usePermissions();
-  const [adding, setAdding] = useState(false);
+  const navigate = useNavigate();
+  // A hiring run's add_staff step, when opened from Protocols.
+  const { hire } = useSearch({ strict: false }) as { hire?: string };
+  // true: a plain Add staff member; a HireIntent: filled in from the run.
+  const [adding, setAdding] = useState<boolean | HireIntent>(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [passwordFor, setPasswordFor] = useState<StaffRow | null>(null);
   const [pinFor, setPinFor] = useState<StaffRow | null>(null);
@@ -168,6 +181,7 @@ export function StaffList() {
         }
       />
       {!can.manageStaff && <PermissionRefusedNotice action={tr('ws.owner.staff.refusedAction')} requiredRole={requiredRoleFor('manageStaff')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />}
+      {hire && can.manageStaff && <HireBanner stepId={hire} onAdd={(intent) => setAdding(intent)} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: open ? 'minmax(0, 1fr) minmax(19rem, 24rem)' : 'minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
@@ -227,8 +241,11 @@ export function StaffList() {
 
       {adding && (
         <AddStaffDialog
+          hire={typeof adding === 'object' ? adding : undefined}
           onClose={() => setAdding(false)}
           onCreated={() => {
+            // A finished hire leaves the link: the step is no longer open.
+            if (typeof adding === 'object') void navigate({ to: '/admin/staff', search: {} });
             setAdding(false);
             void refresh();
           }}
@@ -249,27 +266,117 @@ export function StaffList() {
   );
 }
 
-function AddStaffDialog({ onClose, onCreated }: { onClose(): void; onCreated(): void }) {
+/** What a hiring run fills in: its add_staff step, the pick's name and the position's role. */
+interface HireIntent {
+  stepId: string;
+  name: string | null;
+  role: StaffRole;
+}
+
+/**
+ * The banner for `?hire=`: reads the step, the run's records and its
+ * candidates (all the owner's), and offers the filled-in form while the step
+ * waits for them. A step that is not open, or not a hiring add_staff step,
+ * says so and fills nothing in.
+ */
+function HireBanner({ stepId, onAdd }: { stepId: string; onAdd(intent: HireIntent): void }) {
+  const { tr } = useLocale();
+  const stepQ = useQuery({
+    queryKey: ['protocols', 'step', stepId],
+    queryFn: () => appRpc<unknown>('protocol_step_detail', { p_run_step_id: stepId }),
+    select: readHireStep,
+  });
+  const step = stepQ.data;
+  const runId = step?.isHireStep && step.canSubmit ? step.runId : null;
+  const runQ = useQuery({
+    queryKey: ['protocols', 'run', runId],
+    queryFn: () => appRpc<unknown>('protocol_run_detail', { p_run_id: runId }),
+    enabled: runId !== null,
+  });
+  const candidatesQ = useQuery({
+    queryKey: ['protocols', 'hiring', runId],
+    queryFn: () => appRpc<unknown>('hiring_candidates', { p_run_id: runId }),
+    enabled: runId !== null,
+  });
+
+  const box = { marginBlockEnd: 'var(--tp-sp-4)' };
+  if (stepQ.isError || runQ.isError || candidatesQ.isError) {
+    return (
+      <div style={box}>
+        <MessagePresenter tone="error" message={tr('ws.events.hire.loadFailed')} />
+        <ErrorText error={stepQ.error ?? runQ.error ?? candidatesQ.error} />
+      </div>
+    );
+  }
+  if (!step || (runId !== null && (!runQ.data || !candidatesQ.data))) {
+    return <MessagePresenter tone="info" message={tr('ws.events.hire.loading')} style={box} />;
+  }
+  if (runId === null) return <MessagePresenter tone="info" message={tr('ws.events.hire.notOpen')} style={box} />;
+
+  const prefill = hirePrefill(runQ.data, candidatesQ.data);
+  if (!prefill.role) return <MessagePresenter tone="error" message={tr('ws.events.hire.loadFailed')} style={box} />;
+  const role = tr(`op.roles.${prefill.role}`);
+  const intent: HireIntent = { stepId, name: prefill.name, role: prefill.role };
+  return (
+    <Panel title={tr('ws.events.hire.title')} style={box}>
+      <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+        {prefill.name
+          ? tr('ws.events.hire.body', { name: isolate(prefill.name), role })
+          : tr('ws.events.hire.bodyNoName', { role })}
+      </p>
+      <Button kind="primary" icon="userPlus" onClick={() => onAdd(intent)}>
+        {tr('ws.events.hire.add')}
+      </Button>
+    </Panel>
+  );
+}
+
+function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreated(): void; hire?: HireIntent }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<StaffRole>('cashier');
+  const [name, setName] = useState(hire?.name ?? '');
+  const [role, setRole] = useState<StaffRole>(hire?.role ?? 'cashier');
   const [password, setPassword] = useState('');
+  // Hiring: the account made, while its step is still to send.
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  // Minted when the form opens, reused on a retry (build-contracts §5.3).
+  const submitKey = useRef(`protocol.submit:${crypto.randomUUID()}`);
+
+  const sendStep = useMutation({
+    mutationFn: (staffId: string) =>
+      appRpc<unknown>('submit_step', {
+        p_run_step_id: hire?.stepId,
+        p_record: { staff_id: staffId },
+        p_photos: [],
+        p_idempotency_key: submitKey.current,
+      }),
+    onSuccess: () => {
+      toast.ok(tr('ws.events.hire.done'));
+      onCreated();
+    },
+  });
 
   const create = useMutation({
     mutationFn: () =>
-      callEdge<unknown, { result: string }>(
+      callEdge<unknown, unknown>(
         'staff-admin',
         { action: 'create', email: email.trim(), password, display_name: name.trim(), role },
         // Never cache a mutation: a second create must reach the server.
         { ttlMs: 0 },
       ),
-    onSuccess: () => {
-      toast.ok(tr('op.staff.created'));
-      onCreated();
+    onSuccess: (answer) => {
+      if (!hire) {
+        toast.ok(tr('op.staff.created'));
+        onCreated();
+        return;
+      }
+      const id = createdStaffId(answer);
+      setCreatedId(id);
+      if (id) sendStep.mutate(id);
     },
   });
+  const locked = createdId !== null;
 
   // Said while typing, not after a refused round trip — but only once there is
   // something to judge, so an empty form does not open in red.
@@ -287,36 +394,47 @@ function AddStaffDialog({ onClose, onCreated }: { onClose(): void; onCreated(): 
       onClose={onClose}
       footer={(close) => (
         <>
-          <Button onClick={close} disabled={create.isPending}>
+          <Button onClick={close} disabled={create.isPending || sendStep.isPending}>
             {tr('common.cancel')}
           </Button>
-          <Button
-            kind="primary"
-            icon="userPlus"
-            disabled={!ready}
-            disabledReason={!ready ? tr('ws.owner.staff.add.notReady') : undefined}
-            busy={create.isPending}
-            onClick={() => create.mutate()}
-          >
-            {tr('op.staff.add')}
-          </Button>
+          {locked && createdId ? (
+            // The account exists: only the hiring step is left to send.
+            <Button kind="primary" busy={sendStep.isPending} onClick={() => sendStep.mutate(createdId)}>
+              {tr('ws.events.hire.retry')}
+            </Button>
+          ) : (
+            <Button
+              kind="primary"
+              icon="userPlus"
+              disabled={!ready || locked}
+              disabledReason={!ready ? tr('ws.owner.staff.add.notReady') : undefined}
+              busy={create.isPending || sendStep.isPending}
+              onClick={() => create.mutate()}
+            >
+              {tr('op.staff.add')}
+            </Button>
+          )}
         </>
       )}
     >
       <Field label={tr('op.staff.name')} required hint={tr('ws.owner.staff.add.nameHint')}>
-        <input style={inputStyle} autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+        <input style={inputStyle} autoFocus value={name} maxLength={80} disabled={locked} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={tr('auth.emailLabel')} required hint={tr('ws.owner.staff.add.emailHint')} error={emailProblem}>
-        <input style={inputStyle} dir="ltr" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input style={inputStyle} dir="ltr" type="email" autoComplete="off" value={email} disabled={locked} onChange={(e) => setEmail(e.target.value)} />
       </Field>
-      <RoleField value={role} onChange={setRole} />
+      {/* Hiring: the role is the position's; the run refuses any other. */}
+      <RoleField value={role} onChange={setRole} disabled={Boolean(hire) || locked} />
+      {hire && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'calc(-1 * var(--tp-sp-2))', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.events.hire.roleLocked')}</p>}
       {/* Shown, not masked: the owner reads this out during training and the
           staff member changes it afterwards. Masking a value you must dictate
           aloud only produces typos. */}
       <Field label={tr('op.staff.openingPassword')} required hint={tr('op.staff.passwordHint', { min: formatNumber(MIN_PASSWORD, locale) })} error={passwordProblem}>
-        <input style={inputStyle} dir="ltr" type="text" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input style={inputStyle} dir="ltr" type="text" autoComplete="off" value={password} disabled={locked} onChange={(e) => setPassword(e.target.value)} />
       </Field>
       <StaffErrorText error={create.error} />
+      {locked && (sendStep.isError || !createdId) && <MessagePresenter tone="error" message={tr('ws.events.hire.submitFailed')} />}
+      <ErrorText error={sendStep.error} />
     </Modal>
   );
 }

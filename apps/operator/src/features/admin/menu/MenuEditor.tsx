@@ -16,13 +16,18 @@
  *    It is a notice row with a button that lists exactly those items.
  *  - Reorder is a within-one-category move, so the arrows only exist on the
  *    plain category view, and the line where they would be says why not.
+ *  - Without launchDirectly (a manager), "New item" in a café category is
+ *    "Propose a new item", which starts a product release on /protocols: the
+ *    server refuses a manager's new café item (ITEM_VIA_RELEASE, #52). An item
+ *    still in its release wears "In release" in the list.
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
-import { usePermissions, requiredRoleFor } from '../../../lib/auth';
+import { can as hasCapability, useAuth, usePermissions, requiredRoleFor } from '../../../lib/auth';
 import { Button, ErrorText, Select } from '../../../components/ui';
 import {
   AsyncStateWrapper,
@@ -45,7 +50,7 @@ import { useConfirm } from '../../../components/ConfirmDialog';
 import { Icon } from '../../../components/icons';
 import { MARK_FG, MARK_SOFT } from '../../ops/OpsVisuals';
 import { HighlightDot, MarginChip, Thumb } from './chips';
-import { countWithoutCost, defaultPrice, itemListView, nextSortOrder, reorderedIds, sortRows } from './menuLogic';
+import { countWithoutCost, defaultPrice, inRelease, itemListView, newItemMode, nextSortOrder, reorderedIds, sortRows } from './menuLogic';
 import { CategoryForm } from './CategoryEditor';
 import { ItemForm } from './ItemForm';
 import { MENU_AVAILABILITY_KEY, fetchStockBlockData, stockBlockFor } from './availability';
@@ -62,6 +67,8 @@ export function MenuEditor() {
   const confirm = useConfirm();
   const queryClient = useQueryClient();
   const can = usePermissions();
+  const { staff } = useAuth();
+  const navigate = useNavigate();
   const menu = useAdminMenu();
   const rootRef = useRef<HTMLDivElement>(null);
   const narrow = useNarrow(rootRef, THREE_COLUMNS_MIN_PX);
@@ -156,6 +163,8 @@ export function MenuEditor() {
   const noCost = data ? countWithoutCost(data.items, data.costs) : 0;
   const menuStatus = asyncStatus(menu, (d) => d.categories.length === 0);
   const crossCategory = view.mode !== 'category';
+  const addMode = newItemMode(activeCat ? categoryById.get(activeCat)?.kind : undefined, hasCapability(staff?.role, 'launchDirectly'));
+  const proposeItem = () => void navigate({ to: '/protocols', search: { start: 'product_release' } });
 
   const columns: Column<ItemRow>[] = [
     {
@@ -178,7 +187,12 @@ export function MenuEditor() {
                 </span>
               )}
               <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-                {!i.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.menu.inactive')} />}
+                {/* In release says more than Inactive: it is off until the owner launches it. */}
+                {inRelease(i) ? (
+                  <StatusBadge size="sm" tone="info" icon="split" label={tr('ws.release.menu.inReleaseBadge')} />
+                ) : (
+                  !i.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.menu.inactive')} />
+                )}
                 {i.sold_out && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.menu.soldOut')} />}
                 {i.unavailable_on === today && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.menu.offToday')} />}
                 {block.blocked && <StatusBadge size="sm" tone="warn" icon="box" label={tr('ws.manager.menu.blocked')} />}
@@ -257,22 +271,35 @@ export function MenuEditor() {
             <Button icon="plus" disabled={!can.editMenu} onClick={() => openCategoryForm('new')}>
               {tr('ws.manager.menu.newCategory')}
             </Button>
-            <Button
-              kind="primary"
-              icon="plus"
-              disabled={!can.editMenu || !activeCat}
-              // Items live inside categories, so with none there is nowhere to
-              // put one — say so rather than leaving the page's one primary
-              // action dead (rulebook 4.3).
-              disabledReason={!activeCat ? tr('ws.manager.menu.noCategoriesBody') : undefined}
-              onClick={() => openItem('new')}
-            >
-              {tr('ws.manager.menu.newItem')}
-            </Button>
+            {addMode === 'propose' ? (
+              <Button kind="primary" icon="plus" disabled={!hasCapability(staff?.role, 'startProtocolRelease')} onClick={proposeItem}>
+                {tr('ws.release.menu.proposeItem')}
+              </Button>
+            ) : (
+              <Button
+                kind="primary"
+                icon="plus"
+                disabled={!can.editMenu || !activeCat}
+                // Items live inside categories, so with none there is nowhere to
+                // put one — say so rather than leaving the page's one primary
+                // action dead (rulebook 4.3).
+                disabledReason={!activeCat ? tr('ws.manager.menu.noCategoriesBody') : undefined}
+                onClick={() => openItem('new')}
+              >
+                {tr('ws.manager.menu.newItem')}
+              </Button>
+            )}
           </>
         }
       >
         {!can.editMenu && <PermissionRefusedNotice action={tr('ws.manager.menu.newItem')} requiredRole={requiredRoleFor('editMenu')} />}
+        {/* Said once, where the button changed: a touch till has no tooltip. */}
+        {can.editMenu && addMode === 'propose' && (
+          <p style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'baseline', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+            <Icon name="split" size={13} style={{ alignSelf: 'center', flex: '0 0 auto' }} />
+            <span>{tr('ws.release.menu.proposeHint')}</span>
+          </p>
+        )}
       </PageHeader>
 
       <AsyncStateWrapper
@@ -432,11 +459,19 @@ export function MenuEditor() {
                     compact
                     icon="receipt"
                     title={tr('ws.manager.menu.emptyCategory')}
-                    body={tr('ws.manager.menu.emptyCategoryBody')}
+                    // "It appears as soon as it is saved" is not true of a
+                    // proposal, and the header already says what one is.
+                    body={addMode === 'propose' ? undefined : tr('ws.manager.menu.emptyCategoryBody')}
                     action={
-                      <Button kind="primary" size="sm" icon="plus" disabled={!can.editMenu || !activeCat} onClick={() => openItem('new')}>
-                        {tr('ws.manager.menu.newItem')}
-                      </Button>
+                      addMode === 'propose' ? (
+                        <Button kind="primary" size="sm" icon="plus" disabled={!hasCapability(staff?.role, 'startProtocolRelease')} onClick={proposeItem}>
+                          {tr('ws.release.menu.proposeItem')}
+                        </Button>
+                      ) : (
+                        <Button kind="primary" size="sm" icon="plus" disabled={!can.editMenu || !activeCat} onClick={() => openItem('new')}>
+                          {tr('ws.manager.menu.newItem')}
+                        </Button>
+                      )
                     }
                   />
                 ) : (
@@ -487,6 +522,7 @@ export function MenuEditor() {
                     item={item}
                     categoryId={activeCat}
                     categoryName={pickName(locale, categoryById.get(item?.category_id ?? activeCat))}
+                    categoryKind={categoryById.get(item?.category_id ?? activeCat)?.kind ?? 'cafe'}
                     newSortOrder={nextSortOrder(categoryItems)}
                     groups={data.groups}
                     modifiers={data.modifiers}

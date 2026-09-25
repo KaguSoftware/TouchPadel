@@ -3,10 +3,20 @@
  * keys of `cafe_settings`; every panel stays mounted so switching modes never
  * loses a draft value. Save writes ONLY the changed keys through
  * `set_cafe_setting`, sequentially, then toasts.
+ *
+ * The featured discount is the owner's (#57, build-contracts-2026-09-23
+ * §5.5): it is charged on the till and the guest menu while the hero is in
+ * Featured mode, so for a manager the percentage is read-only with "Change
+ * the discount" (a price or promo change on /protocols), the item picker is
+ * off while a discount is stored (the discount follows the item), and so is
+ * the Featured tile while that stored discount is not yet on sale. Switching
+ * the discount off stays a manager's own. Everything else saves as before.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { formatNumber, isolate } from '@touch/i18n';
 import { supabase } from '../../../lib/supabase';
+import { can, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { isVideoPath, removeMedia } from '../../../lib/storage';
 import {
@@ -17,12 +27,15 @@ import {
   type SetCafeSettingInput,
 } from '../../../lib/settings';
 import { useToast } from '../../../components/toast';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import { Switch } from '../../../components/Switch';
 import { ImageField } from '../../../components/ImageField';
 import { BilingualFields, PercentInput } from '../../../components/inputs';
 import { Button, Field, Select, Skeleton } from '../../../components/ui';
 import { PageHeader, Panel } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
+import { heroLocks, lockedHeroDraft } from '../promotions/priceChange';
+import { PriceChangeButton } from '../promotions/PriceChangeStart';
 import { HeroPreview, type HeroPreviewItem } from './HeroPreview';
 import { TickerEditor } from './TickerEditor';
 import {
@@ -124,10 +137,15 @@ export function diffHero(saved: CafeSettings, draft: Draft): SetCafeSettingInput
 export function HeroBuilder() {
   const { tr, locale } = useLocale();
   const toast = useToast();
+  const confirm = useConfirm();
+  const { staff } = useAuth();
   const { settings, isLoading } = useCafeSettings();
   const setSettings = useSetCafeSettings();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  const [switchingOff, setSwitchingOff] = useState(false);
+  // Read from what is saved: see heroLocks.
+  const locks = heroLocks(settings, can(staff?.role, 'editLaunchedPrices'));
 
   useEffect(() => {
     if (!isLoading && !draft) setDraft(fromSettings(settings));
@@ -164,25 +182,28 @@ export function HeroBuilder() {
       .filter((g) => g.items.length > 0);
   }, [menuQ.data]);
 
+  // What is shown and saved: a locked value follows what is stored.
+  const shown = draft ? lockedHeroDraft(draft, settings, locks) : null;
+
   const featuredItem: HeroPreviewItem | null = useMemo(() => {
-    const row = menuQ.data?.items.find((i) => i.id === draft?.featured_item_id);
+    const row = menuQ.data?.items.find((i) => i.id === shown?.featured_item_id);
     if (!row) return null;
     const variants = [...row.menu_item_variants].sort((a, b) => a.sort_order - b.sort_order);
     const price = (variants.find((v) => v.is_default) ?? variants[0])?.price_iqd ?? null;
     return { name_en: row.name_en, name_ar: row.name_ar, photo_path: row.photo_path, price_iqd: price };
-  }, [menuQ.data, draft?.featured_item_id]);
+  }, [menuQ.data, shown?.featured_item_id]);
 
-  if (!draft) return <Skeleton lines={6} />;
+  if (!draft || !shown) return <Skeleton lines={6} />;
 
   const patch = (p: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...p } : d));
-  const tickerProblem = validateTicker(normalizeTicker(draft.ticker));
+  const tickerProblem = validateTicker(normalizeTicker(shown.ticker));
   const modeProblem =
-    draft.hero_mode === 'media' && !draft.hero_media_path
+    shown.hero_mode === 'media' && !shown.hero_media_path
       ? tr('op.hero.mediaRequired')
-      : draft.hero_mode === 'featured' && !draft.featured_item_id
+      : shown.hero_mode === 'featured' && !shown.featured_item_id
         ? tr('op.hero.itemRequired')
         : null;
-  const writes = diffHero(settings, draft);
+  const writes = diffHero(settings, shown);
   const canSave = writes.length > 0 && !modeProblem && !tickerProblem && !saving;
 
   async function save() {
@@ -202,6 +223,40 @@ export function HeroBuilder() {
     }
   }
 
+  /** A manager's one direct discount write: 0 passes set_cafe_setting (#57). */
+  async function switchDiscountOff() {
+    const ok = await confirm({
+      title: tr('ws.pricing.hero.switchOffConfirm.title'),
+      body: tr('ws.pricing.hero.switchOffConfirm.body'),
+      confirmLabel: tr('ws.pricing.hero.switchOffConfirm.confirm'),
+      cancelLabel: tr('ws.pricing.hero.switchOffConfirm.cancel'),
+      pairActions: true,
+    });
+    if (!ok) return;
+    setSwitchingOff(true);
+    try {
+      await setSettings.mutateAsync([{ key: 'featured_discount_pct', value: 0 }]);
+      toast.ok(tr('ws.pricing.hero.switchedOff'));
+    } catch (e) {
+      toast.err(e);
+    } finally {
+      setSwitchingOff(false);
+    }
+  }
+
+  const switchOffButton = locks.switchOff && (
+    <Button size="sm" busy={switchingOff} disabled={saving} onClick={() => void switchDiscountOff()}>
+      {tr('ws.pricing.hero.switchOff')}
+    </Button>
+  );
+  const changeDiscountButton = locks.discount && (
+    <PriceChangeButton size="sm" target={{ change: 'featured_discount' }} label={tr('ws.pricing.hero.changeDiscount')} />
+  );
+  const storedItemName = (() => {
+    const row = menuQ.data?.items.find((i) => i.id === settings.featured_item_id);
+    return row ? (locale === 'ar' ? row.name_ar : row.name_en) : '';
+  })();
+
   const modes: { id: HeroMode; label: string; hint: string }[] = [
     { id: 'none', label: tr('op.hero.modeNone'), hint: tr('op.hero.modeNoneHint') },
     { id: 'media', label: tr('op.hero.modeMedia'), hint: tr('op.hero.modeMediaHint') },
@@ -218,7 +273,8 @@ export function HeroBuilder() {
           <Panel title={tr('op.hero.mode')}>
             <div role="group" aria-label={tr('op.hero.mode')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: 'var(--tp-sp-2)' }}>
               {modes.map((m) => {
-                const on = draft.hero_mode === m.id;
+                const on = shown.hero_mode === m.id;
+                const locked = m.id === 'featured' && locks.featuredMode;
                 return (
                   <button
                     key={m.id}
@@ -226,6 +282,8 @@ export function HeroBuilder() {
                     className="tp-tile"
                     aria-pressed={on}
                     aria-label={m.label}
+                    aria-describedby={locked ? 'hero-featured-locked' : undefined}
+                    disabled={locked}
                     onClick={() => patch({ hero_mode: m.id })}
                     style={{
                       display: 'grid',
@@ -238,7 +296,8 @@ export function HeroBuilder() {
                       background: on ? 'var(--tp-info-soft)' : 'var(--tp-surface)',
                       color: 'var(--tp-fg)',
                       font: 'inherit',
-                      cursor: 'pointer',
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      opacity: locked ? 0.55 : 1,
                     }}
                   >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: 700 }}>
@@ -250,10 +309,26 @@ export function HeroBuilder() {
                 );
               })}
             </div>
+            {locks.featuredMode && (
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', marginBlockStart: 'var(--tp-sp-3)' }}>
+                <p id="hero-featured-locked" style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                  {storedItemName && (
+                    <>
+                      {tr('ws.pricing.hero.storedDiscount', { pct: formatNumber(settings.featured_discount_pct, locale), item: isolate(storedItemName) })}{' '}
+                    </>
+                  )}
+                  {tr('ws.pricing.hero.featuredLocked')}
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                  {switchOffButton}
+                  {changeDiscountButton}
+                </div>
+              </div>
+            )}
           </Panel>
 
           {/* Media panel — mounted always, hidden unless active (keeps the draft). */}
-          <div style={{ display: draft.hero_mode === 'media' ? 'block' : 'none' }}>
+          <div style={{ display: shown.hero_mode === 'media' ? 'block' : 'none' }}>
             <Panel title={tr('op.hero.media')}>
               <ImageField
                 label={tr('op.hero.media')}
@@ -270,11 +345,12 @@ export function HeroBuilder() {
             </Panel>
           </div>
 
-          <div style={{ display: draft.hero_mode === 'featured' ? 'block' : 'none' }}>
+          <div style={{ display: shown.hero_mode === 'featured' ? 'block' : 'none' }}>
             <Panel title={tr('op.hero.featuredTitle')}>
-              <Field label={tr('op.hero.featuredItem')} hint={tr('op.hero.featuredItemHint')}>
+              <Field label={tr('op.hero.featuredItem')} hint={tr(locks.item ? 'ws.pricing.hero.itemLocked' : 'op.hero.featuredItemHint')}>
                 <Select
-                  value={draft.featured_item_id ?? ''}
+                  value={shown.featured_item_id ?? ''}
+                  disabled={locks.item}
                   onChange={(id) => patch({ featured_item_id: id || null })}
                   options={[
                     { value: '', label: tr('op.hero.pickItem') },
@@ -313,9 +389,19 @@ export function HeroBuilder() {
               <Hint>{tr('op.hero.badgeHint')}</Hint>
               {/* The discount is charged, not decorative: app.add_order_items
                   prices the featured item with it while this mode is on (0030). */}
-              <Field label={tr('op.hero.discount')} hint={tr('op.hero.discountHint')} style={{ marginBlockEnd: 0 }}>
-                <PercentInput value={draft.featured_discount_pct} onChange={(v) => patch({ featured_discount_pct: v })} />
+              <Field
+                label={tr('op.hero.discount')}
+                hint={tr(locks.discount ? 'ws.pricing.hero.discountLocked' : 'op.hero.discountHint')}
+                style={{ marginBlockEnd: 0 }}
+              >
+                <PercentInput value={shown.featured_discount_pct} disabled={locks.discount} onChange={(v) => patch({ featured_discount_pct: v })} />
               </Field>
+              {locks.discount && (
+                <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-2)' }}>
+                  {changeDiscountButton}
+                  {switchOffButton}
+                </div>
+              )}
             </Panel>
           </div>
 
@@ -370,17 +456,17 @@ export function HeroBuilder() {
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('op.hero.preview')}</p>
           <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '24rem' }}>{tr('op.hero.previewHint')}</p>
           <HeroPreview
-            mode={draft.hero_mode}
-            mediaPath={draft.hero_media_path}
-            mediaIsVideo={isVideoPath(draft.hero_media_path)}
+            mode={shown.hero_mode}
+            mediaPath={shown.hero_media_path}
+            mediaIsVideo={isVideoPath(shown.hero_media_path)}
             item={featuredItem}
-            labelEn={draft.featured_label_en}
-            labelAr={draft.featured_label_ar}
-            badgeEn={draft.featured_badge_en}
-            badgeAr={draft.featured_badge_ar}
-            discountPct={draft.featured_discount_pct}
-            ticker={draft.ticker}
-            bellTutorial={draft.bell_tutorial_enabled}
+            labelEn={shown.featured_label_en}
+            labelAr={shown.featured_label_ar}
+            badgeEn={shown.featured_badge_en}
+            badgeAr={shown.featured_badge_ar}
+            discountPct={shown.featured_discount_pct}
+            ticker={shown.ticker}
+            bellTutorial={shown.bell_tutorial_enabled}
           />
         </aside>
       </div>

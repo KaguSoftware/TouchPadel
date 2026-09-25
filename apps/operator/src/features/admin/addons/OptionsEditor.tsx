@@ -2,16 +2,25 @@
  * Options (modifiers) of one group: inline name EN/AR + price delta with a
  * per-row Save, optimistic active Switch, ▲▼ reorder (two `upsert_modifier`
  * calls), and a per-option Reveals panel. Everything writes `upsert_modifier`.
+ *
+ * A manager's option prices go to the owner (#51, #53, build-contracts-2026-09-23
+ * §5.5): an option on sale keeps its price here and offers "Change the price";
+ * a new paid option is saved hidden and offers "Put on sale", its switch off
+ * until the owner approves its price. A free option works as it always did.
+ * The owner's screen is unchanged.
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
+import { can, useAuth } from '../../../lib/auth';
 import { Button, card, inputStyle } from '../../../components/ui';
 import { MoneyInput, SortButtons } from '../../../components/inputs';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { reorderedIds, sortRows } from '../menu/menuLogic';
+import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart';
+import { addonLock, isRequiredAddonRefusal, newOptionActive, type AddonLock } from './addonsLogic';
 import { RevealsEditor } from './RevealsEditor';
 import { patchCachedModifiers, useAddons, type AddonsData, type GroupRow, type ModifierRow } from './useAddons';
 
@@ -33,6 +42,8 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
   const toast = useToast();
   const queryClient = useQueryClient();
   const { refresh } = useAddons();
+  const { staff } = useAuth();
+  const caps = { editLaunchedPrices: can(staff?.role, 'editLaunchedPrices'), launchDirectly: can(staff?.role, 'launchDirectly') };
   const [draft, setDraft] = useState<{ nameEn: string; nameAr: string; delta: number } | null>(null);
   const [openReveals, setOpenReveals] = useState<string | null>(null);
 
@@ -45,7 +56,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
       toast.ok(tr('op.toast.saved'));
       await refresh();
     },
-    onError: (e) => toast.err(e),
+    onError: (e) => toast.err(isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e),
   });
 
   const reorder = useMutation({
@@ -70,7 +81,12 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
   });
 
   async function setActive(m: ModifierRow, next: boolean) {
-    await appRpc('upsert_modifier', modifierArgs(m, { is_active: next }));
+    try {
+      await appRpc('upsert_modifier', modifierArgs(m, { is_active: next }));
+    } catch (e) {
+      // The Switch toasts what it catches; a string is shown as it is.
+      throw isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e;
+    }
     await refresh();
   }
 
@@ -82,6 +98,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
           {tr('op.addons.newOption')}
         </Button>
       </div>
+      {!caps.editLaunchedPrices && <PriceLockNote message={tr('ws.pricing.addons.note')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />}
       {options.length === 0 && !draft && (
         <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</p>
       )}
@@ -89,6 +106,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
         <div key={m.id}>
           <OptionRow
             option={m}
+            lock={addonLock(m, caps)}
             busy={upsert.isPending}
             onSave={(next) => upsert.mutate(modifierArgs(next))}
             onActive={(next) => setActive(m, next)}
@@ -143,12 +161,15 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
                 p_name_ar: draft.nameAr.trim(),
                 p_price_delta_iqd: draft.delta,
                 p_sort_order: options.length,
-                p_is_active: true,
+                p_is_active: newOptionActive(draft.delta, caps.launchDirectly),
               })
             }
           >
             {tr('common.save')}
           </Button>
+          {!newOptionActive(draft.delta, caps.launchDirectly) && (
+            <span style={{ flexBasis: '100%', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.pricing.savedHidden')}</span>
+          )}
         </div>
       )}
     </div>
@@ -157,6 +178,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
 
 function OptionRow({
   option,
+  lock,
   busy,
   onSave,
   onActive,
@@ -166,6 +188,7 @@ function OptionRow({
   sort,
 }: {
   option: ModifierRow;
+  lock: AddonLock;
   busy: boolean;
   onSave: (next: ModifierRow) => void;
   onActive: (next: boolean) => Promise<void>;
@@ -206,13 +229,31 @@ function OptionRow({
         value={nameAr}
         onChange={(e) => setNameAr(e.target.value)}
       />
-      <MoneyInput value={delta} onChange={(n) => setDelta(n ?? 0)} style={{ inlineSize: '11rem' }} />
+      <MoneyInput value={delta} disabled={lock.priceLocked} onChange={(n) => setDelta(n ?? 0)} style={{ inlineSize: '11rem' }} />
+      {lock.priceLocked && (
+        <PriceChangeButton
+          size="sm"
+          kind="ghost"
+          target={{ change: 'addon_price', addon: option.id }}
+          label={tr('ws.pricing.changePrice')}
+          ariaLabel={tr('ws.pricing.changePriceFor', { name: pickName(locale, option) })}
+        />
+      )}
       <Switch
         checked={option.is_active}
+        disabled={lock.needsLaunch}
         onChange={onActive}
         label={`${tr('op.addons.active')}: ${pickName(locale, option)}`}
         hideLabel
       />
+      {lock.needsLaunch && (
+        <PriceChangeButton
+          size="sm"
+          target={{ change: 'addon_price', addon: option.id }}
+          label={tr('ws.pricing.putOnSale')}
+          ariaLabel={tr('ws.pricing.putOnSaleFor', { name: pickName(locale, option) })}
+        />
+      )}
       {sort}
       <Button kind="ghost" onClick={onToggleReveals} aria-expanded={revealsOpen}>
         {revealsOpen ? '▾' : '▸'} {tr('op.addons.reveals')}

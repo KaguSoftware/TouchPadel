@@ -20,6 +20,7 @@ import { Panel } from '../../../components/kit';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { useChoiceRuleText } from '../addons/ChoiceLimits';
+import { isRequiredAddonRefusal } from '../addons/addonsLogic';
 import { useAdminMenu, type GroupRow, type ItemRow, type ModifierRow } from './useAdminMenu';
 
 export function ItemModifierGroups({
@@ -64,8 +65,17 @@ export function ItemModifierGroups({
       options={modifiers.filter((m) => m.group_id === g.id && m.is_active).sort((a, b) => a.sort_order - b.sort_order)}
       offered={linked.has(g.id)}
       disabled={!can.editMenu}
-      // Switch reverts and toasts on its own when this throws.
-      onChange={(next) => toggle.mutateAsync({ groupId: g.id, link: next }).then(() => undefined)}
+      // Switch reverts and toasts on its own when this throws; a string is
+      // shown as it is. A manager's link that would make guests pay more (a
+      // paid choice made compulsory) is the owner's to make (price_promo).
+      onChange={(next) =>
+        toggle
+          .mutateAsync({ groupId: g.id, link: next })
+          .then(() => undefined)
+          .catch((e: unknown) => {
+            throw isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e;
+          })
+      }
     />
   );
 

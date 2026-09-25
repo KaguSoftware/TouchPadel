@@ -462,8 +462,10 @@ export function permissionsFor(role: StaffRole | undefined): Permissions {
     adjustStock: is(MANAGEMENT),
     closeDay: is(MANAGEMENT),
     editMenu: is(MANAGEMENT),
-    editRates: is(MANAGEMENT),
-    editPromotions: is(MANAGEMENT),
+    // The owner's since price_promo (#57): a manager proposes a rate or a
+    // promotion as a price or promo change, and keeps a promotion's off switch.
+    editRates: is(['owner']),
+    editPromotions: is(['owner']),
     manageStaff: is(['owner']),
     viewReports: is(MANAGEMENT),
     viewFinancials: is(['owner']),
@@ -476,6 +478,8 @@ export function requiredRoleFor(permission: keyof Permissions): StaffRole {
   switch (permission) {
     case 'manageStaff':
     case 'viewFinancials':
+    case 'editRates':
+    case 'editPromotions':
       return 'owner';
     case 'takeCourtPayment':
       return 'court_desk';

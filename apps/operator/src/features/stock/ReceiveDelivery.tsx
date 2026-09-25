@@ -24,10 +24,14 @@
  * carries an idempotency key, so a double tap on Record — or a retry after a
  * dropped reply — books the delivery once. Still online-only: goods-in is not
  * a queued mutation type.
+ *
+ * What the driver bought (0166) is listed above the form, and opening one
+ * (?purchase=<id>) swaps the form for that purchase's own: its lines are the
+ * driver's, and app.receive_purchase books them (DriverPurchases.tsx).
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
@@ -37,6 +41,8 @@ import { useStockFormat } from './stockUi';
 import { todayIso } from '../admin/menu/availability';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
 import { SK, fetchIngredients, fetchSuppliers, type IngredientRow } from './stockKeys';
+import { DriverPurchaseReceive, DriverPurchasesPanel } from './DriverPurchases';
+import { decimalKeystroke } from './decimalInput';
 
 export { isShort } from './stockLogic';
 
@@ -54,6 +60,29 @@ const emptyLine = (): DraftLine => ({
 });
 
 export function ReceiveDelivery() {
+  const { tr } = useLocale();
+  const navigate = useNavigate();
+  const { purchase } = useSearch({ strict: false }) as { purchase?: string };
+  if (purchase) {
+    return (
+      <div style={{ maxInlineSize: '64rem' }}>
+        <PageHeader
+          title={tr('ws.supplies.purchase.title')}
+          actions={
+            <Button kind="ghost" size="sm" icon="chevronStart" onClick={() => void navigate({ to: '/stock/receive' })}>
+              {tr('ws.supplies.purchase.back')}
+            </Button>
+          }
+        />
+        <DriverPurchaseReceive key={purchase} purchaseId={purchase} onBack={() => void navigate({ to: '/stock/receive' })} />
+      </div>
+    );
+  }
+  return <DeliveryForm />;
+}
+
+/** One delivery typed in by hand, with the driver's purchases above it. */
+function DeliveryForm() {
   const { tr } = useLocale();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -138,6 +167,7 @@ export function ReceiveDelivery() {
       <PageHeader title={tr('op.stockNav.receive')} subtitle={tr('ws.manager.stock.goodsIn.lead')} />
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <DriverPurchasesPanel />
         <Panel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }}>
             <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
@@ -254,31 +284,16 @@ function LineEditor({
   const unit = ingredient ? fmt.unit(ingredient.unit) : null;
   const withUnit = (label: string) => (unit ? `${label} (${unit})` : label);
 
-  // Quantities and costs are numbers, so the boxes take nothing else: digits
-  // and a single decimal point survive, every other keystroke is dropped, and
-  // the run stops at ten digits — past that it is a typo, not a delivery.
-  const onlyNumber = (raw: string) => {
-    const kept = raw.replace(/[^\d.]/g, '');
-    const dot = kept.indexOf('.');
-    const once = dot === -1 ? kept : `${kept.slice(0, dot + 1)}${kept.slice(dot + 1).replace(/\./g, '')}`;
-    let digits = 0;
-    let out = '';
-    for (const ch of once) {
-      if (ch === '.') out += ch;
-      else if (digits < 10) {
-        out += ch;
-        digits += 1;
-      }
-    }
-    return out;
-  };
-
   const expiryHint = !ingredient
     ? undefined
     : ingredient.shelf_life_days !== null
       ? tr('ws.manager.stock.goodsIn.expiryAuto', { days: fmt.num(ingredient.shelf_life_days) })
       : tr('ws.manager.stock.goodsIn.expiryNone');
 
+  // Quantities and costs are numbers, so the boxes take nothing else: digits
+  // (an Arabic keyboard's included) and a single decimal point survive, every
+  // other keystroke is dropped, and the run stops at ten digits — past that it
+  // is a typo, not a delivery (decimalKeystroke, decimalInput.ts).
   return (
     <li
       style={{
@@ -329,7 +344,7 @@ function LineEditor({
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 'var(--tp-sp-2)', alignItems: 'start' }}>
         <Field label={withUnit(tr('ws.manager.stock.goodsIn.received'))} required style={{ marginBlockEnd: 0 }} error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: onlyNumber(e.target.value) })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
           label={withUnit(tr('ws.manager.stock.goodsIn.ordered'))}
@@ -338,7 +353,7 @@ function LineEditor({
           error={problem === 'ordered' ? tr('ws.manager.stock.goodsIn.problem.ordered') : undefined}
           hint={short ? <span style={{ color: 'var(--tp-warn-fg)', fontWeight: 600 }}>{tr('ws.manager.stock.goodsIn.short', { qty: fmt.num(Number(line.qtyExpected) - Number(line.qtyReceived)) })}</span> : undefined}
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: onlyNumber(e.target.value) })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
           label={unit ? tr('ws.manager.stock.goodsIn.costPer', { unit }) : tr('ws.manager.stock.goodsIn.cost')}
@@ -353,7 +368,7 @@ function LineEditor({
             ) : undefined
           }
         >
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: onlyNumber(e.target.value) })} />
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: decimalKeystroke(e.target.value) })} />
         </Field>
         <Field
           label={tr('ws.manager.stock.goodsIn.expiry')}

@@ -52,6 +52,8 @@ interface VarianceRow {
   void_qty: number;
   expired_qty: number;
   movement_ids: number[] | null;
+  /** product_release: a new item's test servings. Absent before that migration, so read as 0. */
+  product_test_qty?: number | null;
 }
 
 type Show = 'differed' | 'all';
@@ -99,6 +101,7 @@ export function VarianceReport() {
   const differed = all.filter((r) => Number(r.variance_qty) !== 0);
   const rows = show === 'differed' ? differed : all;
   const first = all[0];
+  const productTest = (r: VarianceRow) => Number(r.product_test_qty ?? 0);
 
   const status = countsQ.isSuccess && (countsQ.data?.length ?? 0) === 0 ? 'empty' : asyncStatus(varianceQ, (d) => d.length === 0);
 
@@ -114,13 +117,14 @@ export function VarianceReport() {
       tr('ws.manager.stock.variance.waste'),
       tr('ws.manager.stock.variance.voids'),
       tr('ws.manager.stock.variance.expired'),
+      tr('ws.release.variance.productTest'),
     ];
     const chosenCount = countsQ.data?.find((c) => c.id === chosen);
     downloadCsv(
       `count-differences-${chosenCount ? chosenCount.finalized_at.slice(0, 10) : 'count'}.csv`,
       toCsv(
         headers,
-        rows.map((r) => [pickName(locale, r), fmt.unit(r.unit), r.theoretical_qty, r.counted_qty, r.variance_qty, r.sold_qty, r.expected_waste_qty, r.recorded_waste_qty, r.void_qty, r.expired_qty]),
+        rows.map((r) => [pickName(locale, r), fmt.unit(r.unit), r.theoretical_qty, r.counted_qty, r.variance_qty, r.sold_qty, r.expected_waste_qty, r.recorded_waste_qty, r.void_qty, r.expired_qty, productTest(r)]),
       ),
     );
   }
@@ -152,6 +156,7 @@ export function VarianceReport() {
     { key: 'waste', header: tr('ws.manager.stock.variance.waste'), numeric: true, render: (r) => muted(r, r.recorded_waste_qty) },
     { key: 'voids', header: tr('ws.manager.stock.variance.voids'), numeric: true, render: (r) => muted(r, r.void_qty) },
     { key: 'expired', header: tr('ws.manager.stock.variance.expired'), numeric: true, render: (r) => muted(r, r.expired_qty) },
+    { key: 'productTest', header: tr('ws.release.variance.productTest'), numeric: true, render: (r) => muted(r, productTest(r)) },
     {
       key: 'history',
       header: '',

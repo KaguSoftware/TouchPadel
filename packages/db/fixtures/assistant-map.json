@@ -1,5 +1,5 @@
 {
-  "generated_from": "2cc0ec2963b8c8a69c85c49d3890e89668397f42",
+  "generated_from": "275845e52240e0eee42f1d77815c9b165a01793a",
   "chunks": [
     {
       "kind": "page",
@@ -22,7 +22,7 @@
       "ref": "page:/admin/addons",
       "lang": "en",
       "title": "/admin/addons",
-      "body": "The \"Add-ons\" screen listing item groups and sub-groups of guest choices; \"New group\" and \"New sub-group\" open an editor that saves with app.upsert_modifier_group and app.link_item_modifier_group, options save through app.upsert_modifier, and reveals through app.set_modifier_reveals.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "The \"Add-ons\" screen listing item groups and sub-groups of guest choices; \"New group\" and \"New sub-group\" open an editor that saves with app.upsert_modifier_group and app.link_item_modifier_group, options save through app.upsert_modifier, and reveals through app.set_modifier_reveals. For a manager an option on sale keeps its price, with \"Change the price\" (an addon_price price or promo change on /protocols), and a new paid option is saved hidden with its switch off and \"Put on sale\"; a free option is added and switched as before. A manager's save that would make guests pay more (a paid choice made compulsory by a group's minimum, a link, a reveal, or a free option switched off or moved) is refused and said to be the owner's to make.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/admin/addons"
     },
     {
@@ -54,7 +54,7 @@
       "ref": "page:/admin/day-close",
       "lang": "en",
       "title": "/admin/day-close — Day close",
-      "body": "The day-close screen: when no trading day is open it shows an opening-float field and \"Open day\" (app.open_day); otherwise it walks the steps (settle open tabs, wait for tills to sync, count the cash, enter the card batch) and \"Close day\" calls app.close_day, with \"Export CSV\" for the day's figures; unpaid played bookings warn but do not block.\nRoles: manager, owner.\nReached from: Operations: \"Day close\"; Management › Financial: \"Day close\".",
+      "body": "The day-close screen: when no trading day is open it shows an opening-float field and \"Open day\" (app.open_day); otherwise it walks the steps (settle open tabs, wait for tills to sync, count the cash, enter the card batch) and \"Close day\" calls app.close_day, with \"Export CSV\" for the day's figures; unpaid played bookings and \"Checklists not finished\" (the daily lists with a line nobody ticked, from app.checklist_day_state) warn but do not block.\nRoles: manager, owner.\nReached from: Operations: \"Day close\"; Management › Financial: \"Day close\".",
       "route": "/admin/day-close"
     },
     {
@@ -62,7 +62,7 @@
       "ref": "page:/admin/hero",
       "lang": "en",
       "title": "/admin/hero — Guest site",
-      "body": "The \"Guest site home screen\" builder choosing what sits above the guest menu (\"Menu only\", \"Photo or video\" or \"Featured item\"), the ticker lines and the bell tutorial switch; \"Save\" writes the cafe settings in one call (app.set_cafe_settings) and \"Discard changes\" reverts.\nRoles: manager, owner.\nReached from: Management › Setup: \"Guest site\".",
+      "body": "The \"Guest site home screen\" builder choosing what sits above the guest menu (\"Menu only\", \"Photo or video\" or \"Featured item\"), the ticker lines and the bell tutorial switch; \"Save\" writes the cafe settings in one call (app.set_cafe_settings) and \"Discard changes\" reverts. For a manager the featured discount is read-only with \"Change the discount\" (a featured_discount price or promo change on /protocols) and, while one is stored, \"Switch the discount off\" (saves 0); while a discount is stored the featured item picker is off, and so is the Featured tile when the hero is not already in Featured mode.\nRoles: manager, owner.\nReached from: Management › Setup: \"Guest site\".",
       "route": "/admin/hero"
     },
     {
@@ -78,7 +78,7 @@
       "ref": "page:/admin/menu",
       "lang": "en",
       "title": "/admin/menu — Menu / Menu prices",
-      "body": "The \"Menu items\" editor listing categories and their items with sold-out switches; \"New category\" and \"New item\" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out.\nRoles: manager, owner.\nReached from: Operations: \"Menu\"; Management › Financial: \"Menu prices\".",
+      "body": "The \"Menu items\" editor listing categories and their items with sold-out switches; \"New category\" and \"New item\" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out. For a manager, \"New item\" in a café category is \"Propose a new item\", which opens a product release on /protocols; a launched item's sizes show their prices read-only with \"Change the price\" (a price change on /protocols) instead of \"New size\"; a never-launched café item's Active switch is off with \"Goes on sale when the owner launches it\", and a hidden shop product that was never on sale shows \"Put on sale\" (a shop_launch change). An item still in its product release is marked \"In release\" and its form names the release with \"Open the release\"; nobody can switch it on or change its prices here.\nRoles: manager, owner.\nReached from: Operations: \"Menu\"; Management › Financial: \"Menu prices\".",
       "route": "/admin/menu"
     },
     {
@@ -86,7 +86,7 @@
       "ref": "page:/admin/promotions",
       "lang": "en",
       "title": "/admin/promotions — Promotions",
-      "body": "The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted.\nRoles: manager, owner.\nReached from: Operations: \"Promotions\"; Management › Observe: \"Promotions\" (not a printed rail row).",
+      "body": "The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted. Only the owner saves a promotion or generates its code; a manager may switch a promotion off, and otherwise gets \"Propose a promotion\", \"Change this promotion\" in the read-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.\nRoles: manager, owner.\nReached from: Operations: \"Promotions\"; Management › Observe: \"Promotions\" (not a printed rail row).",
       "route": "/admin/promotions"
     },
     {
@@ -102,7 +102,7 @@
       "ref": "page:/admin/rates",
       "lang": "en",
       "title": "/admin/rates — Rates",
-      "body": "The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules.\nRoles: manager, owner.\nReached from: Operations: \"Rates\"; Management › Financial: \"Rates\".",
+      "body": "The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new rate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.\nRoles: manager, owner.\nReached from: Operations: \"Rates\"; Management › Financial: \"Rates\".",
       "route": "/admin/rates"
     },
     {
@@ -118,7 +118,7 @@
       "ref": "page:/admin/staff",
       "lang": "en",
       "title": "/admin/staff — Staff",
-      "body": "The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function, \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\nRoles: owner.\nReached from: Management › Setup: \"Staff\".",
+      "body": "The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account through the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\nRoles: owner.\nReached from: Management › Setup: \"Staff\".",
       "route": "/admin/staff"
     },
     {
@@ -158,7 +158,7 @@
       "ref": "page:/analytics/courts",
       "lang": "en",
       "title": "/analytics/courts",
-      "body": "Owner-only Courts analytics: Summary, What stands out, When courts are busy, Courts compared, Cancellations and no-shows, How people book, Guests, and Court players at the cafe, fed by app.analytics_courts_summary, _demand, _endings, _guests and _cafe for the period and its comparison window; the bar sets range, compare basis and court, \"Export\" saves the figures, and tiles drill into transactions.\nRoles: owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "Owner-only Courts analytics: Summary, What stands out, When courts are busy, Courts compared, Cancellations and no-shows, How people book, Guests, and Court players at the cafe, fed by app.analytics_courts_summary, _demand, _endings, _guests and _cafe for the period and its comparison window; the Summary names \"Event hours\" (courts held for tournaments, counted as open hours) when there were any; the bar sets range, compare basis and court, \"Export\" saves the figures, and tiles drill into transactions.\nRoles: owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/analytics/courts"
     },
     {
@@ -190,7 +190,7 @@
       "ref": "page:/desk/block",
       "lang": "en",
       "title": "/desk/block — Block court",
-      "body": "The \"Block court\" form (court, date, from, to, reason); its \"Block court\" button creates a maintenance reservation (reservation.create), shows a conflict notice when the window is already taken, then offers \"Open calendar\" and \"Block another\".\nRoles: court_desk, manager, owner.\nReached from: Court desk: \"Block court\".",
+      "body": "The \"Block court\" form (court, date, from, to, reason); its \"Block court\" button creates a maintenance reservation (reservation.create), shows a conflict notice when the window is already taken, then offers \"Open calendar\" and \"Block another\". Opened from a tournament's courts step (?run=&step=) it is \"Block courts for a tournament\" instead: the plan's courts and times from app.tournament_context, each \"Blocked\" or \"To block\"; \"Block N remaining\" calls app.block_courts_for_event, which blocks them all as the tournament's event or, with a booking in the way, blocks nothing and lists what to move (\"Open booking\", \"Check again\"); then \"Send courts step\" submits the step with the blocks of the plan's windows and an optional note (app.submit_step). A plan sent back and moved has already given its old blocks back.\nRoles: court_desk, manager, owner.\nReached from: Court desk: \"Block court\".",
       "route": "/desk/block"
     },
     {
@@ -246,7 +246,7 @@
       "ref": "page:/marketing",
       "lang": "en",
       "title": "/marketing — Marketing",
-      "body": "The owner's campaign list from app.marketing_overview showing status, window, audience and what each campaign brought in (or \"Not measurable\"); \"New campaign\" and \"Edit campaign\" save through app.save_marketing_campaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promotions\" and \"Open Telegram\" link out.\nRoles: owner.\nReached from: Management › Observe: \"Marketing\".",
+      "body": "The owner's campaign list from app.marketing_overview showing status, window, audience and what each campaign brought in (or \"Not measurable\"); drafts the marketing role suggested (app.marketing_suggestions) are marked with who sent them, their note and photos, with a \"From marketing\" filter; a read-only \"Requests to marketing\" panel (app.marketing_requests_page) lists what staff asked marketing for from their phones, Waiting, Answered or All, with who asked, the item, the date wanted, the photos and marketing's answer; \"New campaign\" and \"Edit campaign\" save through app.save_marketing_campaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promotions\" and \"Open Telegram\" link out.\nRoles: owner.\nReached from: Management › Observe: \"Marketing\".",
       "route": "/marketing"
     },
     {
@@ -302,7 +302,7 @@
       "ref": "page:/protocols",
       "lang": "en",
       "title": "/protocols",
-      "body": "Protocols: cards for New item, Tournament, Hiring, Price or promo change and Daily checklists, each showing how many are running and waiting on you with a Start button; Waiting on you, In progress and Finished lists from app.protocol_runs_page; a run opens its steps, records, photos and decisions (app.protocol_run_detail), a step's form submits through app.submit_step, Approve, Send back, Stop and Skip call app.decide_step or app.skip_step (a reason is required for the last three), Launch goes through the protocol-action function, and the owner-only How it works sheet saves app.save_protocol_template.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "Protocols: cards for New item, Tournament, Hiring, Price or promo change and Daily checklists, each showing how many are running and waiting on you with a Start button; Waiting on you, In progress and Finished lists from app.protocol_runs_page; a run opens its steps, records, photos and decisions (app.protocol_run_detail), a step's form submits through app.submit_step, Approve, Send back, Stop and Skip call app.decide_step or app.skip_step (a reason is required for the last three), Launch goes through the protocol-action function, and the owner-only How it works sheet saves app.save_protocol_template; the Daily checklists card (app.checklist_day_state) opens today's lists with who ticked each line and the photo of a line that needs one (app.checklist_board), and the owner's list editor, where any line can be switched to \"Needs a photo\", saves app.save_checklist_template.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/protocols"
     },
     {
@@ -326,7 +326,7 @@
       "ref": "page:/reports/courts",
       "lang": "en",
       "title": "/reports/courts — Reports",
-      "body": "The courts report (app.report_courts, or app.report_compare): totals for bookings, booked hours, occupancy, court revenue, cancellations and no-shows with the \"Show\" views By court, Cancellations, Peak times, By start time and By day, a court filter and \"Export\"; a court or day row drills its bookings through app.report_drill.\nRoles: manager, owner.\nReached from: Operations: \"Reports\".",
+      "body": "The courts report (app.report_courts, or app.report_compare): totals for bookings, booked hours, occupancy, court revenue, cancellations and no-shows, plus \"Event hours\" (courts held for tournaments, counted as open hours) as a figure and a By court column when a tournament held a court, with the \"Show\" views By court, Cancellations, Peak times, By start time and By day, a court filter and \"Export\"; a court or day row drills its bookings through app.report_drill.\nRoles: manager, owner.\nReached from: Operations: \"Reports\".",
       "route": "/reports/courts"
     },
     {
@@ -350,7 +350,7 @@
       "ref": "page:/reports/stock",
       "lang": "en",
       "title": "/reports/stock — Stock value",
-      "body": "The stock value report (app.report_stock): headline stock value plus counts for running low, below par, expiring soon and expired, with the \"Show\" views Running low, Below par, Expiring soon, Expired, Used and Count differences (with an \"Only differences\" toggle); each list has a button opening the matching /stock screen, plus \"Export\".\nRoles: manager, owner.\nReached from: Management › Stock: \"Stock value\".",
+      "body": "The stock value report (app.report_stock): headline stock value plus counts for running low, below par, expiring soon and expired, with the \"Show\" views Running low, Below par, Expiring soon, Expired, Used and Count differences (with an \"Only differences\" toggle and a Product tests column); each list has a button opening the matching /stock screen, plus \"Export\".\nRoles: manager, owner.\nReached from: Management › Stock: \"Stock value\".",
       "route": "/reports/stock"
     },
     {
@@ -358,7 +358,7 @@
       "ref": "page:/setup",
       "lang": "en",
       "title": "/setup — Overview",
-      "body": "The Setup section's landing screen: a \"Worth checking\" panel flags a broken Telegram link, managers or owners without a PIN, a single owner account, and active accounts still on the retired Kitchen role (update every station first, then move each one to Barista or Chef), each with a jump button (\"Open Telegram\", \"Set PINs\", \"Go to Staff\"), above cards opening the Setup screens.\nRoles: owner.\nReached from: Management › Setup: \"Overview\".",
+      "body": "The Setup section's landing screen: a \"Worth checking\" panel flags a broken Telegram link, managers or owners without a PIN, a single owner account, active accounts still on the retired Kitchen role (update every station first, then move each one to Barista or Chef), and prepared items with no par level (the kitchen's \"What to make today\" never asks for them), each with a jump button (\"Open Telegram\", \"Set PINs\", \"Go to Staff\", \"Open Ingredients\"), above cards opening the Setup screens.\nRoles: owner.\nReached from: Management › Setup: \"Overview\".",
       "route": "/setup"
     },
     {
@@ -414,7 +414,7 @@
       "ref": "page:/stock/products",
       "lang": "en",
       "title": "/stock/products",
-      "body": "\"Shop products\": one row per size of every Touch Shop product (a menu item in a shop section) with SKU, barcode, price, on hand and supplier; \"New product\" writes app.upsert_menu_item then app.upsert_retail_variant, \"Add size\" and \"Edit\" write app.upsert_retail_variant, which keeps each size's own stock row (unit pc) in step.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "\"Shop products\": one row per size of every Touch Shop product (a menu item in a shop section) with SKU, barcode, price, on hand and supplier; \"New product\" writes app.upsert_menu_item then app.upsert_retail_variant, \"Add size\" and \"Edit\" write app.upsert_retail_variant, which keeps each size's own stock row (unit pc) in step. For a manager a product's prices go to the owner: a new product is saved hidden, a hidden product never on sale keeps its prices editable and offers \"Put on sale\" (a shop_launch price or promo change on /protocols), and a product on sale has its prices read-only with \"Change the price\" in place of \"Add size\", while its SKU, barcode, supplier, pack cost and low-stock level stay editable.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/stock/products"
     },
     {
@@ -422,7 +422,7 @@
       "ref": "page:/stock/receive",
       "lang": "en",
       "title": "/stock/receive",
-      "body": "\"Goods in\": one delivery per submit with supplier and notes and per-line ingredient, received and ordered quantities, cost per unit and batch expiry; \"Add another ingredient\" adds a line and \"Record delivery\" posts the whole delivery through app.receive_delivery.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "\"Goods in\": \"Bought by the driver\" lists the driver's purchases still to receive (app.purchases_to_receive), and \"Receive\" opens one (?purchase=) prefilled with what was bought, where \"Receive into stock\" books its stock lines as one delivery through app.receive_purchase and \"Mark checked\" closes a line that is not stock (app.acknowledge_purchase_line); each purchase says \"Delivered <time> by <name>\" once the driver confirmed it reached the venue on the phone, or \"Delivery not confirmed yet\", and receiving never waits for it; below it, one delivery per submit with supplier and notes and per-line ingredient, received and ordered quantities, cost per unit and batch expiry; \"Add another ingredient\" adds a line and \"Record delivery\" posts the whole delivery through app.receive_delivery.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/stock/receive"
     },
     {
@@ -446,7 +446,7 @@
       "ref": "page:/stock/variance",
       "lang": "en",
       "title": "/stock/variance",
-      "body": "\"Count differences\" for a chosen finished count from v_variance_report, defaulting to \"Only differences\" with a toggle to \"All ingredients\", with columns Records said, Counted, Difference, Sold, Expected waste, Recorded waste, Voids and Expired; each row has \"History\" and the header has \"Export\".\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "\"Count differences\" for a chosen finished count from v_variance_report, defaulting to \"Only differences\" with a toggle to \"All ingredients\", with columns Records said, Counted, Difference, Sold, Expected waste, Recorded waste, Voids, Expired and Product tests (what a new item's test servings used, the product_test movements of a product release); each row has \"History\", where a product test's note opens its release on /protocols, and the header has \"Export\".\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/stock/variance"
     },
     {
@@ -454,7 +454,7 @@
       "ref": "page:/stock/waste",
       "lang": "en",
       "title": "/stock/waste",
-      "body": "\"Waste & production\", two forms side by side: \"Record waste\" (ingredient, quantity, Spill or Spoilage, a required note) writes app.record_waste, and \"Record production\" (prepared item, amount made) writes app.record_production, which consumes the components by recipe and reports the batch cost.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "body": "\"Waste & production\", two forms side by side: \"Record waste\" (ingredient, quantity, Spill or Spoilage, a required note) writes app.record_waste, and \"Record production\" (prepared item, amount made) writes app.record_production, which consumes the components by recipe and reports the batch cost; below them \"Made today\" lists the business day's batches, from here or the kitchen's phones, with who made them (app.production_log_today).\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
       "route": "/stock/waste"
     },
     {
@@ -1846,8 +1846,8 @@
       "ref": "action:app.acknowledge_purchase_line",
       "lang": "en",
       "title": "app.acknowledge_purchase_line",
-      "body": "shopping_purchases (§2.15). MGMT at the purchase's venue: acknowledges a purchase line that is not stock, or a stock line whose ingredient was switched off since it was bought (its shopping-list line becomes acknowledged); the purchase is done once no line is left to receive. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint line: a stock line of an active ingredient is received, not acknowledged). Audit purchase.acknowledge.\nSignature: app.acknowledge_purchase_line(p_line_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.acknowledge.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, INVALID_ARGUMENT, PURCHASE_ALREADY_RECEIVED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
-      "route": null
+      "body": "shopping_purchases (§2.15). MGMT at the purchase's venue: acknowledges a purchase line that is not stock, or a stock line whose ingredient was switched off since it was bought (its shopping-list line becomes acknowledged); the purchase is done once no line is left to receive. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint line: a stock line of an active ingredient is received, not acknowledged). Audit purchase.acknowledge.\nSignature: app.acknowledge_purchase_line(p_line_id uuid) returns void.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.acknowledge.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, INVALID_ARGUMENT, PURCHASE_ALREADY_RECEIVED.\nCalled from: apps/operator/src/features/stock/DriverPurchases.tsx (pages /stock).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/stock"
     },
     {
       "kind": "action",
@@ -2822,8 +2822,8 @@
       "ref": "action:app.receive_purchase",
       "lang": "en",
       "title": "app.receive_purchase",
-      "body": "shopping_purchases (§2.15). MGMT at the purchase's venue, one transaction: p_lines [{purchase_line_id, qty_received, expiry_date?}] must name every stock line still to receive (a short line receives less than was bought); they are booked through app.receive_delivery as ONE delivery (cost per base unit = price ÷ quantity; named p_supplier_name, else the supplier p_supplier_id, else the shop), purchases.delivery_id links it, the lines become received and the purchase done once no line is left. Returns {delivery_id, received_line_ids}. Idempotent by key. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint lines: a missing, unknown, repeated or non-stock line), INGREDIENT_NOT_FOUND (hint lines, detail the line: a stock line whose ingredient was switched off since, to acknowledge first), INVALID_QTY, SUPPLIER_NOT_FOUND and receive_delivery's codes. Audit purchase.receive.\nSignature: app.receive_purchase(p_purchase_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.receive.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, INVALID_QTY.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
-      "route": null
+      "body": "shopping_purchases (§2.15). MGMT at the purchase's venue, one transaction: p_lines [{purchase_line_id, qty_received, expiry_date?}] must name every stock line still to receive (a short line receives less than was bought); they are booked through app.receive_delivery as ONE delivery (cost per base unit = price ÷ quantity; named p_supplier_name, else the supplier p_supplier_id, else the shop), purchases.delivery_id links it, the lines become received and the purchase done once no line is left. Returns {delivery_id, received_line_ids}. Idempotent by key. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint lines: a missing, unknown, repeated or non-stock line), INGREDIENT_NOT_FOUND (hint lines, detail the line: a stock line whose ingredient was switched off since, to acknowledge first), INVALID_QTY, SUPPLIER_NOT_FOUND and receive_delivery's codes. Audit purchase.receive.\nSignature: app.receive_purchase(p_purchase_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.receive.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, INVALID_QTY.\nCalled from: apps/operator/src/features/stock/DriverPurchases.tsx (pages /stock).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "route": "/stock"
     },
     {
       "kind": "action",
@@ -10571,6 +10571,54 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.events.block",
+      "lang": "ar",
+      "title": "ws.events.block (packages/i18n/src/catalogs/ws/events.ar.ts)",
+      "body": "title: حجز الملاعب لبطولة\nlead: الملاعب والأوقات مأخوذة من خطة البطولة. تُحجز باسم البطولة: يعرضها التقويم كحجوزات مغلقة، وتحسبها تحليلات الملاعب ساعات فعاليات لا وقتاً مغلقاً.\nloadFailed: تعذّر تحميل البطولة.\ncapacity.players: {count} لاعباً\ncapacity.pairs: {count} زوجاً\nclassLabel: الفئة {class}\nwindows: الملاعب والأوقات\nnoWindows: الخطة لا تسمّي أي ملعب بعد. اطلب من المدير مراجعة الخطة.\ncolumns.court: الملعب\ncolumns.when: الوقت\ncolumns.state: الحالة\nstate.blocked: محجوز\nstate.toBlock: بانتظار الحجز\nblockAll: احجز الـ{count} المتبقية\nallBlocked: كل الملاعب والأوقات في الخطة محجوزة.\nblockedDone: تم الحجز. يعرضها التقويم الآن.\nconflictBody: هذه الحجوزات تشغل جزءاً من وقت البطولة. لم يُحجز شيء. انقلها أو ألغِها، ثم تحقّق مرة أخرى.\nconflictKind.booking: حجز\nconflictKind.hold: قيد الحجز\nconflictKind.maintenance: إغلاق\nopenBooking: افتح الحجز\ncheckAgain: تحقّق مرة أخرى\nnotOpen: خطوة الملاعب هذه غير مفتوحة، فلا يمكن حجز شيء هنا. حالتها: {status}.\nnotCourts: هذا الرابط ليس خطوة الملاعب لبطولة.\nsend.title: أرسل خطوة الملاعب\nsend.note: ما الذي نُقل (اختياري)\nsend.noteHint: للمدير الذي يراجع هذه الخطوة: الحجوزات التي نقلتها، أو سبب عدم حجز وقت ما.\nsend.submit: أرسل خطوة الملاعب\nsend.remaining: {count} من أوقات الخطة لم تُحجز بعد. احجزها أولاً، أو اذكر السبب في الملاحظة.\nsend.needsBlock: احجز ملعباً واحداً على الأقل قبل الإرسال.\nsend.done: تم الإرسال. يراجع المدير خطوة الملاعب بعد ذلك.\nback: العودة إلى البطولة\nopenCalendar: افتح التقويم",
+      "route": "/desk/block"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.events.block",
+      "lang": "en",
+      "title": "ws.events.block (packages/i18n/src/catalogs/ws/events.en.ts)",
+      "body": "title: Block courts for a tournament\nlead: The courts and times come from the tournament plan. They are held as the tournament’s event: the calendar shows them as blocks, and court analytics counts them as event hours, not as closed time.\nloadFailed: The tournament could not be loaded.\ncapacity.players: {count} players\ncapacity.pairs: {count} pairs\nclassLabel: Class {class}\nwindows: Courts and times\nnoWindows: The plan names no courts yet. Ask the manager to check the plan.\ncolumns.court: Court\ncolumns.when: When\ncolumns.state: State\nstate.blocked: Blocked\nstate.toBlock: To block\nblockAll: Block {count} remaining\nallBlocked: Every court and time in the plan is blocked.\nblockedDone: Blocked. The calendar shows them now.\nconflictBody: These reservations hold part of the tournament’s time. Nothing was blocked. Move or cancel them, then check again.\nconflictKind.booking: Booking\nconflictKind.hold: Being booked\nconflictKind.maintenance: Block\nopenBooking: Open booking\ncheckAgain: Check again\nnotOpen: This courts step is not open, so nothing can be blocked here. It is: {status}.\nnotCourts: This link is not a tournament’s courts step.\nsend.title: Send the courts step\nsend.note: What was moved (optional)\nsend.noteHint: For the manager who checks this step: bookings you moved, or why a time is not blocked.\nsend.submit: Send courts step\nsend.remaining: {count} of the plan’s times are not blocked yet. Block them first, or say why in the note.\nsend.needsBlock: Block at least one court before sending.\nsend.done: Sent. A manager checks the courts step next.\nback: Back to the tournament\nopenCalendar: Open calendar",
+      "route": "/desk/block"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.events.courts",
+      "lang": "ar",
+      "title": "ws.events.courts (packages/i18n/src/catalogs/ws/events.ar.ts)",
+      "body": "eventHours: ساعات الفعاليات\neventHoursTip: ساعات الملاعب المحجوزة للبطولات. تبقى ضمن ساعات الفتح، فيحسبها الإشغال مفتوحة وغير محجوزة.\neventHoursHint: محجوزة للبطولات، محسوبة ضمن ساعات الفتح\neventMinutesCsv: دقائق الفعاليات",
+      "route": "/admin/courts"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.events.courts",
+      "lang": "en",
+      "title": "ws.events.courts (packages/i18n/src/catalogs/ws/events.en.ts)",
+      "body": "eventHours: Event hours\neventHoursTip: Court hours held for tournaments. They stay in open hours, so occupancy counts them as open and not booked.\neventHoursHint: Held for tournaments, counted as open hours\neventMinutesCsv: Event minutes",
+      "route": "/admin/courts"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.events.hire",
+      "lang": "ar",
+      "title": "ws.events.hire (packages/i18n/src/catalogs/ws/events.ar.ts)",
+      "body": "title: التوظيف: أضف الموظف الجديد\nbody: اختير {name} لوظيفة {role}. أضف حسابه هنا؛ تنتهي عملية التوظيف عند حفظه.\nbodyNoName: اختارت عملية التوظيف شخصاً لوظيفة {role}. أضف حسابه هنا؛ تنتهي العملية عند حفظه.\nadd: أضف الموظف الجديد\nloading: جارٍ تحميل عملية التوظيف…\nloadFailed: تعذّر تحميل عملية التوظيف.\nnotOpen: خطوة التوظيف هذه لا تنتظرك، لذلك لم يُملأ شيء.\nroleLocked: تحدّده عملية التوظيف: يجب أن يكون الحساب بالدور الذي سمّته الوظيفة.\ndone: أُضيف الحساب. انتهت عملية التوظيف.\nsubmitFailed: أُنشئ الحساب، لكن خطوة التوظيف لم تُرسل.\nretry: أرسل خطوة التوظيف مرة أخرى\ndismiss: إغلاق",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.events.hire",
+      "lang": "en",
+      "title": "ws.events.hire (packages/i18n/src/catalogs/ws/events.en.ts)",
+      "body": "title: Hiring: add the new staff member\nbody: {name} was picked for {role}. Add their account here; the hiring run finishes when it is saved.\nbodyNoName: The run picked someone for {role}. Add their account here; the hiring run finishes when it is saved.\nadd: Add the new staff member\nloading: Loading the hiring run…\nloadFailed: The hiring run could not be loaded.\nnotOpen: This hiring step is not waiting for you, so nothing is filled in.\nroleLocked: Set by the hiring run: the account must be in the role the position named.\ndone: Account added. The hiring run is finished.\nsubmitFailed: The account was created, but the hiring step was not sent.\nretry: Send the hiring step again\ndismiss: Close",
+      "route": null
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.kit.actions",
       "lang": "ar",
       "title": "ws.kit.actions (packages/i18n/src/catalogs/ws/kit.ar.ts)",
@@ -12083,6 +12131,102 @@
     },
     {
       "kind": "label",
+      "ref": "label:ws.pricing",
+      "lang": "ar",
+      "title": "ws.pricing (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
+      "body": "changePrice: غيّر السعر\nchangePriceFor: غيّر السعر: {name}\nputOnSale: اطرحه للبيع\nputOnSaleFor: اطرحه للبيع: {name}\nsavedHidden: يُحفظ مخفيًا حتى يوافق المالك على سعره",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing",
+      "lang": "en",
+      "title": "ws.pricing (packages/i18n/src/catalogs/ws/pricing.en.ts)",
+      "body": "changePrice: Change the price\nchangePriceFor: Change the price: {name}\nputOnSale: Put on sale\nputOnSaleFor: Put on sale: {name}\nsavedHidden: Saved hidden until the owner approves its price",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.addons",
+      "lang": "ar",
+      "title": "ws.pricing.addons (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
+      "body": "note: تتغيّر أسعار الخيارات المعروضة للبيع عبر «غيّر السعر» بموافقة المالك. ويُحفظ الخيار المدفوع الجديد مخفيًا، ويرسل «اطرحه للبيع» سعره إلى المالك. أما الخيار المجاني فيُفعَّل فورًا.",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.addons",
+      "lang": "en",
+      "title": "ws.pricing.addons (packages/i18n/src/catalogs/ws/pricing.en.ts)",
+      "body": "note: Prices of options on sale change through “Change the price”, with the owner’s OK. A new paid option is saved hidden, and “Put on sale” sends its price to the owner. A free option goes on at once.",
+      "route": "/admin/addons"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.hero",
+      "lang": "ar",
+      "title": "ws.pricing.hero (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
+      "body": "discountLocked: يوافق المالك على الخصم. غيّره في البروتوكولات، أو أطفئه من هنا.\nchangeDiscount: غيّر الخصم\nswitchOff: أطفئ الخصم\nitemLocked: تغيير الصنف المميز ينقل خصمه معه. غيّرهما معًا عبر «غيّر الخصم»، أو أطفئ الخصم أولًا.\nfeaturedLocked: وضع الصنف المميز يطرح الخصم المحفوظ للبيع. أطفئ الخصم أولًا، أو غيّره في البروتوكولات.\nstoredDiscount: خصم {pct}% محفوظ على {item}.\nswitchOffConfirm.title: إطفاء خصم الصنف المميز؟\nswitchOffConfirm.body: يعود الصنف المميز إلى سعره الكامل في الصندوق وفي قائمة الضيوف. والخصم الجديد يحتاج موافقة المالك.\nswitchOffConfirm.confirm: أطفئه\nswitchOffConfirm.cancel: أبقِه\nswitchedOff: خصم الصنف المميز مطفأ.",
+      "route": "/admin/hero"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.hero",
+      "lang": "en",
+      "title": "ws.pricing.hero (packages/i18n/src/catalogs/ws/pricing.en.ts)",
+      "body": "discountLocked: The owner approves the discount. Change it in Protocols, or switch it off here.\nchangeDiscount: Change the discount\nswitchOff: Switch the discount off\nitemLocked: Moving the featured item moves its discount. Change both with “Change the discount”, or switch the discount off first.\nfeaturedLocked: Featured mode puts the stored discount on sale. Switch the discount off first, or change it in Protocols.\nstoredDiscount: A {pct}% discount is stored for {item}.\nswitchOffConfirm.title: Switch the featured discount off?\nswitchOffConfirm.body: The featured item goes back to its full price on the till and the guest menu. A new discount needs the owner’s OK.\nswitchOffConfirm.confirm: Switch it off\nswitchOffConfirm.cancel: Keep it\nswitchedOff: The featured discount is off.",
+      "route": "/admin/hero"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.products",
+      "lang": "ar",
+      "title": "ws.pricing.products (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
+      "body": "note: تتغيّر أسعار المنتجات المعروضة للبيع عبر «غيّر السعر» بموافقة المالك. ويُحفظ المنتج الجديد مخفيًا: أضف مقاساته وأسعاره، ثم يرسله «اطرحه للبيع» إلى المالك.\npriceLocked: هذا المنتج معروض للبيع، فيتغيّر سعره عبر «غيّر السعر» بموافقة المالك. وبقية التفاصيل هنا تعدّلها أنت.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.products",
+      "lang": "en",
+      "title": "ws.pricing.products (packages/i18n/src/catalogs/ws/pricing.en.ts)",
+      "body": "note: Prices of products on sale change through “Change the price”, with the owner’s OK. A new product is saved hidden: add its sizes and prices, then “Put on sale” sends it to the owner.\npriceLocked: This product is on sale, so its price changes through “Change the price”, with the owner’s OK. Everything else here is yours to edit.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.promotions",
+      "lang": "ar",
+      "title": "ws.pricing.promotions (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
+      "body": "note: يوافق المالك على العروض الجديدة وعلى تغييرها وعلى إعادة تشغيلها. اقترح ذلك من هنا وتابعه في البروتوكولات. ويبقى بإمكانك إطفاء أي عرض.\neditorNote: المالك وحده يعدّل العرض مباشرة. اقترح تغييرًا ويوافق عليه المالك في البروتوكولات.\nnewNote: يبدأ العرض الجديد اقتراحًا في البروتوكولات، ويوافق عليه المالك.\npropose: اقترح عرضًا\nchange: غيّر هذا العرض\nswitchOn: شغّله\nswitchOnFor: شغّله: {name}",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.promotions",
+      "lang": "en",
+      "title": "ws.pricing.promotions (packages/i18n/src/catalogs/ws/pricing.en.ts)",
+      "body": "note: The owner approves new promotions, changes to them and switching one back on. Propose it here and follow it in Protocols. You can still switch a promotion off.\neditorNote: Only the owner edits a promotion directly. Propose a change and the owner approves it in Protocols.\nnewNote: A new promotion starts as a proposal in Protocols, and the owner approves it.\npropose: Propose a promotion\nchange: Change this promotion\nswitchOn: Switch on\nswitchOnFor: Switch on: {name}",
+      "route": "/admin/promotions"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.rates",
+      "lang": "ar",
+      "title": "ws.pricing.rates (packages/i18n/src/catalogs/ws/pricing.ar.ts)",
+      "body": "note: يوافق المالك على أسعار الملاعب. اقترح سعرًا جديدًا أو تغييرًا من هنا وتابعه في البروتوكولات.\npropose: اقترح سعرًا جديدًا\nchange: غيّر هذا السعر",
+      "route": "/admin/rates"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.pricing.rates",
+      "lang": "en",
+      "title": "ws.pricing.rates (packages/i18n/src/catalogs/ws/pricing.en.ts)",
+      "body": "note: The owner approves court rates. Propose a new rate or a change here and follow it in Protocols.\npropose: Propose a new rate\nchange: Change this rate",
+      "route": "/admin/rates"
+    },
+    {
+      "kind": "label",
       "ref": "label:ws.protocols",
       "lang": "ar",
       "title": "ws.protocols (packages/i18n/src/catalogs/ws/protocols.ar.ts)",
@@ -12111,6 +12255,54 @@
       "lang": "en",
       "title": "ws.protocols.placeholder (packages/i18n/src/catalogs/ws/protocols.en.ts)",
       "body": "title: Protocols are not ready yet\nbody: New items, tournaments, hiring and price or promo changes will be started and decided here.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.release.ledger",
+      "lang": "ar",
+      "title": "ws.release.ledger (packages/i18n/src/catalogs/ws/release.ar.ts)",
+      "body": "openRun: افتح إطلاق الصنف",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.release.ledger",
+      "lang": "en",
+      "title": "ws.release.ledger (packages/i18n/src/catalogs/ws/release.en.ts)",
+      "body": "openRun: Open the product release",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.release.menu",
+      "lang": "ar",
+      "title": "ws.release.menu (packages/i18n/src/catalogs/ws/release.ar.ts)",
+      "body": "proposeItem: اقترح صنفًا جديدًا\nproposeHint: تمرّ أصناف المقهى الجديدة بإطلاق صنف، والمالك هو من يطلقها.\ninReleaseBadge: قيد الإطلاق\ninRelease: قيد الإطلاق: {run}\ninReleaseBody: أسعاره تأتي من الإطلاق، ويُطرح للبيع عندما يطلقه المالك.\nopenRun: افتح الإطلاق\nputOnSale: اطرحه للبيع\nswitch.inRelease: يُطرح للبيع عندما يُتمّ المالك إطلاقه.\nswitch.ownerLaunches: يُطرح للبيع عندما يطلقه المالك.\nswitch.putOnSale: يُحفظ مخفيًا حتى يوافق المالك على سعره.\nswitch.savedHidden: يُحفظ المنتج الجديد مخفيًا. أضف مقاساته وأسعاره، ثم اضغط «اطرحه للبيع»: يُطرح للبيع عندما يوافق المالك على سعره.\nsizes.changePrice: غيّر السعر\nsizes.onSale: هذا الصنف معروض للبيع، فتتغيّر أسعاره عبر «غيّر السعر» بموافقة المالك.\nsizes.inRelease: خطوة السعر في الإطلاق هي التي تحدد هذه الأسعار.",
+      "route": "/admin/menu"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.release.menu",
+      "lang": "en",
+      "title": "ws.release.menu (packages/i18n/src/catalogs/ws/release.en.ts)",
+      "body": "proposeItem: Propose a new item\nproposeHint: New café items go through a product release, and the owner launches them.\ninReleaseBadge: In release\ninRelease: In release: {run}\ninReleaseBody: Its prices come from the release, and it goes on sale when the owner launches it.\nopenRun: Open the release\nputOnSale: Put on sale\nswitch.inRelease: Goes on sale when the owner launches its release.\nswitch.ownerLaunches: Goes on sale when the owner launches it.\nswitch.putOnSale: Saved hidden until the owner approves its price.\nswitch.savedHidden: A new product is saved hidden. Add its sizes and prices, then press Put on sale: it goes on sale when the owner approves its price.\nsizes.changePrice: Change the price\nsizes.onSale: This item is on sale, so its prices change through Change the price, with the owner’s OK.\nsizes.inRelease: The release’s price step sets these prices.",
+      "route": "/admin/menu"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.release.variance",
+      "lang": "ar",
+      "title": "ws.release.variance (packages/i18n/src/catalogs/ws/release.ar.ts)",
+      "body": "productTest: تجارب الأصناف الجديدة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.release.variance",
+      "lang": "en",
+      "title": "ws.release.variance (packages/i18n/src/catalogs/ws/release.en.ts)",
+      "body": "productTest: Product tests",
       "route": null
     },
     {
@@ -12551,6 +12743,174 @@
       "lang": "en",
       "title": "ws.shell.workspaceLead (packages/i18n/src/catalogs/ws/shell.en.ts)",
       "body": "courtDesk: Bookings, arrivals and customers\ncashier: Orders, tabs and payment\nprep: The ticket board the cooks work from\nmanager: Floor, stock, day close and reports\nowner: The whole business in one place\nteam: Tasks and checklists given to you",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.checklists",
+      "lang": "ar",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "title: قوائم المهام اليومية\nsummary: اكتملت {done} من {total} قوائم اليوم\nallDone: اكتملت كل القوائم اليوم.\nnoneTitle: لا توجد قوائم للتأشير اليوم\nnoneOwner: اكتب قائمة افتتاح وقائمة إغلاق لكل دور. يؤشّر عليها الموظفون من هواتفهم.\nnoneManager: يكتب المالك قائمة افتتاح وقائمة إغلاق لكل دور. يؤشّر عليها الموظفون من هواتفهم.\nrow: {role} · {slot}\nprogress: {done} من {total}\nfinished: اكتملت\nmoreLists: +{count} أخرى\nopen: اعرض اليوم\nedit: عدّل القوائم\nwrite: اكتب قائمة\ntabToday: اليوم\ntabEdit: عدّل القوائم\ntodayLead: قائمة واحدة مشتركة لكل دور. كل تأشيرة تُظهر من أشّر ومتى. يؤشَّر على القوائم من الهاتف.\nnotOpened: لم يفتح أحد هذه القائمة اليوم.\nticked: {name} · {time}\nnoTemplates: لا توجد قوائم بعد.\nphotoNeeded: تحتاج صورة\nseePhoto: اعرض الصورة: {line}\nhidePhoto: أخفِ الصورة: {line}\nphotoAlt: صورة: {line}\neditor.pick: اختر قائمة\neditor.noList: لا توجد قائمة\neditor.lineCount: السطور: {count}\neditor.heading: {role} · {slot}\neditor.nameEn: الاسم (بالإنجليزية)\neditor.nameAr: الاسم (بالعربية)\neditor.defaultName: {role}: {slot}\neditor.lines: السطور\neditor.count: {count} من {max}\neditor.lineEn: السطر {n} بالإنجليزية\neditor.lineAr: السطر {n} بالعربية\neditor.addLine: أضف سطرًا\neditor.removeLine: احذف السطر {n}\neditor.photo: تحتاج صورة\neditor.photoCount: تحتاج صورة: {count}\neditor.photoLead: شغّل «تحتاج صورة» للسطر الذي يجب إثبات إنجازه، مثل طاولة نُظّفت. لا يستطيع الموظف التأشير عليه إلا بالتقاط صورة من الهاتف، وتظهر الصورة هنا تحت «اليوم».\neditor.full: تتسع القائمة لـ {max} سطرًا على الأكثر.\neditor.emptyList: لا توجد سطور بعد. القائمة بلا سطور لا تظهر لأحد.\neditor.both: اكتبه بالإنجليزية والعربية معًا.\neditor.tooLong: {max} حرفًا على الأكثر.\neditor.keepsToday: القائمة التي فتحها أحد اليوم تحتفظ بسطورها. يظهر تعديلك من القائمة التالية.\neditor.save: احفظ القائمة\neditor.saved: حُفظت القائمة.\neditor.discard: تجاهل التعديلات\neditor.reload: حمّل الأحدث\neditor.invalid: صحّح الخانات المعلّمة بالأحمر أولًا.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.checklists",
+      "lang": "en",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "title: Daily checklists\nsummary: {done} of {total} lists finished today\nallDone: Every list is finished today.\nnoneTitle: No lists to tick today\nnoneOwner: Write an opening and a closing list for each role. Staff tick them on their phones.\nnoneManager: The owner writes an opening and a closing list for each role. Staff tick them on their phones.\nrow: {role} · {slot}\nprogress: {done} of {total}\nfinished: Finished\nmoreLists: +{count} more\nopen: See today\nedit: Edit the lists\nwrite: Write a list\ntabToday: Today\ntabEdit: Edit the lists\ntodayLead: One shared list per role. Each tick shows who made it and when. Lists are ticked on the phone.\nnotOpened: Nobody has opened this list today.\nticked: {name} · {time}\nnoTemplates: No lists yet.\nphotoNeeded: Needs a photo\nseePhoto: See the photo: {line}\nhidePhoto: Hide the photo: {line}\nphotoAlt: Photo for: {line}\neditor.pick: Choose a list\neditor.noList: No list\neditor.lineCount: Lines: {count}\neditor.heading: {role} · {slot}\neditor.nameEn: Name (English)\neditor.nameAr: Name (Arabic)\neditor.defaultName: {role}: {slot}\neditor.lines: Lines\neditor.count: {count} of {max}\neditor.lineEn: Line {n}, English\neditor.lineAr: Line {n}, Arabic\neditor.addLine: Add a line\neditor.removeLine: Remove line {n}\neditor.photo: Needs a photo\neditor.photoCount: Needs a photo: {count}\neditor.photoLead: Switch on “Needs a photo” for a line that has to be shown done, like a cleaned counter. Staff can tick it only by taking a photo on the phone, and the photo shows here under Today.\neditor.full: A list holds at most {max} lines.\neditor.emptyList: No lines yet. A list with no lines is not shown to anyone.\neditor.both: Write it in both English and Arabic.\neditor.tooLong: At most {max} characters.\neditor.keepsToday: A list someone already opened today keeps its lines. Your change shows from the next one.\neditor.save: Save the list\neditor.saved: List saved.\neditor.discard: Discard changes\neditor.reload: Load the latest",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.checklists#2",
+      "lang": "en",
+      "title": "ws.supplies.checklists (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "editor.invalid: Fix the boxes marked in red first.",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.dayClose",
+      "lang": "ar",
+      "title": "ws.supplies.dayClose (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "title: قوائم مهام لم تكتمل\nbadge: مفتوحة: {count}\nlead: لم يؤشّر أحد على هذه السطور في اليوم الذي تغلقه. ما زال بإمكانك إغلاقه.\nlist: {role} · {slot}\nprogress: أُنجز {done} من {total}\nmore: +{count} أخرى",
+      "route": "/admin/day-close"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.dayClose",
+      "lang": "en",
+      "title": "ws.supplies.dayClose (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "title: Checklists not finished\nbadge: {count} open\nlead: Nobody ticked these lines on the day you are closing. You can still close it.\nlist: {role} · {slot}\nprogress: {done} of {total} done\nmore: +{count} more",
+      "route": "/admin/day-close"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.driver",
+      "lang": "ar",
+      "title": "ws.supplies.driver (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "title: مشتريات السائق\nbadge: بانتظار الاستلام: {count}\nlead: سجّلها السائق في المحل. افتح أيًّا منها لتتحقق مما وصل وتُدخله المخزون.\nitems: الأصناف: {count}\nnoShop: لم يُذكر المحل\nreceive: استلم\ndelivered: سُلِّمت {time} بتأكيد من {name}\ndeliveredNoName: سُلِّمت {time}\nnotDelivered: لم يُؤكَّد التسليم بعد",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.driver",
+      "lang": "en",
+      "title": "ws.supplies.driver (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "title: Bought by the driver\nbadge: {count} to receive\nlead: The driver recorded these at the shop. Open one to check what arrived and put it into stock.\nitems: Items: {count}\nnoShop: Shop not given\nreceive: Receive\ndelivered: Delivered {time} by {name}\ndeliveredNoName: Delivered {time}\nnotDelivered: Delivery not confirmed yet",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.fromMarketing",
+      "lang": "ar",
+      "title": "ws.supplies.fromMarketing (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "filter: من التسويق\nwaiting: جديد من التسويق: {count}\nfrom: من {name}\nfromUnknown: من التسويق\nnote: ملاحظة: {note}\nphotos: الصور ({count})\nphotosTitle: صور من التسويق",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.fromMarketing",
+      "lang": "en",
+      "title": "ws.supplies.fromMarketing (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "filter: From marketing\nwaiting: New from marketing: {count}\nfrom: From {name}\nfromUnknown: From marketing\nnote: Note: {note}\nphotos: Photos ({count})\nphotosTitle: Photos from marketing",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.madeToday",
+      "lang": "ar",
+      "title": "ws.supplies.madeToday (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "title: المُحضَّر اليوم\nlead: الدفعات المسجّلة اليوم، هنا أو من هواتف المطبخ.\nempty: لم يُحضَّر شيء اليوم بعد.\ntime: الوقت\nitem: الصنف\namount: الكمية\nwho: من",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.madeToday",
+      "lang": "en",
+      "title": "ws.supplies.madeToday (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "title: Made today\nlead: Batches recorded today, here or on the kitchen’s phones.\nempty: Nothing made yet today.\ntime: Time\nitem: Item\namount: Made\nwho: Who",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.photo",
+      "lang": "ar",
+      "title": "ws.supplies.photo (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "loading: جارٍ فتح الصورة…\nerror: تعذّر فتح هذه الصورة.\nalt: الصورة {n}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.photo",
+      "lang": "en",
+      "title": "ws.supplies.photo (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "loading: Opening the photo…\nerror: This photo could not be opened.\nalt: Photo {n}",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.purchase",
+      "lang": "ar",
+      "title": "ws.supplies.purchase (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "title: استلام ما اشتراه السائق\nback: العودة إلى الاستلام\ngone: هذه المشتريات ليست بانتظار الاستلام\ngoneBody: ربما استلمها أحد قبلك. المشتريات التي ما زالت بانتظار الاستلام تظهر في صفحة الاستلام.\nboughtBy: اشتراها\nwhere: المحل\nwhen: الوقت\npaid: المدفوع\ndelivery: التسليم\nreceipt: اعرض الإيصال\nreceiptTitle: الإيصال\nnoReceipt: لا توجد صورة إيصال\nstockTitle: إلى المخزون\nstockLead: يبدأ كل سطر بما اشتراه السائق. غيّره إن وصل أقل. الكلفة لكل وحدة هي ما دُفع في السطر مقسومًا على الكمية المشتراة.\nbought: اشتُري {qty}\ncostEach: دُفع {amount}، أي {cost} لكل {unit}\nreceived: المستلم ({unit})\nreceivedInvalid: أدخل رقمًا، صفرًا أو أكثر.\nshort: ناقص {qty}\nover: أكثر مما اشتُري\nsupplierBlank: فارغ: يُسجَّل باسم المحل، {shop}.\nreceiveBtn: أدخل المخزون\nreceiveDisabled.switchedOff: علّم السطور المتوقفة كمتحقق منها أولًا.\nreceiveDisabled.invalid: صحّح الكميات المعلّمة بالأحمر أولًا.\nreceivedToast: تم الاستلام. تحدّث المخزون.\ningredientSwitchedOff: أُوقف مكوّن في هذه المشتريات. علّم سطره كمتحقق منه، ثم استلم الباقي.\nnotStockTitle: ليست للمخزون\nnotStockLead: أشياء لا يحفظها المكان في المخزون، مثل مواد التنظيف. علّم كل واحد منها كمتحقق منه بعد أن تراه.\nswitchedOff: أُوقف هذا المكوّن بعد شرائه، لذا لا يمكن إدخاله المخزون. علّمه كمتحقق منه، أو أعد تشغيل المكوّن من صفحة المكوّنات.\nacknowledge: تم التحقق\nacknowledgedToast: عُلّم كمتحقق منه.\nconfirmSwitchedOffTitle: تعليم {name} كمتحقق منه؟\nconfirmSwitchedOffBody: لن يدخل المخزون، ولا يمكن التراجع عن ذلك.\ndoneTitle: أُنجز من قبل",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.purchase",
+      "lang": "en",
+      "title": "ws.supplies.purchase (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "title: Receive what the driver bought\nback: Back to Goods in\ngone: This purchase is not waiting to be received\ngoneBody: Someone may have received it already. Purchases still to receive are listed on Goods in.\nboughtBy: Bought by\nwhere: Where\nwhen: When\npaid: Paid\ndelivery: Delivery\nreceipt: See the receipt\nreceiptTitle: Receipt\nnoReceipt: No receipt photo\nstockTitle: Into stock\nstockLead: Each line starts at what the driver bought. Change it if less arrived. The cost per unit is what was paid for the line, divided by the amount bought.\nbought: Bought {qty}\ncostEach: Paid {amount}, {cost} per {unit}\nreceived: Received ({unit})\nreceivedInvalid: Enter a number, 0 or more.\nshort: Short by {qty}\nover: More than was bought\nsupplierBlank: Blank: filed under the shop, {shop}.\nreceiveBtn: Receive into stock\nreceiveDisabled.switchedOff: Mark the switched-off lines checked first.\nreceiveDisabled.invalid: Fix the amounts marked in red first.\nreceivedToast: Received. Stock is updated.\ningredientSwitchedOff: An ingredient on this purchase was switched off. Mark that line checked, then receive the rest.\nnotStockTitle: Not for stock\nnotStockLead: Things the venue does not keep in stock, like cleaning supplies. Mark each one checked once you have seen it.\nswitchedOff: This ingredient was switched off after it was bought, so it cannot go into stock. Mark it checked, or switch the ingredient back on in Ingredients.\nacknowledge: Mark checked\nacknowledgedToast: Marked checked.\nconfirmSwitchedOffTitle: Mark {name} checked?\nconfirmSwitchedOffBody: It will not go into stock, and this cannot be undone.\ndoneTitle: Already done",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.requests",
+      "lang": "ar",
+      "title": "ws.supplies.requests (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "title: طلبات إلى التسويق\nlead: يطلب الموظفون من التسويق أشياء من هواتفهم، مثل منشور عن صنف جديد، ويجيب التسويق من هناك. هذه القائمة للاطلاع فقط.\nwaitingBadge: بانتظار الرد: {count}\nfilterLabel: أي الطلبات\nfilter.open: بانتظار الرد\nfilter.answered: تم الرد\nfilter.all: الكل\nempty.open: لا شيء بانتظار التسويق.\nempty.answered: لم يرد التسويق على أي طلب بعد.\nempty.all: لم يطلب أحد شيئًا من التسويق بعد.\nabout: بخصوص {item}\nwantBy: مطلوب بحلول {date}\nwantByLate: مطلوب بحلول {date}، وقد فات الموعد\nphotos: الصور ({count})\nphotosTitle: الصور: {title}\nansweredBy: رد {name} · {time}\nmore: يظهر {shown} من {total}.",
+      "route": "/observation/requests"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.requests",
+      "lang": "en",
+      "title": "ws.supplies.requests (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "title: Requests to marketing\nlead: Staff ask marketing for something from their phones, like a post about a new item, and marketing answers there. This list is for reading only.\nwaitingBadge: {count} waiting\nfilterLabel: Which requests\nfilter.open: Waiting\nfilter.answered: Answered\nfilter.all: All\nempty.open: Nothing is waiting for marketing.\nempty.answered: Marketing has not answered a request yet.\nempty.all: Nobody has asked marketing for anything yet.\nabout: About {item}\nwantBy: Wanted by {date}\nwantByLate: Wanted by {date}, now past\nphotos: Photos ({count})\nphotosTitle: Photos: {title}\nansweredBy: Answer from {name} · {time}\nmore: Showing {shown} of {total}.",
+      "route": "/observation/requests"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.setup",
+      "lang": "ar",
+      "title": "ws.supplies.setup (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "noPar: أصناف مُحضَّرة بلا حد\nnoParHint: قائمة «ما يُحضَّر اليوم» في المطبخ لا تطلب هذه الأصناف أبدًا حتى يُحدَّد لكل منها حد.\nnoParAction: افتح المكوّنات",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.setup",
+      "lang": "en",
+      "title": "ws.supplies.setup (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "noPar: Prepared items with no par level\nnoParHint: The kitchen’s “What to make today” list never asks for these until each has a par level.\nnoParAction: Open Ingredients",
+      "route": "/setup"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.unit",
+      "lang": "ar",
+      "title": "ws.supplies.unit (packages/i18n/src/catalogs/ws/supplies.ar.ts)",
+      "body": "pack: عبوة",
+      "route": null
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.supplies.unit",
+      "lang": "en",
+      "title": "ws.supplies.unit (packages/i18n/src/catalogs/ws/supplies.en.ts)",
+      "body": "pack: packs",
       "route": null
     },
     {
@@ -15797,8 +16157,8 @@
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#10",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Financial section",
-      "body": "- /financial — The Financial section's landing screen: a \"This month so far\" card from app.panel_headline (earned, cash, card) beside \"Cash at recent day closes\" read from day_sessions; \"Open the management panel\" goes to /panel, \"Go to day close\" to /admin/day-close, and the cards below open the section's screens.\n- /reports — A layout with no content of its own that redirects to /reports/courts; the tab strip (Revenue, Courts, Cafe, Stock, Staff activity) shows the reports the current role and Management section may open.\n- /reports/revenue — The owner-only revenue report (app.report_revenue, or app.report_compare when a comparison is chosen): headline figures grouped as Earned, Money taken, Given away and Tax, a day, week or month breakdown with the \"Show\" views Earned, Money taken, Given away and Tax, staff and payment-method filters, \"Export\", and pressing a figure or row opens its transactions through app.report_drill.\n- /reports/courts — The courts report (app.report_courts, or app.report_compare): totals for bookings, booked hours, occupancy, court revenue, cancellations and no-shows with the \"Show\" views By court, Cancellations, Peak times, By start time and By day, a court filter and \"Export\"; a court or day row drills its bookings through app.report_drill.\n- /reports/cafe — The cafe report (app.report_cafe, or app.report_compare): revenue, orders, average order, items sold, gross profit and margin and prep time with the \"Show\" views Best sellers, Cost & profit, By category and Waste, a \"See waste\" button that lists every write-off in the period, \"Export\", and item rows that drill their sold lines through app.report_drill.\n- /reports/stock — The stock value report (app.report_stock): headline stock value plus counts for running low, below par, expiring soon and expired, with the \"Show\" views Running low, Below par, Expiring soon, Expired, Used and Count differences (with an \"Only differences\" toggle); each list has a button opening the matching /stock scre",
+      "title": "docs/design/assistant/pages.md › Management (owner)",
+      "body": "## Management (owner)\n\n- /panel — The owner's read-only landing screen: app.panel_headline fills an \"Earned\" and \"Taken in payments\" band plus padel, cafe and losses figure rows for a chosen range and comparison, each figure opening its transactions through app.report_drill; \"Export CSV\" writes the window, every figure and every drill transaction to one file, and buttons open the Courts, Cafe, Revenue, Stock and Staff reports.\n- /analytics — A layout that validates the shared search params (range, custom dates, compare basis, court) and redirects to /analytics/courts, carrying the search along; the Courts and Cafe tabs switch between the two analytics screens.\n- /analytics/courts — Owner-only Courts analytics: Summary, What stands out, When courts are busy, Courts compared, Cancellations and no-shows, How people book, Guests, and Court players at the cafe, fed by app.analytics_courts_summary, _demand, _endings, _guests and _cafe for the period and its comparison window; the Summary names \"Event hours\" (courts held for tournaments, counted as open hours) when there were any; the bar sets range, compare basis and court, \"Export\" saves the figures, and tiles drill into transactions.\n- /analytics/cafe — Owner-only Cafe analytics: Summary, What stands out, Menu, Sales and the guest menu, and Busy times, fed by app.analytics_daily_sales, _sold_items, _best_sellers, _bought_together, _item_margins, _price_bands, _promo, _menu_snapshot and _hourly plus PostHog guest data; the bar carries period, compare and the \"Business day\" and \"Excluded items\" settings, \"Export\" saves the figures, and the AI card's \"Ask for findings\" and \"Check they still hold\" call the insights function and save its results.",
       "route": null
     },
     {
@@ -15806,23 +16166,23 @@
       "ref": "doc:docs/design/assistant/pages.md#11",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Financial section",
-      "body": "en, plus \"Export\".\n- /reports/staff — The staff activity report (app.report_staff_activity): one row per person with the \"Show\" views Activity, \"Discounts, voids & refunds\", Waiter calls and Day closes, a staff filter and \"Export\"; each row's \"Audit\" opens /admin/audit for that person, and rows drill their transactions through app.report_drill.\n- /admin/day-close — The day-close screen: when no trading day is open it shows an opening-float field and \"Open day\" (app.open_day); otherwise it walks the steps (settle open tabs, wait for tills to sync, count the cash, enter the card batch) and \"Close day\" calls app.close_day, with \"Export CSV\" for the day's figures; unpaid played bookings warn but do not block.",
+      "body": "## Financial section",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#12",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Observe section",
-      "body": "## Observe section",
+      "title": "docs/design/assistant/pages.md › Financial section",
+      "body": "- /financial — The Financial section's landing screen: a \"This month so far\" card from app.panel_headline (earned, cash, card) beside \"Cash at recent day closes\" read from day_sessions; \"Open the management panel\" goes to /panel, \"Go to day close\" to /admin/day-close, and the cards below open the section's screens.\n- /reports — A layout with no content of its own that redirects to /reports/courts; the tab strip (Revenue, Courts, Cafe, Stock, Staff activity) shows the reports the current role and Management section may open.\n- /reports/revenue — The owner-only revenue report (app.report_revenue, or app.report_compare when a comparison is chosen): headline figures grouped as Earned, Money taken, Given away and Tax, a day, week or month breakdown with the \"Show\" views Earned, Money taken, Given away and Tax, staff and payment-method filters, \"Export\", and pressing a figure or row opens its transactions through app.report_drill.\n- /reports/courts — The courts report (app.report_courts, or app.report_compare): totals for bookings, booked hours, occupancy, court revenue, cancellations and no-shows, plus \"Event hours\" (courts held for tournaments, counted as open hours) as a figure and a By court column when a tournament held a court, with the \"Show\" views By court, Cancellations, Peak times, By start time and By day, a court filter and \"Export\"; a court or day row drills its bookings through app.report_drill.\n- /reports/cafe — The cafe report (app.report_cafe, or app.report_compare): revenue, orders, average order, items sold, gross profit and margin and prep time with the \"Show\" views Best sellers, Cost & profit, By category and Waste, a \"See waste\" button that lists every write-off in the period, \"Export\", and item rows that drill their sold lines through app.report_drill.\n- /reports/stock — The stock value report (app.report_stock): headline stock value plus counts for running low, below par, expiring soon and expired, with the \"Show\" views Running low, Below par, Expi",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#13",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Observe section",
-      "body": "- /observation — The Observe section's landing screen: a \"Waiting on you\" list built from app.staff_requests_page and app.marketing_overview with \"Answer requests\" and \"Review campaigns\", the Live floor 3D plan, and screen cards fed by app.ops_overview.\n- /observation/courts — A view-only \"Bookings\" board for a chosen day or month: a figure strip, one card per court right now, the night in two-hour rows and a month heat calendar, all read from reservations; \"Refresh\" re-reads, and pressing a booking opens a read-only panel whose only button is \"Open in Court desk\".\n- /observation/tills — A view-only \"Tills\" board of the cafe floor for one business day: running, settled, voided and waiter-call figures, occupied and free tables, and lists of open, settled and void tabs read from tabs; \"Refresh\" re-reads, and a tab opens a read-only panel whose only button is \"Open in Cashier\".\n- /observation/requests — The owner's decision queue for leave, shift swaps, wage advances and record corrections from app.staff_requests_page, filtered by Awaiting decision, Decided or All; \"Approve\" and \"Decline\" open a dialog that calls app.decide_staff_request (a decline needs a reason), and a decision is final.\n- /protocols — Protocols: cards for New item, Tournament, Hiring, Price or promo change and Daily checklists, each showing how many are running and waiting on you with a Start button; Waiting on you, In progress and Finished lists from app.protocol_runs_page; a run opens its steps, records, photos and decisions (app.protocol_run_detail), a step's form submits through app.submit_step, Approve, Send back, Stop and Skip call app.decide_step or app.skip_step (a reason is required for the last three), Launch goes through the protocol-action function, and the owner-only How it works sheet saves app.save_protocol_template.\n- /marketing — The owner's campaign list from app.marketing_overview showing status, window, audience and what each campaign brought in (or \"Not measurable\"); \"New campai",
+      "title": "docs/design/assistant/pages.md › Financial section",
+      "body": "ring soon, Expired, Used and Count differences (with an \"Only differences\" toggle and a Product tests column); each list has a button opening the matching /stock screen, plus \"Export\".\n- /reports/staff — The staff activity report (app.report_staff_activity): one row per person with the \"Show\" views Activity, \"Discounts, voids & refunds\", Waiter calls and Day closes, a staff filter and \"Export\"; each row's \"Audit\" opens /admin/audit for that person, and rows drill their transactions through app.report_drill.\n- /admin/day-close — The day-close screen: when no trading day is open it shows an opening-float field and \"Open day\" (app.open_day); otherwise it walks the steps (settle open tabs, wait for tills to sync, count the cash, enter the card batch) and \"Close day\" calls app.close_day, with \"Export CSV\" for the day's figures; unpaid played bookings and \"Checklists not finished\" (the daily lists with a line nobody ticked, from app.checklist_day_state) warn but do not block.",
       "route": null
     },
     {
@@ -15830,23 +16190,23 @@
       "ref": "doc:docs/design/assistant/pages.md#14",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Observe section",
-      "body": "gn\" and \"Edit campaign\" save through app.save_marketing_campaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promotions\" and \"Open Telegram\" link out.\n- /admin/audit — The read-only \"Audit log\": who did what and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.",
+      "body": "## Observe section",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#15",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Stock section",
-      "body": "## Stock section",
+      "title": "docs/design/assistant/pages.md › Observe section",
+      "body": "- /observation — The Observe section's landing screen: a \"Waiting on you\" list built from app.staff_requests_page and app.marketing_overview with \"Answer requests\" and \"Review campaigns\", the Live floor 3D plan, and screen cards fed by app.ops_overview.\n- /observation/courts — A view-only \"Bookings\" board for a chosen day or month: a figure strip, one card per court right now, the night in two-hour rows and a month heat calendar, all read from reservations; \"Refresh\" re-reads, and pressing a booking opens a read-only panel whose only button is \"Open in Court desk\".\n- /observation/tills — A view-only \"Tills\" board of the cafe floor for one business day: running, settled, voided and waiter-call figures, occupied and free tables, and lists of open, settled and void tabs read from tabs; \"Refresh\" re-reads, and a tab opens a read-only panel whose only button is \"Open in Cashier\".\n- /observation/requests — The owner's decision queue for leave, shift swaps, wage advances and record corrections from app.staff_requests_page, filtered by Awaiting decision, Decided or All; \"Approve\" and \"Decline\" open a dialog that calls app.decide_staff_request (a decline needs a reason), and a decision is final.\n- /protocols — Protocols: cards for New item, Tournament, Hiring, Price or promo change and Daily checklists, each showing how many are running and waiting on you with a Start button; Waiting on you, In progress and Finished lists from app.protocol_runs_page; a run opens its steps, records, photos and decisions (app.protocol_run_detail), a step's form submits through app.submit_step, Approve, Send back, Stop and Skip call app.decide_step or app.skip_step (a reason is required for the last three), Launch goes through the protocol-action function, and the owner-only How it works sheet saves app.save_protocol_template; the Daily checklists card (app.checklist_day_state) opens today's lists with who ticked each line and the photo of a line that needs one (app.checklist_board), and the ow",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#16",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Stock section",
-      "body": "- /stock — \"On hand\", the stock landing screen: a \"Needs attention\" list (running low, expired, sold past records, below par, expiring soon, open alerts) whose buttons are \"Show which\", \"Open expiry\" and \"Open alerts\", a searchable on-hand table from v_ingredient_on_hand and app.report_stock, header buttons \"Record a delivery\", \"Record waste\" and \"Count stock\" (or \"Continue the count\"), and a per-row \"History\" ledger drawer.\n- /stock/ingredients — Ingredient master data (unit, supplier, pack size and price, shelf life, par, reorder point, yield, expected waste) from the ingredients table; \"New ingredient\" and per-row \"Edit\" open a dialog whose \"Save\" writes app.upsert_ingredient, and on-hand is a read-only figure linking to \"Count stock\".\n- /stock/receive — \"Goods in\": one delivery per submit with supplier and notes and per-line ingredient, received and ordered quantities, cost per unit and batch expiry; \"Add another ingredient\" adds a line and \"Record delivery\" posts the whole delivery through app.receive_delivery.\n- /stock/waste — \"Waste & production\", two forms side by side: \"Record waste\" (ingredient, quantity, Spill or Spoilage, a required note) writes app.record_waste, and \"Record production\" (prepared item, amount made) writes app.record_production, which consumes the components by recipe and reports the batch cost.\n- /stock/recipes — Recipes tabbed by Menu items, Add-ons and Prepared items with an All or No-recipe filter; \"Add\" or \"Edit\" opens a dialog where \"Add an ingredient\" adds lines and \"Save\" replaces the whole recipe atomically through app.set_recipe.\n- /stock/counts — \"Stock count\": \"Start count\" opens a count (app.start_count), a blind-entry table follows (drafts saved locally, with a \"Show recorded amounts\" toggle), and \"Finish count\" confirms and calls app.finalize_count, then opens Count differences.\n- /stock/variance — \"Count differences\" for a chosen finished count from v_variance_report, defaulting to \"Only differences\" with a toggle to \"All",
+      "title": "docs/design/assistant/pages.md › Observe section",
+      "body": "ner's list editor, where any line can be switched to \"Needs a photo\", saves app.save_checklist_template.\n- /marketing — The owner's campaign list from app.marketing_overview showing status, window, audience and what each campaign brought in (or \"Not measurable\"); drafts the marketing role suggested (app.marketing_suggestions) are marked with who sent them, their note and photos, with a \"From marketing\" filter; a read-only \"Requests to marketing\" panel (app.marketing_requests_page) lists what staff asked marketing for from their phones, Waiting, Answered or All, with who asked, the item, the date wanted, the photos and marketing's answer; \"New campaign\" and \"Edit campaign\" save through app.save_marketing_campaign, per-row \"Schedule\", \"Set live\" and \"End\" confirm then call app.set_campaign_status, \"New audience\" writes app.save_marketing_audience, and \"Open promotions\" and \"Open Telegram\" link out.\n- /admin/audit — The read-only \"Audit log\": who did what and why, with period, search, area and actor filters and a \"missing reason\" toggle; the buttons only refresh, clear filters, expand a row's before and after values, or export CSV.",
       "route": null
     },
     {
@@ -15854,23 +16214,23 @@
       "ref": "doc:docs/design/assistant/pages.md#17",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Stock section",
-      "body": "ingredients\", with columns Records said, Counted, Difference, Sold, Expected waste, Recorded waste, Voids and Expired; each row has \"History\" and the header has \"Export\".\n- /stock/margins — Margins per menu item from v_item_margin: an \"Items that earn too little\" panel with \"Show which\" for \"Sell at a loss\" and \"Margin under 30%\", over a searchable Price, Cost to make, Margin and Margin % table; read-only, and the empty state links to Recipes.\n- /stock/alerts — Stock alerts from manager_alerts grouped by kind (sold past what was on record, expired, running low, expiring soon, offline sale not applied), each group with \"Dismiss all\" and each row with \"Dismiss\" (app.acknowledge_alert) and a jump such as \"Count stock\", \"Open expiry\" or \"See what is low\".\n- /stock/products — \"Shop products\": one row per size of every Touch Shop product (a menu item in a shop section) with SKU, barcode, price, on hand and supplier; \"New product\" writes app.upsert_menu_item then app.upsert_retail_variant, \"Add size\" and \"Edit\" write app.upsert_retail_variant, which keeps each size's own stock row (unit pc) in step.\n- /stock/suppliers — \"Suppliers\": who the venue buys from (name, phone, notes, in use), picked on goods in and on shop products; \"New supplier\" and \"Edit\" write app.upsert_supplier, which refuses a second live supplier with the same spelling.\n- /stock/expiry — Expiry, from app.report_stock: an \"Expired: throw out and write off\" panel and an \"Expiring soon: use first\" panel listing batches with quantity left, worth and date; \"Write off\" opens a manager-PIN and reason dialog that calls app.write_off_expired, and the header has \"Export\".",
+      "body": "## Stock section",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#18",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "## Setup section and admin",
+      "title": "docs/design/assistant/pages.md › Stock section",
+      "body": "- /stock — \"On hand\", the stock landing screen: a \"Needs attention\" list (running low, expired, sold past records, below par, expiring soon, open alerts) whose buttons are \"Show which\", \"Open expiry\" and \"Open alerts\", a searchable on-hand table from v_ingredient_on_hand and app.report_stock, header buttons \"Record a delivery\", \"Record waste\" and \"Count stock\" (or \"Continue the count\"), and a per-row \"History\" ledger drawer.\n- /stock/ingredients — Ingredient master data (unit, supplier, pack size and price, shelf life, par, reorder point, yield, expected waste) from the ingredients table; \"New ingredient\" and per-row \"Edit\" open a dialog whose \"Save\" writes app.upsert_ingredient, and on-hand is a read-only figure linking to \"Count stock\".\n- /stock/receive — \"Goods in\": \"Bought by the driver\" lists the driver's purchases still to receive (app.purchases_to_receive), and \"Receive\" opens one (?purchase=) prefilled with what was bought, where \"Receive into stock\" books its stock lines as one delivery through app.receive_purchase and \"Mark checked\" closes a line that is not stock (app.acknowledge_purchase_line); each purchase says \"Delivered <time> by <name>\" once the driver confirmed it reached the venue on the phone, or \"Delivery not confirmed yet\", and receiving never waits for it; below it, one delivery per submit with supplier and notes and per-line ingredient, received and ordered quantities, cost per unit and batch expiry; \"Add another ingredient\" adds a line and \"Record delivery\" posts the whole delivery through app.receive_delivery.\n- /stock/waste — \"Waste & production\", two forms side by side: \"Record waste\" (ingredient, quantity, Spill or Spoilage, a required note) writes app.record_waste, and \"Record production\" (prepared item, amount made) writes app.record_production, which consumes the components by recipe and reports the batch cost; below them \"Made today\" lists the business day's batches, from here or the kitchen's phones, with who made them (app.producti",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#19",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "- /setup — The Setup section's landing screen: a \"Worth checking\" panel flags a broken Telegram link, managers or owners without a PIN, a single owner account, and active accounts still on the retired Kitchen role (update every station first, then move each one to Barista or Chef), each with a jump button (\"Open Telegram\", \"Set PINs\", \"Go to Staff\"), above cards opening the Setup screens.\n- /admin — A layout with no content of its own: it draws the section tab strip for the Menu and Guest-app families and its index redirects to /admin/menu.\n- /admin/menu — The \"Menu items\" editor listing categories and their items with sold-out switches; \"New category\" and \"New item\" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out.\n- /admin/categories — The \"Categories\" screen for the menu sections' order, photo, tax group and shown or hidden switch; \"New category\" or a row opens the form whose \"Save\" calls app.upsert_menu_category, and the order arrows call app.reorder_menu_categories.\n- /admin/addons — The \"Add-ons\" screen listing item groups and sub-groups of guest choices; \"New group\" and \"New sub-group\" open an editor that saves with app.upsert_modifier_group and app.link_item_modifier_group, options save through app.upsert_modifier, and reveals through app.set_modifier_reveals.\n- /admin/suggested — The \"Suggested items\" screen picking the \"Goes well with\" list shown under an item on the guest menu; add or \"Remove\" suggestions up to the cap, then \"Save\" (or \"Discard changes\") writes app.set_addon_suggestions.\n- /admin/hero — The \"Guest site home screen\" builder choosing what sits above the guest menu (\"Menu only\", \"Photo or video\" or \"Featured item\"), the ticker lines and the bell tutorial switch; \"Save\" writes the cafe settings in one call (app.set_cafe_settings) and \"Discard changes\" reverts.\n- /admin/qr — The \"Tables & QR\" screen listing cafe tables with",
+      "title": "docs/design/assistant/pages.md › Stock section",
+      "body": "on_log_today).\n- /stock/recipes — Recipes tabbed by Menu items, Add-ons and Prepared items with an All or No-recipe filter; \"Add\" or \"Edit\" opens a dialog where \"Add an ingredient\" adds lines and \"Save\" replaces the whole recipe atomically through app.set_recipe.\n- /stock/counts — \"Stock count\": \"Start count\" opens a count (app.start_count), a blind-entry table follows (drafts saved locally, with a \"Show recorded amounts\" toggle), and \"Finish count\" confirms and calls app.finalize_count, then opens Count differences.\n- /stock/variance — \"Count differences\" for a chosen finished count from v_variance_report, defaulting to \"Only differences\" with a toggle to \"All ingredients\", with columns Records said, Counted, Difference, Sold, Expected waste, Recorded waste, Voids, Expired and Product tests (what a new item's test servings used, the product_test movements of a product release); each row has \"History\", where a product test's note opens its release on /protocols, and the header has \"Export\".\n- /stock/margins — Margins per menu item from v_item_margin: an \"Items that earn too little\" panel with \"Show which\" for \"Sell at a loss\" and \"Margin under 30%\", over a searchable Price, Cost to make, Margin and Margin % table; read-only, and the empty state links to Recipes.\n- /stock/alerts — Stock alerts from manager_alerts grouped by kind (sold past what was on record, expired, running low, expiring soon, offline sale not applied), each group with \"Dismiss all\" and each row with \"Dismiss\" (app.acknowledge_alert) and a jump such as \"Count stock\", \"Open expiry\" or \"See what is low\".\n- /stock/products — \"Shop products\": one row per size of every Touch Shop product (a menu item in a shop section) with SKU, barcode, price, on hand and supplier; \"New product\" writes app.upsert_menu_item then app.upsert_retail_variant, \"Add size\" and \"Edit\" write app.upsert_retail_variant, which keeps each size's own stock row (unit pc) in step. For a manager a product's prices go to the owner: a new",
       "route": null
     },
     {
@@ -15885,8 +16245,8 @@
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#20",
       "lang": "en",
-      "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "zone, seats and a waiter-bell switch (app.set_table_bell); \"Add table\" and a row edit a table (app.upsert_cafe_table), \"Print all cards\" and \"Print this card\" print A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/courts — The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\" (app.delete_court) and order arrows (app.reorder_courts).\n- /admin/rates — The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules.\n- /admin/hours — The \"Opening hours\" page setting each day's open and close times and the closed dates; \"Save\" calls app.set_opening_hours, and the same editor is the first tab of /admin/settings.\n- /admin/promotions — The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted.\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.\n- /admin/settings — \"Venue settings\" in four tabs: Opening hours (app.set_opening_hours), Day & service (business-day start hour, waiter-call wait via app.set_waiter_call_cooldown, idle lock), Analytics (owner-only exclusions and engagement floor) and Venue details (name, phone, timezone through app.set_venue_details).\n- /admin/staff — The owner's \"Staff\" screen listing accounts with role,",
+      "title": "docs/design/assistant/pages.md › Stock section",
+      "body": "product is saved hidden, a hidden product never on sale keeps its prices editable and offers \"Put on sale\" (a shop_launch price or promo change on /protocols), and a product on sale has its prices read-only with \"Change the price\" in place of \"Add size\", while its SKU, barcode, supplier, pack cost and low-stock level stay editable.\n- /stock/suppliers — \"Suppliers\": who the venue buys from (name, phone, notes, in use), picked on goods in and on shop products; \"New supplier\" and \"Edit\" write app.upsert_supplier, which refuses a second live supplier with the same spelling.\n- /stock/expiry — Expiry, from app.report_stock: an \"Expired: throw out and write off\" panel and an \"Expiring soon: use first\" panel listing batches with quantity left, worth and date; \"Write off\" opens a manager-PIN and reason dialog that calls app.write_off_expired, and the header has \"Export\".",
       "route": null
     },
     {
@@ -15894,7 +16254,39 @@
       "ref": "doc:docs/design/assistant/pages.md#21",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Setup section and admin",
-      "body": "PIN and status; \"Add staff member\" creates an account through the staff-admin edge function, \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
+      "body": "## Setup section and admin",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#22",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Setup section and admin",
+      "body": "- /setup — The Setup section's landing screen: a \"Worth checking\" panel flags a broken Telegram link, managers or owners without a PIN, a single owner account, active accounts still on the retired Kitchen role (update every station first, then move each one to Barista or Chef), and prepared items with no par level (the kitchen's \"What to make today\" never asks for them), each with a jump button (\"Open Telegram\", \"Set PINs\", \"Go to Staff\", \"Open Ingredients\"), above cards opening the Setup screens.\n- /admin — A layout with no content of its own: it draws the section tab strip for the Menu and Guest-app families and its index redirects to /admin/menu.\n- /admin/menu — The \"Menu items\" editor listing categories and their items with sold-out switches; \"New category\" and \"New item\" open forms that save through app.upsert_menu_category and app.upsert_menu_item, the arrows reorder with app.reorder_menu_items, and the switch calls app.set_item_sold_out. For a manager, \"New item\" in a café category is \"Propose a new item\", which opens a product release on /protocols; a launched item's sizes show their prices read-only with \"Change the price\" (a price change on /protocols) instead of \"New size\"; a never-launched café item's Active switch is off with \"Goes on sale when the owner launches it\", and a hidden shop product that was never on sale shows \"Put on sale\" (a shop_launch change). An item still in its product release is marked \"In release\" and its form names the release with \"Open the release\"; nobody can switch it on or change its prices here.\n- /admin/categories — The \"Categories\" screen for the menu sections' order, photo, tax group and shown or hidden switch; \"New category\" or a row opens the form whose \"Save\" calls app.upsert_menu_category, and the order arrows call app.reorder_menu_categories.\n- /admin/addons — The \"Add-ons\" screen listing item groups and sub-groups of guest choices; \"New group\" and \"New sub-group\" open an editor that saves with app.upsert_modifier_gro",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#23",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Setup section and admin",
+      "body": "up and app.link_item_modifier_group, options save through app.upsert_modifier, and reveals through app.set_modifier_reveals. For a manager an option on sale keeps its price, with \"Change the price\" (an addon_price price or promo change on /protocols), and a new paid option is saved hidden with its switch off and \"Put on sale\"; a free option is added and switched as before. A manager's save that would make guests pay more (a paid choice made compulsory by a group's minimum, a link, a reveal, or a free option switched off or moved) is refused and said to be the owner's to make.\n- /admin/suggested — The \"Suggested items\" screen picking the \"Goes well with\" list shown under an item on the guest menu; add or \"Remove\" suggestions up to the cap, then \"Save\" (or \"Discard changes\") writes app.set_addon_suggestions.\n- /admin/hero — The \"Guest site home screen\" builder choosing what sits above the guest menu (\"Menu only\", \"Photo or video\" or \"Featured item\"), the ticker lines and the bell tutorial switch; \"Save\" writes the cafe settings in one call (app.set_cafe_settings) and \"Discard changes\" reverts. For a manager the featured discount is read-only with \"Change the discount\" (a featured_discount price or promo change on /protocols) and, while one is stored, \"Switch the discount off\" (saves 0); while a discount is stored the featured item picker is off, and so is the Featured tile when the hero is not already in Featured mode.\n- /admin/qr — The \"Tables & QR\" screen listing cafe tables with zone, seats and a waiter-bell switch (app.set_table_bell); \"Add table\" and a row edit a table (app.upsert_cafe_table), \"Print all cards\" and \"Print this card\" print A6 QR cards, and \"Replace\" or \"Replace every QR code\" rotate tokens with app.rotate_table_token.\n- /admin/courts — The \"Courts\" admin listing bookable courts in calendar order; \"Add court\" and \"Edit\" open a panel with names, photo, indoor or outdoor, booking lengths and an open switch saved by app.upsert_court, with \"Switch off\"",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#24",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Setup section and admin",
+      "body": "(app.delete_court) and order arrows (app.reorder_courts).\n- /admin/rates — The \"Court rates\" screen listing rate rules by court, days, time window, prices and priority; \"New rule\" or a row opens the editor whose \"Save\" calls app.upsert_rate_rule and affects only new bookings, and a toggle shows or hides switched-off rules. Only the owner saves a rule; a manager reads them, with \"Propose a new rate\" and, on an open rule, \"Change this rate\", each a rate price or promo change on /protocols.\n- /admin/hours — The \"Opening hours\" page setting each day's open and close times and the closed dates; \"Save\" calls app.set_opening_hours, and the same editor is the first tab of /admin/settings.\n- /admin/promotions — The \"Promotions\" list with a lifecycle filter, a search box and a per-row on/off switch (app.set_promotion_enabled); \"New promotion\" or a row opens the promotion editor whose \"Save\" calls app.upsert_promotion, and nothing is ever deleted. Only the owner saves a promotion or generates its code; a manager may switch a promotion off, and otherwise gets \"Propose a promotion\", \"Change this promotion\" in the read-only editor and \"Switch on\" beside a switched-off one, each a price or promo change on /protocols.\n- /admin/telegram — The \"Telegram\" settings with \"Set up\" and \"Sent messages\" tabs: connection health from the telegram-diagnose function, \"Send test message\" (app.telegram_send_test), the group chat id and message language saved as cafe settings, and the people who may press the bot's buttons set with app.set_telegram_staff.\n- /admin/settings — \"Venue settings\" in four tabs: Opening hours (app.set_opening_hours), Day & service (business-day start hour, waiter-call wait via app.set_waiter_call_cooldown, idle lock), Analytics (owner-only exclusions and engagement floor) and Venue details (name, phone, timezone through app.set_venue_details).\n- /admin/staff — The owner's \"Staff\" screen listing accounts with role, PIN and status; \"Add staff member\" creates an account th",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#25",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Setup section and admin",
+      "body": "rough the staff-admin edge function; opened from a hiring run's add_staff step (?hire=) a banner names the picked candidate and the role (app.protocol_step_detail, app.protocol_run_detail, app.hiring_candidates), \"Add the new staff member\" opens the form filled in with the role fixed, and the new account is sent as the step through app.submit_step, which finishes the run; \"Manage\" opens an editor (app.rename_staff, set_staff_role, set_staff_active, set_staff_pin, clear_staff_pin, set_station_staff for cover), and the breaks panel's \"Save\" writes break_allowance_minutes. Kitchen (prep) is retired: it is not offered for a new account or a role change (kitchen staff are Head barista, Barista, Head chef or Chef), and an account still on it shows a \"Retired\" badge and keeps working until it is moved.\n- /assistant — The owner assistant: a full page with the list of chats, the thread, the context checkboxes with their pack sizes, and the usage meter; \"Ask\" sends a question (billed), \"Stop\" ends a streaming answer, \"Run this job\" accepts an estimate, and every answer lists the tools it read with a link to the page that shows the same numbers.\n- /assistant/usage — What the assistant has cost: tokens by kind (input, cache write, cache read, output) and cost per day for the month, month-to-date against the cap, and the price table each model is billed from.",
       "route": null
     },
     {
@@ -15910,12 +16302,28 @@
       "ref": "doc:docs/design/assistant/pages.md#4",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Court desk",
-      "body": "## Court desk\n\n- /desk — The desk calendar: a courts × half-hour grid for one day or a month heat view, where pressing a free slot opens the booking dialog (reservation.create → app.staff_create_reservation) and dragging a booking moves it (reservation.update → app.move_reservation); \"New series\" and \"Block court\" lead to their own screens.\n- /desk/today — The \"Today\" board of arrivals, courts in play now and every booking today; \"Mark arrived\" writes app.mark_reservation, \"New booking\" and \"Book this court\" open the create-booking dialog, \"Find customer\" goes to /desk/customers, and \"Take payment\" opens the booking's bill.\n- /desk/customers — Customer search that queries app.customer_search as you type; each result offers \"Book\" and \"Open\", \"Create customer\" goes to the new-customer form, and in attach mode \"Attach to booking\" or \"Attach to tab\" hands the chosen customer back to the caller.\n- /desk/customers/new — The \"New customer\" form (full name, phone, optional email, preferred language); \"Create customer\" calls the staff-gated desk-customer-create edge function, which creates a real guest account, and opens the new record, while \"Cancel\" returns to search.\n- /desk/series/new — The \"New series\" screen for a repeating booking; \"Check clashes\" previews every date with app.preview_series, each clash is resolved with \"Skip this date\" or \"Move to another court\", and \"Create series\" writes the plan through app.create_series.\n- /desk/block — The \"Block court\" form (court, date, from, to, reason); its \"Block court\" button creates a maintenance reservation (reservation.create), shows a conflict notice when the window is already taken, then offers \"Open calendar\" and \"Block another\".",
+      "body": "## Court desk",
       "route": null
     },
     {
       "kind": "doc",
       "ref": "doc:docs/design/assistant/pages.md#5",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Court desk",
+      "body": "- /desk — The desk calendar: a courts × half-hour grid for one day or a month heat view, where pressing a free slot opens the booking dialog (reservation.create → app.staff_create_reservation) and dragging a booking moves it (reservation.update → app.move_reservation); \"New series\" and \"Block court\" lead to their own screens.\n- /desk/today — The \"Today\" board of arrivals, courts in play now and every booking today; \"Mark arrived\" writes app.mark_reservation, \"New booking\" and \"Book this court\" open the create-booking dialog, \"Find customer\" goes to /desk/customers, and \"Take payment\" opens the booking's bill.\n- /desk/customers — Customer search that queries app.customer_search as you type; each result offers \"Book\" and \"Open\", \"Create customer\" goes to the new-customer form, and in attach mode \"Attach to booking\" or \"Attach to tab\" hands the chosen customer back to the caller.\n- /desk/customers/new — The \"New customer\" form (full name, phone, optional email, preferred language); \"Create customer\" calls the staff-gated desk-customer-create edge function, which creates a real guest account, and opens the new record, while \"Cancel\" returns to search.\n- /desk/series/new — The \"New series\" screen for a repeating booking; \"Check clashes\" previews every date with app.preview_series, each clash is resolved with \"Skip this date\" or \"Move to another court\", and \"Create series\" writes the plan through app.create_series.\n- /desk/block — The \"Block court\" form (court, date, from, to, reason); its \"Block court\" button creates a maintenance reservation (reservation.create), shows a conflict notice when the window is already taken, then offers \"Open calendar\" and \"Block another\". Opened from a tournament's courts step (?run=&step=) it is \"Block courts for a tournament\" instead: the plan's courts and times from app.tournament_context, each \"Blocked\" or \"To block\"; \"Block N remaining\" calls app.block_courts_for_event, which blocks them all as the tournament's event or, with a booking",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#6",
+      "lang": "en",
+      "title": "docs/design/assistant/pages.md › Court desk",
+      "body": "in the way, blocks nothing and lists what to move (\"Open booking\", \"Check again\"); then \"Send courts step\" submits the step with the blocks of the plan's windows and an optional note (app.submit_step). A plan sent back and moved has already given its old blocks back.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/assistant/pages.md#7",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Kitchen",
       "body": "## Kitchen\n\n- /kds — The kitchen display board: its live tickets, and those completed in the last two minutes, are read through app.kitchen_board with their lines, add-ons, notes and ready marks and no prices; per-ticket \"Start\", \"Ready\" and \"Complete\" buttons move the ticket through its statuses (ticket.status → app.set_ticket_status), ticking one item calls app.set_order_item_ready, and \"Leave kitchen display\" appears only for staff who hold another workspace.",
@@ -15923,7 +16331,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#6",
+      "ref": "doc:docs/design/assistant/pages.md#8",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Team (driver, marketing)",
       "body": "## Team (driver, marketing)\n\n- /tasks — \"My tasks\", the driver's and marketing's landing screen and the team workspace's one rail row; nothing can be assigned yet, so it shows only the empty state saying what will appear here once assigned (purchases and checklists for a driver, marketing tasks and checklists for marketing), with no buttons and no data read.",
@@ -15931,26 +16339,10 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#7",
+      "ref": "doc:docs/design/assistant/pages.md#9",
       "lang": "en",
       "title": "docs/design/assistant/pages.md › Operations (manager)",
       "body": "## Operations (manager)\n\n- /ops — The manager's \"Today\" screen, refreshed from app.ops_overview every 30 seconds: a \"Needs you now\" list with \"Open the day\", \"Answer calls\", \"See which\" and \"Review expired\"; courts, cafe and stock cards with \"Open bookings\", \"Open tabs\" and \"Open stock\"; the day-close steps ending in \"Go to day close\"; exceptions, staff activity, and \"Refresh\".",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#8",
-      "lang": "en",
-      "title": "docs/design/assistant/pages.md › Management (owner)",
-      "body": "## Management (owner)\n\n- /panel — The owner's read-only landing screen: app.panel_headline fills an \"Earned\" and \"Taken in payments\" band plus padel, cafe and losses figure rows for a chosen range and comparison, each figure opening its transactions through app.report_drill; \"Export CSV\" writes the window, every figure and every drill transaction to one file, and buttons open the Courts, Cafe, Revenue, Stock and Staff reports.\n- /analytics — A layout that validates the shared search params (range, custom dates, compare basis, court) and redirects to /analytics/courts, carrying the search along; the Courts and Cafe tabs switch between the two analytics screens.\n- /analytics/courts — Owner-only Courts analytics: Summary, What stands out, When courts are busy, Courts compared, Cancellations and no-shows, How people book, Guests, and Court players at the cafe, fed by app.analytics_courts_summary, _demand, _endings, _guests and _cafe for the period and its comparison window; the bar sets range, compare basis and court, \"Export\" saves the figures, and tiles drill into transactions.\n- /analytics/cafe — Owner-only Cafe analytics: Summary, What stands out, Menu, Sales and the guest menu, and Busy times, fed by app.analytics_daily_sales, _sold_items, _best_sellers, _bought_together, _item_margins, _price_bands, _promo, _menu_snapshot and _hourly plus PostHog guest data; the bar carries period, compare and the \"Business day\" and \"Excluded items\" settings, \"Export\" saves the figures, and the AI card's \"Ask for findings\" and \"Check they still hold\" call the insights function and save its results.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/design/assistant/pages.md#9",
-      "lang": "en",
-      "title": "docs/design/assistant/pages.md › Financial section",
-      "body": "## Financial section",
       "route": null
     },
     {

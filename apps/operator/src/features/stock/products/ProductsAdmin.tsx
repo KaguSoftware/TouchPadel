@@ -13,12 +13,21 @@
  *
  * Shop sections themselves are made in the menu (section type: Shop); with
  * none yet, the empty state says so and links there.
+ *
+ * A MANAGER'S PRICES GO TO THE OWNER (#51, #53, build-contracts-2026-09-23
+ * §5.5). A manager's new product is saved hidden, and its sizes and prices
+ * stay theirs to edit until it has been on sale; "Put on sale" then sends it
+ * to the owner as a shop_launch change. Once on sale, its prices are
+ * read-only and "Add size" gives way to "Change the price"; the SKU, barcode,
+ * supplier, pack cost and low-stock level stay editable (the price goes back
+ * unchanged, which upsert_variant's lock lets through).
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
+import { can, useAuth } from '../../../lib/auth';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../../components/ui';
@@ -37,6 +46,7 @@ import {
   type Column,
 } from '../../../components/kit';
 import { BilingualFields } from '../../../components/inputs';
+import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from '../../admin/promotions/PriceChangeStart';
 import { useStockFormat } from '../stockUi';
 import {
   SK,
@@ -47,7 +57,17 @@ import {
   type ShopSectionRow,
   type SupplierRow,
 } from '../stockKeys';
-import { flattenCatalogue, matchesProductLine, sizeArgs, sizeProblem, type ProductLine, type SizeDraft } from './productsLogic';
+import {
+  flattenCatalogue,
+  matchesProductLine,
+  productLock,
+  sizeArgs,
+  sizeProblem,
+  type ProductLine,
+  type SizeDraft,
+} from './productsLogic';
+
+type Caps = { editLaunchedPrices: boolean; launchDirectly: boolean };
 
 type Editing =
   | { mode: 'newProduct' }
@@ -59,6 +79,8 @@ export function ProductsAdmin() {
   const fmt = useStockFormat();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { staff } = useAuth();
+  const caps: Caps = { editLaunchedPrices: can(staff?.role, 'editLaunchedPrices'), launchDirectly: can(staff?.role, 'launchDirectly') };
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
 
@@ -111,16 +133,39 @@ export function ProductsAdmin() {
       key: 'actions',
       header: '',
       align: 'end',
-      render: (l) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }}>
-          <Button size="sm" kind="ghost" icon="plus" onClick={() => setEditing({ mode: 'addSize', line: l })}>
-            {tr('ws.manager.stock.products.addSize')}
-          </Button>
-          <Button size="sm" kind="ghost" icon="note" onClick={() => setEditing({ mode: 'editSize', line: l })}>
-            {tr('op.common.edit')}
-          </Button>
-        </span>
-      ),
+      render: (l) => {
+        const lock = productLock(l, caps);
+        const name = pickName(locale, l.product);
+        return (
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }}>
+            {lock.putOnSale && (
+              <PriceChangeButton
+                size="sm"
+                kind="ghost"
+                target={{ change: 'shop_launch', item: l.productId }}
+                label={tr('ws.pricing.putOnSale')}
+                ariaLabel={tr('ws.pricing.putOnSaleFor', { name })}
+              />
+            )}
+            {lock.priceLocked ? (
+              <PriceChangeButton
+                size="sm"
+                kind="ghost"
+                target={{ change: 'price', item: l.productId }}
+                label={tr('ws.pricing.changePrice')}
+                ariaLabel={tr('ws.pricing.changePriceFor', { name })}
+              />
+            ) : (
+              <Button size="sm" kind="ghost" icon="plus" onClick={() => setEditing({ mode: 'addSize', line: l })}>
+                {tr('ws.manager.stock.products.addSize')}
+              </Button>
+            )}
+            <Button size="sm" kind="ghost" icon="note" onClick={() => setEditing({ mode: 'editSize', line: l })}>
+              {tr('op.common.edit')}
+            </Button>
+          </span>
+        );
+      },
     },
   ];
 
@@ -136,7 +181,9 @@ export function ProductsAdmin() {
             {tr('ws.manager.stock.products.add')}
           </Button>
         }
-      />
+      >
+        {!caps.launchDirectly && <PriceLockNote message={tr('ws.pricing.products.note')} />}
+      </PageHeader>
       <AsyncStateWrapper
         status={status}
         error={catalogueQ.error}
@@ -192,6 +239,7 @@ export function ProductsAdmin() {
           editing={editing}
           sections={sections}
           suppliers={(suppliersQ.data ?? []).filter((s) => s.is_active)}
+          caps={caps}
           onDone={() => {
             setEditing(null);
             void queryClient.invalidateQueries({ queryKey: ['stock'] });
@@ -209,20 +257,26 @@ function SizeForm({
   editing,
   sections,
   suppliers,
+  caps,
   onDone,
   onCancel,
 }: {
   editing: Editing;
   sections: readonly ShopSectionRow[];
   suppliers: readonly SupplierRow[];
+  caps: Caps;
   onDone: () => void;
   onCancel: () => void;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
+  const start = usePriceChangeStart();
   const line = editing.mode === 'newProduct' ? null : editing.line;
   const editSize = editing.mode === 'editSize' ? editing.line : null;
+  // A manager's new product is saved hidden (LAUNCH_VIA_PROTOCOL otherwise).
+  const newHidden = editing.mode === 'newProduct' && !caps.launchDirectly;
+  const priceLocked = line !== null && productLock(line, caps).priceLocked;
 
   const [sectionId, setSectionId] = useState(sections[0]?.id ?? '');
   const [productName, setProductName] = useState({ en: '', ar: '' });
@@ -252,8 +306,9 @@ function SizeForm({
     low: editSize!.lowStockThreshold != null ? String(editSize!.lowStockThreshold) : '',
   }) || supplierId !== (editSize!.supplier?.id ?? '') || editSize!.ingredientId === null;
 
-  async function close() {
-    if (dirty && editing.mode === 'editSize' && !(await confirm({
+  /** True when there is nothing unsaved to lose, or the manager chose to lose it. */
+  async function mayLeave() {
+    return !(dirty && editing.mode === 'editSize') || confirm({
       title: tr('ws.kit.actions.dirtyLeave'),
       body: tr('ws.kit.actions.dirtyLeaveBody'),
       confirmLabel: tr('ws.kit.actions.dirtyLeaveConfirm'),
@@ -264,8 +319,16 @@ function SizeForm({
       // loses only an unsaved draft, never stored data, and Cancel still
       // autofocuses so Enter and Esc both keep the edits.
       pairActions: true,
-    }))) return;
-    onCancel();
+    });
+  }
+
+  async function close() {
+    if (await mayLeave()) onCancel();
+  }
+
+  /** "Change the price" from the form: the start leaves this screen. */
+  async function changePrice() {
+    if (start && line && (await mayLeave())) start({ change: 'price', item: line.productId });
   }
 
   async function save() {
@@ -278,6 +341,7 @@ function SizeForm({
           p_category_id: sectionId,
           p_name_en: productName.en.trim(),
           p_name_ar: productName.ar.trim(),
+          ...(newHidden ? { p_is_active: false } : {}),
         });
       }
       await appRpc('upsert_retail_variant', {
@@ -287,7 +351,7 @@ function SizeForm({
         ...(editing.mode === 'newProduct' ? { p_is_default: true } : {}),
         ...(editing.mode === 'addSize' ? { p_sort_order: editing.line.variant.sort_order + 1 } : {}),
       });
-      toast.ok(tr('op.toast.saved'));
+      toast.ok(tr(newHidden ? 'ws.pricing.savedHidden' : 'op.toast.saved'));
       onDone();
     } catch (e) {
       setError(e);
@@ -307,7 +371,13 @@ function SizeForm({
   return (
     <Modal
       title={title}
-      subtitle={editSize && editSize.ingredientId === null ? tr('ws.manager.stock.products.notTrackedHint') : undefined}
+      subtitle={
+        newHidden
+          ? tr('ws.pricing.products.newHint')
+          : editSize && editSize.ingredientId === null
+            ? tr('ws.manager.stock.products.notTrackedHint')
+            : undefined
+      }
       onClose={() => void close()}
       size="lg"
       footer={
@@ -357,7 +427,7 @@ function SizeForm({
       />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-2)' }}>
         <Field label={tr('ws.manager.stock.products.price')} error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} onChange={(e) => set({ price: e.target.value })} />
+          <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} disabled={priceLocked} onChange={(e) => set({ price: e.target.value })} />
         </Field>
         <Field label={tr('ws.manager.stock.products.cost')} optional hint={tr('ws.manager.stock.products.costHint')} error={problem === 'cost' ? problemText('cost') : undefined}>
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.cost} onChange={(e) => set({ cost: e.target.value })} />
@@ -382,6 +452,16 @@ function SizeForm({
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />
         </Field>
       </div>
+      {priceLocked && (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', marginBlockStart: 'var(--tp-sp-1)' }}>
+          <PriceLockNote message={tr('ws.pricing.products.priceLocked')} />
+          {start && (
+            <Button size="sm" iconEnd="arrowUpRight" onClick={() => void changePrice()}>
+              {tr('ws.pricing.changePrice')}
+            </Button>
+          )}
+        </div>
+      )}
       <ErrorText error={error} />
     </Modal>
   );

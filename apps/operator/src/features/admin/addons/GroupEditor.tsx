@@ -2,7 +2,9 @@
  * One modifier group: name EN/AR, how many a guest may choose (0 ≤ min ≤ max,
  * max ≥ 1, said as a sentence) and the searchable "offered on these items"
  * checklist. Save = `upsert_modifier_group` + one `link_item_modifier_group`
- * per changed item (diff of old vs new set).
+ * per changed item (diff of old vs new set). A manager's save that would make
+ * guests pay more (a paid choice made compulsory) is refused by the server
+ * and said as the owner's to make.
  */
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -13,8 +15,9 @@ import { usePermissions } from '../../../lib/auth';
 import { Button, ErrorText } from '../../../components/ui';
 import { BilingualFieldPair, Panel, SearchField, StatusBadge } from '../../../components/kit';
 import { useToast } from '../../../components/toast';
+import { PriceLockNote } from '../promotions/PriceChangeStart';
 import { ChoiceLimits } from './ChoiceLimits';
-import { diffLinks, minMaxError } from './addonsLogic';
+import { diffLinks, isRequiredAddonRefusal, minMaxError } from './addonsLogic';
 import { useAddons, type GroupRow, type ItemNameRow, type LinkRow } from './useAddons';
 
 export function GroupEditor({
@@ -84,7 +87,7 @@ export function GroupEditor({
     },
     onError: (e) => {
       setError(e);
-      toast.err(e);
+      toast.err(isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e);
     },
   });
 
@@ -160,7 +163,11 @@ export function GroupEditor({
         </div>
       )}
 
-      <ErrorText error={error} />
+      {isRequiredAddonRefusal(error) ? (
+        <PriceLockNote message={tr('ws.pricing.addons.requiredAddon')} style={{ marginBlock: 'var(--tp-sp-2)' }} />
+      ) : (
+        <ErrorText error={error} />
+      )}
       <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {onCancel && (
           <Button kind="ghost" onClick={onCancel}>

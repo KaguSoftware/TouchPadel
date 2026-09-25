@@ -11,6 +11,8 @@ export interface ProductLine {
   productId: string;
   sectionId: string;
   product: { name_en: string; name_ar: string; is_active: boolean };
+  /** On sale now or before (see productLaunched). */
+  launched: boolean;
   variant: ShopVariantRow;
   /** The size's own stock row; null = a size made in the menu editor, not tracked yet. */
   ingredientId: string | null;
@@ -39,6 +41,7 @@ export function flattenCatalogue(
         productId: p.id,
         sectionId: p.category_id,
         product: { name_en: p.name_en, name_ar: p.name_ar, is_active: p.is_active },
+        launched: productLaunched(p),
         variant: v,
         ingredientId: ing?.id ?? null,
         onHand: ing ? Number(onHandOf.get(ing.id)?.on_hand ?? 0) : null,
@@ -49,6 +52,36 @@ export function flattenCatalogue(
     }
   }
   return out;
+}
+
+/**
+ * Launched = on sale now or at some point: launched_at set, or switched on,
+ * the same test app.upsert_variant's size lock makes (price_promo, #51). A
+ * product never launched and switched off is a draft: its prices are still
+ * the manager's own.
+ */
+export function productLaunched(p: { launched_at: string | null; is_active: boolean }): boolean {
+  return p.launched_at !== null || p.is_active;
+}
+
+export interface ProductLock {
+  /** The size prices are read-only and Add size is off: "Change the price". */
+  priceLocked: boolean;
+  /** A hidden draft: "Put on sale", a shop_launch change the owner approves. */
+  putOnSale: boolean;
+}
+
+/**
+ * What a size row offers a caller without `editLaunchedPrices` or
+ * `launchDirectly` (a manager, build-contracts-2026-09-23 §5.5, #51, #53).
+ * SKU, barcode, supplier, pack cost and the low-stock level stay editable
+ * either way: upsert_retail_variant passes with the price unchanged.
+ */
+export function productLock(line: Pick<ProductLine, 'launched'>, caps: { editLaunchedPrices: boolean; launchDirectly: boolean }): ProductLock {
+  return {
+    priceLocked: !caps.editLaunchedPrices && line.launched,
+    putOnSale: !caps.launchDirectly && !line.launched,
+  };
 }
 
 /** Product or size name in either script, SKU or barcode. */

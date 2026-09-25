@@ -16,6 +16,12 @@
  * which hid the one case that needs a person: two rules that tie
  * (rateRuleLogic.rulesTie). The rule for how overlaps resolve is one sentence
  * under the table instead.
+ *
+ * A MANAGER PROPOSES (#57, build-contracts-2026-09-23 §5.5). Every save of a
+ * rule changes the price a slot gets, so the owner alone saves here
+ * (`editRates`). A manager reads the rules and gets "Propose a new rate" and,
+ * on an open rule, "Change this rate": each a price or promo change on
+ * /protocols, in place of a notice that names the owner.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,6 +50,7 @@ import { MoneyInput } from '../../components/inputs';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/toast';
 import { MARK_FG, MARK_SOFT } from '../ops/OpsVisuals';
+import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './promotions/PriceChangeStart';
 import { DAY_KEYS, coversEveryDay, findTies, tiesFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
 
 interface RuleRow extends RateRuleLike {
@@ -58,6 +65,9 @@ export function RateRuleEditor() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const can = usePermissions();
+  const start = usePriceChangeStart();
+  // A manager: new rules and edits go through a price or promo change.
+  const proposes = !can.editRates && start !== null;
   const [selected, setSelected] = useState<RuleRow | 'new' | null>(null);
   const [showOff, setShowOff] = useState(false);
 
@@ -130,18 +140,22 @@ export function RateRuleEditor() {
     { key: 'priority', header: tr('ws.manager.rates.priority'), numeric: true, render: (r) => formatNumber(r.priority, locale) },
   ];
 
+  const newRuleButton = proposes ? (
+    <PriceChangeButton kind="primary" icon="plus" target={{ change: 'rate' }} label={tr('ws.pricing.rates.propose')} />
+  ) : (
+    <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
+      {tr('ws.manager.rates.newRule')}
+    </Button>
+  );
+
   return (
     <div>
-      <PageHeader
-        title={tr('ws.manager.rates.title')}
-        subtitle={tr('ws.manager.rates.lead')}
-        actions={
-          <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
-            {tr('ws.manager.rates.newRule')}
-          </Button>
-        }
-      >
-        {!can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />}
+      <PageHeader title={tr('ws.manager.rates.title')} subtitle={tr('ws.manager.rates.lead')} actions={newRuleButton}>
+        {proposes ? (
+          <PriceLockNote message={tr('ws.pricing.rates.note')} />
+        ) : (
+          !can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />
+        )}
       </PageHeader>
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: selected ? 'minmax(0, 1.4fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
@@ -157,11 +171,7 @@ export function RateRuleEditor() {
                 icon="court"
                 title={tr('ws.manager.rates.empty')}
                 body={tr('ws.manager.rates.emptyBody')}
-                action={
-                  <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
-                    {tr('ws.manager.rates.newRule')}
-                  </Button>
-                }
+                action={newRuleButton}
               />
             }
           >
@@ -196,6 +206,7 @@ export function RateRuleEditor() {
             ties={selected === 'new' ? [] : tiesFor(ties, rules, selected.id)}
             dayName={dayName}
             readOnly={!can.editRates}
+            proposes={proposes}
             onSaved={() => {
               setSelected(null);
               void queryClient.invalidateQueries({ queryKey: RATE_RULES_KEY });
@@ -277,6 +288,7 @@ function RuleForm({
   ties,
   dayName,
   readOnly,
+  proposes,
   onSaved,
   onCancel,
 }: {
@@ -286,6 +298,8 @@ function RuleForm({
   ties: Overlap[];
   dayName: (d: number) => string;
   readOnly: boolean;
+  /** A manager: the rule changes through "Change this rate", not Save. */
+  proposes: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -429,28 +443,37 @@ function RuleForm({
       </div>
       <ErrorText error={error} />
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.rates.nonDestructive')}</span>
-        <Button onClick={onCancel} disabled={busy}>
-          {tr('common.cancel')}
-        </Button>
-        <Button
-          kind="primary"
-          icon="check"
-          busy={busy}
-          disabled={readOnly || !name || days.size === 0 || !anyPrice}
-          disabledReason={
-            !name
-              ? tr('ws.manager.disabled.namesRequired')
-              : days.size === 0
-                ? tr('ws.manager.disabled.daysRequired')
-                : !anyPrice
-                  ? tr('ws.manager.disabled.priceRequired')
-                  : undefined
-          }
-          onClick={() => void save()}
-        >
-          {tr('common.save')}
-        </Button>
+        {proposes && rule ? (
+          <>
+            <Button onClick={onCancel}>{tr('common.close')}</Button>
+            <PriceChangeButton kind="primary" target={{ change: 'rate', rule: rule.id }} label={tr('ws.pricing.rates.change')} />
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.rates.nonDestructive')}</span>
+            <Button onClick={onCancel} disabled={busy}>
+              {tr('common.cancel')}
+            </Button>
+            <Button
+              kind="primary"
+              icon="check"
+              busy={busy}
+              disabled={readOnly || !name || days.size === 0 || !anyPrice}
+              disabledReason={
+                !name
+                  ? tr('ws.manager.disabled.namesRequired')
+                  : days.size === 0
+                    ? tr('ws.manager.disabled.daysRequired')
+                    : !anyPrice
+                      ? tr('ws.manager.disabled.priceRequired')
+                      : undefined
+              }
+              onClick={() => void save()}
+            >
+              {tr('common.save')}
+            </Button>
+          </>
+        )}
       </div>
     </Panel>
   );

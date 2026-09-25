@@ -15,20 +15,28 @@
  * sentence with a link under the form. The quantity boxes name the unit, and
  * the form shows what is on hand for the chosen ingredient so a typo of an
  * extra zero is visible before it is recorded.
+ *
+ * Made today (build-contracts-2026-09-23 §5.5): every batch recorded this
+ * business day, from this form or from the kitchen's phones (record_batch),
+ * through app.production_log_today, with who made it and no cost. Its key sits
+ * under the stock root, so recording a batch here refreshes it. The payload
+ * reader is madeTodayLogic.ts, with a node test.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
 import { mutate } from '../../lib/mutate';
 import { QK } from '../../lib/queries';
+import { formatTime } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
-import { EmptyState, PageHeader, Panel } from '../../components/kit';
+import { DataTable, EmptyState, PageHeader, Panel, type Column } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
-import { Footnote, useStockFormat } from './stockUi';
+import { Footnote, IngredientName, useStockFormat } from './stockUi';
 import { SK, fetchIngredients, fetchOnHand } from './stockKeys';
+import { readMade, type MadeRow } from './madeTodayLogic';
 
 export function WasteAndProduction() {
   const { tr } = useLocale();
@@ -38,6 +46,7 @@ export function WasteAndProduction() {
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(19rem, 1fr))', alignItems: 'start' }}>
         <WasteForm />
         <ProductionForm />
+        <MadeToday />
       </div>
     </div>
   );
@@ -221,6 +230,33 @@ function ProductionForm() {
           </Button>
         </>
       )}
+    </Panel>
+  );
+}
+
+/** Under the stock root, so the forms' ['stock'] invalidation refreshes it. */
+const MADE_TODAY_KEY = ['stock', 'madeToday'] as const;
+
+function MadeToday() {
+  const { tr, locale } = useLocale();
+  const fmt = useStockFormat();
+  const q = useQuery({ queryKey: MADE_TODAY_KEY, queryFn: () => appRpc<unknown>('production_log_today'), refetchInterval: 60_000 });
+  const rows = useMemo(() => readMade(q.data), [q.data]);
+  const columns: Column<MadeRow>[] = [
+    { key: 'time', header: tr('ws.supplies.madeToday.time'), render: (r) => <bdi>{r.at ? formatTime(new Date(r.at), locale) : '—'}</bdi> },
+    { key: 'item', header: tr('ws.supplies.madeToday.item'), render: (r) => <IngredientName name={pickName(locale, r)} strong /> },
+    { key: 'amount', header: tr('ws.supplies.madeToday.amount'), numeric: true, render: (r) => <bdi>{fmt.qty(r.qty, r.unit)}</bdi> },
+    { key: 'who', header: tr('ws.supplies.madeToday.who'), render: (r) => <bdi>{r.staff_name ?? '—'}</bdi> },
+  ];
+  return (
+    <Panel title={<CardTitle icon="cake">{tr('ws.supplies.madeToday.title')}</CardTitle>} style={{ gridColumn: '1 / -1' }} data-testid="made-today">
+      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.supplies.madeToday.lead')}</p>
+      <ErrorText error={q.error} />
+      {q.isSuccess && rows.length === 0 ? (
+        <EmptyState compact kind="nothingToDo" icon="cake" title={tr('ws.supplies.madeToday.empty')} />
+      ) : rows.length > 0 ? (
+        <DataTable<MadeRow> dense rows={rows} rowKey={(r) => String(r.movement_id)} columns={columns} aria-label={tr('ws.supplies.madeToday.title')} />
+      ) : null}
     </Panel>
   );
 }
