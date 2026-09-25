@@ -111,11 +111,13 @@ const touch = {
 
   // Auto-update (main/updater.ts). The rail mounts after sign-in, long after
   // the push may have landed, so a subscriber first asks for the current state.
-  onUpdateReady: (cb: (info: UpdateReadyInfo) => void): (() => void) => {
+  // null withdraws an update (its install refused, an installer started, or a
+  // newer download is replacing it).
+  onUpdateReady: (cb: (info: UpdateReadyInfo | null) => void): (() => void) => {
     void ipcRenderer.invoke(IPC.updateState).then((info: UpdateReadyInfo | null) => {
       if (info) cb(info);
     });
-    const listener = (_e: IpcRendererEvent, info: UpdateReadyInfo) => cb(info);
+    const listener = (_e: IpcRendererEvent, info: UpdateReadyInfo | null) => cb(info);
     ipcRenderer.on(IPC.updateReady, listener);
     return () => ipcRenderer.removeListener(IPC.updateReady, listener);
   },
