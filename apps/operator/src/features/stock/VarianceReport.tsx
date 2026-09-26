@@ -31,7 +31,7 @@ import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Select } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, PageHeader, ResultCount, SegmentedControl, TableSkeleton, Toolbar, asyncStatus, type Column } from '../../components/kit';
-import { downloadCsv, toCsv } from '../analytics/csv';
+import { downloadTable } from '../analytics/exportTables';
 import { LedgerDrawer } from './LedgerDrawer';
 import { KindFilter, matchesKind, useStockFormat, useStoreName, type StockKindFilter } from './stockUi';
 import { SK, fetchIngredients } from './stockKeys';
@@ -138,27 +138,25 @@ export function VarianceReport() {
       tr('ws.stores.variance.moved'),
     ];
     const chosenCount = countsQ.data?.find((c) => c.id === chosen);
-    downloadCsv(
-      `count-differences-${chosenCount ? chosenCount.finalized_at.slice(0, 10) : 'count'}.csv`,
-      toCsv(
-        headers,
-        rows.map((r) => [
-          pickName(locale, r),
-          fmt.unit(r.unit),
-          r.theoretical_qty,
-          r.counted_qty,
-          r.variance_qty,
-          r.sold_qty,
-          r.expected_waste_qty,
-          r.recorded_waste_qty,
-          r.void_qty,
-          r.expired_qty,
-          productTest(r),
-          r.location ? storeName(r.location) : '',
-          moved(r),
-        ]),
-      ),
-    );
+    downloadTable(`count-differences-${chosenCount ? chosenCount.finalized_at.slice(0, 10) : 'count'}`, locale, {
+      name: tr('op.stockNav.variance'),
+      columns: headers,
+      rows: rows.map((r) => [
+        pickName(locale, r),
+        fmt.unit(r.unit),
+        r.theoretical_qty,
+        r.counted_qty,
+        r.variance_qty,
+        r.sold_qty,
+        r.expected_waste_qty,
+        r.recorded_waste_qty,
+        r.void_qty,
+        r.expired_qty,
+        productTest(r),
+        r.location ? storeName(r.location) : '',
+        moved(r),
+      ]),
+    });
   }
 
   const qty = (r: VarianceRow, v: number) => <bdi>{fmt.qty(v, r.unit)}</bdi>;

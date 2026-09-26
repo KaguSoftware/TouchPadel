@@ -116,12 +116,12 @@ export function StaffActivityReportScreen() {
     if (!rows) return;
     const base = tr('ws.reports.export.staff');
     const parts = { view, staff: staffId || undefined };
-    if (view === 'dayCloses') return exportTable(base, period, parts, tableCsv(cols.dayCloses, closes));
+    if (view === 'dayCloses') return exportTable(base, locale, period, parts, tableCsv(cols.dayCloses, closes));
     if (view === 'shifts') {
       const list = queryClient.getQueryData<ShiftList>(tillShiftListKey({ from: period.from, to: period.to, staff: staffId || null }));
-      return exportTable(base, period, parts, shiftReportCsv(tr, locale, list?.shifts ?? []));
+      return exportTable(base, locale, period, parts, shiftReportCsv(tr, locale, list?.shifts ?? []));
     }
-    exportTable(base, period, parts, tableCsv(cols[view], rows, view === 'exceptions' ? cols.exceptionCounts : []));
+    exportTable(base, locale, period, parts, tableCsv(cols[view], rows, view === 'exceptions' ? cols.exceptionCounts : []));
   }
 
   return (

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../lib/i18n';
-import { SelectMenu } from './SelectMenu';
+import { SelectMenu, typeaheadMatch } from './SelectMenu';
 import { Field, Modal, Select } from './ui';
 
 const COURTS = [
@@ -62,6 +62,39 @@ describe('SelectMenu', () => {
   it('shows the placeholder until something is chosen', async () => {
     renderMenu({ value: '', placeholder: 'Choose a court' });
     expect(screen.getByRole('combobox', { name: 'Court' }).textContent).toContain('Choose a court');
+  });
+
+  // The recipe editor's ingredient list is long: a second letter has to
+  // extend the word, not start a new search on its own.
+  it('type-ahead takes a whole word, with spaces and backspace', async () => {
+    const onChange = renderMenu({
+      value: '',
+      options: [
+        { value: 'ch', label: 'Cheese' },
+        { value: 'ck', label: 'Chicken breast' },
+        { value: 'k', label: 'Ketchup' },
+        { value: 'oo', label: 'Olive oil' },
+        { value: 'ov', label: 'Olive vinegar' },
+      ],
+    });
+    screen.getByRole('combobox', { name: 'Court' }).focus();
+    // Typing on the closed control opens it.
+    await userEvent.keyboard('chi');
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    expect(document.querySelector('[data-typeahead]')?.textContent).toBe('chi');
+    await userEvent.keyboard('{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith('ck');
+
+    screen.getByRole('combobox', { name: 'Court' }).focus();
+    await userEvent.keyboard('olive vx{Backspace}{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith('ov');
+  });
+
+  it('type-ahead falls back to a word inside the label', () => {
+    const opts = [{ label: 'Cheese' }, { label: 'Olive oil' }];
+    expect(typeaheadMatch(opts, 'oil')).toBe(1);
+    expect(typeaheadMatch(opts, 'ees')).toBe(0);
+    expect(typeaheadMatch(opts, 'zz')).toBe(-1);
   });
 
   it('marks the chosen option as selected for assistive tech', async () => {
