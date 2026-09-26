@@ -56,8 +56,9 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
   both catalogs; edge functions are called through `src/lib/edge.ts`, which throws `EdgeError`.
 - `electron`, `fs` and `node:fs` are restricted imports in the renderer (`eslint.config.mjs:21-27`);
   go through `src/ipc/bridge.ts`.
-- `merge_tabs`, `record_drawer_open`, `open_day` and `close_day` stay online-only by decision
-  (Parsa 2026-09-20; the "Till online-only ops" row of the scope ledger in `HANDOFF.md`). Every
+- `merge_tabs`, `record_drawer_open`, `open_day`, `close_day`, `open_till_shift`,
+  `close_till_shift` and `close_till_shift_for` stay online-only by decision (Parsa 2026-09-20,
+  the till shifts wave 5; the "Till online-only ops" row of the scope ledger in `HANDOFF.md`). Every
   other till money write is a queued type: `refund` (`payment.refund`), `cancel_tab`
   (`tab.cancel`), `settle_zero_tab` (`tab.settle_zero`), `void_after_send` (`order_item.void`) and
   `record_waste` (`stock.waste`) since Milestone 0 item 9 (migration 0120). A PIN-gated one carries

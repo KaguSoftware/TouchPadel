@@ -127,8 +127,9 @@ is a line in that file.
   (`apps/mobile/src/features/booking/errors.ts:12`), with both catalogs.
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → tabs → orders → order_items → tickets → payments → refunds → stock_batches → court_advisory → reservations`
-  (`scripts/check-lock-order.mjs`).
+  `day_sessions → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → reservations`
+  (`scripts/check-lock-order.mjs`; `till_shifts` since wave 5, whose stamp trigger takes the open
+  shift FOR SHARE on every payment and refund insert).
 - A non-idempotent money write takes `p_idempotency_key` and calls `app.claim_replay` (0049).
 - Registry: every granted function is covered in `tests/rls-matrix.ts` or listed `publicByDesign` in
   `fixtures/rpc-allowlist.json` with a reason of at least 10 characters

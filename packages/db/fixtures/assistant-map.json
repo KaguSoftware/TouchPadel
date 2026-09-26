@@ -1,5 +1,5 @@
 {
-  "generated_from": "b12acad8521020bdc08e2731653be620e1b5db88",
+  "generated_from": "7082c9147a7d0a468ba5b9e3e1503827bad1a481",
   "chunks": [
     {
       "kind": "page",
@@ -2182,7 +2182,23 @@
       "ref": "action:app.close_day",
       "lang": "en",
       "title": "app.close_day",
-      "body": "Signature: app.close_day(p_cash_counted_iqd bigint, p_card_batch_iqd bigint default null, p_notes text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: day.close.\nError codes: FORBIDDEN, INVALID_COUNT, NO_OPEN_DAY, DAY_OPEN_TABS, DAY_UNSYNCED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0020 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "till_shifts (0020). Manager or owner: closes the open day once every tab is settled or void (DAY_OPEN_TABS) and no till reports queued writes since it opened (DAY_UNSYNCED). Every till shift still open on the day ends with it, uncounted (drawer.shift_close_by_day). Stamps expected cash = opening float + cash payments - cash refunds of the day's payments, the count and the variance; returns {day_session_id, business_date, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_expected_iqd, card_terminal_batch_iqd, shifts_closed_with_day}. INVALID_COUNT, NO_OPEN_DAY. Audit day.close. Online-only.\nSignature: app.close_day(p_cash_counted_iqd bigint, p_card_batch_iqd bigint default null, p_notes text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: day.close.\nError codes: FORBIDDEN, INVALID_COUNT, NO_OPEN_DAY, DAY_OPEN_TABS, DAY_UNSYNCED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0205 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.close_till_shift",
+      "lang": "en",
+      "title": "app.close_till_shift",
+      "body": "till_shifts (§2.9.4). The shift's holder, with their own PIN, beating from its station: a blind count closes it. Returns {ok:true, duplicate, till_shift_id, station_id, staff_id, staff_name, opened_at, closed_at, closed_via, authorized_by_name, opening_float_iqd, cash_payments_iqd, cash_refunds_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count, drawer_open_count, left_in_drawer_iqd}, or {ok:false, code:PIN_INVALID} for a wrong PIN (returned, so the attempt counts). Idempotent by key. FORBIDDEN, INVALID_COUNT, TEXT_TOO_LONG (hint note), NO_PIN_SET, PIN_LOCKED, IDEMPOTENCY_CONFLICT, TILL_SHIFT_NOT_FOUND, TILL_SHIFT_CLOSED, TILL_SHIFT_NOT_YOURS, TILL_SHIFT_WRONG_STATION, STATION_UNKNOWN, TILL_SHIFT_UNSYNCED. Audit drawer.shift_close. Online-only.\nSignature: app.close_till_shift(p_till_shift_id uuid, p_counted_iqd bigint, p_pin text, p_device_id text, p_note text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,court_desk,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_COUNT, TEXT_TOO_LONG, TILL_SHIFT_NOT_FOUND, TILL_SHIFT_CLOSED, TILL_SHIFT_NOT_YOURS, TILL_SHIFT_WRONG_STATION, TILL_SHIFT_UNSYNCED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0205 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.close_till_shift_for",
+      "lang": "en",
+      "title": "app.close_till_shift_for",
+      "body": "till_shifts (§2.9.4). Cashier, court desk, manager, owner, beating from the shift's station, holding a manager-PIN grant (app.verify_manager_pin first): a blind count closes anyone's shift, a no-PIN holder's own included; authorized_by = the manager. Returns what app.close_till_shift returns. Idempotent by key (a replay spends the grant). FORBIDDEN, INVALID_COUNT, TEXT_TOO_LONG (hint note), IDEMPOTENCY_CONFLICT, TILL_SHIFT_NOT_FOUND, TILL_SHIFT_CLOSED, TILL_SHIFT_WRONG_STATION, STATION_UNKNOWN, TILL_SHIFT_UNSYNCED, PIN_GRANT_REQUIRED. Audit drawer.shift_close with the authorizer. Online-only.\nSignature: app.close_till_shift_for(p_till_shift_id uuid, p_counted_iqd bigint, p_device_id text, p_note text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,court_desk,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_COUNT, TEXT_TOO_LONG, TILL_SHIFT_NOT_FOUND, TILL_SHIFT_CLOSED, TILL_SHIFT_WRONG_STATION, TILL_SHIFT_UNSYNCED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0205 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2811,6 +2827,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.open_till_shift",
+      "lang": "en",
+      "title": "app.open_till_shift",
+      "body": "till_shifts (§2.9.4). Cashier, court desk, manager, owner, beating from the station: opens the caller's shift there on a counted float, inside the open day, and returns {duplicate, till_shift:{id, station_id, staff_id, staff_name, opened_at, opening_float_iqd, handover_from:{till_shift_id, staff_name, closed_at, left_in_drawer_iqd, outside_cash_since_iqd}|null, handover_difference_iqd}}. First ends any shift left open on the station or by the caller on a closed day (day_close). Idempotent by key. FORBIDDEN, INVALID_STATION, STATION_UNKNOWN, TILL_SHIFT_WRONG_STATION, INVALID_FLOAT, TEXT_TOO_LONG (hint note), IDEMPOTENCY_CONFLICT, NO_OPEN_DAY, TILL_SHIFT_UNSYNCED, TILL_SHIFT_ALREADY_OPEN (detail = its station), TILL_SHIFT_STATION_BUSY. Audit drawer.shift_open. Online-only.\nSignature: app.open_till_shift(p_opening_float_iqd bigint, p_device_id text, p_note text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,court_desk,manager,owner).\nAudit actions written: drawer.shift_open.\nError codes: FORBIDDEN, INVALID_FLOAT, TEXT_TOO_LONG, NO_OPEN_DAY, TILL_SHIFT_UNSYNCED, TILL_SHIFT_ALREADY_OPEN, TILL_SHIFT_STATION_BUSY.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0205 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.order_is_callers",
       "lang": "en",
       "title": "app.order_is_callers",
@@ -3046,7 +3070,7 @@
       "ref": "action:app.refund",
       "lang": "en",
       "title": "app.refund",
-      "body": "0139 (0120, 0044, 0115). Refunds part or all of one payment (manager, owner) behind a manager-PIN grant, inside an open day (NO_OPEN_DAY otherwise); naming order lines restocks them. p_idempotency_key: a replay of the same key by the same caller echoes the first result with duplicate:true (app.claim_replay). REFUND_EXCEEDS_PAYMENT (detail = paid/refunded), PAYMENT_NOT_FOUND, ITEM_NOT_ON_TAB, INVALID_QTY, INVALID_AMOUNT.\nSignature: app.refund(p_payment_id uuid, p_amount_iqd bigint, p_pin text, p_reason_code text, p_items jsonb default null, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: payment.refund.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_AMOUNT, NO_OPEN_DAY, PAYMENT_NOT_FOUND, REFUND_EXCEEDS_PAYMENT, ITEM_NOT_ON_TAB, INVALID_QTY.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0139 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "till_shifts (0139, 0120, 0044, 0115). Refunds part or all of one payment (manager, owner) behind a manager-PIN grant, inside an open day (NO_OPEN_DAY otherwise); naming order lines restocks them. The refunds row records p_device_id, and app.stamp_till_shift gives it the shift open at that station. p_idempotency_key: a replay of the same key by the same caller echoes the first result with duplicate:true (app.claim_replay). REFUND_EXCEEDS_PAYMENT (detail = paid/refunded), PAYMENT_NOT_FOUND, ITEM_NOT_ON_TAB, INVALID_QTY, INVALID_AMOUNT.\nSignature: app.refund(p_payment_id uuid, p_amount_iqd bigint, p_pin text, p_reason_code text, p_items jsonb default null, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: payment.refund.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_AMOUNT, NO_OPEN_DAY, PAYMENT_NOT_FOUND, REFUND_EXCEEDS_PAYMENT, ITEM_NOT_ON_TAB, INVALID_QTY.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0205 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3767,6 +3791,22 @@
       "lang": "en",
       "title": "app.till_add_items",
       "body": "Signature: app.till_add_items(p_tab_id uuid, p_items jsonb, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, IDEMPOTENCY_CONFLICT, NO_OPEN_DAY, TAB_NOT_FOUND, TAB_MERGED, TAB_NOT_OPEN, DAY_CLOSED.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0146 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.till_shift_list",
+      "lang": "en",
+      "title": "app.till_shift_list",
+      "body": "till_shifts (§2.9.4, V10). Manager or owner at the venue: {from, to, shifts:[{id, day_session_id, business_date, station_id, staff_id, staff_name, opened_at, closed_at, closed_via, closed_by_name, authorized_by_name, opening_float_iqd, handover_difference_iqd, cash_payments_iqd, cash_refunds_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count, drawer_open_count, open_note, close_note}], outside:[{day_session_id, business_date, station_id, cash_payments_iqd, cash_refunds_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count}], cross_day:[{day_session_id, business_date, earlier_days_cash_refunds_iqd, earlier_days_card_refunds_iqd, later_cash_refunds_iqd, later_card_refunds_iqd}]} over the business days p_from..p_to (no dates: the open day, else the latest; at most 62 days). A refund belongs to the day it was made. FORBIDDEN, INVALID_ARGUMENT (hint range), VENUE_REQUIRED.\nSignature: app.till_shift_list(p_from date default null, p_to date default null, p_station_id text default null, p_staff_id uuid default null, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0205 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.till_shift_status",
+      "lang": "en",
+      "title": "app.till_shift_status",
+      "body": "till_shifts (§2.9.4). Cashier, court desk, manager, owner: {station_id, day:{id, business_date, opening_float_iqd}|null, shift:{id, staff_id, staff_name, is_mine, opened_at, opening_float_iqd, payment_count, refund_count, drawer_open_count, cash_expected_iqd (MGMT only; absent otherwise)}|null, last_closed:{id, staff_name, closed_at, left_in_drawer_iqd, outside_cash_since_iqd}|null, mine_elsewhere:{id, station_id, opened_at}|null, queue_depth} for the station. No heartbeat needed. FORBIDDEN, INVALID_STATION, STATION_UNKNOWN.\nSignature: app.till_shift_status(p_device_id text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,court_desk,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0205 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4510,7 +4550,7 @@
       "ref": "table:payments",
       "lang": "en",
       "title": "table payments",
-      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  tab_id uuid not null references tabs(id)\n  day_session_id uuid not null references day_sessions(id)\n  method payment_method not null\n  amount_iqd iqd not null\n  tendered_iqd iqd — cash only\n  change_iqd iqd — cash only; drawer-open record\n  recorded_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  device_id text\n  idempotency_key text unique\n  venue_id uuid",
+      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  tab_id uuid not null references tabs(id)\n  day_session_id uuid not null references day_sessions(id)\n  method payment_method not null\n  amount_iqd iqd not null\n  tendered_iqd iqd — cash only\n  change_iqd iqd — cash only; drawer-open record\n  recorded_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  device_id text\n  idempotency_key text unique\n  venue_id uuid\n  till_shift_id uuid — The till shift open at device_id when the payment was recorded (app.stamp_till_shift); null outside a shift. Never supplied by a client.",
       "route": null
     },
     {
@@ -4654,7 +4694,7 @@
       "ref": "table:refunds",
       "lang": "en",
       "title": "table refunds",
-      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  payment_id uuid not null references payments(id)\n  amount_iqd iqd not null\n  reason_code text not null\n  refunded_by uuid not null references staff(id) — manager+ enforced in RPC\n  created_at timestamptz not null default now()\n  venue_id uuid",
+      "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  payment_id uuid not null references payments(id)\n  amount_iqd iqd not null\n  reason_code text not null\n  refunded_by uuid not null references staff(id) — manager+ enforced in RPC\n  created_at timestamptz not null default now()\n  venue_id uuid\n  device_id text — The station the refund was made at (app.refund's p_device_id), as payments.device_id.\n  till_shift_id uuid — The till shift open at device_id, on an open day, when the refund was made (app.stamp_till_shift); null outside a shift. Never supplied by a client.",
       "route": null
     },
     {
@@ -4911,6 +4951,14 @@
       "lang": "en",
       "title": "table tickets",
       "body": "Created in migration 0015.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  order_id uuid not null unique references orders(id)\n  status ticket_status not null default 'queued'\n  target_seconds int not null default 600\n  created_at timestamptz not null default now()\n  started_at timestamptz\n  ready_at timestamptz\n  completed_at timestamptz\n  actual_prep_seconds int — stamped at completion (scope: stored per ticket)\n  device_id text\n  idempotency_key text unique\n  last_actor_label text — Label of the last non-staff actor that moved this ticket ('Telegram: Ahmed'). NULL when only staff devices touched it.\n  venue_id uuid",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:till_shifts",
+      "lang": "en",
+      "title": "table till_shifts",
+      "body": "till_shifts (wave 5 §2.9, Majed #4): one person's drawer at one station inside one open day. Opened by app.open_till_shift on a counted float (with the handover difference from the station's last counted shift of the day), closed by app.close_till_shift (own PIN), app.close_till_shift_for (a manager's PIN grant) or with the day (close_day, and open_till_shift's self-heal). Payments and refunds are stamped with the shift open at their station (app.stamp_till_shift). Open means closed_at is null. Read by MGMT at the venue; everyone else reads through app.till_shift_status. No client write grant.\nCreated in migration 0205.\nColumns:\n  id uuid primary key default gen_random_uuid() — Shift id.\n  venue_id uuid not null references venues(id) — The venue: the station's.\n  day_session_id uuid not null references day_sessions(id) — The business day the shift belongs to (open when the shift opened).\n  station_id text not null — The till or desk station whose drawer this is (with venue_id, a stations pair key).\n  staff_id uuid not null references staff(id) — Whose shift it is: the person who opened it.\n  opened_at timestamptz not null default now() — When the shift opened.\n  opening_float_iqd iqd not null — The cash counted into the drawer at the open, IQD.\n  open_note text — An optional note typed at the open (at most 500 characters). Never readable by the owner assistant.\n  handover_from_shift_id uuid references till_shifts(id) — The station's last counted shift of the same day, when there was one; null on a day's first shift at the station.\n  handover_difference_iqd iqd_signed — opening_float_iqd minus (that shift's count plus the cash taken in or paid out at the station with no shift open since, V18), IQD, signed. Null without a handover.\n  closed_at timestamptz — When the shift closed; null while it is open.\n  closed_by uuid references staff(id) — Who closed it: the person at the till, or the manager whose close_day or open ended it.\n  closed_via text — own_pin (the holder's own PIN), manager_pin (a manager's PIN grant) or day_close (ended with its day, uncounted).\n  authorized_by uuid references staff(id) — Who signed the count: the holder for own_pin, the manager for manager_pin; null for day_close.\n  cash_payments_iqd iqd — Stamped at the close: cash payments carrying this shift, IQD.\n  cash_refunds_iqd iqd — Stamped at the close: refunds carrying this shift whose payment was cash, IQD.\n  cash_expected_iqd iqd_signed — Stamped at the close: opening float + cash payments - cash refunds, IQD, signed.\n  cash_counted_iqd iqd — The blind count at the close, IQD; null when the shift ended with its day.\n  cash_variance_iqd iqd_signed — cash_counted_iqd - cash_expected_iqd, IQD, signed; null when uncounted.\n  card_payments_iqd iqd — Stamped at the close: card payments carrying this shift, IQD.\n  card_refunds_iqd iqd — Stamped at the close: refunds carrying this shift whose payment was card, IQD.\n  payment_count int — Stamped at the close: payments carrying this shift.\n  refund_count int — Stamped at the close: refunds carrying this shift.\n  drawer_open_count int — Stamped at the close: drawer.open audit rows from the station inside the shift. Shown only, never in the math.\n  close_note text — An optional note typed at the close (at most 500 characters). Never readable by the owner assistant.",
       "route": null
     },
     {
@@ -7107,6 +7155,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:payments.till_shift_id",
+      "lang": "en",
+      "title": "payments.till_shift_id",
+      "body": "uuid\nThe till shift open at device_id when the payment was recorded (app.stamp_till_shift); null outside a shift. Never supplied by a client.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:profiles.deleted_at",
       "lang": "en",
       "title": "profiles.deleted_at",
@@ -8179,10 +8235,26 @@
     },
     {
       "kind": "column",
+      "ref": "column:refunds.device_id",
+      "lang": "en",
+      "title": "refunds.device_id",
+      "body": "text\nThe station the refund was made at (app.refund's p_device_id), as payments.device_id.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:refunds.refunded_by",
       "lang": "en",
       "title": "refunds.refunded_by",
       "body": "uuid not null references staff(id)\nmanager+ enforced in RPC",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:refunds.till_shift_id",
+      "lang": "en",
+      "title": "refunds.till_shift_id",
+      "body": "uuid\nThe till shift open at device_id, on an open day, when the refund was made (app.stamp_till_shift); null outside a shift. Never supplied by a client.",
       "route": null
     },
     {
@@ -9271,6 +9343,198 @@
       "lang": "en",
       "title": "tickets.last_actor_label",
       "body": "text\nLabel of the last non-staff actor that moved this ticket ('Telegram: Ahmed'). NULL when only staff devices touched it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.authorized_by",
+      "lang": "en",
+      "title": "till_shifts.authorized_by",
+      "body": "uuid references staff(id)\nWho signed the count: the holder for own_pin, the manager for manager_pin; null for day_close.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.card_payments_iqd",
+      "lang": "en",
+      "title": "till_shifts.card_payments_iqd",
+      "body": "iqd\nStamped at the close: card payments carrying this shift, IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.card_refunds_iqd",
+      "lang": "en",
+      "title": "till_shifts.card_refunds_iqd",
+      "body": "iqd\nStamped at the close: refunds carrying this shift whose payment was card, IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.cash_counted_iqd",
+      "lang": "en",
+      "title": "till_shifts.cash_counted_iqd",
+      "body": "iqd\nThe blind count at the close, IQD; null when the shift ended with its day.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.cash_expected_iqd",
+      "lang": "en",
+      "title": "till_shifts.cash_expected_iqd",
+      "body": "iqd_signed\nStamped at the close: opening float + cash payments - cash refunds, IQD, signed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.cash_payments_iqd",
+      "lang": "en",
+      "title": "till_shifts.cash_payments_iqd",
+      "body": "iqd\nStamped at the close: cash payments carrying this shift, IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.cash_refunds_iqd",
+      "lang": "en",
+      "title": "till_shifts.cash_refunds_iqd",
+      "body": "iqd\nStamped at the close: refunds carrying this shift whose payment was cash, IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.cash_variance_iqd",
+      "lang": "en",
+      "title": "till_shifts.cash_variance_iqd",
+      "body": "iqd_signed\ncash_counted_iqd - cash_expected_iqd, IQD, signed; null when uncounted.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.close_note",
+      "lang": "en",
+      "title": "till_shifts.close_note",
+      "body": "text\nAn optional note typed at the close (at most 500 characters). Never readable by the owner assistant.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.closed_at",
+      "lang": "en",
+      "title": "till_shifts.closed_at",
+      "body": "timestamptz\nWhen the shift closed; null while it is open.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.closed_by",
+      "lang": "en",
+      "title": "till_shifts.closed_by",
+      "body": "uuid references staff(id)\nWho closed it: the person at the till, or the manager whose close_day or open ended it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.closed_via",
+      "lang": "en",
+      "title": "till_shifts.closed_via",
+      "body": "text\nown_pin (the holder's own PIN), manager_pin (a manager's PIN grant) or day_close (ended with its day, uncounted).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.day_session_id",
+      "lang": "en",
+      "title": "till_shifts.day_session_id",
+      "body": "uuid not null references day_sessions(id)\nThe business day the shift belongs to (open when the shift opened).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.drawer_open_count",
+      "lang": "en",
+      "title": "till_shifts.drawer_open_count",
+      "body": "int\nStamped at the close: drawer.open audit rows from the station inside the shift. Shown only, never in the math.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.handover_difference_iqd",
+      "lang": "en",
+      "title": "till_shifts.handover_difference_iqd",
+      "body": "iqd_signed\nopening_float_iqd minus (that shift's count plus the cash taken in or paid out at the station with no shift open since, V18), IQD, signed. Null without a handover.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.handover_from_shift_id",
+      "lang": "en",
+      "title": "till_shifts.handover_from_shift_id",
+      "body": "uuid references till_shifts(id)\nThe station's last counted shift of the same day, when there was one; null on a day's first shift at the station.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.open_note",
+      "lang": "en",
+      "title": "till_shifts.open_note",
+      "body": "text\nAn optional note typed at the open (at most 500 characters). Never readable by the owner assistant.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.opened_at",
+      "lang": "en",
+      "title": "till_shifts.opened_at",
+      "body": "timestamptz not null default now()\nWhen the shift opened.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.opening_float_iqd",
+      "lang": "en",
+      "title": "till_shifts.opening_float_iqd",
+      "body": "iqd not null\nThe cash counted into the drawer at the open, IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.payment_count",
+      "lang": "en",
+      "title": "till_shifts.payment_count",
+      "body": "int\nStamped at the close: payments carrying this shift.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.refund_count",
+      "lang": "en",
+      "title": "till_shifts.refund_count",
+      "body": "int\nStamped at the close: refunds carrying this shift.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.staff_id",
+      "lang": "en",
+      "title": "till_shifts.staff_id",
+      "body": "uuid not null references staff(id)\nWhose shift it is: the person who opened it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.station_id",
+      "lang": "en",
+      "title": "till_shifts.station_id",
+      "body": "text not null\nThe till or desk station whose drawer this is (with venue_id, a stations pair key).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:till_shifts.venue_id",
+      "lang": "en",
+      "title": "till_shifts.venue_id",
+      "body": "uuid not null references venues(id)\nThe venue: the station's.",
       "route": null
     },
     {
@@ -30206,7 +30470,7 @@
       "ref": "doc:HANDOFF.md#121",
       "lang": "en",
       "title": "HANDOFF.md › Deliberately partial — grows later (scope ledger)",
-      "body": "graded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |\n| `venue_settings` | One row with a boolean PK through milestone 1 slice 1, by decision; it gained `venue_id` (0126) but the seven client `.single()` reads (`apps/mobile/src/features/availability/api.ts:22`, four operator files, `apps/web/src/lib/menu.ts:512`, two edge functions) and the 35 `app.*` readers are untouched | One `venue_settings` row per venue plus a `platform_settings` table for the LLM caps | Milestone 1 slice 2 |\n| Till online-only ops | `merge_tabs`, `record_drawer_open`, `open_day` and `close_day` stay direct `appRpc` calls by decision (Parsa 2026-09-20, Phase 2 finding C3): a merge re-checks two tabs under lock, and the day boundary must be authoritative when it is written. `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send` and `record_waste` are queued mutation types since Milestone 0 item 9 (`payment.refund`, `tab.cancel`, `tab.settle_zero`, `order_item.void`, `stock.waste`; migration 0120 gave the first three `p_idempotency_key` + `app.claim_replay`) | Every till write on the durable queue | Later phase (full offline DB, SOW) |\n| Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |\n| Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |\n| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add",
+      "body": "graded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |\n| `venue_settings` | One row with a boolean PK through milestone 1 slice 1, by decision; it gained `venue_id` (0126) but the seven client `.single()` reads (`apps/mobile/src/features/availability/api.ts:22`, four operator files, `apps/web/src/lib/menu.ts:512`, two edge functions) and the 35 `app.*` readers are untouched | One `venue_settings` row per venue plus a `platform_settings` table for the LLM caps | Milestone 1 slice 2 |\n| Till online-only ops | `merge_tabs`, `record_drawer_open`, `open_day`, `close_day`, `open_till_shift`, `close_till_shift` and `close_till_shift_for` stay direct `appRpc` calls by decision (Parsa 2026-09-20, Phase 2 finding C3; the three till-shift RPCs, wave 5, `docs/design/protocols/wave5-addendum-2026-09-25.md` §2.9.4): a merge re-checks two tabs under lock, and the day boundary and a shift's start and count must be authoritative when they are written. `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send` and `record_waste` are queued mutation types since Milestone 0 item 9 (`payment.refund`, `tab.cancel`, `tab.settle_zero`, `order_item.void`, `stock.waste`; migration 0120 gave the first three `p_idempotency_key` + `app.claim_replay`) | Every till write on the durable queue | Later phase (full offline DB, SOW) |\n| Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |\n| Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |\n| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run sta",
       "route": null
     },
     {
@@ -30214,7 +30478,7 @@
       "ref": "doc:HANDOFF.md#122",
       "lang": "en",
       "title": "HANDOFF.md › Deliberately partial — grows later (scope ledger)",
-      "body": "/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |\n| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |",
+      "body": "tion setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |\n| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |",
       "route": null
     },
     {

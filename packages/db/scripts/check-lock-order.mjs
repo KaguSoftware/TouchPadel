@@ -7,6 +7,12 @@
  *     day_sessions -> tabs -> orders -> order_items -> tickets
  *                  -> payments -> refunds -> stock_batches
  *
+ * Wave 5 (till_shifts) put till_shifts between payments and refunds: the stamp
+ * trigger on payments and refunds takes the open shift FOR SHARE, close_day
+ * takes the day's shifts FOR UPDATE after the day, and a shift close takes its
+ * row alone. This script sees FOR UPDATE only, so the trigger's SHARE is
+ * covered by the race test in tests/till-shifts.test.ts.
+ *
  * Two 0043 defects were both violations of exactly this rule — override_price
  * took order_items before tabs (a reproducible deadlock against void_after_send),
  * and refund took payments without ever taking tabs (so app.tab_net_paid, which
@@ -35,6 +41,7 @@ const ORDER = [
   'order_items',
   'tickets',
   'payments',
+  'till_shifts',      // wave 5: the stamp trigger (SHARE), close_day and the shift close (FOR UPDATE)
   'refunds',
   'stock_batches',
   'court_advisory',   // app.lock_court() -- 0042, see ADVISORY note below

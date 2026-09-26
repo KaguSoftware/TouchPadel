@@ -97,6 +97,9 @@ truncate table
   public.refunds,
   public.refund_items,
   public.day_sessions,
+  -- wave 5, lane T (wave5-addendum §7.8, required): a till shift references
+  -- day_sessions and stations, and payments and refunds reference it.
+  public.till_shifts,
   public.waiter_calls,
   public.guest_sessions,
   public.promotion_redemptions,

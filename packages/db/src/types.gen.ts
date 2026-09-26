@@ -851,6 +851,38 @@ export type Database = {
         }
         Returns: Json
       }
+      close_till_shift: {
+        Args: {
+          p_counted_iqd: number
+          p_device_id: string
+          p_idempotency_key?: string
+          p_note?: string
+          p_pin: string
+          p_till_shift_id: string
+        }
+        Returns: Json
+      }
+      close_till_shift_for: {
+        Args: {
+          p_counted_iqd: number
+          p_device_id: string
+          p_idempotency_key?: string
+          p_note?: string
+          p_till_shift_id: string
+        }
+        Returns: Json
+      }
+      close_till_shift_internal: {
+        Args: {
+          p_auth: string
+          p_counted: number
+          p_device_id: string
+          p_note: string
+          p_shift: Database["public"]["Tables"]["till_shifts"]["Row"]
+          p_via: string
+        }
+        Returns: Json
+      }
       compute_tab_totals: {
         Args: { p_tab_id: string }
         Returns: {
@@ -1394,6 +1426,15 @@ export type Database = {
         Returns: Json
       }
       open_table_session: { Args: { p_token: string }; Returns: Json }
+      open_till_shift: {
+        Args: {
+          p_device_id: string
+          p_idempotency_key?: string
+          p_note?: string
+          p_opening_float_iqd: number
+        }
+        Returns: Json
+      }
       ops_overview: { Args: never; Returns: Json }
       order_is_callers: { Args: { p_order_id: string }; Returns: boolean }
       order_is_shop: { Args: { p_order_id: string }; Returns: boolean }
@@ -2728,6 +2769,28 @@ export type Database = {
         }
         Returns: Json
       }
+      till_shift_figures: { Args: { p_shift_id: string }; Returns: Json }
+      till_shift_list: {
+        Args: {
+          p_from?: string
+          p_staff_id?: string
+          p_station_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      till_shift_station: {
+        Args: { p_device_id: string; p_write: boolean }
+        Returns: Database["public"]["Tables"]["stations"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "stations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      till_shift_status: { Args: { p_device_id: string }; Returns: Json }
       touch_guest_session: {
         Args: never
         Returns: Database["public"]["Tables"]["guest_sessions"]["Row"]
@@ -6066,6 +6129,7 @@ export type Database = {
           recorded_by: string
           tab_id: string
           tendered_iqd: number | null
+          till_shift_id: string | null
           venue_id: string | null
         }
         Insert: {
@@ -6080,6 +6144,7 @@ export type Database = {
           recorded_by: string
           tab_id: string
           tendered_iqd?: number | null
+          till_shift_id?: string | null
           venue_id?: string | null
         }
         Update: {
@@ -6094,6 +6159,7 @@ export type Database = {
           recorded_by?: string
           tab_id?: string
           tendered_iqd?: number | null
+          till_shift_id?: string | null
           venue_id?: string | null
         }
         Relationships: [
@@ -6123,6 +6189,13 @@ export type Database = {
             columns: ["tab_id"]
             isOneToOne: false
             referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_till_shift_fkey"
+            columns: ["till_shift_id"]
+            isOneToOne: false
+            referencedRelation: "till_shifts"
             referencedColumns: ["id"]
           },
           {
@@ -7267,28 +7340,34 @@ export type Database = {
         Row: {
           amount_iqd: number
           created_at: string
+          device_id: string | null
           id: string
           payment_id: string
           reason_code: string
           refunded_by: string
+          till_shift_id: string | null
           venue_id: string | null
         }
         Insert: {
           amount_iqd: number
           created_at?: string
+          device_id?: string | null
           id?: string
           payment_id: string
           reason_code: string
           refunded_by: string
+          till_shift_id?: string | null
           venue_id?: string | null
         }
         Update: {
           amount_iqd?: number
           created_at?: string
+          device_id?: string | null
           id?: string
           payment_id?: string
           reason_code?: string
           refunded_by?: string
+          till_shift_id?: string | null
           venue_id?: string | null
         }
         Relationships: [
@@ -7304,6 +7383,13 @@ export type Database = {
             columns: ["refunded_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_till_shift_fkey"
+            columns: ["till_shift_id"]
+            isOneToOne: false
+            referencedRelation: "till_shifts"
             referencedColumns: ["id"]
           },
           {
@@ -9394,6 +9480,147 @@ export type Database = {
           },
           {
             foreignKeyName: "tickets_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      till_shifts: {
+        Row: {
+          authorized_by: string | null
+          card_payments_iqd: number | null
+          card_refunds_iqd: number | null
+          cash_counted_iqd: number | null
+          cash_expected_iqd: number | null
+          cash_payments_iqd: number | null
+          cash_refunds_iqd: number | null
+          cash_variance_iqd: number | null
+          close_note: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_via: string | null
+          day_session_id: string
+          drawer_open_count: number | null
+          handover_difference_iqd: number | null
+          handover_from_shift_id: string | null
+          id: string
+          open_note: string | null
+          opened_at: string
+          opening_float_iqd: number
+          payment_count: number | null
+          refund_count: number | null
+          staff_id: string
+          station_id: string
+          venue_id: string
+        }
+        Insert: {
+          authorized_by?: string | null
+          card_payments_iqd?: number | null
+          card_refunds_iqd?: number | null
+          cash_counted_iqd?: number | null
+          cash_expected_iqd?: number | null
+          cash_payments_iqd?: number | null
+          cash_refunds_iqd?: number | null
+          cash_variance_iqd?: number | null
+          close_note?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_via?: string | null
+          day_session_id: string
+          drawer_open_count?: number | null
+          handover_difference_iqd?: number | null
+          handover_from_shift_id?: string | null
+          id?: string
+          open_note?: string | null
+          opened_at?: string
+          opening_float_iqd: number
+          payment_count?: number | null
+          refund_count?: number | null
+          staff_id: string
+          station_id: string
+          venue_id: string
+        }
+        Update: {
+          authorized_by?: string | null
+          card_payments_iqd?: number | null
+          card_refunds_iqd?: number | null
+          cash_counted_iqd?: number | null
+          cash_expected_iqd?: number | null
+          cash_payments_iqd?: number | null
+          cash_refunds_iqd?: number | null
+          cash_variance_iqd?: number | null
+          close_note?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_via?: string | null
+          day_session_id?: string
+          drawer_open_count?: number | null
+          handover_difference_iqd?: number | null
+          handover_from_shift_id?: string | null
+          id?: string
+          open_note?: string | null
+          opened_at?: string
+          opening_float_iqd?: number
+          payment_count?: number | null
+          refund_count?: number | null
+          staff_id?: string
+          station_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "till_shifts_authorized_by_fkey"
+            columns: ["authorized_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "till_shifts_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "till_shifts_day_session_id_fkey"
+            columns: ["day_session_id"]
+            isOneToOne: false
+            referencedRelation: "day_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "till_shifts_day_session_id_fkey"
+            columns: ["day_session_id"]
+            isOneToOne: false
+            referencedRelation: "v_day_close_summary"
+            referencedColumns: ["day_session_id"]
+          },
+          {
+            foreignKeyName: "till_shifts_handover_from_shift_id_fkey"
+            columns: ["handover_from_shift_id"]
+            isOneToOne: false
+            referencedRelation: "till_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "till_shifts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "till_shifts_station_venue_fkey"
+            columns: ["station_id", "venue_id"]
+            isOneToOne: false
+            referencedRelation: "stations"
+            referencedColumns: ["id", "venue_id"]
+          },
+          {
+            foreignKeyName: "till_shifts_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

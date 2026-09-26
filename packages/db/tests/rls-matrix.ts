@@ -3784,6 +3784,53 @@ export const matrix: MatrixRule[] = [
     drop: 18,
   },
 
+  // ── wave 5, lane T: till shifts (wave5-addendum-2026-09-25 §2.9, §2.12).
+  // SHIFT is the settle_tab list: cashier, court desk, manager, owner. Each
+  // call below stops past the guard on an argument or an unknown station, so
+  // nothing is written and no PIN attempt is counted. The table is MGMT at the
+  // venue; this matrix seeds no shift, so its reads (MGMT rows, everyone else
+  // silence, venue B hidden) are proven in till-shifts.test.ts T13. ──────────
+  {
+    kind: 'write',
+    name: 'till_shifts',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: open_till_shift, close_till_shift, close_till_shift_for and close_day only',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'open_till_shift',
+    args: { p_opening_float_iqd: 0, p_device_id: 'MATRIX-NEVER' }, expect: CASHIER_DESK_UP,
+    note: 'the till, the desk and MGMT; an unregistered station stops at STATION_UNKNOWN, so nothing is written',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'close_till_shift',
+    args: { p_till_shift_id: NIL_UUID, p_counted_iqd: -1, p_pin: '000000', p_device_id: 'MATRIX-NEVER' },
+    expect: CASHIER_DESK_UP,
+    note: 'the till, the desk and MGMT; a negative count stops at INVALID_COUNT before the PIN is read, so no attempt is counted',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'close_till_shift_for',
+    args: { p_till_shift_id: NIL_UUID, p_counted_iqd: -1, p_device_id: 'MATRIX-NEVER' }, expect: CASHIER_DESK_UP,
+    note: 'the till, the desk and MGMT, with a manager-PIN grant; a negative count stops at INVALID_COUNT',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'till_shift_status',
+    args: { p_device_id: 'matrix never' }, expect: CASHIER_DESK_UP,
+    note: 'the till, the desk and MGMT; a malformed station id fails INVALID_STATION past the guard',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'till_shift_list',
+    args: { p_from: DAY_FROM, p_to: '2026-12-31' }, expect: MANAGER_UP,
+    note: 'MGMT at the venue; a range over 62 days fails INVALID_ARGUMENT (hint range) past the guard',
+    drop: 18,
+  },
+
   // ── wave 5, lane S: the stores (wave5-addendum-2026-09-25 §2.8, §2.12).
   // stock_transfer_movement grants nothing. Both new tables refuse a client
   // write; their MGMT-only reads are proven against rolled-back moves in
