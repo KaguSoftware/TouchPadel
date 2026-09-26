@@ -21,7 +21,12 @@ import {
 } from '../../src/features/booking/logic';
 import { useHistoryClearedAt } from '../../src/features/booking/history';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useCourtsBroadcast, useVenueSettings } from '../../src/features/availability/hooks';
+import {
+  useAllCourts,
+  useCourtsBroadcast,
+  useGuestVenue,
+  useVenueSettings,
+} from '../../src/features/availability/hooks';
 import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
@@ -117,7 +122,8 @@ export default function BookingsScreen() {
   const bookings = useMyBookings();
   const pull = usePullRefresh(bookings.refetch);
   const [tab, setTab] = useState<Tab>('upcoming');
-  const courts = useCourts();
+  // Every open branch's courts: a guest's bookings can be at any branch.
+  const courts = useAllCourts();
   // The hero's day count is the venue's calendar, not the phone's: the date
   // beside it is formatted in this same zone.
   const settings = useVenueSettings();
@@ -125,7 +131,9 @@ export default function BookingsScreen() {
   const release = useReleaseHold();
   const cleared = useHistoryClearedAt();
   const toast = useToast();
-  useCourtsBroadcast(); // desk moves/cancels reflect live
+  // Desk moves/cancels reflect live, on the guest's branch's topic; a booking
+  // at another branch still refreshes on the list's own refetch.
+  useCourtsBroadcast(useGuestVenue().venueId);
 
   // The upcoming/past boundary follows the clock, not the last data change —
   // a booking that ended while the screen was open used to stay "Upcoming".
