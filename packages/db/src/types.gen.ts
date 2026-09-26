@@ -887,6 +887,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      consume_fefo_at: {
+        Args: {
+          p_device?: string
+          p_ingredient: string
+          p_location: Database["public"]["Enums"]["stock_location"]
+          p_order_item?: string
+          p_qty: number
+          p_reason_code?: string
+          p_staff?: string
+          p_ticket?: string
+          p_type: Database["public"]["Enums"]["movement_type"]
+        }
+        Returns: number
+      }
       consume_for_order_item: {
         Args: { p_order_item_id: string; p_ticket_id?: string }
         Returns: undefined
@@ -1219,6 +1233,10 @@ export type Database = {
           }
       llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
+      lock_stock_ingredients: {
+        Args: { p_ingredients: string[] }
+        Returns: undefined
+      }
       mark_checklist_item: {
         Args: {
           p_done: boolean
@@ -1390,6 +1408,13 @@ export type Database = {
       panel_headline: {
         Args: { p_compare?: string; p_from: string; p_to: string }
         Returns: Json
+      }
+      parse_stock_location: {
+        Args: {
+          p_default: Database["public"]["Enums"]["stock_location"]
+          p_value: string
+        }
+        Returns: Database["public"]["Enums"]["stock_location"]
       }
       phone_canon: { Args: { p_phone: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
@@ -1835,9 +1860,23 @@ export type Database = {
           p_device_id?: string
           p_idempotency_key?: string
           p_lines: Json
+          p_location?: string
           p_notes?: string
           p_supplier_id?: string
           p_supplier_name?: string
+        }
+        Returns: Json
+      }
+      receive_delivery_internal: {
+        Args: {
+          p_device_id: string
+          p_lines: Json
+          p_location: Database["public"]["Enums"]["stock_location"]
+          p_notes: string
+          p_source: string
+          p_supplier_id: string
+          p_supplier_name: string
+          p_venue: string
         }
         Returns: Json
       }
@@ -1845,6 +1884,7 @@ export type Database = {
         Args: {
           p_idempotency_key?: string
           p_lines: Json
+          p_location?: string
           p_purchase_id: string
           p_supplier_id?: string
           p_supplier_name?: string
@@ -1883,6 +1923,7 @@ export type Database = {
           p_device_id?: string
           p_expiry_date?: string
           p_ingredient_id: string
+          p_location?: string
           p_qty: number
         }
         Returns: Json
@@ -1892,6 +1933,7 @@ export type Database = {
           p_device_id: string
           p_expiry_date: string
           p_ingredient_id: string
+          p_location?: Database["public"]["Enums"]["stock_location"]
           p_qty: number
         }
         Returns: Json
@@ -1913,6 +1955,7 @@ export type Database = {
           p_device_id?: string
           p_idempotency_key?: string
           p_ingredient_id: string
+          p_location?: string
           p_movement_type?: Database["public"]["Enums"]["movement_type"]
           p_qty: number
           p_reason_code?: string
@@ -2430,6 +2473,10 @@ export type Database = {
           p_start_at: string
         }
         Returns: Json
+      }
+      staff_home_location: {
+        Args: { p_role: Database["public"]["Enums"]["staff_role"] }
+        Returns: Database["public"]["Enums"]["stock_location"]
       }
       staff_ids_with_roles: {
         Args: {
@@ -4231,27 +4278,33 @@ export type Database = {
       deliveries: {
         Row: {
           id: string
+          location: Database["public"]["Enums"]["stock_location"]
           notes: string | null
           received_at: string
           received_by: string
+          source: string
           supplier_id: string | null
           supplier_name: string | null
           venue_id: string | null
         }
         Insert: {
           id?: string
+          location?: Database["public"]["Enums"]["stock_location"]
           notes?: string | null
           received_at?: string
           received_by: string
+          source?: string
           supplier_id?: string | null
           supplier_name?: string | null
           venue_id?: string | null
         }
         Update: {
           id?: string
+          location?: Database["public"]["Enums"]["stock_location"]
           notes?: string | null
           received_at?: string
           received_by?: string
+          source?: string
           supplier_id?: string | null
           supplier_name?: string | null
           venue_id?: string | null
@@ -4282,6 +4335,7 @@ export type Database = {
       }
       delivery_lines: {
         Row: {
+          cost_source: string
           delivery_id: string
           expiry_date: string | null
           id: string
@@ -4291,6 +4345,7 @@ export type Database = {
           unit_cost_iqd: number
         }
         Insert: {
+          cost_source?: string
           delivery_id: string
           expiry_date?: string | null
           id?: string
@@ -4300,6 +4355,7 @@ export type Database = {
           unit_cost_iqd: number
         }
         Update: {
+          cost_source?: string
           delivery_id?: string
           expiry_date?: string | null
           id?: string
@@ -4328,6 +4384,13 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "delivery_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
             referencedColumns: ["ingredient_id"]
           },
         ]
@@ -6708,6 +6771,13 @@ export type Database = {
             referencedColumns: ["ingredient_id"]
           },
           {
+            foreignKeyName: "purchase_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
             foreignKeyName: "purchase_lines_purchase_id_fkey"
             columns: ["purchase_id"]
             isOneToOne: false
@@ -6968,6 +7038,13 @@ export type Database = {
             referencedColumns: ["ingredient_id"]
           },
           {
+            foreignKeyName: "recipe_change_requests_output_ingredient_id_fkey"
+            columns: ["output_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
             foreignKeyName: "recipe_change_requests_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
@@ -7045,6 +7122,13 @@ export type Database = {
             referencedColumns: ["ingredient_id"]
           },
           {
+            foreignKeyName: "recipe_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
             foreignKeyName: "recipe_lines_modifier_id_fkey"
             columns: ["modifier_id"]
             isOneToOne: false
@@ -7063,6 +7147,13 @@ export type Database = {
             columns: ["output_ingredient_id"]
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "recipe_lines_output_ingredient_id_fkey"
+            columns: ["output_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
             referencedColumns: ["ingredient_id"]
           },
           {
@@ -7785,6 +7876,13 @@ export type Database = {
             referencedColumns: ["ingredient_id"]
           },
           {
+            foreignKeyName: "shopping_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
             foreignKeyName: "shopping_items_purchase_id_fkey"
             columns: ["purchase_id"]
             isOneToOne: false
@@ -8214,6 +8312,8 @@ export type Database = {
           expiry_date: string | null
           id: string
           ingredient_id: string
+          location: Database["public"]["Enums"]["stock_location"]
+          origin_batch_id: string | null
           qty_received: number
           qty_remaining: number
           received_at: string
@@ -8225,6 +8325,8 @@ export type Database = {
           expiry_date?: string | null
           id?: string
           ingredient_id: string
+          location?: Database["public"]["Enums"]["stock_location"]
+          origin_batch_id?: string | null
           qty_received: number
           qty_remaining: number
           received_at?: string
@@ -8236,6 +8338,8 @@ export type Database = {
           expiry_date?: string | null
           id?: string
           ingredient_id?: string
+          location?: Database["public"]["Enums"]["stock_location"]
+          origin_batch_id?: string | null
           qty_received?: number
           qty_remaining?: number
           received_at?: string
@@ -8263,6 +8367,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
             referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_origin_batch_id_fkey"
+            columns: ["origin_batch_id"]
+            isOneToOne: false
+            referencedRelation: "stock_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_batches_origin_batch_id_fkey"
+            columns: ["origin_batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_expired"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_origin_batch_id_fkey"
+            columns: ["origin_batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_expiring_soon"
+            referencedColumns: ["batch_id"]
           },
           {
             foreignKeyName: "stock_batches_venue_id_fkey"
@@ -8321,6 +8453,13 @@ export type Database = {
             referencedRelation: "v_ingredient_on_hand"
             referencedColumns: ["ingredient_id"]
           },
+          {
+            foreignKeyName: "stock_count_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
         ]
       }
       stock_counts: {
@@ -8328,6 +8467,8 @@ export type Database = {
           counted_by: string
           finalized_at: string | null
           id: string
+          location: Database["public"]["Enums"]["stock_location"]
+          source: string
           started_at: string
           venue_id: string | null
         }
@@ -8335,6 +8476,8 @@ export type Database = {
           counted_by: string
           finalized_at?: string | null
           id?: string
+          location?: Database["public"]["Enums"]["stock_location"]
+          source?: string
           started_at?: string
           venue_id?: string | null
         }
@@ -8342,6 +8485,8 @@ export type Database = {
           counted_by?: string
           finalized_at?: string | null
           id?: string
+          location?: Database["public"]["Enums"]["stock_location"]
+          source?: string
           started_at?: string
           venue_id?: string | null
         }
@@ -8371,6 +8516,7 @@ export type Database = {
           device_id: string | null
           id: number
           ingredient_id: string
+          location: Database["public"]["Enums"]["stock_location"]
           movement_type: Database["public"]["Enums"]["movement_type"]
           order_item_id: string | null
           qty_delta: number
@@ -8389,6 +8535,7 @@ export type Database = {
           device_id?: string | null
           id?: never
           ingredient_id: string
+          location?: Database["public"]["Enums"]["stock_location"]
           movement_type: Database["public"]["Enums"]["movement_type"]
           order_item_id?: string | null
           qty_delta: number
@@ -8407,6 +8554,7 @@ export type Database = {
           device_id?: string | null
           id?: never
           ingredient_id?: string
+          location?: Database["public"]["Enums"]["stock_location"]
           movement_type?: Database["public"]["Enums"]["movement_type"]
           order_item_id?: string | null
           qty_delta?: number
@@ -8472,6 +8620,13 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
             referencedColumns: ["ingredient_id"]
           },
           {
@@ -9481,6 +9636,13 @@ export type Database = {
             referencedRelation: "v_ingredient_on_hand"
             referencedColumns: ["ingredient_id"]
           },
+          {
+            foreignKeyName: "stock_batches_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
         ]
       }
       v_expiring_soon: {
@@ -9508,6 +9670,13 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
             referencedColumns: ["ingredient_id"]
           },
         ]
@@ -9571,6 +9740,29 @@ export type Database = {
           },
         ]
       }
+      v_stock_by_location: {
+        Row: {
+          ingredient_id: string | null
+          is_active: boolean | null
+          kind: Database["public"]["Enums"]["ingredient_kind"] | null
+          location: Database["public"]["Enums"]["stock_location"] | null
+          name_ar: string | null
+          name_en: string | null
+          on_hand: number | null
+          theoretical: number | null
+          unit: Database["public"]["Enums"]["stock_unit"] | null
+          venue_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_variance_report: {
         Row: {
           count_id: string | null
@@ -9604,6 +9796,13 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_count_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
             referencedColumns: ["ingredient_id"]
           },
         ]
@@ -9705,6 +9904,7 @@ export type Database = {
         | "marketing"
         | "assistant_barista"
         | "waiter"
+      stock_location: "cafe" | "bakery"
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
       ticket_status: "queued" | "preparing" | "ready" | "completed" | "voided"
@@ -9901,6 +10101,7 @@ export const Constants = {
         "assistant_barista",
         "waiter",
       ],
+      stock_location: ["cafe", "bakery"],
       stock_unit: ["g", "ml", "pc"],
       tab_status: ["open", "awaiting_payment", "settled", "void"],
       ticket_status: ["queued", "preparing", "ready", "completed", "voided"],

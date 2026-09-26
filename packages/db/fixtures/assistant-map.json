@@ -1,5 +1,5 @@
 {
-  "generated_from": "ba7a7251d145145889cd01053fdc7a899a1526db",
+  "generated_from": "09794530e67035c3173d5b1c746e2e6e7888f780",
   "chunks": [
     {
       "kind": "page",
@@ -2942,7 +2942,7 @@
       "ref": "action:app.receive_delivery",
       "lang": "en",
       "title": "app.receive_delivery",
-      "body": "Signature: app.receive_delivery(p_lines jsonb, p_supplier_name text default null, p_notes text default null, p_device_id text default null, p_supplier_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.receive_delivery.\nError codes: FORBIDDEN, EMPTY_DELIVERY, SUPPLIER_NOT_FOUND, INGREDIENT_NOT_FOUND, INVALID_LINE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0145 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0145 + stock_locations (D4). MGMT at the venue: Goods in. p_lines [{ingredient_id, qty_received, unit_cost_iqd, qty_expected?, expiry_date?}] booked as one delivery into p_location (cafe or bakery, default cafe) through app.receive_delivery_internal. Returns {delivery_id, batch_ids}. Idempotent by key. EMPTY_DELIVERY, SUPPLIER_NOT_FOUND, INVALID_ARGUMENT (hint location; hint kind: a shop line at the bakery), STORE_BEING_COUNTED (an operator count is open at that store), INGREDIENT_NOT_FOUND, INVALID_LINE. Audit stock.receive_delivery.\nSignature: app.receive_delivery(p_lines jsonb, p_supplier_name text default null, p_notes text default null, p_device_id text default null, p_supplier_id uuid default null, p_idempotency_key text default null, p_location text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.receive_delivery.\nError codes: FORBIDDEN, EMPTY_DELIVERY, SUPPLIER_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0200 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2950,7 +2950,7 @@
       "ref": "action:app.receive_purchase",
       "lang": "en",
       "title": "app.receive_purchase",
-      "body": "shopping_purchases (§2.15). MGMT at the purchase's venue, one transaction: p_lines [{purchase_line_id, qty_received, expiry_date?}] must name every stock line still to receive (a short line receives less than was bought); they are booked through app.receive_delivery as ONE delivery (cost per base unit = price ÷ quantity; named p_supplier_name, else the supplier p_supplier_id, else the shop), purchases.delivery_id links it, the lines become received and the purchase done once no line is left. Returns {delivery_id, received_line_ids}. Idempotent by key. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint lines: a missing, unknown, repeated or non-stock line), INGREDIENT_NOT_FOUND (hint lines, detail the line: a stock line whose ingredient was switched off since, to acknowledge first), INVALID_QTY, SUPPLIER_NOT_FOUND and receive_delivery's codes. Audit purchase.receive.\nSignature: app.receive_purchase(p_purchase_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.receive.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, INVALID_QTY.\nCalled from: apps/operator/src/features/stock/DriverPurchases.tsx (pages /stock).\nDefined in migration 0166 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "shopping_purchases (§2.15) + stock_locations (D4). MGMT at the purchase's venue, one transaction: p_lines [{purchase_line_id, qty_received, expiry_date?}] must name every stock line still to receive (a short line receives less than was bought); they are booked through app.receive_delivery as ONE delivery into p_location (cafe or bakery, default cafe; cost per base unit = price ÷ quantity; named p_supplier_name, else the supplier p_supplier_id, else the shop), purchases.delivery_id links it, the lines become received and the purchase done once no line is left. Returns {delivery_id, received_line_ids}. Idempotent by key. PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT (hint lines: a missing, unknown, repeated or non-stock line; hint location), INGREDIENT_NOT_FOUND (hint lines, detail the line: a stock line whose ingredient was switched off since, to acknowledge first), INVALID_QTY, SUPPLIER_NOT_FOUND and receive_delivery's codes (STORE_BEING_COUNTED; INVALID_ARGUMENT hint kind for a shop line at the bakery). Audit purchase.receive (+ location).\nSignature: app.receive_purchase(p_purchase_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_idempotency_key text default null, p_location text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: purchase.receive.\nError codes: FORBIDDEN, PURCHASE_NOT_FOUND, PURCHASE_ALREADY_RECEIVED, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, INVALID_QTY.\nCalled from: apps/operator/src/features/stock/DriverPurchases.tsx (pages /stock).\nDefined in migration 0200 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/stock"
     },
     {
@@ -2990,7 +2990,7 @@
       "ref": "action:app.record_production",
       "lang": "en",
       "title": "app.record_production",
-      "body": "0018 + staff_production (§2.16). MGMT: explicit sub-recipe production through app.record_production_internal (components consumed FEFO, a production_in batch costed at what was consumed). Returns {batch_id, unit_cost_iqd, expiry_date}.\nSignature: app.record_production(p_ingredient_id uuid, p_qty numeric, p_expiry_date date default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0167 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0018 + staff_production (§2.16) + stock_locations (D3). MGMT: explicit sub-recipe production through app.record_production_internal in p_location (cafe or bakery, default bakery): components consumed FEFO from that store first, a production_in batch there costed at what was consumed. Returns {batch_id, unit_cost_iqd, expiry_date}. INVALID_ARGUMENT (hint location).\nSignature: app.record_production(p_ingredient_id uuid, p_qty numeric, p_expiry_date date default null, p_device_id text default null, p_location text default 'bakery') returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0200 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3006,7 +3006,7 @@
       "ref": "action:app.record_waste",
       "lang": "en",
       "title": "app.record_waste",
-      "body": "Signature: app.record_waste(p_ingredient_id uuid, p_qty numeric, p_movement_type movement_type default 'waste_spill', p_reason_code text default null, p_device_id text default null, p_idempotency_key text default null) returns void.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: stock.record_waste.\nError codes: FORBIDDEN, INVALID_MOVEMENT, REASON_REQUIRED.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0049 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0018/0049 + stock_locations (D3). The cashier and MGMT: records waste_spill or waste_spoilage with a reason, FEFO from p_location first (cafe or bakery; default the caller's home store), then the other store. Idempotent by key (the queued stock.waste passes p_location only when it names one). FORBIDDEN, INVALID_MOVEMENT, REASON_REQUIRED, INVALID_ARGUMENT (hint location), INVALID_QTY. Audit stock.record_waste (+ location).\nSignature: app.record_waste(p_ingredient_id uuid, p_qty numeric, p_movement_type movement_type default 'waste_spill', p_reason_code text default null, p_device_id text default null, p_idempotency_key text default null, p_location text default null) returns void.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: stock.record_waste.\nError codes: FORBIDDEN, INVALID_MOVEMENT, REASON_REQUIRED.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0200 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4222,7 +4222,7 @@
       "ref": "table:deliveries",
       "lang": "en",
       "title": "table deliveries",
-      "body": "Created in migration 0017.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  received_at timestamptz not null default now()\n  received_by uuid not null references staff(id)\n  supplier_name text\n  notes text\n  venue_id uuid\n  supplier_id uuid references suppliers(id)",
+      "body": "Created in migration 0017.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  received_at timestamptz not null default now()\n  received_by uuid not null references staff(id)\n  supplier_name text\n  notes text\n  venue_id uuid\n  supplier_id uuid references suppliers(id)\n  location stock_location not null default 'cafe' — stock_locations (D4): the store the delivery was booked into.\n  source text not null default 'goods_in' — stock_locations (D4): goods_in (a manager's Goods in or a received driver purchase) or staff_log (stock added by staff through app.log_stock, costed by estimate until a manager prices it).",
       "route": null
     },
     {
@@ -4230,7 +4230,7 @@
       "ref": "table:delivery_lines",
       "lang": "en",
       "title": "table delivery_lines",
-      "body": "Created in migration 0017.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  delivery_id uuid not null references deliveries(id) on delete cascade\n  ingredient_id uuid not null references ingredients(id)\n  qty_expected numeric(12,3)\n  qty_received numeric(12,3) not null check (qty_received >= 0) — short delivery = expected − received\n  unit_cost_iqd numeric(14,4) not null check (unit_cost_iqd >= 0) — cost per BASE unit (fractional internally; bills stay integer)\n  expiry_date date — captured, else derived from shelf_life_days",
+      "body": "Created in migration 0017.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  delivery_id uuid not null references deliveries(id) on delete cascade\n  ingredient_id uuid not null references ingredients(id)\n  qty_expected numeric(12,3)\n  qty_received numeric(12,3) not null check (qty_received >= 0) — short delivery = expected − received\n  unit_cost_iqd numeric(14,4) not null check (unit_cost_iqd >= 0) — cost per BASE unit (fractional internally; bills stay integer)\n  expiry_date date — captured, else derived from shelf_life_days\n  cost_source text not null default 'entered' — stock_locations (D5): where unit_cost_iqd came from. entered (typed by a manager, or a driver purchase's price), or, for a staff log, last_batch (the latest batch with a cost above 0), pack (pack cost / pack size) or none (0, which Setup flags until a manager sets it).",
       "route": null
     },
     {
@@ -4726,7 +4726,7 @@
       "ref": "table:stock_batches",
       "lang": "en",
       "title": "table stock_batches",
-      "body": "Created in migration 0017.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  ingredient_id uuid not null references ingredients(id)\n  delivery_line_id uuid references delivery_lines(id) — null for production_in / synthetic batches\n  received_at timestamptz not null default now()\n  expiry_date date\n  qty_received numeric(12,3) not null\n  qty_remaining numeric(12,3) not null check (qty_remaining >= 0)\n  unit_cost_iqd numeric(14,4) not null\n  venue_id uuid",
+      "body": "Created in migration 0017.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  ingredient_id uuid not null references ingredients(id)\n  delivery_line_id uuid references delivery_lines(id) — null for production_in / synthetic batches\n  received_at timestamptz not null default now()\n  expiry_date date\n  qty_received numeric(12,3) not null\n  qty_remaining numeric(12,3) not null check (qty_remaining >= 0)\n  unit_cost_iqd numeric(14,4) not null\n  venue_id uuid\n  location stock_location not null default 'cafe' — stock_locations (D1): the store the batch sits in, cafe or bakery. Set by whoever creates the batch (a receipt, a production, a transfer, a count surplus); everything booked before wave 5 is in the cafe.\n  origin_batch_id uuid — stock_locations (D6): for a batch made by app.transfer_stock, the batch the stock was first booked into (always the root, never an intermediate copy), so a cost correction reaches every copy. NULL for any other batch.",
       "route": null
     },
     {
@@ -4742,7 +4742,7 @@
       "ref": "table:stock_counts",
       "lang": "en",
       "title": "table stock_counts",
-      "body": "Created in migration 0019.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  started_at timestamptz not null default now()\n  finalized_at timestamptz\n  counted_by uuid not null references staff(id)\n  venue_id uuid",
+      "body": "Created in migration 0019.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  started_at timestamptz not null default now()\n  finalized_at timestamptz\n  counted_by uuid not null references staff(id)\n  venue_id uuid\n  location stock_location not null default 'cafe' — stock_locations (D7): the store the count is of. One count in progress or waiting per venue and store.\n  source text not null default 'operator' — stock_locations (D7): operator (a manager's count started with app.start_count, which blocks receipts and moves into the store while open) or phone (a blind count sent with app.submit_stock_count, waiting for a manager to apply or discard it; it blocks nothing).",
       "route": null
     },
     {
@@ -4750,7 +4750,7 @@
       "ref": "table:stock_movements",
       "lang": "en",
       "title": "table stock_movements",
-      "body": "Created in migration 0018.\nColumns:\n  id bigint generated always as identity primary key\n  at timestamptz not null default now()\n  ingredient_id uuid not null references ingredients(id)\n  batch_id uuid references stock_batches(id) — null only for negative-stock overdraft lines\n  movement_type movement_type not null\n  qty_delta numeric(12,3) not null — + in, − out; never zero\n  unit_cost_iqd numeric(14,4) — COGS at the moment of movement\n  order_item_id uuid references order_items(id)\n  ticket_id uuid references tickets(id)\n  delivery_line_id uuid references delivery_lines(id)\n  count_id uuid — FK added in 0019 (stock_counts lands there)\n  refund_id uuid references refunds(id)\n  reason_code text\n  staff_id uuid references staff(id)\n  device_id text\n  venue_id uuid",
+      "body": "Created in migration 0018.\nColumns:\n  id bigint generated always as identity primary key\n  at timestamptz not null default now()\n  ingredient_id uuid not null references ingredients(id)\n  batch_id uuid references stock_batches(id) — null only for negative-stock overdraft lines\n  movement_type movement_type not null\n  qty_delta numeric(12,3) not null — + in, − out; never zero\n  unit_cost_iqd numeric(14,4) — COGS at the moment of movement\n  order_item_id uuid references order_items(id)\n  ticket_id uuid references tickets(id)\n  delivery_line_id uuid references delivery_lines(id)\n  count_id uuid — FK added in 0019 (stock_counts lands there)\n  refund_id uuid references refunds(id)\n  reason_code text\n  staff_id uuid references staff(id)\n  device_id text\n  venue_id uuid\n  location stock_location not null default 'cafe' — stock_locations (D2): the store the movement happened in. For a row with a batch it is the batch's store, set by the stock_movements_location trigger whatever the writer passed; a batch-less row (an overdraft or a count shortage past the batches) keeps the writer's.",
       "route": null
     },
     {
@@ -4943,6 +4943,14 @@
       "lang": "en",
       "title": "view v_item_margin",
       "body": "View, defined in migration 0019.\nDefinition: with (security_invoker = on) as select variant_id, item_id, item_name_en, item_name_ar, variant_name_en, variant_name_ar, price_iqd, round(cogs_iqd)::bigint as cogs_iqd, price_iqd - round(cogs_iqd)::bigint as margin_iqd, case when price_iqd > 0 then round((price_iqd - cogs_iqd) / price_iqd * 100.0, 1) end as margin_percent from v_item_cogs",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "view:v_stock_by_location",
+      "lang": "en",
+      "title": "view v_stock_by_location",
+      "body": "stock_locations (§2.8.3): one row per ingredient and store. Summed over the stores, on_hand and theoretical equal v_ingredient_on_hand's. No cost. security_invoker: MGMT at the venue through the base tables' policies.\nView, defined in migration 0200.\nDefinition: with (security_invoker = on) as select i.id as ingredient_id, i.venue_id, i.name_en, i.name_ar, i.unit, i.kind, s.location, coalesce(b.on_hand, 0) as on_hand, coalesce(m.theoretical, 0) as theoretical, i.is_active from ingredients i cross join unnest(enum_range(null::stock_location)) as s(location) left join (select sb.ingredient_id, sb.location, sum(sb.qty_remaining) as on_hand from stock_batches sb where sb.qty_remaining > 0 group by sb.ingredient_id, sb.location) b on b.ingredient_id = i.id and b.location = s.location left join (select sm.ingredient_id, sm.location, sum(sm.qty_delta) as theoretical from stock_movements sm group by sm.ingredient_id, sm.location) m on m.ingredient_id = i.id and m.location = s.location",
       "route": null
     },
     {
@@ -5991,6 +5999,30 @@
       "lang": "en",
       "title": "degraded_periods.venue_id",
       "body": "uuid\n0126 (multi-venue slice 1): defaults to app.current_venue_or_default(), not\n  app.current_venue() — app.sweep_degraded_periods runs from cron; degraded mode must be recordable with no caller present (R1).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:deliveries.location",
+      "lang": "en",
+      "title": "deliveries.location",
+      "body": "stock_location not null default 'cafe'\nstock_locations (D4): the store the delivery was booked into.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:deliveries.source",
+      "lang": "en",
+      "title": "deliveries.source",
+      "body": "text not null default 'goods_in'\nstock_locations (D4): goods_in (a manager's Goods in or a received driver purchase) or staff_log (stock added by staff through app.log_stock, costed by estimate until a manager prices it).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:delivery_lines.cost_source",
+      "lang": "en",
+      "title": "delivery_lines.cost_source",
+      "body": "text not null default 'entered'\nstock_locations (D5): where unit_cost_iqd came from. entered (typed by a manager, or a driver purchase's price), or, for a staff log, last_batch (the latest batch with a cost above 0), pack (pack cost / pack size) or none (0, which Setup flags until a manager sets it).",
       "route": null
     },
     {
@@ -8779,10 +8811,42 @@
     },
     {
       "kind": "column",
+      "ref": "column:stock_batches.location",
+      "lang": "en",
+      "title": "stock_batches.location",
+      "body": "stock_location not null default 'cafe'\nstock_locations (D1): the store the batch sits in, cafe or bakery. Set by whoever creates the batch (a receipt, a production, a transfer, a count surplus); everything booked before wave 5 is in the cafe.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_batches.origin_batch_id",
+      "lang": "en",
+      "title": "stock_batches.origin_batch_id",
+      "body": "uuid\nstock_locations (D6): for a batch made by app.transfer_stock, the batch the stock was first booked into (always the root, never an intermediate copy), so a cost correction reaches every copy. NULL for any other batch.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:stock_count_lines.theoretical_qty",
       "lang": "en",
       "title": "stock_count_lines.theoretical_qty",
       "body": "numeric(12,3) not null\nsnapshot at count start (ledger sum)",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_counts.location",
+      "lang": "en",
+      "title": "stock_counts.location",
+      "body": "stock_location not null default 'cafe'\nstock_locations (D7): the store the count is of. One count in progress or waiting per venue and store.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_counts.source",
+      "lang": "en",
+      "title": "stock_counts.source",
+      "body": "text not null default 'operator'\nstock_locations (D7): operator (a manager's count started with app.start_count, which blocks receipts and moves into the store while open) or phone (a blind count sent with app.submit_stock_count, waiting for a manager to apply or discard it; it blocks nothing).",
       "route": null
     },
     {
@@ -8799,6 +8863,14 @@
       "lang": "en",
       "title": "stock_movements.count_id",
       "body": "uuid\nFK added in 0019 (stock_counts lands there)",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_movements.location",
+      "lang": "en",
+      "title": "stock_movements.location",
+      "body": "stock_location not null default 'cafe'\nstock_locations (D2): the store the movement happened in. For a row with a batch it is the batch's store, set by the stock_movements_location trigger whatever the writer passed; a batch-less row (an overdraft or a count shortage past the batches) keeps the writer's.",
       "route": null
     },
     {

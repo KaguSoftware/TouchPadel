@@ -477,13 +477,19 @@ export const orderItemVoidPayloadSchema = z
   .strict();
 export type OrderItemVoidPayload = z.infer<typeof orderItemVoidPayloadSchema>;
 
-/** stock.waste — app.record_waste. qty is numeric on the server (grams may be fractional). */
+/**
+ * stock.waste — app.record_waste. qty is numeric on the server (grams may be fractional).
+ * location (wave 5 §2.8.6) is the store the waste came from; absent, the server takes the
+ * caller's home store, and the mappers send p_location only when it is present, so a queue
+ * written before the stores replays unchanged.
+ */
 export const stockWastePayloadSchema = z
   .object({
     ingredientId: uuid,
     qty: z.number().positive().finite(),
     movementType: z.enum(['waste_spill', 'waste_spoilage']).default('waste_spill'),
     reasonCode: reasonCodeSchema,
+    location: z.enum(['cafe', 'bakery']).optional(),
   })
   .strict();
 export type StockWastePayload = z.infer<typeof stockWastePayloadSchema>;

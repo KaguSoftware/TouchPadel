@@ -127,7 +127,8 @@
     "v_item_cogs": "table_read",
     "v_item_margin": "table_read",
     "v_variance_report": "table_read",
-    "venue_settings_public": "table_read"
+    "venue_settings_public": "table_read",
+    "v_stock_by_location": "table_read"
   },
   "functions": {
     "accept_terms": "map:action",
@@ -726,7 +727,13 @@
     "withdraw_content": "map:action",
     "decide_content": "map:action",
     "content_page": "map:action",
-    "content_detail": "map:action"
+    "content_detail": "map:action",
+    "trg_stock_movement_location": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "staff_home_location": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "parse_stock_location": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "consume_fefo_at": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "lock_stock_ingredients": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "receive_delivery_internal": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
   },
   "routes": {
     "/admin": "map:page",

@@ -376,4 +376,28 @@ describe.skipIf(!docker)('staff production (rolled-back transactions)', () => {
     // Only the manager's 100 g of dough moved.
     expect(ok<number>(r, 'moves')).toBe(1);
   });
+
+  // Wave 5 (wave5-addendum-2026-09-25 §2.8 D3, lane S): production is the
+  // bakery's. It draws the bakery's stock first, then the cafe's, and the
+  // batch it makes lands in the bakery.
+  it('makes the batch in the bakery, from the bakery’s stock first', () => {
+    const r = scenario([
+      MK('chef', 'chef'),
+      `insert into stock_batches (ingredient_id, qty_received, qty_remaining, unit_cost_iqd, venue_id, location)
+       select val::uuid, 400, 400, 4, '${VENUE_A_ID}', 'bakery' from pg_temp.vars where name = 'flour';`,
+      T('batch', 'chef', `select app.record_batch({{dough}}, 1000, null, {{venue}})`),
+      Q('drawn', `select jsonb_agg(jsonb_build_object('location', m.location, 'qty', m.qty_delta) order by m.id)
+                    from stock_movements m
+                   where m.ingredient_id = {{flour}}::uuid and m.movement_type = 'production_consume'`),
+      Q('made', `select jsonb_agg(jsonb_build_object('location', b.location, 'qty', b.qty_remaining))
+                   from stock_batches b where b.ingredient_id = {{dough}}::uuid`),
+      Q('made_in', `select jsonb_agg(m.location) from stock_movements m
+                     where m.ingredient_id = {{dough}}::uuid and m.movement_type = 'production_in'`),
+    ]);
+    ok(r, 'batch');
+    // 1000 g of dough takes 600 g of flour: the bakery's 400, then 200 of the cafe's.
+    expect(ok(r, 'drawn')).toEqual([{ location: 'bakery', qty: -400 }, { location: 'cafe', qty: -200 }]);
+    expect(ok(r, 'made')).toEqual([{ location: 'bakery', qty: 1000 }]);
+    expect(ok(r, 'made_in')).toEqual(['bakery']);
+  });
 });

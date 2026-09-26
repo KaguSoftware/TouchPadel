@@ -79,6 +79,11 @@ function refundItems(p: any): unknown[] | null {
   return items.map((it: any) => ({ order_item_id: it?.orderItemId, qty: it?.qty }));
 }
 
+/** stock.waste's store (wave 5 §2.8.6): p_location only when the payload names one. */
+function wasteLocation(p: any): Record<string, unknown> {
+  return p?.location ? { p_location: p.location } : {};
+}
+
 export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
   'order.create': (p, key, device) => ({
     fn: 'till_add_items',
@@ -227,6 +232,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_reason_code: p?.reasonCode ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      ...wasteLocation(p),
     },
   }),
   // --- Item 9 / C3 (0120): the money corrections -------------------------------

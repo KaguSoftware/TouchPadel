@@ -763,8 +763,14 @@ describe.skipIf(!docker)('product_release (rolled-back transactions)', () => {
       ].sort(),
     );
     type Review = { ideas: Array<{ id: string; team: string; record: Record<string, unknown> }>; count: number };
-    expect(ok<Review>(r, 'review_hb').ideas.map((i) => i.team)).toEqual(['bar']);
-    expect(ok<Review>(r, 'review_hc').ideas.map((i) => i.team)).toEqual(['kitchen']);
+    // The dev logins can leave waiting ideas at the venue too, so each head's
+    // list is held to its own team, and of this scenario's two ideas to theirs.
+    const reviewed = (label: string) => {
+      const ideas = ok<Review>(r, label).ideas;
+      return { teams: [...new Set(ideas.map((i) => i.team))], ours: ideas.filter((i) => [id('idea_ba'), id('idea_chef')].includes(i.id)).map((i) => i.team) };
+    };
+    expect(reviewed('review_hb')).toEqual({ teams: ['bar'], ours: ['bar'] });
+    expect(reviewed('review_hc')).toEqual({ teams: ['kitchen'], ours: ['kitchen'] });
     expect(ok<Review>(r, 'review_mgr').ideas.map((i) => i.id)).toEqual(expect.arrayContaining([id('idea_ba'), id('idea_chef')]));
     for (const label of ['review_drv', 'review_mkt', 'mine_drv', 'mine_mkt']) expect(refused(r, label)).toBe('FORBIDDEN');
 
@@ -843,6 +849,51 @@ describe.skipIf(!docker)('product_release (rolled-back transactions)', () => {
     expect(refused(r, 'drv_ctx')).toBe('PROTOCOL_NOT_FOUND');
     expect(refused(r, 'drv_detail')).toBe('PROTOCOL_NOT_FOUND');
     expect(refused(r, 'mkt_ctx')).toBe('NOT_STEP_ACTOR');
+  });
+
+  // Wave 5 (wave5-addendum-2026-09-25 §2.8 D3, lane S): a test serving is
+  // made where its maker works. The head chef's draws the bakery first, the
+  // head barista's the cafe first; an overdraft lands in that same store.
+  it('draws the test servings from the proposer’s home store first', () => {
+    const tested = (who: string, name: string) => [
+      T(`${who}_start`, who, start(proposal(ONE_SIZE).replace(`'Rose latte'`, `'${name}'`), `'{}'::jsonb`, `'{}'::text[]`, `'${name}'`)),
+      RES(`${who}_run`, `${who}_start`, 'run_id'),
+      RES(`${who}_sub`, `${who}_start`, 'submission_id'),
+      T(`${who}_ok`, 'manager', `select app.decide_step({{${who}_sub}}::uuid, 'approve', null, null, jsonb_build_object('category_id', {{cat}}))`),
+      KEEP(`${who}_v`, `select v.id::text from menu_item_variants v
+                          join protocol_runs r on r.menu_item_id = v.item_id where r.id = {{${who}_run}}::uuid`),
+      STEPK(`${who}_test`, `${who}_run`, 'test'),
+      PHOTO(`${who}_photo`, who, 'tests'),
+      T(`${who}_tested`, who, `select app.submit_step({{${who}_test}}::uuid,
+          jsonb_build_object('servings', jsonb_build_array(jsonb_build_object('variant_id', {{${who}_v}}, 'count', 1))),
+          array[{{${who}_photo}}])`),
+    ];
+    const r = scenario([
+      ...SETUP,
+      X(`insert into stock_batches (ingredient_id, qty_received, qty_remaining, unit_cost_iqd, venue_id, location)
+         values ({{milk}}::uuid, 10000, 10000, 2, {{venue}}::uuid, 'bakery')`),
+      ...tested('hc', 'Rose cake'),
+      ...tested('hb', 'Rose mocha'),
+      Q(
+        'drawn',
+        `select jsonb_agg(jsonb_build_object(
+           'who', case when m.reason_code = 'run:' || {{hc_run}} then 'hc' else 'hb' end,
+           'what', case when m.ingredient_id = {{milk}}::uuid then 'milk' else 'rose' end,
+           'location', m.location, 'qty', m.qty_delta, 'batch', m.batch_id is not null)
+           order by m.reason_code = 'run:' || {{hb_run}}, m.ingredient_id <> {{milk}}::uuid)
+           from stock_movements m
+          where m.movement_type = 'product_test' and m.reason_code in ('run:' || {{hc_run}}, 'run:' || {{hb_run}})`,
+      ),
+    ]);
+    for (const label of ['hc_ok', 'hc_tested', 'hb_ok', 'hb_tested']) ok(r, label);
+    // One serving: 200 g of milk, and 10 ml of rose syrup at 50 % yield, of
+    // which there is none, so it overdraws at the maker's store.
+    expect(ok(r, 'drawn')).toEqual([
+      { who: 'hc', what: 'milk', location: 'bakery', qty: -200, batch: true },
+      { who: 'hc', what: 'rose', location: 'bakery', qty: -20, batch: false },
+      { who: 'hb', what: 'milk', location: 'cafe', qty: -200, batch: true },
+      { who: 'hb', what: 'rose', location: 'cafe', qty: -20, batch: false },
+    ]);
   });
 });
 
