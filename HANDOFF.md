@@ -1,7 +1,10 @@
 # Touch Padel — Handoff
 
-> **Last reconciled 2026-09-21 (Day 31).** Dated entries run to Day 25 (2026-09-13); Days 26–31 are
-> the section after Day 25. Phase 2 is approved and building, Milestone 0 first.
+> **Last reconciled 2026-09-26, late (Day 36).** The newest entry is "Days 34–36", just above the File map.
+> Phase 2 is building. Milestone 0 and **Milestone 1 (multi-venue) are code-complete. Milestone 1
+> is live on production and was audited and fixed the same day (0228–0235); hosted is at 0235.** No
+> operator tag was cut and no second branch exists; both are Parsa's decisions. Next in the approved
+> order: Milestone 2, online payment (Qi Card).
 
 > Read this first when starting a fresh chat. Companions: **`PHASE-2-PLAN.md`** (the 2026-09-19
 > audit and the Phase 2 scope; its 2026-09-20 status section is the live state) and
@@ -1723,7 +1726,159 @@ calls worth knowing before touching anything venue-shaped:
   enum cast and deletes the auth user it made, and an old `staff-admin` refuses `barista`.
   Majed decided (2026-09-23) that prep is not assignable at all, so 0157 closes the old-build
   path through `set_staff_role` too. A later migration drops prep from the kitchen guards once no
-  active prep account is left.
+  active prep account is left. _(2026-09-26: 0155–0157 are on hosted, in the 0001–0206 list.)_
+
+## Days 34–36 (2026-09-24 → 2026-09-26) — Majed's wave 5 landed; multi-venue built, pushed and live
+
+**Majed's stream, 0158–0206 (2026-09-23 → 2026-09-26), all on hosted.** The protocols, the
+staff phone and wave 5:
+- the protocol engine and `/tasks`;
+- 0191 the assistant barista and waiter roles;
+- 0193 eleven staff push keys;
+- 0197 salary deductions (a head proposes, a manager or owner decides);
+- 0198 incident reports;
+- 0199 marketing content for the owners' approval;
+- 0200–0204 the cafe and bakery stores, with transfers, counts and the phone's store reads;
+- 0205–0206 till shifts inside the day.
+
+Design and answers are in `docs/design/protocols/` (`plan-2026-09-23.md`,
+`build-contracts-2026-09-23.md`, `wave5-addendum-2026-09-25.md`). Operator-shell `904b9363`
+installs a waiting update at the next start.
+
+**Multi-venue, Milestone 1, is code-complete and live on production (2026-09-26).**
+
+*The plan.* Parsa asked for one plan that finishes the milestone. It covered slices 2–4 plus an
+owner **"Open a new branch"** button. It was approved and built the same day. The plan file is
+`~/.claude/plans/tell-me-about-phase-sunny-bird.md` (not in the repo). The design notes that
+carry it are `docs/design/multi-venue/slice-2-2026-09-26.md` and `slice-3-4-2026-09-26.md`.
+
+*Parsa's calls:*
+- **MV1:** "Open a new branch" creates the branch as **Preparing**, copying a chosen branch. A
+  separate **"Open to guests"** makes it live, once the readiness list is green.
+- **MV2:** promotions belong to one branch, or to every branch (NULL). They are not copied.
+- **MV3:** one Telegram group per branch.
+
+*Two calls made while building:*
+- **MV9:** the operator sends `x-station-id` and `x-venue-scope` on every request, and
+  `app.resolve_venue` reads them. This replaced re-issuing about 45 RPCs.
+- **MV10:** all 69 staff read policies use `app.visible_venue_ids()`, so a screen needs no branch
+  filter.
+
+*What shipped:*
+- **Migrations 0207–0227:**
+  - `platform_settings`;
+  - per-branch `venue_settings` and `cafe_settings`;
+  - every reader re-issued;
+  - `SET NOT NULL`;
+  - the day per branch;
+  - `VENUE_MISMATCH` guards on 19 RPCs;
+  - report scope with "All branches" for the owner;
+  - per-branch cron;
+  - `venues.status`;
+  - `register_station`;
+  - `create_branch`, `branch_readiness`, `open_branch` and `close_branch`;
+  - per-branch realtime topics, plus the legacy ones for one release;
+  - guests see open branches only.
+- **Operator:**
+  - `lib/venue.tsx` and `lib/venueScope.ts`;
+  - the rail branch switcher;
+  - Setup › Branches;
+  - the Stations panel;
+  - a Branches section on the staff record;
+  - "All branches" on reports.
+- **Mobile:** a branch picker and per-branch availability.
+- **Web:** a per-branch menu and the club site listing its branches.
+
+*The push.* `904b9363..571aefdc`: `b3431224` db, `6cdec6c2` operator, `0dd505b8` mobile,
+`654cbc4f` web, `571aefdc` docs. Parsa is the only author and the tree was pulled from `main`
+first. CI was green on every job. **There was no staging rehearsal** (none exists) and PITR is
+still not bought.
+
+*Deploy.* `db-migrate.yml` and `functions-deploy.yml` failed with `Unauthorized`: the repository
+secret `SUPABASE_ACCESS_TOKEN` had expired. It is a repository secret only; the `staging`
+environment has no secrets. Parsa ran `npx supabase db push --linked` and
+`npx supabase functions deploy` from `packages/db`. Hosted was verified at **0227, 0 pending**,
+with all 17 functions deployed. Parsa then replaced the secret with a new Kagu-account token
+(`github-actions-touchpadel`), and the re-runs (36244080377, 36244080383) went green. Auto-deploy
+works again. `gh` is installed at `C:\Program Files\GitHub CLI\gh.exe`; a VS Code terminal opened
+before the install needs that folder added to `$env:Path`.
+
+*What is NOT in users' hands, on purpose:*
+- **No operator tag was cut.** Parsa: "don't release". Stations run the old build. That is safe
+  with one branch: the zero-arg paths and the legacy topics still work. **Cut and install the tag
+  on every station before any second branch is created.**
+- **No second branch exists.** Parsa does not want to open one now. When one is opened: Setup ›
+  Branches › Open a new branch, a manager, a till, hours and rates, the QR codes, opening stock,
+  then "Open to guests".
+- **The mobile branch picker** rides in the owner-run 1.0 `eas build`.
+- **Follow-ups:**
+  - the assistant has no branch scope yet (it reads every branch);
+  - a two-branch e2e spec (`e2e/helpers.ts` still assumes one venue);
+  - a later migration that drops the legacy `kds` / `floor` / `courts` topics and
+    `venue_settings.llm_*`.
+
+*The audit, the same evening (2026-09-26).* Parsa asked for a check of the whole multi-venue
+system. Three read-only audits covered the resolver and branch lifecycle, every venue-scoped RPC,
+policy and report, and the operator, mobile, web and edge code; the top findings were verified
+against the code. The record is `docs/design/multi-venue/audit-2026-09-26.md`, and the plan file
+(not in the repo) is `~/.claude/plans/check-the-entire-multi-lexical-crab.md`.
+- **The two blockers:**
+  - Every machine that beat became a station at whatever branch resolved, the owner's PC included.
+    That hid the switcher, and retiring it did not stick.
+  - `visible_venue_ids` ranked `x-venue-scope` first while `resolve_venue` ranked `x-station-id`
+    first, so a screen could show B while writes landed at A.
+- **Also found:**
+  - silent branch swaps (a closed branch asserted by a guard fell through to another branch);
+  - about seventy staff RPCs with a role check only;
+  - rows that could point at another branch's rows (a guest order with B's items);
+  - cross-branch reads (QR sheet, audit page, kitchen board, six money and stock child tables);
+  - manager PINs valid at every branch;
+  - the Telegram void failing with two branches;
+  - `close_branch` races;
+  - operator, mobile and web state bugs.
+  None of it shows with one open branch.
+- **Parsa's calls:**
+  - **A1:** a station is registered on purpose only (Settings › Stations); a heartbeat never
+    registers or revives one.
+  - **A2:** `close_branch` refuses bookings still to come, otherwise tidies up; the owner can
+    still read a closed branch.
+  - **A3:** one batch, one push.
+- **What shipped:**
+  - 0228 resolver hardening, with a guarded membership backfill;
+  - 0229 stations on purpose;
+  - **0230 the `zz_branch_guard` trigger on every branch and child table:** same-branch links for
+    every writer, staff writes only at their branches;
+  - 0231 scoped reads and per-branch PINs;
+  - 0232 Telegram;
+  - 0233 branch lifecycle;
+  - 0234 the role checks in 103 policies wrapped in `(select …)`;
+  - 0235 `my_reservations.venue_id`;
+  - the operator, shell queue v6, mobile and web fixes;
+  - four edge functions.
+- **Tested:**
+  - new `tests/multi-venue-audit.test.ts` (11 cases, two open branches);
+  - a fresh-reset full db suite (1950 passed; the failures in that run were fixed and those files
+    rerun green, but the full suite was not rerun afterwards);
+  - every gate;
+  - operator, shell, mobile, web and core suites.
+- **Pushed** as `d7996403..d5dcee7b`, Parsa the only author. The push applied itself:
+  `db-migrate` run 36251957199 applied 0228–0235, and `functions-deploy` run 36251957127 redeployed
+  `assistant-chat`, `replay`, `staff-admin` and `telegram-diagnose`.
+- **Owner step left:** on the office PC, Settings › Venue details › Stations, retire it if a
+  pre-0229 heartbeat registered it. New tills are registered there from now on.
+- **Local-only noise from the run:**
+  - `assistant-search` (index queue backlog);
+  - the 400-day `analytics-courts` timeout;
+  - `protocol-action` (needs `functions serve`).
+  - A `supabase db reset` that pulls a newer storage-api image than the running container fails
+    the bucket upload with 42P10. Fix: `supabase stop`, then `supabase start`, before the reset.
+
+*Tooling lessons, for the next person re-issuing function bodies:*
+- A re-issue must check for a later `drop function`. 0214 resurrected `analytics_open_cells`,
+  which 0097 had dropped; this was caught and fixed.
+- `any((select f()))` compares against a row. Write `any((select f())::uuid[])`.
+- Regenerating an earlier migration needs a file cutoff, so its bodies do not come from later
+  files.
 
 ## File map (key files)
 - **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
@@ -1793,6 +1948,12 @@ calls worth knowing before touching anything venue-shaped:
   Developer, Supabase providers, Play SHA-1 — device matrix, store notes, gotchas).
 - `packages/db/client-data/` — both intake pack JSONs (clean originals, committed 2026-08-30) +
   `courts.sql` + the pack ledger in its README.
+- **Multi-venue (2026-09-26):** `docs/design/multi-venue/slice-{1,2,3-4}-*.md` (decisions MV1–MV10,
+  the resolver order, the rollout record); `apps/operator/src/lib/venue.tsx` (`VenueProvider`,
+  `useVenue`, `branchTopic`) and `lib/venueScope.ts` (the `x-station-id` / `x-venue-scope`
+  headers); `features/admin/branches/` (Setup › Branches); `components/RailBranch.tsx` (the
+  switcher); `features/reports/ReportBranchScope.tsx`. The "Branches" section of
+  `apps/operator/CLAUDE.md` and `packages/db/CLAUDE.md` carry the rules.
 - `packages/db/fixtures/venue-b.sql` — the invented second venue (f1f7 `…be**`), loaded only by
   `db:fixtures:venue-b`, never by the default `db:fixtures` (e2e grid indices, a `table_number`
   `.single()`, the bench court count).
@@ -1804,8 +1965,10 @@ calls worth knowing before touching anything venue-shaped:
   owner assistant)** + **0114–0121 (2026-09-20/21: Milestone 0 criticals)** + **0122–0138
   (2026-09-21: multi-venue slice 1 — live on hosted, verified 2026-09-23)** + 0139 (slice-1 review
   fixes) + **0140–0153 (2026-09-22/23: assistant, Touch Shop, fixes, terms consent)** + 0154
-  (2026-09-23, analytics bench fix) + 0155–0157 (2026-09-23, six new staff roles). Next ordinal
-  **0158**;
+  (2026-09-23, analytics bench fix) + 0155–0157 (2026-09-23, six new staff roles) + **0158–0206
+  (2026-09-23 → 09-26, Majed: protocols, staff phone, wave 5 — stores, till shifts)** + **0207–0227
+  (2026-09-26: multi-venue slices 2–4 and "Open a new branch")** + **0228–0235 (2026-09-26: the
+  multi-venue audit fixes)**. All on hosted. Next ordinal **0236**;
   `0023`, `0040` and `0101` have no file and `0069`/`0071` are doubled — leave the gaps
   (`packages/db/CLAUDE.md`). ~~Hosted at 0075 as of 2026-09-07 (0 pending)~~ — historic; the HOSTED
   STATE line under Gotchas is the only current answer.
@@ -1814,6 +1977,8 @@ calls worth knowing before touching anything venue-shaped:
 - `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded,
   hardening, cafe-menu-ext, telegram, analytics, **oauth-profiles** (0058/0059, 8 cases),
   **multi-venue** (0122–0138, 12 cases; builds and deactivates its own venue B),
+  **multi-venue-slices** and **branch-create** (0207–0227; the branch they create is closed in
+  `afterAll`, never deleted),
   + two pure suites).
 - `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
 - `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
@@ -1903,13 +2068,16 @@ calls worth knowing before touching anything venue-shaped:
    hosted before any client build, an internal mobile build when guest screens change, Arabic
    drafted with the English and reviewed by the client, `types.gen.ts` regenerated, both i18n
    catalogs, RLS-matrix rows, an e2e acceptance script in EN and AR, and a written sign-off.
-   - **0 — Phase 1 close-out / criticals.** 3 weeks; about 75 % done. Left: item 11 (web and mobile
-     smoke tests, `testID`s, `packages/db/bench`), S10, the docs remainder of item 12, and the owner
-     steps in `docs/client/hosted-push-milestone0-2026-09-21.md`.
-   - **1 — Multi-venue.** 6 to 7 weeks. `venues`, `venue_id` on every scoped table, a stations
-     registry, `staff_venues`, the `platform_settings` split, per-venue degraded mode and realtime,
-     owner venue switcher, mobile venue picker, the assistant's venue axis. Depends on 0. Nothing
-     else can start first: there is no `venue_id` anywhere in the schema today.
+   - ✔ **0 — Phase 1 close-out / criticals.** Code side complete 2026-09-21. Left: owner steps only
+     (PITR + staging, Mustafa's owner account, the staging-reviewer and replay-identity decisions;
+     `PHASE-2-CHECKLIST.md`).
+   - ✔ **1 — Multi-venue. CODE-COMPLETE AND LIVE 2026-09-26** (0122–0139 slice 1, 0207–0227
+     slices 2–4 and "Open a new branch", **0228–0235 the audit fixes**; the "Days 34–36" entry).
+     Still open:
+     - the operator tag on every station and the mobile 1.0 build, before a second branch exists;
+     - retiring the owner's office PC as a station if it was auto-registered;
+     - a two-branch e2e spec;
+     - the legacy-topic cleanup.
    - **2 — Online payment (Qi Card deposits).** 3 to 4 weeks plus Qi lead time. Depends on 1 and on
      the client's Qi credentials.
    - **3 — Customers 360 and loyalty.** 6 to 7 weeks, includes web sign-in at checkout. Depends on 1.
@@ -1919,7 +2087,9 @@ calls worth knowing before touching anything venue-shaped:
    - **5 — Coaching (phone-app coach mode).** 4 to 5 weeks. Depends on 1 and 2.
    - **6 — Open matches, then tournaments.** 8 to 9 weeks. Depends on 1, 2 and 5.
    Item 10 (the new AI analysis system) is **dropped** as of 2026-09-20; the built owner assistant
-   stays gated and unbilled. Sequential total roughly 35 to 41 agent-weeks, about 2.5 of them done.
+   stays gated and unbilled. Sequential total roughly 35 to 41 agent-weeks; about 30 % done as of
+   2026-09-26 (Milestones 0 and 1 code-complete, Touch Shop built). **Next: Milestone 2 (Qi Card),
+   blocked on the client's Qi credentials.**
 
 ## Deliberately partial — grows later (scope ledger)
 | Area | What ships now | Intended full shape | Grows in |
@@ -1927,14 +2097,14 @@ calls worth knowing before touching anything venue-shaped:
 | Business data | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client` | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked | Blocked on the client (rates, menu, recipes, staff) |
 | Fonts | ◐ **Lama Sans** landed 2026-09-05 — supplied by Touch and now rendered by every surface. **Provenance unreconciled:** the decks' typography boards (`full-brand2.pdf` p11, `identity.pdf` p10) specify Next Art + Frutiger LT Arabic, "Lama" appears nowhere in either deck's 52 pages, and the decks embed those two alongside Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe Arabic — a two-face board over a seven-face document. Nothing here establishes which face is the brand's or who holds which licence; ask Touch. If Lama Sans supersedes the deck, re-typesetting the decks is a designer handover item. Dual-script (Latin + Arabic in the same faces, `fsType` 0 so embedding is permitted), which collapsed the two-stack Latin/Arabic architecture to one. Seven faces ship — 400/500/600/700/800/900 roman + 400 italic, standard width, woff2 for web and ttf for mobile — canonical at `packages/ui/fonts/lama/`, distributed by `pnpm fonts:sync` | The drop was 29 MB: 3 widths × 9 weights × roman/italic × otf/ttf/woff/woff2. Cut to 1.4 MB deliberately — condensed and expanded widths, 100/200/300, and every italic but Regular have no call site anywhere in the UI. They are not lost, they are unimported | A weight comes back the same way it went: file into `packages/ui/fonts/lama/{woff2,ttf}/`, spec into `FONT_FACES`, `pnpm fonts:sync` (`docs/brand/lama-sans/README.md`) |
 | Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork — sent via WhatsApp per pack 2, not yet in the build; re-send requested | When the files reach the repo |
-| Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR. ~~Owner declined it 2026-08-30 (~$100/mo)~~ — **reversed 2026-09-20: the client buys the PITR tier, and a staging project is created from the latest backup before the multi-venue push** (`PHASE-2-PLAN.md`; deviation D3 in `docs/security/security-general.md` §01). Not bought yet | Milestone 0 owner step, before Milestone 1 |
+| Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR. ~~Owner declined it 2026-08-30 (~$100/mo)~~ — **reversed 2026-09-20: the client buys the PITR tier, and a staging project is created from the latest backup before the multi-venue push** (`PHASE-2-PLAN.md`; deviation D3 in `docs/security/security-general.md` §01). Not bought yet; the whole of Milestone 1 reached production without either (slice 1 on 2026-09-21, slices 2–4 on 2026-09-26) | Owner decision, still open |
 | Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |
 | Telegram allowlist | One row: Parsa → `Dev Owner`, `can_void` | Every real staff member mapped to a real `staff` row | When real staff exist (roadmap 6) |
 | Analytics | Vendor-added (SOW excludes it) — sales side from our till data, engagement via PostHog | Same; engagement floor still provisional | Go-live day |
 | Social sign-in | **Vendor addition 2026-09-01** — SOW L259-260 excludes it, spec §10 says do-not-build. Sign in with Apple (iOS only, native `expo-apple-authentication`) + Google (native SDK, `react-native-nitro-google-signin`) on sign-in/sign-up; complete-profile step when the phone is blank; migrations 0058/0059. Email/password stays the contractual path; acceptance never hinges on this. Code only — no console account, no device run | Live: Google Cloud clients + Supabase provider lists set, dev builds verified on both platforms, `host.exp.Exponent` removed for the store build, the Android **Play App Signing** OAuth client added before the first Play upload | Roadmap 7 (day-zero sequence, `docs/client/social-auth-setup-2026-09-01.md`) |
 | Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
-| `venue_settings` | One row with a boolean PK through milestone 1 slice 1, by decision; it gained `venue_id` (0126) but the seven client `.single()` reads (`apps/mobile/src/features/availability/api.ts:22`, four operator files, `apps/web/src/lib/menu.ts:512`, two edge functions) and the 35 `app.*` readers are untouched | One `venue_settings` row per venue plus a `platform_settings` table for the LLM caps | Milestone 1 slice 2 |
+| Multi-venue | ✔ Code-complete and live 2026-09-26 (0207–0227), audited and fixed the same day (0228–0235, `docs/design/multi-venue/audit-2026-09-26.md`): per-branch settings, day, guards, reports, realtime, "Open a new branch", the table-level branch guard, stations registered on purpose. **Held back on purpose:** no operator tag (the stations run the old build), no second branch, the mobile picker waits for the 1.0 build. **Partial:** the assistant reads the rail's branch but has no per-conversation branch choice; e2e helpers assume one venue; the legacy `kds`/`floor`/`courts` topics and `venue_settings.llm_*` are still there | Operator tag on every station, then a real second branch; a two-branch e2e spec; a cleanup migration dropping the legacy topics and columns | Before the second branch opens (tag, build); later migration (cleanup) |
 | Till online-only ops | `merge_tabs`, `record_drawer_open`, `open_day`, `close_day`, `open_till_shift`, `close_till_shift` and `close_till_shift_for` stay direct `appRpc` calls by decision (Parsa 2026-09-20, Phase 2 finding C3; the three till-shift RPCs, wave 5, `docs/design/protocols/wave5-addendum-2026-09-25.md` §2.9.4): a merge re-checks two tabs under lock, and the day boundary and a shift's start and count must be authoritative when they are written. `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send` and `record_waste` are queued mutation types since Milestone 0 item 9 (`payment.refund`, `tab.cancel`, `tab.settle_zero`, `order_item.void`, `stock.waste`; migration 0120 gave the first three `p_idempotency_key` + `app.claim_replay`) | Every till write on the durable queue | Later phase (full offline DB, SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
@@ -1980,11 +2150,15 @@ calls worth knowing before touching anything venue-shaped:
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
-- **HOSTED STATE — read this line and ignore every other one in this file (2026-09-23).** Hosted
-  is at **0153, complete, 0 pending** — verified 2026-09-23 by Parsa with
-  `npx supabase migration list --linked` from `packages/db`: 0001–0153 on both sides, local = remote
-  (holes 0023/0040/0101 and the doubled 0069/0071 on both). 0154 (the analytics fix) was pushed
-  the same day and applied by `db-migrate.yml` on that push. The source of truth is one command, run from `packages/db` and
+- **HOSTED STATE — read this line and ignore every other one in this file (2026-09-26, late).**
+  Hosted is at **0235, with 17 edge functions deployed.** The audit push applied 0228–0235 through
+  `db-migrate` run 36251957199; its log shows each migration applied and "Finished supabase db
+  push". `migration list --linked` was not run afterwards. Earlier the same day hosted was verified
+  at 0227, 0 pending, after Parsa's `npx supabase db push --linked` and `npx supabase functions
+  deploy` from `packages/db` (before that push the list showed 0001–0206 on both sides; holes
+  0023/0040/0101 and the doubled 0069/0071 are on both). The deploy workflows are green again since the `SUPABASE_ACCESS_TOKEN`
+  repository secret was replaced the same day, so a push to `main` touching migrations or
+  functions applies them to production at once. The source of truth is one command, run from `packages/db` and
   nowhere else: `cd packages/db && npx supabase migration list --linked`. Expect **0 pending**.
   **Never** accept the CLI's `migration repair --status reverted` offer. History, compressed: 0089
   proved 2026-09-12, 0121 on 2026-09-21 (run 35583475145, 0120 by an `include_all` dispatch),

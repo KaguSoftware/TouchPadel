@@ -2,7 +2,55 @@
 
 Written 2026-09-19 at `main` @ `3d70643` (clean tree, `two` fully merged). Sources: three Opus audits (backend, frontends, contract/ops) plus direct verification against migrations, edge functions, apps, the live deployment and the signed SOW. Every claim below was checked against code, not against `HANDOFF.md`, which is six days and ~4,000 diff lines stale and misstates several security items (see A3, O8).
 
-**Status 2026-09-20: approved and building.** Change-control is agreed; the build runs on `main`, Parsa + agents only, criticals first. The section below is the live status; Parts A–D are the 09-19 audit and stand as written except where the status section corrects them. The fuller decision record and per-milestone design were written to `~/.claude/plans/i-got-this-scope-binary-piglet.md`, which is **not on the dev machine** (checked 2026-09-23). Until Parsa copies it into the repo, the repo files — this file, `PHASE-2-CHECKLIST.md` and `HANDOFF.md` — are the record, and where they disagree with a memory of that file, the repo wins.
+**Status 2026-09-20: approved and building.** Change-control is agreed; the build runs on `main`, Parsa + agents only, criticals first. The newest dated "Status" section below is the live status; Parts A–D are the 09-19 audit and stand as written except where the status section corrects them. The fuller decision record and per-milestone design were written to `~/.claude/plans/i-got-this-scope-binary-piglet.md`, which is **not on the dev machine** (checked 2026-09-23). Until Parsa copies it into the repo, the repo files — this file, `PHASE-2-CHECKLIST.md` and `HANDOFF.md` — are the record, and where they disagree with a memory of that file, the repo wins.
+
+## Status 2026-09-26
+
+- **Hosted is at 0235, with 17 edge functions deployed.** The audit fixes (below) were applied by the push itself: `db-migrate.yml` run 36251957199 applied 0228–0235, and `functions-deploy.yml` run 36251957127 redeployed `assistant-chat`, `replay`, `staff-admin` and `telegram-diagnose`. Earlier the same day: before the slices 2–4 push, Parsa's `migration list --linked` showed 0001–0206 on both sides. After it Parsa ran `npx supabase db push --linked` and `npx supabase functions deploy` from `packages/db`, because the deploy workflows failed on an expired `SUPABASE_ACCESS_TOKEN`. The secret was replaced and both workflow re-runs went green, so auto-deploy on push works again.
+- **0158–0206 (2026-09-23 → 2026-09-26, Majed): protocols, the staff phone and wave 5**: two new staff roles (0191), salary deductions, incident reports, marketing content, the cafe and bakery stores with transfers and counts, and till shifts (0205–0206). Design: `docs/design/protocols/`.
+- **Milestone 1 (multi-venue) is code-complete and live.** One plan covered slices 2–4 and an owner "Open a new branch" button. Parsa approved it on 2026-09-26 and it was built and pushed the same day as `904b9363..571aefdc`, migrations **0207–0227**. Decisions:
+
+  | # | Decision |
+  | --- | --- |
+  | MV1 | A branch is created as Preparing, copying a chosen branch, then opened with "Open to guests". |
+  | MV2 | Promotions belong to one branch, or to every branch. |
+  | MV3 | One Telegram group per branch. |
+  | MV4 | Venue status: preparing, open or closed. |
+  | MV5 | `platform_settings` holds the chain-wide settings. |
+  | MV6 | Copied photos share one storage object. |
+  | MV7 | Per-branch realtime topics, with the old topics kept for one operator release. |
+  | MV8 | "All branches" appears on reports only. |
+  | MV9 | The operator names its station and branch in the `x-station-id` and `x-venue-scope` request headers. |
+  | MV10 | Staff reads follow the branch in scope (`app.visible_venue_ids()`). |
+
+  Design notes: `docs/design/multi-venue/slice-2-2026-09-26.md` and `slice-3-4-2026-09-26.md`. Tick list: `PHASE-2-CHECKLIST.md`.
+- **The multi-venue audit, the same day.** Parsa asked for a check of the whole multi-venue system. Three read-only audits found two blockers:
+  - the heartbeat registered every machine as a station, which hid the owner's branch switcher;
+  - reads and writes ranked the two operator headers in opposite orders.
+
+  They also found silent branch swaps, about seventy staff RPCs with no branch check, cross-branch reads, manager PINs valid at every branch, a Telegram void failure with two branches, `close_branch` races, and operator, mobile and web state bugs. None of it shows with one open branch. The fixes are migrations **0228–0235** plus the apps and four edge functions, pushed as `d7996403..d5dcee7b`. The largest single fix is 0230: a `zz_branch_guard` trigger on every branch and child table. It keeps links within one branch and limits staff writes to the branches they work at. Parsa's calls:
+
+  | # | Decision |
+  | --- | --- |
+  | A1 | A station is registered on purpose only (Settings › Stations). A heartbeat never registers or revives a machine. |
+  | A2 | `close_branch` is refused while bookings, holds or series are still to come; otherwise it tidies up. The owner can still read a closed branch's reports. |
+  | A3 | One batch, one push. |
+
+  Record: `docs/design/multi-venue/audit-2026-09-26.md`.
+- **No staging rehearsal** (D3 again, as with slice 1). PITR is still not bought.
+- **Not yet in users' hands:**
+  - The operator tag has not been cut (Parsa: no release for now), so the stations run the old build. That is safe while there is one branch.
+  - The mobile branch picker waits for the owner-run 1.0 `eas build`.
+  - The web is live.
+  - No second branch exists: Parsa decided not to open one. When one is opened, the operator tag goes on every station first.
+- **Follow-ups:**
+  - A two-branch e2e spec.
+  - A later migration dropping the legacy realtime topics and the deprecated `venue_settings.llm_*` columns.
+  - The owner retiring the office PC in Settings › Stations if an older heartbeat registered it.
+  - The next migration ordinal is **0236**.
+
+  The assistant now reads the branch the rail shows (audit fix, `venue_scope`), but it has no per-conversation branch choice.
+- **Programme:** Milestones 0 and 1 are code-complete, and 1 of the 6 client-visible items is built (Touch Shop). About 30 % by effort. The next milestone in the approved order is **2, online payment (Qi Card)**, which waits on the client's Qi credentials. The change order is still unsigned.
 
 ## Status 2026-09-23
 
