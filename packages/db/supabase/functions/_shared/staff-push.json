@@ -27,7 +27,18 @@
     "shopping_to_approve",
     "shopping_declined",
     "marketing_request_new",
-    "marketing_request_answered"
+    "marketing_request_answered",
+    "deduction_proposed",
+    "deduction_approved",
+    "deduction_declined",
+    "deduction_recorded",
+    "incident_reported",
+    "incident_reviewed",
+    "content_submitted",
+    "content_approved",
+    "content_changes",
+    "content_declined",
+    "waiter_call_new"
   ],
   "routes": [
     "staff",

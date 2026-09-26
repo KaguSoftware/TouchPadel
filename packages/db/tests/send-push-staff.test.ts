@@ -11,9 +11,8 @@
  * spec's eleven title keys (§2.24.1) shipped their copy the same way, one
  * commit ahead of staff_push_keys, which lists them in the JSON and in
  * app.notify_staff: from there the copy and the list are equal again. Wave
- * 5's eleven (wave5-addendum-2026-09-25 §2.3) ship their copy the same way,
- * one commit ahead of staff_push_keys_wave5: until then every JSON key has
- * copy, and so does each of the eleven.
+ * 5's eleven (wave5-addendum-2026-09-25 §2.3) shipped their copy the same
+ * way, one commit ahead of staff_push_keys_wave5.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +29,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const INDEX = readFileSync(resolve(here, '../supabase/functions/send-push/index.ts'), 'utf8');
 
 const ROUTES = new Set(staffPush.routes);
-/** The role spec's eleven title keys (§2.21, §2.24.1), last in the JSON, in this order. */
+/** The role spec's eleven title keys (§2.21, §2.24.1), after purchase_to_receive in the JSON, in this order. */
 const ROLE_SPEC_KEYS = [
   'idea_submitted',
   'idea_started',
@@ -44,7 +43,7 @@ const ROLE_SPEC_KEYS = [
   'marketing_request_new',
   'marketing_request_answered',
 ];
-/** Wave 5's eleven title keys (wave5-addendum §2.3); staff_push_keys_wave5 adds them to the JSON, in this order. */
+/** Wave 5's eleven title keys (wave5-addendum §2.3), last in the JSON, in this order. */
 const WAVE5_KEYS = [
   'deduction_proposed',
   'deduction_approved',
@@ -77,11 +76,12 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, twenty-six title keys and seven routes, each once', () => {
+  it('lists the four staff kinds, thirty-seven title keys and seven routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(26);
+    expect(staffPush.title_keys).toHaveLength(37);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
-    expect(staffPush.title_keys.slice(15)).toEqual(ROLE_SPEC_KEYS);
+    expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
+    expect(staffPush.title_keys.slice(26)).toEqual(WAVE5_KEYS);
     expect(staffPush.routes).toEqual([
       'staff',
       'staff-step',
@@ -93,14 +93,10 @@ describe('staff-push.json', () => {
     ]);
   });
 
-  // Until staff_push_keys_wave5 lists wave 5's eleven keys in the JSON (§2.3):
-  // every JSON key has copy, and so does each of the eleven.
-  it('has copy in both languages for every title key and each wave-5 key', () => {
+  it('has copy in both languages for exactly its title keys', () => {
     for (const lang of ['en', 'ar'] as const) {
-      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual(
-        [...staffPush.title_keys, ...WAVE5_KEYS].sort(),
-      );
-      for (const key of [...staffPush.title_keys, ...WAVE5_KEYS]) {
+      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual([...staffPush.title_keys].sort());
+      for (const key of staffPush.title_keys) {
         expect(
           STAFF_STRINGS[lang][key as keyof (typeof STAFF_STRINGS)['en']].title.trim(),
         ).not.toBe('');
@@ -109,7 +105,7 @@ describe('staff-push.json', () => {
   });
 
   it('writes every Arabic title in Arabic', () => {
-    for (const key of [...staffPush.title_keys, ...WAVE5_KEYS]) {
+    for (const key of staffPush.title_keys) {
       const ar = STAFF_STRINGS.ar[key as keyof (typeof STAFF_STRINGS)['ar']].title;
       expect(ar).toMatch(/[\u0600-\u06FF]/);
       expect(ar).not.toBe(STAFF_STRINGS.en[key as keyof (typeof STAFF_STRINGS)['en']].title);
@@ -232,8 +228,8 @@ describe('staffMessage — the EN copy of §2.21', () => {
     expect(m.body).toBe(body);
   });
 
-  it('covers every title key in the list, and each wave-5 key', () => {
-    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys, ...WAVE5_KEYS].sort());
+  it('covers every title key in the list', () => {
+    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys].sort());
   });
 });
 

@@ -693,7 +693,8 @@
     "withdraw_step": "map:action",
     "write_audit": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "write_audit_external": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
-    "write_off_expired": "map:action"
+    "write_off_expired": "map:action",
+    "trg_waiter_call_push": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
   },
   "routes": {
     "/admin": "map:page",
