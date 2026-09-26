@@ -162,6 +162,25 @@ export async function ensureTillFresh(svc: SupabaseClient): Promise<void> {
   if (error) throw new Error(`ensureTillFresh failed: ${error.message}`);
   if (data && data.length > 0) return;
 
+  // Since 0229 a heartbeat row belongs to a live, registered station (a
+  // heartbeat never registers one), so the seeded till is registered first,
+  // the way a manager does in Settings > Stations.
+  const { data: venue, error: vErr } = await svc
+    .from('venues')
+    .select('id')
+    .eq('is_active', true)
+    .order('created_at')
+    .limit(1)
+    .single();
+  if (vErr) throw new Error(`ensureTillFresh venue failed: ${vErr.message}`);
+  const { error: stErr } = await svc
+    .from('stations')
+    .upsert(
+      { id: 'TILL-E2E', venue_id: (venue as { id: string }).id, is_till: true, mode: 'till', retired_at: null },
+      { onConflict: 'id' },
+    );
+  if (stErr) throw new Error(`ensureTillFresh station failed: ${stErr.message}`);
+
   const { error: insErr } = await svc
     .from('device_heartbeats')
     .upsert(
