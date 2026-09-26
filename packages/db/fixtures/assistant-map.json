@@ -1,5 +1,5 @@
 {
-  "generated_from": "9271c6929d571928378270d74aa9f720cc4c2322",
+  "generated_from": "1755a573982d888f2cccb6a251b7f49c4756d4ca",
   "chunks": [
     {
       "kind": "page",
@@ -8990,7 +8990,7 @@
       "ref": "enum:movement_type",
       "lang": "en",
       "title": "enum movement_type",
-      "body": "Values: goods_in, production_in, sale_consumption, production_consume, waste_spill, waste_spoilage, void_after_send, expired_writeoff, count_adjustment, refund_reversal, product_test.\nDefined in migration 0002.",
+      "body": "Values: goods_in, production_in, sale_consumption, production_consume, waste_spill, waste_spoilage, void_after_send, expired_writeoff, count_adjustment, refund_reversal, product_test, transfer.\nDefined in migration 0002.",
       "route": null
     },
     {

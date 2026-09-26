@@ -9185,6 +9185,7 @@ export type Database = {
         | "count_adjustment"
         | "refund_reversal"
         | "product_test"
+        | "transfer"
       order_source: "guest_web" | "till"
       order_status: "sent" | "preparing" | "ready" | "served" | "voided"
       payment_method: "cash" | "card"
@@ -9377,6 +9378,7 @@ export const Constants = {
         "count_adjustment",
         "refund_reversal",
         "product_test",
+        "transfer",
       ],
       order_source: ["guest_web", "till"],
       order_status: ["sent", "preparing", "ready", "served", "voided"],
