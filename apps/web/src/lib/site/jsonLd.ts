@@ -70,12 +70,19 @@ export const CLUB_ADDRESS = {
   addressCountry: 'IQ',
 } as const;
 
-/** A branch's stored address as a PostalAddress, or the contract's when none is stored. */
-function postalAddress(locale: Locale, venue: VenueOpeningHours | null | undefined) {
+/**
+ * A branch's stored address as a PostalAddress. With none stored, the main
+ * branch keeps the contract's; a department (a later branch) has no address
+ * rather than publishing the club's as its own.
+ */
+function postalAddress(
+  locale: Locale,
+  venue: VenueOpeningHours | null | undefined,
+  { fallback = true }: { fallback?: boolean } = {},
+) {
   const stored = branchAddress(locale, venue, { fallback: false });
-  return stored
-    ? ({ '@type': 'PostalAddress', streetAddress: stored, addressCountry: 'IQ' } as const)
-    : CLUB_ADDRESS;
+  if (stored) return { '@type': 'PostalAddress', streetAddress: stored, addressCountry: 'IQ' } as const;
+  return fallback ? CLUB_ADDRESS : null;
 }
 
 /** A stored https map link, or nothing (the Maps search is not a map of the place). */
@@ -86,10 +93,11 @@ function hasMap(venue: VenueOpeningHours | null | undefined): { hasMap?: string 
 
 function department(locale: Locale, branch: VenueBranch): Record<string, unknown> {
   const hours = openingHoursSpecification(branch);
+  const address = postalAddress(locale, branch, { fallback: false });
   return {
     '@type': 'SportsActivityLocation',
     name: `${t(locale, 'common.appName')} · ${branchName(locale, branch)}`,
-    address: postalAddress(locale, branch),
+    ...(address ? { address } : {}),
     ...hasMap(branch),
     ...(hours.length > 0 ? { openingHoursSpecification: hours } : {}),
   };

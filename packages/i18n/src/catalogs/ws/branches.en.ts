@@ -46,6 +46,7 @@ export const branchesEn = {
     copied: 'Copied: {courts} courts, {items} menu items, {tables} tables.',
   },
   readiness: {
+    otherBranchHint: 'This machine is a station of another branch. Do this from that branch’s machine, or from one that is not a station.',
     title: 'Before it opens',
     intro: 'Guests see the branch once every required step is done.',
     required: 'Required',
@@ -90,5 +91,6 @@ export const branchesEn = {
     scope: 'Branch',
     all: 'All branches',
     clockNote: 'All branches are shown on {name}’s clock and business day.',
+    closedBranch: '{name} (closed)',
   },
 } as const;

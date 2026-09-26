@@ -180,6 +180,11 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'BRANCH_NOT_READY',
   'LAST_OPEN_BRANCH',
   'BRANCH_DAY_OPEN',
+  // 0229, 0233 (multi-venue audit): stations on purpose, and the branch lifecycle.
+  'STATION_RETIRED',
+  'STATION_HAS_HISTORY',
+  'BRANCH_HAS_BOOKINGS',
+  'VENUE_CLOSED',
   // Desk payment (0106).
   'BOOKING_TAB_OPEN',
   'BOOKING_TAB_DONOR',

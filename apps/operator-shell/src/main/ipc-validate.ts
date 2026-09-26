@@ -127,6 +127,13 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
     fail('idempotencyKey and deviceId disagree on the station');
   }
 
+  // The branch the write was queued under (0228): optional, a uuid when present.
+  let venueScope: string | null = null;
+  if (raw.venueScope != null) {
+    venueScope = requireString(raw.venueScope, 'venueScope', 64);
+    if (!uuidRegex.test(venueScope)) fail('venueScope must be a uuid');
+  }
+
   const createdAt = requireString(raw.createdAt, 'createdAt', 64);
   if (Number.isNaN(Date.parse(createdAt))) fail('createdAt must be an ISO timestamp');
 
@@ -147,6 +154,7 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
     createdAt,
     staffId,
     deviceId,
+    venueScope,
   };
 }
 

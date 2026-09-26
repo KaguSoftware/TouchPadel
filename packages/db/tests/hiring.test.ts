@@ -96,6 +96,7 @@ end $f$;
 create function pg_temp.q(p_label text, p_sql text) returns void language plpgsql as $f$
 declare v jsonb;
 begin
+  perform set_config('request.jwt.claims', '', true);  -- 0230: a fixture write, not a staff write
   execute pg_temp.sub(p_sql) into v;
   insert into pg_temp.out(label, res) values (p_label, jsonb_build_object('ok', true, 'data', v));
 end $f$;
@@ -103,6 +104,7 @@ end $f$;
 create function pg_temp.keep(p_name text, p_sql text) returns void language plpgsql as $f$
 declare v text;
 begin
+  perform set_config('request.jwt.claims', '', true);  -- 0230: a fixture write, not a staff write
   execute pg_temp.sub(p_sql) into v;
   if v is null then raise exception 'keep %: no value', p_name; end if;
   insert into pg_temp.vars values (p_name, v) on conflict (name) do update set val = excluded.val;
@@ -355,7 +357,9 @@ describe.skipIf(!docker)('hiring: candidates, the pick, the new account and the 
       'protocol.hiring.candidate_save', 'protocol.hiring.candidate_delete', 'protocol.hiring.complete',
     ]));
     expect(ok(r, 'readable')).toBe(0);
-    expect(ok(r, 'triggers')).toEqual([]);
+    // Nothing copies a candidate anywhere: the only trigger is the 0230 branch
+    // guard, which reads and refuses but never writes.
+    expect(ok(r, 'triggers')).toEqual(['zz_branch_guard']);
   });
 
   it('the purge: candidates deleted after 90 days, and every note a name could hide in overwritten', () => {

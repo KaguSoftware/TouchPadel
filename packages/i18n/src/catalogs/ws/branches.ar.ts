@@ -40,6 +40,7 @@ export const branchesAr: DeepMessages<typeof branchesEn> = {
     copied: 'نُسخ: {courts} ملاعب، {items} أصناف، {tables} طاولات.',
   },
   readiness: {
+    otherBranchHint: 'هذا الجهاز محطة لفرع آخر. نفّذ هذا من جهاز ذلك الفرع، أو من جهاز ليس محطة.',
     title: 'قبل الافتتاح',
     intro: 'يرى الضيوف الفرع عند إكمال كل الخطوات المطلوبة.',
     required: 'مطلوب',
@@ -84,5 +85,6 @@ export const branchesAr: DeepMessages<typeof branchesEn> = {
     scope: 'الفرع',
     all: 'كل الفروع',
     clockNote: 'تُعرض كل الفروع بتوقيت {name} ويوم عمله.',
+    closedBranch: '{name} (مغلق)',
   },
 };

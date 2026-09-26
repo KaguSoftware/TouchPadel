@@ -153,8 +153,33 @@ export default async function CafeMenuPage({
   // while several branches are open, so today's one-branch page pays nothing.
   const tableBranchId = token && branches.length > 1 ? await getTableBranch(token) : null;
   const tableBranch = branches.find((b) => b.id === tableBranchId) ?? null;
-  const branch =
-    tableBranch ?? pickBranch(branches, slug) ?? (token ? (branches[0] ?? null) : null);
+  // Multi-venue audit: a branch the guest names (?b=) wins over a table cookie
+  // left from an earlier visit (it lives 12 h). The table then only browses:
+  // it can order at its own branch, never another's, so a guest looking at B
+  // is not handed A's table to order into.
+  const asked = slug ? (branches.find((b) => b.slug === slug) ?? null) : null;
+  const branch = asked ?? tableBranch ?? pickBranch(branches, null);
+  const orderToken = asked && tableBranch && asked.id !== tableBranch.id ? null : token;
+
+  // The branch list could not be read: say so, rather than render every
+  // branch's menu at once (the unfiltered read mixes and repeats them).
+  if (branches.length === 0) {
+    return (
+      <>
+        <CafeStyles nonce={nonce} />
+        <CafeApp
+          locale={locale}
+          token={null}
+          initialMenu={[]}
+          menuStatus="error"
+          settings={await getCachedCafeSettings(null)}
+          venue={null}
+          venueId={null}
+          branches={branches}
+        />
+      </>
+    );
+  }
 
   if (!branch && branches.length > 1) {
     return (
@@ -177,7 +202,7 @@ export default async function CafeMenuPage({
       <CafeStyles nonce={nonce} />
       <CafeApp
         locale={locale}
-        token={token}
+        token={orderToken}
         initialMenu={menuResult.categories}
         menuStatus={menuResult.status}
         settings={settings}

@@ -3,6 +3,7 @@ import type { VenueBranch, VenueOpeningHours } from '@/lib/menu';
 import {
   branchAddress,
   branchMapUrl,
+  branchOwnMapUrl,
   branchName,
   displayPhone,
   telUrl,
@@ -50,8 +51,8 @@ export function Visit({
         </div>
         {branches.length > 1 ? (
           <div className="tp-visit__facts" data-reveal="">
-            {branches.map((branch) => (
-              <BranchBlock key={branch.id} locale={locale} branch={branch} />
+            {branches.map((branch, i) => (
+              <BranchBlock key={branch.id} locale={locale} branch={branch} primary={i === 0} />
             ))}
             <div className="tp-visit__block">
               <p className="tp-visit__walkin">{tr('site.visit.walkIn')}</p>
@@ -129,18 +130,27 @@ function OneVenue({ locale, venue }: { locale: Locale; venue: VenueOpeningHours 
   );
 }
 
-/** One branch of several: its name, address + map, hours and desk buttons. */
-function BranchBlock({ locale, branch }: { locale: Locale; branch: VenueBranch }) {
+/**
+ * One branch of several: its name, address + map, hours and desk buttons. Only
+ * the first (the original club) falls back to the contract's Durrat Karbala
+ * address and Maps search; a later branch with none stored shows none rather
+ * than send guests to another branch's door.
+ */
+function BranchBlock({ locale, branch, primary }: { locale: Locale; branch: VenueBranch; primary: boolean }) {
   const tr = makeT(locale);
   const name = branchName(locale, branch);
+  const address = branchAddress(locale, branch, { fallback: primary });
+  const mapUrl = primary ? branchMapUrl(branch) : branchOwnMapUrl(branch);
   return (
     <div className="tp-visit__block tp-visit__branch" data-branch={branch.slug}>
       <h3 className="tp-visit__label">{name}</h3>
-      <p className="tp-visit__address">{branchAddress(locale, branch)}</p>
-      <a className="tp-site-btn tp-site-btn--primary" href={branchMapUrl(branch)}>
-        {tr('site.visit.maps')}
-        <ExternalIcon />
-      </a>
+      {address && <p className="tp-visit__address">{address}</p>}
+      {mapUrl && (
+        <a className="tp-site-btn tp-site-btn--primary" href={mapUrl}>
+          {tr('site.visit.maps')}
+          <ExternalIcon />
+        </a>
+      )}
       <HoursList locale={locale} venue={branch} className="tp-visit__hours" />
       <DeskButtons
         locale={locale}

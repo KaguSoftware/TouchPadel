@@ -28,6 +28,7 @@ import {
   ensureTillFresh,
   SEED_STAFF,
   VENUE_A_ID,
+  registerTestStation,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -56,6 +57,9 @@ describe.skipIf(!up)('venue heartbeat liveness', () => {
       .select('heartbeat_stale_seconds').eq('venue_id', VENUE_A_ID)
       .single();
     staleSeconds = (settings as { heartbeat_stale_seconds: number }).heartbeat_stale_seconds;
+    // 0229 (A1): stations are registered on purpose; a heartbeat never does it.
+    await registerTestStation(svc, PROBE_TILL, { isTill: true });
+    await registerTestStation(svc, PROBE_DESK, { isTill: false });
   });
 
   afterAll(async () => {

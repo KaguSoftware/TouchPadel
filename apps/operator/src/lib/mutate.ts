@@ -21,6 +21,7 @@ import {
 import { touch } from '../ipc/bridge';
 import { appRpc, AppRpcError, type AppFunctionName } from './appRpc';
 import { clientRef, deviceId } from './idem';
+import { currentBranchId } from './venueScope';
 import { awaitResult, errorStringCode, serverErrorCode } from './queueResults';
 
 export interface MutateOutcome<T = unknown> {
@@ -326,6 +327,7 @@ export async function mutate<T = unknown>(
     createdAt: new Date().toISOString(),
     staffId,
     deviceId: device,
+    venueScope: currentBranchId(),
   });
   const envelope = {
     localId: parsed.localId,
@@ -336,6 +338,7 @@ export async function mutate<T = unknown>(
     createdAt: parsed.createdAt,
     staffId: parsed.staffId,
     deviceId: parsed.deviceId,
+    venueScope: parsed.venueScope ?? null,
   };
 
   const enqueued = (await touch.enqueue(envelope)) as { localId?: string; error?: string };

@@ -84,19 +84,42 @@ export function pickBranch(input: {
   return firstOpen?.id ?? mine[0] ?? null;
 }
 
+// This machine's station id rides on every request from the very first one
+// (module load, before any provider effect or query runs).
+try {
+  setStationHeader(station());
+} catch {
+  /* no bridge (unit tests): the provider sets it again on mount */
+}
+
 export function VenueProvider({ children }: { children: ReactNode }) {
   const { session, staff } = useAuth();
   const queryClient = useQueryClient();
   const signedIn = Boolean(session && staff);
+  const userId = session?.user.id ?? null;
   const [choice, setChoice] = useState<string | null>(() => readChoice());
+  // The branch the first requests of this boot carry, before the lists load:
+  // the one remembered on this machine. The server refuses (never widens) a
+  // scope the person may no longer use, so a stale choice reads nothing
+  // rather than two branches.
+  const bootScope = useRef<string | null>(choice);
 
-  // This machine's station id rides on every request from the start.
   useEffect(() => {
     setStationHeader(station());
   }, []);
 
+  // A different person signs in on a shared machine: their branches, not the
+  // last person's (the lists are keyed by user; drop the old ones too).
+  const lastUser = useRef<string | null>(userId);
+  useEffect(() => {
+    if (lastUser.current && lastUser.current !== userId) {
+      queryClient.removeQueries({ queryKey: ['venues'] });
+    }
+    lastUser.current = userId;
+  }, [userId, queryClient]);
+
   const venuesQ = useQuery({
-    queryKey: ['venues', 'mine'],
+    queryKey: ['venues', 'mine', userId],
     enabled: signedIn,
     staleTime: 60_000,
     queryFn: async (): Promise<{ venues: VenueRow[]; mine: string[] }> => {
@@ -117,7 +140,7 @@ export function VenueProvider({ children }: { children: ReactNode }) {
   });
 
   const stationQ = useQuery({
-    queryKey: ['venues', 'station', station()],
+    queryKey: ['venues', 'station', station(), userId],
     enabled: signedIn,
     staleTime: 60_000,
     queryFn: async (): Promise<string | null> => {
@@ -138,17 +161,23 @@ export function VenueProvider({ children }: { children: ReactNode }) {
   const branchId = venuesQ.data ? pickBranch({ stationBranchId, choice, mine, venues }) : null;
 
   // Publish before children render their queries, so the first fetches of a
-  // freshly picked branch already carry it.
-  setBranchScope(branchId);
+  // freshly picked branch already carry it; until the lists load, the branch
+  // remembered on this machine.
+  setBranchScope(branchId ?? (venuesQ.data ? null : bootScope.current));
 
-  // A real switch (not the first resolution) reloads every screen.
+  // A switch reloads every screen. So does the first resolution when the
+  // screens already fetched under another scope (a remembered branch this
+  // person may no longer use, or none at all on a machine that is not a
+  // station): what they hold may be another branch's, or nothing.
   const previous = useRef<string | null>(null);
   useEffect(() => {
-    if (previous.current && branchId && previous.current !== branchId) {
+    if (!branchId) return;
+    const before = previous.current ?? (stationBranchId ? branchId : bootScope.current);
+    if (before !== branchId) {
       void queryClient.resetQueries({ predicate: (q) => q.queryKey[0] !== 'venues' });
     }
     previous.current = branchId;
-  }, [branchId, queryClient]);
+  }, [branchId, stationBranchId, queryClient]);
 
   const setBranch = useCallback((id: string) => {
     writeChoice(id);

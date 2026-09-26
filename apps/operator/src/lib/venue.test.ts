@@ -43,12 +43,20 @@ describe('scopeHeaders', () => {
     setBranchScope(null);
     setReportAllBranches(false);
   });
-  it('names the station and the branch; "all" only while a report asks', () => {
+  it('names the station and the branch; "all" only on a report call while a report asks', () => {
+    // venue.tsx names this machine's station at module load; start from none.
+    setStationHeader(null);
     expect(scopeHeaders()).toEqual({});
     setStationHeader('TILL-1');
     setBranchScope(A);
     expect(scopeHeaders()).toEqual({ 'x-station-id': 'TILL-1', 'x-venue-scope': A });
     setReportAllBranches(true);
-    expect(scopeHeaders()['x-venue-scope']).toBe('all');
+    const rpc = (fn: string) => `http://127.0.0.1:54321/rest/v1/rpc/${fn}`;
+    // The report call carries every branch, on the page's own clock (0228)...
+    expect(scopeHeaders(rpc('report_cafe'))['x-venue-scope']).toBe(`all:${A}`);
+    expect(scopeHeaders(rpc('analytics_courts_summary'))['x-venue-scope']).toBe(`all:${A}`);
+    // ...and nothing else does: badges, heartbeats and table reads stay on the rail's branch.
+    expect(scopeHeaders(rpc('heartbeat'))['x-venue-scope']).toBe(A);
+    expect(scopeHeaders('http://127.0.0.1:54321/rest/v1/courts?select=id')['x-venue-scope']).toBe(A);
   });
 });

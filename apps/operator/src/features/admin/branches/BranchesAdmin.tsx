@@ -157,8 +157,13 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
   const confirm = useConfirm();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { setBranch, canSwitch } = useVenue();
+  const { setBranch, canSwitch, branchId } = useVenue();
   const name = pickName(locale, branch);
+  // "Fix" and "Print table QR codes" open screens that work on the branch in
+  // scope. A registered station cannot switch, so from one they only reach
+  // the station's own branch; elsewhere they would edit the wrong branch.
+  const canReach = canSwitch || branchId === branch.id;
+  const reachHint = canReach ? undefined : tr('ws.branches.readiness.otherBranchHint');
 
   const readinessQ = useQuery({
     queryKey: ['branches', 'readiness', branch.id],
@@ -230,7 +235,7 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
                       <span>{tr(`ws.branches.readiness.${r.key}` as MessageKey)}</span>
                     </span>
                     {!r.ok && (
-                      <Button size="sm" kind="ghost" onClick={() => goFix(r.key)}>
+                      <Button size="sm" kind="ghost" disabled={!canReach} title={reachHint} onClick={() => goFix(r.key)}>
                         {tr('ws.branches.readiness.fix')}
                       </Button>
                     )}
@@ -241,7 +246,7 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
           </section>
         )}
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-          {branch.status !== 'open' && (
+          {branch.status === 'preparing' && (
             <Button
               kind="primary"
               icon="check"
@@ -256,6 +261,8 @@ function BranchPanel({ branch }: { branch: BranchRow }) {
           {branch.status === 'preparing' && (
             <Button
               kind="default"
+              disabled={!canReach}
+              title={reachHint}
               onClick={() => {
                 if (canSwitch) setBranch(branch.id);
                 void navigate({ to: '/admin/qr' });

@@ -70,13 +70,17 @@ export interface DaySessionRow {
  * desk calendar silently lost when a narrower query shared this key.
  */
 export async function fetchVenueSettings(): Promise<VenueSettingsRow> {
-  // One row per open branch since 0208: this station's (or the switcher's) branch.
-  // venue_settings_public is a definer view, so RLS does not narrow it.
+  // One row per branch since 0208: this station's (or the switcher's). The
+  // table, not venue_settings_public: staff RLS (0226) narrows it to the branch
+  // in scope, and it holds a branch that is still preparing, which the public
+  // view (open branches only) does not — a new branch's hours are a readiness
+  // item and must be editable before it opens.
   const branch = currentBranchId();
-  let q = supabase.from('venue_settings_public').select('timezone, opening_hours, closed_dates');
+  let q = supabase.from('venue_settings').select('timezone, opening_hours, closed_dates');
   if (branch) q = q.eq('venue_id', branch);
-  const { data, error } = await q.limit(1).single();
+  const { data, error } = await q.limit(1).maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('VENUE_REQUIRED');
   return data as unknown as VenueSettingsRow;
 }
 

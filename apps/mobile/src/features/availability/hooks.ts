@@ -438,12 +438,45 @@ interface SharedChannel {
   removed: boolean;
 }
 const sharedCourts = new Map<string, SharedChannel>();
+/**
+ * Topics whose channel is still leaving. realtime-js keys channels by topic and
+ * `channel(topic)` hands back one still LEAVING after `removeChannel`, on which
+ * `subscribe()` does nothing, so a quick A -> B -> A branch switch used to land
+ * on a dead channel and fall back to the 60 s poll. A new channel on a topic
+ * waits for the old one's removal (the operator's lib/realtime.ts rule).
+ */
+const leavingCourts = new Map<string, Promise<unknown>>();
 
 function dropSharedCourts(s: SharedChannel): void {
   if (s.removed) return;
   s.removed = true;
-  void supabase.removeChannel(s.channel);
+  const done = supabase.removeChannel(s.channel).catch(() => undefined);
+  leavingCourts.set(s.topic, done);
+  void done.then(() => {
+    if (leavingCourts.get(s.topic) === done) leavingCourts.delete(s.topic);
+  });
   if (sharedCourts.get(s.topic) === s) sharedCourts.delete(s.topic);
+}
+
+/** The shared channel for a topic, created (and subscribed) when there is none. */
+function subscribeCourts(topic: string, token: string, onSlot: () => void): SharedChannel {
+  let mine = sharedCourts.get(topic);
+  if (!mine) {
+    supabase.realtime.setAuth(token);
+    const channel = supabase
+      .channel(topic, { config: { private: true } })
+      .on('broadcast', { event: 'slot_changed' }, onSlot)
+      .subscribe((status) => {
+        // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
+        // quietly stale with no signal to the user or to telemetry.
+        if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
+          captureMessage('realtime.courts.' + status, 'warning');
+      });
+    mine = { token, topic, channel, consumers: 0, removed: false };
+    sharedCourts.set(topic, mine);
+  }
+  return mine;
 }
 
 /**
@@ -474,29 +507,28 @@ export function useCourtsBroadcast(venueId: string | null): void {
   useEffect(() => {
     if (!token || !venueId) return;
     const topic = courtsTopic(venueId);
-    // A rotated token retires the old channel NOW, so `channel(topic)` below
-    // creates a fresh one instead of returning the stale instance.
-    const existing = sharedCourts.get(topic);
-    if (existing && existing.token !== token) dropSharedCourts(existing);
-    let mine = sharedCourts.get(topic);
-    if (!mine) {
-      supabase.realtime.setAuth(token);
-      const channel = supabase
-        .channel(topic, { config: { private: true } })
-        .on('broadcast', { event: 'slot_changed' }, () => invalidate.current())
-        .subscribe((status) => {
-          // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
-          // quietly stale with no signal to the user or to telemetry.
-          if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
-          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
-            captureMessage('realtime.courts.' + status, 'warning');
-        });
-      mine = { token, topic, channel, consumers: 0, removed: false };
-      sharedCourts.set(topic, mine);
-    }
-    const held = mine;
-    held.consumers += 1;
+    let cancelled = false;
+    let held: SharedChannel | null = null;
+    const join = (): void => {
+      if (cancelled) return;
+      // A rotated token retires the old channel NOW, so the channel below is a
+      // fresh one instead of the stale instance.
+      const existing = sharedCourts.get(topic);
+      if (existing && existing.token !== token) dropSharedCourts(existing);
+      if (!sharedCourts.get(topic)) {
+        const leaving = leavingCourts.get(topic);
+        if (leaving) {
+          void leaving.then(join);
+          return;
+        }
+      }
+      held = subscribeCourts(topic, token, () => invalidate.current());
+      held.consumers += 1;
+    };
+    join();
     return () => {
+      cancelled = true;
+      if (!held) return;
       held.consumers -= 1;
       if (held.consumers === 0) dropSharedCourts(held);
     };

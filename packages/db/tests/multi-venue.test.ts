@@ -394,49 +394,49 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   });
 
   // ── 10 ─────────────────────────────────────────────────────────────────────
-  it('10. heartbeat auto-registers a station when the venue is unambiguous, else STATION_UNKNOWN', async () => {
+  it('10. heartbeat never registers a station, and beats only for its own branch (0229, A1)', async () => {
     const stamp = Date.now();
 
-    // (a) The venue-A cashier has exactly one membership, so a brand-new till
-    // registers itself at venue A. This is R2: the refusal is "resolve_venue
-    // returned NULL", never "a second venue exists" — degraded.test.ts,
-    // heartbeat-liveness.test.ts and retire-device.test.ts all beat as this
-    // principal and would go red the moment venue B existed otherwise.
-    const freshA = `MV-A-${stamp}`;
-    registeredStations.push(freshA);
-    const beatA = await appRpc(cashier, 'heartbeat', {
-      p_device_id: freshA, p_queue_depth: 0, p_app_version: 'multi-venue-test', p_is_till: false,
-    });
-    expect(beatA.error).toBeNull();
-    const { data: stationA, error: stationAErr } = await svc
-      .from('stations')
-      .select('venue_id')
-      .eq('id', freshA)
-      .single();
-    expect(stationAErr).toBeNull();
-    expect((stationA as { venue_id: string }).venue_id).toBe(VENUE_A_ID);
+    // (a) A machine that is not a registered station beats as a no-op, for
+    // a one-branch cashier and for the owner alike, and registers nothing.
+    for (const [who, client] of [['cashier', cashier], ['owner', owner]] as const) {
+      const fresh = `MV-${who.toUpperCase()}-${stamp}`;
+      const beat = await appRpc(client, 'heartbeat', {
+        p_device_id: fresh, p_queue_depth: 0, p_app_version: 'multi-venue-test', p_is_till: false,
+      });
+      expect(beat.error, who).toBeNull();
+      expect((beat.data as { registered: boolean }).registered, who).toBe(false);
+      const { data: ghost } = await svc.from('stations').select('id').eq('id', fresh);
+      expect(ghost ?? [], `${who}: a heartbeat must register nothing`).toHaveLength(0);
+    }
 
-    // (b) The owner belongs to no single venue, so an unknown station cannot be
-    // filed anywhere and is refused rather than guessed at.
-    const freshUnknown = `MV-X-${stamp}`;
-    const beatUnknown = await appRpc(owner, 'heartbeat', {
-      p_device_id: freshUnknown, p_queue_depth: 0, p_app_version: 'multi-venue-test', p_is_till: false,
-    });
-    expect(beatUnknown.error?.message ?? '').toContain('STATION_UNKNOWN');
-    const { data: ghost } = await svc.from('stations').select('id').eq('id', freshUnknown);
-    expect(ghost ?? [], 'a refused heartbeat must register nothing').toHaveLength(0);
-
-    // (c) A KNOWN station resolves on its own, whoever is beating.
+    // (b) A KNOWN station beats for its own branch's staff...
     const beatB = await appRpc(managerB, 'heartbeat', {
       p_device_id: venueB.stationId, p_queue_depth: 0, p_app_version: 'multi-venue-test', p_is_till: true,
     });
     expect(beatB.error).toBeNull();
+    expect((beatB.data as { registered: boolean }).registered).toBe(true);
     const { data: beatRow } = await svc
       .from('device_heartbeats')
-      .select('venue_id')
+      .select('venue_id, staff_id, queue_depth')
       .eq('device_id', venueB.stationId)
       .single();
     expect((beatRow as { venue_id: string }).venue_id).toBe(VENUE_B_ID);
+
+    // (c) ...and not for another branch's: venue A's cashier cannot keep B's
+    // till fresh, take it over or set its queue depth.
+    const beatAcross = await appRpc(cashier, 'heartbeat', {
+      p_device_id: venueB.stationId, p_queue_depth: 7, p_app_version: 'multi-venue-test', p_is_till: true,
+    });
+    expect(beatAcross.error).toBeNull();
+    expect((beatAcross.data as { registered: boolean }).registered).toBe(false);
+    const { data: afterRow } = await svc
+      .from('device_heartbeats')
+      .select('staff_id, queue_depth')
+      .eq('device_id', venueB.stationId)
+      .single();
+    expect((afterRow as { queue_depth: number }).queue_depth).toBe(0);
+    expect((afterRow as { staff_id: string }).staff_id).toBe((beatRow as { staff_id: string }).staff_id);
 
     // That beat just un-degraded venue B. Case 8 runs before this one, but put
     // the fixture back so the order of these cases is not load-bearing.
@@ -658,17 +658,13 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   });
 
   // ── 14 ─────────────────────────────────────────────────────────────────────
-  it('14. the degraded sweep opens and closes periods per venue (0139)', async () => {
-    // Fixture state: A's tills fresh, B's only till a day old. A beat at A runs
-    // the sweep; before 0139 it read is_degraded() for A (false) and closed
-    // EVERY open period, B's included, and never opened one for B.
-    const stamp = Date.now();
-    const tillA = `MV-SWEEP-${stamp}`;
-    registeredStations.push(tillA);
-    const beat = await appRpc(cashier, 'heartbeat', {
-      p_device_id: tillA, p_queue_depth: 0, p_app_version: 'multi-venue-test', p_is_till: false,
-    });
-    expect(beat.error).toBeNull();
+  it('14. the degraded sweep opens and closes periods per venue (0139, 0229)', async () => {
+    // Fixture state: A's tills fresh, B's only till a day old. The minute cron
+    // sweeps every branch; before 0139 it read is_degraded() for A (false) and
+    // closed EVERY open period, B's included, and never opened one for B. Since
+    // 0229 a heartbeat sweeps its own branch only, so the cron is what finds B.
+    if (!dockerReachable()) return;
+    psql('select app.sweep_degraded_periods()');
 
     const openB = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_B_ID).is('ended_at', null);
     expect(openB.error).toBeNull();

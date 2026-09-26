@@ -146,6 +146,8 @@ export interface MutationEnvelope {
   createdAt: string;
   /** The staff member the write is attributed to — replay 400s without it. */
   staffId: string;
+  /** The branch the screens showed when the write was queued (0228), or null. */
+  venueScope?: string | null;
   /** The station that owns the durable queue, e.g. 'TILL-01'. */
   deviceId: string;
 }

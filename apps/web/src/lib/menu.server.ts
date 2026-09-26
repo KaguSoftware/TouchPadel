@@ -44,34 +44,40 @@ const err = (e: unknown): MenuResult => {
  * `getCachedMenu(b)` never share a copy. `null` is the unfiltered read the menu
  * page falls back to when the branch list could not be read.
  */
-export const getCachedMenu = unstable_cache(
-  (venueId: string | null = null): Promise<MenuResult> => {
-    try {
-      return fetchMenu(createStaticSupabase(), venueId).then(ok).catch(err);
-    } catch (e) {
-      return Promise.resolve(err(e)); // missing env → client creation throws synchronously
-    }
-  },
+// Multi-venue audit: the cached functions THROW on a failed read, and the
+// exported wrappers turn that into the fallback. unstable_cache stores what the
+// function returns, so a fallback returned from inside it was kept for the whole
+// revalidate window — one blip meant a minute of "menu unavailable", or of an
+// empty branch list (and with it the unfiltered menu of every branch).
+const cachedMenu = unstable_cache(
+  (venueId: string | null = null): Promise<MenuResult> =>
+    fetchMenu(createStaticSupabase(), venueId).then(ok),
   ['cafe-menu'],
   { tags: ['menu'], revalidate: 60 },
 );
 
+export async function getCachedMenu(venueId: string | null = null): Promise<MenuResult> {
+  try {
+    return await cachedMenu(venueId);
+  } catch (e) {
+    return err(e); // also missing env: client creation throws synchronously
+  }
+}
+
 /** The hero / featured / ticker settings of one branch (one entry per branch, as above). */
-export const getCachedCafeSettings = unstable_cache(
-  (venueId: string | null = null): Promise<CafeSettings> => {
-    try {
-      return fetchCafeSettings(createStaticSupabase(), venueId).catch(() => ({
-        ...DEFAULT_CAFE_SETTINGS,
-        ticker_en: [],
-        ticker_ar: [],
-      }));
-    } catch {
-      return Promise.resolve({ ...DEFAULT_CAFE_SETTINGS, ticker_en: [], ticker_ar: [] });
-    }
-  },
+const cachedCafeSettings = unstable_cache(
+  (venueId: string | null = null): Promise<CafeSettings> => fetchCafeSettings(createStaticSupabase(), venueId),
   ['cafe-settings'],
   { tags: ['menu'], revalidate: 60 },
 );
+
+export async function getCachedCafeSettings(venueId: string | null = null): Promise<CafeSettings> {
+  try {
+    return await cachedCafeSettings(venueId);
+  } catch {
+    return { ...DEFAULT_CAFE_SETTINGS, ticker_en: [], ticker_ar: [] };
+  }
+}
 
 /**
  * Every open branch, oldest first: names, address, hours, phone. Same `menu`
@@ -80,20 +86,26 @@ export const getCachedCafeSettings = unstable_cache(
  * hard-coded address with no hours rather than taking the page down, and the
  * café menu falls back to its unfiltered read.
  */
-export const getCachedBranches = unstable_cache(
-  (): Promise<VenueBranch[]> => {
-    try {
-      return fetchBranches(createStaticSupabase()).catch((e: unknown): VenueBranch[] => {
-        console.error('[menu.server] fetchBranches failed:', e);
-        return [];
-      });
-    } catch {
-      return Promise.resolve([]); // missing env
-    }
-  },
+const cachedBranches = unstable_cache(
+  (): Promise<VenueBranch[]> => fetchBranches(createStaticSupabase()),
   ['cafe-branches'],
   { tags: ['menu'], revalidate: 60 },
 );
+
+/** The open branches, or null when they could not be read (never cached). */
+export async function getBranchesOrNull(): Promise<VenueBranch[] | null> {
+  try {
+    return await cachedBranches();
+  } catch (e) {
+    console.error('[menu.server] fetchBranches failed:', e);
+    return null; // also missing env
+  }
+}
+
+/** The open branches; an empty list when they could not be read. */
+export async function getCachedBranches(): Promise<VenueBranch[]> {
+  return (await getBranchesOrNull()) ?? [];
+}
 
 /**
  * The open branch the guest's table token belongs to, or null. DELIBERATELY NOT

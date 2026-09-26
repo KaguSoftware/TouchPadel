@@ -52,14 +52,15 @@ function BookingDetailScreen() {
   // Fetched by id (RLS-scoped) — finding it in the 100-row list made any older
   // booking opened from a push tap render "not found".
   const reservation = useReservation(typeof id === 'string' ? id : undefined);
-  // Every open branch's courts, and the settings of the booking's OWN branch
-  // (its cancellation window, its phone, its clock), whichever branch the Book
-  // tab shows. Until the court is known the settings wait (null), so the
-  // policy is never judged against another branch's window; a court that is
-  // not in the list (its branch closed since) falls back to the guest's branch.
+  // The settings of the booking's OWN branch (its cancellation window, its
+  // phone, its clock), whichever branch the Book tab shows. The row names its
+  // branch (0235); a row cached before that falls back to its court's branch.
+  // Until the branch is known the settings wait (null), so the policy is never
+  // judged against another branch's window.
   const courts = useAllCourts();
   const bookingCourtId = reservation.data?.court_id;
-  const bookingVenue = courts.data?.find((c) => c.id === bookingCourtId)?.venue_id;
+  const bookingVenue =
+    reservation.data?.venue_id ?? courts.data?.find((c) => c.id === bookingCourtId)?.venue_id;
   const settings = useVenueSettings(
     bookingVenue ?? (courts.isSuccess && reservation.isSuccess ? undefined : null),
   );

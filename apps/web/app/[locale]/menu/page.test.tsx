@@ -183,11 +183,13 @@ describe('café menu page', () => {
     expect(bandWords()).toHaveLength(MENU_FIXTURE.length);
   });
 
-  it('falls back to the unfiltered read when the branch list could not be read', async () => {
+  it('says the menu is unavailable when the branch list could not be read, never mixing branches', async () => {
+    // Multi-venue audit: the unfiltered read returned every branch's menu at once.
+    serverData.branches = [];
     serverData.venue = null;
     await renderServerPage(CafeMenuPage, 'en');
 
-    expect(reads.menu).toEqual([null]);
+    expect(reads.menu).toEqual([]);
     expect(document.querySelector('.tp-branches')).toBeNull();
   });
 
@@ -261,21 +263,32 @@ describe('café menu page', () => {
       expect(document.querySelector('.tp-cafe__table')).not.toBeNull();
     });
 
-    it('lets the table beat a ?b= slug', async () => {
+    it('lets a ?b= slug beat an old table cookie (the table only browses there)', async () => {
+      // Multi-venue audit: the 12 h cookie used to override the branch the guest asked for.
       cookieJar.table = 'tp-fixture-token';
       reads.tableBranch = SECOND_BRANCH.id;
       await renderServerPage(CafeMenuPage, 'en', { b: 'fixture-a' });
 
+      expect(reads.menu).toEqual([VENUE_FIXTURE.id]);
+    });
+
+    it("shows the table's branch when no branch is asked for", async () => {
+      cookieJar.table = 'tp-fixture-token';
+      reads.tableBranch = SECOND_BRANCH.id;
+      await renderServerPage(CafeMenuPage, 'en');
+
       expect(reads.menu).toEqual([SECOND_BRANCH.id]);
     });
 
-    it('falls back to the default branch when the token names no open branch', async () => {
+    it('asks which branch when the token names no open branch', async () => {
       cookieJar.table = 'tp-fixture-token';
       await renderServerPage(CafeMenuPage, 'en');
 
       expect(reads.tokens).toEqual(['tp-fixture-token']);
-      expect(document.querySelector('.tp-branches')).toBeNull();
-      expect(reads.menu).toEqual([VENUE_FIXTURE.id]);
+      expect(
+        screen.getByRole('heading', { level: 1, name: t('en', 'branches.web.menuPickerTitle') }),
+      ).toBeTruthy();
+      expect(reads.menu).toEqual([]);
     });
   });
 

@@ -121,7 +121,7 @@ describe('schema v1 migration', () => {
     expect(cols).toContain('device_id');
     expect(cols).toContain('resolved_by'); // v3: manager dismiss (resolveRow)
     expect(cols).toContain('resolved_at');
-    expect(d.pragma('user_version', { simple: true })).toBe(5);
+    expect(d.pragma('user_version', { simple: true })).toBe(6);
     expect(() => d.exec("INSERT INTO meta (key, value) VALUES ('k','v')")).not.toThrow();
     d.close();
   });
@@ -140,7 +140,7 @@ describe('schema v1 migration', () => {
     const file = legacyDbFile();
     openQueueAt(file).close();
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(5);
+    expect(d.pragma('user_version', { simple: true })).toBe(6);
     d.close();
   });
 });
@@ -166,6 +166,17 @@ describe('enqueue', () => {
     expect(row.payload_enc).toBe(1);
     expect(() => JSON.parse(row.payload as string)).toThrow();
     expect(peekNext()?.payload).toEqual(m.payload);
+    // No branch named on this envelope (0228): none stored.
+    expect(row.venue_scope).toBeNull();
+  });
+
+  it('keeps the branch a write was queued under (v6, 0228) for the replay', () => {
+    const m = { ...unique(), venueScope: 'c0000000-0000-4000-8000-000000000001' };
+    enqueue(m);
+    const row = openQueue()
+      .prepare('SELECT venue_scope FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey) as { venue_scope: string | null };
+    expect(row.venue_scope).toBe(m.venueScope);
   });
 
   it('refuses a duplicate idempotency key', () => {
@@ -578,7 +589,7 @@ describe('v4 -> v5 upgrade (pin_cache owner)', () => {
     db.close();
 
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(5);
+    expect(d.pragma('user_version', { simple: true })).toBe(6);
     const row = d.prepare('SELECT pin_hash, role, staff_id FROM pin_cache').get() as {
       pin_hash: string;
       role: string;
@@ -643,7 +654,7 @@ describe('v3 -> v4 upgrade (a till updated mid-service)', () => {
 
   it('adds payload_enc without touching the pending row', () => {
     const d = openQueueAt(v3DbFile());
-    expect(d.pragma('user_version', { simple: true })).toBe(5);
+    expect(d.pragma('user_version', { simple: true })).toBe(6);
     const row = d
       .prepare('SELECT state, payload_enc, payload FROM mutation_queue')
       .get() as { state: string; payload_enc: number; payload: string };
