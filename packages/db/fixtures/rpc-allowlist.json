@@ -306,6 +306,11 @@
     "deductions_page",
     "deductions_month",
     "my_deduction_proposals",
-    "my_deductions"
+    "my_deductions",
+    "submit_incident",
+    "review_incident",
+    "redact_incident",
+    "my_incidents",
+    "incidents_page"
   ]
 }

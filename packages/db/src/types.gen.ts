@@ -1092,6 +1092,19 @@ export type Database = {
         }
         Returns: Json
       }
+      incident_kind_label: { Args: { p_kind: string }; Returns: Json }
+      incident_photo_purge_due: { Args: { p_limit?: number }; Returns: Json }
+      incident_photos_purged: { Args: { p_id: string }; Returns: undefined }
+      incident_purge_due: { Args: never; Returns: Json }
+      incidents_page: {
+        Args: {
+          p_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       ingredient_on_hand: { Args: { p_ingredient: string }; Returns: number }
       is_degraded:
         | { Args: never; Returns: boolean }
@@ -1258,6 +1271,10 @@ export type Database = {
       }
       my_deductions: {
         Args: { p_month?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      my_incidents: {
+        Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
       my_marketing_notes: {
@@ -1883,6 +1900,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      redact_incident: { Args: { p_id: string }; Returns: Json }
       refund: {
         Args: {
           p_amount_iqd: number
@@ -2058,6 +2076,7 @@ export type Database = {
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       retire_device: { Args: { p_device_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
+      review_incident: { Args: { p_id: string; p_note: string }; Returns: Json }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
       rotate_table_token_secret: { Args: never; Returns: Json }
@@ -2391,6 +2410,14 @@ export type Database = {
         Returns: Json
       }
       staff_media_folder: { Args: { p_name: string }; Returns: string }
+      staff_media_orphan_purge_due: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      staff_media_orphans_purged: {
+        Args: { p_paths: string[] }
+        Returns: number
+      }
       staff_media_slot: {
         Args: { p_ext: string; p_folder: string; p_venue_id: string }
         Returns: Json
@@ -2439,6 +2466,21 @@ export type Database = {
       }
       stop_protocol: {
         Args: { p_note: string; p_run_id: string }
+        Returns: Json
+      }
+      submit_incident: {
+        Args: {
+          p_court_id?: string
+          p_description: string
+          p_idempotency_key?: string
+          p_kind: string
+          p_occurred_at: string
+          p_people_involved?: string
+          p_photos?: string[]
+          p_place: string
+          p_place_detail?: string
+          p_venue_id?: string
+        }
         Returns: Json
       }
       submit_release_idea: {
@@ -4427,6 +4469,101 @@ export type Database = {
           },
           {
             foreignKeyName: "hiring_candidates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      incident_reports: {
+        Row: {
+          court_id: string | null
+          description: string
+          id: string
+          kind: string
+          occurred_at: string
+          people_involved: string | null
+          photos: string[]
+          photos_purged_at: string | null
+          place: string
+          place_detail: string | null
+          purge_after: string
+          reported_at: string
+          reported_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          text_purged_at: string | null
+          venue_id: string
+        }
+        Insert: {
+          court_id?: string | null
+          description: string
+          id?: string
+          kind: string
+          occurred_at: string
+          people_involved?: string | null
+          photos?: string[]
+          photos_purged_at?: string | null
+          place: string
+          place_detail?: string | null
+          purge_after?: string
+          reported_at?: string
+          reported_by: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          text_purged_at?: string | null
+          venue_id: string
+        }
+        Update: {
+          court_id?: string | null
+          description?: string
+          id?: string
+          kind?: string
+          occurred_at?: string
+          people_involved?: string | null
+          photos?: string[]
+          photos_purged_at?: string | null
+          place?: string
+          place_detail?: string | null
+          purge_after?: string
+          reported_at?: string
+          reported_by?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          text_purged_at?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incident_reports_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incident_reports_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incident_reports_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incident_reports_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

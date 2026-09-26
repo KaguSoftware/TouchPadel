@@ -3670,6 +3670,48 @@ export const matrix: MatrixRule[] = [
     note: 'any active staff member at the venue: their own approved and cancelled deductions',
     drop: 18,
   },
+  // incident_reports (§2.6): MGMT rows, everyone else silence
+  // (incident-reports.test.ts).
+  {
+    kind: 'write',
+    name: 'incident_reports',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: submit_incident, review_incident and redact_incident only',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'submit_incident',
+    args: { p_kind: 'matrix-never', p_occurred_at: TS_FROM, p_place: 'cafe', p_description: 'matrix', p_venue_id: VENUE_A },
+    expect: STAFF_ANY,
+    note: 'any active staff member at the venue; an unknown kind fails INVALID_ARGUMENT past the guard, so nothing is written',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'review_incident',
+    args: { p_id: NIL_UUID, p_note: 'matrix' }, expect: STAFF_ANY,
+    note: 'any active staff member; then MGMT at the report\'s venue, never the reporter. An unknown report is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'redact_incident',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the owner. An unknown report is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_incidents',
+    args: { p_venue_id: VENUE_A }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue: their own reports',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'incidents_page',
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    note: 'MGMT at the venue; an unknown filter fails INVALID_ARGUMENT past the guard',
+    drop: 18,
+  },
   // ── wave 5, lane R: the waiter answers guests' calls (wave5-addendum-2026-09-25
   // §2.1.8, §8 Q3). assistant_barista_waiter_access adds the waiter to the
   // waiter_calls read and to both call RPCs, and gives the RPCs a venue

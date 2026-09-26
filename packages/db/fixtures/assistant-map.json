@@ -1,5 +1,5 @@
 {
-  "generated_from": "f254201666b54bf65e399788a376c0cb2c1ff288",
+  "generated_from": "4f67820013cc25fdc9b5ebfa0c413ac0fda60ce5",
   "chunks": [
     {
       "kind": "page",
@@ -2451,6 +2451,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.incidents_page",
+      "lang": "en",
+      "title": "app.incidents_page",
+      "body": "incident_reports (wave5-addendum §2.6.2). MGMT at the venue: {incidents: [<my_incidents row> + {reported_by_name, reported_by_role, reported_at, can_review, can_redact}], open_count, total} for p_filter open (oldest first), reviewed or all (newest first), p_limit 1 to 200. INVALID_ARGUMENT (hint filter); FORBIDDEN for anyone else.\nSignature: app.incidents_page(p_venue_id uuid default null, p_filter text default 'open', p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0198 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.is_degraded",
       "lang": "en",
       "title": "app.is_degraded",
@@ -2663,6 +2671,14 @@
       "lang": "en",
       "title": "app.my_deductions",
       "body": "salary_deductions (wave5-addendum §2.5.2, §2.5.3). Any active staff member at the venue: {month, total_iqd, deductions: [{id, amount_iqd, deduction_date, dated_earlier, reason, status, decided_at}]}, their own approved and cancelled deductions whose pay month is p_month (NULL: the venue's current business month); total_iqd counts the approved ones. Never a waiting, declined or withdrawn row, the proposer, the decision note or the cancel reason. FORBIDDEN for anyone else.\nSignature: app.my_deductions(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_incidents",
+      "lang": "en",
+      "title": "app.my_incidents",
+      "body": "incident_reports (wave5-addendum §2.6.2). Any active staff member at the venue: {incidents: [{id, kind, occurred_at, place, court_id, court_name_en, court_name_ar, place_detail, description, people_involved, photos, status, reviewed_by_name, reviewed_at, review_note, redacted}]}, their own reports newest first, with the review note, p_limit 1 to 100 (default 30). FORBIDDEN for anyone else.\nSignature: app.my_incidents(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0198 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2971,6 +2987,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.redact_incident",
+      "lang": "en",
+      "title": "app.redact_incident",
+      "body": "incident_reports (wave5-addendum §2.6.2). The owner replaces a report's description with a marker and empties who was involved, the place detail and the review note, now; purge_after becomes now, so protocol-action removes the photos at its next tick. No reason is stored. State-idempotent: a redacted report returns its stamp again. Returns {text_purged_at}. REF_NOT_FOUND, FORBIDDEN. Audit incident.redact {} -> {redacted: true}.\nSignature: app.redact_incident(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: incident.redact.\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0198 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.refund",
       "lang": "en",
       "title": "app.refund",
@@ -3120,6 +3144,14 @@
       "title": "app.retry_telegram_outbox",
       "body": "Signature: app.retry_telegram_outbox(p_id bigint) returns void.\nGranted to: authenticated. Guard: staff role in (owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, OUTBOX_NOT_FOUND.\nCalled from: apps/operator/src/features/admin/telegram/OutboxList.tsx (pages /admin).\nDefined in migration 0091 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/admin"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.review_incident",
+      "lang": "en",
+      "title": "app.review_incident",
+      "body": "incident_reports (wave5-addendum §2.6.2). MGMT at the report's venue reviews an open report, never their own, with a note (1 to 1000), and tells the reporter (staff_info / incident_reviewed, the kind only). Returns {status: reviewed, reviewed_at}. REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED (already reviewed), CANNOT_DECIDE_OWN, TEXT_REQUIRED, TEXT_TOO_LONG (hint note). Audit incident.review {status}.\nSignature: app.review_incident(p_id uuid, p_note text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: incident.review.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0198 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -3551,6 +3583,14 @@
       "lang": "en",
       "title": "app.stop_protocol",
       "body": "protocols_engine_rpcs (§2.7). MGMT at the run's venue (PROPOSAL) stops an active or scheduled run with a reason; the kind's stop hook runs and the starter and the actors of open steps get run_stopped. REASON_REQUIRED, PROTOCOL_CLOSED. Returns {run_status}. Audit protocol.stop.\nSignature: app.stop_protocol(p_run_id uuid, p_note text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: protocol.stop.\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, REASON_REQUIRED, PROTOCOL_CLOSED.\nCalled from: apps/operator/src/features/protocols/RunSheet.tsx.\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.submit_incident",
+      "lang": "en",
+      "title": "app.submit_incident",
+      "body": "incident_reports (wave5-addendum §2.6.2). Any active staff member at the venue files a report: a kind (accident, injury, fight, damage, other), when (7 days back to 10 minutes ahead), a place (court with a court of the venue, cafe, shop, outside, other), a description (1 to 2000), optionally a place detail (120), who was involved (1000) and up to 6 photos in the incidents folder. Tells MGMT at the venue (staff_task / incident_reported, the reporter's name and the kind only). Returns {id}. Idempotent by key. FORBIDDEN, INVALID_ARGUMENT (hint kind, place, occurred_at, court_id or photos), REF_NOT_FOUND (hint court_id), TEXT_REQUIRED, TEXT_TOO_LONG (hint description, people_involved or place_detail), PHOTO_PATH_INVALID. Audit incident.report {kind, place, court_id, photos: n}.\nSignature: app.submit_incident(p_kind text, p_occurred_at timestamptz, p_place text, p_description text, p_court_id uuid default null, p_place_detail text default null, p_people_involved text default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: incident.report.\nError codes: FORBIDDEN, INVALID_ARGUMENT, REF_NOT_FOUND, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0198 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4167,6 +4207,14 @@
       "lang": "en",
       "title": "table hiring_candidates",
       "body": "hiring (§2.12): the candidates of one hiring run. Personal data of people who are not staff: read by MGMT at the venue only, never by the owner assistant, and deleted by app.hiring_purge_due 90 days after the decision. Written through app.save_hiring_candidate and app.delete_hiring_candidate while the interviews step is open.\nCreated in migration 0176.\nColumns:\n  id uuid primary key default gen_random_uuid() — Candidate id.\n  venue_id uuid not null references venues(id) — The run's venue.\n  run_id uuid not null references protocol_runs(id) on delete cascade — The hiring run.\n  candidate_name text not null check (coalesce(length(btrim(candidate_name)),0) between 1 and 80) — The candidate's name as the manager typed it (1-80).\n  candidate_phone text not null check (coalesce(length(btrim(candidate_phone)),0) between 1 and 32) — The candidate's phone number (at most 32).\n  brief text not null default '' check (length(brief) <= 1000) — The manager's notes on the candidate (at most 1000).\n  interview_at timestamptz — When the interview is or was.\n  picked boolean not null default false — The candidate the run picked; at most one per run. Follows the approved interviews record.\n  pick_reason text check (pick_reason is null or length(pick_reason) <= 1000) — Why this candidate (at most 1000).\n  created_by uuid not null references staff(id) — Who added the candidate.\n  created_at timestamptz not null default now() — When the candidate was added.\n  decided_at timestamptz — When the pick was approved, or the run stopped.\n  purge_after timestamptz — When app.hiring_purge_due deletes the row: 90 days after decided_at.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:incident_reports",
+      "lang": "en",
+      "title": "table incident_reports",
+      "body": "incident_reports (wave5-addendum §2.6, answer #6): accidents, injuries, fights and damage at the venue as staff report them, reviewed by MGMT. Immutable once filed. The text is replaced by a marker and the photos removed 365 days after the report (or at once on the owner's redaction). No guest link on purpose. Read by MGMT at the venue; the reporter reads their own through app.my_incidents. Never readable by the owner assistant or any LLM.\nCreated in migration 0198.\nColumns:\n  id uuid primary key default gen_random_uuid() — Report id.\n  venue_id uuid not null references venues(id) — The venue.\n  kind text not null — accident, injury, fight, damage or other.\n  occurred_at timestamptz not null — When it happened: from 7 days before the report to 10 minutes after.\n  place text not null — court, cafe, shop, outside or other.\n  court_id uuid references courts(id) — The court, when the place is a court (and only then).\n  place_detail text — Where exactly, as typed (at most 120 characters); emptied by the purge.\n  description text not null — What happened, as typed (1 to 2000 characters); replaced by a marker by the purge or a redaction.\n  people_involved text — Who was involved, as typed (at most 1000 characters); may name guests; emptied by the purge.\n  photos text[] not null default '{}' — Photos: staff-media paths in the incidents folder (at most 6); emptied once protocol-action removed the objects.\n  reported_by uuid not null references staff(id) — The staff member who reported it.\n  reported_at timestamptz not null default now() — When it was reported.\n  status text not null default 'open' — open, or reviewed by MGMT.\n  reviewed_by uuid references staff(id) — The manager or owner who reviewed it: never the reporter.\n  reviewed_at timestamptz — When it was reviewed.\n  review_note text — The reviewer's note (1 to 1000 characters); corrections go here; emptied by the purge.\n  purge_after timestamptz not null default now() + interval '365 days' — When the text and photos go: 365 days after the report, or the moment of a redaction.\n  text_purged_at timestamptz — When the text was replaced (the purge or a redaction); NULL while it is kept.\n  photos_purged_at timestamptz — When protocol-action removed the photos from storage.",
       "route": null
     },
     {
@@ -6055,6 +6103,142 @@
       "lang": "en",
       "title": "hiring_candidates.venue_id",
       "body": "uuid not null references venues(id)\nThe run's venue.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.court_id",
+      "lang": "en",
+      "title": "incident_reports.court_id",
+      "body": "uuid references courts(id)\nThe court, when the place is a court (and only then).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.description",
+      "lang": "en",
+      "title": "incident_reports.description",
+      "body": "text not null\nWhat happened, as typed (1 to 2000 characters); replaced by a marker by the purge or a redaction.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.kind",
+      "lang": "en",
+      "title": "incident_reports.kind",
+      "body": "text not null\naccident, injury, fight, damage or other.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.occurred_at",
+      "lang": "en",
+      "title": "incident_reports.occurred_at",
+      "body": "timestamptz not null\nWhen it happened: from 7 days before the report to 10 minutes after.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.people_involved",
+      "lang": "en",
+      "title": "incident_reports.people_involved",
+      "body": "text\nWho was involved, as typed (at most 1000 characters); may name guests; emptied by the purge.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.photos",
+      "lang": "en",
+      "title": "incident_reports.photos",
+      "body": "text[] not null default '{}'\nPhotos: staff-media paths in the incidents folder (at most 6); emptied once protocol-action removed the objects.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.photos_purged_at",
+      "lang": "en",
+      "title": "incident_reports.photos_purged_at",
+      "body": "timestamptz\nWhen protocol-action removed the photos from storage.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.place",
+      "lang": "en",
+      "title": "incident_reports.place",
+      "body": "text not null\ncourt, cafe, shop, outside or other.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.place_detail",
+      "lang": "en",
+      "title": "incident_reports.place_detail",
+      "body": "text\nWhere exactly, as typed (at most 120 characters); emptied by the purge.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.purge_after",
+      "lang": "en",
+      "title": "incident_reports.purge_after",
+      "body": "timestamptz not null default now() + interval '365 days'\nWhen the text and photos go: 365 days after the report, or the moment of a redaction.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.reported_at",
+      "lang": "en",
+      "title": "incident_reports.reported_at",
+      "body": "timestamptz not null default now()\nWhen it was reported.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.reported_by",
+      "lang": "en",
+      "title": "incident_reports.reported_by",
+      "body": "uuid not null references staff(id)\nThe staff member who reported it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.review_note",
+      "lang": "en",
+      "title": "incident_reports.review_note",
+      "body": "text\nThe reviewer's note (1 to 1000 characters); corrections go here; emptied by the purge.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.reviewed_at",
+      "lang": "en",
+      "title": "incident_reports.reviewed_at",
+      "body": "timestamptz\nWhen it was reviewed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.reviewed_by",
+      "lang": "en",
+      "title": "incident_reports.reviewed_by",
+      "body": "uuid references staff(id)\nThe manager or owner who reviewed it: never the reporter.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.status",
+      "lang": "en",
+      "title": "incident_reports.status",
+      "body": "text not null default 'open'\nopen, or reviewed by MGMT.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:incident_reports.text_purged_at",
+      "lang": "en",
+      "title": "incident_reports.text_purged_at",
+      "body": "timestamptz\nWhen the text was replaced (the purge or a redaction); NULL while it is kept.",
       "route": null
     },
     {
@@ -13867,6 +14051,14 @@
     },
     {
       "kind": "system",
+      "ref": "system:cron:tp_incident_purge",
+      "lang": "en",
+      "title": "cron job tp_incident_purge",
+      "body": "Runs select app.incident_purge_due();. Schedules seen in migrations, latest last: '50 3 * * *' (0198). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
       "ref": "system:cron:tp_price_promo_apply",
       "lang": "en",
       "title": "cron job tp_price_promo_apply",
@@ -13982,7 +14174,7 @@
       "ref": "system:edge:protocol-action",
       "lang": "en",
       "title": "edge function protocol-action",
-      "body": "verify_jwt = true (supabase/config.toml).\nprotocol-action (build-contracts-2026-09-23 §2.20; plan §5.1 \"Launch\").\n\n  POST {action:'launch', run_step_id, when:'now'|'date', at?, photo_path, idempotency_key}\n    owner session (requireStaffRole ['owner']). For `now` the chosen photo\n    is copied from staff-media to menu-media/items/<menu_item_id>/<run_id>.<ext>\n    first (storage.copy with destinationBucket; download and upload over it\n    when that is refused, a retry's existing object included), then the\n    launch step is sent through app.submit_step WITH THE CALLER'S JWT, so\n    the engine sees the owner and the launch check accepts exactly that\n    path, copied. A refused step has its copy removed again. Returns the\n    submit_step result.\n  POST {action:'tick'}\n    service role (cron tp_protocol_tick through app.protocol_tick_nudge):\n    the due scheduled launches, then the photo purge. Returns\n    {launched, reverted, skipped, failed, purged}.\n\nverify_jwt = true (config.toml). The flows are in logic.ts, pure.",
+      "body": "verify_jwt = true (supabase/config.toml).\nprotocol-action (build-contracts-2026-09-23 §2.20; plan §5.1 \"Launch\").\n\n  POST {action:'launch', run_step_id, when:'now'|'date', at?, photo_path, idempotency_key}\n    owner session (requireStaffRole ['owner']). For `now` the chosen photo\n    is copied from staff-media to menu-media/items/<menu_item_id>/<run_id>.<ext>\n    first (storage.copy with destinationBucket; download and upload over it\n    when that is refused, a retry's existing object included), then the\n    launch step is sent through app.submit_step WITH THE CALLER'S JWT, so\n    the engine sees the owner and the launch check accepts exactly that\n    path, copied. A refused step has its copy removed again. Returns the\n    submit_step result.\n  POST {action:'tick'}\n    service role (cron tp_protocol_tick through app.protocol_tick_nudge):\n    the due scheduled launches, then the photo purge, then the photos of\n    incident reports past their purge date, then the incidents and campaigns\n    photos nobody claimed within a day. Returns\n    {launched, reverted, skipped, failed, purged, incidents_purged, orphans_purged}.\n\nverify_jwt = true (config.toml). The flows are in logic.ts, pure.",
       "route": null
     },
     {

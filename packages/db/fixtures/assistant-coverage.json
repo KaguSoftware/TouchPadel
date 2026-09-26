@@ -110,7 +110,8 @@
     "venue_settings": "table_read",
     "venues": "table_read",
     "waiter_calls": "table_read",
-    "salary_deductions": "excluded: staff pay deductions, money about a named person; never readable by the owner assistant or any LLM"
+    "salary_deductions": "excluded: staff pay deductions, money about a named person; never readable by the owner assistant or any LLM",
+    "incident_reports": "excluded: incident reports may name guests and describe injuries; never sent to the owner assistant or any LLM; purged 365 days after the report"
   },
   "views": {
     "cafe_settings_public": "table_read",
@@ -706,7 +707,18 @@
     "deductions_page": "map:action",
     "deductions_month": "map:action",
     "my_deduction_proposals": "map:action",
-    "my_deductions": "map:action"
+    "my_deductions": "map:action",
+    "submit_incident": "map:action",
+    "review_incident": "map:action",
+    "redact_incident": "map:action",
+    "my_incidents": "map:action",
+    "incidents_page": "map:action",
+    "incident_kind_label": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "incident_purge_due": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "incident_photo_purge_due": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "incident_photos_purged": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "staff_media_orphan_purge_due": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "staff_media_orphans_purged": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
   },
   "routes": {
     "/admin": "map:page",
@@ -790,7 +802,8 @@
     "tp_push_sweep": "map:system",
     "tp_release_review": "map:system",
     "tp_telegram_prune": "map:system",
-    "tp_telegram_sweep": "map:system"
+    "tp_telegram_sweep": "map:system",
+    "tp_incident_purge": "map:system"
   },
   "docs": {
     "API.md": "index:doc",
