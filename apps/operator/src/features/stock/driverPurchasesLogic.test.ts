@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deliveredWhen, lineDraftProblem, lineKind, readPurchases, unitCost } from './driverPurchasesLogic';
+import { deliveredWhen, lineDraftProblem, lineKind, purchaseHasShopLine, readPurchases, unitCost, type PurchaseLine } from './driverPurchasesLogic';
 
 // The pure half of Goods in ▸ "Bought by the driver" (DriverPurchases.tsx).
 
@@ -88,5 +88,28 @@ describe('unitCost', () => {
     expect(unitCost({ price_iqd: 6000, qty: 2000 })).toBe(3);
     expect(unitCost({ price_iqd: 1000, qty: 3 })).toBe(333.3333);
     expect(unitCost({ price_iqd: 1000, qty: 0 })).toBe(0);
+  });
+});
+
+describe('purchaseHasShopLine', () => {
+  // Shop stock lives in the cafe store only (wave5-addendum-2026-09-25 V14):
+  // receive_purchase refuses such a line into the bakery store, so the picker
+  // turns the bakery store off while one is still to receive.
+  const kinds = new Map([
+    ['ing-milk', 'purchased'],
+    ['ing-water', 'retail'],
+  ]);
+  const l = (over: Record<string, unknown>) => line(over) as PurchaseLine;
+
+  it('finds a shop line still to receive', () => {
+    expect(purchaseHasShopLine([l({}), l({ id: 'l-water', ingredient_id: 'ing-water' })], kinds)).toBe(true);
+    expect(purchaseHasShopLine([l({})], kinds)).toBe(false);
+  });
+
+  it('ignores a shop line already dealt with, switched off, not stock, or of a kind it does not know', () => {
+    expect(purchaseHasShopLine([l({ ingredient_id: 'ing-water', status: 'received' })], kinds)).toBe(false);
+    expect(purchaseHasShopLine([l({ ingredient_id: 'ing-water', ingredient_active: false })], kinds)).toBe(false);
+    expect(purchaseHasShopLine([l({ ingredient_id: null, ingredient_active: null, label: 'Bin bags' })], kinds)).toBe(false);
+    expect(purchaseHasShopLine([l({ ingredient_id: 'ing-unknown' })], kinds)).toBe(false);
   });
 });

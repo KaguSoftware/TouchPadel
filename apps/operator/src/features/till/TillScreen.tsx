@@ -30,6 +30,7 @@ import { LOCAL_TAB_PREFIX, appendOfflineLines, listOfflineTabs, subscribeOffline
 import { QK, fetchActiveCafeTables, fetchOpenDay } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
+import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -590,7 +591,8 @@ export function TillScreen() {
         </span>
         <aside style={{ gridColumn: 2, gridRow: 2, minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)' }}>
           <WaiterCallsPanel status={floorStatus} />
-          <StartShiftBanner />
+          {/* Wave 5 (§5.1): the till shift's start panel while none is open, else the sound strip. */}
+          <TillShiftPanel fallback={<StartShiftBanner />} />
           <OtherTabsList tabs={others} onPick={(id) => void selectTab(id)} />
         </aside>
         {overlays}
@@ -601,7 +603,7 @@ export function TillScreen() {
   // ---- order view -------------------------------------------------------------
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', blockSize: '100%', minBlockSize: 0 }}>
-      <StartShiftBanner />
+      <TillShiftPanel fallback={<StartShiftBanner />} />
       <WaiterCallsPanel status={floorStatus} layout="strip" />
       <div
         style={{

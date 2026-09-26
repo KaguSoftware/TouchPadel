@@ -44,15 +44,16 @@ management** where noted). Nothing is used for advertising, analytics or fraud-p
 | Personal info → **Phone number** | Yes | Required | App functionality, Account management | Sign-in, the one-time verification code, the desk calling about a booking |
 | Personal info → **User IDs** | Yes | Required | App functionality, Account management | The account id |
 | Financial info → **Purchase history** | Yes | Required | App functionality | Court bookings and their prices (paid at the venue; no card data is ever collected) |
+| Financial info → **Other financial info** | Yes | Optional | App functionality | **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) a head or manager records against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |
 | App activity → **Other actions** | Yes | Required | App functionality | Bookings made and cancelled |
 | Device or other IDs → **Device or other IDs** | Yes | Optional | App functionality | The push-notification token, only if notifications are allowed |
-| Photos and videos → **Photos** | Yes | Optional | App functionality | **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task), re-encoded on the phone without location metadata. A guest account cannot upload a photo |
-| App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item or a marketing draft |
+| Photos and videos → **Photos** | Yes | Optional | App functionality | **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task, an incident report), re-encoded on the phone without location metadata. A guest account cannot upload a photo |
+| App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |
 
 **Not collected:** location (approximate or precise), web browsing, contacts, calendar, videos, audio, files,
 health and fitness, messages, app info and performance (crash logs, diagnostics), financial info other than purchase
-history (no card or bank details), race/religion/political or other sensitive info. Photos only as above: from staff
-accounts, never from a guest.
+history and the staff-only advances and deductions above (no card or bank details), race/religion/political or other
+sensitive info. Photos only as above: from staff accounts, never from a guest.
 
 > Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes
 > guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app

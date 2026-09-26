@@ -54,6 +54,7 @@ import { CreateReservationDialog } from './CreateReservationDialog';
 import { todayInTz, tonightInTz, useTradingNight } from './useTradingNight';
 import { hasEnded, statesById, toSettle, unsettledBefore, type BillStateRow } from './payment/deskPaymentLogic';
 import { useBookingBillStates } from './payment/useBookingBill';
+import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 
 const ARRIVAL_HORIZON_MS = 60 * 60_000;
 /**
@@ -786,6 +787,8 @@ export function TodaysBoardScreen() {
 
   return (
     <>
+      {/* Wave 5 (§2.9.9, §5.1): the desk's shift, asked for before the first court payment. */}
+      <TillShiftPanel style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />
       <TodaysBoardView
         status={status}
         error={settingsQ.error ?? courtsQ.error ?? reservationsQ.error}

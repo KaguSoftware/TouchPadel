@@ -24,6 +24,10 @@ import { PURCHASE_ROLES, SHOPPING_ROLES } from './supplies/logic';
 import { TEACHING_ROLES } from './teachings/logic';
 import { RECIPE_CHANGE_ROLES, RECIPE_ROLES } from './recipes/logic';
 import { STOCK_ROLES } from './stock/logic';
+import { COUNT_ROLES, LOG_ROLES, MOVE_ROLES } from './stores/logic';
+import { CALL_ROLES } from './calls/logic';
+import { DEDUCT_ROLES } from './deductions/logic';
+import { CONTENT_ROLES } from './content/logic';
 
 export interface StaffRowDef {
   /** Stable name of the row. */
@@ -143,14 +147,39 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     labelKey: 'staff.checklists.recipeChange.title',
     roles: RECIPE_CHANGE_ROLES,
   },
-  // Quantities only (#68): the heads read the cafe, the desk the shop,
-  // management everything.
+  // Quantities only (#68): the heads and the waiter read bought-in and
+  // made-here stock store by store (wave 5), the desk the shop, management
+  // everything.
   {
     id: 'stock',
     testID: 'staff.row.stock',
     href: '/staff-stock',
     labelKey: 'staff.checklists.stock.title',
     roles: STOCK_ROLES,
+  },
+  // Wave 5, the stores (S, wave5-addendum-2026-09-25 §5.3), beside Stock: add
+  // what arrived (LOG), move between the cafe and the bakery (MOVE), count the
+  // bakery blind (COUNT). Each row's roles are its page's gate, the server's.
+  {
+    id: 'stock-log',
+    testID: 'staff.row.stock-log',
+    href: '/staff-stock-log',
+    labelKey: 'staff.stores.rows.log',
+    roles: LOG_ROLES,
+  },
+  {
+    id: 'stock-move',
+    testID: 'staff.row.stock-move',
+    href: '/staff-stock-move',
+    labelKey: 'staff.stores.rows.move',
+    roles: MOVE_ROLES,
+  },
+  {
+    id: 'stock-count',
+    testID: 'staff.row.stock-count',
+    href: '/staff-stock-count',
+    labelKey: 'staff.stores.rows.count',
+    roles: COUNT_ROLES,
   },
   // Everyone posts (#63).
   {
@@ -174,6 +203,41 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     href: '/staff-marketing-requests',
     labelKey: 'staff.marketing.rows.inbox',
     roles: ['marketing'],
+  },
+  // Wave 5, lane R (wave5-addendum-2026-09-25 §2.1.8, §8 Q3): guests' "call a
+  // waiter", answered on the waiter's phone; Today shows the open count and puts
+  // the row first (staff.tsx ROW_GROUPS).
+  {
+    id: 'calls',
+    testID: 'staff.row.calls',
+    href: '/staff-calls',
+    labelKey: 'staff.calls.title',
+    roles: CALL_ROLES,
+  },
+  // Wave 5, the people records (P, wave5-addendum-2026-09-25 §5.3). The heads
+  // and management propose pay deductions (DEDUCT); everyone else reads their
+  // own from the requests page's "My deductions" row. Every role reports an
+  // incident. Marketing sends content and the owners decide it (§8 Q14: never
+  // a manager).
+  {
+    id: 'deductions',
+    testID: 'staff.row.deductions',
+    href: '/staff-deductions',
+    labelKey: 'staff.deductions.row',
+    roles: DEDUCT_ROLES,
+  },
+  {
+    id: 'incidents',
+    testID: 'staff.row.incidents',
+    href: '/staff-incidents',
+    labelKey: 'staff.incidents.row',
+  },
+  {
+    id: 'content',
+    testID: 'staff.row.content',
+    href: '/staff-content',
+    labelKey: 'staff.content.row',
+    roles: CONTENT_ROLES,
   },
 ];
 

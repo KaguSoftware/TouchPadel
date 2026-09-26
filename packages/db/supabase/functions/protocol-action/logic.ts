@@ -17,7 +17,11 @@
  *                           app.release_launch_scheduled; a launch that
  *                           reverts, is skipped or fails takes its copy back
  *                           out), then the photo purge of runs stopped or
- *                           withdrawn 90 days ago.
+ *                           withdrawn 90 days ago, then the photos of
+ *                           incident reports past their purge date
+ *                           (wave5-addendum-2026-09-25 §2.6.2), then the
+ *                           incidents and campaigns photos nobody claimed
+ *                           within a day.
  *
  * Errors keep the SQL contract: a refused RPC passes through mapPgError as
  * {error: '<CODE>', message, hint} with its status, and a malformed body is
@@ -25,9 +29,9 @@
  */
 import { mapPgError, type PgError } from '../_shared/http.ts';
 
-/** A staff-media path (0159, the nine folders of staff_media_folders). */
+/** A staff-media path (0159, the ten folders of staff_media_incidents). */
 export const STAFF_MEDIA_PATH_RE =
-  /^[0-9a-f-]{36}\/(proposals|tests|steps|marketing|campaigns|receipts|checklists|teachings|requests)\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
+  /^[0-9a-f-]{36}\/(proposals|tests|steps|marketing|campaigns|receipts|checklists|teachings|requests|incidents)\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -217,6 +221,11 @@ export interface PurgeDue {
   paths: string[];
 }
 
+export interface IncidentPurgeDue {
+  incident_id: string;
+  paths: string[];
+}
+
 export interface TickPorts extends MenuPhotoPorts {
   dueLaunches(): Promise<DueLaunch[]>;
   copyPhoto(from: string, to: string, contentType: string): Promise<void>;
@@ -226,6 +235,14 @@ export interface TickPorts extends MenuPhotoPorts {
   /** Removes staff-media objects. Throws on failure. */
   removePhotos(paths: string[]): Promise<void>;
   markPurged(runId: string): Promise<void>;
+  /** app.incident_photo_purge_due. Throws on failure, a missing function included. */
+  incidentPurgeDue(): Promise<IncidentPurgeDue[]>;
+  /** app.incident_photos_purged. */
+  markIncidentPurged(incidentId: string): Promise<void>;
+  /** app.staff_media_orphan_purge_due: the unclaimed paths it now holds. Throws on failure. */
+  orphanPurgeDue(): Promise<string[]>;
+  /** app.staff_media_orphans_purged: lets the held slots go. */
+  markOrphansPurged(paths: string[]): Promise<void>;
 }
 
 export interface TickResult {
@@ -234,11 +251,13 @@ export interface TickResult {
   skipped: number;
   failed: number;
   purged: number;
+  incidents_purged: number;
+  orphans_purged: number;
 }
 
 /** One pass of the 5-minute tick. One bad run never stops the others. */
 export async function tick(ports: TickPorts): Promise<TickResult> {
-  const out: TickResult = { launched: 0, reverted: 0, skipped: 0, failed: 0, purged: 0 };
+  const out: TickResult = { launched: 0, reverted: 0, skipped: 0, failed: 0, purged: 0, incidents_purged: 0, orphans_purged: 0 };
 
   for (const due of await ports.dueLaunches()) {
     const menuPath = due.menu_item_id && due.photo_path ? menuPhotoPath(due.menu_item_id, due.run_id, due.photo_path) : null;
@@ -276,6 +295,44 @@ export async function tick(ports: TickPorts): Promise<TickResult> {
       out.failed += 1;
       ports.log(`purge ${run.run_id}: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  // Incident photos past their purge date (wave5-addendum §2.6.2), last and
+  // wrapped: while db-migrate has not created incident_reports yet (the
+  // function deploys beside it, PGRST202), the phase logs one failure and
+  // the counts above stand.
+  let incidents: IncidentPurgeDue[] = [];
+  try {
+    incidents = await ports.incidentPurgeDue();
+  } catch (e) {
+    out.failed += 1;
+    ports.log(`incident purge: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  for (const incident of incidents) {
+    try {
+      const paths = incident.paths.filter((p) => STAFF_MEDIA_PATH_RE.test(p));
+      if (paths.length > 0) await ports.removePhotos(paths);
+      await ports.markIncidentPurged(incident.incident_id);
+      out.incidents_purged += 1;
+    } catch (e) {
+      out.failed += 1;
+      ports.log(`incident ${incident.incident_id}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // Photos nobody claimed a day on (an incident report or a content item
+  // never sent), last and wrapped the same way. Their slots are held until
+  // the objects are gone, so a failed removal is retried by the next tick.
+  try {
+    const paths = (await ports.orphanPurgeDue()).filter((p) => STAFF_MEDIA_PATH_RE.test(p));
+    if (paths.length > 0) {
+      await ports.removePhotos(paths);
+      await ports.markOrphansPurged(paths);
+      out.orphans_purged += paths.length;
+    }
+  } catch (e) {
+    out.failed += 1;
+    ports.log(`orphan purge: ${e instanceof Error ? e.message : String(e)}`);
   }
   return out;
 }

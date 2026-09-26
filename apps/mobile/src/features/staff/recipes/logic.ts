@@ -17,10 +17,14 @@
 import type { StaffRole } from '@touch/core';
 import { parseQty, type StockUnit } from '../supplies/production';
 
-/** Who reads recipes: the bar and kitchen family and MGMT (§2.24.6). */
+/**
+ * Who reads recipes: the bar and kitchen family and MGMT (§2.24.6), the
+ * assistant barista since wave 5 (app.recipe_view, names only for everyone).
+ */
 export const RECIPE_ROLES: readonly StaffRole[] = [
   'head_barista',
   'barista',
+  'assistant_barista',
   'head_chef',
   'chef',
   'manager',

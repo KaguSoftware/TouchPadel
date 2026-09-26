@@ -11,7 +11,7 @@
  * is the declaration; the last test prints it in the shape Google Play's Data
  * safety form and Apple's App Privacy questions ask for.
  *
- * Four things are enforced:
+ * Four things are enforced for GUEST_DATA:
  *
  *   1. DISCOVERY — the guest-linked tables are found in the live catalog, not
  *      listed here by hand. A new table carrying guest_id / profile_id /
@@ -25,9 +25,17 @@
  *      Declaring a field and forgetting to erase it is precisely the gap the
  *      store deletion requirement exists to close.
  *
+ * UNLINKED_PERSONAL (wave5-addendum-2026-09-25 §2.12) declares the tables of
+ * personal data staff type about other people that carry NO guest link on
+ * purpose, so discovery cannot find them and app.delete_my_account cannot
+ * follow them: they are erased by retention instead ('purge'). For those the
+ * test proves there is no link column, the declared columns equal the live
+ * ones, and the purge empties every 'purge' column.
+ *
  * The catalog comes from PostgREST's own OpenAPI document, which is the same
  * view of the schema the clients get.
  */
+import { execFileSync } from 'node:child_process';
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -41,6 +49,7 @@ import {
   SEED_STAFF_IDS,
   SUPABASE_URL,
   SERVICE_ROLE_KEY,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -53,6 +62,7 @@ type Category =
   | 'App activity'
   | 'Device or other IDs'
   | 'User content'
+  | 'Photos'
   | null;
 
 interface Field {
@@ -67,8 +77,10 @@ interface Field {
    *   'row'        the whole row is deleted
    *   'auth'       it goes when the auth user is destroyed
    *   'keep'       deliberately RETAINED, with the reason in `why`
+   *   'purge'      UNLINKED_PERSONAL only: no account reaches it, so it goes
+   *                by retention (a marker, NULL or an emptied list)
    */
-  onDelete?: 'scrub' | 'anonymise' | 'row' | 'auth' | 'keep';
+  onDelete?: 'scrub' | 'anonymise' | 'row' | 'auth' | 'keep' | 'purge';
 }
 
 /** Nothing personal: an id, a timestamp, a status, a foreign key. */
@@ -155,6 +167,44 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     code_used: n, idempotency_key: n, redeemed_at: n, redeemed_by: n,
   },
 };
+
+/**
+ * Personal data staff type about other people, with NO guest link on purpose
+ * (wave5-addendum §2.6.1, §2.12): erased by retention, never by an account.
+ * Every column of every table, as for GUEST_DATA.
+ */
+const UNLINKED_PERSONAL: Record<string, Record<string, Field>> = {
+  // wave 5, lane P (incident_reports): 365 days after the report, or at once
+  // on the owner's redaction, app.incident_purge_due replaces the text and
+  // protocol-action removes the photos.
+  incident_reports: {
+    id: n, venue_id: n, kind: n, occurred_at: n, place: n, court_id: n,
+    place_detail: { category: 'User content', why: 'where an incident happened, as staff typed it', onDelete: 'purge' },
+    description: { category: 'User content', why: 'what happened in an incident at the venue', onDelete: 'purge' },
+    people_involved: { category: 'Name', why: 'who was involved in an incident, which may name a guest', onDelete: 'purge' },
+    photos: { category: 'Photos', why: 'photos of an incident at the venue', onDelete: 'purge' },
+    reported_by: n, reported_at: n, status: n, reviewed_by: n, reviewed_at: n,
+    review_note: { category: 'User content', why: 'the manager’s note on an incident report', onDelete: 'purge' },
+    purge_after: n, text_purged_at: n, photos_purged_at: n,
+  },
+};
+
+const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
+function psql(sql: string): string {
+  return execFileSync(
+    'docker',
+    ['exec', '-i', CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt'],
+    { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+  ).trim();
+}
+function dockerReachable(): boolean {
+  try {
+    return psql('select 1') === '1';
+  } catch {
+    return false;
+  }
+}
+const docker = up && dockerReachable();
 
 /** The live schema as PostgREST publishes it. */
 async function liveColumns(): Promise<Record<string, string[]>> {
@@ -340,13 +390,69 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     await svc.from('courts').delete().eq('id', courtId);
   });
 
+  it('UNLINKED_PERSONAL tables carry no guest link, on purpose', () => {
+    for (const table of Object.keys(UNLINKED_PERSONAL)) {
+      expect(live[table]?.length ?? 0, `${table} is not exposed by PostgREST`).toBeGreaterThan(0);
+      expect(live[table]!.filter((c) => LINK_COLUMNS.includes(c)), table).toEqual([]);
+      expect(Object.keys(GUEST_DATA), table).not.toContain(table);
+    }
+  });
+
+  it('matches the live column set of every UNLINKED_PERSONAL table exactly, each personal column purged', () => {
+    const drift: string[] = [];
+    for (const [table, fields] of Object.entries(UNLINKED_PERSONAL)) {
+      const actual = [...(live[table] ?? [])].sort();
+      const declared = Object.keys(fields).sort();
+      for (const c of actual.filter((c) => !declared.includes(c))) drift.push(`${table}.${c} exists but is not declared`);
+      for (const c of declared.filter((c) => !actual.includes(c))) drift.push(`${table}.${c} is declared but no longer exists`);
+      for (const [col, f] of Object.entries(fields)) {
+        if (f.category && (f.onDelete !== 'purge' || !f.why)) drift.push(`${table}.${col} needs a purpose and 'purge'`);
+      }
+    }
+    expect(drift).toEqual([]);
+  });
+
+  it.skipIf(!docker)('the purge empties every UNLINKED_PERSONAL column declared purge', () => {
+    // One rolled-back transaction: a report past its date, the text purge the
+    // cron runs, and the photo pair the protocol-action tick calls.
+    const purged = (Object.entries(UNLINKED_PERSONAL.incident_reports!) as Array<[string, Field]>)
+      .filter(([, f]) => f.onDelete === 'purge')
+      .map(([c]) => c);
+    const raw = psql(`
+      begin;
+      create temp table t on commit drop as
+        select gen_random_uuid() as id, '${VENUE_A_ID}/incidents/' || gen_random_uuid() || '.jpg' as path;
+      insert into staff_media_uploads (path, venue_id, folder, uploader, used_at, used_by)
+      select t.path, '${VENUE_A_ID}', 'incidents', '${SEED_STAFF_IDS.court_desk}', now(), 'incident:' || t.id from t;
+      insert into incident_reports (id, venue_id, kind, occurred_at, place, place_detail, description, people_involved,
+                                    photos, reported_by, status, reviewed_by, reviewed_at, review_note, purge_after)
+      select t.id, '${VENUE_A_ID}', 'injury', now() - interval '366 days', 'cafe', 'SEC20 terrace', 'SEC20 what happened',
+             'SEC20 a guest', array[t.path], '${SEED_STAFF_IDS.court_desk}', 'reviewed', '${SEED_STAFF_IDS.manager}', now(),
+             'SEC20 note', now() - interval '1 day'
+        from t;
+      select app.incident_purge_due();
+      select app.incident_photos_purged(t.id) from t;
+      select row_to_json(i)::text from incident_reports i join t using (id);
+      rollback;`);
+    const row = JSON.parse(raw.split('\n').pop()!) as Record<string, unknown>;
+    const leaks: string[] = [];
+    for (const col of purged) {
+      const v = row[col];
+      const empty = v === null || (Array.isArray(v) && v.length === 0) || (typeof v === 'string' && /^\[deleted/.test(v));
+      if (!empty) leaks.push(`incident_reports.${col} still holds ${JSON.stringify(v)}`);
+    }
+    expect(leaks).toEqual([]);
+    expect(row.kind).toBe('injury');
+    expect(row.status).toBe('reviewed');
+  });
+
   /**
    * Not an assertion — the deliverable. Paste this into Google Play's Data
    * safety form and Apple's App Privacy questions.
    */
   it('prints the data-safety declaration for both store forms', () => {
     const byCategory = new Map<string, { where: string; why: string; fate: string }[]>();
-    for (const [table, fields] of Object.entries(GUEST_DATA)) {
+    for (const [table, fields] of Object.entries({ ...GUEST_DATA, ...UNLINKED_PERSONAL })) {
       for (const [col, f] of Object.entries(fields)) {
         if (!f.category) continue;
         if (!byCategory.has(f.category)) byCategory.set(f.category, []);
@@ -363,6 +469,8 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     lines.push('            on the web: https://www.touch-padel.com/en/delete-account (same RPC; the Play deletion URL).');
     lines.push('  Every "scrub"/"row" field above is proved erased by the test above this one.');
     lines.push('  "keep" is deliberate retention — the venue’s takings, not the guest’s identity.');
+    lines.push('  "purge" is retention: staff-typed records with no guest link, emptied after a year');
+    lines.push('            (incident reports: app.incident_purge_due and the protocol-action tick).');
     console.log(lines.join('\n'));
     expect(byCategory.size).toBeGreaterThan(0);
   });

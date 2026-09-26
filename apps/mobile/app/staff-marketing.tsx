@@ -11,7 +11,7 @@ import { radius, space, useTheme } from '../src/theme';
 import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { MenuRow } from '../src/components/booking';
-import { EnvelopeIcon } from '../src/components/icons';
+import { CheckIcon, EnvelopeIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 import { PhotoButton, type AttachedPhoto } from '../src/components/PhotoButton';
 import { RequireStaff } from '../src/features/staff/RequireStaff';
@@ -26,6 +26,7 @@ import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { useReduceMotion } from '../src/lib/useReduceMotion';
 import { intentFor } from '../src/features/staff/supplies/logic';
 import { PickList, type PickOption } from '../src/features/staff/marketing/PickList';
+import { fetchContentPage } from '../src/features/staff/content/api';
 import {
   addMarketingNote,
   fetchActiveRuns,
@@ -75,8 +76,9 @@ import {
  *             failed, promotion redemptions. Never a discount, revenue, tab or
  *             order figure (#73, the server's shape).
  *
- * The Requests row opens staff-marketing-requests, marketing's inbox.
- * "Approval" is parked (§0 P7): nothing here makes a campaign live.
+ * The Requests row opens staff-marketing-requests, marketing's inbox, and the
+ * Content row opens staff-content, the posts sent for the owners' approval
+ * (wave5-addendum-2026-09-25 §2.7). Nothing here makes a campaign live.
  */
 
 const DRAFT_LINKS: readonly DraftLinkKind[] = ['none', 'item', 'run'];
@@ -147,6 +149,13 @@ function MarketingScreen() {
     queryFn: () => fetchMarketingRequestsPage(venue, 'open'),
     enabled: venue !== '',
   });
+  // Wave 5 (wave5-addendum-2026-09-25 §5.3): the content row counts the
+  // items the owner sent back for changes, the ones waiting on marketing.
+  const contentChanges = useQuery({
+    queryKey: staffKeys.content(venue, 'changes'),
+    queryFn: () => fetchContentPage(venue, 'changes'),
+    enabled: venue !== '',
+  });
   const items = useQuery({
     queryKey: staffKeys.menuItems(venue),
     queryFn: () => fetchMenuItemOptions(venue),
@@ -162,6 +171,7 @@ function MarketingScreen() {
   const pull = usePullRefresh(() =>
     Promise.all([
       requests.refetch(),
+      contentChanges.refetch(),
       tab === 'take' ? notes.refetch() : tab === 'drafts' ? drafts.refetch() : results.refetch(),
     ]),
   );
@@ -705,6 +715,16 @@ function MarketingScreen() {
                 : t('staff.marketing.requestsRow')
             }
             onPress={() => router.push('/staff-marketing-requests')}
+          />
+          <MenuRow
+            testID="staff-marketing.content"
+            icon={<CheckIcon size={15} color={colors.gstrong} />}
+            label={
+              (contentChanges.data?.total ?? 0) > 0
+                ? t('staff.content.rowChanges', { count: contentChanges.data?.total ?? 0 })
+                : t('staff.content.row')
+            }
+            onPress={() => router.push('/staff-content')}
             last
           />
         </Card>

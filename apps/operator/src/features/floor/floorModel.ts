@@ -201,10 +201,12 @@ export function roomForRole(role: string): Room {
     case 'court_desk':
       return 'reception';
     // The bar and kitchen split of 0155: baristas work the bar beside the
-    // cashier, chefs the kitchen beside whoever is still on prep.
+    // cashier, chefs the kitchen beside whoever is still on prep. The
+    // assistant barista (wave 5) works the bar with them.
     case 'cashier':
     case 'head_barista':
     case 'barista':
+    case 'assistant_barista':
       return 'bar';
     case 'prep':
     case 'head_chef':
@@ -216,7 +218,9 @@ export function roomForRole(role: string): Room {
     case 'owner':
       return 'office';
     // Driver and marketing (0155) have no room of their own on the plan, so
-    // they stand where any role without one does.
+    // they stand where any role without one does; the waiter (wave 5) works
+    // the floor itself (PROPOSAL, wave 5 §2.1.6).
+    case 'waiter':
     default:
       return 'floor';
   }

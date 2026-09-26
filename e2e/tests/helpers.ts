@@ -371,3 +371,26 @@ export function channelJoined(page: Page, topic = 'menu'): Promise<void> {
     });
   }).then(() => page.waitForTimeout(1_000));
 }
+
+// ---------------------------------------------------------------------------
+// Till shifts (wave5-addendum-2026-09-25 §5.1, §8 Q30): a cashier's or the
+// desk's first payment at a station asks for a shift of their own first.
+// ---------------------------------------------------------------------------
+
+/**
+ * Call right after pressing Cash or Card. When the payment pane asks for a
+ * shift ("Start my shift"), take what the drawer is offered as counted with
+ * "That's right", so the tender opens in its place; with a shift of theirs
+ * already open, or for a manager, the tender is already there and this only
+ * waits for it.
+ */
+export async function passShiftGate(page: Page): Promise<void> {
+  const start = page.getByRole('dialog', { name: 'Start my shift' });
+  const tender = page.getByRole('dialog', { name: /^(Cash|Card)$/ });
+  await expect(start.or(tender)).toBeVisible();
+  if (await start.isVisible()) {
+    await start.getByRole('button', { name: 'That’s right' }).click();
+    await expect(start).toBeHidden();
+  }
+  await expect(tender).toBeVisible();
+}

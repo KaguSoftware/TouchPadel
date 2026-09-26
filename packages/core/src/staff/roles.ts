@@ -26,6 +26,11 @@
  * display prep had, and driver and marketing, who hold the any-staff baseline
  * and land on My tasks. `prep` is soft-retired: existing prep accounts keep
  * working, and the Staff page no longer offers it for a new account.
+ *
+ * Wave 5 appended two (docs/design/protocols/wave5-addendum-2026-09-25.md
+ * §2.1): the assistant barista, who works the bar's tickets on the kitchen
+ * display and reads the bar's teachings and recipe names, and the waiter, who
+ * holds the any-staff baseline and lands on My tasks.
  */
 export const STAFF_ROLES = [
   'cashier',
@@ -39,6 +44,8 @@ export const STAFF_ROLES = [
   'chef',
   'driver',
   'marketing',
+  'assistant_barista',
+  'waiter',
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -49,14 +56,18 @@ export const RETIRED_ROLES: readonly StaffRole[] = ['prep'];
 /**
  * The roles a new account may start on, and the only ones an owner may give an
  * owner-added protocol step (§2.1 HIREABLE; `INVALID_ROLE` outside it). Owner
- * is left out on purpose: nobody is hired as an owner.
+ * is left out on purpose: nobody is hired as an owner. The checklist and step
+ * pickers list them in this order, each new role beside its nearest
+ * (wave 5 §2.1.6).
  */
 export const HIREABLE_ROLES: readonly StaffRole[] = [
   'cashier',
+  'waiter',
   'court_desk',
   'manager',
   'head_barista',
   'barista',
+  'assistant_barista',
   'head_chef',
   'chef',
   'driver',
@@ -165,11 +176,12 @@ export function nextStaff(previous: StaffInfo | null, resolution: RoleResolution
 }
 
 /**
- * The two teams of the role spec (plan #64, #65): bar (head barista, barista)
- * and kitchen (head chef, chef). Teachings and ideas are addressed by team.
- * These are the twins of `app.staff_team` and `app.staff_team_head` (0170);
- * roles.test.ts pins the mapping. When the parked assistant barista role
- * (§0 P1) is answered, it joins `bar` in both places.
+ * The two teams of the role spec (plan #64, #65): bar (head barista, barista,
+ * and since wave 5 the assistant barista) and kitchen (head chef, chef).
+ * Teachings and ideas are addressed by team. These are the twins of
+ * `app.staff_team` and `app.staff_team_head` (0170, `staff_team` re-issued by
+ * assistant_barista_waiter_access); roles.test.ts pins the mapping. The
+ * waiter joins neither: the manager leads him (addendum §8 Q2).
  */
 export const STAFF_TEAMS = ['bar', 'kitchen'] as const;
 
@@ -180,6 +192,7 @@ export function teamOf(role: StaffRole): StaffTeam | null {
   switch (role) {
     case 'head_barista':
     case 'barista':
+    case 'assistant_barista':
       return 'bar';
     case 'head_chef':
     case 'chef':

@@ -48,10 +48,19 @@ const FORBIDDEN = {
     'record_drawer_open',
     'open_day',
     'close_day',
-    'ack_waiter_call',
-    'resolve_waiter_call',
+    // ack_waiter_call and resolve_waiter_call left this list in wave 5: the
+    // waiter answers guests' calls on the phone (wave5-addendum-2026-09-25
+    // §2.1.8, §8 Q3), guarded to his venue by 0194.
     'record_waste',
     'booking_bill',
+    // Wave 5, till shifts (wave5-addendum-2026-09-25 M7, §5.3): the till stays
+    // operator-only. A shift opens and closes at the station it beats from,
+    // which no phone does.
+    'open_till_shift',
+    'close_till_shift',
+    'close_till_shift_for',
+    'till_shift_status',
+    'till_shift_list',
   ],
   desk: [
     'staff_create_reservation',
@@ -75,6 +84,15 @@ const FORBIDDEN = {
     'upsert_rate_rule',
     'set_cafe_setting',
     'set_cafe_settings',
+    // Wave 5, the stores (wave5-addendum-2026-09-25 M7, §5.3): a manager starts,
+    // applies and discards counts, prices what staff logged, and receives the
+    // driver's purchases on the operator. The phone counts with
+    // submit_stock_count, adds with log_stock and moves with transfer_stock.
+    'start_count',
+    'finalize_count',
+    'discard_count',
+    'price_logged_stock',
+    'receive_purchase',
   ],
   // Role spec (§6.7): the owner's recipe decision on the phone goes through
   // decide_recipe_change, which writes the recipe on the server (§2.24.7).

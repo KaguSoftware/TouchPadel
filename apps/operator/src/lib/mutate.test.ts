@@ -220,6 +220,13 @@ describe('DIRECT_RPC', () => {
     expect(DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 1, movementType: 'waste_spoilage', reasonCode: 'x' }, KEY, DEV).args.p_movement_type).toBe('waste_spoilage');
   });
 
+  it('stock.waste passes the store only when the payload names one (wave 5 §2.8.6)', () => {
+    const bakery = DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 1, reasonCode: 'x', location: 'bakery' }, KEY, DEV);
+    expect(bakery.args.p_location).toBe('bakery');
+    const none = DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 1, reasonCode: 'x' }, KEY, DEV);
+    expect('p_location' in none.args).toBe(false);
+  });
+
   it('never lets a price field through — prices are server snapshots', () => {
     const call = DIRECT_RPC['order.add_items'](
       { tabId: UUID_A, items: [{ variantId: UUID_B, qty: 1, unitPriceIqd: 1 }] },

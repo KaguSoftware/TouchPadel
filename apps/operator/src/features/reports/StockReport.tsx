@@ -17,6 +17,11 @@
  * The counts up top are the lengths of the lists the server sent; nothing is
  * added up here. Each list links to the inventory screen that acts on it,
  * because nothing here is editable and report_drill has no ingredient scope.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §5.2): the expiring, expired and count
+ * rows say which store they are in, and a count row says what was Moved into
+ * (+) or out of (−) its store in the period. Stock value, running low and
+ * below par stay venue totals.
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -220,6 +225,31 @@ function stockColumns(tr: Tr, locale: Locale) {
     sort: (r) => r[key] as number | null,
     csv: (r) => r[key] as number | null,
   });
+  /**
+   * What was moved into (+) or out of (−) the count's store in its period
+   * (wave 5): always signed, since "2,000 g" alone does not say which way.
+   * The CSV keeps the signed bare number.
+   */
+  const moved: ReportColumn<VarianceRow> = {
+    key: 'transferQty',
+    header: tr('ws.stores.variance.moved'),
+    numeric: true,
+    render: (r) => {
+      const n = r.transferQty;
+      const sign = n !== null && n > 0 ? '+' : n !== null && n < 0 ? '−' : '';
+      return <Fig value={n} text={n === null ? qty(null, r.unit, locale, tr) : `${sign}${qty(Math.abs(n), r.unit, locale, tr)}`} />;
+    },
+    sort: (r) => r.transferQty,
+    csv: (r) => r.transferQty,
+  };
+  /** The row's store (wave 5); a row from before the stores prints a dash. */
+  const store = <T extends { location: 'cafe' | 'bakery' | null }>(): ReportColumn<T> => ({
+    key: 'location',
+    header: tr('ws.stores.store'),
+    render: (r) => (r.location ? tr(`work.store.${r.location}`) : '—'),
+    sort: (r) => r.location,
+    csv: (r) => (r.location ? tr(`work.store.${r.location}`) : null),
+  });
   const days = (header: MessageKey): ReportColumn<ExpiryRow> => ({
     key: 'days',
     header: tr(header),
@@ -239,8 +269,8 @@ function stockColumns(tr: Tr, locale: Locale) {
   return {
     low: screen<LowStockRow>([ingredient(), q('onHand', 'ws.reports.stock.columns.onHand', { strong: true, tone: 'danger' }), q('threshold', 'ws.reports.stock.columns.alertAt'), q('parLevel', 'ws.reports.stock.columns.par')]),
     belowPar: screen<BelowParRow>([ingredient(), q('onHand', 'ws.reports.stock.columns.onHand'), q('parLevel', 'ws.reports.stock.columns.par'), q('shortfall', 'ws.reports.stock.columns.shortBy', { strong: true, tone: 'warn' })]),
-    expiring: screen<ExpiryRow>([ingredient(), q('qtyRemaining', 'ws.reports.stock.columns.qty'), useBy, days('ws.reports.stock.columns.daysLeft'), money_('valueIqd', 'ws.reports.stock.columns.value', true)]),
-    expired: screen<ExpiryRow>([ingredient(), q('qtyRemaining', 'ws.reports.stock.columns.qty'), useBy, days('ws.reports.stock.columns.daysPast'), money_('valueIqd', 'ws.reports.stock.columns.value', true)]),
+    expiring: screen<ExpiryRow>([ingredient(), store(), q('qtyRemaining', 'ws.reports.stock.columns.qty'), useBy, days('ws.reports.stock.columns.daysLeft'), money_('valueIqd', 'ws.reports.stock.columns.value', true)]),
+    expired: screen<ExpiryRow>([ingredient(), store(), q('qtyRemaining', 'ws.reports.stock.columns.qty'), useBy, days('ws.reports.stock.columns.daysPast'), money_('valueIqd', 'ws.reports.stock.columns.value', true)]),
     used: screen<ConsumptionRow>([ingredient(), q('consumedQty', 'ws.reports.stock.columns.used'), money_('costIqd', 'ws.reports.stock.columns.cost', true)]),
     counts: screen<VarianceRow>([
       {
@@ -251,10 +281,12 @@ function stockColumns(tr: Tr, locale: Locale) {
         csv: (r) => r.countedAt,
       },
       ingredient(),
+      store(),
       q('theoreticalQty', 'ws.reports.stock.columns.expected'),
       q('countedQty', 'ws.reports.stock.columns.counted'),
       q('varianceQty', 'ws.reports.stock.columns.difference', { strong: true, tone: 'warn' }),
       q('productTestQty', 'ws.release.variance.productTest'),
+      moved,
     ]),
   };
 }

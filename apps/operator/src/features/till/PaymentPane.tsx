@@ -20,13 +20,27 @@
  * how much change to give.
  *
  * F4/F5 only open this pane; money is confirmed by click or Enter inside it.
+ *
+ * THE SHIFT GATE (wave5-addendum §2.9, §5.1, §8 Q30). Inside the shell, a
+ * cashier or the desk with no shift of their own open at this station meets
+ * the start panel here first ("Start your shift to take payment"), and the
+ * tender once it is open; someone else's open shift is closed first with a
+ * manager's PIN. A manager or owner is never asked and gets one line saying
+ * whose drawer the money goes into. The gate FAILS OPEN: loading, a failed
+ * read or an offline station shows the tender as before. The till's and the
+ * desk's payments both come through here (the desk's own cash box, §2.9.9);
+ * OfflineTabPanel takes its own and is never gated. Outside the shell (these
+ * screen tests) there is no shift context and nothing is gated.
  */
 import { useEffect, useState } from 'react';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, isolate } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { Money } from '../../components/kit';
+import { MessagePresenter, Money } from '../../components/kit';
 import { Switch } from '../../components/Switch';
+import { useTillShiftOptional } from '../tillShift/shiftContext';
+import { ShiftDialog } from '../tillShift/ShiftDialog';
+import { gateBlocks, type GateBanner } from '../tillShift/tillShiftLogic';
 import { computeChange } from './change';
 import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
 
@@ -78,6 +92,14 @@ export function PaymentPane({
   useEffect(() => {
     if (!partial) setAmount(due);
   }, [due, partial]);
+
+  const shift = useTillShiftOptional();
+  if (shift && gateBlocks(shift.gate)) {
+    // The shift first; once one is open the gate passes and this pane renders
+    // the tender in its place, so finishing here needs no call back.
+    return <ShiftDialog entry={{ kind: 'gate', onReady: noop }} onClose={onCancel} onDone={noop} />;
+  }
+  const banner = shift?.gate.kind === 'ok' ? shift.gate.banner : null;
 
   const target = partial ? Math.min(amount, due) : due;
   const change = computeChange(target, tendered);
@@ -151,6 +173,7 @@ export function PaymentPane({
           </div>
         }
       >
+        <DrawerBanner banner={banner} />
         {amountBlock}
         <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.cashier.payment.cardNote')}</p>
         <ErrorText error={error} />
@@ -186,6 +209,7 @@ export function PaymentPane({
         </div>
       }
     >
+      <DrawerBanner banner={banner} />
       {amountBlock}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start' }}>
@@ -266,4 +290,27 @@ function ChangeLine({ tendered, change }: { tendered: number; change: ReturnType
       )}
     </div>
   );
+}
+
+const noop = () => {};
+
+/**
+ * payOnOthersShift (§5.2): a manager or owner at a drawer that is not their own
+ * shift is told, once, whose drawer the money goes into; with no shift open,
+ * that it lands outside one (the next handover counts it, V18).
+ */
+function DrawerBanner({ banner }: { banner: GateBanner | null }) {
+  const { tr } = useLocale();
+  if (!banner) return null;
+  if (banner.kind === 'othersDrawer') {
+    return (
+      <MessagePresenter
+        tone="info"
+        icon="drawer"
+        message={tr('ws.tillShift.gate.othersDrawer', { name: isolate(banner.name) })}
+        style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
+      />
+    );
+  }
+  return <p style={{ ...muted, fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.tillShift.gate.noShift')}</p>;
 }

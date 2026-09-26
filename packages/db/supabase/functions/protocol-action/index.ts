@@ -12,8 +12,10 @@
  *     submit_step result.
  *   POST {action:'tick'}
  *     service role (cron tp_protocol_tick through app.protocol_tick_nudge):
- *     the due scheduled launches, then the photo purge. Returns
- *     {launched, reverted, skipped, failed, purged}.
+ *     the due scheduled launches, then the photo purge, then the photos of
+ *     incident reports past their purge date, then the incidents and campaigns
+ *     photos nobody claimed within a day. Returns
+ *     {launched, reverted, skipped, failed, purged, incidents_purged, orphans_purged}.
  *
  * verify_jwt = true (config.toml). The flows are in logic.ts, pure.
  */
@@ -26,6 +28,7 @@ import {
   parseRequest,
   tick,
   type DueLaunch,
+  type IncidentPurgeDue,
   type LaunchPorts,
   type LaunchStep,
   type PurgeDue,
@@ -125,6 +128,15 @@ function tickPorts(service: SupabaseClient): TickPorts {
     },
     markPurged: async (runId) => {
       await rpc('protocol_photos_purged', { p_run_id: runId });
+    },
+    incidentPurgeDue: async () =>
+      ((await rpc('incident_photo_purge_due', { p_limit: 20 })) as IncidentPurgeDue[] | null) ?? [],
+    markIncidentPurged: async (incidentId) => {
+      await rpc('incident_photos_purged', { p_id: incidentId });
+    },
+    orphanPurgeDue: async () => ((await rpc('staff_media_orphan_purge_due', { p_limit: 50 })) as string[] | null) ?? [],
+    markOrphansPurged: async (paths) => {
+      await rpc('staff_media_orphans_purged', { p_paths: paths });
     },
   };
 }

@@ -125,6 +125,17 @@ const CODE_TO_KEY = {
   // phone, and set_recipe's cycle check it runs.
   RECIPE_CHANGED: 'op.errors.RECIPE_CHANGED',
   RECIPE_CYCLE: 'op.errors.RECIPE_CYCLE',
+  // Wave 5 (wave5-addendum-2026-09-25 §3, §5.3). Moving stock (transfer_stock) and
+  // adding to it (log_stock). The till-shift codes stay operator only (M7).
+  TRANSFER_SHORT: 'op.errors.TRANSFER_SHORT',
+  STORE_BEING_COUNTED: 'op.errors.STORE_BEING_COUNTED',
+  // submit_stock_count. op.errors.COUNT_IN_PROGRESS says "finalize it first",
+  // which only a manager on the operator can do, so the phone says its own (V11).
+  COUNT_IN_PROGRESS: 'staff.stores.countWaiting',
+  // ack_waiter_call and resolve_waiter_call (0194, §2.1.8): the waiter answers
+  // guests' calls on the phone, and a call at another venue or one that is gone
+  // is CALL_NOT_FOUND. The operator already maps it.
+  CALL_NOT_FOUND: 'op.errors.CALL_NOT_FOUND',
 } as const satisfies Record<string, MessageKey>;
 
 export type RpcErrorCode = keyof typeof CODE_TO_KEY;

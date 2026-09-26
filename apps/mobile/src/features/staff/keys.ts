@@ -46,7 +46,19 @@ export type StaffMutationName =
   // account at a hiring run's last step (staff-admin).
   | 'idea.withdraw'
   | 'idea.decline'
-  | 'staff.create';
+  | 'staff.create'
+  // Wave 5 (P, wave5-addendum-2026-09-25 §5.3): a deduction withdrawn, an
+  // incident reviewed, and content revised (keyed as 'content'), withdrawn or
+  // decided.
+  | 'deduction.withdraw'
+  | 'incident.review'
+  | 'content.revise'
+  | 'content.withdraw'
+  | 'content.decide'
+  // Wave 5 (R, wave5-addendum-2026-09-25 §2.1.8): the waiter's "On my way" and
+  // "Done" on a guest's call; state-idempotent, no key.
+  | 'waiter_call.ack'
+  | 'waiter_call.resolve';
 
 export const staffKeys = {
   all: ['staff'] as const,
@@ -103,6 +115,29 @@ export const staffKeys = {
   courts: (venue: string) => ['staff', 'courts', venue] as const,
   /** The accounts a hiring run's add_staff step may send (protocols/api.ts `fetchNewHires`). */
   newHires: (runId: string) => ['staff', 'newHires', runId] as const,
+  // Wave 5, the people records (P, wave5-addendum-2026-09-25 §5.3). `month`
+  // is the first day of the month read, or `current` for the venue's own;
+  // `filter` is the incidents_page or content_page filter; and
+  // `deductionsWaiting` is management's count of deductions to decide on the
+  // operator.
+  deductionTargets: (venue: string) => ['staff', 'deductionTargets', venue] as const,
+  myDeductions: (venue: string, month: string) => ['staff', 'myDeductions', venue, month] as const,
+  myDeductionProposals: (venue: string) => ['staff', 'myDeductionProposals', venue] as const,
+  deductionsWaiting: (venue: string) => ['staff', 'deductionsWaiting', venue] as const,
+  myIncidents: (venue: string) => ['staff', 'myIncidents', venue] as const,
+  incidents: (venue: string, filter: string) => ['staff', 'incidents', venue, filter] as const,
+  content: (venue: string, filter: string) => ['staff', 'content', venue, filter] as const,
+  contentDetail: (id: string) => ['staff', 'contentDetail', id] as const,
+  // Wave 5, the stores (S, wave5-addendum-2026-09-25 §5.3): what a store page
+  // may name (`purpose` log, move or count; `location` cafe or bakery) and the
+  // day's store work (stock_today).
+  stockPick: (venue: string, purpose: string, location: string) =>
+    ['staff', 'stockPick', venue, purpose, location] as const,
+  stockToday: (venue: string) => ['staff', 'stockToday', venue] as const,
+  // Wave 5 (R, §2.1.8): the venue's open guest calls; `callsRoot` is what the
+  // live `floor` channel invalidates.
+  callsRoot: ['staff', 'calls'] as const,
+  calls: (venue: string) => ['staff', 'calls', venue] as const,
   /** The prefix src/lib/queryClient.ts sets the staff write defaults on. */
   mutationRoot: ['staff', 'mutation'] as const,
   mutation: (name: StaffMutationName) => ['staff', 'mutation', name] as const,

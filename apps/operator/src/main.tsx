@@ -30,6 +30,9 @@ import { workspacesRoute } from './routes/workspaces';
 import { tasksRoute } from './routes/tasks';
 import { protocolsRoute } from './routes/protocols';
 import { suggestionsRoute } from './routes/suggestions';
+// Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+import { deductionsRoute } from './routes/deductions';
+import { incidentsRoute } from './routes/incidents';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
@@ -64,6 +67,8 @@ const routeTree = rootRoute.addChildren([
   tasksRoute,
   protocolsRoute,
   suggestionsRoute,
+  deductionsRoute,
+  incidentsRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */

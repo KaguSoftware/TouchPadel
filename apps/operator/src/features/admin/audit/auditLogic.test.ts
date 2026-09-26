@@ -290,6 +290,32 @@ describe('plain language', () => {
     for (const f of ['protocol', 'checklist', 'shopping', 'purchase', 'teaching']) expect(knownFamilyKey(f), f).toBe(f);
   });
 
+  it('names every action the wave-5 stores write (wave5-addendum-2026-09-25 §5.2)', () => {
+    for (const a of ['stock.transfer', 'stock.log', 'stock.price_log', 'stock.submit_count', 'stock.discard_count']) {
+      expect(knownActionKey(a), a).not.toBeNull();
+    }
+    expect(knownActionKey('stock.price_log')).toBe('stockPriceLog');
+  });
+
+  it('names every action the wave-5 people records write, and the incident area (wave5-addendum-2026-09-25 §5.2)', () => {
+    const written = [
+      'staff.deduction.propose', 'staff.deduction.withdraw', 'staff.deduction.approve', 'staff.deduction.decline',
+      'staff.deduction.cancel', 'incident.report', 'incident.review', 'incident.redact', 'incident.purge',
+      'marketing.content.submit', 'marketing.content.revise', 'marketing.content.withdraw', 'marketing.content.approve',
+      'marketing.content.changes', 'marketing.content.decline',
+    ];
+    for (const a of written) expect(knownActionKey(a), a).not.toBeNull();
+    expect(knownActionKey('staff.deduction.propose')).toBe('staffDeductionPropose');
+    expect(knownFamilyKey('incident')).toBe('incident');
+  });
+
+  it('names the till-shift actions, in the drawer area (wave5-addendum-2026-09-25 §2.9.4)', () => {
+    expect(knownActionKey('drawer.shift_open')).toBe('drawerShiftOpen');
+    expect(knownActionKey('drawer.shift_close')).toBe('drawerShiftClose');
+    expect(knownActionKey('drawer.shift_close_by_day')).toBe('drawerShiftCloseByDay');
+    expect(knownFamilyKey('drawer')).toBe('drawer');
+  });
+
   it('offers every known area in the filter, plus any new one in the data', () => {
     // The area filter now runs on the server; options built from the loaded
     // page alone collapsed to the chosen area the moment it was chosen.

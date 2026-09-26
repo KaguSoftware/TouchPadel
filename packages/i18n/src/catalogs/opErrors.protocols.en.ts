@@ -48,8 +48,10 @@ export const opErrorsProtocolsEn = {
   // Menu and price writers (operator only: nothing the phone calls raises them).
   ITEM_IN_RELEASE:
     'This item is still a new-item draft. Its prices come from its release, and it goes on sale when it is launched.',
+  // Wave 5 reword (addendum §2.2.2, §4.2): a launched size's or paid add-on's
+  // name now changes through a price change too.
   PRICE_VIA_PROTOCOL:
-    'Prices, promotions, court rates and the featured-item discount change through a price or promotion change in Protocols.',
+    'Prices, size and add-on names, promotions, court rates and the featured-item discount change through a price or promotion change in Protocols.',
   ITEM_VIA_RELEASE: 'New menu items start as “Propose a new item”, and the owner launches them.',
   LAUNCH_VIA_PROTOCOL: 'Save it hidden. It goes on sale when the owner approves its price in a price change.',
   // Existing codes that had no op.errors string until now (both maps).
@@ -64,4 +66,19 @@ export const opErrorsProtocolsEn = {
   // Role spec (lane J, recipe_change_requests): the owner's approve of a head's
   // recipe change, when the recipe moved on since it was asked.
   RECIPE_CHANGED: 'The recipe changed after this request was sent. Ask for a new change.',
+  // Wave 5 (wave5-addendum-2026-09-25 §3). The stores: transfer_stock, and every
+  // path into a store (log_stock, Goods in, the driver receipt). Both maps.
+  TRANSFER_SHORT:
+    'That store shows less than you are moving. Move what it shows, or ask a manager to count it.',
+  STORE_BEING_COUNTED:
+    'That store is being counted right now. Try again when the count is finished.',
+  // Till shifts: operator only (the phone never calls a till-shift RPC, addendum M7).
+  TILL_SHIFT_ALREADY_OPEN: 'You already have a till shift open. End it before you start another.',
+  TILL_SHIFT_STATION_BUSY:
+    'Someone else’s shift is still open on this till. It has to be counted and closed first.',
+  TILL_SHIFT_NOT_FOUND: 'That till shift could not be found.',
+  TILL_SHIFT_CLOSED: 'This shift is already closed. Refresh to see the latest.',
+  TILL_SHIFT_NOT_YOURS: 'This is someone else’s shift. Closing it needs a manager’s PIN.',
+  TILL_SHIFT_WRONG_STATION: 'Start and end a till shift at the till itself, signed in there.',
+  TILL_SHIFT_UNSYNCED: 'This till still has sales waiting to send. Try again once they are sent.',
 } as const;

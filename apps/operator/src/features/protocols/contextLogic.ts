@@ -16,6 +16,7 @@
 import type { PriceChangeKind } from '@touch/core/protocols';
 import type { Obj } from './formModel';
 import { isObj } from './protocolLogic';
+import { finalizeRenames, readNumbersRenames, type NumbersRename } from './renames';
 import type { AddonRow, SizeRow } from './StepForm';
 
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
@@ -158,6 +159,8 @@ export interface PriceNumbers {
   change: PriceChangeKind | null;
   sizes: NumbersSize[];
   addons: NumbersAddon[];
+  /** Wave 5 (§2.2, #9): the renames riding on the change; [] for every other change. */
+  renames: NumbersRename[];
   promotion: { current_value: number | null; new_value: number | null; discount_cost_30d_iqd: number; units_30d: number; revenue_30d_iqd: number } | null;
   rate: { durations: { duration_min: number; current_price_iqd: number | null; new_price_iqd: number | null }[]; bookings_30d: number; revenue_30d_iqd: number } | null;
   featured: { current_pct: number | null; new_pct: number | null; units_30d: number; discount_cost_30d_iqd: number } | null;
@@ -196,6 +199,7 @@ export function readNumbers(raw: unknown): PriceNumbers {
         count_30d: num(a.count_30d) ?? 0,
         revenue_30d_iqd: num(a.revenue_30d_iqd) ?? 0,
       })),
+    renames: readNumbersRenames(o.renames),
     promotion: p
       ? {
           current_value: num(p.current_value),
@@ -288,6 +292,8 @@ const NUMBERS_FIGURES = ['prices', 'new_sizes', 'addons', 'rule_prices', 'discou
 /**
  * The last touches before a record is sent:
  *  - a price change sends only the sizes whose price changed;
+ *  - a price or add-on price change sends its renames trimmed, and none when
+ *    nothing is renamed (renames.ts);
  *  - the numbers step sends its figures only with the recommendation to
  *    change them (otherwise the proposal's stand).
  */
@@ -298,10 +304,13 @@ export function finalizeRecord(
   current: ReadonlyMap<string, number | null>,
 ): Obj {
   if (kind === 'price_promo' && stepKey === 'propose' && record.change === 'price' && Array.isArray(record.prices)) {
-    return {
+    return finalizeRenames({
       ...record,
       prices: (record.prices as Obj[]).filter((p) => !(typeof p.variant_id === 'string' && current.get(p.variant_id) === p.price_iqd)),
-    };
+    });
+  }
+  if (kind === 'price_promo' && stepKey === 'propose' && (record.change === 'price' || record.change === 'addon_price')) {
+    return finalizeRenames(record);
   }
   if (kind === 'price_promo' && stepKey === 'numbers' && record.recommendation !== 'change') {
     const out = { ...record };

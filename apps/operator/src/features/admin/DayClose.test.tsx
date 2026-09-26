@@ -67,6 +67,8 @@ const dayState = {
 };
 
 let checklists: unknown;
+/** app.till_shift_list (wave 5): none unless a test sets it. */
+let shifts: unknown = { from: null, to: null, shifts: [], outside: [], cross_day: [] };
 const calls: { fn: string; args: Record<string, unknown> }[] = [];
 
 function mount() {
@@ -77,6 +79,10 @@ function mount() {
       return checklists;
     }
     if (fn === 'unpaid_played_bookings') return [];
+    if (fn === 'till_shift_list') {
+      if (shifts instanceof Error) throw shifts;
+      return shifts;
+    }
     throw new Error(`unexpected ${fn}`);
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -103,6 +109,7 @@ async function countTheCash() {
 beforeEach(() => {
   rpc.mockReset();
   calls.length = 0;
+  shifts = { from: null, to: null, shifts: [], outside: [], cross_day: [] };
 });
 
 describe('Day close ▸ Checklists not finished', () => {
@@ -149,5 +156,66 @@ describe('Day close ▸ Checklists not finished', () => {
     await countTheCash();
     await waitFor(() => expect(calls.some((c) => c.fn === 'checklist_day_state')).toBe(true));
     expect(screen.queryByTestId('day-close-checklists')).toBeNull();
+  });
+});
+
+// Till shifts (wave5-addendum-2026-09-25 §5.2, V10): a step of their own, a
+// WARNING and never a block. An open shift says what closing the day does to
+// it; the close stays open once the cash is counted.
+describe('Day close ▸ Till shifts', () => {
+  const shift = (over: Record<string, unknown>) => ({
+    id: 's1', day_session_id: 'ds1', business_date: '2026-09-24', station_id: 'TILL-01', staff_id: 'maha', staff_name: 'Maha',
+    opened_at: '2026-09-24T06:00:00Z', closed_at: '2026-09-24T13:00:00Z', closed_via: 'own_pin', closed_by_name: 'Maha',
+    authorized_by_name: 'Maha', opening_float_iqd: 100000, handover_difference_iqd: null, cash_payments_iqd: 250000,
+    cash_refunds_iqd: 0, cash_expected_iqd: 350000, cash_counted_iqd: 345000, cash_variance_iqd: -5000,
+    card_payments_iqd: 80000, card_refunds_iqd: 0, payment_count: 12, refund_count: 0, drawer_open_count: 1,
+    open_note: null, close_note: null, ...over,
+  });
+
+  it('lists each shift with its difference, the money outside a shift and the cross-day refunds, and the close stays open', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    shifts = {
+      from: '2026-09-24',
+      to: '2026-09-24',
+      shifts: [
+        shift({}),
+        shift({ id: 's2', staff_id: 'ali', staff_name: 'Ali', opened_at: '2026-09-24T13:05:00Z', closed_at: null, closed_via: null, cash_counted_iqd: null, cash_variance_iqd: null, handover_difference_iqd: 5000 }),
+      ],
+      outside: [{ day_session_id: 'ds1', business_date: '2026-09-24', station_id: 'TILL-01', cash_payments_iqd: 20000, cash_refunds_iqd: 0, card_payments_iqd: 0, card_refunds_iqd: 0, payment_count: 1, refund_count: 0 }],
+      cross_day: [{ day_session_id: 'ds1', business_date: '2026-09-24', earlier_days_cash_refunds_iqd: 30000, earlier_days_card_refunds_iqd: 0, later_cash_refunds_iqd: 0, later_card_refunds_iqd: 0 }],
+    };
+    mount();
+    const step = await screen.findByTestId('day-close-shifts');
+    expect(screen.getByText('Till shifts')).toBeTruthy();
+    expect(await screen.findByText('1 still open')).toBeTruthy();
+    // The difference as a sign word, the open one as open.
+    expect(within(step).getByText('Short by 5,000 IQD')).toBeTruthy();
+    expect(within(step).getByText('Open')).toBeTruthy();
+    expect(step.textContent).toContain('Closing the day ends an open shift without a count');
+    expect(step.textContent).toContain('Taken outside a shift');
+    expect(step.textContent).toContain('Refunds made on this day for earlier days’ payments: 30,000 IQD in cash');
+    // Read with no dates: the open day's, narrowed to the session on screen.
+    expect(calls.find((c) => c.fn === 'till_shift_list')?.args).toEqual({ p_from: null, p_to: null, p_station_id: null, p_staff_id: null });
+
+    await countTheCash();
+    // Still listed: a warning beside an open close.
+    expect(screen.getByTestId('day-close-shifts')).toBeTruthy();
+  });
+
+  it('shows a retry when the shifts cannot be read, and the close stays open', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    shifts = new AppRpcError('UNKNOWN', 'network down');
+    mount();
+    const step = await screen.findByTestId('day-close-shifts');
+    expect(within(step).getByRole('button', { name: 'Try again' })).toBeTruthy();
+    await countTheCash();
+  });
+
+  it('says so plainly when there were no shifts', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    mount();
+    expect(await screen.findByText('No shifts')).toBeTruthy();
+    expect(screen.queryByTestId('day-close-shifts')).toBeNull();
+    await countTheCash();
   });
 });

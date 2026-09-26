@@ -67,6 +67,13 @@ export function productLaunched(p: { launched_at: string | null; is_active: bool
 export interface ProductLock {
   /** The size prices are read-only and Add size is off: "Change the price". */
   priceLocked: boolean;
+  /**
+   * The size names are read-only too: a launched size is renamed through
+   * "Change the price" (wave5-addendum §2.2, #9). upsert_retail_variant calls
+   * upsert_variant, whose lock refuses a rename with PRICE_VIA_PROTOCOL hint
+   * `name`; the stored names go back unchanged, which it lets through.
+   */
+  nameLocked: boolean;
   /** A hidden draft: "Put on sale", a shop_launch change the owner approves. */
   putOnSale: boolean;
 }
@@ -80,6 +87,7 @@ export interface ProductLock {
 export function productLock(line: Pick<ProductLine, 'launched'>, caps: { editLaunchedPrices: boolean; launchDirectly: boolean }): ProductLock {
   return {
     priceLocked: !caps.editLaunchedPrices && line.launched,
+    nameLocked: !caps.editLaunchedPrices && line.launched,
     putOnSale: !caps.launchDirectly && !line.launched,
   };
 }

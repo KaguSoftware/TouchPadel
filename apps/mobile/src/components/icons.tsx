@@ -147,6 +147,32 @@ export const CardIcon = ({ size = 16, color, strokeWidth = 2 }: IconProps) => (
   </Svg>
 );
 
+// Wave 5 (wave5-addendum-2026-09-25 §5.3): the Today rows' own glyphs.
+/** Pay deductions: a bill with an amount taken off. */
+export const DeductionIcon = (p: IconProps) => (
+  <StrokeIcon d={['M6 3h12v18l-3-1.5-3 1.5-3-1.5L6 21V3zM9 11h6']} {...p} />
+);
+/** Incidents: the warning triangle. */
+export const WarningIcon = (p: IconProps) => (
+  <StrokeIcon d={['M12 4L2.8 19.5h18.4L12 4zM12 10v4.2M12 17h.01']} {...p} />
+);
+/** Content for approval: a picture. */
+export const ImageIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 5h16v14H4V5zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9h.01']} {...p} />
+);
+/** Add to stock: a square with a plus. */
+export const PlusSquareIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4.5 4.5h15v15h-15v-15zM12 8.5v7M8.5 12h7']} {...p} />
+);
+/** Move stock: two arrows passing, from one store to the other; directional, so it mirrors under RTL. */
+export const SwapIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 8h14l-3.5-3.5M20 16H6l3.5 3.5']} flip {...p} />
+);
+/** Count the store: a clipboard with lines. */
+export const ClipboardIcon = (p: IconProps) => (
+  <StrokeIcon d={['M9 3.5h6v3H9v-3zM9 5H6v15.5h12V5h-3M9 11h6M9 15h4']} {...p} />
+);
+
 /** The brand padel-ball mark (circle + two racket-face arcs), 48-viewBox. */
 export function PadelBallIcon({
   size = 48,

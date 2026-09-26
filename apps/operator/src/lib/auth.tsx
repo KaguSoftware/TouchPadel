@@ -228,8 +228,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/desk/customers': ['court_desk', 'cashier', 'manager', 'owner'],
   '/desk/customers/new': ['court_desk', 'manager', 'owner'],
   // The bar and kitchen family (0155) has exactly what prep had: this board
-  // and nothing else. Prep stays listed while accounts still hold it.
-  '/kds': ['prep', 'head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+  // and nothing else. Prep stays listed while accounts still hold it. The
+  // assistant barista (wave 5 §2.1) works the bar's tickets here too.
+  '/kds': ['prep', 'head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
@@ -256,16 +257,32 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/workspaces': ['manager', 'owner'],
   // Every hireable role that is not management works its protocol steps here
   // as well as on the phone (build-contracts-2026-09-23 §5.1, Q2): the
-  // driver's and marketing's landing screen, a rail row for the till and the
-  // desk, and the kitchen board's "My tasks" for the bar and kitchen. Manager
-  // and owner work theirs on /protocols; prep gets nothing new.
-  '/tasks': ['cashier', 'court_desk', 'head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing'],
+  // driver's, marketing's and the waiter's landing screen, a rail row for the
+  // till and the desk, and the kitchen board's "My tasks" for the bar and
+  // kitchen. Manager and owner work theirs on /protocols; prep gets nothing new.
+  '/tasks': [
+    'cashier',
+    'waiter',
+    'court_desk',
+    'head_barista',
+    'barista',
+    'assistant_barista',
+    'head_chef',
+    'chef',
+    'driver',
+    'marketing',
+  ],
   // Starting, deciding and shaping protocols is management's; every other
   // actor works its steps from /tasks or the phone (build-contracts-2026-09-23 §5.1).
   '/protocols': ['manager', 'owner'],
   // The staff suggestion box (role spec #63): everyone posts on the phone,
   // management reads here.
   '/suggestions': ['manager', 'owner'],
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Pay deductions
+  // are decided by management (heads propose on the phone); incidents are
+  // reported at the desk and the till as well as reviewed by management.
+  '/deductions': ['manager', 'owner'],
+  '/incidents': ['court_desk', 'cashier', 'manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -290,6 +307,8 @@ export const SUB_ROUTES = {
   '/stock': [
     '/stock/ingredients',
     '/stock/receive',
+    // Wave 5 (wave5-addendum-2026-09-25 §5.2): moving stock between the stores.
+    '/stock/moves',
     '/stock/waste',
     '/stock/recipes',
     '/stock/counts',
@@ -415,12 +434,17 @@ export const CAPABILITY_ROLES = {
   readShoppingList: ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'manager', 'owner'],
   /** The driver's purchases (app.my_purchases). */
   readPurchases: ['driver', 'manager', 'owner'],
-  /** A team's teachings (app.teachings_for_me, #64). */
-  readTeachings: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
-  /** Stock by quantity (app.staff_stock_view, #68): the heads' cafe, the desk's shop. */
-  readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'manager', 'owner'],
-  /** Recipes by ingredient name (app.recipe_view, #72). */
-  readRecipes: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /** A team's teachings (app.teachings_for_me, #64; the assistant barista's since wave 5). */
+  readTeachings: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /** Stock by quantity (app.staff_stock_view, #68): the heads' cafe, the desk's shop; the waiter's by store since wave 5. */
+  readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'waiter', 'manager', 'owner'],
+  /** Recipes by ingredient name (app.recipe_view, #72; the assistant barista's since wave 5). */
+  readRecipes: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /**
+   * Today in the stores (app.stock_today, wave 5 M2): the day's moves, what was
+   * added and the phone counts. Its guard is MOVE ∪ LOG ∪ COUNT.
+   */
+  readStoreToday: ['head_barista', 'head_chef', 'chef', 'cashier', 'court_desk', 'waiter', 'manager', 'owner'],
   // A role's own work, which the owner does not do: its RPC refuses the owner.
   /** Marketing's own pages: its take, campaign drafts, results and the requests inbox (#73). */
   marketingWork: ['marketing'],
@@ -428,6 +452,33 @@ export const CAPABILITY_ROLES = {
   requestRecipeChanges: ['head_barista', 'head_chef'],
   /** Send a new-item idea to the team's head (app.submit_release_idea, #65). */
   sendIdeas: ['barista', 'chef'],
+
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Each is the guard
+  // of the RPC behind it; a row's own buttons still follow the RPC's can_*.
+  /** Propose a pay deduction (app.propose_deduction; the heads on the phone, MGMT here too). */
+  proposeDeductions: ['head_barista', 'head_chef', 'manager', 'owner'],
+  /** Approve or decline one (app.decide_deduction), never one's own or one against oneself. */
+  decideDeductions: ['manager', 'owner'],
+  /** Take back an approval, with a reason (app.cancel_deduction). */
+  cancelDeductions: ['owner'],
+  /** File an incident report on the operator (every role files on the phone, app.submit_incident). */
+  reportIncidents: ['court_desk', 'cashier', 'manager', 'owner'],
+  /** Review a report with a note the reporter reads (app.review_incident, app.incidents_page). */
+  reviewIncidents: ['manager', 'owner'],
+  /** Replace a report's text now (app.redact_incident). */
+  redactIncidents: ['owner'],
+  /** Send content for the owners' approval (app.submit_content, revise, withdraw). */
+  submitContent: ['marketing'],
+  /** Approve, ask for changes or decline content (app.decide_content). Managers never read it (§8 Q14). */
+  decideContent: ['owner'],
+
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2, §8 Q30).
+  /**
+   * Take payment on a drawer that is not one's own shift, with a banner saying
+   * whose, and never be asked to start a shift first. Everyone else in SHIFT
+   * (permissions.takeCourtPayment) closes the other person's shift first.
+   */
+  payOnOthersShift: ['manager', 'owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;
@@ -446,6 +497,7 @@ export function homeRoute(role: StaffRole): string {
     case 'prep':
     case 'head_barista':
     case 'barista':
+    case 'assistant_barista':
     case 'head_chef':
     case 'chef':
       return '/kds';
@@ -457,6 +509,7 @@ export function homeRoute(role: StaffRole): string {
       return '/panel';
     case 'driver':
     case 'marketing':
+    case 'waiter':
       return '/tasks';
   }
 }

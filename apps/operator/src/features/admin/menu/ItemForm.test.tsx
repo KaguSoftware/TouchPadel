@@ -123,9 +123,36 @@ describe('ItemForm: prices on sale', () => {
     const panel = within(sizesPanel());
     expect(panel.queryByLabelText('Price (IQD): Regular')).toBeNull();
     expect(panel.queryByRole('button', { name: 'New size' })).toBeNull();
-    expect(panel.getByText(/so its prices change through Change the price/)).toBeTruthy();
+    expect(panel.getByText(/so its sizes’ prices and names change through Change the price/)).toBeTruthy();
     await user.click(panel.getByRole('button', { name: 'Change the price' }));
     expect(router.navigate).toHaveBeenCalledWith({ to: '/protocols', search: { start: 'price_promo', change: 'price', item: ITEM_ID } });
+  });
+
+  // Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a launched size is renamed
+  // through a price change too, so its names are never a box here.
+  it("shows a launched size's names as text, with no box to rename it", () => {
+    renderForm(itemRow());
+    const panel = within(sizesPanel());
+    expect(panel.getByText('Regular')).toBeTruthy();
+    expect(panel.queryByRole('textbox')).toBeNull();
+  });
+
+  it('says where a rename goes when the server refuses one (PRICE_VIA_PROTOCOL hint name)', async () => {
+    const user = userEvent.setup();
+    rpc.appRpc.mockRejectedValue(new AppRpcError('PRICE_VIA_PROTOCOL', 'PRICE_VIA_PROTOCOL', 'name'));
+    renderForm(
+      itemRow({
+        menu_item_variants: [
+          { id: 'v-1', item_id: ITEM_ID, name_en: 'Regular', name_ar: 'عادي', price_iqd: 5000, is_default: true, sort_order: 0 },
+          { id: 'v-2', item_id: ITEM_ID, name_en: 'Large', name_ar: 'كبير', price_iqd: 6500, is_default: false, sort_order: 1 },
+        ],
+      }),
+    );
+    await user.click(screen.getByRole('radio', { name: 'Default: Large' }));
+    await user.click(within(sizesPanel()).getByRole('button', { name: 'Save' }));
+    expect(
+      await screen.findAllByText('Renaming a size or an option that is on sale goes through “Change the price”, with the owner’s OK.'),
+    ).not.toHaveLength(0);
   });
 
   it('locks a launched shop product the same way', () => {

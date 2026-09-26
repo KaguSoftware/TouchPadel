@@ -21,8 +21,12 @@
  * read-only and "Add size" gives way to "Change the price"; the SKU, barcode,
  * supplier, pack cost and low-stock level stay editable (the price goes back
  * unchanged, which upsert_variant's lock lets through).
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a launched size's names lock
+ * with its price. They go back as stored, and the one lock note above the
+ * price says both change through "Change the price".
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../../lib/appRpc';
@@ -46,7 +50,9 @@ import {
   type Column,
 } from '../../../components/kit';
 import { BilingualFields } from '../../../components/inputs';
+import { Icon } from '../../../components/icons';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from '../../admin/promotions/PriceChangeStart';
+import { isRenameRefusal } from '../../admin/addons/addonsLogic';
 import { useStockFormat } from '../stockUi';
 import {
   SK,
@@ -281,6 +287,8 @@ function SizeForm({
   // A manager's new product is saved hidden (LAUNCH_VIA_PROTOCOL otherwise).
   const newHidden = editing.mode === 'newProduct' && !caps.launchDirectly;
   const priceLocked = line !== null && productLock(line, caps).priceLocked;
+  // Only an existing size has stored names to keep; a new one is named freely.
+  const nameLocked = editSize !== null && productLock(editSize, caps).nameLocked;
 
   const [sectionId, setSectionId] = useState(sections[0]?.id ?? '');
   const [productName, setProductName] = useState({ en: '', ar: '' });
@@ -421,14 +429,27 @@ function SizeForm({
           />
         </div>
       )}
-      <BilingualFields
-        labelEn={tr('ws.manager.stock.products.sizeNameEn')}
-        labelAr={tr('ws.manager.stock.products.sizeNameAr')}
-        en={draft.nameEn}
-        ar={draft.nameAr}
-        onEn={(nameEn) => set({ nameEn })}
-        onAr={(nameAr) => set({ nameAr })}
-      />
+      {/* A size on sale renames only through a price change (§2.2.2), so its
+          names read as text, not as boxes that look editable and are not. */}
+      {nameLocked ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }} data-testid="product-size-names-locked">
+          <LockedValue label={tr('ws.manager.stock.products.sizeNameEn')}>
+            <bdi dir="ltr">{draft.nameEn}</bdi>
+          </LockedValue>
+          <LockedValue label={tr('ws.manager.stock.products.sizeNameAr')}>
+            <bdi dir="rtl">{draft.nameAr}</bdi>
+          </LockedValue>
+        </div>
+      ) : (
+        <BilingualFields
+          labelEn={tr('ws.manager.stock.products.sizeNameEn')}
+          labelAr={tr('ws.manager.stock.products.sizeNameAr')}
+          en={draft.nameEn}
+          ar={draft.nameAr}
+          onEn={(nameEn) => set({ nameEn })}
+          onAr={(nameAr) => set({ nameAr })}
+        />
+      )}
       {/* Said just above the greyed Price, the field it explains. It used to
           sit under all six fields, read only after the manager had tried it. */}
       {priceLocked && (
@@ -442,9 +463,15 @@ function SizeForm({
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-3)' }}>
-        <Field label={tr('ws.manager.stock.products.price')} error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} disabled={priceLocked} onChange={(e) => set({ price: e.target.value })} />
-        </Field>
+        {priceLocked ? (
+          <LockedValue label={tr('ws.manager.stock.products.price')}>
+            <Money amount={Number.parseInt(draft.price, 10)} strong />
+          </LockedValue>
+        ) : (
+          <Field label={tr('ws.manager.stock.products.price')} error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}>
+            <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} onChange={(e) => set({ price: e.target.value })} />
+          </Field>
+        )}
         <Field label={tr('ws.manager.stock.products.cost')} optional hint={tr('ws.manager.stock.products.costHint')} error={problem === 'cost' ? problemText('cost') : undefined}>
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.cost} onChange={(e) => set({ cost: e.target.value })} />
         </Field>
@@ -468,7 +495,29 @@ function SizeForm({
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />
         </Field>
       </div>
-      <ErrorText error={error} />
+      {/* A rename refused by the server's lock (the size went on sale since
+          this form opened) says where a rename goes now. */}
+      {isRenameRefusal(error) ? (
+        <PriceLockNote message={tr('ws.pricing.renameViaProtocol')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />
+      ) : (
+        <ErrorText error={error} />
+      )}
     </Modal>
+  );
+}
+
+/**
+ * A value the form shows but cannot change here (a locked price or size
+ * name): its label as a field's, and the value as text beside a lock, never a
+ * greyed box that looks editable.
+ */
+function LockedValue({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Field label={label} group>
+      <div role="group" style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minBlockSize: '2.25rem', color: 'var(--tp-fg)' }}>
+        <Icon name="lock" size={13} style={{ color: 'var(--tp-muted-fg)', flexShrink: 0 }} />
+        {children}
+      </div>
+    </Field>
   );
 }

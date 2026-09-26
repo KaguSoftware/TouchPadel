@@ -9,9 +9,10 @@
  *   * active cafe items with each size's lines, and prepared ingredients with
  *     an output recipe; shop products, inactive items and add-on lines are
  *     absent; one item by id, whose prepared list is empty;
- *   * the four bar and kitchen roles and MGMT read; the court desk, cashier,
- *     driver, marketing and prep are refused (§8.2); an unknown, shop,
- *     inactive or other-venue item is REF_NOT_FOUND.
+ *   * the four bar and kitchen roles, the assistant barista (wave 5,
+ *     wave5-addendum-2026-09-25 §2.1) and MGMT read; the court desk, cashier,
+ *     driver, marketing, prep and the waiter are refused (§8.2); an unknown,
+ *     shop, inactive or other-venue item is REF_NOT_FOUND.
  *
  * HOW. Every scenario is ONE psql transaction that is rolled back (the
  * protocols-engine-flow.test.ts harness): staff, items, ingredients and
@@ -207,15 +208,15 @@ type View = {
                  sizes: Array<{ variant_id: string; name_en: string; lines: Line[] }> }>;
   prepared: Array<{ ingredient_id: string; name_en: string; lines: Line[] }>;
 };
-const READERS = ['hb', 'bar', 'hc', 'chef', 'manager', 'owner'] as const;
-const OTHERS = ['desk', 'cashier', 'drv', 'mkt', 'prep'] as const;
+const READERS = ['hb', 'bar', 'abar', 'hc', 'chef', 'manager', 'owner'] as const;
+const OTHERS = ['desk', 'cashier', 'drv', 'mkt', 'prep', 'wtr'] as const;
 
 describe.skipIf(!docker)('recipe_view (rolled-back transactions)', () => {
   it('reads recipes as names only, for the bar and kitchen family and MGMT, and no one else', () => {
     const r = scenario([
       ...SETUP,
       MK('hb', 'head_barista'), MK('bar', 'barista'), MK('hc', 'head_chef'), MK('chef', 'chef'),
-      MK('drv', 'driver'), MK('mkt', 'marketing'),
+      MK('drv', 'driver'), MK('mkt', 'marketing'), MK('abar', 'assistant_barista'), MK('wtr', 'waiter'),
       ...READERS.map((who) => T(`view_${who}`, who, `select app.recipe_view({{venue}})`)),
       ...OTHERS.map((who) => T(`view_${who}`, who, `select app.recipe_view({{venue}})`)),
       T('one', 'bar', `select app.recipe_view(null, {{latte}}::uuid)`),

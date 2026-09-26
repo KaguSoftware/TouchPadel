@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { STAFF_ROLES } from '../../core/src/staff/roles';
+import { STOCK_LOCATIONS } from '../../core/src/staff/stores';
 import { RETIRED_ROLES, ROLES } from '../supabase/functions/staff-admin/role';
 import { stackAvailable } from './helpers';
 
@@ -84,5 +85,11 @@ describe.skipIf(!docker)('staff roles: the database enum', () => {
   it('enum_range(null::staff_role) equals STAFF_ROLES, in the enum’s order', () => {
     const out = psql("select array_to_string(enum_range(null::staff_role), ',')");
     expect(out.split(',')).toEqual([...STAFF_ROLES]);
+  });
+
+  // Wave 5 §2.8 (lane S): the store list the apps offer is the enum's.
+  it('enum_range(null::stock_location) equals @touch/core STOCK_LOCATIONS, in the enum’s order', () => {
+    const out = psql("select array_to_string(enum_range(null::stock_location), ',')");
+    expect(out.split(',')).toEqual([...STOCK_LOCATIONS]);
   });
 });

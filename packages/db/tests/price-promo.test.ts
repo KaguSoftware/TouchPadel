@@ -27,7 +27,14 @@
  *     due run that reverts with apply_not_ready while another applies;
  *   * the featured discount put live by Featured mode reaches add_order_items;
  *   * the driver and marketing (§8.2): no writer, no numbers, no mgmt
- *     record, no shop_launch for marketing, and targets without cost or sales.
+ *     record, no shop_launch for marketing, and targets without cost or sales;
+ *   * renames (wave5-addendum-2026-09-25 §2.2, Majed's #9): a manager's new
+ *     name for a size on sale or a paid add-on on sale is PRICE_VIA_PROTOCOL
+ *     hint name, after the price check; whitespace, default, order, a move,
+ *     a draft, a free or never-launched add-on and the owner pass; renames
+ *     ride on the price and addon_price kinds, apply in place (a swap, a shop
+ *     size's stock row), go stale on a name written since, and are refused
+ *     at the proposal with renames as the field.
  *
  * HOW. Every scenario is ONE psql transaction that is rolled back (the
  * protocols-engine-flow.test.ts harness, with the real price_promo hooks):
@@ -283,8 +290,9 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
     const variant = (who: string, label: string, item: string, name: string, price: number, id: string | null, sort = 0) =>
       T(label, who, `select to_jsonb(app.upsert_variant({{${item}}}::uuid, '${name}', '${name}', ${price},
                                                        ${id ? `{{${id}}}::uuid` : 'null'}, ${id !== null && sort === 0}, ${sort}))`);
-    const mod = (who: string, label: string, id: string | null, name: string, price: number, active: boolean, sort = 0) =>
-      T(label, who, `select to_jsonb(app.upsert_modifier({{grp}}::uuid, '${name}', '${name}',
+    const mod = (who: string, label: string, id: string | null, name: string, price: number, active: boolean, sort = 0,
+                 nameAr = name) =>
+      T(label, who, `select to_jsonb(app.upsert_modifier({{grp}}::uuid, '${name}', '${nameAr}',
                                                         ${id ? `{{${id}}}::uuid` : 'null'}, ${price}, ${sort}, ${active}))`);
     const r = scenario([
       CAT('cafe', 'cafe'),
@@ -331,10 +339,11 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
            p_barcode => '62' || lpad((floor(random() * 1e10))::bigint::text, 11, '0'),
            p_supplier_id => {{sup}}::uuid, p_pack_cost_iqd => 30000, p_low_stock_threshold => 5,
            p_id => {{prod_s}}::uuid`),
+      // A name is locked with the price since price_promo_renames (#9).
       T('m_rename', 'manager', `select to_jsonb(app.upsert_variant({{on}}::uuid, 'Classic', 'كلاسيك', 5000, {{on_s}}::uuid, false, 3))`),
       mod('manager', 'm_mod_rename', 'mod_on', 'Renamed', 500, true, 4),
-      mod('manager', 'm_mod_off', 'mod_on', 'Renamed', 500, false, 4),
-      mod('manager', 'm_mod_on_again', 'mod_on', 'Renamed', 500, true, 4),
+      mod('manager', 'm_mod_off', 'mod_on', 'PP mod_on', 500, false, 4, 'إضافة'),
+      mod('manager', 'm_mod_on_again', 'mod_on', 'PP mod_on', 500, true, 4, 'إضافة'),
 
       // A paid add-on goes on sale through a change; a free one directly.
       mod('manager', 'm_oat_on', null, 'Oat milk', 1500, true, 5),
@@ -348,11 +357,13 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
       mod('manager', 'm_free_price', 'free', 'No ice', 250, true, 6),
       Q('oat_stamp', `select to_jsonb(launched_at is null) from modifiers where id = {{oat}}`),
 
-      // The accepted limit (#59): an old item and add-on come back at their old price only.
+      // The accepted limit (#59): an old item and add-on come back at their old
+      // price only, and the paid add-on under its old name (#9).
       T('m_old_back', 'manager', `select to_jsonb(app.upsert_menu_item({{cafe}}::uuid, 'PP old renamed', 'قديم', {{old}}::uuid,
                                                                       null, null, 0, true))`),
       variant('manager', 'm_old_price2', 'old', 'PP old_s', 4800, 'old_s'),
-      mod('manager', 'm_mod_old_back', 'mod_old', 'Old renamed', 750, true),
+      mod('manager', 'm_mod_old_rename', 'mod_old', 'Old renamed', 750, true),
+      mod('manager', 'm_mod_old_back', 'mod_old', 'PP mod_old', 750, true, 0, 'إضافة'),
       mod('manager', 'm_mod_old_price2', 'mod_old', 'Old renamed', 900, true),
 
       // The owner passes every lock.
@@ -379,10 +390,13 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
                          'm_prod_retail_new', 'm_mod_on', 'm_mod_old', 'm_free_price', 'm_old_price2', 'm_mod_old_price2']) {
       expect(refused(r, label), label).toBe('PRICE_VIA_PROTOCOL');
     }
-    for (const label of ['m_draft_price', 'm_draft_size', 'm_sdraft_price', 'm_mod_draft', 'm_prod_meta', 'm_rename',
-                         'm_mod_rename', 'm_mod_off', 'm_mod_on_again', 'm_oat_price', 'm_old_back', 'm_mod_old_back',
+    for (const label of ['m_draft_price', 'm_draft_size', 'm_sdraft_price', 'm_mod_draft', 'm_prod_meta',
+                         'm_mod_off', 'm_mod_on_again', 'm_oat_price', 'm_old_back', 'm_mod_old_back',
                          'o_on_price', 'o_on_size', 'o_old_price', 'o_prod_retail', 'o_mod_on', 'o_mod_new_paid']) {
       ok(r, label);
+    }
+    for (const label of ['m_rename', 'm_mod_rename', 'm_mod_old_rename']) {
+      expect(refused(r, label), label).toBe('PRICE_VIA_PROTOCOL:name');
     }
     expect(refused(r, 'm_oat_on')).toBe('LAUNCH_VIA_PROTOCOL');
     expect(refused(r, 'm_oat_switch_on')).toBe('LAUNCH_VIA_PROTOCOL');
@@ -400,8 +414,11 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
     const link = (who: string, label: string, item: string, grp: string, linked = true) =>
       T(label, who, `select jsonb_build_object('ok', true)
                        from (select app.link_item_modifier_group({{${item}}}::uuid, {{${grp}}}::uuid, 0, ${linked})) x`);
-    const mod = (who: string, label: string, id: string, grp: string, price: number, active: boolean, name = id) =>
-      T(label, who, `select to_jsonb(app.upsert_modifier({{${grp}}}::uuid, '${name}', '${name}', {{${id}}}::uuid, ${price}, 0, ${active}))`);
+    // The stored names (MOD's) unless a new one is given: a paid add-on's
+    // rename is locked on its own (#9).
+    const mod = (who: string, label: string, id: string, grp: string, price: number, active: boolean, name?: string) =>
+      T(label, who, `select to_jsonb(app.upsert_modifier({{${grp}}}::uuid, '${name ?? `PP ${id}`}', '${name ?? 'إضافة'}',
+                                                        {{${id}}}::uuid, ${price}, 0, ${active}))`);
     const reveals = (who: string, label: string, id: string, groups: string[]) =>
       T(label, who, `select jsonb_build_object('ok', true)
                        from (select app.set_modifier_reveals({{${id}}}::uuid,
@@ -488,9 +505,10 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
                          'm_reveal_side_off', 'm_single_off']) {
       expect(refused(r, label), label).toBe('PRICE_VIA_PROTOCOL:required_addon');
     }
-    for (const label of ['m_oat_rename', 'm_reveal_free', 'm_meal_off', 'm_meal_on', 'o_single_off', 'm_unlink_milk']) {
+    for (const label of ['m_reveal_free', 'm_meal_off', 'm_meal_on', 'o_single_off', 'm_unlink_milk']) {
       ok(r, label);
     }
+    expect(refused(r, 'm_oat_rename')).toBe('PRICE_VIA_PROTOCOL:name');
     expect(ok(r, 'floors')).toEqual({ coffee: 1000, coffee2: 0, coffee3: 1000, meal: 0, make_meal: 0 });
     expect(ok(r, 'kept')).toEqual({ milk_min: 1, regular: { on: true, group: true }, reveals: [true] });
   });
@@ -710,7 +728,7 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
       { name: 'PP latte_l', price: 7000, default: false, sort: 1 },
       { name: 'Double', price: 9500, default: false, sort: 2 },
     ]);
-    expect(ok(r, 'a_audit')).toEqual([{ run_id: v(r, 'a'), change: 'price', counts: { sizes: 2, new_sizes: 1 } }]);
+    expect(ok(r, 'a_audit')).toEqual([{ run_id: v(r, 'a'), change: 'price', counts: { sizes: 2, new_sizes: 1, renamed: 0 } }]);
 
     expect(ok(r, 'b_start')).toMatchObject({ auto: true });
     expect(ok(r, 'b_apply')).toMatchObject({ auto: true, run_status: 'scheduled' });
@@ -1328,5 +1346,297 @@ describe.skipIf(!docker)('price_promo: the manager locks and the price or promot
     expect(refused(r, 'drv_run')).toBe('PROTOCOL_NOT_FOUND');
     expect(refused(r, 'mkt_decide')).toBe('NOT_DECIDER');
     expect(refused(r, 'mkt_apply')).toBe('STEP_NOT_OPEN');
+  });
+
+  it('sends a manager’s rename of a size or a paid add-on on sale through a price change; the owner passes (#9)', () => {
+    const variant = (who: string, label: string, item: string, id: string, en: string, ar: string, price: number,
+                     isDefault = true, sort = 0) =>
+      T(label, who, `select to_jsonb(app.upsert_variant({{${item}}}::uuid, '${en}', '${ar}', ${price}, {{${id}}}::uuid,
+                                                       ${isDefault}, ${sort}))`);
+    const retail = (who: string, label: string, en: string, ar: string, id: string | null) =>
+      T(label, who, `select app.upsert_retail_variant(p_item_id => {{prod}}::uuid, p_name_en => '${en}', p_name_ar => '${ar}',
+                                                     p_price_iqd => 50000${id ? `, p_id => {{${id}}}::uuid` : ''})`);
+    const mod = (who: string, label: string, id: string, grp: string, en: string, ar: string, price: number, active: boolean) =>
+      T(label, who, `select to_jsonb(app.upsert_modifier({{${grp}}}::uuid, '${en}', '${ar}', {{${id}}}::uuid, ${price}, 0, ${active}))`);
+    const r = scenario([
+      CAT('cafe', 'cafe'),
+      CAT('shop', 'shop'),
+      ITEM('on', 'cafe', true, true),
+      SIZE('on_s', 'on', 5000),
+      SIZE('on_l', 'on', 6500, 1),
+      ITEM('draft', 'cafe', false, false),
+      SIZE('draft_s', 'draft', 3000),
+      ITEM('prod', 'shop', true, true),
+      retail('owner', 'prod_size', 'M', 'وسط', null),
+      RES('prod_s', 'prod_size', 'variant_id'),
+      RES('prod_ing', 'prod_size', 'ingredient_id'),
+      GROUP('grp'),
+      GROUP('grp2'),
+      MOD('paid', 'grp', 500, true, true),
+      MOD('paid_old', 'grp', 750, false, true), // on sale before 0177, off today
+      MOD('free', 'grp', 0, true, true),
+      MOD('hidden', 'grp', 1000, false, false), // never launched
+
+      // Sizes, as the manager: either language, a case change, and through
+      // Stock ▸ Products; the price is checked first and keeps no hint.
+      variant('manager', 'm_size_en', 'on', 'on_s', 'Classic', 'حجم', 5000),
+      variant('manager', 'm_size_ar', 'on', 'on_s', 'PP on_s', 'كلاسيك', 5000),
+      variant('manager', 'm_size_case', 'on', 'on_s', 'pp on_s', 'حجم', 5000),
+      variant('manager', 'm_size_both', 'on', 'on_s', 'Classic', 'كلاسيك', 5500),
+      retail('manager', 'm_retail_rename', 'L', 'كبير', 'prod_s'),
+      // What still passes: whitespace, the default and the order, the
+      // product's own fields under its names, a draft's size.
+      variant('manager', 'm_size_space', 'on', 'on_s', '  PP on_s ', 'حجم ', 5000),
+      variant('manager', 'm_size_order', 'on', 'on_l', 'PP on_l', 'حجم', 6500, true, 3),
+      retail('manager', 'm_retail_same', 'M', 'وسط', 'prod_s'),
+      variant('manager', 'm_draft_rename', 'draft', 'draft_s', 'Small', 'صغير', 3000),
+
+      // Add-ons, as the manager: a paid one on sale, or once on sale, is
+      // locked, switched off in the same save or not ...
+      mod('manager', 'm_paid_rename', 'paid', 'grp', 'Extra shot', 'شوت إضافي', 500, true),
+      mod('manager', 'm_paid_off_rename', 'paid', 'grp', 'Extra shot', 'إضافة', 500, false),
+      mod('manager', 'm_paid_old_rename', 'paid_old', 'grp', 'Extra syrup', 'إضافة', 750, false),
+      mod('manager', 'm_paid_both', 'paid', 'grp', 'Extra shot', 'شوت إضافي', 600, true),
+      // ... a free option, a never-launched one, and a move or whitespace
+      // that keeps the name are not.
+      mod('manager', 'm_free_rename', 'free', 'grp', 'No ice', 'بدون ثلج', 0, true),
+      mod('manager', 'm_hidden_rename', 'hidden', 'grp', 'Oat', 'شوفان', 1000, false),
+      mod('manager', 'm_paid_move', 'paid', 'grp2', 'PP paid', 'إضافة', 500, true),
+      mod('manager', 'm_paid_space', 'paid', 'grp2', ' PP paid', 'إضافة ', 500, true),
+
+      // The owner passes every lock.
+      variant('owner', 'o_size_rename', 'on', 'on_s', 'Classic', 'كلاسيك', 5000),
+      retail('owner', 'o_retail_rename', 'L', 'كبير', 'prod_s'),
+      mod('owner', 'o_paid_rename', 'paid', 'grp2', 'Extra shot', 'شوت إضافي', 500, true),
+      Q('names', `select jsonb_build_object(
+                    'on_s', (select jsonb_build_array(name_en, name_ar, price_iqd) from menu_item_variants where id = {{on_s}}),
+                    'on_l', (select jsonb_build_array(name_en, is_default, sort_order) from menu_item_variants where id = {{on_l}}),
+                    'draft_s', (select name_en from menu_item_variants where id = {{draft_s}}),
+                    'prod_s', (select jsonb_build_array(name_en, name_ar) from menu_item_variants where id = {{prod_s}}),
+                    'prod_ing', (select jsonb_build_array(name_en, name_ar) from ingredients where id = {{prod_ing}}),
+                    'paid', (select jsonb_build_array(name_en, name_ar, price_delta_iqd, group_id = {{grp2}})
+                               from modifiers where id = {{paid}}),
+                    'paid_old', (select name_en from modifiers where id = {{paid_old}}),
+                    'free', (select name_en from modifiers where id = {{free}}),
+                    'hidden', (select name_en from modifiers where id = {{hidden}}))`),
+    ]);
+
+    for (const label of ['m_size_en', 'm_size_ar', 'm_size_case', 'm_retail_rename', 'm_paid_rename', 'm_paid_off_rename',
+                         'm_paid_old_rename']) {
+      expect(refused(r, label), label).toBe('PRICE_VIA_PROTOCOL:name');
+    }
+    expect(refused(r, 'm_size_both')).toBe('PRICE_VIA_PROTOCOL');
+    expect(refused(r, 'm_paid_both')).toBe('PRICE_VIA_PROTOCOL');
+    for (const label of ['m_size_space', 'm_size_order', 'm_retail_same', 'm_draft_rename', 'm_free_rename', 'm_hidden_rename',
+                         'm_paid_move', 'm_paid_space', 'o_size_rename', 'o_retail_rename', 'o_paid_rename']) {
+      ok(r, label);
+    }
+    expect(ok(r, 'names')).toEqual({
+      on_s: ['Classic', 'كلاسيك', 5000],
+      on_l: ['PP on_l', false, 3],
+      draft_s: 'Small',
+      prod_s: ['L', 'كبير'],
+      prod_ing: ['PP prod L', 'صنف كبير'],
+      paid: ['Extra shot', 'شوت إضافي', 500, true],
+      paid_old: 'PP paid_old',
+      free: 'No ice',
+      hidden: 'Oat',
+    });
+  });
+
+  it('renames through a price change: a swap, a shop size, add-ons, stale names and the refusals (#9)', () => {
+    const NAMED = (name: string, item: string, en: string, ar: string, price: number, sort: number) =>
+      KEEP(name, `insert into menu_item_variants (item_id, name_en, name_ar, price_iqd, is_default, sort_order)
+                  values ({{${item}}}, '${en}', '${ar}', ${price}, ${sort === 0}, ${sort}) returning id::text`);
+    const ren = (id: string, en: string, ar: string, key = 'variant_id') =>
+      `jsonb_build_object('${key}', {{${id}}}, 'name_en', '${en}', 'name_ar', '${ar}')`;
+    const priceRecord = (item: string, renames: string[], prices = `'[]'::jsonb`) =>
+      `jsonb_build_object('change', 'price', ${REASON}, 'menu_item_id', {{${item}}}, 'prices', ${prices},
+                          'renames', jsonb_build_array(${renames.join(', ')}))`;
+    const addonRecord = (renames: string[], extra = '') =>
+      `jsonb_build_object('change', 'addon_price', ${REASON}${extra}, 'renames', jsonb_build_array(${renames.join(', ')}))`;
+    const SIZES = (label: string, item: string) =>
+      Q(label, `select jsonb_agg(jsonb_build_object(
+                         'en', v.name_en, 'ar', v.name_ar, 'price', v.price_iqd, 'default', v.is_default,
+                         'recipe', (select jsonb_agg(rl.qty) from recipe_lines rl where rl.variant_id = v.id))
+                       order by v.sort_order)
+                  from menu_item_variants v where v.item_id = {{${item}}}`);
+    const COUNTS = (label: string, run: string) =>
+      Q(label, `select jsonb_agg(after->'counts') from audit_log where action = 'protocol.price.apply' and entity_id = {{${run}}}::text`);
+    const others = ['drv', 'cashier', 'bar', 'asst', 'wtr'];
+    const r = scenario([
+      MK('mkt', 'marketing'),
+      MK('drv', 'driver'),
+      MK('bar', 'barista'),
+      MK('asst', 'assistant_barista'),
+      MK('wtr', 'waiter'),
+      VENUE_X,
+      CAT('cafe', 'cafe'),
+      CAT('shop', 'shop'),
+      ITEM('latte', 'cafe', true, true),
+      NAMED('small', 'latte', 'Small', 'صغير', 5000, 0),
+      NAMED('large', 'latte', 'Large', 'كبير', 6500, 1),
+      KEEP('milk', `insert into ingredients (kind, name_en, name_ar, unit, is_active, venue_id)
+                    values ('purchased', 'PP milk', 'حليب', 'g', true, {{venue}}) returning id::text`),
+      X(`insert into recipe_lines (variant_id, ingredient_id, qty)
+         values ({{small}}::uuid, {{milk}}::uuid, 100), ({{large}}::uuid, {{milk}}::uuid, 150)`),
+      ITEM('mocha', 'cafe', true, true),
+      NAMED('mocha_s', 'mocha', 'Regular', 'عادي', 6000, 0),
+      ITEM('tea', 'cafe', true, true),
+      NAMED('tea_s', 'tea', 'Cup', 'كوب', 3000, 0),
+      ITEM('cake', 'cafe', true, true),
+      NAMED('slice', 'cake', 'Slice', 'شريحة', 4000, 0),
+      ITEM('prod', 'shop', true, true),
+      T('prod_size', 'owner', `select app.upsert_retail_variant(p_item_id => {{prod}}::uuid, p_name_en => 'M', p_name_ar => 'وسط',
+                                                               p_price_iqd => 50000)`),
+      RES('prod_s', 'prod_size', 'variant_id'),
+      RES('prod_ing', 'prod_size', 'ingredient_id'),
+      GROUP('grp'),
+      MOD('shot', 'grp', 1000, true, true),
+      MOD('syrup', 'grp', 500, true, true),
+      MOD('hidden', 'grp', 1500, false, false),
+      GROUP('grp_x', 'venue_x'),
+      MOD('a_x', 'grp_x', 100, true, true),
+
+      // Marketing swaps the latte's two names; numbers never carries names.
+      ...RUN('a', 'mkt', priceRecord('latte', [ren('small', 'Large', 'كبير'), ren('large', 'Small', 'صغير')])),
+      ...ACCEPT('a'),
+      T('a_num_renames', 'manager', `select app.submit_step({{a_num}}, jsonb_build_object('recommendation', 'go',
+                                        'renames', jsonb_build_array(${ren('small', 'Tall', 'طويل')})))`),
+      ...NUMBERS('a'),
+      T('a_figures', 'manager', `select app.price_promo_numbers({{a}})`),
+      APPLY_NOW('a'),
+      SIZES('latte_after', 'latte'),
+      COUNTS('a_counts', 'a'),
+
+      // The manager renames the mocha only; a before_en the client sends is replaced.
+      ...RUN('b', 'manager', priceRecord('mocha', [`jsonb_build_object('variant_id', {{mocha_s}}, 'name_en', ' Dark ',
+                                                                        'name_ar', 'داكن', 'before_en', 'Bogus')`])),
+      Q('b_record', `select x.record->'renames' from protocol_submissions x where x.run_step_id = {{b_prop}}`),
+      ...NUMBERS('b'),
+      APPLY_NOW('b'),
+      SIZES('mocha_after', 'mocha'),
+
+      // A shop size renamed and priced in one run: its stock row takes the new name.
+      ...RUN('d', 'manager', priceRecord('prod', [ren('prod_s', 'L', 'كبير')],
+                                         `jsonb_build_array(jsonb_build_object('variant_id', {{prod_s}}, 'price_iqd', 55000))`)),
+      ...NUMBERS('d', `jsonb_build_object('recommendation', 'go',
+                         'prices', jsonb_build_array(jsonb_build_object('variant_id', {{prod_s}}, 'price_iqd', 56000)))`),
+      T('d_figures', 'manager', `select app.price_promo_numbers({{d}})`),
+      APPLY_NOW('d'),
+      Q('prod_after', `select jsonb_build_object(
+                         'size', (select jsonb_build_array(name_en, name_ar, price_iqd) from menu_item_variants where id = {{prod_s}}),
+                         'stock', (select jsonb_build_array(name_en, name_ar) from ingredients where id = {{prod_ing}}))`),
+      COUNTS('d_counts', 'd'),
+
+      // Marketing renames an add-on and prices none.
+      ...RUN('e', 'mkt', addonRecord([ren('shot', 'Double shot', 'شوت مزدوج', 'modifier_id')], `, 'addons', '[]'::jsonb`)),
+      ...ACCEPT('e'),
+      ...NUMBERS('e'),
+      T('e_figures', 'manager', `select app.price_promo_numbers({{e}})`),
+      APPLY_NOW('e'),
+      Q('shot_after', `select jsonb_build_array(name_en, name_ar, price_delta_iqd, is_active) from modifiers where id = {{shot}}`),
+      COUNTS('e_counts', 'e'),
+
+      // The owner renames the size after the OK: the dated run goes back at the cron.
+      ...RUN('f', 'manager', priceRecord('tea', [ren('tea_s', 'Mug', 'كوب كبير')])),
+      ...NUMBERS('f'),
+      APPLY_DATE('f'),
+      T('f_owner', 'owner', `select to_jsonb(app.upsert_variant({{tea}}::uuid, 'Glass', 'كأس', 3000, {{tea_s}}::uuid, true, 0))`),
+      DUE('f'),
+      Q('f_due', `select app.price_promo_apply_due()`),
+      RUN_STATUS('f_after', 'f'),
+      Q('f_audit', `select jsonb_agg(after) from audit_log where action = 'protocol.unschedule' and entity_id = {{f}}::text`),
+      Q('f_push', `select coalesce(jsonb_agg(profile_id::text order by profile_id), '[]') from notification_outbox
+                    where payload->>'title_key' = 'apply_not_ready' and payload->>'id' = {{f_app}}`),
+      // And an add-on renamed after the OK, applied now.
+      ...RUN('g', 'manager', addonRecord([ren('syrup', 'Vanilla', 'فانيلا', 'modifier_id')])),
+      ...NUMBERS('g'),
+      T('g_owner', 'owner', `select to_jsonb(app.upsert_modifier({{grp}}::uuid, 'Caramel', 'كراميل', {{syrup}}::uuid, 500, 0, true))`),
+      APPLY_NOW('g'),
+
+      // Refused at the proposal, with renames as the field.
+      START('p_foreign', 'manager', priceRecord('cake', [ren('mocha_s', 'Big', 'كبير')])),
+      START('p_same', 'manager', priceRecord('cake', [ren('slice', 'Slice', 'شريحة')])),
+      START('p_same_space', 'mkt', priceRecord('cake', [ren('slice', ' Slice ', 'شريحة ')])),
+      START('p_blank', 'manager', priceRecord('cake', [ren('slice', '  ', 'شريحة كبيرة')])),
+      START('p_one_name', 'manager', priceRecord('cake', [`jsonb_build_object('variant_id', {{slice}}, 'name_en', 'Big slice')`])),
+      START('p_long', 'manager', priceRecord('cake', [ren('slice', 'x'.repeat(81), 'شريحة')])),
+      START('p_twice', 'manager', priceRecord('cake', [ren('slice', 'Big', 'كبيرة'), ren('slice', 'Huge', 'ضخمة')])),
+      START('p_stray', 'manager', priceRecord('cake', [`jsonb_build_object('variant_id', {{slice}}, 'name_en', 'Big',
+                                                                              'name_ar', 'كبيرة', 'price_iqd', 4500)`])),
+      START('p_thirteen', 'manager', priceRecord('cake', Array.from({ length: 13 }, () => ren('slice', 'Big', 'كبيرة')))),
+      START('p_nothing', 'manager', priceRecord('cake', [])),
+      START('p_hidden', 'manager', addonRecord([ren('hidden', 'Oat', 'شوفان', 'modifier_id')])),
+      START('p_addon_x', 'mkt', addonRecord([ren('a_x', 'Big', 'كبير', 'modifier_id')])),
+      START('p_addon_nothing', 'manager', addonRecord([], `, 'addons', '[]'::jsonb`)),
+      START('p_shop_launch', 'manager', `jsonb_build_object('change', 'shop_launch', ${REASON}, 'menu_item_id', {{prod}},
+                                           'prices', '[]'::jsonb, 'renames', '[]'::jsonb)`),
+      START('p_80', 'manager', priceRecord('cake', [ren('slice', 'x'.repeat(80), 'شريحة')])),
+
+      // Nobody else starts one or reads the figures, marketing included.
+      ...others.map((who) => START(`${who}_start`, who, priceRecord('cake', [ren('slice', 'Big', 'كبيرة')]))),
+      ...[...others, 'mkt'].map((who) => T(`${who}_numbers`, who, `select app.price_promo_numbers({{a}})`)),
+    ]);
+
+    // The swap: names change places; each row keeps its price and its recipe.
+    expect(refused(r, 'a_num_renames')).toBe('RECORD_INVALID:renames');
+    const a = ok<{ sizes: unknown[]; addons: unknown[]; renames: unknown[] }>(r, 'a_figures');
+    expect(a.sizes).toEqual([]);
+    expect(a.renames).toEqual([
+      { target: 'size', id: v(r, 'small'), from_en: 'Small', from_ar: 'صغير', to_en: 'Large', to_ar: 'كبير', price_iqd: 5000 },
+      { target: 'size', id: v(r, 'large'), from_en: 'Large', from_ar: 'كبير', to_en: 'Small', to_ar: 'صغير', price_iqd: 6500 },
+    ]);
+    expect(ok(r, 'a_apply')).toMatchObject({ run_status: 'done' });
+    expect(ok(r, 'latte_after')).toEqual([
+      { en: 'Large', ar: 'كبير', price: 5000, default: true, recipe: [100] },
+      { en: 'Small', ar: 'صغير', price: 6500, default: false, recipe: [150] },
+    ]);
+    expect(ok(r, 'a_counts')).toEqual([{ sizes: 0, new_sizes: 0, renamed: 2 }]);
+
+    expect(ok(r, 'b_start')).toMatchObject({ auto: true });
+    expect(ok(r, 'b_record')).toEqual([
+      { variant_id: v(r, 'mocha_s'), name_en: 'Dark', name_ar: 'داكن', before_en: 'Regular', before_ar: 'عادي' },
+    ]);
+    expect(ok(r, 'mocha_after')).toEqual([{ en: 'Dark', ar: 'داكن', price: 6000, default: true, recipe: null }]);
+
+    expect(ok<{ renames: unknown[] }>(r, 'd_figures').renames).toEqual([
+      { target: 'size', id: v(r, 'prod_s'), from_en: 'M', from_ar: 'وسط', to_en: 'L', to_ar: 'كبير', price_iqd: 56000 },
+    ]);
+    expect(ok(r, 'prod_after')).toEqual({ size: ['L', 'كبير', 56000], stock: ['PP prod L', 'صنف كبير'] });
+    expect(ok(r, 'd_counts')).toEqual([{ sizes: 1, new_sizes: 0, renamed: 1 }]);
+
+    const e = ok<{ addons: unknown[]; renames: unknown[] }>(r, 'e_figures');
+    expect(e.addons).toEqual([]);
+    expect(e.renames).toEqual([
+      { target: 'addon', id: v(r, 'shot'), from_en: 'PP shot', from_ar: 'إضافة', to_en: 'Double shot', to_ar: 'شوت مزدوج',
+        price_iqd: 1000 },
+    ]);
+    expect(ok(r, 'e_apply')).toMatchObject({ run_status: 'done' });
+    expect(ok(r, 'shot_after')).toEqual(['Double shot', 'شوت مزدوج', 1000, true]);
+    expect(ok(r, 'e_counts')).toEqual([{ addons: 0, launched: 0, renamed: 1 }]);
+
+    ok(r, 'f_owner');
+    expect(ok(r, 'f_due')).toEqual({ applied: 0, reverted: 1 });
+    expect(ok(r, 'f_after')).toEqual({ status: 'active', finished: false });
+    expect(ok(r, 'f_audit')).toEqual([
+      { status: 'active', run_step_id: v(r, 'f_app'), not_applied: 'PRICE_TARGET_CHANGED', hint: `size:${v(r, 'tea_s')}` },
+    ]);
+    expect(ok<string[]>(r, 'f_push')).toContain(SEED_STAFF_IDS.manager);
+    ok(r, 'g_owner');
+    expect(refused(r, 'g_apply')).toBe(`PRICE_TARGET_CHANGED:addon:${v(r, 'syrup')}`);
+
+    for (const label of ['p_foreign', 'p_same', 'p_same_space', 'p_blank', 'p_one_name', 'p_twice', 'p_stray', 'p_thirteen',
+                         'p_hidden', 'p_addon_x', 'p_shop_launch']) {
+      expect(refused(r, label), label).toBe('RECORD_INVALID:renames');
+    }
+    // Past 80 characters is the text cap, as for a new size's name.
+    expect(refused(r, 'p_long')).toBe('TEXT_TOO_LONG:renames');
+    ok(r, 'p_80');
+    expect(refused(r, 'p_nothing')).toBe('RECORD_INVALID:prices');
+    expect(refused(r, 'p_addon_nothing')).toBe('RECORD_INVALID:addons');
+
+    for (const who of others) expect(refused(r, `${who}_start`), who).toBe('FORBIDDEN');
+    for (const who of [...others, 'mkt']) expect(refused(r, `${who}_numbers`), who).toBe('FORBIDDEN');
   });
 });

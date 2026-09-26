@@ -383,6 +383,10 @@ export const ownerEn = {
       // The owner is reading, so the page is named as a page, not as "My tasks" of their own.
       driver: 'A task list (My tasks) showing the shopping list and their purchases; the run itself is on the staff phone. No till, desk or kitchen.',
       marketing: 'A task list (My tasks): their steps in new items, tournaments and price changes, and proposing a price or promo change. No till, desk or kitchen.',
+      // Wave 5 (wave5-addendum-2026-09-25 §4.2). The waiter's stock clause
+      // joined with Move stock (lane S, V8): the moves are made on the phone.
+      assistant_barista: 'The kitchen screen, and My tasks from its header: their checklists, the bar team’s teachings, recipe ingredients and their phone pages.',
+      waiter: 'A task list (My tasks): their checklists, cleaning photos included, and their phone pages, where they move stock between the cafe and the bakery. No till, desk or kitchen.',
     },
     // Beside a role that still works but is no longer given (prep, 0155).
     retired: 'Retired',

@@ -10,7 +10,9 @@
  * migration (§1.6 step 2), so nothing here may need that migration. The role
  * spec's eleven title keys (§2.24.1) shipped their copy the same way, one
  * commit ahead of staff_push_keys, which lists them in the JSON and in
- * app.notify_staff: from there the copy and the list are equal again.
+ * app.notify_staff: from there the copy and the list are equal again. Wave
+ * 5's eleven (wave5-addendum-2026-09-25 §2.3) shipped their copy the same
+ * way, one commit ahead of staff_push_keys_wave5.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -27,7 +29,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const INDEX = readFileSync(resolve(here, '../supabase/functions/send-push/index.ts'), 'utf8');
 
 const ROUTES = new Set(staffPush.routes);
-/** The role spec's eleven title keys (§2.21, §2.24.1), last in the JSON, in this order. */
+/** The role spec's eleven title keys (§2.21, §2.24.1), after purchase_to_receive in the JSON, in this order. */
 const ROLE_SPEC_KEYS = [
   'idea_submitted',
   'idea_started',
@@ -40,6 +42,20 @@ const ROLE_SPEC_KEYS = [
   'shopping_declined',
   'marketing_request_new',
   'marketing_request_answered',
+];
+/** Wave 5's eleven title keys (wave5-addendum §2.3), last in the JSON, in this order. */
+const WAVE5_KEYS = [
+  'deduction_proposed',
+  'deduction_approved',
+  'deduction_declined',
+  'deduction_recorded',
+  'incident_reported',
+  'incident_reviewed',
+  'content_submitted',
+  'content_approved',
+  'content_changes',
+  'content_declined',
+  'waiter_call_new',
 ];
 const FSI = '\u2068';
 const PDI = '\u2069';
@@ -60,11 +76,12 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, twenty-six title keys and seven routes, each once', () => {
+  it('lists the four staff kinds, thirty-seven title keys and seven routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(26);
+    expect(staffPush.title_keys).toHaveLength(37);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
-    expect(staffPush.title_keys.slice(15)).toEqual(ROLE_SPEC_KEYS);
+    expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
+    expect(staffPush.title_keys.slice(26)).toEqual(WAVE5_KEYS);
     expect(staffPush.routes).toEqual([
       'staff',
       'staff-step',
@@ -181,6 +198,28 @@ describe('staffMessage — the EN copy of §2.21', () => {
       `${iso('Hasan')}: ${iso('Poster')}`,
     ],
     ['marketing_request_answered', { title: 'Poster' }, 'Marketing answered', iso('Poster')],
+    // Wave 5 (wave5-addendum §2.3): no amount, reason or target on any of them.
+    ['deduction_proposed', { name: 'Bareq' }, 'Pay deduction', `${iso('Bareq')} proposed a deduction.`],
+    ['deduction_approved', {}, 'Deduction approved', 'Your proposal was approved.'],
+    ['deduction_declined', {}, 'Deduction declined', 'Your proposal was declined.'],
+    ['deduction_recorded', {}, 'Pay deduction', 'A deduction was added to your record.'],
+    [
+      'incident_reported',
+      { name: 'Hussein', step: { en: 'Injury', ar: 'إصابة' } },
+      'Incident report',
+      `${iso('Hussein')}: ${iso('Injury')}`,
+    ],
+    ['incident_reviewed', { step: { en: 'Injury', ar: 'إصابة' } }, 'Incident reviewed', iso('Injury')],
+    [
+      'content_submitted',
+      { name: 'Hasan', title: 'Friday reel' },
+      'Content for approval',
+      `${iso('Hasan')}: ${iso('Friday reel')}`,
+    ],
+    ['content_approved', { title: 'Friday reel' }, 'Content approved', iso('Friday reel')],
+    ['content_changes', { title: 'Friday reel' }, 'Changes asked', iso('Friday reel')],
+    ['content_declined', { title: 'Friday reel' }, 'Content declined', iso('Friday reel')],
+    ['waiter_call_new', { title: 'T12' }, 'Guest call', `Table ${iso('T12')}`],
   ];
 
   it.each(cases)('%s', (key, params, title, body) => {
@@ -229,6 +268,21 @@ describe('staffMessage — params', () => {
     expect(msg('ar', 'recipe_change_submitted', { name: 'Rusul' }).body).toBe(iso('Rusul'));
     expect(msg('en', 'recipe_change_approved').body).toBe('');
     expect(msg('ar', 'idea_started').body).toBe('');
+  });
+
+  it('names no amount on a deduction, and sends the title alone without a name or table', () => {
+    // The params are closed to {step, title, name} (app.notify_staff), so an
+    // amount can only arrive as one of those; the deduction copy reads none but name.
+    expect(msg('en', 'deduction_approved', { title: '50000', step: { en: '50000' } }).body).toBe(
+      'Your proposal was approved.',
+    );
+    expect(msg('ar', 'deduction_recorded', { name: 'Yusuf' }).body).toBe('أُضيف خصم إلى سجلّك.');
+    expect(msg('en', 'deduction_proposed').body).toBe('');
+    expect(msg('ar', 'waiter_call_new').body).toBe('');
+    expect(msg('ar', 'waiter_call_new', { title: 'T12' }).body).toBe(`طاولة ${iso('T12')}`);
+    expect(msg('ar', 'incident_reported', { name: 'Hussein', step: { en: 'Injury', ar: 'إصابة' } }).body).toBe(
+      `${iso('Hussein')}: ${iso('إصابة')}`,
+    );
   });
 });
 

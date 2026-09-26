@@ -23,6 +23,12 @@ vi.mock('../../lib/appRpc', () => ({
 }));
 vi.mock('../../lib/realtime', () => ({ useBroadcast: () => ({ status: 'live' }) }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => nav.navigate }));
+// Wave 5 (wave5-addendum-2026-09-25 §5.2): "Needs you now" reads the people
+// records only for a role that acts on them, so the screen asks who is signed in.
+vi.mock('../../lib/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useAuth: () => ({ staff: { id: 'm1', displayName: 'Manager', role: 'manager' } }),
+}));
 
 import { OperationsOverviewScreen } from './OperationsOverview';
 

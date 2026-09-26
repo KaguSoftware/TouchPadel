@@ -125,6 +125,20 @@ describe('readStock', () => {
     const r = readStock({ variance: [{ ingredientId: 'p1', countId: 'k', varianceQty: -2 }] });
     expect(r.variance[0]?.productTestQty).toBeNull();
   });
+  it('reads each batch’s and each count’s store, and what was moved (wave 5)', () => {
+    const r = readStock({
+      expiringSoon: [{ ingredientId: 'f1', batchId: 'b1', location: 'bakery' }],
+      expired: [{ ingredientId: 'b', batchId: 'b2', location: 'cafe' }],
+      variance: [{ ingredientId: 'p1', countId: 'k', varianceQty: -2, location: 'bakery', transferQty: 5000 }],
+    });
+    expect(r.expiringSoon[0]?.location).toBe('bakery');
+    expect(r.expired[0]?.location).toBe('cafe');
+    expect(r.variance[0]).toMatchObject({ location: 'bakery', transferQty: 5000 });
+    // A report from before the stores, or a store this build does not know: nothing claimed.
+    const old = readStock({ variance: [{ ingredientId: 'p1', countId: 'k', location: 'garage' }], expired: [{ ingredientId: 'b', batchId: 'b2' }] });
+    expect(old.variance[0]).toMatchObject({ location: null, transferQty: null });
+    expect(old.expired[0]?.location).toBeNull();
+  });
 });
 
 describe('readStaff / dayClosesOf', () => {

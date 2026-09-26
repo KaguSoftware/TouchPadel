@@ -25,8 +25,16 @@
  *
  * `?filter=out|low|belowPar|countNeeded` opens the table already narrowed; the
  * Today screen links to `low` and `belowPar`.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.8, §5.2): the venue has a cafe store
+ * and a bakery store. On hand stays the venue total, because what can be sold
+ * and what is running low are venue-wide (D3); under it, once the bakery store
+ * holds any of it, a quiet line says where it is ("Cafe store 1.5 kg · Bakery
+ * store 500 g"), and a Store filter narrows the table to what one store holds.
+ * Needs attention gains counts from the phone waiting to be applied and staff
+ * additions with no cost.
  */
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { formatDate } from '@touch/i18n';
@@ -52,6 +60,7 @@ import { CardTitle } from '../ops/OpsVisuals';
 import { IngredientForm } from './IngredientForm';
 import { LedgerDrawer } from './LedgerDrawer';
 import { AttentionList, Footnote, IngredientName, KindFilter, matchesKind, useStockFormat, type AttentionItem, type StockKindFilter } from './stockUi';
+import { anyInBakery, heldAt, phoneCountsWaiting, splitByStore, splitWorthShowing, type StockLocation, type StoreSplit } from './storeLogic';
 import {
   matchesName,
   matchesOnHandFilter,
@@ -62,7 +71,7 @@ import {
   type OnHandFilter,
   type StockLevel,
 } from './stockLogic';
-import { SK, fetchAlertCount, fetchLastCount, fetchOnHand, fetchOpenCount, fetchSummary, type OnHandRow } from './stockKeys';
+import { SK, fetchAlertCount, fetchByStore, fetchLastCount, fetchNeedsCostCount, fetchOnHand, fetchSummary, fetchUnfinishedCounts, type OnHandRow } from './stockKeys';
 
 export { isBelowPar, isLow, isOut, stockLevel } from './stockLogic';
 
@@ -74,6 +83,7 @@ export function OnHand() {
   const [filter, setFilter] = useState<OnHandFilter>(() => parseOnHandFilter(search.filter));
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<StockKindFilter>('all');
+  const [store, setStore] = useState<StockLocation | 'all'>('all');
   const [open, setOpen] = useState<OnHandRow | null>(null);
   const [adding, setAdding] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -82,19 +92,25 @@ export function OnHand() {
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand, refetchInterval: 60_000 });
   const summaryQ = useQuery({ queryKey: SK.summary, queryFn: fetchSummary, refetchInterval: 60_000 });
   const alertCountQ = useQuery({ queryKey: SK.alertCount, queryFn: fetchAlertCount, refetchInterval: 60_000 });
-  const lastCountQ = useQuery({ queryKey: SK.lastCount, queryFn: fetchLastCount });
-  const openCountQ = useQuery({ queryKey: SK.openCount, queryFn: fetchOpenCount });
+  const lastCountQ = useQuery({ queryKey: SK.lastCount, queryFn: () => fetchLastCount() });
+  const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
+  const byStoreQ = useQuery({ queryKey: SK.byStore, queryFn: fetchByStore, refetchInterval: 60_000 });
+  const needsCostQ = useQuery({ queryKey: SK.needsCost, queryFn: fetchNeedsCostCount, refetchInterval: 60_000 });
+  const splits = useMemo(() => splitByStore(byStoreQ.data ?? []), [byStoreQ.data]);
+  const twoStores = anyInBakery(splits);
 
   const go = (href: string) => void navigate({ href });
   const active = (onHandQ.data ?? []).filter((r) => r.is_active);
   const hasShopStock = active.some((r) => r.kind === 'retail');
-  const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query) && matchesKind(r.kind, kind));
+  const inStore = (r: OnHandRow) => store === 'all' || !twoStores || heldAt(splits.get(r.ingredient_id), store) > 0;
+  const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query) && matchesKind(r.kind, kind) && inStore(r));
   const status = asyncStatus(onHandQ, (d) => d.filter((r) => r.is_active).length === 0);
 
   /** Narrow the table and bring it into view — the button's promise is "show which". */
   function showWhich(next: OnHandFilter) {
     setFilter(next);
     setQuery('');
+    setStore('all');
     tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -153,6 +169,22 @@ export function OnHand() {
       action: { label: tr('ws.manager.stock.onHand.now.openExpiry'), onClick: () => go('/stock/expiry') },
     },
     {
+      key: 'phoneCounts',
+      count: phoneCountsWaiting(countsQ.data).length,
+      tone: 'warn',
+      title: tr('ws.stores.onHand.now.phoneCounts'),
+      hint: tr('ws.stores.onHand.now.phoneCountsHint'),
+      action: { label: tr('ws.stores.onHand.now.openCounts'), onClick: () => go('/stock/counts') },
+    },
+    {
+      key: 'needsCost',
+      count: needsCostQ.data ?? 0,
+      tone: 'warn',
+      title: tr('ws.stores.onHand.now.needsCost'),
+      hint: tr('ws.stores.onHand.now.needsCostHint'),
+      action: { label: tr('ws.stores.onHand.now.openGoodsIn'), onClick: () => go('/stock/receive') },
+    },
+    {
       key: 'alerts',
       count: alertCountQ.data ?? 0,
       tone: 'warn',
@@ -188,11 +220,17 @@ export function OnHand() {
       key: 'onHand',
       header: tr('ws.manager.stock.onHand.table.onHand'),
       numeric: true,
-      render: (r) => (
-        <span dir="ltr" style={{ fontWeight: 700 }}>
-          <bdi>{fmt.qty(r.on_hand, r.unit)}</bdi>
-        </span>
-      ),
+      render: (r) => {
+        const split = splits.get(r.ingredient_id);
+        return (
+          <span style={{ display: 'grid', justifyItems: 'end' }}>
+            <span dir="ltr" style={{ fontWeight: 700 }}>
+              <bdi>{fmt.qty(r.on_hand, r.unit)}</bdi>
+            </span>
+            {splitWorthShowing(split) && <StoreSplitLine split={split!} unit={r.unit} />}
+          </span>
+        );
+      },
     },
     {
       key: 'par',
@@ -217,7 +255,7 @@ export function OnHand() {
     },
   ];
 
-  const counting = openCountQ.data != null;
+  const counting = (countsQ.data ?? []).some((c) => c.source === 'operator');
 
   return (
     <div>
@@ -300,17 +338,37 @@ export function OnHand() {
                 <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
               </span>
               {hasShopStock && <KindFilter value={kind} onChange={setKind} />}
+              {twoStores && (
+                // A visible name, so the stores never read as the item-kind
+                // control beside it (Café / Shop is what an item is; this is where it sits).
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+                  <span id="onhand-store-label" style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
+                    {tr('ws.stores.onHand.storeFilter')}
+                  </span>
+                  <SegmentedControl<StockLocation | 'all'>
+                    value={store}
+                    onChange={setStore}
+                    aria-labelledby="onhand-store-label"
+                    options={[
+                      { value: 'all', label: tr('ws.stores.onHand.bothStores') },
+                      { value: 'cafe', label: tr('work.store.cafe') },
+                      { value: 'bakery', label: tr('work.store.bakery') },
+                    ]}
+                  />
+                </span>
+              )}
             </Toolbar>
             {rows.length === 0 ? (
               // The shelves are not empty — the search or the filter narrowed
               // them to nothing, so the way out is clearing both (rulebook 9.2).
               <EmptyState
-                kind={filter !== 'all' && query.trim() === '' ? 'nothingToDo' : 'filtered'}
-                icon={filter !== 'all' && query.trim() === '' ? 'checkCircle' : undefined}
-                title={filter !== 'all' && query.trim() === '' ? tr(`ws.manager.stock.onHand.table.none.${filter}`) : undefined}
+                kind={filter !== 'all' && query.trim() === '' && store === 'all' ? 'nothingToDo' : 'filtered'}
+                icon={filter !== 'all' && query.trim() === '' && store === 'all' ? 'checkCircle' : undefined}
+                title={filter !== 'all' && query.trim() === '' && store === 'all' ? tr(`ws.manager.stock.onHand.table.none.${filter}`) : undefined}
                 onClearFilters={() => {
                   setFilter('all');
                   setQuery('');
+                  setStore('all');
                 }}
               />
             ) : (
@@ -366,6 +424,22 @@ function RowStatus({ row }: { row: OnHandRow }) {
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * Where the venue total sits, under it: "Cafe store 1.5 kg · Bakery store
+ * 500 g", a store with none left out. Shown only once the bakery store holds
+ * some of it (splitWorthShowing).
+ */
+function StoreSplitLine({ split, unit }: { split: StoreSplit; unit: string }) {
+  const { tr } = useLocale();
+  const fmt = useStockFormat();
+  const parts = (['cafe', 'bakery'] as const).filter((s) => split[s] > 0).map((s) => tr(`ws.stores.onHand.split.${s}`, { qty: fmt.qty(split[s], unit) }));
+  return (
+    <bdi data-testid="store-split" style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 400, whiteSpace: 'nowrap' }}>
+      {parts.join(' · ')}
+    </bdi>
   );
 }
 

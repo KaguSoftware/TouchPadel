@@ -10,7 +10,11 @@
  * prep create reads as "no such role" instead of naming barista and chef.
  */
 
-/** Every role a new account can start on; 0155 added the six after court_desk. */
+/**
+ * Every role a new account can start on; 0155 added the six after court_desk,
+ * wave 5 the assistant barista and the waiter (the owner creates Hussein's and
+ * Hasan's accounts, wave5-addendum-2026-09-25 §2.1.6).
+ */
 export const ROLES = [
   'cashier',
   'court_desk',
@@ -20,6 +24,8 @@ export const ROLES = [
   'chef',
   'driver',
   'marketing',
+  'assistant_barista',
+  'waiter',
   'manager',
   'owner',
 ] as const;

@@ -651,4 +651,37 @@ describe.skipIf(!docker)('shopping list and purchases (rolled-back transactions)
     expect(ok<string>(r, 'done')).toBe('done:true');
     expect(refused(r, 'recv_after')).toBe('PURCHASE_ALREADY_RECEIVED');
   });
+
+  // Wave 5 (wave5-addendum-2026-09-25 §2.8 D4, lane S): the manager picks the
+  // store a driver's purchase goes into; the cafe unless told otherwise. Shop
+  // stock at the bakery is refused (stock-logs.test.ts, I16).
+  it('receives a driver’s purchase into the store the manager picks', () => {
+    const r = scenario([
+      MK('drv', 'driver'),
+      ING('flour', 'g'),
+      T('rec', 'drv', `select app.record_purchase({{venue}}, jsonb_build_array(
+         jsonb_build_object('ingredient_id', {{flour}}, 'qty', 1000, 'price_iqd', 3000)), 3000, null, null)`),
+      RES('purchase', 'rec', 'purchase_id'),
+      KEEP('l_flour', `select id::text from purchase_lines where purchase_id = {{purchase}}::uuid`),
+      T('recv_bad', 'manager', `select app.receive_purchase({{purchase}}, jsonb_build_array(
+         jsonb_build_object('purchase_line_id', {{l_flour}}, 'qty_received', 1000)), null, null, null, 'kitchen')`),
+      T('recv', 'manager', `select app.receive_purchase({{purchase}}, jsonb_build_array(
+         jsonb_build_object('purchase_line_id', {{l_flour}}, 'qty_received', 1000)), null, null, null, 'bakery')`),
+      Q('booked', `select jsonb_build_object('delivery', d.location, 'source', d.source, 'batch', b.location,
+                                             'move', m.location, 'cost', b.unit_cost_iqd)
+                     from purchases p
+                     join deliveries d on d.id = p.delivery_id
+                     join delivery_lines dl on dl.delivery_id = d.id
+                     join stock_batches b on b.delivery_line_id = dl.id
+                     join stock_movements m on m.batch_id = b.id and m.movement_type = 'goods_in'
+                    where p.id = {{purchase}}::uuid`),
+      Q('audit', `select to_jsonb(after->>'location') from audit_log
+                   where action = 'purchase.receive' and entity_id = {{purchase}}`),
+    ]);
+    ok(r, 'rec');
+    expect(refused(r, 'recv_bad')).toBe('INVALID_ARGUMENT:location');
+    ok(r, 'recv');
+    expect(ok(r, 'booked')).toEqual({ delivery: 'bakery', source: 'goods_in', batch: 'bakery', move: 'bakery', cost: 3 });
+    expect(ok(r, 'audit')).toBe('bakery');
+  });
 });

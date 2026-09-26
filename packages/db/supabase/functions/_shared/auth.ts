@@ -25,7 +25,10 @@ export type StaffRole =
   | 'head_chef'
   | 'chef'
   | 'driver'
-  | 'marketing';
+  | 'marketing'
+  // Wave 5 (wave5-addendum-2026-09-25 §2.1): the assistant barista and the waiter.
+  | 'assistant_barista'
+  | 'waiter';
 
 export interface StaffCaller {
   userId: string;

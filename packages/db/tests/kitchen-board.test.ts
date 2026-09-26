@@ -4,9 +4,10 @@
  * app.kitchen_board, and the bar and kitchen family and prep lose their
  * direct reads of tabs, orders and order lines.
  *
- *   * app.kitchen_board gives every kitchen-list role the board's tickets in
- *     the shape the old embedded select returned, refuses driver, marketing
- *     and the desk, answers for one venue, carries no money key at any depth,
+ *   * app.kitchen_board gives every kitchen-list role (the assistant barista
+ *     since wave 5) the board's tickets in the shape the old embedded select
+ *     returned, refuses driver, marketing, the waiter and the desk, answers
+ *     for one venue, carries no money key at any depth,
  *     fills the booking for cashier and MGMT only, and keeps a completed
  *     ticket for two minutes: no caller can widen that window.
  *   * After kitchen_money_reads (the nested block at the end): the till, the
@@ -66,8 +67,9 @@ function dockerReachable(): boolean {
   }
 }
 
-const KITCHEN = ['head_barista', 'barista', 'head_chef', 'chef'] as const;
-const NO_STATION = ['driver', 'marketing'] as const;
+// assistant_barista and waiter: wave 5 (wave5-addendum-2026-09-25 §2.1.2).
+const KITCHEN = ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef'] as const;
+const NO_STATION = ['driver', 'marketing', 'waiter'] as const;
 const NEW_ROLES = [...KITCHEN, ...NO_STATION] as const;
 type NewRole = (typeof NEW_ROLES)[number];
 
@@ -151,7 +153,7 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
 
   const ids = {} as Record<NewRole, string>;
   const as = {} as Record<NewRole, SupabaseClient>;
-  /** The eight roles of the kitchen list, by name. */
+  /** The nine roles of the kitchen list, by name. */
   let board: [string, SupabaseClient][];
 
   let item: Awaited<ReturnType<typeof createTestMenuItem>>;
@@ -414,10 +416,11 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
     }
   });
 
-  it('refuses driver, marketing, the desk and a guest', async () => {
+  it('refuses driver, marketing, the waiter, the desk and a guest', async () => {
     for (const [who, c] of [
       ['driver', as.driver],
       ['marketing', as.marketing],
+      ['waiter', as.waiter],
       ['court_desk', desk],
       ['guest', guest],
     ] as [string, SupabaseClient][]) {

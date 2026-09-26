@@ -18,12 +18,14 @@
  * on the count) is shared with ../ops/OpsVisuals on purpose.
  */
 import type { CSSProperties, ReactNode } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
-import { Button } from '../../components/ui';
+import { Button, Field } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
-import { SegmentedControl } from '../../components/kit';
+import { MessagePresenter, SegmentedControl } from '../../components/kit';
 import { MARK, MARK_FG, MARK_SOFT, type MarkTone } from '../ops/OpsVisuals';
+import { STOCK_LOCATIONS, storeOf, type StockLocation } from './storeLogic';
 
 const UNITS = ['g', 'ml', 'pc'] as const;
 type Unit = (typeof UNITS)[number];
@@ -169,6 +171,86 @@ export function KindFilter({ value, onChange }: { value: StockKindFilter; onChan
         { value: 'cafe', label: tr('ws.manager.stock.kindFilter.cafe') },
         { value: 'shop', label: tr('ws.manager.stock.kindFilter.shop') },
       ]}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The two stores (wave5-addendum-2026-09-25 §2.8, §5.2)
+// ---------------------------------------------------------------------------
+
+/** A store's name, "Cafe store" / "Bakery store"; a value this build does not know prints as sent. */
+export function useStoreName() {
+  const { tr } = useLocale();
+  return (location: unknown) => {
+    const store = storeOf(location);
+    return store ? tr(`work.store.${store}`) : typeof location === 'string' ? location : '—';
+  };
+}
+
+/**
+ * Which store a write goes into or comes out of: "Cafe store / Bakery store"
+ * as one segmented control under a label. A store that cannot take the write
+ * stays visible, disabled, with the reason under it: shop stock lives in the
+ * cafe store only (V14), so the bakery store is off while a shop line is on
+ * the form.
+ */
+export function StorePicker({
+  label,
+  value,
+  onChange,
+  bakeryOff,
+  disabled,
+  hint,
+  'data-testid': testId,
+}: {
+  label: string;
+  value: StockLocation;
+  onChange: (next: StockLocation) => void;
+  /** The reason the bakery store cannot take this write, or undefined when it can. */
+  bakeryOff?: string;
+  disabled?: boolean;
+  hint?: ReactNode;
+  'data-testid'?: string;
+}) {
+  const { tr } = useLocale();
+  return (
+    <div data-testid={testId}>
+      <Field label={label} group hint={bakeryOff ?? hint} style={{ marginBlockEnd: 0 }}>
+        <SegmentedControl<StockLocation>
+          value={value}
+          onChange={onChange}
+          aria-label={label}
+          options={STOCK_LOCATIONS.map((s) => ({
+            value: s,
+            label: tr(`work.store.${s}`),
+            disabled: disabled || (s === 'bakery' && bakeryOff !== undefined),
+          }))}
+        />
+      </Field>
+    </div>
+  );
+}
+
+/**
+ * A manager's count is open at the store this write goes into, so the server
+ * would refuse it (STORE_BEING_COUNTED): said before the form is filled, with
+ * the way to the count.
+ */
+export function StoreCountedNotice({ store }: { store: StockLocation }) {
+  const { tr } = useLocale();
+  const navigate = useNavigate();
+  return (
+    <MessagePresenter
+      tone="refused"
+      message={
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>{tr('ws.stores.picker.beingCounted', { store: tr(`ws.stores.inSentence.${store}`) })}</span>
+          <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/stock/counts' })}>
+            {tr('ws.stores.picker.openCounts')}
+          </Button>
+        </span>
+      }
     />
   );
 }

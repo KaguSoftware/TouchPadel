@@ -103,6 +103,19 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
     route: 'staff-marketing-requests',
     primary: 'staff-marketing-requests.submit',
   },
+  // Wave 5, lane R (wave5-addendum-2026-09-25 §2.1.8): the waiter's guest
+  // calls, cased by staffCalls.smoke.test.tsx.
+  { file: 'staff-calls.tsx', route: 'staff-calls', primary: 'staff-calls.list' },
+  // Wave 5, lane S (wave5-addendum-2026-09-25 §5.3): the stores, cased by
+  // staffStores.smoke.test.tsx.
+  { file: 'staff-stock-log.tsx', route: 'staff-stock-log', primary: 'staff-stock-log.save' },
+  { file: 'staff-stock-move.tsx', route: 'staff-stock-move', primary: 'staff-stock-move.move' },
+  { file: 'staff-stock-count.tsx', route: 'staff-stock-count', primary: 'staff-stock-count.submit' },
+  // Wave 5, lane P (wave5-addendum-2026-09-25 §5.3): the people records,
+  // cased by staffPeople.smoke.test.tsx.
+  { file: 'staff-deductions.tsx', route: 'staff-deductions', primary: 'staff-deductions.propose' },
+  { file: 'staff-incidents.tsx', route: 'staff-incidents', primary: 'staff-incidents.submit' },
+  { file: 'staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

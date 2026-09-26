@@ -946,6 +946,8 @@ export const ar: Messages = {
       chef: 'مساعد شيف',
       driver: 'سائق',
       marketing: 'التسويق',
+      assistant_barista: 'مساعد باريستا',
+      waiter: 'نادل',
     },
     days: {
       sun: 'الأحد',
@@ -1193,6 +1195,7 @@ export const ar: Messages = {
       recipes: 'الوصفات',
       products: 'منتجات المتجر',
       suppliers: 'المورّدون',
+      moves: 'نقل المخزون',
     },
     stock: {
       ingredient: 'المكوّن',
@@ -1215,6 +1218,7 @@ export const ar: Messages = {
         count_adjustment: 'تصحيح بالجرد',
         refund_reversal: 'أُعيد باسترداد',
         product_test: 'استُخدم في تجربة صنف',
+        transfer: 'نقل بين المخزنين',
       },
     },
     courts: {
@@ -1667,7 +1671,7 @@ export const ar: Messages = {
       RESERVATION_NOT_FOUND: 'الحجز غير موجود.',
       REASON_REQUIRED: 'السبب مطلوب.',
       REQUEST_NOT_PENDING: 'تمت الإجابة على هذا الطلب بالفعل. أعد التحميل لرؤية القرار.',
-      CANNOT_DECIDE_OWN: 'لا يمكنك البتّ في طلبك أنت.',
+      CANNOT_DECIDE_OWN: 'لا يمكنك البتّ في أمر أرسلته أنت أو يخصّك.',
       REQUEST_ALREADY_PENDING: 'يوجد طلب من هذا النوع قيد الانتظار بالفعل.',
       BAD_KIND: 'هذا ليس نوعاً من الطلبات.',
       BAD_STATUS: 'هذه ليست حالة صالحة.',

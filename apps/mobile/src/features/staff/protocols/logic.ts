@@ -218,10 +218,114 @@ export interface PriceProposeStart {
   hidden: string[];
 }
 
-const PRICE_PROPOSE_HIDDEN = [...PROPOSE_PICKED_FIELDS, 'prices.variant_id', 'addons.modifier_id'];
+// Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a rename row names its size or
+// option by its fixed row, never a picker.
+const PRICE_PROPOSE_HIDDEN = [
+  ...PROPOSE_PICKED_FIELDS,
+  'prices.variant_id',
+  'addons.modifier_id',
+  'renames.variant_id',
+  'renames.modifier_id',
+];
 
 function sizeRows(item: TargetItem): FixedRow[] {
   return item.sizes.map((s) => ({ id: s.variant_id, name_en: s.name_en, name_ar: s.name_ar, current: s.price_iqd }));
+}
+
+/** A rename row is headed by the name it has today; no price beside it (the prices are above). */
+function sizeRenameRows(item: TargetItem): FixedRow[] {
+  return item.sizes.map((s) => ({ id: s.variant_id, name_en: s.name_en, name_ar: s.name_ar, current: null }));
+}
+
+/** Only an option on sale is renamed through a price change (0195); one never on sale is the manager's to rename. */
+function addonRenameRows(addons: readonly TargetAddon[]): FixedRow[] {
+  return addons
+    .filter((a) => a.launched)
+    .map((a) => ({
+      id: a.modifier_id,
+      name_en: a.name_en,
+      name_ar: a.name_ar,
+      group_en: a.group_name_en,
+      group_ar: a.group_name_ar,
+      current: null,
+    }));
+}
+
+/** The blank rename rows for the fixed rows, with what a sent-back record already renamed typed in. */
+function renameDraft(key: 'variant_id' | 'modifier_id', rows: readonly FixedRow[], record?: Record<string, unknown>): Draft[] {
+  const sent = new Map(
+    (Array.isArray(record?.renames) ? record.renames : []).map((r) => {
+      const row = r as Record<string, unknown>;
+      return [row[key], row] as const;
+    }),
+  );
+  return rows.map((r) => {
+    const typed = sent.get(r.id);
+    return {
+      [key]: r.id,
+      name_en: typeof typed?.name_en === 'string' ? typed.name_en : '',
+      name_ar: typeof typed?.name_ar === 'string' ? typed.name_ar : '',
+    };
+  });
+}
+
+/**
+ * The rename rows as they are sent (wave5-addendum-2026-09-25 §2.2, #9). The
+ * phone asks only for what changes: a language left empty keeps today's name,
+ * a row left empty or typed back to today's names renames nothing and is
+ * blanked (so `recordFromDraft` drops it with the other untouched fixed
+ * rows). Names are compared as the server compares them: whitespace aside, a
+ * case change is a rename.
+ */
+export function completeRenames(draft: Draft, fixed: { key: string; rows: readonly FixedRow[] } | undefined): Draft {
+  if (!fixed || !Array.isArray(draft.renames)) return draft;
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const renames = (draft.renames as Draft[]).map((row) => {
+    const now = fixed.rows.find((r) => r.id === row[fixed.key]);
+    const typedEn = text(row.name_en);
+    const typedAr = text(row.name_ar);
+    if (!now || (typedEn === '' && typedAr === '')) return { ...row, name_en: '', name_ar: '' };
+    const en = typedEn || now.name_en.trim();
+    const ar = typedAr || now.name_ar.trim();
+    if (en === now.name_en.trim() && ar === now.name_ar.trim()) return { ...row, name_en: '', name_ar: '' };
+    return { ...row, name_en: en, name_ar: ar };
+  });
+  return { ...draft, renames };
+}
+
+/** One rename the numbers and apply steps show: "Small (4,000 IQD) → Large" (app.price_promo_numbers, 0195). */
+export interface NumbersRename {
+  target: 'size' | 'addon';
+  id: string;
+  from_en: string;
+  from_ar: string;
+  to_en: string;
+  to_ar: string;
+  /** What it sells at once applied: this change's figure, else today's price. */
+  price_iqd: number | null;
+}
+
+/** `price_promo_numbers.renames`, read defensively: an older server's numbers carry none. */
+export function numbersRenames(numbers: unknown): NumbersRename[] {
+  const raw = numbers !== null && typeof numbers === 'object' ? (numbers as { renames?: unknown }).renames : undefined;
+  if (!Array.isArray(raw)) return [];
+  const out: NumbersRename[] = [];
+  for (const r of raw) {
+    if (r === null || typeof r !== 'object') continue;
+    const o = r as Record<string, unknown>;
+    if (typeof o.id !== 'string') continue;
+    const str = (v: unknown) => (typeof v === 'string' ? v : '');
+    out.push({
+      target: o.target === 'addon' ? 'addon' : 'size',
+      id: o.id,
+      from_en: str(o.from_en),
+      from_ar: str(o.from_ar),
+      to_en: str(o.to_en),
+      to_ar: str(o.to_ar),
+      price_iqd: typeof o.price_iqd === 'number' && Number.isFinite(o.price_iqd) ? o.price_iqd : null,
+    });
+  }
+  return out;
 }
 
 function promotionDraft(p: TargetPromotion | null): Draft {
@@ -286,6 +390,11 @@ export function priceProposeStart(
         fixed.prices = { key: 'variant_id', rows: sizeRows(item) };
         // A new size is a cafe item's only: a shop size carries its own stock row (§2.8).
         if (change === 'shop_launch' || item.category_kind === 'shop') hidden.push('new_sizes');
+        // Its sizes may be renamed with it (wave 5 §2.2, #9); a shop size's stock row follows.
+        if (change === 'price') {
+          fixed.renames = { key: 'variant_id', rows: sizeRenameRows(item) };
+          draft.renames = renameDraft('variant_id', fixed.renames.rows);
+        }
       }
       break;
     }
@@ -310,6 +419,8 @@ export function priceProposeStart(
           current: a.price_delta_iqd,
         })),
       };
+      fixed.renames = { key: 'modifier_id', rows: addonRenameRows(addons) };
+      draft.renames = renameDraft('modifier_id', fixed.renames.rows);
       break;
     }
     case 'promotion':
@@ -361,6 +472,10 @@ export function priceProposeResubmit(
       }));
       fixed.prices = { key: 'variant_id', rows: sizeRows(item) };
       if (change === 'shop_launch' || item.category_kind === 'shop') hidden.push('new_sizes');
+      if (change === 'price') {
+        fixed.renames = { key: 'variant_id', rows: sizeRenameRows(item) };
+        draft.renames = renameDraft('variant_id', fixed.renames.rows, record);
+      }
     }
   }
   if (change === 'addon_price') {
@@ -386,6 +501,8 @@ export function priceProposeResubmit(
         current: a.price_delta_iqd,
       })),
     };
+    fixed.renames = { key: 'modifier_id', rows: addonRenameRows(addons) };
+    draft.renames = renameDraft('modifier_id', fixed.renames.rows, record);
   }
   return { change, draft, fixed, hidden };
 }

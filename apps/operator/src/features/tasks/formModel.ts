@@ -177,6 +177,33 @@ export function toRecord(fields: readonly FieldDef[], draft: Draft, tz: string =
   return out;
 }
 
+/**
+ * A price or add-on price record without the rename rows that rename nothing
+ * (wave5-addendum-2026-09-25 §2.2, #9): a row still on today's names, whitespace
+ * aside, is left out, as the server would refuse it (RECORD_INVALID hint
+ * `renames`). A case change is a rename. `current` is today's names by the id
+ * the rows name them with (`variant_id` or `modifier_id`); a row naming
+ * something else is kept for the server to judge. No `renames` key is sent
+ * when none is left.
+ */
+export function withoutUnchangedRenames(
+  record: Record<string, unknown>,
+  key: 'variant_id' | 'modifier_id' | null,
+  current: ReadonlyMap<string, { name_en: string; name_ar: string }>,
+): Record<string, unknown> {
+  if (!key || !Array.isArray(record.renames)) return record;
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const kept = record.renames.filter((row) => {
+    if (!isObject(row)) return false;
+    const now = typeof row[key] === 'string' ? current.get(row[key] as string) : undefined;
+    return !now || text(row.name_en) !== now.name_en.trim() || text(row.name_ar) !== now.name_ar.trim();
+  });
+  const out = { ...record };
+  if (kept.length === 0) delete out.renames;
+  else out.renames = kept;
+  return out;
+}
+
 // ── Record → draft ──────────────────────────────────────────────────────────
 
 function leafToDraft(def: FieldDef, value: unknown, tz: string): unknown {

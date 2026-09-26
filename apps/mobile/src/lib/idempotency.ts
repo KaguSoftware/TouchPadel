@@ -82,7 +82,16 @@ export type StaffMutation =
   // Role spec (H): add_marketing_request.
   | 'marketing_request'
   // Role spec (H): submit_release_idea.
-  | 'idea';
+  | 'idea'
+  // Wave 5 (P, wave5-addendum-2026-09-25 §5.3): propose_deduction,
+  // submit_incident, and submit_content and revise_content.
+  | 'deduction'
+  | 'incident'
+  | 'content'
+  // Wave 5 (S, §5.3): log_stock, transfer_stock, submit_stock_count.
+  | 'stock_log'
+  | 'stock_move'
+  | 'stock_count';
 
 /** Fresh staff key, `MOBILE:staff.<mutation>:<ulid>`. Only for a genuinely new intent. */
 export function staffIdemKey(mutation: StaffMutation): string {

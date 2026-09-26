@@ -22,7 +22,7 @@ import { EmptyState, Panel, StatusBadge } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { useStockFormat } from '../stock/stockUi';
 import { RK } from '../roleExtras/keys';
-import { phoneRead, phoneRows, phoneSectionsFor, type PhoneSection } from './tasksLogic';
+import { phoneRead, phoneRows, phoneSectionKeys, phoneSectionsFor, type PhoneSection } from './tasksLogic';
 
 /** Rows a copy shows before "Show all". */
 const FIRST_ROWS = 25;
@@ -76,7 +76,7 @@ export function PhoneCopies() {
               data-testid={`phone.${s}`}
               style={{ justifyContent: 'flex-start', textAlign: 'start', inlineSize: '100%', fontSize: 'var(--tp-fs-sm)' }}
             >
-              {tr(`ws.rolePages.phone.${s}.tab`)}
+              {tr(phoneSectionKeys(s).tab)}
             </Button>
           ))}
         </div>
@@ -86,7 +86,7 @@ export function PhoneCopies() {
           ) : q.isPending ? (
             <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('common.loading')}</p>
           ) : rows.length === 0 ? (
-            <EmptyState compact kind="nothingToDo" titleAs="h3" title={tr(`ws.rolePages.phone.${section}.empty`)} />
+            <EmptyState compact kind="nothingToDo" titleAs="h3" title={tr(phoneSectionKeys(section).empty)} />
           ) : (
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
               {(expanded ? rows : rows.slice(0, FIRST_ROWS)).map((r, i) => (

@@ -1040,6 +1040,9 @@ export const en = {
       chef: 'Chef assistant',
       driver: 'Driver',
       marketing: 'Marketing',
+      // Wave 5 (wave5-addendum-2026-09-25 §4.2).
+      assistant_barista: 'Assistant barista',
+      waiter: 'Waiter',
     },
     days: {
       sun: 'Sun',
@@ -1287,6 +1290,9 @@ export const en = {
       recipes: 'Recipes',
       products: 'Shop products',
       suppliers: 'Suppliers',
+      // Wave 5 (wave5-addendum-2026-09-25 §4.2): /stock/moves, moving stock
+      // between the cafe and bakery stores.
+      moves: 'Move stock',
     },
     // Vocabulary every stock screen shares. Screen copy lives in ws.manager.stock.
     stock: {
@@ -1314,6 +1320,8 @@ export const en = {
         refund_reversal: 'Returned by a refund',
         // product_test_movement (build-contracts-2026-09-23 §4).
         product_test: 'Used in a product test',
+        // stock_transfer_movement (wave5-addendum-2026-09-25 §4.2).
+        transfer: 'Moved between stores',
       },
     },
     // SOW L299-301: court records — name, indoor/outdoor, description, photo,
@@ -1770,7 +1778,9 @@ export const en = {
       RESERVATION_NOT_FOUND: 'Reservation not found.',
       REASON_REQUIRED: 'A reason is required.',
       REQUEST_NOT_PENDING: 'That request has already been answered. Reload to see the decision.',
-      CANNOT_DECIDE_OWN: 'You cannot decide your own request.',
+      // Reworded in wave 5 (addendum §3, V11): it also refuses a deduction against
+      // oneself and a review of one's own incident report.
+      CANNOT_DECIDE_OWN: 'You cannot decide something you sent or that is about you.',
       REQUEST_ALREADY_PENDING: 'There is already a pending request of that kind.',
       BAD_KIND: 'That is not a kind of request.',
       BAD_STATUS: 'That is not a status.',

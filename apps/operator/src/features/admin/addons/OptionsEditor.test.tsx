@@ -113,6 +113,41 @@ describe('OptionsEditor as a manager', () => {
     );
   });
 
+  // Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a paid option on sale is
+  // renamed through "Change the price" too; a free one, or one never on sale,
+  // is still renamed here.
+  it('shows a paid option on sale by its names, not as boxes, and sends them back as stored', async () => {
+    const user = userEvent.setup();
+    who.role = 'manager';
+    renderEditor();
+    expect(screen.getByText('Oat milk')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Oat milk')).toBeNull();
+    expect(screen.getByDisplayValue('Vanilla syrup')).toBeTruthy();
+    expect(screen.getByDisplayValue('No ice')).toBeTruthy();
+    // Switching it off is still the manager's, and re-sends the names it has.
+    await user.click(screen.getByRole('switch', { name: 'Active: Oat milk' }));
+    await waitFor(() =>
+      expect(rpc.appRpc).toHaveBeenCalledWith(
+        'upsert_modifier',
+        expect.objectContaining({ p_id: OAT, p_name_en: 'Oat milk', p_name_ar: 'حليب الشوفان', p_is_active: false }),
+      ),
+    );
+  });
+
+  it('says where a rename goes when the server refuses one', async () => {
+    const user = userEvent.setup();
+    const { AppRpcError } = await import('../../../lib/appRpc');
+    rpc.appRpc.mockRejectedValue(new AppRpcError('PRICE_VIA_PROTOCOL', 'PRICE_VIA_PROTOCOL', 'name'));
+    renderEditor();
+    const syrup = screen.getByDisplayValue('Vanilla syrup');
+    await user.type(syrup, ' 2');
+    // The rows' Saves in order: Oat milk, Vanilla syrup, No ice.
+    await user.click(screen.getAllByRole('button', { name: 'Save' })[1]!);
+    expect(
+      await screen.findByText('Renaming a size or an option that is on sale goes through “Change the price”, with the owner’s OK.'),
+    ).toBeTruthy();
+  });
+
   it('saves a new free option switched on', async () => {
     const user = userEvent.setup();
     renderEditor();

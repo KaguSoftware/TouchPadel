@@ -8,6 +8,11 @@
  * a new paid option is saved hidden and offers "Put on sale", its switch off
  * until the owner approves its price. A free option works as it always did.
  * The owner's screen is unchanged.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a paid option on sale is
+ * renamed through the same "Change the price", so for a manager its names read
+ * as text beside the read-only price, and a save re-sends the stored names. A
+ * refusal with hint `name` (a colleague's screen, an old row) says so.
  */
 import { Fragment, useState, type CSSProperties } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,7 +26,7 @@ import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { reorderedIds, sortRows } from '../menu/menuLogic';
 import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart';
-import { addonLock, isRequiredAddonRefusal, newOptionActive, type AddonLock } from './addonsLogic';
+import { addonLock, isRenameRefusal, isRequiredAddonRefusal, newOptionActive, type AddonLock } from './addonsLogic';
 import { RevealsEditor } from './RevealsEditor';
 import { patchCachedModifiers, useAddons, type AddonsData, type GroupRow, type ModifierRow } from './useAddons';
 
@@ -78,7 +83,8 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
       toast.ok(tr('op.toast.saved'));
       await refresh();
     },
-    onError: (e) => toast.err(isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e),
+    onError: (e) =>
+      toast.err(isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : isRenameRefusal(e) ? tr('ws.pricing.renameViaProtocol') : e),
   });
 
   const reorder = useMutation({
@@ -243,26 +249,55 @@ function OptionRow({
   const [nameAr, setNameAr] = useState(option.name_ar);
   const [delta, setDelta] = useState<number>(option.price_delta_iqd);
   const dirty = nameEn !== option.name_en || nameAr !== option.name_ar || delta !== option.price_delta_iqd;
+  // A locked name is text, as a locked price elsewhere is a figure; it lines
+  // up with the boxes around it (the input's own height and inline padding).
+  const lockedName = (name: string, dir: 'ltr' | 'rtl') => (
+    <bdi
+      dir={dir}
+      title={tr('ws.pricing.addons.nameLocked')}
+      style={{
+        display: 'block',
+        minInlineSize: 0,
+        // One line on the row's own height, where the input's text would sit.
+        lineHeight: 'var(--tp-row-h)',
+        paddingInline: 'calc(0.65rem + 1px)',
+        fontSize: 'var(--tp-fs-md)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {name}
+    </bdi>
+  );
 
   // Cells of OptionsEditor's grid. An option that is off says so by its
   // switch; the row is no longer faded, which took its names under AA contrast.
   return (
     <>
-      <input
-        style={{ ...inputStyle, inlineSize: '100%', minInlineSize: 0 }}
-        dir="ltr"
-        aria-label={tr('op.menu.nameEn')}
-        value={nameEn}
-        onChange={(e) => setNameEn(e.target.value)}
-      />
-      <input
-        style={{ ...inputStyle, inlineSize: '100%', minInlineSize: 0 }}
-        dir="rtl"
-        lang="ar"
-        aria-label={tr('op.menu.nameAr')}
-        value={nameAr}
-        onChange={(e) => setNameAr(e.target.value)}
-      />
+      {lock.nameLocked ? (
+        lockedName(option.name_en, 'ltr')
+      ) : (
+        <input
+          style={{ ...inputStyle, inlineSize: '100%', minInlineSize: 0 }}
+          dir="ltr"
+          aria-label={tr('op.menu.nameEn')}
+          value={nameEn}
+          onChange={(e) => setNameEn(e.target.value)}
+        />
+      )}
+      {lock.nameLocked ? (
+        lockedName(option.name_ar, 'rtl')
+      ) : (
+        <input
+          style={{ ...inputStyle, inlineSize: '100%', minInlineSize: 0 }}
+          dir="rtl"
+          lang="ar"
+          aria-label={tr('op.menu.nameAr')}
+          value={nameAr}
+          onChange={(e) => setNameAr(e.target.value)}
+        />
+      )}
       <MoneyInput value={delta} disabled={lock.priceLocked} onChange={(n) => setDelta(n ?? 0)} aria-label={tr('op.addons.delta')} style={{ inlineSize: '11rem' }} />
       <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
         {lock.priceLocked && (
@@ -299,7 +334,15 @@ function OptionRow({
         </Button>
         <Button
           disabled={!dirty || busy || !nameEn.trim() || !nameAr.trim()}
-          onClick={() => onSave({ ...option, name_en: nameEn.trim(), name_ar: nameAr.trim(), price_delta_iqd: delta })}
+          onClick={() =>
+            onSave({
+              ...option,
+              // A locked name goes back exactly as stored, which the lock lets through.
+              name_en: lock.nameLocked ? option.name_en : nameEn.trim(),
+              name_ar: lock.nameLocked ? option.name_ar : nameAr.trim(),
+              price_delta_iqd: delta,
+            })
+          }
         >
           {tr('common.save')}
         </Button>

@@ -12,10 +12,13 @@
  *     bucket; a retry of a launch that went through never copies over or
  *     removes the live photo; the tick launches, reverts, skips, purges,
  *     removes the copy of what did not launch, and one bad run never stops
- *     the others;
+ *     the others; then it removes the photos of incident reports past their
+ *     purge date (wave5-addendum-2026-09-25 §2.6.2), and last the incident
+ *     and campaign photos nobody claimed a day on; a database without either
+ *     yet costs one failure each and none of the counts before it;
  *   * with the stack (a rolled-back transaction): the SQL the function drives
- *     answers the service role and refuses every client role (42501), the
- *     driver and marketing included; neither may send a launch step
+ *     (the incident and orphan photo pairs included) answers the service role and
+ *     refuses every client role (42501), the driver and marketing included; neither may send a launch step
  *     (NOT_STEP_ACTOR); the run's choosable photos are its test photos;
  *   * against the served function (skipped when the local edge runtime does
  *     not serve it yet, `supabase functions serve` does): a driver's and a
@@ -55,6 +58,9 @@ const STEP = '22222222-2222-4222-8222-222222222222';
 const ITEM = '33333333-3333-4333-8333-333333333333';
 const PHOTO = `${VENUE_A_ID}/tests/44444444-4444-4444-8444-444444444444.webp`;
 const OTHER = `${VENUE_A_ID}/receipts/55555555-5555-4555-8555-555555555555.jpg`;
+const INCIDENT = `${VENUE_A_ID}/incidents/66666666-6666-4666-8666-666666666666.png`;
+const ORPHAN = `${VENUE_A_ID}/incidents/77777777-7777-4777-8777-777777777777.jpg`;
+const CAMPAIGN = `${VENUE_A_ID}/campaigns/88888888-8888-4888-8888-888888888888.webp`;
 
 describe('protocol-action: the request', () => {
   it('parses a launch and a tick, and refuses anything malformed', () => {
@@ -77,6 +83,8 @@ describe('protocol-action: the request', () => {
 
   it('derives the one menu path a launch writes', () => {
     expect(STAFF_MEDIA_PATH_RE.test(PHOTO)).toBe(true);
+    expect(STAFF_MEDIA_PATH_RE.test(INCIDENT)).toBe(true);
+    expect(STAFF_MEDIA_PATH_RE.test(INCIDENT.replace('incidents', 'selfies'))).toBe(false);
     expect(extOf(PHOTO)).toBe('webp');
     expect(contentTypeOf('jpg')).toBe('image/jpeg');
     expect(contentTypeOf('png')).toBe('image/png');
@@ -228,6 +236,10 @@ describe('protocol-action: the tick', () => {
       markPurged: async (runId) => {
         log.push(`purged ${runId}`);
       },
+      incidentPurgeDue: async () => [],
+      markIncidentPurged: async () => undefined,
+      orphanPurgeDue: async () => [],
+      markOrphansPurged: async () => undefined,
       // r5's item is live already (a launch that went through meanwhile).
       menuPhotoInUse: async (itemId) => itemId === 'i5',
       removeMenuPhoto: async (path) => {
@@ -235,7 +247,7 @@ describe('protocol-action: the tick', () => {
       },
       log: () => undefined,
     };
-    expect(await tick(ports)).toEqual({ launched: 1, reverted: 1, skipped: 1, failed: 4, purged: 2 });
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 1, skipped: 1, failed: 4, purged: 2, incidents_purged: 0, orphans_purged: 0 });
     expect(log).toContain(`copy items/i1/r1.webp`);
     // What did not launch leaves nothing public: the reverted copy and the
     // refused one are removed; the launched one, a copy that never landed
@@ -249,6 +261,85 @@ describe('protocol-action: the tick', () => {
     expect(log).toContain('purged p1');
     expect(log).toContain('purged p2');
     expect(log).not.toContain('purged p3');
+  });
+  /** Ports with one launch and one run purge, and the incident and orphan phases as given. */
+  function incidentPorts(
+    due: () => Promise<Array<{ incident_id: string; paths: string[] }>>,
+    log: string[],
+    orphans: () => Promise<string[]> = async () => [],
+  ): TickPorts {
+    return {
+      dueLaunches: async () => [{ run_id: 'r1', venue_id: VENUE_A_ID, menu_item_id: 'i1', photo_path: PHOTO }],
+      copyPhoto: async () => undefined,
+      launchScheduled: async () => 'launched',
+      purgeDue: async () => [{ run_id: 'p1', paths: [PHOTO] }],
+      removePhotos: async (paths) => {
+        log.push(`remove ${paths.join(',')}`);
+        if (paths.includes(OTHER)) throw new Error('remove failed');
+      },
+      markPurged: async (runId) => {
+        log.push(`purged ${runId}`);
+      },
+      incidentPurgeDue: due,
+      markIncidentPurged: async (id) => {
+        log.push(`incident ${id}`);
+      },
+      orphanPurgeDue: orphans,
+      markOrphansPurged: async (paths) => {
+        log.push(`orphans ${paths.join(',')}`);
+      },
+      menuPhotoInUse: async () => false,
+      removeMenuPhoto: async () => undefined,
+      log: (m) => log.push(`log ${m}`),
+    };
+  }
+
+  it('removes the photos of incident reports past their purge date, last, one report at a time', async () => {
+    const log: string[] = [];
+    const ports = incidentPorts(
+      async () => [
+        { incident_id: 'n1', paths: [INCIDENT, 'items/not/staff.jpg'] },
+        { incident_id: 'n2', paths: [OTHER] },
+        { incident_id: 'n3', paths: [] },
+      ],
+      log,
+    );
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 2, orphans_purged: 0 });
+    // Only staff-media paths are removed; a report whose removal failed stays
+    // due; one with nothing left to remove is still marked.
+    expect(log).toContain(`remove ${INCIDENT}`);
+    expect(log).toContain('incident n1');
+    expect(log).not.toContain('incident n2');
+    expect(log).toContain('incident n3');
+    expect(log.indexOf('purged p1')).toBeLessThan(log.indexOf(`remove ${INCIDENT}`));
+  });
+
+  it('keeps the launch and run-purge counts when the incident list cannot be read', async () => {
+    const log: string[] = [];
+    const ports = incidentPorts(async () => {
+      throw new Error('incident_photo_purge_due: Could not find the function (PGRST202)');
+    }, log);
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0 });
+    expect(log.some((l) => /^log incident purge: .*PGRST202/.test(l))).toBe(true);
+  });
+
+  it('removes the photos nobody claimed, last, then lets their slots go', async () => {
+    const log: string[] = [];
+    const ports = incidentPorts(async () => [{ incident_id: 'n1', paths: [INCIDENT] }], log, async () => [ORPHAN, CAMPAIGN]);
+    expect(await tick(ports)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 0, purged: 1, incidents_purged: 1, orphans_purged: 2 });
+    expect(log.slice(-2)).toEqual([`remove ${ORPHAN},${CAMPAIGN}`, `orphans ${ORPHAN},${CAMPAIGN}`]);
+    expect(log.indexOf('incident n1')).toBeLessThan(log.indexOf(`remove ${ORPHAN},${CAMPAIGN}`));
+  });
+
+  it('keeps the slots when the objects could not be removed, and every count before', async () => {
+    const log: string[] = [];
+    const failing = incidentPorts(async () => [], log, async () => [ORPHAN, OTHER]);
+    expect(await tick(failing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0 });
+    expect(log.some((l) => l.startsWith('orphans'))).toBe(false);
+    const missing = incidentPorts(async () => [], [], async () => {
+      throw new Error('staff_media_orphan_purge_due: Could not find the function (PGRST202)');
+    });
+    expect(await tick(missing)).toEqual({ launched: 1, reverted: 0, skipped: 0, failed: 1, purged: 1, incidents_purged: 0, orphans_purged: 0 });
   });
 });
 
@@ -333,13 +424,20 @@ function stackScenario(): Record<string, { ok: boolean; data?: unknown; state?: 
     ${call('photos', svc, 'service_role', `to_jsonb(app.release_run_photos(${val('run')}::uuid))`)}
     ${call('due', svc, 'service_role', `app.release_due_launches(10)`)}
     ${call('purge', svc, 'service_role', `app.protocol_photo_purge_due(10)`)}
+    ${call('inc_due', svc, 'service_role', `app.incident_photo_purge_due(10)`)}
+    ${call('orph_due', svc, 'service_role', `app.staff_media_orphan_purge_due(10)`)}
+    ${call('orph_purged', svc, 'service_role', `to_jsonb(app.staff_media_orphans_purged('{}'::text[]))`)}
     ${['drv', 'mkt']
       .map(
         (w) => `
     ${call(`${w}_launch`, staff(w), 'authenticated', `app.submit_step(${val('launch')}::uuid, ${launchRecord}, '{}'::text[], null)`)}
     ${call(`${w}_photos`, staff(w), 'authenticated', `to_jsonb(app.release_run_photos(${val('run')}::uuid))`)}
     ${call(`${w}_due`, staff(w), 'authenticated', `app.release_due_launches(10)`)}
-    ${call(`${w}_purged`, staff(w), 'authenticated', `to_jsonb(app.protocol_photos_purged(${val('run')}::uuid))`)}`,
+    ${call(`${w}_purged`, staff(w), 'authenticated', `to_jsonb(app.protocol_photos_purged(${val('run')}::uuid))`)}
+    ${call(`${w}_inc_due`, staff(w), 'authenticated', `app.incident_photo_purge_due(10)`)}
+    ${call(`${w}_inc_purged`, staff(w), 'authenticated', `to_jsonb(app.incident_photos_purged(gen_random_uuid()))`)}
+    ${call(`${w}_orph_due`, staff(w), 'authenticated', `app.staff_media_orphan_purge_due(10)`)}
+    ${call(`${w}_orph_purged`, staff(w), 'authenticated', `to_jsonb(app.staff_media_orphans_purged('{}'::text[]))`)}`,
       )
       .join('\n')}
     ${call('owner_launch', staff('owner'), 'authenticated', `app.submit_step(${val('launch')}::uuid, ${launchRecord}, '{}'::text[], null)`)}
@@ -363,9 +461,14 @@ describe.skipIf(!docker)('protocol-action: the SQL it drives (rolled-back transa
     expect(r.photos).toEqual({ ok: true, data: [photo] });
     expect(r.due!.ok).toBe(true);
     expect(r.purge!.ok).toBe(true);
+    expect(r.inc_due!.ok).toBe(true);
+    expect(r.orph_due!.ok).toBe(true);
+    expect(r.orph_purged).toMatchObject({ ok: true, data: 0 });
     for (const w of ['drv', 'mkt']) {
       expect(r[`${w}_launch`], w).toMatchObject({ ok: false, code: 'NOT_STEP_ACTOR' });
-      for (const fn of ['photos', 'due', 'purged']) expect(r[`${w}_${fn}`], `${w}_${fn}`).toMatchObject({ ok: false, state: '42501' });
+      for (const fn of ['photos', 'due', 'purged', 'inc_due', 'inc_purged', 'orph_due', 'orph_purged']) {
+        expect(r[`${w}_${fn}`], `${w}_${fn}`).toMatchObject({ ok: false, state: '42501' });
+      }
     }
     expect(r.owner_launch).toMatchObject({ ok: true, data: { auto: true, run_status: 'live' } });
   });

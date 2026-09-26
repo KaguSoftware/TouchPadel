@@ -67,7 +67,7 @@ describe('readRequests', () => {
   });
 
   it('never lets an unknown role, status or date through as a key', () => {
-    const odd = readRequests({ requests: [request({ status: 'lost', requested_by_role: 'waiter', want_by: 'soon', answer: '  ', photos: ['', 'p.jpg', 4] })] }).requests[0]!;
+    const odd = readRequests({ requests: [request({ status: 'lost', requested_by_role: 'sommelier', want_by: 'soon', answer: '  ', photos: ['', 'p.jpg', 4] })] }).requests[0]!;
     expect([odd.status, odd.requested_by_role, odd.want_by, odd.answer]).toEqual(['open', null, null, null]);
     expect(odd.photos).toEqual(['p.jpg']);
   });

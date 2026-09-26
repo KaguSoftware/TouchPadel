@@ -193,7 +193,7 @@ export interface PrintResult {
 }
 
 // Mirrors StaffRole (@touch/core/staff/roles) and the renderer's copy in
-// apps/operator/src/ipc/bridge.ts; the last six are 0155's.
+// apps/operator/src/ipc/bridge.ts; six are 0155's, the last two wave 5's.
 // packages/db/tests/staff-roles-parity.test.ts fails when they drift.
 export type Role =
   | 'cashier'
@@ -206,7 +206,9 @@ export type Role =
   | 'head_chef'
   | 'chef'
   | 'driver'
-  | 'marketing';
+  | 'marketing'
+  | 'assistant_barista'
+  | 'waiter';
 
 export type StationMode = 'till' | 'desk' | 'kds';
 

@@ -231,6 +231,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_movement_type: p?.movementType ?? 'waste_spill',
       p_reason_code: p?.reasonCode ?? null,
       ...common(c),            // 0049: was p_device_id only -- a replay deducted stock twice
+      ...wasteLocation(p),     // wave 5: the store, only when the payload names one
     }),
   }),
 
@@ -305,6 +306,11 @@ function refundItems(p: any): unknown[] | null {
   const items = Array.isArray(p?.items) ? p.items : [];
   if (items.length === 0) return null;
   return items.map((it: any) => ({ order_item_id: it?.orderItemId, qty: it?.qty }));
+}
+
+/** stock.waste's store (wave 5 §2.8.6): p_location only when the payload names one. */
+function wasteLocation(p: any): Record<string, unknown> {
+  return p?.location ? { p_location: p.location } : {};
 }
 
 class BadRequest extends Error {}

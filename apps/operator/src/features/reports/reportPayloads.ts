@@ -351,6 +351,8 @@ export interface ExpiryRow extends StockBase {
   /** Days left (expiring soon) or days since (expired). */
   days: number | null;
   valueIqd: number | null;
+  /** The store the batch is in (wave 5); null on a report from before the stores. */
+  location: 'cafe' | 'bakery' | null;
 }
 export interface ConsumptionRow extends StockBase {
   consumedQty: number | null;
@@ -364,6 +366,10 @@ export interface VarianceRow extends StockBase {
   varianceQty: number | null;
   /** Used in new items' test servings in the period (product_release); null before it. */
   productTestQty: number | null;
+  /** The count's store (wave 5); null before the stores. */
+  location: 'cafe' | 'bakery' | null;
+  /** Moved into (+) or out of (−) the store in the period, net (wave 5); null before the stores. */
+  transferQty: number | null;
 }
 
 export interface StockReport {
@@ -375,6 +381,11 @@ export interface StockReport {
   expired: ExpiryRow[];
   consumption: ConsumptionRow[];
   variance: VarianceRow[];
+}
+
+/** A store off the wire (wave 5), or null. */
+function storeOf(v: unknown): 'cafe' | 'bakery' | null {
+  return v === 'cafe' || v === 'bakery' ? v : null;
 }
 
 function stockBase(r: Raw): StockBase | null {
@@ -397,6 +408,7 @@ export function readStock(payload: unknown): StockReport {
     expiryDate: str(r.expiryDate),
     days: num(r[key]),
     valueIqd: num(r.valueIqd),
+    location: storeOf(r.location),
   });
   return {
     valueIqd: num(p.stockValueIqd),
@@ -413,6 +425,8 @@ export function readStock(payload: unknown): StockReport {
       countedQty: num(r.countedQty),
       varianceQty: num(r.varianceQty),
       productTestQty: num(r.productTestQty),
+      location: storeOf(r.location),
+      transferQty: num(r.transferQty),
     })),
   };
 }

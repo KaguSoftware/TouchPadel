@@ -306,6 +306,28 @@ const ADDONS: FieldDef = {
   fields: [f.uuid('modifier_id'), f.iqd('price_delta_iqd', true)],
 };
 
+/**
+ * New names for sizes on sale (wave5-addendum §2.2, #9): a manager renames a
+ * launched size only through a price change. The server checks each is the
+ * item's, named once, and not its name already.
+ */
+const RENAMES: FieldDef = {
+  name: 'renames',
+  type: 'list',
+  required: false,
+  maxItems: 12,
+  fields: [f.uuid('variant_id'), f.text('name_en', true), f.text('name_ar', true)],
+};
+
+/** The same for launched add-ons at the venue. */
+const ADDON_RENAMES: FieldDef = {
+  name: 'renames',
+  type: 'list',
+  required: false,
+  maxItems: 30,
+  fields: [f.uuid('modifier_id'), f.text('name_en', true), f.text('name_ar', true)],
+};
+
 /** The promotion a `promotion` or `promotion_edit` change proposes (0067's arguments). */
 export const PROMOTION_FIELDS: readonly FieldDef[] = [
   f.text('name_en', true),
@@ -504,10 +526,11 @@ const PROPOSE_COMMON: readonly FieldDef[] = [
 ];
 
 const PROPOSE_BY_CHANGE: Record<PriceChangeKind, readonly FieldDef[]> = {
-  // `prices` may be empty when `new_sizes` is not (validate.ts checks the pair).
-  price: [f.uuid('menu_item_id'), { ...SIZE_PRICES, required: false }, NEW_SIZES],
+  // `prices` may be empty when `new_sizes` or `renames` is not, and `addons`
+  // when `renames` is not (validate.ts checks the sets).
+  price: [f.uuid('menu_item_id'), { ...SIZE_PRICES, required: false }, NEW_SIZES, RENAMES],
   shop_launch: [f.uuid('menu_item_id'), { ...SIZE_PRICES, minItems: 1 }],
-  addon_price: [ADDONS],
+  addon_price: [{ ...ADDONS, required: false, minItems: 0 }, ADDON_RENAMES],
   promotion: [{ name: 'promotion', type: 'object', required: true, fields: PROMOTION_FIELDS }],
   promotion_edit: [f.uuid('promotion_id'), { name: 'promotion', type: 'object', required: true, fields: PROMOTION_FIELDS }],
   promotion_enable: [f.uuid('promotion_id')],

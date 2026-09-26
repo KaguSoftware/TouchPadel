@@ -9,7 +9,7 @@
  * A read the caller may not make fails quietly and its block is left out: the
  * server decides, not this file.
  */
-import { formatDate, formatDateTime, formatIQD, formatNumber, formatTimeRange, type Locale, type MessageKey } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, formatNumber, formatTimeRange, isolate, type Locale, type MessageKey } from '@touch/i18n';
 import type { ProtocolKind } from '@touch/core/protocols';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
@@ -260,6 +260,37 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
               </li>
             ))}
           </ul>
+        )}
+        {/* Wave 5 (§2.2, #9): the names that change with it, at the price each
+            sells at once applied ("Small (4,000 IQD) → Large"), then the same
+            rename in the other language: the owner approves both names. */}
+        {n.renames.length > 0 && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>{tr('ws.protocols.priceForm.renamesTitle')}</p>
+            <ul style={{ margin: 0, paddingInlineStart: '1.1rem', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              {n.renames.map((r) => (
+                <li key={`${r.target}:${r.id}`}>
+                  {/* The line reads in the screen's direction whatever the
+                      names are: dir="auto" would take it from the first name. */}
+                  <bdi dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+                    {tr('ws.protocols.priceForm.renamedFromPrice', {
+                      from: isolate(pickText(locale, r.from_en, r.from_ar)),
+                      price: r.price_iqd == null ? '—' : isolate(formatIQD(r.price_iqd, locale)),
+                      to: isolate(pickText(locale, r.to_en, r.to_ar)),
+                    })}
+                  </bdi>
+                  <span style={{ ...muted, display: 'block' }}>
+                    <bdi dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+                      {tr('ws.protocols.priceForm.renamedFrom', {
+                        from: isolate(locale === 'ar' ? r.from_en : r.from_ar),
+                        to: isolate(locale === 'ar' ? r.to_en : r.to_ar),
+                      })}
+                    </bdi>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {n.promotion && (
           <p style={{ margin: 0 }}>

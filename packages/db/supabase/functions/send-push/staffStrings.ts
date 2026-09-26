@@ -21,7 +21,9 @@ export type Lang = 'en' | 'ar';
  * What a body may interpolate, already resolved to the reader's language and
  * bidi-isolated. An absent param is ''. `title` is the run title (hiring runs
  * omit it); `name` is the display name of the person who sent the request,
- * idea, teaching, recipe change or shopping line.
+ * idea, teaching, recipe change or shopping line. Wave 5 (wave5-addendum
+ * §2.3) keeps the three: `step` is an incident's kind, `title` a content
+ * item's title or, on a guest call, the table's number.
  */
 export interface StaffVars {
   step: string;
@@ -92,6 +94,28 @@ const EN = {
   shopping_declined: { title: 'Shopping list', body: () => 'An item you added was declined.' },
   marketing_request_new: { title: 'Marketing request', body: (v) => pair(v.name, v.title) },
   marketing_request_answered: { title: 'Marketing answered', body: named },
+  // Wave 5 (wave5-addendum-2026-09-25 §2.3): eleven keys, no new kind or
+  // route. No body carries an amount, a reason, a description or the name of
+  // the person a deduction is against: `name` is the proposer, reporter or
+  // author, `step` an incident's kind, `title` a content item's title or the
+  // table's number on a guest call.
+  deduction_proposed: {
+    title: 'Pay deduction',
+    body: (v) => (v.name ? `${v.name} proposed a deduction.` : ''),
+  },
+  deduction_approved: { title: 'Deduction approved', body: () => 'Your proposal was approved.' },
+  deduction_declined: { title: 'Deduction declined', body: () => 'Your proposal was declined.' },
+  deduction_recorded: {
+    title: 'Pay deduction',
+    body: () => 'A deduction was added to your record.',
+  },
+  incident_reported: { title: 'Incident report', body: (v) => pair(v.name, v.step) },
+  incident_reviewed: { title: 'Incident reviewed', body: (v) => v.step },
+  content_submitted: { title: 'Content for approval', body: (v) => pair(v.name, v.title) },
+  content_approved: { title: 'Content approved', body: (v) => v.title },
+  content_changes: { title: 'Changes asked', body: (v) => v.title },
+  content_declined: { title: 'Content declined', body: (v) => v.title },
+  waiter_call_new: { title: 'Guest call', body: (v) => (v.title ? `Table ${v.title}` : '') },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -143,6 +167,20 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   shopping_declined: { title: 'قائمة المشتريات', body: () => 'رُفض غرض أضفته.' },
   marketing_request_new: { title: 'طلب تسويق', body: (v) => pair(v.name, v.title) },
   marketing_request_answered: { title: 'ردّ التسويق', body: named },
+  deduction_proposed: {
+    title: 'خصم من الراتب',
+    body: (v) => (v.name ? `اقترح ${v.name} خصمًا.` : ''),
+  },
+  deduction_approved: { title: 'تمت الموافقة على الخصم', body: () => 'تمت الموافقة على اقتراحك.' },
+  deduction_declined: { title: 'رُفض الخصم', body: () => 'رُفض اقتراحك.' },
+  deduction_recorded: { title: 'خصم من الراتب', body: () => 'أُضيف خصم إلى سجلّك.' },
+  incident_reported: { title: 'بلاغ حادثة', body: (v) => pair(v.name, v.step) },
+  incident_reviewed: { title: 'تمت مراجعة البلاغ', body: (v) => v.step },
+  content_submitted: { title: 'محتوى بانتظار الموافقة', body: (v) => pair(v.name, v.title) },
+  content_approved: { title: 'تمت الموافقة على المحتوى', body: (v) => v.title },
+  content_changes: { title: 'طُلبت تعديلات', body: (v) => v.title },
+  content_declined: { title: 'رُفض المحتوى', body: (v) => v.title },
+  waiter_call_new: { title: 'نداء زبون', body: (v) => (v.title ? `طاولة ${v.title}` : '') },
 };
 
 export const STAFF_STRINGS: Record<Lang, Record<StaffTitleKey, StaffCopy>> = { en: EN, ar: AR };

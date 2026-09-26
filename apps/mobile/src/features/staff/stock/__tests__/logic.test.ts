@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { STAFF_ROLES } from '@touch/core';
+import { STOCK_VIEW_ROLES, stockViewKindsFor } from '@touch/core/staff/stores';
 import {
   STOCK_ROLES,
+  byStore,
   filterStock,
+  showsStores,
   stockFilters,
   stockKindArg,
   stockKindsFor,
@@ -31,6 +34,7 @@ describe('who sees which stock (#68, the server’s kinds)', () => {
   it('gives the heads the cafe, the desk the shop and management all of it', () => {
     expect(stockKindsFor('head_barista')).toEqual(['purchased', 'prepared']);
     expect(stockKindsFor('head_chef')).toEqual(['purchased', 'prepared']);
+    expect(stockKindsFor('waiter')).toEqual(['purchased', 'prepared']);
     expect(stockKindsFor('court_desk')).toEqual(['retail']);
     expect(stockKindsFor('manager')).toEqual(['purchased', 'prepared', 'retail']);
     expect(stockKindsFor('owner')).toEqual(['purchased', 'prepared', 'retail']);
@@ -40,6 +44,11 @@ describe('who sees which stock (#68, the server’s kinds)', () => {
     for (const role of STAFF_ROLES) {
       expect(stockKindsFor(role).length > 0, role).toBe(STOCK_ROLES.includes(role));
     }
+  });
+
+  it('matches @touch/core’s STOCK_VIEW, the guard of staff_stock_view since wave 5 (0204)', () => {
+    expect([...STOCK_ROLES].sort()).toEqual([...STOCK_VIEW_ROLES].sort());
+    for (const role of STAFF_ROLES) expect(stockKindsFor(role), role).toEqual(stockViewKindsFor(role));
   });
 
   it('offers filters only when there is more than one kind to choose', () => {
@@ -80,5 +89,34 @@ describe('search', () => {
   it('never carries a money key: the row type has none to show', () => {
     const keys = Object.keys(row()).concat(Object.keys(row().product ?? {}));
     expect(keys.filter((k) => k.endsWith('_iqd') || k.startsWith('cost') || k.startsWith('supplier'))).toEqual([]);
+  });
+});
+
+describe('one store at a time (wave 5)', () => {
+  const split = (cafe: number, bakery: number, id = 'i1') =>
+    row({ ingredient_id: id, on_hand: cafe + bakery, by_location: { cafe, bakery } });
+
+  it('splits for every reader of bought-in or made-here stock, never for the desk’s shop list', () => {
+    expect(showsStores('waiter')).toBe(true);
+    expect(showsStores('head_chef')).toBe(true);
+    expect(showsStores('owner')).toBe(true);
+    expect(showsStores('court_desk')).toBe(false);
+  });
+
+  it('puts what is in the store first, keeping the server’s order, then what it has none of', () => {
+    const items = [split(0, 500, 'a'), split(40, 0, 'b'), split(10, 10, 'c')];
+    const cafe = byStore(items, 'cafe')!;
+    expect(cafe.here.map((r) => [r.item.ingredient_id, r.here, r.other])).toEqual([
+      ['b', 40, 0],
+      ['c', 10, 10],
+    ]);
+    expect(cafe.notHere.map((r) => [r.item.ingredient_id, r.other])).toEqual([['a', 500]]);
+    const bakery = byStore(items, 'bakery')!;
+    expect(bakery.here.map((r) => r.item.ingredient_id)).toEqual(['a', 'c']);
+  });
+
+  it('keeps the one list when the server sends no split', () => {
+    expect(byStore([row()], 'cafe')).toBeNull();
+    expect(byStore([], 'cafe')).toEqual({ here: [], notHere: [] });
   });
 });

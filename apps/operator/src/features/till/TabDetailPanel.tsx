@@ -62,6 +62,7 @@ import { PaymentPane, type PaymentMethod, type SettleResult } from './PaymentPan
 import { canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type TabLineRow } from './tillData';
 import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
+import { useTillShiftOptional } from '../tillShift/shiftContext';
 
 /** The part of app.booking_bill (0106) the till reads. Every figure is the server's. */
 interface TillBookingBill {
@@ -98,6 +99,7 @@ export function TabDetailPanel({
   const { tr, locale } = useLocale();
   const can = usePermissions();
   const { staff } = useAuth();
+  const tillShift = useTillShiftOptional();
   const bookingsVisible = canReadBookings(staff?.role);
   const [promoOpen, setPromoOpen] = useState(false);
   const [openLineId, setOpenLineId] = useState<string | null>(null);
@@ -618,7 +620,9 @@ export function TabDetailPanel({
                   style={actionButton}
                   disabled={payHeld || busy}
                   disabledReason={courtReason}
-                  onClick={() => setOverlay({ kind: 'split' })}
+                  // Split takes payments too, so it meets the shift gate first
+                  // (wave5-addendum §5.1); Cash and Card meet it in the pane.
+                  onClick={() => (tillShift ? tillShift.withShift(() => setOverlay({ kind: 'split' })) : setOverlay({ kind: 'split' }))}
                 >
                   {tr('ws.cashier.detail.split')}
                 </Button>

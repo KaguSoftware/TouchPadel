@@ -14,6 +14,13 @@
  * list), `${testID}.field.<path>.<option>` on an option chip, and the list
  * buttons of §6.3: `${testID}.line.add`, `${testID}.line.<n>.remove`,
  * `${testID}.size.add` (other lists `${testID}.field.<path>.add`).
+ *
+ * RENAMES (wave5-addendum-2026-09-25 §2.2, #9): a price or add-on price
+ * change's `renames` is a fixed list, one row per size or option on sale,
+ * folded behind "+ New names" until opened (a rename is rare, and must not
+ * make every price change look heavier). Each empty box shows today's name in
+ * its language, which is what an empty box keeps (logic.ts `completeRenames`).
+ * The opener is `${testID}.field.renames.open`.
  */
 import { useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
@@ -110,6 +117,7 @@ function FieldNode({
   value,
   props,
   inRow,
+  placeholder,
 }: {
   def: FieldDef;
   path: DraftPath;
@@ -117,6 +125,8 @@ function FieldNode({
   props: NodeProps;
   /** Inside a list row: the row carries the error, not each member. */
   inRow?: boolean;
+  /** A text box's greyed text: today's name in a rename row. */
+  placeholder?: string;
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
@@ -305,6 +315,7 @@ function FieldNode({
             testID={id}
             label={label}
             value={text}
+            placeholder={placeholder}
             onChangeText={(v) => set(v)}
             multiline={def.type === 'longText'}
             boxStyle={def.type === 'longText' ? MULTILINE_BOX : undefined}
@@ -351,12 +362,34 @@ function ListNode({
 }) {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
+  const [opened, setOpened] = useState(false);
   const tpl = templatePath(path);
   const fixed = props.fixed?.[tpl];
   const testName = LIST_TEST_NAMES[tpl] ?? `field.${concretePath(path)}`;
   const set = (next: Draft[]) => props.onChange(setAt(props.draft, path, next));
   const addKey = ADD_LABELS[tpl];
   const hint = props.hints?.[tpl];
+  // New names stay folded until asked for, unless something is typed in them
+  // (a sent-back proposal's renames open as they were sent).
+  const renames = tpl === 'renames' && fixed !== undefined;
+  // Nothing on sale to rename (an add-on change with no option on sale yet).
+  if (renames && value.length === 0) return null;
+  if (renames && !opened && value.every((row) => isBlank(Object.fromEntries(Object.entries(row).filter(([k]) => k !== fixed.key))))) {
+    const baseKey = fieldLabelKey(tpl);
+    return (
+      <View style={{ gap: 4, marginTop: space.sm }}>
+        <Button
+          testID={`${props.testID}.field.${concretePath(path)}.open`}
+          label={`+ ${baseKey ? t(baseKey) : def.name}`}
+          variant="ghost"
+          onPress={() => setOpened(true)}
+          disabled={props.disabled}
+          style={{ alignSelf: 'flex-start' }}
+        />
+        {error ? <ErrorText>{error}</ErrorText> : null}
+      </View>
+    );
+  }
   const rowLabel = (row: FixedRow): { title: string; sub: string | null } => {
     const name = bilingual(locale, row.name_en, row.name_ar) ?? '';
     const group = bilingual(locale, row.group_en, row.group_ar);
@@ -396,7 +429,23 @@ function ListNode({
             ) : null}
             {(def.fields ?? []).map((child) =>
               fixed && child.name === fixed.key ? null : (
-                <FieldNode key={child.name} def={child} path={[...path, i, child.name]} value={row[child.name]} props={props} inRow />
+                <FieldNode
+                  key={child.name}
+                  def={child}
+                  path={[...path, i, child.name]}
+                  value={row[child.name]}
+                  props={props}
+                  inRow
+                  placeholder={
+                    renames && fixedRow
+                      ? child.name === 'name_en'
+                        ? fixedRow.name_en
+                        : child.name === 'name_ar'
+                          ? fixedRow.name_ar
+                          : undefined
+                      : undefined
+                  }
+                />
               ),
             )}
             {rowIssue ? <ErrorText>{t(issueMessageKey(rowIssue, false))}</ErrorText> : null}

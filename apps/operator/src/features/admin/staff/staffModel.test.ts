@@ -44,6 +44,25 @@ describe('assignable and retired roles (0155)', () => {
     expect(ASSIGNABLE_ROLES.filter(isRetiredRole)).toEqual([]);
   });
 
+  it('lists the picker with the waiter beside the cashier and the assistant barista in the bar (wave 5 §2.1.6)', () => {
+    expect(ASSIGNABLE_ROLES).toEqual([
+      'cashier',
+      'waiter',
+      'court_desk',
+      'head_barista',
+      'barista',
+      'assistant_barista',
+      'head_chef',
+      'chef',
+      'driver',
+      'marketing',
+      'manager',
+      'owner',
+    ]);
+    expect(roleChoices('waiter').map((c) => c.role)).toEqual(ASSIGNABLE_ROLES);
+    expect(roleChoices('assistant_barista').every((c) => !c.retired)).toBe(true);
+  });
+
   it('a prep account still sees Kitchen in its picker, first, as a row it cannot choose', () => {
     // First so the list opens with it in view and ArrowDown steps straight
     // into the live roles; a disabled row at the foot could not be reached.

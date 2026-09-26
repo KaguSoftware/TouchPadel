@@ -109,6 +109,18 @@ describe('nextStaffStatus: §6.5, row by row', () => {
     expect(nextStaffStatus(NO_SESSION, null, input({ read: success(row()) }))).toEqual(STAFF);
   });
 
+  it('the wave-5 assistant barista and waiter are known roles → staff, never unsupported', () => {
+    // The first store build carries them (wave5-addendum-2026-09-25 §2.1.6),
+    // so Hussein and Hasan open the staff area rather than "update the app".
+    for (const role of ['assistant_barista', 'waiter']) {
+      expect(nextStaffStatus(NO_SESSION, null, input({ read: success(row({ role })) }))).toEqual({
+        kind: 'staff',
+        staff: { id: UID, displayName: 'Sara', role },
+        venues: [VENUE],
+      });
+    }
+  });
+
   it('keeps a staff answer while a read starts over from an empty cache', () => {
     expect(nextStaffStatus(STAFF, UID, input({ read: { state: 'pending' } }))).toBe(STAFF);
     // …but a guest answer does not survive a new hint.

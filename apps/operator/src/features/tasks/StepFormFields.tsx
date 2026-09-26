@@ -226,6 +226,13 @@ export function StepFormFields(props: StepFormFieldsProps) {
             issues={props.issues}
             disabled={props.disabled}
           />
+          {/* New names come last in a price or an add-on price change (wave 5
+              §2.2, #9): what a rename keeps is said right under their group. */}
+          {isPropose && (change === 'price' || change === 'addon_price') && (
+            <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0, marginBlockStart: 'calc(-1 * var(--tp-sp-2))' }}>
+              {tr(change === 'price' ? 'ws.team.tasks.form.hint.renames' : 'ws.team.tasks.form.hint.addonRenames')}
+            </p>
+          )}
           {isPropose && (change === 'promotion' || change === 'promotion_edit') && (
             <div style={{ marginBlockStart: 'calc(-1 * var(--tp-sp-2))', marginBlockEnd: 'var(--tp-sp-3)' }}>
               <Button

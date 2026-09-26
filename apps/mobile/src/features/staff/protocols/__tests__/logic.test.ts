@@ -6,10 +6,12 @@ import {
   START_ROLES,
   bilingual,
   blocksToSend,
+  completeRenames,
   courtsRecord,
   interviewsRecord,
   isProtocolQueryKey,
   launchPhotoChoices,
+  numbersRenames,
   parseRunFilter,
   parseVariant,
   plannedWindows,
@@ -290,7 +292,8 @@ describe('a price or promotion change', () => {
     expect(s.hidden).not.toContain('new_sizes');
     const fields = stepForm('price_promo', 'propose', { change: 'price' })!.fields;
     const draft = { ...s.draft, reason: 'Milk costs', expected_effect: 'Keep margin', prices: [{ variant_id: B, price_iqd: '5500' }, { variant_id: C, price_iqd: '' }] };
-    const record = recordFromDraft(fields, draft, { fixedKeys: { prices: 'variant_id' } });
+    // The page passes every fixed list's key; the untouched rename rows are dropped with the prices'.
+    const record = recordFromDraft(fields, draft, { fixedKeys: { prices: 'variant_id', renames: 'variant_id' } });
     expect(record).toMatchObject({ change: 'price', menu_item_id: A, prices: [{ variant_id: B, price_iqd: 5500 }] });
     expect(validateStep('price_promo', 'propose', record)).toEqual([]);
   });
@@ -419,5 +422,159 @@ describe('refreshing after a write', () => {
     expect(isProtocolQueryKey(['staff', 'status', 'u'])).toBe(false);
     expect(isProtocolQueryKey(['staff', 'shopping', 'v', 'open'])).toBe(false);
     expect(isProtocolQueryKey(['bookings', 'run'])).toBe(false);
+  });
+});
+
+/**
+ * Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): sizes and options on sale are
+ * renamed through the price change. The phone asks for the names that change
+ * only: an empty box keeps today's name, and a row that renames nothing is not
+ * sent.
+ */
+describe('renames on a price or add-on price change', () => {
+  const priceFields = stepForm('price_promo', 'propose', { change: 'price' })!.fields;
+  const addonFields = stepForm('price_promo', 'propose', { change: 'addon_price' })!.fields;
+  const withAlmond: PriceTargets = {
+    ...TARGETS,
+    addons: [
+      ...(TARGETS.addons ?? []),
+      {
+        modifier_id: A,
+        group_id: A,
+        group_name_en: 'Milk',
+        group_name_ar: 'الحليب',
+        name_en: 'Almond',
+        name_ar: 'لوز',
+        price_delta_iqd: 750,
+        is_active: false,
+        launched: false,
+      },
+    ],
+  };
+
+  it('gives a cafe item one blank rename row per size, headed by its name, its size picked by the row', () => {
+    const s = priceProposeStart('price', TARGETS, A);
+    expect(s.fixed.renames).toEqual({
+      key: 'variant_id',
+      rows: [
+        { id: B, name_en: 'Regular', name_ar: 'عادي', current: null },
+        { id: C, name_en: 'Large', name_ar: 'كبير', current: null },
+      ],
+    });
+    expect(s.draft.renames).toEqual([
+      { variant_id: B, name_en: '', name_ar: '' },
+      { variant_id: C, name_en: '', name_ar: '' },
+    ]);
+    expect(s.hidden).toContain('renames.variant_id');
+    expect(s.hidden).toContain('renames.modifier_id');
+    // A shop size is renamed the same way (its stock row follows on the server).
+    expect(priceProposeStart('price', TARGETS, B).fixed.renames?.rows.map((r) => r.id)).toEqual([C]);
+    // A launch has no rename.
+    expect(priceProposeStart('shop_launch', TARGETS, B).fixed.renames).toBeUndefined();
+  });
+
+  it('offers only the options on sale for a rename', () => {
+    const s = priceProposeStart('addon_price', withAlmond, null);
+    expect(s.fixed.addons?.rows.map((r) => r.id)).toEqual([C, A]);
+    expect(s.fixed.renames?.rows).toEqual([{ id: C, name_en: 'Oat', name_ar: 'شوفان', group_en: 'Milk', group_ar: 'الحليب', current: null }]);
+  });
+
+  it('swaps Small and Large as a rename-only change, and passes the core check', () => {
+    const s = priceProposeStart('price', TARGETS, A);
+    const draft = completeRenames(
+      {
+        ...s.draft,
+        reason: 'The cups were labelled the wrong way round',
+        expected_effect: 'Guests get the size they order',
+        renames: [
+          { variant_id: B, name_en: 'Large', name_ar: 'كبير' },
+          { variant_id: C, name_en: 'Regular', name_ar: 'عادي' },
+        ],
+      },
+      s.fixed.renames,
+    );
+    const record = recordFromDraft(priceFields, draft, { fixedKeys: { prices: 'variant_id', renames: 'variant_id' } });
+    // No new price: no prices key, which the server reads as none (0177's price_promo_sizes).
+    expect(record.prices).toBeUndefined();
+    expect(record.renames).toEqual([
+      { variant_id: B, name_en: 'Large', name_ar: 'كبير' },
+      { variant_id: C, name_en: 'Regular', name_ar: 'عادي' },
+    ]);
+    expect(validateStep('price_promo', 'propose', record)).toEqual([]);
+  });
+
+  it('keeps today’s name in an empty box, and drops a row that renames nothing', () => {
+    const s = priceProposeStart('price', TARGETS, A);
+    const done = completeRenames(
+      {
+        ...s.draft,
+        renames: [
+          { variant_id: B, name_en: ' Small ', name_ar: '' },
+          { variant_id: C, name_en: 'Large ', name_ar: 'كبير' },
+        ],
+      },
+      s.fixed.renames,
+    );
+    expect(done.renames).toEqual([
+      { variant_id: B, name_en: 'Small', name_ar: 'عادي' },
+      { variant_id: C, name_en: '', name_ar: '' },
+    ]);
+    const record = recordFromDraft(priceFields, { ...done, reason: 'r', expected_effect: 'e' }, { fixedKeys: { prices: 'variant_id', renames: 'variant_id' } });
+    expect(record.renames).toEqual([{ variant_id: B, name_en: 'Small', name_ar: 'عادي' }]);
+    // A case change is a rename.
+    expect(
+      completeRenames({ renames: [{ variant_id: C, name_en: 'large', name_ar: '' }] }, s.fixed.renames).renames,
+    ).toEqual([{ variant_id: C, name_en: 'large', name_ar: 'كبير' }]);
+    // Nothing typed: nothing sent, and no renames key at all.
+    const untouched = recordFromDraft(priceFields, completeRenames(s.draft, s.fixed.renames), {
+      fixedKeys: { prices: 'variant_id', renames: 'variant_id' },
+    });
+    expect('renames' in untouched).toBe(false);
+  });
+
+  it('sends an add-on rename with no new price', () => {
+    const s = priceProposeStart('addon_price', withAlmond, null);
+    const draft = completeRenames({ ...s.draft, reason: 'r', expected_effect: 'e', renames: [{ modifier_id: C, name_en: 'Oat milk', name_ar: '' }] }, s.fixed.renames);
+    const record = recordFromDraft(addonFields, draft, { fixedKeys: { addons: 'modifier_id', renames: 'modifier_id' } });
+    // No new charge: no addons key, which 0195's check reads as a rename-only change.
+    expect(record.addons).toBeUndefined();
+    expect(record.renames).toEqual([{ modifier_id: C, name_en: 'Oat milk', name_ar: 'شوفان' }]);
+    expect(validateStep('price_promo', 'propose', record)).toEqual([]);
+  });
+
+  it('refills a sent-back proposal’s renames as they were sent', () => {
+    const r = priceProposeResubmit(
+      {
+        change: 'price',
+        menu_item_id: A,
+        prices: [],
+        renames: [{ variant_id: C, name_en: 'Grande', name_ar: 'كبير جدًا', before_en: 'Large', before_ar: 'كبير' }],
+        reason: 'r',
+        expected_effect: 'e',
+      },
+      TARGETS,
+    );
+    expect(r.draft.renames).toEqual([
+      { variant_id: B, name_en: '', name_ar: '' },
+      { variant_id: C, name_en: 'Grande', name_ar: 'كبير جدًا' },
+    ]);
+    expect(r.hidden).toContain('renames.variant_id');
+  });
+
+  it('reads the numbers’ renames defensively', () => {
+    expect(
+      numbersRenames({
+        renames: [
+          { target: 'size', id: B, from_en: 'Small', from_ar: 'صغير', to_en: 'Large', to_ar: 'كبير', price_iqd: 4000 },
+          { target: 'addon', id: C, from_en: 'Oat', from_ar: 'شوفان', to_en: 'Oat milk', to_ar: 'حليب الشوفان' },
+          { target: 'size' },
+        ],
+      }),
+    ).toEqual([
+      { target: 'size', id: B, from_en: 'Small', from_ar: 'صغير', to_en: 'Large', to_ar: 'كبير', price_iqd: 4000 },
+      { target: 'addon', id: C, from_en: 'Oat', from_ar: 'شوفان', to_en: 'Oat milk', to_ar: 'حليب الشوفان', price_iqd: null },
+    ]);
+    expect(numbersRenames({ change: 'price', sizes: [] })).toEqual([]);
+    expect(numbersRenames(undefined)).toEqual([]);
   });
 });

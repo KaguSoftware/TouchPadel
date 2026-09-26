@@ -35,7 +35,8 @@ export const releaseEn = {
     },
     sizes: {
       changePrice: 'Change the price',
-      onSale: 'This item is on sale, so its prices change through Change the price, with the owner’s OK.',
+      // Wave 5 (N, §2.2, #9): the names of its sizes lock with their prices.
+      onSale: 'This item is on sale, so its sizes’ prices and names change through Change the price, with the owner’s OK.',
       inRelease: 'The release’s price step sets these prices.',
     },
   },

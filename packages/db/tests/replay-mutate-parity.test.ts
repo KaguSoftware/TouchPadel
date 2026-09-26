@@ -9,13 +9,14 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import ts from 'typescript';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OPERATOR_MUTATE = path.resolve(HERE, '../../../apps/operator/src/lib/mutate.ts');
 const REPLAY_INDEX = path.resolve(HERE, '../supabase/functions/replay/index.ts');
 
 /** The helpers the two files must agree on, byte for byte (the doc comment above each may differ). */
-const SHARED_HELPERS = ['orderItems', 'refundItems'] as const;
+const SHARED_HELPERS = ['orderItems', 'refundItems', 'wasteLocation'] as const;
 
 /** `function <name>(` through the first `}` at column 0 — the body, without its doc comment. */
 function functionBody(source: string, name: string, file: string): string {
@@ -37,4 +38,21 @@ describe('replay ↔ mutate payload helpers', () => {
       expect(a, `${name}() drifted between the operator and the replay function`).toBe(b);
     });
   }
+
+  // Wave 5 §2.8.6: the queued stock.waste names its store only when the
+  // payload does, so a queue written before the stores replays unchanged.
+  it('wasteLocation() passes p_location when the payload names a store, and nothing when it does not', () => {
+    const src = functionBody(replay, 'wasteLocation', 'replay/index.ts');
+    const js = ts.transpileModule(src, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+    const wasteLocation = new Function(`${js}\nreturn wasteLocation;`)() as (p: unknown) => Record<string, unknown>;
+    expect(wasteLocation({ location: 'bakery' })).toEqual({ p_location: 'bakery' });
+    expect(wasteLocation({ location: 'cafe' })).toEqual({ p_location: 'cafe' });
+    expect(wasteLocation({})).toEqual({});
+    expect(wasteLocation(undefined)).toEqual({});
+    for (const [file, source] of [['mutate.ts', operator], ['replay/index.ts', replay]] as const) {
+      const start = source.indexOf("'stock.waste':");
+      expect(start, `${file}: no stock.waste mapper`).toBeGreaterThan(-1);
+      expect(source.slice(start, source.indexOf('}),', start)), file).toContain('...wasteLocation(p)');
+    }
+  });
 });

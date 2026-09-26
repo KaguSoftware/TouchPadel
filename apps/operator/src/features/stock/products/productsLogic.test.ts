@@ -66,16 +66,16 @@ describe('productLaunched / productLock (#51, #53)', () => {
   });
 
   it('locks a manager out of a launched product’s prices, hidden or not', () => {
-    expect(productLock({ launched: true }, manager)).toEqual({ priceLocked: true, putOnSale: false });
+    expect(productLock({ launched: true }, manager)).toEqual({ priceLocked: true, nameLocked: true, putOnSale: false });
   });
 
   it('leaves a manager’s hidden draft editable, with Put on sale', () => {
-    expect(productLock({ launched: false }, manager)).toEqual({ priceLocked: false, putOnSale: true });
+    expect(productLock({ launched: false }, manager)).toEqual({ priceLocked: false, nameLocked: false, putOnSale: true });
   });
 
   it('changes nothing for the owner', () => {
-    expect(productLock({ launched: true }, owner)).toEqual({ priceLocked: false, putOnSale: false });
-    expect(productLock({ launched: false }, owner)).toEqual({ priceLocked: false, putOnSale: false });
+    expect(productLock({ launched: true }, owner)).toEqual({ priceLocked: false, nameLocked: false, putOnSale: false });
+    expect(productLock({ launched: false }, owner)).toEqual({ priceLocked: false, nameLocked: false, putOnSale: false });
   });
 
   it('reads launched from the catalogue row', () => {

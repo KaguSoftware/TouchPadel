@@ -14,8 +14,8 @@
  *
  * Refusals land on the field they name (`issueAt`, the server's hint names).
  */
-import { useState, type CSSProperties, type ReactNode } from 'react';
-import { formatIQD, formatNumber, type MessageKey } from '@touch/i18n';
+import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
+import { formatIQD, formatNumber, isolate, type MessageKey } from '@touch/i18n';
 import {
   randomPromoCode,
   type FieldDef,
@@ -35,6 +35,7 @@ import { blankObject, fromLocalInput, getAt, issueAt, setAt, toLocalInput, toTim
 import { fieldHintKey, fieldLabelKey, optionLabelKey } from './labels';
 import { pickText } from './protocolLogic';
 import { pickTarget, type Targets } from './priceTargets';
+import { dropRename, putRename, renameEntries, renameIndex, type RenameKey } from './renames';
 import { useAllCategories, useCafeCategories, useCampaigns, useCourts, useIngredients, useMenuItems, type NamedRow } from './api';
 
 /** A size a list of `variant_id`s covers: a release draft's, or a priced item's. */
@@ -53,6 +54,8 @@ export interface AddonRow {
   group_en: string;
   group_ar: string;
   current: number | null;
+  /** On sale once, so a rename goes through this change (wave 5 §2.2, #9); a proposal's rows only. */
+  launched?: boolean;
 }
 
 /** What a form needs from the step it is on. */
@@ -235,6 +238,9 @@ function FieldControl(props: ControlProps) {
   if (env.kind === 'price_promo' && env.stepKey === 'propose' && (top === 'menu_item_id' || top === 'promotion_id' || top === 'rule_id')) {
     return <TargetSelect {...props} label={label} error={error} />;
   }
+  // A proposal's new names are asked row by row inside the size and add-on
+  // tables ("Rename"), so the field itself draws nothing (wave 5 §2.2, #9).
+  if (top === 'renames' && env.kind === 'price_promo' && env.stepKey === 'propose') return null;
   if (top === 'prices' && def.type === 'list') return <SizePriceTable {...props} label={label} error={error} />;
   if (top === 'servings') return <ServingsTable {...props} label={label} error={error} />;
   if (top === 'addons') return <AddonTable {...props} label={label} error={error} />;
@@ -700,7 +706,7 @@ function sizesFor(env: FormEnv, value: Obj): SizeRow[] {
   return (item?.sizes ?? []).map((s) => ({ variant_id: s.variant_id, name_en: s.name_en, name_ar: s.name_ar, current: s.price_iqd }));
 }
 
-function SizePriceTable({ path, value, set, env, disabled, label, error }: ControlProps & { label: string; error?: string }) {
+function SizePriceTable({ path, value, set, env, disabled, label, error, issues, onRecord }: ControlProps & { label: string; error?: string }) {
   const { tr, locale } = useLocale();
   const sizes = sizesFor(env, value);
   const rows = (Array.isArray(value.prices) ? value.prices : []) as { variant_id: string; price_iqd: number | null }[];
@@ -710,6 +716,9 @@ function SizePriceTable({ path, value, set, env, disabled, label, error }: Contr
     const next = sizes.map((s) => (s.variant_id === id ? { variant_id: id, price_iqd: price } : others.find((r) => r.variant_id === s.variant_id))).filter((r): r is { variant_id: string; price_iqd: number | null } => r !== undefined);
     set(path, next);
   };
+  // A proposal to change prices may rename its sizes too (wave 5 §2.2, #9).
+  const renaming = env.kind === 'price_promo' && env.stepKey === 'propose' && env.change === 'price';
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   if (sizes.length === 0) {
     return (
       <Field label={label} error={error}>
@@ -717,6 +726,8 @@ function SizePriceTable({ path, value, set, env, disabled, label, error }: Contr
       </Field>
     );
   }
+  const renames = renaming ? renameEntries(value, 'variant_id') : [];
+  const renamesIssue = renaming ? issueAt(issues, ['renames']) : null;
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0 }}>
       <legend style={{ fontWeight: 600, paddingInline: 0, marginBlockEnd: 'var(--tp-sp-1)' }}>{label}</legend>
@@ -730,21 +741,180 @@ function SizePriceTable({ path, value, set, env, disabled, label, error }: Contr
           </tr>
         </thead>
         <tbody>
-          {sizes.map((s) => (
-            <tr key={s.variant_id} style={{ borderBlockStart: '1px solid var(--tp-border)' }}>
-              <td style={{ paddingBlock: 'var(--tp-sp-1-5)' }}>{pickText(locale, s.name_en, s.name_ar)}</td>
-              <td style={{ textAlign: 'end', ...muted }} dir="ltr">
-                {s.current != null ? formatIQD(s.current, locale) : '—'}
-              </td>
-              <td style={{ textAlign: 'end' }}>
-                <MoneyInput value={priceOf(s.variant_id)} allowEmpty onChange={(p) => put(s.variant_id, p)} disabled={disabled} style={MONEY_CELL} />
-              </td>
-            </tr>
-          ))}
+          {sizes.map((s) => {
+            const name = pickText(locale, s.name_en, s.name_ar);
+            const entry = renames.find((r) => r.id === s.variant_id);
+            const shown = entry !== undefined || open.has(s.variant_id);
+            return (
+              <Fragment key={s.variant_id}>
+                <tr style={{ borderBlockStart: '1px solid var(--tp-border)' }}>
+                  <td style={{ paddingBlock: 'var(--tp-sp-1-5)' }}>
+                    <RenameName
+                      name={name}
+                      to={entry ? pickText(locale, entry.name_en, entry.name_ar) : null}
+                      renaming={renaming}
+                      open={shown}
+                      disabled={disabled}
+                      onOpen={() => setOpen((cur) => new Set(cur).add(s.variant_id))}
+                      onKeep={() => {
+                        setOpen((cur) => {
+                          const next = new Set(cur);
+                          next.delete(s.variant_id);
+                          return next;
+                        });
+                        onRecord(dropRename(value, 'variant_id', s.variant_id));
+                      }}
+                    />
+                  </td>
+                  <td style={{ textAlign: 'end', ...muted }} dir="ltr">
+                    {s.current != null ? formatIQD(s.current, locale) : '—'}
+                  </td>
+                  <td style={{ textAlign: 'end' }}>
+                    <MoneyInput value={priceOf(s.variant_id)} allowEmpty onChange={(p) => put(s.variant_id, p)} disabled={disabled} style={MONEY_CELL} />
+                  </td>
+                </tr>
+                {renaming && shown && (
+                  <RenameRow
+                    renameKey="variant_id"
+                    current={{ id: s.variant_id, name_en: s.name_en, name_ar: s.name_ar }}
+                    value={value}
+                    onRecord={onRecord}
+                    issues={issues}
+                    hint={tr('ws.protocols.priceForm.sizeHint')}
+                    disabled={disabled}
+                  />
+                )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
       {error && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{error}</p>}
+      {renamesIssue && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{issueText(tr, renamesIssue)}</p>}
     </fieldset>
+  );
+}
+
+/**
+ * The name cell of a row a proposal may rename: the name, the new one after an
+ * arrow once typed, and the quiet "Rename" / "Keep the name" beside it.
+ */
+function RenameName({
+  name,
+  to,
+  renaming,
+  open,
+  disabled,
+  onOpen,
+  onKeep,
+}: {
+  name: string;
+  to: string | null;
+  renaming: boolean;
+  open: boolean;
+  disabled?: boolean;
+  onOpen: () => void;
+  onKeep: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  if (!renaming) return <>{name}</>;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+      <bdi dir={to ? (locale === 'ar' ? 'rtl' : 'ltr') : undefined}>{to ? tr('ws.protocols.priceForm.renamedFrom', { from: isolate(name), to: isolate(to) }) : name}</bdi>
+      {!disabled && (
+        <Button
+          size="sm"
+          kind="ghost"
+          aria-expanded={open}
+          aria-label={open ? tr('ws.protocols.priceForm.keepNameFor', { name }) : tr('ws.protocols.priceForm.renameFor', { name })}
+          onClick={open ? onKeep : onOpen}
+        >
+          {open ? tr('ws.protocols.priceForm.keepName') : tr('ws.protocols.priceForm.rename')}
+        </Button>
+      )}
+    </span>
+  );
+}
+
+/**
+ * The new names of one size or add-on, under its row: both languages
+ * prefilled with today's, each in its own direction. Only a change is kept
+ * in the record (renames.ts), so what shows is what is sent.
+ */
+function RenameRow({
+  renameKey,
+  current,
+  value,
+  onRecord,
+  issues,
+  hint,
+  disabled,
+}: {
+  renameKey: RenameKey;
+  current: { id: string; name_en: string; name_ar: string };
+  value: Obj;
+  onRecord: (next: Obj) => void;
+  issues: readonly FieldIssue[];
+  hint: string;
+  disabled?: boolean;
+}) {
+  const { tr } = useLocale();
+  const entry = renameEntries(value, renameKey).find((r) => r.id === current.id);
+  // The boxes hold what is typed; the record keeps the row only while it
+  // renames something. Reading the boxes back from the record lost a space
+  // typed at the end ("Regular " is today's name, so the row left and the box
+  // snapped back to "Regular" before the next word).
+  const [en, setEn] = useState(entry ? entry.name_en : current.name_en);
+  const [ar, setAr] = useState(entry ? entry.name_ar : current.name_ar);
+  const at = renameIndex(value, renameKey, current.id);
+  const issue = at >= 0 ? issueAt(issues, ['renames', at]) : null;
+  const box = (dir: 'ltr' | 'rtl', v: string, onChange: (next: string) => void, labelKey: MessageKey) => (
+    // Not required: a box left empty keeps today's name, as on the phone (renames.ts putRename).
+    <Field label={tr(labelKey)} style={{ marginBlockEnd: 0 }}>
+      <input
+        style={inputStyle}
+        dir={dir}
+        lang={dir === 'rtl' ? 'ar' : 'en'}
+        value={v}
+        maxLength={100}
+        disabled={disabled}
+        aria-invalid={issue ? true : undefined}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </Field>
+  );
+  return (
+    <tr>
+      <td colSpan={3} style={{ paddingBlock: '0 var(--tp-sp-2)' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', paddingInlineStart: 'var(--tp-sp-3)' }}>
+          <div style={PAIR}>
+            {box(
+              'ltr',
+              en,
+              (next) => {
+                setEn(next);
+                onRecord(putRename(value, renameKey, current, next, ar));
+              },
+              'ws.protocols.fields.renames_name_en',
+            )}
+            {box(
+              'rtl',
+              ar,
+              (next) => {
+                setAr(next);
+                onRecord(putRename(value, renameKey, current, en, next));
+              },
+              'ws.protocols.fields.renames_name_ar',
+            )}
+          </div>
+          {issue ? (
+            <p role="alert" style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{issueText(tr, issue)}</p>
+          ) : (
+            <p style={{ ...muted, margin: 0 }}>{hint}</p>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -778,7 +948,7 @@ function ServingsTable({ path, value, set, env, disabled, label, error }: Contro
   );
 }
 
-function AddonTable({ path, value, set, env, disabled, label, error }: ControlProps & { label: string; error?: string }) {
+function AddonTable({ path, value, set, env, disabled, label, error, issues, onRecord }: ControlProps & { label: string; error?: string }) {
   const { tr, locale } = useLocale();
   const rows = (Array.isArray(value.addons) ? value.addons : []) as { modifier_id: string; price_delta_iqd: number | null }[];
   // The proposal picks from every add-on; the numbers step prices the ones proposed.
@@ -791,8 +961,14 @@ function AddonTable({ path, value, set, env, disabled, label, error }: ControlPr
       group_en: a.group_name_en,
       group_ar: a.group_name_ar,
       current: a.price_delta_iqd,
+      launched: a.launched,
     }));
   const fixed = env.addons !== undefined;
+  // A proposal may rename an option on sale too, with or without a new price (wave 5 §2.2, #9).
+  const renaming = env.kind === 'price_promo' && env.stepKey === 'propose' && env.change === 'addon_price';
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
+  const renames = renaming ? renameEntries(value, 'modifier_id') : [];
+  const renamesIssue = renaming ? issueAt(issues, ['renames']) : null;
   const has = (id: string) => rows.some((r) => r.modifier_id === id);
   const put = (id: string, price: number | null) => set(path, rows.map((r) => (r.modifier_id === id ? { ...r, price_delta_iqd: price } : r)));
   const flip = (a: AddonRow) => set(path, has(a.modifier_id) ? rows.filter((r) => r.modifier_id !== a.modifier_id) : [...rows, { modifier_id: a.modifier_id, price_delta_iqd: a.current }]);
@@ -813,40 +989,81 @@ function AddonTable({ path, value, set, env, disabled, label, error }: ControlPr
           <tbody>
             {choices.map((a) => {
               const on = fixed || has(a.modifier_id);
-              const name = `${pickText(locale, a.group_en, a.group_ar)} · ${pickText(locale, a.name_en, a.name_ar)}`;
+              const group = pickText(locale, a.group_en, a.group_ar);
+              const own = pickText(locale, a.name_en, a.name_ar);
+              const name = `${group} · ${own}`;
+              const entry = renames.find((r) => r.id === a.modifier_id);
+              const canRename = renaming && a.launched === true;
+              const shown = canRename && (entry !== undefined || open.has(a.modifier_id));
+              const renamed = entry ? `${group} · ${tr('ws.protocols.priceForm.renamedFrom', { from: isolate(own), to: isolate(pickText(locale, entry.name_en, entry.name_ar)) })}` : name;
               return (
-                <tr key={a.modifier_id} style={{ borderBlockStart: '1px solid var(--tp-border)' }}>
-                  <td style={{ paddingBlock: 'var(--tp-sp-1-5)' }}>
-                    {fixed ? (
-                      name
-                    ) : (
-                      <label style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
-                        <input type="checkbox" checked={on} disabled={disabled} onChange={() => flip(a)} />
-                        {name}
-                      </label>
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'end', ...muted }} dir="ltr">
-                    {a.current != null ? formatIQD(a.current, locale) : '—'}
-                  </td>
-                  <td style={{ textAlign: 'end' }}>
-                    {on && (
-                      <MoneyInput
-                        style={MONEY_CELL}
-                        value={rows.find((r) => r.modifier_id === a.modifier_id)?.price_delta_iqd ?? null}
-                        allowEmpty
-                        onChange={(p) => (fixed && !has(a.modifier_id) ? set(path, [...rows, { modifier_id: a.modifier_id, price_delta_iqd: p }]) : put(a.modifier_id, p))}
-                        disabled={disabled}
-                      />
-                    )}
-                  </td>
-                </tr>
+                <Fragment key={a.modifier_id}>
+                  <tr style={{ borderBlockStart: '1px solid var(--tp-border)' }}>
+                    <td style={{ paddingBlock: 'var(--tp-sp-1-5)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+                        {fixed ? (
+                          name
+                        ) : (
+                          <label style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
+                            <input type="checkbox" checked={on} disabled={disabled} onChange={() => flip(a)} />
+                            <bdi dir={entry ? (locale === 'ar' ? 'rtl' : 'ltr') : undefined}>{renamed}</bdi>
+                          </label>
+                        )}
+                        {canRename && !disabled && (
+                          <Button
+                            size="sm"
+                            kind="ghost"
+                            aria-expanded={shown}
+                            aria-label={shown ? tr('ws.protocols.priceForm.keepNameFor', { name: own }) : tr('ws.protocols.priceForm.renameFor', { name: own })}
+                            onClick={() => {
+                              if (!shown) return setOpen((cur) => new Set(cur).add(a.modifier_id));
+                              setOpen((cur) => {
+                                const next = new Set(cur);
+                                next.delete(a.modifier_id);
+                                return next;
+                              });
+                              onRecord(dropRename(value, 'modifier_id', a.modifier_id));
+                            }}
+                          >
+                            {shown ? tr('ws.protocols.priceForm.keepName') : tr('ws.protocols.priceForm.rename')}
+                          </Button>
+                        )}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'end', ...muted }} dir="ltr">
+                      {a.current != null ? formatIQD(a.current, locale) : '—'}
+                    </td>
+                    <td style={{ textAlign: 'end' }}>
+                      {on && (
+                        <MoneyInput
+                          style={MONEY_CELL}
+                          value={rows.find((r) => r.modifier_id === a.modifier_id)?.price_delta_iqd ?? null}
+                          allowEmpty
+                          onChange={(p) => (fixed && !has(a.modifier_id) ? set(path, [...rows, { modifier_id: a.modifier_id, price_delta_iqd: p }]) : put(a.modifier_id, p))}
+                          disabled={disabled}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                  {shown && (
+                    <RenameRow
+                      renameKey="modifier_id"
+                      current={{ id: a.modifier_id, name_en: a.name_en, name_ar: a.name_ar }}
+                      value={value}
+                      onRecord={onRecord}
+                      issues={issues}
+                      hint={tr('ws.protocols.priceForm.addonHint')}
+                      disabled={disabled}
+                    />
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
         </table>
       )}
       {error && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{error}</p>}
+      {renamesIssue && <p style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{issueText(tr, renamesIssue)}</p>}
     </fieldset>
   );
 }

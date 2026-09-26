@@ -146,4 +146,69 @@ export const workEn = {
     bar: 'Bar',
     kitchen: 'Kitchen',
   },
+  // Wave 5 (wave5-addendum-2026-09-25 §4.2). stock_location (0200): the two
+  // stores every venue has.
+  store: {
+    cafe: 'Cafe store',
+    bakery: 'Bakery store',
+  },
+  // salary_deductions.status (0197).
+  deduction: {
+    status: {
+      waiting: 'Waiting',
+      approved: 'Approved',
+      declined: 'Declined',
+      withdrawn: 'Withdrawn',
+      cancelled: 'Cancelled',
+    },
+  },
+  // incident_reports.kind, .place and .status (0198). app.incident_kind_label
+  // copies the kind words for the push, and incident-reports.test.ts pins the pair.
+  incident: {
+    kind: {
+      accident: 'Accident',
+      injury: 'Injury',
+      fight: 'Fight',
+      damage: 'Damage',
+      other: 'Other',
+    },
+    place: {
+      court: 'Court',
+      cafe: 'Cafe',
+      shop: 'Shop',
+      outside: 'Outside',
+      other: 'Other',
+    },
+    status: {
+      open: 'Open',
+      reviewed: 'Reviewed',
+    },
+  },
+  // marketing_content.status and .channel, marketing_content_versions.decision (0199).
+  content: {
+    status: {
+      waiting: 'Waiting',
+      changes: 'Changes asked',
+      approved: 'Approved',
+      declined: 'Declined',
+      withdrawn: 'Withdrawn',
+    },
+    decision: {
+      approve: 'Approve',
+      changes: 'Ask for changes',
+      decline: 'Decline',
+    },
+    channel: {
+      instagram: 'Instagram',
+      tiktok: 'TikTok',
+      facebook: 'Facebook',
+      snapchat: 'Snapchat',
+      whatsapp: 'WhatsApp',
+      telegram: 'Telegram',
+      guest_site: 'Guest site',
+      in_venue: 'In the venue',
+      print: 'Print',
+      other: 'Other',
+    },
+  },
 } as const;

@@ -731,6 +731,8 @@ export const managerEn = {
       shopping: 'Shopping list',
       purchase: 'Driver’s purchases',
       teaching: 'Teachings',
+      // Wave 5 (wave5-addendum-2026-09-25 §5.2).
+      incident: 'Incident reports',
     },
     actions: {
       accountDelete: 'Guest account deleted',
@@ -750,6 +752,10 @@ export const managerEn = {
       dayOpen: 'Business day opened',
       discountApply: 'Discount given',
       drawerOpen: 'Cash drawer opened',
+      // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2).
+      drawerShiftOpen: 'Till shift started',
+      drawerShiftClose: 'Till shift ended and counted',
+      drawerShiftCloseByDay: 'Till shift ended with the day, not counted',
       marketingAudienceSave: 'Marketing audience saved',
       marketingCampaignSave: 'Campaign saved',
       marketingCampaignStatus: 'Campaign started or stopped',
@@ -823,6 +829,12 @@ export const managerEn = {
       stockRecordWaste: 'Waste recorded',
       stockStartCount: 'Stock count started',
       stockWriteOffExpired: 'Expired stock written off',
+      // Wave 5, the two stores (wave5-addendum-2026-09-25 §5.2).
+      stockTransfer: 'Stock moved between stores',
+      stockLog: 'Stock added by staff',
+      stockPriceLog: 'Cost set on staff-added stock',
+      stockSubmitCount: 'Count sent from the phone',
+      stockDiscardCount: 'Stock count discarded',
       tabCancel: 'Tab cancelled',
       tabMerge: 'Tabs merged',
       tabSettle: 'Tab paid and closed',
@@ -886,6 +898,23 @@ export const managerEn = {
       reservationEventBlock: 'Courts blocked for a tournament',
       teachingSave: 'Teaching saved',
       teachingArchive: 'Teaching archived',
+      // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). The rows
+      // carry a status only: never the person, an amount or a reason.
+      staffDeductionPropose: 'Pay deduction proposed',
+      staffDeductionWithdraw: 'Pay deduction withdrawn',
+      staffDeductionApprove: 'Pay deduction approved',
+      staffDeductionDecline: 'Pay deduction declined',
+      staffDeductionCancel: 'Pay deduction cancelled',
+      incidentReport: 'Incident reported',
+      incidentReview: 'Incident report reviewed',
+      incidentRedact: 'Incident report redacted',
+      incidentPurge: 'Incident text deleted after 365 days',
+      marketingContentSubmit: 'Content sent for approval',
+      marketingContentRevise: 'New content version sent',
+      marketingContentWithdraw: 'Content withdrawn',
+      marketingContentApprove: 'Content approved',
+      marketingContentChanges: 'Changes asked on content',
+      marketingContentDecline: 'Content declined',
     },
   },
 

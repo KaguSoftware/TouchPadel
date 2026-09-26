@@ -131,4 +131,63 @@ export const workAr: DeepMessages<typeof workEn> = {
     bar: 'البار',
     kitchen: 'المطبخ',
   },
+  store: {
+    cafe: 'مخزن المقهى',
+    bakery: 'مخزن المخبز',
+  },
+  deduction: {
+    status: {
+      waiting: 'بانتظار القرار',
+      approved: 'موافق عليه',
+      declined: 'مرفوض',
+      withdrawn: 'مسحوب',
+      cancelled: 'ملغى',
+    },
+  },
+  incident: {
+    kind: {
+      accident: 'حادث',
+      injury: 'إصابة',
+      fight: 'شجار',
+      damage: 'ضرر',
+      other: 'أخرى',
+    },
+    place: {
+      court: 'ملعب',
+      cafe: 'المقهى',
+      shop: 'المتجر',
+      outside: 'خارج المكان',
+      other: 'مكان آخر',
+    },
+    status: {
+      open: 'مفتوح',
+      reviewed: 'تمت المراجعة',
+    },
+  },
+  content: {
+    status: {
+      waiting: 'بانتظار الموافقة',
+      changes: 'طُلبت تعديلات',
+      approved: 'موافق عليه',
+      declined: 'مرفوض',
+      withdrawn: 'مسحوب',
+    },
+    decision: {
+      approve: 'موافقة',
+      changes: 'طلب تعديلات',
+      decline: 'رفض',
+    },
+    channel: {
+      instagram: 'إنستغرام',
+      tiktok: 'تيك توك',
+      facebook: 'فيسبوك',
+      snapchat: 'سناب شات',
+      whatsapp: 'واتساب',
+      telegram: 'تيليغرام',
+      guest_site: 'موقع الضيوف',
+      in_venue: 'داخل المكان',
+      print: 'مطبوعات',
+      other: 'أخرى',
+    },
+  },
 };

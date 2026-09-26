@@ -9,7 +9,11 @@
  *     or route was added;
  *   * the function lists the eleven after purchase_to_receive, in the JSON's
  *     order (tests/staff-push.test.ts holds the whole list to the JSON);
- *   * no client role, the driver and marketing included, may call it (§8.2).
+ *   * no client role, the driver and marketing included, may call it (§8.2);
+ *   * wave 5 (wave5-addendum-2026-09-25 §2.3): its eleven keys follow the
+ *     role spec's, each queues a row on route staff, and a guest's call
+ *     reaches the venue's active waiters only, with the table's number and
+ *     nothing about the guest, once per call, and never fails the call.
  *
  * HOW. Every scenario is ONE psql transaction that is rolled back (the
  * protocols-engine-flow.test.ts harness): staff are created inside it and each
@@ -42,8 +46,9 @@ const docker = up && dockerReachable();
 
 // ── the in-transaction harness (as protocols-engine-flow.test.ts) ──────────
 // t() runs one statement as a staff member (as `authenticated`) and records
-// its result or error; q() reads as postgres; mk() makes an auth user + staff
-// row (the 0123 trigger files a non-owner at venue A).
+// its result or error; q() reads as postgres; keep() stores a value; mk()
+// makes an auth user + staff row (the 0123 trigger files a non-owner at
+// venue A).
 const PRELUDE = `
 create temp table out (seq serial, label text unique, res jsonb);
 create temp table vars (name text primary key, val text);
@@ -86,6 +91,14 @@ begin
   insert into pg_temp.out(label, res) values (p_label, jsonb_build_object('ok', true, 'data', v));
 end $f$;
 
+create function pg_temp.keep(p_name text, p_sql text) returns void language plpgsql as $f$
+declare v text;
+begin
+  execute pg_temp.sub(p_sql) into v;
+  if v is null then raise exception 'keep %: no value', p_name; end if;
+  insert into pg_temp.vars values (p_name, v) on conflict (name) do update set val = excluded.val;
+end $f$;
+
 create function pg_temp.mk(p_name text, p_role staff_role) returns void language plpgsql as $f$
 declare v uuid := gen_random_uuid();
 begin
@@ -125,6 +138,7 @@ const T = (label: string, who: string, sql: string) =>
   `select pg_temp.run('${label}', '${who}', $q$${sql}$q$, 'authenticated');`;
 const Q = (label: string, sql: string) => `select pg_temp.q('${label}', $q$${sql}$q$);`;
 const MK = (name: string, role: string) => `select pg_temp.mk('${name}', '${role}');`;
+const KEEP = (name: string, sql: string) => `select pg_temp.keep('${name}', $q$${sql}$q$);`;
 
 function ok<T>(r: Results, label: string): T {
   const o = r[label];
@@ -154,6 +168,21 @@ const KEYS: Array<[string, string, string, Record<string, unknown>]> = [
   ['marketing_request_answered', 'staff_decided', 'staff', { title: 'Poster' }],
 ];
 
+/** Wave 5's eleven (wave5-addendum §2.3): every one on route staff, params from {step, title, name}. */
+const WAVE5_KEYS: Array<[string, string, string, Record<string, unknown>]> = [
+  ['deduction_proposed', 'staff_decide', 'staff', { name: 'Bareq' }],
+  ['deduction_approved', 'staff_decided', 'staff', {}],
+  ['deduction_declined', 'staff_decided', 'staff', {}],
+  ['deduction_recorded', 'staff_info', 'staff', {}],
+  ['incident_reported', 'staff_task', 'staff', { name: 'Hussein', step: { en: 'Injury', ar: 'إصابة' } }],
+  ['incident_reviewed', 'staff_info', 'staff', { step: { en: 'Injury', ar: 'إصابة' } }],
+  ['content_submitted', 'staff_decide', 'staff', { name: 'Hasan', title: 'Friday reel' }],
+  ['content_approved', 'staff_decided', 'staff', { title: 'Friday reel' }],
+  ['content_changes', 'staff_decided', 'staff', { title: 'Friday reel' }],
+  ['content_declined', 'staff_decided', 'staff', { title: 'Friday reel' }],
+  ['waiter_call_new', 'staff_task', 'staff', { title: 'T12' }],
+];
+
 const notify = (key: string, kind: string, route: string, params: Record<string, unknown>) =>
   `select to_jsonb(app.notify_staff(array[{{bar}}, {{gone}}]::uuid[], '${kind}',
      jsonb_build_object('route', '${route}', 'id', 'spk-${key}', 'title_key', '${key}',
@@ -163,7 +192,7 @@ describe('staff-push.json and app.notify_staff (the role spec keys)', () => {
   it('lists the eleven keys after purchase_to_receive, adding no kind and no route', () => {
     const keys = staffPush.title_keys;
     expect(keys.indexOf('purchase_to_receive')).toBe(14);
-    expect(keys.slice(15)).toEqual(KEYS.map(([k]) => k));
+    expect(keys.slice(15, 26)).toEqual(KEYS.map(([k]) => k));
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
     expect(staffPush.routes).toHaveLength(7);
   });
@@ -216,8 +245,9 @@ describe.skipIf(!docker)('staff_push_keys (rolled-back transactions)', () => {
     const m = def.match(/c_title_keys\s+constant text\[\] := array\[([^\]]*)\]/);
     expect(m).not.toBeNull();
     const keys = [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]);
-    expect(keys).toHaveLength(26);
-    expect(keys.slice(15)).toEqual(KEYS.map(([k]) => k));
+    expect(keys).toHaveLength(37);
+    expect(keys.slice(15, 26)).toEqual(KEYS.map(([k]) => k));
+    expect(keys.slice(26)).toEqual(WAVE5_KEYS.map(([k]) => k));
   });
 
   it('is no client role’s to call: the driver, marketing and the rest are refused', () => {
@@ -232,5 +262,119 @@ describe.skipIf(!docker)('staff_push_keys (rolled-back transactions)', () => {
     for (const who of ['drv', 'mkt', 'hc', 'manager', 'owner']) {
       expect(refused(r, `call_${who}`), who).toMatch(/permission denied/);
     }
+  });
+});
+
+describe('staff-push.json and app.notify_staff (wave 5 keys)', () => {
+  it('lists the eleven after the role spec keys, adding no kind and no route', () => {
+    expect(staffPush.title_keys.indexOf('marketing_request_answered')).toBe(25);
+    expect(staffPush.title_keys.slice(26)).toEqual(WAVE5_KEYS.map(([k]) => k));
+    expect(staffPush.routes).toHaveLength(7);
+  });
+});
+
+describe.skipIf(!docker)('staff_push_keys_wave5 (rolled-back transactions)', () => {
+  it('queues each wave-5 key for an active recipient and skips an inactive one', () => {
+    const r = scenario([
+      MK('bar', 'barista'),
+      MK('gone', 'barista'),
+      `update staff set is_active = false where id = (select val::uuid from pg_temp.vars where name = 'gone');`,
+      ...WAVE5_KEYS.map(([key, kind, route, params]) => AS(`n_${key}`, 'manager', notify(key, kind, route, params))),
+      Q('rows', `select jsonb_object_agg(o.payload->>'title_key', jsonb_build_object(
+                   'to', o.profile_id, 'kind', o.kind, 'route', o.payload->>'route', 'params', o.payload->'params'))
+                   from notification_outbox o
+                  where o.created_at = now() and o.payload->>'id' like 'spk-%'`),
+      // An amount cannot ride along on a deduction's push.
+      AS('amount', 'manager', `select to_jsonb(app.notify_staff(array[{{bar}}]::uuid[], 'staff_decide',
+            '{"route":"staff","title_key":"deduction_proposed","params":{"name":"Bareq","amount_iqd":50000}}'::jsonb))`),
+    ]);
+    const rows = ok<Record<string, { to: string; kind: string; route: string; params: unknown }>>(r, 'rows');
+    for (const [key, kind, route, params] of WAVE5_KEYS) {
+      expect(ok<number>(r, `n_${key}`), key).toBe(1);
+      expect(rows[key], key).toMatchObject({ kind, route, params });
+    }
+    expect(Object.keys(rows).sort()).toEqual(WAVE5_KEYS.map(([k]) => k).sort());
+    expect(refused(r, 'amount')).toBe('INVALID_ARGUMENT:params');
+  });
+
+  // A table and a guest session at venue A, for a call the guest raises
+  // through app.raise_waiter_call as PostgREST runs it. A stale till
+  // heartbeat would lock guests out (ensureTillFresh, inside the transaction).
+  const TABLE = [
+    `update device_heartbeats set last_seen_at = now(), queue_depth = 0
+      where venue_id = '${VENUE_A_ID}' and (is_till or device_id like 'TILL%');`,
+    KEEP('tbl', `insert into cafe_tables (table_number, venue_id) values ('SPK-' || left(gen_random_uuid()::text, 8), {{venue}})
+                 returning id::text`),
+    KEEP('guest', `insert into auth.users (id, raw_user_meta_data, aud, role, is_anonymous)
+                   values (gen_random_uuid(), '{}', 'authenticated', 'authenticated', true) returning id::text`),
+    KEEP('sess', `insert into guest_sessions (table_id, auth_user_id, expires_at, venue_id)
+                  values ({{tbl}}::uuid, {{guest}}::uuid, now() + interval '1 hour', {{venue}}) returning id::text`),
+  ];
+  const pushes = (label: string) =>
+    Q(label, `select coalesce(jsonb_agg(jsonb_build_object('to', o.profile_id, 'kind', o.kind, 'payload', o.payload)
+                                        order by o.profile_id), '[]'::jsonb)
+                from notification_outbox o
+               where o.created_at = now() and o.payload->>'title_key' = 'waiter_call_new'`);
+
+  it('tells the venue’s active waiters of a guest’s call, with the table’s number only, once per call', () => {
+    const r = scenario([
+      MK('w1', 'waiter'),
+      MK('w2', 'waiter'),
+      MK('w_off', 'waiter'),
+      `update staff set is_active = false where id = (select val::uuid from pg_temp.vars where name = 'w_off');`,
+      MK('drv', 'driver'),
+      MK('mkt', 'marketing'),
+      MK('bar', 'barista'),
+      MK('ab', 'assistant_barista'),
+      ...TABLE,
+      T('call', 'guest', `select app.raise_waiter_call('water')`),
+      pushes('push'),
+      Q('who', `select jsonb_build_object('w1', {{w1}}, 'w2', {{w2}}, 'w_off', {{w_off}}, 'others',
+                   jsonb_build_array({{drv}}, {{mkt}}, {{bar}}, {{ab}}))`),
+      // Whoever else got it (the dev waiter account, say) is an active waiter too.
+      Q('roles', `select jsonb_agg(distinct s.role::text || ':' || s.is_active::text)
+                    from notification_outbox o join staff s on s.id = o.profile_id
+                   where o.created_at = now() and o.payload->>'title_key' = 'waiter_call_new'`),
+      // The same call's id again (a replayed insert) queues nothing more.
+      AS('again', 'manager', `select to_jsonb(app.notify_staff(
+            app.staff_ids_with_roles({{venue}}, array['waiter']::staff_role[]), 'staff_task',
+            jsonb_build_object('route', 'staff', 'id', null, 'title_key', 'waiter_call_new',
+                               'params', jsonb_build_object('title', 'x')),
+            'waiter_call:' || (select id from waiter_calls where table_id = {{tbl}}::uuid)))`),
+    ]);
+    const call = ok<{ call_id: string; status: string }>(r, 'call');
+    expect(call.status).toBe('raised');
+    const push = ok<Array<{ to: string; kind: string; payload: Record<string, unknown> }>>(r, 'push');
+    const who = ok<{ w1: string; w2: string; w_off: string; others: string[] }>(r, 'who');
+    const to = push.map((p) => p.to);
+    expect(to).toEqual(expect.arrayContaining([who.w1, who.w2]));
+    for (const id of [who.w_off, ...who.others]) expect(to).not.toContain(id);
+    expect(ok<string[]>(r, 'roles')).toEqual(['waiter:true']);
+    for (const p of push) {
+      expect(p.kind).toBe('staff_task');
+      expect(p.payload).toEqual({
+        route: 'staff',
+        id: null,
+        title_key: 'waiter_call_new',
+        params: { title: expect.stringMatching(/^SPK-/) },
+        dedupe: `waiter_call:${call.call_id}`,
+      });
+    }
+    expect(ok<number>(r, 'again')).toBe(0);
+  });
+
+  it('never fails the guest’s call when its push cannot be queued', () => {
+    const r = scenario([
+      MK('w1', 'waiter'),
+      ...TABLE,
+      // notify_staff is gone for the length of this rolled-back transaction.
+      `alter function app.notify_staff(uuid[], text, jsonb, text) rename to notify_staff_spk_gone;`,
+      T('call', 'guest', `select app.raise_waiter_call('bill')`),
+      Q('calls', `select to_jsonb(count(*)) from waiter_calls where table_id = {{tbl}}::uuid`),
+      pushes('push'),
+    ]);
+    expect(ok<{ status: string }>(r, 'call').status).toBe('raised');
+    expect(ok<number>(r, 'calls')).toBe(1);
+    expect(ok<unknown[]>(r, 'push')).toEqual([]);
   });
 });

@@ -183,7 +183,12 @@ function refused(r: Results, label: string): string {
   return o!.hint ? `${o!.code}:${o!.hint}` : o!.code!;
 }
 
-const FOLDERS = ['proposals', 'tests', 'steps', 'marketing', 'campaigns', 'receipts', 'checklists', 'teachings', 'requests'];
+// incidents since staff_media_incidents (wave5-addendum §2.4; its own file
+// is tests/staff-media-incidents.test.ts).
+const FOLDERS = [
+  'proposals', 'tests', 'steps', 'marketing', 'campaigns', 'receipts', 'checklists', 'teachings', 'requests',
+  'incidents',
+];
 const NEW_FOLDERS = ['checklists', 'teachings', 'requests'];
 
 describe.skipIf(!docker)('staff_media_folders (rolled-back transactions)', () => {

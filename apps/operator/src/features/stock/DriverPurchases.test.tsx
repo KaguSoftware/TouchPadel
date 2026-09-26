@@ -10,19 +10,26 @@ import { LocaleProvider } from '../../lib/i18n';
 
 const navigate = vi.hoisted(() => vi.fn());
 const confirm = vi.hoisted(() => vi.fn(async () => true));
+/** Counts not yet applied (wave 5): a manager's open count holds its store. */
+const openCounts = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 vi.mock('../../components/toast', () => ({ useToast: () => ({ ok: vi.fn(), info: vi.fn(), err: vi.fn() }) }));
 vi.mock('../../components/ConfirmDialog', () => ({ useConfirm: () => confirm }));
 vi.mock('../../lib/supabase', () => {
   // Ingredients (for the shelf-life hint) and suppliers are plain reads.
   const rows: Record<string, unknown[]> = {
-    ingredients: [{ id: 'ing-milk', kind: 'purchased', name_en: 'Milk', name_ar: 'حليب', unit: 'ml', shelf_life_days: 5, is_active: true }],
+    ingredients: [
+      { id: 'ing-milk', kind: 'purchased', name_en: 'Milk', name_ar: 'حليب', unit: 'ml', shelf_life_days: 5, is_active: true },
+      // Shop stock (wave 5): it lives in the cafe store only.
+      { id: 'ing-water', kind: 'retail', name_en: 'Water bottle', name_ar: 'قنينة ماء', unit: 'pc', shelf_life_days: null, is_active: true },
+    ],
     suppliers: [],
   };
   const from = (table: string) => {
     const chain: Record<string, unknown> = {};
     chain.select = () => chain;
-    chain.order = () => Promise.resolve({ data: rows[table] ?? [], error: null });
+    chain.is = () => chain;
+    chain.order = () => Promise.resolve({ data: table === 'stock_counts' ? openCounts.rows : (rows[table] ?? []), error: null });
     return chain;
   };
   return { supabase: { from }, supabaseUrl: '', supabaseAnonKey: '' };
@@ -91,6 +98,7 @@ beforeEach(() => {
   navigate.mockReset();
   confirm.mockClear();
   calls.length = 0;
+  openCounts.rows = [];
 });
 
 // The payload reader, line kinds, draft checks and unit cost are node-tested
@@ -158,6 +166,38 @@ describe('DriverPurchaseReceive', () => {
     expect(String(call.args.p_idempotency_key)).toMatch(/^purchase\.receive:/);
     // The bin bags are still to check, so the page stays on this purchase.
     expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('receives into the cafe store unless the manager picks the bakery store (wave 5)', async () => {
+    payload = { count: 1, purchases: [purchase([line({})])] };
+    mount(<DriverPurchaseReceive purchaseId="p1" onBack={vi.fn()} />);
+    const picker = await screen.findByTestId('purchase-store');
+    expect(within(picker).getByRole('button', { name: 'Cafe store' }).getAttribute('aria-pressed')).toBe('true');
+    await userEvent.click(within(picker).getByRole('button', { name: 'Bakery store' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Receive into stock' }));
+    await waitFor(() => expect(calls.some((c) => c.fn === 'receive_purchase')).toBe(true));
+    expect(calls.find((c) => c.fn === 'receive_purchase')!.args).toMatchObject({ p_location: 'bakery' });
+  });
+
+  it('keeps the bakery store off while shop stock is on the purchase, and says why', async () => {
+    payload = { count: 1, purchases: [purchase([line({}), line({ id: 'l-water', ingredient_id: 'ing-water', name_en: 'Water bottle', unit: 'pc', qty: 24, price_iqd: 6000 })])] };
+    mount(<DriverPurchaseReceive purchaseId="p1" onBack={vi.fn()} />);
+    const picker = await screen.findByTestId('purchase-store');
+    await waitFor(() => expect((within(picker).getByRole('button', { name: 'Bakery store' }) as HTMLButtonElement).disabled).toBe(true));
+    expect(within(picker).getByText(/Shop stock stays in the cafe store/)).toBeTruthy();
+  });
+
+  it('holds Receive while a manager counts the store it goes into', async () => {
+    openCounts.rows = [{ id: 'c1', location: 'cafe', source: 'operator', started_at: '2026-09-25T07:00:00Z', staff: { display_name: 'Omar' } }];
+    payload = { count: 1, purchases: [purchase([line({})])] };
+    mount(<DriverPurchaseReceive purchaseId="p1" onBack={vi.fn()} />);
+    expect(await screen.findByText(/A count of the cafe store is open/)).toBeTruthy();
+    const receive = screen.getByRole('button', { name: 'Receive into stock' }) as HTMLButtonElement;
+    expect(receive.disabled).toBe(true);
+    expect(screen.getByTitle('Held until that count is finished or discarded.')).toBeTruthy();
+    // The bakery store is not being counted: picking it lets the purchase in.
+    await userEvent.click(within(screen.getByTestId('purchase-store')).getByRole('button', { name: 'Bakery store' }));
+    expect((screen.getByRole('button', { name: 'Receive into stock' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('says on the purchase whether the delivery was confirmed', async () => {

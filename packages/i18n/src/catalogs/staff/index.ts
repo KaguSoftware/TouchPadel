@@ -19,6 +19,19 @@ import { staffNotesEn } from './notes.en';
 import { staffNotesAr } from './notes.ar';
 import { staffMediaEn } from './media.en';
 import { staffMediaAr } from './media.ar';
+// Wave 5 (wave5-addendum-2026-09-25 §4.1): P fills deductions, incidents and
+// content; S fills stores.
+import { staffDeductionsEn } from './deductions.en';
+import { staffDeductionsAr } from './deductions.ar';
+import { staffIncidentsEn } from './incidents.en';
+import { staffIncidentsAr } from './incidents.ar';
+import { staffContentEn } from './content.en';
+import { staffContentAr } from './content.ar';
+import { staffStoresEn } from './stores.en';
+import { staffStoresAr } from './stores.ar';
+// Wave 5, lane R (§2.1.8): the waiter's guest calls.
+import { staffCallsEn } from './calls.en';
+import { staffCallsAr } from './calls.ar';
 
 export const staffEn = {
   shell: staffShellEn,
@@ -28,6 +41,11 @@ export const staffEn = {
   marketing: staffMarketingEn,
   notes: staffNotesEn,
   media: staffMediaEn,
+  deductions: staffDeductionsEn,
+  incidents: staffIncidentsEn,
+  content: staffContentEn,
+  stores: staffStoresEn,
+  calls: staffCallsEn,
 } as const;
 
 export const staffAr = {
@@ -38,4 +56,9 @@ export const staffAr = {
   marketing: staffMarketingAr,
   notes: staffNotesAr,
   media: staffMediaAr,
+  deductions: staffDeductionsAr,
+  incidents: staffIncidentsAr,
+  content: staffContentAr,
+  stores: staffStoresAr,
+  calls: staffCallsAr,
 } as const;

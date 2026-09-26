@@ -273,6 +273,16 @@ export const OPS_ALERTS = [
 export const OPS_WORK_ALERTS = [
   { key: 'protocols', severity: 'warn', href: '/protocols?filter=waiting' },
   { key: 'purchases', severity: 'warn', href: '/stock/receive' },
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2): pay deductions
+  // to decide, incident reports to review, and (the owner's) posts to approve.
+  // Each is counted only for a role its read admits; the rest count none.
+  { key: 'deductions', severity: 'warn', href: '/deductions' },
+  { key: 'incidents', severity: 'warn', href: '/incidents' },
+  { key: 'content', severity: 'warn', href: '/marketing' },
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2, §8 Q27): the day's
+  // closed shifts whose count differs from the expected, any non-zero
+  // difference (app.till_shift_list, tillShift shiftsWithDifference).
+  { key: 'tillShifts', severity: 'warn', href: '/admin/day-close' },
 ] as const;
 
 export type OpsWorkKey = (typeof OPS_WORK_ALERTS)[number]['key'];
@@ -291,9 +301,9 @@ export function alertsFor(o: OpsOverview): OpsAlert[] {
   return OPS_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: a.count(o) })).filter((a) => a.count > 0);
 }
 
-/** The two work rows with their counts; a read that has not answered counts none. */
-export function workAlertsFor(counts: Readonly<Record<OpsWorkKey, number>>): OpsAlert[] {
-  return OPS_WORK_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: counts[a.key] })).filter((a) => a.count > 0);
+/** The work rows with their counts; a read that has not answered, or that the role does not make, counts none. */
+export function workAlertsFor(counts: Readonly<Partial<Record<OpsWorkKey, number>>>): OpsAlert[] {
+  return OPS_WORK_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: counts[a.key] ?? 0 })).filter((a) => a.count > 0);
 }
 
 /**
