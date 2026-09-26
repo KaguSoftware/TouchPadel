@@ -2190,7 +2190,7 @@ export const matrix: MatrixRule[] = [
   //   app.reports_guard(true)    -> is_staff('owner')
   //   app.reports_guard(false)   -> is_staff('manager','owner')
   //
-  // THREE ARE DELIBERATELY NOT COVERED, and this is the reason:
+  // TWO ARE DELIBERATELY NOT COVERED, and this is the reason:
   //
   //   verify_manager_pin, verify_own_pin — the PIN limiter is 5 failures per
   //     CALLER per 5 minutes, in one shared app.pin_attempts table. Probing
@@ -2201,10 +2201,9 @@ export const matrix: MatrixRule[] = [
   //     coupling. Both RPCs are covered there, deliberately and in more depth
   //     than a matrix row could manage.
   //
-  //   start_count — takes NO arguments and validates nothing before its INSERT,
-  //     so manager and owner cannot call it without creating a real stock count
-  //     and leaving it open for stock-admin.test.ts to trip over. There is no
-  //     argument that makes it fail safely. Covered by stock-admin.test.ts.
+  //   (start_count was a third until wave 5: it now takes p_location, and
+  //     'matrix-never' fails INVALID_ARGUMENT past the guard. Its row is in
+  //     the wave-5 lane S block.)
   // ══════════════════════════════════════════════════════════════════════════
 
   // ── owner only: the analytics family (app.analytics_guard) ────────────────
@@ -3782,6 +3781,34 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'content_detail',
     args: { p_id: NIL_UUID }, expect: STAFF_ANY,
     note: 'any active staff member; then marketing or the owner at the item\'s venue. An unknown item is REF_NOT_FOUND',
+    drop: 18,
+  },
+
+  // ── wave 5, lane S: the stores (wave5-addendum-2026-09-25 §2.8, §2.12).
+  // stock_transfer_movement grants nothing. Both new tables refuse a client
+  // write; their MGMT-only reads are proven against rolled-back moves in
+  // stock-transfers.test.ts (this matrix has no probe move). Every RPC below
+  // is shaped to stop past its guard on an argument ('matrix-never' as the
+  // store or the purpose, an empty line list, a nil id), so nothing is
+  // written. The waiter, the heads and the chefs are not among the eight
+  // principals: their cases are in the stock-*.test.ts files. ─────────────
+  // stock_counts_by_location: start_count now takes p_location, so it has a row at last.
+  {
+    kind: 'rpc', schema: 'app', name: 'start_count',
+    args: { p_location: 'matrix-never', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'MGMT at the venue; an unknown store fails INVALID_ARGUMENT (hint location) before any count is opened',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'submit_stock_count',
+    args: { p_location: 'matrix-never', p_lines: [], p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'the head chef and the chef (not in this matrix) and MGMT at the venue; an unknown store fails INVALID_ARGUMENT (hint location) past the guard',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'discard_count',
+    args: { p_count_id: NIL_UUID }, expect: MANAGER_UP,
+    note: 'MGMT at the count\'s venue; an unknown count is COUNT_NOT_FOUND',
     drop: 18,
   },
   // ── wave 5, lane R: the waiter answers guests' calls (wave5-addendum-2026-09-25

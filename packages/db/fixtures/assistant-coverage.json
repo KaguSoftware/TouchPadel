@@ -733,7 +733,9 @@
     "parse_stock_location": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "consume_fefo_at": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "lock_stock_ingredients": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
-    "receive_delivery_internal": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
+    "receive_delivery_internal": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "submit_stock_count": "map:action",
+    "discard_count": "map:action"
   },
   "routes": {
     "/admin": "map:page",

@@ -317,6 +317,8 @@
     "withdraw_content",
     "decide_content",
     "content_page",
-    "content_detail"
+    "content_detail",
+    "submit_stock_count",
+    "discard_count"
   ]
 }

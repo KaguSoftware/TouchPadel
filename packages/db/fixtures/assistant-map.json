@@ -1,5 +1,5 @@
 {
-  "generated_from": "09794530e67035c3173d5b1c746e2e6e7888f780",
+  "generated_from": "b84886cd3f4df1e95cf7276b8eb4e3abb7118ce9",
   "chunks": [
     {
       "kind": "page",
@@ -2371,6 +2371,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.discard_count",
+      "lang": "en",
+      "title": "app.discard_count",
+      "body": "stock_counts_by_location (wave 5 §2.8.5, D7). MGMT at the count's venue: deletes a count that was never applied (an operator count left open, or a phone count not worth applying), with its lines; stock is untouched. Returns {count_id, discarded: true}. FORBIDDEN, COUNT_NOT_FOUND (also another venue's, or already discarded), COUNT_FINALIZED. Audit stock.discard_count {location, source, lines}.\nSignature: app.discard_count(p_count_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.discard_count.\nError codes: FORBIDDEN, COUNT_NOT_FOUND, COUNT_FINALIZED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0201 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.edit_customer_note",
       "lang": "en",
       "title": "app.edit_customer_note",
@@ -2422,7 +2430,7 @@
       "ref": "action:app.finalize_count",
       "lang": "en",
       "title": "app.finalize_count",
-      "body": "Signature: app.finalize_count(p_count_id uuid, p_lines jsonb DEFAULT '[]'::jsonb, p_device_id text DEFAULT NULL::text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.finalize_count.\nError codes: FORBIDDEN, COUNT_NOT_FOUND, COUNT_FINALIZED, COUNT_LINE_NOT_FOUND, INVALID_LINE.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0044 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0019/0044 + stock_counts_by_location (D7). MGMT at the count's venue: applies an operator count or a waiting phone count. p_lines [{ingredient_id, counted_qty}] overwrite the counted quantities (COUNT_LINE_NOT_FOUND for an ingredient not in the count); every drifted line is reconciled at the count's store with count_adjustment movements (a shortage FEFO with any rest batch-less, a surplus into that store's newest live batch or a new one). Returns {count_id, adjusted_lines, finalized_at, location}. FORBIDDEN, COUNT_NOT_FOUND (also another venue's), COUNT_FINALIZED, INVALID_LINE. Audit stock.finalize_count.\nSignature: app.finalize_count(p_count_id uuid, p_lines jsonb default '[]'::jsonb, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.finalize_count.\nError codes: FORBIDDEN, COUNT_NOT_FOUND, COUNT_FINALIZED, COUNT_LINE_NOT_FOUND, INVALID_LINE.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0201 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/stock"
     },
     {
@@ -3598,7 +3606,7 @@
       "ref": "action:app.start_count",
       "lang": "en",
       "title": "app.start_count",
-      "body": "Signature: app.start_count() returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.start_count.\nError codes: FORBIDDEN, COUNT_IN_PROGRESS.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0019 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0019 + stock_counts_by_location (D7). MGMT at the venue: opens an operator count of one store (p_location, default cafe) under the store's count lock, snapshotting every active ingredient of the venue at its ledger sum in that store (the bakery count leaves shop stock out). Receipts and moves into the store are refused until it is finalized or discarded. Returns {count_id, lines, started_at, location}. FORBIDDEN, INVALID_ARGUMENT (hint location), COUNT_IN_PROGRESS (a count of that store is open or waiting). Audit stock.start_count.\nSignature: app.start_count(p_location text default null, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.start_count.\nError codes: FORBIDDEN, COUNT_IN_PROGRESS.\nCalled from: apps/operator/src/features/stock/CountScreen.tsx (pages /stock).\nDefined in migration 0201 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/stock"
     },
     {
@@ -3656,6 +3664,14 @@
       "title": "app.submit_step",
       "body": "protocols_engine_rpcs (§2.7). Any active staff member who may act on the open step (its assignee or actor, or a manager or owner covering): sends its record and photos. Passes at once when the sender decides the step. Returns {submission_id, auto, step_status, run_status, opened_step_ids}. PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, STEP_NOT_OPEN, NOT_STEP_ACTOR, RECORD_INVALID, PHOTO_PATH_INVALID, TEXT_TOO_LONG and the check hook's codes. Idempotent on p_idempotency_key. Audit protocol.submit (+ protocol.auto).\nSignature: app.submit_step(p_run_step_id uuid, p_record jsonb, p_photos text[] default '{}', p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PROTOCOL_NOT_FOUND, PROTOCOL_CLOSED, STEP_NOT_OPEN, NOT_STEP_ACTOR.\nCalled from: apps/operator/src/features/tasks/StepSheet.tsx (pages /tasks).\nDefined in migration 0164 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/tasks"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.submit_stock_count",
+      "lang": "en",
+      "title": "app.submit_stock_count",
+      "body": "stock_counts_by_location (wave 5 §2.8.5, D7). The head chef and the chef (the bakery only) and MGMT (either store) at the venue: a blind count of p_location (default the caller's home store), p_lines [{ingredient_id, counted_qty, unit?}] (1 to 300, each once; unit the base unit or pack), saved as a phone count waiting for a manager to apply (finalize_count) or discard. Each line snapshots the store's ledger sum at submit. Returns {count_id, location, lines} (a count, no theoretical, no variance). Idempotent by key. FORBIDDEN (also hint location); INVALID_ARGUMENT (location, lines, unit, kind: a shop product at the bakery); INVALID_QTY; INGREDIENT_NOT_FOUND; COUNT_IN_PROGRESS (a count of that store is open or waiting). Audit stock.submit_count {location, lines} (a count).\nSignature: app.submit_stock_count(p_location text default null, p_lines jsonb default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_chef,chef,manager,owner).\nAudit actions written: stock.submit_count.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, INVALID_QTY, COUNT_IN_PROGRESS.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0201 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -4958,7 +4974,7 @@
       "ref": "view:v_variance_report",
       "lang": "en",
       "title": "view v_variance_report",
-      "body": "View, defined in migration 0172.\nDefinition: with (security_invoker = on) as with counts as ( select c.id, c.finalized_at, c.counted_by, lag(c.finalized_at) over (order by c.finalized_at) as period_start from stock_counts c where c.finalized_at is not null ) select c.id as count_id, c.period_start, c.finalized_at as period_end, l.ingredient_id, i.name_en, i.name_ar, i.unit, l.theoretical_qty, l.counted_qty, l.counted_qty - l.theoretical_qty as variance_qty, p.sold_qty, round(p.sold_qty * i.waste_allowance_percent / 100.0, 3) as expected_waste_qty, p.recorded_waste_qty, p.void_qty, p.expired_qty, p.movement_ids, p.product_test_qty from stock_count_lines l join counts c on c.id = l.count_id join ingredients i on i.id = l.ingredient_id left join lateral ( select coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'sale_consumption'), 0) as sold_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type in ('waste_spill','waste_spoilage')), 0) as recorded_waste_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'void_after_send'), 0) as void_qty, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'expired_writeoff'), 0) as expired_qty, array_agg(sm.id order by sm.id) as movement_ids, coalesce(-sum(sm.qty_delta) filter (where sm.movement_type = 'product_test'), 0) as product_test_qty from stock_movements sm where sm.ingredient_id = l.ingredient_id and sm.at <= c.finalized_at and (c.period_start is null or sm.at > c.period_start) ) p on true",
+      "body": "View, defined in migration 0201.\nDefinition: with (security_invoker = on) as with counted as (",
       "route": null
     },
     {

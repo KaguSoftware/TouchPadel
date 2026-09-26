@@ -1046,6 +1046,7 @@ export type Database = {
         }
         Returns: Json
       }
+      discard_count: { Args: { p_count_id: string }; Returns: Json }
       edit_customer_note: {
         Args: { p_body: string; p_note_id: string }
         Returns: Json
@@ -2529,7 +2530,10 @@ export type Database = {
         Args: { p_device_id: string; p_pin: string }
         Returns: Json
       }
-      start_count: { Args: never; Returns: Json }
+      start_count: {
+        Args: { p_location?: string; p_venue_id?: string }
+        Returns: Json
+      }
       start_protocol: {
         Args: {
           p_data?: Json
@@ -2604,6 +2608,15 @@ export type Database = {
           p_photos?: string[]
           p_record: Json
           p_run_step_id: string
+        }
+        Returns: Json
+      }
+      submit_stock_count: {
+        Args: {
+          p_idempotency_key?: string
+          p_lines?: Json
+          p_location?: string
+          p_venue_id?: string
         }
         Returns: Json
       }
@@ -8433,13 +8446,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "stock_count_lines_count_id_fkey"
-            columns: ["count_id"]
-            isOneToOne: false
-            referencedRelation: "v_variance_report"
-            referencedColumns: ["count_id"]
-          },
-          {
             foreignKeyName: "stock_count_lines_ingredient_id_fkey"
             columns: ["ingredient_id"]
             isOneToOne: false
@@ -8593,13 +8599,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_counts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_movements_count_id_fkey"
-            columns: ["count_id"]
-            isOneToOne: false
-            referencedRelation: "v_variance_report"
-            referencedColumns: ["count_id"]
           },
           {
             foreignKeyName: "stock_movements_delivery_line_id_fkey"
@@ -9770,6 +9769,7 @@ export type Database = {
           expected_waste_qty: number | null
           expired_qty: number | null
           ingredient_id: string | null
+          location: Database["public"]["Enums"]["stock_location"] | null
           movement_ids: number[] | null
           name_ar: string | null
           name_en: string | null
@@ -9779,11 +9779,19 @@ export type Database = {
           recorded_waste_qty: number | null
           sold_qty: number | null
           theoretical_qty: number | null
+          transfer_qty: number | null
           unit: Database["public"]["Enums"]["stock_unit"] | null
           variance_qty: number | null
           void_qty: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_count_lines_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "stock_counts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_count_lines_ingredient_id_fkey"
             columns: ["ingredient_id"]
