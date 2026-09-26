@@ -28,6 +28,7 @@ import { COUNT_ROLES, LOG_ROLES, MOVE_ROLES } from './stores/logic';
 import { CALL_ROLES } from './calls/logic';
 import { DEDUCT_ROLES } from './deductions/logic';
 import { CONTENT_ROLES } from './content/logic';
+import { RECEIPT_ROLES, SLIP_ROLES } from './scan/logic';
 
 export interface StaffRowDef {
   /** Stable name of the row. */
@@ -238,6 +239,23 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     href: '/staff-content',
     labelKey: 'staff.content.row',
     roles: CONTENT_ROLES,
+  },
+  // Phase 2 Milestone 4b: the camera pages. A waiter's order slip goes to the
+  // till (Today's floor group, beside the calls); a supplier's receipt goes to
+  // Goods in (the day's work).
+  {
+    id: 'order-slip',
+    testID: 'staff.row.order-slip',
+    href: '/staff-order-slip',
+    labelKey: 'staff.scan.rows.slip',
+    roles: SLIP_ROLES,
+  },
+  {
+    id: 'receipt',
+    testID: 'staff.row.receipt',
+    href: '/staff-receipt',
+    labelKey: 'staff.scan.rows.receipt',
+    roles: RECEIPT_ROLES,
   },
 ];
 

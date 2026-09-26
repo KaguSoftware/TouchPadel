@@ -72,6 +72,11 @@ export const STAFF_RPCS = [
   'cancel_shopping_item',
   'my_purchases',
   'record_purchase',
+  // scanned paper (Phase 2 Milestone 4b): a supplier receipt, a waiter's order slip
+  'create_receipt',
+  'my_receipts',
+  'create_order_slip',
+  'my_order_slips',
   // marketing
   'suggest_campaign',
   'my_campaign_drafts',

@@ -127,9 +127,30 @@ const PEOPLE: Record<StaffRole, string[]> = {
   waiter: ['incidents'],
 };
 
+/**
+ * Phase 2 Milestone 4b, the camera pages, after the people records: the floor
+ * scans a waiter's order slip for the till, the driver and management a
+ * supplier's receipt for Goods in.
+ */
+const SCAN: Record<StaffRole, string[]> = {
+  owner: ['order-slip', 'receipt'],
+  manager: ['order-slip', 'receipt'],
+  head_barista: [],
+  head_chef: [],
+  barista: [],
+  chef: [],
+  driver: ['receipt'],
+  marketing: [],
+  court_desk: [],
+  cashier: ['order-slip'],
+  prep: [],
+  assistant_barista: [],
+  waiter: ['order-slip'],
+};
+
 describe('Today rows by role', () => {
   it.each(STAFF_ROLES)('match the contract tables for %s', (role) => {
-    expect(staffRows(role).map((r) => r.id)).toEqual([...EXPECTED[role], ...PEOPLE[role]]);
+    expect(staffRows(role).map((r) => r.id)).toEqual([...EXPECTED[role], ...PEOPLE[role], ...SCAN[role]]);
   });
 
   it('keep content from managers, and deductions to the heads and management (wave 5 §5.3)', () => {

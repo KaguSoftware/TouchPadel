@@ -91,7 +91,10 @@ export type StaffMutation =
   // Wave 5 (S, §5.3): log_stock, transfer_stock, submit_stock_count.
   | 'stock_log'
   | 'stock_move'
-  | 'stock_count';
+  | 'stock_count'
+  // Phase 2 Milestone 4b: create_receipt, create_order_slip.
+  | 'receipt'
+  | 'order_slip';
 
 /** Fresh staff key, `MOBILE:staff.<mutation>:<ulid>`. Only for a genuinely new intent. */
 export function staffIdemKey(mutation: StaffMutation): string {
