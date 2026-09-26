@@ -28,6 +28,17 @@ function Icon({ d, className, dir }: { d: string[]; className?: string; dir?: bo
   );
 }
 
+/** The café menu's locale-switch globe: a ring, the equator, one meridian. */
+export const GlobeIcon = ({ className }: IconProps) => (
+  <Icon
+    className={className}
+    d={[
+      'M12 3a9 9 0 100 18 9 9 0 000-18',
+      'M3 12h18',
+      'M12 3c2.7 2.9 2.7 15.1 0 18-2.7-2.9-2.7-15.1 0-18Z',
+    ]}
+  />
+);
 export const MoonIcon = ({ className }: IconProps) => (
   <Icon className={className} d={['M20.5 14A8.7 8.7 0 1110 3.5a7.5 7.5 0 0010.5 10.5z']} />
 );

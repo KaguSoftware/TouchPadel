@@ -3,7 +3,7 @@
  * header and footer that also frame the legal pages, the 404 and the error page.
  *
  * The page presents THE CLUB, not the app (owner, 2026-09-23: "I asked for a customer
- * facing website"): the courts and the feel of playing there, lessons, events (coming),
+ * facing website"): the courts and the feel of playing there, lessons, tournaments and events,
  * Touch Cafe, the first visit, and where to find it. Booking today is WhatsApp, a call or
  * walking in; the app gets one short band.
  *
@@ -17,7 +17,7 @@
  * two indoor courts; the hours (always interpolated from venue_settings_public, never
  * typed, and no line says "late" or "every day" unless the live window says so); rackets
  * and balls to rent; lockers; lessons (no levels, format or coach to promise); tournaments
- * and events coming; pay at the desk. Not confirmed, so absent: prices, durations, court features beyond
+ * and events (running now, owner 2026-09-25); pay at the desk. Not confirmed, so absent: prices, durations, court features beyond
  * "indoor", court names, what to wear, minimum age, changing rooms, social handles.
  *
  * Placeholders: {hours} a display window like "09:00–02:00" (each time bidi-isolated by
@@ -67,7 +67,10 @@ export const siteEn = {
   whatsapp: {
     court: 'Hi Touch Padel, I would like to book a court.',
     lesson: 'Hi Touch Padel, I would like to book a lesson.',
-    events: 'Hi Touch Padel, please add me to the list for tournaments and events.',
+    events: "Hi Touch Padel, I'd like to sign up for the next tournament. Can you send me the details?",
+    // The events ticket, once the visitor has written their name on it.
+    eventsNamed:
+      "Hi Touch Padel, this is {name}. I'd like to sign up for the next tournament. Can you send me the details?",
     general: 'Hi Touch Padel,',
   },
   hero: {
@@ -102,30 +105,76 @@ export const siteEn = {
     play: 'Play',
     smash: 'Smash',
     win: 'Win',
-    comingSoon: 'Coming soon',
-    title: 'Tournaments are coming to Touch.',
-    body: 'Tournaments and events are on the way. Join the list on WhatsApp and be the first to know.',
-    cta: 'Join the list',
+    eyebrow: 'Tournaments are on at Touch',
+    title: 'Grab a partner. Grab a pass.',
+    body: 'Tournaments and events are running at Touch. Message us on WhatsApp to get into the next one.',
+    cta: 'Join a tournament',
+    // The entry pass (components/landing/EventsTicket.tsx). What the visitor "writes" on it
+    // (you, your rival, your level, and their name) is set in the handwriting face.
+    ticket: {
+      brand: 'Touch Padel',
+      admit: 'Admit one pair',
+      titleOne: 'Tournament',
+      titleTwo: 'entry',
+      player1: 'Player 1',
+      player2: 'Player 2',
+      you: 'You',
+      rival: 'Your rival',
+      category: 'Category',
+      level: 'Your level',
+      venue: 'Venue',
+      venueName: 'Touch',
+      nameLabel: 'Your name',
+      namePlaceholder: 'Write it here',
+      nameHint: 'We add it to your WhatsApp message.',
+      nameLocked: 'Signed. Your pass is torn.',
+      tear: 'Tear here · Send to enter',
+    },
   },
   cafe: {
     titleOne: 'Before the game.',
     titleTwo: 'After it.',
-    // {categories} is the whole live list; `bodyMore` when it was cut short.
-    body: 'Touch Cafe is part of the club, serving {categories}. Scan the code on your table and order from your phone.',
-    bodyMore:
-      'Touch Cafe is part of the club, serving {categories} and more. Scan the code on your table and order from your phone.',
-    bodyNoCategories:
-      'Touch Cafe is part of the club. Scan the code on your table and order from your phone.',
+    body: 'Touch Cafe is part of the club. No queue at the counter: your table has a code, and your phone is the menu.',
+    stepsLabel: 'How to order',
+    step1Title: 'Take a table',
+    step1Body: 'Courtside or inside, before your game or after it.',
+    step2Title: 'Scan the code on it',
+    step2Body: 'Your phone’s camera opens the menu for your table. No app to install.',
+    step3Title: 'Order from your phone',
+    step3Body: 'Pick, send, and get back to your game. The café knows which table it’s for.',
+    // The drawings' own labels (hidden from screen readers; the steps say it in words).
+    artTable: 'Table 4',
+    artScan: 'Scan the code',
+    artBasket: '2 items',
     cta: 'Open the menu',
   },
   app: {
-    title: 'Booking in the app. Soon.',
-    body: 'The Touch Padel app is on its way: see free courts live, hold a slot while you confirm, and keep every booking in one place. Until then, book on WhatsApp or call the desk.',
+    titleOne: 'Booking in the app.',
+    titleTwo: 'Soon.',
+    // The three things the app will do, each shown on its own real screen. The eyebrows
+    // and lines are the app's own store captions (apps/mobile/store/frames.mjs).
+    liveEyebrow: 'Every slot, every day',
+    liveTitle: 'See what’s free before you drive.',
+    liveAlt: 'The app’s Availability screen: the days of the week and every time that is still free.',
+    holdEyebrow: 'Nobody can take it',
+    holdTitle: 'Your slot is held while you decide.',
+    holdAlt: 'The app’s Review and confirm screen: the slot held for you, with the timer counting down.',
+    placeEyebrow: 'Upcoming · played · cancelled',
+    placeTitle: 'Every game in one place.',
+    placeAlt: 'The app’s My reservations screen: the next game first, then every upcoming booking.',
+    body: 'Until then, book on WhatsApp or call the desk.',
     downloadOnAppStore: 'Download on the App Store',
     getItOnGooglePlay: 'Get it on Google Play',
+    // A store badge before its listing exists: dimmed, not a link, tagged "Soon".
+    soon: 'Soon',
+    appStoreSoon: 'App Store, coming soon',
+    googlePlaySoon: 'Google Play, coming soon',
   },
   faq: {
     title: 'Your first visit',
+    lead: 'The seven things everyone asks the desk before their first game.',
+    askTitle: 'Still wondering?',
+    askCta: 'Ask the desk',
     bookQ: 'How do I book a court?',
     bookA: 'Message us on WhatsApp, call the front desk, or walk in while we are open.',
     payQ: 'How do I pay?',
@@ -160,10 +209,12 @@ export const siteEn = {
   // arrive (docs/design/web-site/photo-credits.md): describe what is IN the frame, never
   // claim it is Touch's venue.
   photos: {
-    heroAlt: 'A padel player in black bends low to play the ball on a blue court under dark lighting.',
-    clubAlt: 'The net of an empty indoor padel court, with blue turf and mesh-and-glass walls behind it.',
-    lessonsAlt: 'A padel player in a dark top watches the ball as she lines up a shot on an indoor court.',
-    cafeAlt: 'A cappuccino with latte art on a saucer, on a dimly lit café table.',
+    heroAlt:
+      'A padel player in black bends low to play the ball on a blue court under dark lighting.',
+    clubAlt:
+      'The net of an empty indoor padel court, with blue turf and mesh-and-glass walls behind it.',
+    lessonsAlt:
+      'A padel player in a dark top watches the ball as she lines up a shot on an indoor court.',
     eventsAlt: 'Two padel players shake hands on a blue court at night.',
   },
   footer: {

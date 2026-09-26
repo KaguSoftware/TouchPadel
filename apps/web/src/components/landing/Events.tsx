@@ -1,6 +1,8 @@
 import { makeT, type Locale } from '@touch/i18n';
 import { CourtPattern } from '@/components/site/brand/CourtPattern';
 import { WhatsAppButton } from '@/components/site/ContactButton';
+import { whatsappUrl } from '@/lib/site/contact';
+import { EventsTicket } from './EventsTicket';
 import { Photo } from './Photo';
 
 type Crop = readonly [x: number, y: number, w: number, h: number];
@@ -42,7 +44,7 @@ const KNOCKOUT_RADII = [
 
 /**
  * Events: the deck's PLAY / SMASH / WIN poster (full-brand2.pdf p13) as the club's
- * "coming soon". The poster is a full-bleed block of the poster black: the three words
+ * tournaments. The poster is a full-bleed block of the poster black: the three words
  * stacked, SMASH in green, a photo of players at the inline end, and the court-line
  * bands in full Padel Green running across the whole block and off all four of its edges
  * (brand §5.1: the crop does the framing). As in the deck, the bands cross behind the
@@ -51,9 +53,10 @@ const KNOCKOUT_RADII = [
  * edge is clean. No band ever reads as olive.
  *
  * Under the poster, on the page's own band ground, the announcement itself: tournaments
- * and events are coming, and "Join the list" opens WhatsApp with the events message
- * pre-filled. (It used to share the poster's black, and the bands had to stop short of
- * it along a flat line in open black.) Screen readers hear "Play. Smash. Win." once; the
+ * are on, and an entry pass to fill in (EventsTicket). The visitor writes their name on
+ * the stub, "Join a tournament" tears it off and then opens WhatsApp with the name in the
+ * message. (It used to share the poster's black, and the bands had to stop short of it
+ * along a flat line in open black.) Screen readers hear "Play. Smash. Win." once; the
  * giant words are its picture.
  */
 export function Events({ locale, phone }: { locale: Locale; phone: string | null }) {
@@ -86,7 +89,7 @@ export function Events({ locale, phone }: { locale: Locale; phone: string | null
           <Photo
             name="events"
             alt={tr('site.photos.eventsAlt')}
-            sizes="(min-width: 60rem) 34vw, 62vw"
+            sizes="(min-width: 60rem) 34vw, 88vw"
             className="tp-events__photo"
           />
           <p className="tp-events__words" data-reveal="">
@@ -103,21 +106,53 @@ export function Events({ locale, phone }: { locale: Locale; phone: string | null
           </p>
         </div>
       </div>
-      <div className="tp-events__note" data-reveal="">
-        <p className="tp-events__soon">{tr('site.events.comingSoon')}</p>
-        <h2 id="events-title" className="tp-events__title">
-          {tr('site.events.title')}
-        </h2>
-        <p className="tp-events__body">{tr('site.events.body')}</p>
-        <WhatsAppButton
-          locale={locale}
+      <div className="tp-events__note">
+        <div className="tp-events__intro" data-reveal="">
+          <p className="tp-events__eyebrow">{tr('site.events.eyebrow')}</p>
+          <h2 id="events-title" className="tp-events__title">
+            {tr('site.events.title')}
+          </h2>
+        </div>
+        <EventsTicket
           phone={phone}
-          message={tr('site.whatsapp.events')}
-          label={tr('site.events.cta')}
-          cue={tr('site.onWhatsApp')}
-          onHome
-          className="tp-site-btn tp-site-btn--go tp-site-btn--lg"
+          href={whatsappUrl(phone, tr('site.whatsapp.events'))}
+          namedMessage={tr('site.whatsapp.eventsNamed')}
+          text={{
+            brand: tr('site.events.ticket.brand'),
+            admit: tr('site.events.ticket.admit'),
+            titleOne: tr('site.events.ticket.titleOne'),
+            titleTwo: tr('site.events.ticket.titleTwo'),
+            player1: tr('site.events.ticket.player1'),
+            player2: tr('site.events.ticket.player2'),
+            you: tr('site.events.ticket.you'),
+            rival: tr('site.events.ticket.rival'),
+            category: tr('site.events.ticket.category'),
+            level: tr('site.events.ticket.level'),
+            venue: tr('site.events.ticket.venue'),
+            venueName: tr('site.events.ticket.venueName'),
+            nameLabel: tr('site.events.ticket.nameLabel'),
+            namePlaceholder: tr('site.events.ticket.namePlaceholder'),
+            nameHint: tr('site.events.ticket.nameHint'),
+            nameLocked: tr('site.events.ticket.nameLocked'),
+            tear: tr('site.events.ticket.tear'),
+            cta: tr('site.events.cta'),
+            cue: tr('site.onWhatsApp'),
+          }}
+          fallback={
+            <WhatsAppButton
+              locale={locale}
+              phone={phone}
+              message={tr('site.whatsapp.events')}
+              label={tr('site.events.cta')}
+              cue={tr('site.onWhatsApp')}
+              onHome
+              className="tp-site-btn tp-ticket__go"
+            />
+          }
         />
+        <p className="tp-events__body" data-reveal="">
+          {tr('site.events.body')}
+        </p>
       </div>
     </section>
   );

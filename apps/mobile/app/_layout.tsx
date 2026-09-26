@@ -251,7 +251,6 @@ function RootStack() {
           <Stack.Screen name="sign-in" />
           <Stack.Screen name="sign-up" />
           <Stack.Screen name="forgot-password" />
-          <Stack.Screen name="availability" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />

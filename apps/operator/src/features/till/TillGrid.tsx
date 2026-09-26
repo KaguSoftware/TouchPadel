@@ -232,7 +232,7 @@ export function MenuItemGrid({
               <bdi>{pickName(locale, item)}</bdi>
             </span>
             <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: 'var(--tp-sp-1-5)' }}>
-              {defVariant && (
+              {defVariant && state !== 'blockedByStock' && (
                 <span style={{ ...muted, fontVariantNumeric: 'tabular-nums' }}>
                   {item.menu_item_variants.length > 1 && <span>{tr('ws.cashier.till.tile.from')} </span>}
                   <bdi>{formatIQD(defVariant.price_iqd, locale)}</bdi>

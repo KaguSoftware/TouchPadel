@@ -165,9 +165,8 @@ const NO_CLOCK = new Date(0);
  *
  * react-query hands back a stable reference until data actually changes, so
  * identity across all five inputs is a sound key: a refetch that returns new
- * rows misses and rebuilds, one that changes nothing hits. Module-level, so the
- * Book tab's sheet and the standalone Availability screen share one copy, and
- * capped at a little over one entry per day chip on the strip.
+ * rows misses and rebuilds, one that changes nothing hits. Module-level, so it
+ * outlives the Book tab's sheet remounting, and capped at a little over one entry per day chip on the strip.
  */
 const GRID_CACHE_MAX = 8;
 interface GridCacheEntry {

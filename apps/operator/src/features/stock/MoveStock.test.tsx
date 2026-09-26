@@ -226,7 +226,7 @@ describe('Move stock', () => {
     await pick(user, 'Flour');
     await user.type(screen.getByRole('textbox', { name: /Quantity/ }), '100');
     expect((screen.getByTestId('move-submit') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('Held until that count is finished or discarded.')).toBeTruthy();
+    expect(screen.getByTitle('Held until that count is finished or discarded.')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Open the count' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/stock/counts' });
   });

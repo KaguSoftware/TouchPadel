@@ -47,11 +47,21 @@ const dataUri = async (file, mime) =>
 const ICON_LOGO_WIDTH = 0.84;
 const ADAPTIVE_LOGO_WIDTH = 0.56;
 
+// The lockup is centred on its wordmark, not its bounding box. The P's tail
+// hangs below the swoosh for the bottom 39 % of the source (rows 1170-1906 of
+// 1906 are the tail alone), so boxing it pushed "Touch Padel" and the swoosh
+// visibly above the icon's centre. The image is shifted down by the gap
+// between the two centres; the tail takes the extra room below.
+const LOGO_ASPECT = 1906 / 5170;
+const WORDMARK_BOTTOM = 1170 / 1906;
+const wordmarkOffset = (px) => Math.round((0.5 - WORDMARK_BOTTOM / 2) * px * LOGO_ASPECT);
+
 /** [output png, size, html body background, <img> markup] */
 const logoJob = (out, background, width, filter = 'none') => async () => {
   const src = await dataUri(LOGO, 'image/png');
+  const px = Math.round(1024 * width);
   return [out, 1024, background,
-    `<img src="${src}" style="width:${Math.round(1024 * width)}px;filter:${filter}">`];
+    `<img src="${src}" style="width:${px}px;filter:${filter};transform:translateY(${wordmarkOffset(px)}px)">`];
 };
 const svgJob = (svg, out, size) => async () => {
   const src = await dataUri(path.join(BRAND, svg), 'image/svg+xml');

@@ -1,4 +1,4 @@
-import { FONT_BASE } from '@touch/ui/fontFace';
+import { FONT_BASE, handFontFaceCss } from '@touch/ui/fontFace';
 import { courtCss } from '@/features/court3d';
 import { siteCss } from '@/styles/site';
 
@@ -16,6 +16,10 @@ import { siteCss } from '@/styles/site';
  * Server Component only reaches the RSC stream as a hint (`:HL[…]`), about 230 KB into
  * the HTML and after </head>, so the headline face was found late, from the CSS (perf
  * finding P2, 2026-09-24).
+ *
+ * The handwriting faces (`handFontFaceCss`) are declared here and nowhere else: only the
+ * events ticket uses them, and their `unicode-range` means each downloads only when a
+ * glyph of its script is on the page. No preload: the ticket is far below the fold.
  */
 export function SiteStyles({ nonce }: { nonce: string | undefined }) {
   return (
@@ -30,7 +34,7 @@ export function SiteStyles({ nonce }: { nonce: string | undefined }) {
       <style
         nonce={nonce}
         data-tp-site=""
-        dangerouslySetInnerHTML={{ __html: `${siteCss}\n${courtCss}` }}
+        dangerouslySetInnerHTML={{ __html: `${siteCss}\n${handFontFaceCss()}\n${courtCss}` }}
       />
     </>
   );

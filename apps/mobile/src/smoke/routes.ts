@@ -52,7 +52,6 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: '(tabs)/bookings.tsx', route: 'bookings', primary: 'bookings.filter.upcoming' },
   { file: '(tabs)/profile.tsx', route: 'profile', primary: 'profile.settings' },
   // ── booking ───────────────────────────────────────────────────────────────
-  { file: 'availability.tsx', route: 'availability', primary: 'availability.duration' },
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },
   { file: 'review.tsx', route: 'review', primary: 'review.reserve' },

@@ -7,6 +7,9 @@ export {
   bodyStack,
   monoStack,
   numericStack,
+  handStack,
+  HAND_LATIN_FAMILY,
+  HAND_ARABIC_FAMILY,
   fontVars,
 } from './tokens/typography';
 export type { FontVars } from './tokens/typography';
@@ -16,6 +19,8 @@ export {
   PRELOAD_FACES,
   fontFaceCss,
   fontFaceCssFrom,
+  HAND_FONT_BASE,
+  handFontFaceCss,
 } from './fontFace';
 export type { FontFaceSpec } from './fontFace';
 export {

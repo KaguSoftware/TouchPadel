@@ -20,6 +20,7 @@ export function LanguageLink({
   target,
   label,
   className,
+  icon,
   children,
 }: {
   href: string;
@@ -30,6 +31,8 @@ export function LanguageLink({
    */
   label: string;
   className?: string;
+  /** A decorative icon drawn before the word (the footer pill's globe). */
+  icon?: ReactNode;
   children: ReactNode;
 }) {
   const remember = () => {
@@ -41,6 +44,7 @@ export function LanguageLink({
   };
   return (
     <a href={href} hrefLang={target} className={className} onClick={remember}>
+      {icon}
       {/* The visible word is in the target language ("العربية"), and says so. */}
       <span lang={target}>{children}</span>
       <span className="tp-site-sr"> ({label})</span>

@@ -71,7 +71,7 @@ export function PageHeader({
             <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem', maxInlineSize: '70ch' }}>{subtitle}</p>
           )}
         </div>
-        {actions && <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
+        {actions && <div className="tp-page-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
       </div>
       {children}
     </header>
@@ -891,7 +891,8 @@ const menuItemStyle: CSSProperties = {
   minBlockSize: 'var(--tp-touch)',
   paddingBlock: 'var(--tp-sp-2)',
   paddingInline: 'var(--tp-sp-3)',
-  background: 'none',
+  // No inline `background`: it outranked the .tp-row hover rule, so the menu's
+  // rows never lit up. GlobalStyles clears the button ground instead.
   border: 'none',
   font: 'inherit',
   textAlign: 'start',
@@ -1398,13 +1399,17 @@ export function HeadlineFigure({
     textAlign: 'start',
     inlineSize: '100%',
     minInlineSize: 0,
+    // The app-wide colour strip (GlobalStyles, tp-headline-tile): set by the
+    // tile's place in its row, and unset inside a report figure group, whose
+    // own card already wears it. Inline because card's border would win.
+    borderBlockStart: 'var(--tp-tile-strip, 1px solid var(--tp-border))',
   };
   return clickable ? (
-    <button type="button" className="tp-tile" onClick={onDrill} style={base} title={tr('ws.kit.drill.title')}>
+    <button type="button" className="tp-tile tp-headline-tile" onClick={onDrill} style={base} title={tr('ws.kit.drill.title')}>
       {inner}
     </button>
   ) : (
-    <div style={base}>{inner}</div>
+    <div className="tp-headline-tile" style={base}>{inner}</div>
   );
 }
 

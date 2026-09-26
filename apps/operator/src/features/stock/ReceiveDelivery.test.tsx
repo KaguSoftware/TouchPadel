@@ -117,6 +117,6 @@ describe('Goods in ▸ the store', () => {
     await user.type(screen.getByRole('textbox', { name: /^Received/ }), '5000');
     await user.type(screen.getByRole('textbox', { name: /^Cost per/ }), '1.5');
     expect((screen.getByRole('button', { name: 'Record delivery' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('Held until that count is finished or discarded.')).toBeTruthy();
+    expect(screen.getByTitle('Held until that count is finished or discarded.')).toBeTruthy();
   });
 });

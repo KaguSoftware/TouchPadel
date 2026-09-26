@@ -362,6 +362,11 @@ export function SelectMenu<T extends string>({
                 disabled={o.disabled}
                 tabIndex={-1}
                 onClick={() => commit(i)}
+                // The pointer moves the tinted row the way the arrow keys do,
+                // so a hovered row lights up and there is never a second one.
+                onPointerEnter={() => {
+                  if (!o.disabled) setActive(i);
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
