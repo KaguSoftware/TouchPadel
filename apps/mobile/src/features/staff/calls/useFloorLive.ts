@@ -46,10 +46,23 @@ export function floorTopic(venueId: string): string {
   return `floor:${venueId}`;
 }
 
+/**
+ * Topics whose channel is still leaving: `channel(topic)` hands back a channel
+ * still LEAVING after `removeChannel`, and `subscribe()` on it does nothing, so
+ * a new channel on a topic waits for the old one's removal (the operator's
+ * lib/realtime.ts rule). A quick branch switch back, or a token rotation, used
+ * to land on a dead channel.
+ */
+const leaving = new Map<string, Promise<unknown>>();
+
 function drop(s: SharedFloor): void {
   if (s.removed) return;
   s.removed = true;
-  void supabase.removeChannel(s.channel);
+  const done = supabase.removeChannel(s.channel).catch(() => undefined);
+  leaving.set(s.topic, done);
+  void done.then(() => {
+    if (leaving.get(s.topic) === done) leaving.delete(s.topic);
+  });
   if (shared.get(s.topic) === s) shared.delete(s.topic);
 }
 
@@ -72,48 +85,34 @@ export function useFloorLive(enabled: boolean): FloorStatus {
 
   useEffect(() => {
     if (!enabled || !token || !topic) return;
-    // A rotated token retires the old channel now, so `channel(topic)` below
-    // creates a fresh one instead of returning the stale instance.
-    const existing = shared.get(topic);
-    if (existing && existing.token !== token) drop(existing);
-    let entry = shared.get(topic);
-    if (!entry) {
-      supabase.realtime.setAuth(token);
-      const created: SharedFloor = {
-        token,
-        topic,
-        channel: null as unknown as RealtimeChannel,
-        consumers: 0,
-        removed: false,
-        status: 'connecting',
-        onEvent: new Set(),
-        onStatus: new Set(),
-      };
-      created.channel = supabase
-        .channel(topic, { config: { private: true } })
-        .on('broadcast', { event: 'waiter_call' }, () => {
-          for (const cb of created.onEvent) cb();
-        })
-        .subscribe((state) => {
-          if (state === 'SUBSCRIBED') {
-            addBreadcrumb('realtime.floor.subscribed');
-            // Back after a drop: whatever changed meanwhile is re-read.
-            if (created.status === 'down') for (const cb of created.onEvent) cb();
-            setStatus(created, 'live');
-          } else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') {
-            if (state !== 'CLOSED') captureMessage(`realtime.floor.${state}`, 'warning');
-            setStatus(created, 'down');
-          }
-        }) as RealtimeChannel;
-      shared.set(topic, created);
-      entry = created;
-    }
-    const mine = entry;
-    const invalidate = () => void queryClient.invalidateQueries({ queryKey: staffKeys.callsRoot });
-    mine.onEvent.add(invalidate);
-    mine.onStatus.add(setLocal);
-    mine.consumers += 1;
+    let cancelled = false;
+    let joined: { mine: SharedFloor; invalidate: () => void } | null = null;
+    const join = (): void => {
+      if (cancelled) return;
+      // A rotated token retires the old channel now, so the channel below is a
+      // fresh one instead of the stale instance.
+      const existing = shared.get(topic);
+      if (existing && existing.token !== token) drop(existing);
+      if (!shared.get(topic)) {
+        const pending = leaving.get(topic);
+        if (pending) {
+          void pending.then(join);
+          return;
+        }
+      }
+      const mine = entryFor(topic, token);
+      const invalidate = () =>
+        void queryClient.invalidateQueries({ queryKey: staffKeys.callsRoot });
+      mine.onEvent.add(invalidate);
+      mine.onStatus.add(setLocal);
+      mine.consumers += 1;
+      joined = { mine, invalidate };
+    };
+    join();
     return () => {
+      cancelled = true;
+      if (!joined) return;
+      const { mine, invalidate } = joined;
       mine.onEvent.delete(invalidate);
       mine.onStatus.delete(setLocal);
       mine.consumers -= 1;
@@ -122,4 +121,41 @@ export function useFloorLive(enabled: boolean): FloorStatus {
   }, [enabled, token, topic, queryClient]);
 
   return status;
+}
+
+/** The shared floor channel for a topic, created (and subscribed) when there is none. */
+function entryFor(topic: string, token: string): SharedFloor {
+  let entry = shared.get(topic);
+  if (!entry) {
+    supabase.realtime.setAuth(token);
+    const created: SharedFloor = {
+      token,
+      topic,
+      channel: null as unknown as RealtimeChannel,
+      consumers: 0,
+      removed: false,
+      status: 'connecting',
+      onEvent: new Set(),
+      onStatus: new Set(),
+    };
+    created.channel = supabase
+      .channel(topic, { config: { private: true } })
+      .on('broadcast', { event: 'waiter_call' }, () => {
+        for (const cb of created.onEvent) cb();
+      })
+      .subscribe((state) => {
+        if (state === 'SUBSCRIBED') {
+          addBreadcrumb('realtime.floor.subscribed');
+          // Back after a drop: whatever changed meanwhile is re-read.
+          if (created.status === 'down') for (const cb of created.onEvent) cb();
+          setStatus(created, 'live');
+        } else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') {
+          if (state !== 'CLOSED') captureMessage(`realtime.floor.${state}`, 'warning');
+          setStatus(created, 'down');
+        }
+      }) as RealtimeChannel;
+    shared.set(topic, created);
+    entry = created;
+  }
+  return entry;
 }

@@ -152,7 +152,18 @@ export function useAvailabilityBooking(
     if (!tzDates.includes(date) || (!picked.current && date !== first)) setDate(first);
   }, [tzDates, date]);
 
-  const [durationMin, setDurationMin] = useState(60);
+  const durations = useMemo(() => {
+    const set = new Set<number>();
+    for (const c of courts.data ?? []) for (const d of c.duration_options) set.add(d);
+    const out = [...set].sort((a, b) => a - b);
+    return out.length > 0 ? out : [60, 90];
+  }, [courts.data]);
+
+  const [durationChoice, setDurationMin] = useState(60);
+  // A branch whose courts do not offer the chosen length plays its shortest one
+  // (the guest's pick comes back if they switch to a branch that offers it).
+  const durationMin =
+    courts.isSuccess && !durations.includes(durationChoice) ? (durations[0] ?? 60) : durationChoice;
 
   /**
    * THE GRID IS BUILT ON THE TAP, NOT DEFERRED. A note, because the obvious
@@ -212,20 +223,15 @@ export function useAvailabilityBooking(
   const holdMutate = hold.mutate;
   const refetchDay = day.refetch;
 
-  // Transient state belongs to the day/duration it happened on.
+  // Transient state belongs to the branch, day and duration it happened on (a
+  // refusal naming one branch's phone must not follow the guest to another).
   useEffect(() => {
     setError(null);
     setNotice(null);
-  }, [date, durationMin]);
+  }, [venueId, date, durationMin]);
 
   const phone = venuePhoneOf(day.settings);
 
-  const durations = useMemo(() => {
-    const set = new Set<number>();
-    for (const c of courts.data ?? []) for (const d of c.duration_options) set.add(d);
-    const out = [...set].sort((a, b) => a - b);
-    return out.length > 0 ? out : [60, 90];
-  }, [courts.data]);
 
   // Degraded desk-only window. Read from venue_settings.protected_horizon_hours,
   // because that is the exact column app.assert_not_degraded_for (0008) refuses
