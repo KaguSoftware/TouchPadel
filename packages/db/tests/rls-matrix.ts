@@ -3811,6 +3811,31 @@ export const matrix: MatrixRule[] = [
     note: 'MGMT at the count\'s venue; an unknown count is COUNT_NOT_FOUND',
     drop: 18,
   },
+  // stock_transfers.
+  {
+    kind: 'write',
+    name: 'stock_transfers',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: transfer_stock only',
+    drop: 18,
+  },
+  {
+    kind: 'write',
+    name: 'stock_transfer_lines',
+    op: 'insert',
+    payload: { transfer_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: transfer_stock only',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'transfer_stock',
+    args: { p_from: 'matrix-never', p_to: 'cafe', p_lines: [], p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'the waiter (not in this matrix) and MGMT at the venue; an unknown store fails INVALID_ARGUMENT (hint location) past the guard',
+    drop: 18,
+  },
   // ── wave 5, lane R: the waiter answers guests' calls (wave5-addendum-2026-09-25
   // §2.1.8, §8 Q3). assistant_barista_waiter_access adds the waiter to the
   // waiter_calls read and to both call RPCs, and gives the RPCs a venue

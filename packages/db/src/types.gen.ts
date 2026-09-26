@@ -2743,6 +2743,16 @@ export type Database = {
         }
         Returns: string
       }
+      transfer_stock: {
+        Args: {
+          p_from: string
+          p_idempotency_key?: string
+          p_lines: Json
+          p_to: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       unpaid_played_bookings: {
         Args: { p_day_session_id?: string }
         Returns: Json
@@ -8658,6 +8668,95 @@ export type Database = {
           },
           {
             foreignKeyName: "stock_movements_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_transfer_lines: {
+        Row: {
+          ingredient_id: string
+          qty: number
+          transfer_id: string
+        }
+        Insert: {
+          ingredient_id: string
+          qty: number
+          transfer_id: string
+        }
+        Update: {
+          ingredient_id?: string
+          qty?: number
+          transfer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transfer_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfer_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_transfer_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_transfer_lines_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "stock_transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_transfers: {
+        Row: {
+          from_location: Database["public"]["Enums"]["stock_location"]
+          id: string
+          moved_at: string
+          moved_by: string
+          to_location: Database["public"]["Enums"]["stock_location"]
+          venue_id: string
+        }
+        Insert: {
+          from_location: Database["public"]["Enums"]["stock_location"]
+          id?: string
+          moved_at?: string
+          moved_by: string
+          to_location: Database["public"]["Enums"]["stock_location"]
+          venue_id: string
+        }
+        Update: {
+          from_location?: Database["public"]["Enums"]["stock_location"]
+          id?: string
+          moved_at?: string
+          moved_by?: string
+          to_location?: Database["public"]["Enums"]["stock_location"]
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transfers_moved_by_fkey"
+            columns: ["moved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transfers_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

@@ -113,7 +113,9 @@
     "salary_deductions": "excluded: staff pay deductions, money about a named person; never readable by the owner assistant or any LLM",
     "incident_reports": "excluded: incident reports may name guests and describe injuries; never sent to the owner assistant or any LLM; purged 365 days after the report",
     "marketing_content": "table_read",
-    "marketing_content_versions": "excluded: unpublished captions and images waiting for the owner; read on /marketing"
+    "marketing_content_versions": "excluded: unpublished captions and images waiting for the owner; read on /marketing",
+    "stock_transfers": "table_read",
+    "stock_transfer_lines": "table_read"
   },
   "views": {
     "cafe_settings_public": "table_read",
@@ -735,7 +737,8 @@
     "lock_stock_ingredients": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "receive_delivery_internal": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "submit_stock_count": "map:action",
-    "discard_count": "map:action"
+    "discard_count": "map:action",
+    "transfer_stock": "map:action"
   },
   "routes": {
     "/admin": "map:page",

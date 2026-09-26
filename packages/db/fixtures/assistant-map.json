@@ -1,5 +1,5 @@
 {
-  "generated_from": "b84886cd3f4df1e95cf7276b8eb4e3abb7118ce9",
+  "generated_from": "ca524d18e3c23136c51ddfaa2f94248f1236a7de",
   "chunks": [
     {
       "kind": "page",
@@ -3755,6 +3755,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.transfer_stock",
+      "lang": "en",
+      "title": "app.transfer_stock",
+      "body": "stock_transfers (wave 5 §2.8.5, D6). The waiter and MGMT at the venue: moves p_lines [{ingredient_id, qty, unit?}] (1 to 50, each ingredient once; unit the base unit or pack) from store p_from to store p_to. Lines are booked in ingredient_id order, after the ingredient locks of every line (app.lock_stock_ingredients) and each after a lock pass over all its live batches; the source's batches are split FEFO into destination batches with the same expiry, received_at and cost, and each slice writes a transfer movement pair (reason transfer:<id>). Returns {transfer_id, from, to, moved_at, lines: [{ingredient_id, qty}]} in base units, no cost. Idempotent by key. FORBIDDEN; INVALID_ARGUMENT (hint location: the same store or an unknown one; lines; unit; kind: a shop product); INVALID_QTY; INGREDIENT_NOT_FOUND (detail the id); TRANSFER_SHORT (hint the ingredient, detail what the source shows; nothing is moved); STORE_BEING_COUNTED (hint the store). Audit stock.transfer {from, to, lines, batches} (counts).\nSignature: app.transfer_stock(p_from text, p_to text, p_lines jsonb, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (waiter,manager,owner).\nAudit actions written: stock.transfer.\nError codes: FORBIDDEN, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, INVALID_QTY, STORE_BEING_COUNTED, TRANSFER_SHORT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0202 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.unpaid_played_bookings",
       "lang": "en",
       "title": "app.unpaid_played_bookings",
@@ -4767,6 +4775,22 @@
       "lang": "en",
       "title": "table stock_movements",
       "body": "Created in migration 0018.\nColumns:\n  id bigint generated always as identity primary key\n  at timestamptz not null default now()\n  ingredient_id uuid not null references ingredients(id)\n  batch_id uuid references stock_batches(id) — null only for negative-stock overdraft lines\n  movement_type movement_type not null\n  qty_delta numeric(12,3) not null — + in, − out; never zero\n  unit_cost_iqd numeric(14,4) — COGS at the moment of movement\n  order_item_id uuid references order_items(id)\n  ticket_id uuid references tickets(id)\n  delivery_line_id uuid references delivery_lines(id)\n  count_id uuid — FK added in 0019 (stock_counts lands there)\n  refund_id uuid references refunds(id)\n  reason_code text\n  staff_id uuid references staff(id)\n  device_id text\n  venue_id uuid\n  location stock_location not null default 'cafe' — stock_locations (D2): the store the movement happened in. For a row with a batch it is the batch's store, set by the stock_movements_location trigger whatever the writer passed; a batch-less row (an overdraft or a count shortage past the batches) keeps the writer's.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:stock_transfer_lines",
+      "lang": "en",
+      "title": "table stock_transfer_lines",
+      "body": "stock_transfers (wave 5 §2.8, D6): what one move carried, one row per ingredient. Read by MGMT at the move's venue.\nCreated in migration 0202.\nColumns:\n  transfer_id uuid not null references stock_transfers(id) on delete cascade — The move.\n  ingredient_id uuid not null references ingredients(id) — The ingredient moved (purchased or prepared; shop stock never moves).\n  qty numeric(12,3) not null check (qty > 0) — How much, in the ingredient's base unit.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:stock_transfers",
+      "lang": "en",
+      "title": "table stock_transfers",
+      "body": "stock_transfers (wave 5 §2.8, D6): one move of stock from one store of a venue to the other, booked by app.transfer_stock as transfer movement pairs (reason transfer:<id>). Written by the waiter and MGMT through that RPC only; read by MGMT at the venue.\nCreated in migration 0202.\nColumns:\n  id uuid primary key default gen_random_uuid() — Move id; the movements' reason_code is transfer:<id>.\n  venue_id uuid not null references venues(id) — The venue.\n  from_location stock_location not null — The store the stock left: cafe or bakery.\n  to_location stock_location not null — The store the stock went into: the other one.\n  moved_by uuid not null references staff(id) — Who moved it.\n  moved_at timestamptz not null default now() — When it was moved.",
       "route": null
     },
     {
@@ -8903,6 +8927,62 @@
       "lang": "en",
       "title": "stock_movements.unit_cost_iqd",
       "body": "numeric(14,4)\nCOGS at the moment of movement",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_transfer_lines.ingredient_id",
+      "lang": "en",
+      "title": "stock_transfer_lines.ingredient_id",
+      "body": "uuid not null references ingredients(id)\nThe ingredient moved (purchased or prepared; shop stock never moves).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_transfer_lines.qty",
+      "lang": "en",
+      "title": "stock_transfer_lines.qty",
+      "body": "numeric(12,3) not null check (qty > 0)\nHow much, in the ingredient's base unit.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_transfers.from_location",
+      "lang": "en",
+      "title": "stock_transfers.from_location",
+      "body": "stock_location not null\nThe store the stock left: cafe or bakery.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_transfers.id",
+      "lang": "en",
+      "title": "stock_transfers.id",
+      "body": "uuid primary key default gen_random_uuid()\nMove id; the movements' reason_code is transfer:<id>.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_transfers.moved_at",
+      "lang": "en",
+      "title": "stock_transfers.moved_at",
+      "body": "timestamptz not null default now()\nWhen it was moved.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_transfers.moved_by",
+      "lang": "en",
+      "title": "stock_transfers.moved_by",
+      "body": "uuid not null references staff(id)\nWho moved it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:stock_transfers.to_location",
+      "lang": "en",
+      "title": "stock_transfers.to_location",
+      "body": "stock_location not null\nThe store the stock went into: the other one.",
       "route": null
     },
     {

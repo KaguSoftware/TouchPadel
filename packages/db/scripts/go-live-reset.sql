@@ -109,6 +109,15 @@ truncate table
   public.stock_count_lines,
   public.deliveries,
   public.delivery_lines,
+  -- wave 5, lane S (wave5-addendum §7.8, PROPOSAL): the moves between the
+  -- stores; and the driver's purchases, their lines and the shopping list
+  -- that names them, because purchases.delivery_id references deliveries
+  -- (0166:56) and TRUNCATE refuses a table another untruncated one references.
+  public.stock_transfers,
+  public.stock_transfer_lines,
+  public.purchases,
+  public.purchase_lines,
+  public.shopping_items,
 
   -- Operations, devices and staff activity ----------------------------------
   public.audit_log,
