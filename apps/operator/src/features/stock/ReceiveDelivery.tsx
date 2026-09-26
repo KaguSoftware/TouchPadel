@@ -39,7 +39,7 @@
  * form says so before the whole delivery is typed. What staff added on the
  * phone waits above the form for its cost (StaffLogs.tsx).
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
@@ -52,13 +52,15 @@ import { todayIso } from '../admin/menu/availability';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
 import { SK, fetchIngredients, fetchSuppliers, fetchUnfinishedCounts, type IngredientRow } from './stockKeys';
 import { DriverPurchaseReceive, DriverPurchasesPanel } from './DriverPurchases';
+import { ReceiptsPanel } from './receipts/ReceiptsPanel';
+import { ReceiptReview } from './receipts/ReceiptReview';
 import { StaffLogs } from './StaffLogs';
 import { bakeryRefused, beingCounted, type StockLocation } from './storeLogic';
 import { decimalKeystroke } from './decimalInput';
 
 export { isShort } from './stockLogic';
 
-interface DraftLine extends DeliveryLineDraft {
+export interface DraftLine extends DeliveryLineDraft {
   key: string;
 }
 
@@ -74,7 +76,22 @@ const emptyLine = (): DraftLine => ({
 export function ReceiveDelivery() {
   const { tr } = useLocale();
   const navigate = useNavigate();
-  const { purchase } = useSearch({ strict: false }) as { purchase?: string };
+  const { purchase, receipt } = useSearch({ strict: false }) as { purchase?: string; receipt?: string };
+  if (receipt && !purchase) {
+    return (
+      <div style={{ maxInlineSize: '80rem' }}>
+        <PageHeader
+          title={tr('ws.receipts.review.title')}
+          actions={
+            <Button kind="ghost" size="sm" icon="chevronStart" onClick={() => void navigate({ to: '/stock/receive' })}>
+              {tr('ws.receipts.review.back')}
+            </Button>
+          }
+        />
+        <ReceiptReview key={receipt} receiptId={receipt} onBack={() => void navigate({ to: '/stock/receive' })} />
+      </div>
+    );
+  }
   if (purchase) {
     return (
       <div style={{ maxInlineSize: '64rem' }}>
@@ -193,6 +210,7 @@ function DeliveryForm() {
           the Record button closes the form rather than sharing a row with
           "Add another ingredient" above a supplier still to check. */}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+        <ReceiptsPanel />
         <DriverPurchasesPanel />
         <StaffLogs />
 
@@ -314,7 +332,8 @@ function DeliveryForm() {
   );
 }
 
-function LineEditor({
+/** One line of a delivery; also the scanned receipt's review lines (receipts/ReceiptReview.tsx), under `header`. */
+export function LineEditor({
   index,
   line,
   today,
@@ -325,6 +344,7 @@ function LineEditor({
   onChoose,
   onPatch,
   onRemove,
+  header,
 }: {
   index: number;
   line: DraftLine;
@@ -336,6 +356,8 @@ function LineEditor({
   onChoose: (id: string) => void;
   onPatch: (part: Partial<DraftLine>) => void;
   onRemove: () => void;
+  /** Above the ingredient: what the receipt said for this line. */
+  header?: ReactNode;
 }) {
   const { tr, locale } = useLocale();
   const fmt = useStockFormat();
@@ -366,6 +388,7 @@ function LineEditor({
         background: 'var(--tp-surface-2)',
       }}
     >
+      {header}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--tp-sp-2)' }}>
         <Field label={tr('ws.manager.stock.goodsIn.ingredient')} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: 0 }} error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
           <Select

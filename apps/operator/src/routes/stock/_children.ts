@@ -69,11 +69,13 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
  * Goods in opened on one of the driver's purchases (build-contracts-2026-09-23
- * §5.1): `?purchase=<id>`. Anything else is dropped, so a mangled link lands
- * on the ordinary Goods in form.
+ * §5.1): `?purchase=<id>`, or on one scanned receipt (0237): `?receipt=<id>`.
+ * Anything else is dropped, so a mangled link lands on the ordinary Goods in
+ * form; a purchase wins over a receipt.
  */
-export function validateReceiveSearch(raw: Record<string, unknown>): { purchase?: string } {
-  return typeof raw.purchase === 'string' && UUID_RE.test(raw.purchase) ? { purchase: raw.purchase.toLowerCase() } : {};
+export function validateReceiveSearch(raw: Record<string, unknown>): { purchase?: string; receipt?: string } {
+  if (typeof raw.purchase === 'string' && UUID_RE.test(raw.purchase)) return { purchase: raw.purchase.toLowerCase() };
+  return typeof raw.receipt === 'string' && UUID_RE.test(raw.receipt) ? { receipt: raw.receipt.toLowerCase() } : {};
 }
 
 export const stockReceiveRoute = createRoute({
