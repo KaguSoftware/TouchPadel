@@ -114,13 +114,16 @@ end $f$;
 -- A menu item at the venue and one at a venue nobody here works at.
 insert into venues (id, slug, name_en, name_ar, is_active)
 values ('${OTHER_VENUE}', 'mk-other-venue', 'MK other', 'مكان آخر', false);
+-- 0230: a category links a tax group of its own branch.
+insert into tax_groups (venue_id, name_en, name_ar, rate_bp)
+   values ('${OTHER_VENUE}', 'far tax', 'ضريبة بعيدة', 0);
 with c as (insert into menu_categories (name_en, name_ar, tax_group_id, venue_id)
            values ('MK drinks', 'مشروبات', '${SEED_TAX_GROUP_STANDARD}', '${VENUE_A_ID}') returning id),
      i as (insert into menu_items (category_id, name_en, name_ar, venue_id)
            select id, 'MK Rose latte', 'لاتيه الورد', '${VENUE_A_ID}' from c returning id)
 insert into vars select 'item', id::text from i;
 with c as (insert into menu_categories (name_en, name_ar, tax_group_id, venue_id)
-           values ('MK far', 'بعيد', '${SEED_TAX_GROUP_STANDARD}', '${OTHER_VENUE}') returning id),
+           values ('MK far', 'بعيد', (select id from tax_groups where venue_id = '${OTHER_VENUE}' limit 1), '${OTHER_VENUE}') returning id),
      i as (insert into menu_items (category_id, name_en, name_ar, venue_id)
            select id, 'MK far item', 'بعيد', '${OTHER_VENUE}' from c returning id)
 insert into vars select 'far_item', id::text from i;

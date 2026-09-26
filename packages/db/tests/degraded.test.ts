@@ -30,6 +30,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   VENUE_A_ID,
+  registerTestStation,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -51,6 +52,7 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
     // Ensure at least one till device exists (bootstrap deviation: a venue that
     // never heartbeated is NOT degraded), then stale every till — flag or
     // legacy 'TILL%' name (0026).
+    await registerTestStation(svc, TILL_DEVICE); // 0229: a heartbeat row needs a live station
     const { error: upErr } = await svc
       .from('device_heartbeats')
       .upsert(
@@ -120,6 +122,8 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
       .or('is_till.eq.true,device_id.like.TILL*');
     expect(delAll).toBeNull();
     const stale = new Date(Date.now() - (staleSeconds + 120) * 1000).toISOString();
+    // 0229: a heartbeat row needs a live station; a legacy one, not flagged a till.
+    await registerTestStation(svc, 'TILL-LEGACY', { isTill: false });
     const { error } = await svc
       .from('device_heartbeats')
       .insert({ device_id: 'TILL-LEGACY', last_seen_at: stale, queue_depth: 0, is_till: false });

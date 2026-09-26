@@ -156,12 +156,15 @@ const OTHER_VENUE = '00000000-0000-4000-8000-00000000c7c7';
 const SETUP = [
   `insert into venues (id, slug, name_en, name_ar, is_active)
    values ('${OTHER_VENUE}', 'rv-other-venue', 'RV other', 'مكان آخر', false);`,
+  // 0230: a category links a tax group of its own branch.
+  `insert into tax_groups (venue_id, name_en, name_ar, rate_bp)
+   values ('${OTHER_VENUE}', 'far tax', 'ضريبة بعيدة', 0);`,
   KEEP('cat', `insert into menu_categories (name_en, name_ar, tax_group_id, venue_id)
                values ('RV drinks', 'مشروبات', '${TAX}', {{venue}}) returning id::text`),
   KEEP('shop_cat', `insert into menu_categories (name_en, name_ar, tax_group_id, venue_id, kind)
                     values ('RV shop', 'متجر', '${TAX}', {{venue}}, 'shop') returning id::text`),
   KEEP('far_cat', `insert into menu_categories (name_en, name_ar, tax_group_id, venue_id)
-                   values ('RV far', 'بعيد', '${TAX}', '${OTHER_VENUE}') returning id::text`),
+                   values ('RV far', 'بعيد', (select id from tax_groups where venue_id = '${OTHER_VENUE}' limit 1), '${OTHER_VENUE}') returning id::text`),
   ...(['latte:cat:true', 'old:cat:false', 'ball:shop_cat:true', 'far:far_cat:true'] as const).map((spec) => {
     const [n, cat, active] = spec.split(':');
     return KEEP(n!, `insert into menu_items (category_id, name_en, name_ar, venue_id, is_active)
@@ -176,13 +179,16 @@ const SETUP = [
     return KEEP(n!, `insert into ingredients (kind, name_en, name_ar, unit, venue_id, pack_cost_iqd, supplier_name)
                      values ('${kind}', 'RV ${n}', 'مادة ${n}', 'g', {{venue}}, 25000, 'RV Mill') returning id::text`);
   }),
+  // 0230: a recipe draws on its own branch's ingredients.
+  KEEP('far_milk', `insert into ingredients (kind, name_en, name_ar, unit, venue_id, pack_cost_iqd, supplier_name)
+                    values ('purchased', 'RV far milk', 'حليب بعيد', 'g', '${OTHER_VENUE}', 25000, 'RV Mill') returning id::text`),
   KEEP('grp', `insert into modifier_groups (name_en, name_ar, min_select, max_select)
                values ('RV extras', 'إضافات', 0, 2) returning id::text`),
   KEEP('mod', `insert into modifiers (group_id, name_en, name_ar, price_delta_iqd)
                values ({{grp}}::uuid, 'RV extra shot', 'جرعة إضافية', 1000) returning id::text`),
   `insert into recipe_lines (variant_id, ingredient_id, qty)
    select s.val::uuid, i.val::uuid, q from (values ('latte_size', 'espresso', 18), ('latte_size', 'milk', 200),
-     ('old_size', 'milk', 100), ('ball_size', 'cup', 1), ('far_size', 'milk', 5)) x(s, i, q)
+     ('old_size', 'milk', 100), ('ball_size', 'cup', 1), ('far_size', 'far_milk', 5)) x(s, i, q)
    join pg_temp.vars s on s.name = x.s join pg_temp.vars i on i.name = x.i;`,
   `insert into recipe_lines (output_ingredient_id, ingredient_id, qty)
    select (select val::uuid from pg_temp.vars where name = 'syrup'), (select val::uuid from pg_temp.vars where name = 'sugar'), 500;`,

@@ -111,6 +111,7 @@ end $f$;
 create function pg_temp.keep(p_name text, p_sql text) returns void language plpgsql as $f$
 declare v text;
 begin
+  perform set_config('request.jwt.claims', '', true);  -- 0230: a fixture write, not a staff write
   execute pg_temp.sub(p_sql) into v;
   if v is null then raise exception 'keep %: no value', p_name; end if;
   insert into pg_temp.vars values (p_name, v) on conflict (name) do update set val = excluded.val;

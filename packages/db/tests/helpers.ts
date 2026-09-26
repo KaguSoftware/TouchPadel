@@ -1110,6 +1110,30 @@ export async function ensurePromotionProbeData(svc: SupabaseClient): Promise<voi
  * is a till, and a stale one would put venue A into degraded mode and change
  * the guard outcome of every guest RPC in the matrix.
  */
+/**
+ * Register a station the way a manager does in Settings > Stations. Since 0229
+ * (decision A1) a heartbeat never registers a machine, so a test that beats a
+ * station id registers it first. Idempotent; revives a retired row.
+ */
+export async function registerTestStation(
+  svc: SupabaseClient,
+  id: string,
+  opts: { venueId?: string; isTill?: boolean } = {},
+): Promise<void> {
+  const isTill = opts.isTill ?? true;
+  const { error } = await svc.from('stations').upsert(
+    {
+      id,
+      venue_id: opts.venueId ?? VENUE_A_ID,
+      is_till: isTill,
+      mode: isTill ? 'till' : 'desk',
+      retired_at: null,
+    },
+    { onConflict: 'id' },
+  );
+  if (error) throw new Error(`registerTestStation ${id} failed: ${error.message}`);
+}
+
 export async function ensureStationProbe(svc: SupabaseClient): Promise<void> {
   const { error: sErr } = await svc
     .from('stations')

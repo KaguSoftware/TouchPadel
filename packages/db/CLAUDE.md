@@ -17,13 +17,13 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0227`
-  (`20260926000227_staff_memberships_read.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0235`
+  (`20260926000235_my_reservations_venue.sql`; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0228`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0236`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -121,10 +121,28 @@ is a line in that file.
   `venue_id = any(v_rv)` with `v_rv := app.report_venues()` (0219). `venues.status` is
   preparing/open/closed; `is_active` means open (guests), staff see every branch not closed.
   `any((select f())::uuid[])` needs the cast: `any((select f()))` compares against the ROW.
+  Since the audit (0228–0235, `docs/design/multi-venue/audit-2026-09-26.md`):
+  - `app.resolve_venue` never swaps branches: a station or `app.venue_id` naming a closed branch
+    answers NULL, a scope header the caller may not use answers NULL, and staff with no open branch
+    (not the owner) answer NULL. The station header outranks `x-venue-scope` in BOTH
+    `resolve_venue` and `visible_venue_ids`. `app.is_staff_at` is false for a closed branch, owner
+    included. The owner still READS a closed branch (`app.readable_venue_ids`, scope header).
+  - **Every branch table and child table carries the `zz_branch_guard` trigger** (0230,
+    `app.trg_branch_guard`): a row's links must name rows of its own branch (everyone), and a staff
+    writer must be `is_staff_at` the row's branch unless a definer body asserted it
+    (`app.venue_id`) or it is their own guest row. A new branch table (or a child of one) gets the
+    trigger in the migration that creates it, with its link pairs; a test fixture that writes as
+    postgres clears `request.jwt.claims` first (`tests/stores-harness.ts`).
+  - A heartbeat never registers or revives a station (0229, decision A1): a machine is registered in
+    Settings > Stations (`app.register_station`); a test registers its station with
+    `registerTestStation` (`tests/helpers.ts`) before it beats. `DEV1` is seeded.
+  - A policy calls `app.is_staff(...)` / `app.staff_role()` inside `(select …)` (0234), like
+    `visible_venue_ids`: one evaluation per statement.
 - Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104,
   per branch with `p_venue_id` since 0208) and `venue_settings_public` (one row per active branch);
   everything else in the `cafe_settings` registry (`app.cafe_setting_specs`, latest 0105). Design
-  notes: `docs/design/multi-venue/slice-1-2026-09-21.md`, `slice-2-2026-09-26.md`.
+  notes: `docs/design/multi-venue/slice-1-2026-09-21.md`, `slice-2-2026-09-26.md`,
+  `slice-3-4-2026-09-26.md`, `audit-2026-09-26.md`.
 
 ## RPCs
 

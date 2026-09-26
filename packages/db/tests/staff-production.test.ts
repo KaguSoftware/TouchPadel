@@ -141,10 +141,12 @@ select pg_temp.ing('syrup',   'prepared',  'ml', true,  '${VENUE_A_ID}', 1000, n
 select pg_temp.ing('sugar',   'purchased', 'g',  true,  '${VENUE_A_ID}', null, null, 1000, 1);
 select pg_temp.ing('retired', 'prepared',  'g',  false, '${VENUE_A_ID}', null, null, null, null);
 select pg_temp.ing('far_dough', 'prepared', 'g', true,  '${OTHER_VENUE}', null, null, null, null);
+-- 0230: a recipe draws on its own branch's ingredients.
+select pg_temp.ing('far_flour', 'purchased', 'g', true,  '${OTHER_VENUE}', null, null, null, null);
 insert into recipe_lines (output_ingredient_id, ingredient_id, qty)
 select v1.val::uuid, v2.val::uuid, q
   from (values ('dough', 'flour', 0.6), ('dough', 'butter', 0.2), ('cookies', 'flour', 20),
-               ('retired', 'flour', 1), ('far_dough', 'flour', 1)) x(o, c, q)
+               ('retired', 'flour', 1), ('far_dough', 'far_flour', 1)) x(o, c, q)
   join pg_temp.vars v1 on v1.name = x.o
   join pg_temp.vars v2 on v2.name = x.c;
 `;

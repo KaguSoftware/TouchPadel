@@ -1161,6 +1161,7 @@ export type Database = {
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
       has_own_pin: { Args: never; Returns: boolean }
+      header_station_venue: { Args: never; Returns: string }
       heartbeat: {
         Args: {
           p_app_version?: string
@@ -1430,6 +1431,7 @@ export type Database = {
           price_iqd: number
           start_at: string
           status: string
+          venue_id: string
         }[]
       }
       my_suggestions: {
@@ -1962,6 +1964,7 @@ export type Database = {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
         Returns: Json
       }
+      readable_venue_ids: { Args: never; Returns: string[] }
       reason_given: { Args: { p_reason: string }; Returns: boolean }
       receive_delivery: {
         Args: {
@@ -2243,6 +2246,7 @@ export type Database = {
         Args: { p_text: string }
         Returns: Record<string, unknown>
       }
+      req_header: { Args: { p_name: string }; Returns: string }
       request_recipe_change: {
         Args: {
           p_idempotency_key?: string
@@ -2286,6 +2290,7 @@ export type Database = {
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
       rotate_table_token_secret: { Args: never; Returns: Json }
+      row_venue: { Args: { p_id: string; p_table: string }; Returns: string }
       safe_line: { Args: { p_text: string }; Returns: string }
       safe_text: { Args: { p_text: string }; Returns: string }
       save_analytics_insights: {
@@ -2818,6 +2823,7 @@ export type Database = {
         }
         Returns: Json
       }
+      sweep_degraded_period: { Args: { p_venue: string }; Returns: undefined }
       sweep_degraded_periods: { Args: never; Returns: undefined }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }

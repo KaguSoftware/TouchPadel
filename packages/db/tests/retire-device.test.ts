@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SEED_STAFF, appRpc, outcome, serviceClient, signedInClient, stackAvailable,
   VENUE_A_ID,
+  registerTestStation,
 } from './helpers';
 
 /**
@@ -32,6 +33,8 @@ describe.skipIf(!up)('0118 retire_device + degraded thresholds (C2)', () => {
 
   async function plantStaleTill(): Promise<void> {
     // app.heartbeat is the only writer; beat once as staff, then age the row.
+    // 0229 (A1): the station is registered on purpose first.
+    await registerTestStation(svc, DEVICE, { isTill: true });
     const beat = await appRpc(cashier, 'heartbeat', {
       p_device_id: DEVICE, p_queue_depth: 0, p_app_version: 'test', p_is_till: true,
     }).then(outcome);

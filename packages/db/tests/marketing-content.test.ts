@@ -176,8 +176,11 @@ const OTHER_VENUE = '00000000-0000-4000-8000-00000000f3f3';
 const OTHER_VENUE_SQL = [
   `insert into venues (id, slug, name_en, name_ar, is_active)
    values ('${OTHER_VENUE}', 'mc-other-venue', 'MC other', 'مكان آخر', false);`,
+  // 0230: a category links a tax group of its own branch.
+  `insert into tax_groups (venue_id, name_en, name_ar, rate_bp)
+   values ('${OTHER_VENUE}', 'far tax', 'ضريبة بعيدة', 0);`,
   KEEP('far_cat', `insert into menu_categories (name_en, name_ar, tax_group_id, venue_id)
-                   values ('MC far', 'بعيد', 'b0000000-0000-4000-8000-000000000001', '${OTHER_VENUE}') returning id::text`),
+                   values ('MC far', 'بعيد', (select id from tax_groups where venue_id = '${OTHER_VENUE}' limit 1), '${OTHER_VENUE}') returning id::text`),
   KEEP('far_item', `insert into menu_items (category_id, name_en, name_ar, venue_id)
                     values ({{far_cat}}::uuid, 'MC far', 'بعيد', '${OTHER_VENUE}') returning id::text`),
   KEEP('far_campaign', `insert into marketing_campaigns (venue_id, name_en, name_ar, channel, created_by)

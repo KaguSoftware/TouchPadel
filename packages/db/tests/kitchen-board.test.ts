@@ -96,6 +96,13 @@ const B_TAB = probeId('b0e2');
 const B_ORDER = probeId('b0e3');
 const B_LINE = probeId('b0e4');
 const B_TICKET = probeId('b0e5');
+// 0230: B's order line names B's own menu (a row never points at another branch's).
+const B_TAX = probeId('b0e6');
+const B_CAT = probeId('b0e7');
+const B_ITEM = probeId('b0e8');
+const B_VARIANT = probeId('b0e9');
+const B_GROUP = probeId('b0ea');
+const B_MOD = probeId('b0eb');
 
 type Named = { name_en: string; name_ar: string };
 interface BoardLine {
@@ -343,14 +350,20 @@ describe.skipIf(!up)('kitchen_board_read: app.kitchen_board', () => {
     });
     await put('tabs', { id: B_TAB, venue_id: VENUE_B_ID, day_session_id: B_DAY, label: 'kitchen-board B', status: 'void' });
     await put('orders', { id: B_ORDER, venue_id: VENUE_B_ID, tab_id: B_TAB, source: 'till' });
+    await put('tax_groups', { id: B_TAX, venue_id: VENUE_B_ID, name_en: 'KB B tax', name_ar: 'ضريبة ب', rate_bp: 0 });
+    await put('menu_categories', { id: B_CAT, venue_id: VENUE_B_ID, name_en: 'KB B', name_ar: 'ب', tax_group_id: B_TAX });
+    await put('menu_items', { id: B_ITEM, venue_id: VENUE_B_ID, category_id: B_CAT, name_en: 'KB B item', name_ar: 'صنف ب' });
+    await put('menu_item_variants', { id: B_VARIANT, item_id: B_ITEM, name_en: 'Regular', name_ar: 'عادي', price_iqd: 4000 });
+    await put('modifier_groups', { id: B_GROUP, venue_id: VENUE_B_ID, name_en: 'KB B extras', name_ar: 'إضافات ب' });
+    await put('modifiers', { id: B_MOD, group_id: B_GROUP, name_en: 'KB B extra', name_ar: 'إضافة ب', price_delta_iqd: 500 });
     await put('order_items', {
-      id: B_LINE, order_id: B_ORDER, menu_item_id: item.itemId, variant_id: item.variantId,
+      id: B_LINE, order_id: B_ORDER, menu_item_id: B_ITEM, variant_id: B_VARIANT,
       qty: 1, unit_price_iqd: 4000, line_total_iqd: 4000,
     });
     const bMods = await svc.from('order_item_modifiers').select('modifier_id').eq('order_item_id', B_LINE);
     if (bMods.error) throw new Error(bMods.error.message);
     if ((bMods.data ?? []).length === 0) {
-      await put('order_item_modifiers', { order_item_id: B_LINE, modifier_id: modifierId, qty: 1, price_delta_iqd: 500 },
+      await put('order_item_modifiers', { order_item_id: B_LINE, modifier_id: B_MOD, qty: 1, price_delta_iqd: 500 },
         'order_item_id,modifier_id');
     }
     await put('tickets', { id: B_TICKET, venue_id: VENUE_B_ID, order_id: B_ORDER });

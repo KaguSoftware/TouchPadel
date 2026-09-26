@@ -2609,23 +2609,25 @@ export const matrix: MatrixRule[] = [
     name: 'stations',
     op: 'insert',
     payload: { id: 'MATRIX-PROBE-NEVER', venue_id: VENUE_A, is_till: false },
-    note: '0124/0130: a station registers itself through app.heartbeat, which resolves the venue and audits the registration; a direct insert would file a device wherever it liked',
+    note: '0124/0130/0229: a station is registered on purpose through app.register_station (a heartbeat never registers one since 0229), which checks the branch and audits it; a direct insert would file a device wherever it liked',
     expect: ex<WriteExpectation>('denied'),
     drop: 13,
   },
   // The venue resolvers. Every one is granted to anon as well as authenticated
   // (0125/0123/0137): each is named by a column default, a policy or a CHECK,
   // and those evaluate as the WRITING role — the 0121 trap. None of them
-  // answers about anything but the caller's own context.
+  // answers about anything but the caller's own context. 0228 withdrew
+  // current_venue and current_venue_or_default from anon: no anon role writes
+  // a table directly, and both answered too much to anyone.
   {
     kind: 'rpc', schema: 'app', name: 'current_venue',
-    note: '0125: resolves station -> single membership -> single active venue, else raises VENUE_REQUIRED. A refusal is still an execute: it is a business answer, not a permission one',
-    args: { p_station_id: null }, expect: SELF_ANON_OK, drop: 13,
+    note: '0125: resolves station -> single membership -> single active venue, else raises VENUE_REQUIRED. A refusal is still an execute: it is a business answer, not a permission one. 0228: not anon (every guest insert runs in a definer body; step (1) answered station-id probes)',
+    args: { p_station_id: null }, expect: SELF_AUTHED, drop: 13,
   },
   {
     kind: 'rpc', schema: 'app', name: 'current_venue_or_default',
-    note: '0125: the cron/service_role shape — falls back to the default venue rather than raising, and is the default on the eight D tables',
-    args: {}, expect: SELF_ANON_OK, drop: 13,
+    note: '0125: the cron/service_role shape — falls back to the default venue rather than raising, and is the default on the eight D tables. 0228: not anon (it handed the default branch to anyone)',
+    args: {}, expect: SELF_AUTHED, drop: 13,
   },
   {
     kind: 'rpc', schema: 'app', name: 'staff_venue_ids',
