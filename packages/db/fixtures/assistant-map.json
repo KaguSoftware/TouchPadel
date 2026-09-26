@@ -1,5 +1,5 @@
 {
-  "generated_from": "46acad8b84083ed11ce881edee8bce3568ffbe3f",
+  "generated_from": "334bbc896cd0f354b0258b5c91098c547a613153",
   "chunks": [
     {
       "kind": "page",
@@ -2286,7 +2286,7 @@
       "ref": "action:app.confirm_receipt",
       "lang": "en",
       "title": "app.confirm_receipt",
-      "body": "receipt_scan (0237). MGMT at the receipt's branch: books the manager's lines [{line_id?, ingredient_id, qty_received (base unit), unit_cost_iqd (per base unit), expiry_date?}] as ONE delivery (source receipt, into p_location, default cafe) through receive_delivery_internal, records each receipt line's accepted ingredient (manual when the manager changed it) and learns its normalised wording as an alias (per supplier when one is given). Returns {receipt_id, delivery_id, batch_ids}. Idempotent by key. RECEIPT_NOT_FOUND, RECEIPT_ALREADY_DONE, RECEIPT_BUSY, SUPPLIER_NOT_FOUND, TEXT_TOO_LONG (hint supplier_name), EMPTY_DELIVERY, INVALID_ARGUMENT (hint lines), and receive_delivery_internal's STORE_BEING_COUNTED, INGREDIENT_NOT_FOUND, INVALID_LINE. Audit receipt.confirm.\nSignature: app.confirm_receipt(p_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_location text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: receipt.confirm.\nError codes: FORBIDDEN, RECEIPT_NOT_FOUND, RECEIPT_ALREADY_DONE, RECEIPT_BUSY, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, EMPTY_DELIVERY, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/stock/receipts/ReceiptReview.tsx (pages /stock).\nDefined in migration 0237 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "receipt_scan (0237), re-issued by scan_hardening (0240). MGMT at the receipt's branch: books the manager's lines [{line_id?, ingredient_id, qty_received (base unit), unit_cost_iqd (per base unit), expiry_date?}] as ONE delivery (source receipt, into p_location, default cafe) through receive_delivery_internal, records each receipt line's accepted ingredient (manual when the manager changed it) and learns its normalised wording as an alias (per supplier when one is given; a re-pointed wording is audited as ingredient_alias.repoint). With no supplier and no name given, the supplier guessed from the reading is kept. Returns {receipt_id, delivery_id, batch_ids}. Idempotent by key. RECEIPT_NOT_FOUND, RECEIPT_ALREADY_DONE, RECEIPT_BUSY, SUPPLIER_NOT_FOUND, TEXT_TOO_LONG (hint supplier_name), EMPTY_DELIVERY, INVALID_ARGUMENT (hint lines), and receive_delivery_internal's STORE_BEING_COUNTED, INGREDIENT_NOT_FOUND, INVALID_LINE. Audit receipt.confirm.\nSignature: app.confirm_receipt(p_id uuid, p_lines jsonb, p_supplier_id uuid default null, p_supplier_name text default null, p_location text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: ingredient_alias.repoint, receipt.confirm.\nError codes: FORBIDDEN, RECEIPT_NOT_FOUND, RECEIPT_ALREADY_DONE, RECEIPT_BUSY, TEXT_TOO_LONG, SUPPLIER_NOT_FOUND, EMPTY_DELIVERY, INVALID_ARGUMENT.\nCalled from: apps/operator/src/features/stock/receipts/ReceiptReview.tsx (pages /stock).\nDefined in migration 0240 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/stock"
     },
     {
@@ -3118,7 +3118,7 @@
       "ref": "action:app.receipt_detail",
       "lang": "en",
       "title": "app.receipt_detail",
-      "body": "receipt_scan (0237). MGMT at the receipt's branch, or the staff member who filed it: {id, venue_id, status, error_code, source, storage_path, created_at, read_at, model, supplier_name_read, supplier_id, receipt_date, total_iqd_read, delivery_id, lines: [{id, line_no, text_read, qty_read, unit_read, unit_price_iqd_read, line_total_iqd_read, expiry_read, flags, ingredient_id, match_source, confidence, name_en, name_ar, unit, pack_size, kind}]}. RECEIPT_NOT_FOUND for anyone else (and for an unknown id); FORBIDDEN for a caller who is not staff.\nSignature: app.receipt_detail(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, RECEIPT_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0237 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "receipt_scan (0237), re-issued by scan_hardening (0240). MGMT at the receipt's branch, or the staff member who filed it while still staff there: {id, venue_id, status, error_code, source, storage_path, created_at, read_at, reading_started_at, server_now (the database clock, for the three-minute reading deadline), model, supplier_name_read, supplier_id, receipt_date, total_iqd_read, delivery_id, lines: [{id, line_no, text_read, qty_read, unit_read, unit_price_iqd_read, line_total_iqd_read, expiry_read, flags, ingredient_id, match_source, confidence, name_en, name_ar, unit, pack_size, kind}]}. RECEIPT_NOT_FOUND for anyone else (and for an unknown id); FORBIDDEN for a caller who is not staff.\nSignature: app.receipt_detail(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, RECEIPT_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0240 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3486,7 +3486,7 @@
       "ref": "action:app.send_order_slip",
       "lang": "en",
       "title": "app.send_order_slip",
-      "body": "order_slip_rpcs (0239). The cashier and MGMT at the slip's branch: sends the cashier's items [{line_id?, variant_id, qty, notes?, modifiers?: [{modifier_id, qty}]}] (at most 60) as ONE order through app.till_add_items onto p_tab_id, or onto p_table_id's only open tab, or a new tab opened there with app.open_tab; records each slip line's accepted variant (manual when changed) and learns its wording as an alias; sets the slip sent with its tab and order. Returns {slip_id, tab_id, order_id, ticket_id, total_iqd}. Idempotent by key (the tab and the order take <key>:tab and <key>:order). SLIP_NOT_FOUND, SLIP_ALREADY_DONE, SLIP_BUSY, EMPTY_ORDER, INVALID_ARGUMENT (hint items), TAB_ANCHOR_REQUIRED, and everything open_tab and till_add_items raise (NO_OPEN_DAY, TABLE_NOT_FOUND, TAB_NOT_OPEN, VARIANT_NOT_FOUND, ITEM_UNAVAILABLE, MODIFIER_SELECTION, …). Audit order_slip.send.\nSignature: app.send_order_slip(p_id uuid, p_items jsonb, p_tab_id uuid default null, p_table_id uuid default null, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: order_slip.send.\nError codes: FORBIDDEN, SLIP_NOT_FOUND, SLIP_ALREADY_DONE, SLIP_BUSY, EMPTY_ORDER, INVALID_ARGUMENT, TAB_ANCHOR_REQUIRED.\nCalled from: apps/operator/src/features/till/slips/SlipReview.tsx (pages /till).\nDefined in migration 0239 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "order_slip_rpcs (0239), re-issued by scan_hardening (0240). The cashier and MGMT at the slip's branch: sends the cashier's items [{line_id?, variant_id, qty, notes?, modifiers?: [{modifier_id, qty}]}] (at most 60) as ONE order through app.till_add_items onto p_tab_id, or onto p_table_id's only open tab, or a new tab opened there with app.open_tab (sends to one table are serialised; several open tabs and none named is TAB_AMBIGUOUS; another branch's tab or table is VENUE_MISMATCH); records each slip line's accepted variant (manual when changed) and learns its wording as an alias (a cashier adds new wordings only; a manager or the owner may re-point one, audited as menu_alias.repoint); sets the slip sent with its tab and order. Returns {slip_id, tab_id, order_id, ticket_id, total_iqd}. Idempotent by key (the tab and the order take <key>:tab and <key>:order). SLIP_NOT_FOUND, SLIP_ALREADY_DONE, SLIP_BUSY, EMPTY_ORDER, INVALID_ARGUMENT (hint items), TAB_ANCHOR_REQUIRED, TAB_AMBIGUOUS, VENUE_MISMATCH, and everything open_tab and till_add_items raise (NO_OPEN_DAY, TABLE_NOT_FOUND, TAB_NOT_OPEN, VARIANT_NOT_FOUND, ITEM_UNAVAILABLE, MODIFIER_SELECTION, …). Audit order_slip.send.\nSignature: app.send_order_slip(p_id uuid, p_items jsonb, p_tab_id uuid default null, p_table_id uuid default null, p_idempotency_key text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: menu_alias.repoint, order_slip.send.\nError codes: FORBIDDEN, SLIP_NOT_FOUND, SLIP_ALREADY_DONE, SLIP_BUSY, EMPTY_ORDER, INVALID_ARGUMENT, VENUE_MISMATCH, TAB_ANCHOR_REQUIRED, TAB_AMBIGUOUS.\nCalled from: apps/operator/src/features/till/slips/SlipReview.tsx (pages /till).\nDefined in migration 0240 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/till"
     },
     {
@@ -3750,7 +3750,7 @@
       "ref": "action:app.slip_detail",
       "lang": "en",
       "title": "app.slip_detail",
-      "body": "order_slip_rpcs (0239). The cashier and MGMT at the slip's branch, or the staff member who took it: {id, venue_id, status, error_code, storage_path, created_at, read_at, model, table_number_read, table_id, table_number, tab_id, order_id, sent_at, rejected_reason, lines: [{id, line_no, text_read, qty_read, notes_read, flags, variant_id, match_source, confidence, item_id, item_name_en, item_name_ar, variant_name_en, variant_name_ar}]}. SLIP_NOT_FOUND for anyone else (and an unknown id); FORBIDDEN for a caller who is not staff.\nSignature: app.slip_detail(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, SLIP_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0239 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "order_slip_rpcs (0239), re-issued by scan_hardening (0240). The cashier and MGMT at the slip's branch, or the staff member who took it while still staff there: {id, venue_id, status, error_code, storage_path, created_at, read_at, reading_started_at, server_now (the database clock, for the three-minute reading deadline), model, table_number_read, table_id, table_number, tab_id, order_id, sent_at, rejected_reason, lines: [{id, line_no, text_read, qty_read, notes_read, flags, variant_id, match_source, confidence, item_id, item_name_en, item_name_ar, variant_name_en, variant_name_ar}]}. SLIP_NOT_FOUND for anyone else (and an unknown id); FORBIDDEN for a caller who is not staff.\nSignature: app.slip_detail(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, SLIP_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0240 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3758,7 +3758,7 @@
       "ref": "action:app.slips_to_send",
       "lang": "en",
       "title": "app.slips_to_send",
-      "body": "order_slip_rpcs (0239). The cashier and MGMT at the branch: {slips: [{id, status, error_code, storage_path, uploaded_by_name, created_at, table_number_read, table_id, table_number, line_count, matched_count, tab_id, order_id, sent_by_name, sent_at}]}, every slip still to send (newest first), then those sent or set aside in the last 12 hours; at most 100. FORBIDDEN for anyone else.\nSignature: app.slips_to_send(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0239 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "order_slip_rpcs (0239), re-issued by scan_hardening (0240). The cashier and MGMT at the branch: {slips: [{id, status, error_code, storage_path, uploaded_by_name, created_at, table_number_read, table_id, table_number, line_count, matched_count, tab_id, order_id, sent_by_name, sent_at}]}, every slip still to send (newest first), then those filed in the last 36 hours and sent or set aside in the last 12; at most 100. FORBIDDEN for anyone else.\nSignature: app.slips_to_send(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0240 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3799,6 +3799,14 @@
       "lang": "en",
       "title": "app.staff_media_folder",
       "body": "staff_media_bucket (§2.3). The folder of a staff-media path (proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings, requests or incidents); NULL for a name that is not a staff-media path. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_folder(p_name text) returns text.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.staff_media_is_evidence",
+      "lang": "en",
+      "title": "app.staff_media_is_evidence",
+      "body": "scan_hardening (0240). True for a staff-media photo nobody may delete by hand: an incident's (0196), or one claimed by a supplier receipt or an order slip (0236/0238). Never raises. The staff_media_delete storage policy evaluates it as the deleting role, hence the authenticated grant.\nSignature: app.staff_media_is_evidence(p_name text) returns boolean.\nGranted to: authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0240 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4814,7 +4822,7 @@
       "ref": "table:order_slips",
       "lang": "en",
       "title": "table order_slips",
-      "body": "order_slip (Milestone 4b): one photographed handwritten order slip. Filed by app.create_order_slip (the waiter, the cashier or MGMT), read by the receipt-scan edge function, sent to the kitchen by app.send_order_slip (which goes through app.till_add_items) or rejected. Read by the cashier and MGMT at the branch and by its uploader.\nCreated in migration 0238.\nColumns:\n  id uuid primary key default gen_random_uuid() — Slip id.\n  venue_id uuid not null references venues(id) — The branch.\n  storage_path text not null unique check (length(storage_path) <= 200) — The photo: a staff-media path in the slips folder (claimed as order_slip:<id>), read by its uploader, the cashier and management.\n  uploaded_by uuid not null references staff(id) — Who took the photo.\n  status text not null default 'uploaded' check (status in ('uploaded','reading','read','failed','sent','rejected')) — uploaded (waiting for a reading, or no model connected), reading, read (lines waiting for the cashier), failed (error_code says why), sent (on the tab as order_id) or rejected.\n  error_code text check (error_code is null or length(error_code) <= 60) — Why the last reading did not produce lines: the codes of supplier_receipts.error_code.\n  reading_started_at timestamptz — When the current or last reading started; one older than three minutes may be taken over.\n  read_at timestamptz — When the last reading was stored.\n  model text check (model is null or length(model) <= 100) — The model that produced the last reading.\n  table_number_read text check (table_number_read is null or length(table_number_read) <= 20) — The table number as read off the slip, digits folded.\n  table_id uuid references cafe_tables(id) — The table: guessed from the number read, then the one the order went to.\n  tab_id uuid references tabs(id) — The tab the order was sent to.\n  order_id uuid references orders(id) — The order app.send_order_slip created (one slip, one order).\n  sent_by uuid references staff(id) — The cashier, manager or owner who sent it.\n  sent_at timestamptz — When it was sent to the kitchen.\n  rejected_by uuid references staff(id) — Who set it aside.\n  rejected_at timestamptz — When it was set aside.\n  rejected_reason text check (rejected_reason is null or length(rejected_reason) <= 200) — Why, as typed (at most 200 characters).\n  created_at timestamptz not null default now() — When it was filed.",
+      "body": "order_slip (Milestone 4b): one photographed handwritten order slip. Filed by app.create_order_slip (the waiter, the cashier or MGMT), read by the receipt-scan edge function, sent to the kitchen by app.send_order_slip (which goes through app.till_add_items) or rejected. Read by the cashier and MGMT at the branch and by its uploader.\nCreated in migration 0238.\nColumns:\n  id uuid primary key default gen_random_uuid() — Slip id.\n  venue_id uuid not null references venues(id) — The branch.\n  storage_path text not null unique check (length(storage_path) <= 200) — The photo: a staff-media path in the slips folder (claimed as order_slip:<id>), read by its uploader, the cashier and management.\n  uploaded_by uuid not null references staff(id) — Who took the photo.\n  status text not null default 'uploaded' check (status in ('uploaded','reading','read','failed','sent','rejected')) — uploaded (waiting for a reading, or no model connected), reading, read (lines waiting for the cashier), failed (error_code says why), sent (on the tab as order_id) or rejected.\n  error_code text check (error_code is null or length(error_code) <= 60) — Why the last reading did not produce lines: the codes of supplier_receipts.error_code.\n  reading_started_at timestamptz — When the current or last reading started; one older than three minutes may be taken over.\n  read_at timestamptz — When the last reading was stored.\n  model text check (model is null or length(model) <= 100) — The model that produced the last reading.\n  table_number_read text check (table_number_read is null or length(table_number_read) <= 20) — The table number as read off the slip, digits folded.\n  table_id uuid references cafe_tables(id) — The table: guessed from the number read, then the one the order went to.\n  tab_id uuid references tabs(id) — The tab the order was sent to.\n  order_id uuid references orders(id) — The order app.send_order_slip created (one slip, one order).\n  sent_by uuid references staff(id) — The cashier, manager or owner who sent it.\n  sent_at timestamptz — When it was sent to the kitchen.\n  rejected_by uuid references staff(id) — Who set it aside.\n  rejected_at timestamptz — When it was set aside.\n  rejected_reason text check (rejected_reason is null or length(rejected_reason) <= 200) — Why, as typed (at most 200 characters).\n  created_at timestamptz not null default now() — When it was filed.\n  reading_token uuid — scan_hardening (0240): the lease of the current or last reading (a scan_reads id); only it may store or end the reading.",
       "route": null
     },
     {
@@ -5035,6 +5043,14 @@
     },
     {
       "kind": "table",
+      "ref": "table:scan_reads",
+      "lang": "en",
+      "title": "table scan_reads",
+      "body": "scan_hardening (0240): one reading of a scanned paper (supplier receipt or order slip) a person asked for, written by *_begin_reading and removed again when the reading tried nothing. Its id is the reading's lease token. Counts the per-paper and per-person limits. Service role only.\nCreated in migration 0240.\nColumns:\n  id uuid primary key default gen_random_uuid() — The reading, and its lease token (supplier_receipts / order_slips.reading_token).\n  venue_id uuid not null references venues(id) — The paper's branch.\n  kind text not null check (kind in ('receipt','order_slip')) — receipt (supplier_receipts) or order_slip (order_slips).\n  paper_id uuid not null — The receipt or slip read.\n  requested_by uuid references staff(id) on delete set null — Who asked for it (the edge function's caller).\n  created_at timestamptz not null default now() — When it started.",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:shopping_items",
       "lang": "en",
       "title": "table shopping_items",
@@ -5158,7 +5174,7 @@
       "ref": "table:supplier_receipt_lines",
       "lang": "en",
       "title": "table supplier_receipt_lines",
-      "body": "receipt_scan (Milestone 4b): one line the model read off a receipt, with the stock ingredient app.match_receipt_lines matched it to. Replaced on every new reading; the manager's final lines go to the delivery, not here. Read like its receipt.\nCreated in migration 0236.\nColumns:\n  id uuid primary key default gen_random_uuid() — Line id.\n  receipt_id uuid not null references supplier_receipts(id) on delete cascade — The receipt it was read from.\n  line_no int not null check (line_no between 1 and 200) — Its position on the receipt, from 1.\n  text_read text not null check (length(text_read) between 1 and 200) — The item wording as printed (at most 200 characters).\n  qty_read numeric(12,3) check (qty_read is null or qty_read > 0) — The quantity as printed, in the receipt's own unit.\n  unit_read text check (unit_read is null or length(unit_read) <= 20) — The receipt's unit as printed (kg, box, pc…), not a stock unit.\n  unit_price_iqd_read iqd — The unit price as printed, in IQD.\n  line_total_iqd_read iqd — The line total as printed, in IQD.\n  expiry_read date — An expiry date printed on the line, if any.\n  flags text[] not null default '{}' — Checks the edge function raised on the reading: ARITHMETIC (qty x price is not the total), NO_PRICE, TOTAL_MISMATCH, UNCLEAR (the model was not sure: handwriting).\n  ingredient_id uuid references ingredients(id) — The stock ingredient it was matched (or confirmed) to.\n  match_source text not null default 'none' check (match_source in ('alias','trigram','manual','none')) — alias (a wording a manager confirmed before), trigram (name similarity), manual (the manager picked it), none.\n  confidence numeric(4,3) check (confidence is null or confidence between 0 and 1) — How sure the match is, 0 to 1 (1 for an alias).",
+      "body": "receipt_scan (Milestone 4b): one line the model read off a receipt, with the stock ingredient app.match_receipt_lines matched it to. Replaced on every new reading; the manager's final lines go to the delivery, not here. Read like its receipt.\nCreated in migration 0236.\nColumns:\n  id uuid primary key default gen_random_uuid() — Line id.\n  receipt_id uuid not null references supplier_receipts(id) on delete cascade — The receipt it was read from.\n  line_no int not null check (line_no between 1 and 200) — Its position on the receipt, from 1.\n  text_read text not null check (length(text_read) between 1 and 200) — The item wording as printed (at most 200 characters).\n  qty_read numeric(12,3) check (qty_read is null or qty_read > 0) — The quantity as printed, in the receipt's own unit.\n  unit_read text check (unit_read is null or length(unit_read) <= 20) — The receipt's unit as printed (kg, box, pc…), not a stock unit.\n  unit_price_iqd_read iqd — The unit price as printed, in IQD.\n  line_total_iqd_read iqd — The line total as printed, in IQD.\n  expiry_read date — An expiry date printed on the line, if any.\n  flags text[] not null default '{}' — Checks the edge function raised on the reading: ARITHMETIC (qty x price is not the total), NO_PRICE, TOTAL_MISMATCH, UNCLEAR (the model was not sure: handwriting), SMALL_AMOUNT (a price under 250 IQD: thousands shorthand?), TRUNCATED (the last line kept; the paper had more). Unknown flags are dropped (0240).\n  ingredient_id uuid references ingredients(id) — The stock ingredient it was matched (or confirmed) to.\n  match_source text not null default 'none' check (match_source in ('alias','trigram','manual','none')) — alias (a wording a manager confirmed before), trigram (name similarity), manual (the manager picked it), none.\n  confidence numeric(4,3) check (confidence is null or confidence between 0 and 1) — How sure the match is, 0 to 1 (1 for an alias).",
       "route": null
     },
     {
@@ -5166,7 +5182,7 @@
       "ref": "table:supplier_receipts",
       "lang": "en",
       "title": "table supplier_receipts",
-      "body": "receipt_scan (Milestone 4b): one photographed supplier receipt. Filed by app.create_receipt (driver or MGMT), read by the receipt-scan edge function (a model behind _shared/receipts/connect.ts), confirmed into ONE delivery by app.confirm_receipt or rejected. Read by MGMT at the branch and by its uploader.\nCreated in migration 0236.\nColumns:\n  id uuid primary key default gen_random_uuid() — Receipt id.\n  venue_id uuid not null references venues(id) — The branch the receipt is for.\n  storage_path text not null unique check (length(storage_path) <= 200) — The photo: a staff-media path in the receipts folder (claimed as receipt:<id>), read by its uploader and management only.\n  source text not null check (source in ('phone','operator')) — Where the photo came from: phone (the staff phone) or operator (a file on Goods in).\n  uploaded_by uuid not null references staff(id) — Who filed it.\n  status text not null default 'uploaded' check (status in ('uploaded','reading','read','failed','confirmed','rejected')) — uploaded (waiting for a reading, or no model connected), reading, read (lines waiting for review), failed (the model could not read it; error_code says why), confirmed (booked as delivery_id) or rejected.\n  error_code text check (error_code is null or length(error_code) <= 60) — Why the last reading did not produce lines: READER_NOT_CONFIGURED, UNREADABLE, UPSTREAM, TIMEOUT, RATE_LIMITED, LLM_MONTHLY_CAP, LLM_DAILY_QUOTA, INVALID_READING, PHOTO_MISSING.\n  reading_started_at timestamptz — When the current or last reading started; a reading older than three minutes may be taken over.\n  read_at timestamptz — When the last reading was stored.\n  model text check (model is null or length(model) <= 100) — The model that produced the last reading.\n  supplier_name_read text check (supplier_name_read is null or length(supplier_name_read) <= 120) — The supplier name as the model read it off the receipt.\n  supplier_id uuid references suppliers(id) — The supplier: guessed from the name read, then the one the manager confirmed with.\n  receipt_date date — The date printed on the receipt, as read.\n  total_iqd_read iqd — The receipt total in IQD, as read.\n  delivery_id uuid references deliveries(id) — The delivery app.confirm_receipt booked (one receipt, one delivery).\n  confirmed_by uuid references staff(id) — The manager or owner who confirmed it.\n  confirmed_at timestamptz — When it was confirmed.\n  rejected_by uuid references staff(id) — The manager or owner who rejected it.\n  rejected_at timestamptz — When it was rejected.\n  rejected_reason text check (rejected_reason is null or length(rejected_reason) <= 200) — Why it was rejected, as typed (at most 200 characters).\n  created_at timestamptz not null default now() — When it was filed.",
+      "body": "receipt_scan (Milestone 4b): one photographed supplier receipt. Filed by app.create_receipt (driver or MGMT), read by the receipt-scan edge function (a model behind _shared/receipts/connect.ts), confirmed into ONE delivery by app.confirm_receipt or rejected. Read by MGMT at the branch and by its uploader.\nCreated in migration 0236.\nColumns:\n  id uuid primary key default gen_random_uuid() — Receipt id.\n  venue_id uuid not null references venues(id) — The branch the receipt is for.\n  storage_path text not null unique check (length(storage_path) <= 200) — The photo: a staff-media path in the receipts folder (claimed as receipt:<id>), read by its uploader and management only.\n  source text not null check (source in ('phone','operator')) — Where the photo came from: phone (the staff phone) or operator (a file on Goods in).\n  uploaded_by uuid not null references staff(id) — Who filed it.\n  status text not null default 'uploaded' check (status in ('uploaded','reading','read','failed','confirmed','rejected')) — uploaded (waiting for a reading, or no model connected), reading, read (lines waiting for review), failed (the model could not read it; error_code says why), confirmed (booked as delivery_id) or rejected.\n  error_code text check (error_code is null or length(error_code) <= 60) — Why the last reading did not produce lines: READER_NOT_CONFIGURED, UNREADABLE, UPSTREAM, TIMEOUT, RATE_LIMITED, NOT_CONFIGURED, TRUNCATED, LLM_MONTHLY_CAP, LLM_DAILY_QUOTA, INVALID_READING, PHOTO_MISSING, STORE_FAILED, READ_ABANDONED (0240). On a read receipt: why the last re-read failed (its lines are the earlier reading).\n  reading_started_at timestamptz — When the current or last reading started; a reading older than three minutes may be taken over.\n  read_at timestamptz — When the last reading was stored.\n  model text check (model is null or length(model) <= 100) — The model that produced the last reading.\n  supplier_name_read text check (supplier_name_read is null or length(supplier_name_read) <= 120) — The supplier name as the model read it off the receipt.\n  supplier_id uuid references suppliers(id) — The supplier: guessed from the name read, then the one the manager confirmed with.\n  receipt_date date — The date printed on the receipt, as read.\n  total_iqd_read iqd — The receipt total in IQD, as read.\n  delivery_id uuid references deliveries(id) — The delivery app.confirm_receipt booked (one receipt, one delivery).\n  confirmed_by uuid references staff(id) — The manager or owner who confirmed it.\n  confirmed_at timestamptz — When it was confirmed.\n  rejected_by uuid references staff(id) — The manager or owner who rejected it.\n  rejected_at timestamptz — When it was rejected.\n  rejected_reason text check (rejected_reason is null or length(rejected_reason) <= 200) — Why it was rejected, as typed (at most 200 characters).\n  created_at timestamptz not null default now() — When it was filed.\n  reading_token uuid — scan_hardening (0240): the lease of the current or last reading (a scan_reads id); only it may store or end the reading.",
       "route": null
     },
     {
@@ -7675,6 +7691,14 @@
     },
     {
       "kind": "column",
+      "ref": "column:order_slips.reading_token",
+      "lang": "en",
+      "title": "order_slips.reading_token",
+      "body": "uuid\nscan_hardening (0240): the lease of the current or last reading (a scan_reads id); only it may store or end the reading.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:order_slips.rejected_at",
       "lang": "en",
       "title": "order_slips.rejected_at",
@@ -9355,6 +9379,54 @@
     },
     {
       "kind": "column",
+      "ref": "column:scan_reads.created_at",
+      "lang": "en",
+      "title": "scan_reads.created_at",
+      "body": "timestamptz not null default now()\nWhen it started.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:scan_reads.id",
+      "lang": "en",
+      "title": "scan_reads.id",
+      "body": "uuid primary key default gen_random_uuid()\nThe reading, and its lease token (supplier_receipts / order_slips.reading_token).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:scan_reads.kind",
+      "lang": "en",
+      "title": "scan_reads.kind",
+      "body": "text not null check (kind in ('receipt','order_slip'))\nreceipt (supplier_receipts) or order_slip (order_slips).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:scan_reads.paper_id",
+      "lang": "en",
+      "title": "scan_reads.paper_id",
+      "body": "uuid not null\nThe receipt or slip read.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:scan_reads.requested_by",
+      "lang": "en",
+      "title": "scan_reads.requested_by",
+      "body": "uuid references staff(id) on delete set null\nWho asked for it (the edge function's caller).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:scan_reads.venue_id",
+      "lang": "en",
+      "title": "scan_reads.venue_id",
+      "body": "uuid not null references venues(id)\nThe paper's branch.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:shopping_items.cancelled_at",
       "lang": "en",
       "title": "shopping_items.cancelled_at",
@@ -9798,7 +9870,7 @@
       "ref": "column:supplier_receipt_lines.flags",
       "lang": "en",
       "title": "supplier_receipt_lines.flags",
-      "body": "text[] not null default '{}'\nChecks the edge function raised on the reading: ARITHMETIC (qty x price is not the total), NO_PRICE, TOTAL_MISMATCH, UNCLEAR (the model was not sure: handwriting).",
+      "body": "text[] not null default '{}'\nChecks the edge function raised on the reading: ARITHMETIC (qty x price is not the total), NO_PRICE, TOTAL_MISMATCH, UNCLEAR (the model was not sure: handwriting), SMALL_AMOUNT (a price under 250 IQD: thousands shorthand?), TRUNCATED (the last line kept; the paper had more). Unknown flags are dropped (0240).",
       "route": null
     },
     {
@@ -9910,7 +9982,7 @@
       "ref": "column:supplier_receipts.error_code",
       "lang": "en",
       "title": "supplier_receipts.error_code",
-      "body": "text check (error_code is null or length(error_code) <= 60)\nWhy the last reading did not produce lines: READER_NOT_CONFIGURED, UNREADABLE, UPSTREAM, TIMEOUT, RATE_LIMITED, LLM_MONTHLY_CAP, LLM_DAILY_QUOTA, INVALID_READING, PHOTO_MISSING.",
+      "body": "text check (error_code is null or length(error_code) <= 60)\nWhy the last reading did not produce lines: READER_NOT_CONFIGURED, UNREADABLE, UPSTREAM, TIMEOUT, RATE_LIMITED, NOT_CONFIGURED, TRUNCATED, LLM_MONTHLY_CAP, LLM_DAILY_QUOTA, INVALID_READING, PHOTO_MISSING, STORE_FAILED, READ_ABANDONED (0240). On a read receipt: why the last re-read failed (its lines are the earlier reading).",
       "route": null
     },
     {
@@ -9935,6 +10007,14 @@
       "lang": "en",
       "title": "supplier_receipts.reading_started_at",
       "body": "timestamptz\nWhen the current or last reading started; a reading older than three minutes may be taken over.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:supplier_receipts.reading_token",
+      "lang": "en",
+      "title": "supplier_receipts.reading_token",
+      "body": "uuid\nscan_hardening (0240): the lease of the current or last reading (a scan_reads id); only it may store or end the reading.",
       "route": null
     },
     {
@@ -16915,6 +16995,14 @@
     },
     {
       "kind": "system",
+      "ref": "system:cron:tp_scan_sweep",
+      "lang": "en",
+      "title": "cron job tp_scan_sweep",
+      "body": "Runs select app.scan_sweep_stale();. Schedules seen in migrations, latest last: '* * * * *' (0240). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
       "ref": "system:cron:tp_telegram_prune",
       "lang": "en",
       "title": "cron job tp_telegram_prune",
@@ -17006,7 +17094,7 @@
       "ref": "system:edge:receipt-scan",
       "lang": "en",
       "title": "edge function receipt-scan",
-      "body": "verify_jwt = true (supabase/config.toml).\nreceipt-scan (Phase 2, Milestone 4b): reads one photographed paper with the\nconnected model and stores the lines for review.\n\n  POST {receipt_id}   a supplier receipt: the driver who filed it, or MGMT at its branch\n  POST {slip_id}      a waiter's order slip: the staff member who took it, or the\n                      cashier, a manager or the owner at its branch\n\nThe model is whatever _shared/receipts/connect.ts returns (RECEIPT_READER=fake\nfor the stand-in); one connection reads both kinds. 200 {status:'read', lines,\nmatched}; 503 RECEIPT_READER_NOT_CONFIGURED; 429 LLM_MONTHLY_CAP /\nLLM_DAILY_QUOTA; 409 RECEIPT_BUSY / RECEIPT_ALREADY_DONE (SLIP_BUSY /\nSLIP_ALREADY_DONE); 404 RECEIPT_NOT_FOUND / SLIP_NOT_FOUND; 502/422\nRECEIPT_READ_FAILED {code}. The flow is in scan.ts, pure.\n\nverify_jwt = true (config.toml).",
+      "body": "verify_jwt = true (supabase/config.toml).\nreceipt-scan (Phase 2, Milestone 4b): reads one photographed paper with the\nconnected model and stores the lines for review.\n\n  POST {receipt_id}   a supplier receipt: the driver who filed it, or MGMT at its branch\n  POST {slip_id}      a waiter's order slip: the staff member who took it, or the\n                      cashier, a manager or the owner at its branch\n\nThe model is whatever _shared/receipts/connect.ts returns (RECEIPT_READER=fake\nfor the stand-in, local stacks only); one connection reads both kinds. 200\n{status:'read', lines, matched}; 503 RECEIPT_READER_NOT_CONFIGURED; 429\nLLM_MONTHLY_CAP / LLM_DAILY_QUOTA / SCAN_REREAD_LIMIT / SCAN_USER_DAILY_LIMIT;\n409 RECEIPT_BUSY / RECEIPT_ALREADY_DONE (SLIP_BUSY / SLIP_ALREADY_DONE) /\nREADING_SUPERSEDED; 404 RECEIPT_NOT_FOUND / SLIP_NOT_FOUND; 502/422/500\nRECEIPT_READ_FAILED {code}; 500 INTERNAL (no detail). The flow is in scan.ts, pure.\n\nverify_jwt = true (config.toml).",
       "route": null
     },
     {

@@ -7,11 +7,12 @@
  *                       cashier, a manager or the owner at its branch
  *
  * The model is whatever _shared/receipts/connect.ts returns (RECEIPT_READER=fake
- * for the stand-in); one connection reads both kinds. 200 {status:'read', lines,
- * matched}; 503 RECEIPT_READER_NOT_CONFIGURED; 429 LLM_MONTHLY_CAP /
- * LLM_DAILY_QUOTA; 409 RECEIPT_BUSY / RECEIPT_ALREADY_DONE (SLIP_BUSY /
- * SLIP_ALREADY_DONE); 404 RECEIPT_NOT_FOUND / SLIP_NOT_FOUND; 502/422
- * RECEIPT_READ_FAILED {code}. The flow is in scan.ts, pure.
+ * for the stand-in, local stacks only); one connection reads both kinds. 200
+ * {status:'read', lines, matched}; 503 RECEIPT_READER_NOT_CONFIGURED; 429
+ * LLM_MONTHLY_CAP / LLM_DAILY_QUOTA / SCAN_REREAD_LIMIT / SCAN_USER_DAILY_LIMIT;
+ * 409 RECEIPT_BUSY / RECEIPT_ALREADY_DONE (SLIP_BUSY / SLIP_ALREADY_DONE) /
+ * READING_SUPERSEDED; 404 RECEIPT_NOT_FOUND / SLIP_NOT_FOUND; 502/422/500
+ * RECEIPT_READ_FAILED {code}; 500 INTERNAL (no detail). The flow is in scan.ts, pure.
  *
  * verify_jwt = true (config.toml).
  */
@@ -64,7 +65,7 @@ function callerClient(req: Request): SupabaseClient {
 
 const log = (message: string) => console.error('[receipt-scan]', message);
 
-function ports(service: SupabaseClient, kind: ScanKind): ScanPorts {
+function ports(service: SupabaseClient, kind: ScanKind, requestedBy: string): ScanPorts {
   const k = KINDS[kind];
   const rpc = async (fn: string, args: Record<string, unknown>) => {
     const { data, error } = await service.schema('app').rpc(fn, args);
@@ -74,14 +75,15 @@ function ports(service: SupabaseClient, kind: ScanKind): ScanPorts {
   return {
     kind,
     async beginReading(id) {
-      const data = (await rpc(k.begin, { p_id: id })) as Record<string, unknown>;
+      const data = (await rpc(k.begin, { p_id: id, p_requested_by: requestedBy })) as Record<string, unknown>;
       const names = data[k.names];
       return {
         storage_path: String(data.storage_path ?? ''),
         names: Array.isArray(names) ? names.filter((n): n is string => typeof n === 'string') : [],
+        token: typeof data.reading_token === 'string' ? data.reading_token : null,
       };
     },
-    reader: readerFromEnv((n) => Deno.env.get(n)),
+    reader: readerFromEnv((n) => Deno.env.get(n), log),
     llmBegin: async () => {
       await rpc('llm_begin_request', {});
     },
@@ -90,10 +92,13 @@ function ports(service: SupabaseClient, kind: ScanKind): ScanPorts {
       if (error || !data) throw new Error(`download ${path}: ${error?.message ?? 'no data'}`);
       return new Uint8Array(await data.arrayBuffer());
     },
-    storeReading: async (id, reading, model) =>
-      (await rpc(k.store, { p_id: id, p_reading: reading, p_model: model })) as { lines: number; matched: number },
-    failReading: async (id, code, status) => {
-      await rpc(k.fail, { p_id: id, p_code: code, p_status: status });
+    storeReading: async (id, reading, model, token) =>
+      (await rpc(k.store, { p_id: id, p_reading: reading, p_model: model, p_token: token })) as {
+        lines: number;
+        matched: number;
+      },
+    failReading: async (id, code, status, token) => {
+      await rpc(k.fail, { p_id: id, p_code: code, p_status: status, p_token: token });
     },
     async recordUsage(model, usage) {
       const { error } = await service.schema('app').rpc('llm_record_usage', {
@@ -131,15 +136,20 @@ Deno.serve(async (req) => {
   if (auth instanceof Response) return auth;
 
   // The caller's own view decides: the uploader, or the right roles at the paper's branch.
+  // Only "not yours / not there" is a 404; anything else is the database failing.
   const seen = await callerClient(req).schema('app').rpc(k.detail, { p_id: id });
-  if (seen.error) return json({ error: k.notFound }, 404);
+  if (seen.error) {
+    if ([k.notFound, 'FORBIDDEN'].includes(seen.error.message)) return json({ error: k.notFound }, 404);
+    log(`${k.detail} ${id}: ${seen.error.message}`);
+    return json({ error: 'INTERNAL' }, 500);
+  }
 
   try {
-    const res = await scanReceipt(ports(service, kind), id);
+    const res = await scanReceipt(ports(service, kind, auth.userId), id);
     return json(res.body, res.status);
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    log(`failed ${message}`);
-    return json({ error: 'INTERNAL', message }, 500);
+    // Logged in full; the caller gets no database or vendor text.
+    log(`failed ${id}: ${e instanceof Error ? e.message : String(e)}`);
+    return json({ error: 'INTERNAL' }, 500);
   }
 });

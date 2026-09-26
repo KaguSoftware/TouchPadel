@@ -17,13 +17,13 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0239`
-  (`20260926000239_order_slip_rpcs.sql`; 0236–0239 scanned paper, Milestone 4b; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0240`
+  (`20260927000240_scan_hardening.sql`, the scanned-paper audit fixes; 0236–0239 scanned paper, Milestone 4b; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0240`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0241`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -210,6 +210,13 @@ is a line in that file.
   (`tests/receipt-scan.test.ts` enforces it). `RECEIPT_READER=fake` is the stand-in for local, CI
   and e2e. The model never writes stock or an order: a person confirms (`confirm_receipt`,
   `send_order_slip`).
+  Since 0240 a reading holds a lease (`reading_token`, passed back to `*_store_reading` /
+  `*_fail_reading`), `app.scan_sweep_stale` ends one older than three minutes (cron
+  `tp_scan_sweep`), and `scan_reads` caps readings (3 per paper, 100 a day per person below
+  MGMT). `RECEIPT_READER=fake` is refused unless `SUPABASE_URL` is a local stack or
+  `ALLOW_FAKE_READER=1`. Any real reader must pass `tests/receipt-reader-conformance.ts`.
+- `scripts/check-error-codes.mjs` (in root `pnpm security`): a code a migration raises is mapped
+  by a client, or it is on `fixtures/error-codes-unmapped.json`, which only shrinks.
 - Secrets come from `supabase secrets set`, never the repo or `config.toml`. `supabase`, `eas` and
   `expo` run from their package directory, never the repo root.
 - **Never run `supabase config push`.** `config.toml` describes the LOCAL stack; hosted auth is

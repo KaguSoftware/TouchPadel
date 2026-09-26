@@ -63,8 +63,23 @@ export interface ReceiptReader {
   read(input: ReceiptReadInput): Promise<ReceiptReadResult>;
 }
 
-/** Why a read failed. Stored as supplier_receipts.error_code. */
-export type ReceiptReaderErrorCode = 'NOT_CONFIGURED' | 'RATE_LIMITED' | 'UPSTREAM' | 'TIMEOUT' | 'UNREADABLE';
+/**
+ * Why a read failed. Stored as supplier_receipts.error_code.
+ *
+ *   NOT_CONFIGURED  the key or model was refused (HTTP 401/403): fix the secret
+ *   RATE_LIMITED    the vendor said slow down (HTTP 429)
+ *   UPSTREAM        any other HTTP or network error
+ *   TIMEOUT         the call was aborted (input.signal)
+ *   UNREADABLE      the vendor refused the image, or the model declined to read it
+ *   TRUNCATED       the answer was cut off (the vendor's output-token limit)
+ */
+export type ReceiptReaderErrorCode =
+  | 'NOT_CONFIGURED'
+  | 'RATE_LIMITED'
+  | 'UPSTREAM'
+  | 'TIMEOUT'
+  | 'UNREADABLE'
+  | 'TRUNCATED';
 
 export class ReceiptReaderError extends Error {
   constructor(
@@ -94,8 +109,10 @@ export interface ReadingLine {
  * NO_PRICE    neither a unit price nor a line total was read
  * TOTAL_MISMATCH  the line totals do not add up to the receipt total (on every line)
  * UNCLEAR     the model said it was not sure of the line (handwriting): check it against the photo
+ * SMALL_AMOUNT  a price or total under 250 IQD: most likely thousands shorthand ("15" for 15,000)
+ * TRUNCATED   on the last line kept: the paper had more lines than the cap, the rest were dropped
  */
-export type LineFlag = 'ARITHMETIC' | 'NO_PRICE' | 'TOTAL_MISMATCH' | 'UNCLEAR';
+export type LineFlag = 'ARITHMETIC' | 'NO_PRICE' | 'TOTAL_MISMATCH' | 'UNCLEAR' | 'SMALL_AMOUNT' | 'TRUNCATED';
 
 /** A validated reading, as app.receipt_store_reading takes it. */
 export interface Reading {
@@ -115,8 +132,12 @@ export interface SlipLine {
   flags: SlipFlag[];
 }
 
-/** UNCLEAR: the model was not sure of the line. NO_QTY: no quantity was written (1 is assumed on the till). */
-export type SlipFlag = 'UNCLEAR' | 'NO_QTY';
+/**
+ * UNCLEAR: the model was not sure of the line. NO_QTY: no quantity was read, or
+ * one outside 1..99 (1 is assumed on the till). TRUNCATED: on the last line
+ * kept, the slip had more lines than the cap.
+ */
+export type SlipFlag = 'UNCLEAR' | 'NO_QTY' | 'TRUNCATED';
 
 /** A validated order slip, as app.slip_store_reading takes it. */
 export interface SlipReading {

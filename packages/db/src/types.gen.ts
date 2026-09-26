@@ -1998,14 +1998,27 @@ export type Database = {
       }
       readable_venue_ids: { Args: never; Returns: string[] }
       reason_given: { Args: { p_reason: string }; Returns: boolean }
-      receipt_begin_reading: { Args: { p_id: string }; Returns: Json }
+      receipt_begin_reading: {
+        Args: { p_id: string; p_requested_by?: string }
+        Returns: Json
+      }
       receipt_detail: { Args: { p_id: string }; Returns: Json }
       receipt_fail_reading: {
-        Args: { p_code: string; p_id: string; p_status?: string }
+        Args: {
+          p_code: string
+          p_id: string
+          p_status?: string
+          p_token?: string
+        }
         Returns: undefined
       }
       receipt_store_reading: {
-        Args: { p_id: string; p_model: string; p_reading: Json }
+        Args: {
+          p_id: string
+          p_model: string
+          p_reading: Json
+          p_token?: string
+        }
         Returns: Json
       }
       receipts_to_review: { Args: { p_venue_id?: string }; Returns: Json }
@@ -2434,6 +2447,19 @@ export type Database = {
         }
         Returns: Json
       }
+      scan_date: { Args: { p: string }; Returns: string }
+      scan_num: { Args: { p: Json }; Returns: number }
+      scan_photos_expired: { Args: { p_limit?: number }; Returns: string[] }
+      scan_sweep_stale: { Args: never; Returns: number }
+      scan_take_reading: {
+        Args: {
+          p_kind: string
+          p_paper: string
+          p_requested_by: string
+          p_venue: string
+        }
+        Returns: string
+      }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
       send_order_slip: {
@@ -2654,14 +2680,27 @@ export type Database = {
         Args: { p_note: string; p_run_step_id: string }
         Returns: Json
       }
-      slip_begin_reading: { Args: { p_id: string }; Returns: Json }
+      slip_begin_reading: {
+        Args: { p_id: string; p_requested_by?: string }
+        Returns: Json
+      }
       slip_detail: { Args: { p_id: string }; Returns: Json }
       slip_fail_reading: {
-        Args: { p_code: string; p_id: string; p_status?: string }
+        Args: {
+          p_code: string
+          p_id: string
+          p_status?: string
+          p_token?: string
+        }
         Returns: undefined
       }
       slip_store_reading: {
-        Args: { p_id: string; p_model: string; p_reading: Json }
+        Args: {
+          p_id: string
+          p_model: string
+          p_reading: Json
+          p_token?: string
+        }
         Returns: Json
       }
       slips_to_send: { Args: { p_venue_id?: string }; Returns: Json }
@@ -2723,6 +2762,7 @@ export type Database = {
         Returns: Json
       }
       staff_media_folder: { Args: { p_name: string }; Returns: string }
+      staff_media_is_evidence: { Args: { p_name: string }; Returns: boolean }
       staff_media_orphan_purge_due: {
         Args: { p_limit?: number }
         Returns: Json
@@ -6458,6 +6498,7 @@ export type Database = {
           order_id: string | null
           read_at: string | null
           reading_started_at: string | null
+          reading_token: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejected_reason: string | null
@@ -6479,6 +6520,7 @@ export type Database = {
           order_id?: string | null
           read_at?: string | null
           reading_started_at?: string | null
+          reading_token?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejected_reason?: string | null
@@ -6500,6 +6542,7 @@ export type Database = {
           order_id?: string | null
           read_at?: string | null
           reading_started_at?: string | null
+          reading_token?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejected_reason?: string | null
@@ -8501,6 +8544,48 @@ export type Database = {
           },
         ]
       }
+      scan_reads: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          paper_id: string
+          requested_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          paper_id: string
+          requested_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          paper_id?: string
+          requested_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_reads_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_reads_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopping_items: {
         Row: {
           cancelled_at: string | null
@@ -9542,6 +9627,7 @@ export type Database = {
           model: string | null
           read_at: string | null
           reading_started_at: string | null
+          reading_token: string | null
           receipt_date: string | null
           rejected_at: string | null
           rejected_by: string | null
@@ -9565,6 +9651,7 @@ export type Database = {
           model?: string | null
           read_at?: string | null
           reading_started_at?: string | null
+          reading_token?: string | null
           receipt_date?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
@@ -9588,6 +9675,7 @@ export type Database = {
           model?: string | null
           read_at?: string | null
           reading_started_at?: string | null
+          reading_token?: string | null
           receipt_date?: string | null
           rejected_at?: string | null
           rejected_by?: string | null

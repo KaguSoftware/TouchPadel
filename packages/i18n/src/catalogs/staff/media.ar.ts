@@ -15,4 +15,5 @@ export const staffMediaAr: DeepMessages<typeof staffMediaEn> = {
   openSettings: 'فتح الإعدادات',
   unavailable: 'لا يستطيع هذا الإصدار من التطبيق إرفاق الصور. حدّث تتش بادل ثم حاول مرة أخرى.',
   failed: 'لم تُرفع الصورة. حاول مرة أخرى.',
+  retry: 'ارفع الصورة نفسها مرة أخرى',
 };
