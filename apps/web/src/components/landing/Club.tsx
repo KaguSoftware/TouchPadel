@@ -2,6 +2,7 @@ import { makeT, type Locale } from '@touch/i18n';
 import { CourtStage } from '@/features/court3d';
 import { BrandBall } from '@/components/site/brand/BrandLockup';
 import { CourtPattern } from '@/components/site/brand/CourtPattern';
+import { PATTERN_OPEN_CROP } from '@/components/site/brand/brandPattern';
 import { WhatsAppButton } from '@/components/site/ContactButton';
 import { Photo } from './Photo';
 
@@ -12,7 +13,7 @@ import { Photo } from './Photo';
  * own ball; on the other, the app's live court, rallying on a full-bleed Touch Blue field with the
  * court-line bands, standing for the two courts, and "Book a court" riding its net the way
  * "Check availability" does in the app (WhatsApp, pre-filled). A photo of a court under
- * the facts says the rest.
+ * the facts says the rest (wide screens only; phones and tablets end on the court).
  */
 export function Club({ locale, phone }: { locale: Locale; phone: string | null }) {
   const tr = makeT(locale);
@@ -49,7 +50,7 @@ export function Club({ locale, phone }: { locale: Locale; phone: string | null }
           {/* The court's own field: a full-bleed Touch Blue block with the court-line
               bands, bleeding off the page's inline end (and across it on phones). */}
           <div className="tp-club__field" aria-hidden="true">
-            <CourtPattern band={2.2} />
+            <CourtPattern band={2.2} crop={PATTERN_OPEN_CROP} />
           </div>
           <div className="tp-club__court-box">
             <CourtStage

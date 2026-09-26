@@ -78,9 +78,8 @@ interface ButtonProps {
   busy?: boolean;
   /**
    * Why this control cannot be used right now — rulebook 4.3: a disabled
-   * control is never a dead end. Rendered as a visible line beneath the button
-   * and tied to it with aria-describedby, because `title` is the only channel
-   * the app had and a tooltip reaches neither a keyboard nor a finger.
+   * control is never a dead end. Shown as the button's hover tooltip only: the
+   * visible line beneath the button was removed at the owner's request.
    * Purely presentational: it never decides whether anything is disabled.
    */
   disabledReason?: string;
@@ -98,7 +97,7 @@ interface ButtonProps {
   /**
    * For a caller that renders its own reason text outside the button — a
    * joined pair cannot use `disabledReason`, whose grid wrapper would break
-   * the shared border. Ignored while `disabledReason` is showing its own.
+   * the shared border.
    */
   'aria-describedby'?: string;
   /** For toggle-group buttons (range presets): exposes which one is active. */
@@ -133,7 +132,6 @@ export function Button(props: ButtonProps) {
     'data-testid': testId,
   } = props;
   const iconSize = size === 'sm' ? 14 : size === 'lg' ? 20 : size === 'xl' ? 22 : 16;
-  const reasonId = useId();
   const showReason = disabledReason !== undefined && disabled === true;
 
   /*
@@ -169,10 +167,10 @@ export function Button(props: ButtonProps) {
       onFocus={onFocus}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      aria-describedby={showReason ? reasonId : ariaDescribedBy}
+      aria-describedby={ariaDescribedBy}
       style={overlaySpinner ? { position: 'relative', ...style } : style}
       autoFocus={autoFocus}
-      title={title}
+      title={showReason ? disabledReason : title}
       aria-label={ariaLabel}
       aria-pressed={ariaPressed}
       aria-expanded={ariaExpanded}
@@ -223,23 +221,7 @@ export function Button(props: ButtonProps) {
     </button>
   );
 
-  if (!showReason) return button;
-  return (
-    <span style={{ display: 'grid', justifyItems: 'start', rowGap: 'var(--tp-sp-1)' }}>
-      {button}
-      <span
-        id={reasonId}
-        style={{
-          fontSize: 'var(--tp-fs-xs)',
-          color: 'var(--tp-muted-fg)',
-          lineHeight: 1.3,
-          textAlign: 'start',
-        }}
-      >
-        {disabledReason}
-      </span>
-    </span>
-  );
+  return button;
 }
 
 /**

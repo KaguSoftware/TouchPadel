@@ -21,14 +21,18 @@
  *  - reduced motion = the rest frame (t = 0, which hides every trail ghost, at
  *    K_REST) drawn once, and again on resize, with no loop and no scroll link.
  *
- * The camera is the site's, not the phone's: it never shows the flat top-down
- * diagram. It rests at a pitch where the court reads as a 3D model (progress.ts)
- * and, scroll-linked, sways a little as the section passes; frameCourt
- * (framing.ts) fills the box with the court at every pitch.
+ * The camera makes the phone's own move, driven by the scroll instead of a tap:
+ * scroll-linked, it tilts from the flat top-down diagram to the booking view as
+ * the section passes (progress.ts); without the link it rests at a pitch where the
+ * court reads as a 3D model. frameCourt (framing.ts) fills the box with the court
+ * at every pitch.
  *
  * The loop runs only while the host intersects the viewport AND the document is
- * visible AND the context is alive AND motion is allowed AND the visitor has not
- * paused it (`setPaused`, the stage's pause switch: WCAG 2.2.2). Everything the browser
+ * visible AND the context is alive AND motion is allowed AND either the visitor has
+ * not paused it or the scroll still has the camera to move. The stage's pause switch
+ * (`setPaused`, WCAG 2.2.2) stops the rally, the rackets and the ball, not the
+ * scroll: paused, the clock holds still, but a scroll still runs frames until the
+ * camera has caught up with it, then the loop rests again. Everything the browser
  * reports (scroll, resize, visibility, the reduced-motion query) only marks
  * state; the reading and drawing happen inside requestAnimationFrame.
  *
@@ -54,10 +58,10 @@ export interface NetPlacement {
 export interface CourtCanvasOptions {
   /** The box the canvas fills. Observed for size and visibility. */
   host: HTMLElement;
-  /** Sway the camera with the page's scroll. Without it the court rests at K_REST. */
+  /** Play the camera's move with the page's scroll. Without it the court rests at K_REST. */
   scrollLinked?: boolean;
   /**
-   * The element whose passage through the viewport drives the sway (the club
+   * The element whose passage through the viewport drives the move (the club
    * section). Default: the host. Pass the section when the host is sticky: a
    * sticky box's own rect hardly moves while the page scrolls.
    */
@@ -221,14 +225,22 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
   }
 
   // ── the loop ────────────────────────────────────────────────────────────
+  /** The scroll has moved the camera's target, or the camera is still easing to it. */
+  const cameraMoving = () => scrollLinked() && (rectDirty || shownK !== targetK);
   const shouldRun = () =>
-    compiled && intersecting && visible && !contextLost && !reduced && !disposed && !paused;
+    compiled &&
+    intersecting &&
+    visible &&
+    !contextLost &&
+    !reduced &&
+    !disposed &&
+    (!paused || cameraMoving());
 
   function frame(now: number): void {
     raf = null;
     const since = lastFrameAt === null ? null : now - lastFrameAt;
     lastFrameAt = now;
-    t = advance(t, since);
+    if (!paused) t = advance(t, since); // paused: the rally holds, the camera still follows
     readScroll();
     shownK = since === null ? targetK : follow(shownK, targetK, since / 1000);
     try {
@@ -291,7 +303,9 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
 
   const onScroll = () => {
     rectDirty = true;
-    // While looping the next frame reads it; otherwise nothing is on screen to move.
+    // While looping the next frame reads it. Paused, the loop is resting: wake it so
+    // the camera still follows the scroll (sync does nothing when off screen).
+    if (paused) sync();
   };
   if (opts.scrollLinked) {
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -356,9 +370,11 @@ export function createCourtCanvas(opts: CourtCanvasOptions): CourtCanvas {
     setPaused(next) {
       if (paused === next) return;
       paused = next;
-      // Paused: the loop stops and the last frame stays on the canvas, so the court holds
-      // exactly where it was. Resumed: the clock picks up from there (lastFrameAt was
-      // cleared on stop, so no paused time is rallied through).
+      // Paused: the clock stops, so the rally holds exactly where it was; the loop rests
+      // once the camera has caught up with the scroll, and wakes for the next scroll.
+      // Resumed: the clock picks up from there (frames drawn while paused never
+      // advance it, and lastFrameAt is cleared on stop, so no paused time is rallied
+      // through).
       sync();
     },
     dispose() {

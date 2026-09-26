@@ -149,6 +149,12 @@ export const siteBaseCss = `
 .tp-site-btn--go { background: var(--tp-site-green); color: var(--tp-site-green-ink); --tp-btn-hover: var(--tp-site-green-hover); }
 .tp-site-btn--primary { background: var(--tp-accent); color: var(--tp-accent-contrast); --tp-btn-hover: var(--tp-site-accent-hover); }
 .tp-site-btn--ghost { color: var(--tp-fg); border-color: var(--tp-muted-fg); --tp-btn-hover: var(--tp-site-tint); }
+/* The fill covers the border's box, but the rim still antialiases past it, so the outline
+   fades out as the fill fades in. Doubled class to outrank section overrides (.tp-front). */
+.tp-site-btn.tp-site-btn--ghost { transition: transform var(--tp-site-dur-fast) var(--tp-site-ease-out), border-color var(--tp-site-dur-fast) var(--tp-site-ease-out); }
+@media (hover: hover) { .tp-site-btn.tp-site-btn--ghost:hover { border-color: transparent; } }
+/* Touch Blue in both modes (the app's own blue button), deepening on hover: 6.2:1 white. */
+.tp-site-btn--blue { background: var(--tp-site-block); color: var(--tp-brand-white); --tp-btn-hover: var(--tp-site-block-deep); }
 .tp-site-btn--sm { padding-inline: 1rem; font-size: 0.8125rem; }
 [dir='rtl'] .tp-site-btn--sm { font-size: 0.9375rem; }
 .tp-site-btn--lg { min-block-size: 3.5rem; padding-inline: 1.75rem; font-size: 1rem; }
@@ -242,7 +248,7 @@ export const siteBaseCss = `
 .tp-hours-list--week dt { color: var(--tp-muted-fg); }
 
 @media (prefers-reduced-motion: reduce) {
-  .tp-site-btn, .tp-site-btn::before, .tp-site-iconbtn::before { transition: none; }
+  .tp-site-btn, .tp-site-btn.tp-site-btn--ghost, .tp-site-btn::before, .tp-site-iconbtn::before { transition: none; }
   .tp-site-btn:active { transform: none; }
 }
 `;

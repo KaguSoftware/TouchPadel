@@ -34,5 +34,14 @@ export const PATTERN_LINES: readonly (readonly [number, number, number, number])
   [241.32, 330.1, 111.56, 357.28],
 ];
 
+/**
+ * The panel less the strips where bands begin or end INSIDE it (the one from x 20.1,
+ * y 130 on the left; x 224.5 and 232.7 on the right), so every band in this window
+ * runs off an edge and none stops in the open. A crop, not a redraw: the club's
+ * field uses it, where the whole panel showed a band starting in mid-air
+ * (owner, 2026-09-25).
+ */
+export const PATTERN_OPEN_CROP = [22, 0, 202, PATTERN_VIEWBOX.height] as const;
+
 // The mobile file's PATTERN_DEFAULT_OPACITY is not copied: the site's opacities are the
 // tokens --tp-site-pattern-opacity(-on-dark), one value per ground, in one place.

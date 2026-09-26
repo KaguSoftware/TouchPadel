@@ -81,6 +81,10 @@ export const operatorVars = {
   '--tp-accent-active': `oklch(38% 0.13 ${HUE})`,
   '--tp-accent-soft': `oklch(94% 0.03 ${HUE})`,
   '--tp-accent-soft-fg': `oklch(38% 0.12 ${HUE})`,
+  // The one hover ground for everything a pointer can land on (owner call,
+  // 2026-09-24): the pale accent-blue tint, with the page's own ink on it.
+  '--tp-hover': 'var(--tp-accent-soft)',
+  '--tp-hover-fg': 'var(--tp-accent-soft-fg)',
 
   // Status families. Four rungs each, and the rung decides the job:
   //   FILL   a ground large enough to read colour off (a chip, a band)

@@ -194,7 +194,7 @@ describe('DriverPurchaseReceive', () => {
     expect(await screen.findByText(/A count of the cafe store is open/)).toBeTruthy();
     const receive = screen.getByRole('button', { name: 'Receive into stock' }) as HTMLButtonElement;
     expect(receive.disabled).toBe(true);
-    expect(screen.getByText('Held until that count is finished or discarded.')).toBeTruthy();
+    expect(screen.getByTitle('Held until that count is finished or discarded.')).toBeTruthy();
     // The bakery store is not being counted: picking it lets the purchase in.
     await userEvent.click(within(screen.getByTestId('purchase-store')).getByRole('button', { name: 'Bakery store' }));
     expect((screen.getByRole('button', { name: 'Receive into stock' }) as HTMLButtonElement).disabled).toBe(false);

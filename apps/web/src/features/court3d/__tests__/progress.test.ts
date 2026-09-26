@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { follow, K_FROM, K_TO, kFor, sectionProgress } from '../progress';
+import { follow, K_FROM, K_TO, kFor, MOVE, sectionProgress } from '../progress';
 
 describe('section progress → camera pitch', () => {
   const VH = 900;
@@ -24,6 +24,14 @@ describe('section progress → camera pitch', () => {
     }
     expect(kFor(0)).toBe(K_FROM);
     expect(kFor(1)).toBe(K_TO);
+  });
+
+  it("plays the app's whole move, flat diagram to booking view, inside MOVE", () => {
+    expect(K_FROM).toBe(0);
+    expect(K_TO).toBe(1);
+    expect(kFor(MOVE[0])).toBe(0);
+    expect(kFor(MOVE[1])).toBe(1);
+    expect(kFor((MOVE[0] + MOVE[1]) / 2)).toBeCloseTo(0.5, 6);
   });
 });
 

@@ -577,7 +577,7 @@ export default function BookingsScreen() {
               title={t('booking.noBookingsTitle')}
               message={t('booking.noBookingsBody')}
               actionLabel={t('booking.title')}
-              onAction={() => router.push('/availability')}
+              onAction={bookNext}
             />
           </View>
         </>

@@ -141,7 +141,7 @@ export function CourtStage({
           instance = createCourtCanvas({
             host,
             scrollLinked,
-            // The section drives the sway: on a desktop the court's box is sticky,
+            // The section drives the move: on a desktop the court's box is sticky,
             // and a sticky box's own rect hardly moves while the page scrolls.
             scrollRoot: host.closest('section') ?? host,
             paused: pausedRef.current,

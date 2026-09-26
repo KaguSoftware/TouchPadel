@@ -4,12 +4,47 @@
  * pay-at-desk card, degraded banners, day chips and merged slot cells.
  * Stateless — all data arrives as props (spec §06).
  */
-import { memo, type ComponentType, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
+import {
+  Animated,
+  Platform,
+  Pressable,
+  type ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Text } from '../i18n/text';
-import { formatDayNumber, formatMonthShort, isolate, type MessageKey } from '@touch/i18n';
+import {
+  formatDayNumber,
+  formatMonthShort,
+  formatNumber,
+  isolate,
+  type MessageKey,
+} from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
-import { brand, palettes, radius, shadows, slotStateStyles, space, useTheme, type Palette } from '../theme';
+import {
+  brand,
+  palettes,
+  radius,
+  shadows,
+  slotStateStyles,
+  space,
+  useTheme,
+  withAlpha,
+  type Palette,
+} from '../theme';
 import type { MergedCell } from '../features/availability/assemble';
 import {
   CalendarIcon,
@@ -1199,6 +1234,7 @@ export const SlotCell = memo(function SlotCell({
   capacityLine,
   onPress,
   compact = false,
+  width,
   testID,
 }: {
   cell: MergedCell;
@@ -1212,13 +1248,13 @@ export const SlotCell = memo(function SlotCell({
   onPress?: (cell: MergedCell) => void;
   /**
    * The booking sheet's cell (court → booking transition, 2026-09-01): min
-   * height 46, radius 12, 8×4 padding, a 2 pt border and 15 / 11 / 9.5 pt in
-   * Black / ExtraBold — four rows show in the card's 216 pt grid; the sheet
-   * presses with a scale, not a dim. Grown from 40 / 13 / 9.5 / 8.5 on
-   * 2026-09-05 (owner: bigger and bolder) — the grid grew with it, and the
-   * card's own heading moved out to the screen title to pay for it.
+   * height 60, radius 12, a 2 pt border, 18 / 12.5 pt in Black / ExtraBold,
+   * and presses with a scale, not a dim. Grown twice on the owner's word —
+   * 2026-09-05 (bigger, bolder) and 2026-09-26 (readable for every guest).
    */
   compact?: boolean;
+  /** Fixed width for a cell in a horizontal court lane; without it the cell flexes to its row. */
+  width?: number;
   /**
    * `availability.slot.<courtId>-<startMin>` (`book.slot.…` in the sheet). A
    * STRING, so `memo`'s shallow compare still holds by value — an id built
@@ -1237,14 +1273,15 @@ export const SlotCell = memo(function SlotCell({
       disabled={!tappable}
       onPress={onPress ? () => onPress(cell) : undefined}
       style={({ pressed }) => ({
-        flex: 1,
+        ...(width === undefined ? { flex: 1 } : { width }),
         alignItems: 'center',
         gap: 2,
-        paddingTop: compact ? 8 : 10,
-        paddingBottom: compact ? 8 : 10,
+        justifyContent: 'center',
+        paddingTop: compact ? 9 : 11,
+        paddingBottom: compact ? 9 : 11,
         paddingStart: 4,
         paddingEnd: 4,
-        minHeight: compact ? 46 : 52,
+        minHeight: compact ? 60 : 58,
         borderRadius: compact ? 12 : radius.cell,
         backgroundColor: visual.bg,
         borderWidth: compact ? 2 : 1.5,
@@ -1254,20 +1291,30 @@ export const SlotCell = memo(function SlotCell({
         transform: [{ scale: pressed && compact ? 0.96 : 1 }],
       })}
     >
+      {/* Sized for reading at arm's length (owner, 2026-09-26: the old 15 pt
+          was too small for some guests); a long "12:30 AM" shrinks to fit the
+          tile rather than clipping. */}
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
         style={{
-          fontFamily: compact ? fonts.display900 : fonts.display800,
-          fontSize: 15,
+          fontFamily: fonts.display900,
+          fontSize: compact ? 18 : 17,
           color: visual.text,
         }}
       >
         {time}
       </Text>
+      {/* "30,000 IQD" in a third of a phone: shrinks a little rather than
+          ending in "…". */}
       <Text
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
         style={{
-          fontFamily: compact ? fonts.body800 : fonts.body700,
-          fontSize: compact ? 11 : 10.5,
+          fontFamily: fonts.body800,
+          fontSize: compact ? 12.5 : 12,
           color: visual.subText,
         }}
       >
@@ -1289,6 +1336,282 @@ export const SlotCell = memo(function SlotCell({
     </Pressable>
   );
 });
+
+/**
+ * A court's number in a blue disc (owner, 2026-09-26). Pinned to the LIGHT
+ * palette's blue: dark's `blue` is white, which turned the badge into a white
+ * disc with white digits — the owner wants the same badge in both themes.
+ */
+export function CourtBadge({ index, size }: { index: number; size: number }) {
+  const { fonts } = useTheme();
+  const { locale } = useLocale();
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: palettes.light.blue,
+      }}
+    >
+      <Text style={{ fontFamily: fonts.display900, fontSize: size * 0.5, color: brand.white }}>
+        {formatNumber(index, locale)}
+      </Text>
+    </View>
+  );
+}
+
+/** "5 free" in green, or "Fully booked" in amber, for one court's night. */
+export function CourtFreePill({ free, fontSize }: { free: number; fontSize: number }) {
+  const { colors, fonts } = useTheme();
+  const { t } = useLocale();
+  const open = free > 0;
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingStart: 8,
+        paddingEnd: 8,
+        paddingTop: 3,
+        paddingBottom: 3,
+        borderRadius: radius.pill,
+        backgroundColor: open ? colors.gtint : colors.amb,
+        borderWidth: 1,
+        borderColor: open ? colors.gline : colors.ambline,
+      }}
+    >
+      <View
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: open ? colors.gstrong : colors.ambstrong,
+        }}
+      />
+      <Text
+        numberOfLines={1}
+        style={{ fontFamily: fonts.body800, fontSize, color: open ? colors.gtext : colors.ambtext }}
+      >
+        {open ? t('booking.laneFree', { count: free }) : t('booking.laneFull')}
+      </Text>
+    </View>
+  );
+}
+
+/** Free starts in one court's cells. */
+export function freeCountOf(cells: readonly MergedCell[]): number {
+  return cells.filter((c) => c.state === 'free').length;
+}
+
+// The lane's selector: two times either side of the middle, outermost first.
+const LANE_GAP = 6;
+const LANE_SCALE = [0.7, 0.82, 1, 0.82, 0.7];
+const LANE_OPACITY = [0.3, 0.6, 1, 0.6, 0.3];
+/** Turned back, the side facing the middle nearer. */
+const LANE_TURN = ['40deg', '28deg', '0deg', '-28deg', '-40deg'];
+/** Pulls the shrunk side times back in so the gaps between them stay even. */
+const LANE_TUCK = [-30, -8, 0, 8, 30];
+
+/**
+ * The booking sheet's court card (owner, 2026-09-26): a header — the court's
+ * number badge, its name, indoor/outdoor, and a live "N free" pill — over the
+ * court's times in a single horizontal line that scrolls sideways. Cells keep
+ * the court's own state and `courtId`, so a tap holds this court.
+ *
+ * The card is a translucent `card` wash so it reads as glass on the sheet's
+ * frosted plate.
+ *
+ * The times are a selector (owner, 2026-09-26): the lane snaps one time into
+ * its middle at full size, the times either side shrink, dim and turn back,
+ * and a selection haptic ticks as each new time reaches the middle. A tap on
+ * a side time brings it to the middle; a tap on the middle one books it.
+ *
+ * `key={dir}` for the reason the day strip carries it: on Android a horizontal
+ * offset is physical, so a lane already on screen across a language switch
+ * would show its logical END — and in RTL the first time sits at the far end
+ * of the scroll range, which `flip` accounts for. For the same reason a new
+ * day / duration (`resetKey`) scrolls an LTR lane back to x = 0 in place, and
+ * remounts an RTL one, where x = 0 is not reliably the start.
+ */
+export function CourtLaneRow({
+  index,
+  name,
+  indoor,
+  cells,
+  cellWidth,
+  timeFor,
+  subFor,
+  onPress,
+  resetKey,
+  testID,
+}: {
+  /** 1-based position in the venue's court order — the badge. */
+  index: number;
+  name: string;
+  indoor: boolean;
+  cells: readonly MergedCell[];
+  /** The grid's identity (day + duration); a change brings the lane back to its first time. */
+  resetKey: string;
+  cellWidth: number;
+  timeFor: (cell: MergedCell) => string;
+  subFor: (cell: MergedCell) => string;
+  onPress: (cell: MergedCell) => void;
+  /** Prefix for the cells: each is `${testID}.<courtId>-<startMin>` (slotTestID). */
+  testID: string;
+}) {
+  const { colors, fonts, tracking, appearance } = useTheme();
+  const { t, dir } = useLocale();
+  const dark = appearance === 'dark';
+  const scrollRef = useRef<ScrollView>(null);
+  /** The logical index of the time in the middle. */
+  const activeRef = useRef(0);
+  useEffect(() => {
+    activeRef.current = 0;
+    if (dir === 'ltr') scrollRef.current?.scrollTo({ x: 0, animated: false });
+  }, [resetKey, dir]);
+
+  const PAD = 8;
+  const step = cellWidth + LANE_GAP;
+  const n = cells.length;
+  const flip = dir === 'rtl' && Platform.OS === 'android';
+  const [laneW, setLaneW] = useState(0);
+  // Enough lead-in and tail that the first and last time can sit in the middle.
+  const side = laneW > 0 ? (laneW - cellWidth) / 2 : PAD;
+  const [scrollX] = useState(() => new Animated.Value(0));
+
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+        useNativeDriver: true,
+        listener: (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+          if (n === 0) return;
+          const slot = Math.max(0, Math.min(n - 1, Math.round(e.nativeEvent.contentOffset.x / step)));
+          const i = flip ? n - 1 - slot : slot;
+          if (i === activeRef.current) return;
+          activeRef.current = i;
+          void Haptics.selectionAsync().catch(() => {});
+        },
+      }),
+    [scrollX, n, step, flip],
+  );
+
+  // Stable per lane, so the memoised cells still skip re-renders.
+  const onCellPress = useCallback(
+    (cell: MergedCell) => {
+      const i = cells.indexOf(cell);
+      if (i < 0 || i === activeRef.current) {
+        onPress(cell);
+        return;
+      }
+      scrollRef.current?.scrollTo({ x: (flip ? n - 1 - i : i) * step, animated: true });
+    },
+    [cells, onPress, flip, n, step],
+  );
+  return (
+    <View
+      style={{
+        gap: 8,
+        paddingTop: PAD,
+        paddingBottom: PAD,
+        borderRadius: 16,
+        backgroundColor: withAlpha(colors.card, dark ? 0.35 : 0.6),
+        borderWidth: 1,
+        borderColor: withAlpha(colors.line, dark ? 0.5 : 0.9),
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingStart: PAD,
+          paddingEnd: PAD,
+        }}
+      >
+        <CourtBadge index={index} size={20} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.display900,
+              fontSize: 12.5,
+              letterSpacing: tracking(0.4),
+              textTransform: 'uppercase',
+              color: colors.ink,
+            }}
+          >
+            {name}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{ fontFamily: fonts.body700, fontSize: 9.5, color: colors.fnt }}
+          >
+            {t(indoor ? 'courts.indoor' : 'courts.outdoor')}
+          </Text>
+        </View>
+        <CourtFreePill free={freeCountOf(cells)} fontSize={9.5} />
+      </View>
+      <Animated.ScrollView
+        ref={scrollRef}
+        key={dir === 'rtl' ? `rtl|${resetKey}` : 'ltr'}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={step}
+        decelerationRate="fast"
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          setLaneW((prev) => (prev === w ? prev : w));
+        }}
+        style={{ flexGrow: 0, flexShrink: 0 }}
+        contentContainerStyle={{ gap: LANE_GAP, paddingStart: side, paddingEnd: side }}
+      >
+        {cells.map((cell, c) => {
+          const at = (flip ? n - 1 - c : c) * step;
+          const range = [at - 2 * step, at - step, at, at + step, at + 2 * step];
+          const lerp = (out: number[]) =>
+            scrollX.interpolate({ inputRange: range, outputRange: out, extrapolate: 'clamp' });
+          return (
+            <Animated.View
+              key={c}
+              style={{
+                opacity: lerp(LANE_OPACITY),
+                transform: [
+                  { perspective: 600 },
+                  { translateX: lerp(LANE_TUCK) },
+                  {
+                    rotateY: scrollX.interpolate({
+                      inputRange: range,
+                      outputRange: LANE_TURN,
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                  { scale: lerp(LANE_SCALE) },
+                ],
+              }}
+            >
+              <SlotCell
+                testID={slotTestID(testID, cell)}
+                compact
+                width={cellWidth}
+                cell={cell}
+                time={timeFor(cell)}
+                sub={subFor(cell)}
+                capacityLine=""
+                onPress={onCellPress}
+              />
+            </Animated.View>
+          );
+        })}
+      </Animated.ScrollView>
+    </View>
+  );
+}
 
 // ── List row (profile menu rows) ────────────────────────────────────────────
 

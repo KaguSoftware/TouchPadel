@@ -215,6 +215,30 @@ describe('court canvas', () => {
     c.dispose();
   });
 
+  it('paused, still follows the scroll: only the rally holds, and the loop rests once caught up', async () => {
+    const onNet = vi.fn();
+    const h = host(360, 450, 100);
+    const section = document.createElement('section');
+    let top = 600;
+    section.getBoundingClientRect = () => new DOMRect(0, top, 360, 1600);
+    const c = createCourtCanvas({ host: h, scrollLinked: true, scrollRoot: section, onNet, paused: true });
+    await settle();
+    let frames = 0;
+    const drain = () => {
+      while (rafQueue.length > 0 && frames < 500) rafQueue.shift()!(++frames * 16);
+    };
+    drain(); // the first measure re-reads the scroll once, then the loop rests
+    expect(rafQueue.length).toBe(0);
+    const entering = onNet.mock.lastCall![0];
+    top = -1200;
+    window.dispatchEvent(new Event('scroll'));
+    expect(rafQueue.length).toBe(1); // the scroll wakes the resting loop
+    drain();
+    expect(onNet.mock.lastCall![0]).not.toEqual(entering); // the camera moved
+    expect(frames).toBeLessThan(500); // and the loop rested once it caught up
+    c.dispose();
+  });
+
   it('dispose removes the canvas at once and releases the GPU once warmed', async () => {
     const h = host();
     const c = createCourtCanvas({ host: h });

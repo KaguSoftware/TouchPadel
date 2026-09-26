@@ -322,7 +322,7 @@ export function CustomerResultRow({
          keeps the same row usable on a narrow tablet. */
       style={{ display: 'flex', alignItems: 'center', gap: '1rem', rowGap: '0.5rem', flexWrap: 'wrap', paddingBlock: '0.7rem', paddingInline: '1.1rem', borderBlockEnd: '1px solid var(--tp-border)', minBlockSize: '3.75rem' }}
     >
-      <span style={{ display: 'inline-flex', inlineSize: '2.5rem', blockSize: '2.5rem', borderRadius: '50%', background: 'var(--tp-accent-soft)', color: 'var(--tp-accent-soft-fg)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <span style={{ display: 'inline-flex', inlineSize: '2.5rem', blockSize: '2.5rem', borderRadius: '50%', background: 'var(--tp-accent-soft)', border: '1px solid color-mix(in srgb, var(--tp-accent) 60%, transparent)', color: 'var(--tp-accent-soft-fg)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon name="user" size={20} />
       </span>
       <div style={{ minInlineSize: 0, flex: '1 1 18rem' }}>
@@ -372,7 +372,7 @@ export function CustomerResultRow({
           </Button>
         )}
         {onBook && (
-          <Button size="lg" icon="calendar" onClick={onBook}>
+          <Button size="lg" icon="calendar" className="tp-btn-gray-hover" onClick={onBook}>
             {tr('ws.courtDesk.customers.book')}
           </Button>
         )}

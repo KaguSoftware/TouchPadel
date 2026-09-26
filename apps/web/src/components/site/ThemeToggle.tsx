@@ -11,7 +11,8 @@ import { MoonIcon, SunIcon } from './icons';
  * cookie for the next page, and the browser chrome's theme colour.
  *
  * Labelled with what it WILL do ("Switch to light mode"), not with a state, and shows
- * the icon of the mode it switches TO. No JS: the button does nothing and the page stays
+ * the icon of the mode it switches TO. The label is also printed beside the icon; CSS
+ * shows it only in the phone menu sheet, where the toggle is a labelled pill. No JS: the button does nothing and the page stays
  * in the server's mode, which is the brand's night.
  */
 export function ThemeToggle({
@@ -47,6 +48,9 @@ export function ThemeToggle({
       onClick={flip}
     >
       {next === 'light' ? <SunIcon /> : <MoonIcon />}
+      <span className="tp-theme-toggle__text" aria-hidden="true">
+        {label}
+      </span>
     </button>
   );
 }

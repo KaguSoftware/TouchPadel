@@ -18,8 +18,7 @@ import { supabase } from '../../lib/supabase';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
-import { Button } from '../../components/ui';
-import { AsyncStateWrapper, EmptyState, Kbd, SegmentedControl } from '../../components/kit';
+import { AsyncStateWrapper, EmptyState, SegmentedControl } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { formatElapsed } from './elapsed';
 import {
@@ -96,7 +95,6 @@ export function FloorView({
   courtTabs,
   onTable,
   onBooking,
-  onNewTab,
 }: {
   mode: FloorMode;
   onMode: (m: FloorMode) => void;
@@ -111,15 +109,17 @@ export function FloorView({
   courtTabs: number;
   onTable: (spot: CafeSpot) => void;
   onBooking: (b: BoardBooking, court: CourtRow) => void;
-  onNewTab: () => void;
 }) {
   const { tr, locale } = useLocale();
   const placed = spots.filter((s) => s.slot !== null);
   const offPlan = spots.filter((s) => s.slot === null);
 
   return (
-    <section aria-label={tr('ws.cashier.floor.title')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+    // Two rows of the till's own grid (subgrid): the heading, switch and legend
+    // on the first, the plan on the second, so the plan's top edge sits level with
+    // the waiter calls beside it.
+    <section aria-label={tr('ws.cashier.floor.title')} style={{ gridRow: 'span 2', display: 'grid', gridTemplateRows: 'subgrid', minBlockSize: 0, minInlineSize: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'start', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, margin: 0 }}>{tr('ws.cashier.floor.title')}</h1>
         <SegmentedControl<FloorMode>
           value={mode}
@@ -142,17 +142,12 @@ export function FloorView({
             },
           ]}
         />
-        <span style={{ marginInlineStart: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
-          <Kbd>F6</Kbd>
-          <Button icon="plus" onClick={onNewTab}>
-            {tr('ws.cashier.till.rail.newTab')}
-          </Button>
-        </span>
+        {mode === 'cafe' && <Legend />}
       </div>
 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', minBlockSize: 0 }}>
       {mode === 'cafe' ? (
         <AsyncStateWrapper status={tablesStatus} onRetry={onRetryTables} compact>
-          <Legend />
           {placed.length === 0 && offPlan.length === 0 ? (
             <EmptyState icon="table" title={tr('ws.cashier.floor.noTables')} />
           ) : (
@@ -182,6 +177,7 @@ export function FloorView({
           )}
         </AsyncStateWrapper>
       )}
+      </div>
     </section>
   );
 }
@@ -304,7 +300,7 @@ function RoomDrawing() {
 function CafePlan({ spots, onTable }: { spots: readonly CafeSpot[]; onTable: (s: CafeSpot) => void }) {
   const ratio = CAFE_VIEW.w / CAFE_VIEW.d;
   return (
-    <div style={{ flex: 1, minBlockSize: '18rem', containerType: 'size', display: 'grid', placeItems: 'center' }}>
+    <div style={{ flex: 1, minBlockSize: '18rem', containerType: 'size', display: 'grid', placeItems: 'start center' }}>
       <div
         dir="ltr"
         style={{

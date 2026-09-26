@@ -55,7 +55,7 @@ describe('StationSetupScreen', () => {
     // The next step is a search, and the button says so — and why it is off.
     const find = screen.getByRole('button', { name: 'Find the till' }) as HTMLButtonElement;
     expect(find.disabled).toBe(true);
-    expect(screen.getAllByText('The code is 10 letters and digits.').length).toBeGreaterThan(0);
+    expect(find.title).toBe('The code is 10 letters and digits.');
   });
 
   it('kds: a complete code shows grouped and enables Find the till', () => {

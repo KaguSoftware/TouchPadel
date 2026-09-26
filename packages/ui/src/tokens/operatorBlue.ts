@@ -76,6 +76,9 @@ export const operatorBlueVars = {
   // lighter, so a selected row is the brightest blue on the screen.
   '--tp-accent-soft': BLUE_L50,
   '--tp-accent-soft-fg': 'var(--tp-brand-white)',
+  // Hover is the accent-soft ground, as in paper mode.
+  '--tp-hover': 'var(--tp-accent-soft)',
+  '--tp-hover-fg': 'var(--tp-accent-soft-fg)',
 
   // ── status families: fills unchanged, soft grounds darkened, ink lifted ──
   '--tp-success-soft': '#334918',
