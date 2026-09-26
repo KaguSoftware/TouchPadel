@@ -44,7 +44,8 @@ import { BlurView } from 'expo-blur';
 import { BrandPattern } from '../../src/components/BrandPattern';
 
 import { BackArrowIcon, BackChevronIcon, TitleSquiggle } from '../../src/components/icons';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { GlassView } from 'expo-glass-effect';
+import { liquidGlass } from '../../src/lib/liquidGlass';
 import { SymbolView } from 'expo-symbols';
 import { Court3D } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
@@ -80,20 +81,6 @@ const BACK_BTN_SLOT_ANDROID = 34;
  * the capsule keeps its height, and the heading does not move.
  */
 const ANDROID_BTN_BLEED = (BACK_BTN_ANDROID - BACK_BTN_SLOT_ANDROID) / 2;
-/**
- * iOS 26's Liquid Glass, for the PICK A TIME capsule.
- *
- * `isLiquidGlassAvailable()` is the system's own answer, not a version check: it
- * is false on Android (where the module falls back to a plain View), false below
- * iOS 26, and false when the build has opted out of the new design. Anything
- * that answers false keeps the blur-and-tint stand-in, so nothing regresses on
- * older phones.
- *
- * Read once at module scope. The native value cannot change while the app runs,
- * and calling it per render would cross the bridge on every frame of the
- * transition.
- */
-const liquidGlass = isLiquidGlassAvailable();
 /**
  * PICK A TIME's capsule — now the back button itself, chevron and words in one
  * control, so the padding is simply the air inside a button.
@@ -283,10 +270,16 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
     Platform.OS === 'ios' ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight'] : PICK_PILL_TINT.other,
   );
   return (
-    // On its own plate — the same frosted glass as the "Pick a time" capsule
-    // (BlurView on iOS + a translucent `colors.bg` tint, opaque tint on
-    // Android) rather than a flat `card` fill, so the two floating labels over
-    // the court read as one material.
+    // On its own plate — the same glass as the "Pick a time" capsule, branch
+    // for branch: iOS 26's Liquid Glass (GlassView, `regular`, no veil over
+    // it) where the system has it (owner, 2026-09-26), else BlurView on iOS +
+    // a translucent `colors.bg` tint, opaque tint on Android — so the two
+    // floating labels over the court read as one material.
+    //
+    // The border WIDTH is kept on the Liquid Glass branch and only its colour
+    // dropped (the capsule has no rim): the pill must not change size.
+    // GlassView renders here because nothing above the pill fades — the
+    // condition the capsule's park exists to meet.
     <View
       style={{
         flexDirection: 'row',
@@ -299,13 +292,28 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
         borderRadius: radius.pill,
         overflow: 'hidden',
         borderWidth: dark ? StyleSheet.hairlineWidth : 0,
-        borderColor: colors.line,
+        borderColor: liquidGlass ? 'transparent' : colors.line,
       }}
     >
-      {Platform.OS === 'ios' ? (
-        <BlurView intensity={40} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-      ) : null}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: glass }]} />
+      {liquidGlass ? (
+        <GlassView
+          pointerEvents="none"
+          colorScheme={dark ? 'dark' : 'light'}
+          glassEffectStyle="regular"
+          style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
+        />
+      ) : (
+        <>
+          {Platform.OS === 'ios' ? (
+            <BlurView
+              intensity={40}
+              tint={dark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: glass }]} />
+        </>
+      )}
       <View
         style={{
           width: 7,
@@ -314,7 +322,9 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
           backgroundColor: info.open ? brand.green : colors.fnt2,
         }}
       />
-      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: colors.mut }}>
+      {/* `mut2`, a step firmer than the old `mut`: the words read washed out
+          on the glass (owner, 2026-09-26). */}
+      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: colors.mut2 }}>
         {/* Latin-digit times in an Arabic sentence: isolated so the bidi algorithm
             keeps "09:00–02:00" in order (formatTimeRange does the same). */}
         {info.open ? t('courts.openNow', { hours: isolate(info.label) }) : t('courts.closedNow')}

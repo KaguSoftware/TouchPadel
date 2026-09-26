@@ -481,6 +481,8 @@ export const ar: Messages = {
     capacityFree: '{count} ملاعب متاحة',
     capacityOne: 'بقي ملعب واحد',
     deskOnly: 'عبر الاستقبال فقط',
+    laneFree: '{count} متاح',
+    laneFull: 'محجوز بالكامل',
     availFooter: '{count} ملاعب لكل وقت · يُحدَّد ملعبك عند الاستقبال',
     // Court → booking transition (design 2026-09-01): the in-place sheet on the Book tab.
     pickTime: 'اختر وقتًا',

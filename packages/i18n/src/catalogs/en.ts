@@ -511,6 +511,8 @@ export const en = {
     capacityFree: '{count} courts free',
     capacityOne: '1 court left',
     deskOnly: 'Desk only',
+    laneFree: '{count} free',
+    laneFull: 'Fully booked',
     availFooter: '{count} courts per slot · your court is assigned at the desk',
     // Court → booking transition (design 2026-09-01): the in-place sheet on the Book tab.
     pickTime: 'Pick a time',

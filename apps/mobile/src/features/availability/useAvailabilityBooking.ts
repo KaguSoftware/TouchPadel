@@ -16,6 +16,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { pickLocale } from '@touch/core';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
 import {
@@ -44,7 +45,6 @@ import { useAuth } from '../auth/context';
 import { profileGateState } from '../auth/social';
 import { useOwnProfile } from '../profile/hooks';
 import { callPhone } from '../../lib/phone';
-import { chunkArray } from '../../lib/chunk';
 import { formatPrice } from '../../lib/price';
 import { useToast } from '../../components/overlays';
 
@@ -70,8 +70,12 @@ export interface AvailabilityBooking {
   durations: number[];
   day: DayGrid;
   cells: MergedCell[];
-  /** Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`). */
-  rows: MergedCell[][];
+  /**
+   * One lane per court, in the venue's court order: the court's name and its
+   * own times, laid out horizontally ("Court 1: 1pm 2pm 3pm"). A tap on a lane
+   * cell holds THAT court.
+   */
+  lanes: CourtLane[];
   /** The venue does not trade that day (closed date, or a grid with no slots at all). */
   closedDay: boolean;
   isClosedDate: (date: string) => boolean;
@@ -92,6 +96,14 @@ export interface AvailabilityBooking {
   /** "2 courts free" / "1 court left" — empty when not free. */
   capacityLineFor: (cell: MergedCell) => string;
   onCall: () => void;
+}
+
+export interface CourtLane {
+  courtId: string;
+  /** Localised court name. */
+  name: string;
+  indoor: boolean;
+  cells: MergedCell[];
 }
 
 export interface AvailabilityBookingOptions {
@@ -238,8 +250,27 @@ export function useAvailabilityBooking(
     () => upcomingOnly(mergeAcrossCourts(day.grid, durationMin, horizonEnd, now), now),
     [day.grid, durationMin, horizonEnd, now],
   );
-  // Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`).
-  const rows = useMemo(() => chunkArray(cells, 2), [cells]);
+  // Per-court lanes (owner, 2026-09-26: show both courts separately). Each is
+  // the same merge run over ONE court, so a cell's state, price and `courtId`
+  // are that court's own, and the tap holds exactly the court it sits under.
+  const lanes = useMemo((): CourtLane[] => {
+    const byId = new Map(day.grid.map((c) => [c.courtId, c]));
+    const ordered = [...(courts.data ?? [])].sort((x, y) => x.sort_order - y.sort_order);
+    const out: CourtLane[] = [];
+    for (const court of ordered) {
+      const slots = byId.get(court.id);
+      if (!slots) continue;
+      const laneCells = upcomingOnly(mergeAcrossCourts([slots], durationMin, horizonEnd, now), now);
+      if (laneCells.length === 0) continue;
+      out.push({
+        courtId: court.id,
+        name: pickLocale({ en: court.name_en, ar: court.name_ar }, locale),
+        indoor: court.indoor,
+        cells: laneCells,
+      });
+    }
+    return out;
+  }, [day.grid, courts.data, durationMin, horizonEnd, now, locale]);
 
   // "Closed" means the venue does not trade that day. A duration that simply
   // has no priced slots is "no times", not "closed" — the old check compared
@@ -398,7 +429,7 @@ export function useAvailabilityBooking(
     durations,
     day,
     cells,
-    rows,
+    lanes,
     closedDay,
     isClosedDate,
     phone,

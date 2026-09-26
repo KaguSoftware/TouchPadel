@@ -4,7 +4,7 @@
  * that floats mid-screen over the pitched, dimmed court and carries the REAL
  * availability flow (useAvailabilityBooking — the same hook as the standalone
  * Availability screen): trading-night day pills, the duration picker, the
- * merged two-column time grid, the desk-only / blocked notice sheet, the hold
+ * per-court time lanes (one horizontal row of times per court), the desk-only / blocked notice sheet, the hold
  * errors. No footer line — the card is too small to spend 42 pt on copy the
  * Availability screen already carries.
  *
@@ -64,7 +64,7 @@ import {
 } from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import { DayChip, SlotCell, slotTestID } from './booking';
+import { CourtLaneRow, DayChip } from './booking';
 import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
@@ -73,18 +73,11 @@ import { ErrorAlert, NoticeSheet } from './overlays';
 const CARD_MAX_W = 268;
 const CARD_RADIUS = 22;
 /**
- * Four compact rows show (46 + 6 gap each) plus a peek at the fifth, the rest
- * scroll. The "assigned at the desk" footer used to sit under this and now
- * does not: the grid took its ~42 pt, so the card is the same height with more
- * of the night on screen. That line still runs under the standalone
- * Availability screen's grid, which has the room for it.
- *
- * Grown with the cells (owner, 2026-09-05: bigger, bolder options): the taller
- * rows would otherwise have shown three and a half. Most of it is the ~26 pt
- * the in-card heading gave back when it moved up to the screen title, so the
- * card is barely taller than it was.
+ * Room for both court cards (header + one 60 pt row of times each) without the
+ * grid scrolling (owner, 2026-09-26: per-court lanes, bigger times). On a short
+ * phone the card caps itself and this block shrinks (min 96 pt) and scrolls.
  */
-const GRID_H = 216;
+const GRID_H = 240;
 const PAD = 10;
 interface Entrance {
   opacity: Animated.AnimatedInterpolation<number>;
@@ -316,50 +309,33 @@ export function BookingSheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: 14 }}
       >
-        {/*
-          Keyed by POSITION, not by start time.
-
-          The grid is a fixed two-column ladder of identical cells that is
-          re-derived whole on every day chip and every duration tap, and no cell
-          carries state of its own — so a key is only telling React which cell to
-          reuse. Keying on the start time answered "none of them" for a day
-          change (new night, all new times), which unmounted every one of the ~34
-          cells and built ~34 more in the same commit. Position answers "the one
-          in the same slot", so the same views stay put and take new text.
-
-          That commit runs on the JS thread the court's rally is drawn from
-          (Court3D), so a teardown-and-rebuild is frames the animation does not
-          get — the court freezing on a date change is exactly what this and the
-          ICU caching in @touch/core's localParts are between them fixing
-          (owner, 2026-09-10). Duration taps already reconciled in place, since
-          60 and 90 minutes share nearly all their start times; days now do too.
-        */}
-        {a.rows.map((row, r) => {
+        {/* One lane per court, name above, its times running sideways under it (owner, 2026-09-26).
+            Keyed by POSITION, as the rows were: a day change reuses the lane
+            views in place instead of tearing them down (the rally shares this
+            JS thread — see Court3D). */}
+        {a.lanes.map((lane, r) => {
           const e = rows[Math.min(r, SPEC.grid.sharedFromRow)]!;
           return (
             <Animated.View
               key={r}
               style={{
-                flexDirection: 'row',
-                gap: 6,
-                marginBottom: 6,
+                marginBottom: 8,
                 opacity: e.opacity,
                 transform: [{ translateY: e.translateY }, { scale: e.scale }],
               }}
             >
-              {row.map((cell, c) => (
-                <SlotCell
-                  key={c}
-                  testID={slotTestID(`${testID}.slot`, cell)}
-                  compact
-                  cell={cell}
-                  time={formatTime(cell.startAt, locale, a.tz)}
-                  sub={a.subFor(cell)}
-                  capacityLine={a.capacityLineFor(cell)}
-                  onPress={a.onTapCell}
-                />
-              ))}
-              {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
+              <CourtLaneRow
+                testID={`${testID}.slot`}
+                index={r + 1}
+                name={lane.name}
+                indoor={lane.indoor}
+                cells={lane.cells}
+                cellWidth={92}
+                timeFor={(cell) => formatTime(cell.startAt, locale, a.tz)}
+                subFor={a.subFor}
+                onPress={a.onTapCell}
+                resetKey={a.gridKey}
+              />
             </Animated.View>
           );
         })}

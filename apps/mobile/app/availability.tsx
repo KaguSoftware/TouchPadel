@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,9 +9,18 @@ import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../src/features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
-import { space, useTheme } from '../src/theme';
+import { radius, space, useTheme } from '../src/theme';
 import { Hint, Screen, SegmentedControl } from '../src/components/ui';
-import { DayChip, DegradedBanner, SlotCell, slotTestID } from '../src/components/booking';
+import {
+  CourtFreePill,
+  CourtSwitch,
+  DayChip,
+  DegradedBanner,
+  SlotCell,
+  freeCountOf,
+  slotTestID,
+} from '../src/components/booking';
+import { chunkArray } from '../src/lib/chunk';
 import { ErrorAlert, NoticeSheet } from '../src/components/overlays';
 
 const GUTTER = space.l;
@@ -19,8 +28,10 @@ const GUTTER = space.l;
 const GRID_INSET = 18 + space.l;
 
 /**
- * Merged availability (design 2026-08-31): ONE timeline across both courts —
- * each hour shows capacity; the desk assigns the physical court. A day chip is
+ * Per-court availability (owner, 2026-09-26, layout "C"): a court switch —
+ * one segment per court — over the chosen court's night as a three-column
+ * grid, and a tap holds that court. (Was one merged timeline across both
+ * courts, design 2026-08-31.) A day chip is
  * a TRADING NIGHT (09:00 through the small hours of the next date), not a
  * calendar day — see assembleTradingNight. Public screen; a signed-out tap
  * routes through Welcome with the slot kept as pending intent.
@@ -45,10 +56,22 @@ export default function AvailabilityScreen() {
   // tap, to buy the offset back at 0. Reset the offset by hand instead and let
   // React reconcile; the sheet on the Book tab does the same, and has the
   // longer note on why.
+  // The court on show. Unset until the guest picks one, and a court that has
+  // no times on the chosen day/duration drops out of `lanes` — both fall back
+  // to the first court, so there is always one selected.
+  const [pickedCourt, setPickedCourt] = useState<string | null>(null);
+  const lane = a.lanes.find((l) => l.courtId === pickedCourt) ?? a.lanes[0];
+  const courtTabs = useMemo(
+    () => a.lanes.map((l, i) => ({ courtId: l.courtId, index: i + 1, name: l.name })),
+    [a.lanes],
+  );
+  // Three per row; an odd trailing cell keeps its width (the row pads with spacers).
+  const laneRows = useMemo(() => chunkArray(lane?.cells ?? [], 3), [lane]);
+
   const gridRef = useRef<ScrollView>(null);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
-  }, [a.gridKey]);
+  }, [a.gridKey, lane?.courtId]);
 
   // The venue notice floats over the grid and leaves only when the guest
   // closes it — a refetch flipping `degraded` back on must not resurrect it.
@@ -124,8 +147,25 @@ export default function AvailabilityScreen() {
         </ScrollView>
       </View>
 
-      {/* Duration segmented control (intrinsic width, per the design) */}
-      <View style={{ marginTop: 10, paddingStart: GUTTER, paddingEnd: GUTTER }}>
+      {/* Court switch — fixed above the grid like the duration picker, and
+          above it (owner, 2026-09-26). Only once there is a court to show: a
+          loading, failed or closed day has none. */}
+      {lane && !a.day.isLoading && !a.day.isError && !a.closedDay ? (
+        <View style={{ marginTop: 10, paddingStart: GUTTER, paddingEnd: GUTTER }}>
+          <CourtSwitch
+            testID="availability.court"
+            courts={courtTabs}
+            value={lane.courtId}
+            onChange={setPickedCourt}
+          />
+        </View>
+      ) : null}
+
+      {/* Duration segmented control (intrinsic width, per the design), centred
+          (owner, 2026-09-26) */}
+      <View
+        style={{ marginTop: 10, paddingStart: GUTTER, paddingEnd: GUTTER, alignItems: 'center' }}
+      >
         <SegmentedControl
           testID="availability.duration"
           fit
@@ -182,9 +222,8 @@ export default function AvailabilityScreen() {
             {t('booking.closedDayBody')}
           </Text>
         </View>
-      ) : (
+      ) : a.cells.length === 0 || !lane ? (
         <ScrollView
-          ref={gridRef}
           style={{ flex: 1 }}
           refreshControl={
             <RefreshControl
@@ -194,52 +233,89 @@ export default function AvailabilityScreen() {
             />
           }
           contentContainerStyle={{
-            paddingTop: space.xl,
+            paddingTop: space.l,
             paddingBottom: 24 + insets.bottom,
             paddingStart: GRID_INSET,
             paddingEnd: GRID_INSET,
           }}
-          showsVerticalScrollIndicator={false}
         >
-          {a.cells.length === 0 ? (
-            <Hint>{t('booking.noSlots')}</Hint>
-          ) : (
-            <>
-              {/* Keyed by POSITION: the cells are an interchangeable ladder with
-                  no state of their own, so a day change reuses the rows in place
-                  instead of unmounting every cell and building a new one (the
-                  sheet's copy carries the long note). */}
-              {a.rows.map((row, i) => (
-                <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                  {row.map((cell, c) => (
-                    <SlotCell
-                      testID={slotTestID('availability.slot', cell)}
-                      key={c}
-                      cell={cell}
-                      time={formatTime(cell.startAt, locale, a.tz)}
-                      sub={a.subFor(cell)}
-                      capacityLine={a.capacityLineFor(cell)}
-                      onPress={a.onTapCell}
-                    />
-                  ))}
-                  {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
-                </View>
-              ))}
-              <Text
-                style={{
-                  marginTop: 10,
-                  textAlign: 'center',
-                  fontFamily: fonts.body400,
-                  fontSize: 11,
-                  lineHeight: 17,
-                  color: colors.fnt,
-                }}
-              >
-                {t('booking.availFooter', { count: a.courtCount })}
-              </Text>
-            </>
-          )}
+          <Hint>{t('booking.noSlots')}</Hint>
         </ScrollView>
+      ) : (
+        // The court's night on a card of its own, FIXED to the rest of the
+        // screen (owner, 2026-09-26): the indoor/free line as its header, one
+        // border round the lot, and only the grid inside it scrolls — under the
+        // header, clipped by the card's rounded edge. Lines up with the court
+        // switch above it.
+        <View
+          style={{
+            flex: 1,
+            marginTop: space.l,
+            marginStart: GUTTER,
+            marginEnd: GUTTER,
+            marginBottom: 16 + insets.bottom,
+            borderRadius: radius.card,
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.line,
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: 12,
+              paddingBottom: 10,
+              paddingStart: 14,
+              paddingEnd: 14,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: colors.line,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.body700, fontSize: 13, color: colors.fnt }}>
+              {t(lane.indoor ? 'courts.indoor' : 'courts.outdoor')}
+            </Text>
+            <CourtFreePill free={freeCountOf(lane.cells)} fontSize={12} />
+          </View>
+          <ScrollView
+            ref={gridRef}
+            style={{ flex: 1 }}
+            refreshControl={
+                <RefreshControl
+                  refreshing={a.day.isRefetching}
+                  onRefresh={a.day.refetch}
+                  tintColor={colors.blue}
+                />
+              }
+            contentContainerStyle={{ gap: 8, padding: 12 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Keyed by POSITION: the cells are an interchangeable ladder with
+                no state of their own, so a day, duration or court change
+                reuses the rows in place (the sheet's copy carries the long
+                note). */}
+            {laneRows.map((row, i) => (
+              <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
+                {row.map((cell, c) => (
+                  <SlotCell
+                    testID={slotTestID('availability.slot', cell)}
+                    key={c}
+                    cell={cell}
+                    time={formatTime(cell.startAt, locale, a.tz)}
+                    sub={a.subFor(cell)}
+                    capacityLine=""
+                    onPress={a.onTapCell}
+                  />
+                ))}
+                {Array.from({ length: 3 - row.length }, (_, k) => (
+                  <View key={`pad${k}`} style={{ flex: 1 }} />
+                ))}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
       )}
 
       <ErrorAlert message={a.error} onDismiss={a.dismissError} />
