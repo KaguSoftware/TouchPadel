@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../../lib/i18n';
 import { ChartCard } from './ChartCard';
 
-vi.mock('../csv', () => ({ downloadCsv: vi.fn(), toCsv: vi.fn(() => 'csv') }));
-import { downloadCsv, toCsv } from '../csv';
+vi.mock('../exportTables', () => ({ downloadTable: vi.fn() }));
+import { downloadTable } from '../exportTables';
 
 const twin = {
   columns: [
@@ -31,8 +31,7 @@ function renderCard(state: 'ready' | 'loading' = 'ready') {
 
 describe('ChartCard twin', () => {
   beforeEach(() => {
-    vi.mocked(downloadCsv).mockClear();
-    vi.mocked(toCsv).mockClear();
+    vi.mocked(downloadTable).mockClear();
   });
 
   it('shows the plot by default and swaps it for the table on the toggle', async () => {
@@ -47,11 +46,14 @@ describe('ChartCard twin', () => {
     expect(screen.getByRole('button', { name: 'Show as chart' }).getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('downloads the same rows as CSV in column order', async () => {
+  it('downloads the same rows in column order, on a sheet named for the chart', async () => {
     renderCard();
-    await userEvent.click(screen.getByRole('button', { name: 'Download CSV' }));
-    expect(toCsv).toHaveBeenCalledWith(['Hour', 'Bookings'], [['18:00', 12], ['19:00', 15]]);
-    expect(downloadCsv).toHaveBeenCalledWith('by-hour.csv', 'csv');
+    await userEvent.click(screen.getByRole('button', { name: 'Download' }));
+    expect(downloadTable).toHaveBeenCalledWith('by-hour', 'en', {
+      name: 'By hour',
+      columns: ['Hour', 'Bookings'],
+      rows: [['18:00', 12], ['19:00', 15]],
+    });
   });
 
   it('offers no twin controls while loading', () => {

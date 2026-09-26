@@ -318,7 +318,10 @@ function SizeForm({
     low: editSize!.lowStockThreshold != null ? String(editSize!.lowStockThreshold) : '',
   }) || supplierId !== (editSize!.supplier?.id ?? '') || editSize!.ingredientId === null;
 
-  /** True when there is nothing unsaved to lose, or the manager chose to lose it. */
+  /**
+   * True when there is nothing unsaved to lose, or the manager chose to lose
+   * it. Also the Modal's `canClose`: asked before the exit plays (see IngredientForm).
+   */
   async function mayLeave() {
     return !(dirty && editing.mode === 'editSize') || confirm({
       title: tr('ws.kit.actions.dirtyLeave'),
@@ -331,11 +334,8 @@ function SizeForm({
       // loses only an unsaved draft, never stored data, and Cancel still
       // autofocuses so Enter and Esc both keep the edits.
       pairActions: true,
+      requireChoice: true,
     });
-  }
-
-  async function close() {
-    if (await mayLeave()) onCancel();
   }
 
   /** "Change the price" from the form: the start leaves this screen. */
@@ -390,11 +390,13 @@ function SizeForm({
             ? tr('ws.manager.stock.products.notTrackedHint')
             : undefined
       }
-      onClose={() => void close()}
+      canClose={mayLeave}
+      onClose={onCancel}
+      dismissible={!busy}
       size="lg"
-      footer={
+      footer={(close) => (
         <>
-          <Button onClick={() => void close()} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -408,7 +410,7 @@ function SizeForm({
             {tr('ws.kit.actions.save')}
           </Button>
         </>
-      }
+      )}
     >
       {editing.mode === 'newProduct' && (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-3)' }}>

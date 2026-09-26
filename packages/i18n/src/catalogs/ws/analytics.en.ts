@@ -392,7 +392,7 @@ export const analyticsEn = {
   twin: {
     table: 'Show as table',
     chart: 'Show as chart',
-    csv: 'Download CSV',
+    csv: 'Download',
   },
   heatmap: {
     hint: 'Hover a cell for its value',

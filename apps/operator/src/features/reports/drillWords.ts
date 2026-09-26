@@ -25,23 +25,23 @@ const MOVEMENTS = ['waste_spill', 'waste_spoilage', 'void_after_send', 'expired_
 const UNITS = ['g', 'ml', 'pc'] as const;
 
 const has = <T extends string>(list: readonly T[], v: unknown): v is T => typeof v === 'string' && (list as readonly string[]).includes(v);
-const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
+const text_ = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
 
 function reasonWords(v: unknown, tr: Tr): string | null {
   if (has(KNOWN_REASONS, v)) return tr(`op.reasons.${v}`);
   if (v === 'promotion') return tr('ws.reports.drill.reasons.promotion');
   // Free text a person typed; the underscores of an unknown code read better as spaces.
-  const t = text(v);
+  const t = text_(v);
   return t ? t.replace(/_/g, ' ') : null;
 }
 
 function inLocale(en: unknown, ar: unknown, locale: Locale): string | null {
-  return locale === 'ar' ? (text(ar) ?? text(en)) : (text(en) ?? text(ar));
+  return locale === 'ar' ? (text_(ar) ?? text_(en)) : (text_(en) ?? text_(ar));
 }
 
 function where(d: Record<string, unknown>, tr: Tr): string | null {
-  const table = text(d.table);
-  return table ? tr('ws.reports.drill.table', { table }) : text(d.tabLabel);
+  const table = text_(d.table);
+  return table ? tr('ws.reports.drill.table', { table }) : text_(d.tabLabel);
 }
 
 export function drillWords(t: DrillTransaction, tr: Tr, locale: Locale): { kind: string | null; text: string | null } {
@@ -52,7 +52,7 @@ export function drillWords(t: DrillTransaction, tr: Tr, locale: Locale): { kind:
   const parts: (string | null)[] = [];
   switch (sub) {
     case 'booking':
-      parts.push(inLocale(d.courtEn, d.courtAr, locale), text(d.guest));
+      parts.push(inLocale(d.courtEn, d.courtAr, locale), text_(d.guest));
       // Kept bookings are the default; only the ones that did not stand say so.
       if (d.status === 'cancelled' || d.status === 'no_show') parts.push(has(BOOKING_STATUSES, d.status) ? tr(`ws.kit.bookingStatus.${d.status}`) : null);
       break;
@@ -60,17 +60,17 @@ export function drillWords(t: DrillTransaction, tr: Tr, locale: Locale): { kind:
       parts.push(where(d, tr));
       break;
     case 'order':
-      parts.push(d.source === 'till' || d.source === 'guest_web' ? tr(`ws.reports.drill.sources.${d.source}`) : text(d.source), where(d, tr));
+      parts.push(d.source === 'till' || d.source === 'guest_web' ? tr(`ws.reports.drill.sources.${d.source}`) : text_(d.source), where(d, tr));
       break;
     case 'payment':
-      parts.push(d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text(d.method), where(d, tr));
+      parts.push(d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text_(d.method), where(d, tr));
       break;
     case 'refund':
-      parts.push(reasonWords(d.reason, tr), d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text(d.method));
+      parts.push(reasonWords(d.reason, tr), d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text_(d.method));
       break;
     case 'discount':
       parts.push(
-        d.adjKind === 'discount_percent' || d.adjKind === 'discount_amount' || d.adjKind === 'price_override' ? tr(`ws.reports.drill.adjKinds.${d.adjKind}`) : text(d.adjKind),
+        d.adjKind === 'discount_percent' || d.adjKind === 'discount_amount' || d.adjKind === 'price_override' ? tr(`ws.reports.drill.adjKinds.${d.adjKind}`) : text_(d.adjKind),
         reasonWords(d.reason, tr),
       );
       break;
@@ -79,7 +79,7 @@ export function drillWords(t: DrillTransaction, tr: Tr, locale: Locale): { kind:
       break;
     case 'waste': {
       const qty = typeof d.qty === 'number' ? d.qty : Number(d.qty);
-      const unit = has(UNITS, d.unit) ? tr(`op.stock.unit.${d.unit}`) : text(d.unit);
+      const unit = has(UNITS, d.unit) ? tr(`op.stock.unit.${d.unit}`) : text_(d.unit);
       parts.push(
         inLocale(d.ingredientEn, d.ingredientAr, locale),
         Number.isFinite(qty) && unit ? tr('op.stock.qty', { qty: new Intl.NumberFormat(locale === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-IQ').format(qty), unit }) : null,
@@ -95,4 +95,61 @@ export function drillWords(t: DrillTransaction, tr: Tr, locale: Locale): { kind:
   }
   const words = parts.filter((p): p is string => !!p);
   return { kind: tr(`ws.reports.drill.subs.${sub}`), text: words.length ? words.join(' · ') : null };
+}
+
+// ---------------------------------------------------------------------------
+// The same facts, one per column, for the export
+// ---------------------------------------------------------------------------
+
+/**
+ * A transaction's facts, each said in words, for a spreadsheet column of its
+ * own.
+ *
+ * The export used to write `detail` raw: seventeen columns including
+ * `courtEn`, `courtAr`, `itemEn`, `itemAr`, `ingredientEn`, `ingredientAr`,
+ * of which at most one was ever filled, and codes like `no_show` and
+ * `waste_spill` under them. That is a very wide, almost entirely empty sheet
+ * whose filled cells still need a glossary.
+ *
+ * Here the six name columns collapse to one `what` — the court, the item or
+ * the ingredient, whichever this kind of row has, in the reader's language —
+ * and every code is the word the screen shows for it. Words from a fixed
+ * catalog filter and count in a spreadsheet exactly as codes do, so nothing
+ * that could be done with the raw file is lost.
+ */
+export interface DrillFacts {
+  /** "Refund", "Booking", "Waste" — the kind of thing this row is. */
+  kind: string | null;
+  /** The one-line sentence the drill window shows. */
+  text: string | null;
+  /** The court, menu item or ingredient this row is about. */
+  what: string | null;
+  /** Table 12, or the tab's label. */
+  where: string | null;
+  guest: string | null;
+  reason: string | null;
+  method: string | null;
+  status: string | null;
+  source: string | null;
+  qty: number | null;
+  unit: string | null;
+}
+
+export function drillFacts(t: DrillTransaction, tr: Tr, locale: Locale): DrillFacts {
+  const { kind, text } = drillWords(t, tr, locale);
+  const d = t.detail ?? {};
+  const qty = typeof d.qty === 'number' ? d.qty : Number(d.qty);
+  return {
+    kind,
+    text,
+    what: inLocale(d.courtEn, d.courtAr, locale) ?? inLocale(d.itemEn, d.itemAr, locale) ?? inLocale(d.ingredientEn, d.ingredientAr, locale),
+    where: where(d, tr),
+    guest: text_(d.guest),
+    reason: reasonWords(d.reason, tr) ?? (has(MOVEMENTS, d.movement) ? tr(`op.stock.movement.${d.movement}`) : null),
+    method: d.method === 'cash' || d.method === 'card' ? tr(`ws.reports.drill.methods.${d.method}`) : text_(d.method),
+    status: has(BOOKING_STATUSES, d.status) ? tr(`ws.kit.bookingStatus.${d.status}`) : text_(d.status),
+    source: d.source === 'till' || d.source === 'guest_web' ? tr(`ws.reports.drill.sources.${d.source}`) : text_(d.source),
+    qty: Number.isFinite(qty) ? qty : null,
+    unit: has(UNITS, d.unit) ? tr(`op.stock.unit.${d.unit}`) : text_(d.unit),
+  };
 }

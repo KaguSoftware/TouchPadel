@@ -130,7 +130,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     apply: 'تطبيق',
   },
   export: {
-    csv: 'تصدير CSV',
+    csv: 'تصدير',
     exporting: 'جارٍ التصدير…',
     scope: 'الفلاتر والتواريخ الحالية',
   },
@@ -174,6 +174,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     dirtyLeaveBody: 'سيضيع كل ما غيّرته هنا. هل تريد الإغلاق؟',
     dirtyLeaveConfirm: 'تجاهل التغييرات',
     dirtyLeaveCancel: 'متابعة التحرير',
+    chooseOne: 'اختر أحد الخيارين للمتابعة',
   },
   infoTip: {
     label: 'المزيد عن هذا',

@@ -60,7 +60,7 @@ import { AbandonedViewsChart } from '../charts/AbandonedViewsChart';
 import { FunnelBars } from '../charts/FunnelBars';
 import { PriceBandBars, bandLabel } from '../charts/PriceBandBars';
 import { WeekHeatmap } from '../charts/WeekHeatmap';
-import { downloadCsv, toCsv } from '../csv';
+import { downloadTable } from '../exportTables';
 import { useAnalyticsDrill } from '../drill';
 import { pulseCsvRows, type PulseFigure } from '../pulseCsv';
 
@@ -179,11 +179,11 @@ export function CafeTab() {
     ];
   };
   const exportPulse = () => {
-    const csv = toCsv(
-      [tr('ws.analytics.pulseCsv.figure'), tr('ws.analytics.pulseCsv.value'), tr('ws.analytics.pulseCsv.previous'), tr('ws.analytics.pulseCsv.changeAbs'), tr('ws.analytics.pulseCsv.changePct')],
-      pulseCsvRows(pulseFigures()),
-    );
-    downloadCsv(`cafe-pulse-${rangeLabel}.csv`, csv);
+    downloadTable(`cafe-pulse-${rangeLabel}`, locale, {
+      name: tr('ws.analytics.tabs.cafe'),
+      columns: [{ header: tr('ws.analytics.pulseCsv.figure') }, { header: tr('ws.analytics.pulseCsv.value'), type: 'decimal' }, { header: tr('ws.analytics.pulseCsv.previous'), type: 'decimal' }, { header: tr('ws.analytics.pulseCsv.changeAbs'), type: 'decimal' }, { header: tr('ws.analytics.pulseCsv.changePct'), type: 'percent' }],
+      rows: pulseCsvRows(pulseFigures()),
+    });
   };
   const hiddenGemIds = useMemo(() => new Set((derived?.hiddenGems ?? []).map((g) => g.id)), [derived]);
 

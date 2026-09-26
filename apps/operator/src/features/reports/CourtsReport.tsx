@@ -175,11 +175,12 @@ export function CourtsReportScreen() {
     if (!data) return;
     const parts = { view, court: courtId || undefined };
     const base = tr('ws.reports.export.courts');
-    if (view === 'byDay') return exportTable(base, period, parts, tableCsv(dayColumns, data.trend));
+    if (view === 'byDay') return exportTable(base, locale, period, parts, tableCsv(dayColumns, data.trend));
     if (view === 'byHour') {
-      return exportTable(base, period, parts, {
+      return exportTable(base, locale, period, parts, {
         headers: [tr('ws.reports.columns.hour'), tr('ws.reports.courts.columns.bookings')],
-        body: data.byHour.map((h) => [h.hour, h.bookings]),
+        // `07:00`, not a bare `7` in a column headed "Hour".
+        body: data.byHour.map((h) => [`${String(h.hour).padStart(2, '0')}:00`, h.bookings]),
       });
     }
     // Every court figure, whichever of the three court breakdowns is showing;
@@ -192,6 +193,7 @@ export function CourtsReportScreen() {
     ];
     exportTable(
       base,
+      locale,
       period,
       parts,
       tableCsv(all, data.rows, [
