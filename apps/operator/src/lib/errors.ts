@@ -238,6 +238,19 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'EMAIL_IN_USE',
   // Role spec (lane J): decide_recipe_change's approve, both maps.
   'RECIPE_CHANGED',
+  // Wave 5 (wave5-addendum-2026-09-25 §3). Strings in catalogs/opErrors.protocols.*.ts.
+  // The stores (both maps): transfer_stock, and receive_delivery_internal, which
+  // Goods in, the driver receipt and log_stock reach.
+  'TRANSFER_SHORT',
+  'STORE_BEING_COUNTED',
+  // Till shifts (operator only: the phone never calls a till-shift RPC, M7).
+  'TILL_SHIFT_ALREADY_OPEN',
+  'TILL_SHIFT_STATION_BUSY',
+  'TILL_SHIFT_NOT_FOUND',
+  'TILL_SHIFT_CLOSED',
+  'TILL_SHIFT_NOT_YOURS',
+  'TILL_SHIFT_WRONG_STATION',
+  'TILL_SHIFT_UNSYNCED',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',
