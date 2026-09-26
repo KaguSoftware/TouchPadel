@@ -162,6 +162,7 @@ like, but push in batches.
 
 - `HANDOFF.md`: current state, conventions and gotchas. Read it first in any new session.
 - `CONTRIBUTING.md`: workflow rules and Windows setup.
+- `SECURITY.md`: how to report a vulnerability, and the rules for testing against a live venue.
 - `API.md`: the RPC and edge-function surface.
 - `docs/design/`: architecture, the canonical data model and the delivery plan.
 - `docs/security/`: security-layer decisions and runbooks.

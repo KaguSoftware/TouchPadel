@@ -1,5 +1,5 @@
 {
-  "generated_from": "3fd780566d24d94db4eac87140fb29bc3d6450cd",
+  "generated_from": "75a0b566e9755b37064fca81a86a905bc6282799",
   "chunks": [
     {
       "kind": "page",
@@ -34734,7 +34734,7 @@
       "ref": "doc:README.md#11",
       "lang": "en",
       "title": "README.md › Read next",
-      "body": "## Read next\n\n- `HANDOFF.md`: current state, conventions and gotchas. Read it first in any new session.\n- `CONTRIBUTING.md`: workflow rules and Windows setup.\n- `API.md`: the RPC and edge-function surface.\n- `docs/design/`: architecture, the canonical data model and the delivery plan.\n- `docs/security/`: security-layer decisions and runbooks.\n- `docs/install-runbook.md`: on-site install steps for the operator machine.\n- `docs/client/`: the client-facing input pack (checklists, CSV templates).\n- `docs/brand/lama-sans/README.md`: the brand typeface — what ships, what was cut, and how to\n  add a weight.",
+      "body": "## Read next\n\n- `HANDOFF.md`: current state, conventions and gotchas. Read it first in any new session.\n- `CONTRIBUTING.md`: workflow rules and Windows setup.\n- `SECURITY.md`: how to report a vulnerability, and the rules for testing against a live venue.\n- `API.md`: the RPC and edge-function surface.\n- `docs/design/`: architecture, the canonical data model and the delivery plan.\n- `docs/security/`: security-layer decisions and runbooks.\n- `docs/install-runbook.md`: on-site install steps for the operator machine.\n- `docs/client/`: the client-facing input pack (checklists, CSV templates).\n- `docs/brand/lama-sans/README.md`: the brand typeface — what ships, what was cut, and how to\n  add a weight.",
       "route": null
     },
     {
@@ -34799,6 +34799,86 @@
       "lang": "en",
       "title": "README.md › CI and release",
       "body": "## CI and release\n\nWorkflows live in `.github/workflows/`:\n\n- `ci.yml` runs on every PR and push to main: secret and hygiene gates, lint/typecheck/test/build,\n  an Electron ABI smoke on Windows, an Expo bundle check, a clean local Supabase run with\n  migration, RLS, lock-order and concurrency tests, and the Playwright suite.\n- `db-drift.yml` diffs the hosted project against the migration head nightly (02:00 Baghdad).\n- `db-migrate.yml` pushes migrations to staging on `workflow_dispatch` or when a main push touches\n  `packages/db/supabase/migrations/**`, behind the `staging` GitHub Environment.\n- `operator-release.yml` builds and signs the Electron installer on `operator-v*` tags and publishes\n  it to the public `KaguSoftware/touchpadel-releases` repo.\n\nEvery push to `main` is also a Vercel production build of the website. Commit as often as you\nlike, but push in batches.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#1",
+      "lang": "en",
+      "title": "SECURITY.md › Security Policy",
+      "body": "# Security Policy\n\nTouch Padel is the venue system for a padel-and-cafe site in Iraq: a guest booking app, a\npublic website with QR cafe ordering, and a Windows operator app, all on one Supabase\nPostgres. It handles real bookings, real payments in IQD, and real guests' phone numbers.\n\nThis repository is public. The database it talks to is not, and it is **live**. Please read\nthe testing rules in §4 before you touch anything.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#10",
+      "lang": "en",
+      "title": "SECURITY.md › 9 · For contributors",
+      "body": "## 9 · For contributors\n\nThe rules you are bound by are in `CONTRIBUTING.md` and\n`docs/security/layer-1-rules-and-decisions.md` (§1, §5 and §6 are binding). The short version:\nschema changes are migrations only, the service-role key exists only in `packages/db/.env` and\nGitHub Environment secrets, nothing is written to the hosted database through the dashboard SQL\nEditor, and if you find a secret in a file you stop and flag it rather than fixing it quietly.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#2",
+      "lang": "en",
+      "title": "SECURITY.md › 1 · Reporting a vulnerability",
+      "body": "## 1 · Reporting a vulnerability\n\n**Report privately, through GitHub:**\n\n> **[Security → Advisories → Report a vulnerability](https://github.com/KaguSoftware/TouchPadel/security/advisories/new)**\n\nThat opens a private advisory visible only to you and the maintainers. Nothing is published\nuntil there is a fix.\n\n**Do not open a public issue for a security problem.** A public report is a disclosure: it\nreaches whoever is watching this repository at the same moment it reaches us, and the venue\ncannot patch a live till and a released desktop installer in the minutes that gives us.\nPublic issues are the right place for ordinary bugs, questions, and anything that is not a\nsecurity weakness — use them freely for that.\n\nIf GitHub is unavailable to you, open a public issue that says only *\"I have a security\nreport, please open a private channel\"* — with no details, no repro, no affected path — and\na maintainer will come to you.\n\nA good report contains:\n\n| Field | What to include |\n|---|---|\n| Where | The surface (web / mobile / operator SPA / operator shell / database) and, if you can, the file or endpoint |\n| What | What an attacker gets: read another guest's data, book without paying, change a price, run code on the venue PC |\n| How | Minimal steps to reproduce, ideally against a local stack (§4) |\n| Version | Commit SHA, or the operator app version shown on the station setup screen |\n| Impact | Your own read of severity, and whether it needs auth, staff access, or physical presence in the venue |\n\nReports written in Arabic or English are equally welcome.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#3",
+      "lang": "en",
+      "title": "SECURITY.md › 2 · What happens next",
+      "body": "## 2 · What happens next\n\n| Stage | Target |\n|---|---|\n| We acknowledge your report | 3 working days |\n| We tell you our severity assessment and rough plan | 10 working days |\n| Critical fix shipped (guest data exposure, payment or auth bypass, RCE on the venue PC) | As fast as we can, measured in days |\n| Everything else | With the normal release flow |\n\nThis is a small team on a delivery deadline, not a 24/7 security desk. If a target slips we\nwill tell you rather than go quiet.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#4",
+      "lang": "en",
+      "title": "SECURITY.md › 3 · Disclosure",
+      "body": "## 3 · Disclosure\n\nWe work to coordinated disclosure. Please give us **90 days** from your report before making\nit public, or until a fix ships — whichever comes first. If we need longer we will ask, with\na reason. If we go silent past 90 days, publish; that is your right and we will not treat it\nas a hostile act.\n\nWhen the fix ships we publish a GitHub Security Advisory and credit you by the name or handle\nyou choose, unless you prefer to stay anonymous. There is no bug bounty — this is a client\nproject, not a funded programme, so what we can offer is credit and a straight answer.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#5",
+      "lang": "en",
+      "title": "SECURITY.md › 4 · Testing rules — read before you probe anything",
+      "body": "## 4 · Testing rules — read before you probe anything\n\n**There is one Supabase project and it is the client's production database. There is no\nstaging.** Every table you might poke at holds real reservations and real guests' phone\nnumbers, and the venue trades on it during opening hours.\n\n**Do not**, against any live Touch Padel deployment:\n\n- run automated scanners, fuzzers, or dependency-confusion probes\n- attempt any denial of service, load test, or rate-limit exhaustion\n- create real bookings or cafe orders you do not intend to honour\n- test with real people's phone numbers or email addresses\n- attempt to access, download, or retain any guest or staff record\n- attempt social engineering of venue staff, or any physical access to the operator PC\n\n**Do instead** — the whole system runs locally, with fixtures and no real data:\n\n```sh\npnpm i\npnpm db:start        # local Supabase via Docker\npnpm db:reset        # migrations + seed fixtures\npnpm dev\n```\n\nFixtures use this repository's synthetic phone range, `+964 7XX 000000N` — please stay inside\nit. `CONTRIBUTING.md` has the full setup, including Windows.\n\n**If you incidentally reach real guest or staff data:** stop immediately, do not save or copy\nit, do not share it, and say so in your report. Telling us is not an admission of anything —\nit lets us assess whether the venue owes anyone a notification.\n\n**Safe harbour.** If you follow this policy in good faith, we will treat your work as\nauthorised research, we will not pursue legal action, and we will not report you. If you are\nunsure whether something is in bounds, ask first in a private advisory.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#6",
+      "lang": "en",
+      "title": "SECURITY.md › 5 · Scope",
+      "body": "## 5 · Scope\n\nIn scope:\n\n| Surface | Notes |\n|---|---|\n| `apps/web` | Public site and the QR cafe ordering flow — no login, the least-defended surface by design |\n| `apps/mobile` | Guest booking app (React Native / Expo) |\n| `apps/operator` | Operator SPA: till, calendar, KDS, stock, admin |\n| `apps/operator-shell` | Electron shell: offline queue, LAN KDS, ESC/POS printing, auto-update |\n| `packages/db` | Migrations, RLS policies, RPCs, and the authorization matrix |\n| `packages/core` | Money, splits, idempotency, time — arithmetic bugs here are security bugs |\n| CI and release | Workflow injection, secret exposure, unsigned or hijackable artifacts |\n\nWeaknesses we especially want to hear about: anything that reads another guest's rows,\nanything that books or pays without the money being right, anything that escalates a guest\nsession to staff, and anything that gets code onto the venue PC through the auto-updater.\n\nOut of scope:\n\n- Findings from an automated scanner with no demonstrated impact.\n- Missing headers or best-practice flags on surfaces that hold nothing. Report them as issues;\n  they are welcome, just not advisories.\n- Vulnerabilities in Supabase, Vercel, Expo or GitHub themselves — report those to their vendors.\n- Anything requiring an already-compromised operator PC, a rooted device, or a stolen staff\n  credential.\n- Social engineering, phishing of staff, physical attacks on the venue.\n- The known, dated dependency waivers in `.security/audit-waivers.json` and the four accepted\n  Supabase advisor findings in `docs/security/security-advisor-waiver-2026-09-06.md` — these are\n  decisions with owners and expiry dates, not oversights. A *new* reachability argument against\n  one of them is very much in scope.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#7",
+      "lang": "en",
+      "title": "SECURITY.md › 6 · Supported versions",
+      "body": "## 6 · Supported versions\n\nThe project is pre-1.0 and under active development. Only the current line gets fixes.\n\n| Surface | Supported |\n|---|---|\n| Operator desktop — latest `operator-v*` release | Yes. Fixes ship here; installed copies auto-update from the public releases repo |\n| Operator desktop — any older release | No. Update to the latest |\n| Web — the deployed head of `main` | Yes, continuously deployed |\n| Mobile — the latest store build / EAS update | Yes |\n| Forks, and any branch other than `main` | No |\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#8",
+      "lang": "en",
+      "title": "SECURITY.md › 7 · If you found a leaked credential",
+      "body": "## 7 · If you found a leaked credential\n\nTreat it as urgent and report it privately, even if it looks expired or scoped to a test\nproject. Do not use it to confirm it works — tell us where you saw it (file, commit, built\nartifact, log) and let us rotate it.\n\nEvery push and pull request runs `gitleaks` over the **full history**, plus a gate that fails\nif a secret-bearing file was ever committed, plus a scan of the built web, desktop and mobile\nartifacts. A credential that got past all of that is exactly the report we want.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:SECURITY.md#9",
+      "lang": "en",
+      "title": "SECURITY.md › 8 · What is already automated",
+      "body": "## 8 · What is already automated\n\nSo you know what ground is covered before you spend time on it. Every one of these runs on\nevery pull request and every push to `main` (`.github/workflows/ci.yml`, or `pnpm security`\nlocally):\n\n- `gitleaks` across full git history, plus a secret scan of the built web, desktop and mobile bundles.\n- Public env-var naming — nothing secret may hide behind `NEXT_PUBLIC_`, `EXPO_PUBLIC_` or `VITE_`.\n- Dependency audit, gated on new vulnerable dependencies, with dated waivers for the backlog.\n- Committed-data hygiene — fails on a real email, a national-ID-shaped number, or a dialable\n  Iraqi mobile in any fixture, seed or intake pack.\n- Web hardening lock (CSP with a per-request nonce, HSTS, `frame-ancestors`) and an Electron\n  hardening lock.\n- RPC registry and authorization coverage against the RLS matrix.\n- Migration safety — destructive or lock-taking DDL in changed migrations, and a mandatory\n  `lock_timeout` preamble.\n- A clean local Supabase run on every PR: migrations from scratch, RLS, lock-order and\n  concurrency tests.\n- Nightly schema-drift check against the hosted project (02:00 Asia/Baghdad).\n- Weekly grouped Dependabot updates.\n\nThe reasoning behind each of these lives in `docs/security/`.\n\n---",
       "route": null
     }
   ]
