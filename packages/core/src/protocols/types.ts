@@ -43,9 +43,10 @@ export const PRICE_CHANGE_KINDS = [
 export type PriceChangeKind = (typeof PRICE_CHANGE_KINDS)[number];
 
 /**
- * `staff_media_uploads.folder`: where a slot's photo is filed. The last three
- * are the role spec's (staff_media_folders, contracts §2.24.2): checklist
- * ticks, teachings and requests to marketing.
+ * `staff_media_uploads.folder`: where a slot's photo is filed. Checklists,
+ * teachings and requests are the role spec's (staff_media_folders, contracts
+ * §2.24.2): checklist ticks, teachings and requests to marketing. Incidents is
+ * wave 5's (staff_media_incidents, wave5-addendum §2.4): incident reports.
  */
 export const PHOTO_FOLDERS = [
   'proposals',
@@ -57,6 +58,7 @@ export const PHOTO_FOLDERS = [
   'checklists',
   'teachings',
   'requests',
+  'incidents',
 ] as const;
 export type PhotoFolder = (typeof PHOTO_FOLDERS)[number];
 

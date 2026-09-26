@@ -25,9 +25,9 @@
  */
 import { mapPgError, type PgError } from '../_shared/http.ts';
 
-/** A staff-media path (0159, the nine folders of staff_media_folders). */
+/** A staff-media path (0159, the ten folders of staff_media_incidents). */
 export const STAFF_MEDIA_PATH_RE =
-  /^[0-9a-f-]{36}\/(proposals|tests|steps|marketing|campaigns|receipts|checklists|teachings|requests)\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
+  /^[0-9a-f-]{36}\/(proposals|tests|steps|marketing|campaigns|receipts|checklists|teachings|requests|incidents)\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

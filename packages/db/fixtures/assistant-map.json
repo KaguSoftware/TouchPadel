@@ -1,5 +1,5 @@
 {
-  "generated_from": "0d0ffcdb474e02013b2e118e16fa2e7f59ff95db",
+  "generated_from": "799cd342382e4adc49837788f4ee55566e440dd5",
   "chunks": [
     {
       "kind": "page",
@@ -2454,7 +2454,7 @@
       "ref": "action:app.is_staff_media_path",
       "lang": "en",
       "title": "app.is_staff_media_path",
-      "body": "staff_media_bucket (§2.3), re-issued by staff_media_folders (§2.24.2). True when a storage object name is a staff-media path, <venue_id>/<folder>/<uuid>.<jpg|png|webp> with one of the nine folders; false for anything else, NULL included. Pure text, never raises. Granted to anon, authenticated and service_role because the staff-media storage policies evaluate it as the reading role.\nSignature: app.is_staff_media_path(p_name text) returns boolean.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0170 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "staff_media_bucket (§2.3), re-issued by staff_media_folders (§2.24.2) and staff_media_incidents (wave5-addendum §2.4). True when a storage object name is a staff-media path, <venue_id>/<folder>/<uuid>.<jpg|png|webp> with one of the ten folders; false for anything else, NULL included. Pure text, never raises. Granted to anon, authenticated and service_role because the staff-media storage policies evaluate it as the reading role.\nSignature: app.is_staff_media_path(p_name text) returns boolean.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0196 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3406,7 +3406,7 @@
       "ref": "action:app.staff_media_folder",
       "lang": "en",
       "title": "app.staff_media_folder",
-      "body": "staff_media_bucket (§2.3). The folder of a staff-media path (proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings or requests); NULL for a name that is not a staff-media path. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_folder(p_name text) returns text.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "staff_media_bucket (§2.3). The folder of a staff-media path (proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings, requests or incidents); NULL for a name that is not a staff-media path. Policy-evaluated, hence the anon grant.\nSignature: app.staff_media_folder(p_name text) returns text.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0159 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3414,7 +3414,7 @@
       "ref": "action:app.staff_media_slot",
       "lang": "en",
       "title": "app.staff_media_slot",
-      "body": "staff_media_bucket (§2.3), re-issued by staff_media_folders (§2.24.2). Any active staff member at the venue: mints an upload slot in one of the nine folders and returns {path, bucket: staff-media, expires_at}. The client uploads to exactly that path within the hour, then passes it to the recording RPC. INVALID_ARGUMENT (hint folder or ext); UPLOAD_LIMIT past 30 unused slots in the last hour.\nSignature: app.staff_media_slot(p_venue_id uuid, p_folder text, p_ext text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, UPLOAD_LIMIT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0170 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "staff_media_bucket (§2.3), re-issued by staff_media_folders (§2.24.2) and staff_media_incidents (wave5-addendum §2.4). Any active staff member at the venue: mints an upload slot in one of the ten folders and returns {path, bucket: staff-media, expires_at}. The client uploads to exactly that path within the hour, then passes it to the recording RPC. INVALID_ARGUMENT (hint folder or ext); UPLOAD_LIMIT past 30 unused slots in the last hour.\nSignature: app.staff_media_slot(p_venue_id uuid, p_folder text, p_ext text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT, UPLOAD_LIMIT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0196 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3430,7 +3430,7 @@
       "ref": "action:app.staff_media_visible",
       "lang": "en",
       "title": "app.staff_media_visible",
-      "body": "protocols_engine_rpcs (§2.3, §2.7 \"Visibility\"), re-issued by staff_media_folders (§2.24.2). True when the caller may read a staff-media photo: its uploader and MGMT at its venue always; a protocol submission's photo also its step's sender and, on a step whose record is run-visible, anyone involved in the run; a marketing note's photo also marketing at the venue; an idea's photo also the holders of the idea's team head role at its venue; a checklist tick's photo also the holders of the list's role at its venue; a teaching's photo also its team at its venue while it is not archived; a request to marketing's photo also marketing at its venue; nothing else to anyone else. False for a guest, another venue and any name that is not a staff-media path; never raises. The staff_media_read storage policy evaluates it as the reading role, hence the authenticated grant.\nSignature: app.staff_media_visible(p_name text) returns boolean.\nGranted to: authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0170 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "protocols_engine_rpcs (§2.3, §2.7 \"Visibility\"), re-issued by staff_media_folders (§2.24.2) and staff_media_incidents (wave5-addendum §2.4). True when the caller may read a staff-media photo: a marketing content item's image only its uploader, and marketing and the owners at its venue (never a manager); any other photo its uploader and MGMT at its venue always; a protocol submission's photo also its step's sender and, on a step whose record is run-visible, anyone involved in the run; a marketing note's photo also marketing at the venue; an idea's photo also the holders of the idea's team head role at its venue; a checklist tick's photo also the holders of the list's role at its venue; a teaching's photo also its team at its venue while it is not archived; a request to marketing's photo also marketing at its venue; an incident's photo and anything else nobody else. False for a guest, another venue and any name that is not a staff-media path; never raises. The staff_media_read storage policy evaluates it as the reading role, hence the authenticated grant.\nSignature: app.staff_media_visible(p_name text) returns boolean.\nGranted to: authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0196 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4486,7 +4486,7 @@
       "ref": "table:staff_media_uploads",
       "lang": "en",
       "title": "table staff_media_uploads",
-      "body": "staff_media_bucket (§2.3): upload slots for work photos. staff_media_slot mints the path; the staff-media storage INSERT policy admits only an unused slot of the uploader from the last hour; app.claim_staff_media marks it used by the record that names it. Bookkeeping no screen reads; excluded from the owner assistant.\nCreated in migration 0159.\nColumns:\n  path text primary key — The storage object name in bucket staff-media: <venue_id>/<folder>/<uuid>.<jpg|png|webp>.\n  venue_id uuid not null references venues(id) — The venue the photo belongs to; also the path's first segment. Readers are staff at this venue.\n  folder text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts')) — What the photo is for: proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings or requests (receipts are read by their uploader and management only).\n  uploader uuid not null references staff(id) — The staff member the slot was minted for; only they may upload to it.\n  created_at timestamptz not null default now() — When the slot was minted. The upload must happen within an hour of it.\n  used_at timestamptz — When a record first claimed the path (app.claim_staff_media); NULL = not claimed yet.\n  used_by text — The record that claims the path, as <kind>:<id> (for example protocol_submission:<uuid>); NULL = not claimed yet.",
+      "body": "staff_media_bucket (§2.3): upload slots for work photos. staff_media_slot mints the path; the staff-media storage INSERT policy admits only an unused slot of the uploader from the last hour; app.claim_staff_media marks it used by the record that names it. Bookkeeping no screen reads; excluded from the owner assistant.\nCreated in migration 0159.\nColumns:\n  path text primary key — The storage object name in bucket staff-media: <venue_id>/<folder>/<uuid>.<jpg|png|webp>.\n  venue_id uuid not null references venues(id) — The venue the photo belongs to; also the path's first segment. Readers are staff at this venue.\n  folder text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts')) — What the photo is for: proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings, requests or incidents (receipts and incidents are read by their uploader and management only).\n  uploader uuid not null references staff(id) — The staff member the slot was minted for; only they may upload to it.\n  created_at timestamptz not null default now() — When the slot was minted. The upload must happen within an hour of it.\n  used_at timestamptz — When a record first claimed the path (app.claim_staff_media); NULL = not claimed yet.\n  used_by text — The record that claims the path, as <kind>:<id> (for example protocol_submission:<uuid>); NULL = not claimed yet.",
       "route": null
     },
     {
@@ -7982,7 +7982,7 @@
       "ref": "column:staff_media_uploads.folder",
       "lang": "en",
       "title": "staff_media_uploads.folder",
-      "body": "text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts'))\nWhat the photo is for: proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings or requests (receipts are read by their uploader and management only).",
+      "body": "text not null check (folder in ('proposals','tests','steps','marketing','campaigns','receipts'))\nWhat the photo is for: proposals, tests, steps, marketing, campaigns, receipts, checklists, teachings, requests or incidents (receipts and incidents are read by their uploader and management only).",
       "route": null
     },
     {
