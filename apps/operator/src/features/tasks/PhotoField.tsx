@@ -32,11 +32,16 @@ export class PhotoRejected extends Error {
 }
 
 /** Mint a slot, upload the file to it, and return the path the server will claim. */
-export async function uploadStaffPhoto(folder: PhotoFolder, file: File): Promise<string> {
+export async function uploadStaffPhoto(
+  folder: PhotoFolder,
+  file: File,
+  // The /protocols sheet's size (features/protocols/PhotoField.tsx) by default,
+  // so a photo reads the same whichever screen sent it. A scanned receipt asks
+  // for more: handwriting needs the pixels (receipts/ReceiptsPanel.tsx).
+  size: { maxPx: number; maxBytes: number } = { maxPx: 1600, maxBytes: 900_000 },
+): Promise<string> {
   if (!TYPES.has(file.type)) throw new PhotoRejected('type');
-  // The /protocols sheet's size (features/protocols/PhotoField.tsx), so a
-  // photo reads the same whichever screen sent it.
-  const webp = await compressToWebp(file, { maxPx: 1600, maxBytes: 900_000 }).catch(() => {
+  const webp = await compressToWebp(file, size).catch(() => {
     throw new PhotoRejected('type');
   });
   if (webp.size > MAX_BYTES) throw new PhotoRejected('size');

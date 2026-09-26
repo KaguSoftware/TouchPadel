@@ -48,7 +48,9 @@ export type PhotoFolder =
   | 'checklists'
   | 'teachings'
   | 'requests'
-  | 'incidents';
+  | 'incidents'
+  // order_slip_tables (0238): a waiter's order slip.
+  | 'slips';
 export type PhotoSource = 'camera' | 'library';
 
 export interface PickedPhoto {

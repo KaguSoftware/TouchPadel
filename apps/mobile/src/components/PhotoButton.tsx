@@ -58,6 +58,12 @@ export interface PhotoButtonProps {
   /** The step's photos_max (§7.2); the add tile hides at the limit. */
   max?: number;
   disabled?: boolean;
+  /**
+   * 'camera' opens the camera straight away (a scanned receipt or order slip,
+   * Phase 2 Milestone 4b), with a link under the tile to pick a saved photo
+   * instead. Unset, the tile asks which, as before.
+   */
+  source?: PhotoSource;
 }
 
 const TILE = 72;
@@ -108,15 +114,16 @@ export function PhotoButton({
   onChange,
   max = 6,
   disabled,
+  source: firstSource,
 }: PhotoButtonProps) {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem>(null);
 
-  const add = async () => {
+  const add = async (forced?: PhotoSource) => {
     setProblem(null);
-    const source = await chooseSource(t);
+    const source = forced ?? firstSource ?? (await chooseSource(t));
     if (!source) return;
     setBusy(true);
     try {
@@ -215,6 +222,14 @@ export function PhotoButton({
           </Pressable>
         )}
       </View>
+      {firstSource === 'camera' && !full ? (
+        <LinkText
+          testID={`${testID}.library`}
+          label={t('staff.media.library')}
+          onPress={() => void add('library')}
+          style={{ marginTop: space.xs }}
+        />
+      ) : null}
       {photos.length > 0 ? (
         <Text
           style={{

@@ -80,6 +80,9 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'staff-production.tsx', route: 'staff-production', primary: 'staff-production.record' },
   { file: 'staff-shopping.tsx', route: 'staff-shopping', primary: 'staff-shopping.add' },
   { file: 'staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
+  // Phase 2 Milestone 4b: the camera pages.
+  { file: 'staff-order-slip.tsx', route: 'staff-order-slip', primary: 'staff-order-slip.send' },
+  { file: 'staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
   { file: 'staff-marketing.tsx', route: 'staff-marketing', primary: 'staff-marketing.tab.take' },
   { file: 'staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },
   // Role spec (plan #61–#74).

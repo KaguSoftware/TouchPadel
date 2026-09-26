@@ -101,8 +101,10 @@ export function useFloorLive(enabled: boolean): FloorStatus {
         }
       }
       const mine = entryFor(topic, token);
-      const invalidate = () =>
+      const invalidate = () => {
         void queryClient.invalidateQueries({ queryKey: staffKeys.callsRoot });
+        void queryClient.invalidateQueries({ queryKey: staffKeys.slipsRoot });
+      };
       mine.onEvent.add(invalidate);
       mine.onStatus.add(setLocal);
       mine.consumers += 1;
@@ -141,6 +143,10 @@ function entryFor(topic: string, token: string): SharedFloor {
     created.channel = supabase
       .channel(topic, { config: { private: true } })
       .on('broadcast', { event: 'waiter_call' }, () => {
+        for (const cb of created.onEvent) cb();
+      })
+      // Phase 2 Milestone 4b (0238): a scanned order slip read, sent or set aside.
+      .on('broadcast', { event: 'order_slip' }, () => {
         for (const cb of created.onEvent) cb();
       })
       .subscribe((state) => {

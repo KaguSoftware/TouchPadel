@@ -20,7 +20,9 @@ export type EdgeFunctionName =
   | 'assistant-job'
   | 'assistant-component'
   // The owner's Launch of a new item (build-contracts-2026-09-23 §2.20, §5.3).
-  | 'protocol-action';
+  | 'protocol-action'
+  // Goods in's scanned receipts (0237): reads one with the connected model.
+  | 'receipt-scan';
 
 export type EdgeErrorCode =
   'NOT_CONFIGURED' | 'FORBIDDEN' | 'AUTH_REQUIRED' | 'UPSTREAM' | 'RATE_LIMITED' | 'UNKNOWN';

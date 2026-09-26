@@ -237,6 +237,14 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'SHOPPING_ITEM_NOT_OPEN',
   'PURCHASE_NOT_FOUND',
   'PURCHASE_ALREADY_RECEIVED',
+  // 0237: Goods in's scanned receipts.
+  'RECEIPT_NOT_FOUND',
+  'RECEIPT_ALREADY_DONE',
+  'RECEIPT_BUSY',
+  // 0239: the till's scanned orders.
+  'SLIP_NOT_FOUND',
+  'SLIP_ALREADY_DONE',
+  'SLIP_BUSY',
   'SHOPPING_LABEL_REQUIRED',
   'CAMPAIGN_DRAFT_LOCKED',
   'BLOCK_RANGE_INVALID',

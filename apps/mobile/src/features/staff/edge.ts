@@ -14,7 +14,8 @@
 import type { MessageKey } from '@touch/i18n';
 import { mapErrorToKey, rpcErrorCode } from '../booking/errors';
 
-export type StaffEdgeFunction = 'protocol-action' | 'staff-admin';
+// receipt-scan (Phase 2 Milestone 4b): reads a scanned receipt or order slip.
+export type StaffEdgeFunction = 'protocol-action' | 'staff-admin' | 'receipt-scan';
 
 /** A refused edge call. `code` is the body's `error`, when it had one. */
 export class StaffEdgeError extends Error {

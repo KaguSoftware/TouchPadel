@@ -2,7 +2,9 @@
  * Item sheet (spec ModifierPicker + NumericKeypad-lite): size, modifier
  * groups with each delta shown, quantity and a note. Opens for items that need
  * a choice, and on right-click / long-press for quick-add items that want a
- * note. Esc and click-outside close it (Modal).
+ * note. Esc and click-outside close it (Modal). A scanned order slip's line
+ * (slips/SlipReview.tsx) opens it with the line's own size, quantity, note and
+ * options (`initial`) and its own button label.
  */
 import { useState, type CSSProperties } from 'react';
 import { formatIQD } from '@touch/i18n';
@@ -43,29 +45,40 @@ export function ItemSheet({
   modifiers,
   onClose,
   onAdd,
+  initial,
+  addLabel,
 }: {
   item: ItemRow;
   groups: ModifierGroupRow[];
   modifiers: ModifierRow[];
   onClose: () => void;
   onAdd: (line: BasketLine) => void;
+  /** Start from an existing line rather than the default size, 1, no note and no options. */
+  initial?: Pick<BasketLine, 'variantId' | 'qty' | 'notes' | 'modifiers'>;
+  /** The primary button, "Add to basket" unless the caller says otherwise. */
+  addLabel?: string;
 }) {
   const { tr, locale } = useLocale();
   const variants = [...item.menu_item_variants].sort((a, b) => a.sort_order - b.sort_order);
   const [variantId, setVariantId] = useState<string>(
-    (variants.find((v) => v.is_default) ?? variants[0])?.id ?? '',
+    (initial && variants.some((v) => v.id === initial.variantId) ? initial.variantId : undefined) ??
+      (variants.find((v) => v.is_default) ?? variants[0])?.id ??
+      '',
   );
   // The field's text, so the cashier can clear it completely; empty reads as 0
   // (the faded 0 says so) and Add waits for a quantity.
-  const [qtyText, setQtyText] = useState('1');
+  const [qtyText, setQtyText] = useState(String(initial?.qty ?? 1));
   const [qtyFocused, setQtyFocused] = useState(false);
   // The drawn caret steps aside while the digits are selected (focus selects them).
   const [qtySelected, setQtySelected] = useState(false);
   const showQtyCaret = qtyFocused && !qtySelected;
   const qty = qtyText === '' ? 0 : Math.max(1, Math.min(99, Number(qtyText) || 1));
   const setQty = (next: (q: number) => number) => setQtyText(String(next(qty)));
-  const [notes, setNotes] = useState('');
-  const [chosen, setChosen] = useState<Map<string, number>>(new Map()); // modifier id -> qty
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  // modifier id -> qty
+  const [chosen, setChosen] = useState<Map<string, number>>(
+    () => new Map((initial?.modifiers ?? []).map((m) => [m.modifierId, m.qty])),
+  );
 
   const linkedGroups = item.menu_item_modifier_groups
     .map((l) => groups.find((g) => g.id === l.group_id))
@@ -141,7 +154,7 @@ export function ItemSheet({
             }
             onClick={add}
           >
-            {tr('op.till.addToBasket')}
+            {addLabel ?? tr('op.till.addToBasket')}
           </Button>
         </div>
       )}

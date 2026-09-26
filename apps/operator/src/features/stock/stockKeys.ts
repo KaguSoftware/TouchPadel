@@ -28,6 +28,9 @@ export const SK = {
   /** The last finished count of one store (the Counts tab's "Last count"). */
   lastCountAt: (location: StockLocation) => ['stock', 'lastCount', location] as const,
   counts: ['stock', 'counts'] as const,
+  /** Goods in's scanned receipts still to check (0237), and one of them. */
+  receipts: ['stock', 'receipts'] as const,
+  receipt: (id: string) => ['stock', 'receipts', id] as const,
   variance: (countId: string) => ['stock', 'variance', countId] as const,
   margins: ['stock', 'margins'] as const,
   alerts: ['stock', 'alerts'] as const,

@@ -56,6 +56,8 @@ import { findByBarcode, orderSections, shopVariantIds, splitBasket } from './bas
 import { localIsoDate, deriveTileState, tileInteractive } from './tileState';
 import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, tabAnchorLabel, type BasketLine, type ItemRow } from './tillData';
 import type { TillSearch } from './tillSearch';
+import { ScannedSlipsPanel } from './slips/ScannedSlipsPanel';
+import { SLIPS_KEY } from './slips/SlipReview';
 import { BASKET_BLOCK_SIZE, muted } from './tillStyles';
 
 export function TillScreen() {
@@ -113,13 +115,27 @@ export function TillScreen() {
   }, []);
 
   useBroadcast({ topic: 'menu', isPrivate: false, events: ['menu_changed'], invalidateKeys: [['menu']] });
+  // Scanned order slips (0238) ride the same topic; each new slip chimes once,
+  // however many states (uploaded, reading, read) it passes through.
+  const chimedSlips = useRef(new Set<string>());
   const { status: floorStatus } = useBroadcast({
     topic: 'floor',
     isPrivate: true,
-    events: ['waiter_call'],
-    invalidateKeys: [['tabs'], ['waiterCalls']],
+    events: ['waiter_call', 'order_slip'],
+    invalidateKeys: [['tabs'], ['waiterCalls'], [...SLIPS_KEY]],
     // chime() is a no-op until audio is armed (StartShiftBanner / Electron autoplay policy).
-    onEvent: (_e, p) => (p as { status?: string } | null)?.status === 'raised' && chime('call'),
+    onEvent: (e, p) => {
+      const payload = p as { status?: string; slip_id?: string } | null;
+      if (e === 'waiter_call') {
+        if (payload?.status === 'raised') chime('call');
+        return;
+      }
+      if (e === 'order_slip' && payload?.slip_id && !chimedSlips.current.has(payload.slip_id)
+          && (payload.status === 'uploaded' || payload.status === 'read')) {
+        chimedSlips.current.add(payload.slip_id);
+        chime('call');
+      }
+    },
   });
 
   // Touch Shop sections (0144) follow the café ones, so keys 1–9 keep their places.
@@ -591,6 +607,7 @@ export function TillScreen() {
         </span>
         <aside style={{ gridColumn: 2, gridRow: 2, minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)' }}>
           <WaiterCallsPanel status={floorStatus} />
+          <ScannedSlipsPanel />
           {/* Wave 5 (§5.1): the till shift's start panel while none is open, else the sound strip. */}
           <TillShiftPanel fallback={<StartShiftBanner />} />
           <OtherTabsList tabs={others} onPick={(id) => void selectTab(id)} />
@@ -605,6 +622,7 @@ export function TillScreen() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', blockSize: '100%', minBlockSize: 0 }}>
       <TillShiftPanel fallback={<StartShiftBanner />} />
       <WaiterCallsPanel status={floorStatus} layout="strip" />
+      <ScannedSlipsPanel layout="strip" />
       <div
         style={{
           display: 'grid',

@@ -15,6 +15,7 @@ import {
   CardIcon,
   CheckIcon,
   ChevronIcon,
+  CameraIcon,
   ClipboardIcon,
   ClockIcon,
   DeductionIcon,
@@ -25,6 +26,7 @@ import {
   PencilIcon,
   PhoneIcon,
   PlusSquareIcon,
+  ReceiptIcon,
   RoofIcon,
   SearchIcon,
   SlidersIcon,
@@ -102,6 +104,9 @@ const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
   'stock-log': PlusSquareIcon,
   'stock-move': SwapIcon,
   'stock-count': ClipboardIcon,
+  // Phase 2 Milestone 4b: the camera pages.
+  'order-slip': CameraIcon,
+  receipt: ReceiptIcon,
 };
 
 /**
@@ -113,7 +118,8 @@ const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
 const ROW_GROUPS = [
   // Wave 5, lane R (§2.1.8): a waiter's guest calls come first, above the
   // protocols: the `waiter_call_new` push lands on Today.
-  { key: 'floor', titleKey: 'staff.calls.group', ids: ['calls'] },
+  // Phase 2 Milestone 4b: scanning a waiter's order slip is floor work too.
+  { key: 'floor', titleKey: 'staff.calls.group', ids: ['calls', 'order-slip'] },
   { key: 'protocols', titleKey: 'staff.shell.today.groups.protocols', ids: ['protocols', 'start', 'ideas', 'notes'] },
   { key: 'daily', titleKey: 'staff.shell.today.groups.daily', ids: null },
   // Wave 5, lane P: a deduction is proposed about someone, like a request (§5.3).

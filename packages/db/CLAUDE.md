@@ -17,13 +17,13 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0235`
-  (`20260926000235_my_reservations_venue.sql`; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0239`
+  (`20260926000239_order_slip_rpcs.sql`; 0236–0239 scanned paper, Milestone 4b; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0236`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0240`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -204,6 +204,12 @@ is a line in that file.
 - LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5` unless Parsa names another, meters
   spend through `app.llm_record_usage` (0079, 0111), puts no guest identity in a prompt (SEC-29) and
   never computes a number the page did not already have.
+- **Scanned paper (0236–0239) is the exception on the model:** `receipt-scan` reads supplier
+  receipts and waiters' order slips through ONE vendor-free adapter,
+  `_shared/receipts/connect.ts`, the only file that may name a vendor, its key or its host
+  (`tests/receipt-scan.test.ts` enforces it). `RECEIPT_READER=fake` is the stand-in for local, CI
+  and e2e. The model never writes stock or an order: a person confirms (`confirm_receipt`,
+  `send_order_slip`).
 - Secrets come from `supabase secrets set`, never the repo or `config.toml`. `supabase`, `eas` and
   `expo` run from their package directory, never the repo root.
 - **Never run `supabase config push`.** `config.toml` describes the LOCAL stack; hosted auth is

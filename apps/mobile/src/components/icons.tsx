@@ -160,6 +160,15 @@ export const WarningIcon = (p: IconProps) => (
 export const ImageIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 5h16v14H4V5zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9h.01']} {...p} />
 );
+// Phase 2 Milestone 4b: the camera pages' Today rows.
+/** Scan an order: a camera. */
+export const CameraIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 7.5h3.5L9 5h6l1.5 2.5H20V19H4V7.5zM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6z']} {...p} />
+);
+/** Scan a receipt: a paper slip with a torn foot and two lines. */
+export const ReceiptIcon = (p: IconProps) => (
+  <StrokeIcon d={['M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3zM9 8h6M9 12h6M9 16h3']} {...p} />
+);
 /** Add to stock: a square with a plus. */
 export const PlusSquareIcon = (p: IconProps) => (
   <StrokeIcon d={['M4.5 4.5h15v15h-15v-15zM12 8.5v7M8.5 12h7']} {...p} />

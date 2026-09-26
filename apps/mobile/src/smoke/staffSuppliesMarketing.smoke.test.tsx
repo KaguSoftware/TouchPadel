@@ -24,6 +24,8 @@ import StaffShopping from '../../app/staff-shopping';
 import StaffPurchase from '../../app/staff-purchase';
 import StaffMarketing from '../../app/staff-marketing';
 import StaffMarketingRequests from '../../app/staff-marketing-requests';
+import StaffOrderSlip from '../../app/staff-order-slip';
+import StaffReceipt from '../../app/staff-receipt';
 
 const V = TEST_VENUE_ID;
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -128,6 +130,33 @@ runSmokeCases('staff supplies and marketing', [
     options: {
       staff: { role: 'barista' },
       queryData: [[staffKeys.myMarketingRequests(V), { requests: [] }]],
+    },
+  },
+  // Phase 2 Milestone 4b: the camera pages, each with a row in its log.
+  {
+    route: 'staff-order-slip',
+    Component: StaffOrderSlip,
+    labelKey: 'staff.scan.slip.send',
+    options: {
+      staff: { role: 'waiter' },
+      queryData: [
+        [staffKeys.myOrderSlips(V), [
+          { id: ID(50), status: 'sent', created_at: '2026-09-26T10:00:00Z', table_number: 'T5', line_count: 3, rejected_reason: null },
+        ]],
+      ],
+    },
+  },
+  {
+    route: 'staff-receipt',
+    Component: StaffReceipt,
+    labelKey: 'staff.scan.receipt.send',
+    options: {
+      staff: { role: 'driver' },
+      queryData: [
+        [staffKeys.myReceipts(V), [
+          { id: ID(51), status: 'read', created_at: '2026-09-26T10:00:00Z', supplier_name_read: 'Al Rafidain', total_iqd_read: 58000, rejected_reason: null },
+        ]],
+      ],
     },
   },
 ]);

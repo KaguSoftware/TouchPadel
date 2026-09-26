@@ -138,6 +138,11 @@ export const staffKeys = {
   // live `floor` channel invalidates.
   callsRoot: ['staff', 'calls'] as const,
   calls: (venue: string) => ['staff', 'calls', venue] as const,
+  // Phase 2 Milestone 4b: the phone's own scanned paper. `slipsRoot` is what
+  // the live `floor` channel invalidates when a slip is sent or set aside.
+  slipsRoot: ['staff', 'orderSlips'] as const,
+  myOrderSlips: (venue: string) => ['staff', 'orderSlips', venue] as const,
+  myReceipts: (venue: string) => ['staff', 'receipts', venue] as const,
   /** The prefix src/lib/queryClient.ts sets the staff write defaults on. */
   mutationRoot: ['staff', 'mutation'] as const,
   mutation: (name: StaffMutationName) => ['staff', 'mutation', name] as const,

@@ -32,6 +32,9 @@ import { staffStoresAr } from './stores.ar';
 // Wave 5, lane R (§2.1.8): the waiter's guest calls.
 import { staffCallsEn } from './calls.en';
 import { staffCallsAr } from './calls.ar';
+// Phase 2 Milestone 4b: the camera pages (order slips, supplier receipts).
+import { staffScanEn } from './scan.en';
+import { staffScanAr } from './scan.ar';
 
 export const staffEn = {
   shell: staffShellEn,
@@ -46,6 +49,7 @@ export const staffEn = {
   content: staffContentEn,
   stores: staffStoresEn,
   calls: staffCallsEn,
+  scan: staffScanEn,
 } as const;
 
 export const staffAr = {
@@ -61,4 +65,5 @@ export const staffAr = {
   content: staffContentAr,
   stores: staffStoresAr,
   calls: staffCallsAr,
+  scan: staffScanAr,
 } as const;
