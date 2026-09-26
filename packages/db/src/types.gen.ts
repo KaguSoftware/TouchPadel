@@ -892,6 +892,16 @@ export type Database = {
         Returns: undefined
       }
       consume_pin_grant: { Args: { p_device_id?: string }; Returns: string }
+      content_detail: { Args: { p_id: string }; Returns: Json }
+      content_page: {
+        Args: {
+          p_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       court_fee_paid: {
         Args: { p_exclude_tab_id?: string; p_reservation_id: string }
         Returns: number
@@ -954,6 +964,15 @@ export type Database = {
       customer_search: {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
+      }
+      decide_content: {
+        Args: {
+          p_decision: string
+          p_id: string
+          p_note?: string
+          p_version: number
+        }
+        Returns: Json
       }
       decide_deduction: {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
@@ -2077,6 +2096,20 @@ export type Database = {
       retire_device: { Args: { p_device_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
       review_incident: { Args: { p_id: string; p_note: string }; Returns: Json }
+      revise_content: {
+        Args: {
+          p_body: string
+          p_channel?: string
+          p_id: string
+          p_idempotency_key?: string
+          p_images?: string[]
+          p_media_link?: string
+          p_note?: string
+          p_planned_for?: string
+          p_title?: string
+        }
+        Returns: Json
+      }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
       rotate_table_token_secret: { Args: never; Returns: Json }
@@ -2466,6 +2499,22 @@ export type Database = {
       }
       stop_protocol: {
         Args: { p_note: string; p_run_id: string }
+        Returns: Json
+      }
+      submit_content: {
+        Args: {
+          p_body: string
+          p_campaign_id?: string
+          p_channel: string
+          p_idempotency_key?: string
+          p_images?: string[]
+          p_media_link?: string
+          p_menu_item_id?: string
+          p_note?: string
+          p_planned_for: string
+          p_title: string
+          p_venue_id?: string
+        }
         Returns: Json
       }
       submit_incident: {
@@ -2942,6 +2991,7 @@ export type Database = {
         }
         Returns: Json
       }
+      withdraw_content: { Args: { p_id: string }; Returns: Json }
       withdraw_deduction: { Args: { p_id: string }; Returns: Json }
       withdraw_marketing_request: { Args: { p_id: string }; Returns: Json }
       withdraw_protocol: { Args: { p_run_id: string }; Returns: Json }
@@ -4914,6 +4964,166 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_content: {
+        Row: {
+          author_id: string
+          campaign_id: string | null
+          channel: string
+          created_at: string
+          current_version: number
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          menu_item_id: string | null
+          planned_for: string
+          status: string
+          title: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          author_id: string
+          campaign_id?: string | null
+          channel: string
+          created_at?: string
+          current_version?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          menu_item_id?: string | null
+          planned_for: string
+          status?: string
+          title: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          author_id?: string
+          campaign_id?: string | null
+          channel?: string
+          created_at?: string
+          current_version?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          menu_item_id?: string | null
+          planned_for?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_content_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_content_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_content_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_content_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_content_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_content_versions: {
+        Row: {
+          body: string
+          content_id: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          decision_note: string | null
+          id: string
+          images: string[]
+          media_link: string | null
+          note: string | null
+          submitted_at: string
+          submitted_by: string
+          superseded_at: string | null
+          version: number
+        }
+        Insert: {
+          body: string
+          content_id: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          decision_note?: string | null
+          id?: string
+          images?: string[]
+          media_link?: string | null
+          note?: string | null
+          submitted_at?: string
+          submitted_by: string
+          superseded_at?: string | null
+          version: number
+        }
+        Update: {
+          body?: string
+          content_id?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          decision_note?: string | null
+          id?: string
+          images?: string[]
+          media_link?: string | null
+          note?: string | null
+          submitted_at?: string
+          submitted_by?: string
+          superseded_at?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_content_versions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_content_versions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_content_versions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
         ]

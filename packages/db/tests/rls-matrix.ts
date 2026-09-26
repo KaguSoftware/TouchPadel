@@ -3712,6 +3712,78 @@ export const matrix: MatrixRule[] = [
     note: 'MGMT at the venue; an unknown filter fails INVALID_ARGUMENT past the guard',
     drop: 18,
   },
+  // marketing_content (§2.7). The two tables are the owners' alone (V4), so a
+  // manager gets silence like everyone else; marketing is not among the eight
+  // principals (marketing-content.test.ts).
+  {
+    kind: 'select',
+    name: 'marketing_content',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note: 'the owners at the venue only (V4, §8 Q14); no content row is seeded, so the owner sees none here either. tests/marketing-content.test.ts proves the owner read and the manager silence against a real item',
+    drop: 18,
+  },
+  {
+    kind: 'select',
+    name: 'marketing_content_versions',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied' }),
+    note: 'the owners at the venue only (V4), through the parent row; never a manager',
+    drop: 18,
+  },
+  {
+    kind: 'write',
+    name: 'marketing_content',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: submit_content, revise_content, withdraw_content and decide_content only',
+    drop: 18,
+  },
+  {
+    kind: 'write',
+    name: 'marketing_content_versions',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: versions are written by submit_content, revise_content and decide_content',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'submit_content',
+    args: { p_title: '', p_channel: 'instagram', p_planned_for: DAY_FROM, p_body: '', p_venue_id: VENUE_A },
+    expect: ex<RpcExpectation>('guarded', { anon: 'denied' }),
+    note: 'marketing at the venue only; every principal here, the manager and the owner included, is refused',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'revise_content',
+    args: { p_id: NIL_UUID, p_body: 'matrix' }, expect: STAFF_ANY,
+    note: 'any active staff member; then marketing at the item\'s venue. An unknown item is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'withdraw_content',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then marketing at the item\'s venue. An unknown item is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'decide_content',
+    args: { p_id: NIL_UUID, p_version: 1, p_decision: 'approve' }, expect: STAFF_ANY,
+    note: 'any active staff member; then the owner. An unknown item is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'content_page',
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: OWNER_ONLY,
+    note: 'marketing (not in this matrix) and the owners at the venue, never a manager (§8 Q14); an unknown filter fails INVALID_ARGUMENT past the guard',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'content_detail',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then marketing or the owner at the item\'s venue. An unknown item is REF_NOT_FOUND',
+    drop: 18,
+  },
   // ── wave 5, lane R: the waiter answers guests' calls (wave5-addendum-2026-09-25
   // §2.1.8, §8 Q3). assistant_barista_waiter_access adds the waiter to the
   // waiter_calls read and to both call RPCs, and gives the RPCs a venue

@@ -311,6 +311,12 @@
     "review_incident",
     "redact_incident",
     "my_incidents",
-    "incidents_page"
+    "incidents_page",
+    "submit_content",
+    "revise_content",
+    "withdraw_content",
+    "decide_content",
+    "content_page",
+    "content_detail"
   ]
 }

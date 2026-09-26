@@ -111,7 +111,9 @@
     "venues": "table_read",
     "waiter_calls": "table_read",
     "salary_deductions": "excluded: staff pay deductions, money about a named person; never readable by the owner assistant or any LLM",
-    "incident_reports": "excluded: incident reports may name guests and describe injuries; never sent to the owner assistant or any LLM; purged 365 days after the report"
+    "incident_reports": "excluded: incident reports may name guests and describe injuries; never sent to the owner assistant or any LLM; purged 365 days after the report",
+    "marketing_content": "table_read",
+    "marketing_content_versions": "excluded: unpublished captions and images waiting for the owner; read on /marketing"
   },
   "views": {
     "cafe_settings_public": "table_read",
@@ -718,7 +720,13 @@
     "incident_photo_purge_due": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "incident_photos_purged": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "staff_media_orphan_purge_due": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
-    "staff_media_orphans_purged": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
+    "staff_media_orphans_purged": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "submit_content": "map:action",
+    "revise_content": "map:action",
+    "withdraw_content": "map:action",
+    "decide_content": "map:action",
+    "content_page": "map:action",
+    "content_detail": "map:action"
   },
   "routes": {
     "/admin": "map:page",

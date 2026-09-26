@@ -1,5 +1,5 @@
 {
-  "generated_from": "4f67820013cc25fdc9b5ebfa0c413ac0fda60ce5",
+  "generated_from": "ba7a7251d145145889cd01053fdc7a899a1526db",
   "chunks": [
     {
       "kind": "page",
@@ -2203,6 +2203,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.content_detail",
+      "lang": "en",
+      "title": "app.content_detail",
+      "body": "marketing_content (wave5-addendum §2.7.2). Marketing and the owners at the item's venue: {content: {id, title, channel, planned_for, status, current_version, author_name, menu_item_id, item_name_en, item_name_ar, campaign_id, campaign_name_en, campaign_name_ar, decided_by_name, decided_at, created_at, updated_at}, versions: [{version, body, images, media_link, note, submitted_by_name, submitted_at, superseded_at, decision, decided_by_name, decided_at, decision_note}] newest first, can_decide, can_revise, can_withdraw}. Never a manager (§8 Q14). REF_NOT_FOUND, FORBIDDEN.\nSignature: app.content_detail(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.content_page",
+      "lang": "en",
+      "title": "app.content_page",
+      "body": "marketing_content (wave5-addendum §2.7.2). Marketing and the owners at the venue: {content: [{id, title, channel, planned_for, status, current_version, author_name, submitted_at, cover_image, menu_item_id, item_name_en, item_name_ar, campaign_id, campaign_name_en, campaign_name_ar, decided_by_name, decided_at, updated_at}], waiting_count, total} for p_filter waiting (oldest first), changes, approved, closed (declined or withdrawn) or all (newest first), p_limit 1 to 200. Never a manager (§8 Q14). INVALID_ARGUMENT (hint filter); FORBIDDEN for anyone else.\nSignature: app.content_page(p_venue_id uuid default null, p_filter text default 'waiting', p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.cover_station",
       "lang": "en",
       "title": "app.cover_station",
@@ -2247,6 +2263,14 @@
       "lang": "en",
       "title": "app.customer_directory",
       "body": "Signature: app.customer_directory(p_limit int default 5000) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0148 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.decide_content",
+      "lang": "en",
+      "title": "app.decide_content",
+      "body": "marketing_content (wave5-addendum §2.7.2). The owner decides the current open version of a waiting item: approve (final), changes or decline (final), each of the last two with a reason (1 to 1000). Tells the version's submitter and the author (staff_decided / content_approved, content_changes or content_declined, the title only). Returns {status, version, decided_at}. REF_NOT_FOUND, FORBIDDEN, INVALID_ARGUMENT (hint decision), SUBMISSION_DECIDED (not the current open version), CANNOT_DECIDE_OWN, TEXT_TOO_LONG (hint note), REASON_REQUIRED. Audit marketing.content.approve / .changes / .decline {status, version}.\nSignature: app.decide_content(p_id uuid, p_version int, p_decision text, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: marketing.content..\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, TEXT_TOO_LONG, REASON_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3155,6 +3179,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.revise_content",
+      "lang": "en",
+      "title": "app.revise_content",
+      "body": "marketing_content (wave5-addendum §2.7.2). Marketing at the item's venue sends its next version while it waits or changes were asked: the undecided version is superseded, current_version goes up by one and the item waits again; a NULL title, channel or planned day keeps its value. Images of any earlier version of the same item may be sent again. Tells the owners (content_submitted; dedupe content:<id>). Returns {id, version, status: waiting}. Idempotent by key. REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED (approved, declined or withdrawn), and the checks of app.submit_content. Audit marketing.content.revise {version, status}.\nSignature: app.revise_content(p_id uuid, p_body text, p_images text[] default '{}', p_media_link text default null, p_note text default null, p_title text default null, p_channel text default null, p_planned_for date default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: marketing.content.revise.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, TEXT_TOO_LONG, INVALID_ARGUMENT, TEXT_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.rotate_table_token",
       "lang": "en",
       "title": "app.rotate_table_token",
@@ -3587,6 +3619,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.submit_content",
+      "lang": "en",
+      "title": "app.submit_content",
+      "body": "marketing_content (wave5-addendum §2.7.2). Marketing at the venue sends a content item for the owners' approval: a title (1 to 120), a channel, a planned day not before the venue's business date, a caption (1 to 4000), up to 10 images in the campaigns folder, an optional https:// link (500) and note (1000), and an optional menu item or campaign of the venue. Tells the owners (staff_decide / content_submitted, the author's name and the title; dedupe content:<id>). Returns {id, version: 1, status: waiting}. Idempotent by key. FORBIDDEN, TEXT_REQUIRED (hint title or body), TEXT_TOO_LONG (hint title, body or note), INVALID_ARGUMENT (hint channel, planned_for, media_link or images), ITEM_NOT_FOUND, CAMPAIGN_NOT_FOUND, PHOTO_PATH_INVALID. Audit marketing.content.submit {status, version, channel, images: n}.\nSignature: app.submit_content(p_title text, p_channel text, p_planned_for date, p_body text, p_images text[] default '{}', p_media_link text default null, p_note text default null, p_menu_item_id uuid default null, p_campaign_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (marketing).\nAudit actions written: marketing.content.submit.\nError codes: FORBIDDEN, TEXT_REQUIRED, TEXT_TOO_LONG, INVALID_ARGUMENT, ITEM_NOT_FOUND, CAMPAIGN_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.submit_incident",
       "lang": "en",
       "title": "app.submit_incident",
@@ -3847,6 +3887,14 @@
       "lang": "en",
       "title": "app.void_after_send",
       "body": "Signature: app.void_after_send(p_order_item_id uuid, p_pin text, p_reason_code text, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REASON_REQUIRED.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0115 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.withdraw_content",
+      "lang": "en",
+      "title": "app.withdraw_content",
+      "body": "marketing_content (wave5-addendum §2.7.2). Marketing at the item's venue withdraws it while it waits or changes were asked; withdrawn is final. No push. Returns {status}. REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED. Audit marketing.content.withdraw {status}.\nSignature: app.withdraw_content(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: marketing.content.withdraw.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0199 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4255,6 +4303,22 @@
       "lang": "en",
       "title": "table marketing_campaigns",
       "body": "0073: audience + message + window + optional promotion. Status moves only through app.set_campaign_status; attribution counts the promotion's redemptions inside the window.\nCreated in migration 0073.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  name_en text not null\n  name_ar text not null\n  channel marketing_channel not null\n  status campaign_status not null default 'draft' — A message channel with no message is a campaign that cannot be sent.\n  audience_id uuid references marketing_audiences(id)\n  promotion_id uuid references promotions(id)\n  starts_at timestamptz — Anything past draft has to say when it runs, or \"live\" means nothing and attribution has no window to count inside.\n  ends_at timestamptz\n  body_en text not null default ''\n  body_ar text not null default ''\n  created_by uuid not null references staff(id)\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now()\n  venue_id uuid\n  suggested_by uuid — marketing_staff (§2.17): the marketing staff member who suggested this draft (app.suggest_campaign); NULL for a campaign the owner started.\n  suggested_at timestamptz — When the suggester last saved it. While updated_at still equals it, the suggester may change the draft; the owner's save moves updated_at and locks it.\n  images text[] not null default '{}' — Images the suggester attached: staff-media paths in the campaigns folder (at most 6).\n  protocol_run_id uuid — The protocol run the suggestion is for (a launch, a tournament, a price change), if any.\n  menu_item_id uuid — The menu item the suggestion is about, if any.\n  suggestion_note text — The suggester's note to the owner (at most 2000 characters).",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:marketing_content",
+      "lang": "en",
+      "title": "table marketing_content",
+      "body": "marketing_content (wave5-addendum §2.7, answer #7): content (a post) marketing sends for the owners' approval. Its rounds are marketing_content_versions. Read by the owners at the venue (owner-only, §8 Q14); marketing reads through the RPCs. Approved and declined are final.\nCreated in migration 0199.\nColumns:\n  id uuid primary key default gen_random_uuid() — Content item id.\n  venue_id uuid not null references venues(id) — The venue.\n  author_id uuid not null references staff(id) — The marketing staff member who first sent it.\n  title text not null — What it is, as typed (1 to 120 characters).\n  channel text not null — Where it goes: instagram, tiktok, facebook, snapchat, whatsapp, telegram, guest_site, in_venue, print or other.\n  planned_for date not null — The day it is planned for; not before the venue's business date when sent.\n  menu_item_id uuid references menu_items(id) on delete set null — The menu item it is about, if any.\n  campaign_id uuid references marketing_campaigns(id) on delete set null — The campaign it belongs to, if any.\n  status text not null default 'waiting' — waiting (the current version is undecided), changes (the owner asked for changes), approved or declined (final), or withdrawn (by marketing, final).\n  current_version int not null default 1 — The latest version's number.\n  decided_by uuid references staff(id) — The owner who approved or declined it: never the author.\n  decided_at timestamptz — When it was approved or declined.\n  created_at timestamptz not null default now() — When it was first sent.\n  updated_at timestamptz not null default now() — When it last changed: a new version, a decision or a withdrawal.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:marketing_content_versions",
+      "lang": "en",
+      "title": "table marketing_content_versions",
+      "body": "marketing_content (wave5-addendum §2.7): one immutable row per round of a content item: the caption, images, link and note marketing sent, and the owner's decision on it. A newer version supersedes an undecided one. Owner-only; never readable by the owner assistant or any LLM (unpublished captions and images may show guests).\nCreated in migration 0199.\nColumns:\n  id uuid primary key default gen_random_uuid() — Version row id.\n  content_id uuid not null references marketing_content(id) on delete cascade — The content item.\n  version int not null — The round: 1, 2, …\n  body text not null — The caption or text, as typed (1 to 4000 characters).\n  images text[] not null default '{}' — Images: staff-media paths in the campaigns folder (at most 10), claimed for the item.\n  media_link text — An https:// link to a video or a design file (at most 500 characters), shown as text.\n  note text — Marketing's note to the owner (at most 1000 characters).\n  submitted_by uuid not null references staff(id) — The marketing staff member who sent this version.\n  submitted_at timestamptz not null default now() — When this version was sent.\n  superseded_at timestamptz — When a newer version replaced this undecided one.\n  decision text — The owner's decision: approve, changes or decline.\n  decided_by uuid references staff(id) — The owner who decided: never the submitter.\n  decided_at timestamptz — When it was decided.\n  decision_note text — The owner's reason (at most 1000 characters); required for changes and decline.",
       "route": null
     },
     {
@@ -6383,6 +6447,222 @@
       "lang": "en",
       "title": "marketing_campaigns.suggestion_note",
       "body": "text\nThe suggester's note to the owner (at most 2000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.body",
+      "lang": "en",
+      "title": "marketing_content_versions.body",
+      "body": "text not null\nThe caption or text, as typed (1 to 4000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.content_id",
+      "lang": "en",
+      "title": "marketing_content_versions.content_id",
+      "body": "uuid not null references marketing_content(id) on delete cascade\nThe content item.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.decided_at",
+      "lang": "en",
+      "title": "marketing_content_versions.decided_at",
+      "body": "timestamptz\nWhen it was decided.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.decided_by",
+      "lang": "en",
+      "title": "marketing_content_versions.decided_by",
+      "body": "uuid references staff(id)\nThe owner who decided: never the submitter.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.decision",
+      "lang": "en",
+      "title": "marketing_content_versions.decision",
+      "body": "text\nThe owner's decision: approve, changes or decline.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.decision_note",
+      "lang": "en",
+      "title": "marketing_content_versions.decision_note",
+      "body": "text\nThe owner's reason (at most 1000 characters); required for changes and decline.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.id",
+      "lang": "en",
+      "title": "marketing_content_versions.id",
+      "body": "uuid primary key default gen_random_uuid()\nVersion row id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.images",
+      "lang": "en",
+      "title": "marketing_content_versions.images",
+      "body": "text[] not null default '{}'\nImages: staff-media paths in the campaigns folder (at most 10), claimed for the item.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.media_link",
+      "lang": "en",
+      "title": "marketing_content_versions.media_link",
+      "body": "text\nAn https:// link to a video or a design file (at most 500 characters), shown as text.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.note",
+      "lang": "en",
+      "title": "marketing_content_versions.note",
+      "body": "text\nMarketing's note to the owner (at most 1000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.submitted_at",
+      "lang": "en",
+      "title": "marketing_content_versions.submitted_at",
+      "body": "timestamptz not null default now()\nWhen this version was sent.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.submitted_by",
+      "lang": "en",
+      "title": "marketing_content_versions.submitted_by",
+      "body": "uuid not null references staff(id)\nThe marketing staff member who sent this version.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.superseded_at",
+      "lang": "en",
+      "title": "marketing_content_versions.superseded_at",
+      "body": "timestamptz\nWhen a newer version replaced this undecided one.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content_versions.version",
+      "lang": "en",
+      "title": "marketing_content_versions.version",
+      "body": "int not null\nThe round: 1, 2, …",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.author_id",
+      "lang": "en",
+      "title": "marketing_content.author_id",
+      "body": "uuid not null references staff(id)\nThe marketing staff member who first sent it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.campaign_id",
+      "lang": "en",
+      "title": "marketing_content.campaign_id",
+      "body": "uuid references marketing_campaigns(id) on delete set null\nThe campaign it belongs to, if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.channel",
+      "lang": "en",
+      "title": "marketing_content.channel",
+      "body": "text not null\nWhere it goes: instagram, tiktok, facebook, snapchat, whatsapp, telegram, guest_site, in_venue, print or other.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.created_at",
+      "lang": "en",
+      "title": "marketing_content.created_at",
+      "body": "timestamptz not null default now()\nWhen it was first sent.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.current_version",
+      "lang": "en",
+      "title": "marketing_content.current_version",
+      "body": "int not null default 1\nThe latest version's number.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.decided_at",
+      "lang": "en",
+      "title": "marketing_content.decided_at",
+      "body": "timestamptz\nWhen it was approved or declined.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.decided_by",
+      "lang": "en",
+      "title": "marketing_content.decided_by",
+      "body": "uuid references staff(id)\nThe owner who approved or declined it: never the author.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.id",
+      "lang": "en",
+      "title": "marketing_content.id",
+      "body": "uuid primary key default gen_random_uuid()\nContent item id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.menu_item_id",
+      "lang": "en",
+      "title": "marketing_content.menu_item_id",
+      "body": "uuid references menu_items(id) on delete set null\nThe menu item it is about, if any.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.planned_for",
+      "lang": "en",
+      "title": "marketing_content.planned_for",
+      "body": "date not null\nThe day it is planned for; not before the venue's business date when sent.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.status",
+      "lang": "en",
+      "title": "marketing_content.status",
+      "body": "text not null default 'waiting'\nwaiting (the current version is undecided), changes (the owner asked for changes), approved or declined (final), or withdrawn (by marketing, final).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.title",
+      "lang": "en",
+      "title": "marketing_content.title",
+      "body": "text not null\nWhat it is, as typed (1 to 120 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:marketing_content.updated_at",
+      "lang": "en",
+      "title": "marketing_content.updated_at",
+      "body": "timestamptz not null default now()\nWhen it last changed: a new version, a decision or a withdrawal.",
       "route": null
     },
     {
