@@ -154,6 +154,21 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
    * carry it, and neither can a JS reload.
    */
   ['expo-navigation-bar', { enforceContrast: false, hidden: true }],
+  // Work photos on the staff screens (build-contracts-2026-09-23 §6.9, §6.10):
+  // camera and library only, never the microphone. These EN strings are the
+  // Info.plist base; locales/ios.{en,ar}.json carry both languages. The picker
+  // and expo-image-manipulator (no plugin; it re-encodes every photo so no GPS
+  // EXIF leaves the phone) are required by src/features/staff/photo.ts alone,
+  // lazily, so a binary built before this line fails safe on the photo button
+  // instead of crashing. NATIVE CHANGE: needs a new development dev client.
+  [
+    'expo-image-picker',
+    {
+      photosPermission: 'Touch Padel uses your photos only when you attach a work photo.',
+      cameraPermission: 'Touch Padel uses the camera only when you take a work photo.',
+      microphonePermission: false,
+    },
+  ],
 ];
 if (googleIosUrlScheme) {
   plugins.push(['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]);
@@ -216,6 +231,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // `pnpm --filter @touch/mobile icons` (see assets/README.md). Square and
   // full-bleed on purpose: iOS and Android apply their own corner masks.
   icon: './assets/icon.png',
+  // Per-language system prompts: the camera and photo-library permission text
+  // in EN and AR (iOS only; the files nest their keys under `ios`).
+  locales: { en: './locales/ios.en.json', ar: './locales/ios.ar.json' },
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.kagu.touchpadel',
@@ -262,6 +280,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'NSPrivacyCollectedDataTypePhoneNumber',
         'NSPrivacyCollectedDataTypeUserID',
         'NSPrivacyCollectedDataTypeOtherDataTypes',
+        // Staff accounts only (build-contracts §6.10): work photos, and the
+        // free text of step notes, requests, item notes and marketing drafts.
+        'NSPrivacyCollectedDataTypePhotosorVideos',
+        'NSPrivacyCollectedDataTypeOtherUserContent',
       ].map((type) => ({
         NSPrivacyCollectedDataType: type,
         NSPrivacyCollectedDataTypeLinked: true,
@@ -302,6 +324,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/adaptive-icon-monochrome.png',
       backgroundColor: '#FFFFFF',
     },
+    // The system photo picker needs no storage or media permission, and the
+    // app records no sound, so none of these reaches the manifest whatever a
+    // library declares (expo-image-picker asks for READ_EXTERNAL_STORAGE up to
+    // API 32). UNVERIFIED against SDK 57 on an Android 12 phone (§8.4).
+    blockedPermissions: [
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.READ_MEDIA_VIDEO',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.RECORD_AUDIO',
+    ],
   },
   plugins,
   extra: {

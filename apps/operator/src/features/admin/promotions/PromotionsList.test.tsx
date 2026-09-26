@@ -6,16 +6,18 @@ import { LocaleProvider } from '../../../lib/i18n';
 import { ToastProvider } from '../../../components/toast';
 import type * as PromotionsApi from './promotionsApi';
 import type * as AppRpcModule from '../../../lib/appRpc';
+import type * as AuthModule from '../../../lib/auth';
 
 // Four states for the list (loading / ready / empty / error), the two rules
 // the spec singles out (enable/disable through the switch, no delete control
 // anywhere), and the redesign: one status cell, plain "when" and "applies to"
-// text, live first, and a filter with counts kept in the URL.
+// text, live first, and a filter with counts kept in the URL. Since
+// price_promo (#57) the owner alone edits here; a manager proposes instead.
 
 const api = vi.hoisted(() => ({ fetchPromotions: vi.fn() }));
 const rpc = vi.hoisted(() => ({ appRpc: vi.fn() }));
 const nav = vi.hoisted(() => ({ navigate: vi.fn(), search: {} as Record<string, unknown> }));
-const perms = vi.hoisted(() => ({ editPromotions: true }));
+const perms = vi.hoisted(() => ({ editPromotions: true, role: 'owner' }));
 
 vi.mock('./promotionsApi', async (importOriginal) => {
   const mod = await importOriginal<typeof PromotionsApi>();
@@ -25,10 +27,15 @@ vi.mock('../../../lib/appRpc', async (importOriginal) => {
   const mod = await importOriginal<typeof AppRpcModule>();
   return { ...mod, appRpc: rpc.appRpc };
 });
-vi.mock('../../../lib/auth', () => ({
-  usePermissions: () => ({ editPromotions: perms.editPromotions }),
-  requiredRoleFor: () => 'manager',
-}));
+// The real can / canAccess / requiredRoleFor; the signed-in role and the flag are set per test.
+vi.mock('../../../lib/auth', async (importOriginal) => {
+  const mod = await importOriginal<typeof AuthModule>();
+  return {
+    ...mod,
+    useAuth: () => ({ staff: { role: perms.role } }),
+    usePermissions: () => ({ editPromotions: perms.editPromotions }),
+  };
+});
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => nav.navigate, useSearch: () => nav.search }));
 
 import { PromotionsListScreen } from './PromotionsList';
@@ -70,6 +77,7 @@ beforeEach(() => {
   nav.navigate.mockReset();
   nav.search = {};
   perms.editPromotions = true;
+  perms.role = 'owner';
 });
 
 describe('PromotionsListScreen', () => {
@@ -174,12 +182,47 @@ describe('PromotionsListScreen', () => {
     expect(nav.navigate).not.toHaveBeenCalled();
   });
 
-  it('keeps the controls visible but refused without editPromotions', async () => {
+  it('a manager proposes: Propose and Switch on start a change, and a live one still switches off (#57)', async () => {
+    const user = userEvent.setup();
+    perms.role = 'manager';
+    perms.editPromotions = false;
+    api.fetchPromotions.mockResolvedValue(rows);
+    rpc.appRpc.mockResolvedValue(null);
+    renderScreen();
+    await screen.findByText('Happy hour');
+    // No "needs the Owner role" notice beside a Propose button.
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(screen.getByText(/The owner approves new promotions/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'New promotion' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Propose a promotion' }));
+    expect(nav.navigate).toHaveBeenLastCalledWith({ to: '/protocols', search: { start: 'price_promo', change: 'promotion' } });
+
+    // Off rows: the switch stays off and "Switch on" stands beside it.
+    expect((screen.getByRole('switch', { name: 'On or off: Aardvark' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Switch on: Happy hour' })).toBeNull();
+    // Ended: it comes back through new dates, not a switch-on.
+    expect(screen.queryByRole('button', { name: 'Switch on: Old promo' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Switch on: Aardvark' }));
+    expect(nav.navigate).toHaveBeenLastCalledWith({ to: '/protocols', search: { start: 'price_promo', change: 'promotion_enable', promotion: 'p0' } });
+
+    // A live one: switching it off is still the manager's own.
+    const live = screen.getByRole('switch', { name: 'On or off: Happy hour' }) as HTMLButtonElement;
+    expect(live.disabled).toBe(false);
+    await user.click(live);
+    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('set_promotion_enabled', { p_id: 'p1', p_enabled: false }));
+  });
+
+  it('a role that can neither edit nor propose keeps the refused controls and the owner notice', async () => {
+    perms.role = 'cashier';
     perms.editPromotions = false;
     api.fetchPromotions.mockResolvedValue(rows);
     renderScreen();
     await screen.findByText('Happy hour');
-    expect(screen.getByRole('note')).toBeTruthy();
-    expect((screen.getByRole('switch', { name: 'On or off: Happy hour' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('note').textContent).toMatch(/Owner/);
+    expect((screen.getByRole('button', { name: 'New promotion' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Propose a promotion' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Switch on/ })).toBeNull();
+    expect((screen.getByRole('switch', { name: 'On or off: Aardvark' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

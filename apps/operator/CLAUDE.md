@@ -56,8 +56,9 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
   both catalogs; edge functions are called through `src/lib/edge.ts`, which throws `EdgeError`.
 - `electron`, `fs` and `node:fs` are restricted imports in the renderer (`eslint.config.mjs:21-27`);
   go through `src/ipc/bridge.ts`.
-- `merge_tabs`, `record_drawer_open`, `open_day` and `close_day` stay online-only by decision
-  (Parsa 2026-09-20; the "Till online-only ops" row of the scope ledger in `HANDOFF.md`). Every
+- `merge_tabs`, `record_drawer_open`, `open_day`, `close_day`, `open_till_shift`,
+  `close_till_shift` and `close_till_shift_for` stay online-only by decision (Parsa 2026-09-20,
+  the till shifts wave 5; the "Till online-only ops" row of the scope ledger in `HANDOFF.md`). Every
   other till money write is a queued type: `refund` (`payment.refund`), `cancel_tab`
   (`tab.cancel`), `settle_zero_tab` (`tab.settle_zero`), `void_after_send` (`order_item.void`) and
   `record_waste` (`stock.waste`) since Milestone 0 item 9 (migration 0120). A PIN-gated one carries
@@ -71,10 +72,39 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
 - Realtime topics (`kds`, `courts`, `floor`, `menu`) are subscribed through `src/lib/realtime.ts`,
   which owns auth and reconnect; do not open a channel elsewhere.
 
+## Branches (multi-venue, 2026-09-26)
+
+- The branch a screen shows is `useVenue().branchId` (`src/lib/venue.tsx`): a registered station's
+  branch, else the owner's rail switcher choice, else the person's only branch. Every Supabase call
+  carries `x-station-id` and `x-venue-scope` (`src/lib/venueScope.ts`, wired into `lib/supabase.ts`);
+  the server narrows staff reads to that branch (0226) and files default-based writes there (0226
+  step 2c). On a registered station the station outranks the switcher, for reads and writes alike
+  (0228). So a list query needs **no** `.eq('venue_id', …)`; do not add one. Staff screens read
+  `venue_settings` (RLS-scoped, holds a preparing branch), not `venue_settings_public` (open branches
+  only).
+- Switching branch resets the query cache (`VenueProvider`) and remounts the routed screen (keyed on
+  `branchId` in `routes/__root.tsx`), so no editor keeps another branch's draft. The first requests
+  of a boot carry the branch remembered on the machine. A registered station never switches; a
+  heartbeat never registers a machine (0229), so the owner's PC stays unregistered and keeps the
+  switcher.
+- A queued offline write carries `venueScope` (the branch in scope when it was queued); replay sends
+  it as `x-venue-scope`.
+- Realtime `kds`, `floor` and `courts` are per branch: `useBroadcast` maps them with `branchTopic`;
+  never subscribe to `'<topic>:' + id` by hand.
+- An RPC argument that names a branch (`p_venue_id`) takes `currentBranchId()`; most need none
+  because the server resolves it from the headers.
+- The owner's "All branches" (or a closed branch's history) exists only on report and analytics
+  pages (`ReportBranchScope`, `setReportScope`), and only the report/analytics/panel RPCs carry it
+  (`REPORT_RPC` in `lib/venueScope.ts`); badges, lists and writes on those pages stay on the rail's
+  branch.
+- Edge functions get the branch in the BODY (`venue_scope`, `venue_id`), never as a browser header:
+  the functions do no CORS of their own. `assistant-chat` forwards it server to server.
+- Branch strings live in `ws.branches.*` (EN + AR).
+
 ## i18n and styling
 
 - Strings are `ws.<lane>.*` keys from `packages/i18n/src/catalogs/ws/` (`shell`, `kit`, `courtDesk`,
-  `cashier`, `prep`, `manager`, `owner`, `analytics`, `reports`), one `.en.ts` + `.ar.ts` pair per
+  `cashier`, `prep`, `manager`, `owner`, `analytics`, `reports`, `team`), one `.en.ts` + `.ar.ts` pair per
   lane so parallel lanes never edit one file.
 - The Arabic file is typed `DeepMessages<typeof xEn>`, so a missing key fails `typecheck`;
   `packages/i18n/src/__tests__/t.test.ts:35` asserts parity on the assembled catalogs.

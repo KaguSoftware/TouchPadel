@@ -3,12 +3,18 @@ import {
   DEFAULT_CAFE_SETTINGS,
   activeGroups,
   decorateFeatured,
+  fetchBranches,
+  fetchCafeSettings,
   fetchMenu,
+  fetchTableBranch,
   foldCafeSettings,
+  pickBranch,
+  toVenueBranch,
   resolveReveals,
   type MenuCategory,
   type MenuItem,
   type RawModifierGroup,
+  type VenueBranch,
 } from './menu';
 
 const raw = (id: string, mods: string[], min = 0, max = 1): RawModifierGroup => ({
@@ -136,7 +142,10 @@ describe('decorateFeatured', () => {
 });
 
 describe('activeGroups', () => {
-  const map = resolveReveals([{ modifier_id: 'm-oat', group_id: 'g-syrup', sort_order: 1 }], groups);
+  const map = resolveReveals(
+    [{ modifier_id: 'm-oat', group_id: 'g-syrup', sort_order: 1 }],
+    groups,
+  );
   const linked = groups.slice(0, 1).map((g, i) => ({
     ...g,
     sort_order: i + 1,
@@ -194,7 +203,8 @@ describe('fetchMenu', () => {
           calls.push([table, col, val]);
           return q;
         },
-        then: (resolve: (v: { data: unknown[]; error: null }) => void) => resolve({ data: [], error: null }),
+        then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
+          resolve({ data: [], error: null }),
       };
       return q;
     };
@@ -202,5 +212,145 @@ describe('fetchMenu', () => {
     await expect(fetchMenu(client)).resolves.toEqual([]);
     expect(calls).toContainEqual(['menu_categories', 'kind', 'cafe']);
     expect(calls).toContainEqual(['menu_categories', 'is_active', true]);
+  });
+});
+
+/** A fake PostgREST chain: records every `eq`, resolves each table to `rows[table]`. */
+function fakeClient(rows: Record<string, unknown[]> = {}, errors: Record<string, unknown> = {}) {
+  const calls: [string, string, unknown][] = [];
+  const chain = (table: string) => {
+    const q = {
+      select: () => q,
+      order: () => q,
+      eq: (col: string, val: unknown) => {
+        calls.push([table, col, val]);
+        return q;
+      },
+      then: (resolve: (v: { data: unknown[] | null; error: unknown }) => void) =>
+        resolve(
+          errors[table]
+            ? { data: null, error: errors[table] }
+            : { data: rows[table] ?? [], error: null },
+        ),
+    };
+    return q;
+  };
+  const client = { from: (t: string) => chain(t) } as unknown as Parameters<typeof fetchMenu>[0];
+  return { client, calls };
+}
+
+describe('per-branch reads (multi-venue slice 4)', () => {
+  it('filters the menu’s categories and items to the branch, and nothing else', async () => {
+    const { client, calls } = fakeClient();
+    await fetchMenu(client, 'venue-b');
+    expect(calls).toContainEqual(['menu_categories', 'venue_id', 'venue-b']);
+    expect(calls).toContainEqual(['menu_items', 'venue_id', 'venue-b']);
+    expect(calls.filter(([, col]) => col === 'venue_id')).toHaveLength(2);
+  });
+
+  it('reads the menu unfiltered with no branch (the branch list failed)', async () => {
+    const { client, calls } = fakeClient();
+    await fetchMenu(client);
+    expect(calls.some(([, col]) => col === 'venue_id')).toBe(false);
+  });
+
+  it('reads one branch’s café settings; a key it has not set stays the default', async () => {
+    const { client, calls } = fakeClient({
+      cafe_settings_public: [{ key: 'ticker_en', value: ['Hi'] }],
+    });
+    const s = await fetchCafeSettings(client, 'venue-b');
+    expect(calls).toEqual([['cafe_settings_public', 'venue_id', 'venue-b']]);
+    expect(s.ticker_en).toEqual(['Hi']);
+    expect(s.hero_mode).toBe(DEFAULT_CAFE_SETTINGS.hero_mode);
+  });
+
+  const row = (id: string, slug: string) => ({
+    venue_id: id as string | null,
+    venue_slug: slug as string | null,
+    venue_name: 'Touch Padel',
+    venue_name_en: `EN ${slug}` as string | null,
+    venue_name_ar: `AR ${slug}`,
+    opening_hours: {},
+    closed_dates: [],
+    phone: null,
+    cancellation_window_hours: 4,
+    address_en: null,
+    address_ar: null,
+    map_url: null,
+    currency: null,
+    max_booking_horizon_days: null,
+    protected_horizon_hours: null,
+    table_token_ttl_minutes: null,
+    timezone: null,
+  });
+
+  it('orders the open branches oldest first, whatever order the view returns', async () => {
+    const { client } = fakeClient({
+      venue_settings_public: [row('b', 'riverside'), row('a', 'main')],
+      venues: [{ id: 'a' }, { id: 'b' }],
+    });
+    const branches = await fetchBranches(client);
+    expect(branches.map((b) => b.slug)).toEqual(['main', 'riverside']);
+    expect(branches[0]).toMatchObject({ id: 'a', name_en: 'EN main', name_ar: 'AR main' });
+  });
+
+  it('keeps the view’s order when the order read fails, and throws when the view read fails', async () => {
+    const ok = fakeClient(
+      { venue_settings_public: [row('b', 'riverside'), row('a', 'main')] },
+      { venues: { message: 'nope' } },
+    );
+    expect((await fetchBranches(ok.client)).map((b) => b.slug)).toEqual(['riverside', 'main']);
+    const bad = fakeClient({}, { venue_settings_public: { message: 'down' } });
+    await expect(fetchBranches(bad.client)).rejects.toEqual({ message: 'down' });
+  });
+
+  it('drops a row with no branch id and falls back to the venue name', () => {
+    expect(toVenueBranch({ ...row('a', 'main'), venue_id: null })).toBeNull();
+    expect(
+      toVenueBranch({ ...row('a', 'main'), venue_name_en: null, venue_slug: null }),
+    ).toMatchObject({ name_en: 'Touch Padel', slug: 'a' });
+  });
+
+  it('picks the named branch, else the only one, else none', () => {
+    const a = { id: 'a', slug: 'main' } as VenueBranch;
+    const b = { id: 'b', slug: 'riverside' } as VenueBranch;
+    expect(pickBranch([a], null)).toBe(a);
+    expect(pickBranch([a], 'unknown')).toBe(a);
+    expect(pickBranch([a, b], 'riverside')).toBe(b);
+    expect(pickBranch([a, b], null)).toBeNull();
+    expect(pickBranch([a, b], 'unknown')).toBeNull();
+    expect(pickBranch([], 'main')).toBeNull();
+  });
+});
+
+describe('fetchTableBranch (0225)', () => {
+  const clientAnswering = (answer: () => { data: unknown; error: unknown }) => {
+    const calls: [string, string, unknown][] = [];
+    const client = {
+      schema: (schema: string) => ({
+        rpc: (fn: string, args: unknown) => {
+          calls.push([schema, fn, args]);
+          return Promise.resolve(answer());
+        },
+      }),
+    } as unknown as Parameters<typeof fetchTableBranch>[0];
+    return { client, calls };
+  };
+
+  it('asks app.table_branch with the token and returns the branch id', async () => {
+    const { client, calls } = clientAnswering(() => ({ data: 'venue-b', error: null }));
+    await expect(fetchTableBranch(client, 'tok')).resolves.toBe('venue-b');
+    expect(calls).toEqual([['app', 'table_branch', { p_token: 'tok' }]]);
+  });
+
+  it('is null for an unplaceable token, an error or a throw, never a failure', async () => {
+    const none = clientAnswering(() => ({ data: null, error: null }));
+    await expect(fetchTableBranch(none.client, 'tok')).resolves.toBeNull();
+    const failed = clientAnswering(() => ({ data: 'venue-b', error: { message: 'x' } }));
+    await expect(fetchTableBranch(failed.client, 'tok')).resolves.toBeNull();
+    const threw = clientAnswering(() => {
+      throw new Error('offline');
+    });
+    await expect(fetchTableBranch(threw.client, 'tok')).resolves.toBeNull();
   });
 });

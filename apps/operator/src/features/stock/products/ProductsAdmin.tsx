@@ -13,12 +13,25 @@
  *
  * Shop sections themselves are made in the menu (section type: Shop); with
  * none yet, the empty state says so and links there.
+ *
+ * A MANAGER'S PRICES GO TO THE OWNER (#51, #53, build-contracts-2026-09-23
+ * §5.5). A manager's new product is saved hidden, and its sizes and prices
+ * stay theirs to edit until it has been on sale; "Put on sale" then sends it
+ * to the owner as a shop_launch change. Once on sale, its prices are
+ * read-only and "Add size" gives way to "Change the price"; the SKU, barcode,
+ * supplier, pack cost and low-stock level stay editable (the price goes back
+ * unchanged, which upsert_variant's lock lets through).
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a launched size's names lock
+ * with its price. They go back as stored, and the one lock note above the
+ * price says both change through "Change the price".
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
+import { can, useAuth } from '../../../lib/auth';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../../components/ui';
@@ -37,6 +50,9 @@ import {
   type Column,
 } from '../../../components/kit';
 import { BilingualFields } from '../../../components/inputs';
+import { Icon } from '../../../components/icons';
+import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from '../../admin/promotions/PriceChangeStart';
+import { isRenameRefusal } from '../../admin/addons/addonsLogic';
 import { useStockFormat } from '../stockUi';
 import {
   SK,
@@ -47,7 +63,17 @@ import {
   type ShopSectionRow,
   type SupplierRow,
 } from '../stockKeys';
-import { flattenCatalogue, matchesProductLine, sizeArgs, sizeProblem, type ProductLine, type SizeDraft } from './productsLogic';
+import {
+  flattenCatalogue,
+  matchesProductLine,
+  productLock,
+  sizeArgs,
+  sizeProblem,
+  type ProductLine,
+  type SizeDraft,
+} from './productsLogic';
+
+type Caps = { editLaunchedPrices: boolean; launchDirectly: boolean };
 
 type Editing =
   | { mode: 'newProduct' }
@@ -59,6 +85,8 @@ export function ProductsAdmin() {
   const fmt = useStockFormat();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { staff } = useAuth();
+  const caps: Caps = { editLaunchedPrices: can(staff?.role, 'editLaunchedPrices'), launchDirectly: can(staff?.role, 'launchDirectly') };
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
 
@@ -94,7 +122,9 @@ export function ProductsAdmin() {
     },
     { key: 'sku', header: tr('ws.manager.stock.products.sku'), render: (l) => (l.variant.sku ? <bdi dir="ltr">{l.variant.sku}</bdi> : '—') },
     { key: 'barcode', header: tr('ws.manager.stock.products.barcode'), render: (l) => (l.variant.barcode ? <bdi dir="ltr">{l.variant.barcode}</bdi> : '—') },
-    { key: 'price', header: tr('ws.manager.stock.products.price'), numeric: true, render: (l) => <Money amount={l.variant.price_iqd} /> },
+    // The header already says IQD, as the menu list's does; with the unit in
+    // every cell too, each price broke onto a second line ("50,000" / "IQD").
+    { key: 'price', header: tr('ws.manager.stock.products.price'), numeric: true, render: (l) => <Money amount={l.variant.price_iqd} unit={false} /> },
     {
       key: 'onHand',
       header: tr('ws.manager.stock.onHand.table.onHand'),
@@ -103,7 +133,8 @@ export function ProductsAdmin() {
         l.ingredientId === null ? (
           <StatusBadge size="sm" tone="warn" label={tr('ws.manager.stock.products.notTracked')} />
         ) : (
-          <bdi>{fmt.qty(l.onHand ?? 0, 'pc')}</bdi>
+          // A count and its unit are one reading ("6" / "قطعة" split in Arabic).
+          <bdi style={{ whiteSpace: 'nowrap' }}>{fmt.qty(l.onHand ?? 0, 'pc')}</bdi>
         ),
     },
     { key: 'supplier', header: tr('ws.manager.stock.ingredients.supplier'), truncate: true, render: (l) => (l.supplier ? <bdi>{l.supplier.name}</bdi> : '—') },
@@ -111,16 +142,39 @@ export function ProductsAdmin() {
       key: 'actions',
       header: '',
       align: 'end',
-      render: (l) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }}>
-          <Button size="sm" kind="ghost" icon="plus" onClick={() => setEditing({ mode: 'addSize', line: l })}>
-            {tr('ws.manager.stock.products.addSize')}
-          </Button>
-          <Button size="sm" kind="ghost" icon="note" onClick={() => setEditing({ mode: 'editSize', line: l })}>
-            {tr('op.common.edit')}
-          </Button>
-        </span>
-      ),
+      render: (l) => {
+        const lock = productLock(l, caps);
+        const name = pickName(locale, l.product);
+        return (
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }}>
+            {lock.putOnSale && (
+              <PriceChangeButton
+                size="sm"
+                kind="ghost"
+                target={{ change: 'shop_launch', item: l.productId }}
+                label={tr('ws.pricing.putOnSale')}
+                ariaLabel={tr('ws.pricing.putOnSaleFor', { name })}
+              />
+            )}
+            {lock.priceLocked ? (
+              <PriceChangeButton
+                size="sm"
+                kind="ghost"
+                target={{ change: 'price', item: l.productId }}
+                label={tr('ws.pricing.changePrice')}
+                ariaLabel={tr('ws.pricing.changePriceFor', { name })}
+              />
+            ) : (
+              <Button size="sm" kind="ghost" icon="plus" onClick={() => setEditing({ mode: 'addSize', line: l })}>
+                {tr('ws.manager.stock.products.addSize')}
+              </Button>
+            )}
+            <Button size="sm" kind="ghost" icon="note" onClick={() => setEditing({ mode: 'editSize', line: l })}>
+              {tr('op.common.edit')}
+            </Button>
+          </span>
+        );
+      },
     },
   ];
 
@@ -136,7 +190,9 @@ export function ProductsAdmin() {
             {tr('ws.manager.stock.products.add')}
           </Button>
         }
-      />
+      >
+        {!caps.launchDirectly && <PriceLockNote message={tr('ws.pricing.products.note')} />}
+      </PageHeader>
       <AsyncStateWrapper
         status={status}
         error={catalogueQ.error}
@@ -169,7 +225,8 @@ export function ProductsAdmin() {
         }
       >
         <Toolbar end={<ResultCount shown={rows.length} total={lines.length} />}>
-          <span style={{ inlineSize: '18rem', maxInlineSize: '100%' }}>
+          {/* 18rem clipped the placeholder ("…or barcoc"). */}
+          <span style={{ inlineSize: '21rem', maxInlineSize: '100%' }}>
             <SearchField value={search} onChange={setSearch} placeholder={tr('ws.manager.stock.products.search')} />
           </span>
         </Toolbar>
@@ -192,6 +249,7 @@ export function ProductsAdmin() {
           editing={editing}
           sections={sections}
           suppliers={(suppliersQ.data ?? []).filter((s) => s.is_active)}
+          caps={caps}
           onDone={() => {
             setEditing(null);
             void queryClient.invalidateQueries({ queryKey: ['stock'] });
@@ -209,20 +267,28 @@ function SizeForm({
   editing,
   sections,
   suppliers,
+  caps,
   onDone,
   onCancel,
 }: {
   editing: Editing;
   sections: readonly ShopSectionRow[];
   suppliers: readonly SupplierRow[];
+  caps: Caps;
   onDone: () => void;
   onCancel: () => void;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
+  const start = usePriceChangeStart();
   const line = editing.mode === 'newProduct' ? null : editing.line;
   const editSize = editing.mode === 'editSize' ? editing.line : null;
+  // A manager's new product is saved hidden (LAUNCH_VIA_PROTOCOL otherwise).
+  const newHidden = editing.mode === 'newProduct' && !caps.launchDirectly;
+  const priceLocked = line !== null && productLock(line, caps).priceLocked;
+  // Only an existing size has stored names to keep; a new one is named freely.
+  const nameLocked = editSize !== null && productLock(editSize, caps).nameLocked;
 
   const [sectionId, setSectionId] = useState(sections[0]?.id ?? '');
   const [productName, setProductName] = useState({ en: '', ar: '' });
@@ -252,8 +318,11 @@ function SizeForm({
     low: editSize!.lowStockThreshold != null ? String(editSize!.lowStockThreshold) : '',
   }) || supplierId !== (editSize!.supplier?.id ?? '') || editSize!.ingredientId === null;
 
-  /** Modal `canClose`: asked before the exit plays (see IngredientForm). */
-  async function confirmDiscard() {
+  /**
+   * True when there is nothing unsaved to lose, or the manager chose to lose
+   * it. Also the Modal's `canClose`: asked before the exit plays (see IngredientForm).
+   */
+  async function mayLeave() {
     return !(dirty && editing.mode === 'editSize') || confirm({
       title: tr('ws.kit.actions.dirtyLeave'),
       body: tr('ws.kit.actions.dirtyLeaveBody'),
@@ -269,6 +338,11 @@ function SizeForm({
     });
   }
 
+  /** "Change the price" from the form: the start leaves this screen. */
+  async function changePrice() {
+    if (start && line && (await mayLeave())) start({ change: 'price', item: line.productId });
+  }
+
   async function save() {
     setBusy(true);
     setError(null);
@@ -279,6 +353,7 @@ function SizeForm({
           p_category_id: sectionId,
           p_name_en: productName.en.trim(),
           p_name_ar: productName.ar.trim(),
+          ...(newHidden ? { p_is_active: false } : {}),
         });
       }
       await appRpc('upsert_retail_variant', {
@@ -288,7 +363,7 @@ function SizeForm({
         ...(editing.mode === 'newProduct' ? { p_is_default: true } : {}),
         ...(editing.mode === 'addSize' ? { p_sort_order: editing.line.variant.sort_order + 1 } : {}),
       });
-      toast.ok(tr('op.toast.saved'));
+      toast.ok(tr(newHidden ? 'ws.pricing.savedHidden' : 'op.toast.saved'));
       onDone();
     } catch (e) {
       setError(e);
@@ -308,8 +383,14 @@ function SizeForm({
   return (
     <Modal
       title={title}
-      subtitle={editSize && editSize.ingredientId === null ? tr('ws.manager.stock.products.notTrackedHint') : undefined}
-      canClose={confirmDiscard}
+      subtitle={
+        newHidden
+          ? tr('ws.pricing.products.newHint')
+          : editSize && editSize.ingredientId === null
+            ? tr('ws.manager.stock.products.notTrackedHint')
+            : undefined
+      }
+      canClose={mayLeave}
       onClose={onCancel}
       dismissible={!busy}
       size="lg"
@@ -350,18 +431,49 @@ function SizeForm({
           />
         </div>
       )}
-      <BilingualFields
-        labelEn={tr('ws.manager.stock.products.sizeNameEn')}
-        labelAr={tr('ws.manager.stock.products.sizeNameAr')}
-        en={draft.nameEn}
-        ar={draft.nameAr}
-        onEn={(nameEn) => set({ nameEn })}
-        onAr={(nameAr) => set({ nameAr })}
-      />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-2)' }}>
-        <Field label={tr('ws.manager.stock.products.price')} error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}>
-          <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} onChange={(e) => set({ price: e.target.value })} />
-        </Field>
+      {/* A size on sale renames only through a price change (§2.2.2), so its
+          names read as text, not as boxes that look editable and are not. */}
+      {nameLocked ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }} data-testid="product-size-names-locked">
+          <LockedValue label={tr('ws.manager.stock.products.sizeNameEn')}>
+            <bdi dir="ltr">{draft.nameEn}</bdi>
+          </LockedValue>
+          <LockedValue label={tr('ws.manager.stock.products.sizeNameAr')}>
+            <bdi dir="rtl">{draft.nameAr}</bdi>
+          </LockedValue>
+        </div>
+      ) : (
+        <BilingualFields
+          labelEn={tr('ws.manager.stock.products.sizeNameEn')}
+          labelAr={tr('ws.manager.stock.products.sizeNameAr')}
+          en={draft.nameEn}
+          ar={draft.nameAr}
+          onEn={(nameEn) => set({ nameEn })}
+          onAr={(nameAr) => set({ nameAr })}
+        />
+      )}
+      {/* Said just above the greyed Price, the field it explains. It used to
+          sit under all six fields, read only after the manager had tried it. */}
+      {priceLocked && (
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-3)' }}>
+          <PriceLockNote message={tr('ws.pricing.products.priceLocked')} style={{ flex: '1 1 20rem' }} />
+          {start && (
+            <Button size="sm" iconEnd="arrowUpRight" onClick={() => void changePrice()}>
+              {tr('ws.pricing.changePrice')}
+            </Button>
+          )}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(13rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-3)' }}>
+        {priceLocked ? (
+          <LockedValue label={tr('ws.manager.stock.products.price')}>
+            <Money amount={Number.parseInt(draft.price, 10)} strong />
+          </LockedValue>
+        ) : (
+          <Field label={tr('ws.manager.stock.products.price')} error={problem === 'price' && draft.price.trim() ? problemText('price') : undefined}>
+            <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.price} onChange={(e) => set({ price: e.target.value })} />
+          </Field>
+        )}
         <Field label={tr('ws.manager.stock.products.cost')} optional hint={tr('ws.manager.stock.products.costHint')} error={problem === 'cost' ? problemText('cost') : undefined}>
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.cost} onChange={(e) => set({ cost: e.target.value })} />
         </Field>
@@ -385,7 +497,29 @@ function SizeForm({
           <input style={inputStyle} dir="ltr" inputMode="numeric" value={draft.low} onChange={(e) => set({ low: e.target.value })} />
         </Field>
       </div>
-      <ErrorText error={error} />
+      {/* A rename refused by the server's lock (the size went on sale since
+          this form opened) says where a rename goes now. */}
+      {isRenameRefusal(error) ? (
+        <PriceLockNote message={tr('ws.pricing.renameViaProtocol')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />
+      ) : (
+        <ErrorText error={error} />
+      )}
     </Modal>
+  );
+}
+
+/**
+ * A value the form shows but cannot change here (a locked price or size
+ * name): its label as a field's, and the value as text beside a lock, never a
+ * greyed box that looks editable.
+ */
+function LockedValue({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Field label={label} group>
+      <div role="group" style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minBlockSize: '2.25rem', color: 'var(--tp-fg)' }}>
+        <Icon name="lock" size={13} style={{ color: 'var(--tp-muted-fg)', flexShrink: 0 }} />
+        {children}
+      </div>
+    </Field>
   );
 }

@@ -263,7 +263,31 @@ export const OPS_ALERTS = [
   { key: 'expired', severity: 'danger', href: STOCK_HREF.expired, count: (o: OpsOverview) => o.stock.expired },
 ] as const;
 
-export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'];
+/**
+ * Two more rows from their own reads, not from ops_overview
+ * (build-contracts-2026-09-23 §5.4): protocol steps waiting on this person
+ * (app.protocols_waiting_count, the rail badge's read) and the driver's
+ * purchases still to be received as stock (app.purchases_to_receive, Goods
+ * in's read). Both wait on the manager rather than on a guest, so they follow
+ * the table above.
+ */
+export const OPS_WORK_ALERTS = [
+  { key: 'protocols', severity: 'warn', href: '/protocols?filter=waiting' },
+  { key: 'purchases', severity: 'warn', href: '/stock/receive' },
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2): pay deductions
+  // to decide, incident reports to review, and (the owner's) posts to approve.
+  // Each is counted only for a role its read admits; the rest count none.
+  { key: 'deductions', severity: 'warn', href: '/deductions' },
+  { key: 'incidents', severity: 'warn', href: '/incidents' },
+  { key: 'content', severity: 'warn', href: '/marketing' },
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2, §8 Q27): the day's
+  // closed shifts whose count differs from the expected, any non-zero
+  // difference (app.till_shift_list, tillShift shiftsWithDifference).
+  { key: 'tillShifts', severity: 'warn', href: '/admin/day-close' },
+] as const;
+
+export type OpsWorkKey = (typeof OPS_WORK_ALERTS)[number]['key'];
+export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'] | OpsWorkKey;
 export type OpsSeverity = 'danger' | 'warn';
 
 export interface OpsAlert {
@@ -276,6 +300,11 @@ export interface OpsAlert {
 /** The standing alarms, in table order. Nothing is sorted by value. */
 export function alertsFor(o: OpsOverview): OpsAlert[] {
   return OPS_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: a.count(o) })).filter((a) => a.count > 0);
+}
+
+/** The work rows with their counts; a read that has not answered, or that the role does not make, counts none. */
+export function workAlertsFor(counts: Readonly<Partial<Record<OpsWorkKey, number>>>): OpsAlert[] {
+  return OPS_WORK_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: counts[a.key] ?? 0 })).filter((a) => a.count > 0);
 }
 
 /**

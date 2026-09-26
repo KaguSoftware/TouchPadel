@@ -1,14 +1,30 @@
 import type { ReactNode } from 'react';
-import { isolate, isolateLtr, makeT, type Locale, type MessageKey, type TParams } from '@touch/i18n';
+import {
+  isolate,
+  isolateLtr,
+  makeT,
+  type Locale,
+  type MessageKey,
+  type TParams,
+} from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
 import { DAY_LABEL, weekHours } from '@/lib/cafe/hours';
 import { hrefForLocale, otherLocale } from '@/lib/locales';
+import { displayPhone, telUrl } from '@/lib/site/contact';
+import { formatWindows } from '@/lib/site/hours';
+import { hoursPhrase } from '@/lib/site/plural';
+import { TitleSquiggle } from '@/components/site/brand/TitleSquiggle';
 
 /**
- * Shared shell for the public legal pages (/privacy, /terms, /support,
+ * Shared document for the public legal pages (/privacy, /terms, /support,
  * /delete-account) — the App Store Connect Privacy Policy URL and Support URL,
  * and the Google Play account-deletion URL. A Server Component: the stores fetch
  * these, so every word has to be in the server-rendered HTML.
+ *
+ * Since 2026-09-23 it renders INSIDE the site's `SiteShell` (header, footer, night or
+ * light mode) as an `<article>` in the shell's `<main>`, styled by the site family
+ * (src/styles/site/legal.css.ts). Its related-pages nav stays inside the document, so
+ * the page-to-page links the stores and the tests rely on are unchanged.
  *
  * Content is data: each page passes an ordered list of sections whose blocks
  * point at catalog keys (@touch/i18n `legal.*`). Nothing venue-specific is
@@ -97,13 +113,16 @@ function LegalNav({ locale, current }: { locale: Locale; current: LegalPageName 
 
 function VenuePhone({ locale, venue }: { locale: Locale; venue: VenueOpeningHours | null }) {
   const tr = makeT(locale);
-  const phone = venue?.phone?.trim() ?? '';
-  if (!phone) return <p>{tr('legal.contact.noPhone')}</p>;
+  // The site's one phone helper (lib/site/contact.ts), so this page and the footer under
+  // it print and dial the same number the same way. Undialable is treated as unset.
+  const phone = displayPhone(venue?.phone);
+  const tel = telUrl(venue?.phone);
+  if (!phone || !tel) return <p>{tr('legal.contact.noPhone')}</p>;
   return (
     <p>
       {tr('legal.contact.phoneLead')}{' '}
       {/* dir="ltr": an Iraqi number inside Arabic text otherwise puts its + at the wrong end. */}
-      <a className="tp-legal__phone" href={`tel:${phone.replace(/\s+/g, '')}`} dir="ltr">
+      <a className="tp-legal__phone" href={tel} dir="ltr">
         {phone}
       </a>
     </p>
@@ -125,11 +144,7 @@ function VenueHours({ locale, venue }: { locale: Locale; venue: VenueOpeningHour
           <div key={dayKey} style={{ display: 'contents' }}>
             <dt>{tr(DAY_LABEL[dayKey])}</dt>
             <dd>
-              {windows.length === 0
-                ? tr('cafe.footer.closed')
-                : windows
-                    .map(([from, to]) => `${isolate(from)}-${isolate(to)}`)
-                    .join(locale === 'ar' ? '، ' : ', ')}
+              {windows.length === 0 ? tr('cafe.footer.closed') : formatWindows(windows, locale)}
             </dd>
           </div>
         ))}
@@ -195,7 +210,9 @@ function renderBlock(
     case 'link':
       return (
         <p key={index}>
-          <a href={`${pageHref(locale, block.to)}${block.hash ? `#${block.hash}` : ''}`}>{tr(block.label)}</a>
+          <a href={`${pageHref(locale, block.to)}${block.hash ? `#${block.hash}` : ''}`}>
+            {tr(block.label)}
+          </a>
         </p>
       );
   }
@@ -222,40 +239,46 @@ export function LegalDocument({
   const tr = makeT(locale);
   // {cancelHours} is the window app.cancel_reservation enforces, read live so
   // the terms never contradict the app; 4 is what 0056 configured, the
-  // fallback when the venue read fails.
+  // fallback when the venue read fails. It is a whole counted phrase ("4 hours",
+  // «12 ساعة», «ساعتين»), because Arabic picks the noun's form by the number and
+  // the operator can set any number (lib/site/plural.ts).
   const params: TParams = {
     ...entityParams(locale),
-    cancelHours: isolateLtr(String(venue?.cancellation_window_hours ?? 4)),
+    cancelHours: hoursPhrase(venue?.cancellation_window_hours ?? 4, locale),
   };
   return (
-    <div className="tp-cafe" data-theme="cafe">
-      <main className="tp-legal">
-        <header className="tp-legal__header">
-          <LegalNav locale={locale} current={page} />
-          <p className="tp-eyebrow">{tr('common.appName')}</p>
-          <h1 className="tp-legal__title">{tr(title)}</h1>
-          <p className="tp-legal__updated">
-            <span>{tr('legal.lastUpdated')}</span>
-            {version ? (
-              <>
-                {' · '}
-                <span>{tr('legal.version', { version: isolateLtr(version) })}</span>
-              </>
-            ) : null}
-          </p>
-          <p className="tp-legal__intro">{tr(intro, params)}</p>
-        </header>
+    <article className="tp-legal">
+      <header className="tp-legal__header">
+        <LegalNav locale={locale} current={page} />
+        <p className="tp-legal__eyebrow">{tr('common.appName')}</p>
+        <h1 className="tp-legal__title">{tr(title)}</h1>
+        <TitleSquiggle className="tp-legal__squiggle" />
+        <p className="tp-legal__updated">
+          <span>{tr('legal.lastUpdated')}</span>
+          {version ? (
+            <>
+              {' · '}
+              <span>{tr('legal.version', { version: isolateLtr(version) })}</span>
+            </>
+          ) : null}
+        </p>
+        <p className="tp-legal__intro">{tr(intro, params)}</p>
+      </header>
 
-        {sections.map((section) => (
-          <section key={section.id} id={section.id} className="tp-legal__section" aria-labelledby={`${section.id}-title`}>
-            <h2 id={`${section.id}-title`} className="tp-legal__heading">
-              {tr(section.title, params)}
-            </h2>
-            {section.blocks.map((block, i) => renderBlock(block, i, locale, venue, params))}
-            {section.extra}
-          </section>
-        ))}
-      </main>
-    </div>
+      {sections.map((section) => (
+        <section
+          key={section.id}
+          id={section.id}
+          className="tp-legal__section"
+          aria-labelledby={`${section.id}-title`}
+        >
+          <h2 id={`${section.id}-title`} className="tp-legal__heading">
+            {tr(section.title, params)}
+          </h2>
+          {section.blocks.map((block, i) => renderBlock(block, i, locale, venue, params))}
+          {section.extra}
+        </section>
+      ))}
+    </article>
   );
 }

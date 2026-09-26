@@ -15,6 +15,7 @@ import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
 import { useHoldSlot } from './hooks';
 import { clearPendingSlot, getPendingSlot } from './pendingSlot';
+import { requestBookingSheet } from '../courtTransition/openIntent';
 
 export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy: boolean } {
   const router = useRouter();
@@ -52,10 +53,12 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
         onError: () => {
           // Whatever the refusal (taken, degraded, expired rate), the freshest
           // grid is the honest answer — land there with a short explanation:
-          // the Book tab, where the sheet the guest tapped on is still open,
-          // or the standalone screen.
+          // the Book tab's sheet — still open if that is where the guest
+          // tapped, opened for them if not (the standalone Availability screen
+          // is gone, owner 2026-09-26).
           toast(t('booking.slotTakenBody'), 'error');
-          router.replace(pending.origin === 'sheet' ? '/(tabs)' : '/availability');
+          requestBookingSheet();
+          router.replace('/(tabs)');
         },
         // After navigation, so the (auth) layout's exemption holds until we are gone.
         onSettled: () => clearPendingSlot(),

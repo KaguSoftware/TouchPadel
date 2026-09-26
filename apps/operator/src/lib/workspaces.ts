@@ -1,5 +1,5 @@
 /**
- * Five workspaces, one app (spec §04). A workspace is a landing screen plus
+ * Six workspaces, one app (spec §04). A workspace is a landing screen plus
  * its own navigation set; a staff role maps to the workspaces it may enter.
  * Nothing here grants access — ROUTE_ROLES and the RPC guards remain the wall.
  * The active workspace only chooses which rail the shell renders.
@@ -36,7 +36,7 @@
 import type { IconName } from '../components/icons';
 import type { StaffRole } from './auth';
 
-export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner';
+export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner' | 'team';
 
 export interface NavItem {
   to: string;
@@ -45,15 +45,32 @@ export interface NavItem {
     | 'today' | 'calendar' | 'customers' | 'newSeries' | 'blockCourt'
     | 'till' | 'openTabs' | 'cashDrawer'
     | 'overview' | 'bookings' | 'tills' | 'dayClose' | 'menu' | 'rates' | 'promotions' | 'stock' | 'reports' | 'audit'
-    | 'panel' | 'analytics' | 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite'
+    | 'panel' | 'analytics' | 'staff' | 'branches' | 'courts' | 'tables' | 'settings' | 'guestSite'
     // Management's Financial / Observation sections (see the header note).
     | 'menuPrices'
     | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
     // Management's Stock section.
     | 'inventory' | 'stockValue'
     // The owner assistant (docs/design/assistant §5.1).
-    | 'assistant';
+    | 'assistant'
+    // The team workspace (driver, marketing), and the till's and the desk's row.
+    | 'myTasks'
+    // Protocols and the staff suggestion box (build-contracts-2026-09-23 §5.1).
+    | 'protocols' | 'suggestions'
+    // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+    | 'deductions' | 'incidents';
   icon: IconName;
+  /**
+   * A live count beside the row's name: what waits on the signed-in person
+   * there. The shell reads it (RailLink), so a row names the count it wants
+   * and never fetches it. Protocols counts the steps to do and the
+   * submissions to decide (app.protocols_waiting_count), Suggestions the ones
+   * nobody has marked seen (app.suggestions_page's new_count). Wave 5:
+   * Deductions the proposals to decide, Incidents the reports to review (for
+   * management only; the desk's and the till's row carries no count), and
+   * Marketing the owner's posts to approve.
+   */
+  badge?: 'protocolsWaiting' | 'suggestionsNew' | 'deductionsWaiting' | 'incidentsOpen' | 'contentWaiting';
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
   /**
@@ -107,12 +124,31 @@ export interface Workspace {
   sections?: readonly NavSection[];
 }
 
+/**
+ * My tasks on the desk's and the till's rail: their protocol steps (the desk's
+ * courts step and tournament start) and the read-only copy of what they do on
+ * the phone (build-contracts-2026-09-23 §5.1). Last, because the working
+ * screens above it are what a shift moves between.
+ */
+const MY_TASKS: NavItem = { to: '/tasks', labelKey: 'myTasks', icon: 'checkCircle' };
+
+/**
+ * Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Incidents are
+ * reported at the desk and the till and reviewed by management, so the row
+ * sits on four rails; its count is management's only. Deductions are
+ * management's to decide. One definition each, so the rails cannot drift.
+ */
+const INCIDENTS: NavItem = { to: '/incidents', labelKey: 'incidents', icon: 'alert', badge: 'incidentsOpen' };
+const DEDUCTIONS: NavItem = { to: '/deductions', labelKey: 'deductions', icon: 'banknote', badge: 'deductionsWaiting' };
+
 const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
   { to: '/desk', labelKey: 'calendar', icon: 'calendar', exact: true },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/desk/series/new', labelKey: 'newSeries', icon: 'repeat', activePrefix: '/desk/series' },
   { to: '/desk/block', labelKey: 'blockCourt', icon: 'ban' },
+  INCIDENTS,
+  MY_TASKS,
 ];
 
 const CASHIER: readonly NavItem[] = [
@@ -120,6 +156,8 @@ const CASHIER: readonly NavItem[] = [
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt' },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
+  INCIDENTS,
+  MY_TASKS,
 ];
 
 /**
@@ -141,11 +179,23 @@ const CASHIER: readonly NavItem[] = [
  */
 const MANAGER_TODAY: readonly NavItem[] = [{ to: '/ops', labelKey: 'today', icon: 'dashboard' }];
 
+/**
+ * Protocols and the suggestion box, on both management rails with their
+ * counts (build-contracts-2026-09-23 §5.1). One definition each, so the
+ * manager's row and the owner's Observe row cannot drift apart.
+ */
+const PROTOCOLS: NavItem = { to: '/protocols', labelKey: 'protocols', icon: 'split', badge: 'protocolsWaiting' };
+const SUGGESTIONS: NavItem = { to: '/suggestions', labelKey: 'suggestions', icon: 'note', badge: 'suggestionsNew' };
+
 const MANAGER_RUN: readonly NavItem[] = [
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till' },
   { to: '/stock', labelKey: 'stock', icon: 'package' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
+  PROTOCOLS,
+  SUGGESTIONS,
+  DEDUCTIONS,
+  INCIDENTS,
 ];
 
 const MANAGER_RECORDS: readonly NavItem[] = [
@@ -229,7 +279,16 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
   { to: '/observation/requests', labelKey: 'requests', icon: 'bell' },
-  { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing' },
+  // Pay deductions wait on a decision like the requests above them (wave 5).
+  DEDUCTIONS,
+  // What waits on the owner in protocols (a step to decide or to do) and the
+  // staff suggestion box, right after the requests they sit beside.
+  PROTOCOLS,
+  SUGGESTIONS,
+  // Incident reports to review (wave 5).
+  INCIDENTS,
+  // Its count is marketing's posts waiting on the owner (wave 5).
+  { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing', badge: 'contentWaiting' },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
   // Opened from the marketing panel, not from the rail. See NavItem.hidden.
   { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag', hidden: true },
@@ -256,11 +315,21 @@ const OWNER_STOCK: readonly NavItem[] = [
 const OWNER_SETUP: readonly NavItem[] = [
   { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true },
   { to: '/admin/staff', labelKey: 'staff', icon: 'shield' },
+  { to: '/admin/branches', labelKey: 'branches', icon: 'home' },
   { to: '/admin/courts', labelKey: 'courts', icon: 'court' },
   { to: '/admin/qr', labelKey: 'tables', icon: 'qr' },
   { to: '/admin/settings', labelKey: 'settings', icon: 'settings', activePrefix: '/admin/settings' },
   { to: '/admin/hero', labelKey: 'guestSite', icon: 'globe', activePrefix: '/admin/hero' },
 ];
+
+/**
+ * TEAM — driver and marketing (0155), and the waiter (wave 5 §2.1). One row:
+ * My tasks, their protocol steps and the read-only copy of their phone
+ * pages. It is a rail and not a navless
+ * board like the kitchen's because a staff member who holds nothing but this
+ * still needs Options, Go on break and Sign out.
+ */
+const TEAM: readonly NavItem[] = [MY_TASKS];
 
 const OWNER_SECTIONS: readonly NavSection[] = [
   { key: 'financial', home: '/financial', icon: 'banknote', items: OWNER_FINANCIAL },
@@ -296,6 +365,7 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
     groups: [{ labelKey: null, items: OWNER_PRIMARY }],
     sections: OWNER_SECTIONS,
   },
+  team: { key: 'team', home: '/tasks', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }] },
 };
 
 /** The workspaces a role may enter, own one first. */
@@ -303,10 +373,21 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
   switch (role) {
     case 'cashier':
       return ['cashier'];
+    // The bar and kitchen family has exactly prep's workspace (0155); the
+    // assistant barista joins it for the bar's tickets (wave 5 §2.1).
     case 'prep':
+    case 'head_barista':
+    case 'barista':
+    case 'assistant_barista':
+    case 'head_chef':
+    case 'chef':
       return ['prep'];
     case 'court_desk':
       return ['courtDesk'];
+    case 'driver':
+    case 'marketing':
+    case 'waiter':
+      return ['team'];
     case 'manager':
       return ['manager', 'courtDesk', 'cashier', 'prep'];
     case 'owner':
@@ -365,6 +446,9 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
   if (path === '/ops') return 'manager';
+  // /tasks is not pinned: eight roles open it in their own workspace (the
+  // desk's and the till's rail row, the kitchen board's My tasks), and only
+  // driver and marketing hold the team workspace.
   return null;
 }
 

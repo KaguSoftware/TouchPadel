@@ -38,6 +38,7 @@ import { formatDate, formatDateTime, formatNumber, formatTime, type MessageKey }
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useBroadcast } from '../../lib/realtime';
+import { STAFF_ROLES, type StaffRole } from '../../lib/roleResolution';
 import { touch } from '../../ipc/bridge';
 import { Button } from '../../components/ui';
 import {
@@ -53,11 +54,18 @@ import {
 } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
 import { CardTitle, FigureRow, MARK, MARK_FG, MARK_SOFT, RowGroupLabel, RowList, Step } from './OpsVisuals';
+import { QK } from '../../lib/queryKeys';
+import { fetchProtocolsWaiting, protocolsWaitingTotal } from './protocolsWaiting';
+import { fetchPurchasesToReceive } from '../stock/DriverPurchases';
+import { readPurchases } from '../stock/driverPurchasesLogic';
+import { useShiftDifferences } from '../tillShift/useShiftDifferences';
+import { usePeopleRecordCounts } from '../deductions/peopleRecordCounts';
 import {
   DAY_CLOSE_TONE,
   STOCK_HREF,
   alertsFor,
   auditDrillHref,
+  workAlertsFor,
   dayCloseState,
   normalizeOverview,
   tillTabHref,
@@ -203,11 +211,31 @@ const ALERT_COPY: Record<OpsAlertKey, { title: MessageKey; hint: MessageKey; act
   ticketsLate: { title: 'ws.manager.ops.now.ticketsLate', hint: 'ws.manager.ops.now.ticketsLateHint', action: null, icon: 'clock' },
   low: { title: 'ws.manager.ops.now.low', hint: 'ws.manager.ops.now.lowHint', action: 'ws.manager.ops.now.lowAction', icon: 'package' },
   expired: { title: 'ws.manager.ops.now.expired', hint: 'ws.manager.ops.now.expiredHint', action: 'ws.manager.ops.now.expiredAction', icon: 'package' },
+  protocols: { title: 'ws.manager.ops.now.protocols', hint: 'ws.manager.ops.now.protocolsHint', action: 'ws.manager.ops.now.protocolsAction', icon: 'split' },
+  purchases: { title: 'ws.manager.ops.now.purchases', hint: 'ws.manager.ops.now.purchasesHint', action: 'ws.manager.ops.now.purchasesAction', icon: 'package' },
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2): their words live
+  // with their screens, so Observe home says the same thing.
+  deductions: { title: 'ws.deductions.waiting.title', hint: 'ws.deductions.waiting.hint', action: 'ws.deductions.waiting.action', icon: 'banknote' },
+  incidents: { title: 'ws.incidents.waiting.title', hint: 'ws.incidents.waiting.hint', action: 'ws.incidents.waiting.action', icon: 'alert' },
+  content: { title: 'ws.content.waiting.title', hint: 'ws.content.waiting.hint', action: 'ws.content.waiting.action', icon: 'spark' },
+  // Wave 5, till shifts (§5.2): shifts closed short or over, to Day close.
+  tillShifts: { title: 'ws.tillShift.ops.title', hint: 'ws.tillShift.ops.hint', action: 'ws.tillShift.ops.action', icon: 'drawer' },
 };
 
 function NeedsYouNow({ data, go }: { data: OpsOverview; go: Go }) {
   const { tr } = useLocale();
-  const alerts = alertsFor(data);
+  // Their own reads, shared with the rail badge and Goods in (§5.4).
+  const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000 });
+  const purchasesQ = useQuery({ queryKey: QK.purchasesToReceive, queryFn: fetchPurchasesToReceive, refetchInterval: 60_000 });
+  // Wave 5 (§5.2): the rail badges' own reads, each only for a role it admits.
+  const people = usePeopleRecordCounts();
+  // Wave 5 (§5.2): the day's till shifts, the day-close step's own read.
+  const shiftDiffs = useShiftDifferences(true);
+  const alerts = [
+    ...alertsFor(data),
+    ...workAlertsFor({ protocols: protocolsWaitingTotal(protocolsQ.data), purchases: readPurchases(purchasesQ.data).length, deductions: people.deductions, incidents: people.incidents, content: people.content }),
+    ...workAlertsFor({ tillShifts: shiftDiffs.count }),
+  ];
 
   return (
     <Panel title={<CardTitle icon={alerts.length === 0 ? 'checkCircle' : 'alert'}>{tr('ws.manager.ops.now.title')}</CardTitle>}>
@@ -532,14 +560,13 @@ function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
   return <DataTable columns={columns} rows={rows} rowKey={(r, i) => r.staffId || String(i)} dense aria-label={tr('ws.manager.ops.staff.title')} />;
 }
 
-const ROLE_KEYS = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
 function RoleLabel({ role }: { role: string }) {
   const { tr } = useLocale();
-  const known = (ROLE_KEYS as readonly string[]).includes(role);
+  const known = (STAFF_ROLES as readonly string[]).includes(role);
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
       <Icon name="user" size={13} />
-      {known ? tr(`op.roles.${role as (typeof ROLE_KEYS)[number]}`) : role}
+      {known ? tr(`op.roles.${role as StaffRole}`) : role}
     </span>
   );
 }

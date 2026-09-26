@@ -12,6 +12,7 @@
  */
 import { Outlet, createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
+import { ReportBranchScope } from '../features/reports/ReportBranchScope';
 import { validateSearch, type AnalyticsSearch } from '../features/analytics/search';
 
 export const analyticsRoute = createRoute({
@@ -20,6 +21,8 @@ export const analyticsRoute = createRoute({
   validateSearch: (raw: Record<string, unknown>): AnalyticsSearch => validateSearch(raw),
   component: () => (
     <RequireRole route="/analytics">
+      {/* Multi-venue slice 4 (MV8): the owner may widen these pages to every branch. */}
+      <ReportBranchScope />
       <Outlet />
     </RequireRole>
   ),

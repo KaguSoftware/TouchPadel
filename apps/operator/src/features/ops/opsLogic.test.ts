@@ -7,7 +7,9 @@ import {
   normalizeCount,
   normalizeOverview,
   tillTabHref,
+  workAlertsFor,
 } from './opsLogic';
+import { protocolsWaitingTotal, readProtocolsWaiting } from './protocolsWaiting';
 
 // The overview renders server figures only. These tests pin the two things
 // the screen depends on: the contract shape (build plan §4, 0068) parses, and
@@ -167,6 +169,40 @@ describe('alertsFor', () => {
       low: '/stock?filter=low',
       expired: '/stock/expiry',
     });
+  });
+});
+
+describe('workAlertsFor', () => {
+  // Protocol steps and the driver's purchases come from their own reads, not
+  // ops_overview (build-contracts-2026-09-23 §5.4), after the standing alarms.
+  it('shows a row only when something waits, each opening the screen that clears it', () => {
+    expect(workAlertsFor({ protocols: 0, purchases: 0 })).toEqual([]);
+    expect(workAlertsFor({ protocols: 3, purchases: 2 })).toEqual([
+      { key: 'protocols', severity: 'warn', href: '/protocols?filter=waiting', count: 3 },
+      { key: 'purchases', severity: 'warn', href: '/stock/receive', count: 2 },
+    ]);
+  });
+
+  it('adds the wave-5 people records after them, each to its own screen, and counts a read the role never made as none', () => {
+    expect(workAlertsFor({ deductions: 2, incidents: 1, content: 3 })).toEqual([
+      { key: 'deductions', severity: 'warn', href: '/deductions', count: 2 },
+      { key: 'incidents', severity: 'warn', href: '/incidents', count: 1 },
+      { key: 'content', severity: 'warn', href: '/marketing', count: 3 },
+    ]);
+    // A manager never reads content (§8 Q14): its count is simply absent.
+    expect(workAlertsFor({ protocols: 1, deductions: 0, incidents: 0 }).map((a) => a.key)).toEqual(['protocols']);
+  });
+
+  it('sends till shifts closed short or over to Day close, last, and says nothing when every count matched (wave 5 §5.2, §8 Q27)', () => {
+    expect(workAlertsFor({ tillShifts: 2 })).toEqual([{ key: 'tillShifts', severity: 'warn', href: '/admin/day-close', count: 2 }]);
+    expect(workAlertsFor({ protocols: 1, tillShifts: 1 }).map((a) => a.key)).toEqual(['protocols', 'tillShifts']);
+    expect(workAlertsFor({ tillShifts: 0 })).toEqual([]);
+  });
+
+  it('counts the steps to decide and to do as one "waiting on you"', () => {
+    expect(protocolsWaitingTotal({ to_decide: 2, todo: 1 })).toBe(3);
+    expect(readProtocolsWaiting({ to_decide: '4', todo: null })).toEqual({ toDecide: 4, todo: 0 });
+    expect(protocolsWaitingTotal(undefined)).toBe(0);
   });
 });
 

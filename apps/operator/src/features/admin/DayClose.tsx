@@ -29,6 +29,18 @@
  * opens that booking, and bookings that were played but never paid are listed
  * above the record as a WARNING. They never hold the close: nothing about them
  * reaches deriveDayCloseState or closeBlock.
+ *
+ * The daily checklists (0165) follow the same rule: a list with a line nobody
+ * ticked on this business day is listed under "Checklists not finished"
+ * (app.checklist_day_state), and the close stays open.
+ *
+ * Till shifts (wave5-addendum §5.2, V10) are a step of their own, the last one
+ * before the close: each shift with its difference as a sign word, the cash
+ * taken or paid out at a station with no shift open, and one line for refunds
+ * made today for earlier days' payments, which the day's expected cash leaves
+ * out (TI5). An open shift is a WARNING, never a block: close_day ends it
+ * uncounted, and nothing about shifts reaches deriveDayCloseState or
+ * closeBlock. The CSV gains a row per shift.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -59,8 +71,11 @@ import {
 import { MoneyInput } from '../../components/inputs';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { downloadWorkbook } from '../analytics/exportTables';
+import type { DayStateList } from '../checklists/checklistLogic';
 import { auditDrillHref, tillTabHref, type ExceptionKey } from '../ops/opsLogic';
 import { CardTitle, FigureRow, MARK_FG, RowList, Step } from '../ops/OpsVisuals';
+import { fetchShiftList, tillShiftListKey } from '../tillShift/api';
+import { ShiftRows } from '../tillShift/ShiftRows';
 import {
   closeBlock,
   dayCloseCsv,
@@ -69,6 +84,9 @@ import {
   knownReason,
   queueErrorCode,
   queueWriteKey,
+  tillShiftCsvRows,
+  tillShiftRows,
+  unfinishedChecklists,
   unpaidPlayedRows,
   varianceMagnitude,
   varianceSign,
@@ -76,6 +94,7 @@ import {
   type DayAdjustmentRow,
   type DayCloseState,
   type DaySummaryRow,
+  type TillShiftDay,
   type UnpaidPlayedBooking,
 } from './dayCloseLogic';
 
@@ -167,6 +186,16 @@ export function DayClose() {
     queryFn: async () => unpaidPlayedRows(await appRpc<unknown>('unpaid_played_bookings', { p_day_session_id: day?.id ?? null })),
   });
 
+  // Daily checklists still open on this business day (0165): a warning list.
+  // The cache holds the RPC's payload as returned, so the checklists card on
+  // /protocols can share the key.
+  const checklistsQ = useQuery({
+    queryKey: QK.checklistDayState.date(day?.business_date ?? ''),
+    enabled: Boolean(day),
+    refetchInterval: 60_000,
+    queryFn: () => appRpc<unknown>('checklist_day_state', { p_business_date: day?.business_date ?? null }),
+  });
+
   // Day summary (v_day_close_summary, 0020): cash / card payments so far while
   // the day is open; the reconciliation columns once it is closed.
   const summaryQ = useQuery({
@@ -182,6 +211,16 @@ export function DayClose() {
       return data as unknown as DaySummaryRow | null;
     },
   });
+
+  // Till shifts (wave5-addendum §5.2): the open day's, else the latest day's
+  // (app.till_shift_list with no dates), narrowed to the day on screen.
+  const shiftsQ = useQuery({
+    queryKey: tillShiftListKey({}),
+    queryFn: () => fetchShiftList(),
+    enabled: Boolean(daySessionId),
+    refetchInterval: 30_000,
+  });
+  const shiftDay = tillShiftRows(shiftsQ.data, daySessionId);
 
   const adjustmentsQ = useQuery({
     queryKey: ['dayCloseAdjustments', daySessionId],
@@ -253,7 +292,7 @@ export function DayClose() {
           p_device_id: touch.getStation().stationId,
         });
         if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
-        touch.pinObserved(dismissPin);
+        touch.pinObserved(dismissPin, authorizer);
       } catch (e) {
         // Offline: fall through to the cache check in main. A server REFUSAL
         // (PIN_INVALID / PIN_LOCKED) still surfaces.
@@ -280,6 +319,7 @@ export function DayClose() {
     void queryClient.invalidateQueries({ queryKey: ['dayCloseSummary'] });
     void queryClient.invalidateQueries({ queryKey: ['dayCloseAdjustments'] });
     void queryClient.invalidateQueries({ queryKey: ['unpaidPlayedBookings'] });
+    void queryClient.invalidateQueries({ queryKey: QK.checklistDayState.all });
     void queryClient.invalidateQueries({ queryKey: ['dayLastClose'] });
     void queryClient.invalidateQueries({ queryKey: ['tabs'] });
   }
@@ -401,6 +441,15 @@ export function DayClose() {
         scope: (a) => (a.order_item_id ? tr('ws.manager.dayClose.scopeItem') : tr('ws.manager.dayClose.scopeBill')),
         reason: (a) => reasonWords(a.reason_code, tr),
       },
+      tillShiftCsvRows(shiftDay, {
+        shift: (name, station) => tr('ws.tillShift.dayClose.csv.shift', { name, station }),
+        shiftOpen: (name, station) => tr('ws.tillShift.dayClose.csv.shiftOpen', { name, station }),
+        shiftByDay: (name, station) => tr('ws.tillShift.dayClose.csv.shiftByDay', { name, station }),
+        outsideIn: (station) => tr('ws.tillShift.dayClose.csv.outsideIn', { station }),
+        outsideOut: (station) => tr('ws.tillShift.dayClose.csv.outsideOut', { station }),
+        crossDay: tr('ws.tillShift.dayClose.csv.crossDay'),
+        noStation: tr('ws.tillShift.row.noStation'),
+      }),
     );
     const date = closeResult?.business_date ?? day?.business_date ?? 'day';
     downloadWorkbook(`day-close-${date}`, locale, bundle);
@@ -617,7 +666,19 @@ export function DayClose() {
                 </div>
               </Step>
 
-              <Step index={5} title={tr('ws.manager.dayClose.steps.close')} done={false} tone={block === null ? 'success' : 'neutral'}>
+              {/* Till shifts (wave5-addendum §5.2): the last look before the
+                  close, because an open shift is what the close would end
+                  uncounted. After the count, so the step numbers the block
+                  sentences name (steps 1 to 3) stay true. */}
+              <TillShiftsStep
+                index={5}
+                day={shiftDay}
+                loaded={shiftsQ.data !== undefined}
+                error={shiftsQ.isError ? shiftsQ.error : null}
+                onRetry={() => void shiftsQ.refetch()}
+              />
+
+              <Step index={6} title={tr('ws.manager.dayClose.steps.close')} done={false} tone={block === null ? 'success' : 'neutral'}>
                 <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
                   <Field label={tr('ws.manager.dayClose.notes')} hint={tr('ws.manager.dayClose.notesHint')} style={{ marginBlockEnd: 0 }}>
                     <input style={inputStyle} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} />
@@ -654,6 +715,9 @@ export function DayClose() {
               onRetry={() => void unpaidQ.refetch()}
               onOpenBooking={(id) => void navigate({ to: '/desk/bookings/$id', params: { id } })}
             />
+          )}
+          {!closeResult && (
+            <ChecklistsOpen lists={unfinishedChecklists(checklistsQ.data)} error={checklistsQ.error} onRetry={() => void checklistsQ.refetch()} />
           )}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
           <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>}>
@@ -820,6 +884,153 @@ function UnpaidPlayed({
                   <Button size="sm" kind="soft" icon="calendar" iconEnd="arrowUpRight" onClick={() => onOpenBooking(r.reservation_id)}>
                     {tr('ws.manager.dayClose.openBooking')}
                   </Button>
+                </li>
+              );
+            })}
+          </ul>
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * Step 5, the till shifts (wave5-addendum §5.2). Done when no shift is open;
+ * an open one warns in the warn tone and says what closing the day does to it.
+ * Nothing here holds the close.
+ */
+function TillShiftsStep({
+  index,
+  day,
+  loaded,
+  error,
+  onRetry,
+}: {
+  index: number;
+  day: TillShiftDay;
+  loaded: boolean;
+  error: unknown;
+  onRetry: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  const money = (n: number) => formatIQD(n, locale);
+  const status = !loaded
+    ? undefined
+    : day.openCount > 0
+      ? tr('ws.tillShift.dayClose.openLeft', { count: formatNumber(day.openCount, locale) })
+      : day.shifts.length === 0
+        ? tr('ws.tillShift.dayClose.none')
+        : tr('ws.tillShift.dayClose.allClosed');
+  const rowStyle = {
+    paddingBlock: 'var(--tp-sp-1)',
+    paddingInline: 'var(--tp-sp-2)',
+    borderRadius: 'var(--tp-radius-ctl)',
+    background: 'var(--tp-surface-2)',
+    fontSize: 'var(--tp-fs-sm)',
+  } as const;
+  return (
+    <Step index={index} title={tr('ws.tillShift.dayClose.title')} done={loaded && day.openCount === 0} tone="warn" status={status}>
+      {(error != null || day.shifts.length > 0 || day.outside.length > 0 || day.earlierDaysCashRefundsIqd !== 0) && (
+        <div data-testid="day-close-shifts" style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          {error != null && (
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+              <ErrorText error={error} style={{ marginBlock: 0 }} />
+              <Button size="sm" icon="refresh" onClick={onRetry}>
+                {tr('ws.tillShift.dayClose.retry')}
+              </Button>
+            </div>
+          )}
+          {day.openCount > 0 && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.tillShift.dayClose.openHint')}</p>}
+          {day.shifts.length > 0 && <ShiftRows shifts={day.shifts} />}
+          {day.outside.length > 0 && (
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              <strong style={{ fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.tillShift.dayClose.outsideTitle')}</strong>
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.tillShift.dayClose.outsideLead')}</p>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+                {day.outside.map((o) => {
+                  const parts = [
+                    o.cash_payments_iqd !== 0 ? `${tr('ws.tillShift.figures.cashIn')} ${money(o.cash_payments_iqd)}` : null,
+                    o.cash_refunds_iqd !== 0 ? `${tr('ws.tillShift.figures.cashOut')} ${money(o.cash_refunds_iqd)}` : null,
+                    o.card_payments_iqd !== 0 ? `${tr('ws.tillShift.figures.card')} ${money(o.card_payments_iqd)}` : null,
+                  ].filter((p): p is string => p !== null);
+                  return (
+                    <li key={`${o.day_session_id}:${o.station_id ?? ''}`} style={{ ...rowStyle, display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                      <bdi style={{ fontWeight: 600 }}>{o.station_id ?? tr('ws.tillShift.row.noStation')}</bdi>
+                      <bdi style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>{parts.join(' · ')}</bdi>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          {day.earlierDaysCashRefundsIqd !== 0 && (
+            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+              {tr('ws.tillShift.dayClose.crossDay', { amount: money(day.earlierDaysCashRefundsIqd) })}
+            </p>
+          )}
+        </div>
+      )}
+    </Step>
+  );
+}
+
+/** How many of a list's open lines are named before "+N more": the list is a reminder, not the checklist. */
+const OPEN_LINES_SHOWN = 3;
+
+/**
+ * The daily lists that still have a line nobody ticked. A warning in the warn
+ * tone, never a block (plan §7.3): the staff tick them on their phones, and a
+ * forgotten tick must not hold the venue's day. Nothing to list, nothing
+ * rendered.
+ */
+function ChecklistsOpen({ lists, error, onRetry }: { lists: readonly DayStateList[]; error: unknown; onRetry: () => void }) {
+  const { tr, locale } = useLocale();
+  if (lists.length === 0 && error == null) return null;
+  return (
+    <Panel
+      // An hourglass, not a tick: the panel lists what is NOT done.
+      title={<CardTitle icon="hourglass">{tr('ws.supplies.dayClose.title')}</CardTitle>}
+      actions={lists.length > 0 ? <StatusBadge tone="warn" label={tr('ws.supplies.dayClose.badge', { count: formatNumber(lists.length, locale) })} /> : undefined}
+      data-testid="day-close-checklists"
+    >
+      {lists.length === 0 ? (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+          <Button size="sm" icon="refresh" onClick={onRetry}>
+            {tr('ws.kit.async.retry')}
+          </Button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.supplies.dayClose.lead')}</p>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            {lists.map((l) => {
+              const shown = l.open_items.slice(0, OPEN_LINES_SHOWN);
+              const more = l.open_items.length - shown.length;
+              return (
+                <li
+                  key={`${l.role}:${l.slot}`}
+                  style={{
+                    display: 'grid',
+                    gap: 'var(--tp-sp-0)',
+                    paddingBlock: 'var(--tp-sp-1)',
+                    paddingInline: 'var(--tp-sp-2)',
+                    borderRadius: 'var(--tp-radius-ctl)',
+                    background: 'var(--tp-surface-2)',
+                    fontSize: 'var(--tp-fs-sm)',
+                  }}
+                >
+                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                    <strong>{tr('ws.supplies.dayClose.list', { role: tr(`op.roles.${l.role}`), slot: tr(`work.checklist.slot.${l.slot}`) })}</strong>
+                    <span style={{ color: MARK_FG.warn, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {tr('ws.supplies.dayClose.progress', { done: formatNumber(l.done, locale), total: formatNumber(l.total, locale) })}
+                    </span>
+                  </span>
+                  <span style={{ color: 'var(--tp-muted-fg)', overflowWrap: 'anywhere' }}>
+                    <bdi>{shown.map((i) => (locale === 'ar' ? i.text_ar : i.text_en)).join(locale === 'ar' ? '، ' : ', ')}</bdi>
+                    {more > 0 ? ` ${tr('ws.supplies.dayClose.more', { count: formatNumber(more, locale) })}` : ''}
+                  </span>
                 </li>
               );
             })}

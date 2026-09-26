@@ -21,6 +21,7 @@ import {
 import { touch } from '../ipc/bridge';
 import { appRpc, AppRpcError, type AppFunctionName } from './appRpc';
 import { clientRef, deviceId } from './idem';
+import { currentBranchId } from './venueScope';
 import { awaitResult, errorStringCode, serverErrorCode } from './queueResults';
 
 export interface MutateOutcome<T = unknown> {
@@ -77,6 +78,11 @@ function refundItems(p: any): unknown[] | null {
   const items = Array.isArray(p?.items) ? p.items : [];
   if (items.length === 0) return null;
   return items.map((it: any) => ({ order_item_id: it?.orderItemId, qty: it?.qty }));
+}
+
+/** stock.waste's store (wave 5 §2.8.6): p_location only when the payload names one. */
+function wasteLocation(p: any): Record<string, unknown> {
+  return p?.location ? { p_location: p.location } : {};
 }
 
 export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
@@ -227,6 +233,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_reason_code: p?.reasonCode ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      ...wasteLocation(p),
     },
   }),
   // --- Item 9 / C3 (0120): the money corrections -------------------------------
@@ -320,6 +327,7 @@ export async function mutate<T = unknown>(
     createdAt: new Date().toISOString(),
     staffId,
     deviceId: device,
+    venueScope: currentBranchId(),
   });
   const envelope = {
     localId: parsed.localId,
@@ -330,6 +338,7 @@ export async function mutate<T = unknown>(
     createdAt: parsed.createdAt,
     staffId: parsed.staffId,
     deviceId: parsed.deviceId,
+    venueScope: parsed.venueScope ?? null,
   };
 
   const enqueued = (await touch.enqueue(envelope)) as { localId?: string; error?: string };

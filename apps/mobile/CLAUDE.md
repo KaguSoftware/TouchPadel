@@ -1,9 +1,15 @@
 # apps/mobile — rules for every change
 
 The guest app: Expo SDK 57 with expo-router screens under `app/` and feature code under
-`src/features/{auth,availability,booking,boot,courtTransition,profile}`. Written 2026-09-20 (Phase
+`src/features/{auth,availability,booking,boot,courtTransition,profile,staff}`. Written 2026-09-20 (Phase
 2, Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification.
 Database-side rules are in `packages/db/CLAUDE.md`.
+
+The same app is the staff phone for a signed-in staff account (`app/staff*.tsx`,
+`src/features/staff`): `StaffStatusProvider` decides guest or staff, `GuestTabsGate` keeps a staff
+session out of the tabs, and a guest renders exactly as before. The binding shapes (routes, query
+keys, the status table, the no-station-RPC rule) are
+`docs/design/protocols/build-contracts-2026-09-23.md` §6 and §7.
 
 ## Commits
 

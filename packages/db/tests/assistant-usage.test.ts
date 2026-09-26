@@ -2,7 +2,7 @@
  * 0111 — usage by token kind, prices in the database, the meter (plan §2.6).
  *
  *   * llm_record_usage(model, four counts, calls) prices each kind from
- *     venue_settings.llm_pricing and rolls the counts onto today's row;
+ *     platform_settings.llm_pricing (0207) and rolls the counts onto today's row;
  *   * a model absent from the map is priced at the 0079 blended fallback;
  *   * llm_price_micros gives the UI the same arithmetic, owner-only;
  *   * assistant_usage returns days, month, cap, pricing and fallback;
@@ -24,21 +24,21 @@ describe.skipIf(!up)('0111 LLM usage by kind', () => {
   beforeAll(async () => {
     svc = serviceClient();
     owner = await signedInClient(SEED_STAFF.owner);
-    const { data } = await svc.from('venue_settings').select('llm_pricing').single();
+    const { data } = await svc.from('platform_settings').select('llm_pricing').eq('id', true).single();
     savedPricing = (data as { llm_pricing: unknown }).llm_pricing;
     await svc
-      .from('venue_settings')
+      .from('platform_settings')
       .update({ llm_pricing: { ...(savedPricing as Record<string, unknown>), 'test-model': TEST_PRICES } })
-      .not('id', 'is', null);
+      .eq('id', true);
   });
 
   afterEach(async () => {
     await svc.from('llm_usage').delete().neq('usage_date', '1970-01-01');
-    await svc.from('venue_settings').update({ llm_cost_micros_per_mtok: 500000 }).not('id', 'is', null);
+    await svc.from('platform_settings').update({ llm_cost_micros_per_mtok: 500000 }).eq('id', true);
   });
 
   afterAll(async () => {
-    await svc.from('venue_settings').update({ llm_pricing: savedPricing }).not('id', 'is', null);
+    await svc.from('platform_settings').update({ llm_pricing: savedPricing }).eq('id', true);
     await owner.auth.signOut();
   });
 
@@ -78,7 +78,7 @@ describe.skipIf(!up)('0111 LLM usage by kind', () => {
   });
 
   it('a model missing from the map falls back to the blended rate over every kind', async () => {
-    await svc.from('venue_settings').update({ llm_cost_micros_per_mtok: 500000 }).not('id', 'is', null);
+    await svc.from('platform_settings').update({ llm_cost_micros_per_mtok: 500000 }).eq('id', true);
     // 4M tokens at 0.5 USD/MTok = 2,000,000 micros.
     const r = await record('not-in-map', 1_000_000, 1_000_000, 1_000_000, 1_000_000);
     expect(r.ok).toBe(true);

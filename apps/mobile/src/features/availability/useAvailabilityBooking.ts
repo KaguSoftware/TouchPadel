@@ -1,10 +1,11 @@
 /**
- * The availability + hold flow as ONE hook, shared by the standalone
- * Availability screen (app/availability.tsx) and the in-place booking sheet
+ * The availability + hold flow as ONE hook, behind the in-place booking sheet
  * that floats over the court on the Book tab (components/BookingSheet.tsx,
- * court → booking transition, design 2026-09-01).
+ * court → booking transition, design 2026-09-01). It was shared with a
+ * standalone Availability screen until that was removed (owner, 2026-09-26);
+ * every way in now opens the sheet.
  *
- * Extracted from the screen without behaviour change so both surfaces run the
+ * Extracted from that screen without behaviour change, so the sheet runs the
  * same flow: merged capacity across courts, trading-night day chips, a guest
  * tap → Welcome with the slot kept as pending intent, an incomplete profile →
  * complete-profile, degraded → desk-only cells and refusals.
@@ -16,12 +17,14 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { pickLocale } from '@touch/core';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
 import {
   useCourts,
   useCourtsBroadcast,
   useDayGrid,
+  useGuestVenue,
   useIsDegraded,
   useWarmDayGrids,
   useVenueSettings,
@@ -44,7 +47,6 @@ import { useAuth } from '../auth/context';
 import { profileGateState } from '../auth/social';
 import { useOwnProfile } from '../profile/hooks';
 import { callPhone } from '../../lib/phone';
-import { chunkArray } from '../../lib/chunk';
 import { formatPrice } from '../../lib/price';
 import { useToast } from '../../components/overlays';
 
@@ -70,8 +72,12 @@ export interface AvailabilityBooking {
   durations: number[];
   day: DayGrid;
   cells: MergedCell[];
-  /** Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`). */
-  rows: MergedCell[][];
+  /**
+   * One lane per court, in the venue's court order: the court's name and its
+   * own times, laid out horizontally ("Court 1: 1pm 2pm 3pm"). A tap on a lane
+   * cell holds THAT court.
+   */
+  lanes: CourtLane[];
   /** The venue does not trade that day (closed date, or a grid with no slots at all). */
   closedDay: boolean;
   isClosedDate: (date: string) => boolean;
@@ -94,13 +100,21 @@ export interface AvailabilityBooking {
   onCall: () => void;
 }
 
+export interface CourtLane {
+  courtId: string;
+  /** Localised court name. */
+  name: string;
+  indoor: boolean;
+  cells: MergedCell[];
+}
+
 export interface AvailabilityBookingOptions {
   /** Which surface mounts the hook — carried into Review and the pending slot so the flow returns here. */
   origin: SlotOrigin;
 }
 
 export function useAvailabilityBooking(
-  { origin }: AvailabilityBookingOptions = { origin: 'screen' },
+  { origin }: AvailabilityBookingOptions = { origin: 'sheet' },
 ): AvailabilityBooking {
   const { t, locale } = useLocale();
   const router = useRouter();
@@ -110,9 +124,13 @@ export function useAvailabilityBooking(
   // (pending slot -> complete-profile -> hold). 'unknown' proceeds — Review re-checks.
   const profile = useOwnProfile(!!session);
   const profileGate = profileGateState(profile);
-  const courts = useCourts();
-  const venueSettings = useVenueSettings();
-  const degraded = useIsDegraded();
+  // The branch the guest books at (multi-venue slice 4): its courts, its
+  // settings, its degraded flag and its phone. hold_slot needs no branch — the
+  // server takes it from the court.
+  const { venueId } = useGuestVenue();
+  const courts = useCourts(venueId);
+  const venueSettings = useVenueSettings(venueId);
+  const degraded = useIsDegraded(venueId);
 
   // One minute tick drives "past" cells and the day strip. The heavy grid
   // build (useDayGrid) is data-driven only; applying the clock is O(cells).
@@ -132,7 +150,7 @@ export function useAvailabilityBooking(
   // past midnight does not keep offering yesterday as "today" — except while
   // yesterday's night is still trading (until 02:00), when it leads the strip.
   const tzDates = useMemo(
-    () => listBookableDates(now, tz, 6, venueSettings.data),
+    () => listBookableDates(now, tz, 6, venueSettings.data ?? undefined),
     [now, tz, venueSettings.data],
   );
   const [date, setDate] = useState<string>(() => tzDates[0] ?? '');
@@ -147,7 +165,18 @@ export function useAvailabilityBooking(
     if (!tzDates.includes(date) || (!picked.current && date !== first)) setDate(first);
   }, [tzDates, date]);
 
-  const [durationMin, setDurationMin] = useState(60);
+  const durations = useMemo(() => {
+    const set = new Set<number>();
+    for (const c of courts.data ?? []) for (const d of c.duration_options) set.add(d);
+    const out = [...set].sort((a, b) => a - b);
+    return out.length > 0 ? out : [60, 90];
+  }, [courts.data]);
+
+  const [durationChoice, setDurationMin] = useState(60);
+  // A branch whose courts do not offer the chosen length plays its shortest one
+  // (the guest's pick comes back if they switch to a branch that offers it).
+  const durationMin =
+    courts.isSuccess && !durations.includes(durationChoice) ? (durations[0] ?? 60) : durationChoice;
 
   /**
    * THE GRID IS BUILT ON THE TAP, NOT DEFERRED. A note, because the obvious
@@ -194,7 +223,7 @@ export function useAvailabilityBooking(
   // And every OTHER chip's grid is assembled while the guest is reading this
   // one, so the tap that follows is neither a fetch nor a build.
   useWarmDayGrids(tzDates, date);
-  useCourtsBroadcast(); // live slot_changed -> availability invalidation
+  useCourtsBroadcast(venueId); // live slot_changed -> availability invalidation
 
   const [notice, setNotice] = useState<AvailabilityNotice>(null);
   const [error, setError] = useState<string | null>(null);
@@ -207,27 +236,22 @@ export function useAvailabilityBooking(
   const holdMutate = hold.mutate;
   const refetchDay = day.refetch;
 
-  // Transient state belongs to the day/duration it happened on.
+  // Transient state belongs to the branch, day and duration it happened on (a
+  // refusal naming one branch's phone must not follow the guest to another).
   useEffect(() => {
     setError(null);
     setNotice(null);
-  }, [date, durationMin]);
+  }, [venueId, date, durationMin]);
 
   const phone = venuePhoneOf(day.settings);
 
-  const durations = useMemo(() => {
-    const set = new Set<number>();
-    for (const c of courts.data ?? []) for (const d of c.duration_options) set.add(d);
-    const out = [...set].sort((a, b) => a - b);
-    return out.length > 0 ? out : [60, 90];
-  }, [courts.data]);
 
   // Degraded desk-only window. Read from venue_settings.protected_horizon_hours,
   // because that is the exact column app.assert_not_degraded_for (0008) refuses
   // on: a client window narrower than the server's shows slots as free that the
   // server then refuses with DEGRADED_LOCKOUT the moment they are tapped.
   const horizonEnd = useMemo(
-    () => (degraded ? protectedHorizonEnd(now, venueSettings.data) : null),
+    () => (degraded ? protectedHorizonEnd(now, venueSettings.data ?? undefined) : null),
     [degraded, now, venueSettings.data],
   );
 
@@ -238,8 +262,27 @@ export function useAvailabilityBooking(
     () => upcomingOnly(mergeAcrossCourts(day.grid, durationMin, horizonEnd, now), now),
     [day.grid, durationMin, horizonEnd, now],
   );
-  // Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`).
-  const rows = useMemo(() => chunkArray(cells, 2), [cells]);
+  // Per-court lanes (owner, 2026-09-26: show both courts separately). Each is
+  // the same merge run over ONE court, so a cell's state, price and `courtId`
+  // are that court's own, and the tap holds exactly the court it sits under.
+  const lanes = useMemo((): CourtLane[] => {
+    const byId = new Map(day.grid.map((c) => [c.courtId, c]));
+    const ordered = [...(courts.data ?? [])].sort((x, y) => x.sort_order - y.sort_order);
+    const out: CourtLane[] = [];
+    for (const court of ordered) {
+      const slots = byId.get(court.id);
+      if (!slots) continue;
+      const laneCells = upcomingOnly(mergeAcrossCourts([slots], durationMin, horizonEnd, now), now);
+      if (laneCells.length === 0) continue;
+      out.push({
+        courtId: court.id,
+        name: pickLocale({ en: court.name_en, ar: court.name_ar }, locale),
+        indoor: court.indoor,
+        cells: laneCells,
+      });
+    }
+    return out;
+  }, [day.grid, courts.data, durationMin, horizonEnd, now, locale]);
 
   // "Closed" means the venue does not trade that day. A duration that simply
   // has no priced slots is "no times", not "closed" — the old check compared
@@ -398,7 +441,7 @@ export function useAvailabilityBooking(
     durations,
     day,
     cells,
-    rows,
+    lanes,
     closedDay,
     isClosedDate,
     phone,

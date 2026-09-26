@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./analytics": "./src/analytics/index.ts",
+    "./protocols": "./src/protocols/index.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {

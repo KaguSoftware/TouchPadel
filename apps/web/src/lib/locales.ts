@@ -50,10 +50,11 @@ export function asLocale(value: string): Locale {
  *
  * WHAT A 404 BODY CONTAINS, because a test was written against the wrong
  * belief about it (e2e/tests/web-security-headers.spec.ts): notFound() renders
- * `app/[locale]/not-found.tsx` INSIDE `app/[locale]/layout.tsx`, and that
- * layout inlines the whole cafe stylesheet. So a correct 404 carries every
- * class name in `src/styles/cafe/**` — `tp-cafe__table` included — as CSS
- * text. A class name is therefore not evidence that a page rendered. In `next
+ * `app/[locale]/not-found.tsx` INSIDE `app/[locale]/layout.tsx`, and a 404's
+ * RSC payload carries whatever that tree serialises (until 2026-09-24 the
+ * layout also inlined the whole cafe stylesheet, so a correct 404 carried
+ * every class name in `src/styles/cafe/**`, `tp-cafe__table` included, as CSS
+ * text). A class name is therefore not evidence that a page rendered. In `next
  * dev` it is not even that: the dev server answers a 404 with a bare shell and
  * none of the app's markup, so a body assertion that holds under `dev` says
  * nothing about the built app.

@@ -36,7 +36,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing } from 'react-native';
 import { useReduceMotion } from '../../lib/useReduceMotion';
-import { REDUCED_MOTION_MS, SHEET_GONE, SPRING, type Dir } from './spec';
+import { REDUCED_MOTION_MS, SHEET_GONE, SPRING, type Dir } from '@touch/court3d/spec';
 
 export interface CourtTransition {
   progress: Animated.Value;

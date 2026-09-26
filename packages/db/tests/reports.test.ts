@@ -280,15 +280,35 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     const wasteSum = (dailyWaste.data as { waste_iqd: number }[]).reduce((s, r) => s + Number(r.waste_iqd), 0);
     expect(wasteSum).toBe(byKey.waste!.value);
 
-    // Raw truth for the same window (service role): every payment / refund.
-    const { data: pays } = await svc
-      .from('payments').select('id, amount_iqd, method')
-      .gte('created_at', window.ts_from).lt('created_at', window.ts_to);
-    const payRows = (pays ?? []) as { id: string; amount_iqd: number; method: string }[];
-    const { data: refs } = await svc
-      .from('refunds').select('amount_iqd, payment_id')
-      .gte('created_at', window.ts_from).lt('created_at', window.ts_to);
-    const refRows = (refs ?? []) as { amount_iqd: number; payment_id: string }[];
+    // Raw truth for the same window (service role): every payment / refund,
+    // whichever suite wrote it. A shared database keeps every earlier run's
+    // rows, so each read is paged (PostgREST returns at most max_rows = 1000
+    // rows) and any error fails here; ignored, it read as zero money (the
+    // analytics.test.ts pattern).
+    const pageAll = async <T>(
+      what: string,
+      q: (lo: number, hi: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+    ): Promise<T[]> => {
+      const out: T[] = [];
+      for (let lo = 0; ; lo += 500) {
+        const { data, error } = await q(lo, lo + 499);
+        expect(error, `${what}, rows ${lo}+`).toBeNull();
+        out.push(...(data ?? []));
+        if ((data ?? []).length < 500) return out;
+      }
+    };
+    const payRows = await pageAll<{ id: string; amount_iqd: number; method: string }>('payments', (lo, hi) =>
+      svc
+        .from('payments').select('id, amount_iqd, method')
+        .gte('created_at', window.ts_from).lt('created_at', window.ts_to)
+        .order('id').range(lo, hi),
+    );
+    const refRows = await pageAll<{ id: string; amount_iqd: number; payment_id: string }>('refunds', (lo, hi) =>
+      svc
+        .from('refunds').select('id, amount_iqd, payment_id')
+        .gte('created_at', window.ts_from).lt('created_at', window.ts_to)
+        .order('id').range(lo, hi),
+    );
     const paid = (m: string) => payRows.filter((p) => p.method === m).reduce((s, p) => s + Number(p.amount_iqd), 0);
     const refunded = (m: string) =>
       refRows.filter((r) => payRows.find((p) => p.id === r.payment_id)?.method === m).reduce((s, r) => s + Number(r.amount_iqd), 0);
@@ -554,12 +574,22 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(ntx.find((t) => t.id === tabId)?.amountIqd).toBe(tabTotal); // nothing refunded on this tab
 
     // 0099: revenue lists each tab once, at its net amount, so its rows add up to the headline.
-    const rev = await appRpc(owner, 'report_drill', { p_figure: 'revenue', p_key: null, p_from: from, p_to: to }).then(outcome);
+    // The drill keeps the newest 500 rows and dates a booking by its slot, so on a shared
+    // database leftover bookings between today and next week sort above this tab and pushed it
+    // out of a from..to read (leftover bookings later today do the same to a one-day read). The
+    // tab is read on its own business day under the cashier who settled it; the booking under
+    // its own court.
+    const rev = await appRpc(owner, 'report_drill', {
+      p_figure: 'revenue', p_key: `staff:${SEED_STAFF_IDS.cashier}`, p_from: today, p_to: today,
+    }).then(outcome);
     expect(rev.ok, rev.errorMessage).toBe(true);
     const rtx = (rev.data as { transactions: Drill[] }).transactions;
     expect(rtx.filter((t) => t.id === tabId)).toHaveLength(1);
     expect(Number(rtx.find((t) => t.id === tabId)!.amountIqd)).toBe(Number(ntx.find((t) => t.id === tabId)!.amountIqd));
-    expect(rtx.some((t) => t.id === reservationId)).toBe(true);
+    const revCourt = await appRpc(owner, 'report_drill', { p_figure: 'revenue', p_key: `court:${courtId}`, p_from: from, p_to: to }).then(outcome);
+    expect(revCourt.ok, revCourt.errorMessage).toBe(true);
+    const rctx = (revCourt.data as { transactions: Drill[] }).transactions;
+    expect(rctx.map((t) => [t.id, Number(t.amountIqd)])).toEqual([[reservationId, reservationPrice]]);
 
     for (const fig of ['revenue', 'padelRevenue', 'cafeRevenue', 'cafeNet', 'cash', 'card']) {
       const m = await appRpc(manager, 'report_drill', { p_figure: fig, p_key: null, p_from: from, p_to: to }).then(outcome);

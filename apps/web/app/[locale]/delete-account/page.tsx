@@ -1,7 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { makeT, type Locale } from '@touch/i18n';
 import { LOCALES, requireLocale } from '@/lib/locales';
 import { getCachedVenue } from '@/lib/menu.server';
+import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
+import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
+import { SiteShell } from '@/components/site/SiteShell';
 import { LegalDocument, isPlaceholder, type LegalSection } from '@/components/legal/LegalDocument';
 import { DeleteAccountForm } from '@/components/legal/DeleteAccountForm';
 
@@ -16,13 +19,23 @@ import { DeleteAccountForm } from '@/components/legal/DeleteAccountForm';
  * sign in (Apple / Google accounts have no password).
  *
  * The explanatory content is server-rendered for the store's crawler; only the
- * form is a client island. ISR like the other legal pages — no cookies or
- * headers read here.
+ * form is a client island.
+ *
+ * Rendered inside the site's SiteShell (header, footer, night or light) since 2026-09-23.
+ * Like every page under [locale] it is dynamic (the layout reads the nonce, C11), and it
+ * reads the `tp-site-mode` cookie so the server paints the visitor's mode with no flash.
+ * The venue read is still the 60 s `menu`-tagged cache; `revalidate` is kept for the day
+ * C11 is fixed, when this page will have to choose between ISR and the server-painted mode.
  */
 export const revalidate = 60;
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
+}
+
+/** The browser chrome follows the site mode (the same cookie the shell paints from). */
+export async function generateViewport(): Promise<Viewport> {
+  return { themeColor: SITE_THEME_COLOR[await getSiteMode()] };
 }
 
 export async function generateMetadata({
@@ -97,15 +110,21 @@ function sections(locale: Locale): LegalSection[] {
 
 export default async function DeleteAccountPage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params).locale);
-  const venue = await getCachedVenue();
+  const [venue, mode, nonce] = await Promise.all([
+    getCachedVenue(),
+    getSiteMode(),
+    getRequestNonce(),
+  ]);
   return (
-    <LegalDocument
-      locale={locale}
-      page="delete-account"
-      title="legal.deleteAccount.title"
-      intro="legal.deleteAccount.intro"
-      sections={sections(locale)}
-      venue={venue}
-    />
+    <SiteShell locale={locale} mode={mode} nonce={nonce} venue={venue} path="/delete-account">
+      <LegalDocument
+        locale={locale}
+        page="delete-account"
+        title="legal.deleteAccount.title"
+        intro="legal.deleteAccount.intro"
+        sections={sections(locale)}
+        venue={venue}
+      />
+    </SiteShell>
   );
 }

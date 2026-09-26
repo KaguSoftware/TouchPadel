@@ -1,8 +1,8 @@
 /**
  * The kitchen board's view model. One shape for both ticket sources — the
- * cloud `tickets` rows (KdsBoard) and the LAN frames the till pushes while
- * degraded (LanBoard) — so TicketList renders both with the same cards and
- * the keyboard flow works identically in both modes.
+ * cloud rows app.kitchen_board returns (KdsBoard) and the LAN frames the till
+ * pushes while degraded (LanBoard) — so TicketList renders both with the same
+ * cards and the keyboard flow works identically in both modes.
  *
  * Age is the one piece of time arithmetic the board does (spec 06.20: the
  * transition is rendered from `ageSeconds` against the ticket's target); the
@@ -54,6 +54,12 @@ export interface TicketView {
 // Cloud rows
 // ---------------------------------------------------------------------------
 
+/**
+ * One ticket of app.kitchen_board (build-contracts-2026-09-23 §2.23): the
+ * shape the board's embedded select on `tickets` used to return, key for key,
+ * with no money anywhere. `reservation` is null for the bar and kitchen roles
+ * and prep, as the embed was.
+ */
 export interface TicketRow {
   id: string;
   status: 'queued' | 'preparing' | 'ready' | 'completed' | 'voided';
@@ -86,19 +92,6 @@ export interface TicketRow {
     }[];
   } | null;
 }
-
-export const TICKET_SELECT = `id, status, target_seconds, created_at, completed_at, last_actor_label,
-  order:orders (
-    id, source, status,
-    tab:tabs!orders_tab_id_fkey ( id, label, table:cafe_tables ( table_number ),
-               reservation:reservations!tabs_reservation_id_fkey ( id, guest_name ) ),
-    order_items (
-      id, qty, notes, voided, ready_at,
-      menu_item:menu_items ( name_en, name_ar ),
-      variant:menu_item_variants ( name_en, name_ar ),
-      order_item_modifiers ( qty, modifier:modifiers ( name_en, name_ar ) )
-    )
-  )`;
 
 /** Where the ticket goes: a table number, a court (with the guest), or a named tab. */
 export function ticketTag(row: TicketRow): TicketTag {

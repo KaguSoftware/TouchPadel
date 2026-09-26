@@ -2,7 +2,7 @@
  * The smiley ball, flat — the brand mark on the boot loading screen.
  *
  * The SAME artwork the racket face wears in the 3D court, read straight off
- * `courtTransition/smileyPaths` (which is free of three, so this costs the
+ * `@touch/court3d/smileyPaths` (which is free of three, so this costs the
  * first frame nothing). Four `<Path>`s in the order that file insists on —
  * INK under BALL and SEAM, INK_TOP over both — because the mark is an ordered
  * stack: the navy is a silhouette with the felt's windows cut out of it, and
@@ -24,7 +24,7 @@ import {
   SMILEY_INK_PATHS,
   SMILEY_INK_TOP_PATHS,
   SMILEY_SEAM_PATHS,
-} from '../features/courtTransition/smileyPaths';
+} from '@touch/court3d/smileyPaths';
 import { brand } from '../theme/tokens';
 
 const { cx, cy, r } = SMILEY_CIRCLE;

@@ -531,6 +531,15 @@ describe('item 9 / C3 payloads (0120)', () => {
     expect(stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 1, movementType: 'expired_writeoff', reasonCode: 'x' }).success).toBe(false);
   });
 
+  it('stock.waste: the store is optional, one of the two, and left out when absent (wave 5 §2.8.6)', () => {
+    const bakery = stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 1, reasonCode: 'x', location: 'bakery' });
+    expect(bakery.success && bakery.data.location).toBe('bakery');
+    const none = stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 1, reasonCode: 'x' });
+    expect(none.success && 'location' in none.data).toBe(false);
+    expect(stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 1, reasonCode: 'x', location: 'kitchen' }).success).toBe(false);
+    expect(stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 1, reasonCode: 'x', location: null }).success).toBe(false);
+  });
+
   it('an envelope of each new type is minted and accepted with a matching key', () => {
     const cases = [
       ['tab.cancel', { tabId: UUID_A, reasonCode: 'duplicate' }],

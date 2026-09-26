@@ -46,6 +46,7 @@ import { errorToMessageKey } from '../../lib/errors';
 import { compareTableNumbers } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
+import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, type ReasonCode } from '../../components/ui';
 import {
@@ -421,7 +422,7 @@ export function OpenTabsBoard({
       // <button> inside a cell from firing the row's navigate, by click and by
       // Enter — so arming a removal cannot also open the tab it is removing.
       render: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {pendingIds?.has(r.id) ? (
             <StatusBadge tone="info" icon="wifiOff" size="sm" label={tr('ws.cashier.tabs.removalQueued')} />
           ) : (
@@ -440,10 +441,10 @@ export function OpenTabsBoard({
           )}
           {armedId !== r.id && (
             <>
-              <Button size="sm" kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
+              <Button kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
                 {tr('ws.cashier.tabs.merge')}
               </Button>
-              <Button size="sm" iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
+              <Button iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
                 {tr('ws.cashier.tabs.select')}
               </Button>
             </>
@@ -662,7 +663,8 @@ export function OpenTabsScreen() {
      * above the list now, and only while a call is waiting.
      */
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>
-      <StartShiftBanner />
+      {/* Wave 5 (§5.1): the till shift's start panel while none is open, else the sound strip. */}
+      <TillShiftPanel fallback={<StartShiftBanner />} />
       <WaiterCallsPanel status={floorStatus} layout="strip" />
       <OpenTabsBoard
         status={asyncStatus(tabsQ, (d) => d.length === 0)}

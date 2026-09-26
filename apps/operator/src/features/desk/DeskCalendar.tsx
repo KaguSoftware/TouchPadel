@@ -128,8 +128,8 @@ export interface DeskCalendarSearch {
  * scoped rule does it. The label is the slot's own time, from data-hover.
  */
 const SLOT_CSS = `
-.desk-grid:not([data-dragging]) .desk-slot:not(:disabled):hover { background: var(--tp-accent-soft) !important; border-color: var(--tp-accent) !important; border-style: solid !important; }
-.desk-grid:not([data-dragging]) .desk-slot:not(:disabled):hover::after { content: '+ ' attr(data-hover); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
+.desk-grid:not([data-dragging]) .desk-slot:not(:disabled):hover { background: var(--tp-hover) !important; border-style: solid !important; }
+.desk-grid:not([data-dragging]) .desk-slot:not(:disabled):hover::after { content: '+ ' attr(data-hover); color: var(--tp-hover-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
 .desk-slot:focus-visible::after { content: '+ ' attr(data-hover); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
 /*
  * While a booking is in the hand, the bookings stop answering the pointer.

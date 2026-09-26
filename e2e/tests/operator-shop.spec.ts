@@ -3,7 +3,10 @@
  * will drive it:
  *
  *  (a) products  — a manager adds a product with a barcode under Stock → Shop
- *                  products; it starts tracked, at zero on hand.
+ *                  products; it starts tracked, at zero on hand, and hidden:
+ *                  a manager's new product waits for the owner (0172,
+ *                  LAUNCH_VIA_PROTOCOL).
+ *  (a2) launch   — the owner puts it on sale, which the owner may do directly.
  *  (b) goods in  — the product's own stock is received on the usual screen,
  *                  with a supplier picked from the list.
  *  (c) till      — a cashier opens a counter sale (no table), SCANS the barcode
@@ -51,6 +54,7 @@ test.describe('operator Touch Shop', () => {
   const BARCODE = `629${String(stamp).padStart(10, '0')}`;
   const COUNTER = `Walk-in ${stamp}`;
   let sectionId: string;
+  let itemId: string;
   let ingredientId: string;
   let orderId: string;
 
@@ -108,7 +112,7 @@ test.describe('operator Touch Shop', () => {
     await expect(form).toBeHidden();
     await expect(page.getByText(BARCODE)).toBeVisible();
 
-    const { data: variant } = await svc.from('menu_item_variants').select('id').eq('barcode', BARCODE).single();
+    const { data: variant } = await svc.from('menu_item_variants').select('id, item_id').eq('barcode', BARCODE).single();
     const { data } = await svc
       .from('ingredients')
       .select('id, kind, unit')
@@ -118,6 +122,28 @@ test.describe('operator Touch Shop', () => {
     expect(ing).toMatchObject({ kind: 'retail', unit: 'pc' });
     ingredientId = ing.id;
     expect(await onHand()).toBe(0);
+
+    itemId = (variant as { item_id: string }).item_id;
+    const { data: item } = await svc.from('menu_items').select('is_active, launched_at').eq('id', itemId).single();
+    expect(item).toMatchObject({ is_active: false, launched_at: null });
+  });
+
+  test('(a2) the owner puts the hidden product on sale', async () => {
+    const owner = await signedInClient(SEED_STAFF.owner);
+    try {
+      await appRpc(owner, 'upsert_menu_item', {
+        p_id: itemId,
+        p_category_id: sectionId,
+        p_name_en: PRODUCT,
+        p_name_ar: `مضرب ${stamp}`,
+        p_is_active: true,
+      });
+    } finally {
+      await owner.auth.signOut();
+    }
+    const { data: item } = await svc.from('menu_items').select('is_active, launched_at').eq('id', itemId).single();
+    expect((item as { is_active: boolean }).is_active).toBe(true);
+    expect((item as { launched_at: string | null }).launched_at).not.toBeNull();
   });
 
   test('(b) goods in receives the product like any stock', async ({ page }) => {

@@ -24,6 +24,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { branchTopic, useVenue } from './venue';
 
 export type BroadcastStatus = 'connecting' | 'live' | 'disconnected';
 
@@ -163,8 +164,11 @@ export interface BroadcastResult {
  */
 export function useBroadcast(options: BroadcastOptions): BroadcastResult {
   const queryClient = useQueryClient();
+  // 0224 (MV7): 'kds', 'floor' and 'courts' are per branch; the branch in scope
+  // picks the topic (the literal one until the branch is known).
+  const { branchId } = useVenue();
   const {
-    topic,
+    topic: requestedTopic,
     isPrivate,
     events = ['*'],
     enabled = true,
@@ -172,6 +176,7 @@ export function useBroadcast(options: BroadcastOptions): BroadcastResult {
     onStatus,
     invalidateKeys = [],
   } = options;
+  const topic = branchTopic(requestedTopic, branchId);
   // Key the effect on serialized inputs so callers can pass fresh literals.
   const eventsKey = events.join(',');
   const keysKey = JSON.stringify(invalidateKeys);

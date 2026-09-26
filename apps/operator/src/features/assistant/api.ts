@@ -19,6 +19,17 @@ import type { AssistantScope } from '@touch/core/assistant/tools';
 import { toAppRpcError } from '../../lib/appRpc';
 import { callEdge, streamEdge, type StreamEdgeOptions } from '../../lib/edge';
 import { supabase } from '../../lib/supabase';
+import { currentBranchId } from '../../lib/venueScope';
+
+/**
+ * Multi-venue audit (0228): the branch the rail shows. The assistant's tools
+ * then read that branch, as every other screen does; the edge function
+ * forwards it server to server as x-venue-scope.
+ */
+function scopeField(): { venue_scope?: string } {
+  const branch = currentBranchId();
+  return branch ? { venue_scope: branch } : {};
+}
 import type { PricingMap, TokenKinds } from '../../lib/assistantPricing';
 
 // ---------------------------------------------------------------------------
@@ -375,7 +386,11 @@ export interface RecheckResult {
  * billed: the function calls no model.
  */
 export function recheckMessage(messageId: string): Promise<RecheckResult> {
-  return callEdge<{ recheck: { message_id: string } }, RecheckResult>('assistant-chat', { recheck: { message_id: messageId } }, { ttlMs: 0 });
+  return callEdge<{ recheck: { message_id: string }; venue_scope?: string }, RecheckResult>(
+    'assistant-chat',
+    { recheck: { message_id: messageId }, ...scopeField() },
+    { ttlMs: 0 },
+  );
 }
 
 export interface ChatRequest {
@@ -390,7 +405,7 @@ export interface ChatRequest {
 
 /** One question. Events arrive through `opts.onEvent`; resolves when the stream ends. */
 export function sendMessage(req: ChatRequest, opts: StreamEdgeOptions): Promise<void> {
-  return streamEdge('assistant-chat', req, opts);
+  return streamEdge('assistant-chat', { ...req, ...scopeField() }, opts);
 }
 
 export interface PackSize {
@@ -423,7 +438,7 @@ export async function startSize(
 ): Promise<{ start: StartSize | null; packs: PackSize[] }> {
   const res = await callEdge<Record<string, unknown>, { start?: StartSize | null; packs?: PackSize[] }>(
     'assistant-chat',
-    { conversation_id: null, text: '', scopes: [...scopes], range, dry_run: true, ...(model ? { model } : {}) },
+    { conversation_id: null, text: '', scopes: [...scopes], range, dry_run: true, ...(model ? { model } : {}), ...scopeField() },
     { signal },
   );
   return { start: res.start ?? null, packs: res.packs ?? [] };

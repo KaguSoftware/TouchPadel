@@ -53,7 +53,7 @@ export function KitchenPairingPanel() {
           p_device_id: touch.getStation().stationId,
         });
         if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
-        touch.pinObserved(pin);
+        touch.pinObserved(pin, authorizer);
       } catch (e) {
         // Offline: fall through to the cache check in main. A server REFUSAL
         // (PIN_INVALID / PIN_LOCKED) still surfaces.

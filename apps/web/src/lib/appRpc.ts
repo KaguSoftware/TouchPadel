@@ -42,6 +42,13 @@ const RPC_ERROR_KEYS: Record<string, MessageKey> = {
   // 0038: the idempotency key we sent belongs to someone else's order. Not
   // actionable for the guest — retrying mints a fresh key.
   IDEMPOTENCY_CONFLICT: 'errors.generic',
+  // Multi-venue (0217): a row of another branch than the guest session's — for
+  // a guest, a basket line left over from another branch's menu. Re-read the
+  // menu (REFRESH_MENU_CODES) and drop it, like any item that went away.
+  VENUE_MISMATCH: 'cafe.itemUnavailable',
+  // 0125: the server could not tell which branch; not actionable for a guest.
+  // Guest writes resolve the branch from the session, so this is defensive.
+  VENUE_REQUIRED: 'errors.generic',
 };
 
 /** Map a Postgrest/RPC error to a translatable message key (never throws). */
@@ -62,6 +69,7 @@ const REFRESH_MENU_CODES = new Set([
   'SHOP_ITEM_NOT_ORDERABLE',
   'MODIFIER_INVALID',
   'MODIFIER_SELECTION',
+  'VENUE_MISMATCH',
 ]);
 
 export function shouldRefreshMenu(code: string | null | undefined): boolean {

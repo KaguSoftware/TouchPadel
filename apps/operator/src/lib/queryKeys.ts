@@ -23,7 +23,7 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 export const QK = {
-  /** venue_settings_public, one row: timezone + hours + closed dates. */
+  /** venue_settings, the branch in scope's row: timezone + hours + closed dates. */
   venueSettings: ['venueSettings'] as const satisfies QueryKey,
   /** Active courts, ordered for display. */
   courts: ['courts'] as const satisfies QueryKey,
@@ -75,6 +75,52 @@ export const QK = {
   /** Root of the stock tree; the keys themselves are feature-private in stock/stockKeys.ts (SK). */
   stock: {
     all: ['stock'] as const satisfies QueryKey,
+  },
+
+  // Protocols and the staff phone (build-contracts-2026-09-23 §5.2). Each is
+  // read by more than one screen; the protocols page's own keys (PK) sit in
+  // features/protocols/keys.ts under the same ['protocols'] root, so
+  // invalidating that root refreshes the page and the waiting count together.
+  /** What waits on the caller (app.protocols_waiting_count): Protocols, /ops, Observe home and the rail badge. */
+  protocolsWaiting: ['protocols', 'waiting'] as const satisfies QueryKey,
+  /** The driver's purchases not yet received as stock: /ops and Goods in (app.purchases_to_receive). */
+  purchasesToReceive: ['purchases', 'toReceive'] as const satisfies QueryKey,
+  /** How far each daily checklist got on one business date (app.checklist_day_state): day close and the checklists card. */
+  checklistDayState: {
+    all: ['checklists', 'dayState'] as const satisfies QueryKey,
+    date: (date: string) => ['checklists', 'dayState', date] as const satisfies QueryKey,
+  },
+
+  // The role spec (build-contracts-2026-09-23 §5.2). Each holds its RPC's
+  // payload as returned, called with no argument but the ones named here, so
+  // any screen that shares the key reads the same shape; a screen that needs
+  // another filter or page keeps its own key under the same root.
+  /** app.suggestions_page, filter 'new', first page: the rail badge (new_count) and the page's New tab. */
+  suggestionsNew: ['suggestions', 'new'] as const satisfies QueryKey,
+  /** app.recipe_changes_page, filter 'waiting': the Recipe changes card on /protocols. */
+  recipeChangesWaiting: ['recipeChanges', 'waiting'] as const satisfies QueryKey,
+  /** app.release_ideas_to_review: the New item card, /tasks and the kitchen board's My tasks count. */
+  ideasToReview: ['ideas', 'toReview'] as const satisfies QueryKey,
+
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Each holds the
+  // first page of its list's waiting filter as returned: the count in it is
+  // the rail badge and the "waiting on you" rows, and the page's own tab
+  // reads the same key. Every other read of a list sits under the same root.
+  /** app.deductions_page, filter 'waiting', first page: waiting_count (MGMT). */
+  deductionsWaiting: ['deductions', 'waiting'] as const satisfies QueryKey,
+  /** app.incidents_page, filter 'open', first page: open_count (MGMT; the desk and the till never read it). */
+  incidentsOpen: ['incidents', 'open'] as const satisfies QueryKey,
+  /** app.content_page, filter 'waiting', first page: waiting_count (the owner's badge; marketing reads it too). */
+  contentWaiting: ['content', 'waiting'] as const satisfies QueryKey,
+
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2). The station's shift
+  // as app.till_shift_status reads it: the rail row, the payment gate, the
+  // drawer card and the leaving guard share it. Refetched every 30 s and on
+  // focus; the shift writes invalidate ['tillShift'].
+  /** app.till_shift_status for one station (the device id every till money write carries). */
+  tillShift: {
+    all: ['tillShift'] as const satisfies QueryKey,
+    station: (station: string) => ['tillShift', station] as const satisfies QueryKey,
   },
 } as const;
 

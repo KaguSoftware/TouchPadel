@@ -5,7 +5,12 @@
  * Interpolation placeholders use single braces: {name}, {phone}, {count}.
  */
 import { wsEn } from './ws';
+import { staffEn } from './staff';
+import { workEn } from './work.en';
+import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { legalEn } from './legal.en';
+import { siteEn } from './site.en';
+import { branchesEn } from './branches.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -507,6 +512,8 @@ export const en = {
     capacityFree: '{count} courts free',
     capacityOne: '1 court left',
     deskOnly: 'Desk only',
+    laneFree: '{count} free',
+    laneFull: 'Fully booked',
     availFooter: '{count} courts per slot · your court is assigned at the desk',
     // Court → booking transition (design 2026-09-01): the in-place sheet on the Book tab.
     pickTime: 'Pick a time',
@@ -882,13 +889,17 @@ export const en = {
   },
   // Public legal pages (privacy, terms, support, delete-account): one file pair, catalogs/legal.*.ts.
   legal: legalEn,
+  // The public website: landing page, site header/footer, 404/error (site.en.ts).
+  site: siteEn,
+  // Multi-venue slice 4: the guest-facing branch words (branches.en.ts).
+  branches: branchesEn,
   seo: {
-    siteTitle: 'Touch Cafe — Menu',
-    siteDescription:
-      'Padel courts and a specialty cafe in Iraq. Book a court in the app; browse the cafe menu and order from your table.',
+    // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
+    // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
+    siteTitle: 'Touch Padel',
     menuTitle: 'Touch Cafe Menu',
     menuDescription:
-      'The full Touch Cafe menu — hot and cold drinks, breakfast, mains, desserts and snacks, in English and Arabic.',
+      'The Touch Cafe menu: specialty coffee, tea, fresh juice, smoothies, mojitos, milkshakes and desserts, in Arabic and English.',
     tableTitle: 'Your table — Touch Cafe',
   },
   errors: {
@@ -958,7 +969,7 @@ export const en = {
     // did-not-sync counts were removed from the strip entirely (see
     // components/VenueStatusBanner).
     status: {
-      degraded: 'Venue offline mode — guests cannot book the coming days or order online. Take bookings and orders at the desk.',
+      degraded: 'Venue offline mode: guests cannot book the coming days or order online. Take bookings and orders at the desk.',
     },
     // SOW L237-238: the shared-till idle lock (0064).
     lock: {
@@ -1020,10 +1031,23 @@ export const en = {
     },
     roles: {
       cashier: 'Cashier',
+      // Soft-retired (0155): existing accounts keep it, new ones are Barista
+      // or Chef assistant.
       prep: 'Kitchen',
       court_desk: 'Court desk',
       manager: 'Manager',
       owner: 'Owner',
+      head_barista: 'Head barista',
+      barista: 'Barista',
+      head_chef: 'Head chef',
+      // The role is still `chef`; it is shown as the head chef's assistant
+      // (role spec #74, build-contracts-2026-09-23 §4).
+      chef: 'Chef assistant',
+      driver: 'Driver',
+      marketing: 'Marketing',
+      // Wave 5 (wave5-addendum-2026-09-25 §4.2).
+      assistant_barista: 'Assistant barista',
+      waiter: 'Waiter',
     },
     days: {
       sun: 'Sun',
@@ -1271,6 +1295,9 @@ export const en = {
       recipes: 'Recipes',
       products: 'Shop products',
       suppliers: 'Suppliers',
+      // Wave 5 (wave5-addendum-2026-09-25 §4.2): /stock/moves, moving stock
+      // between the cafe and bakery stores.
+      moves: 'Move stock',
     },
     // Vocabulary every stock screen shares. Screen copy lives in ws.manager.stock.
     stock: {
@@ -1282,6 +1309,8 @@ export const en = {
       iqd: '{amount} IQD',
       unitLabel: 'Unit',
       unit: { g: 'g', ml: 'ml', pc: 'pcs' },
+      // One of a unit: "1 pc", "cost per pc".
+      unitOne: { g: 'g', ml: 'ml', pc: 'pc' },
       status: { out: 'Out of stock', low: 'Running low', belowPar: 'Below par', countNeeded: 'Count needed', ok: 'OK' },
       movement: {
         goods_in: 'Delivery',
@@ -1294,6 +1323,10 @@ export const en = {
         expired_writeoff: 'Expired, written off',
         count_adjustment: 'Count correction',
         refund_reversal: 'Returned by a refund',
+        // product_test_movement (build-contracts-2026-09-23 §4).
+        product_test: 'Used in a product test',
+        // stock_transfer_movement (wave5-addendum-2026-09-25 §4.2).
+        transfer: 'Moved between stores',
       },
     },
     // SOW L299-301: court records — name, indoor/outdoor, description, photo,
@@ -1403,7 +1436,7 @@ export const en = {
       noCost: 'No cost',
       noCostCount: '{count} items without cost — needed for profit analytics',
       photo: 'Photo',
-      photoHint: 'Square, up to 1200 px — converted to WebP',
+      photoHint: 'Square, up to 1200 px. Saved as WebP.',
       search: 'Search items…',
       defaultPrice: 'Default price',
       reorder: 'Reorder',
@@ -1431,7 +1464,7 @@ export const en = {
     addons: {
       groups: 'Item groups',
       subGroups: 'Sub-groups',
-      subGroupsHint: 'Not linked to any item — revealed by an option in another group.',
+      subGroupsHint: 'Not linked to any item. An option in another group reveals it.',
       newGroup: 'New group',
       newSubGroup: 'New sub-group',
       linkedItems: 'Linked items',
@@ -1439,10 +1472,10 @@ export const en = {
       newOption: 'New option',
       reveals: 'Reveals',
       revealsHint: 'Sub-groups shown when this option is picked.',
-      noSubGroups: 'No sub-groups yet — create one to reveal it here.',
+      noSubGroups: 'No sub-groups yet. Create one to reveal it here.',
       minMax: 'Min / max choices',
       required: 'Required',
-      delta: 'Price delta (IQD)',
+      delta: 'Extra charge (IQD)',
       active: 'Active',
       lead: 'The choices a guest makes on an item, such as milk type or an extra shot. A sub-group is asked only after a guest picks a certain option, such as choosing a drink after “Make it a meal”.',
       pick: 'Choose a group to edit it, or add a new one.',
@@ -1694,6 +1727,7 @@ export const en = {
       DEGRADED_LOCKOUT: 'The venue is in offline mode — this action is blocked right now.',
       PIN_INVALID: 'Incorrect PIN.',
       PIN_LOCKED: 'Too many wrong PINs — locked for a few minutes.',
+      PIN_OWN: 'That is your own PIN. Another manager has to enter theirs.',
       PIN_GRANT_REQUIRED: 'Manager authorisation expired — enter the PIN again.',
       FORBIDDEN: 'You do not have permission for that.',
       AUTH_REQUIRED: 'You must be signed in.',
@@ -1749,7 +1783,9 @@ export const en = {
       RESERVATION_NOT_FOUND: 'Reservation not found.',
       REASON_REQUIRED: 'A reason is required.',
       REQUEST_NOT_PENDING: 'That request has already been answered. Reload to see the decision.',
-      CANNOT_DECIDE_OWN: 'You cannot decide your own request.',
+      // Reworded in wave 5 (addendum §3, V11): it also refuses a deduction against
+      // oneself and a review of one's own incident report.
+      CANNOT_DECIDE_OWN: 'You cannot decide something you sent or that is about you.',
       REQUEST_ALREADY_PENDING: 'There is already a pending request of that kind.',
       BAD_KIND: 'That is not a kind of request.',
       BAD_STATUS: 'That is not a status.',
@@ -1771,6 +1807,21 @@ export const en = {
       VENUE_REQUIRED: 'This action needs to know which venue it is for.',
       STATION_UNKNOWN:
         'This station is not registered to a venue. A manager registers it in Settings → Devices.',
+      // Multi-venue (0212, 0217).
+      VENUE_MISMATCH: 'This belongs to another branch. Switch to that branch to do this.',
+      PROMOTION_SCOPE_BRANCH: 'A promotion for every branch can’t name courts, categories or items.',
+      STAFF_VENUE_REQUIRED: 'A staff member has to work at one branch at least.',
+      STAFF_NOT_FOUND: 'This staff member no longer exists.',
+      VENUE_NOT_FOUND: 'This branch no longer exists.',
+      STATION_OTHER_BRANCH: 'This station name is in use at another branch. Retire it there first, or pick another name.',
+      SLUG_TAKEN: 'Another branch already uses this short name. Pick another.',
+      BRANCH_NOT_READY: 'This branch isn’t ready to open yet. Finish the checklist first.',
+      LAST_OPEN_BRANCH: 'This is the only open branch. Open another branch before closing it.',
+      BRANCH_DAY_OPEN: 'Close this branch’s day before closing the branch.',
+      STATION_RETIRED: 'This station was retired. Register it again in Settings → Venue details → Stations.',
+      STATION_HAS_HISTORY: 'This station name has till shifts at another branch. Pick another name.',
+      BRANCH_HAS_BOOKINGS: 'This branch still has bookings, holds or series to come. Cancel or move them first.',
+      VENUE_CLOSED: 'This branch is closed.',
       NO_PIN_SET: 'This account has no PIN yet. Ask the owner to set one.',
       BOOKING_TAB_OPEN: 'This booking already has an open bill. Add to that bill instead.',
       BOOKING_TAB_DONOR: 'A booking’s bill can’t be moved onto another bill. Move the other bill onto the booking instead.',
@@ -1858,9 +1909,16 @@ export const en = {
       REFUND_EXCEEDS_PAYMENT: 'The refund is more than what is left on this payment.',
       PAYMENT_NOT_FOUND: 'That payment could not be found.',
       ITEM_NOT_ON_TAB: 'That line is not on this tab.',
-      IDEMPOTENCY_CONFLICT: 'This write was already recorded from another session. Refresh and check the tab.',
+      IDEMPOTENCY_CONFLICT: 'This was already saved from another session. Refresh to see the latest.',
+      // Protocols and the staff phone (build-contracts-2026-09-23 §3), one file pair:
+      // opErrors.protocols.*.ts.
+      ...opErrorsProtocolsEn,
     },
   },
+  // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps
+  // share (work.*.ts) and the staff phone's pages, one file pair per lane (catalogs/staff/*).
+  work: workEn,
+  staff: staffEn,
 } as const;
 
 /**

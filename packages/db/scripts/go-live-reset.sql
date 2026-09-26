@@ -97,6 +97,9 @@ truncate table
   public.refunds,
   public.refund_items,
   public.day_sessions,
+  -- wave 5, lane T (wave5-addendum §7.8, required): a till shift references
+  -- day_sessions and stations, and payments and refunds reference it.
+  public.till_shifts,
   public.waiter_calls,
   public.guest_sessions,
   public.promotion_redemptions,
@@ -109,6 +112,15 @@ truncate table
   public.stock_count_lines,
   public.deliveries,
   public.delivery_lines,
+  -- wave 5, lane S (wave5-addendum §7.8, PROPOSAL): the moves between the
+  -- stores; and the driver's purchases, their lines and the shopping list
+  -- that names them, because purchases.delivery_id references deliveries
+  -- (0166:56) and TRUNCATE refuses a table another untruncated one references.
+  public.stock_transfers,
+  public.stock_transfer_lines,
+  public.purchases,
+  public.purchase_lines,
+  public.shopping_items,
 
   -- Operations, devices and staff activity ----------------------------------
   public.audit_log,
@@ -121,6 +133,9 @@ truncate table
   public.telegram_actions,
   public.staff_breaks,
   public.staff_requests,
+  -- wave 5, lane P (wave5-addendum §7.8, PROPOSAL): test-period records.
+  public.salary_deductions,
+  public.incident_reports,
   public.station_staff,
   -- `stations` is the device registry (0124). Dev sessions and test tills
   -- registered themselves here; a real till re-registers on its first

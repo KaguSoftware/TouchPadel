@@ -34,6 +34,7 @@ export function MoneyInput({
   placeholder,
   id,
   style,
+  'aria-label': ariaLabel,
 }: {
   value: number | null;
   onChange: (next: number | null) => void;
@@ -44,6 +45,8 @@ export function MoneyInput({
   placeholder?: string;
   id?: string;
   style?: CSSProperties;
+  /** For a box with no Field around it, such as a row under a column header. */
+  'aria-label'?: string;
 }) {
   const { locale } = useLocale();
   const [text, setText] = useState(value === null ? '' : String(value));
@@ -73,6 +76,7 @@ export function MoneyInput({
     <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', ...style }}>
       <input
         id={id}
+        aria-label={ariaLabel}
         style={numericStyle}
         dir="ltr"
         inputMode="numeric"

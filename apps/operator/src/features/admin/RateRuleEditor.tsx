@@ -16,6 +16,12 @@
  * which hid the one case that needs a person: two rules that tie
  * (rateRuleLogic.rulesTie). The rule for how overlaps resolve is one sentence
  * under the table instead.
+ *
+ * A MANAGER PROPOSES (#57, build-contracts-2026-09-23 §5.5). Every save of a
+ * rule changes the price a slot gets, so the owner alone saves here
+ * (`editRates`). A manager reads the rules and gets "Propose a new rate" and,
+ * on an open rule, "Change this rate": each a price or promo change on
+ * /protocols, in place of a notice that names the owner.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,13 +50,24 @@ import { MoneyInput } from '../../components/inputs';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/toast';
 import { MARK_FG, MARK_SOFT } from '../ops/OpsVisuals';
-import { DAY_KEYS, coversEveryDay, findTies, tiesFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
+import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './promotions/PriceChangeStart';
+import { DAY_KEYS, coversEveryDay, dayRuns, findTies, tiesFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
 
 interface RuleRow extends RateRuleLike {
   rate_rule_prices: { duration_min: number; price_iqd: number }[];
 }
 
 const RATE_RULES_KEY = ['rateRules'] as const;
+
+/**
+ * One line break allowed in a price line, after its "·": "60 min" and
+ * "25,000 IQD" each stay whole. On one line when the table has room; beside
+ * the open form (Arabic runs longer) it folds in two, where a plain nowrap
+ * pushed the Priority column off the table.
+ */
+function breakAfterDot(line: string): string {
+  return line.replace(/ /g, '\u00a0').replace(/·\u00a0/g, '· ');
+}
 const NO_RULES: RuleRow[] = [];
 const NO_COURTS: CourtRow[] = [];
 
@@ -58,6 +75,9 @@ export function RateRuleEditor() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const can = usePermissions();
+  const start = usePriceChangeStart();
+  // A manager: new rules and edits go through a price or promo change.
+  const proposes = !can.editRates && start !== null;
   const [selected, setSelected] = useState<RuleRow | 'new' | null>(null);
   const [showOff, setShowOff] = useState(false);
 
@@ -111,9 +131,36 @@ export function RateRuleEditor() {
     {
       key: 'days',
       header: tr('ws.manager.rates.days'),
-      render: (r) => (coversEveryDay(r.days_of_week) ? tr('ws.manager.rates.everyDay') : r.days_of_week.map(dayName).join(' ')),
+      // "Sun–Thu", not a word per line; a range or a day never splits.
+      render: (r) =>
+        coversEveryDay(r.days_of_week) ? (
+          <span style={{ whiteSpace: 'nowrap' }}>{tr('ws.manager.rates.everyDay')}</span>
+        ) : (
+          <span style={{ display: 'inline-flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-1-5)' }}>
+            {dayRuns(r.days_of_week).map((run) =>
+              'day' in run ? (
+                <span key={run.day}>{dayName(run.day)}</span>
+              ) : (
+                <span key={run.from} style={{ whiteSpace: 'nowrap' }}>
+                  {dayName(run.from)}–{dayName(run.to)}
+                </span>
+              ),
+            )}
+          </span>
+        ),
     },
-    { key: 'window', header: tr('ws.manager.rates.window'), render: (r) => <span dir="ltr">{r.start_time.slice(0, 5)}–{r.end_time.slice(0, 5)}</span> },
+    // A window is one reading, and a price line breaks only between its
+    // duration and its price: broken at every space ("09:00–" / "23:00",
+    // "60 min ·" / "25,000 IQD" on every line) each rule row stood six lines tall.
+    {
+      key: 'window',
+      header: tr('ws.manager.rates.window'),
+      render: (r) => (
+        <span dir="ltr" style={{ whiteSpace: 'nowrap' }}>
+          {r.start_time.slice(0, 5)}–{r.end_time.slice(0, 5)}
+        </span>
+      ),
+    },
     {
       key: 'prices',
       header: tr('ws.manager.rates.prices'),
@@ -122,7 +169,9 @@ export function RateRuleEditor() {
           {[...r.rate_rule_prices]
             .sort((a, b) => a.duration_min - b.duration_min)
             .map((p) => (
-              <bdi key={p.duration_min}>{tr('ws.manager.rates.priceLine', { minutes: formatNumber(p.duration_min, locale), price: formatIQD(p.price_iqd, locale) })}</bdi>
+              <bdi key={p.duration_min}>
+                {breakAfterDot(tr('ws.manager.rates.priceLine', { minutes: formatNumber(p.duration_min, locale), price: formatIQD(p.price_iqd, locale) }))}
+              </bdi>
             ))}
         </span>
       ),
@@ -130,18 +179,22 @@ export function RateRuleEditor() {
     { key: 'priority', header: tr('ws.manager.rates.priority'), numeric: true, render: (r) => formatNumber(r.priority, locale) },
   ];
 
+  const newRuleButton = proposes ? (
+    <PriceChangeButton kind="primary" icon="plus" target={{ change: 'rate' }} label={tr('ws.pricing.rates.propose')} />
+  ) : (
+    <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
+      {tr('ws.manager.rates.newRule')}
+    </Button>
+  );
+
   return (
     <div>
-      <PageHeader
-        title={tr('ws.manager.rates.title')}
-        subtitle={tr('ws.manager.rates.lead')}
-        actions={
-          <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
-            {tr('ws.manager.rates.newRule')}
-          </Button>
-        }
-      >
-        {!can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />}
+      <PageHeader title={tr('ws.manager.rates.title')} subtitle={tr('ws.manager.rates.lead')} actions={newRuleButton}>
+        {proposes ? (
+          <PriceLockNote message={tr('ws.pricing.rates.note')} />
+        ) : (
+          !can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />
+        )}
       </PageHeader>
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: selected ? 'minmax(0, 1.4fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
@@ -157,11 +210,7 @@ export function RateRuleEditor() {
                 icon="court"
                 title={tr('ws.manager.rates.empty')}
                 body={tr('ws.manager.rates.emptyBody')}
-                action={
-                  <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
-                    {tr('ws.manager.rates.newRule')}
-                  </Button>
-                }
+                action={newRuleButton}
               />
             }
           >
@@ -196,6 +245,7 @@ export function RateRuleEditor() {
             ties={selected === 'new' ? [] : tiesFor(ties, rules, selected.id)}
             dayName={dayName}
             readOnly={!can.editRates}
+            proposes={proposes}
             onSaved={() => {
               setSelected(null);
               void queryClient.invalidateQueries({ queryKey: RATE_RULES_KEY });
@@ -277,6 +327,7 @@ function RuleForm({
   ties,
   dayName,
   readOnly,
+  proposes,
   onSaved,
   onCancel,
 }: {
@@ -286,6 +337,8 @@ function RuleForm({
   ties: Overlap[];
   dayName: (d: number) => string;
   readOnly: boolean;
+  /** A manager: the rule changes through "Change this rate", not Save. */
+  proposes: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -392,17 +445,26 @@ function RuleForm({
           ))}
         </div>
       </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 5rem', gap: 'var(--tp-sp-2-5)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.startTime')}>
           <input style={inputStyle} dir="ltr" type="time" value={startTime} disabled={readOnly} onChange={(e) => setStartTime(e.target.value)} />
         </Field>
         <Field label={tr('op.rates.endTime')}>
           <input style={inputStyle} dir="ltr" type="time" value={endTime} disabled={readOnly} onChange={(e) => setEndTime(e.target.value)} />
         </Field>
-        <Field label={tr('op.rates.priority')} hint={tr('ws.manager.rates.priorityHint')}>
-          <input style={inputStyle} dir="ltr" type="number" value={priority} disabled={readOnly} onChange={(e) => setPriority(Number(e.target.value) || 0)} />
-        </Field>
       </div>
+      {/* Its own row: squeezed into a 5rem third column, the one hint that
+          explains priority wrapped to seven lines of two words. */}
+      <Field label={tr('op.rates.priority')} hint={tr('ws.manager.rates.priorityHint')}>
+        <input
+          style={{ ...inputStyle, inlineSize: '7rem' }}
+          dir="ltr"
+          type="number"
+          value={priority}
+          disabled={readOnly}
+          onChange={(e) => setPriority(Number(e.target.value) || 0)}
+        />
+      </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.validFrom')}>
           <input style={inputStyle} dir="ltr" type="date" value={validFrom} disabled={readOnly} onChange={(e) => setValidFrom(e.target.value)} />
@@ -429,28 +491,37 @@ function RuleForm({
       </div>
       <ErrorText error={error} />
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.rates.nonDestructive')}</span>
-        <Button onClick={onCancel} disabled={busy}>
-          {tr('common.cancel')}
-        </Button>
-        <Button
-          kind="primary"
-          icon="check"
-          busy={busy}
-          disabled={readOnly || !name || days.size === 0 || !anyPrice}
-          disabledReason={
-            !name
-              ? tr('ws.manager.disabled.namesRequired')
-              : days.size === 0
-                ? tr('ws.manager.disabled.daysRequired')
-                : !anyPrice
-                  ? tr('ws.manager.disabled.priceRequired')
-                  : undefined
-          }
-          onClick={() => void save()}
-        >
-          {tr('common.save')}
-        </Button>
+        {proposes && rule ? (
+          <>
+            <Button onClick={onCancel}>{tr('common.close')}</Button>
+            <PriceChangeButton kind="primary" target={{ change: 'rate', rule: rule.id }} label={tr('ws.pricing.rates.change')} />
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.rates.nonDestructive')}</span>
+            <Button onClick={onCancel} disabled={busy}>
+              {tr('common.cancel')}
+            </Button>
+            <Button
+              kind="primary"
+              icon="check"
+              busy={busy}
+              disabled={readOnly || !name || days.size === 0 || !anyPrice}
+              disabledReason={
+                !name
+                  ? tr('ws.manager.disabled.namesRequired')
+                  : days.size === 0
+                    ? tr('ws.manager.disabled.daysRequired')
+                    : !anyPrice
+                      ? tr('ws.manager.disabled.priceRequired')
+                      : undefined
+              }
+              onClick={() => void save()}
+            >
+              {tr('common.save')}
+            </Button>
+          </>
+        )}
       </div>
     </Panel>
   );

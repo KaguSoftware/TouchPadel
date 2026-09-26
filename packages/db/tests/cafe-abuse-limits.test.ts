@@ -22,6 +22,7 @@ import {
   ensureCafeProbeData,
   ensureOpenDay,
   SEED_STAFF,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -45,7 +46,7 @@ describe.skipIf(!up)('0082 cafe abuse limits (SEC-25)', () => {
     await svc.from('venue_settings').update({
       guest_orders_per_minute: 6,
       guest_items_per_order: 40,
-    }).not('id', 'is', null);
+    }).eq('venue_id', VENUE_A_ID);
     // Leave no tables behind: they show up in the operator's table dropdown and
     // an e2e case that expects exactly one match starts finding several.
     for (const id of madeTables) {
@@ -56,7 +57,7 @@ describe.skipIf(!up)('0082 cafe abuse limits (SEC-25)', () => {
   });
 
   const setLimits = (patch: Record<string, number>) =>
-    svc.from('venue_settings').update(patch).not('id', 'is', null);
+    svc.from('venue_settings').update(patch).eq('venue_id', VENUE_A_ID);
 
   /** A variant that exists in the café fixtures. */
   const VARIANT = 'f1f70000-0000-4000-8000-0000f0010001';
@@ -158,7 +159,7 @@ describe.skipIf(!up)('0082 cafe abuse limits (SEC-25)', () => {
   it('exposes the till confirmation threshold as a setting, not a hard block', async () => {
     const { data } = await svc
       .from('venue_settings')
-      .select('tab_confirm_threshold_iqd')
+      .select('tab_confirm_threshold_iqd').eq('venue_id', VENUE_A_ID)
       .limit(1)
       .single();
     expect((data as { tab_confirm_threshold_iqd: number }).tab_confirm_threshold_iqd).toBeGreaterThan(0);

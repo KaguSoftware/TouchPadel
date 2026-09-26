@@ -45,9 +45,19 @@ function validateCalendarSearch(raw: Record<string, unknown>): { date?: string; 
     ...(typeof raw.customer === 'string' ? { customer: raw.customer } : {}),
   };
 }
-/** `/desk/block?date=YYYY-MM-DD`: the day the calendar was showing. */
-function validateBlockSearch(raw: Record<string, unknown>): { date?: string } {
-  return typeof raw.date === 'string' && ISO_DATE.test(raw.date) ? { date: raw.date } : {};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * `/desk/block?date=YYYY-MM-DD`: the day the calendar was showing.
+ * `/desk/block?run=<uuid>&step=<uuid>`: a tournament's courts step, opened
+ * from Protocols or My tasks (event mode, build-contracts §5.1); both or neither.
+ */
+function validateBlockSearch(raw: Record<string, unknown>): { date?: string; run?: string; step?: string } {
+  const run = typeof raw.run === 'string' && UUID.test(raw.run) ? raw.run.toLowerCase() : undefined;
+  const step = typeof raw.step === 'string' && UUID.test(raw.step) ? raw.step.toLowerCase() : undefined;
+  return {
+    ...(typeof raw.date === 'string' && ISO_DATE.test(raw.date) ? { date: raw.date } : {}),
+    ...(run && step ? { run, step } : {}),
+  };
 }
 
 const child = <P extends string>(path: P, guardRoute: string, Component: Parameters<typeof guarded>[1]) =>

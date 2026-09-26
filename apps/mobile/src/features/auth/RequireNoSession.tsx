@@ -29,12 +29,14 @@ import { noSessionGate } from './gate';
 import { profileGateState } from './social';
 import { useOwnProfile } from '../profile/hooks';
 import { usePendingSlot } from '../booking/pendingSlot';
+import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { Loading } from '../../components/ui';
 
 export function RequireNoSession({ children }: { children: ReactNode }) {
   const { session, initializing } = useAuth();
   const pending = usePendingSlot();
   const profile = useOwnProfile(session !== null);
+  const { status: staff, answered: staffAnswered } = useStaffStatus();
   const gate = profileGateState(profile);
   switch (
     noSessionGate({
@@ -44,6 +46,10 @@ export function RequireNoSession({ children }: { children: ReactNode }) {
       // 'unknown' covers pending AND error; only a pending query should hold
       // the screen, an errored one fails open to the tabs.
       profile: gate === 'unknown' ? (profile.status === 'pending' ? 'pending' : 'complete') : gate,
+      // A staff account signed in here goes to Today (§6.5), not the tabs, and
+      // nowhere until its row is read: unread, it looks like a guest.
+      staff: staff.kind,
+      staffAnswered,
     })
   ) {
     case 'loading':
@@ -52,6 +58,8 @@ export function RequireNoSession({ children }: { children: ReactNode }) {
       return <Redirect href="/(tabs)" />;
     case 'redirect-complete-profile':
       return <Redirect href="/complete-profile" />;
+    case 'redirect-staff':
+      return <Redirect href="/staff" />;
     default:
       return <>{children}</>;
   }

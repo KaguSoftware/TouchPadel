@@ -7,7 +7,7 @@
  * Inline styles with logical properties only; interaction states via the
  * class hooks in GlobalStyles.
  */
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { formatIQD, formatNumber, formatPercent } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
@@ -71,7 +71,7 @@ export function PageHeader({
             <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem', maxInlineSize: '70ch' }}>{subtitle}</p>
           )}
         </div>
-        {actions && <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
+        {actions && <div className="tp-page-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
       </div>
       {children}
     </header>
@@ -96,6 +96,13 @@ export function Toolbar({ children, style, end }: { children?: ReactNode; end?: 
     </div>
   );
 }
+
+/**
+ * Whether a surface sits inside a Panel's body. A DataTable there drops its
+ * own border: the panel already draws the edge, and a bordered table inside a
+ * bordered panel read as a card inside a card.
+ */
+const InPanel = createContext(false);
 
 /** A grouped section with an optional title row. Use sparingly: most content needs no container. */
 export function Panel({
@@ -174,7 +181,7 @@ export function Panel({
           ...(fill ? { flex: 1, minBlockSize: 0, display: 'flex', flexDirection: 'column' } : null),
         }}
       >
-        {children}
+        <InPanel.Provider value={true}>{children}</InPanel.Provider>
       </div>
     </section>
   );
@@ -659,6 +666,7 @@ export function DataTable<T>({
   'aria-label'?: string;
 }) {
   const { tr } = useLocale();
+  const inPanel = useContext(InPanel);
 
   // One row, extracted so a grouped table renders the same markup inside a
   // group as an ungrouped one does at the top level.
@@ -744,7 +752,7 @@ export function DataTable<T>({
   return (
     <div
       style={{
-        border: '1px solid var(--tp-border)',
+        border: inPanel ? undefined : '1px solid var(--tp-border)',
         borderRadius: 'var(--tp-radius-panel)',
         overflow: 'auto',
         maxBlockSize,
@@ -883,7 +891,8 @@ const menuItemStyle: CSSProperties = {
   minBlockSize: 'var(--tp-touch)',
   paddingBlock: 'var(--tp-sp-2)',
   paddingInline: 'var(--tp-sp-3)',
-  background: 'none',
+  // No inline `background`: it outranked the .tp-row hover rule, so the menu's
+  // rows never lit up. GlobalStyles clears the button ground instead.
   border: 'none',
   font: 'inherit',
   textAlign: 'start',
@@ -1390,13 +1399,17 @@ export function HeadlineFigure({
     textAlign: 'start',
     inlineSize: '100%',
     minInlineSize: 0,
+    // The app-wide colour strip (GlobalStyles, tp-headline-tile): set by the
+    // tile's place in its row, and unset inside a report figure group, whose
+    // own card already wears it. Inline because card's border would win.
+    borderBlockStart: 'var(--tp-tile-strip, 1px solid var(--tp-border))',
   };
   return clickable ? (
-    <button type="button" className="tp-tile" onClick={onDrill} style={base} title={tr('ws.kit.drill.title')}>
+    <button type="button" className="tp-tile tp-headline-tile" onClick={onDrill} style={base} title={tr('ws.kit.drill.title')}>
       {inner}
     </button>
   ) : (
-    <div style={base}>{inner}</div>
+    <div className="tp-headline-tile" style={base}>{inner}</div>
   );
 }
 
@@ -1729,7 +1742,7 @@ export function PermissionRefusedNotice({ action, requiredRole, style }: { actio
     >
       <Icon name="shield" size={16} style={{ marginBlockStart: '0.1rem', flexShrink: 0 }} />
       <span>
-        <strong>{tr('ws.kit.refused.title')}</strong> — {tr('ws.kit.refused.body', { action, role })}
+        <strong>{tr('ws.kit.refused.title')}</strong>: {tr('ws.kit.refused.body', { action, role })}
       </span>
     </div>
   );
@@ -1784,7 +1797,22 @@ export function MessagePresenter({ message, tone, icon, rise, style }: { message
 }
 
 /** A rejected write, not a warning. */
-export function ConflictNotice({ body, onResolve, resolveLabel, children, style }: { body?: ReactNode; onResolve?: () => void; resolveLabel?: string; children?: ReactNode; style?: CSSProperties }) {
+export function ConflictNotice({
+  title,
+  body,
+  onResolve,
+  resolveLabel,
+  children,
+  style,
+}: {
+  /** The heading; defaults to the desk's "Time clash". A caller whose clash is not about time names its own. */
+  title?: ReactNode;
+  body?: ReactNode;
+  onResolve?: () => void;
+  resolveLabel?: string;
+  children?: ReactNode;
+  style?: CSSProperties;
+}) {
   const { tr } = useLocale();
   return (
     <div
@@ -1802,7 +1830,7 @@ export function ConflictNotice({ body, onResolve, resolveLabel, children, style 
       }}
     >
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontWeight: 700 }}>
-        <Icon name="ban" size={18} /> {tr('ws.kit.conflict.title')}
+        <Icon name="ban" size={18} /> {title ?? tr('ws.kit.conflict.title')}
       </div>
       <p style={{ fontSize: 'var(--tp-fs-sm)' }}>{body ?? tr('ws.kit.conflict.body')}</p>
       {children}

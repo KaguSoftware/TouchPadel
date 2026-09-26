@@ -2,16 +2,21 @@ import { describe, expect, it } from 'vitest';
 import {
   countWithoutCost,
   defaultPrice,
+  everOnSale,
   hookError,
+  inRelease,
   itemListView,
+  itemLocks,
   lacksCost,
   marginBand,
   marginPct,
   matchesSearch,
+  newItemMode,
   nextDayIso,
   nextSortOrder,
   orderableState,
   reorderedIds,
+  runTitle,
   sortRows,
 } from './menuLogic';
 
@@ -216,5 +221,87 @@ describe('orderableState', () => {
   it('does not call an item off today because of an old date', () => {
     // The badge that said "Off for today" whether or not the item was off.
     expect(orderableState({ ...item, unavailable_on: '2026-09-15' }, '2026-09-16', false)).toBe('orderable');
+  });
+});
+
+// The product release locks (build-contracts-2026-09-23 §5.5) mirror
+// upsert_menu_item and upsert_variant as product_release and price_promo left
+// them; product-release.test.ts and price-promo.test.ts pin the server side.
+describe('release state', () => {
+  const launched = { is_active: true, launched_at: '2026-09-01T10:00:00Z', release_run_id: null, release_run: null };
+  const draft = { is_active: false, launched_at: null, release_run_id: null, release_run: null };
+  const released = (status: string) => ({ ...draft, release_run_id: 'run-1', release_run: { status } });
+
+  it('is in release until its run is live or done', () => {
+    expect(inRelease(released('active'))).toBe(true);
+    expect(inRelease(released('scheduled'))).toBe(true);
+    expect(inRelease(released('live'))).toBe(false);
+    expect(inRelease(released('done'))).toBe(false);
+    expect(inRelease(draft)).toBe(false);
+  });
+  it('treats a release run it cannot read as unfinished', () => {
+    expect(inRelease({ ...draft, release_run_id: 'run-1', release_run: null })).toBe(true);
+  });
+  it('counts an item as on sale when it was launched or is switched on, like the size lock', () => {
+    expect(everOnSale(launched)).toBe(true);
+    // Switched off after launch: still launched (a manager switches it back on as today).
+    expect(everOnSale({ ...launched, is_active: false })).toBe(true);
+    // No stamp but switched on (a row written around the RPCs): the server locks it too.
+    expect(everOnSale({ ...draft, is_active: true })).toBe(true);
+    expect(everOnSale(draft)).toBe(false);
+  });
+});
+
+describe('itemLocks', () => {
+  const manager = { editLaunchedPrices: false, launchDirectly: false };
+  const owner = { editLaunchedPrices: true, launchDirectly: true };
+  const launched = { is_active: true, launched_at: '2026-09-01T10:00:00Z', release_run_id: null, release_run: null };
+  const draft = { is_active: false, launched_at: null, release_run_id: null, release_run: null };
+  const inRun = { ...draft, release_run_id: 'run-1', release_run: { status: 'active' } };
+
+  it('locks an item in release for the owner too (ITEM_IN_RELEASE)', () => {
+    expect(itemLocks(inRun, 'cafe', owner)).toEqual({ prices: 'inRelease', switchOn: 'inRelease' });
+    expect(itemLocks(inRun, 'cafe', manager)).toEqual({ prices: 'inRelease', switchOn: 'inRelease' });
+  });
+  it("locks a launched item's prices for a manager only, cafe and shop alike", () => {
+    expect(itemLocks(launched, 'cafe', manager)).toEqual({ prices: 'onSale', switchOn: null });
+    expect(itemLocks(launched, 'shop', manager)).toEqual({ prices: 'onSale', switchOn: null });
+    expect(itemLocks(launched, 'cafe', owner)).toEqual({ prices: null, switchOn: null });
+  });
+  it('leaves the switch of a launched item a manager switched off alone', () => {
+    expect(itemLocks({ ...launched, is_active: false }, 'cafe', manager).switchOn).toBeNull();
+  });
+  it("keeps a draft's prices editable and sends its switch-on to the owner", () => {
+    expect(itemLocks(draft, 'cafe', manager)).toEqual({ prices: null, switchOn: 'ownerLaunches' });
+    expect(itemLocks(draft, 'shop', manager)).toEqual({ prices: null, switchOn: 'putOnSale' });
+    expect(itemLocks(draft, 'cafe', owner)).toEqual({ prices: null, switchOn: null });
+  });
+  it('saves a manager\'s new shop product hidden', () => {
+    expect(itemLocks(null, 'shop', manager)).toEqual({ prices: null, switchOn: 'savedHidden' });
+    expect(itemLocks(null, 'shop', owner)).toEqual({ prices: null, switchOn: null });
+  });
+  it('treats a finished release as an ordinary launched item', () => {
+    const live = { ...launched, release_run_id: 'run-1', release_run: { status: 'live' } };
+    expect(itemLocks(live, 'cafe', manager)).toEqual({ prices: 'onSale', switchOn: null });
+    expect(itemLocks(live, 'cafe', owner)).toEqual({ prices: null, switchOn: null });
+  });
+});
+
+describe('newItemMode', () => {
+  it("makes a manager's new cafe item a proposal (ITEM_VIA_RELEASE)", () => {
+    expect(newItemMode('cafe', false)).toBe('propose');
+    expect(newItemMode('shop', false)).toBe('create');
+    expect(newItemMode('cafe', true)).toBe('create');
+    expect(newItemMode(undefined, false)).toBe('create');
+  });
+});
+
+describe('runTitle', () => {
+  it('shows the title in the locale, else the one the starter typed', () => {
+    expect(runTitle('en', { title_en: 'Pistachio latte', title_ar: 'لاتيه فستق' })).toBe('Pistachio latte');
+    expect(runTitle('ar', { title_en: 'Pistachio latte', title_ar: 'لاتيه فستق' })).toBe('لاتيه فستق');
+    expect(runTitle('ar', { title_en: 'Pistachio latte', title_ar: null })).toBe('Pistachio latte');
+    expect(runTitle('en', { title_en: '  ', title_ar: 'لاتيه فستق' })).toBe('لاتيه فستق');
+    expect(runTitle('en', null)).toBeNull();
   });
 });

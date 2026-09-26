@@ -52,7 +52,6 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: '(tabs)/bookings.tsx', route: 'bookings', primary: 'bookings.filter.upcoming' },
   { file: '(tabs)/profile.tsx', route: 'profile', primary: 'profile.settings' },
   // ── booking ───────────────────────────────────────────────────────────────
-  { file: 'availability.tsx', route: 'availability', primary: 'availability.duration' },
   { file: 'booking/[id].tsx', route: 'booking-detail', primary: 'booking-detail.cancel' },
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },
   { file: 'review.tsx', route: 'review', primary: 'review.reserve' },
@@ -63,6 +62,62 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'change-password.tsx', route: 'change-password', primary: 'change-password.submit' },
   { file: 'delete-account.tsx', route: 'delete-account', primary: 'delete-account.confirm' },
   { file: 'accept-terms.tsx', route: 'accept-terms', primary: 'accept-terms.accept' },
+  // ── staff ─────────────────────────────────────────────────────────────────
+  // build-contracts-2026-09-23 §6.2. Each page lane adds its rows with its
+  // screens. The suites that case them, in EN and AR, as a staff session:
+  // staff.smoke.test.tsx (Today, requests), staffProtocols.smoke.test.tsx
+  // (start, runs, run, step, ideas, notes), staffDaily.smoke.test.tsx
+  // (checklist, production, stock, teachings, suggestions, recipes, recipe
+  // change) and staffSuppliesMarketing.smoke.test.tsx (shopping, purchase,
+  // marketing, requests to marketing).
+  { file: 'staff.tsx', route: 'staff', primary: 'staff.requests' },
+  { file: 'staff-request.tsx', route: 'staff-request', primary: 'staff-request.submit' },
+  { file: 'staff-checklist.tsx', route: 'staff-checklist', primary: 'staff-checklist.done' },
+  { file: 'staff-start.tsx', route: 'staff-start', primary: 'staff-start.submit' },
+  { file: 'staff-runs.tsx', route: 'staff-runs', primary: 'staff-runs.filter.waiting' },
+  { file: 'staff-run.tsx', route: 'staff-run', primary: 'staff-run.current-step' },
+  { file: 'staff-step.tsx', route: 'staff-step', primary: 'staff-step.submit' },
+  { file: 'staff-production.tsx', route: 'staff-production', primary: 'staff-production.record' },
+  { file: 'staff-shopping.tsx', route: 'staff-shopping', primary: 'staff-shopping.add' },
+  { file: 'staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
+  // Phase 2 Milestone 4b: the camera pages.
+  { file: 'staff-order-slip.tsx', route: 'staff-order-slip', primary: 'staff-order-slip.send' },
+  { file: 'staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
+  { file: 'staff-marketing.tsx', route: 'staff-marketing', primary: 'staff-marketing.tab.take' },
+  { file: 'staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },
+  // Role spec (plan #61–#74).
+  { file: 'staff-ideas.tsx', route: 'staff-ideas', primary: 'staff-ideas.submit' },
+  { file: 'staff-teachings.tsx', route: 'staff-teachings', primary: 'staff-teachings.list' },
+  {
+    file: 'staff-suggestions.tsx',
+    route: 'staff-suggestions',
+    primary: 'staff-suggestions.submit',
+  },
+  { file: 'staff-stock.tsx', route: 'staff-stock', primary: 'staff-stock.list' },
+  { file: 'staff-recipes.tsx', route: 'staff-recipes', primary: 'staff-recipes.list' },
+  {
+    file: 'staff-recipe-change.tsx',
+    route: 'staff-recipe-change',
+    primary: 'staff-recipe-change.submit',
+  },
+  {
+    file: 'staff-marketing-requests.tsx',
+    route: 'staff-marketing-requests',
+    primary: 'staff-marketing-requests.submit',
+  },
+  // Wave 5, lane R (wave5-addendum-2026-09-25 §2.1.8): the waiter's guest
+  // calls, cased by staffCalls.smoke.test.tsx.
+  { file: 'staff-calls.tsx', route: 'staff-calls', primary: 'staff-calls.list' },
+  // Wave 5, lane S (wave5-addendum-2026-09-25 §5.3): the stores, cased by
+  // staffStores.smoke.test.tsx.
+  { file: 'staff-stock-log.tsx', route: 'staff-stock-log', primary: 'staff-stock-log.save' },
+  { file: 'staff-stock-move.tsx', route: 'staff-stock-move', primary: 'staff-stock-move.move' },
+  { file: 'staff-stock-count.tsx', route: 'staff-stock-count', primary: 'staff-stock-count.submit' },
+  // Wave 5, lane P (wave5-addendum-2026-09-25 §5.3): the people records,
+  // cased by staffPeople.smoke.test.tsx.
+  { file: 'staff-deductions.tsx', route: 'staff-deductions', primary: 'staff-deductions.propose' },
+  { file: 'staff-incidents.tsx', route: 'staff-incidents', primary: 'staff-incidents.submit' },
+  { file: 'staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

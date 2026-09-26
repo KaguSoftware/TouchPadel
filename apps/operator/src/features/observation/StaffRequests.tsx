@@ -23,7 +23,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate, formatIQD, formatNumber } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
-import { useAuth } from '../../lib/auth';
+import { STAFF_ROLES, useAuth, type StaffRole } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal } from '../../components/ui';
@@ -52,9 +52,8 @@ import {
 
 type Filter = 'pending' | 'decided' | 'all';
 
-const ROLES = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
-function isRole(role: string): role is (typeof ROLES)[number] {
-  return (ROLES as readonly string[]).includes(role);
+function isRole(role: string): role is StaffRole {
+  return (STAFF_ROLES as readonly string[]).includes(role);
 }
 
 /** The server takes one status; 'decided' is "answered", which is not one. */

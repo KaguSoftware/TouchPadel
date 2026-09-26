@@ -26,6 +26,7 @@ import {
   serviceClient,
   signedInClient,
   voidOpenTabsForTable,
+  passShiftGate,
 } from './helpers';
 
 const TILL_TABLE = fixtureTableId(8);
@@ -174,6 +175,8 @@ test.describe('operator stock (module 5)', () => {
 
     // Settle so the day can close and other suites find the table free.
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
+    // The cashier's first payment here asks for a shift first (wave 5).
+    await passShiftGate(page);
     const cash = page.getByRole('dialog', { name: 'Cash' });
     await cash.getByLabel('Tendered').fill('2000');
     await cash.getByRole('button', { name: 'Record payment' }).click();

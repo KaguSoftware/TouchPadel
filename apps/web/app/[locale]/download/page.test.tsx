@@ -12,6 +12,11 @@ import DownloadPage from './page';
  * a silent 404 for whoever is installing the till, so the filenames are
  * asserted literally.
  */
+vi.mock('next/headers', async () => {
+  const { fakeHeaderStore } = await import('@/test/renderPage');
+  return { headers: () => Promise.resolve(fakeHeaderStore()) };
+});
+
 vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new Error('NEXT_NOT_FOUND');

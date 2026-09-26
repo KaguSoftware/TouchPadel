@@ -36,12 +36,16 @@ import type * as ExpoNotifications from 'expo-notifications';
 import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { updatePushToken } from './api';
+import type { StaffHref } from '../staff/pushRoutes';
+import type { StaffStatusKind } from '../staff/status';
 import {
+  isStaffTap,
   shouldPersistToken,
   shouldRouteTap,
   shouldSync,
   tapDestination,
   type PushPermissionState,
+  type PushTapData,
 } from './pushSync';
 
 export { permissionStateAfter } from './pushSync';
@@ -285,12 +289,19 @@ export async function getPushPermissionState(): Promise<PushPermissionState> {
  *  - tap routing: send-push puts `reservation_id` in `data` for the booking
  *    kinds; the caller decides where that goes (this module owns no navigation).
  *    A cold start from a notification is covered by getLastNotificationResponseAsync.
+ *  - staff taps (build-contracts-2026-09-23 §6.8): a staff kind's data names a
+ *    `route`. It opens only once `staffStatus` says the phone is signed in as
+ *    staff: that promise waits for the session and the staff row, because a
+ *    tap that launched the app arrives before either is known.
  *
  * Never throws — Expo Go, simulators and a missing module all leave the app
  * exactly as it was.
  */
 export function installNotificationHandler(opts: {
   onOpenReservation: (reservationId: string) => void;
+  onOpenStaff?: (href: StaffHref) => void;
+  /** The staff status once settled (StaffStatusProvider's settledStaffStatus). */
+  staffStatus?: () => Promise<StaffStatusKind>;
 }): () => void {
   let cancelled = false;
   let remove: (() => void) | null = null;
@@ -323,9 +334,21 @@ export function installNotificationHandler(opts: {
         const id = response.notification.request.identifier || null;
         if (!shouldRouteTap({ id, handled })) return;
         if (id) handled.add(id);
-        const data = response.notification.request.content.data as
-          | { kind?: unknown; reservation_id?: unknown }
-          | undefined;
+        const data = response.notification.request.content.data as PushTapData | undefined;
+        if (isStaffTap(data)) {
+          const settled = opts.staffStatus?.() ?? Promise.resolve<StaffStatusKind>('guest');
+          void settled.then((status) => {
+            if (cancelled) return;
+            const dest = tapDestination(data, status);
+            if (dest?.kind === 'staff' && opts.onOpenStaff) {
+              addBreadcrumb('push.open', { kind: data?.kind });
+              opts.onOpenStaff(dest.href);
+            } else {
+              addBreadcrumb('push.open.noRoute', { kind: data?.kind, status });
+            }
+          });
+          return;
+        }
         // Only claim an open when one actually happens: the `test` kind (and any
         // future kind without a reservation) routes nowhere, and a breadcrumb
         // saying otherwise sent the last audit looking for a navigation bug.

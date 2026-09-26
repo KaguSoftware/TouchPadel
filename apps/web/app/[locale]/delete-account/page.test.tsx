@@ -21,6 +21,15 @@ vi.mock('@/lib/menu.server', async () => {
   };
 });
 
+// The site shell (header, footer, mode) reads the mode cookie and the CSP nonce.
+vi.mock('@/lib/site/mode.server', async () => {
+  const { siteRequest } = await import('@/lib/site/testSupport');
+  return {
+    getSiteMode: () => Promise.resolve(siteRequest.mode),
+    getRequestNonce: () => Promise.resolve(siteRequest.nonce),
+  };
+});
+
 vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new Error('NEXT_NOT_FOUND');

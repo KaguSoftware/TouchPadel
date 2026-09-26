@@ -17,12 +17,15 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0150`
-  (`20260923000150_my_reservations.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0239`
+  (`20260926000239_order_slip_rpcs.sql`; 0236–0239 scanned paper, Milestone 4b; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
-  0149 assistant-cap, 0150 my-reservations); the next is `0151`. **Check the directory, not this
-  line** — it said 0146 while 0147–0149 were already on disk, and a reused ordinal fails
-  `check-migrations.mjs` after the file is written.
+  0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
+  0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
+  protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
+  `0240`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
+  file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).
@@ -38,9 +41,12 @@ is a line in that file.
   a plain `create function` (0049 `apply_discount`, `override_price`, `record_waste`; 0097
   `upsert_court`) is as much "the latest body" as `create or replace function`. Searching for the
   long form only is how 0115 re-issued two RPCs at an arity 0049 had dropped and created stray
-  overloads (fixed by 0119). The latest file is often not the obvious one: `is_degraded` 0026,
-  `heartbeat` 0107, `set_opening_hours` 0052, `verify_manager_pin` 0115, `apply_discount` and
-  `override_price` 0119, `staff_create_reservation` 0092, `cafe_setting_specs` 0105.
+  overloads (fixed by 0119). The latest file is often not the obvious one: `is_degraded()` 0137
+  and `is_degraded(uuid)` 0139, `set_opening_hours` 0052, `apply_discount` and `override_price`
+  0119, `staff_create_reservation` 0147, `cafe_setting_specs` 0105, `set_staff_role` 0157; 0156
+  holds `heartbeat`, `verify_manager_pin`, `verify_own_pin`, `consume_pin_grant`, `break_status`,
+  `start_break`, `end_break`, `cover_station`, `set_ticket_status` and `set_order_item_ready`
+  (copying an older body back brings a five-role guard with it and locks the 0155 roles out).
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
@@ -52,8 +58,8 @@ is a line in that file.
   `llm_record_usage`, `venue_mode` since 0137). `tests/rpc-overloads.test.ts` proves
   the same list against `pg_proc` when Docker is up.
 - Enum widening (`alter type … add value`) is its own migration file, landing strictly before the
-  file that uses the value. No migration does this yet; do not put the first one beside its first
-  use.
+  file that uses the value. Precedents: 0143 (`ingredient_kind` `retail`, first used by 0144) and
+  0155 (six `staff_role` values, first used by 0156).
 - New push kind: `notification_outbox.kind` is a closed CHECK (`0024:22`, re-issued by
   `0075:36-58`); widen it by migration and add EN/AR copy to `STRINGS` in
   `supabase/functions/send-push/index.ts:48`.
@@ -99,27 +105,63 @@ is a line in that file.
   slice 1: a second ACTIVE venue on hosted before slice 3 makes every guest insert raise
   `VENUE_REQUIRED`. A `service_role` insert while two venues are active must pass `venue_id`
   (`tests/multi-venue.test.ts` builds and deactivates its own venue B for that reason). Never
-  read `venue_settings` unqualified in new code: it is one row through slice 1 and will not be
-  after slice 2.
-- Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104)
-  and `venue_settings_public`; everything else in the `cafe_settings` registry
-  (`app.cafe_setting_specs`, latest 0105). `venue_settings` is still a single row (boolean PK)
-  through milestone 1 slice 1; it gained `venue_id` in 0126 but nothing may assume one row after
-  slice 2.
+  read `venue_settings` unqualified: it is **one row per venue since 0208** (unique index on
+  `venue_id`; the boolean `id` is deprecated, always true and no longer unique). Read the row of
+  the branch the court, table, session, order or tab belongs to (`where venue_id = …`).
+  `cafe_settings` is keyed `(venue_id, key)` since 0209: pass the branch to
+  `app.cafe_setting*(key, venue)` whenever the body knows it. The chain's own settings (currency,
+  the LLM budget and price list, the per-guest hold cap) are in the `platform_settings` singleton
+  (0207). `promotions.venue_id` is nullable on purpose: NULL means every branch (0212).
+  Since slice 3–4 (0215–0227): a body that creates rows for a thing (tab, court, payment, batch…)
+  looks up that thing's venue, refuses another branch's caller with `VENUE_MISMATCH` and asserts
+  `set_config('app.venue_id', …)` so every default-based insert downstream lands there (0217
+  pattern). A staff read policy's venue axis is `venue_id = any((select app.visible_venue_ids())::uuid[])`
+  (0226), never `app.staff_venue_ids()`: visibility follows the branch in scope (the operator's
+  `x-station-id` / `x-venue-scope` headers, read by `app.resolve_venue`). A report reads
+  `venue_id = any(v_rv)` with `v_rv := app.report_venues()` (0219). `venues.status` is
+  preparing/open/closed; `is_active` means open (guests), staff see every branch not closed.
+  `any((select f())::uuid[])` needs the cast: `any((select f()))` compares against the ROW.
+  Since the audit (0228–0235, `docs/design/multi-venue/audit-2026-09-26.md`):
+  - `app.resolve_venue` never swaps branches: a station or `app.venue_id` naming a closed branch
+    answers NULL, a scope header the caller may not use answers NULL, and staff with no open branch
+    (not the owner) answer NULL. The station header outranks `x-venue-scope` in BOTH
+    `resolve_venue` and `visible_venue_ids`. `app.is_staff_at` is false for a closed branch, owner
+    included. The owner still READS a closed branch (`app.readable_venue_ids`, scope header).
+  - **Every branch table and child table carries the `zz_branch_guard` trigger** (0230,
+    `app.trg_branch_guard`): a row's links must name rows of its own branch (everyone), and a staff
+    writer must be `is_staff_at` the row's branch unless a definer body asserted it
+    (`app.venue_id`) or it is their own guest row. A new branch table (or a child of one) gets the
+    trigger in the migration that creates it, with its link pairs; a test fixture that writes as
+    postgres clears `request.jwt.claims` first (`tests/stores-harness.ts`).
+  - A heartbeat never registers or revives a station (0229, decision A1): a machine is registered in
+    Settings > Stations (`app.register_station`); a test registers its station with
+    `registerTestStation` (`tests/helpers.ts`) before it beats. `DEV1` is seeded.
+  - A policy calls `app.is_staff(...)` / `app.staff_role()` inside `(select …)` (0234), like
+    `visible_venue_ids`: one evaluation per statement.
+- Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104,
+  per branch with `p_venue_id` since 0208) and `venue_settings_public` (one row per active branch);
+  everything else in the `cafe_settings` registry (`app.cafe_setting_specs`, latest 0105). Design
+  notes: `docs/design/multi-venue/slice-1-2026-09-21.md`, `slice-2-2026-09-26.md`,
+  `slice-3-4-2026-09-26.md`, `audit-2026-09-26.md`.
 
 ## RPCs
 
 - `security definer`, `set search_path`, `revoke … from public, anon`,
   `grant execute … to authenticated`; dollar tag `$<name>_0NNN$` (as `$confirm_booking_0092$`); the
   role or venue guard is the first statement.
+- A guard that means "any active staff" is `if app.staff_role() is null then raise …` in a function
+  and `app.staff_role() is not null` in a policy (the 0072 form), never a list of every role. 0156
+  converted the old five-role lists, so a new role needs no re-issue; a guard for a subset (kitchen,
+  till, money, stock) still names its roles.
 - Errors are `raise exception 'CODE'` (P0001). Every new code gets a client mapping in the same
   commit: `MAPPED_CODES` (`apps/operator/src/lib/errors.ts:10`), `RPC_ERROR_KEYS`
   (`apps/web/src/lib/appRpc.ts:21`) or `CODE_TO_KEY`
   (`apps/mobile/src/features/booking/errors.ts:12`), with both catalogs.
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → tabs → orders → order_items → tickets → payments → refunds → stock_batches → court_advisory → reservations`
-  (`scripts/check-lock-order.mjs`).
+  `day_sessions → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → reservations`
+  (`scripts/check-lock-order.mjs`; `till_shifts` since wave 5, whose stamp trigger takes the open
+  shift FOR SHARE on every payment and refund insert).
 - A non-idempotent money write takes `p_idempotency_key` and calls `app.claim_replay` (0049).
 - Registry: every granted function is covered in `tests/rls-matrix.ts` or listed `publicByDesign` in
   `fixtures/rpc-allowlist.json` with a reason of at least 10 characters
@@ -162,6 +204,12 @@ is a line in that file.
 - LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5` unless Parsa names another, meters
   spend through `app.llm_record_usage` (0079, 0111), puts no guest identity in a prompt (SEC-29) and
   never computes a number the page did not already have.
+- **Scanned paper (0236–0239) is the exception on the model:** `receipt-scan` reads supplier
+  receipts and waiters' order slips through ONE vendor-free adapter,
+  `_shared/receipts/connect.ts`, the only file that may name a vendor, its key or its host
+  (`tests/receipt-scan.test.ts` enforces it). `RECEIPT_READER=fake` is the stand-in for local, CI
+  and e2e. The model never writes stock or an order: a person confirms (`confirm_receipt`,
+  `send_order_slip`).
 - Secrets come from `supabase secrets set`, never the repo or `config.toml`. `supabase`, `eas` and
   `expo` run from their package directory, never the repo root.
 - **Never run `supabase config push`.** `config.toml` describes the LOCAL stack; hosted auth is

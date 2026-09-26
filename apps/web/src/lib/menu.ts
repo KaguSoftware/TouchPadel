@@ -190,9 +190,19 @@ export function foldCafeSettings(
   return s;
 }
 
-/** Public cafe settings; a failed read yields the defaults (never throws). */
-export async function fetchCafeSettings(client: SupabaseClient<Database>): Promise<CafeSettings> {
-  const { data, error } = await client.from('cafe_settings_public').select('key, value');
+/**
+ * Public cafe settings of one branch; a failed read yields the defaults (never
+ * throws). Since 0209 `cafe_settings_public` holds one row per (branch, key)
+ * and a key a branch has not set is simply absent, which the fold turns into
+ * the registry default. `venueId` null reads every row unfiltered: the fallback
+ * for when the branch list itself could not be read (one branch = same rows).
+ */
+export async function fetchCafeSettings(
+  client: SupabaseClient<Database>,
+  venueId: string | null = null,
+): Promise<CafeSettings> {
+  const query = client.from('cafe_settings_public').select('key, value');
+  const { data, error } = await (venueId ? query.eq('venue_id', venueId) : query);
   if (error || !data) return { ...DEFAULT_CAFE_SETTINGS, ticker_en: [], ticker_ar: [] };
   return foldCafeSettings(data);
 }
@@ -329,26 +339,44 @@ const asHighlight = (v: string): MenuHighlight => (v === 'blue' || v === 'brown'
 const asServeTemp = (v: string | null | undefined): ServeTemp =>
   v === 'hot' || v === 'cold' || v === 'both' ? v : 'none';
 
-export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuCategory[]> {
-  const [categoriesRes, itemsRes, availabilityRes, suggestionsRes, revealsRes] = await Promise.all([
-    client
-      .from('menu_categories')
-      .select('id, name_en, name_ar, sort_order, serve_temp, photo_path, photo_blur')
-      .eq('is_active', true)
-      // 0144: Touch Shop sections are sold at the counter, never from the table.
-      .eq('kind', 'cafe'),
-    client
-      .from('menu_items')
-      .select(
-        `id, category_id, name_en, name_ar, hook_en, hook_ar, description_en, description_ar,
+/**
+ * One branch's café menu. Categories and items carry `venue_id` (0213) and the
+ * guest read policy already hides every branch that is not open (0225), so the
+ * branch filter is what keeps two open branches' menus apart. Variants,
+ * modifiers, availability, suggestions and reveals are keyed by an item or a
+ * modifier and follow the filtered items (a suggestion that points at another
+ * branch's item resolves to nothing in `itemsById`, and the rail drops it).
+ * `venueId` null reads unfiltered: the fallback when the branch list failed.
+ */
+export async function fetchMenu(
+  client: SupabaseClient<Database>,
+  venueId: string | null = null,
+): Promise<MenuCategory[]> {
+  let categoriesQuery = client
+    .from('menu_categories')
+    .select('id, name_en, name_ar, sort_order, serve_temp, photo_path, photo_blur')
+    .eq('is_active', true)
+    // 0144: Touch Shop sections are sold at the counter, never from the table.
+    .eq('kind', 'cafe');
+  let itemsQuery = client
+    .from('menu_items')
+    .select(
+      `id, category_id, name_en, name_ar, hook_en, hook_ar, description_en, description_ar,
          highlight, sold_out, serve_temp, photo_path, photo_blur, sort_order,
          menu_item_variants ( id, name_en, name_ar, price_iqd, is_default, sort_order ),
          menu_item_allergens ( allergens ( code, label_en, label_ar ) ),
          menu_item_modifier_groups ( sort_order,
            modifier_groups ( id, name_en, name_ar, min_select, max_select,
              modifiers!modifiers_group_id_fkey ( id, name_en, name_ar, price_delta_iqd, sort_order, is_active ) ) )`,
-      )
-      .eq('is_active', true),
+    )
+    .eq('is_active', true);
+  if (venueId) {
+    categoriesQuery = categoriesQuery.eq('venue_id', venueId);
+    itemsQuery = itemsQuery.eq('venue_id', venueId);
+  }
+  const [categoriesRes, itemsRes, availabilityRes, suggestionsRes, revealsRes] = await Promise.all([
+    categoriesQuery,
+    itemsQuery,
     client.from('menu_item_availability').select('item_id, orderable'),
     client
       .from('addon_suggestions')
@@ -509,22 +537,119 @@ export interface VenueOpeningHours {
   phone: string | null;
   /** Free-cancellation window app.cancel_reservation enforces (0056 set it to 4); the legal pages quote it. */
   cancellation_window_hours?: number | null;
+  /**
+   * The branch's own address and pinned map link (venues, 0208). Null or absent
+   * = not stored yet: the site then prints the confirmed Karbala address and the
+   * Maps search (`site/contact.ts` branchAddress / branchMapUrl).
+   */
+  address_en?: string | null;
+  address_ar?: string | null;
+  map_url?: string | null;
 }
 
-/** Opening hours, venue name & phone from the anon-safe venue_settings_public view. */
-export async function fetchVenuePublic(
-  client: SupabaseClient<Database>,
-): Promise<VenueOpeningHours | null> {
-  const { data, error } = await client
-    .from('venue_settings_public')
-    .select('venue_name, opening_hours, closed_dates, phone, cancellation_window_hours')
-    .maybeSingle();
-  if (error || !data) return null;
+/**
+ * One open branch as the guest sees it: `venue_settings_public` since 0208
+ * returns one row per OPEN branch (venues.is_active), with the branch's id,
+ * slug, names and address beside the old settings columns.
+ */
+export interface VenueBranch extends VenueOpeningHours {
+  id: string;
+  slug: string;
+  name_en: string;
+  name_ar: string;
+  address_en: string | null;
+  address_ar: string | null;
+  map_url: string | null;
+}
+
+type VenueSettingsPublicRow = Database['public']['Views']['venue_settings_public']['Row'];
+
+/** Pure: one `venue_settings_public` row → a branch, or null when it has no id (never, in practice). */
+export function toVenueBranch(row: VenueSettingsPublicRow): VenueBranch | null {
+  if (!row.venue_id) return null;
+  const name = row.venue_name ?? 'Touch Padel';
   return {
-    venue_name: data.venue_name ?? 'Touch Padel',
-    opening_hours: (data.opening_hours ?? {}) as Record<string, [string, string][]>,
-    closed_dates: data.closed_dates ?? [],
-    phone: data.phone ?? null,
-    cancellation_window_hours: data.cancellation_window_hours ?? null,
+    id: row.venue_id,
+    slug: row.venue_slug ?? row.venue_id,
+    name_en: row.venue_name_en ?? name,
+    name_ar: row.venue_name_ar ?? name,
+    venue_name: name,
+    opening_hours: (row.opening_hours ?? {}) as Record<string, [string, string][]>,
+    closed_dates: row.closed_dates ?? [],
+    phone: row.phone ?? null,
+    cancellation_window_hours: row.cancellation_window_hours ?? null,
+    address_en: row.address_en ?? null,
+    address_ar: row.address_ar ?? null,
+    map_url: row.map_url ?? null,
   };
+}
+
+/**
+ * Every open branch, oldest first (the order `app.default_venue()` uses, so the
+ * first one is the branch the one-venue pages speak for). Opening hours, names,
+ * phone and address come from the anon-safe `venue_settings_public`; the order
+ * comes from `venues.created_at`, which the view does not carry. The order read
+ * is a progressive enhancement: if it fails, the view's own order stands.
+ * Throws when the view read fails, so the cached wrapper can tell "no branch"
+ * from "could not read".
+ */
+export async function fetchBranches(client: SupabaseClient<Database>): Promise<VenueBranch[]> {
+  const [settingsRes, orderRes] = await Promise.all([
+    client.from('venue_settings_public').select(
+      `venue_id, venue_slug, venue_name, venue_name_en, venue_name_ar, opening_hours,
+         closed_dates, phone, cancellation_window_hours, address_en, address_ar, map_url`,
+    ),
+    client.from('venues').select('id').eq('is_active', true).order('created_at').order('id'),
+  ]);
+  if (settingsRes.error) throw settingsRes.error;
+  const branches = (settingsRes.data ?? [])
+    .map((row) => toVenueBranch(row as VenueSettingsPublicRow))
+    .filter((b): b is VenueBranch => b !== null);
+  const rank = new Map((orderRes.data ?? []).map((v, i) => [v.id, i]));
+  return branches
+    .map((b, i) => ({ b, i }))
+    .sort((x, y) => (rank.get(x.b.id) ?? x.i + 1e6) - (rank.get(y.b.id) ?? y.i + 1e6))
+    .map(({ b }) => b);
+}
+
+/** The `app.table_branch` call, typed here until `types.gen.ts` is regenerated with it. */
+type TableBranchRpc = {
+  rpc(
+    fn: 'table_branch',
+    args: { p_token: string },
+  ): PromiseLike<{ data: unknown; error: unknown }>;
+};
+
+/**
+ * The open branch a table QR token belongs to (`app.table_branch`, 0225,
+ * anon-callable, no guest data), or null: a forged or rotated token, an
+ * inactive table, a branch not open, or a failed call. Lets the server render
+ * a table guest's own branch before the guest session binds. Never throws.
+ */
+export async function fetchTableBranch(
+  client: SupabaseClient<Database>,
+  token: string,
+): Promise<string | null> {
+  try {
+    const app = client.schema('app') as unknown as TableBranchRpc;
+    const { data, error } = await app.rpc('table_branch', { p_token: token });
+    return !error && typeof data === 'string' && data !== '' ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The branch a guest means: the one named by `slug` when it is open, otherwise
+ * the only open branch, otherwise null (several open and none named → ask).
+ */
+export function pickBranch(
+  branches: readonly VenueBranch[],
+  slug: string | null | undefined,
+): VenueBranch | null {
+  if (slug) {
+    const named = branches.find((b) => b.slug === slug);
+    if (named) return named;
+  }
+  return branches.length === 1 ? (branches[0] ?? null) : null;
 }

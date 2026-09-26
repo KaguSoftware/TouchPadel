@@ -18,13 +18,17 @@ import { useLocale } from '../../i18n/LocaleProvider';
 import { fetchOwnProfile, updateOwnProfile } from '../profile/api';
 import { profileKeys } from '../profile/hooks';
 import { getPendingSlot } from '../booking/pendingSlot';
-import { setUserMetadata, signInWithIdToken } from './api';
+import { readOwnStaffRow } from '../staff/api';
+import { claimSocialRefusal, holdStaffStatus } from '../staff/StaffStatusProvider';
+import { useToast } from '../../components/overlays';
+import { setUserMetadata, signInWithIdToken, signOut } from './api';
 import {
   PROVIDER_LABEL,
   SocialAuthError,
   buildProfilePatch,
   mapSocialError,
   postSignInStep,
+  refusesSocialSignIn,
   type SocialProvider,
 } from './social';
 import { newNonce } from './providers/nonce';
@@ -50,6 +54,7 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useLocale();
+  const toast = useToast();
   const { onComplete, disabled } = opts;
 
   // Google availability is synchronous (Expo Go + env). Apple's truth needs a
@@ -81,6 +86,9 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
       setBusyProvider(provider);
       setErrorText(null);
       addBreadcrumb('auth.social.start', { provider });
+      // Until the staff check below has answered, an active staff row reads as
+      // a guest: nothing routes to Today, or writes the staff hint, on the way.
+      holdStaffStatus(true);
       try {
         const nonce = await newNonce();
         let token: string;
@@ -95,6 +103,33 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
         }
         // RAW nonce here — GoTrue hashes it and compares with the token's claim.
         const { user } = await signInWithIdToken(supabase, { provider, token, nonce: nonce.raw });
+
+        // Staff sign in with email and password only (build-contracts §6.6).
+        // GoTrue links a provider to an account with the same verified email, so
+        // this may be a staff account: sign it straight out and say why. Only a
+        // row known to be active refuses. A read that fails is no answer, so a
+        // guest is not signed out over it: the guest path runs, and
+        // StaffStatusProvider, which never lets a provider session into the
+        // staff area, refuses it once its own read of the row answers.
+        if (user) {
+          let refused = false;
+          try {
+            refused = refusesSocialSignIn(await readOwnStaffRow(queryClient, user.id));
+          } catch (error) {
+            captureException(error, { scope: 'auth.social.staffCheck' });
+          }
+          if (refused) {
+            claimSocialRefusal(user.id);
+            addBreadcrumb('auth.social.staffRefused', { provider });
+            await signOut(supabase).catch((e) => captureException(e, { scope: 'auth.social.staffSignOut' }));
+            const text = t('staff.shell.socialRefused');
+            setErrorText(text);
+            // The screen may already have given way to a gate's spinner; the
+            // toast host sits above every route, so the reason is still read.
+            toast(text, 'error');
+            return;
+          }
+        }
 
         // Same cache entry the (auth) layout's useOwnProfile observes: one request.
         // Read BEFORE any name patch: GoTrue may have linked this identity to an
@@ -151,11 +186,12 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
         else addBreadcrumb('auth.social.failed', { provider, key: outcome.key });
         setErrorText(t(outcome.key, { provider: isolate(PROVIDER_LABEL[provider]) }));
       } finally {
+        holdStaffStatus(false);
         busyRef.current = false;
         setBusyProvider(null);
       }
     },
-    [disabled, onComplete, queryClient, router, t],
+    [disabled, onComplete, queryClient, router, t, toast],
   );
 
   const clearError = useCallback(() => setErrorText(null), []);

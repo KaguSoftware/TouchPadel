@@ -8,6 +8,8 @@ import type { MutationType } from '@touch/core/schemas/mutations';
 import { errorStringCode } from '../../lib/queueResults';
 import type { CsvCell, ExportBundle, ExportTable } from '../analytics/exportTables';
 import { cellText, momentCells, shortId } from '../analytics/cellFormat';
+import { isUnfinished, readDayState, type DayStateList } from '../checklists/checklistLogic';
+import type { ListShift, OutsideRow, ShiftList } from '../tillShift/tillShiftLogic';
 
 export type DayCloseState =
   | 'loading'
@@ -185,11 +187,19 @@ export function dayCloseCsv(
   adjustments: readonly DayAdjustmentRow[],
   joinNames: (names: readonly string[]) => string,
   words: AdjustmentWords,
+  /** The day's till-shift rows (tillShiftCsvRows), appended last on the figures sheet. */
+  shiftRows: readonly CsvCell[][] = [],
 ): ExportBundle {
-  return [figuresTable(labels, close, summary, joinNames), adjustmentsTable(labels, adjustments, words)];
+  return [figuresTable(labels, close, summary, joinNames, shiftRows), adjustmentsTable(labels, adjustments, words)];
 }
 
-function figuresTable(labels: CsvLabels, close: CloseResult | null, summary: DaySummaryRow | null, joinNames: (names: readonly string[]) => string): ExportTable {
+function figuresTable(
+  labels: CsvLabels,
+  close: CloseResult | null,
+  summary: DaySummaryRow | null,
+  joinNames: (names: readonly string[]) => string,
+  shiftRows: readonly CsvCell[][],
+): ExportTable {
   const rows: CsvCell[][] = [];
   const line = (figure: string, value: CsvCell, count: CsvCell = null, who: CsvCell = null, note: CsvCell = null) => rows.push([figure, value, count, who, note]);
 
@@ -214,6 +224,8 @@ function figuresTable(labels: CsvLabels, close: CloseResult | null, summary: Day
     line(labels.refunds, summary.refunds_iqd, summary.refund_count);
     line(labels.waste, summary.waste_cost_iqd);
   }
+  // Figure, value, count and authoriser, like every line above; no note.
+  for (const r of shiftRows) rows.push([...r.slice(0, 4), null]);
   return { name: labels.tabFigures, columns: [labels.figure, { header: labels.value, type: 'money' }, { header: labels.count, type: 'number' }, labels.authorisers, labels.note], rows };
 }
 
@@ -344,6 +356,17 @@ export function unpaidPlayedRows(payload: unknown): UnpaidPlayedBooking[] {
   );
 }
 
+/**
+ * app.checklist_day_state (0165) for the day being closed: the daily lists
+ * that still have a line nobody ticked, in the server's role and slot order.
+ * Like the unpaid-played rows, a WARNING list, never a close block (plan
+ * §7.3): nothing in deriveDayCloseState or closeBlock reads it. A payload
+ * that is not the RPC's shape reads as nothing to warn about.
+ */
+export function unfinishedChecklists(payload: unknown): DayStateList[] {
+  return readDayState(payload).lists.filter(isUnfinished);
+}
+
 export type CloseBlock = 'openTabs' | 'unsynced' | 'noCount' | null;
 
 /**
@@ -357,4 +380,73 @@ export function closeBlock(state: DayCloseState, countedCash: number | null): Cl
   if (state === 'blockedByUnsyncedQueue') return 'unsynced';
   if (countedCash === null) return 'noCount';
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Till shifts (wave5-addendum-2026-09-25 §5.2, V10)
+// ---------------------------------------------------------------------------
+
+/**
+ * The day's till shifts, as the "Till shifts" step lays them out: each shift,
+ * the money taken or paid out at a station with no shift open, and the one
+ * cross-day line (refunds made on this day for earlier days' payments, which
+ * close_day's expected cash leaves out, TI5). A WARNING section, never a close
+ * block: nothing in deriveDayCloseState or closeBlock reads it, and an open
+ * shift only warns (close_day ends it uncounted, TI9).
+ */
+export interface TillShiftDay {
+  shifts: ListShift[];
+  outside: OutsideRow[];
+  /** Cash refunds made on this day for earlier days' payments (cross_day.earlier_days_cash_refunds_iqd). */
+  earlierDaysCashRefundsIqd: number;
+  openCount: number;
+}
+
+/** app.till_shift_list (already read by tillShift/api) narrowed to one business day. */
+export function tillShiftRows(list: ShiftList | null | undefined, daySessionId: string | null): TillShiftDay {
+  const mine = <T extends { day_session_id: string }>(rows: readonly T[]) => (daySessionId ? rows.filter((r) => r.day_session_id === daySessionId) : [...rows]);
+  const shifts = mine(list?.shifts ?? []);
+  const outside = mine(list?.outside ?? []).filter((o) => o.payment_count > 0 || o.refund_count > 0);
+  const cross = mine(list?.cross_day ?? [])[0];
+  return {
+    shifts,
+    outside,
+    earlierDaysCashRefundsIqd: cross?.earlier_days_cash_refunds_iqd ?? 0,
+    openCount: shifts.filter((s) => s.closed_at === null).length,
+  };
+}
+
+export interface ShiftCsvLabels {
+  /** "Till shift difference: {name}, {station}". */
+  shift: (name: string, station: string) => string;
+  /** "Till shift still open: …" — no value: an open shift has no count yet. */
+  shiftOpen: (name: string, station: string) => string;
+  /** "Till shift ended with the day, not counted: …". */
+  shiftByDay: (name: string, station: string) => string;
+  outsideIn: (station: string) => string;
+  outsideOut: (station: string) => string;
+  crossDay: string;
+  noStation: string;
+}
+
+/**
+ * CSV rows for the day's shifts, appended by dayCloseCsv: one per shift with
+ * its stamped difference (count = its payments, the authoriser = whoever
+ * signed), then the cash taken and paid out outside a shift per station, then
+ * the cross-day refunds. Every value is a server figure; nothing is summed.
+ */
+export function tillShiftCsvRows(day: TillShiftDay, labels: ShiftCsvLabels): CsvCell[][] {
+  const rows: CsvCell[][] = [];
+  for (const s of day.shifts) {
+    if (s.closed_at === null) rows.push([labels.shiftOpen(s.staff_name, s.station_id), null, s.payment_count, null]);
+    else if (s.closed_via === 'day_close') rows.push([labels.shiftByDay(s.staff_name, s.station_id), null, s.payment_count, null]);
+    else rows.push([labels.shift(s.staff_name, s.station_id), s.cash_variance_iqd, s.payment_count, s.authorized_by_name]);
+  }
+  for (const o of day.outside) {
+    const station = o.station_id ?? labels.noStation;
+    if (o.cash_payments_iqd !== 0) rows.push([labels.outsideIn(station), o.cash_payments_iqd, o.payment_count, null]);
+    if (o.cash_refunds_iqd !== 0) rows.push([labels.outsideOut(station), o.cash_refunds_iqd, o.refund_count, null]);
+  }
+  if (day.earlierDaysCashRefundsIqd !== 0) rows.push([labels.crossDay, day.earlierDaysCashRefundsIqd, null, null]);
+  return rows;
 }

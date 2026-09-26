@@ -188,7 +188,7 @@ function RevenueReport() {
       >
         {data && (
           <>
-            <FigureBand label={tr('ws.reports.nav.revenue')} min="26rem">
+            <FigureBand label={tr('ws.reports.nav.revenue')} columns={4}>
               <FigureGroup title={tr('ws.reports.revenue.earned')} hint={tr('ws.reports.revenue.earnedHint')}>
                 {figure('revenue', 'ws.reports.revenue.revenue', t?.totalIqd ?? null, undefined, 'totalIqd')}
                 {figure('padelRevenue', 'ws.reports.revenue.padel', t?.padelIqd ?? null, t?.bookings != null ? tr('ws.reports.revenue.bookingsCount', { count: count(t.bookings, locale) }) : undefined, 'padelIqd')}

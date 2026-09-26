@@ -58,10 +58,24 @@ export const monoStack = "'Cascadia Code', 'SF Mono', Consolas, 'Roboto Mono', m
  */
 export const numericStack = latinDisplayStack;
 
+/**
+ * Handwriting, for what a visitor "writes" on the site's tournament ticket (the names on
+ * it, and the name field). Not a brand face and never for UI copy: one line on one card.
+ * Two free faces (SIL OFL, licences beside the files in apps/web/public/fonts/hand/),
+ * one per script: Yesteryear for Latin, Aref Ruqaa for Arabic (Ruqaa is the everyday
+ * Arabic hand). Latin comes first, so a Latin name typed on the Arabic page is still set
+ * in the Latin hand, and Arabic falls through to Ruqaa glyph by glyph. Registered by
+ * `handFontFaceCss` (../fontFace.ts) on the site only.
+ */
+export const HAND_LATIN_FAMILY = 'Yesteryear';
+export const HAND_ARABIC_FAMILY = 'Aref Ruqaa';
+export const handStack = `'${HAND_LATIN_FAMILY}', '${HAND_ARABIC_FAMILY}', cursive`;
+
 export const fontVars = {
   '--tp-font-display': latinDisplayStack,
   '--tp-font-arabic': arabicStack,
   '--tp-font-body': bodyStack,
   '--tp-font-numeric': numericStack,
   '--tp-font-mono': monoStack,
+  '--tp-font-hand': handStack,
 } as const satisfies FontVars;

@@ -55,6 +55,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   futureSlot,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -216,7 +217,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     // The account guest carries that same phone: desk bookings under it are theirs.
     const prof = await svc.from('profiles').update({ phone }).eq('id', guestUid);
     if (prof.error) throw new Error(`seed profile phone failed: ${prof.error.message}`);
-    const { data: vs } = await svc.from('venue_settings').select('cancellation_window_hours').limit(1).single();
+    const { data: vs } = await svc.from('venue_settings').select('cancellation_window_hours').eq('venue_id', VENUE_A_ID).limit(1).single();
     policyMin = Number((vs as { cancellation_window_hours: number }).cancellation_window_hours) * 60;
 
     const D1 = await deskBooking(courtA, 90, { p_guest_name: NAME_DESK, p_guest_phone: phone });

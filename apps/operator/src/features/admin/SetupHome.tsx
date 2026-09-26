@@ -11,7 +11,7 @@
  *
  *  1. **Is anything set up in a way that will bite?** Setup screens are opened
  *     a few times a year, so nobody notices a half-finished one until a shift
- *     trips over it. Three checks, each from a read these screens already
+ *     trips over it. Four checks, each from a read these screens already
  *     make, each with a button to the screen that fixes it:
  *       - Telegram is switched on but not reaching the group (no group, the
  *         example id, the last message failed or is stuck) — staff are not
@@ -20,6 +20,18 @@
  *       - an active manager or owner with no PIN cannot approve a discount or
  *         a void at the till, which stops a sale mid-shift.
  *       - one active owner: if that account is lost, nobody can manage staff.
+ *       - anyone who can sign in still on Kitchen (prep), retired by 0155:
+ *         it keeps working, and a later migration drops it once nobody holds
+ *         it, so each account is moved to barista or chef by hand.
+ *       - a prepared item (a sauce, a dessert) with no par level: the
+ *         kitchen's "What to make today" on the phone lists what is below par
+ *         (app.production_today, 0167), so without one the item is never
+ *         asked for (build-contracts-2026-09-23 §5.5).
+ *       - stock staff added on the phone with no cost on record
+ *         (delivery_lines.cost_source 'none', wave5-addendum-2026-09-25 D5):
+ *         it is valued at nothing until a manager sets its cost on Goods in.
+ *       - cashiers and desk staff with no PIN of their own: they close their
+ *         till shift with a manager's PIN (wave5-addendum-2026-09-25 §5.2).
  *     When nothing is wrong it says so plainly rather than disappearing.
  *  2. **Where do I go?** The section's screens as cards, each with one honest
  *     live line: accounts with access, courts open for booking, tables in use,
@@ -37,6 +49,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatNumber, type MessageKey } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
+import { useVenue } from '../../lib/venue';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../lib/i18n';
 import { useCafeSettings } from '../../lib/settings';
@@ -45,12 +58,15 @@ import { Button, Skeleton } from '../../components/ui';
 import { Panel } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
 import { CardTitle, MARK, MARK_FG, MARK_SOFT, type MarkTone } from '../ops/OpsVisuals';
-import { STAFF_QUERY_KEY, approvesWithPin, type StaffRow } from './staff/staffModel';
+import { STAFF_QUERY_KEY, approvesWithPin, onRetiredRole, type StaffRow } from './staff/staffModel';
 import { useOutbox } from './telegram/OutboxList';
 import { telegramHealth, type TelegramHealth } from './telegram/telegramStatus';
 import { KitchenPairingPanel } from './KitchenPairing';
+import { SK as STOCK_KEYS, fetchNeedsCostCount } from '../stock/stockKeys';
+import { permissionsFor } from '../../lib/auth';
+import { holdersWithoutPin } from '../tillShift/tillShiftLogic';
 
-type CardKey = 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite';
+type CardKey = 'staff' | 'branches' | 'courts' | 'tables' | 'settings' | 'guestSite';
 
 /** Telegram states that mean "switched on, and staff are still not being told". */
 const TELEGRAM_BROKEN: readonly TelegramHealth[] = ['noGroup', 'failing', 'stuck'];
@@ -60,6 +76,7 @@ export function SetupHomeScreen() {
   const cafe = useCafeSettings();
 
   const staffQ = useQuery({ queryKey: STAFF_QUERY_KEY, queryFn: () => appRpc<StaffRow[]>('list_staff') });
+  const { venues } = useVenue();
   const courtsQ = useQuery({
     queryKey: ['courts', 'setupHome'],
     queryFn: async () => {
@@ -77,6 +94,23 @@ export function SetupHomeScreen() {
     },
   });
   const outboxQ = useOutbox();
+  // Counted, not listed: the fix is on Ingredients, which lists them.
+  const noParQ = useQuery({
+    queryKey: ['stock', 'setupHome', 'preparedNoPar'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('ingredients')
+        .select('id', { count: 'exact', head: true })
+        .eq('kind', 'prepared')
+        .eq('is_active', true)
+        .is('par_level', null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  // Wave 5: staff additions with no cost, counted; Goods in lists them.
+  const needsCostQ = useQuery({ queryKey: STOCK_KEYS.needsCost, queryFn: fetchNeedsCostCount });
 
   const figure = (label: MessageKey, n: number | undefined) =>
     n === undefined ? null : (
@@ -96,6 +130,8 @@ export function SetupHomeScreen() {
     switch (key as CardKey) {
       case 'staff':
         return figure('ws.owner.setupHome.status.staff', staffQ.data?.filter((s) => s.is_active).length);
+      case 'branches':
+        return figure('ws.owner.setupHome.status.branches', venues.length || undefined);
       case 'courts':
         return figure('ws.owner.setupHome.status.courts', courtsQ.data);
       case 'tables':
@@ -121,10 +157,12 @@ export function SetupHomeScreen() {
       status={status}
       screensTitle={tr('ws.owner.setupHome.screens')}
     >
-      <WorthChecking staffQ={staffQ} outboxQ={outboxQ} cafe={cafe} />
-      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
-      <KitchenPairingPanel />
-      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
+      {/* The two panels that may need the owner sit together; the screen
+          cards below are a different job and get more room. */}
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-5)' }}>
+        <WorthChecking staffQ={staffQ} outboxQ={outboxQ} noParQ={noParQ} needsCostQ={needsCostQ} cafe={cafe} />
+        <KitchenPairingPanel />
+      </div>
     </SectionHome>
   );
 }
@@ -146,16 +184,20 @@ type Q<T> = { data?: T; isPending: boolean; isError: boolean; refetch: () => unk
 function WorthChecking({
   staffQ,
   outboxQ,
+  noParQ,
+  needsCostQ,
   cafe,
 }: {
   staffQ: Q<StaffRow[]>;
   outboxQ: Q<{ status: 'queued' | 'sent' | 'failed' | 'skipped'; created_at: string }[]>;
+  noParQ: Q<number>;
+  needsCostQ: Q<number>;
   cafe: ReturnType<typeof useCafeSettings>;
 }) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  const loading = staffQ.isPending || outboxQ.isPending || cafe.isLoading;
-  const failed = [staffQ, outboxQ].filter((q) => q.isError);
+  const loading = staffQ.isPending || outboxQ.isPending || noParQ.isPending || needsCostQ.isPending || cafe.isLoading;
+  const failed = [staffQ, outboxQ, noParQ, needsCostQ].filter((q) => q.isError);
 
   const rows: Check[] = [];
   if (cafe.isSuccess && outboxQ.data) {
@@ -202,6 +244,61 @@ function WorthChecking({
         href: '/admin/staff',
       });
     }
+    const retired = onRetiredRole(staffQ.data);
+    if (retired > 0) {
+      rows.push({
+        key: 'retiredRole',
+        count: retired,
+        icon: 'users',
+        tone: 'warn',
+        title: tr('ws.owner.setupHome.checks.retiredRole'),
+        hint: tr('ws.owner.setupHome.checks.retiredRoleHint'),
+        action: tr('ws.owner.setupHome.checks.retiredRoleAction'),
+        href: '/admin/staff',
+      });
+    }
+  }
+
+  if (noParQ.data) {
+    rows.push({
+      key: 'noPar',
+      count: noParQ.data,
+      icon: 'cake',
+      tone: 'warn',
+      title: tr('ws.supplies.setup.noPar'),
+      hint: tr('ws.supplies.setup.noParHint'),
+      action: tr('ws.supplies.setup.noParAction'),
+      href: '/stock/ingredients',
+    });
+  }
+
+  if (needsCostQ.data) {
+    rows.push({
+      key: 'needsCost',
+      count: needsCostQ.data,
+      icon: 'tag',
+      tone: 'warn',
+      title: tr('ws.stores.setup.needsCost'),
+      hint: tr('ws.stores.setup.needsCostHint'),
+      action: tr('ws.stores.setup.needsCostAction'),
+      href: '/stock/receive',
+    });
+  }
+
+  // Wave 5, till shifts: people who hold a shift with no PIN of their own
+  // close it with a manager's (§5.2). From the permission map, not a role list.
+  const shiftNoPin = staffQ.data ? holdersWithoutPin(staffQ.data, (role) => permissionsFor(role).takeCourtPayment, approvesWithPin) : 0;
+  if (shiftNoPin > 0) {
+    rows.push({
+      key: 'shiftNoPin',
+      count: shiftNoPin,
+      icon: 'lock',
+      tone: 'warn',
+      title: tr('ws.tillShift.setup.noPin'),
+      hint: tr('ws.tillShift.setup.noPinHint'),
+      action: tr('ws.tillShift.setup.noPinAction'),
+      href: '/admin/staff',
+    });
   }
 
   const clear = !loading && failed.length === 0 && rows.length === 0;

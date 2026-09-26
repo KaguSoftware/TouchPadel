@@ -27,12 +27,19 @@ import { marketingRoute } from './routes/marketing';
 import { assistantRoute } from './routes/assistant';
 import { assistantChildren } from './routes/assistant/_children';
 import { workspacesRoute } from './routes/workspaces';
+import { tasksRoute } from './routes/tasks';
+import { protocolsRoute } from './routes/protocols';
+import { suggestionsRoute } from './routes/suggestions';
+// Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+import { deductionsRoute } from './routes/deductions';
+import { incidentsRoute } from './routes/incidents';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
 import { analyticsChildren } from './routes/analytics/_children';
 import { LocaleProvider, useLocale } from './lib/i18n';
 import { ThemeModeProvider, useThemeMode } from './lib/themeMode';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
+import { VenueProvider } from './lib/venue';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
 import { initQueueResults } from './lib/queueResults';
@@ -58,6 +65,11 @@ const routeTree = rootRoute.addChildren([
   stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),
   analyticsRoute.addChildren([...analyticsChildren]),
+  tasksRoute,
+  protocolsRoute,
+  suggestionsRoute,
+  deductionsRoute,
+  incidentsRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */
@@ -145,7 +157,9 @@ function ThemedApp() {
               dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
             }}
           >
-            <RouterProvider router={router} />
+            <VenueProvider>
+              <RouterProvider router={router} />
+            </VenueProvider>
           </PersistQueryClientProvider>
         </AuthProvider>
       </AppErrorBoundary>

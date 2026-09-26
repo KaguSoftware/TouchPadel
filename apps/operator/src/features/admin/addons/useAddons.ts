@@ -19,6 +19,8 @@ export interface ModifierRow {
   price_delta_iqd: number;
   sort_order: number;
   is_active: boolean;
+  /** When it first went on sale; null = never on sale (price_promo). */
+  launched_at: string | null;
 }
 export interface LinkRow {
   item_id: string;
@@ -49,7 +51,7 @@ export async function fetchAddons(): Promise<AddonsData> {
     supabase.from('modifier_groups').select('id, name_en, name_ar, min_select, max_select'),
     supabase
       .from('modifiers')
-      .select('id, group_id, name_en, name_ar, price_delta_iqd, sort_order, is_active')
+      .select('id, group_id, name_en, name_ar, price_delta_iqd, sort_order, is_active, launched_at')
       .order('sort_order'),
     supabase.from('menu_item_modifier_groups').select('item_id, group_id'),
     supabase.from('modifier_reveals').select('modifier_id, group_id, sort_order'),

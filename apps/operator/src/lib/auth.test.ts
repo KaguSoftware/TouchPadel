@@ -2,17 +2,23 @@ import { describe, expect, it } from 'vitest';
 import {
   CAPABILITY_ROLES,
   ROUTE_ROLES,
+  STAFF_ROLES,
   SUB_ROUTES,
   allowedRoutes,
   allowedSubRoutes,
   can,
   canAccess,
   homeRoute,
+  permissionsFor,
   type Capability,
   type StaffRole,
 } from './auth';
 
-const ALL_ROLES: readonly StaffRole[] = ['cashier', 'prep', 'court_desk', 'manager', 'owner'];
+const ALL_ROLES: readonly StaffRole[] = STAFF_ROLES;
+/** Bar and kitchen (0155, the assistant barista since wave 5): prep's access exactly, and nothing more. */
+const KITCHEN_FAMILY = ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef'] as const;
+/** The any-staff baseline plus My tasks (the waiter since wave 5). */
+const TEAM = ['driver', 'marketing', 'waiter'] as const;
 
 describe('canAccess — longest-prefix match, default deny', () => {
   it('denies every role on a route that matches no prefix', () => {
@@ -52,6 +58,17 @@ describe('canAccess — longest-prefix match, default deny', () => {
     expect(canAccess('owner', '/admin/telegram/outbox')).toBe(true);
   });
 
+  it('gives /protocols to management alone', () => {
+    // Every other actor works its steps from /tasks or the phone
+    // (build-contracts-2026-09-23 §5.1).
+    expect(canAccess('manager', '/protocols')).toBe(true);
+    expect(canAccess('owner', '/protocols')).toBe(true);
+    expect(canAccess('manager', '/protocols?start=price_promo&change=price')).toBe(true);
+    for (const role of ALL_ROLES.filter((r) => r !== 'manager' && r !== 'owner')) {
+      expect(canAccess(role, '/protocols'), role).toBe(false);
+    }
+  });
+
   it('keeps /analytics owner-only', () => {
     expect(canAccess('owner', '/analytics')).toBe(true);
     for (const role of ALL_ROLES.filter((r) => r !== 'owner')) {
@@ -74,6 +91,58 @@ describe('canAccess — longest-prefix match, default deny', () => {
     expect(canAccess('court_desk', '/admin')).toBe(false);
     expect(canAccess('manager', '/stock')).toBe(true);
   });
+
+  it('gives the bar and kitchen family the kitchen display and My tasks, and only those', () => {
+    for (const role of KITCHEN_FAMILY) {
+      expect(canAccess(role, '/kds'), role).toBe(true);
+      // /tasks is the board's "My tasks" (§5.1); every other route answers
+      // exactly as it does for prep, which gets nothing new.
+      expect(canAccess(role, '/tasks'), role).toBe(true);
+      for (const route of Object.keys(ROUTE_ROLES).filter((r) => r !== '/tasks')) {
+        expect(canAccess(role, route), `${role} ${route}`).toBe(canAccess('prep', route));
+      }
+    }
+  });
+
+  it('gives driver, marketing and the waiter My tasks and nothing else', () => {
+    for (const role of TEAM) {
+      expect(canAccess(role, '/tasks'), role).toBe(true);
+      for (const route of Object.keys(ROUTE_ROLES).filter((r) => r !== '/tasks')) {
+        expect(canAccess(role, route), `${role} ${route}`).toBe(false);
+      }
+    }
+  });
+
+  it('opens My tasks to every hireable role but management, and never to prep (§5.1)', () => {
+    const TASKS = [
+      'cashier',
+      'waiter',
+      'court_desk',
+      'head_barista',
+      'barista',
+      'assistant_barista',
+      'head_chef',
+      'chef',
+      'driver',
+      'marketing',
+    ];
+    for (const role of ALL_ROLES) {
+      expect(canAccess(role, '/tasks'), role).toBe(TASKS.includes(role));
+    }
+  });
+
+  it('gives the suggestion box to management alone (#63)', () => {
+    for (const role of ALL_ROLES) {
+      expect(canAccess(role, '/suggestions'), role).toBe(role === 'manager' || role === 'owner');
+    }
+  });
+
+  it('leaves pay deductions to management and opens incidents to the desk, the till and management (wave5-addendum §5.2)', () => {
+    for (const role of ALL_ROLES) {
+      expect(canAccess(role, '/deductions'), role).toBe(role === 'manager' || role === 'owner');
+      expect(canAccess(role, '/incidents'), role).toBe(['court_desk', 'cashier', 'manager', 'owner'].includes(role));
+    }
+  });
 });
 
 describe('allowedRoutes — top-level entries only', () => {
@@ -86,11 +155,18 @@ describe('allowedRoutes — top-level entries only', () => {
   });
 
   it('filters by role', () => {
-    expect(allowedRoutes('cashier')).toEqual(['/till']);
+    // Wave 5: the till reports incidents (wave5-addendum-2026-09-25 §5.2).
+    expect(allowedRoutes('cashier')).toEqual(['/till', '/tasks', '/incidents']);
     expect(allowedRoutes('prep')).toEqual(['/kds']);
+    expect(allowedRoutes('chef')).toEqual(['/kds', '/tasks']);
+    expect(allowedRoutes('driver')).toEqual(['/tasks']);
+    expect(allowedRoutes('assistant_barista')).toEqual(['/kds', '/tasks']);
+    expect(allowedRoutes('waiter')).toEqual(['/tasks']);
     expect(allowedRoutes('manager')).toContain('/admin');
     expect(allowedRoutes('manager')).not.toContain('/analytics');
     expect(allowedRoutes('owner')).toContain('/analytics');
+    expect(allowedRoutes('manager')).toContain('/protocols');
+    expect(allowedRoutes('owner')).toContain('/protocols');
   });
 });
 
@@ -106,6 +182,14 @@ describe('allowedSubRoutes', () => {
   it('shows everything to the owner and nothing to a cashier', () => {
     expect(allowedSubRoutes('owner', '/admin')).toEqual([...SUB_ROUTES['/admin']]);
     expect(allowedSubRoutes('cashier', '/admin')).toEqual([]);
+  });
+
+  it('offers Move stock to management only, beside the other stock screens (wave 5 §5.2)', () => {
+    expect(allowedSubRoutes('manager', '/stock')).toContain('/stock/moves');
+    expect(allowedSubRoutes('owner', '/stock')).toContain('/stock/moves');
+    // The waiter moves stock on the phone; the operator has no stock screen for him.
+    expect(canAccess('waiter', '/stock/moves')).toBe(false);
+    expect(allowedSubRoutes('cashier', '/stock')).toEqual([]);
   });
 
   it('keeps SUB_ROUTES and ROUTE_ROLES consistent', () => {
@@ -124,26 +208,69 @@ describe('homeRoute', () => {
     expect(homeRoute('court_desk')).toBe('/desk/today');
     expect(homeRoute('manager')).toBe('/ops');
     expect(homeRoute('owner')).toBe('/panel');
+    for (const role of KITCHEN_FAMILY) expect(homeRoute(role), role).toBe('/kds');
+    for (const role of TEAM) expect(homeRoute(role), role).toBe('/tasks');
+  });
+
+  it('lands every role on a screen it may open', () => {
+    for (const role of ALL_ROLES) expect(canAccess(role, homeRoute(role)), role).toBe(true);
   });
 });
 
 describe('capability matrix', () => {
-  // These four were inline `staff?.role === 'owner'` comparisons inside two
+  // The first five were inline `staff?.role === 'owner'` comparisons inside two
   // components. SOW L185 promises "one place to change a permission", and a
   // route matrix that only covers routes is not one place.
   const ALL_CAPS = Object.keys(CAPABILITY_ROLES) as Capability[];
+  /**
+   * The capabilities a role besides the owner holds, each with exactly its
+   * roles: the protocol starts, the heads' role-spec work, deciding a step,
+   * and the reads behind /tasks' phone copies (each its RPC's guard).
+   */
+  const SHARED: Partial<Record<Capability, readonly StaffRole[]>> = {
+    startProtocolRelease: ['head_barista', 'head_chef', 'manager', 'owner'],
+    startProtocolPriceChange: ['marketing', 'manager', 'owner'],
+    startProtocolTournament: ['court_desk', 'manager', 'owner'],
+    reviewIdeas: ['head_barista', 'head_chef', 'manager', 'owner'],
+    writeTeachings: ['head_barista', 'head_chef', 'manager', 'owner'],
+    decideSteps: ['manager', 'owner'],
+    readProduction: ['head_chef', 'chef', 'manager', 'owner'],
+    readShoppingList: ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'manager', 'owner'],
+    readPurchases: ['driver', 'manager', 'owner'],
+    readTeachings: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
+    readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'waiter', 'manager', 'owner'],
+    readRecipes: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
+    // Wave 5 (M2): app.stock_today's guard, MOVE ∪ LOG ∪ COUNT.
+    readStoreToday: ['head_barista', 'head_chef', 'chef', 'cashier', 'court_desk', 'waiter', 'manager', 'owner'],
+    // Wave 5, people records (§5.2): each the guard of the RPC behind it.
+    proposeDeductions: ['head_barista', 'head_chef', 'manager', 'owner'],
+    decideDeductions: ['manager', 'owner'],
+    reportIncidents: ['court_desk', 'cashier', 'manager', 'owner'],
+    reviewIncidents: ['manager', 'owner'],
+    // Wave 5, till shifts (§5.2, §8 Q30): management works anyone's drawer.
+    payOnOthersShift: ['manager', 'owner'],
+  };
+  /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
+  const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
+    marketingWork: ['marketing'],
+    requestRecipeChanges: ['head_barista', 'head_chef'],
+    sendIdeas: ['barista', 'chef'],
+    // Wave 5: marketing sends content; the owner decides it (decideContent).
+    submitContent: ['marketing'],
+  };
+  const OWNER_ONLY = ALL_CAPS.filter((c) => !(c in SHARED) && !(c in OWN_WORK));
 
   it('is default-deny for a signed-out caller', () => {
     for (const capability of ALL_CAPS) expect(can(undefined, capability)).toBe(false);
   });
 
-  it('grants every listed capability to the owner', () => {
-    for (const capability of ALL_CAPS) expect(can('owner', capability)).toBe(true);
+  it('grants every listed capability to the owner, but another role’s own work', () => {
+    for (const capability of ALL_CAPS) expect(can('owner', capability), capability).toBe(!(capability in OWN_WORK));
   });
 
-  it('withholds all four from every non-owner role', () => {
+  it('withholds every owner-only capability from every other role', () => {
     for (const role of ALL_ROLES.filter((r) => r !== 'owner')) {
-      for (const capability of ALL_CAPS) {
+      for (const capability of OWNER_ONLY) {
         expect(can(role, capability), `${role} / ${capability}`).toBe(false);
       }
     }
@@ -153,13 +280,121 @@ describe('capability matrix', () => {
     // Named explicitly so deleting one from the matrix fails here rather
     // than silently exposing the control.
     expect(ALL_CAPS.sort()).toEqual(
-      ['editVenueDetails', 'rotateTableToken', 'setAnalyticsExclusions', 'setBusinessDayStart', 'setEngagementFloor'].sort(),
+      [
+        'decideOwnerOkSteps',
+        'decideRecipeChanges',
+        'decideSteps',
+        'editChecklists',
+        'editLaunchedPrices',
+        'editProtocols',
+        'editVenueDetails',
+        'launchDirectly',
+        'marketingWork',
+        'readProduction',
+        'readPurchases',
+        'readRecipes',
+        'readShoppingList',
+        'readStaffStock',
+        'readStoreToday',
+        'readTeachings',
+        'requestRecipeChanges',
+        'reviewIdeas',
+        'rotateTableToken',
+        'setAnalyticsExclusions',
+        'setBusinessDayStart',
+        'setEngagementFloor',
+        'startProtocolPriceChange',
+        'startProtocolRelease',
+        'startProtocolTournament',
+        'sendIdeas',
+        'titleRunsInBoth',
+        'writeTeachings',
+        // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+        'proposeDeductions',
+        'decideDeductions',
+        'cancelDeductions',
+        'reportIncidents',
+        'reviewIncidents',
+        'redactIncidents',
+        'submitContent',
+        'decideContent',
+        // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2).
+        'payOnOthersShift',
+      ].sort(),
     );
+  });
+
+  it('keeps cancelling a deduction, redacting a report and deciding content with the owner (wave5-addendum §2.5-§2.7, §8 Q14)', () => {
+    for (const capability of ['cancelDeductions', 'redactIncidents', 'decideContent'] as const) {
+      expect(can('owner', capability), capability).toBe(true);
+      expect(can('manager', capability), capability).toBe(false);
+    }
+    // Marketing sends content; the owner never does, and no manager reads it.
+    expect(can('marketing', 'submitContent')).toBe(true);
+    expect(can('owner', 'submitContent')).toBe(false);
+    expect(can('manager', 'submitContent')).toBe(false);
+    // The heads propose on their phones; the barista and chef under them do not.
+    expect(can('head_barista', 'proposeDeductions')).toBe(true);
+    expect(can('barista', 'proposeDeductions')).toBe(false);
+    expect(can('head_barista', 'decideDeductions')).toBe(false);
+  });
+
+  it('lets only management take payment on a drawer that is not their own shift (wave5-addendum §5.2, §8 Q30)', () => {
+    for (const role of ALL_ROLES) {
+      expect(can(role, 'payOnOthersShift'), role).toBe(role === 'manager' || role === 'owner');
+    }
+    // The cashier and the desk hold shifts (the settle_tab list) but close the
+    // other person's first.
+    expect(permissionsFor('cashier').takeCourtPayment).toBe(true);
+    expect(permissionsFor('court_desk').takeCourtPayment).toBe(true);
   });
 
   it('leaves the venue details to the owner, as app.set_venue_details does', () => {
     expect(can('owner', 'editVenueDetails')).toBe(true);
     expect(can('manager', 'editVenueDetails')).toBe(false);
+  });
+
+  it('lets exactly the proposing roles start a release or a price change (§5.1)', () => {
+    for (const [capability, roles] of Object.entries({ ...SHARED, ...OWN_WORK }) as [Capability, readonly StaffRole[]][]) {
+      for (const role of ALL_ROLES) {
+        expect(can(role, capability), `${role} / ${capability}`).toBe(roles.includes(role));
+      }
+    }
+    // The heads propose; the barista and chef under them, the retired
+    // kitchen role and the till do not.
+    for (const role of ['barista', 'chef', 'prep', 'cashier', 'court_desk', 'driver'] as const) {
+      expect(can(role, 'startProtocolRelease'), role).toBe(false);
+      expect(can(role, 'startProtocolPriceChange'), role).toBe(false);
+    }
+  });
+
+  it('keeps launched prices and launching itself with the owner, never the manager (#51-#53)', () => {
+    expect(can('manager', 'editLaunchedPrices')).toBe(false);
+    expect(can('manager', 'launchDirectly')).toBe(false);
+    expect(can('manager', 'editProtocols')).toBe(false);
+    expect(can('manager', 'editChecklists')).toBe(false);
+  });
+
+  it('leaves a recipe change to the owner and ideas to the heads above the team (#65, #71)', () => {
+    expect(can('manager', 'decideRecipeChanges')).toBe(false);
+    for (const role of ['barista', 'assistant_barista', 'chef', 'prep', 'cashier', 'court_desk', 'driver', 'marketing', 'waiter'] as const) {
+      expect(can(role, 'reviewIdeas'), role).toBe(false);
+      expect(can(role, 'writeTeachings'), role).toBe(false);
+    }
+    expect(can('court_desk', 'startProtocolTournament')).toBe(true);
+    expect(can('cashier', 'startProtocolTournament')).toBe(false);
+  });
+
+  it('gives the assistant barista the bar’s teachings and recipe names, and no shopping list (wave 5 §2.1.6)', () => {
+    // The two /tasks copies follow app.teachings_for_me and app.recipe_view,
+    // which assistant_barista_waiter_access opens to him; the shopping list's
+    // read does not name him (addendum §8 Q1), and the waiter joins no team.
+    expect(can('assistant_barista', 'readTeachings')).toBe(true);
+    expect(can('assistant_barista', 'readRecipes')).toBe(true);
+    expect(can('assistant_barista', 'readShoppingList')).toBe(false);
+    for (const capability of ['readTeachings', 'readRecipes', 'readShoppingList'] as const) {
+      expect(can('waiter', capability), capability).toBe(false);
+    }
   });
 
   it('never lists an unknown role', () => {
@@ -190,6 +425,12 @@ describe('permissionsFor (spec §03 can.*)', () => {
     const owner = permissionsFor('owner');
     expect(owner.manageStaff).toBe(true);
     expect(owner.viewFinancials).toBe(true);
+  });
+  it('gives the six 0155 roles no permission at all', async () => {
+    const { permissionsFor } = await import('./auth');
+    for (const role of [...KITCHEN_FAMILY, ...TEAM]) {
+      expect(Object.values(permissionsFor(role)).every((v) => v === false), role).toBe(true);
+    }
   });
   it('lets the court desk take court payment without the till (0106)', async () => {
     const { permissionsFor, canAccess, requiredRoleFor } = await import('./auth');

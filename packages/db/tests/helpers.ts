@@ -789,7 +789,11 @@ export async function resetCafeSettings(svc: SupabaseClient, owner?: SupabaseCli
   const { data, error } = await svc.schema('app').rpc('cafe_setting_specs', {});
   if (error) throw new Error(`cafe_setting_specs failed: ${error.message}`);
   const specs = data as { key: string; is_public: boolean; default_value: unknown }[];
-  await writeCafeSettingRows(svc, specs.map((s) => ({ key: s.key, value: s.default_value, is_public: s.is_public })), owner);
+  await writeCafeSettingRows(
+    svc,
+    specs.map((s) => ({ venue_id: VENUE_A_ID, key: s.key, value: s.default_value, is_public: s.is_public })),
+    owner,
+  );
 }
 
 /**
@@ -802,9 +806,9 @@ export async function snapshotCafeSettings(
   svc: SupabaseClient,
   owner?: SupabaseClient,
 ): Promise<() => Promise<void>> {
-  const { data, error } = await svc.from('cafe_settings').select('key, value, is_public');
+  const { data, error } = await svc.from('cafe_settings').select('venue_id, key, value, is_public');
   if (error) throw new Error(`snapshotCafeSettings failed: ${error.message}`);
-  const rows = (data ?? []) as { key: string; value: unknown; is_public: boolean }[];
+  const rows = (data ?? []) as CafeSettingRow[];
   return () => writeCafeSettingRows(svc, rows, owner);
 }
 
@@ -814,9 +818,12 @@ export async function snapshotCafeSettings(
  * falls back to the registry default (null for every nullable key), so the
  * effective value is identical either way.
  */
+/** A cafe_settings row; keyed by (venue_id, key) since 0209. */
+type CafeSettingRow = { venue_id: string; key: string; value: unknown; is_public: boolean };
+
 async function writeCafeSettingRows(
   svc: SupabaseClient,
-  rows: { key: string; value: unknown; is_public: boolean }[],
+  rows: CafeSettingRow[],
   owner?: SupabaseClient,
 ): Promise<void> {
   const nonNull = rows.filter((r) => r.value !== null && r.value !== undefined);
@@ -824,14 +831,14 @@ async function writeCafeSettingRows(
   if (nonNull.length > 0) {
     const { error } = await svc
       .from('cafe_settings')
-      .upsert(nonNull.map((r) => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'key' });
+      .upsert(nonNull.map((r) => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'venue_id,key' });
     if (error) throw new Error(`restore cafe_settings failed: ${error.message}`);
   }
   for (const r of nulls) {
-    if (owner) {
+    if (owner && r.venue_id === VENUE_A_ID) {
       await setCafeSetting(owner, r.key, null);
     } else {
-      const { error } = await svc.from('cafe_settings').delete().eq('key', r.key);
+      const { error } = await svc.from('cafe_settings').delete().eq('venue_id', r.venue_id).eq('key', r.key);
       if (error) throw new Error(`restore cafe_settings (${r.key}) failed: ${error.message}`);
     }
   }
@@ -1103,6 +1110,30 @@ export async function ensurePromotionProbeData(svc: SupabaseClient): Promise<voi
  * is a till, and a stale one would put venue A into degraded mode and change
  * the guard outcome of every guest RPC in the matrix.
  */
+/**
+ * Register a station the way a manager does in Settings > Stations. Since 0229
+ * (decision A1) a heartbeat never registers a machine, so a test that beats a
+ * station id registers it first. Idempotent; revives a retired row.
+ */
+export async function registerTestStation(
+  svc: SupabaseClient,
+  id: string,
+  opts: { venueId?: string; isTill?: boolean } = {},
+): Promise<void> {
+  const isTill = opts.isTill ?? true;
+  const { error } = await svc.from('stations').upsert(
+    {
+      id,
+      venue_id: opts.venueId ?? VENUE_A_ID,
+      is_till: isTill,
+      mode: isTill ? 'till' : 'desk',
+      retired_at: null,
+    },
+    { onConflict: 'id' },
+  );
+  if (error) throw new Error(`registerTestStation ${id} failed: ${error.message}`);
+}
+
 export async function ensureStationProbe(svc: SupabaseClient): Promise<void> {
   const { error: sErr } = await svc
     .from('stations')
@@ -1170,6 +1201,21 @@ export async function ensureVenueBProbeData(svc: SupabaseClient): Promise<VenueB
     { onConflict: 'id' },
   );
   if (vErr) throw new Error(`venue B probe venues failed: ${vErr.message}`);
+
+  // Since slice 2 (0208) every venue has its own venue_settings row and the
+  // booking guards read the court's branch row, so B gets a copy of A's (what
+  // app.create_branch does for a real branch).
+  const { data: aSettings, error: sErr } = await svc
+    .from('venue_settings')
+    .select('*')
+    .eq('venue_id', VENUE_A_ID)
+    .single();
+  if (sErr) throw new Error(`venue B probe venue_settings read failed: ${sErr.message}`);
+  await up(
+    'venue_settings',
+    { ...(aSettings as Record<string, unknown>), venue_id: VENUE_B_ID, venue_name: 'Probe Venue B' },
+    'venue_id',
+  );
 
   // Courts sorted after venue A's two, so any "first court" lookup elsewhere
   // keeps picking A's court 1.

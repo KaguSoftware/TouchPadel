@@ -56,8 +56,20 @@ const isDev = process.env.NODE_ENV !== 'production';
  *   /en/t/{token}     what a locale switch produces
  */
 const TABLE_URL = new RegExp(`^(?:/(${LOCALES.join('|')}))?/t/([^/]+)/?$`);
-/** Where the exchange LANDS: /{locale}/t, the page that holds the session. */
-const TABLE_SESSION_URL = new RegExp(`^/(${LOCALES.join('|')})/t/?$`);
+/**
+ * Where the exchange LANDS: /{locale}/menu, the café menu, which reads the
+ * `tp-table` cookie and holds the session (2026-09-23: the menu moved off the
+ * site root when the landing page took `/{locale}`). A guest with no cookie
+ * gets the same page as a walk-in.
+ */
+const MENU_URL = new RegExp(`^/(${LOCALES.join('|')})/menu/?$`);
+/**
+ * The token-less `/t` the exchange used to land on until 2026-09-23. Kept as
+ * a 307 to `/menu` for bookmarks, installed shortcuts and anyone whose cookie
+ * was set before the move (the cookie is `path: '/'`, so it binds the table on
+ * the menu just the same). Locale-less `/t` is taken in one hop too.
+ */
+const TABLE_HOP_URL = new RegExp(`^(?:/(${LOCALES.join('|')}))?/t/?$`);
 
 /**
  * Move the table token out of the URL and into an HttpOnly cookie.
@@ -69,9 +81,10 @@ const TABLE_SESSION_URL = new RegExp(`^/(${LOCALES.join('|')})/t/?$`);
  * any screenshot or shared link — for the whole session, not just the first
  * request.
  *
- * The exchange is a 307 to the token-less `/t`, carrying a Set-Cookie. From
- * then on the address bar reads `/{locale}/t` and the credential lives where
- * page script cannot read it.
+ * The exchange is a 307 to the token-less `/{locale}/menu`, carrying a
+ * Set-Cookie. From then on the address bar reads `/{locale}/menu` and the
+ * credential lives where page script cannot read it (but see the RSC-payload
+ * residual in app/[locale]/menu/page.tsx).
  *
  * PRINTED QR CARDS ARE UNAFFECTED. The token is still in the QR code and still
  * arrives on that first request — this only changes where it lives afterwards.
@@ -79,7 +92,7 @@ const TABLE_SESSION_URL = new RegExp(`^/(${LOCALES.join('|')})/t/?$`);
  */
 function exchangeTableToken(req: NextRequest, token: string, locale: string): NextResponse {
   const url = req.nextUrl.clone();
-  url.pathname = `/${locale}/t`;
+  url.pathname = `/${locale}/menu`;
   // The token was the only thing that ever needed to be here; anything else on
   // the query string (?analytics=off) is preserved by the clone.
   const res = NextResponse.redirect(url, 307);
@@ -110,7 +123,8 @@ export function proxy(req: NextRequest) {
     res.headers.set('x-nonce', nonce);
 
     /**
-     * `no-store` on the table session, set HERE and not in next.config.ts.
+     * `no-store` on the table session (the menu, the old `/t` hop and the
+     * token URL), set HERE and not only in next.config.ts.
      *
      * TABLE_ROUTE_HEADERS declares it, but Next stamps its OWN Cache-Control on
      * a dynamic page route and that value wins over `headers()`. Measured on the
@@ -124,8 +138,14 @@ export function proxy(req: NextRequest) {
      * table that the next person will also scan — so a stored copy is one
      * guest's session served to another. Middleware runs after the route
      * handler, so setting it here is what actually reaches the browser.
+     *
+     * `/{locale}/menu` is the walk-in menu AND the table session: with the
+     * cookie present its RSC payload carries the token, and which of the two a
+     * given response is cannot be told from the URL. So every menu response is
+     * treated as a session. The cost is bfcache: Back from the landing reloads
+     * the menu instead of restoring it.
      */
-    if (TABLE_URL.test(pathname) || TABLE_SESSION_URL.test(pathname)) {
+    if (TABLE_URL.test(pathname) || TABLE_HOP_URL.test(pathname) || MENU_URL.test(pathname)) {
       res.headers.set('cache-control', 'no-store, no-cache, must-revalidate, private');
       res.headers.set('referrer-policy', 'no-referrer');
     }
@@ -148,6 +168,19 @@ export function proxy(req: NextRequest) {
   if (table) {
     const [, localeInPath, token] = table;
     return withSecurity(exchangeTableToken(req, token as string, localeInPath ?? negotiateLocale(req)));
+  }
+
+  // ── the old session URL, before locale handling ──────────────────────────
+  // A 307 here rather than a next.config redirect: config redirects run before
+  // this function, so their hop would carry no CSP (the M3 lesson). Not
+  // permanent: a browser must never learn `/t` → `/menu` forever, in case the
+  // session ever moves again.
+  const hop = pathname.match(TABLE_HOP_URL);
+  if (hop) {
+    // A plain URL, not a nextUrl clone: the clone remembers a trailing slash
+    // and would send `/ar/t/` to `/ar/menu/`. The query is carried over.
+    const url = new URL(`/${hop[1] ?? negotiateLocale(req)}/menu${req.nextUrl.search}`, req.url);
+    return withSecurity(NextResponse.redirect(url, 307));
   }
 
   const hasLocale = LOCALES.some((l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`));

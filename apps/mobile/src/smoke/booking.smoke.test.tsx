@@ -1,5 +1,6 @@
 /**
- * The booking flow: pick a slot, review it, confirm it, look at it later.
+ * The booking flow after the slot is picked (the pick itself is the Book tab's
+ * sheet, covered by the tabs suite): review it, confirm it, look at it later.
  *
  * These are the screens with the most STATE behind a first render — an
  * availability grid, a reservation fetched by id, a hold with a deadline — so
@@ -10,27 +11,33 @@
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
 import {
   TEST_RESERVATION_ID,
+  TEST_VENUE_ID,
   bookingFixture,
+  branchFixture,
   courtFixture,
   venueSettingsFixture,
 } from '../test/fixtures';
 import { bookingKeys } from '../features/booking/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
-import AvailabilityScreen from '../../app/availability';
 import BookingDetailScreen from '../../app/booking/[id]';
 import BookingHistoryScreen from '../../app/booking-history';
 import ReviewScreen from '../../app/review';
 import SuccessScreen from '../../app/success';
 
-/** Everything the availability grid and the venue-aware screens read. */
+/**
+ * Everything the availability grid and the venue-aware screens read: ONE open
+ * branch (so no picker, as on today's install) and that branch's rows.
+ */
 const VENUE: [readonly unknown[], unknown][] = [
-  [availabilityKeys.settings, venueSettingsFixture()],
-  [availabilityKeys.courts, [courtFixture()]],
-  [availabilityKeys.rates, []],
+  [availabilityKeys.branches, [branchFixture()]],
+  [availabilityKeys.settings(TEST_VENUE_ID), venueSettingsFixture()],
+  [availabilityKeys.courts(TEST_VENUE_ID), [courtFixture()]],
+  [availabilityKeys.allCourts, [courtFixture()]],
+  [availabilityKeys.rates(TEST_VENUE_ID), []],
   [availabilityKeys.ratePrices, []],
 ];
 
-/** A hold that has not expired, as the availability screen hands it to Review. */
+/** A hold that has not expired, as the booking sheet hands it to Review. */
 const holdParams = () => ({
   holdId: '33333333-3333-4333-8333-333333333333',
   expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
@@ -42,17 +49,6 @@ const holdParams = () => ({
 });
 
 const CASES: SmokeCase[] = [
-  {
-    route: 'availability',
-    Component: AvailabilityScreen,
-    // The duration picker is a SegmentedControl: the track carries the id and
-    // holds no text of its own, so the label assertion moves to a segment's.
-    // It is mounted above the grid's own branches, which is why it is the
-    // primary — an empty or failed day still has a duration to pick.
-    nearbyKey: 'booking.durationMinutes',
-    labelParams: { minutes: 60 },
-    options: { session: 'in', queryData: VENUE },
-  },
   {
     route: 'booking-detail',
     Component: BookingDetailScreen,

@@ -55,10 +55,22 @@ describe('readCourts', () => {
     expect(r.trend).toEqual([{ date: '2026-09-11', bookings: 1, revenueIqd: 40000 }]);
     expect(r.totals).toMatchObject({ bookings: 15, bookedMinutes: 930, noShows: 6 });
   });
+  it('reads the event minutes of each court and of the period, null when a payload predates them', () => {
+    const withEvents = {
+      ...payload,
+      rows: [{ ...payload.rows[0], eventMinutes: 240 }],
+      totals: { ...payload.totals, eventMinutes: 240 },
+    };
+    expect(readCourts(withEvents).rows[0]!.eventMinutes).toBe(240);
+    expect(readCourts(withEvents).totals!.eventMinutes).toBe(240);
+    expect(readCourts(payload).rows[0]!.eventMinutes).toBeNull();
+  });
   it('is empty when nothing was booked, cancelled or missed — not when courts merely exist', () => {
     expect(courtsIsEmpty(readCourts(payload))).toBe(false);
     expect(courtsIsEmpty(readCourts({ ...payload, totals: { bookings: 0, cancellations: 0, noShows: 0 } }))).toBe(true);
     expect(courtsIsEmpty(readCourts({ ...payload, totals: { bookings: 0, cancellations: 1, noShows: 0 } }))).toBe(false);
+    // A period with only tournament hours still has something to show: the Events line.
+    expect(courtsIsEmpty(readCourts({ ...payload, totals: { bookings: 0, cancellations: 0, noShows: 0, eventMinutes: 240 } }))).toBe(false);
     expect(courtsIsEmpty(readCourts({ rows: [] }))).toBe(true);
   });
 });
@@ -95,7 +107,7 @@ describe('readStock', () => {
       expiringSoon: [{ unit: 'g', nameEn: 'Fruit', nameAr: 'فواكه', batchId: 'b1', valueIqd: 20000, expiryDate: '2026-09-17', daysLeft: 0, ingredientId: 'f1', qtyRemaining: 4000 }],
       expired: [{ unit: 'pc', nameEn: 'Buns', nameAr: 'خبز', batchId: 'b2', valueIqd: 11000, expiryDate: '2026-09-15', daysExpired: 2, ingredientId: 'b', qtyRemaining: 22 }],
       consumption: [{ unit: 'g', nameEn: 'Beans', nameAr: 'بن', costIqd: 5550, consumedQty: 222, ingredientId: 'e1' }],
-      variance: [{ unit: 'pc', nameEn: 'Patty', nameAr: 'قرص', countId: 'k', periodEnd: '2026-09-17T00:10:10Z', countedQty: 1039, varianceQty: 0, ingredientId: 'p1', theoreticalQty: 1039 }],
+      variance: [{ unit: 'pc', nameEn: 'Patty', nameAr: 'قرص', countId: 'k', periodEnd: '2026-09-17T00:10:10Z', countedQty: 1039, varianceQty: 0, ingredientId: 'p1', theoreticalQty: 1039, productTestQty: 4 }],
     });
     expect(r.valueIqd).toBe(1633337);
     // Milk is at zero: out of stock, and not also running low and below par.
@@ -106,7 +118,7 @@ describe('readStock', () => {
     expect(r.expiringSoon[0]).toMatchObject({ batchId: 'b1', days: 0, valueIqd: 20000 });
     expect(r.expired[0]).toMatchObject({ batchId: 'b2', days: 2, qtyRemaining: 22 });
     expect(r.consumption[0]).toMatchObject({ consumedQty: 222, costIqd: 5550 });
-    expect(r.variance[0]).toMatchObject({ countedAt: '2026-09-17T00:10:10Z', theoreticalQty: 1039, countedQty: 1039, varianceQty: 0 });
+    expect(r.variance[0]).toMatchObject({ countedAt: '2026-09-17T00:10:10Z', theoreticalQty: 1039, countedQty: 1039, varianceQty: 0, productTestQty: 4 });
   });
   it('puts each ingredient on one rung: out, then low, then below par', () => {
     const row = (id: string, onHand: number) => ({ ingredientId: id, nameEn: id, nameAr: id, unit: 'g', onHand, threshold: 100, parLevel: 500, shortfall: 500 - onHand });
@@ -122,6 +134,24 @@ describe('readStock', () => {
   });
   it('keeps an unreported stock value as null', () => {
     expect(readStock({}).valueIqd).toBeNull();
+  });
+  it('reads a count row from before product tests as having none on record', () => {
+    const r = readStock({ variance: [{ ingredientId: 'p1', countId: 'k', varianceQty: -2 }] });
+    expect(r.variance[0]?.productTestQty).toBeNull();
+  });
+  it('reads each batch’s and each count’s store, and what was moved (wave 5)', () => {
+    const r = readStock({
+      expiringSoon: [{ ingredientId: 'f1', batchId: 'b1', location: 'bakery' }],
+      expired: [{ ingredientId: 'b', batchId: 'b2', location: 'cafe' }],
+      variance: [{ ingredientId: 'p1', countId: 'k', varianceQty: -2, location: 'bakery', transferQty: 5000 }],
+    });
+    expect(r.expiringSoon[0]?.location).toBe('bakery');
+    expect(r.expired[0]?.location).toBe('cafe');
+    expect(r.variance[0]).toMatchObject({ location: 'bakery', transferQty: 5000 });
+    // A report from before the stores, or a store this build does not know: nothing claimed.
+    const old = readStock({ variance: [{ ingredientId: 'p1', countId: 'k', location: 'garage' }], expired: [{ ingredientId: 'b', batchId: 'b2' }] });
+    expect(old.variance[0]).toMatchObject({ location: null, transferQty: null });
+    expect(old.expired[0]?.location).toBeNull();
   });
 });
 

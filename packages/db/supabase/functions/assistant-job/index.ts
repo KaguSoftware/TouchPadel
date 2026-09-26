@@ -147,7 +147,7 @@ function parseObject(text: string): Record<string, unknown> {
 
 async function venueTimezone(asOwner: SupabaseClient | null, service: SupabaseClient): Promise<string> {
   const client = asOwner ?? service;
-  const { data } = await client.from('venue_settings').select('timezone').limit(1).maybeSingle();
+  const { data } = await client.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
   const tz = (data as { timezone?: string } | null)?.timezone;
   return typeof tz === 'string' && tz ? tz : DEFAULT_TZ;
 }
@@ -492,9 +492,9 @@ Deno.serve(async (req) => {
     const chunks = chunksOf(job);
     if (typeof chunks === 'string') return json({ error: 'INVALID_REQUEST', message: chunks }, 400);
 
-    // 0114: the job runs on the chat's model, else the venue default; the tick
-    // rebuilds the same provider from tokens.model, stamped below.
-    const { data: vs } = await service.from('venue_settings').select('llm_default_model').limit(1).maybeSingle();
+    // 0114: the job runs on the chat's model, else the chain default (platform_settings,
+    // 0207); the tick rebuilds the same provider from tokens.model, stamped below.
+    const { data: vs } = await service.from('platform_settings').select('llm_default_model').eq('id', true).maybeSingle();
     const jobModel = (conv as { model?: string | null }).model ?? (vs as { llm_default_model?: string | null } | null)?.llm_default_model ?? null;
     const jobProvider = providerFromEnv((n) => Deno.env.get(n), jobModel) ?? provider;
     const book = new Book(service, jobProvider);

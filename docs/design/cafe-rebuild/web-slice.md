@@ -23,15 +23,25 @@ non-revealed modifiers as `MODIFIER_INVALID`, discount helper is `applyPctDiscou
 
 ## 1. Routing
 
+> **Updated 2026-09-23.** The café menu is no longer the site root. `/{locale}` is the Touch Padel
+> landing page (`docs/design/web-site/contracts-2026-09-23.md`) and the menu lives at
+> `/{locale}/menu`, which is also where the QR exchange lands (the table session was `/{locale}/t`
+> from the Layer 1 cookie exchange until this date). The 308 `/{locale}/menu → /{locale}` alias
+> is deleted. The table below is the current routing; the rest of this plan is kept as written in
+> 2026-08 and says "site root" where it means the menu. Every page is dynamic (the layout's nonce
+> read, C11), so the ISR notes in this document describe the plan, not what ships.
+
 | URL (browser) | Proxy action | Rendered by | Rendering | Index |
 |---|---|---|---|---|
-| `/` | 307 redirect → `/{negotiated}` | — | — | canonical is `/ar` |
-| `/{locale}` | pass | `app/[locale]/page.tsx` (NEW: the cafe app, no table) | static + ISR `revalidate = 60`; `generateStaticParams` en/ar | yes |
-| `/{locale}/menu` | — | `next.config.ts` `redirects()`: `/:locale(en|ar)/menu` → `/:locale` (308) | — | alias only |
-| `/t/{token}` (printed) | **rewrite** → `/{negotiated}/t/{token}` (URL stays verbatim) | `app/[locale]/t/[token]/page.tsx` (MODIFY) | dynamic (param) but menu/settings from the shared cache | noindex |
-| `/{locale}/t/{token}` | pass | same | same | noindex |
+| `/` | 307 redirect → `/{negotiated}` | — | — | — |
+| `/{locale}` | pass | `app/[locale]/page.tsx`: the Touch Padel landing | dynamic | yes |
+| `/{locale}/menu` | pass; re-applies `no-store, …, private` + `no-referrer` | `app/[locale]/menu/page.tsx`: the café app, table bound when the `tp-table` cookie is present | dynamic (reads the cookie); menu/settings from the shared cache | yes (canonical `/{locale}/menu`, hreflang to both menus) |
+| `/menu` | 307 redirect → `/{negotiated}/menu` | — | — | — |
+| `/t/{token}` (printed) | **exchange**: 307 → `/{negotiated}/menu` + HttpOnly `tp-table` cookie (token leaves the URL) | proxy; fallback `app/[locale]/t/[token]/route.ts` | — | disallowed in robots |
+| `/{locale}/t/{token}` | same exchange → `/{locale}/menu` | same | — | disallowed in robots |
+| `/{locale}/t`, `/t` | 307 → `/{locale}/menu` (the old session URL: bookmarks, cookies set before the move) | proxy; fallback `app/[locale]/t/page.tsx` (`redirect()`) | — | disallowed in robots (`$`-anchored, so `/en/terms` stays indexable) |
 | anything else without locale | 307 redirect to `/{locale}{path}` | — | — | — |
-| `/manifest.webmanifest`, `/robots.txt` | excluded by matcher | `app/manifest.ts`, `app/robots.ts` | static | — |
+| `/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml` | excluded by matcher | `app/manifest.ts`, `app/robots.ts`, `app/sitemap.ts` | static | — |
 
 Proxy (`apps/web/proxy.ts`): keep the current matcher; `DEFAULT_LOCALE='ar'`; precedence = path
 prefix → `tp-locale` cookie → `Accept-Language` → `ar`. `src/lib/locales.ts`: `DEFAULT_LOCALE='ar'`,

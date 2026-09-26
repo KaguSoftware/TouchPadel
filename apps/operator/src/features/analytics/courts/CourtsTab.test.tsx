@@ -161,6 +161,10 @@ describe('CourtsTab', () => {
     // Price per booked hour is a supporting row.
     const priceRow = within(pulse).getByText('Price per booked hour').closest('li')!;
     expect(within(priceRow).getByText('20,000 IQD', { selector: 'strong' })).toBeTruthy();
+    // Tournament hours are named beside them (event_court_blocks): 240 minutes in both windows.
+    const eventsRow = within(pulse).getByText('Event hours').closest('li')!;
+    expect(within(eventsRow).getByText('4', { selector: 'strong' })).toBeTruthy();
+    expect(eventsRow.textContent).toMatch(/was 4/);
     // No error surfaced anywhere.
     expect(screen.queryByRole('alert')).toBeNull();
 

@@ -1,9 +1,13 @@
 import { Outlet, createRoute } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { formatNumber } from '@touch/i18n';
 import { rootRoute, RequireRole } from './__root';
 import { useAuth, allowedSubRoutes } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { SubNav, type SubNavGroup } from '../components/SubNav';
 import type { IconName } from '../components/icons';
+import { SK, fetchUnfinishedCounts } from '../features/stock/stockKeys';
+import { phoneCountsWaiting } from '../features/stock/storeLogic';
 
 // Module 5 — stock & recipes (SOW L515-547). The layout mirrors /admin: a
 // grouped sub-nav over lazy children. Acceptance is the counts → variance
@@ -18,6 +22,7 @@ type StockNavKey =
   | 'onHand'
   | 'ingredients'
   | 'receive'
+  | 'moves'
   | 'waste'
   | 'recipes'
   | 'counts'
@@ -45,6 +50,8 @@ const STOCK_GROUPS: readonly {
     items: [
       { to: '/stock', key: 'onHand', icon: 'package', exact: true },
       { to: '/stock/receive', key: 'receive', icon: 'box' },
+      // Wave 5: stock carried between the cafe and bakery stores.
+      { to: '/stock/moves', key: 'moves', icon: 'repeat' },
       { to: '/stock/waste', key: 'waste', icon: 'ban' },
       { to: '/stock/expiry', key: 'expiry', icon: 'hourglass' },
       { to: '/stock/alerts', key: 'alerts', icon: 'bell' },
@@ -80,14 +87,24 @@ function StockShellGuarded() {
 
 function StockShell() {
   const { staff } = useAuth();
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const visible = new Set(staff ? allowedSubRoutes(staff.role, '/stock') : []);
   visible.add('/stock'); // the index (on-hand) is the layout's own path
+  // Counts from the phone waiting for a manager: the Stock count row's badge
+  // (wave5-addendum-2026-09-25 §2.8.5, no push).
+  const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
+  const waiting = phoneCountsWaiting(countsQ.data).length;
   const groups: SubNavGroup[] = STOCK_GROUPS.map((group) => ({
     label: tr(`op.stockNav.${group.label}` as const),
     items: group.items
       .filter((item) => visible.has(item.to))
-      .map((item) => ({ to: item.to, label: tr(`op.stockNav.${item.key}` as const), icon: item.icon, exact: item.exact })),
+      .map((item) => ({
+        to: item.to,
+        label: tr(`op.stockNav.${item.key}` as const),
+        icon: item.icon,
+        exact: item.exact,
+        ...(item.key === 'counts' && waiting > 0 ? { badge: waiting, badgeLabel: tr('ws.stores.counts.phone.badge', { count: formatNumber(waiting, locale) }) } : {}),
+      })),
   }));
 
   return (

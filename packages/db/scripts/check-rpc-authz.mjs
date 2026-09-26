@@ -222,12 +222,14 @@ const check = (name, cond, detail) => {
 
 // A bookable slot: an active court, and a weekday 10:00 venue-local far enough
 // out that nothing else in the fixtures owns it.
+// Slice 2 (0208): venue_settings is one row per venue, so both reads name the
+// court's own venue.
 const court = psql(`select id from courts where is_active order by sort_order limit 1;`).trim();
 const startAt = psql(`
-  select to_char((d + interval '10 hour') at time zone (select timezone from venue_settings),
+  select to_char((d + interval '10 hour') at time zone (select vs.timezone from venue_settings vs join courts c on c.venue_id = vs.venue_id where c.id = '${court}'),
                  'YYYY-MM-DD"T"HH24:MI:SSOF:00')
-    from (select generate_series(date_trunc('day', (now() at time zone (select timezone from venue_settings))) + interval '5 day',
-                                 date_trunc('day', (now() at time zone (select timezone from venue_settings))) + interval '12 day',
+    from (select generate_series(date_trunc('day', (now() at time zone (select vs.timezone from venue_settings vs join courts c on c.venue_id = vs.venue_id where c.id = '${court}'))) + interval '5 day',
+                                 date_trunc('day', (now() at time zone (select vs.timezone from venue_settings vs join courts c on c.venue_id = vs.venue_id where c.id = '${court}'))) + interval '12 day',
                                  interval '1 day') d) s
    where extract(dow from d) between 0 and 4 limit 1;`).trim();
 

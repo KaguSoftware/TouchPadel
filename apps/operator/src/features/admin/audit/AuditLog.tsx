@@ -56,6 +56,7 @@ import {
   type PeriodPreset,
 } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
+import { STAFF_ROLES } from '../../../lib/roleResolution';
 import { downloadTable } from '../../analytics/exportTables';
 import { knownReason } from '../dayCloseLogic';
 import {
@@ -84,7 +85,6 @@ const PAGE_SIZE = 200;
 const AUDIT_COLUMNS = 'id, at, actor_id, actor_role, authorizer_id, action, entity, entity_id, before, after, reason_code, device_id';
 const NO_ROWS: AuditRow[] = [];
 const PRESETS = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'last30'] as const;
-const ROLE_KEYS = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
 
 type Tr = ReturnType<typeof useLocale>['tr'];
 
@@ -291,7 +291,7 @@ export function AuditLog() {
         actor: (r) => personName(r.actor_id, r.actor_role, r.actor_name ?? null, names, tr),
         // Only when someone else authorised it — repeating the actor's own name says nothing.
         authoriser: (r) => (r.authorizer_id && r.authorizer_id !== r.actor_id ? (r.authorizer_name ?? personName(r.authorizer_id, null, null, names, tr)) : null),
-        role: (role) => (role && (ROLE_KEYS as readonly string[]).includes(role) ? tr(`op.roles.${role}` as MessageKey) : role),
+        role: (role) => (role && (STAFF_ROLES as readonly string[]).includes(role) ? tr(`op.roles.${role}` as MessageKey) : role),
         action: (action) => actionWords(action, tr),
         record: (r) => recordName(r.before, r.after, locale),
         reason: (code) => reasonWords(code, tr),
@@ -455,7 +455,7 @@ function personName(id: string | null, role: string | null, serverName: string |
   if (serverName) return serverName;
   if (id && names.has(id)) return names.get(id)!;
   if (!id) return tr('ws.manager.audit.system');
-  if (role && (ROLE_KEYS as readonly string[]).includes(role)) return tr('ws.manager.audit.formerStaff');
+  if (role && (STAFF_ROLES as readonly string[]).includes(role)) return tr('ws.manager.audit.formerStaff');
   if (role === 'guest' || role === 'authenticated') return tr('ws.manager.audit.guest');
   return tr('ws.manager.audit.system');
 }

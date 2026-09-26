@@ -13,8 +13,9 @@
  *                                       webhook exists). Needs allowed_updates to carry
  *                                       my_chat_member — telegram-diagnose registers it.
  *   - message.migrate_to_chat_id     -> the group became a supergroup: move the
- *                                       telegram_chats row and, if it still holds the
- *                                       old id, cafe_settings.telegram_chat_id, 200
+ *                                       telegram_chats row and every branch's
+ *                                       cafe_settings.telegram_chat_id that still holds
+ *                                       the old id (per branch since 0209), 200
  *   - anything else not a callback_query -> 200 {ok:true} (ignored)
  *   - callback_data off-contract     -> answerCallbackQuery 'غير معروف', 200
  *   - app.telegram_apply_action(action, ref_id, {tg_user_id, first_name, username},
@@ -27,7 +28,8 @@
  *   - keyboard !== 'unchanged'       -> editMessageText(original outbox text +
  *                                       "\n\n" + status footer, reduced keyboard);
  *                                       if that fails, editMessageReplyMarkup only
- *   - stamp cafe_settings.telegram_last_callback_at (direct write, service role)
+ *   - stamp cafe_settings.telegram_last_callback_at on every branch whose group
+ *     this chat is (direct write, service role; per branch since 0209)
  * ANY internal error still answers HTTP 200 {ok:false}: a non-2xx makes Telegram
  * redeliver the update forever.
  */
@@ -89,6 +91,15 @@ async function tg(token: string, method: string, body: Record<string, unknown>):
   }
 }
 
+/** Every branch whose Telegram group (cafe_settings.telegram_chat_id, per branch since 0209) is this chat. */
+async function venuesWithChat(db: ReturnType<typeof createServiceClient>, chatId: string): Promise<string[]> {
+  if (!chatId) return [];
+  const { data } = await db.from('cafe_settings').select('venue_id, value').eq('key', 'telegram_chat_id');
+  return ((data ?? []) as { venue_id: string; value: unknown }[])
+    .filter((r) => r.value === chatId)
+    .map((r) => r.venue_id);
+}
+
 function secretMatches(req: Request): boolean {
   const expected = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '';
   const got = req.headers.get('X-Telegram-Bot-Api-Secret-Token') ?? '';
@@ -140,12 +151,12 @@ async function recordMigration(oldId: string, newId: string): Promise<Response> 
       { onConflict: 'chat_id' },
     );
     await db.from('telegram_chats').delete().eq('chat_id', oldId);
-    const { data: current } = await db.from('cafe_settings').select('value').eq('key', 'telegram_chat_id').maybeSingle();
-    if (current?.value === oldId) {
+    for (const venueId of await venuesWithChat(db, oldId)) {
       const { error } = await db
         .from('cafe_settings')
         .update({ value: newId, updated_at: new Date().toISOString() })
-        .eq('key', 'telegram_chat_id');
+        .eq('key', 'telegram_chat_id')
+        .eq('venue_id', venueId);
       if (error) console.error('telegram_chat_id follow failed:', error.message);
     }
     return json({ ok: true, migrated: newId });
@@ -247,11 +258,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { error: stampErr } = await db.from('cafe_settings').upsert(
-      { key: 'telegram_last_callback_at', value: new Date().toISOString(), is_public: false, updated_at: new Date().toISOString() },
-      { onConflict: 'key' },
-    );
-    if (stampErr) console.error('telegram_last_callback_at stamp failed:', stampErr.message);
+    const stampedAt = new Date().toISOString();
+    const stampVenues = await venuesWithChat(db, String(cq.message?.chat?.id ?? ''));
+    if (stampVenues.length > 0) {
+      const { error: stampErr } = await db.from('cafe_settings').upsert(
+        stampVenues.map((venue_id) => ({
+          venue_id,
+          key: 'telegram_last_callback_at',
+          value: stampedAt,
+          is_public: false,
+          updated_at: stampedAt,
+        })),
+        { onConflict: 'venue_id,key' },
+      );
+      if (stampErr) console.error('telegram_last_callback_at stamp failed:', stampErr.message);
+    }
 
     return json({ ok: true, result: applied.result, keyboard: applied.keyboard });
   } catch (e) {

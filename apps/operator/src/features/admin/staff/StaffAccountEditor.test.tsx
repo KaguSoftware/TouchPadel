@@ -59,6 +59,28 @@ describe('StaffAccountEditor', () => {
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('set_staff_role', { p_staff_id: 'c1', p_role: 'owner' }));
   });
 
+  it('never offers Kitchen, which is retired (0155), to anyone not already on it', async () => {
+    renderPanel(cashier);
+    await userEvent.click(screen.getByRole('combobox', { name: 'Role' }));
+    const offered = screen.getAllByRole('option').map((o) => o.textContent);
+    expect(offered).toEqual(expect.arrayContaining(['Barista', 'Head chef', 'Driver', 'Marketing']));
+    expect(offered).not.toContain('Kitchen');
+  });
+
+  it('a Kitchen account still reads Kitchen, says to move it on, and can be moved to Barista', async () => {
+    renderPanel({ ...cashier, role: 'prep' });
+    const picker = screen.getByRole('combobox', { name: 'Role' });
+    expect(picker.textContent).toContain('Kitchen');
+    expect(screen.getByText(/retired/i)).toBeTruthy();
+
+    await userEvent.click(picker);
+    expect((screen.getByRole('option', { name: 'Kitchen' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole('option', { name: 'Barista' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Change role' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Change to Barista' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('set_staff_role', { p_staff_id: 'c1', p_role: 'barista' }));
+  });
+
   it('removing access says what actually happens, then writes', async () => {
     renderPanel(cashier);
     await userEvent.click(screen.getByRole('button', { name: 'Remove access' }));

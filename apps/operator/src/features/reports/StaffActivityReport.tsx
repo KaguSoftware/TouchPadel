@@ -16,13 +16,18 @@
  * A row opens everything attributed to the person (report_drill
  * `staff:<id>`); on the discounts breakdown it opens their discounts, voids
  * and refunds. The audit log for the person stays one click away on each row.
+ *
+ * Till shifts (wave5-addendum §5.1) are a fifth view with their own read
+ * (app.till_shift_list, tillShift/ShiftReport): each shift with its count and
+ * difference, in the order they started, never ranked.
  */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { appRpc } from '../../lib/appRpc';
+import { STAFF_ROLES, type StaffRole } from '../../lib/roleResolution';
 import { Button } from '../../components/ui';
 import { MessagePresenter, StatusBadge } from '../../components/kit';
 import {
@@ -51,10 +56,12 @@ import {
 } from './ReportParts';
 import { StaffFilter } from './ReportFilterBar';
 import { dayClosesOf, readStaff, type CountAmount, type DayCloseRow, type StaffRow } from './reportPayloads';
+import { ShiftReport, shiftReportCsv } from '../tillShift/ShiftReport';
+import { tillShiftListKey } from '../tillShift/api';
+import type { ShiftList } from '../tillShift/tillShiftLogic';
 
-type View = 'activity' | 'exceptions' | 'calls' | 'dayCloses';
-const VIEWS: readonly View[] = ['activity', 'exceptions', 'calls', 'dayCloses'];
-const ROLE_KEYS = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
+type View = 'activity' | 'exceptions' | 'calls' | 'dayCloses' | 'shifts';
+const VIEWS: readonly View[] = ['activity', 'exceptions', 'calls', 'dayCloses', 'shifts'];
 type Locale = ReturnType<typeof useLocale>['locale'];
 
 export function StaffActivityReportScreen() {
@@ -64,6 +71,7 @@ export function StaffActivityReportScreen() {
   const [staffId, setStaffId] = useState('');
   const [view, setView] = useState<View>('activity');
   const [drill, setDrill] = useState<DrillRequest | null>(null);
+  const queryClient = useQueryClient();
 
   const args = { p_from: period.from, p_to: period.to, p_staff_id: staffId || null };
   const q = useQuery({
@@ -101,6 +109,7 @@ export function StaffActivityReportScreen() {
     exceptions: ['ws.reports.staff.notes.times'],
     calls: [],
     dayCloses: ['ws.reports.staff.notes.cashDifference'],
+    shifts: [],
   };
 
   function exportCsv() {
@@ -108,6 +117,10 @@ export function StaffActivityReportScreen() {
     const base = tr('ws.reports.export.staff');
     const parts = { view, staff: staffId || undefined };
     if (view === 'dayCloses') return exportTable(base, locale, period, parts, tableCsv(cols.dayCloses, closes));
+    if (view === 'shifts') {
+      const list = queryClient.getQueryData<ShiftList>(tillShiftListKey({ from: period.from, to: period.to, staff: staffId || null }));
+      return exportTable(base, locale, period, parts, shiftReportCsv(tr, locale, list?.shifts ?? []));
+    }
     exportTable(base, locale, period, parts, tableCsv(cols[view], rows, view === 'exceptions' ? cols.exceptionCounts : []));
   }
 
@@ -135,10 +148,12 @@ export function StaffActivityReportScreen() {
             <ViewSwitch<View>
               value={view}
               onChange={setView}
-              options={VIEWS.map((v) => ({ value: v, label: tr(`ws.reports.staff.views.${v}`) }))}
-              lead={tr(`ws.reports.staff.lead.${view}`)}
+              options={VIEWS.map((v) => ({ value: v, label: v === 'shifts' ? tr('ws.tillShift.report.view') : tr(`ws.reports.staff.views.${v}`) }))}
+              lead={view === 'shifts' ? tr('ws.tillShift.report.lead') : tr(`ws.reports.staff.lead.${view}`)}
             />
-            {view === 'dayCloses' ? (
+            {view === 'shifts' ? (
+              <ShiftReport from={period.from} to={period.to} staffId={staffId || null} />
+            ) : view === 'dayCloses' ? (
               closes.length === 0 ? (
                 <EmptyState compact kind="nothingToDo" icon="sun" title={tr('ws.reports.staff.noDayCloses')} />
               ) : (
@@ -167,7 +182,7 @@ function staffColumns(tr: Tr, locale: Locale, openAudit: (id: string) => void) {
       <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
         <bdi style={{ fontWeight: 600 }}>{r.name}</bdi>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-          {r.role && (ROLE_KEYS as readonly string[]).includes(r.role) ? tr(`op.roles.${r.role as (typeof ROLE_KEYS)[number]}`) : (r.role ?? '')}
+          {r.role && (STAFF_ROLES as readonly string[]).includes(r.role) ? tr(`op.roles.${r.role as StaffRole}`) : (r.role ?? '')}
           {!r.isActive && <StatusBadge size="sm" tone="neutral" label={tr('ws.reports.frame.formerStaff')} />}
         </span>
       </span>

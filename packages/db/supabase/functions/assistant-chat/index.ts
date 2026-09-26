@@ -126,9 +126,11 @@ interface Req {
   lang: Lang;
   scopes: AssistantScope[] | null;
   range: DateRange | null;
-  /** 0114: the chat model to set on this conversation (must be priced in venue_settings.llm_pricing). */
+  /** 0114: the chat model to set on this conversation (must be priced in platform_settings.llm_pricing, 0207). */
   model: string | null;
   dry_run: boolean;
+  /** Multi-venue audit (0228): the branch the operator's rail shows; tools read it. */
+  venue_scope: string | null;
 }
 
 interface SourceItem {
@@ -171,26 +173,45 @@ function parseBody(body: unknown): Req | string {
   const model = typeof b.model === 'string' && b.model.trim() ? b.model.trim() : null;
   // Groq ids carry a vendor prefix (`openai/gpt-oss-120b`).
   if (model && !/^[a-z0-9./-]{3,64}$/.test(model)) return 'model must be a model id';
-  return { conversation_id, text, lang, scopes, range, model, dry_run };
+  const venue_scope = venueScopeOf(b);
+  if (venue_scope === false) return 'venue_scope must be a uuid';
+  return { conversation_id, text, lang, scopes, range, model, dry_run, venue_scope };
 }
 
-/** The JWT-bound client: tools run as the owner, never as the service role. */
-function ownerClient(req: Request): SupabaseClient {
+/** A body's `venue_scope`: a uuid, null when absent, false when malformed. */
+function venueScopeOf(b: Record<string, unknown>): string | null | false {
+  if (b.venue_scope === undefined || b.venue_scope === null) return null;
+  return typeof b.venue_scope === 'string' && UUID_RE.test(b.venue_scope) ? b.venue_scope : false;
+}
+
+/**
+ * The JWT-bound client: tools run as the owner, never as the service role.
+ * Multi-venue audit (0228): the branch the operator's rail shows rides along as
+ * x-venue-scope, so the owner's tools read that branch (RLS and the report
+ * scope follow it, 0226) instead of every branch at once. Server to server, so
+ * no browser CORS rule is involved.
+ */
+function ownerClient(req: Request, venueScope: string | null = null): SupabaseClient {
   return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: req.headers.get('Authorization')! } },
+    global: {
+      headers: {
+        Authorization: req.headers.get('Authorization')!,
+        ...(venueScope ? { 'x-venue-scope': venueScope } : {}),
+      },
+    },
   });
 }
 
-/** 0114: the venue default model and the models the pricing table can bill (service read). */
+/** 0114: the chain default model and the models the pricing table can bill (service read; platform_settings since 0207). */
 async function venueModels(service: SupabaseClient): Promise<{ default_model: string | null; priced: string[] }> {
-  const { data } = await service.from('venue_settings').select('llm_default_model, llm_pricing').limit(1).maybeSingle();
+  const { data } = await service.from('platform_settings').select('llm_default_model, llm_pricing').eq('id', true).maybeSingle();
   const row = data as { llm_default_model?: string | null; llm_pricing?: Record<string, unknown> | null } | null;
   return { default_model: row?.llm_default_model ?? null, priced: Object.keys(row?.llm_pricing ?? {}) };
 }
 
 async function venueTimezone(asOwner: SupabaseClient): Promise<string> {
-  const { data } = await asOwner.from('venue_settings').select('timezone').limit(1).maybeSingle();
+  const { data } = await asOwner.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
   const tz = (data as { timezone?: string } | null)?.timezone;
   return typeof tz === 'string' && tz ? tz : DEFAULT_TZ;
 }
@@ -208,6 +229,8 @@ interface DispatchCtx {
   authorization: string;
   /** Row cap per tool result (the provider's capabilities.resultRows); undefined = clean.ts default. */
   resultRows?: number;
+  /** The branch in scope (0228), or null for the default branch's settings. */
+  venueScope?: string | null;
 }
 
 interface Dispatched {
@@ -263,10 +286,29 @@ async function runRpcTool(ctx: DispatchCtx, spec: ToolSpec, input: Record<string
   return { cleaned, isError: false, row_count };
 }
 
-/** `cafe_settings.analytics_business_day_start_hour` as the owner (0029 grants select to staff), else the 0029 default. */
-async function businessDayStartHour(asOwner: SupabaseClient): Promise<number> {
+/**
+ * `cafe_settings.analytics_business_day_start_hour` as the owner (0029 grants select to staff), else the
+ * 0029 default. Per branch since 0209: the branch in scope (0228), else the default (oldest active) one.
+ */
+async function businessDayStartHour(asOwner: SupabaseClient, venueScope: string | null = null): Promise<number> {
   try {
-    const { data } = await asOwner.from('cafe_settings').select('value').eq('key', 'analytics_business_day_start_hour').maybeSingle();
+    const { data: venue } = venueScope
+      ? { data: { id: venueScope } }
+      : await asOwner
+          .from('venues')
+          .select('id')
+          .eq('is_active', true)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+    const venueId = (venue as { id?: string } | null)?.id;
+    if (!venueId) return DEFAULT_BUSINESS_DAY_START_HOUR;
+    const { data } = await asOwner
+      .from('cafe_settings')
+      .select('value')
+      .eq('key', 'analytics_business_day_start_hour')
+      .eq('venue_id', venueId)
+      .maybeSingle();
     const v = Number((data as { value?: unknown } | null)?.value);
     return Number.isInteger(v) && v >= 0 && v <= 12 ? v : DEFAULT_BUSINESS_DAY_START_HOUR;
   } catch {
@@ -292,7 +334,7 @@ async function runPosthog(ctx: DispatchCtx, spec: ToolSpec, input: Record<string
   if (typeof input.limit === 'number') params.limit = input.limit;
   const body = {
     queries: [{ name: template, from: input.from, to: input.to, params }],
-    business_day_start_hour: await businessDayStartHour(ctx.asOwner),
+    business_day_start_hour: await businessDayStartHour(ctx.asOwner, ctx.venueScope ?? null),
   };
   const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/${POSTHOG_FN}`, {
     method: 'POST',
@@ -604,7 +646,7 @@ function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-async function handleRecheck(req: Request, service: SupabaseClient, ownerId: string, recheck: unknown): Promise<Response> {
+async function handleRecheck(req: Request, service: SupabaseClient, ownerId: string, recheck: unknown, venueScope: string | null = null): Promise<Response> {
   const started = Date.now();
   const messageId = recheck && typeof recheck === 'object' ? String((recheck as { message_id?: unknown }).message_id ?? '') : '';
   if (!UUID_RE.test(messageId)) return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'recheck.message_id must be a uuid' }, 400);
@@ -618,12 +660,12 @@ async function handleRecheck(req: Request, service: SupabaseClient, ownerId: str
   if (!c) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'conversation not found' }, 404);
   if (c.owner_id !== ownerId) return json({ error: 'FORBIDDEN', code: 'FORBIDDEN', message: 'not your conversation' }, 403);
 
-  const asOwner = ownerClient(req);
+  const asOwner = ownerClient(req, venueScope);
   const tz = await venueTimezone(asOwner);
   const scopes = normaliseScopes(c.scopes);
   // A scratch handle table: the re-check must not mint handles or write the conversation.
   const handles = newHandleTable(c.handles);
-  const ctx: DispatchCtx = { asOwner, scopes, handles, tz, lang: 'en', authorization: req.headers.get('Authorization') ?? '' };
+  const ctx: DispatchCtx = { asOwner, scopes, handles, tz, lang: 'en', authorization: req.headers.get('Authorization') ?? '', venueScope };
 
   const tools: RecheckTool[] = [];
   const live: number[] = [];
@@ -682,19 +724,22 @@ Deno.serve(async (req) => {
     return json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400);
   }
   // Re-check: tools only, no model, no quota, no writes (header).
-  if (raw && typeof raw === 'object' && 'recheck' in raw) return handleRecheck(req, service, auth.userId, (raw as { recheck: unknown }).recheck);
+  if (raw && typeof raw === 'object' && 'recheck' in raw) {
+    const scope = venueScopeOf(raw as Record<string, unknown>);
+    return handleRecheck(req, service, auth.userId, (raw as { recheck: unknown }).recheck, scope === false ? null : scope);
+  }
 
   const parsed = parseBody(raw);
   if (typeof parsed === 'string') return json({ error: 'INVALID_REQUEST', message: parsed }, 400);
 
-  const asOwner = ownerClient(req);
+  const asOwner = ownerClient(req, parsed.venue_scope);
   const tz = await venueTimezone(asOwner);
   const today = localDate(new Date(), tz);
 
   // Dry run: pack sizes for the checkboxes. No model, no quota, no writes.
   if (parsed.dry_run) {
     const scopes = parsed.scopes ?? normaliseScopes(null);
-    const ctx: DispatchCtx = { asOwner, scopes, handles: newHandleTable(null), tz, lang: parsed.lang, authorization: req.headers.get('Authorization') ?? '' };
+    const ctx: DispatchCtx = { asOwner, scopes, handles: newHandleTable(null), tz, lang: parsed.lang, authorization: req.headers.get('Authorization') ?? '', venueScope: parsed.venue_scope };
     const range = parsed.range ?? defaultRange(today);
     const packs = await runPacks(ctx, range);
     const provider = providerFromEnv((n) => Deno.env.get(n), parsed.model ?? (await venueModels(service)).default_model);
@@ -707,7 +752,7 @@ Deno.serve(async (req) => {
   // 0114: a model named by the request must be one the pricing table can bill.
   const venueModel = await venueModels(service);
   if (parsed.model && !venueModel.priced.includes(parsed.model)) {
-    return json({ error: 'ASSISTANT_MODEL_NOT_PRICED', code: 'ASSISTANT_MODEL_NOT_PRICED', message: `${parsed.model} is not in venue_settings.llm_pricing` }, 400);
+    return json({ error: 'ASSISTANT_MODEL_NOT_PRICED', code: 'ASSISTANT_MODEL_NOT_PRICED', message: `${parsed.model} is not in platform_settings.llm_pricing` }, 400);
   }
   // The vendor follows the model (provider.ts vendorFor); no key for it → 503 before any write.
   const provisionalModel = parsed.model ?? venueModel.default_model;
@@ -823,7 +868,7 @@ Deno.serve(async (req) => {
   const heartbeat = setInterval(() => write(sseHeartbeat()), HEARTBEAT_MS);
   const wall = setTimeout(() => abort.abort(), WALL_MS);
 
-  const ctx: DispatchCtx = { asOwner, scopes, handles, tz, lang: parsed.lang, authorization: req.headers.get('Authorization') ?? '', resultRows: provider.capabilities.resultRows };
+  const ctx: DispatchCtx = { asOwner, scopes, handles, tz, lang: parsed.lang, authorization: req.headers.get('Authorization') ?? '', resultRows: provider.capabilities.resultRows, venueScope: parsed.venue_scope };
   const calls: CallRow[] = [];
   const sources: SourceItem[] = [];
   const allowed: number[] = [];

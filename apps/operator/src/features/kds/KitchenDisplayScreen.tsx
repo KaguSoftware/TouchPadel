@@ -45,6 +45,13 @@ export interface KitchenDisplayScreenProps {
    * manager who opened /kds was stranded — the prep workspace renders no rail.
    */
   onExit?: () => void;
+  /**
+   * "My tasks (N)" for the bar and kitchen roles (build-contracts-2026-09-23
+   * §5.1): their protocol steps and phone pages live on /tasks, and the board
+   * is navless. The count and the way there come from KdsBoard, as `onExit`
+   * does; absent for prep and management, whose board stays as it was.
+   */
+  tasks?: { count: number; onOpen: () => void };
 }
 
 export function KitchenDisplayScreen({
@@ -61,6 +68,7 @@ export function KitchenDisplayScreen({
   onStatus,
   onItemReady,
   onExit,
+  tasks,
 }: KitchenDisplayScreenProps) {
   const { tr, locale, dir } = useLocale();
 
@@ -174,6 +182,7 @@ export function KitchenDisplayScreen({
             </span>
           )}
           <KdsConnectionPill status={connection} />
+          {tasks && <KdsTasksButton count={tasks.count} onOpen={tasks.onOpen} />}
           {onExit && <KdsExitButton onExit={onExit} />}
         </span>
       </header>
@@ -373,6 +382,42 @@ function KdsExitButton({ onExit }: { onExit: () => void }) {
     >
       <Icon name="logOut" size={20} />
       {tr('ws.prep.exit')}
+    </button>
+  );
+}
+
+/**
+ * My tasks, beside the connection pill: the same dark pill box as the way out,
+ * with the count filled in the fresh-ticket colour while anything waits, so a
+ * cook sees at a glance that a step or an idea is theirs.
+ */
+function KdsTasksButton({ count, onOpen }: { count: number; onOpen: () => void }) {
+  const { tr, locale } = useLocale();
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-testid="kds-tasks"
+      data-count={count}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-2)',
+        fontFamily: 'inherit',
+        fontSize: 'var(--tp-fs-kds-sm)',
+        fontWeight: 700,
+        color: 'var(--tp-kds-fg)',
+        border: `1px solid ${count > 0 ? 'var(--tp-kds-fresh)' : 'var(--tp-kds-border)'}`,
+        background: 'var(--tp-kds-card)',
+        borderRadius: 'var(--tp-radius-pill)',
+        paddingInline: 'var(--tp-sp-4)',
+        minBlockSize: 'var(--tp-row-h)',
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+      }}
+    >
+      <Icon name="checkCircle" size={20} />
+      <bdi>{count > 0 ? tr('ws.team.tasks.kds.buttonCount', { count: formatNumber(count, locale) }) : tr('ws.team.tasks.kds.button')}</bdi>
     </button>
   );
 }

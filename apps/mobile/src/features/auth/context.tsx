@@ -10,6 +10,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { clearAllCaches } from '../../lib/queryClient';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
+import { clearStaffHint } from '../staff/hint';
 import { googleSignOut } from './providers/google';
 import { clearRecoverySession, markRecoverySession } from './recovery';
 
@@ -74,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // same reason as the cache wipe: every sign-out path, including a
         // refresh-token failure we did not initiate. No-op in Expo Go.
         void googleSignOut();
+        // The staff device hint names the account that just left; the next
+        // sign-in on this phone may be a guest's (build-contracts §6.5).
+        void clearStaffHint();
       }
     });
     return () => {

@@ -12,6 +12,9 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'DEGRADED_LOCKOUT',
   'PIN_INVALID',
   'PIN_LOCKED',
+  // Renderer-minted: leaving a locked station with your own manager PIN
+  // (Quit / Exit forced full screen, __root.tsx proveLeavePin).
+  'PIN_OWN',
   // 0115: a money RPC reached without a fresh verify_manager_pin grant. appRpc
   // verifies first, so a user sees this only after a very slow round trip.
   'PIN_GRANT_REQUIRED',
@@ -163,6 +166,25 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   // the first two-venue day is not the day the operator shows errors.generic.
   'VENUE_REQUIRED',
   'STATION_UNKNOWN',
+  // Multi-venue slices 2–3 (0212, 0217): a row of another branch, and a
+  // chain-wide promotion that names one branch's courts, categories or items.
+  'VENUE_MISMATCH',
+  'PROMOTION_SCOPE_BRANCH',
+  // 0218: the owner's branch assignment for a staff member.
+  'STAFF_VENUE_REQUIRED',
+  'STAFF_NOT_FOUND',
+  'VENUE_NOT_FOUND',
+  // 0222–0223: stations and "Open a new branch".
+  'STATION_OTHER_BRANCH',
+  'SLUG_TAKEN',
+  'BRANCH_NOT_READY',
+  'LAST_OPEN_BRANCH',
+  'BRANCH_DAY_OPEN',
+  // 0229, 0233 (multi-venue audit): stations on purpose, and the branch lifecycle.
+  'STATION_RETIRED',
+  'STATION_HAS_HISTORY',
+  'BRANCH_HAS_BOOKINGS',
+  'VENUE_CLOSED',
   // Desk payment (0106).
   'BOOKING_TAB_OPEN',
   'BOOKING_TAB_DONOR',
@@ -181,6 +203,81 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'LABEL_REQUIRED',
   'MIXED_BASKET',
   'SHOP_ITEM_NOT_ORDERABLE',
+  // Protocols and the staff phone (build-contracts-2026-09-23).
+  // Strings in catalogs/opErrors.protocols.*.ts; the phone maps the same codes
+  // (CODE_TO_KEY in apps/mobile) except the four menu and price writer codes.
+  'PROTOCOL_NOT_FOUND',
+  'PROTOCOL_NOT_READY',
+  'PROTOCOL_CLOSED',
+  'STEP_NOT_OPEN',
+  'STEP_CLOSED',
+  'STEP_NOT_OPTIONAL',
+  'NOT_STEP_ACTOR',
+  'NOT_DECIDER',
+  'SUBMISSION_DECIDED',
+  'SEND_BACK_TARGET_INVALID',
+  'RECORD_INVALID',
+  'TEXT_BOTH_LANGUAGES_REQUIRED',
+  'TEXT_REQUIRED',
+  'TEXT_TOO_LONG',
+  'TEMPLATE_CHANGED',
+  'PROTOCOL_ORDER_INVALID',
+  'PROTOCOL_STEP_FIXED',
+  'LIST_TOO_LONG',
+  'INVALID_ROLE',
+  'PHOTO_PATH_INVALID',
+  'UPLOAD_LIMIT',
+  'PRICE_TARGET_CHANGED',
+  'RELEASE_NOT_READY',
+  'NOTE_WINDOW_CLOSED',
+  'SPONSOR_DETAILS_REQUIRED',
+  'CANDIDATE_NOT_FOUND',
+  'HIRE_ROLE_MISMATCH',
+  'CHECKLIST_NOT_FOUND',
+  'SHOPPING_ITEM_NOT_OPEN',
+  'PURCHASE_NOT_FOUND',
+  'PURCHASE_ALREADY_RECEIVED',
+  // 0237: Goods in's scanned receipts.
+  'RECEIPT_NOT_FOUND',
+  'RECEIPT_ALREADY_DONE',
+  'RECEIPT_BUSY',
+  // 0239: the till's scanned orders.
+  'SLIP_NOT_FOUND',
+  'SLIP_ALREADY_DONE',
+  'SLIP_BUSY',
+  'SHOPPING_LABEL_REQUIRED',
+  'CAMPAIGN_DRAFT_LOCKED',
+  'BLOCK_RANGE_INVALID',
+  // The menu and price writers' refusals: upsert_menu_item, upsert_variant,
+  // upsert_modifier, the promotion and rate writers, set_cafe_setting.
+  'ITEM_IN_RELEASE',
+  'PRICE_VIA_PROTOCOL',
+  'ITEM_VIA_RELEASE',
+  'LAUNCH_VIA_PROTOCOL',
+  // Existing codes keyed for the first time. The Staff page keeps its own
+  // words for ROLE_RETIRED and EMAIL_IN_USE (staffModel.ts staffRefusal).
+  'NOT_PREPARED',
+  'NO_RECIPE',
+  'ROLE_RETIRED',
+  'PROMOTION_NOT_FOUND',
+  'INVALID_WEEKDAYS',
+  'CODE_TAKEN',
+  'EMAIL_IN_USE',
+  // Role spec (lane J): decide_recipe_change's approve, both maps.
+  'RECIPE_CHANGED',
+  // Wave 5 (wave5-addendum-2026-09-25 §3). Strings in catalogs/opErrors.protocols.*.ts.
+  // The stores (both maps): transfer_stock, and receive_delivery_internal, which
+  // Goods in, the driver receipt and log_stock reach.
+  'TRANSFER_SHORT',
+  'STORE_BEING_COUNTED',
+  // Till shifts (operator only: the phone never calls a till-shift RPC, M7).
+  'TILL_SHIFT_ALREADY_OPEN',
+  'TILL_SHIFT_STATION_BUSY',
+  'TILL_SHIFT_NOT_FOUND',
+  'TILL_SHIFT_CLOSED',
+  'TILL_SHIFT_NOT_YOURS',
+  'TILL_SHIFT_WRONG_STATION',
+  'TILL_SHIFT_UNSYNCED',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',

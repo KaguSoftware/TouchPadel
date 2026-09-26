@@ -45,13 +45,24 @@ export const IPC = {
   resolveQueueRow: 'touch:resolve-queue-row',
   /** Renderer → main (send): a fresh reference-data payload for the offline cache. */
   cachePut: 'touch:cache-put',
-  /** Renderer → main (send): a PIN that just succeeded server-side — cache its hash. */
+  /**
+   * Renderer → main (send): a PIN that just succeeded server-side — cache its
+   * hash, with its owner's staff id when the renderer knows it (the "not your
+   * own PIN" rule for leaving the station needs it offline).
+   */
   pinObserved: 'touch:pin-observed',
   /** Renderer → main (send, KDS stations): a bump to carry over the LAN to the till. */
   lanStatus: 'touch:lan-status',
-  /** Invoke: quit to desktop — the only way a production window closes. No PIN. */
+  /**
+   * Invoke (manager PIN, not the signed-in person's own): quit to desktop —
+   * the only way a production window closes. Staff are kept inside the app.
+   */
   quitApp: 'touch:quit-app',
-  /** Invoke: drop kiosk/fullscreen so the station can be used as a normal window. */
+  /**
+   * Invoke (manager PIN, not the signed-in person's own): drop kiosk/full
+   * screen so the station can be used as a normal window until the next
+   * sign-in or sign-out, which locks it again.
+   */
   exitFullscreen: 'touch:exit-fullscreen',
   /** Invoke (first run only): write station.json, then relaunch. Refused once configured. */
   saveStation: 'touch:save-station',
@@ -135,6 +146,8 @@ export interface MutationEnvelope {
   createdAt: string;
   /** The staff member the write is attributed to — replay 400s without it. */
   staffId: string;
+  /** The branch the screens showed when the write was queued (0228), or null. */
+  venueScope?: string | null;
   /** The station that owns the durable queue, e.g. 'TILL-01'. */
   deviceId: string;
 }
@@ -181,7 +194,23 @@ export interface PrintResult {
   error?: string;
 }
 
-export type Role = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
+// Mirrors StaffRole (@touch/core/staff/roles) and the renderer's copy in
+// apps/operator/src/ipc/bridge.ts; six are 0155's, the last two wave 5's.
+// packages/db/tests/staff-roles-parity.test.ts fails when they drift.
+export type Role =
+  | 'cashier'
+  | 'prep'
+  | 'court_desk'
+  | 'manager'
+  | 'owner'
+  | 'head_barista'
+  | 'barista'
+  | 'head_chef'
+  | 'chef'
+  | 'driver'
+  | 'marketing'
+  | 'assistant_barista'
+  | 'waiter';
 
 export type StationMode = 'till' | 'desk' | 'kds';
 
@@ -204,6 +233,12 @@ export interface StationInfo {
    * and station.json knows nothing about it, which is why it is optional.
    */
   titleBarInset?: number;
+  /**
+   * Staff are kept inside the app: leaving (quit, exit full screen) takes a
+   * manager PIN that is not the signed-in person's own. False in dev and on
+   * first run, which are ordinary windows. A window fact, like titleBarInset.
+   */
+  locked?: boolean;
 }
 
 /** What the first-run setup screen sends. Only accepted while unconfigured. */
@@ -236,6 +271,11 @@ export type DiscoverResult =
   | { status: 'none' }
   | { status: 'no-lan' };
 
+/** What quitApp / exitFullscreen answer. `own pin`: a manager PIN, but the signed-in person's. */
+export type LeaveResult =
+  | { ok: true }
+  | { ok: false; error: 'pin not recognised' | 'own pin' | 'no-window' };
+
 export interface UpdateReadyInfo {
   version: string;
 }
@@ -251,7 +291,8 @@ export interface CachedRef {
  * the cache stores scrypt hashes of pins that succeeded server-side recently
  * (the server never exposes who owns a pin), and every queued PIN-gated
  * mutation is re-verified server-side at replay — the cache gates UX, the
- * server remains the wall. staffId is therefore absent offline.
+ * server remains the wall. staffId is present only when the renderer tagged
+ * the pin with its owner (verify_manager_pin's return, the lock screen).
  */
 export interface PinUnlockResult {
   staffId?: string;

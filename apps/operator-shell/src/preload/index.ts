@@ -5,6 +5,7 @@ import {
   type DiscoverRequest,
   type DiscoverResult,
   type LanFrameForRenderer,
+  type LeaveResult,
   type MutationEnvelope,
   type MutationResult,
   type PairingInfoResult,
@@ -44,10 +45,10 @@ const touch = {
   sendLanStatus: (update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void =>
     ipcRenderer.send(IPC.lanStatus, update),
 
-  quitApp: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.quitApp),
+  quitApp: (pin: string): Promise<LeaveResult> => ipcRenderer.invoke(IPC.quitApp, pin),
 
-  exitFullscreen: (): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke(IPC.exitFullscreen),
+  exitFullscreen: (pin: string): Promise<LeaveResult> =>
+    ipcRenderer.invoke(IPC.exitFullscreen, pin),
 
   getCachedRef: (key: string): Promise<unknown> => ipcRenderer.invoke(IPC.getCachedRef, key),
 
@@ -58,7 +59,8 @@ const touch = {
   pushChromeless: (chromeless: boolean): void => ipcRenderer.send(IPC.chromeless, chromeless),
   cachePut: (key: string, payload: unknown): void =>
     ipcRenderer.send(IPC.cachePut, { key, payload }),
-  pinObserved: (pin: string): void => ipcRenderer.send(IPC.pinObserved, pin),
+  pinObserved: (pin: string, staffId?: string): void =>
+    ipcRenderer.send(IPC.pinObserved, pin, staffId),
 
   /**
    * Full-screen state, pushed on every change and once on subscribe — the
@@ -109,11 +111,13 @@ const touch = {
 
   // Auto-update (main/updater.ts). The rail mounts after sign-in, long after
   // the push may have landed, so a subscriber first asks for the current state.
-  onUpdateReady: (cb: (info: UpdateReadyInfo) => void): (() => void) => {
+  // null withdraws an update (its install refused, an installer started, or a
+  // newer download is replacing it).
+  onUpdateReady: (cb: (info: UpdateReadyInfo | null) => void): (() => void) => {
     void ipcRenderer.invoke(IPC.updateState).then((info: UpdateReadyInfo | null) => {
       if (info) cb(info);
     });
-    const listener = (_e: IpcRendererEvent, info: UpdateReadyInfo) => cb(info);
+    const listener = (_e: IpcRendererEvent, info: UpdateReadyInfo | null) => cb(info);
     ipcRenderer.on(IPC.updateReady, listener);
     return () => ipcRenderer.removeListener(IPC.updateReady, listener);
   },

@@ -26,6 +26,13 @@ import type { MenuStatus } from '@/lib/menu.server';
  *
  * The client refetch calls `fetchMenu` DIRECTLY: `router.refresh()` would just
  * hand back the same 60 s `unstable_cache` entry.
+ *
+ * PER BRANCH (multi-venue slice 4): every read is filtered to `venueId`, the
+ * table's branch once the session is bound (or the branch the page rendered).
+ * When it changes — a scanned guest whose table is at another branch than the
+ * one the server guessed — the hook refetches for the new branch. The `menu`
+ * topic stays one global topic; a `settings_changed` that names another branch
+ * is ignored, anything else refetches this branch only.
  */
 const DEBOUNCE_MS = 500;
 const STALE_MS = 60_000;
@@ -56,6 +63,7 @@ export function useMenu(
   initial: { menu: MenuCategory[]; status: MenuStatus },
   initialSettings: CafeSettings,
   supabase: BrowserSupabase | null,
+  venueId: string | null = null,
 ): UseMenu {
   const [settings, setSettings] = useState<CafeSettings>(initialSettings);
   const [menu, setMenu] = useState<MenuCategory[]>(() =>
@@ -65,17 +73,22 @@ export function useMenu(
   const [refreshing, setRefreshing] = useState(false);
   const fetchedAt = useRef(Date.now());
   const inFlight = useRef<Promise<void> | null>(null);
+  /** The branch the in-flight read is for: a branch switch must not reuse it. */
+  const inFlightVenue = useRef<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!supabase) return;
-    if (inFlight.current) return inFlight.current;
+    if (inFlight.current && inFlightVenue.current === venueId) return inFlight.current;
+    inFlightVenue.current = venueId;
     const run = (async () => {
       setRefreshing(true);
       try {
         const [cats, nextSettings] = await Promise.all([
-          fetchMenu(supabase),
-          fetchCafeSettings(supabase),
+          fetchMenu(supabase, venueId),
+          fetchCafeSettings(supabase, venueId),
         ]);
+        // A newer read for another branch started meanwhile: it owns the screen.
+        if (inFlightVenue.current !== venueId) return;
         setSettings(nextSettings);
         setMenu(decorateFeatured(cats, nextSettings));
         setStatus(cats.length > 0 ? 'ok' : 'empty');
@@ -84,19 +97,34 @@ export function useMenu(
         // Keep whatever is on screen; only an empty stage becomes an error.
         setStatus((s) => (s === 'ok' ? 'ok' : 'error'));
       } finally {
-        setRefreshing(false);
-        inFlight.current = null;
+        if (inFlightVenue.current === venueId) {
+          setRefreshing(false);
+          inFlight.current = null;
+        }
       }
     })();
     inFlight.current = run;
     return run;
-  }, [supabase]);
+  }, [supabase, venueId]);
+
+  // ------------------------------------------ the branch changed under us
+  // The first render's branch is the one the server rendered; only a later
+  // change (the bound table's branch differs) needs a read.
+  const renderedVenue = useRef(venueId);
+  useEffect(() => {
+    if (renderedVenue.current === venueId) return;
+    renderedVenue.current = venueId;
+    void refresh();
+  }, [venueId, refresh]);
 
   // ------------------------------------------- broadcast: the `menu` topic
   useEffect(() => {
     if (!supabase) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const bump = () => {
+    const bump = (message: { payload?: { venue_id?: unknown } }) => {
+      // 0209: a settings change names its branch; another branch's is not ours.
+      const changed = message.payload?.venue_id;
+      if (venueId && typeof changed === 'string' && changed !== venueId) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => void refresh(), DEBOUNCE_MS + Math.random() * JITTER_MS);
     };
@@ -110,7 +138,7 @@ export function useMenu(
       if (timer) clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [supabase, refresh]);
+  }, [supabase, refresh, venueId]);
 
   // -------------------------------------------- reconnect / return-to-tab
   useEffect(() => {

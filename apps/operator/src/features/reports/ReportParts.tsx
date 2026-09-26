@@ -28,7 +28,7 @@ import { businessTodayISO, normalizeBusinessDayStart } from '@touch/core';
 import { VENUE_TZ, formatDate, formatIQD, formatNumber, formatPercent, type Locale, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { useCafeSettings } from '../../lib/settings';
-import { Button, Field, card } from '../../components/ui';
+import { Button, Field } from '../../components/ui';
 import { appRpc } from '../../lib/appRpc';
 import {
   AsyncStateWrapper,
@@ -201,13 +201,28 @@ export function ReportFrame({
 }
 
 /** The period's figures, straight from the server's totals. */
-export function FigureBand({ children, label, min = '11.5rem' }: { children: ReactNode; label: string; /** Narrowest a cell may get before the band wraps. */ min?: string }) {
-  return (
+export function FigureBand({
+  children,
+  label,
+  min = '11.5rem',
+  columns,
+}: {
+  children: ReactNode;
+  label: string;
+  /** Narrowest a cell may get before the band wraps. */
+  min?: string;
+  /** A fixed column count (2, 3 or 4) that steps down as the band narrows, via
+   *  the shared tp-grid container queries, instead of wrapping by `min`. */
+  columns?: 2 | 3 | 4;
+}) {
+  const band = (
     <section
       aria-label={label}
+      className={columns ? 'tp-grid' : undefined}
+      data-cols={columns}
       style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}), 1fr))`,
+        gridTemplateColumns: columns ? undefined : `repeat(auto-fit, minmax(min(100%, ${min}), 1fr))`,
         gap: 'var(--tp-sp-3) var(--tp-sp-4)',
         // Groups are cards now, so a short one ("Tax", one figure) stretches to
         // its neighbours' height instead of leaving a ragged bottom edge.
@@ -218,36 +233,12 @@ export function FigureBand({ children, label, min = '11.5rem' }: { children: Rea
       {children}
     </section>
   );
+  // The container queries measure the nearest tp-cq ancestor, so the band
+  // gets one of its own.
+  return columns ? <div className="tp-cq">{band}</div> : band;
 }
 
-/**
- * A labelled group of figures (revenue's Earned / Money taken / Given away),
- * drawn as one bordered card with its figures inside it. The heading and hint
- * used to float over the figures with nothing around them, so on a wide screen
- * the four groups read as one run of tiles and it took reading the labels to
- * tell where "Earned" stopped and "Given away" started.
- *
- * Group and figures are both the plain white surface: the borders alone mark
- * where one ends and the other begins.
- */
-export function FigureGroup({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
-  return (
-    <section
-      style={{
-        ...card,
-        display: 'grid',
-        gap: 'var(--tp-sp-3)',
-        alignContent: 'start',
-      }}
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-        <h2 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{title}</h2>
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '60ch' }}>{hint}</p>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: 'var(--tp-sp-2)' }}>{children}</div>
-    </section>
-  );
-}
+export { FigureGroup } from './FigureGroup';
 
 export { HeadlineFigure };
 

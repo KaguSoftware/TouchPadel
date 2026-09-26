@@ -18,6 +18,7 @@ import { touch } from '../ipc/bridge';
 import { setMutateStaffId } from './mutate';
 import {
   ROLE_RECHECK_MS,
+  STAFF_ROLES,
   nextStaff,
   resolveStaffRow,
   shouldDropRealtime,
@@ -29,6 +30,7 @@ import {
 // Defined in the pure roleResolution module so the SEC-35 policy can be tested
 // under plain node; re-exported so every existing import site is unchanged.
 export type { StaffInfo, StaffRole };
+export { STAFF_ROLES };
 
 interface AuthContextValue {
   session: Session | null;
@@ -105,7 +107,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function applySession(next: Session | null) {
       if (cancelled) return;
-      setSession(next);
       // The main-process sync worker replays the durable queue AS this staff
       // session (design-arch §2.2). Every auth change flows through here —
       // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT — so the pushed token is always
@@ -124,8 +125,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (next) {
         // Private realtime channels (kds/floor/courts) need realtime auth.
         supabase.realtime.setAuth(next.access_token);
-        await applyResolution(await resolveStaff(next.user.id));
+        // The session is published only once its role is known. Set before
+        // the lookup, a fresh sign-in rendered "session, no staff" for one
+        // round trip, which the shell reads as NotStaffScreen: an error page
+        // that flashed and then gave way to the home screen.
+        const resolution = await resolveStaff(next.user.id);
+        if (cancelled) return;
+        await applyResolution(resolution);
+        if (cancelled) return;
+        setSession(next);
       } else {
+        setSession(null);
         setStaff(null);
         setNotStaff(false);
       }
@@ -217,11 +227,16 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Customers are shared between the desk and the till (spec 06.8: attach to booking OR tab).
   '/desk/customers': ['court_desk', 'cashier', 'manager', 'owner'],
   '/desk/customers/new': ['court_desk', 'manager', 'owner'],
-  '/kds': ['prep', 'manager', 'owner'],
+  // The bar and kitchen family (0155) has exactly what prep had: this board
+  // and nothing else. Prep stays listed while accounts still hold it. The
+  // assistant barista (wave 5 §2.1) works the bar's tickets here too.
+  '/kds': ['prep', 'head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
   '/admin/staff': ['owner'],
+  // Multi-venue slice 4: the branches and "Open a new branch" are the owner's.
+  '/admin/branches': ['owner'],
   '/analytics': ['owner'],
   '/ops': ['manager', 'owner'],
   '/panel': ['owner'],
@@ -242,6 +257,34 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // the audit access and the money figures it reads are all owner-level.
   '/assistant': ['owner'],
   '/workspaces': ['manager', 'owner'],
+  // Every hireable role that is not management works its protocol steps here
+  // as well as on the phone (build-contracts-2026-09-23 §5.1, Q2): the
+  // driver's, marketing's and the waiter's landing screen, a rail row for the
+  // till and the desk, and the kitchen board's "My tasks" for the bar and
+  // kitchen. Manager and owner work theirs on /protocols; prep gets nothing new.
+  '/tasks': [
+    'cashier',
+    'waiter',
+    'court_desk',
+    'head_barista',
+    'barista',
+    'assistant_barista',
+    'head_chef',
+    'chef',
+    'driver',
+    'marketing',
+  ],
+  // Starting, deciding and shaping protocols is management's; every other
+  // actor works its steps from /tasks or the phone (build-contracts-2026-09-23 §5.1).
+  '/protocols': ['manager', 'owner'],
+  // The staff suggestion box (role spec #63): everyone posts on the phone,
+  // management reads here.
+  '/suggestions': ['manager', 'owner'],
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Pay deductions
+  // are decided by management (heads propose on the phone); incidents are
+  // reported at the desk and the till as well as reviewed by management.
+  '/deductions': ['manager', 'owner'],
+  '/incidents': ['court_desk', 'cashier', 'manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -261,11 +304,14 @@ export const SUB_ROUTES = {
     '/admin/telegram',
     '/admin/settings',
     '/admin/staff',
+    '/admin/branches',
     '/admin/audit',
   ],
   '/stock': [
     '/stock/ingredients',
     '/stock/receive',
+    // Wave 5 (wave5-addendum-2026-09-25 §5.2): moving stock between the stores.
+    '/stock/moves',
     '/stock/waste',
     '/stock/recipes',
     '/stock/counts',
@@ -339,6 +385,103 @@ export const CAPABILITY_ROLES = {
   setEngagementFloor: ['owner'],
   /** Venue name, phone and booking rules (app.set_venue_details, 0104). */
   editVenueDetails: ['owner'],
+
+  // Protocols (build-contracts-2026-09-23 §5.1). Row-level buttons on a run or
+  // a step follow the RPC's own `can` answer; these gate the screen-level ones.
+  /** How it works (app.save_protocol_template) and one run's own steps and items. */
+  editProtocols: ['owner'],
+  /** The daily checklist templates. */
+  editChecklists: ['owner'],
+  /** "Propose a new item": start a product release. */
+  startProtocolRelease: ['head_barista', 'head_chef', 'manager', 'owner'],
+  /** "Price or promo change": start one. Marketing is never offered `shop_launch`. */
+  startProtocolPriceChange: ['marketing', 'manager', 'owner'],
+  /**
+   * Edit a price already on sale directly: menu sizes, shop products, add-ons,
+   * and the hero's featured discount and Featured tile. Anyone else changes it
+   * through a price or promo change (PRICE_VIA_PROTOCOL).
+   */
+  editLaunchedPrices: ['owner'],
+  /**
+   * Put something on sale without a protocol: a new cafe item, switching on a
+   * never-launched item, a new shop product or paid add-on saved switched on
+   * (ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL).
+   */
+  launchDirectly: ['owner'],
+
+  // The role spec (build-contracts-2026-09-23 §5.1, plan #61–#74).
+  /** "Start a tournament" on /tasks: the court desk's plan waits for a manager (#67). */
+  startProtocolTournament: ['court_desk', 'manager', 'owner'],
+  /** Review the team's new-item ideas: start one as a release, or decline it (#65). */
+  reviewIdeas: ['head_barista', 'head_chef', 'manager', 'owner'],
+  /** Write teachings for a team (#64). The phone is where they are written. */
+  writeTeachings: ['head_barista', 'head_chef', 'manager', 'owner'],
+  /** Approve or decline a head's recipe change; the manager only reads (#71). */
+  decideRecipeChanges: ['owner'],
+
+  // Who decides a step (§2.7 "Who decides"), mirrored so a form asks a decider
+  // for what a decision carries (a new item's menu section, §2.8) and says
+  // when a start passes at once. The engine's `can` still gates every button.
+  /** Decide a step whose "Needs my OK" is off. */
+  decideSteps: ['manager', 'owner'],
+  /** Decide a step whose "Needs my OK" is on. */
+  decideOwnerOkSteps: ['owner'],
+  /** Title a run in both languages (TEXT_BOTH_LANGUAGES_REQUIRED); staff may type one (Q10). */
+  titleRunsInBoth: ['owner'],
+
+  // /tasks' read-only copies of the phone's pages (§5.4). Each is the guard of
+  // the read behind it, so a copy is never offered to a role its read refuses.
+  /** The kitchen's production today (app.production_today). */
+  readProduction: ['head_chef', 'chef', 'manager', 'owner'],
+  /** The shopping list (app.shopping_list). */
+  readShoppingList: ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'manager', 'owner'],
+  /** The driver's purchases (app.my_purchases). */
+  readPurchases: ['driver', 'manager', 'owner'],
+  /** A team's teachings (app.teachings_for_me, #64; the assistant barista's since wave 5). */
+  readTeachings: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /** Stock by quantity (app.staff_stock_view, #68): the heads' cafe, the desk's shop; the waiter's by store since wave 5. */
+  readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'waiter', 'manager', 'owner'],
+  /** Recipes by ingredient name (app.recipe_view, #72; the assistant barista's since wave 5). */
+  readRecipes: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /**
+   * Today in the stores (app.stock_today, wave 5 M2): the day's moves, what was
+   * added and the phone counts. Its guard is MOVE ∪ LOG ∪ COUNT.
+   */
+  readStoreToday: ['head_barista', 'head_chef', 'chef', 'cashier', 'court_desk', 'waiter', 'manager', 'owner'],
+  // A role's own work, which the owner does not do: its RPC refuses the owner.
+  /** Marketing's own pages: its take, campaign drafts, results and the requests inbox (#73). */
+  marketingWork: ['marketing'],
+  /** Ask the owner for a recipe change (app.request_recipe_change, #71). */
+  requestRecipeChanges: ['head_barista', 'head_chef'],
+  /** Send a new-item idea to the team's head (app.submit_release_idea, #65). */
+  sendIdeas: ['barista', 'chef'],
+
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Each is the guard
+  // of the RPC behind it; a row's own buttons still follow the RPC's can_*.
+  /** Propose a pay deduction (app.propose_deduction; the heads on the phone, MGMT here too). */
+  proposeDeductions: ['head_barista', 'head_chef', 'manager', 'owner'],
+  /** Approve or decline one (app.decide_deduction), never one's own or one against oneself. */
+  decideDeductions: ['manager', 'owner'],
+  /** Take back an approval, with a reason (app.cancel_deduction). */
+  cancelDeductions: ['owner'],
+  /** File an incident report on the operator (every role files on the phone, app.submit_incident). */
+  reportIncidents: ['court_desk', 'cashier', 'manager', 'owner'],
+  /** Review a report with a note the reporter reads (app.review_incident, app.incidents_page). */
+  reviewIncidents: ['manager', 'owner'],
+  /** Replace a report's text now (app.redact_incident). */
+  redactIncidents: ['owner'],
+  /** Send content for the owners' approval (app.submit_content, revise, withdraw). */
+  submitContent: ['marketing'],
+  /** Approve, ask for changes or decline content (app.decide_content). Managers never read it (§8 Q14). */
+  decideContent: ['owner'],
+
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2, §8 Q30).
+  /**
+   * Take payment on a drawer that is not one's own shift, with a banner saying
+   * whose, and never be asked to start a shift first. Everyone else in SHIFT
+   * (permissions.takeCourtPayment) closes the other person's shift first.
+   */
+  payOnOthersShift: ['manager', 'owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;
@@ -355,6 +498,11 @@ export function homeRoute(role: StaffRole): string {
     case 'cashier':
       return '/till';
     case 'prep':
+    case 'head_barista':
+    case 'barista':
+    case 'assistant_barista':
+    case 'head_chef':
+    case 'chef':
       return '/kds';
     case 'court_desk':
       return '/desk/today';
@@ -362,6 +510,10 @@ export function homeRoute(role: StaffRole): string {
       return '/ops';
     case 'owner':
       return '/panel';
+    case 'driver':
+    case 'marketing':
+    case 'waiter':
+      return '/tasks';
   }
 }
 
@@ -414,8 +566,10 @@ export function permissionsFor(role: StaffRole | undefined): Permissions {
     adjustStock: is(MANAGEMENT),
     closeDay: is(MANAGEMENT),
     editMenu: is(MANAGEMENT),
-    editRates: is(MANAGEMENT),
-    editPromotions: is(MANAGEMENT),
+    // The owner's since price_promo (#57): a manager proposes a rate or a
+    // promotion as a price or promo change, and keeps a promotion's off switch.
+    editRates: is(['owner']),
+    editPromotions: is(['owner']),
     manageStaff: is(['owner']),
     viewReports: is(MANAGEMENT),
     viewFinancials: is(['owner']),
@@ -428,6 +582,8 @@ export function requiredRoleFor(permission: keyof Permissions): StaffRole {
   switch (permission) {
     case 'manageStaff':
     case 'viewFinancials':
+    case 'editRates':
+    case 'editPromotions':
       return 'owner';
     case 'takeCourtPayment':
       return 'court_desk';

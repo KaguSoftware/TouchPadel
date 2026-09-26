@@ -1,7 +1,7 @@
 /**
  * The prototype's three.js court, on a phone (design 2026-09-01,
  * `docs/design/mobile-ui/Court Transition Prototype.html`): expo-gl surfaces
- * running the scene from features/courtTransition/scene.ts — glass + mesh cage,
+ * running the scene from @touch/court3d (packages/court3d/src/scene.ts) — glass + mesh cage,
  * real net, the `padel-racket.html` rackets swinging (racket.ts + swing.ts),
  * the ball with its trail and cast shadow — with the
  * camera orbit reading the SAME progress value `p` as every native layer
@@ -109,9 +109,10 @@ import { useFocusEffect } from 'expo-router';
 import * as THREE from 'three';
 import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
 import type { CourtQuality } from '../features/courtTransition/quality';
-import { buildCourtScene, type CourtScene } from '../features/courtTransition/scene';
-import { advance as advanceRally } from '../features/courtTransition/rallyClock';
-import { pitchEase, type Dir } from '../features/courtTransition/spec';
+import type { CourtScene } from '@touch/court3d/scene';
+import { advance as advanceRally } from '@touch/court3d/rallyClock';
+import { pitchEase, type Dir } from '@touch/court3d/spec';
+import { buildPhoneCourt } from '../features/courtTransition/phoneCourt';
 import { canAnimate, canDraw } from '../features/courtTransition/surfaceState';
 import { contextAlive, presentFrame } from '../features/courtTransition/surfaceLiveness';
 import { frameRepaints } from '../features/courtTransition/staleCover';
@@ -250,7 +251,7 @@ const MAX_INIT_ATTEMPTS = 3;
  * How long the stage cross-fades in once the court's FIRST frame has actually
  * been drawn.
  *
- * expo-gl creates its context asynchronously and `buildCourtScene` then builds
+ * expo-gl creates its context asynchronously and `buildPhoneCourt` then builds
  * the whole cage, net, rackets and backdrop in one synchronous go, so a few
  * hundred milliseconds pass between this view being laid out — an empty
  * surface, page colour showing through — and the first `endFrameEXP`. At that
@@ -382,7 +383,7 @@ export function Court3D({
   const ease = useRef(pitchEase(direction, 0));
   /**
    * The rally's own clock, in seconds, ADVANCED PER DRAWN FRAME rather than
-   * read off the wall clock — see features/courtTransition/rallyClock.ts.
+   * read off the wall clock — see @touch/court3d/rallyClock (packages/court3d).
    */
   const rallyT = useRef(0);
   /** `performance.now()` of the last frame that advanced it; null = no interval to measure. */
@@ -973,7 +974,7 @@ export function Court3D({
           renderer.setClearColor(0x000000, 0); // see-through: the button shows between the ghosts
         }
         if (!court.current) {
-          court.current = buildCourtScene(quality);
+          court.current = buildPhoneCourt(quality);
           pushViewport();
         }
         // Outside the branch above: Android destroys the surface while the app

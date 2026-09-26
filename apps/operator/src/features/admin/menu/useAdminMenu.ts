@@ -1,6 +1,7 @@
 /**
  * The `['adminMenu']` query shared by the menu editor, the category editor
- * and the item form: categories, items (+ variants, + group links), modifier
+ * and the item form: categories, items (+ variants, + group links, + the
+ * product release that made the item, MGMT-readable like the rest), modifier
  * groups/modifiers, tax groups and the manager-only `menu_item_costs` table
  * folded into a Map (no row = unknown cost, never 0).
  */
@@ -47,8 +48,20 @@ export interface ItemRow {
   hook_ar: string;
   highlight: Highlight;
   sold_out: boolean;
+  /** product_release: first time on sale; null = never on sale (a draft, or a release's item). */
+  launched_at: string | null;
+  /** The product release this item was made by; its run says whether it is still in release. */
+  release_run_id: string | null;
+  release_run: ReleaseRunRef | null;
   menu_item_variants: VariantRow[];
   menu_item_modifier_groups: { group_id: string }[];
+}
+/** The release run an item points at: enough for the in-release notice and its link. */
+export interface ReleaseRunRef {
+  id: string;
+  status: string;
+  title_en: string | null;
+  title_ar: string | null;
 }
 export interface GroupRow {
   id: string;
@@ -85,6 +98,10 @@ export interface AdminMenuData {
 const ITEM_COLUMNS =
   'id, category_id, name_en, name_ar, description_en, description_ar, sort_order, is_active, ' +
   'unavailable_on, photo_path, photo_blur, hook_en, hook_ar, highlight, sold_out, ' +
+  // Two foreign keys join these tables (protocol_runs.menu_item_id is the
+  // other), so the embed names the one from the item to its release.
+  'launched_at, release_run_id, ' +
+  'release_run:protocol_runs!menu_items_release_run_id_fkey(id, status, title_en, title_ar), ' +
   'menu_item_variants(id, item_id, name_en, name_ar, price_iqd, is_default, sort_order), ' +
   'menu_item_modifier_groups(group_id)';
 

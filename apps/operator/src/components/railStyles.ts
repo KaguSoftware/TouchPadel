@@ -19,7 +19,9 @@ export const navItemStyle: CSSProperties = { paddingInline: RAIL_ITEM_PAD };
 /** A rail control that is a <button>, not a <Link>: same box, no chrome. */
 export const navButtonStyle: CSSProperties = {
   ...navItemStyle,
-  background: 'transparent',
+  // No inline `background`: it outranked .tp-nav-item:hover, so no button row
+  // on the rail (Options and its items) answered the pointer. The transparent
+  // ground lives in GlobalStyles as button.tp-nav-item instead.
   border: 'none',
   inlineSize: '100%',
   cursor: 'pointer',

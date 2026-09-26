@@ -7,13 +7,18 @@ import {
   knownReason,
   queueErrorCode,
   queueWriteKey,
+  tillShiftCsvRows,
+  tillShiftRows,
   varianceMagnitude,
   varianceSign,
   unpaidPlayedRows,
+  unfinishedChecklists,
   type CsvLabels,
   type DayAdjustmentRow,
+  type ShiftCsvLabels,
   QUEUE_WRITE_KEY,
 } from './dayCloseLogic';
+import { readShiftList } from '../tillShift/tillShiftLogic';
 import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
 
 const base = { dayLoaded: true, dayOpen: true, openTabCount: 0, queuedCount: 0, busy: false, closed: false, error: null };
@@ -208,5 +213,140 @@ describe('played today, not paid', () => {
     // input for them, so a ready day with unpaid bookings stays ready.
     expect(deriveDayCloseState(base)).toBe('ready');
     expect(closeBlock('ready', 125000)).toBeNull();
+  });
+});
+
+describe('checklists not finished', () => {
+  const list = (role: string, slot: string, done: number, total: number) => ({
+    role,
+    slot,
+    name_en: 'List',
+    name_ar: 'قائمة',
+    done,
+    total,
+    open_items: total > done ? [{ text_en: 'Mop the floor', text_ar: 'امسح الأرض' }] : [],
+  });
+
+  it('lists only the lists with a line nobody ticked, in the server order', () => {
+    const rows = unfinishedChecklists({
+      business_date: '2026-09-25',
+      lists: [list('barista', 'open', 5, 5), list('barista', 'close', 2, 4), list('driver', 'open', 0, 3)],
+    });
+    expect(rows.map((r) => `${r.role}.${r.slot}`)).toEqual(['barista.close', 'driver.open']);
+    expect(rows[0]!.open_items).toEqual([{ text_en: 'Mop the floor', text_ar: 'امسح الأرض' }]);
+  });
+
+  it('reads anything that is not the RPC payload as nothing to warn about', () => {
+    expect(unfinishedChecklists(null)).toEqual([]);
+    expect(unfinishedChecklists([list('barista', 'open', 0, 1)])).toEqual([]);
+    expect(unfinishedChecklists({ lists: [{ role: 'barista' }] })).toEqual([]);
+  });
+
+  // That they never hold the close is proven on the screen, where the lists
+  // and the Close button meet (DayClose.test.tsx).
+});
+
+// ---------------------------------------------------------------------------
+// Till shifts (wave5-addendum-2026-09-25 §5.2, V10): a warning step, never a block.
+// ---------------------------------------------------------------------------
+
+describe('till shifts at day close', () => {
+  const shift = (over: Record<string, unknown>) => ({
+    id: 's1', day_session_id: 'd1', business_date: '2026-09-26', station_id: 'TILL-01', staff_id: 'maha', staff_name: 'Maha',
+    opened_at: '2026-09-26T06:00:00Z', closed_at: '2026-09-26T13:00:00Z', closed_via: 'own_pin', closed_by_name: 'Maha',
+    authorized_by_name: 'Maha', opening_float_iqd: 100000, handover_difference_iqd: null, cash_payments_iqd: 250000,
+    cash_refunds_iqd: 0, cash_expected_iqd: 350000, cash_counted_iqd: 345000, cash_variance_iqd: -5000,
+    card_payments_iqd: 80000, card_refunds_iqd: 0, payment_count: 12, refund_count: 0, drawer_open_count: 1,
+    open_note: null, close_note: null, ...over,
+  });
+  const list = readShiftList({
+    shifts: [
+      shift({}),
+      shift({ id: 's2', staff_name: 'Ali', staff_id: 'ali', closed_at: null, closed_via: null, cash_counted_iqd: null, cash_variance_iqd: null, authorized_by_name: null }),
+      shift({ id: 's3', staff_name: 'Hussein', station_id: 'DESK-01', closed_via: 'day_close', cash_counted_iqd: null, cash_variance_iqd: null, authorized_by_name: null }),
+      shift({ id: 'other-day', day_session_id: 'd0' }),
+    ],
+    outside: [
+      { day_session_id: 'd1', business_date: '2026-09-26', station_id: 'TILL-01', cash_payments_iqd: 20000, cash_refunds_iqd: 5000, card_payments_iqd: 0, card_refunds_iqd: 0, payment_count: 1, refund_count: 1 },
+      { day_session_id: 'd1', business_date: '2026-09-26', station_id: null, cash_payments_iqd: 0, cash_refunds_iqd: 0, card_payments_iqd: 0, card_refunds_iqd: 0, payment_count: 0, refund_count: 0 },
+      { day_session_id: 'd0', business_date: '2026-09-25', station_id: 'TILL-01', cash_payments_iqd: 9, cash_refunds_iqd: 0, card_payments_iqd: 0, card_refunds_iqd: 0, payment_count: 1, refund_count: 0 },
+    ],
+    cross_day: [
+      { day_session_id: 'd0', business_date: '2026-09-25', earlier_days_cash_refunds_iqd: 0, earlier_days_card_refunds_iqd: 0, later_cash_refunds_iqd: 30000, later_card_refunds_iqd: 0 },
+      { day_session_id: 'd1', business_date: '2026-09-26', earlier_days_cash_refunds_iqd: 30000, earlier_days_card_refunds_iqd: 0, later_cash_refunds_iqd: 0, later_card_refunds_iqd: 0 },
+    ],
+  });
+
+  it('narrows the list to the day on screen: its shifts, the money outside a shift, its cross-day refunds', () => {
+    const day = tillShiftRows(list, 'd1');
+    expect(day.shifts.map((s) => s.id)).toEqual(['s1', 's2', 's3']);
+    // A station with nothing taken outside a shift is not a row.
+    expect(day.outside.map((o) => o.station_id)).toEqual(['TILL-01']);
+    expect(day.earlierDaysCashRefundsIqd).toBe(30000);
+    expect(day.openCount).toBe(1);
+  });
+
+  it('reads a list that has not answered as nothing to warn about', () => {
+    expect(tillShiftRows(undefined, 'd1')).toEqual({ shifts: [], outside: [], earlierDaysCashRefundsIqd: 0, openCount: 0 });
+    expect(tillShiftRows(null, null).shifts).toEqual([]);
+  });
+
+  it('never holds the close: an open shift is not an input to the state or the block', () => {
+    // A warning, never a block (§5.2): close_day ends an open shift uncounted
+    // (TI9). Neither function takes a shift, so a ready day stays ready.
+    expect(tillShiftRows(list, 'd1').openCount).toBe(1);
+    expect(deriveDayCloseState(base)).toBe('ready');
+    expect(closeBlock('ready', 125000)).toBeNull();
+    expect(deriveDayCloseState.length).toBe(1);
+    expect(closeBlock.length).toBe(2);
+  });
+
+  const labels: ShiftCsvLabels = {
+    shift: (n, s) => `Shift ${n} ${s}`,
+    shiftOpen: (n, s) => `Open ${n} ${s}`,
+    shiftByDay: (n, s) => `By day ${n} ${s}`,
+    outsideIn: (s) => `Outside in ${s}`,
+    outsideOut: (s) => `Outside out ${s}`,
+    crossDay: 'Cross day',
+    noStation: 'No station',
+  };
+
+  it('writes a CSV row per shift with its stamped difference, then outside money, then the cross-day line', () => {
+    expect(tillShiftCsvRows(tillShiftRows(list, 'd1'), labels)).toEqual([
+      ['Shift Maha TILL-01', -5000, 12, 'Maha'],
+      ['Open Ali TILL-01', null, 12, null],
+      ['By day Hussein DESK-01', null, 12, null],
+      ['Outside in TILL-01', 20000, 1, null],
+      ['Outside out TILL-01', 5000, 1, null],
+      ['Cross day', 30000, null, null],
+    ]);
+  });
+
+  it('names a write with no station', () => {
+    const day = tillShiftRows(
+      readShiftList({ outside: [{ day_session_id: 'd1', station_id: null, cash_payments_iqd: 7000, payment_count: 1 }] }),
+      'd1',
+    );
+    expect(tillShiftCsvRows(day, labels)).toEqual([['Outside in No station', 7000, 1, null]]);
+  });
+
+  it('appends the shift rows after everything the figures sheet already exports', () => {
+    const labels2 = {
+      tabFigures: 'Day close', figure: 'Figure', value: 'Value', count: 'Count', authorisers: 'Authorised by', note: 'Note', partOf: 'Part of the line above',
+      cashExpected: 'Cash expected', cashCounted: 'Cash counted', variance: 'Variance',
+      cardExpected: 'Card expected', cardBatch: 'Card batch', discounts: 'Discounts', voids: 'Voids',
+      refunds: 'Refunds', waste: 'Waste', openingFloat: 'Float', cashPayments: 'Cash in', cardPayments: 'Card in',
+      deskCash: 'Desk cash', deskCard: 'Desk card',
+      adjustments: 'Adjustments', date: 'Date', time: 'Time', what: 'What', appliesTo: 'Applies to',
+      reason: 'Reason', amount: 'Amount', appliedBy: 'Applied by', authorisedBy: 'Authorised by', tab: 'Tab id',
+    } satisfies CsvLabels;
+    const words = { what: () => '', scope: () => '', reason: () => null };
+    const shiftRows = tillShiftCsvRows(tillShiftRows(list, 'd1'), labels);
+    const [figures, adjustments] = dayCloseCsv(labels2, null, null, [], (n) => n.join(', '), words, shiftRows);
+    // The figures sheet's fifth column (the note) is empty on a shift line.
+    expect(figures!.rows.slice(-shiftRows.length)).toEqual(shiftRows.map((r) => [...r, null]));
+    expect(adjustments!.rows).toEqual([]);
+    // Without them, the export is what it was.
+    expect(dayCloseCsv(labels2, null, null, [], (n) => n.join(', '), words)[0]!.rows).toEqual([]);
   });
 });

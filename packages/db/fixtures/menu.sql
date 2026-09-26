@@ -371,8 +371,11 @@ on conflict do nothing;
 -- `on conflict do nothing`; the fixture switches the hero to "featured" Kahi at
 -- 15% off — 8000 -> 6800 — and fills the ticker). Values are jsonb literals.
 -- The e2e suite orders Cappuccino, which the discount does not touch.
+-- Per branch since 0209: these are venue A's (the default venue) values.
 -- ---------------------------------------------------------------------------
-insert into cafe_settings (key, value, is_public) values
+insert into cafe_settings (venue_id, key, value, is_public)
+select 'c0000000-0000-4000-8000-000000000001'::uuid, v.key, v.value::jsonb, v.is_public
+  from (values
   ('hero_mode',             '"featured"',                                    true),
   ('featured_item_id',      '"f1f70000-0000-4000-8000-00000000e017"',      true), -- kahi with geymar
   ('featured_label_en',     '"A true Baghdadi breakfast"',                   true),
@@ -382,6 +385,7 @@ insert into cafe_settings (key, value, is_public) values
   ('featured_discount_pct', '15',                                            true),
   ('ticker_en',             '["Fresh beans roasted weekly","Pay at the desk","Free Wi-Fi: touchcafe"]', true),
   ('ticker_ar',             '["حبوب طازجة تُحمّص أسبوعيًا","الدفع عند الكاشير","واي فاي مجاني: touchcafe"]', true)
-on conflict (key) do update set value = excluded.value;
+  ) as v(key, value, is_public)
+on conflict (venue_id, key) do update set value = excluded.value;
 
 commit;

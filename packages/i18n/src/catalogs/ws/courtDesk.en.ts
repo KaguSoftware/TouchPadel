@@ -133,7 +133,7 @@ export const courtDeskEn = {
     unlink: 'Unlink',
     createCustomer: 'Create customer',
     noMatches: 'No customer matches. You can still book by name.',
-    conflictBody: 'That slot is already taken. Nothing was saved — pick another time.',
+    conflictBody: 'That slot is already taken. Nothing was saved. Pick another time.',
     pickAnother: 'Pick another time',
     price: 'Price',
   },
@@ -326,7 +326,7 @@ export const courtDeskEn = {
   // 06.7 Court block
   block: {
     title: 'Block court',
-    lead: 'Take a court out of use for maintenance or a private event. If a booking already holds part of that time, the block is refused. A block runs within one day — to cover a night, block the evening and the small hours separately.',
+    lead: 'Take a court out of use for maintenance or a private event. If a booking already holds part of that time, the block is refused. A block runs within one day. To cover a night, block the evening and the small hours separately.',
     court: 'Court',
     date: 'Date',
     from: 'From',

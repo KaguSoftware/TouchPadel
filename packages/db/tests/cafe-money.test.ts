@@ -29,6 +29,7 @@ import {
   openFreshDay,
   forceCloseAllDays,
   ensureTillFresh,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -359,7 +360,7 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
       .from('menu_categories')
       .update({ tax_group_id: TAX_RESTAURANT_10 })
       .eq('id', coffee.categoryId);
-    await svc.from('venue_settings').update({ tax_inclusive: true }).not('id', 'is', null);
+    await svc.from('venue_settings').update({ tax_inclusive: true }).eq('venue_id', VENUE_A_ID);
     try {
       const { tabId } = await freshTab([{ variant_id: coffee.variantId, qty: 2 }]);
       expect(await settleAndRead(tabId)).toMatchObject({
@@ -368,7 +369,7 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
         total: 20_000, // inclusive: never added on top
       });
     } finally {
-      await svc.from('venue_settings').update({ tax_inclusive: false }).not('id', 'is', null);
+      await svc.from('venue_settings').update({ tax_inclusive: false }).eq('venue_id', VENUE_A_ID);
       await svc
         .from('menu_categories')
         .update({ tax_group_id: TAX_STANDARD_0 })

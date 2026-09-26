@@ -197,7 +197,7 @@ const norm3 = (a) => {
 };
 
 /**
- * The court's camera at rest (courtTransition/spec.ts SPEC.camera at p = 0 and
+ * The court's camera at rest (@touch/court3d spec.ts SPEC.camera at p = 0 and
  * rally.ts cameraPose): 89.5° elevation, 60 m out, 24° vertical fov, looking at
  * z = −0.8, far wall up the screen. Returns a projector into a w × h box.
  */

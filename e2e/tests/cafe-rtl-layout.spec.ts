@@ -31,7 +31,7 @@ test.describe('cafe RTL layout @ar', () => {
   test.use({ viewport: MOBILE });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/ar');
+    await page.goto('/ar/menu');
     await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({
       timeout: 60_000,
     });

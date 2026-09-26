@@ -29,6 +29,7 @@ import {
   signedInClient,
   appRpc,
   voidOpenTabsForTable,
+  passShiftGate,
 } from './helpers';
 
 const TILL_TABLE = fixtureTableId(8); // T8
@@ -202,6 +203,8 @@ test.describe('operator journeys', () => {
 
     // ---- settle cash: tendered 10,000 -> change 2,000 ---------------------
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
+    // The cashier's first payment here asks for a shift first (wave 5).
+    await passShiftGate(page);
     const cash = page.getByRole('dialog', { name: 'Cash' });
     await cash.getByLabel('Tendered').fill('10000');
     await expect(cash.getByText('2,000 IQD')).toBeVisible(); // change preview
@@ -495,6 +498,8 @@ test.describe('operator journeys', () => {
 
     // ---- settle, then refund with the item going back to stock (L453) ----
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
+    // Run alone (--grep), no earlier test left this cashier's shift open (wave 5 §8 Q30).
+    await passShiftGate(page);
     const cash = page.getByRole('dialog', { name: 'Cash' });
     await cash.getByLabel('Tendered').fill('2500');
     await cash.getByRole('button', { name: 'Record payment' }).click();

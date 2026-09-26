@@ -19,10 +19,10 @@ import { isPairingCode } from './pairing-code';
 import { LAN_KDS_PORT, pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
 import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
 import { confirmTill, discoverTill, SCAN_HANDSHAKE_TIMEOUT_MS } from './lan-discover';
-import { startUpdater, type UpdaterHandle } from './updater';
+import { startUpdater, updaterPendingFile, type UpdaterHandle } from './updater';
 import { startHeartbeat } from './heartbeat';
 import { getAuthState, setAuthState } from './auth-state';
-import { observePin, unlockPinOffline } from './pin-cache';
+import { mayLeave, observePin, unlockPinOffline } from './pin-cache';
 import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
 import {
@@ -46,6 +46,7 @@ import {
   validateLanStatus,
   validateMutationEnvelope,
   validatePin,
+  validatePinOwner,
   validatePrintJob,
   validateRefKey,
   validateResolveQueueRow,
@@ -80,6 +81,14 @@ let worker: SyncWorker | null = null;
 let lanServer: LanKdsServer | null = null;
 let lanClient: LanKdsClient | null = null;
 let updater: UpdaterHandle | null = null;
+/**
+ * Set by the updater's allowClose once an install's quit is under way: every
+ * close is that quit now. The red-light guard below must let it through (it
+ * used to hold those closes too, and on macOS every window has it: Electron's
+ * autoUpdater.quitAndInstall closes every window first and installs only once
+ * they are all gone), and window-all-closed must not quit on top of it.
+ */
+let closingForUpdate = false;
 /** The kitchen screen's in-flight LAN sweep; a new request cancels the last. */
 let discoverAbort: AbortController | null = null;
 
@@ -164,6 +173,46 @@ const windowsWithTrafficLights = new WeakSet<BrowserWindow>();
  * board its traffic lights back.
  */
 const chromeless = new WeakSet<BrowserWindow>();
+/**
+ * Windows the kitchen board itself put into full screen. Leaving the board
+ * undoes only that: a full screen the operator chose (green button, or already
+ * full screen before signing in) is theirs, and a non-board screen mounting
+ * (every sign-in does) must not throw them out of it.
+ */
+const boardFullscreen = new WeakSet<BrowserWindow>();
+/**
+ * Windows a manager let out of the lock (touch:exit-fullscreen with a PIN that
+ * was not the signed-in person's own). Held only until the signed-in person
+ * changes: the next sign-in or sign-out puts the station back in (lockWindow).
+ */
+const released = new WeakSet<BrowserWindow>();
+/** The staff id each window last reported, so a TOKEN_REFRESHED push is not read as a change of person. */
+const lastStaff = new WeakMap<BrowserWindow, string | null>();
+
+/**
+ * Staff are kept inside the app (owner call, 2026-09-23): a configured
+ * station is a kiosk on every platform and in every mode, cannot be minimised,
+ * and its only exits — Quit to desktop and Exit forced full screen — take a
+ * manager's PIN that is not the signed-in person's own (pin-cache.ts mayLeave).
+ *
+ * On macOS kiosk is what actually holds the door: Electron sets the
+ * presentation options that disable Cmd+Tab, Hide, Force Quit and the Dock,
+ * and none of that can be done from the page. The traffic lights go with it,
+ * and the red one was a way out anyway (it opens the same PIN dialog as Quit
+ * when the window is released). Windows' kiosk covers the taskbar; locking
+ * Alt+Tab and the Windows key there is the OS's job (Assigned Access), not
+ * something an app can take.
+ */
+function lockWindow(win: BrowserWindow): void {
+  released.delete(win);
+  win.setMinimizable(false);
+  // Back to what createWindow gave it: closable only where the red traffic
+  // light exists, and there the close is held and handed to the PIN dialog.
+  win.setClosable(windowsWithTrafficLights.has(win));
+  win.setAutoHideMenuBar(true);
+  win.setMenuBarVisibility(false);
+  if (!win.isKiosk()) win.setKiosk(true);
+}
 
 function createWindow(): BrowserWindow {
   const station = loadStation();
@@ -172,6 +221,8 @@ function createWindow(): BrowserWindow {
   // kiosk whose only exit is the setup screen would be a machine nobody can
   // close if it was launched by mistake. Kiosk starts on the relaunch after setup.
   const relaxed = isDev || !station.configured;
+  // Every configured production station starts locked (see lockWindow).
+  const locked = !relaxed;
   // macOS: every window keeps the real OS close/minimise/zoom buttons, kiosk
   // modes included. `hiddenInset` draws them over the content instead of a full
   // titlebar, so a station still looks like the app and not like a browser —
@@ -191,18 +242,12 @@ function createWindow(): BrowserWindow {
     mode: station.mode,
   });
   const win = new BrowserWindow({
-    // Kiosk-leaning per design-arch.md §2.5, but closable in dev.
-    //
-    // NOT on macOS where the traffic lights are shown: kiosk there IS a
-    // full-screen Space, and publishFullscreen hides the buttons for exactly
-    // that state — so a till would be born with the lights it was just given
-    // already invisible, and the change would show up nowhere. The window still
-    // opens at the screen's working size (`opening` below), which is the
-    // edge-to-edge look the kiosk was for; what it no longer does is take away
-    // the buttons. Windows is untouched: it draws no traffic lights, so its
-    // taskbar-covering kiosk is still the only way to get a bare station.
-    kiosk:
-      !relaxed && !trafficLights && (station.mode === 'till' || station.mode === 'kds'),
+    // Kiosk per design-arch.md §2.5, on every configured station, whatever
+    // its mode or platform — staff are kept inside the app (lockWindow). This
+    // used to skip macOS so the traffic lights stayed visible; a till whose
+    // red, yellow and green buttons let a cashier leave is not a till they are
+    // kept in. Dev and first run stay windowed (`relaxed`).
+    kiosk: locked,
     autoHideMenuBar: true,
     // Electron's default window is 800x600 — smaller than the floor below, so
     // the window opened cramped and then JUMPED to the minimum the moment it
@@ -226,6 +271,10 @@ function createWindow(): BrowserWindow {
     // its confirmation dialog, not a credential. Where the traffic lights are
     // shown the red button has to actually close, or it is worse than absent.
     closable: relaxed || trafficLights,
+    // Never minimisable on a locked station, whoever is signed in: sending the
+    // till to the Dock is leaving it. setMinimizable also refuses Cmd+M and
+    // Window > Minimize. A manager's PIN releases it (touch:exit-fullscreen).
+    minimizable: !locked,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -304,6 +353,9 @@ function createWindow(): BrowserWindow {
   // page, which opens the same "Quit to desktop?" dialog the rail row uses.
   // Confirming there calls touch:quit-app, and that exits through app.exit(),
   // which does not raise 'close' — so this guard cannot block the real quit.
+  // An update's install closes the windows through Electron (app.quit() on
+  // Windows, the autoUpdater on macOS), which does; closingForUpdate lets
+  // that one through.
   //
   // Only where the buttons exist — Windows draws none, and browser dev has no
   // window to guard.
@@ -325,14 +377,19 @@ function createWindow(): BrowserWindow {
     win.webContents.send(IPC.fullscreenState, fullscreen);
   };
   win.on('enter-full-screen', publishFullscreen);
-  win.on('leave-full-screen', publishFullscreen);
+  win.on('leave-full-screen', () => {
+    // However it left (Esc, green button, Exit full screen), the board's full
+    // screen is over; a later one is the operator's and survives the board.
+    boardFullscreen.delete(win);
+    publishFullscreen();
+  });
   win.webContents.on('did-finish-load', publishFullscreen);
 
   if (trafficLights) {
     windowsWithTrafficLights.add(win);
 
     win.on('close', (event) => {
-      if (win.isDestroyed()) return;
+      if (win.isDestroyed() || closingForUpdate) return;
       event.preventDefault();
       win.webContents.send(IPC.closeRequested);
     });
@@ -341,9 +398,49 @@ function createWindow(): BrowserWindow {
 }
 
 if (gotTheLock) {
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     bootstrapStationFromArgv();
+
+    // Auto-update (updater.ts): silent download; installed at the next start,
+    // from the rail's control, or by Quit to desktop. Started before anything
+    // else so that a start can install what an earlier session downloaded
+    // BEFORE the queue opens, the LAN port binds or a window exists, and come
+    // back on the new version. installAtStart resolves at once when no newer
+    // download is waiting or none may install here (a start already tried
+    // that version, a rollback, an install for all users); otherwise within
+    // the updater's wait (15 s, 30 s on macOS), unless an install is taking
+    // the app down. It never rejects. The start then goes on as it always
+    // did. bootstrapStationFromArgv runs first: the installer's relaunch
+    // carries none of this launch's flags.
+    updater = startUpdater({
+      enabled: app.isPackaged,
+      version: app.getVersion(),
+      onReady: (info) => {
+        // None yet during the start's wait; the renderer asks on mount
+        // (updateState). null withdraws an update offered earlier (its
+        // install refused, or a newer download replaced it): the preload
+        // hands it straight to useUpdateReady, and the rail's control and
+        // Quit's "installs as you quit" line go.
+        for (const w of BrowserWindow.getAllWindows()) w.webContents.send(IPC.updateReady, info);
+      },
+      allowClose: () => {
+        closingForUpdate = true;
+        for (const w of BrowserWindow.getAllWindows()) w.setClosable(true);
+      },
+      exit: (code) => app.exit(code),
+      relaunch: () => app.relaunch(),
+      logFile: path.join(app.getPath('userData'), 'updater.log'),
+      stateFile: path.join(app.getPath('userData'), 'updater-startup.json'),
+      pendingFile: app.isPackaged
+        ? updaterPendingFile({ resourcesPath: process.resourcesPath, appName: app.getName() })
+        : undefined,
+    });
+    await updater?.installAtStart();
+
     const station = loadStation();
+    // createWindow's `locked`: a dev or first-run window is an ordinary one,
+    // with no PIN to ask for (a first-run machine has none cached yet).
+    const stationLocked = station.configured && !isDev;
     openQueue();
 
     // Launch on boot (design-arch §2.5): registered on every packaged start so
@@ -390,9 +487,20 @@ if (gotTheLock) {
       });
     });
 
-    ipcMain.on(IPC.authState, (_e, s: unknown) => {
+    ipcMain.on(IPC.authState, (e, s: unknown) => {
       guardIpc('authState', () => {
-        setAuthState(validateAuthState(s));
+        const next = validateAuthState(s);
+        setAuthState(next);
+        // A released station goes back in when the person changes: the next
+        // shift is not let out because a manager let the last one out and
+        // forgot. A token refresh is the same person, so it changes nothing.
+        const win = BrowserWindow.fromWebContents(e.sender);
+        if (win && !win.isDestroyed()) {
+          const staffId = next?.staffId ?? null;
+          const changed = lastStaff.has(win) && lastStaff.get(win) !== staffId;
+          lastStaff.set(win, staffId);
+          if (changed && released.has(win) && stationLocked) lockWindow(win);
+        }
         return null;
       });
     });
@@ -426,7 +534,15 @@ if (gotTheLock) {
         else chromeless.delete(win);
         const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
         win.setWindowButtonVisibility(!bare && !fullscreen);
-        if (!win.isKiosk()) win.setFullScreen(bare);
+        if (!win.isKiosk()) {
+          if (bare && !win.isFullScreen()) {
+            boardFullscreen.add(win);
+            win.setFullScreen(true);
+          } else if (!bare && boardFullscreen.has(win)) {
+            boardFullscreen.delete(win);
+            win.setFullScreen(false);
+          }
+        }
         return null;
       });
     });
@@ -538,24 +654,31 @@ if (gotTheLock) {
       });
     });
 
-    ipcMain.on(IPC.pinObserved, (_e, pin: unknown) => {
+    ipcMain.on(IPC.pinObserved, (_e, pin: unknown, owner: unknown) => {
       guardIpc('pinObserved', () => {
-        observePin(validatePin(pin));
+        observePin(validatePin(pin), 'manager', validatePinOwner(owner));
         return null;
       });
     });
 
     // Quit to desktop (design-arch §2.5): the ONLY way a production window
-    // closes. This took a manager PIN and re-checked it against the offline
-    // cache here, so a compromised renderer could not end service on its own.
-    // That gate is gone by request — main now exits on the renderer's word,
-    // and the renderer's confirmation dialog is the only thing in the way.
-    ipcMain.handle(IPC.quitApp, () =>
+    // closes. Behind a manager PIN again (owner call, 2026-09-23, reversing the
+    // earlier no-PIN request), and not the signed-in person's own: staff are
+    // kept inside the app. Re-checked here against the offline cache so a
+    // compromised renderer cannot end service on its own word; the renderer
+    // verifies online first and tags the PIN with its owner (pinObserved).
+    ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
       guardIpc('quitApp', () => {
+        if (stationLocked) {
+          const verdict = mayLeave(validatePin(pin), getAuthState()?.staffId ?? null);
+          if (verdict !== 'ok') return { ok: false as const, error: verdict };
+        }
         setTimeout(() => {
-          // A downloaded update installs on the way out. app.exit() skips
-          // will-quit, so autoInstallOnAppQuit alone would never fire here;
-          // installOnQuit quits itself, and exits hard if that quit stalls.
+          // A downloaded update installs on the way out and the app opens
+          // again on it. app.exit() skips will-quit, so autoInstallOnAppQuit
+          // alone would never fire here; installOnQuit quits itself, and exits
+          // hard if that quit stalls. With nothing waiting, or an install
+          // that refuses on the spot, this just exits.
           if (!updater?.installOnQuit()) app.exit(0);
         }, 50); // let the reply reach the renderer
         return { ok: true as const };
@@ -573,10 +696,20 @@ if (gotTheLock) {
     // titlebar and the ability to close/minimise, which is why it also lifts
     // the `closable: false` that createWindow set — a window with an X that
     // refuses to close would be worse than one with no X at all.
-    ipcMain.handle(IPC.exitFullscreen, (e) =>
+    //
+    // That is leaving the station, so it takes the same PIN as Quit: a
+    // manager's, not the signed-in person's own. The release lasts until the
+    // signed-in person changes (touch:auth-state above puts it back).
+    ipcMain.handle(IPC.exitFullscreen, (e, pin: unknown) =>
       guardIpc('exitFullscreen', () => {
         const win = BrowserWindow.fromWebContents(e.sender);
-        if (!win || win.isDestroyed()) return { ok: false as const, error: 'no-window' };
+        if (!win || win.isDestroyed()) return { ok: false as const, error: 'no-window' as const };
+        if (stationLocked) {
+          const verdict = mayLeave(validatePin(pin), getAuthState()?.staffId ?? null);
+          if (verdict !== 'ok') return { ok: false as const, error: verdict };
+        }
+        released.add(win);
+        win.setMinimizable(true);
         // Order matters: kiosk off first, because on macOS leaving kiosk is
         // itself a fullscreen transition and setFullScreen(false) before it
         // gets undone. setSimpleFullScreen covers the macOS-only variant.
@@ -619,6 +752,7 @@ if (gotTheLock) {
         configured: station.configured,
         ...(station.configError ? { configError: station.configError } : {}),
         appVersion: app.getVersion(),
+        locked: stationLocked,
         // The rail would start UNDER the traffic lights otherwise: 'hiddenInset'
         // draws them inside the page, not above it.
         titleBarInset: shouldShowTrafficLights({
@@ -690,19 +824,6 @@ if (gotTheLock) {
 
     const win = createWindow();
 
-    // Auto-update: silent download, human-triggered install (updater.ts).
-    updater = startUpdater({
-      enabled: app.isPackaged,
-      onReady: (info) => {
-        if (!win.isDestroyed()) win.webContents.send(IPC.updateReady, info);
-      },
-      allowClose: () => {
-        for (const w of BrowserWindow.getAllWindows()) w.setClosable(true);
-      },
-      exit: (code) => app.exit(code),
-      logFile: path.join(app.getPath('userData'), 'updater.log'),
-    });
-
     // A second launch should surface the station that is already trading, not
     // silently do nothing. (Previously there was no handler at all.)
     app.on('second-instance', () => {
@@ -750,5 +871,12 @@ if (gotTheLock) {
 }
 
 app.on('window-all-closed', () => {
+  // Not while an update installs. On macOS Electron's autoUpdater closes the
+  // windows itself and only then asks Squirrel.Mac to relaunch after
+  // installing; an app.quit() here raced that request and the app could stay
+  // closed. On Windows electron-updater's own app.quit() is already under way
+  // and this is not called. A quit that never lands ends in the updater's
+  // exit fallback.
+  if (closingForUpdate) return;
   app.quit();
 });

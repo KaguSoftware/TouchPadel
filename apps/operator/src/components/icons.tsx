@@ -109,6 +109,8 @@ const PATHS = {
   grip: 'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01',
   /** The same frame with the corners turned in: the way back out. */
   frameExit: 'M8 3v2a3 3 0 0 1-3 3H3M16 3v2a3 3 0 0 0 3 3h2M21 16h-2a3 3 0 0 0-3 3v2M8 21v-2a3 3 0 0 0-3-3H3',
+  /** A photograph: how many pictures a row carries (wave 5, /incidents). */
+  image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM21 15l-3.1-3.1a2 2 0 0 0-2.8 0L6 21',
 } as const;
 
 export type IconName = keyof typeof PATHS;

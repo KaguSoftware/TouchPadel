@@ -177,7 +177,15 @@ export function profileGateState(query: {
   return needsProfileCompletion(query.data) ? 'incomplete' : 'complete';
 }
 
-export type PostSignInStep = 'complete-profile' | 'await-gate' | 'continue';
+export type PostSignInStep = 'staff' | 'complete-profile' | 'await-gate' | 'continue';
+
+/**
+ * An active staff row: the account belongs in the staff area (build-contracts
+ * -2026-09-23 §6.6). `is_active` must be exactly true, as @touch/core reads it.
+ */
+export function isActiveStaffRow(row: { is_active?: boolean | null } | null | undefined): boolean {
+  return row?.is_active === true;
+}
 
 /**
  * What a screen does once a password or social sign-in has landed and the
@@ -185,6 +193,11 @@ export type PostSignInStep = 'complete-profile' | 'await-gate' | 'continue';
  * email sign-in (app/sign-in.tsx, 2026-09-20) so the D3 phone gate cannot
  * differ between them:
  *
+ *   staff             the account's own staff row is active: the screen writes
+ *                     the device hint and replaces to /staff. First, because a
+ *                     staff account has no phone and owes no guest profile.
+ *                     Only the email path gets here; a social sign-in that
+ *                     lands on a staff row is refused (refusesSocialSignIn).
  *   continue          the profile is complete: welcome toast + continueAfterAuth.
  *   complete-profile  incomplete AND a slot is pending: RequireNoSession is
  *                     exempt from redirecting while the slot exists, so the
@@ -198,9 +211,46 @@ export type PostSignInStep = 'complete-profile' | 'await-gate' | 'continue';
 export function postSignInStep(
   profile: { phone: string | null; full_name?: string | null } | null | undefined,
   hasPendingSlot: boolean,
+  staffRow?: { is_active?: boolean | null } | null,
 ): PostSignInStep {
+  if (isActiveStaffRow(staffRow)) return 'staff';
   if (!needsProfileCompletion(profile)) return 'continue';
   return hasPendingSlot ? 'complete-profile' : 'await-gate';
+}
+
+/**
+ * Staff sign in with email and password only (plan #33). GoTrue links a Google
+ * or Apple identity to an existing account with the same verified email, so a
+ * provider sign-in can land on a staff account; the phone signs it straight
+ * out again and says why. Client-side: the session's sign-in method is not
+ * checked by any staff RPC (plan §6.7).
+ */
+export function refusesSocialSignIn(staffRow: { is_active?: boolean | null } | null | undefined): boolean {
+  return isActiveStaffRow(staffRow);
+}
+
+/**
+ * Whether the session was signed in through Google or Apple: GoTrue's `amr`
+ * claim names `oauth` for an ID-token sign-in, and a refresh keeps the
+ * session's claim. `app_metadata.provider` cannot say this: it is the account's
+ * FIRST provider, so a staff account (email) that linked Google still reads
+ * `email`. The staff status uses it to refuse such a session whenever its row
+ * read answers (§6.6), not only when the sign-in's own check did. Anything that
+ * is not a readable JWT is no provider sign-in.
+ */
+export function signedInWithProvider(accessToken: string | null | undefined): boolean {
+  const part = accessToken?.split('.')[1];
+  if (!part) return false;
+  try {
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))) as { amr?: unknown };
+    return (
+      Array.isArray(claims.amr) &&
+      claims.amr.some((entry) => (entry as { method?: unknown } | null)?.method === 'oauth')
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

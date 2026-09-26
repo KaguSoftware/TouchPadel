@@ -107,6 +107,8 @@ export const shellEn = {
     prep: 'Kitchen',
     manager: 'Operations',
     owner: 'Management',
+    // Driver and marketing (0155): one rail row, My tasks, for now.
+    team: 'Team',
   },
   // A section of a workspace with its own landing screen and its own rail
   // (lib/workspaces.ts). Management shows one button per section instead of
@@ -129,6 +131,7 @@ export const shellEn = {
     prep: 'The ticket board the cooks work from',
     manager: 'Floor, stock, day close and reports',
     owner: 'The whole business in one place',
+    team: 'Tasks and checklists given to you',
   },
   nav: {
     today: 'Today',
@@ -152,6 +155,7 @@ export const shellEn = {
     panel: 'Management panel',
     analytics: 'Analytics',
     staff: 'Staff',
+    branches: 'Branches',
     courts: 'Courts',
     tables: 'Tables & QR',
     settings: 'Venue settings',
@@ -172,15 +176,24 @@ export const shellEn = {
     // The owner assistant: a rail row on Management's own list and the drawer
     // button in the rail footer share this label.
     assistant: 'Assistant',
+    // The team workspace's one row (driver, marketing), and the till's and
+    // the desk's last row.
+    myTasks: 'My tasks',
+    // Protocols and the staff suggestion box, on the manager's rail and in
+    // Observe (build-contracts-2026-09-23 §5.1).
+    protocols: 'Protocols',
+    suggestions: 'Suggestions',
+    // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+    deductions: 'Pay deductions',
+    incidents: 'Incidents',
+    // A rail row's count, for a screen reader: the pill itself is only a number.
+    badge: '{count} waiting on you',
     groupOperations: 'Operations',
     groupRun: 'Run the day',
     groupRecords: 'Records',
     groupSetup: 'Setup',
     // The way out of a section rail, back to the workspace's own.
     backTo: 'Back to {workspace}',
-    // The owner's rail puts 17 links and four controls before the routed
-    // screen; without this every navigation costs up to 21 Tab presses.
-    skipToMain: 'Skip to main content',
     // The four station controls — workspace, assistant, language,
     // appearance — live behind one rail row rather than four (owner call,
     // 2026-09-21), so the foot of the rail reads as one thing to press.
@@ -223,6 +236,15 @@ export const shellEn = {
     exitFullscreen: 'Exit forced full screen',
     quit: 'Quit to desktop',
     quitConfirm: 'This ends service on this station. Orders stop and the venue sees it go offline.',
+    // Under quitConfirm, only while the rail shows Update ready: quitting
+    // installs it and the app then reopens by itself (main/updater.ts
+    // installOnQuit). "ready", as the rail's control says it.
+    quitInstallsUpdate: 'An update is ready. Quitting installs it, then the app opens again by itself.',
+    // Quit and Exit forced full screen on a locked station (owner call,
+    // 2026-09-23): staff are kept inside the app, and the way out is somebody
+    // else's manager PIN.
+    leavePin: 'Manager PIN',
+    leavePinHint: 'A manager other than you has to enter their PIN.',
     kitchenNoNav: 'Kitchen display',
     version: 'Version {version}',
     updateReady: 'Update ready',

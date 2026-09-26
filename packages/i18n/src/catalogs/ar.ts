@@ -1,6 +1,11 @@
 import type { Messages } from './en';
 import { wsAr } from './ws';
+import { staffAr } from './staff';
+import { workAr } from './work.ar';
+import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { legalAr } from './legal.ar';
+import { siteAr } from './site.ar';
+import { branchesAr } from './branches.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -477,6 +482,8 @@ export const ar: Messages = {
     capacityFree: '{count} ملاعب متاحة',
     capacityOne: 'بقي ملعب واحد',
     deskOnly: 'عبر الاستقبال فقط',
+    laneFree: '{count} متاح',
+    laneFull: 'محجوز بالكامل',
     availFooter: '{count} ملاعب لكل وقت · يُحدَّد ملعبك عند الاستقبال',
     // Court → booking transition (design 2026-09-01): the in-place sheet on the Book tab.
     pickTime: 'اختر وقتًا',
@@ -808,13 +815,13 @@ export const ar: Messages = {
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',
   },
   legal: legalAr,
+  site: siteAr,
+  branches: branchesAr,
   seo: {
-    siteTitle: 'تتش كافيه — القائمة',
-    siteDescription:
-      'ملاعب بادل وكافيه مختص في العراق. احجز ملعبك من التطبيق، وتصفّح قائمة الكافيه واطلب من طاولتك.',
+    siteTitle: 'تتش بادل',
     menuTitle: 'قائمة تتش كافيه',
     menuDescription:
-      'قائمة تتش كافيه الكاملة — مشروبات ساخنة وباردة وفطور وأطباق رئيسية وحلويات ووجبات خفيفة، بالعربية والإنجليزية.',
+      'منيو تتش كافيه: قهوة مختصة وشاي وعصائر طازجة وسموذي وموهيتو وميلك شيك وحلويات، بالعربية والإنجليزية.',
     tableTitle: 'طاولتك — تتش كافيه',
   },
   errors: {
@@ -874,7 +881,7 @@ export const ar: Messages = {
       signedInAs: 'مسجل الدخول باسم {name} ({role})',
     },
     status: {
-      degraded: 'المكان في وضع عدم الاتصال — لا يستطيع الضيوف حجز الأيام القادمة أو الطلب عبر الإنترنت. استقبل الحجوزات والطلبات من المكتب.',
+      degraded: 'المكان في وضع عدم الاتصال: لا يستطيع الضيوف حجز الأيام القادمة أو الطلب عبر الإنترنت. استقبل الحجوزات والطلبات من المكتب.',
     },
     lock: {
       title: 'المحطة مقفلة',
@@ -937,6 +944,14 @@ export const ar: Messages = {
       court_desk: 'مكتب الملاعب',
       manager: 'مدير',
       owner: 'مالك',
+      head_barista: 'رئيس الباريستا',
+      barista: 'باريستا',
+      head_chef: 'رئيس الطهاة',
+      chef: 'مساعد شيف',
+      driver: 'سائق',
+      marketing: 'التسويق',
+      assistant_barista: 'مساعد باريستا',
+      waiter: 'نادل',
     },
     days: {
       sun: 'الأحد',
@@ -1184,6 +1199,7 @@ export const ar: Messages = {
       recipes: 'الوصفات',
       products: 'منتجات المتجر',
       suppliers: 'المورّدون',
+      moves: 'نقل المخزون',
     },
     stock: {
       ingredient: 'المكوّن',
@@ -1192,6 +1208,7 @@ export const ar: Messages = {
       iqd: '{amount} د.ع',
       unitLabel: 'الوحدة',
       unit: { g: 'غ', ml: 'مل', pc: 'قطعة' },
+      unitOne: { g: 'غ', ml: 'مل', pc: 'قطعة' },
       status: { out: 'نفد المخزون', low: 'على وشك النفاد', belowPar: 'دون الحد', countNeeded: 'يحتاج جردًا', ok: 'جيد' },
       movement: {
         goods_in: 'استلام',
@@ -1204,6 +1221,8 @@ export const ar: Messages = {
         expired_writeoff: 'منتهي الصلاحية، شُطب',
         count_adjustment: 'تصحيح بالجرد',
         refund_reversal: 'أُعيد باسترداد',
+        product_test: 'استُخدم في تجربة صنف',
+        transfer: 'نقل بين المخزنين',
       },
     },
     courts: {
@@ -1309,7 +1328,7 @@ export const ar: Messages = {
       noCost: 'بلا كلفة',
       noCostCount: '{count} صنفًا بلا كلفة — مطلوبة لتحليلات الربح',
       photo: 'الصورة',
-      photoHint: 'مربعة، حتى 1200 بكسل — تُحوَّل إلى WebP',
+      photoHint: 'مربعة، حتى 1200 بكسل. تُحفظ بصيغة WebP.',
       search: 'ابحث عن صنف…',
       defaultPrice: 'السعر الافتراضي',
       reorder: 'إعادة الترتيب',
@@ -1337,7 +1356,7 @@ export const ar: Messages = {
     addons: {
       groups: 'مجموعات الأصناف',
       subGroups: 'المجموعات الفرعية',
-      subGroupsHint: 'غير مرتبطة بأي صنف — يكشفها خيار في مجموعة أخرى.',
+      subGroupsHint: 'غير مرتبطة بأي صنف. يكشفها خيار في مجموعة أخرى.',
       newGroup: 'مجموعة جديدة',
       newSubGroup: 'مجموعة فرعية جديدة',
       linkedItems: 'الأصناف المرتبطة',
@@ -1345,10 +1364,10 @@ export const ar: Messages = {
       newOption: 'خيار جديد',
       reveals: 'يكشف',
       revealsHint: 'المجموعات الفرعية التي تظهر عند اختيار هذا الخيار.',
-      noSubGroups: 'لا توجد مجموعات فرعية بعد — أنشئ واحدة لكشفها هنا.',
+      noSubGroups: 'لا توجد مجموعات فرعية بعد. أنشئ واحدة لكشفها هنا.',
       minMax: 'أدنى / أقصى عدد اختيارات',
       required: 'مطلوب',
-      delta: 'فرق السعر (د.ع)',
+      delta: 'السعر الإضافي (د.ع)',
       active: 'فعّال',
       lead: 'الخيارات التي يحددها الضيف على الصنف، مثل نوع الحليب أو جرعة إضافية. المجموعة الفرعية تُسأل فقط بعد أن يختار الضيف خيارًا معيّنًا، مثل اختيار مشروب بعد «اجعلها وجبة».',
       pick: 'اختر مجموعة لتحريرها أو أضف مجموعة جديدة.',
@@ -1599,6 +1618,7 @@ export const ar: Messages = {
       DEGRADED_LOCKOUT: 'النادي في وضع عدم الاتصال — هذا الإجراء محظور حاليًا.',
       PIN_INVALID: 'الرمز السري غير صحيح.',
       PIN_LOCKED: 'محاولات خاطئة كثيرة — تم القفل لعدة دقائق.',
+      PIN_OWN: 'هذا رمزك السري. يجب أن يُدخل مدير آخر رمزه.',
       PIN_GRANT_REQUIRED: 'انتهت صلاحية تفويض المدير — أدخل الرمز السري مرة أخرى.',
       FORBIDDEN: 'لا تملك صلاحية لهذا الإجراء.',
       AUTH_REQUIRED: 'يجب تسجيل الدخول.',
@@ -1655,7 +1675,7 @@ export const ar: Messages = {
       RESERVATION_NOT_FOUND: 'الحجز غير موجود.',
       REASON_REQUIRED: 'السبب مطلوب.',
       REQUEST_NOT_PENDING: 'تمت الإجابة على هذا الطلب بالفعل. أعد التحميل لرؤية القرار.',
-      CANNOT_DECIDE_OWN: 'لا يمكنك البتّ في طلبك أنت.',
+      CANNOT_DECIDE_OWN: 'لا يمكنك البتّ في أمر أرسلته أنت أو يخصّك.',
       REQUEST_ALREADY_PENDING: 'يوجد طلب من هذا النوع قيد الانتظار بالفعل.',
       BAD_KIND: 'هذا ليس نوعاً من الطلبات.',
       BAD_STATUS: 'هذه ليست حالة صالحة.',
@@ -1677,6 +1697,21 @@ export const ar: Messages = {
       VENUE_REQUIRED: 'هذا الإجراء يحتاج إلى تحديد الفرع الذي يخصّه.',
       STATION_UNKNOWN:
         'هذه المحطة غير مسجّلة في أي فرع. يسجّلها المدير من الإعدادات ← الأجهزة.',
+      // Multi-venue (0212, 0217).
+      VENUE_MISMATCH: 'هذا يخصّ فرعًا آخر. انتقل إلى ذلك الفرع لتنفيذه.',
+      PROMOTION_SCOPE_BRANCH: 'العرض المخصّص لكل الفروع لا يمكن أن يحدّد ملاعب أو أقسامًا أو أصنافًا.',
+      STAFF_VENUE_REQUIRED: 'يجب أن يعمل الموظف في فرع واحد على الأقل.',
+      STAFF_NOT_FOUND: 'لم يعد هذا الموظف موجودًا.',
+      VENUE_NOT_FOUND: 'لم يعد هذا الفرع موجودًا.',
+      STATION_OTHER_BRANCH: 'اسم هذه المحطة مستخدم في فرع آخر. أوقفها هناك أولًا أو اختر اسمًا آخر.',
+      SLUG_TAKEN: 'فرع آخر يستخدم هذا الاسم المختصر. اختر اسمًا آخر.',
+      BRANCH_NOT_READY: 'هذا الفرع غير جاهز للافتتاح بعد. أكمل قائمة التجهيز أولًا.',
+      LAST_OPEN_BRANCH: 'هذا هو الفرع المفتوح الوحيد. افتح فرعًا آخر قبل إغلاقه.',
+      BRANCH_DAY_OPEN: 'أغلق يوم هذا الفرع قبل إغلاق الفرع.',
+      STATION_RETIRED: 'أُوقفت هذه المحطة. سجّلها من جديد من الإعدادات ← تفاصيل المكان ← المحطات.',
+      STATION_HAS_HISTORY: 'لاسم هذه المحطة ورديات صندوق في فرع آخر. اختر اسمًا آخر.',
+      BRANCH_HAS_BOOKINGS: 'لا تزال لهذا الفرع حجوزات أو حجوزات مؤقتة أو سلاسل قادمة. ألغها أو انقلها أولًا.',
+      VENUE_CLOSED: 'هذا الفرع مغلق.',
       NO_PIN_SET: 'لا يوجد رمز سري لهذا الحساب بعد. اطلب من المالك تحديده.',
       BOOKING_TAB_OPEN: 'لهذا الحجز فاتورة مفتوحة بالفعل. أضف إلى تلك الفاتورة.',
       BOOKING_TAB_DONOR: 'لا يمكن نقل فاتورة الحجز إلى فاتورة أخرى. انقل الفاتورة الأخرى إلى الحجز.',
@@ -1763,7 +1798,10 @@ export const ar: Messages = {
       REFUND_EXCEEDS_PAYMENT: 'المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.',
       PAYMENT_NOT_FOUND: 'لم يتم العثور على هذه الدفعة.',
       ITEM_NOT_ON_TAB: 'هذا السطر ليس على هذا الحساب.',
-      IDEMPOTENCY_CONFLICT: 'سُجّل هذا الإجراء من جلسة أخرى. حدّث الصفحة وتحقق من الحساب.',
+      IDEMPOTENCY_CONFLICT: 'حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.',
+      ...opErrorsProtocolsAr,
     },
   },
+  work: workAr,
+  staff: staffAr,
 };

@@ -1,13 +1,16 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { makeT } from '@touch/i18n';
 import { LOCALES, requireLocale } from '@/lib/locales';
+import { CafeStyles } from '@/components/cafe/CafeStyles';
 
 /**
  * Staff download page for the operator desktop app — /{locale}/download.
  *
  * Not linked from the guest site (guests order from the table QR) and never
- * indexed; staff get the URL from the install runbook. Static: no data, no
- * cookies. Three buttons, nothing else to read: all point at STABLE URLs — the
+ * indexed; staff get the URL from the install runbook. No data, no cookies; it
+ * reads the request's nonce for the café sheet it is styled with (the root layout
+ * no longer inlines that sheet). Three buttons, nothing else to read: all point at STABLE URLs — the
  * public releases repo's "latest" redirect plus version-less artifact names
  * (apps/operator-shell/electron-builder.config.cjs) — so this page never needs
  * to know which version is current. The Mac buttons are disabled until the mac
@@ -47,8 +50,10 @@ export async function generateMetadata({
 export default async function DownloadPage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params).locale);
   const tr = makeT(locale);
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <div className="tp-cafe" data-theme="cafe">
+      <CafeStyles nonce={nonce} />
       <main className="tp-boot tp-download">
         <h1 className="tp-download__title">{tr('download.title')}</h1>
         <p className="tp-download__meta">{tr('download.lead')}</p>

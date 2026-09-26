@@ -20,6 +20,7 @@ import { Panel } from '../../../components/kit';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { useChoiceRuleText } from '../addons/ChoiceLimits';
+import { isRequiredAddonRefusal } from '../addons/addonsLogic';
 import { useAdminMenu, type GroupRow, type ItemRow, type ModifierRow } from './useAdminMenu';
 
 export function ItemModifierGroups({
@@ -64,8 +65,17 @@ export function ItemModifierGroups({
       options={modifiers.filter((m) => m.group_id === g.id && m.is_active).sort((a, b) => a.sort_order - b.sort_order)}
       offered={linked.has(g.id)}
       disabled={!can.editMenu}
-      // Switch reverts and toasts on its own when this throws.
-      onChange={(next) => toggle.mutateAsync({ groupId: g.id, link: next }).then(() => undefined)}
+      // Switch reverts and toasts on its own when this throws; a string is
+      // shown as it is. A manager's link that would make guests pay more (a
+      // paid choice made compulsory) is the owner's to make (price_promo).
+      onChange={(next) =>
+        toggle
+          .mutateAsync({ groupId: g.id, link: next })
+          .then(() => undefined)
+          .catch((e: unknown) => {
+            throw isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e;
+          })
+      }
     />
   );
 
@@ -137,7 +147,7 @@ function GroupRowView({
         background: offered ? 'var(--tp-surface-2)' : 'transparent',
       }}
     >
-      <Switch checked={offered} disabled={disabled} onChange={onChange} label={`${tr('ws.manager.menu.form.groups.offered')} — ${pickName(locale, group)}`} hideLabel style={{ marginBlockStart: '0.1rem' }} />
+      <Switch checked={offered} disabled={disabled} onChange={onChange} label={`${tr('ws.manager.menu.form.groups.offered')}: ${pickName(locale, group)}`} hideLabel style={{ marginBlockStart: '0.1rem' }} />
       <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
         <span style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'baseline', flexWrap: 'wrap' }}>
           <bdi style={{ fontWeight: 600 }}>{pickName(locale, group)}</bdi>

@@ -30,6 +30,36 @@ describe('error -> i18n mapping', () => {
     }
   });
 
+  it('maps the nine wave-5 codes in both catalogs (wave5-addendum-2026-09-25 §3)', () => {
+    const wave5 = [
+      'TRANSFER_SHORT',
+      'STORE_BEING_COUNTED',
+      'TILL_SHIFT_ALREADY_OPEN',
+      'TILL_SHIFT_STATION_BUSY',
+      'TILL_SHIFT_NOT_FOUND',
+      'TILL_SHIFT_CLOSED',
+      'TILL_SHIFT_NOT_YOURS',
+      'TILL_SHIFT_WRONG_STATION',
+      'TILL_SHIFT_UNSYNCED',
+    ] as const;
+    for (const code of wave5) {
+      expect(MAPPED_CODES.has(code), code).toBe(true);
+      const key = errorCodeToMessageKey(code);
+      expect(key).toBe(`op.errors.${code}`);
+      expect(t('en', key)).not.toBe(key);
+      expect(t('ar', key)).not.toBe(key);
+      expect(t('ar', key)).not.toBe(t('en', key));
+      // No em dash in new copy (docs/design/protocols/wave5-addendum-2026-09-25.md §4).
+      expect(t('en', key)).not.toContain('—');
+    }
+    // The two rewords now fit every raiser: a deduction against oneself, a review
+    // of one's own report, and a launched size's or paid add-on's name.
+    expect(t('en', 'op.errors.CANNOT_DECIDE_OWN')).toBe(
+      'You cannot decide something you sent or that is about you.',
+    );
+    expect(t('en', 'op.errors.PRICE_VIA_PROTOCOL')).toContain('size and add-on names');
+  });
+
   it('parses PostgREST errors: message IS the raise-exception code', () => {
     const err = toAppRpcError({
       message: 'SLOT_TAKEN',

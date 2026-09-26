@@ -19,6 +19,11 @@
  *           no day close (can.viewDrawerLog). The rest is for
  *           whoever counts the drawer.
  *
+ * Till shifts (wave5-addendum §5.1, §5.2): the cashier's page carries "Your
+ * shift" (since when, the float, the counts, End my shift, and no expected
+ * figure: the blind count); the manager's aside lists the shifts on this till
+ * today with their counts and differences (tillShift/DrawerShift).
+ *
  * The subtitle is the day this drawer belongs to ("Day opened 5:09 PM"), not
  * a description of the screen. A cash payment names the tab it was for, so
  * "18,000 IQD" can be matched to a table when the drawer is counted; the
@@ -52,6 +57,9 @@ import {
 import { Icon } from '../../components/icons';
 import { muted } from './tillStyles';
 import { DRAWER_REASONS } from './drawerReasons';
+import { TillShifts, YourShift } from '../tillShift/DrawerShift';
+import { useTillShiftOptional } from '../tillShift/shiftContext';
+import { gateBlocks } from '../tillShift/tillShiftLogic';
 
 interface DrawerEvent {
   id: string;
@@ -128,6 +136,8 @@ async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: str
 }
 
 export function CashDrawerScreen() {
+  const tillShift = useTillShiftOptional();
+  const shiftFirst = tillShift !== null && gateBlocks(tillShift.gate);
   const { tr, locale } = useLocale();
   const can = usePermissions();
   const seesLog = can.viewDrawerLog;
@@ -241,11 +251,14 @@ export function CashDrawerScreen() {
           {!day ? (
             <EmptyState icon="sun" title={tr('ws.cashier.drawer.noDay')} body={tr('ws.cashier.drawer.noDayBody')} />
           ) : (
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+            <YourShift />
             <Panel>
               <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'start' }}>
                 <p style={muted}>{tr('ws.cashier.drawer.openHint')}</p>
                 <Button
-                  kind="primary"
+                  // The shift's start leads while none is open (YourShift); then this is the page's one primary.
+                  kind={shiftFirst ? undefined : 'primary'}
                   size="lg"
                   icon="drawer"
                   busy={busy}
@@ -258,6 +271,7 @@ export function CashDrawerScreen() {
                 </Button>
               </div>
             </Panel>
+            </div>
           )}
         </AsyncStateWrapper>
         {!reasonOpen && <ErrorText error={error} />}
@@ -349,6 +363,7 @@ export function CashDrawerScreen() {
 
               <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', minBlockSize: 0, overflowY: 'auto' }}>
                 <HeadlineFigure label={tr('ws.cashier.drawer.float')} value={<Money amount={day.opening_float_iqd} />} hint={tr('ws.cashier.drawer.floatHint')} />
+                <TillShifts />
                 <Panel muted>
                   <p style={{ ...muted, marginBlockEnd: can.closeDay ? 'var(--tp-sp-2)' : 0 }}>
                     {can.closeDay ? tr('ws.cashier.drawer.dayCloseHint') : tr('ws.cashier.drawer.dayCloseByManager')}

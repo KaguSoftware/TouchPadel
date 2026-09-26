@@ -66,6 +66,8 @@ export interface BookingRow {
    */
   court_paid_iqd?: number | null;
   court_remaining_iqd?: number | null;
+  /** The booking's own branch (app.my_reservations, 0235). Optional: an older cached row has none. */
+  venue_id?: string | null;
   /**
    * When the booking stopped being live — cancelled, marked no-show, or
    * closed as played (0075 sets it for all three). This is the moment it

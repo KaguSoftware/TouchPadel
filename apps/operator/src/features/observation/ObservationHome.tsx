@@ -6,9 +6,12 @@
  *
  *  1. **Is anything waiting on me?** One list, in the /ops "needs you now"
  *     shape: how many, what, what to do about it in a sentence, and one button
- *     to the screen that resolves it. Three things in Observe stop until the
+ *     to the screen that resolves it. These things in Observe stop until the
  *     owner acts, and nothing else in the venue will surface them:
  *       - staff requests (a person is waiting for an answer);
+ *       - protocol steps to decide or to do (app.protocols_waiting_count,
+ *         the rail badge's own read), and new staff suggestions
+ *         (build-contracts-2026-09-23 §5.4);
  *       - scheduled campaigns whose start date has passed, and live campaigns
  *         whose last day has passed. Nothing moves a campaign's status on its
  *         own (app.set_campaign_status is the only writer), so a campaign
@@ -24,7 +27,8 @@
  *
  * Figures come from reads the other Observe screens already make:
  * `ops_overview` (the Floor now screen's, under the same query key so the two
- * share a cache), `staff_requests_page` and `marketing_overview`.
+ * share a cache), `staff_requests_page`, `marketing_overview`, and the rail
+ * badges' QK.protocolsWaiting and QK.suggestionsNew.
  */
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -43,10 +47,25 @@ import { alertsFor, normalizeOverview } from '../ops/opsLogic';
 import { MARKETING_QUERY_KEY, overdueCampaigns, type MarketingOverview } from '../marketing/marketingTypes';
 import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from './requestTypes';
 import { LiveFloor } from '../floor/LiveFloor';
+import { QK } from '../../lib/queryKeys';
+import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../ops/protocolsWaiting';
+import { fetchSuggestionsNew } from '../roleExtras/api';
+import { newSuggestionCount } from '../roleExtras/roleExtrasLogic';
+import { usePeopleRecordCounts } from '../deductions/peopleRecordCounts';
+import { useShiftDifferences } from '../tillShift/useShiftDifferences';
 
 type CardKey =
   | 'floorNow' | 'bookings' | 'tills'
-  | 'staffActivity' | 'requests' | 'marketing' | 'audit';
+  | 'staffActivity' | 'requests' | 'protocols' | 'suggestions' | 'marketing' | 'audit'
+  // Wave 5 (wave5-addendum-2026-09-25 §5.2): their card words live with their screens.
+  | 'deductions' | 'incidents';
+
+/** A card's words: the wave-5 screens keep theirs in their own catalogs. */
+function cardKey(key: CardKey): MessageKey {
+  if (key === 'deductions') return 'ws.deductions.card';
+  if (key === 'incidents') return 'ws.incidents.card';
+  return `ws.owner.observationHome.cards.${key}`;
+}
 
 export function ObservationHomeScreen() {
   const { tr, locale } = useLocale();
@@ -69,6 +88,14 @@ export function ObservationHomeScreen() {
     queryFn: async () => normalizeOverview(await appRpc<unknown>('ops_overview')),
     refetchInterval: OPS_REFETCH_MS,
   });
+  const canProtocols = canAccess(staff?.role, '/protocols');
+  const canSuggestions = canAccess(staff?.role, '/suggestions');
+  const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000, enabled: canProtocols });
+  const suggestionsQ = useQuery({ queryKey: QK.suggestionsNew, queryFn: fetchSuggestionsNew, refetchInterval: 60_000, enabled: canSuggestions });
+  // Wave 5: deductions to decide, incidents to review, posts to approve.
+  const people = usePeopleRecordCounts();
+  // Wave 5, till shifts (§5.2, §8 Q27): today's closed short or over, to Day close.
+  const shiftDiffs = useShiftDifferences(canAccess(staff?.role, '/admin/day-close'));
 
   const count = (n: number) => <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(n, locale)}</strong>;
   const line = (label: MessageKey, n: number) => (
@@ -102,6 +129,14 @@ export function ObservationHomeScreen() {
         return floor ? line('ws.owner.observationHome.status.openTabs', floor.cafe.openTabs) : null;
       case 'marketing':
         return marketingQ.data ? line('ws.owner.observationHome.status.liveCampaigns', marketingQ.data.counts.live) : null;
+      case 'protocols':
+        return protocolsQ.data !== undefined ? line('ws.owner.observationHome.status.waitingOnYou', protocolsWaitingTotal(protocolsQ.data)) : null;
+      case 'suggestions':
+        return suggestionsQ.data !== undefined ? line('ws.owner.observationHome.status.newSuggestions', newSuggestionCount(suggestionsQ.data)) : null;
+      case 'deductions':
+        return people.deductions !== undefined ? line('ws.deductions.tab.waiting', people.deductions) : null;
+      case 'incidents':
+        return people.incidents !== undefined ? line('ws.incidents.filter.open', people.incidents) : null;
       default:
         return null;
     }
@@ -112,11 +147,18 @@ export function ObservationHomeScreen() {
       sectionKey="observation"
       fullWidth
       title={tr('ws.owner.observationHome.title')}
-      card={(key) => tr(`ws.owner.observationHome.cards.${key as CardKey}`)}
+      card={(key) => tr(cardKey(key as CardKey))}
       status={status}
       screensTitle={tr('ws.owner.observationHome.screens')}
     >
-      <WaitingOnYou pendingQ={pendingQ} marketingQ={canMarketing ? marketingQ : null} />
+      <WaitingOnYou
+        pendingQ={pendingQ}
+        marketingQ={canMarketing ? marketingQ : null}
+        protocolsQ={canProtocols ? protocolsQ : null}
+        suggestionsQ={canSuggestions ? suggestionsQ : null}
+        people={people}
+        shiftDiffs={shiftDiffs}
+      />
       <div style={{ blockSize: 'var(--tp-sp-4)' }} />
       {/* After what needs a decision, what the floor is doing right now (owner
           request, 2026-09-18). The Bookings and Tills cards below are the way
@@ -137,19 +179,33 @@ interface Waiting {
   icon: IconName;
 }
 
+type Read<T> = { data?: T; isPending: boolean; isError: boolean; refetch: () => unknown };
+
 function WaitingOnYou({
   pendingQ,
   marketingQ,
+  protocolsQ,
+  suggestionsQ,
+  people,
+  shiftDiffs,
 }: {
-  pendingQ: { data?: StaffRequestsPage; isPending: boolean; isError: boolean; refetch: () => unknown };
+  pendingQ: Read<StaffRequestsPage>;
   /** Null when the viewer may not open marketing at all. */
-  marketingQ: { data?: MarketingOverview; isPending: boolean; isError: boolean; refetch: () => unknown } | null;
+  marketingQ: Read<MarketingOverview> | null;
+  /** app.protocols_waiting_count and the suggestion box's New count; null when the viewer may not open them. */
+  protocolsQ: Read<unknown> | null;
+  suggestionsQ: Read<unknown> | null;
+  /** Wave 5: the people-record counts, each present only for a role its read admits. */
+  people: ReturnType<typeof usePeopleRecordCounts>;
+  /** Wave 5: today's till shifts closed short or over; no read for a role that cannot open Day close. */
+  shiftDiffs: ReturnType<typeof useShiftDifferences>;
 }) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
 
-  const loading = pendingQ.isPending || (marketingQ?.isPending ?? false);
-  const failed = [pendingQ, marketingQ].filter((q): q is NonNullable<typeof q> => q !== null && q.isError);
+  const reads = [pendingQ, marketingQ, protocolsQ, suggestionsQ, ...people.reads, shiftDiffs.read].filter((q): q is Read<unknown> => q !== null);
+  const loading = reads.some((q) => q.isPending);
+  const failed = reads.filter((q) => q.isError);
 
   const rows: Waiting[] = [];
   const pending = pendingQ.data?.pending ?? 0;
@@ -163,6 +219,47 @@ function WaitingOnYou({
       href: '/observation/requests',
       icon: 'bell',
     });
+  }
+  // A step waits on a decision the owner makes; it sits right after the
+  // requests, which are the other thing a person is held up on.
+  const protocols = protocolsQ?.data !== undefined ? protocolsWaitingTotal(protocolsQ.data) : 0;
+  if (protocols > 0) {
+    rows.push({
+      key: 'protocols',
+      count: protocols,
+      title: 'ws.manager.ops.now.protocols',
+      hint: 'ws.manager.ops.now.protocolsHint',
+      action: 'ws.manager.ops.now.protocolsAction',
+      href: '/protocols?filter=waiting',
+      icon: 'split',
+    });
+  }
+  const suggestions = suggestionsQ?.data !== undefined ? newSuggestionCount(suggestionsQ.data) : 0;
+  if (suggestions > 0) {
+    rows.push({
+      key: 'suggestions',
+      count: suggestions,
+      title: 'ws.rolePages.suggestions.waiting',
+      hint: 'ws.rolePages.suggestions.waitingHint',
+      action: 'ws.rolePages.suggestions.waitingAction',
+      href: '/suggestions',
+      icon: 'note',
+    });
+  }
+  // Wave 5 (§5.2): a deduction waits on a decision like a request; an
+  // incident waits on a review note; a post waits on the owner's answer.
+  for (const [key, n, href, icon] of [
+    ['deductions', people.deductions ?? 0, '/deductions', 'banknote'],
+    ['incidents', people.incidents ?? 0, '/incidents', 'alert'],
+    ['content', people.content ?? 0, '/marketing', 'spark'],
+  ] as const) {
+    if (n > 0) {
+      rows.push({ key, count: n, title: `ws.${key}.waiting.title`, hint: `ws.${key}.waiting.hint`, action: `ws.${key}.waiting.action`, href, icon });
+    }
+  }
+  // Wave 5, till shifts (§5.2): a difference waits on someone asking why.
+  if (shiftDiffs.count > 0) {
+    rows.push({ key: 'tillShifts', count: shiftDiffs.count, title: 'ws.tillShift.ops.title', hint: 'ws.tillShift.ops.hint', action: 'ws.tillShift.ops.action', href: '/admin/day-close', icon: 'drawer' });
   }
   if (marketingQ?.data) {
     const { toStart, toEnd } = overdueCampaigns(marketingQ.data.campaigns, Date.now());
@@ -210,7 +307,7 @@ function WaitingOnYou({
                 <strong>{tr(r.title)}</strong>
                 <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(r.hint)}</span>
               </span>
-              <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: r.href })}>
+              <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ href: r.href })}>
                 {tr(r.action)}
               </Button>
             </li>

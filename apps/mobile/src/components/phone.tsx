@@ -33,7 +33,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { CountryPickerNative } from './phone.ios-picker';
-import { REDUCED_MOTION_MS } from '../features/courtTransition/spec';
+import { REDUCED_MOTION_MS } from '@touch/court3d/spec';
 import { Text } from '../i18n/text';
 import { useLocale, useLocaleSwitch } from '../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../theme';

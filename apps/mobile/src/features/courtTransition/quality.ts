@@ -12,9 +12,12 @@
  * the platforms have their own lines. An Android phone that reports nothing
  * is assumed low-end; an iPhone that reports nothing is a model newer than
  * expo-device's table, so it is assumed fine. Pure: unit-tested; the
- * expo-device reads live in deviceQuality.ts.
+ * expo-device reads live in deviceQuality.ts. The two builds themselves are the
+ * shared court's (@touch/court3d/quality).
  */
-export type CourtQuality = 'full' | 'lite';
+import type { CourtQuality } from '@touch/court3d/quality';
+
+export type { CourtQuality };
 
 export type CourtOS = 'ios' | 'android' | 'other';
 

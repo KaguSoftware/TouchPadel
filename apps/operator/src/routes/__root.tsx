@@ -3,7 +3,7 @@
  * WorkspaceSwitcher entry, SessionLockScreen, WorkspaceShell with the
  * per-workspace navigation rail and the global DegradedBanner region.
  *
- * Five workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
+ * Six workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
  * (lib/workspaces.ts), never by filtering one shared menu. The prep workspace
  * renders no navigation at all — a wall-mounted kitchen screen has nothing to
  * get lost in.
@@ -15,6 +15,7 @@
  */
 import { Link, Outlet, createRootRoute, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
@@ -27,7 +28,9 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { useAuth, canAccess, homeRoute, type StaffRole } from '../lib/auth';
+import { useQuery } from '@tanstack/react-query';
+import { formatNumber } from '@touch/i18n';
+import { useAuth, can, canAccess, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { useThemeMode } from '../lib/themeMode';
 import {
@@ -42,13 +45,27 @@ import {
   workspacesForRole,
   type NavGroup,
   type NavItem,
+  type NavSection,
   type WorkspaceKey,
 } from '../lib/workspaces';
+import { QK } from '../lib/queryKeys';
+import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../features/ops/protocolsWaiting';
+import { fetchSuggestionsNew } from '../features/roleExtras/api';
+import { newSuggestionCount } from '../features/roleExtras/roleExtrasLogic';
+// Wave 5, people records: the rail's three counts (wave5-addendum-2026-09-25 §5.2).
+import { fetchDeductionsWaiting } from '../features/deductions/api';
+import { deductionsWaitingCount } from '../features/deductions/deductionsLogic';
+import { fetchIncidentsOpen } from '../features/incidents/api';
+import { incidentsOpenCount } from '../features/incidents/incidentsLogic';
+import { fetchContentWaiting } from '../features/content/api';
+import { contentWaitingCount } from '../features/content/contentLogic';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
 import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
 import { RailMoreMenu } from '../components/RailMoreMenu';
+import { RailBranch } from '../components/RailBranch';
+import { useVenue } from '../lib/venue';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
 import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
@@ -56,7 +73,7 @@ import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
-import { touch, type UpdateReadyInfo } from '../ipc/bridge';
+import { touch, type LeaveResult, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
 import { isElectron } from '../lib/mutate';
@@ -69,6 +86,10 @@ import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
+import { ShiftProvider } from '../features/tillShift/ShiftProvider';
+import { ShiftRailControl } from '../features/tillShift/ShiftRailControl';
+import { useTillShift } from '../features/tillShift/shiftContext';
+import { LockLeaveGuard } from '../features/tillShift/LockLeaveGuard';
 
 export const rootRoute = createRootRoute({
   component: RootProviders,
@@ -328,6 +349,9 @@ function NotStaffScreen({ email, onSignOut }: { email: string | null; onSignOut:
 // WorkspaceShell — rail + banner region + routed screen
 // ---------------------------------------------------------------------------
 function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatState | null }) {
+  // Every screen remounts when the branch changes, so no editor keeps a draft
+  // seeded from the last branch and saves it into this one.
+  const { branchId } = useVenue();
   const available = useMemo(() => workspacesForRole(role), [role]);
   const [active, setActiveState] = useState<WorkspaceKey>(() => loadWorkspace(role));
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -359,9 +383,16 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   const value = useMemo(() => ({ active, available, setActive }), [active, available, setActive]);
   const workspace = WORKSPACES[active];
   const noNav = workspace.groups.length === 0;
-  // The kitchen board is a wall-mounted screen: no traffic lights over its
-  // header, and so no room to reserve for them either. Both follow noNav, and
-  // both are restored the moment the operator leaves the board.
+  // The dark wall-screen theme belongs to the BOARD, not to every screen of
+  // the navless workspace: the bar and kitchen roles open My tasks from the
+  // board's header (/tasks, build-contracts-2026-09-23 §5.1), and a desk page
+  // on the board's black ground would be unreadable. The page carries its own
+  // way back to the board.
+  const board = noNav && (path === '/kds' || path.startsWith('/kds/'));
+  // The kitchen screen is wall-mounted: no traffic lights over its header, and
+  // so no room to reserve for them either. Both follow noNav, not the board:
+  // My tasks opened from it has no rail to keep the lights off its title
+  // either. Both are restored the moment the operator leaves the workspace.
   useEffect(() => {
     touch.pushChromeless(noNav);
   }, [noNav]);
@@ -391,15 +422,18 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           locks: the rail row starts a break, the overlay owns the station
           while somebody is away, and the idle lock defers to it. */}
       <BreakProvider>
+      {/* Till shifts (wave5-addendum §2.9): the station's shift, read once for
+          the rail row, the payment pane's gate and the leaving guard. Offline
+          (the beat itself failed) the gate fails open. */}
+      <ShiftProvider offline={venue?.error != null}>
       {/* The owner assistant's drawer (docs/design/assistant §5.1) is one
           sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
           and it is mounted once, beside the break overlay. */}
       <AssistantDrawerProvider>
       <div
-        data-workspace={active}
-        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
+        data-workspace={noNav && !board ? undefined : active}
+        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
       >
-        <SkipToMain />
         <IdleLock />
         <BreakOverlay />
         <AssistantDrawer />
@@ -434,62 +468,118 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
                 paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
               }}
             >
-              <Outlet />
+              <Fragment key={branchId ?? 'no-branch'}>
+                <Outlet />
+              </Fragment>
             </main>
           </div>
         </div>
       </div>
       </AssistantDrawerProvider>
+      </ShiftProvider>
       </BreakProvider>
     </WorkspaceContext.Provider>
   );
 }
 
 /**
- * The first thing a keyboard reaches on every screen. The owner's rail renders
- * 17 links and four footer controls ahead of the routed content, so without it
- * every navigation costs up to 21 Tab presses on a workspace PRODUCT.md calls
- * keyboard-first. Invisible until it is focused, so a mouse never meets it.
- *
- * It moves focus to #tp-main itself instead of letting the browser follow the
- * fragment: a bare hash href would push '#tp-main' into the router's location
- * and leave it hanging off every URL after it.
+ * A rail row's live count (NavItem.badge): what waits on the signed-in person
+ * behind that row (build-contracts-2026-09-23 §5.1, §5.4). Each badge is one
+ * shared read, refetched every minute and on focus, so every row and screen
+ * that shows the same count agrees with the others.
  */
-function SkipToMain() {
-  const { tr } = useLocale();
-  const [shown, setShown] = useState(false);
+function useNavBadge(badge: NavItem['badge'] | undefined): number {
+  return useBadgeSum(badge ? [badge] : []);
+}
+
+/**
+ * What a set of rows counts between them: a section's button (Observe) and a
+ * closed rail group (the manager's Run the day) show it, so a count is never
+ * tucked away where the operator cannot see it.
+ */
+function useRowsBadge(items: readonly NavItem[]): number {
+  return useBadgeSum(items.filter((i) => !i.hidden).map((i) => i.badge));
+}
+
+/**
+ * The sum of the named badges' counts, one shared read each. A wave-5 count
+ * (wave5-addendum-2026-09-25 §5.2) is read only by the role that acts on it:
+ * the Incidents row sits on the desk's and the till's rail too, and
+ * app.incidents_page would refuse them, so theirs carries no count.
+ */
+function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number {
+  const { staff } = useAuth();
+  const on = new Set(badges);
+  const protocols = useQuery({
+    queryKey: QK.protocolsWaiting,
+    queryFn: fetchProtocolsWaiting,
+    enabled: on.has('protocolsWaiting'),
+    refetchInterval: 60_000,
+  });
+  const suggestions = useQuery({
+    queryKey: QK.suggestionsNew,
+    queryFn: fetchSuggestionsNew,
+    enabled: on.has('suggestionsNew'),
+    refetchInterval: 60_000,
+  });
+  // A row counts only what it names: a disabled query still hands back what
+  // another row cached under the same key, so the flag gates the sum too.
+  const deductionsOn = on.has('deductionsWaiting') && can(staff?.role, 'decideDeductions');
+  const incidentsOn = on.has('incidentsOpen') && can(staff?.role, 'reviewIncidents');
+  const contentOn = on.has('contentWaiting') && can(staff?.role, 'decideContent');
+  const deductions = useQuery({
+    queryKey: QK.deductionsWaiting,
+    queryFn: fetchDeductionsWaiting,
+    enabled: deductionsOn,
+    refetchInterval: 60_000,
+  });
+  const incidents = useQuery({
+    queryKey: QK.incidentsOpen,
+    queryFn: fetchIncidentsOpen,
+    enabled: incidentsOn,
+    refetchInterval: 60_000,
+  });
+  const content = useQuery({
+    queryKey: QK.contentWaiting,
+    queryFn: fetchContentWaiting,
+    enabled: contentOn,
+    refetchInterval: 60_000,
+  });
   return (
-    <a
-      href="#tp-main"
-      className={shown ? undefined : 'tp-sr-only'}
-      onFocus={() => setShown(true)}
-      onBlur={() => setShown(false)}
-      onClick={(e) => {
-        e.preventDefault();
-        document.getElementById('tp-main')?.focus();
-      }}
-      style={
-        shown
-          ? {
-              position: 'fixed',
-              insetBlockStart: 'var(--tp-sp-2)',
-              insetInlineStart: 'var(--tp-sp-2)',
-              zIndex: 'var(--tp-z-popover)',
-              background: 'var(--tp-surface)',
-              color: 'var(--tp-accent)',
-              border: '1px solid var(--tp-border-input)',
-              borderRadius: 'var(--tp-radius-ctl)',
-              boxShadow: 'var(--tp-shadow-popover)',
-              paddingBlock: 'var(--tp-sp-2)',
-              paddingInline: 'var(--tp-sp-3)',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }
-          : undefined
-      }
-    >
-      {tr('ws.shell.nav.skipToMain')}
-    </a>
+    (on.has('protocolsWaiting') ? protocolsWaitingTotal(protocols.data) : 0) +
+    (on.has('suggestionsNew') ? newSuggestionCount(suggestions.data) : 0) +
+    (deductionsOn && deductions.isSuccess ? deductionsWaitingCount(deductions.data) : 0) +
+    (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
+    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0)
+  );
+}
+
+/** The count at a row's end: nothing at zero, so a quiet rail stays quiet. */
+function RailCount({ count }: { count: number }) {
+  const { tr, locale } = useLocale();
+  if (count <= 0) return null;
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        style={{
+          flexShrink: 0,
+          minInlineSize: '1.4rem',
+          paddingInline: 'var(--tp-sp-1-5)',
+          borderRadius: 'var(--tp-radius-pill)',
+          background: 'var(--tp-rail-green)',
+          color: 'var(--tp-rail)',
+          fontSize: 'var(--tp-fs-xs)',
+          fontWeight: 700,
+          lineHeight: 1.6,
+          textAlign: 'center',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {formatNumber(count, locale)}
+      </span>
+      <span className="tp-sr-only">{tr('ws.shell.nav.badge', { count: formatNumber(count, locale) })}</span>
+    </>
   );
 }
 
@@ -497,6 +587,7 @@ function SkipToMain() {
 function RailLink({ item, path }: { item: NavItem; path: string }) {
   const { tr } = useLocale();
   const active = isNavActive(item, path);
+  const count = useNavBadge(item.badge);
   return (
     <Link
       to={item.to}
@@ -509,6 +600,23 @@ function RailLink({ item, path }: { item: NavItem; path: string }) {
       <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {tr(`ws.shell.nav.${item.labelKey}`)}
       </span>
+      <RailCount count={count} />
+    </Link>
+  );
+}
+
+/** A section's row on the workspace rail: it opens a place, so a forward chevron, and its count. */
+function SectionLink({ section }: { section: NavSection }) {
+  const { tr } = useLocale();
+  const count = useRowsBadge(section.items);
+  return (
+    <Link to={section.home} className="tp-nav-item" style={navItemStyle}>
+      <Icon name={section.icon} size={17} />
+      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {tr(`ws.shell.section.${section.key}`)}
+      </span>
+      <RailCount count={count} />
+      <ChevronForward size={14} />
     </Link>
   );
 }
@@ -567,6 +675,8 @@ function RailGroup({
 }) {
   const { tr } = useLocale();
   const listId = `rail-group-${labelKey}`;
+  // Open, the rows show their own counts.
+  const count = useRowsBadge(items);
 
   return (
     <div style={{ display: 'grid' }}>
@@ -581,6 +691,7 @@ function RailGroup({
         <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {tr(`ws.shell.nav.${labelKey}`)}
         </span>
+        {!open && <RailCount count={count} />}
         <span className="tp-rail-group-chevron" style={{ display: 'inline-flex' }}>
           <Icon name="chevronDown" size={14} />
         </span>
@@ -613,6 +724,7 @@ function WorkspaceNav({
   const { tr } = useLocale();
   const { staff, signOut } = useAuth();
   const { available } = useWorkspace();
+  const tillShift = useTillShift();
   const station = touch.getStation();
   const workspace = WORKSPACES[workspaceKey];
   // Only the jokers change workspace (owner call, 2026-09-18): a cashier or a
@@ -636,6 +748,9 @@ function WorkspaceNav({
   // one press on the rail foot and it ends the shift, so a stray touch while
   // reaching for the identity block should not drop the till to a sign-in.
   const confirmSignOut = async () => {
+    // Wave 5 §5.1: with the person's own till shift open here, Sign out asks
+    // about the drawer instead (End my shift, Sign out anyway, Cancel).
+    if (tillShift.guardSignOut(() => void signOut())) return;
     const ok = await confirm({
       title: tr('ws.shell.nav.signOutTitle'),
       body: tr('ws.shell.nav.signOutBody'),
@@ -714,8 +829,21 @@ function WorkspaceNav({
               macOS traffic lights, and at 26 the lockup read as small against
               it. Still below the sign-in screen's 40, which is the hero. */}
           <BrandLockup size={34} tone="onDark" />
-          {/* The way out of a section, in the place a browser back button
-              would be and above the name of where you are. Sizing, surface and
+          {/* The title sits straight under the lockup; in a section the back
+              control follows the lead, below. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
+            <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
+              <Icon name={section ? section.icon : workspace.icon} size={16} />
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
+              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
+            </span>
+          </div>
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
+            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
+          </p>
+          {/* The way out of a section, below the name of where you are and
+              its lead, so the title reads first. Sizing, surface and
               colour live in .tp-rail-back (GlobalStyles) — this is a control,
               not a footnote: a section is somewhere the operator passes
               through, so leaving it is the most-pressed row on the panel. */}
@@ -742,21 +870,8 @@ function WorkspaceNav({
               </span>
             </button>
           )}
-          {/* One gap either way now. The section case used to be tightened to
-              --tp-sp-1 so the back link read as part of the title below it;
-              the back link is a bordered control now, and crowding a title
-              against its edge just looks like a mistake. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
-            <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
-              <Icon name={section ? section.icon : workspace.icon} size={16} />
-            </span>
-            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
-              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
-            </span>
-          </div>
-          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
-            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
-          </p>
+          {/* Multi-venue slice 4: which branch this screen is for (a switcher for the owner). */}
+          <RailBranch />
         </div>
       </div>
 
@@ -814,13 +929,7 @@ function WorkspaceNav({
             {sections.length > 0 && (
               <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
                 {sections.map((sec) => (
-                  <Link key={sec.key} to={sec.home} className="tp-nav-item" style={navItemStyle}>
-                    <Icon name={sec.icon} size={17} />
-                    <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {tr(`ws.shell.section.${sec.key}`)}
-                    </span>
-                    <ChevronForward size={14} />
-                  </Link>
+                  <SectionLink key={sec.key} section={sec} />
                 ))}
               </div>
             )}
@@ -856,6 +965,13 @@ function WorkspaceNav({
         {/* 0105: "Go on break" / "{name} is back". Same box as the rows above
             it; its caption uses the identity block's muted line. */}
         <BreakRailControl
+          style={navButtonStyle}
+          captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
+        />
+
+        {/* Wave 5 §5.1: the till shift, under the break row and drawn the same
+            way: "Start my shift", or "End my shift" over "My shift · since …". */}
+        <ShiftRailControl
           style={navButtonStyle}
           captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
         />
@@ -914,9 +1030,19 @@ function WorkspaceNav({
             className="tp-rail-btn"
             style={{
               flexShrink: 0,
-              /* The 1.85rem square is one line taller than the name it sits
-                 beside, so a flush top sets it a touch high. Half that
-                 difference puts its glyph on the name's optical centre. */
+              /* The full touch target on EVERY rail, not just the two that get
+                 it from [data-workspace='cashier'|'prep'] in GlobalStyles
+                 (owner call, 2026-09-23). Sign out ends the shift and it is
+                 the one control on the rail with no label to aim at, so the
+                 desk clerk and the manager get the same square the till has
+                 always had. Set here rather than by dropping size="sm",
+                 because the size also carries the glyph and padding scale the
+                 rail's other footer rows are drawn at. */
+              inlineSize: 'var(--tp-touch)',
+              minBlockSize: 'var(--tp-touch)',
+              /* The square is taller than the name it sits beside, so a flush
+                 top sets it a touch high. Half that difference puts its glyph
+                 on the name's optical centre. */
               marginBlockStart: '-0.1rem',
               /* Pull the border box onto the rail's true end edge, so the
                  button's edge lines up with RAIL_EDGE the way every other
@@ -995,6 +1121,11 @@ function IdleLock() {
    */
   const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
   const [ownerBack, setOwnerBack] = useState(false);
+  // Wave 5 §5.1, the leaving guard: Switch user with the signed-in person's
+  // own till shift open here asks first, inside this card. A dialog over the
+  // lock would sit under it (--tp-z-lock), and the lock is not closable.
+  const tillShift = useTillShift();
+  const [leaving, setLeaving] = useState(false);
   const timeoutS = settings.till_idle_lock_seconds;
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState('');
@@ -1074,6 +1205,7 @@ function IdleLock() {
     // not have on the very next idle timeout, which is the whole gap.
     setUsePassword(hasPin === false);
     setOwnerBack(false);
+    setLeaving(false);
     setError(null);
     setEmpty(false);
     lastActivity.current = Date.now();
@@ -1153,9 +1285,11 @@ function IdleLock() {
         refocus();
         return;
       }
-      // Only an authorising role's pin feeds the offline manager-pin cache.
+      // Only an authorising role's pin feeds the offline manager-pin cache,
+      // tagged as this person's own: offline, it is what stops them letting
+      // themselves out of the station with it (Quit / Exit full screen).
       if (staff && (staff.role === 'manager' || staff.role === 'owner')) {
-        touch.pinObserved(pin);
+        touch.pinObserved(pin, staff.id);
       }
       clearAndUnlock();
     } catch (e) {
@@ -1373,11 +1507,15 @@ function IdleLock() {
               button keep its natural width; the card is 24rem and the label
               fits, and a name long enough to exceed it now widens the button
               rather than folding the glyph off its line. */}
+          {leaving ? (
+            /* The leaving guard, in place of the way off it guards. */
+            <LockLeaveGuard name={staff.displayName} onBack={() => setLeaving(false)} onSignOut={() => void signOut()} />
+          ) : (
           <div style={{ display: 'flex', justifyContent: 'center', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
             <Button
               kind="ghost"
               size="sm"
-              onClick={() => void signOut()}
+              onClick={() => (tillShift.mineHere ? setLeaving(true) : void signOut())}
               disabled={busy}
               style={{ flexShrink: 0, maxInlineSize: '100%' }}
             >
@@ -1394,6 +1532,7 @@ function IdleLock() {
               <bdi style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr('ws.shell.lock.switchUser', { name: staff.displayName })}</bdi>
             </Button>
           </div>
+          )}
         </div>
       </div>
     </div>
@@ -1411,10 +1550,12 @@ function IdleLock() {
  * that was Quit, which ends service to answer a question that did not need
  * service ended.
  *
- * So this leaves the kiosk and leaves the app running. No confirmation and no
- * PIN: nothing is lost, the station keeps trading, and the operator can drop
- * back to full screen from the OS. It is deliberately quieter than Quit —
- * same muted rail weight, no danger colour — because it is the reversible one.
+ * So this leaves the kiosk and leaves the app running. Nothing is lost and
+ * the station keeps trading, but it is still leaving: on a locked station it
+ * takes a manager's PIN that is not the signed-in person's own (owner call,
+ * 2026-09-23 — staff are kept inside the app), and main locks the window
+ * again at the next sign-in or sign-out. It stays quieter than Quit — same
+ * muted rail weight, no danger colour — because it is the reversible one.
  *
  * Electron fixes `frame` at window creation, so a production window cannot
  * grow a titlebar here; main compensates by resizing it off full-bleed, which
@@ -1424,6 +1565,9 @@ function IdleLock() {
  */
 function ExitFullscreen() {
   const { tr } = useLocale();
+  const { staff } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   // Only while the window IS full screen. Windowed, the macOS traffic lights
@@ -1438,18 +1582,28 @@ function ExitFullscreen() {
 
   if (typeof window === 'undefined' || !window.touch) return null;
   if (!fullscreen) return null;
+  const locked = touch.getStation().locked === true;
+
+  function close() {
+    setOpen(false);
+    setPin('');
+    setError(null);
+  }
 
   async function exit() {
     setBusy(true);
     setError(null);
     try {
-      const res = await touch.exitFullscreen();
-      if (!res.ok) throw new Error(res.error ?? 'refused');
+      if (locked) await proveLeavePin(pin, staff?.id ?? null);
+      const refusal = leaveRefusal(await touch.exitFullscreen(pin));
+      if (refusal) throw refusal;
       // No success line: the window visibly leaving full screen IS the
       // feedback, and a rail that keeps a sentence around after the fact only
       // adds something to ignore. A failure still speaks, below.
+      close();
     } catch (e) {
       setError(e);
+      setPin('');
     } finally {
       setBusy(false);
     }
@@ -1460,19 +1614,108 @@ function ExitFullscreen() {
       <button
         type="button"
         className="tp-nav-item"
-        onClick={() => void exit()}
+        onClick={() => (locked ? setOpen(true) : void exit())}
         disabled={busy}
         style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)' }}
       >
         <Icon name="shrink" size={16} />
         <span>{tr('ws.shell.nav.exitFullscreen')}</span>
       </button>
-      {error != null && (
+      {!locked && error != null && (
         <div style={{ paddingInline: RAIL_ITEM_PAD }}>
           <ErrorText error={error} />
         </div>
       )}
+      {open && (
+        <Modal
+          title={tr('ws.shell.nav.exitFullscreen')}
+          size="sm"
+          onClose={close}
+          footer={
+            <>
+              <Button onClick={close}>{tr('common.back')}</Button>
+              <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void exit()}>
+                {tr('ws.shell.nav.exitFullscreen')}
+              </Button>
+            </>
+          }
+        >
+          <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void exit()} />
+          <ErrorText error={error} />
+        </Modal>
+      )}
     </>
+  );
+}
+
+/**
+ * Staff are kept inside the app (owner call, 2026-09-23): on a locked station
+ * (StationInfo.locked — every configured production one) Quit and Exit forced
+ * full screen take a manager's PIN, and never the signed-in person's own.
+ *
+ * Signed in, the PIN is proved to verify_manager_pin first. It returns the
+ * manager's id, which is how "not your own" is told, and the PIN is then
+ * cached tagged with that id so main — which re-checks every exit against the
+ * offline cache (pin-cache.ts mayLeave) — can tell the same thing offline.
+ * Offline, the call fails as UNKNOWN and main's cache is the whole check.
+ * Signed out there is no session to ask the server with, and no "own" to
+ * exclude: main's cache alone decides.
+ */
+async function proveLeavePin(pin: string, signedInStaffId: string | null): Promise<void> {
+  if (!signedInStaffId) return;
+  try {
+    const authorizer = await appRpc<string | null>('verify_manager_pin', {
+      p_pin: pin,
+      p_device_id: touch.getStation().stationId,
+    });
+    // null is a wrong PIN (the function raises only for a lockout or a
+    // non-staff caller); refused before the cache can learn it.
+    if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
+    if (authorizer === signedInStaffId) throw new AppRpcError('PIN_OWN', 'PIN_OWN');
+    touch.pinObserved(pin, authorizer);
+  } catch (e) {
+    if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+  }
+}
+
+/** Main's answer to quitApp / exitFullscreen, as the error the dialog shows (null: let out). */
+function leaveRefusal(res: LeaveResult): Error | null {
+  if (res.ok) return null;
+  if (res.error === 'own pin') return new AppRpcError('PIN_OWN', res.error);
+  // The same fact the server states as PIN_INVALID, so it reads "Incorrect
+  // PIN." — at sign-in the cache is the only check that ran.
+  if (res.error === 'pin not recognised') return new AppRpcError('PIN_INVALID', res.error);
+  return new Error(res.error);
+}
+
+function LeavePinField({
+  pin,
+  setPin,
+  busy,
+  onEnter,
+}: {
+  pin: string;
+  setPin: (pin: string) => void;
+  busy: boolean;
+  onEnter: () => void;
+}) {
+  const { tr } = useLocale();
+  return (
+    <Field label={tr('ws.shell.nav.leavePin')} hint={tr('ws.shell.nav.leavePinHint')}>
+      <input
+        style={inputStyle}
+        type="password"
+        inputMode="numeric"
+        autoComplete="off"
+        dir="ltr"
+        autoFocus
+        maxLength={12}
+        disabled={busy}
+        value={pin}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+        onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && onEnter()}
+      />
+    </Field>
   );
 }
 
@@ -1480,11 +1723,11 @@ function ExitFullscreen() {
  * "Quit to desktop" (design-arch §2.5) — production kiosk windows are not
  * closable any other way. Hidden entirely in browser mode.
  *
- * NO CREDENTIAL. This sat behind the manager PIN (verify_manager_pin online,
- * main's offline cache otherwise) so a till could not be casually ended. That
- * gate is gone by request: what remains is a plain confirmation that names the
- * cost, and main exits on the word of the renderer alone. The dialog is the
- * whole protection against a stray tap now, which is why it stays.
+ * MANAGER PIN, NOT YOUR OWN. The PIN gate was taken off by request once, and
+ * is back (owner call, 2026-09-23): staff are kept inside the app, so on a
+ * locked station the dialog names the cost AND takes a manager's PIN that is
+ * not the signed-in person's (proveLeavePin; main re-checks it). In dev and
+ * on first run it is the plain confirmation it was.
  *
  * Rulebook 7.8: it carries its own separator and its own muted weight because
  * it ENDS SERVICE on this till, and it used to sit directly beneath "Sign out"
@@ -1503,9 +1746,15 @@ function ExitFullscreen() {
  */
 function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'windowClose' }) {
   const { tr } = useLocale();
+  const { staff } = useAuth();
   const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // With an update waiting, Quit installs it and the app opens again on it
+  // (main/updater.ts installOnQuit): someone quitting to reach the desktop
+  // is told before the app comes back on its own.
+  const update = useUpdateReady();
   // The sign-in variant sits in the top INLINE-END corner, inside the band
   // the window-drag strip covers. It has to out-rank that strip and opt out
   // of the drag, or the corner it lives in belongs to the window, not to it.
@@ -1525,19 +1774,26 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   // this question. It stays on a till or a KDS: those kiosks have no traffic
   // lights, and with the rail behind a sign-in it is their only way out.
   if (variant === 'signIn' && inset) return null;
+  const locked = touch.getStation().locked === true;
+
+  function close() {
+    setOpen(false);
+    setPin('');
+    setError(null);
+  }
 
   async function quit() {
     setBusy(true);
     setError(null);
     try {
+      if (locked) await proveLeavePin(pin, staff?.id ?? null);
       // Main exits ~50 ms after replying, so `busy` is the last thing the
-      // screen shows. A refusal only reaches here in browser mode, where the
-      // control does not render at all — it is surfaced rather than swallowed
-      // so a future refusal cannot fail silently on a station.
-      const res = await touch.quitApp();
-      if (!res.ok) throw new Error(res.error ?? 'refused');
+      // screen shows on success.
+      const refusal = leaveRefusal(await touch.quitApp(pin));
+      if (refusal) throw refusal;
     } catch (e) {
       setError(e);
+      setPin('');
       setBusy(false);
     }
   }
@@ -1588,24 +1844,26 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
         * outside, and no focus return to the control that opened it. The shared
         * Modal does all four, so the fork is deleted rather than repaired
         * (rulebook 12.1) — and its z-index comes from the scale with it,
-        * replacing a hand-typed 40. With the PIN field gone, Escape and the
-        * returned focus are the whole undo for a mis-tap.
+        * replacing a hand-typed 40. Escape and the returned focus are the
+        * undo for a mis-tap.
         */}
       {open && (
         <Modal
           title={tr('ws.shell.nav.quit')}
           size="sm"
-          onClose={() => setOpen(false)}
+          onClose={close}
           footer={
             <>
-              <Button onClick={() => setOpen(false)}>{tr('common.back')}</Button>
-              <Button kind="danger" busy={busy} onClick={() => void quit()}>
+              <Button onClick={close}>{tr('common.back')}</Button>
+              <Button kind="danger" busy={busy} disabled={locked && pin.length < 4} onClick={() => void quit()}>
                 {tr('ws.shell.nav.quit')}
               </Button>
             </>
           }
         >
           <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitConfirm')}</p>
+          {update && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitInstallsUpdate')}</p>}
+          {locked && <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void quit()} />}
           <ErrorText error={error} />
         </Modal>
       )}
@@ -1671,15 +1929,17 @@ function SignInScreen() {
     setError(null);
     try {
       await signIn(email.trim(), password);
+      // Stays busy on success: the shell replaces this screen once the role
+      // lookup lands (AuthProvider publishes the session after it), and the
+      // button coming back for that round trip invited a second submit.
     } catch (err) {
+      setBusy(false);
       const kind = signInFailure(err);
       setError(kind);
       // A wrong password is retyped, not edited: clear it and put the cursor
       // back. A network failure keeps both, because nothing was wrong with them.
       if (kind === 'invalid') setPassword('');
       passwordRef.current?.focus();
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -1825,8 +2085,29 @@ function SignInScreen() {
  * never a second copy of the rules — so the sentence a refused operator reads
  * cannot drift from the check that produced it. Nothing here decides access; it
  * only names what decided it.
+ *
+ * Driver, marketing and the waiter hold the any-staff baseline alone, so they
+ * lead. The assistant barista holds the board and My tasks and nothing more,
+ * so he comes before the barista (wave 5 §2.1.6). Prep sits after the bar and
+ * kitchen family it was split into (0155): every route prep opens, they open
+ * too, so a refusal names a role the owner can still assign rather than the
+ * retired one.
  */
-const ROLE_ORDER: readonly StaffRole[] = ['prep', 'cashier', 'court_desk', 'manager', 'owner'];
+const ROLE_ORDER: readonly StaffRole[] = [
+  'driver',
+  'marketing',
+  'waiter',
+  'assistant_barista',
+  'barista',
+  'chef',
+  'head_barista',
+  'head_chef',
+  'prep',
+  'cashier',
+  'court_desk',
+  'manager',
+  'owner',
+];
 function requiredRoleFor(route: string): StaffRole {
   return ROLE_ORDER.find((r) => canAccess(r, route)) ?? 'owner';
 }

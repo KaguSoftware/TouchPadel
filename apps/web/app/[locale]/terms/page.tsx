@@ -1,8 +1,11 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { makeT } from '@touch/i18n';
 import { CURRENT_TERMS_VERSION } from '@touch/core';
 import { LOCALES, requireLocale } from '@/lib/locales';
 import { getCachedVenue } from '@/lib/menu.server';
+import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
+import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
+import { SiteShell } from '@/components/site/SiteShell';
 import { LegalDocument, type LegalSection } from '@/components/legal/LegalDocument';
 
 /**
@@ -16,12 +19,21 @@ import { LegalDocument, type LegalSection } from '@/components/legal/LegalDocume
  * support page links to #bookings for the full rules. Bump
  * CURRENT_TERMS_VERSION when a change needs a guest to agree again.
  *
- * ISR like the privacy page; it must never read cookies or headers.
+ * Rendered inside the site's SiteShell (header, footer, night or light) since 2026-09-23.
+ * Like every page under [locale] it is dynamic (the layout reads the nonce, C11), and it
+ * reads the `tp-site-mode` cookie so the server paints the visitor's mode with no flash.
+ * The venue read is still the 60 s `menu`-tagged cache; `revalidate` is kept for the day
+ * C11 is fixed, when this page will have to choose between ISR and the server-painted mode.
  */
 export const revalidate = 60;
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
+}
+
+/** The browser chrome follows the site mode (the same cookie the shell paints from). */
+export async function generateViewport(): Promise<Viewport> {
+  return { themeColor: SITE_THEME_COLOR[await getSiteMode()] };
 }
 
 export async function generateMetadata({
@@ -141,16 +153,22 @@ const SECTIONS: LegalSection[] = [
 
 export default async function TermsPage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params).locale);
-  const venue = await getCachedVenue();
+  const [venue, mode, nonce] = await Promise.all([
+    getCachedVenue(),
+    getSiteMode(),
+    getRequestNonce(),
+  ]);
   return (
-    <LegalDocument
-      locale={locale}
-      page="terms"
-      title="legal.terms.title"
-      intro="legal.terms.intro"
-      sections={SECTIONS}
-      venue={venue}
-      version={CURRENT_TERMS_VERSION}
-    />
+    <SiteShell locale={locale} mode={mode} nonce={nonce} venue={venue} path="/terms">
+      <LegalDocument
+        locale={locale}
+        page="terms"
+        title="legal.terms.title"
+        intro="legal.terms.intro"
+        sections={SECTIONS}
+        venue={venue}
+        version={CURRENT_TERMS_VERSION}
+      />
+    </SiteShell>
   );
 }

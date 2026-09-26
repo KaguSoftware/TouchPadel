@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Locale } from '@touch/i18n';
-import type { CafeSettings, MenuCategory, MenuItem, VenueOpeningHours } from '@/lib/menu';
+import type {
+  CafeSettings,
+  MenuCategory,
+  MenuItem,
+  VenueBranch,
+  VenueOpeningHours,
+} from '@/lib/menu';
 import type { MenuStatus } from '@/lib/menu.server';
 import type { ItemSource } from '@/lib/analytics/track';
 import { track } from '@/lib/analytics/track';
@@ -29,6 +35,7 @@ import { OrdersStrip } from './OrdersStrip/OrdersStrip';
 import { MenuStage } from './MenuStage/MenuStage';
 import { MenuUnavailable } from './MenuUnavailable/MenuUnavailable';
 import { Footer } from './Footer/Footer';
+import { BranchBar } from './BranchBar/BranchBar';
 import { ScrollTopFab } from './ScrollTopFab/ScrollTopFab';
 import { WaiterButton } from './WaiterButton/WaiterButton';
 import { CafeOverlays } from './CafeOverlays';
@@ -44,12 +51,21 @@ import { useCafeActions } from './useCafeActions';
  */
 export interface CafeAppProps {
   locale: Locale;
-  /** null = browsing without a table (site root) */
+  /** null = browsing without a table (a walk-in on `/{locale}/menu`, no `tp-table` cookie) */
   token: string | null;
   initialMenu: MenuCategory[];
   menuStatus: MenuStatus;
   settings: CafeSettings;
   venue: VenueOpeningHours | null;
+  /**
+   * The branch the server rendered the menu for (`initialMenu`, `settings`):
+   * the walk-in's `?b=` choice, the only open branch, or, for a table guest
+   * while several are open, the default one until the bound session names the
+   * table's own branch. Null = unfiltered (the branch list could not be read).
+   */
+  venueId?: string | null;
+  /** Every open branch (oldest first); empty when the list could not be read. */
+  branches?: readonly VenueBranch[];
 }
 
 const SCROLL_TOP_FAB_AT = 320;
@@ -61,15 +77,27 @@ export function CafeApp({
   menuStatus,
   settings: initialSettings,
   venue,
+  venueId = null,
+  branches = [],
 }: CafeAppProps) {
   const supabase = useSupabase();
   const online = useOnline();
   const toasts = useToasts();
 
   const table = useTableSession(token);
-  const menu = useMenu({ menu: initialMenu, status: menuStatus }, initialSettings, supabase);
+  // Multi-venue slice 4: the menu, the café settings and the degraded check
+  // follow the bound table's branch; until then (and for a walk-in) the branch
+  // the server rendered.
+  const branchId = table.session?.venueId ?? venueId;
+  const branch = branches.find((b) => b.id === branchId) ?? null;
+  const menu = useMenu(
+    { menu: initialMenu, status: menuStatus },
+    initialSettings,
+    supabase,
+    branchId,
+  );
   const basket = useBasket(table.session?.tableId ?? null, menu.featured);
-  const { degraded } = useVenueMode(supabase);
+  const { degraded } = useVenueMode(supabase, branchId);
   const orders = useOrders(supabase, table.session?.sessionId ?? null);
   const waiter = useWaiterCall(supabase, table.session);
 
@@ -181,29 +209,35 @@ export function CafeApp({
 
       {/* The ONLY scroller in the app (the shell is position: fixed). */}
       <div className="tp-app__scroll" ref={scrollRef} onScroll={onScroll} inert={anySheet}>
-        <Hero
-          locale={locale}
-          settings={menu.settings}
-          featured={menu.featured}
-          onOpenFeatured={(item) => {
-            track.featuredItemClicked({ item_id: item.id });
-            actions.openItem(item, 'featured');
-          }}
-        />
-
-        <CategoryPills
-          locale={locale}
-          categories={menu.menu}
-          activeId={spy.activeId}
-          onSelect={(cat) => {
-            tap();
-            spy.jumpTo(cat.id);
-            track.categorySelected({ category_id: cat.id, category_name_en: cat.name_en });
-          }}
-        />
-
-        {/* No page gutter here: every section carries the design's own 24 px. */}
+        {/* <main> opens above the hero: the hero carries the page's h1 ("THE MENU"), which
+            sat outside every landmark when main started at the menu stage (a11y review
+            2026-09-24, axe "region"). The footer stays outside it. */}
         <main>
+          {!token && branches.length > 1 && branch ? (
+            <BranchBar locale={locale} branch={branch} />
+          ) : null}
+          <Hero
+            locale={locale}
+            settings={menu.settings}
+            featured={menu.featured}
+            onOpenFeatured={(item) => {
+              track.featuredItemClicked({ item_id: item.id });
+              actions.openItem(item, 'featured');
+            }}
+          />
+
+          <CategoryPills
+            locale={locale}
+            categories={menu.menu}
+            activeId={spy.activeId}
+            onSelect={(cat) => {
+              tap();
+              spy.jumpTo(cat.id);
+              track.categorySelected({ category_id: cat.id, category_name_en: cat.name_en });
+            }}
+          />
+
+          {/* No page gutter here: every section carries the design's own 24 px. */}
           <OrdersStrip locale={locale} live={orders.live} onOpen={() => setOrdersOpen(true)} />
           {menu.status === 'ok' ? (
             <MenuStage
@@ -220,7 +254,7 @@ export function CafeApp({
           )}
         </main>
 
-        <Footer locale={locale} venue={venue} onVisibilityChange={setFooterVisible} />
+        <Footer locale={locale} venue={branch ?? venue} onVisibilityChange={setFooterVisible} />
       </div>
 
       <WaiterButton
@@ -264,7 +298,8 @@ export function CafeApp({
         onCloseItem={() => setSheetItem(null)}
         onAddLine={actions.addLine}
         onOpenSuggested={(item) => {
-          if (sheetItem) track.suggestedItemClicked({ item_id: item.id, from_item_id: sheetItem.id });
+          if (sheetItem)
+            track.suggestedItemClicked({ item_id: item.id, from_item_id: sheetItem.id });
           actions.openItem(item, 'suggested');
         }}
         onItemViewed={actions.itemViewed}
