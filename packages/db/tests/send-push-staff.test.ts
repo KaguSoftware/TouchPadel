@@ -10,7 +10,10 @@
  * migration (§1.6 step 2), so nothing here may need that migration. The role
  * spec's eleven title keys (§2.24.1) shipped their copy the same way, one
  * commit ahead of staff_push_keys, which lists them in the JSON and in
- * app.notify_staff: from there the copy and the list are equal again.
+ * app.notify_staff: from there the copy and the list are equal again. Wave
+ * 5's eleven (wave5-addendum-2026-09-25 §2.3) ship their copy the same way,
+ * one commit ahead of staff_push_keys_wave5: until then every JSON key has
+ * copy, and so does each of the eleven.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +43,20 @@ const ROLE_SPEC_KEYS = [
   'shopping_declined',
   'marketing_request_new',
   'marketing_request_answered',
+];
+/** Wave 5's eleven title keys (wave5-addendum §2.3); staff_push_keys_wave5 adds them to the JSON, in this order. */
+const WAVE5_KEYS = [
+  'deduction_proposed',
+  'deduction_approved',
+  'deduction_declined',
+  'deduction_recorded',
+  'incident_reported',
+  'incident_reviewed',
+  'content_submitted',
+  'content_approved',
+  'content_changes',
+  'content_declined',
+  'waiter_call_new',
 ];
 const FSI = '\u2068';
 const PDI = '\u2069';
@@ -76,10 +93,14 @@ describe('staff-push.json', () => {
     ]);
   });
 
-  it('has copy in both languages for exactly its title keys', () => {
+  // Until staff_push_keys_wave5 lists wave 5's eleven keys in the JSON (§2.3):
+  // every JSON key has copy, and so does each of the eleven.
+  it('has copy in both languages for every title key and each wave-5 key', () => {
     for (const lang of ['en', 'ar'] as const) {
-      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual([...staffPush.title_keys].sort());
-      for (const key of staffPush.title_keys) {
+      expect(Object.keys(STAFF_STRINGS[lang]).sort()).toEqual(
+        [...staffPush.title_keys, ...WAVE5_KEYS].sort(),
+      );
+      for (const key of [...staffPush.title_keys, ...WAVE5_KEYS]) {
         expect(
           STAFF_STRINGS[lang][key as keyof (typeof STAFF_STRINGS)['en']].title.trim(),
         ).not.toBe('');
@@ -88,7 +109,7 @@ describe('staff-push.json', () => {
   });
 
   it('writes every Arabic title in Arabic', () => {
-    for (const key of staffPush.title_keys) {
+    for (const key of [...staffPush.title_keys, ...WAVE5_KEYS]) {
       const ar = STAFF_STRINGS.ar[key as keyof (typeof STAFF_STRINGS)['ar']].title;
       expect(ar).toMatch(/[\u0600-\u06FF]/);
       expect(ar).not.toBe(STAFF_STRINGS.en[key as keyof (typeof STAFF_STRINGS)['en']].title);
@@ -181,6 +202,28 @@ describe('staffMessage — the EN copy of §2.21', () => {
       `${iso('Hasan')}: ${iso('Poster')}`,
     ],
     ['marketing_request_answered', { title: 'Poster' }, 'Marketing answered', iso('Poster')],
+    // Wave 5 (wave5-addendum §2.3): no amount, reason or target on any of them.
+    ['deduction_proposed', { name: 'Bareq' }, 'Pay deduction', `${iso('Bareq')} proposed a deduction.`],
+    ['deduction_approved', {}, 'Deduction approved', 'Your proposal was approved.'],
+    ['deduction_declined', {}, 'Deduction declined', 'Your proposal was declined.'],
+    ['deduction_recorded', {}, 'Pay deduction', 'A deduction was added to your record.'],
+    [
+      'incident_reported',
+      { name: 'Hussein', step: { en: 'Injury', ar: 'إصابة' } },
+      'Incident report',
+      `${iso('Hussein')}: ${iso('Injury')}`,
+    ],
+    ['incident_reviewed', { step: { en: 'Injury', ar: 'إصابة' } }, 'Incident reviewed', iso('Injury')],
+    [
+      'content_submitted',
+      { name: 'Hasan', title: 'Friday reel' },
+      'Content for approval',
+      `${iso('Hasan')}: ${iso('Friday reel')}`,
+    ],
+    ['content_approved', { title: 'Friday reel' }, 'Content approved', iso('Friday reel')],
+    ['content_changes', { title: 'Friday reel' }, 'Changes asked', iso('Friday reel')],
+    ['content_declined', { title: 'Friday reel' }, 'Content declined', iso('Friday reel')],
+    ['waiter_call_new', { title: 'T12' }, 'Guest call', `Table ${iso('T12')}`],
   ];
 
   it.each(cases)('%s', (key, params, title, body) => {
@@ -189,8 +232,8 @@ describe('staffMessage — the EN copy of §2.21', () => {
     expect(m.body).toBe(body);
   });
 
-  it('covers every title key in the list', () => {
-    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys].sort());
+  it('covers every title key in the list, and each wave-5 key', () => {
+    expect(cases.map(([k]) => k).sort()).toEqual([...staffPush.title_keys, ...WAVE5_KEYS].sort());
   });
 });
 
@@ -229,6 +272,21 @@ describe('staffMessage — params', () => {
     expect(msg('ar', 'recipe_change_submitted', { name: 'Rusul' }).body).toBe(iso('Rusul'));
     expect(msg('en', 'recipe_change_approved').body).toBe('');
     expect(msg('ar', 'idea_started').body).toBe('');
+  });
+
+  it('names no amount on a deduction, and sends the title alone without a name or table', () => {
+    // The params are closed to {step, title, name} (app.notify_staff), so an
+    // amount can only arrive as one of those; the deduction copy reads none but name.
+    expect(msg('en', 'deduction_approved', { title: '50000', step: { en: '50000' } }).body).toBe(
+      'Your proposal was approved.',
+    );
+    expect(msg('ar', 'deduction_recorded', { name: 'Yusuf' }).body).toBe('أُضيف خصم إلى سجلّك.');
+    expect(msg('en', 'deduction_proposed').body).toBe('');
+    expect(msg('ar', 'waiter_call_new').body).toBe('');
+    expect(msg('ar', 'waiter_call_new', { title: 'T12' }).body).toBe(`طاولة ${iso('T12')}`);
+    expect(msg('ar', 'incident_reported', { name: 'Hussein', step: { en: 'Injury', ar: 'إصابة' } }).body).toBe(
+      `${iso('Hussein')}: ${iso('إصابة')}`,
+    );
   });
 });
 
