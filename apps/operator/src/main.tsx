@@ -39,6 +39,7 @@ import { analyticsChildren } from './routes/analytics/_children';
 import { LocaleProvider, useLocale } from './lib/i18n';
 import { ThemeModeProvider, useThemeMode } from './lib/themeMode';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
+import { VenueProvider } from './lib/venue';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
 import { initQueueResults } from './lib/queueResults';
@@ -156,7 +157,9 @@ function ThemedApp() {
               dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
             }}
           >
-            <RouterProvider router={router} />
+            <VenueProvider>
+              <RouterProvider router={router} />
+            </VenueProvider>
           </PersistQueryClientProvider>
         </AuthProvider>
       </AppErrorBoundary>

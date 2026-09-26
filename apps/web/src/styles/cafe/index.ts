@@ -24,6 +24,7 @@ import { tutorialCss } from './tutorial.css';
 import { footerCss } from './footer.css';
 import { motionCss } from './motion.css';
 import { downloadCss } from './download.css';
+import { branchesCss } from './branches.css';
 
 /** Module map (name → css) — the guard test iterates this so nothing slips past it. */
 export const cafeCssModules = {
@@ -43,6 +44,7 @@ export const cafeCssModules = {
   footer: footerCss,
   motion: motionCss,
   download: downloadCss,
+  branches: branchesCss,
 } as const;
 
 export const cafeCss: string = Object.entries(cafeCssModules)

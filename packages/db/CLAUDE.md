@@ -17,12 +17,13 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0157`
-  (`20260923000157_staff_money_reads_and_prep_retired.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0227`
+  (`20260926000227_staff_memberships_read.sql`; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
-  0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles); the next is
-  `0158`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
+  protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
+  `0228`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -104,13 +105,26 @@ is a line in that file.
   slice 1: a second ACTIVE venue on hosted before slice 3 makes every guest insert raise
   `VENUE_REQUIRED`. A `service_role` insert while two venues are active must pass `venue_id`
   (`tests/multi-venue.test.ts` builds and deactivates its own venue B for that reason). Never
-  read `venue_settings` unqualified in new code: it is one row through slice 1 and will not be
-  after slice 2.
-- Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104)
-  and `venue_settings_public`; everything else in the `cafe_settings` registry
-  (`app.cafe_setting_specs`, latest 0105). `venue_settings` is still a single row (boolean PK)
-  through milestone 1 slice 1; it gained `venue_id` in 0126 but nothing may assume one row after
-  slice 2.
+  read `venue_settings` unqualified: it is **one row per venue since 0208** (unique index on
+  `venue_id`; the boolean `id` is deprecated, always true and no longer unique). Read the row of
+  the branch the court, table, session, order or tab belongs to (`where venue_id = …`).
+  `cafe_settings` is keyed `(venue_id, key)` since 0209: pass the branch to
+  `app.cafe_setting*(key, venue)` whenever the body knows it. The chain's own settings (currency,
+  the LLM budget and price list, the per-guest hold cap) are in the `platform_settings` singleton
+  (0207). `promotions.venue_id` is nullable on purpose: NULL means every branch (0212).
+  Since slice 3–4 (0215–0227): a body that creates rows for a thing (tab, court, payment, batch…)
+  looks up that thing's venue, refuses another branch's caller with `VENUE_MISMATCH` and asserts
+  `set_config('app.venue_id', …)` so every default-based insert downstream lands there (0217
+  pattern). A staff read policy's venue axis is `venue_id = any((select app.visible_venue_ids())::uuid[])`
+  (0226), never `app.staff_venue_ids()`: visibility follows the branch in scope (the operator's
+  `x-station-id` / `x-venue-scope` headers, read by `app.resolve_venue`). A report reads
+  `venue_id = any(v_rv)` with `v_rv := app.report_venues()` (0219). `venues.status` is
+  preparing/open/closed; `is_active` means open (guests), staff see every branch not closed.
+  `any((select f())::uuid[])` needs the cast: `any((select f()))` compares against the ROW.
+- Guest-readable knobs go on `venue_settings` through the `app.set_venue_details` allowlist (0104,
+  per branch with `p_venue_id` since 0208) and `venue_settings_public` (one row per active branch);
+  everything else in the `cafe_settings` registry (`app.cafe_setting_specs`, latest 0105). Design
+  notes: `docs/design/multi-venue/slice-1-2026-09-21.md`, `slice-2-2026-09-26.md`.
 
 ## RPCs
 

@@ -19,7 +19,7 @@ import { isPairingCode } from './pairing-code';
 import { LAN_KDS_PORT, pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
 import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
 import { confirmTill, discoverTill, SCAN_HANDSHAKE_TIMEOUT_MS } from './lan-discover';
-import { startUpdater, type UpdaterHandle } from './updater';
+import { startUpdater, updaterPendingFile, type UpdaterHandle } from './updater';
 import { startHeartbeat } from './heartbeat';
 import { getAuthState, setAuthState } from './auth-state';
 import { mayLeave, observePin, unlockPinOffline } from './pin-cache';
@@ -81,6 +81,14 @@ let worker: SyncWorker | null = null;
 let lanServer: LanKdsServer | null = null;
 let lanClient: LanKdsClient | null = null;
 let updater: UpdaterHandle | null = null;
+/**
+ * Set by the updater's allowClose once an install's quit is under way: every
+ * close is that quit now. The red-light guard below must let it through (it
+ * used to hold those closes too, and on macOS every window has it: Electron's
+ * autoUpdater.quitAndInstall closes every window first and installs only once
+ * they are all gone), and window-all-closed must not quit on top of it.
+ */
+let closingForUpdate = false;
 /** The kitchen screen's in-flight LAN sweep; a new request cancels the last. */
 let discoverAbort: AbortController | null = null;
 
@@ -345,6 +353,9 @@ function createWindow(): BrowserWindow {
   // page, which opens the same "Quit to desktop?" dialog the rail row uses.
   // Confirming there calls touch:quit-app, and that exits through app.exit(),
   // which does not raise 'close' — so this guard cannot block the real quit.
+  // An update's install closes the windows through Electron (app.quit() on
+  // Windows, the autoUpdater on macOS), which does; closingForUpdate lets
+  // that one through.
   //
   // Only where the buttons exist — Windows draws none, and browser dev has no
   // window to guard.
@@ -378,7 +389,7 @@ function createWindow(): BrowserWindow {
     windowsWithTrafficLights.add(win);
 
     win.on('close', (event) => {
-      if (win.isDestroyed()) return;
+      if (win.isDestroyed() || closingForUpdate) return;
       event.preventDefault();
       win.webContents.send(IPC.closeRequested);
     });
@@ -387,8 +398,45 @@ function createWindow(): BrowserWindow {
 }
 
 if (gotTheLock) {
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     bootstrapStationFromArgv();
+
+    // Auto-update (updater.ts): silent download; installed at the next start,
+    // from the rail's control, or by Quit to desktop. Started before anything
+    // else so that a start can install what an earlier session downloaded
+    // BEFORE the queue opens, the LAN port binds or a window exists, and come
+    // back on the new version. installAtStart resolves at once when no newer
+    // download is waiting or none may install here (a start already tried
+    // that version, a rollback, an install for all users); otherwise within
+    // the updater's wait (15 s, 30 s on macOS), unless an install is taking
+    // the app down. It never rejects. The start then goes on as it always
+    // did. bootstrapStationFromArgv runs first: the installer's relaunch
+    // carries none of this launch's flags.
+    updater = startUpdater({
+      enabled: app.isPackaged,
+      version: app.getVersion(),
+      onReady: (info) => {
+        // None yet during the start's wait; the renderer asks on mount
+        // (updateState). null withdraws an update offered earlier (its
+        // install refused, or a newer download replaced it): the preload
+        // hands it straight to useUpdateReady, and the rail's control and
+        // Quit's "installs as you quit" line go.
+        for (const w of BrowserWindow.getAllWindows()) w.webContents.send(IPC.updateReady, info);
+      },
+      allowClose: () => {
+        closingForUpdate = true;
+        for (const w of BrowserWindow.getAllWindows()) w.setClosable(true);
+      },
+      exit: (code) => app.exit(code),
+      relaunch: () => app.relaunch(),
+      logFile: path.join(app.getPath('userData'), 'updater.log'),
+      stateFile: path.join(app.getPath('userData'), 'updater-startup.json'),
+      pendingFile: app.isPackaged
+        ? updaterPendingFile({ resourcesPath: process.resourcesPath, appName: app.getName() })
+        : undefined,
+    });
+    await updater?.installAtStart();
+
     const station = loadStation();
     // createWindow's `locked`: a dev or first-run window is an ordinary one,
     // with no PIN to ask for (a first-run machine has none cached yet).
@@ -626,9 +674,11 @@ if (gotTheLock) {
           if (verdict !== 'ok') return { ok: false as const, error: verdict };
         }
         setTimeout(() => {
-          // A downloaded update installs on the way out. app.exit() skips
-          // will-quit, so autoInstallOnAppQuit alone would never fire here;
-          // installOnQuit quits itself, and exits hard if that quit stalls.
+          // A downloaded update installs on the way out and the app opens
+          // again on it. app.exit() skips will-quit, so autoInstallOnAppQuit
+          // alone would never fire here; installOnQuit quits itself, and exits
+          // hard if that quit stalls. With nothing waiting, or an install
+          // that refuses on the spot, this just exits.
           if (!updater?.installOnQuit()) app.exit(0);
         }, 50); // let the reply reach the renderer
         return { ok: true as const };
@@ -774,19 +824,6 @@ if (gotTheLock) {
 
     const win = createWindow();
 
-    // Auto-update: silent download, human-triggered install (updater.ts).
-    updater = startUpdater({
-      enabled: app.isPackaged,
-      onReady: (info) => {
-        if (!win.isDestroyed()) win.webContents.send(IPC.updateReady, info);
-      },
-      allowClose: () => {
-        for (const w of BrowserWindow.getAllWindows()) w.setClosable(true);
-      },
-      exit: (code) => app.exit(code),
-      logFile: path.join(app.getPath('userData'), 'updater.log'),
-    });
-
     // A second launch should surface the station that is already trading, not
     // silently do nothing. (Previously there was no handler at all.)
     app.on('second-instance', () => {
@@ -834,5 +871,12 @@ if (gotTheLock) {
 }
 
 app.on('window-all-closed', () => {
+  // Not while an update installs. On macOS Electron's autoUpdater closes the
+  // windows itself and only then asks Squirrel.Mac to relaunch after
+  // installing; an app.quit() here raced that request and the app could stay
+  // closed. On Windows electron-updater's own app.quit() is already under way
+  // and this is not called. A quit that never lands ends in the updater's
+  // exit fallback.
+  if (closingForUpdate) return;
   app.quit();
 });

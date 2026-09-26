@@ -275,8 +275,8 @@ export interface TouchBridge {
   getPairingInfo(pin: string): Promise<PairingInfoResult | IpcRefusal>;
   /** Unconfigured kitchen screen: find the till that accepts this code. */
   discoverTill(req: DiscoverRequest): Promise<DiscoverResult | IpcRefusal>;
-  /** Fires (also on subscribe, if already the case) once an update has downloaded. */
-  onUpdateReady(cb: (info: UpdateReadyInfo) => void): Unsub;
+  /** Fires (also on subscribe, if already the case) once an update has downloaded; null withdraws it. */
+  onUpdateReady(cb: (info: UpdateReadyInfo | null) => void): Unsub;
   /** Restart into the downloaded update. */
   installUpdate(): Promise<{ ok: boolean }>;
 }

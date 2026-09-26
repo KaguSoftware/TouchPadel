@@ -11,9 +11,16 @@ station roles — the role is chosen on the machine's first launch and lives in
   `https://touch-padel-web.vercel.app/download`, later `https://touch-padel.com/download`).
   The Windows button is a stable link that always serves the newest release:
   `https://github.com/KaguSoftware/touchpadel-releases/releases/latest/download/Touch-Padel-Operator-Setup.exe`
+- **Installing:** the installer is the assisted kind (`oneClick: false`), not
+  one click: a welcome page, then **Choose Installation Options**. Run it from
+  the Windows account the station logs in with and pick **Only for me**, never
+  **Anyone who uses this computer (all users)**: an all-users install cannot
+  update itself at start (§6). Keep the default folder; the last page starts
+  the app.
 - **All versions:** `https://github.com/KaguSoftware/touchpadel-releases/releases`
   (public repo; also the auto-update feed). To roll back, install an older
-  `Touch-Padel-Operator-Setup.exe` from there — one-click, replaces in place.
+  `Touch-Padel-Operator-Setup.exe` from there. It replaces the installed
+  version in place; §6 says what the station does after a rollback.
 - **Cutting a release** = pushing a tag on this repo: `git tag operator-vX.Y.Z && git push origin operator-vX.Y.Z`.
   The `operator-release` workflow stamps X.Y.Z into the installer, the sidebar
   version line and `device_heartbeats.app_version`, and publishes to the public
@@ -78,16 +85,15 @@ moves. To re-do setup on a machine, delete `station.json` and relaunch.
 
 ## 4. Kiosk behaviour
 
-- Till and KDS run full kiosk (no frame, no menu); the desk keeps a frame.
-- The window is **not closable**: staff leave via the sidebar's
-  **Quit to desktop**, which asks for confirmation only. Since 2026-09-09
-  (`6bec87d`) it no longer takes a manager PIN, so anyone at the station can
-  close it — and a waiting update installs on the way out.
-- The same **Quit to desktop** sits in the top corner of the sign-in screen, so
-  a station that is signed out can still be closed, again without a PIN.
-- ⚠ *Corrected 2026-09-13* — this section said both took a manager PIN. Whether
-  quitting should need one again is an open security decision
-  (`docs/security/security-general.md` §09).
+- Every configured station is a kiosk, in every mode (till, desk and kitchen
+  screen) and on every platform (owner call, 2026-09-23): no frame, it cannot
+  be minimised, and the window cannot be closed.
+- There are two ways out: **Quit to desktop** (in the sidebar, and in the top
+  corner of the sign-in screen) and **Exit forced full screen**. Both take a
+  manager's PIN, and it cannot be the PIN of the person signed in. On the
+  sign-in screen any manager's PIN works.
+- If an update is waiting, Quit to desktop installs it and the app opens again
+  by itself (§6).
 - Launch-on-boot registers itself on every packaged start
   (`app.setLoginItemSettings`); no Task Scheduler entry needed.
 
@@ -110,13 +116,58 @@ moves. To re-do setup on a machine, delete `station.json` and relaunch.
 
 ## 6. Updating
 
-Automatic. Every packaged station checks the public releases repo 30 s after
-launch and every 6 hours, downloads a newer installer silently, and then
-waits: the sidebar shows **Update ready** (the kitchen screen shows a pill).
-Tapping it restarts into the new version; **Quit to desktop** (no PIN since
-2026-09-09) also installs a waiting update on the way out, as does an OS shutdown. No
-scheduled update windows — a restart mid-ticket is the operator's call.
-`queue.db` and `station.json` live in `%APPDATA%` and survive every update.
+Every packaged station checks the public releases repo when the app starts
+(again 30 s later if that check could not reach it) and then every 6 hours,
+and downloads a newer installer silently. Nothing installs by itself while the
+app is open. A downloaded update goes in one of three ways:
 
-Re-running any installer by hand (newer or older) still works and replaces in
-place.
+- **Update ready.** The sidebar shows an **Update ready** row; the kitchen
+  screen, which has no sidebar, shows a pill in the corner. Tapping it closes
+  the app, installs the update and opens the app again on the new version.
+- **Quit to desktop.** While an update is ready, the Quit dialog says so:
+  quitting installs it, and then the app opens again by itself. On a locked
+  station (every configured one) Quit needs the PIN of a manager other than
+  the person signed in.
+- **The next start.** When the app starts and finds an update an earlier
+  session downloaded, it installs it before the window opens. Nothing shows
+  on screen for a few seconds (up to 15 s while it checks the feed), then the
+  installer runs silently and opens the app on the new version, usually about
+  a minute later. Do not switch the machine off or click the shortcut during
+  that minute. With no network at start, the window opens after the 15 s and
+  the update waits for later.
+
+A Windows shutdown or restart does not install anything on the way down. The
+app starts again at login, and that start installs it. So restarting a till is
+enough to update it.
+
+A start installs an update only when all of these hold:
+
+- **The app was installed Only for me.** An install for all users makes the
+  installer ask Windows for administrator approval, and at a start nobody is
+  there to give it. Such a machine never installs at start: use Update ready
+  or Quit to desktop with someone there to approve the prompt (the app reopens
+  only if they do), or reinstall it Only for me. Uninstall the all-users copy
+  first (Settings > Apps); `queue.db` and `station.json` are kept.
+- **No earlier start tried that version.** A start gets one try per version.
+  If the station comes back still on the old version (the installer failed),
+  later starts leave that version alone and **Update ready** stays in the
+  sidebar for someone to tap. The next release gets its own try.
+  `updater.log`, beside `station.json`, records what happened.
+- **The version is above every version this station has run.** See rolling
+  back below.
+
+**Rolling back.** Run an older `Touch-Padel-Operator-Setup.exe` from the
+releases page (§1) over the installed app. The station then stays on that
+version across restarts, because a start never installs a version the station
+has already run. The feed still offers the newer release, though: **Update
+ready** comes back, and tapping it or quitting to the desktop installs that
+release again. To stop a bad release everywhere, publish a fixed one with a
+higher version number, or take the bad release down in the releases repo.
+Never reuse a version number: a station that has run it will not take it at a
+start.
+
+`queue.db` and `station.json` live in `%APPDATA%` and survive every update and
+every rollback. Re-running any installer by hand (newer or older) still works
+and replaces in place. There are no scheduled update windows: an update
+mid-ticket is the operator's call, and a start is the only moment one installs
+on its own.

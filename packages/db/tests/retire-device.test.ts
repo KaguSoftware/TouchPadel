@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SEED_STAFF, appRpc, outcome, serviceClient, signedInClient, stackAvailable } from './helpers';
+import { SEED_STAFF, appRpc, outcome, serviceClient, signedInClient, stackAvailable,
+  VENUE_A_ID,
+} from './helpers';
 
 /**
  * 0118 (C2) — degraded mode gets an off switch.
@@ -110,7 +112,7 @@ describe.skipIf(!up)('0118 retire_device + degraded thresholds (C2)', () => {
   });
 
   it('the owner can set the two degraded-mode thresholds within their ranges, and nobody else can', async () => {
-    const { data: before } = await svc.from('venue_settings').select('heartbeat_stale_seconds, protected_horizon_hours').single();
+    const { data: before } = await svc.from('venue_settings').select('heartbeat_stale_seconds, protected_horizon_hours').eq('venue_id', VENUE_A_ID).single();
     const b = before as { heartbeat_stale_seconds: number; protected_horizon_hours: number };
     try {
       const ok = await appRpc(owner, 'set_venue_details', { p_patch: { heartbeat_stale_seconds: 90, protected_horizon_hours: 24 } }).then(outcome);

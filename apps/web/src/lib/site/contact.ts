@@ -10,6 +10,7 @@
  *
  * Pure and client-safe.
  */
+import { t, type Locale } from '@touch/i18n';
 
 /** Arabic-Indic (٠–٩) and Extended Arabic-Indic (۰–۹) digits, typed in the operator app. */
 function asciiDigits(value: string): string {
@@ -104,3 +105,54 @@ const MAPS_QUERY = 'درّة كربلاء، كربلاء';
  * CSP has no frame-src). When the owner sends a pinned place link, it replaces this.
  */
 export const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(MAPS_QUERY)}`;
+
+/**
+ * The branch fields the site prints (multi-venue slice 4). Every one is
+ * optional: a `VenueOpeningHours` from a fixture or a failed read has none.
+ */
+export interface BranchContact {
+  venue_name?: string | null;
+  name_en?: string | null;
+  name_ar?: string | null;
+  address_en?: string | null;
+  address_ar?: string | null;
+  map_url?: string | null;
+}
+
+const filled = (v: string | null | undefined): string | null => {
+  const s = v?.trim();
+  return s ? s : null;
+};
+
+/** The branch's name in the page's language, then the other one, then the venue name. */
+export function branchName(locale: Locale, branch: BranchContact | null | undefined): string {
+  const own = locale === 'ar' ? branch?.name_ar : branch?.name_en;
+  const other = locale === 'ar' ? branch?.name_en : branch?.name_ar;
+  return filled(own) ?? filled(other) ?? filled(branch?.venue_name) ?? t(locale, 'common.appName');
+}
+
+/**
+ * The branch's address in the page's language (then the other language). A
+ * branch with no address stored yet (today's only branch, until the owner
+ * fills it in) prints the confirmed one, `site.visit.address`, so the page
+ * reads exactly as it did before branches; `fallback: false` gives null instead.
+ */
+export function branchAddress(
+  locale: Locale,
+  branch: BranchContact | null | undefined,
+  { fallback = true }: { fallback?: boolean } = {},
+): string | null {
+  const own = locale === 'ar' ? branch?.address_ar : branch?.address_en;
+  const other = locale === 'ar' ? branch?.address_en : branch?.address_ar;
+  return filled(own) ?? filled(other) ?? (fallback ? t(locale, 'site.visit.address') : null);
+}
+
+/**
+ * "Open in Google Maps" for a branch: its pinned link when stored and https,
+ * otherwise the Durrat Karbala search above. The https check keeps a mistyped
+ * `javascript:` or bare-text value out of an href.
+ */
+export function branchMapUrl(branch: BranchContact | null | undefined): string {
+  const url = filled(branch?.map_url);
+  return url && /^https:\/\//i.test(url) ? url : MAPS_URL;
+}

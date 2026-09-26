@@ -38,6 +38,7 @@ import { formatNumber, isolate } from '@touch/i18n';
 import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
 import { appRpc } from '../../../lib/appRpc';
 import { callEdge } from '../../../lib/edge';
+import { currentBranchId } from '../../../lib/venueScope';
 import { canAccess, useAuth, usePermissions, requiredRoleFor, type StaffRole } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
@@ -405,7 +406,8 @@ function AddStaffDialog({ onClose, onCreated, hire }: { onClose(): void; onCreat
     mutationFn: () =>
       callEdge<unknown, unknown>(
         'staff-admin',
-        { action: 'create', email: email.trim(), password, display_name: name.trim(), role },
+        // 0218: the new account works at the branch in scope (the rail switcher's).
+        { action: 'create', email: email.trim(), password, display_name: name.trim(), role, venue_id: currentBranchId() },
         // Never cache a mutation: a second create must reach the server.
         { ttlMs: 0 },
       ),

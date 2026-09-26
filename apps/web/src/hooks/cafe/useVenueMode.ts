@@ -9,10 +9,17 @@ import type { BrowserSupabase } from '@/lib/supabase/client';
  * bell are refused server-side, so the UI must say so BEFORE the guest builds
  * a basket. Polled every 30 s and PAUSED while the tab is hidden — a phone in
  * a pocket must not keep a request loop alive.
+ *
+ * Degraded is per branch (0137/0212): with the branch known (the bound table's,
+ * or the one the page rendered) this asks `app.venue_mode(p_venue)`; with none
+ * it keeps the zero-argument form, which answers for the default branch.
  */
 const POLL_MS = 30_000;
 
-export function useVenueMode(supabase: BrowserSupabase | null): { degraded: boolean } {
+export function useVenueMode(
+  supabase: BrowserSupabase | null,
+  venueId: string | null = null,
+): { degraded: boolean } {
   const [degraded, setDegraded] = useState(false);
 
   useEffect(() => {
@@ -21,7 +28,9 @@ export function useVenueMode(supabase: BrowserSupabase | null): { degraded: bool
     let timer: ReturnType<typeof setInterval> | null = null;
 
     const check = async () => {
-      const { data } = await appRpc(supabase, 'venue_mode');
+      const { data } = venueId
+        ? await appRpc(supabase, 'venue_mode', { p_venue: venueId })
+        : await appRpc(supabase, 'venue_mode');
       if (!cancelled && data && typeof data === 'object') {
         setDegraded(Boolean((data as { degraded?: boolean }).degraded));
       }
@@ -44,7 +53,7 @@ export function useVenueMode(supabase: BrowserSupabase | null): { degraded: bool
       stop();
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [supabase]);
+  }, [supabase, venueId]);
 
   return { degraded };
 }

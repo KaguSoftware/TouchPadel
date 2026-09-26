@@ -19,10 +19,27 @@ import type { Locale } from '@touch/i18n';
  * assert on. `e2e/tests/cafe-rtl-layout.spec.ts` is what checks the rendered
  * direction, with a real document around it.
  */
-export type ServerPage = (props: { params: Promise<{ locale: string }> }) => Promise<ReactNode>;
+export type SearchParams = Record<string, string | string[] | undefined>;
 
-export async function renderServerPage(Page: ServerPage, locale: Locale): Promise<RenderResult> {
-  const element = await Page({ params: Promise.resolve({ locale }) });
+export type ServerPage = (props: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<SearchParams>;
+}) => Promise<ReactNode>;
+
+/** A page's props as Next hands them over: the locale, and the query (none by default). */
+export function pageProps(
+  locale: string,
+  searchParams: SearchParams = {},
+): { params: Promise<{ locale: string }>; searchParams: Promise<SearchParams> } {
+  return { params: Promise.resolve({ locale }), searchParams: Promise.resolve(searchParams) };
+}
+
+export async function renderServerPage(
+  Page: ServerPage,
+  locale: Locale,
+  searchParams: SearchParams = {},
+): Promise<RenderResult> {
+  const element = await Page(pageProps(locale, searchParams));
   return render(element);
 }
 

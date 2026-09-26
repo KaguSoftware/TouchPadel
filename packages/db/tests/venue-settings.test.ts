@@ -26,6 +26,7 @@ import {
   anonymousSessionClient,
   appRpc,
   SEED_STAFF,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -44,7 +45,7 @@ describe.skipIf(!up)('0052 venue settings write through PostgREST', () => {
   async function readSettings() {
     const { data, error } = await svc
       .from('venue_settings')
-      .select('opening_hours, closed_dates, waiter_call_cooldown_seconds')
+      .select('opening_hours, closed_dates, waiter_call_cooldown_seconds').eq('venue_id', VENUE_A_ID)
       .single();
     if (error) throw new Error(error.message);
     return data as typeof original;
@@ -66,7 +67,7 @@ describe.skipIf(!up)('0052 venue settings write through PostgREST', () => {
         closed_dates: original.closed_dates,
         waiter_call_cooldown_seconds: original.waiter_call_cooldown_seconds,
       })
-      .eq('id', true);
+      .eq('venue_id', VENUE_A_ID);
   });
 
   describe('set_opening_hours', () => {

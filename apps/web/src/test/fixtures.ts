@@ -3,7 +3,7 @@ import {
   type CafeSettings,
   type MenuCategory,
   type MenuItem,
-  type VenueOpeningHours,
+  type VenueBranch,
 } from '@/lib/menu';
 import type { MenuResult } from '@/lib/menu.server';
 
@@ -124,7 +124,29 @@ export const SETTINGS_FIXTURE: CafeSettings = {
 
 export const VENUE_PHONE = '+964 770 000 0000';
 
-export const VENUE_FIXTURE: VenueOpeningHours = {
+const EVERY_DAY_9_TO_11: VenueBranch['opening_hours'] = {
+  mon: [['09:00', '23:00']],
+  tue: [['09:00', '23:00']],
+  wed: [['09:00', '23:00']],
+  thu: [['09:00', '23:00']],
+  fri: [['09:00', '23:00']],
+  sat: [['09:00', '23:00']],
+  sun: [['09:00', '23:00']],
+};
+
+/**
+ * The one open branch today: a `venue_settings_public` row (0208) with no
+ * address or map link stored yet, so the site falls back to the confirmed
+ * Karbala address and the Maps search, exactly as before branches.
+ */
+export const VENUE_FIXTURE: VenueBranch = {
+  id: 'venue-a',
+  slug: 'fixture-a',
+  name_en: 'Fixture Padel',
+  name_ar: 'بادل التجربة',
+  address_en: null,
+  address_ar: null,
+  map_url: null,
   venue_name: 'Fixture Padel',
   opening_hours: {
     mon: [['09:00', '23:00']],
@@ -137,6 +159,23 @@ export const VENUE_FIXTURE: VenueOpeningHours = {
   },
   closed_dates: [],
   phone: VENUE_PHONE,
+};
+
+export const SECOND_BRANCH_PHONE = '+964 780 000 0000';
+
+/** A second open branch, with its own address and pinned map link. */
+export const SECOND_BRANCH: VenueBranch = {
+  id: 'venue-b',
+  slug: 'fixture-b',
+  name_en: 'Fixture Riverside',
+  name_ar: 'فرع النهر التجربة',
+  address_en: 'Fixture Street 2, Karbala',
+  address_ar: 'شارع التجربة ٢، كربلاء',
+  map_url: 'https://maps.example.test/fixture-b',
+  venue_name: 'Fixture Riverside',
+  opening_hours: EVERY_DAY_9_TO_11,
+  closed_dates: [],
+  phone: SECOND_BRANCH_PHONE,
 };
 
 export const MENU_OK: MenuResult = { status: 'ok', categories: MENU_FIXTURE };
@@ -155,11 +194,20 @@ export const MENU_ERROR: MenuResult = { status: 'error', categories: [] };
 export const serverData: {
   menu: MenuResult;
   settings: CafeSettings;
-  venue: VenueOpeningHours | null;
-} = { menu: MENU_OK, settings: SETTINGS_FIXTURE, venue: VENUE_FIXTURE };
+  venue: VenueBranch | null;
+  /** null = derived from `venue` (one branch, or none when the read failed) */
+  branches: VenueBranch[] | null;
+} = { menu: MENU_OK, settings: SETTINGS_FIXTURE, venue: VENUE_FIXTURE, branches: null };
+
+/** What the mocked `getCachedBranches()` returns. */
+export function fixtureBranches(): VenueBranch[] {
+  if (serverData.branches) return serverData.branches;
+  return serverData.venue ? [serverData.venue] : [];
+}
 
 export function resetServerData(): void {
   serverData.menu = MENU_OK;
   serverData.settings = SETTINGS_FIXTURE;
   serverData.venue = VENUE_FIXTURE;
+  serverData.branches = null;
 }

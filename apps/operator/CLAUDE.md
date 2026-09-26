@@ -72,6 +72,24 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
 - Realtime topics (`kds`, `courts`, `floor`, `menu`) are subscribed through `src/lib/realtime.ts`,
   which owns auth and reconnect; do not open a channel elsewhere.
 
+## Branches (multi-venue, 2026-09-26)
+
+- The branch a screen shows is `useVenue().branchId` (`src/lib/venue.tsx`): a registered station's
+  branch, else the owner's rail switcher choice, else the person's only branch. Every Supabase call
+  carries `x-station-id` and `x-venue-scope` (`src/lib/venueScope.ts`, wired into `lib/supabase.ts`);
+  the server narrows staff reads to that branch (0226) and files default-based writes there (0226
+  step 2c). So a list query needs **no** `.eq('venue_id', …)`; do not add one, and do not read
+  `venue_settings_public` (a definer view, one row per open branch) without `.eq('venue_id',
+  currentBranchId())`.
+- Switching branch resets the query cache (`VenueProvider`); a registered station never switches.
+- Realtime `kds`, `floor` and `courts` are per branch: `useBroadcast` maps them with `branchTopic`;
+  never subscribe to `'<topic>:' + id` by hand.
+- An RPC argument that names a branch (`p_venue_id`) takes `currentBranchId()`; most need none
+  because the server resolves it from the headers.
+- The owner's "All branches" exists only on report and analytics pages (`ReportBranchScope`), never
+  on an operational screen.
+- Branch strings live in `ws.branches.*` (EN + AR).
+
 ## i18n and styling
 
 - Strings are `ws.<lane>.*` keys from `packages/i18n/src/catalogs/ws/` (`shell`, `kit`, `courtDesk`,

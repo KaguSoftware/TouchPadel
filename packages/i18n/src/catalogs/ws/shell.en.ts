@@ -155,6 +155,7 @@ export const shellEn = {
     panel: 'Management panel',
     analytics: 'Analytics',
     staff: 'Staff',
+    branches: 'Branches',
     courts: 'Courts',
     tables: 'Tables & QR',
     settings: 'Venue settings',
@@ -235,6 +236,10 @@ export const shellEn = {
     exitFullscreen: 'Exit forced full screen',
     quit: 'Quit to desktop',
     quitConfirm: 'This ends service on this station. Orders stop and the venue sees it go offline.',
+    // Under quitConfirm, only while the rail shows Update ready: quitting
+    // installs it and the app then reopens by itself (main/updater.ts
+    // installOnQuit). "ready", as the rail's control says it.
+    quitInstallsUpdate: 'An update is ready. Quitting installs it, then the app opens again by itself.',
     // Quit and Exit forced full screen on a locked station (owner call,
     // 2026-09-23): staff are kept inside the app, and the way out is somebody
     // else's manager PIN.

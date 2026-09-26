@@ -346,9 +346,11 @@ describe.skipIf(!docker)('checklist_day_state as of the end of a past business d
     expect(ok<[string, string]>(r, 'b0_sides')).toEqual([dates.d0, dates.y]);
     expect(ok<DayState>(r, 'd0_state').business_date).toBe(dates.d0);
     expect(ok<DayState>(r, 'y_state').business_date).toBe(dates.y);
-    // The unqualified form reads venue_settings, which this transaction moved:
-    // it would call d0's first instant yesterday. The fix must not.
-    expect(ok<string>(r, 'unqualified_b0')).toBe(dates.y);
+    // The unqualified form read venue_settings, which this transaction moved, and
+    // called d0's first instant yesterday. Since 0211 (multi-venue slice 2) it
+    // delegates to venue_business_date at the caller's branch, so moving
+    // venue_settings no longer moves it either.
+    expect(ok<string>(r, 'unqualified_b0')).toBe(dates.d0);
 
     for (const label of ['new', 'stood', 'edge_before', 'edge_at', 'edited', 'filled', 'cash_list', 'cash_cut', 'cash_tick', 'cc_list']) {
       ok(r, label);
@@ -517,7 +519,7 @@ describe.skipIf(!docker)('checklist_day_state as of the end of a past business d
       Q('closed', `select to_jsonb(status::text) from day_sessions where id = {{day}}::uuid`),
       T('warn_after', 'manager', `select app.checklist_day_state({{venue}}, {{y}}::date)`),
       Q('close_src', `select to_jsonb(position('checklist' in p.prosrc) = 0)
-                        from pg_proc p where p.oid = 'app.close_day(bigint,bigint,text,text)'::regprocedure`),
+                        from pg_proc p where p.oid = 'app.close_day(bigint,bigint,text,text,uuid)'::regprocedure`),
     ]);
 
     expect(summary(ok<DayState>(r, 'warn'))).toEqual({ 'barista:close': [1, 0, ['Lock the fridge']] });

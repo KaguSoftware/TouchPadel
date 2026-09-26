@@ -126,7 +126,7 @@ interface Req {
   lang: Lang;
   scopes: AssistantScope[] | null;
   range: DateRange | null;
-  /** 0114: the chat model to set on this conversation (must be priced in venue_settings.llm_pricing). */
+  /** 0114: the chat model to set on this conversation (must be priced in platform_settings.llm_pricing, 0207). */
   model: string | null;
   dry_run: boolean;
 }
@@ -182,15 +182,15 @@ function ownerClient(req: Request): SupabaseClient {
   });
 }
 
-/** 0114: the venue default model and the models the pricing table can bill (service read). */
+/** 0114: the chain default model and the models the pricing table can bill (service read; platform_settings since 0207). */
 async function venueModels(service: SupabaseClient): Promise<{ default_model: string | null; priced: string[] }> {
-  const { data } = await service.from('venue_settings').select('llm_default_model, llm_pricing').limit(1).maybeSingle();
+  const { data } = await service.from('platform_settings').select('llm_default_model, llm_pricing').eq('id', true).maybeSingle();
   const row = data as { llm_default_model?: string | null; llm_pricing?: Record<string, unknown> | null } | null;
   return { default_model: row?.llm_default_model ?? null, priced: Object.keys(row?.llm_pricing ?? {}) };
 }
 
 async function venueTimezone(asOwner: SupabaseClient): Promise<string> {
-  const { data } = await asOwner.from('venue_settings').select('timezone').limit(1).maybeSingle();
+  const { data } = await asOwner.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
   const tz = (data as { timezone?: string } | null)?.timezone;
   return typeof tz === 'string' && tz ? tz : DEFAULT_TZ;
 }
@@ -263,10 +263,28 @@ async function runRpcTool(ctx: DispatchCtx, spec: ToolSpec, input: Record<string
   return { cleaned, isError: false, row_count };
 }
 
-/** `cafe_settings.analytics_business_day_start_hour` as the owner (0029 grants select to staff), else the 0029 default. */
+/**
+ * `cafe_settings.analytics_business_day_start_hour` as the owner (0029 grants select to staff), else the
+ * 0029 default. Per branch since 0209: the default (oldest active) branch's value, until the assistant
+ * gains its branch scope.
+ */
 async function businessDayStartHour(asOwner: SupabaseClient): Promise<number> {
   try {
-    const { data } = await asOwner.from('cafe_settings').select('value').eq('key', 'analytics_business_day_start_hour').maybeSingle();
+    const { data: venue } = await asOwner
+      .from('venues')
+      .select('id')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const venueId = (venue as { id?: string } | null)?.id;
+    if (!venueId) return DEFAULT_BUSINESS_DAY_START_HOUR;
+    const { data } = await asOwner
+      .from('cafe_settings')
+      .select('value')
+      .eq('key', 'analytics_business_day_start_hour')
+      .eq('venue_id', venueId)
+      .maybeSingle();
     const v = Number((data as { value?: unknown } | null)?.value);
     return Number.isInteger(v) && v >= 0 && v <= 12 ? v : DEFAULT_BUSINESS_DAY_START_HOUR;
   } catch {
@@ -707,7 +725,7 @@ Deno.serve(async (req) => {
   // 0114: a model named by the request must be one the pricing table can bill.
   const venueModel = await venueModels(service);
   if (parsed.model && !venueModel.priced.includes(parsed.model)) {
-    return json({ error: 'ASSISTANT_MODEL_NOT_PRICED', code: 'ASSISTANT_MODEL_NOT_PRICED', message: `${parsed.model} is not in venue_settings.llm_pricing` }, 400);
+    return json({ error: 'ASSISTANT_MODEL_NOT_PRICED', code: 'ASSISTANT_MODEL_NOT_PRICED', message: `${parsed.model} is not in platform_settings.llm_pricing` }, 400);
   }
   // The vendor follows the model (provider.ts vendorFor); no key for it → 503 before any write.
   const provisionalModel = parsed.model ?? venueModel.default_model;

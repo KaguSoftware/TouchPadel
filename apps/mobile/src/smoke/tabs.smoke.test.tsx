@@ -23,8 +23,19 @@
  *    GL branch — where the CTA is anchored to the measured net — is never
  *    rendered by this suite.
  */
+import { describe, expect, it } from '@jest/globals';
+import { within } from '@testing-library/react-native';
+import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
-import { bookingFixture, courtFixture, profileFixture } from '../test/fixtures';
+import { renderRoute } from '../test/smoke';
+import {
+  TEST_VENUE_ID,
+  TEST_VENUE_2_ID,
+  bookingFixture,
+  branchFixture,
+  courtFixture,
+  profileFixture,
+} from '../test/fixtures';
 import { bookingKeys } from '../features/booking/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
 import { profileKeys } from '../features/profile/hooks';
@@ -56,8 +67,9 @@ const CASES: SmokeCase[] = [
     // needs the real surface.
     options: {
       queryData: [
-        [availabilityKeys.courts, [courtFixture()]],
-        [availabilityKeys.settings, null],
+        [availabilityKeys.branches, [branchFixture()]],
+        [availabilityKeys.courts(TEST_VENUE_ID), [courtFixture()]],
+        [availabilityKeys.settings(TEST_VENUE_ID), null],
       ],
     },
   },
@@ -73,7 +85,8 @@ const CASES: SmokeCase[] = [
       session: 'in',
       queryData: [
         [bookingKeys.mine, [bookingFixture()]],
-        [availabilityKeys.courts, [courtFixture()]],
+        [availabilityKeys.branches, [branchFixture()]],
+        [availabilityKeys.allCourts, [courtFixture()]],
       ],
     },
   },
@@ -85,7 +98,8 @@ const CASES: SmokeCase[] = [
       session: 'in',
       queryData: [
         [profileKeys.own, profileFixture()],
-        [availabilityKeys.settings, null],
+        [availabilityKeys.branches, [branchFixture()]],
+        [availabilityKeys.settings(TEST_VENUE_ID), null],
       ],
     },
   },
@@ -104,3 +118,54 @@ runSmokeCases('tab screens', CASES);
 runSmokeCases('android tab bar', [
   { route: 'tabs', Component: TabsLayoutAndroid, labelKey: 'tabs.book' },
 ]);
+
+/**
+ * The branch picker on the Book tab (multi-venue slice 4). Not a route of its
+ * own, so not a table case: with TWO open branches the picker is mounted, its
+ * label and the second branch's name are in the locale's words; with ONE it is
+ * not there at all, which is today's install.
+ */
+const LOCALES: Locale[] = ['en', 'ar'];
+const second = branchFixture({
+  venue_id: TEST_VENUE_2_ID,
+  venue_slug: 'touch-mansour',
+  venue_name_en: 'Touch Mansour',
+  venue_name_ar: 'تاتش المنصور',
+});
+const bookSeeds = (branches: unknown[]): [readonly unknown[], unknown][] => [
+  [availabilityKeys.branches, branches],
+  [availabilityKeys.courts(TEST_VENUE_ID), [courtFixture()]],
+  [availabilityKeys.settings(TEST_VENUE_ID), null],
+];
+
+describe.each(LOCALES)('book branch picker in %s', (locale) => {
+  const t = makeT(locale);
+
+  it('shows the picker with two open branches', () => {
+    const screen = renderRoute(BookScreen, {
+      locale,
+      queryData: bookSeeds([branchFixture(), second]),
+    });
+    try {
+      expect(screen.getByTestId('book.branch')).toBeTruthy();
+      expect(screen.getByText(t('branches.common.branch'))).toBeTruthy();
+      const segment = screen.getByTestId(`book.branch.${TEST_VENUE_2_ID}`);
+      expect(
+        within(segment).getByText(locale === 'ar' ? 'تاتش المنصور' : 'Touch Mansour'),
+      ).toBeTruthy();
+      expect(screen.direction()).toBe(locale === 'ar' ? 'rtl' : 'ltr');
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('shows no picker with one open branch', () => {
+    const screen = renderRoute(BookScreen, { locale, queryData: bookSeeds([branchFixture()]) });
+    try {
+      expect(screen.queryByTestId('book.branch')).toBeNull();
+      expect(screen.getByTestId('book.view-availability')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+});

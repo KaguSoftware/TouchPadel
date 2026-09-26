@@ -5,6 +5,7 @@ import { workAr } from './work.ar';
 import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { legalAr } from './legal.ar';
 import { siteAr } from './site.ar';
+import { branchesAr } from './branches.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -815,6 +816,7 @@ export const ar: Messages = {
   },
   legal: legalAr,
   site: siteAr,
+  branches: branchesAr,
   seo: {
     siteTitle: 'تتش بادل',
     menuTitle: 'قائمة تتش كافيه',
@@ -1695,6 +1697,17 @@ export const ar: Messages = {
       VENUE_REQUIRED: 'هذا الإجراء يحتاج إلى تحديد الفرع الذي يخصّه.',
       STATION_UNKNOWN:
         'هذه المحطة غير مسجّلة في أي فرع. يسجّلها المدير من الإعدادات ← الأجهزة.',
+      // Multi-venue (0212, 0217).
+      VENUE_MISMATCH: 'هذا يخصّ فرعًا آخر. انتقل إلى ذلك الفرع لتنفيذه.',
+      PROMOTION_SCOPE_BRANCH: 'العرض المخصّص لكل الفروع لا يمكن أن يحدّد ملاعب أو أقسامًا أو أصنافًا.',
+      STAFF_VENUE_REQUIRED: 'يجب أن يعمل الموظف في فرع واحد على الأقل.',
+      STAFF_NOT_FOUND: 'لم يعد هذا الموظف موجودًا.',
+      VENUE_NOT_FOUND: 'لم يعد هذا الفرع موجودًا.',
+      STATION_OTHER_BRANCH: 'اسم هذه المحطة مستخدم في فرع آخر. أوقفها هناك أولًا أو اختر اسمًا آخر.',
+      SLUG_TAKEN: 'فرع آخر يستخدم هذا الاسم المختصر. اختر اسمًا آخر.',
+      BRANCH_NOT_READY: 'هذا الفرع غير جاهز للافتتاح بعد. أكمل قائمة التجهيز أولًا.',
+      LAST_OPEN_BRANCH: 'هذا هو الفرع المفتوح الوحيد. افتح فرعًا آخر قبل إغلاقه.',
+      BRANCH_DAY_OPEN: 'أغلق يوم هذا الفرع قبل إغلاق الفرع.',
       NO_PIN_SET: 'لا يوجد رمز سري لهذا الحساب بعد. اطلب من المالك تحديده.',
       BOOKING_TAB_OPEN: 'لهذا الحجز فاتورة مفتوحة بالفعل. أضف إلى تلك الفاتورة.',
       BOOKING_TAB_DONOR: 'لا يمكن نقل فاتورة الحجز إلى فاتورة أخرى. انقل الفاتورة الأخرى إلى الحجز.',

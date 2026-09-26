@@ -8,7 +8,12 @@
  * `src/test/smokeCase.tsx` for how.
  */
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
-import { profileFixture, venueSettingsFixture } from '../test/fixtures';
+import {
+  TEST_VENUE_ID,
+  branchFixture,
+  profileFixture,
+  venueSettingsFixture,
+} from '../test/fixtures';
 import { profileKeys } from '../features/profile/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
 import SettingsScreen from '../../app/settings';
@@ -19,7 +24,8 @@ import AcceptTermsScreen from '../../app/accept-terms';
 
 const SIGNED_IN: [readonly unknown[], unknown][] = [
   [profileKeys.own, profileFixture()],
-  [availabilityKeys.settings, venueSettingsFixture()],
+  [availabilityKeys.branches, [branchFixture()]],
+  [availabilityKeys.settings(TEST_VENUE_ID), venueSettingsFixture()],
 ];
 
 const CASES: SmokeCase[] = [

@@ -16,7 +16,7 @@ import {
   type BookingRow,
 } from '../src/features/booking/logic';
 import { mapErrorToKey } from '../src/features/booking/errors';
-import { useCourts } from '../src/features/availability/hooks';
+import { useAllCourts } from '../src/features/availability/hooks';
 import { formatPrice } from '../src/lib/price';
 import { space, useTheme } from '../src/theme';
 import { Button, Hint, Screen } from '../src/components/ui';
@@ -49,7 +49,8 @@ function BookingHistoryScreen() {
   const insets = useSafeAreaInsets();
   const bookings = useMyBookings();
   const pull = usePullRefresh(bookings.refetch);
-  const courts = useCourts();
+  // Every open branch's courts: past bookings can be at any branch.
+  const courts = useAllCourts();
   const cleared = useHistoryClearedAt();
   const clear = useClearHistory();
   const toast = useToast();

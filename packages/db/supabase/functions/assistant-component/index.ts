@@ -197,7 +197,7 @@ function ownerReader(asOwner: SupabaseClient): Reader {
       return ((data ?? []) as { text: string }[]).map((r) => r.text);
     },
     async timezone() {
-      const { data } = await asOwner.from('venue_settings').select('timezone').limit(1).maybeSingle();
+      const { data } = await asOwner.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
       const tz = (data as { timezone?: string } | null)?.timezone;
       return typeof tz === 'string' && tz ? tz : DEFAULT_TZ;
     },
@@ -217,7 +217,7 @@ function prewarmReader(service: SupabaseClient): Reader {
       return ((data ?? []) as { text: string }[]).map((r) => r.text);
     },
     async timezone() {
-      const { data } = await service.from('venue_settings').select('timezone').limit(1).maybeSingle();
+      const { data } = await service.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
       const tz = (data as { timezone?: string } | null)?.timezone;
       return typeof tz === 'string' && tz ? tz : DEFAULT_TZ;
     },
@@ -652,8 +652,8 @@ Deno.serve(async (req) => {
     return json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400);
   }
 
-  // 0140: components generate on the venue default model (its vendor decides the key).
-  const { data: vsRow } = await service.from('venue_settings').select('llm_default_model').limit(1).maybeSingle();
+  // 0140: components generate on the chain default model (its vendor decides the key; platform_settings since 0207).
+  const { data: vsRow } = await service.from('platform_settings').select('llm_default_model').eq('id', true).maybeSingle();
   const provider = providerFromEnv((n) => Deno.env.get(n), (vsRow as { llm_default_model?: string | null } | null)?.llm_default_model ?? null);
   const abort = new AbortController();
 

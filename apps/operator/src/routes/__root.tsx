@@ -63,6 +63,7 @@ import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
 import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
 import { RailMoreMenu } from '../components/RailMoreMenu';
+import { RailBranch } from '../components/RailBranch';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
 import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
@@ -862,6 +863,8 @@ function WorkspaceNav({
               </span>
             </button>
           )}
+          {/* Multi-venue slice 4: which branch this screen is for (a switcher for the owner). */}
+          <RailBranch />
         </div>
       </div>
 
@@ -1741,6 +1744,10 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   const [pin, setPin] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // With an update waiting, Quit installs it and the app opens again on it
+  // (main/updater.ts installOnQuit): someone quitting to reach the desktop
+  // is told before the app comes back on its own.
+  const update = useUpdateReady();
   // The sign-in variant sits in the top INLINE-END corner, inside the band
   // the window-drag strip covers. It has to out-rank that strip and opt out
   // of the drag, or the corner it lives in belongs to the window, not to it.
@@ -1848,6 +1855,7 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
           }
         >
           <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitConfirm')}</p>
+          {update && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitInstallsUpdate')}</p>}
           {locked && <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void quit()} />}
           <ErrorText error={error} />
         </Modal>

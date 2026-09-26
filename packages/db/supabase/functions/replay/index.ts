@@ -436,7 +436,9 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_ANON_KEY')!,
     {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: req.headers.get('Authorization')! } },
+      // 0215: the queued write's station names the branch on the replayed
+      // request, exactly as the till did when it queued it.
+      global: { headers: { Authorization: req.headers.get('Authorization')!, 'x-station-id': station_id } },
     },
   );
   // 0115 (S3): a queued PIN-gated mutation still carries the typed PIN. Prove
@@ -510,7 +512,11 @@ Deno.serve(async (req) => {
       const prior = await record('conflict', detail);
       if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
       // Surface to the desk: shows a conflict rather than an overwrite (SoW).
+      // 0220: filed at the station's branch (the service role resolves no venue).
+      const { data: stationRow } = await service.from('stations').select('venue_id').eq('id', station_id).maybeSingle();
+      const stationVenue = (stationRow as { venue_id?: string } | null)?.venue_id;
       const alert = await service.from('manager_alerts').insert({
+        ...(stationVenue ? { venue_id: stationVenue } : {}),
         kind: 'replay_conflict',
         payload: {
           idempotency_key,

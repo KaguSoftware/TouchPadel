@@ -10,7 +10,12 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
 import { canCancel, dayPart, displayRef, endedNotice, isCourtFeePaid } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useCourtsBroadcast, useVenueSettings } from '../../src/features/availability/hooks';
+import {
+  useAllCourts,
+  useCourtsBroadcast,
+  useGuestVenue,
+  useVenueSettings,
+} from '../../src/features/availability/hooks';
 import { DEFAULT_TZ, venuePhoneOf } from '../../src/features/availability/assemble';
 import { callPhone } from '../../src/lib/phone';
 import { formatPrice } from '../../src/lib/price';
@@ -47,8 +52,18 @@ function BookingDetailScreen() {
   // Fetched by id (RLS-scoped) — finding it in the 100-row list made any older
   // booking opened from a push tap render "not found".
   const reservation = useReservation(typeof id === 'string' ? id : undefined);
-  const courts = useCourts();
-  const settings = useVenueSettings();
+  // Every open branch's courts, and the settings of the booking's OWN branch
+  // (its cancellation window, its phone, its clock), whichever branch the Book
+  // tab shows. Until the court is known the settings wait (null), so the
+  // policy is never judged against another branch's window; a court that is
+  // not in the list (its branch closed since) falls back to the guest's branch.
+  const courts = useAllCourts();
+  const bookingCourtId = reservation.data?.court_id;
+  const bookingVenue = courts.data?.find((c) => c.id === bookingCourtId)?.venue_id;
+  const settings = useVenueSettings(
+    bookingVenue ?? (courts.isSuccess && reservation.isSuccess ? undefined : null),
+  );
+  const guestVenueId = useGuestVenue().venueId;
   const cancel = useCancelReservation();
   const toast = useToast();
   // The desk can end this booking while the guest is looking straight at it —
@@ -57,7 +72,7 @@ function BookingDetailScreen() {
   // one that kept showing it after the venue closed it, until a 15 s staleTime
   // happened to lapse against a refocus. Reference-counted and shared, so this
   // adds no second subscription when it is opened from Bookings.
-  useCourtsBroadcast();
+  useCourtsBroadcast(bookingVenue ?? guestVenueId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

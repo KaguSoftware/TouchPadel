@@ -24,6 +24,7 @@
  */
 import type { OpeningHours } from '@touch/core';
 import { supabase } from './supabase';
+import { currentBranchId } from './venueScope';
 import { cachedQuery } from './refCache';
 
 // ---------------------------------------------------------------------------
@@ -69,10 +70,12 @@ export interface DaySessionRow {
  * desk calendar silently lost when a narrower query shared this key.
  */
 export async function fetchVenueSettings(): Promise<VenueSettingsRow> {
-  const { data, error } = await supabase
-    .from('venue_settings_public')
-    .select('timezone, opening_hours, closed_dates')
-    .single();
+  // One row per open branch since 0208: this station's (or the switcher's) branch.
+  // venue_settings_public is a definer view, so RLS does not narrow it.
+  const branch = currentBranchId();
+  let q = supabase.from('venue_settings_public').select('timezone, opening_hours, closed_dates');
+  if (branch) q = q.eq('venue_id', branch);
+  const { data, error } = await q.limit(1).single();
   if (error) throw error;
   return data as unknown as VenueSettingsRow;
 }

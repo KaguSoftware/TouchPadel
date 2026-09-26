@@ -23,6 +23,7 @@ import {
   useCourts,
   useCourtsBroadcast,
   useDayGrid,
+  useGuestVenue,
   useIsDegraded,
   useWarmDayGrids,
   useVenueSettings,
@@ -122,9 +123,13 @@ export function useAvailabilityBooking(
   // (pending slot -> complete-profile -> hold). 'unknown' proceeds — Review re-checks.
   const profile = useOwnProfile(!!session);
   const profileGate = profileGateState(profile);
-  const courts = useCourts();
-  const venueSettings = useVenueSettings();
-  const degraded = useIsDegraded();
+  // The branch the guest books at (multi-venue slice 4): its courts, its
+  // settings, its degraded flag and its phone. hold_slot needs no branch — the
+  // server takes it from the court.
+  const { venueId } = useGuestVenue();
+  const courts = useCourts(venueId);
+  const venueSettings = useVenueSettings(venueId);
+  const degraded = useIsDegraded(venueId);
 
   // One minute tick drives "past" cells and the day strip. The heavy grid
   // build (useDayGrid) is data-driven only; applying the clock is O(cells).
@@ -144,7 +149,7 @@ export function useAvailabilityBooking(
   // past midnight does not keep offering yesterday as "today" — except while
   // yesterday's night is still trading (until 02:00), when it leads the strip.
   const tzDates = useMemo(
-    () => listBookableDates(now, tz, 6, venueSettings.data),
+    () => listBookableDates(now, tz, 6, venueSettings.data ?? undefined),
     [now, tz, venueSettings.data],
   );
   const [date, setDate] = useState<string>(() => tzDates[0] ?? '');
@@ -206,7 +211,7 @@ export function useAvailabilityBooking(
   // And every OTHER chip's grid is assembled while the guest is reading this
   // one, so the tap that follows is neither a fetch nor a build.
   useWarmDayGrids(tzDates, date);
-  useCourtsBroadcast(); // live slot_changed -> availability invalidation
+  useCourtsBroadcast(venueId); // live slot_changed -> availability invalidation
 
   const [notice, setNotice] = useState<AvailabilityNotice>(null);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +244,7 @@ export function useAvailabilityBooking(
   // on: a client window narrower than the server's shows slots as free that the
   // server then refuses with DEGRADED_LOCKOUT the moment they are tapped.
   const horizonEnd = useMemo(
-    () => (degraded ? protectedHorizonEnd(now, venueSettings.data) : null),
+    () => (degraded ? protectedHorizonEnd(now, venueSettings.data ?? undefined) : null),
     [degraded, now, venueSettings.data],
   );
 

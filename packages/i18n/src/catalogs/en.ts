@@ -10,6 +10,7 @@ import { workEn } from './work.en';
 import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
+import { branchesEn } from './branches.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -890,6 +891,8 @@ export const en = {
   legal: legalEn,
   // The public website: landing page, site header/footer, 404/error (site.en.ts).
   site: siteEn,
+  // Multi-venue slice 4: the guest-facing branch words (branches.en.ts).
+  branches: branchesEn,
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
     // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
@@ -1804,6 +1807,17 @@ export const en = {
       VENUE_REQUIRED: 'This action needs to know which venue it is for.',
       STATION_UNKNOWN:
         'This station is not registered to a venue. A manager registers it in Settings → Devices.',
+      // Multi-venue (0212, 0217).
+      VENUE_MISMATCH: 'This belongs to another branch. Switch to that branch to do this.',
+      PROMOTION_SCOPE_BRANCH: 'A promotion for every branch can’t name courts, categories or items.',
+      STAFF_VENUE_REQUIRED: 'A staff member has to work at one branch at least.',
+      STAFF_NOT_FOUND: 'This staff member no longer exists.',
+      VENUE_NOT_FOUND: 'This branch no longer exists.',
+      STATION_OTHER_BRANCH: 'This station name is in use at another branch. Retire it there first, or pick another name.',
+      SLUG_TAKEN: 'Another branch already uses this short name. Pick another.',
+      BRANCH_NOT_READY: 'This branch isn’t ready to open yet. Finish the checklist first.',
+      LAST_OPEN_BRANCH: 'This is the only open branch. Open another branch before closing it.',
+      BRANCH_DAY_OPEN: 'Close this branch’s day before closing the branch.',
       NO_PIN_SET: 'This account has no PIN yet. Ask the owner to set one.',
       BOOKING_TAB_OPEN: 'This booking already has an open bill. Add to that bill instead.',
       BOOKING_TAB_DONOR: 'A booking’s bill can’t be moved onto another bill. Move the other bill onto the booking instead.',

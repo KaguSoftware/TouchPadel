@@ -89,8 +89,12 @@ const HAS_VENUE_ID = [
   'station_staff', 'device_heartbeats',
   // Phase 2 item 5 (0144): created venue-scoped
   'suppliers',
-  // The one-row singleton (slice 1 keeps its boolean primary key)
+  // One row per venue since slice 2 (0208; slice 1 kept its boolean primary key)
   'venue_settings',
+  // Slice 2 (0209): keyed by (venue_id, key)
+  'cafe_settings',
+  // Slice 2 (0212, MV2): nullable on purpose, NULL = every branch
+  'promotions',
 ] as const;
 
 /** Leaf tables that derive their venue through a foreign key, and global tables. */
@@ -102,8 +106,9 @@ const NO_VENUE_ID = [
   'delivery_lines', 'stock_count_lines', 'marketing_sends', 'promotion_redemptions',
   // Global
   'profiles', 'staff', 'allergens', 'telegram_staff', 'telegram_chats', 'notification_outbox',
-  'sync_replays', 'promotions', 'customer_notes', 'customer_flags', 'staff_requests',
-  'cafe_settings',
+  'sync_replays', 'customer_notes', 'customer_flags', 'staff_requests',
+  // Slice 2 (0207): the chain's own settings
+  'platform_settings',
 ] as const;
 
 /** The live schema as PostgREST publishes it (same trick as stored-fields.test.ts). */
@@ -206,8 +211,9 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
 
   // ── 3 ──────────────────────────────────────────────────────────────────────
   it('3. the column default is current_venue() on C tables and or_default() on D tables', async () => {
-    // (a) An explicit NULL is refused by the validated CHECK (0129), not by a
-    // NOT NULL — R5 keeps types.gen.ts's `venue_id: string | null`.
+    // (a) An explicit NULL is refused. Slice 1 refused it by the validated CHECK
+    // (0129, 23514); since slice 2 (0213) the column is NOT NULL (23502), backed
+    // by that CHECK, and types.gen.ts says `venue_id: string`.
     const explicitNull = await svc.from('courts').insert({
       name_en: 'Multi-venue null probe',
       name_ar: 'فحص فارغ',
@@ -216,7 +222,7 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
       is_active: false,
       venue_id: null,
     });
-    expect(explicitNull.error?.code).toBe('23514');
+    expect(explicitNull.error?.code).toBe('23502');
 
     // (b) A C table with NO venue_id, written by service_role while two venues
     // are active: the default is app.current_venue(), which refuses rather than
@@ -595,8 +601,9 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
       p_guest_name: 'Cross-venue probe',
     });
     expect(crossVenue.error, 'a booking must never cross venues').not.toBeNull();
-    expect(crossVenue.error?.code).toBe('23503');
-    expect(crossVenue.error?.message).toContain('reservations_court_venue_fkey');
+    // Slice 3 (0217): the RPC guard refuses first, naming the reason.
+    expect(crossVenue.error?.code).toBe('P0001');
+    expect(crossVenue.error?.message).toBe('VENUE_MISMATCH');
   });
 
   // ── 13 ─────────────────────────────────────────────────────────────────────
