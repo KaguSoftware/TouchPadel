@@ -21,7 +21,7 @@ follow-up change.
 **Citations.** `NNNN:line` means `packages/db/supabase/migrations/2026…NNNN_*.sql`; `op/` means
 `apps/operator/src/`; `mob/` means `apps/mobile/`. Planned migrations are named by feature and take
 their ordinal only at commit (contracts §1.3). At HEAD `bd09757` the committed migrations run to
-0189, so the first wave-5 ordinal is 0190. The two drafts this file first waited on are now
+0189, and another session's 0190 `touch_ingredients_and_recipes` (f71e115, pushed and applied on hosted 2026-09-25 21:29 with 0161-0189), so the first wave-5 ordinal is 0191. The two drafts this file first waited on are now
 committed. 0188 `checklist_day_state_asof` (R7) re-issues `checklist_day_state` only (0188:51).
 0189 `sql_helpers_not_inlinable` (hardening) re-issues ten SQL helpers (`b64url_*`,
 `business_date`, `normalize_finding`, `phone_canon`, `search_norm`, `like_escape`,
@@ -101,6 +101,21 @@ migrations to 0189). 0188 and 0189 re-issue none of the bodies below.**
 | V19 | Receiving goods respects a count in progress, through the internal | M5, §2.8, §3 |
 | V20 | The refund restock is costed like today only while every live batch is in the cafe | D3 |
 | V21 | `stock_cost_estimate` deliberately skips batches with no cost, unlike `v_item_cogs` | D5, I15 |
+
+### What the fix pass changed (2026-09-26, after the privacy and money/stock reviews)
+
+| # | Change | Where |
+|---|---|---|
+| F1 | An ingredient advisory lock, `app.lock_stock_ingredients(uuid[])` (in `ingredient_id` order), comes before any batch is read by `consume_fefo_at`, `transfer_stock`, `finalize_count` and `price_logged_stock`. `consume_for_order_item` (0018:213, now re-issued by S) takes the whole order's, and the product test all its servings'. A sale that waited on a batch a move was emptying read its batch list before the move committed and wrote an overdraft while the other store held the stock, and a two-item ticket whose items ran against ingredient order met a two-line move in 40P01 | D3, D6, §2.8.4, §2.8.6, §2.10 |
+| F2 | `consume_fefo_at` returns what it booked, and a production is costed from that: summing every `production_consume` row after a `max(id)` read counted a concurrent production's rows | §2.8.4, §2.8.6 |
+| F3 | A phone count's variance period ends at its submit (`started_at`, when its theoretical was taken), and the next period starts there | §2.8.6 (`v_variance_report`) |
+| F4 | The handover's outside cash counts the null-stamped rows since the previous shift **opened**, so a settle that began before the close and wrote after it is in | §2.9.4 step 8, `till_shift_status` |
+| F5 | `close_till_shift_internal` locks the shift itself before it sums | §2.9.4 |
+| F6 | A manager who is a deduction's person reads it only as the person: the table policy, `deductions_page` and `deductions_month` leave out the caller's own rows | §2.5.2, §7.6 |
+| F7 | `notification_outbox.profile_id` and `payload` leave `app.assistant_readable_columns`: `deduction_recorded` goes to the person | §2.0, §2.5.3 |
+| F8 | `staff_media_delete` (0159) is re-issued without the `incidents` folder | §2.4, §2.10, §7.9 |
+| F9 | Upload slots in `incidents` and `campaigns` nobody claimed a day on are held (`used_by 'orphan_purge'`) and removed by the tick | §2.6.2, §2.12 |
+| F10 | The §2.1.8 waiter-call objects are listed with R's re-issues, with the venue check R's draft adds (a **PROPOSAL** for Majed), and the texts that still kept the waiter out of the calls say he answers them | §2.1.1, §2.1.4, §2.1.5, §2.1.8, §2.10, §2.12, §6.1 |
 
 ---
 
@@ -358,13 +373,14 @@ change:
 
 Both stay out of every money and order read. The order-side policies are explicit lists naming
 neither (0157:36-61, narrowed by 0161). `waiter_calls_staff_read` (0136:125), `ack_waiter_call` and
-`resolve_waiter_call` (0032:691-710) stay cashier and MGMT.
+`resolve_waiter_call` (0032:691-710) stay closed to the assistant barista; the waiter joins them
+(§2.1.8, §8 Q3 answered).
 
 #### 2.1.2 Which explicit lists they join
 
 | List (latest body) | assistant_barista | waiter |
 |---|---|---|
-| BOARD: `set_ticket_status` 0156:598, `set_order_item_ready` 0156:617, policy `tickets_staff_read` 0156:788, policy `touchpadel_rt_staff_topics` (the guarded DO block 0156:794-814), `kitchen_board` 0158:42 (:50, :57-58) | **joins** (**PROPOSAL**: he makes drinks from the bar's tickets; OPEN §8 Q1) | no (OPEN §8 Q3) |
+| BOARD: `set_ticket_status` 0156:598, `set_order_item_ready` 0156:617, policy `tickets_staff_read` 0156:788, policy `touchpadel_rt_staff_topics` (the guarded DO block 0156:794-814), `kitchen_board` 0158:42 (:50, :57-58) | **joins** (**PROPOSAL**: he makes drinks from the bar's tickets; OPEN §8 Q1) | no (§8 Q3: answered, the board stays closed to him) |
 | `app.staff_team` 0170:176 | **`bar`** (contracts §2.1 reserved this) | none (**PROPOSAL**; OPEN §8 Q2) |
 | `save_teaching` push recipients 0179:197 | **joins** | no |
 | `teachings_for_me` guards 0179:276, :281 | **joins** | no |
@@ -402,6 +418,9 @@ targets follow the same mapping (§2.5).
 | `app.recipe_view(uuid, uuid)` | 0182:33 | the guards at :43 and :63 |
 | `app.protocol_engine_roles(jsonb)` | 0164:114 | `c_hireable` gains both roles; the comment lists 11 |
 | `app.protocol_check_hiring_open_position(uuid, jsonb, text[])` | 0176:200 | the `not in (...)` list at :213-215 gains both |
+| policy `waiter_calls_staff_read` (§2.1.8) | 0136:125 | `'waiter'` in the list; the venue conjunct is kept |
+| `app.ack_waiter_call(uuid)`, `app.resolve_waiter_call(uuid)` (§2.1.8) | 0032:691, :702 | `'waiter'` in the guard, and a venue check past it (**PROPOSAL**): a call outside `app.staff_venue_ids()` is `CALL_NOT_FOUND`, for the cashier and MGMT too, then `set_config('app.venue_id', …)` |
+| policy `touchpadel_rt_staff_topics` (§2.1.8, the same re-issue as above) | 0156:794-814 | the waiter on `floor` only, never `kds` |
 
 - **No new RPC, argument, return key, error code or idempotency change.**
 - **Audit and push.** The audit strings are unchanged (`set_staff_role` 0157 audits
@@ -414,11 +433,13 @@ targets follow the same mapping (§2.5).
 | Migration | Depends on | Contents |
 |---|---|---|
 | `staff_roles_assistant_waiter` | – | the header, then `alter type staff_role add value if not exists 'assistant_barista';` and `… 'waiter';`, and nothing else |
-| `assistant_barista_waiter_access` | `staff_roles_assistant_waiter` | the eleven re-issues of §2.1.4, each re-checked at commit with the §2.10 command |
+| `assistant_barista_waiter_access` | `staff_roles_assistant_waiter` | the re-issues of §2.1.4 (the eleven of the roles, and the three waiter-call objects of §2.1.8), each re-checked at commit with the §2.10 command |
 
 Fixtures:
 - `rpc-allowlist.json` and the floor are unchanged, because no grant changes.
-- `rls-matrix.ts` gets no new principal (its header says never restructure it).
+- `rls-matrix.ts` gets no new principal (its header says never restructure it). R's access commit
+  appends three `drop: 18` rows that restate the waiter-call rules with the waiter and the venue
+  check in their notes (`select waiter_calls`, `ack_waiter_call`, `resolve_waiter_call`).
 - `assistant-coverage.json` needs no key.
 - Regenerate `types.gen.ts` and the three map outputs.
 
@@ -465,6 +486,32 @@ lookup. The parity test also fails the moment the enum and any copy differ.
   3. only then does the owner give Hussein and Hasan their roles (§7.3).
 
   The staff phone has not shipped yet, so R must be in the first store build.
+
+#### 2.1.8 The waiter answers guests' "call a waiter" (§8 Q3, answered 2026-09-25)
+
+Majed: Hasan answers guests' calls. He still gets no till and no kitchen board.
+
+- **Server (R's access migration, `assistant_barista_waiter_access`).** `waiter` joins, each from
+  its latest body: the `waiter_calls_staff_read` policy (0136:125, venue conjunct kept);
+  `app.ack_waiter_call` and `app.resolve_waiter_call` (latest bodies: grep both create spellings;
+  0032:691-710 per Q3); the `floor` topic in `touchpadel_rt_staff_topics` (the guarded DO block,
+  latest 0156:794-814), so `rt_waiter_call`'s broadcast (0033) reaches him. He reads the table
+  label the call names (`cafe_tables` read for the waiter if the latest policy excludes him). No
+  money, tab or order read comes with it: 0161's four order-side policies stay closed to him.
+  As built: the latest `cafe_tables_staff_read` (0156:679) already admits any staff at the venue,
+  so it is not re-issued. The two RPCs gain a venue check 0032 never had (**PROPOSAL**, for
+  Majed): another venue's call is `CALL_NOT_FOUND` to everyone, the cashier and MGMT included.
+- **Push (P, `staff_push_keys_wave5` + the send-push copy, §2.3).** A new key `waiter_call_new`
+  to the venue's active waiters when a call is raised (title only, with the table label; no
+  guest identity), deduplicated per call. The guest cooldown (`set_waiter_call_cooldown`, 0052)
+  still limits how often a table can call.
+- **Phone (R's UI part, after the impeccable pass).** `mob/app/staff-calls.tsx`: open calls with
+  table, reason and age, newest first, live on the `floor` topic; "On my way" (`ack`) and "Done"
+  (`resolve`), keyed per call and action; a Today row with the open count. The cashier and managers
+  keep answering on the till as today; whoever acts first wins, and the other screen updates live.
+- **Tests (R).** The waiter reads, acks and resolves a call at his venue, not another venue's;
+  sees no tab, order or payment; receives the `floor` broadcast; the driver and marketing still
+  cannot. `waiter_call_new` reaches waiters only.
 
 ### 2.2 Size and add-on renames through a price change — lane N
 
@@ -576,7 +623,7 @@ lookup. The parity test also fails the moment the enum and any copy differ.
 
 ### 2.3 Wave-5 push keys (shared; lane P owns `notify_staff` for the wave)
 
-Ten title keys. No kind and no route is added, so `mob/src/features/staff/pushRoutes.ts` and the
+Eleven title keys (the eleventh, `waiter_call_new`, added for §8 Q3 on 2026-09-25, §2.1.8). No kind and no route is added, so `mob/src/features/staff/pushRoutes.ts` and the
 tap handling do not change. Every key opens Today (route `staff`), with `id` null.
 
 | title_key | kind | To | params | EN title / body | AR title / body (draft for review) |
@@ -591,9 +638,11 @@ tap handling do not change. Every key opens Today (route `staff`), with `id` nul
 | `content_approved` | `staff_decided` | the version's submitter and the author (deduplicated) | `title` | Content approved / {title} | تمت الموافقة على المحتوى / {title} |
 | `content_changes` | `staff_decided` | the same | `title` | Changes asked / {title} | طُلبت تعديلات / {title} |
 | `content_declined` | `staff_decided` | the same | `title` | Content declined / {title} | رُفض المحتوى / {title} |
+| `waiter_call_new` | `staff_task` | the venue's active waiters (`app.staff_ids_with_roles(venue,'{waiter}')`), from an `after insert` definer trigger on `waiter_calls`; dedupe `waiter_call:<id>` | `table` (the table's label) | Guest call / Table {table} | نداء زبون / طاولة {table} |
 
 - **P's `send-push` commit** (no migration) is wave 5's first commit (§1.4 #1).
-  - `send-push/staffStrings.ts` gains the ten keys in EN and AR.
+  - `send-push/staffStrings.ts` gains the eleven keys in EN and AR (a `{table}` param if the
+    template helper does not already pass unknown params through).
   - `send-push-staff.test.ts` becomes "every JSON key has copy, and so does each wave-5 key" (the
     J pattern, contracts §2.24.1).
   - The JSON is untouched, so `staff-push.test.ts` stays green.
@@ -601,9 +650,10 @@ tap handling do not change. Every key opens Today (route `staff`), with `id` nul
     An unknown `title_key` is terminal in the deployed function (contracts §1.6).
 - **`staff_push_keys_wave5`:**
   - re-issues `app.notify_staff(uuid[], text, jsonb, text)` verbatim from 0169:26-96;
-  - changes only `c_title_keys`: the ten keys are appended after `marketing_request_answered`, in
-    the table's order;
-  - in the same commit, `_shared/staff-push.json` `title_keys` gains the same ten, in the same order,
+  - changes only `c_title_keys`: the eleven keys are appended after `marketing_request_answered`,
+    in the table's order; the `waiter_calls` insert trigger that sends `waiter_call_new` ships in
+    this migration too (definer, `set search_path`, never raises into the guest's insert);
+  - in the same commit, `_shared/staff-push.json` `title_keys` gains the same eleven, in the same order,
     and `send-push-staff.test.ts` returns to equality (36 keys).
 - **The params rule** (contracts §2.21): only `name`, `title` and `step`. No amount, no reason, no
   description, no place free text, no people, and never the name of the person a deduction is
@@ -631,8 +681,12 @@ tap handling do not change. Every key opens Today (route `staff`), with `id` nul
   | `marketing_content:<content_id>` | the uploader, marketing and the owners at the content's venue, and **not** managers (**PROPOSAL**, Q14, V4). This branch runs **before** the uploader-or-MGMT return at 0170:317-319, so it answers for these objects alone. An unclaimed slot (`used_by` null) keeps today's rule |
   | `incident:<id>` | the uploader and MGMT only. A kind the function does not name falls to that default (0170:345-347, :385), so no branch is written |
 
-- **Not touched:** every `storage.objects` policy (`staff_media_read` already asks
+- **Not touched:** `staff_media_insert` and `staff_media_read` (it already asks
   `staff_media_visible`), and `app.claim_staff_media` (each record claims under its own id).
+  `staff_media_delete` is re-issued (0164's guarded shape) with
+  `and app.staff_media_folder(name) is distinct from 'incidents'`: a manager could delete a filed
+  report's photo, one naming them included. Those photos go only by redaction or the purge,
+  through the service role (F8).
 - **Client twins, in the same commit:**
   - `PHOTO_FOLDERS` (`packages/core/src/protocols/types.ts`);
   - `PhotoFolder` (`mob/src/features/staff/photo.ts:37`);
@@ -724,7 +778,7 @@ RLS: select for MGMT at the venue. No other policy.
 |---|---|
 | The person | their own **approved** and **cancelled** rows: amount, date, reason, status, when decided, and the month's approved total. Not waiting, declined or withdrawn rows, not the proposer, not the decision note, not the cancel reason |
 | The proposing head | their own proposals, every status: the person's name, amount, date, reason, status and the decision note. No totals |
-| MGMT at the venue | everything, with the month view |
+| MGMT at the venue | everything, with the month view, but a deduction against themselves: that one they read only as the person (F6) |
 | Anyone else, and the owner assistant or any LLM | nothing |
 
 #### 2.5.3 RPCs
@@ -759,6 +813,9 @@ All are `security definer set search_path = public`, `revoke all … from public
   entity id already names the (excluded) row, and `audit_log.after` is readable by the assistant
   when named (§2.0, V17);
 - SEC-29 gains `/deduction/i`;
+- `notification_outbox.profile_id` and `payload` leave `app.assistant_readable_columns`: the
+  `deduction_recorded` row's recipient, beside the approval's audit row, would name the person
+  (F7);
 - the wage-advance path (0109, 0110) is unchanged (OPEN §8 Q10).
 
 ### 2.6 Incident reports — lane P
@@ -823,6 +880,8 @@ RLS: select for MGMT at the venue. No other policy.
 | `app.incident_purge_due()` | – | `{incidents}` | none (cron, database owner; audit shows System) | – | – | `incident.purge`, counts only |
 | `app.incident_photo_purge_due(p_limit int default 20)` | – | `[{incident_id, paths}]` (rows with `purge_after <= now()`, `photos_purged_at is null`, photos present) | `service_role` grant only | – | – | – |
 | `app.incident_photos_purged(p_id uuid)` | – | void: `photos_purged_at = now()`, `photos = '{}'` | `service_role` grant only | – | – | – |
+| `app.staff_media_orphan_purge_due(p_limit int default 50)` (F9) | – | `["<path>", …]`: `incidents` and `campaigns` slots unclaimed a day on, oldest first, each marked `used_by 'orphan_purge'` (a later claim is `PHOTO_PATH_INVALID`) | `service_role` grant only | – | – | – |
+| `app.staff_media_orphans_purged(p_paths text[])` (F9) | – | int: the held slots deleted once the tick removed their objects | `service_role` grant only | – | – | – |
 
 - **The text purge.** `incident_purge_due` overwrites `description` with
   `'[deleted after 365 days]'` and nulls `people_involved`, `place_detail` and `review_note` (a
@@ -1021,7 +1080,7 @@ RLS (PROPOSAL, V4; owner-only, a departure from the contracts' MGMT default, bec
 
   | Use | Preferred store |
   |---|---|
-  | Sale (cafe ticket, shop sale, guest web order) | cafe: `consume_fefo` becomes a wrapper, `consume_fefo_at('cafe', …)`. `consume_for_order_item` is untouched |
+  | Sale (cafe ticket, shop sale, guest web order) | cafe: `consume_fefo` becomes a wrapper, `consume_fefo_at('cafe', …)`. `consume_for_order_item` takes the whole order's ingredient locks first (F1) |
   | Production (`record_batch`, `record_production`) | bakery by default (**PROPOSAL**, OPEN §8 Q18); the output batch lands there too |
   | Waste (`record_waste`) | the named store, else the caller's home (`app.staff_home_location`) |
   | Product test | the submitter's home: bakery for head_chef and chef, otherwise cafe |
@@ -1155,6 +1214,7 @@ No note column.
 | `app.trg_stock_movement_location() returns trigger` | `stock_locations` | D2 |
 | `app.receive_delivery_internal(uuid, stock_location, jsonb, text, text, text, uuid, text) returns jsonb` | `stock_locations` | D4; returns `{delivery_id, batch_ids}`; `EMPTY_DELIVERY`, `INGREDIENT_NOT_FOUND` (now also another venue's), `INVALID_LINE`, `INVALID_ARGUMENT` hint `kind` (a shop line at the bakery, V14), `STORE_BEING_COUNTED` (M5, V19); reads an optional per-line `cost_source` |
 | `app.stock_cost_estimate(uuid, out unit_cost numeric, out cost_source text)` | `stock_logs` | D5 |
+| `app.lock_stock_ingredients(uuid[]) returns void` | `stock_locations` | F1: `pg_advisory_xact_lock(hashtextextended('stock_ingredient:'\|\|id, 0))` per distinct id, in `ingredient_id` order. plpgsql |
 
 #### 2.8.5 New RPCs
 
@@ -1219,6 +1279,7 @@ V14). The rest is **PROPOSAL** (who moves, OPEN §8 Q21; each role's other store
 | Object | Latest | Migration | Signature | Change |
 |---|---|---|---|---|
 | `consume_fefo` | 0018:83 | `stock_locations` | same | the body becomes `perform app.consume_fefo_at('cafe', <8 args>)`; re-revoke (0018:549) |
+| `consume_for_order_item` | 0018:213 | `stock_locations` | same | F1: `app.lock_stock_ingredients` over the whole order's BOM before the item's; re-revoke (0018:552) |
 | `receive_delivery` | 0145:242 | `stock_locations` | **new**: `+ p_location text default null`; drop `(jsonb, text, text, text, uuid, text)`, recreate, re-revoke and re-grant | guard as 0145:266; venue from `app.current_venue()`, then `is_staff_at`; supplier check and claim (0145:284) verbatim; calls `receive_delivery_internal(…, 'goods_in')`, so it now also raises `STORE_BEING_COUNTED` and refuses a shop line at the bakery (D4); audit (0145:329) plus `location` |
 | `receive_purchase` | 0166:678 | `stock_locations` | **new**: `+ p_location text default null`; drop `(uuid, jsonb, uuid, text, text)`, recreate, re-revoke and re-grant | passes `p_location` to the public `receive_delivery` (0166:810), so the same two refusals reach it; `purchase.receive` after gains `location` |
 | `record_production_internal` | 0167:38 | `stock_locations` | **new**: `+ p_location stock_location default 'bakery'`; drop `(uuid, numeric, date, text)`, recreate, revoke from `public, anon, authenticated` | `consume_fefo_at(p_location, …)` (0167:75); the batch insert gets `location` (0167:86); the audit gains `location`. `record_batch` (0167:134) calls it with 4 positional args (0167:168), so it is **not** re-issued |
@@ -1235,7 +1296,7 @@ V14). The rest is **PROPOSAL** (who moves, OPEN §8 Q21; each role's other store
 
 - **Not re-issued, on purpose:**
   - `write_off_expired`, `trg_order_item_voided` (D2);
-  - `consume_for_order_item`, `record_batch`;
+  - `record_batch`;
   - `ingredient_on_hand`, `menu_availability`, `item_required_ingredients`, `production_today`,
     `ops_overview`, `assistant_stock_view` (venue totals);
   - `v_ingredient_on_hand` (the new view carries the per-store figures);
@@ -1444,13 +1505,14 @@ and revoked from `public, anon, authenticated`.
 
 | RPC | Args | Returns | Steps and errors |
 |---|---|---|---|
-| `open_till_shift` | `p_opening_float_iqd bigint, p_device_id text, p_note text default null, p_idempotency_key text default null` | `{duplicate:false, till_shift:{id, station_id, staff_id, staff_name, opened_at, opening_float_iqd, handover_from:{till_shift_id, staff_name, closed_at, left_in_drawer_iqd, outside_cash_since_iqd}\|null, handover_difference_iqd}}` | 1. SHIFT, else `FORBIDDEN`. 2. The station check (write form), then the venue and `set_config`. 3. `INVALID_FLOAT` (null or negative), `TEXT_TOO_LONG` (hint `note`, 500). 4. `claim_replay(key,'open_till_shift')`. 5. The open day `for share`, else `NO_OPEN_DAY`. 6. **Self-heal** (**PROPOSAL**): a stale open shift on this station, or for this person, whose day is closed is closed `day_close` (figures stamped, count null), audited `drawer.shift_close_by_day`. 6a. **Queued writes** (V13): `TILL_SHIFT_UNSYNCED` when `exists(device_heartbeats where device_id = p_device_id and queue_depth > 0 and last_seen_at >= <the open day's opened_at>)`. This mirrors the close's step 6 and `close_day`'s guard (0020:57-64). The stamp trigger picks the shift that is open when a row is **inserted**, and a queued sale is inserted at replay. Without this step, a sale queued while no shift was open (the gate fails open offline) would land in the new shift, whose counted float already holds its cash, and show a false shortage. With it, the replay lands first, outside a shift. 7. `TILL_SHIFT_ALREADY_OPEN` (detail = its station); `TILL_SHIFT_STATION_BUSY`; a `unique_violation` from a race is mapped by index name to these two. 8. **Handover** (V18): the latest counted shift on this station in this day sets `handover_from_shift_id`. Then `handover_difference_iqd = float − (prev.cash_counted_iqd + outside_cash_since_iqd)`. `outside_cash_since_iqd` = Σ cash `payments` − Σ cash `refunds` (by the payment's method, the 0020:70-72 rule) stamped null with `device_id` = this station and `created_at > prev.closed_at`. That is cash that entered or left the drawer between the two shifts: a no-shift sale (the gate fails open, and managers pay without a shift) or a manager's cash refund at the till. A new day never hands over. 9. Insert; audit `drawer.shift_open`, entity `till_shifts` (row minus the notes). 10. `finish_replay` |
+| `open_till_shift` | `p_opening_float_iqd bigint, p_device_id text, p_note text default null, p_idempotency_key text default null` | `{duplicate:false, till_shift:{id, station_id, staff_id, staff_name, opened_at, opening_float_iqd, handover_from:{till_shift_id, staff_name, closed_at, left_in_drawer_iqd, outside_cash_since_iqd}\|null, handover_difference_iqd}}` | 1. SHIFT, else `FORBIDDEN`. 2. The station check (write form), then the venue and `set_config`. 3. `INVALID_FLOAT` (null or negative), `TEXT_TOO_LONG` (hint `note`, 500). 4. `claim_replay(key,'open_till_shift')`. 5. The open day `for share`, else `NO_OPEN_DAY`. 6. **Self-heal** (**PROPOSAL**): a stale open shift on this station, or for this person, whose day is closed is closed `day_close` (figures stamped, count null), audited `drawer.shift_close_by_day`. 6a. **Queued writes** (V13): `TILL_SHIFT_UNSYNCED` when `exists(device_heartbeats where device_id = p_device_id and queue_depth > 0 and last_seen_at >= <the open day's opened_at>)`. This mirrors the close's step 6 and `close_day`'s guard (0020:57-64). The stamp trigger picks the shift that is open when a row is **inserted**, and a queued sale is inserted at replay. Without this step, a sale queued while no shift was open (the gate fails open offline) would land in the new shift, whose counted float already holds its cash, and show a false shortage. With it, the replay lands first, outside a shift. 7. `TILL_SHIFT_ALREADY_OPEN` (detail = its station); `TILL_SHIFT_STATION_BUSY`; a `unique_violation` from a race is mapped by index name to these two. 8. **Handover** (V18): the latest counted shift on this station in this day sets `handover_from_shift_id`. Then `handover_difference_iqd = float − (prev.cash_counted_iqd + outside_cash_since_iqd)`. `outside_cash_since_iqd` = Σ cash `payments` − Σ cash `refunds` (by the payment's method, the 0020:70-72 rule) stamped null with `device_id` = this station and `created_at > prev.opened_at` (F4: a settle that began before the close and wrote after it is stamped null with a `created_at` before `closed_at`; a null row inside the shift's own window can only be such a straggler). That is cash that entered or left the drawer between the two shifts: a no-shift sale (the gate fails open, and managers pay without a shift) or a manager's cash refund at the till. A new day never hands over. 9. Insert; audit `drawer.shift_open`, entity `till_shifts` (row minus the notes). 10. `finish_replay` |
 | `close_till_shift` (my own, my PIN) | `p_till_shift_id uuid, p_counted_iqd bigint, p_pin text, p_device_id text, p_note text default null, p_idempotency_key text default null` | `{ok:true, duplicate?, till_shift_id, station_id, staff_id, staff_name, opened_at, closed_at, closed_via, authorized_by_name, opening_float_iqd, cash_payments_iqd, cash_refunds_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count, drawer_open_count, left_in_drawer_iqd}`, or `{ok:false, code:'PIN_INVALID'}` | 1. SHIFT. 2. `INVALID_COUNT` (null, negative, > 999,999,999,999), `TEXT_TOO_LONG`. 3. **The PIN before the claim** (the 0011 rule, as `start_break` 0105:386-388): `if not app.verify_own_pin(p_pin, p_device_id) then return {ok:false, code:'PIN_INVALID'}`; `NO_PIN_SET` and `PIN_LOCKED` are raised by `verify_own_pin` (0156:302). A wrong PIN is returned, so its attempt row commits. 4. `claim_replay`. 5. Lock the shift `for update`; missing or another venue → `TILL_SHIFT_NOT_FOUND`. 6. `TILL_SHIFT_CLOSED`; `TILL_SHIFT_NOT_YOURS` (`staff_id <> auth.uid()`); `TILL_SHIFT_WRONG_STATION`; `TILL_SHIFT_UNSYNCED` (`exists(device_heartbeats where device_id = S.station_id and queue_depth > 0 and last_seen_at >= S.opened_at)`, the `DAY_UNSYNCED` mirror of 0020:57-64). 7. `close_till_shift_internal(S, counted, note, 'own_pin', null)`. 8. `finish_replay` |
 | `close_till_shift_for` (someone else's, or mine without a PIN) | `p_till_shift_id uuid, p_counted_iqd bigint, p_device_id text, p_note text default null, p_idempotency_key text default null` | as `close_till_shift` | The 0115 grant pattern: the screen first calls `verify_manager_pin` (0156:484), which mints a single-use grant. 1. SHIFT. 2. The argument checks. 3. `claim_replay(…,'close_till_shift_for')`; the duplicate path spends the grant best-effort (as `refund`, 0139:407-413). 4. Lock → `TILL_SHIFT_NOT_FOUND`, `TILL_SHIFT_CLOSED`, `TILL_SHIFT_WRONG_STATION`, `TILL_SHIFT_UNSYNCED`. 5. `v_auth := app.consume_pin_grant(p_device_id)` (0156:446) → `PIN_GRANT_REQUIRED`. 6. `close_till_shift_internal(S, counted, note, 'manager_pin', v_auth)`. **Not** in `PIN_GATED_RPCS` (it has no `p_pin`), so `packages/core` and `_shared/mutation-types.json` do not change |
 | `till_shift_status` (stable) | `p_device_id text` | `{station_id, day:{id, business_date, opening_float_iqd}\|null, shift:{id, staff_id, staff_name, is_mine, opened_at, opening_float_iqd, payment_count, refund_count, drawer_open_count, cash_expected_iqd /* MGMT only; the key is absent otherwise */}\|null, last_closed:{id, staff_name, closed_at, left_in_drawer_iqd, outside_cash_since_iqd}\|null, mine_elsewhere:{id, station_id, opened_at}\|null, queue_depth}` (the start panel prefills `left_in_drawer_iqd + outside_cash_since_iqd`, V18) | SHIFT; the station check in its read form, with no heartbeat test. **Blind count** (**PROPOSAL**, OPEN §8 Q29): nothing open to a cashier or the desk returns running expected cash. It is a screen rule, not a wall, because `payments_staff_read` stays |
 | `till_shift_list` (stable) | `p_from date default null, p_to date default null, p_station_id text default null, p_staff_id uuid default null, p_venue_id uuid default null` | `{from, to, shifts:[{id, day_session_id, business_date, station_id, staff_id, staff_name, opened_at, closed_at, closed_via, closed_by_name, authorized_by_name, opening_float_iqd, handover_difference_iqd, cash_payments_iqd, cash_refunds_iqd, cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count, drawer_open_count, open_note, close_note}], outside:[{day_session_id, business_date, station_id, cash_payments_iqd, cash_refunds_iqd, card_payments_iqd, card_refunds_iqd, payment_count, refund_count}], cross_day:[{day_session_id, business_date, earlier_days_cash_refunds_iqd, earlier_days_card_refunds_iqd, later_cash_refunds_iqd, later_card_refunds_iqd}]}` | MGMT, then `is_staff_at` (0139:269). With no dates it covers the open day, else the latest. The range is capped at 62 days (`INVALID_ARGUMENT` hint `range`). **Which day a row belongs to** (V10): a payment belongs to its `day_session_id`. A refund belongs to the day it was **made**: its shift's day, or for an outside refund the day whose `[opened_at, closed_at)` window holds its `created_at`. `cross_day` carries the difference from `close_day`'s rule, which counts a refund under its payment's day. `earlier_days_*` covers refunds made on this day for earlier days' payments. `later_*` covers refunds of this day's payments made on a later day |
 
-**`app.close_till_shift_internal(till_shifts, bigint, text, text, uuid) returns jsonb`** computes the
+**`app.close_till_shift_internal(till_shifts, bigint, text, text, uuid) returns jsonb`** locks the
+shift `for update` in its own first statement (F5; its callers already hold it), computes the
 figures and runs one `update … where id = …`. It stamps the figures, the counted amount and the
 variance (null for `day_close`), then audits `drawer.shift_close` (or `drawer.shift_close_by_day`)
 with the row minus the notes.
@@ -1517,6 +1579,18 @@ The commit also carries:
 | TI13 | Every count is signed by the person's own PIN or a manager's grant, named in `authorized_by`. A wrong own PIN is returned, never raised |
 | TI14 | A close retried with the same key echoes the stored result, with no second audit row |
 
+#### 2.9.9 Desk shifts (§8 Q28, answered 2026-09-25)
+
+Majed: the desk counts its own cash box at each handover too. The shift UI is offered in desk mode
+as well as till mode, and the server treats the desk's station like a till's: a desk shift's
+expected cash is the desk cash box (0106's own desk cash box: cash taken at that station, the
+same station-scoped sums the till uses), with the same blind count, one-tap accept or recount,
+handover and outside-cash (V18) rules. T verifies that every desk cash path (court payments,
+prepayments, refunds at the desk, 0106) carries the desk's `station_id` so attribution is exact,
+and adds tests: a desk shift open, desk court payments attributed to it, a handover, a close with
+a difference, and a till shift and a desk shift open at once without mixing. `SHIFT` guards
+include `court_desk`. The operator UI (T, later) mounts the shift control in desk mode too.
+
 ### 2.10 Re-issued committed objects: one wave-5 owner each
 
 At commit, re-check each "latest body" from `packages/db` with
@@ -1534,7 +1608,8 @@ drafted, rebase onto that body.
 | Object | Latest body | Lane (migration) | Change |
 |---|---|---|---|
 | `app.set_ticket_status`, `app.set_order_item_ready` | 0156:598, :617 | R (`assistant_barista_waiter_access`) | + assistant_barista |
-| policies `tickets_staff_read`, `touchpadel_rt_staff_topics` | 0156:788, :794-814 | R | + assistant_barista |
+| policies `tickets_staff_read`, `touchpadel_rt_staff_topics` | 0156:788, :794-814 | R | + assistant_barista; the waiter on `floor` (§2.1.8) |
+| policy `waiter_calls_staff_read`; `app.ack_waiter_call`, `app.resolve_waiter_call` | 0136:125; 0032:691, :702 | R | + waiter; the RPCs' venue check (§2.1.8) |
 | `app.kitchen_board` | 0158:42 | R | + assistant_barista |
 | `app.staff_team` | 0170:176 | R | assistant_barista → `bar` |
 | `app.save_teaching`, `app.teachings_for_me` | 0179:80, :260 | R | + assistant_barista |
@@ -1561,12 +1636,12 @@ drafted, rebase onto that body.
   - `claim_staff_media`, `staff_team_head`;
   - `settle_tab`, `open_day`, `record_drawer_open`, `heartbeat`;
   - `upsert_retail_variant`, `upsert_menu_item`, `protocol_check_price_promo_numbers`;
-  - `record_batch`, `consume_for_order_item`, `write_off_expired`, `trg_order_item_voided`;
+  - `record_batch`, `write_off_expired`, `trg_order_item_voided`;
   - `checklist_day_state` (R7's), and every hardening helper;
   - `staff_requests` and its RPCs;
   - `marketing_campaigns`, `marketing_requests` and their RPCs;
   - `delete_my_account`;
-  - every `storage.objects` policy.
+  - every `storage.objects` policy but `staff_media_delete` (P, F8).
 
 ### 2.11 Migration list (by name and dependency)
 
@@ -1619,7 +1694,8 @@ drafted, rebase onto that body.
     `rls-matrix.ts:2204-2207` shrinks, because `p_location: 'matrix-never'` now fails
     `INVALID_ARGUMENT` past the guard.
   - **T:** the table and the five RPCs.
-  - **R:** none (no grant changes).
+  - **R:** no new grant; three `drop: 18` rows restate `select waiter_calls`, `ack_waiter_call`
+    and `resolve_waiter_call` for the waiter and the venue check (§2.1.8).
 - **`assistant-coverage.json` keys:**
 
   | Key | Value |
@@ -1627,7 +1703,7 @@ drafted, rebase onto that body.
   | `salary_deductions`, `incident_reports`, `marketing_content_versions` | `excluded: <the reasons in §2.5–§2.7>` |
   | `marketing_content`, `stock_transfers`, `stock_transfer_lines`, `v_stock_by_location`, `till_shifts` | `table_read`, with readable-column rows from each migration's own restricted statement (never the all-table catch-up) |
   | every new granted RPC (P: 20, S: 7, T: 5) | `map:action` |
-  | every new internal and trigger function (`price_promo_size_renames`, `price_promo_addon_renames`, `incident_purge_due`, `incident_photo_purge_due`, `incident_photos_purged`, `consume_fefo_at`, `staff_home_location`, `parse_stock_location`, `receive_delivery_internal`, `trg_stock_movement_location`, `stock_cost_estimate`, `stamp_till_shift`, `till_shift_station`, `till_shift_figures`, `close_till_shift_internal`) | `excluded: service_role only — an internal helper …` |
+  | every new internal and trigger function (`price_promo_size_renames`, `price_promo_addon_renames`, `incident_purge_due`, `incident_photo_purge_due`, `incident_photos_purged`, `staff_media_orphan_purge_due`, `staff_media_orphans_purged`, `consume_fefo_at`, `lock_stock_ingredients`, `staff_home_location`, `parse_stock_location`, `receive_delivery_internal`, `trg_stock_movement_location`, `stock_cost_estimate`, `stamp_till_shift`, `till_shift_station`, `till_shift_figures`, `close_till_shift_internal`) | `excluded: service_role only — an internal helper …` |
   | routes `/deductions`, `/incidents`, `/stock/moves` | `map:page` |
   | cron `tp_incident_purge` | the existing cron value form |
   | `docs/design/protocols/wave5-addendum-2026-09-25.md` | `index:doc` (Z's commit; until then, `check:assistant-coverage` in the working tree reports this file as uncovered) |
@@ -1820,7 +1896,7 @@ Hussein 2 is the court desk. Maha is the cashier, and she also covers the desk.
 | **assistant_barista** (Hussein) **new** | lands on `/kds` (the bar's tickets, set status and ready) with "My tasks (N)". `/tasks` copies: checklists, teachings (bar), recipes (names only), requests, marketing requests, item notes, suggestions | Today: Checklists; Teachings (bar, read); Recipes (names only); Suggestions; Vacation and requests (+ My deductions); Ask marketing; Notes on new items; Incidents |
 | **cashier** (Maha) | **Till shift:** a rail row under the break row ("My shift · since 9:02" + End my shift, or Start my shift). A start panel on `/till` and the payment pane: the handover ("Maha left 1,250,000 IQD in the drawer at 4:02 PM" → "That's right", or "I counted a different amount"), with the first shift of the day prefilled with the day's float. The payment gate ("Start your shift to take payment" / "Maha's shift is still open on this till" + "Close Maha's shift" by manager PIN) **fails open** offline or unknown, and never gates `OfflineTabPanel`. End my shift: blind count → own PIN → result card → Sign out. The leaving guard on Sign out and Switch user. A "Your shift" card on `/till/drawer`, with no expected figure. **`/incidents`:** report, my reports. `/tasks`: the Today-in-stores copy | `staff-stock-log` (purchased and retail; cafe default); `staff-incidents`; `staff-deductions?view=mine` |
 | **waiter** (Hasan) **new** | lands on `/tasks` (workspace `team`): copies of checklists (the cleaning list), stock (by store) and Today-in-stores (moves), plus requests, marketing requests, item notes and suggestions (M2) | Today: Checklists (photo-required ticks, folder `checklists`); **Move stock** (`staff-stock-move`); Stock (by store); Suggestions; Vacation and requests (+ My deductions); Ask marketing; Notes on new items; Incidents |
-| **court_desk** (Hussein 2) | **`/incidents`:** report, my reports (rail row before My tasks). No till shift in v1 (OPEN §8 Q28). `/tasks`: the Today-in-stores copy | `staff-stock-log` (retail, cafe only); `staff-incidents`; `staff-deductions?view=mine` |
+| **court_desk** (Hussein 2) | **`/incidents`:** report, my reports (rail row before My tasks). A desk shift at each handover, counting the desk's own cash box (§8 Q28, answered; §2.9.9). `/tasks`: the Today-in-stores copy | `staff-stock-log` (retail, cafe only); `staff-incidents`; `staff-deductions?view=mine` |
 | **head_chef** (Rusul) | `/tasks`: "My deduction proposals" and the Today-in-stores copy. Production now lands in the bakery | `staff-deductions` (propose for the kitchen team); `staff-stock-log` (purchased; bakery default, cafe allowed); `staff-stock-count` (bakery); `staff-stock` (by store); `staff-incidents` |
 | **chef** (Tiba, "Chef assistant") | `/tasks`: the Today-in-stores copy (her counts). Production lands in the bakery | `staff-stock-count` (bakery, blind); `staff-incidents`; `staff-deductions?view=mine` |
 | **driver** | – | `staff-incidents`; `staff-deductions?view=mine` |
@@ -2000,7 +2076,7 @@ Hussein 2 is the court desk. Maha is the cashier, and she also covers the desk.
       `staff_create_reservation` and `ack_waiter_call`.
   - **waiter:**
     - `FORBIDDEN` on `kitchen_board`, `set_ticket_status`, `teachings_for_me`, `recipe_view`,
-      `shopping_list`, `ack_waiter_call` and `open_tab`;
+      `shopping_list` and `open_tab`; he acks and resolves a call at his venue only (§2.1.8);
     - zero rows from `tickets` and the four order tables;
     - with an owner-written `waiter` close list that has a photo item: a tick without a photo →
       `RECORD_INVALID:photo_path`, and a tick with a slot photo passes;
@@ -2460,9 +2536,9 @@ What an older operator does meanwhile:
   open blocks receiving at that store.
 - **The phone's "decide on the operator"** for deductions follows the staff-request precedent
   (#16, #56), not "every decision in both apps" (OPEN §8 Q8).
-- **Managers read every deduction at the venue**, including one against themselves or another
-  manager: that is the MGMT table policy and `deductions_page`. The narrowing of §2.5.2 applies to
-  non-MGMT readers only. Only the decide and cancel CHECKs keep a manager out of their own case.
+- **Managers read every deduction at the venue but their own** (F6): a manager reads one against
+  another manager, and one against themselves only as the person (`my_deductions`). The decide
+  and cancel CHECKs still keep a manager out of their own case.
 
 ### 7.7 Privacy, legal and store forms (P, one release with the mobile build)
 
@@ -2503,8 +2579,9 @@ What an older operator does meanwhile:
 - `cron.job` has `tp_incident_purge` (a DO block, NOTICE-only on failure).
 - `pg_policy` `touchpadel_rt_staff_topics` names `assistant_barista` (its re-issue degrades to a
   NOTICE when `realtime.messages` is absent).
-- The `staff-media` storage policies are unchanged. Wave 5 re-issues none, but assert them anyway,
-  per contracts §1.6 step 3.
+- The `staff-media` storage policies: `staff_media_delete` names the `incidents` folder (F8, a DO
+  block, NOTICE-only on failure), and the other two are unchanged; assert all three, per contracts
+  §1.6 step 3.
 - A first real shift closes, and the partition identity holds for that day in its corrected form
   (TI6: Σ shifts + Σ outside = the summary, with refunds adjusted by `cross_day`'s
   `earlier_days` − `later`).
@@ -2534,7 +2611,7 @@ other numbers are unchanged, so the references above still hold.
 |---|---|---|
 | Q1 | Beyond your list (vacation, teachings, recipe ingredients, suggestions), what else does **Hussein** (assistant barista) get? Specifically: the bar's **order board**, new-drink **ideas** to Bareq like Yusuf, and a read-only view of the bar's **shopping list** | The board: yes (he makes drinks). Ideas: no. The shopping list: no. Each "yes" is one re-issue: `submit_release_idea` and its reads (0172:1582 ff.), or `shopping_list` (0185:109) |
 | Q2 | Who leads **Hasan** (waiter)? And for salary deductions, is **Bareq's team** the bar only (barista, assistant barista), or the whole cafe section (cashier and waiter too)? | Hasan has no head, and the manager leads him. Bareq's team is the bar only. A manager or owner proposes deductions for the cashier and the waiter |
-| Q3 | Does **Hasan** use the **till**, answer guests' "**call a waiter**" (today cashier and managers only, 0032:691-710), or see the **kitchen board** to run ready orders? | No to all three. The role does not answer waiter calls |
+| Q3 | Does **Hasan** use the **till**, answer guests' "**call a waiter**" (today cashier and managers only, 0032:691-710), or see the **kitchen board** to run ready orders? | **ANSWERED 2026-09-25: he answers "call a waiter"** (§2.1.8). No till, no kitchen board |
 | Q4 | Renaming a **whole live item** (for example "Latte" → "Mocha"), not a size: direct as today, or through a price change too? | Direct (plan #59 stands). #9 covers sizes and paid add-ons only |
 
 ### Salary deductions
@@ -2582,8 +2659,8 @@ other numbers are unchanged, so the references above still hold.
 |---|---|---|
 | Q26 | At handover, does cash **leave the drawer** (a drop to the manager or safe, leaving only a float)? | No. The drawer passes whole, and the next shift starts from the counted amount, plus or minus any cash taken outside a shift in between (V18) |
 | Q27 | **Notify** the managers when a shift closes short or over? What counts as short or over on `/ops`? | No push. It shows on `/ops` and at day close. Any non-zero difference counts |
-| Q28 | Does the **desk** count its own cash box at each handover too? | Not in v1. The server supports any station, but the UI offers shifts in till mode only. Desk cash is reconciled at day close as today |
-| Q29 | A **blind count** (the cashier does not see the expected figure until she has counted)? And does the incoming person accept the outgoing count with one tap, or always recount? | Yes, blind, and the difference is shown right after. One tap "That's right", or type her own count; the difference is recorded |
+| Q28 | Does the **desk** count its own cash box at each handover too? | **ANSWERED 2026-09-25: yes** (§2.9.9). Shifts are offered in desk mode too, and a desk shift counts the desk's own cash box |
+| Q29 | A **blind count** (the cashier does not see the expected figure until she has counted)? And does the incoming person accept the outgoing count with one tap, or always recount? | **ANSWERED 2026-09-25: yes, as the default.** Blind, and the difference is shown right after. One tap "That's right", or type her own count; the difference is recorded |
 | Q30 | Should the till **refuse payment** without an open shift? And may a manager take payment on a cashier's open drawer? | The screen asks for a shift before taking payment in till mode, but the server never refuses and the gate fails open offline. Managers and owners may work a cashier's drawer, with a banner; a cashier or desk person must close the other person's shift first |
 
 **Smaller defaults, also PROPOSALs (not asked separately):**
