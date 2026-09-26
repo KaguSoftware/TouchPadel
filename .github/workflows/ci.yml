@@ -456,6 +456,9 @@ jobs:
       - name: Serve edge functions
         working-directory: packages/db
         run: |
+          # receipt-scan reads with the stand-in model (no key, no spend); the
+          # CLI loads supabase/functions/.env by default.
+          echo "RECEIPT_READER=fake" >> supabase/functions/.env
           nohup supabase functions serve > /tmp/functions.log 2>&1 &
           # Any HTTP status means the runtime is answering; 401 is the expected
           # one here, since analytics-posthog has verify_jwt = true.

@@ -928,6 +928,17 @@ export type Database = {
         Args: { p_purchase_id: string }
         Returns: Json
       }
+      confirm_receipt: {
+        Args: {
+          p_id: string
+          p_idempotency_key?: string
+          p_lines: Json
+          p_location?: string
+          p_supplier_id?: string
+          p_supplier_name?: string
+        }
+        Returns: Json
+      }
       consume_fefo: {
         Args: {
           p_device?: string
@@ -1000,6 +1011,23 @@ export type Database = {
           p_device_id?: string
           p_idempotency_key?: string
           p_items: Json
+        }
+        Returns: Json
+      }
+      create_order_slip: {
+        Args: {
+          p_idempotency_key?: string
+          p_storage_path: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      create_receipt: {
+        Args: {
+          p_idempotency_key?: string
+          p_source?: string
+          p_storage_path: string
+          p_venue_id: string
         }
         Returns: Json
       }
@@ -1363,6 +1391,8 @@ export type Database = {
         Returns: Json
       }
       marketing_suggestions: { Args: { p_venue_id?: string }; Returns: Json }
+      match_receipt_lines: { Args: { p_id: string }; Returns: number }
+      match_slip_lines: { Args: { p_id: string }; Returns: number }
       menu_availability: {
         Args: never
         Returns: {
@@ -1406,11 +1436,13 @@ export type Database = {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      my_order_slips: { Args: { p_venue_id?: string }; Returns: Json }
       my_protocol_work: { Args: { p_venue_id?: string }; Returns: Json }
       my_purchases: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
       }
+      my_receipts: { Args: { p_venue_id?: string }; Returns: Json }
       my_recipe_changes: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -1966,6 +1998,17 @@ export type Database = {
       }
       readable_venue_ids: { Args: never; Returns: string[] }
       reason_given: { Args: { p_reason: string }; Returns: boolean }
+      receipt_begin_reading: { Args: { p_id: string }; Returns: Json }
+      receipt_detail: { Args: { p_id: string }; Returns: Json }
+      receipt_fail_reading: {
+        Args: { p_code: string; p_id: string; p_status?: string }
+        Returns: undefined
+      }
+      receipt_store_reading: {
+        Args: { p_id: string; p_model: string; p_reading: Json }
+        Returns: Json
+      }
+      receipts_to_review: { Args: { p_venue_id?: string }; Returns: Json }
       receive_delivery: {
         Args: {
           p_device_id?: string
@@ -2109,6 +2152,14 @@ export type Database = {
       reject_insight: {
         Args: { p_reason?: string; p_text: string }
         Returns: string
+      }
+      reject_order_slip: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      reject_receipt: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: undefined
       }
       release_cost: { Args: { p_run_id: string }; Returns: Json }
       release_due_launches: { Args: { p_limit?: number }; Returns: Json }
@@ -2385,6 +2436,17 @@ export type Database = {
       }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
+      send_order_slip: {
+        Args: {
+          p_device_id?: string
+          p_id: string
+          p_idempotency_key?: string
+          p_items: Json
+          p_tab_id?: string
+          p_table_id?: string
+        }
+        Returns: Json
+      }
       send_test_push: { Args: never; Returns: Json }
       series_detail: { Args: { p_series_id: string }; Returns: Json }
       series_occurrences: {
@@ -2592,6 +2654,17 @@ export type Database = {
         Args: { p_note: string; p_run_step_id: string }
         Returns: Json
       }
+      slip_begin_reading: { Args: { p_id: string }; Returns: Json }
+      slip_detail: { Args: { p_id: string }; Returns: Json }
+      slip_fail_reading: {
+        Args: { p_code: string; p_id: string; p_status?: string }
+        Returns: undefined
+      }
+      slip_store_reading: {
+        Args: { p_id: string; p_model: string; p_reading: Json }
+        Returns: Json
+      }
+      slips_to_send: { Args: { p_venue_id?: string }; Returns: Json }
       sms_send_gate: {
         Args: { p_phone_e164: string; p_purpose?: string; p_user_id?: string }
         Returns: Json
@@ -4917,6 +4990,85 @@ export type Database = {
           },
         ]
       }
+      ingredient_aliases: {
+        Row: {
+          alias_norm: string
+          created_at: string
+          created_by: string | null
+          id: string
+          ingredient_id: string
+          last_used_at: string
+          supplier_id: string | null
+          uses: number
+          venue_id: string
+        }
+        Insert: {
+          alias_norm: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ingredient_id: string
+          last_used_at?: string
+          supplier_id?: string | null
+          uses?: number
+          venue_id: string
+        }
+        Update: {
+          alias_norm?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ingredient_id?: string
+          last_used_at?: string
+          supplier_id?: string | null
+          uses?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_aliases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_aliases_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_aliases_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "ingredient_aliases_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "ingredient_aliases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_aliases_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           id: string
@@ -5587,6 +5739,75 @@ export type Database = {
           },
         ]
       }
+      menu_aliases: {
+        Row: {
+          alias_norm: string
+          created_at: string
+          created_by: string | null
+          id: string
+          last_used_at: string
+          uses: number
+          variant_id: string
+          venue_id: string
+        }
+        Insert: {
+          alias_norm: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string
+          uses?: number
+          variant_id: string
+          venue_id: string
+        }
+        Update: {
+          alias_norm?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string
+          uses?: number
+          variant_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_aliases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_aliases_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "menu_item_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_aliases_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_cogs"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "menu_aliases_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_margin"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "menu_aliases_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_categories: {
         Row: {
           id: string
@@ -6157,6 +6378,190 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_item_margin"
             referencedColumns: ["variant_id"]
+          },
+        ]
+      }
+      order_slip_lines: {
+        Row: {
+          confidence: number | null
+          flags: string[]
+          id: string
+          line_no: number
+          match_source: string
+          notes_read: string | null
+          qty_read: number | null
+          slip_id: string
+          text_read: string
+          variant_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          flags?: string[]
+          id?: string
+          line_no: number
+          match_source?: string
+          notes_read?: string | null
+          qty_read?: number | null
+          slip_id: string
+          text_read: string
+          variant_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          flags?: string[]
+          id?: string
+          line_no?: number
+          match_source?: string
+          notes_read?: string | null
+          qty_read?: number | null
+          slip_id?: string
+          text_read?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_slip_lines_slip_id_fkey"
+            columns: ["slip_id"]
+            isOneToOne: false
+            referencedRelation: "order_slips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slip_lines_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "menu_item_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slip_lines_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_cogs"
+            referencedColumns: ["variant_id"]
+          },
+          {
+            foreignKeyName: "order_slip_lines_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "v_item_margin"
+            referencedColumns: ["variant_id"]
+          },
+        ]
+      }
+      order_slips: {
+        Row: {
+          created_at: string
+          error_code: string | null
+          id: string
+          model: string | null
+          order_id: string | null
+          read_at: string | null
+          reading_started_at: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          storage_path: string
+          tab_id: string | null
+          table_id: string | null
+          table_number_read: string | null
+          uploaded_by: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          model?: string | null
+          order_id?: string | null
+          read_at?: string | null
+          reading_started_at?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          storage_path: string
+          tab_id?: string | null
+          table_id?: string | null
+          table_number_read?: string | null
+          uploaded_by: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          model?: string | null
+          order_id?: string | null
+          read_at?: string | null
+          reading_started_at?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          storage_path?: string
+          tab_id?: string | null
+          table_id?: string | null
+          table_number_read?: string | null
+          uploaded_by?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_slips_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slips_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slips_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slips_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slips_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "cafe_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slips_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_slips_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -9042,6 +9447,198 @@ export type Database = {
           },
           {
             foreignKeyName: "stock_transfers_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_receipt_lines: {
+        Row: {
+          confidence: number | null
+          expiry_read: string | null
+          flags: string[]
+          id: string
+          ingredient_id: string | null
+          line_no: number
+          line_total_iqd_read: number | null
+          match_source: string
+          qty_read: number | null
+          receipt_id: string
+          text_read: string
+          unit_price_iqd_read: number | null
+          unit_read: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          expiry_read?: string | null
+          flags?: string[]
+          id?: string
+          ingredient_id?: string | null
+          line_no: number
+          line_total_iqd_read?: number | null
+          match_source?: string
+          qty_read?: number | null
+          receipt_id: string
+          text_read: string
+          unit_price_iqd_read?: number | null
+          unit_read?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          expiry_read?: string | null
+          flags?: string[]
+          id?: string
+          ingredient_id?: string | null
+          line_no?: number
+          line_total_iqd_read?: number | null
+          match_source?: string
+          qty_read?: number | null
+          receipt_id?: string
+          text_read?: string
+          unit_price_iqd_read?: number | null
+          unit_read?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_receipt_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_receipt_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_ingredient_on_hand"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "supplier_receipt_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "v_stock_by_location"
+            referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "supplier_receipt_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_receipts: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          delivery_id: string | null
+          error_code: string | null
+          id: string
+          model: string | null
+          read_at: string | null
+          reading_started_at: string | null
+          receipt_date: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          source: string
+          status: string
+          storage_path: string
+          supplier_id: string | null
+          supplier_name_read: string | null
+          total_iqd_read: number | null
+          uploaded_by: string
+          venue_id: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          delivery_id?: string | null
+          error_code?: string | null
+          id?: string
+          model?: string | null
+          read_at?: string | null
+          reading_started_at?: string | null
+          receipt_date?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          source: string
+          status?: string
+          storage_path: string
+          supplier_id?: string | null
+          supplier_name_read?: string | null
+          total_iqd_read?: number | null
+          uploaded_by: string
+          venue_id: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          delivery_id?: string | null
+          error_code?: string | null
+          id?: string
+          model?: string | null
+          read_at?: string | null
+          reading_started_at?: string | null
+          receipt_date?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          source?: string
+          status?: string
+          storage_path?: string
+          supplier_id?: string | null
+          supplier_name_read?: string | null
+          total_iqd_read?: number | null
+          uploaded_by?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_receipts_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_receipts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_receipts_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_receipts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_receipts_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_receipts_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

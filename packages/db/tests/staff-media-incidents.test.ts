@@ -188,10 +188,11 @@ function refused(r: Results, label: string): string {
 }
 
 const OLD_FOLDERS = ['proposals', 'tests', 'steps', 'marketing', 'campaigns', 'receipts', 'checklists', 'teachings', 'requests'];
-const FOLDERS = [...OLD_FOLDERS, 'incidents'];
+// order_slip_tables (0238) added the eleventh, slips.
+const FOLDERS = [...OLD_FOLDERS, 'incidents', 'slips'];
 
 describe('staff_media_incidents: the client twins', () => {
-  it('@touch/core PHOTO_FOLDERS and protocol-action name the ten folders', () => {
+  it('@touch/core PHOTO_FOLDERS and protocol-action name the same folders', () => {
     expect([...PHOTO_FOLDERS]).toEqual(FOLDERS);
     const photo = `${VENUE_A_ID}/incidents/44444444-4444-4444-8444-444444444444.jpg`;
     expect(STAFF_MEDIA_PATH_RE.test(photo)).toBe(true);
