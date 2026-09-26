@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { screen, within } from '@testing-library/react';
 import { t, type MessageKey, type TParams } from '@touch/i18n';
-import { MENU_ERROR, resetServerData, serverData, VENUE_FIXTURE } from '@/test/fixtures';
+import {
+  MENU_ERROR,
+  resetServerData,
+  SECOND_BRANCH,
+  serverData,
+  VENUE_FIXTURE,
+} from '@/test/fixtures';
+import { MAPS_URL } from '@/lib/site/contact';
 import { renderServerPage } from '@/test/renderPage';
 import { resetSiteRequest } from '@/lib/site/testSupport';
 import { PHOTO_GRADE_ID } from '@/lib/site/photoGrade';
@@ -17,11 +24,12 @@ import HomePage, { generateMetadata } from './page';
  * labelled picture plus the children riding the net.
  */
 vi.mock('@/lib/menu.server', async () => {
-  const { serverData } = await import('@/test/fixtures');
+  const { serverData, fixtureBranches } = await import('@/test/fixtures');
   return {
     getCachedMenu: () => Promise.resolve(serverData.menu),
     getCachedCafeSettings: () => Promise.resolve(serverData.settings),
-    getCachedVenue: () => Promise.resolve(serverData.venue),
+    getCachedBranches: () => Promise.resolve(fixtureBranches()),
+    getCachedVenue: () => Promise.resolve(fixtureBranches()[0] ?? null),
   };
 });
 
@@ -163,6 +171,89 @@ describe('home page', () => {
     expect(document.querySelector('a[href*="wa.me"], a[href^="tel:"]')).toBeNull();
     // Where the club is does not depend on the read.
     expect(within(section('#visit')).getByText(tr('site.visit.address'))).toBeTruthy();
+  });
+
+  it('keeps the one-branch Visit block as it was while no address is stored', async () => {
+    await renderServerPage(HomePage, 'en');
+
+    const visit = section('#visit');
+    expect(visit.querySelectorAll('.tp-visit__branch')).toHaveLength(0);
+    expect(within(visit).getByText(tr('site.visit.addressTitle'))).toBeTruthy();
+    expect(within(visit).getByText(tr('site.visit.address'))).toBeTruthy();
+    expect(
+      within(visit)
+        .getByRole('link', { name: tr('site.visit.maps') })
+        .getAttribute('href'),
+    ).toBe(MAPS_URL);
+  });
+
+  it('prints the branch’s own address and pinned map once the owner stores them', async () => {
+    serverData.venue = {
+      ...VENUE_FIXTURE,
+      address_en: 'Fixture Road 1, Karbala',
+      map_url: 'https://maps.example.test/fixture-a',
+    };
+    await renderServerPage(HomePage, 'en');
+
+    const visit = section('#visit');
+    expect(within(visit).getByText('Fixture Road 1, Karbala')).toBeTruthy();
+    expect(within(visit).queryByText(tr('site.visit.address'))).toBeNull();
+    expect(
+      within(visit)
+        .getByRole('link', { name: tr('site.visit.maps') })
+        .getAttribute('href'),
+    ).toBe('https://maps.example.test/fixture-a');
+  });
+
+  it('lists every open branch in #visit: name, address, map, hours and its own desk', async () => {
+    serverData.branches = [VENUE_FIXTURE, SECOND_BRANCH];
+    await renderServerPage(HomePage, 'en');
+
+    const blocks = [...section('#visit').querySelectorAll<HTMLElement>('.tp-visit__branch')];
+    expect(blocks.map((b) => b.dataset.branch)).toEqual(['fixture-a', 'fixture-b']);
+    const [first, second] = blocks as [HTMLElement, HTMLElement];
+
+    // The first branch has nothing stored: the confirmed address and the Maps search.
+    expect(within(first).getByRole('heading', { name: VENUE_FIXTURE.name_en })).toBeTruthy();
+    expect(within(first).getByText(tr('site.visit.address'))).toBeTruthy();
+    expect(
+      within(first)
+        .getByRole('link', { name: tr('site.visit.maps') })
+        .getAttribute('href'),
+    ).toBe(MAPS_URL);
+    expect(first.querySelector('a[href^="tel:"]')?.getAttribute('href')).toBe('tel:+9647700000000');
+
+    expect(within(second).getByRole('heading', { name: SECOND_BRANCH.name_en })).toBeTruthy();
+    expect(within(second).getByText(SECOND_BRANCH.address_en!)).toBeTruthy();
+    expect(
+      within(second)
+        .getByRole('link', { name: tr('site.visit.maps') })
+        .getAttribute('href'),
+    ).toBe(SECOND_BRANCH.map_url);
+    const call = second.querySelector<HTMLAnchorElement>('a[href^="tel:"]')!;
+    expect(call.getAttribute('href')).toBe('tel:+9647800000000');
+    expect(call.textContent).toContain(tr('branches.common.call', { name: SECOND_BRANCH.name_en }));
+    expect(second.querySelector('.tp-hours-list')).not.toBeNull();
+
+    // One walk-in line for all of them.
+    expect(within(section('#visit')).getAllByText(tr('site.visit.walkIn'))).toHaveLength(1);
+    // The JSON-LD keeps the first branch on top and lists the second as a department.
+    const ld = JSON.parse(
+      document.querySelector('script[type="application/ld+json"]')?.textContent ?? '{}',
+    ) as { department?: { name: string; address: { streetAddress: string } }[] };
+    expect(ld.department).toHaveLength(1);
+    expect(ld.department?.[0]?.address.streetAddress).toBe(SECOND_BRANCH.address_en);
+  });
+
+  it('names the branches in Arabic at /ar', async () => {
+    serverData.branches = [VENUE_FIXTURE, SECOND_BRANCH];
+    await renderServerPage(HomePage, 'ar');
+
+    const visit = section('#visit');
+    expect(within(visit).getByText(SECOND_BRANCH.name_ar)).toBeTruthy();
+    expect(within(visit).getByText(SECOND_BRANCH.address_ar!)).toBeTruthy();
+    expect(within(visit).getByText(t('ar', 'site.visit.address'))).toBeTruthy();
+    expect(within(visit).queryByText(SECOND_BRANCH.name_en)).toBeNull();
   });
 
   it('falls back to the category-free café line when the menu read fails', async () => {

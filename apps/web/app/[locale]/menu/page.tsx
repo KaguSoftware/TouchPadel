@@ -3,8 +3,15 @@ import { cookies, headers } from 'next/headers';
 import { makeT } from '@touch/i18n';
 import { cafePalette } from '@touch/ui/tokens/palette';
 import { requireLocale } from '@/lib/locales';
-import { getCachedCafeSettings, getCachedMenu, getCachedVenue } from '@/lib/menu.server';
+import {
+  getCachedBranches,
+  getCachedCafeSettings,
+  getCachedMenu,
+  getTableBranch,
+} from '@/lib/menu.server';
+import { pickBranch } from '@/lib/menu';
 import { CafeApp } from '@/components/cafe/CafeApp';
+import { BranchChooser } from '@/components/cafe/BranchChooser/BranchChooser';
 import { CafeStyles } from '@/components/cafe/CafeStyles';
 import { TABLE_COOKIE } from '@/lib/security/headers';
 
@@ -55,6 +62,20 @@ import { TABLE_COOKIE } from '@/lib/security/headers';
  * life and nothing clears it, and this URL is now also the walk-in menu, so a
  * guest who scanned within 12 h and opens the menu from the landing page gets
  * their table bound (or the "scan again" chip) and the token in this payload.
+ *
+ * ── WHICH BRANCH (multi-venue slice 4) ───────────────────────────────────────
+ * The menu, the café settings (hero, featured, ticker) and the degraded check
+ * are per branch, each cached per branch (menu.server.ts):
+ *   one open branch      that branch, for everyone: the page is what it was.
+ *   walk-in, several     `?b=<slug>` names one; without it (or with a slug that
+ *                        is not an open branch) the guest picks one first.
+ *   table, several       the table decides: `app.table_branch(token)` (0225,
+ *                        anon, uncached so the token never keys a cache entry)
+ *                        names it for the first paint. A token it cannot place
+ *                        (rotated, forged, branch closed) falls back to `?b=` or
+ *                        the default branch, and the client still follows the
+ *                        branch `open_table_session` returns once bound.
+ *   no branch list       (a failed read) the old unfiltered read.
  */
 export function generateViewport(): Viewport {
   // The café's own blue for the browser chrome; the layout's default is the
@@ -108,7 +129,13 @@ export async function generateMetadata({
   };
 }
 
-export default async function CafeMenuPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function CafeMenuPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   /**
    * FIRST STATEMENT, BEFORE ANY await ON DATA (2026-09-21, carried over from
    * the old `/t` page): an unknown first segment 404s before it pays for a
@@ -118,12 +145,30 @@ export default async function CafeMenuPage({ params }: { params: Promise<{ local
   const locale = requireLocale((await params).locale);
   const token = (await cookies()).get(TABLE_COOKIE)?.value ?? null;
   const nonce = (await headers()).get('x-nonce') ?? undefined;
+  const requested = (await searchParams).b;
+  const slug = typeof requested === 'string' ? requested : null;
 
-  const [menuResult, settings, venue] = await Promise.all([
-    getCachedMenu(),
-    getCachedCafeSettings(),
-    // Footer hours + phone and the hero strapline (web-slice §2).
-    getCachedVenue(),
+  const branches = await getCachedBranches();
+  // A table guest's branch is the table's (app.table_branch, 0225): asked only
+  // while several branches are open, so today's one-branch page pays nothing.
+  const tableBranchId = token && branches.length > 1 ? await getTableBranch(token) : null;
+  const tableBranch = branches.find((b) => b.id === tableBranchId) ?? null;
+  const branch =
+    tableBranch ?? pickBranch(branches, slug) ?? (token ? (branches[0] ?? null) : null);
+
+  if (!branch && branches.length > 1) {
+    return (
+      <div className="tp-cafe" data-theme="cafe">
+        <CafeStyles nonce={nonce} />
+        <BranchChooser locale={locale} branches={branches} />
+      </div>
+    );
+  }
+
+  const venueId = branch?.id ?? null;
+  const [menuResult, settings] = await Promise.all([
+    getCachedMenu(venueId),
+    getCachedCafeSettings(venueId),
   ]);
 
   return (
@@ -136,7 +181,11 @@ export default async function CafeMenuPage({ params }: { params: Promise<{ local
         initialMenu={menuResult.categories}
         menuStatus={menuResult.status}
         settings={settings}
-        venue={venue}
+        // Footer hours + phone and the hero strapline (web-slice §2): the
+        // rendered branch's, or the default one's.
+        venue={branch ?? branches[0] ?? null}
+        venueId={venueId}
+        branches={branches}
       />
     </>
   );

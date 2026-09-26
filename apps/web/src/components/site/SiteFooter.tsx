@@ -1,7 +1,7 @@
 import { isolateLtr, makeT, VENUE_TZ, type Locale } from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
 import { otherLocale } from '@/lib/locales';
-import { displayPhone, MAPS_URL, telUrl, whatsappUrl } from '@/lib/site/contact';
+import { branchAddress, branchMapUrl, displayPhone, telUrl, whatsappUrl } from '@/lib/site/contact';
 import { BrandLockup } from './brand/BrandLockup';
 import { HoursList, hasPublishedHours } from './HoursList';
 import { ChatIcon, ExternalIcon } from './icons';
@@ -88,8 +88,9 @@ export function SiteFooter({
           <div className="tp-site-footer__facts">
             <div className="tp-site-footer__block">
               <h2 className="tp-site-footer__title">{tr('site.footer.addressTitle')}</h2>
-              <p className="tp-site-footer__address">{tr('site.visit.address')}</p>
-              <a className="tp-site-footer__maps" href={MAPS_URL}>
+              {/* The default branch's stored address, else the confirmed one (slice 4). */}
+              <p className="tp-site-footer__address">{branchAddress(locale, venue)}</p>
+              <a className="tp-site-footer__maps" href={branchMapUrl(venue)}>
                 {tr('site.visit.maps')}
                 <ExternalIcon />
               </a>

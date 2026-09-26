@@ -1,7 +1,8 @@
 import type { Locale } from '@touch/i18n';
 import { t } from '@touch/i18n';
-import type { VenueOpeningHours } from '@/lib/menu';
+import type { VenueBranch, VenueOpeningHours } from '@/lib/menu';
 import { weekHours, type DayKey } from '@/lib/cafe/hours';
+import { branchAddress, branchName } from './contact';
 
 /**
  * Structured data for the landing page: a schema.org `SportsActivityLocation`.
@@ -12,6 +13,12 @@ import { weekHours, type DayKey } from '@/lib/cafe/hours';
  * +995 one, and a search engine would print it as the club's. An overnight window is
  * printed the way schema.org reads it: `closes` earlier than `opens` means the next
  * morning.
+ *
+ * BRANCHES (multi-venue slice 4): the top-level location is the default (oldest open)
+ * branch, as before. A branch with its own address stored prints that address (and its
+ * pinned map as `hasMap`); one without keeps the contract's address, so today's output
+ * is unchanged. Every further open branch is a `department` of it (schema.org lets a
+ * LocalBusiness list its departments), each with its own name, address and hours.
  */
 const SCHEMA_DAY: Record<DayKey, string> = {
   mon: 'https://schema.org/Monday',
@@ -63,17 +70,46 @@ export const CLUB_ADDRESS = {
   addressCountry: 'IQ',
 } as const;
 
+/** A branch's stored address as a PostalAddress, or the contract's when none is stored. */
+function postalAddress(locale: Locale, venue: VenueOpeningHours | null | undefined) {
+  const stored = branchAddress(locale, venue, { fallback: false });
+  return stored
+    ? ({ '@type': 'PostalAddress', streetAddress: stored, addressCountry: 'IQ' } as const)
+    : CLUB_ADDRESS;
+}
+
+/** A stored https map link, or nothing (the Maps search is not a map of the place). */
+function hasMap(venue: VenueOpeningHours | null | undefined): { hasMap?: string } {
+  const url = venue?.map_url?.trim();
+  return url && /^https:\/\//i.test(url) ? { hasMap: url } : {};
+}
+
+function department(locale: Locale, branch: VenueBranch): Record<string, unknown> {
+  const hours = openingHoursSpecification(branch);
+  return {
+    '@type': 'SportsActivityLocation',
+    name: `${t(locale, 'common.appName')} · ${branchName(locale, branch)}`,
+    address: postalAddress(locale, branch),
+    ...hasMap(branch),
+    ...(hours.length > 0 ? { openingHoursSpecification: hours } : {}),
+  };
+}
+
 export function buildLandingJsonLd({
   locale,
   origin,
   venue,
+  branches = [],
 }: {
   locale: Locale;
   origin: string;
   venue: VenueOpeningHours | null;
+  /** every open branch, oldest first; the ones after the first become departments */
+  branches?: readonly VenueBranch[];
 }): Record<string, unknown> {
   const name = t(locale, 'common.appName');
   const hours = openingHoursSpecification(venue);
+  const departments = branches.slice(1).map((b) => department(locale, b));
   return {
     '@context': 'https://schema.org',
     '@type': 'SportsActivityLocation',
@@ -84,8 +120,10 @@ export function buildLandingJsonLd({
     logo: `${origin}/brand/site/icon-512.png`,
     image: `${origin}/brand/site/og-touch-padel-${locale}.png`,
     inLanguage: locale,
-    address: CLUB_ADDRESS,
+    address: postalAddress(locale, venue),
+    ...hasMap(venue),
     ...(hours.length > 0 ? { openingHoursSpecification: hours } : {}),
+    ...(departments.length > 0 ? { department: departments } : {}),
   };
 }
 

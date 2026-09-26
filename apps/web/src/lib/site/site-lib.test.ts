@@ -15,7 +15,17 @@ import { PRODUCTION_ORIGIN, siteOrigin } from './origin';
 import { buildLandingJsonLd, jsonLdString } from './jsonLd';
 import { cafeCategoryList } from './landing';
 import { PHOTO_GRADE_RAMP } from './photoGrade';
-import { displayPhone, internationalDigits, telUrl, whatsappUrl } from './contact';
+import { t } from '@touch/i18n';
+import {
+  branchAddress,
+  branchMapUrl,
+  branchName,
+  displayPhone,
+  internationalDigits,
+  MAPS_URL,
+  telUrl,
+  whatsappUrl,
+} from './contact';
 
 /**
  * The site's pure helpers: the mode cookie, the store-link validation, "open now" on the
@@ -51,7 +61,8 @@ const PDI = '\u2069';
 
 describe('site mode', () => {
   it('is night unless the cookie says exactly light, on the server or in document.cookie', () => {
-    for (const value of [undefined, '', 'dark', 'LIGHT']) expect(parseSiteMode(value)).toBe('night');
+    for (const value of [undefined, '', 'dark', 'LIGHT'])
+      expect(parseSiteMode(value)).toBe('night');
     expect(parseSiteMode('light')).toBe('light');
     expect(siteModeFromCookieString('a=1; tp-site-mode=light; b=2')).toBe('light');
     // Another cookie whose name merely ends in ours is not ours.
@@ -110,7 +121,10 @@ describe('open now, on the venue’s clock', () => {
   });
 
   it('survives a malformed blob', () => {
-    expect(openState({ wed: 'nope' }, null, baghdad('20:00'))).toEqual({ open: false, opensAt: null });
+    expect(openState({ wed: 'nope' }, null, baghdad('20:00'))).toEqual({
+      open: false,
+      opensAt: null,
+    });
   });
 });
 
@@ -193,7 +207,10 @@ describe('café categories for the hand-off line', () => {
 
   it('names real, non-empty categories in menu order, joined for the language', () => {
     // English drops the menu's capitals inside a sentence.
-    expect(cafeCategoryList(menu, 'en')).toEqual({ list: 'coffee, tea, and smoothies', more: false });
+    expect(cafeCategoryList(menu, 'en')).toEqual({
+      list: 'coffee, tea, and smoothies',
+      more: false,
+    });
     expect(cafeCategoryList(menu, 'ar', 2)?.list).toBe('قهوة وشاي');
   });
 
@@ -249,6 +266,43 @@ describe('contact: the venue phone', () => {
     expect(whatsappUrl(null, 'Hi')).toBeNull();
     expect(telUrl('00964 770 123 4567')).toBe('tel:+9647701234567');
     expect(telUrl('reception')).toBeNull();
+  });
+});
+
+describe('contact: a branch’s name, address and map (multi-venue slice 4)', () => {
+  it('prints the stored address in the page’s language, then the other, then the confirmed one', () => {
+    expect(branchAddress('ar', { address_ar: 'عنوان', address_en: 'Addr' })).toBe('عنوان');
+    expect(branchAddress('ar', { address_ar: '  ', address_en: 'Addr' })).toBe('Addr');
+    expect(branchAddress('en', {})).toBe(t('en', 'site.visit.address'));
+    expect(branchAddress('en', null)).toBe(t('en', 'site.visit.address'));
+    expect(branchAddress('en', {}, { fallback: false })).toBeNull();
+  });
+
+  it('links a stored https map, and the Maps search otherwise', () => {
+    expect(branchMapUrl({ map_url: 'https://maps.app.goo.gl/x' })).toBe(
+      'https://maps.app.goo.gl/x',
+    );
+    expect(branchMapUrl({ map_url: 'javascript:alert(1)' })).toBe(MAPS_URL);
+    expect(branchMapUrl({ map_url: null })).toBe(MAPS_URL);
+    expect(branchMapUrl(undefined)).toBe(MAPS_URL);
+  });
+
+  it('names a branch in the page’s language, falling back through the other and the venue', () => {
+    expect(branchName('ar', { name_ar: 'الفرع', name_en: 'Branch' })).toBe('الفرع');
+    expect(branchName('en', { name_en: '', name_ar: 'الفرع' })).toBe('الفرع');
+    expect(branchName('en', { venue_name: 'Touch Padel' })).toBe('Touch Padel');
+  });
+
+  it('keeps the one-branch JSON-LD identical while no address is stored', () => {
+    const ld = buildLandingJsonLd({
+      locale: 'en',
+      origin: 'https://x',
+      venue: TOUCH_WEEK,
+      branches: [],
+    });
+    expect(ld).not.toHaveProperty('department');
+    expect(ld).not.toHaveProperty('hasMap');
+    expect(ld.address).toMatchObject({ streetAddress: 'Durrat Karbala' });
   });
 });
 
