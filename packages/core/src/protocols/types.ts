@@ -237,6 +237,18 @@ interface PriceProposeBase {
   expected_effect: string;
 }
 
+/**
+ * A size's or an add-on's new names (wave5-addendum §2.2, #9). The check adds
+ * `before_en` and `before_ar`, the names at submit, which the apply requires
+ * still to be there; a copy the client sends is replaced.
+ */
+export interface PriceRename {
+  name_en: string;
+  name_ar: string;
+  before_en?: string | null;
+  before_ar?: string | null;
+}
+
 export type PriceProposeRecord = PriceProposeBase &
   (
     | {
@@ -244,9 +256,15 @@ export type PriceProposeRecord = PriceProposeBase &
         menu_item_id: string;
         prices: { variant_id: string; price_iqd: number }[];
         new_sizes?: { name_en?: string | null; name_ar?: string | null; price_iqd: number }[] | null;
+        renames?: (PriceRename & { variant_id: string })[] | null;
       }
     | { change: 'shop_launch'; menu_item_id: string; prices: { variant_id: string; price_iqd: number }[] }
-    | { change: 'addon_price'; addons: { modifier_id: string; price_delta_iqd: number }[] }
+    | {
+        change: 'addon_price';
+        /** Empty when the change only renames. */
+        addons: { modifier_id: string; price_delta_iqd: number }[];
+        renames?: (PriceRename & { modifier_id: string })[] | null;
+      }
     | { change: 'promotion'; promotion: PromotionFields }
     | { change: 'promotion_edit'; promotion_id: string; promotion: PromotionFields }
     | { change: 'promotion_enable'; promotion_id: string }

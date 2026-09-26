@@ -17,6 +17,10 @@ export interface SubNavItem {
   icon?: IconName;
   /** Exact match only (index routes such as /stock). */
   exact?: boolean;
+  /** Something waiting behind the row (Stock count: counts from the phone); nothing at zero. */
+  badge?: number;
+  /** What the badge counts, for a screen reader: the pill itself is aria-hidden. */
+  badgeLabel?: string;
 }
 
 export interface SubNavGroup {
@@ -146,7 +150,30 @@ export function SubNav({
                 }}
               >
                 {item.icon && <Icon name={item.icon} size={14} />}
-                {item.label}
+                <span style={{ flex: 1, minInlineSize: 0 }}>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        flexShrink: 0,
+                        minInlineSize: '1.4rem',
+                        paddingInline: 'var(--tp-sp-1-5)',
+                        borderRadius: 'var(--tp-radius-pill)',
+                        background: 'var(--tp-warn-soft)',
+                        color: 'var(--tp-warn-fg)',
+                        fontSize: 'var(--tp-fs-xs)',
+                        fontWeight: 700,
+                        lineHeight: 1.6,
+                        textAlign: 'center',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {item.badge}
+                    </span>
+                    {item.badgeLabel && <span className="tp-sr-only">{item.badgeLabel}</span>}
+                  </>
+                )}
               </Link>
             );
           })}

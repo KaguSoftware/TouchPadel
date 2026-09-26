@@ -149,6 +149,9 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     myTasks: 'مهامي',
     protocols: 'البروتوكولات',
     suggestions: 'الاقتراحات',
+    // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+    deductions: 'الخصومات من الراتب',
+    incidents: 'الحوادث',
     badge: 'بانتظارك: {count}',
     groupOperations: 'العمليات',
     groupRun: 'إدارة اليوم',

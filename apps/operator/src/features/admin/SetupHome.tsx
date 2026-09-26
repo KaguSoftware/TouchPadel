@@ -27,6 +27,11 @@
  *         kitchen's "What to make today" on the phone lists what is below par
  *         (app.production_today, 0167), so without one the item is never
  *         asked for (build-contracts-2026-09-23 §5.5).
+ *       - stock staff added on the phone with no cost on record
+ *         (delivery_lines.cost_source 'none', wave5-addendum-2026-09-25 D5):
+ *         it is valued at nothing until a manager sets its cost on Goods in.
+ *       - cashiers and desk staff with no PIN of their own: they close their
+ *         till shift with a manager's PIN (wave5-addendum-2026-09-25 §5.2).
  *     When nothing is wrong it says so plainly rather than disappearing.
  *  2. **Where do I go?** The section's screens as cards, each with one honest
  *     live line: accounts with access, courts open for booking, tables in use,
@@ -56,6 +61,9 @@ import { STAFF_QUERY_KEY, approvesWithPin, onRetiredRole, type StaffRow } from '
 import { useOutbox } from './telegram/OutboxList';
 import { telegramHealth, type TelegramHealth } from './telegram/telegramStatus';
 import { KitchenPairingPanel } from './KitchenPairing';
+import { SK as STOCK_KEYS, fetchNeedsCostCount } from '../stock/stockKeys';
+import { permissionsFor } from '../../lib/auth';
+import { holdersWithoutPin } from '../tillShift/tillShiftLogic';
 
 type CardKey = 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite';
 
@@ -98,6 +106,9 @@ export function SetupHomeScreen() {
       return count ?? 0;
     },
   });
+
+  // Wave 5: staff additions with no cost, counted; Goods in lists them.
+  const needsCostQ = useQuery({ queryKey: STOCK_KEYS.needsCost, queryFn: fetchNeedsCostCount });
 
   const figure = (label: MessageKey, n: number | undefined) =>
     n === undefined ? null : (
@@ -145,7 +156,7 @@ export function SetupHomeScreen() {
       {/* The two panels that may need the owner sit together; the screen
           cards below are a different job and get more room. */}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-5)' }}>
-        <WorthChecking staffQ={staffQ} outboxQ={outboxQ} noParQ={noParQ} cafe={cafe} />
+        <WorthChecking staffQ={staffQ} outboxQ={outboxQ} noParQ={noParQ} needsCostQ={needsCostQ} cafe={cafe} />
         <KitchenPairingPanel />
       </div>
     </SectionHome>
@@ -170,17 +181,19 @@ function WorthChecking({
   staffQ,
   outboxQ,
   noParQ,
+  needsCostQ,
   cafe,
 }: {
   staffQ: Q<StaffRow[]>;
   outboxQ: Q<{ status: 'queued' | 'sent' | 'failed' | 'skipped'; created_at: string }[]>;
   noParQ: Q<number>;
+  needsCostQ: Q<number>;
   cafe: ReturnType<typeof useCafeSettings>;
 }) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  const loading = staffQ.isPending || outboxQ.isPending || noParQ.isPending || cafe.isLoading;
-  const failed = [staffQ, outboxQ, noParQ].filter((q) => q.isError);
+  const loading = staffQ.isPending || outboxQ.isPending || noParQ.isPending || needsCostQ.isPending || cafe.isLoading;
+  const failed = [staffQ, outboxQ, noParQ, needsCostQ].filter((q) => q.isError);
 
   const rows: Check[] = [];
   if (cafe.isSuccess && outboxQ.data) {
@@ -252,6 +265,35 @@ function WorthChecking({
       hint: tr('ws.supplies.setup.noParHint'),
       action: tr('ws.supplies.setup.noParAction'),
       href: '/stock/ingredients',
+    });
+  }
+
+  if (needsCostQ.data) {
+    rows.push({
+      key: 'needsCost',
+      count: needsCostQ.data,
+      icon: 'tag',
+      tone: 'warn',
+      title: tr('ws.stores.setup.needsCost'),
+      hint: tr('ws.stores.setup.needsCostHint'),
+      action: tr('ws.stores.setup.needsCostAction'),
+      href: '/stock/receive',
+    });
+  }
+
+  // Wave 5, till shifts: people who hold a shift with no PIN of their own
+  // close it with a manager's (§5.2). From the permission map, not a role list.
+  const shiftNoPin = staffQ.data ? holdersWithoutPin(staffQ.data, (role) => permissionsFor(role).takeCourtPayment, approvesWithPin) : 0;
+  if (shiftNoPin > 0) {
+    rows.push({
+      key: 'shiftNoPin',
+      count: shiftNoPin,
+      icon: 'lock',
+      tone: 'warn',
+      title: tr('ws.tillShift.setup.noPin'),
+      hint: tr('ws.tillShift.setup.noPinHint'),
+      action: tr('ws.tillShift.setup.noPinAction'),
+      href: '/admin/staff',
     });
   }
 

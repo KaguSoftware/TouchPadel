@@ -28,20 +28,32 @@
  * What the driver bought (0166) is listed above the form, and opening one
  * (?purchase=<id>) swaps the form for that purchase's own: its lines are the
  * driver's, and app.receive_purchase books them (DriverPurchases.tsx).
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.8.2 D4, §5.2): every delivery names
+ * its store, "Put it in: Cafe store / Bakery store", the cafe store by
+ * default. The picker sits at the top of the form because it decides which
+ * lines are allowed: shop stock lives in the cafe store only (V14), so the
+ * bakery store is off while a shop line is on the form, and with the bakery
+ * store picked the shop's products leave the ingredient list. A store with a
+ * manager's count open takes no delivery (STORE_BEING_COUNTED, M5), and the
+ * form says so before the whole delivery is typed. What staff added on the
+ * phone waits above the form for its cost (StaffLogs.tsx).
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { appRpc } from '../../lib/appRpc';
+import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
 import { MessagePresenter, Money, PageHeader, Panel } from '../../components/kit';
-import { useStockFormat } from './stockUi';
+import { StoreCountedNotice, StorePicker, useStockFormat } from './stockUi';
 import { todayIso } from '../admin/menu/availability';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
-import { SK, fetchIngredients, fetchSuppliers, type IngredientRow } from './stockKeys';
+import { SK, fetchIngredients, fetchSuppliers, fetchUnfinishedCounts, type IngredientRow } from './stockKeys';
 import { DriverPurchaseReceive, DriverPurchasesPanel } from './DriverPurchases';
+import { StaffLogs } from './StaffLogs';
+import { bakeryRefused, beingCounted, type StockLocation } from './storeLogic';
 import { decimalKeystroke } from './decimalInput';
 
 export { isShort } from './stockLogic';
@@ -94,16 +106,21 @@ function DeliveryForm() {
   const [idemKey, setIdemKey] = useState(() => `receive:${crypto.randomUUID()}`);
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
+  /** The store the delivery goes into (wave 5): the cafe store unless the manager says otherwise. */
+  const [location, setLocation] = useState<StockLocation>('cafe');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
   const suppliersQ = useQuery({ queryKey: SK.suppliers, queryFn: fetchSuppliers });
+  const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
   const suppliers = (suppliersQ.data ?? []).filter((s) => s.is_active);
   // Prepared items are made in the kitchen, not delivered — they have their
-  // own form under Waste & production. Shop stock (retail) is delivered.
-  const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active && (i.kind === 'purchased' || i.kind === 'retail'));
-  const byId = new Map(ingredients.map((i) => [i.id, i]));
+  // own form under Waste & production. Shop stock (retail) is delivered, into
+  // the cafe store only (V14).
+  const deliverable = (ingredientsQ.data ?? []).filter((i) => i.is_active && (i.kind === 'purchased' || i.kind === 'retail'));
+  const byId = new Map(deliverable.map((i) => [i.id, i]));
+  const ingredients = location === 'bakery' ? deliverable.filter((i) => i.kind !== 'retail') : deliverable;
 
   function patch(key: string, part: Partial<DraftLine>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...part } : l)));
@@ -129,7 +146,9 @@ function DeliveryForm() {
   const started = lines.filter((l) => !isBlankLine(l));
   const problems = started.filter((l) => lineProblem(l, today) !== null);
   const shortCount = lines.filter(isShort).length;
-  const canRecord = started.length > 0 && problems.length === 0;
+  const shopOnForm = bakeryRefused(started.map((l) => byId.get(l.ingredientId)?.kind));
+  const counted = beingCounted(countsQ.data, location);
+  const canRecord = started.length > 0 && problems.length === 0 && !counted && !(location === 'bakery' && shopOnForm);
 
   async function submit() {
     setBusy(true);
@@ -147,6 +166,7 @@ function DeliveryForm() {
         p_supplier_id: supplierId || null,
         p_notes: notes.trim() || null,
         p_idempotency_key: idemKey,
+        p_location: location,
       });
       toast.ok(tr('ws.manager.stock.goodsIn.recorded'));
       setLines([emptyLine()]);
@@ -157,6 +177,7 @@ function DeliveryForm() {
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
     } catch (e) {
       setError(e);
+      if (e instanceof AppRpcError && e.code === 'STORE_BEING_COUNTED') void countsQ.refetch();
     } finally {
       setBusy(false);
     }
@@ -173,8 +194,20 @@ function DeliveryForm() {
           "Add another ingredient" above a supplier still to check. */}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
         <DriverPurchasesPanel />
+        <StaffLogs />
 
         <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-4)' }}>
+            <StorePicker
+              label={tr('ws.stores.picker.putIn')}
+              value={location}
+              onChange={setLocation}
+              disabled={busy}
+              bakeryOff={shopOnForm ? tr('ws.stores.picker.shopCafeOnly') : undefined}
+              data-testid="goods-in-store"
+            />
+            {counted && <StoreCountedNotice store={location} />}
+          </div>
           {/* The order of the work, said once at the top rather than hidden in
               the Record button's tooltip, where it only showed up too late. */}
           <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
@@ -257,7 +290,14 @@ function DeliveryForm() {
 
           <ErrorText error={error} />
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button kind="primary" icon="box" busy={busy} disabled={!canRecord} onClick={() => void submit()}>
+            <Button
+              kind="primary"
+              icon="box"
+              busy={busy}
+              disabled={!canRecord}
+              disabledReason={counted ? tr('ws.stores.picker.held') : undefined}
+              onClick={() => void submit()}
+            >
               {tr('ws.manager.stock.goodsIn.record')}
             </Button>
           </div>

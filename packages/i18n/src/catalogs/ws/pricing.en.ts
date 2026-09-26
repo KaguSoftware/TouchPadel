@@ -19,14 +19,20 @@ export const pricingEn = {
     note: 'Prices of products on sale change through “Change the price”, with the owner’s OK. A new product is saved hidden: add its sizes and prices, then “Put on sale” sends it to the owner.',
     newHint:
       'A new product is saved hidden. Add its sizes and prices, then press “Put on sale”: it goes on sale when the owner approves its price.',
-    priceLocked: 'This product is on sale, so its price changes through “Change the price”, with the owner’s OK. Everything else here is yours to edit.',
+    // Wave 5 (N, §2.2, #9): a size's names lock with its price.
+    priceLocked:
+      'This product is on sale, so its sizes’ prices and names change through “Change the price”, with the owner’s OK. Everything else here is yours to edit.',
   },
   // Add-ons (#51, #53).
   addons: {
-    note: 'Prices of options on sale change through “Change the price”, with the owner’s OK. A new paid option is saved hidden, and “Put on sale” sends its price to the owner. A free option goes on at once.',
+    note: 'Prices of options on sale, and the names of paid ones, change through “Change the price”, with the owner’s OK. A new paid option is saved hidden, and “Put on sale” sends its price to the owner. A free option goes on at once.',
+    // Wave 5 (N, §2.2, #9): on a paid option on sale, beside its read-only names.
+    nameLocked: 'This option is on sale, so its name changes through “Change the price”, with the owner’s OK.',
     requiredAddon:
       'This would make guests pay more: a paid option they would have to pick, or a free one taken away. Only the owner makes this change.',
   },
+  // Wave 5 (N, §2.2, #9): a save refused PRICE_VIA_PROTOCOL hint `name` (isRenameRefusal).
+  renameViaProtocol: 'Renaming a size or an option that is on sale goes through “Change the price”, with the owner’s OK.',
   // Promotions and the promotion editor (#57).
   promotions: {
     note: 'The owner approves new promotions, changes to them and switching one back on: propose these here and follow them in Protocols. You can still switch a promotion off.',

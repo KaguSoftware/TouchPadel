@@ -16,6 +16,12 @@
  *    not "Allowance");
  *  - with no finished count yet, the empty state has the button that starts
  *    one.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.8.2 D7, §5.2): a count is of one
+ * store, so the count picker names it ("Bakery store, 26 Sep 14:02") and
+ * every explaining column covers that store only. "Moved" is what was carried
+ * into the store (+) or out of it (−) in the period (transfer_qty): one of the
+ * reasons a store's count differs, never waste.
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -27,12 +33,14 @@ import { Button, Select } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, PageHeader, ResultCount, SegmentedControl, TableSkeleton, Toolbar, asyncStatus, type Column } from '../../components/kit';
 import { downloadCsv, toCsv } from '../analytics/csv';
 import { LedgerDrawer } from './LedgerDrawer';
-import { KindFilter, matchesKind, useStockFormat, type StockKindFilter } from './stockUi';
+import { KindFilter, matchesKind, useStockFormat, useStoreName, type StockKindFilter } from './stockUi';
 import { SK, fetchIngredients } from './stockKeys';
 
 interface CountOption {
   id: string;
   finalized_at: string;
+  /** The store the count was of (wave 5). */
+  location?: string | null;
 }
 
 interface VarianceRow {
@@ -54,6 +62,10 @@ interface VarianceRow {
   movement_ids: number[] | null;
   /** product_release: a new item's test servings. Absent before that migration, so read as 0. */
   product_test_qty?: number | null;
+  /** The count's store (stock_counts_by_location). */
+  location?: string | null;
+  /** Moved into (+) or out of (−) the store in the period, net (stock_counts_by_location). */
+  transfer_qty?: number | null;
 }
 
 type Show = 'differed' | 'all';
@@ -69,13 +81,14 @@ export function VarianceReport() {
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
   const kindOf = new Map((ingredientsQ.data ?? []).map((i) => [i.id, i.kind]));
   const [drill, setDrill] = useState<VarianceRow | null>(null);
+  const storeName = useStoreName();
 
   const countsQ = useQuery({
     queryKey: SK.counts,
     queryFn: async (): Promise<CountOption[]> => {
       const { data, error } = await supabase
         .from('stock_counts')
-        .select('id, finalized_at')
+        .select('id, finalized_at, location')
         .not('finalized_at', 'is', null)
         .order('finalized_at', { ascending: false })
         .limit(30);
@@ -102,6 +115,9 @@ export function VarianceReport() {
   const rows = show === 'differed' ? differed : all;
   const first = all[0];
   const productTest = (r: VarianceRow) => Number(r.product_test_qty ?? 0);
+  const moved = (r: VarianceRow) => Number(r.transfer_qty ?? 0);
+  const countLabel = (c: CountOption) =>
+    c.location ? tr('ws.stores.variance.countLabel', { store: storeName(c.location), date: formatDateTime(new Date(c.finalized_at), locale) }) : formatDateTime(new Date(c.finalized_at), locale);
 
   const status = countsQ.isSuccess && (countsQ.data?.length ?? 0) === 0 ? 'empty' : asyncStatus(varianceQ, (d) => d.length === 0);
 
@@ -118,13 +134,29 @@ export function VarianceReport() {
       tr('ws.manager.stock.variance.voids'),
       tr('ws.manager.stock.variance.expired'),
       tr('ws.release.variance.productTest'),
+      tr('ws.stores.variance.store'),
+      tr('ws.stores.variance.moved'),
     ];
     const chosenCount = countsQ.data?.find((c) => c.id === chosen);
     downloadCsv(
       `count-differences-${chosenCount ? chosenCount.finalized_at.slice(0, 10) : 'count'}.csv`,
       toCsv(
         headers,
-        rows.map((r) => [pickName(locale, r), fmt.unit(r.unit), r.theoretical_qty, r.counted_qty, r.variance_qty, r.sold_qty, r.expected_waste_qty, r.recorded_waste_qty, r.void_qty, r.expired_qty, productTest(r)]),
+        rows.map((r) => [
+          pickName(locale, r),
+          fmt.unit(r.unit),
+          r.theoretical_qty,
+          r.counted_qty,
+          r.variance_qty,
+          r.sold_qty,
+          r.expected_waste_qty,
+          r.recorded_waste_qty,
+          r.void_qty,
+          r.expired_qty,
+          productTest(r),
+          r.location ? storeName(r.location) : '',
+          moved(r),
+        ]),
       ),
     );
   }
@@ -157,6 +189,21 @@ export function VarianceReport() {
     { key: 'voids', header: tr('ws.manager.stock.variance.voids'), numeric: true, render: (r) => muted(r, r.void_qty) },
     { key: 'expired', header: tr('ws.manager.stock.variance.expired'), numeric: true, render: (r) => muted(r, r.expired_qty) },
     { key: 'productTest', header: tr('ws.release.variance.productTest'), numeric: true, render: (r) => muted(r, productTest(r)) },
+    {
+      key: 'moved',
+      header: tr('ws.stores.variance.moved'),
+      numeric: true,
+      render: (r) => {
+        const v = moved(r);
+        if (v === 0) return <bdi style={{ color: 'var(--tp-muted-fg)' }}>{fmt.qty(0, r.unit)}</bdi>;
+        return (
+          <span style={{ display: 'grid', justifyItems: 'end' }}>
+            <bdi style={{ whiteSpace: 'nowrap' }}>{fmt.change(v, r.unit)}</bdi>
+            <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{v > 0 ? tr('ws.stores.variance.movedIn') : tr('ws.stores.variance.movedOut')}</span>
+          </span>
+        );
+      },
+    },
     {
       key: 'history',
       header: '',
@@ -205,7 +252,7 @@ export function VarianceReport() {
               onChange={setCountId}
               aria-label={tr('ws.manager.stock.variance.chooseCount')}
               style={{ inlineSize: 'auto', minInlineSize: '14rem' }}
-              options={(countsQ.data ?? []).map((c) => ({ value: c.id, label: formatDateTime(new Date(c.finalized_at), locale) }))}
+              options={(countsQ.data ?? []).map((c) => ({ value: c.id, label: countLabel(c) }))}
             />
           </label>
           <SegmentedControl<Show>

@@ -125,6 +125,8 @@ export const teamAr: DeepMessages<typeof teamEn> = {
         promotionValue: 'نسبة مئوية (99 كحد أقصى) أو مبلغ بالدينار، بحسب النوع.',
         publicCode: 'من أربعة إلى ستة عشر حرفًا أو رقمًا. اتركه فارغًا إن لم يكن هناك رمز.',
         rulePrices: 'سعر لكل مدة حجز بالدقائق (من 15 إلى 480، بخطوات من 5).',
+        renames: 'يحتفظ الحجم بعد تغيير اسمه بوصفته، وبسعره ما لم تغيّره أعلاه.',
+        addonRenames: 'تظهر هنا الخيارات المعروضة للبيع فقط. يحتفظ الخيار بعد تغيير اسمه بسعره ما لم تغيّره أعلاه.',
       },
       option: {
         classA: 'الفئة A',
@@ -194,6 +196,9 @@ export const teamAr: DeepMessages<typeof teamEn> = {
         prices: 'الأسعار الجديدة',
         price_iqd: 'السعر',
         new_sizes: 'أحجام جديدة',
+        renames: 'أسماء جديدة',
+        renames_name_en: 'الاسم الجديد (بالإنجليزية)',
+        renames_name_ar: 'الاسم الجديد (بالعربية)',
         addons: 'الإضافات',
         modifier_id: 'الإضافة',
         price_delta_iqd: 'السعر الإضافي',

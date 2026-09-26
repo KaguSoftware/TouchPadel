@@ -56,16 +56,21 @@ export interface NavItem {
     // The team workspace (driver, marketing), and the till's and the desk's row.
     | 'myTasks'
     // Protocols and the staff suggestion box (build-contracts-2026-09-23 §5.1).
-    | 'protocols' | 'suggestions';
+    | 'protocols' | 'suggestions'
+    // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+    | 'deductions' | 'incidents';
   icon: IconName;
   /**
    * A live count beside the row's name: what waits on the signed-in person
    * there. The shell reads it (RailLink), so a row names the count it wants
    * and never fetches it. Protocols counts the steps to do and the
    * submissions to decide (app.protocols_waiting_count), Suggestions the ones
-   * nobody has marked seen (app.suggestions_page's new_count).
+   * nobody has marked seen (app.suggestions_page's new_count). Wave 5:
+   * Deductions the proposals to decide, Incidents the reports to review (for
+   * management only; the desk's and the till's row carries no count), and
+   * Marketing the owner's posts to approve.
    */
-  badge?: 'protocolsWaiting' | 'suggestionsNew';
+  badge?: 'protocolsWaiting' | 'suggestionsNew' | 'deductionsWaiting' | 'incidentsOpen' | 'contentWaiting';
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
   /**
@@ -127,12 +132,22 @@ export interface Workspace {
  */
 const MY_TASKS: NavItem = { to: '/tasks', labelKey: 'myTasks', icon: 'checkCircle' };
 
+/**
+ * Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Incidents are
+ * reported at the desk and the till and reviewed by management, so the row
+ * sits on four rails; its count is management's only. Deductions are
+ * management's to decide. One definition each, so the rails cannot drift.
+ */
+const INCIDENTS: NavItem = { to: '/incidents', labelKey: 'incidents', icon: 'alert', badge: 'incidentsOpen' };
+const DEDUCTIONS: NavItem = { to: '/deductions', labelKey: 'deductions', icon: 'banknote', badge: 'deductionsWaiting' };
+
 const COURT_DESK: readonly NavItem[] = [
   { to: '/desk/today', labelKey: 'today', icon: 'today' },
   { to: '/desk', labelKey: 'calendar', icon: 'calendar', exact: true },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/desk/series/new', labelKey: 'newSeries', icon: 'repeat', activePrefix: '/desk/series' },
   { to: '/desk/block', labelKey: 'blockCourt', icon: 'ban' },
+  INCIDENTS,
   MY_TASKS,
 ];
 
@@ -141,6 +156,7 @@ const CASHIER: readonly NavItem[] = [
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt' },
   { to: '/desk/customers', labelKey: 'customers', icon: 'users' },
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
+  INCIDENTS,
   MY_TASKS,
 ];
 
@@ -178,6 +194,8 @@ const MANAGER_RUN: readonly NavItem[] = [
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   PROTOCOLS,
   SUGGESTIONS,
+  DEDUCTIONS,
+  INCIDENTS,
 ];
 
 const MANAGER_RECORDS: readonly NavItem[] = [
@@ -261,11 +279,16 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
   { to: '/observation/requests', labelKey: 'requests', icon: 'bell' },
+  // Pay deductions wait on a decision like the requests above them (wave 5).
+  DEDUCTIONS,
   // What waits on the owner in protocols (a step to decide or to do) and the
   // staff suggestion box, right after the requests they sit beside.
   PROTOCOLS,
   SUGGESTIONS,
-  { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing' },
+  // Incident reports to review (wave 5).
+  INCIDENTS,
+  // Its count is marketing's posts waiting on the owner (wave 5).
+  { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing', badge: 'contentWaiting' },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
   // Opened from the marketing panel, not from the rail. See NavItem.hidden.
   { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag', hidden: true },

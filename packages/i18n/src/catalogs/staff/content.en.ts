@@ -2,5 +2,122 @@
  * `staff.content.*`: the staff phone's content page (app/staff-content.tsx: submit,
  * revise, withdraw, decide). Owned by lane P (docs/design/protocols/wave5-addendum-2026-09-25.md §1.2, §4.1).
  * Mirror every key in content.ar.ts.
+ *
+ * Statuses, decisions and channels are `work.content.*`, shared with the
+ * operator. Only marketing and the owners read this page (§8 Q14).
  */
-export const staffContentEn = {} as const;
+export const staffContentEn = {
+  // Today's row (rows.ts) and marketing's row on its own page (staff-marketing.tsx).
+  row: 'Content for approval',
+  rowChanges: 'Content for approval ({count} to change)',
+  // The owner's row while posts wait for a decision (§5.3).
+  rowCount: 'Content for approval ({count})',
+  title: 'Content for approval',
+  lead: 'Send a post for the owner’s approval. The owner approves it, asks for changes or declines it.',
+  ownerLead: 'Posts marketing sent for your approval. Open one to read it and decide.',
+  form: {
+    newTitle: 'New content',
+    reviseTitle: 'Version {version}',
+    againTitle: 'Send again as new',
+    title: 'Title',
+    channel: 'Where it goes',
+    planned: 'Planned for',
+    plannedHint: 'Year-month-day, for example {example}.',
+    body: 'Caption',
+    images: 'Images · Optional',
+    // wave5-addendum §2.7.1, the form's consent line.
+    consentHint: 'Ask anyone recognisable in a photo before it is posted.',
+    againImages: 'Images stay with the earlier item. Add them again if you need them.',
+    link: 'Link to a video or design · Optional',
+    linkHint: 'A full https:// link. The owner sees it as text.',
+    note: 'Note for the owner · Optional',
+    about: 'Also about',
+    abouts: {
+      none: 'Nothing else',
+      item: 'A menu item',
+      campaign: 'A campaign',
+    },
+    submit: 'Send for approval',
+    sendVersion: 'Send version {version}',
+    cancel: 'Cancel',
+    sent: 'Sent. The owner is told.',
+    errors: {
+      title: 'Give it a title.',
+      titleTooLong: 'Keep the title to 120 characters.',
+      channel: 'Choose where it goes.',
+      planned: 'Enter a date like {example}.',
+      past: 'Choose today or a later day.',
+      body: 'Write the caption.',
+      bodyTooLong: 'Keep the caption to 4,000 characters.',
+      link: 'Use a full https:// link with no spaces.',
+      noteTooLong: 'Keep the note to 1,000 characters.',
+      about: 'Choose which one, or pick “Nothing else”.',
+    },
+  },
+  queue: {
+    // Marketing: the items the owner sent back, above the form.
+    onYou: 'Waiting on you ({count})',
+    title: 'Sent for approval',
+    filters: {
+      waiting: 'Waiting',
+      changes: 'Changes asked',
+      approved: 'Approved',
+      closed: 'Closed',
+      all: 'All',
+    },
+    empty: 'Nothing here.',
+    emptyWaiting: 'Nothing is waiting on you.',
+    meta: '{channel} · {day}',
+    version: 'Version {version}',
+    by: 'By {name}',
+  },
+  item: {
+    planned: 'Planned for {day}',
+    about: 'About {name}',
+    by: 'By {name}',
+    // The versions before the one the item is on, which leads the page.
+    versions: 'Earlier versions',
+    version: 'Version {version}',
+    current: 'Current',
+    superseded: 'Replaced',
+    sentBy: 'Sent by {name}, {when}',
+    note: 'Note: {note}',
+    decided: {
+      approve: 'Approved by {name}',
+      changes: 'Changes asked by {name}',
+      decline: 'Declined by {name}',
+    },
+    decidedNote: '{decided}: {note}',
+    link: 'Link',
+    linkHint: 'Press and hold the link to copy it.',
+    waitsOnOwner: 'Waiting for the owner.',
+    changesAsked: 'The owner asked for changes. Send a new version, or withdraw it.',
+    ownerSaid: 'The owner said: {note}',
+    revise: 'Send a new version',
+    withdraw: 'Withdraw',
+    withdrawTitle: 'Withdraw this content?',
+    withdrawBody: 'The owner no longer sees it as waiting, and it cannot be sent again as it is.',
+    withdrawn: 'Withdrawn.',
+    again: 'Send again as new',
+    finalApproved: 'Approved is final. To change it, send it again as new.',
+  },
+  decide: {
+    title: 'Your decision',
+    approveHint: 'Approved is final.',
+    changesHint: 'Say what should change. Marketing sends a new version.',
+    declineHint: 'Declined is final. Say why.',
+    note: 'Note · Optional',
+    reason: 'Why',
+    confirmApprove: 'Approve version {version}',
+    confirmChanges: 'Ask for changes',
+    confirmDecline: 'Decline it',
+    cancel: 'Cancel',
+    approved: 'Approved. Marketing is told.',
+    changes: 'Changes asked. Marketing is told.',
+    declined: 'Declined. Marketing is told.',
+    errors: {
+      reason: 'Say why.',
+      tooLong: 'Keep it to 1,000 characters.',
+    },
+  },
+} as const;

@@ -190,7 +190,8 @@ describe('forms', () => {
   it('shapes a price or promo proposal by its change kind', () => {
     const names = (change: (typeof PRICE_CHANGE_KINDS)[number]) =>
       stepForm('price_promo', 'propose', { change })!.fields.map((f) => f.name);
-    expect(names('price')).toEqual(['change', 'reason', 'expected_effect', 'menu_item_id', 'prices', 'new_sizes']);
+    expect(names('price')).toEqual(['change', 'reason', 'expected_effect', 'menu_item_id', 'prices', 'new_sizes', 'renames']);
+    expect(names('addon_price')).toEqual(['change', 'reason', 'expected_effect', 'addons', 'renames']);
     expect(names('promotion_enable')).toEqual(['change', 'reason', 'expected_effect', 'promotion_id']);
     expect(names('rate')).toEqual(['change', 'reason', 'expected_effect', 'rule_id', 'rule']);
   });
@@ -375,6 +376,37 @@ describe('validateStep: price or promotion change', () => {
     expect(propose({ change: 'addon_price', addons: [{ modifier_id: U1, price_delta_iqd: -500 }] })).toEqual([
       'addons:RECORD_INVALID@0',
     ]);
+  });
+
+  it('takes renames on a price or add-on price change, as the only thing to do or beside prices (#9)', () => {
+    const rename = { variant_id: U2, name_en: 'Large', name_ar: 'كبير' };
+    expect(propose({ change: 'price', menu_item_id: U1, prices: [], renames: [rename] })).toEqual([]);
+    expect(propose({ change: 'price', menu_item_id: U1, prices: [{ variant_id: U2, price_iqd: 5000 }], renames: [rename] })).toEqual([]);
+    expect(propose({ change: 'price', menu_item_id: U1, prices: [], new_sizes: [], renames: [] })).toEqual(['prices:RECORD_INVALID']);
+    const addon = { modifier_id: U3, name_en: 'Double shot', name_ar: 'شوت مزدوج' };
+    expect(propose({ change: 'addon_price', renames: [addon] })).toEqual([]);
+    expect(propose({ change: 'addon_price', addons: [], renames: [addon] })).toEqual([]);
+    expect(propose({ change: 'addon_price', addons: [], renames: [] })).toEqual(['addons:RECORD_INVALID']);
+    expect(propose({ change: 'addon_price' })).toEqual(['addons:RECORD_INVALID']);
+  });
+
+  it('needs both names of a rename, each within the name cap, and its id', () => {
+    const rename = (r: object) => propose({ change: 'price', menu_item_id: U1, prices: [], renames: [r] });
+    expect(rename({ variant_id: U2, name_en: 'Large', name_ar: ' ' })).toEqual(['renames:RECORD_INVALID@0']);
+    expect(rename({ variant_id: U2, name_en: 'Large' })).toEqual(['renames:RECORD_INVALID@0']);
+    expect(rename({ name_en: 'Large', name_ar: 'كبير' })).toEqual(['renames:RECORD_INVALID@0']);
+    expect(rename({ variant_id: U2, name_en: 'x'.repeat(TEXT_CAPS.name + 1), name_ar: 'كبير' })).toEqual([
+      'renames:TEXT_TOO_LONG@0',
+    ]);
+    expect(rename({ variant_id: U2, name_en: 'x'.repeat(TEXT_CAPS.name), name_ar: 'كبير' })).toEqual([]);
+    const thirteen = Array.from({ length: 13 }, () => ({ variant_id: U2, name_en: 'Large', name_ar: 'كبير' }));
+    expect(propose({ change: 'price', menu_item_id: U1, prices: [], renames: thirteen })).toEqual(['renames:RECORD_INVALID']);
+  });
+
+  it('keeps names out of the numbers: the owner approves the proposal’s names or sends it back', () => {
+    for (const change of ['price', 'addon_price'] as const) {
+      expect(stepForm('price_promo', 'numbers', { change })!.fields.map((f) => f.name)).not.toContain('renames');
+    }
   });
 
   it('refuses an unknown change kind by its field', () => {

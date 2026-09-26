@@ -9,7 +9,7 @@
  * Free text is shown as typed, isolated, in its own direction (§4).
  */
 import type { ReactNode } from 'react';
-import { formatDate, formatDateTime, formatIQD, formatNumber } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, formatNumber, isolate } from '@touch/i18n';
 import { stepForm, type FieldDef, type PriceChangeKind, type ProtocolKind, type TournamentVariant } from '@touch/core/protocols';
 import { useLocale } from '../../lib/i18n';
 import { DescriptionList } from '../../components/kit';
@@ -17,6 +17,7 @@ import { fieldLabelKey, optionLabelKey } from './labels';
 import { isObj, isPurged, pickText } from './protocolLogic';
 import { useCafeCategories, useCourts, useIngredients } from './api';
 import { PhotoStrip } from './PhotoField';
+import { renameKeyOf, renameReadBack } from './renames';
 
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
@@ -125,6 +126,24 @@ export function RecordView({
       }
       case 'list': {
         if (!Array.isArray(value) || value.length === 0) return null;
+        // A size's or an add-on's new names read "Small → Large" (wave 5 §2.2, #9),
+        // from the names the check stored beside them at submit.
+        const renameKey = path.length === 1 && def.name === 'renames' ? renameKeyOf(change) : null;
+        if (renameKey) {
+          return (
+            <ul style={{ margin: 0, paddingInlineStart: '1.1rem', display: 'grid', gap: 'var(--tp-sp-0)' }}>
+              {value.map((el, i) => {
+                const r = isObj(el) ? renameReadBack(el, renameKey, book) : null;
+                if (!r) return null;
+                return (
+                  <li key={i}>
+                    <bdi dir={locale === 'ar' ? 'rtl' : 'ltr'}>{tr('ws.protocols.priceForm.renamedFrom', { from: isolate(pickText(locale, r.from_en, r.from_ar)), to: isolate(pickText(locale, r.to_en, r.to_ar)) })}</bdi>
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        }
         return (
           <ul style={{ margin: 0, paddingInlineStart: '1.1rem', display: 'grid', gap: 'var(--tp-sp-0)' }}>
             {value.map((el, i) => {

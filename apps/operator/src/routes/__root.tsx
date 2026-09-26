@@ -29,7 +29,7 @@ import {
 } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
-import { useAuth, canAccess, homeRoute, type StaffRole } from '../lib/auth';
+import { useAuth, can, canAccess, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { useThemeMode } from '../lib/themeMode';
 import {
@@ -51,6 +51,13 @@ import { QK } from '../lib/queryKeys';
 import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../features/ops/protocolsWaiting';
 import { fetchSuggestionsNew } from '../features/roleExtras/api';
 import { newSuggestionCount } from '../features/roleExtras/roleExtrasLogic';
+// Wave 5, people records: the rail's three counts (wave5-addendum-2026-09-25 §5.2).
+import { fetchDeductionsWaiting } from '../features/deductions/api';
+import { deductionsWaitingCount } from '../features/deductions/deductionsLogic';
+import { fetchIncidentsOpen } from '../features/incidents/api';
+import { incidentsOpenCount } from '../features/incidents/incidentsLogic';
+import { fetchContentWaiting } from '../features/content/api';
+import { contentWaitingCount } from '../features/content/contentLogic';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
@@ -76,6 +83,10 @@ import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
+import { ShiftProvider } from '../features/tillShift/ShiftProvider';
+import { ShiftRailControl } from '../features/tillShift/ShiftRailControl';
+import { useTillShift } from '../features/tillShift/shiftContext';
+import { LockLeaveGuard } from '../features/tillShift/LockLeaveGuard';
 
 export const rootRoute = createRootRoute({
   component: RootProviders,
@@ -405,6 +416,10 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           locks: the rail row starts a break, the overlay owns the station
           while somebody is away, and the idle lock defers to it. */}
       <BreakProvider>
+      {/* Till shifts (wave5-addendum §2.9): the station's shift, read once for
+          the rail row, the payment pane's gate and the leaving guard. Offline
+          (the beat itself failed) the gate fails open. */}
+      <ShiftProvider offline={venue?.error != null}>
       {/* The owner assistant's drawer (docs/design/assistant §5.1) is one
           sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
           and it is mounted once, beside the break overlay. */}
@@ -454,6 +469,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         </div>
       </div>
       </AssistantDrawerProvider>
+      </ShiftProvider>
       </BreakProvider>
     </WorkspaceContext.Provider>
   );
@@ -514,21 +530,7 @@ function SkipToMain() {
  * that shows the same count agrees with the others.
  */
 function useNavBadge(badge: NavItem['badge'] | undefined): number {
-  const protocols = useQuery({
-    queryKey: QK.protocolsWaiting,
-    queryFn: fetchProtocolsWaiting,
-    enabled: badge === 'protocolsWaiting',
-    refetchInterval: 60_000,
-  });
-  const suggestions = useQuery({
-    queryKey: QK.suggestionsNew,
-    queryFn: fetchSuggestionsNew,
-    enabled: badge === 'suggestionsNew',
-    refetchInterval: 60_000,
-  });
-  if (badge === 'protocolsWaiting') return protocolsWaitingTotal(protocols.data);
-  if (badge === 'suggestionsNew') return newSuggestionCount(suggestions.data);
-  return 0;
+  return useBadgeSum(badge ? [badge] : []);
 }
 
 /**
@@ -537,8 +539,60 @@ function useNavBadge(badge: NavItem['badge'] | undefined): number {
  * tucked away where the operator cannot see it.
  */
 function useRowsBadge(items: readonly NavItem[]): number {
-  const kinds = new Set(items.filter((i) => !i.hidden).map((i) => i.badge));
-  return useNavBadge(kinds.has('protocolsWaiting') ? 'protocolsWaiting' : undefined) + useNavBadge(kinds.has('suggestionsNew') ? 'suggestionsNew' : undefined);
+  return useBadgeSum(items.filter((i) => !i.hidden).map((i) => i.badge));
+}
+
+/**
+ * The sum of the named badges' counts, one shared read each. A wave-5 count
+ * (wave5-addendum-2026-09-25 §5.2) is read only by the role that acts on it:
+ * the Incidents row sits on the desk's and the till's rail too, and
+ * app.incidents_page would refuse them, so theirs carries no count.
+ */
+function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number {
+  const { staff } = useAuth();
+  const on = new Set(badges);
+  const protocols = useQuery({
+    queryKey: QK.protocolsWaiting,
+    queryFn: fetchProtocolsWaiting,
+    enabled: on.has('protocolsWaiting'),
+    refetchInterval: 60_000,
+  });
+  const suggestions = useQuery({
+    queryKey: QK.suggestionsNew,
+    queryFn: fetchSuggestionsNew,
+    enabled: on.has('suggestionsNew'),
+    refetchInterval: 60_000,
+  });
+  // A row counts only what it names: a disabled query still hands back what
+  // another row cached under the same key, so the flag gates the sum too.
+  const deductionsOn = on.has('deductionsWaiting') && can(staff?.role, 'decideDeductions');
+  const incidentsOn = on.has('incidentsOpen') && can(staff?.role, 'reviewIncidents');
+  const contentOn = on.has('contentWaiting') && can(staff?.role, 'decideContent');
+  const deductions = useQuery({
+    queryKey: QK.deductionsWaiting,
+    queryFn: fetchDeductionsWaiting,
+    enabled: deductionsOn,
+    refetchInterval: 60_000,
+  });
+  const incidents = useQuery({
+    queryKey: QK.incidentsOpen,
+    queryFn: fetchIncidentsOpen,
+    enabled: incidentsOn,
+    refetchInterval: 60_000,
+  });
+  const content = useQuery({
+    queryKey: QK.contentWaiting,
+    queryFn: fetchContentWaiting,
+    enabled: contentOn,
+    refetchInterval: 60_000,
+  });
+  return (
+    (on.has('protocolsWaiting') ? protocolsWaitingTotal(protocols.data) : 0) +
+    (on.has('suggestionsNew') ? newSuggestionCount(suggestions.data) : 0) +
+    (deductionsOn && deductions.isSuccess ? deductionsWaitingCount(deductions.data) : 0) +
+    (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
+    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0)
+  );
 }
 
 /** The count at a row's end: nothing at zero, so a quiet rail stays quiet. */
@@ -711,6 +765,7 @@ function WorkspaceNav({
   const { tr } = useLocale();
   const { staff, signOut } = useAuth();
   const { available } = useWorkspace();
+  const tillShift = useTillShift();
   const station = touch.getStation();
   const workspace = WORKSPACES[workspaceKey];
   // Only the jokers change workspace (owner call, 2026-09-18): a cashier or a
@@ -734,6 +789,9 @@ function WorkspaceNav({
   // one press on the rail foot and it ends the shift, so a stray touch while
   // reaching for the identity block should not drop the till to a sign-in.
   const confirmSignOut = async () => {
+    // Wave 5 §5.1: with the person's own till shift open here, Sign out asks
+    // about the drawer instead (End my shift, Sign out anyway, Cancel).
+    if (tillShift.guardSignOut(() => void signOut())) return;
     const ok = await confirm({
       title: tr('ws.shell.nav.signOutTitle'),
       body: tr('ws.shell.nav.signOutBody'),
@@ -952,6 +1010,13 @@ function WorkspaceNav({
           captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
         />
 
+        {/* Wave 5 §5.1: the till shift, under the break row and drawn the same
+            way: "Start my shift", or "End my shift" over "My shift · since …". */}
+        <ShiftRailControl
+          style={navButtonStyle}
+          captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
+        />
+
         {/* Who is at this till, and the way off it.
 
             Rulebook 4.5 wants the role and the scoped context legible at all
@@ -1097,6 +1162,11 @@ function IdleLock() {
    */
   const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
   const [ownerBack, setOwnerBack] = useState(false);
+  // Wave 5 §5.1, the leaving guard: Switch user with the signed-in person's
+  // own till shift open here asks first, inside this card. A dialog over the
+  // lock would sit under it (--tp-z-lock), and the lock is not closable.
+  const tillShift = useTillShift();
+  const [leaving, setLeaving] = useState(false);
   const timeoutS = settings.till_idle_lock_seconds;
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState('');
@@ -1176,6 +1246,7 @@ function IdleLock() {
     // not have on the very next idle timeout, which is the whole gap.
     setUsePassword(hasPin === false);
     setOwnerBack(false);
+    setLeaving(false);
     setError(null);
     setEmpty(false);
     lastActivity.current = Date.now();
@@ -1477,11 +1548,15 @@ function IdleLock() {
               button keep its natural width; the card is 24rem and the label
               fits, and a name long enough to exceed it now widens the button
               rather than folding the glyph off its line. */}
+          {leaving ? (
+            /* The leaving guard, in place of the way off it guards. */
+            <LockLeaveGuard name={staff.displayName} onBack={() => setLeaving(false)} onSignOut={() => void signOut()} />
+          ) : (
           <div style={{ display: 'flex', justifyContent: 'center', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
             <Button
               kind="ghost"
               size="sm"
-              onClick={() => void signOut()}
+              onClick={() => (tillShift.mineHere ? setLeaving(true) : void signOut())}
               disabled={busy}
               style={{ flexShrink: 0, maxInlineSize: '100%' }}
             >
@@ -1498,6 +1573,7 @@ function IdleLock() {
               <bdi style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr('ws.shell.lock.switchUser', { name: staff.displayName })}</bdi>
             </Button>
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -52,6 +52,11 @@
  *
  * Both payload readers (readSuggestions, readRequests) and isPastWanted are in
  * marketingStaffLogic.ts, with a node test.
+ *
+ * CONTENT FOR APPROVAL (wave5-addendum-2026-09-25 §2.7, §5.2; Majed's answer
+ * #7). Marketing sends posts for the owners' approval; they head this page,
+ * because they wait on the owner (features/content/ContentSection.tsx). Only
+ * the owner decides (decideContent), and managers never open /marketing.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,6 +68,7 @@ import { supabase } from '../../lib/supabase';
 import { fetchPromotions, PROMOTIONS_KEY } from '../admin/promotions/promotionsApi';
 import { todayIso } from '../admin/menu/availability';
 import { useLocale } from '../../lib/i18n';
+import { ContentApprovalPanel } from '../content/ContentSection';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
 import {
@@ -402,6 +408,14 @@ export function MarketingPanelScreen() {
           </span>
         }
       />
+
+      {/* What waits on the owner comes first (wave5-addendum-2026-09-25 §5.2):
+          marketing's posts to approve, then the campaigns. /marketing is the
+          owner's alone, as deciding content is (decideContent), so the route
+          is the gate; the sheet's buttons follow app.content_detail's can_*. */}
+      <div style={{ marginBlockEnd: 'var(--tp-sp-5)' }}>
+        <ContentApprovalPanel />
+      </div>
 
       {campaigns.length > 0 && (
         <Toolbar

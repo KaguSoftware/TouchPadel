@@ -101,14 +101,28 @@ describe('navigation sets', () => {
     expect(WORKSPACES.prep.groups).toHaveLength(0);
   });
 
-  it('badges the Protocols and Suggestions rows, and no other', () => {
+  it('badges the Protocols and Suggestions rows, the wave-5 Deductions, Incidents and Marketing rows, and no other', () => {
     const badged = Object.values(WORKSPACES)
       .flatMap((ws) => workspaceItems(ws))
       .filter((i) => i.badge)
       .map((i) => [i.to, i.badge]);
     expect(new Set(badged.map((b) => b.join(' ')))).toEqual(
-      new Set(['/protocols protocolsWaiting', '/suggestions suggestionsNew']),
+      new Set([
+        '/protocols protocolsWaiting',
+        '/suggestions suggestionsNew',
+        '/deductions deductionsWaiting',
+        '/incidents incidentsOpen',
+        '/marketing contentWaiting',
+      ]),
     );
+  });
+
+  it('puts Incidents on the desk and the till just before My tasks (wave5-addendum §5.2)', () => {
+    for (const key of ['courtDesk', 'cashier'] as const) {
+      const items = WORKSPACES[key].groups.flatMap((g) => g.items);
+      expect(items.at(-2)?.to, key).toBe('/incidents');
+      expect(canAccess(key === 'courtDesk' ? 'court_desk' : 'cashier', '/incidents'), key).toBe(true);
+    }
   });
 });
 
@@ -251,11 +265,11 @@ describe('sections', () => {
     expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
   });
 
-  it('lists Protocols and Suggestions right after the requests they sit beside, and keeps four sections', () => {
+  it('lists Deductions, Protocols, Suggestions and Incidents right after the requests they sit beside, and keeps four sections', () => {
     const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
     const rail = sectionRailItems(observation).map((i) => i.to);
     const at = rail.indexOf('/observation/requests');
-    expect(rail.slice(at, at + 3)).toEqual(['/observation/requests', '/protocols', '/suggestions']);
+    expect(rail.slice(at, at + 5)).toEqual(['/observation/requests', '/deductions', '/protocols', '/suggestions', '/incidents']);
     expect(owner.sections).toHaveLength(4);
   });
 
@@ -319,7 +333,7 @@ describe('the manager rail', () => {
   it('groups its rows as Today, Run the day, Records and Setup', () => {
     expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
       [null, ['today']],
-      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions']],
+      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions', 'deductions', 'incidents']],
       ['groupRecords', ['reports', 'audit']],
       ['groupSetup', ['menu', 'rates', 'promotions']],
     ]);

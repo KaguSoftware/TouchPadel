@@ -327,6 +327,9 @@ export const protocolsEn = {
     new_sizes: 'New sizes',
     new_sizes_name_en: 'New size (English)',
     new_sizes_name_ar: 'New size (Arabic)',
+    renames: 'New names',
+    renames_name_en: 'New name (English)',
+    renames_name_ar: 'New name (Arabic)',
     addons: 'Add-ons',
     addons_price_delta_iqd: 'Price',
     promotion_id: 'Promotion',
@@ -529,5 +532,19 @@ export const protocolsEn = {
     leave: 'Leave without saving',
     leaveTitle: 'Leave without saving?',
     leaveBody: 'Your changes to how it works are not saved yet.',
+  },
+  // Wave 5 (N, wave5-addendum-2026-09-25 §2.2, #9): size and add-on renames
+  // riding on a price or add-on price change; shown on the start form, the
+  // numbers and the run sheet.
+  priceForm: {
+    rename: 'Rename',
+    renameFor: 'Rename {name}',
+    keepName: 'Keep the name',
+    keepNameFor: 'Keep the name of {name}',
+    sizeHint: 'A new name keeps this size’s recipe and, unless you change it here, its price.',
+    addonHint: 'A new name keeps this option’s price unless you change it here.',
+    renamedFrom: '{from} → {to}',
+    renamedFromPrice: '{from} ({price}) → {to}',
+    renamesTitle: 'New names',
   },
 } as const;

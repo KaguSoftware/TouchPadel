@@ -20,7 +20,9 @@ const data: {
   telegram: { telegram_enabled: boolean; telegram_chat_id: string | null };
   /** Active prepared ingredients with no par level (the ingredients count). */
   noPar: number;
-} = { staff: [], outbox: [], telegram: { telegram_enabled: false, telegram_chat_id: null }, noPar: 0 };
+  /** Staff-logged stock lines with no cost (wave 5, the delivery_lines count). */
+  needsCost: number;
+} = { staff: [], outbox: [], telegram: { telegram_enabled: false, telegram_chat_id: null }, noPar: 0, needsCost: 0 };
 
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
@@ -42,6 +44,9 @@ vi.mock('../../lib/supabase', () => {
       // chain itself is what is awaited.
       chain.eq = () => chain;
       chain.then = (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) => Promise.resolve({ count: data.noPar, error: null }).then(ok, fail);
+    } else if (table === 'delivery_lines') {
+      // Wave 5: staff additions with no cost, counted after one filter.
+      chain.eq = () => Promise.resolve({ count: data.needsCost, error: null });
     } else {
       // Courts and tables are counted (head: true); the outbox is listed.
       chain.eq = () => Promise.resolve({ count: 4, error: null });
@@ -91,6 +96,7 @@ describe('SetupHomeScreen', () => {
     data.outbox = [];
     data.telegram = { telegram_enabled: false, telegram_chat_id: null };
     data.noPar = 0;
+    data.needsCost = 0;
   });
 
   it('offers every setup destination, each with what the screen decides', () => {
@@ -171,6 +177,37 @@ describe('SetupHomeScreen', () => {
     expect(within(check('noPar')!).getByText('Prepared items with no par level')).toBeTruthy();
     await userEvent.click(within(check('noPar')!).getByRole('button', { name: 'Open Ingredients' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/stock/ingredients' });
+  });
+
+  it('raises staff stock additions with no cost, and sends the owner to Goods in (wave 5)', async () => {
+    data.needsCost = 2;
+    renderSetup('owner');
+    await waitFor(() => expect(check('needsCost')).toBeTruthy());
+    expect(within(check('needsCost')!).getByText('2')).toBeTruthy();
+    expect(within(check('needsCost')!).getByText('Staff stock additions need a cost')).toBeTruthy();
+    await userEvent.click(within(check('needsCost')!).getByRole('button', { name: 'Open Goods in' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/stock/receive' });
+  });
+
+  it('raises cashiers and desk staff with no PIN: they close their till shift with a manager’s (wave 5 §5.2)', async () => {
+    data.staff = [
+      person({ id: 'o1', role: 'owner', has_pin: true }),
+      person({ id: 'o2', role: 'owner', has_pin: true }),
+      person({ id: 'c1', role: 'cashier' }),
+      person({ id: 'c2', role: 'cashier', has_pin: true }),
+      person({ id: 'c3', role: 'cashier', is_active: false }),
+      person({ id: 'd1', role: 'court_desk' }),
+      person({ id: 'b1', role: 'barista' }),
+      person({ id: 'm1', role: 'manager', has_pin: false }),
+    ];
+    renderSetup('owner');
+    await waitFor(() => expect(check('shiftNoPin')).toBeTruthy());
+    // The active cashier and desk person; a manager without one is the approvals row.
+    expect(within(check('shiftNoPin')!).getByText('2')).toBeTruthy();
+    expect(within(check('shiftNoPin')!).getByText('Cashiers and desk staff with no PIN')).toBeTruthy();
+    expect(check('pins')).toBeTruthy();
+    await userEvent.click(within(check('shiftNoPin')!).getByRole('button', { name: 'Go to Staff' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/admin/staff' });
   });
 
   it('raises Telegram when it is switched on but has no real group', async () => {

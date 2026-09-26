@@ -78,6 +78,7 @@ const BY_NAME = {
   expected_effect: 'staff.protocols.field.expectedEffect',
   menu_item_id: 'staff.protocols.field.menuItemId',
   new_sizes: 'staff.protocols.field.newSizes',
+  renames: 'staff.protocols.field.renames',
   addons: 'staff.protocols.field.addons',
   modifier_id: 'staff.protocols.field.modifierId',
   price_delta_iqd: 'staff.protocols.field.priceDeltaIqd',
@@ -125,6 +126,9 @@ const BY_PATH = {
   'sponsor.name': 'staff.protocols.field.sponsorName',
   'rule.name': 'staff.protocols.field.ruleName',
   'rule.prices': 'staff.protocols.field.rulePrices',
+  // Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a size's or an option's new names.
+  'renames.name_en': 'staff.protocols.field.renamesNameEn',
+  'renames.name_ar': 'staff.protocols.field.renamesNameAr',
 } as const satisfies Record<string, MessageKey>;
 
 function lastSegment(path: string): string {

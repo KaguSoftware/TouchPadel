@@ -23,6 +23,14 @@
  * through app.production_log_today, with who made it and no cost. Its key sits
  * under the stock root, so recording a batch here refreshes it. The payload
  * reader is madeTodayLogic.ts, with a node test.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.8.2 D3, §5.2): both forms name a
+ * store. Waste is taken from the cafe store unless the manager picks the
+ * bakery store (the queued stock.waste carries it as `location`), and the
+ * on-hand hint is that store's. Production is made in the bakery store by
+ * default (§8 Q18): its ingredients come out of that store first, then the
+ * other, and the batch lands there. Shop stock lives in the cafe store only
+ * (V14), so the bakery store is off for a shop product's waste.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,8 +44,9 @@ import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle, Select, Skeleton } from '../../components/ui';
 import { DataTable, EmptyState, PageHeader, Panel, type Column } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
-import { Footnote, IngredientName, useStockFormat } from './stockUi';
-import { SK, fetchIngredients, fetchOnHand } from './stockKeys';
+import { Footnote, IngredientName, StorePicker, useStockFormat } from './stockUi';
+import { SK, fetchByStore, fetchIngredients } from './stockKeys';
+import { heldAt, splitByStore, type StockLocation } from './storeLogic';
 import { readMade, type MadeRow } from './madeTodayLogic';
 import { decimalKeystroke } from './decimalInput';
 
@@ -76,9 +85,10 @@ function ReadFailed({ q }: { q: { isError: boolean; isFetching: boolean; error: 
   );
 }
 
-function useOnHandOf() {
-  const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand });
-  return new Map((onHandQ.data ?? []).map((r) => [r.ingredient_id, r.on_hand]));
+/** What each store holds, per ingredient: the forms' on-hand hint is the chosen store's. */
+function useStoreSplits() {
+  const byStoreQ = useQuery({ queryKey: SK.byStore, queryFn: fetchByStore });
+  return useMemo(() => (byStoreQ.isSuccess ? splitByStore(byStoreQ.data) : null), [byStoreQ.isSuccess, byStoreQ.data]);
 }
 
 function WasteForm() {
@@ -91,14 +101,19 @@ function WasteForm() {
   const [qty, setQty] = useState('');
   const [movementType, setMovementType] = useState<'waste_spill' | 'waste_spoilage'>('waste_spill');
   const [reason, setReason] = useState('');
+  /** The store the waste comes out of (wave 5): the cafe store unless the manager says otherwise. */
+  const [location, setLocation] = useState<StockLocation>('cafe');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
-  const onHandOf = useOnHandOf();
+  const splits = useStoreSplits();
   const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active);
   const chosen = ingredients.find((i) => i.id === ingredientId);
-  const onHand = chosen ? onHandOf.get(chosen.id) : undefined;
+  const shop = chosen?.kind === 'retail';
+  // A shop product is only ever in the cafe store (V14).
+  const store: StockLocation = shop ? 'cafe' : location;
+  const onHand = chosen && splits ? heldAt(splits.get(chosen.id), store) : undefined;
   const qtyInvalid = qty.trim() !== '' && !(Number(qty) > 0);
   const ready = !!ingredientId && Number(qty) > 0 && reason.trim() !== '';
 
@@ -114,6 +129,7 @@ function WasteForm() {
         qty: Number(qty),
         movementType,
         reasonCode: reason.trim(),
+        location: store,
       });
       toast.ok(tr(outcome.queued ? 'ws.manager.stock.waste.queued' : 'ws.manager.stock.waste.recorded'));
       setQty('');
@@ -129,7 +145,17 @@ function WasteForm() {
   return (
     <Panel title={<CardTitle icon="ban">{tr('ws.manager.stock.waste.wasteTitle')}</CardTitle>}>
       <ReadFailed q={ingredientsQ} />
-      <Field label={tr('ws.manager.stock.waste.ingredient')} required hint={chosen && onHand !== undefined ? <bdi>{tr('ws.manager.stock.waste.onHand', { qty: fmt.qty(onHand, chosen.unit) })}</bdi> : undefined}>
+      <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+        <StorePicker
+          label={tr('ws.stores.picker.takeFrom')}
+          value={store}
+          onChange={setLocation}
+          disabled={busy}
+          bakeryOff={shop ? tr('ws.stores.picker.shopCafeOnly') : undefined}
+          data-testid="waste-store"
+        />
+      </div>
+      <Field label={tr('ws.manager.stock.waste.ingredient')} required hint={chosen && onHand !== undefined ? <bdi>{tr(`ws.stores.waste.onHandAt.${store}`, { qty: fmt.qty(onHand, chosen.unit) })}</bdi> : undefined}>
         <Select
           value={ingredientId}
           disabled={busy}
@@ -183,14 +209,16 @@ function ProductionForm() {
   const navigate = useNavigate();
   const [ingredientId, setIngredientId] = useState('');
   const [qty, setQty] = useState('');
+  /** Where the batch is made (wave 5): the bakery store by default (§8 Q18). */
+  const [location, setLocation] = useState<StockLocation>('bakery');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
-  const onHandOf = useOnHandOf();
+  const splits = useStoreSplits();
   const prepared = (ingredientsQ.data ?? []).filter((i) => i.is_active && i.kind === 'prepared');
   const chosen = prepared.find((i) => i.id === ingredientId);
-  const onHand = chosen ? onHandOf.get(chosen.id) : undefined;
+  const onHand = chosen && splits ? heldAt(splits.get(chosen.id), location) : undefined;
   const qtyInvalid = qty.trim() !== '' && !(Number(qty) > 0);
 
   async function submit() {
@@ -201,6 +229,7 @@ function ProductionForm() {
       const res = await appRpc<{ batch_id: string; unit_cost_iqd: number }>('record_production', {
         p_ingredient_id: ingredientId,
         p_qty: Number(qty),
+        p_location: location,
       });
       toast.ok(tr('ws.manager.stock.waste.produced', { unit: fmt.one(chosen.unit), cost: fmt.cost(res.unit_cost_iqd) }));
       setQty('');
@@ -229,7 +258,17 @@ function ProductionForm() {
         />
       ) : (
         <>
-          <Field label={tr('ws.manager.stock.waste.prepared')} required hint={chosen && onHand !== undefined ? <bdi>{tr('ws.manager.stock.waste.onHand', { qty: fmt.qty(onHand, chosen.unit) })}</bdi> : undefined}>
+          <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+            <StorePicker
+              label={tr('ws.stores.picker.madeIn')}
+              value={location}
+              onChange={setLocation}
+              disabled={busy}
+              hint={tr('ws.stores.waste.productionHint')}
+              data-testid="production-store"
+            />
+          </div>
+          <Field label={tr('ws.manager.stock.waste.prepared')} required hint={chosen && onHand !== undefined ? <bdi>{tr(`ws.stores.waste.onHandAt.${location}`, { qty: fmt.qty(onHand, chosen.unit) })}</bdi> : undefined}>
             <Select
               value={ingredientId}
               disabled={busy}

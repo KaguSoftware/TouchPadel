@@ -29,8 +29,9 @@ import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui
 import { MessagePresenter, SegmentedControl } from '../../components/kit';
 import type { IdeaRow } from '../roleExtras/roleExtrasLogic';
 import { StepFormFields } from './StepFormFields';
-import { emptyDraft, fromRecord, toRecord, type Draft } from './formModel';
-import { startDraft } from './priceLogic';
+import { emptyDraft, fromRecord, toRecord, withoutUnchangedRenames, type Draft } from './formModel';
+import { currentNames, readTargets, renameKeyOf, startDraft } from './priceLogic';
+import { TK } from './keys';
 import type { TaskStart } from './search';
 
 const TITLE_MAX = 120;
@@ -68,7 +69,11 @@ export function StartSheet({ start, idea, onClose, onStarted }: { start: TaskSta
 
   const submit = useMutation({
     mutationFn: async () => {
-      const record = toRecord(form.fields, draft);
+      // A rename row still on today's names renames nothing and is not sent
+      // (wave 5 §2.2, #9); the names today are the targets the form read.
+      const cached = change ? qc.getQueryData(TK.targets(change)) : undefined;
+      const targets = cached === undefined ? null : readTargets(cached);
+      const record = withoutUnchangedRenames(toRecord(form.fields, draft), renameKeyOf(change), currentNames(change, targets, draft));
       const en = titleEn.trim() || titleFallback(start, record, 'en');
       const ar = titleAr.trim() || titleFallback(start, record, 'ar');
       const found = validateStart(

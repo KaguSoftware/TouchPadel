@@ -29,6 +29,9 @@ import { staffContentEn } from './content.en';
 import { staffContentAr } from './content.ar';
 import { staffStoresEn } from './stores.en';
 import { staffStoresAr } from './stores.ar';
+// Wave 5, lane R (§2.1.8): the waiter's guest calls.
+import { staffCallsEn } from './calls.en';
+import { staffCallsAr } from './calls.ar';
 
 export const staffEn = {
   shell: staffShellEn,
@@ -42,6 +45,7 @@ export const staffEn = {
   incidents: staffIncidentsEn,
   content: staffContentEn,
   stores: staffStoresEn,
+  calls: staffCallsEn,
 } as const;
 
 export const staffAr = {
@@ -56,4 +60,5 @@ export const staffAr = {
   incidents: staffIncidentsAr,
   content: staffContentAr,
   stores: staffStoresAr,
+  calls: staffCallsAr,
 } as const;

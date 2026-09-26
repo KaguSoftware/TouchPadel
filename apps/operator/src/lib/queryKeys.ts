@@ -101,6 +101,27 @@ export const QK = {
   recipeChangesWaiting: ['recipeChanges', 'waiting'] as const satisfies QueryKey,
   /** app.release_ideas_to_review: the New item card, /tasks and the kitchen board's My tasks count. */
   ideasToReview: ['ideas', 'toReview'] as const satisfies QueryKey,
+
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Each holds the
+  // first page of its list's waiting filter as returned: the count in it is
+  // the rail badge and the "waiting on you" rows, and the page's own tab
+  // reads the same key. Every other read of a list sits under the same root.
+  /** app.deductions_page, filter 'waiting', first page: waiting_count (MGMT). */
+  deductionsWaiting: ['deductions', 'waiting'] as const satisfies QueryKey,
+  /** app.incidents_page, filter 'open', first page: open_count (MGMT; the desk and the till never read it). */
+  incidentsOpen: ['incidents', 'open'] as const satisfies QueryKey,
+  /** app.content_page, filter 'waiting', first page: waiting_count (the owner's badge; marketing reads it too). */
+  contentWaiting: ['content', 'waiting'] as const satisfies QueryKey,
+
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2). The station's shift
+  // as app.till_shift_status reads it: the rail row, the payment gate, the
+  // drawer card and the leaving guard share it. Refetched every 30 s and on
+  // focus; the shift writes invalidate ['tillShift'].
+  /** app.till_shift_status for one station (the device id every till money write carries). */
+  tillShift: {
+    all: ['tillShift'] as const satisfies QueryKey,
+    station: (station: string) => ['tillShift', station] as const satisfies QueryKey,
+  },
 } as const;
 
 /**

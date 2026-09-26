@@ -237,7 +237,13 @@ export function everOnSale(item: Pick<ReleaseState, 'is_active' | 'launched_at'>
   return item.launched_at !== null || item.is_active;
 }
 
-/** Why the sizes are read-only: the release sets them, or a price change does. */
+/**
+ * Why the sizes are read-only: the release sets them, or a price change does.
+ * `onSale` locks the sizes' names with their prices (wave5-addendum-2026-09-25
+ * §2.2, #9: 0195's upsert_variant refuses a manager's rename of a launched
+ * size with PRICE_VIA_PROTOCOL hint `name`); a rename rides on "Change the
+ * price" as `renames`.
+ */
 export type PricesLock = 'inRelease' | 'onSale';
 /** Why the Active switch cannot be switched on from this form. */
 export type SwitchLock = 'inRelease' | 'ownerLaunches' | 'putOnSale' | 'savedHidden';
@@ -251,9 +257,9 @@ export interface ItemLocks {
  * What the item form locks, and why, mirroring upsert_menu_item and
  * upsert_variant; `item` null is a new item in a category of `kind`.
  *  - In release: prices and the switch, for everyone.
- *  - On sale, without editLaunchedPrices: prices, which change through a
- *    price change. The switch works as before, so a launched item a manager
- *    switched off is switched back on as today.
+ *  - On sale, without editLaunchedPrices: prices and the sizes' names, which
+ *    change through a price change. The switch works as before, so a launched
+ *    item a manager switched off is switched back on as today.
  *  - A draft, without launchDirectly: prices stay editable (the draft
  *    exception). A café draft goes on sale when the owner launches it, a shop
  *    draft through Put on sale (a shop_launch change), and a new shop product

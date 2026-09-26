@@ -13,7 +13,7 @@ import {
   type StepRow,
   type SubmissionRow,
 } from '@touch/core';
-import { formatDateTime, isolate, type MessageKey } from '@touch/i18n';
+import { formatDateTime, formatIQD, isolate, type MessageKey } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
@@ -37,6 +37,7 @@ import {
 } from '../src/features/staff/protocols/api';
 import {
   bilingual,
+  numbersRenames,
   runTitle,
   sendBackTargets,
   submissionsNewestFirst,
@@ -114,6 +115,42 @@ function StepHeader({ detail, role }: { detail: StepDetail; role: string }) {
           })}
         </Muted>
       ) : null}
+    </Section>
+  );
+}
+
+/**
+ * The names a price or add-on price change renames (wave5-addendum-2026-09-25
+ * §2.2, #9), on the numbers and apply steps: "Small (4,000 IQD) → Large", at
+ * the price the size or option sells at once applied, then the same rename
+ * in the other language, since the owner approves both names.
+ */
+function Renames({ reads }: { reads: StepReads }) {
+  const { t, locale } = useLocale();
+  const renames = numbersRenames(reads.numbers.data);
+  if (renames.length === 0) return null;
+  const other = locale === 'ar' ? 'en' : 'ar';
+  return (
+    <Section title={t('staff.protocols.context.renamesTitle')}>
+      <View testID="staff-step.renames" style={{ gap: space.s }}>
+        {renames.map((r) => (
+          <View key={`${r.target}:${r.id}`} style={{ gap: 1 }}>
+            <Strong style={{ fontSize: 13 }}>
+              {t('staff.protocols.context.renameLine', {
+                from: isolate(bilingual(locale, r.from_en, r.from_ar) ?? ''),
+                price: r.price_iqd === null ? t('staff.protocols.common.none') : formatIQD(r.price_iqd, locale),
+                to: isolate(bilingual(locale, r.to_en, r.to_ar) ?? ''),
+              })}
+            </Strong>
+            <Muted>
+              {t('staff.protocols.renamedFrom', {
+                from: isolate(other === 'ar' ? r.from_ar : r.from_en),
+                to: isolate(other === 'ar' ? r.to_ar : r.to_en),
+              })}
+            </Muted>
+          </View>
+        ))}
+      </View>
     </Section>
   );
 }
@@ -390,6 +427,7 @@ function StepScreen() {
       >
         <StepHeader detail={detail} role={role} />
         <StepContext detail={detail} reads={reads} />
+        <Renames reads={reads} />
         <Checklist step={step} canTick={can.tick} />
         {form}
         {history.length > 0 ? (

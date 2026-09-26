@@ -46,6 +46,7 @@ import { errorToMessageKey } from '../../lib/errors';
 import { compareTableNumbers } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
+import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, type ReasonCode } from '../../components/ui';
 import {
@@ -662,7 +663,8 @@ export function OpenTabsScreen() {
      * above the list now, and only while a call is waiting.
      */
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>
-      <StartShiftBanner />
+      {/* Wave 5 (§5.1): the till shift's start panel while none is open, else the sound strip. */}
+      <TillShiftPanel fallback={<StartShiftBanner />} />
       <WaiterCallsPanel status={floorStatus} layout="strip" />
       <OpenTabsBoard
         status={asyncStatus(tabsQ, (d) => d.length === 0)}

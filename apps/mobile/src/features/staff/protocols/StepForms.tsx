@@ -62,6 +62,7 @@ import { Chip, FormFields, type FieldPicker } from './FormFields';
 import {
   bilingual,
   blocksToSend,
+  completeRenames,
   courtsRecord,
   interviewsRecord,
   isMgmt,
@@ -301,7 +302,9 @@ function GenericStepFormBody({
 
   const onSubmit = () => {
     setError(null);
-    const record = recordFromDraft(form.fields, draft, { fixedKeys });
+    // A sent-back price proposal's renames complete as a new one's do
+    // (staff-start): an empty language keeps today's name (wave 5 §2.2, #9).
+    const record = recordFromDraft(form.fields, completeRenames(draft, spec.fixed.renames), { fixedKeys });
     const found = validateStep(kind, key, record, { variant, change: reads.change }, { submitterDecides, photos: photos.length });
     setIssues(found);
     if (found.length > 0) {

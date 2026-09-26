@@ -14,6 +14,10 @@
  * The 7 / 14 / 30-day chips are gone: the expiring list is already cut at the
  * venue's window (three days by default, venue_settings.expiring_soon_days),
  * so every chip showed the same rows. The subtitle says the window instead.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §5.2): each batch is in one store, so
+ * both tables and the CSV say which (report_stock's `location`), and whoever
+ * throws it out knows which shelf to go to.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,7 +30,7 @@ import { Button, PinReasonModal } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
 import { downloadCsv, toCsv } from '../analytics/csv';
 import { CardTitle } from '../ops/OpsVisuals';
-import { useStockFormat } from './stockUi';
+import { useStockFormat, useStoreName } from './stockUi';
 import { SK, fetchExpiryWindow, fetchSummary, type SummaryBatch } from './stockKeys';
 
 export function Expiry() {
@@ -38,6 +42,7 @@ export function Expiry() {
   const [writeOff, setWriteOff] = useState<SummaryBatch | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const storeName = useStoreName();
 
   const summaryQ = useQuery({ queryKey: SK.summary, queryFn: fetchSummary });
   const windowQ = useQuery({ queryKey: SK.expiryWindow, queryFn: fetchExpiryWindow, staleTime: 5 * 60_000 });
@@ -70,10 +75,12 @@ export function Expiry() {
       tr('ws.manager.stock.expiry.expiryDate'),
       tr('ws.manager.stock.expiry.worth'),
       tr('ws.manager.stock.expiry.state'),
+      tr('ws.stores.store'),
     ];
+    const store = (b: SummaryBatch) => (b.location ? storeName(b.location) : '');
     const rows = [
-      ...expired.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpired')]),
-      ...expiring.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpiring')]),
+      ...expired.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpired'), store(b)]),
+      ...expiring.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpiring'), store(b)]),
     ];
     downloadCsv('expiry.csv', toCsv(headers, rows));
   }
@@ -86,6 +93,11 @@ export function Expiry() {
 
   const base: Column<SummaryBatch>[] = [
     { key: 'ingredient', header: tr('op.stock.ingredient'), render: (b) => <bdi style={{ fontWeight: 600 }}>{nameOf(b)}</bdi> },
+    {
+      key: 'store',
+      header: tr('ws.stores.store'),
+      render: (b) => (b.location ? <span>{storeName(b.location)}</span> : <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>),
+    },
     { key: 'left', header: tr('ws.manager.stock.expiry.remaining'), numeric: true, render: (b) => <bdi>{fmt.qty(b.qtyRemaining, b.unit)}</bdi> },
     { key: 'worth', header: tr('ws.manager.stock.expiry.worth'), numeric: true, render: (b) => <Money amount={b.valueIqd} /> },
   ];

@@ -6,6 +6,7 @@ import {
   choiceRule,
   diffLinks,
   eligibleRevealGroups,
+  isRenameRefusal,
   isRequiredAddonRefusal,
   minMaxError,
   moveInList,
@@ -132,21 +133,27 @@ describe('addonLaunched / addonLock / newOptionActive (#51, #53)', () => {
   });
 
   it('locks a manager out of a launched option’s price, on or off', () => {
-    expect(addonLock(opt({ is_active: true }), manager)).toEqual({ priceLocked: true, needsLaunch: false });
-    expect(addonLock(opt({ launched_at: '2026-01-01T00:00:00Z' }), manager)).toEqual({ priceLocked: true, needsLaunch: false });
+    expect(addonLock(opt({ is_active: true }), manager)).toEqual({ priceLocked: true, nameLocked: true, needsLaunch: false });
+    expect(addonLock(opt({ launched_at: '2026-01-01T00:00:00Z' }), manager)).toEqual({ priceLocked: true, nameLocked: true, needsLaunch: false });
+  });
+
+  it('locks a launched paid option’s names too, and leaves a free one’s to the manager (wave 5 §2.2, #9)', () => {
+    expect(addonLock(opt({ is_active: true, price_delta_iqd: 0 }), manager)).toEqual({ priceLocked: true, nameLocked: false, needsLaunch: false });
+    expect(addonLock(opt({ is_active: false, price_delta_iqd: 500 }), manager).nameLocked).toBe(false);
+    expect(addonLock(opt({ is_active: true }), owner).nameLocked).toBe(false);
   });
 
   it('holds a manager’s never-launched paid option until the owner approves its price', () => {
-    expect(addonLock(opt({}), manager)).toEqual({ priceLocked: false, needsLaunch: true });
+    expect(addonLock(opt({}), manager)).toEqual({ priceLocked: false, nameLocked: false, needsLaunch: true });
   });
 
   it('lets a free option go on directly', () => {
-    expect(addonLock(opt({ price_delta_iqd: 0 }), manager)).toEqual({ priceLocked: false, needsLaunch: false });
+    expect(addonLock(opt({ price_delta_iqd: 0 }), manager)).toEqual({ priceLocked: false, nameLocked: false, needsLaunch: false });
   });
 
   it('changes nothing for the owner', () => {
-    expect(addonLock(opt({ is_active: true }), owner)).toEqual({ priceLocked: false, needsLaunch: false });
-    expect(addonLock(opt({}), owner)).toEqual({ priceLocked: false, needsLaunch: false });
+    expect(addonLock(opt({ is_active: true }), owner)).toEqual({ priceLocked: false, nameLocked: false, needsLaunch: false });
+    expect(addonLock(opt({}), owner)).toEqual({ priceLocked: false, nameLocked: false, needsLaunch: false });
   });
 
   it('saves a manager’s new paid option hidden, and everything else on', () => {
@@ -163,5 +170,16 @@ describe('isRequiredAddonRefusal', () => {
     expect(isRequiredAddonRefusal({ code: 'LAUNCH_VIA_PROTOCOL', hint: 'required_addon' })).toBe(false);
     expect(isRequiredAddonRefusal(null)).toBe(false);
     expect(isRequiredAddonRefusal('PRICE_VIA_PROTOCOL')).toBe(false);
+  });
+});
+
+describe('isRenameRefusal (wave 5 §2.2, #9)', () => {
+  it('knows the rename refusal from the price and compulsory add-on refusals', () => {
+    expect(isRenameRefusal({ code: 'PRICE_VIA_PROTOCOL', hint: 'name' })).toBe(true);
+    expect(isRenameRefusal({ code: 'PRICE_VIA_PROTOCOL' })).toBe(false);
+    expect(isRenameRefusal({ code: 'PRICE_VIA_PROTOCOL', hint: 'required_addon' })).toBe(false);
+    expect(isRenameRefusal({ code: 'ITEM_IN_RELEASE', hint: 'name' })).toBe(false);
+    expect(isRenameRefusal(null)).toBe(false);
+    expect(isRenameRefusal('PRICE_VIA_PROTOCOL')).toBe(false);
   });
 });

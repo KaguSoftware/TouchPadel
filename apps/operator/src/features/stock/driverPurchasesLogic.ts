@@ -77,6 +77,17 @@ export function lineKind(l: Pick<PurchaseLine, 'ingredient_id' | 'ingredient_act
   return l.ingredient_active === false ? 'switchedOff' : 'stock';
 }
 
+/**
+ * Whether a stock line still to receive is shop (retail) stock. Shop stock
+ * lives in the cafe store only (wave5-addendum-2026-09-25 V14): receive_purchase
+ * refuses such a line into the bakery store, so the picker turns the bakery
+ * store off while one is on the purchase. `kindOf` is the ingredient list's
+ * kinds; a line whose ingredient it does not know is not assumed to be shop.
+ */
+export function purchaseHasShopLine(lines: readonly PurchaseLine[], kindOf: ReadonlyMap<string, string>): boolean {
+  return lines.some((l) => l.status === 'to_receive' && lineKind(l) === 'stock' && l.ingredient_id !== null && kindOf.get(l.ingredient_id) === 'retail');
+}
+
 /** What receive_purchase books per base unit: the line's price over its quantity, as the server rounds it. */
 export function unitCost(l: Pick<PurchaseLine, 'price_iqd' | 'qty'>): number {
   return l.qty > 0 ? Math.round((l.price_iqd / l.qty) * 10_000) / 10_000 : 0;

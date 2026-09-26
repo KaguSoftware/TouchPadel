@@ -28,7 +28,7 @@ import {
   fetchTournamentFeasibility,
   ingredientList,
 } from './api';
-import { bilingual, isMgmt, proposeRecord, readTournamentContext, runChange } from './logic';
+import { bilingual, isMgmt, numbersRenames, proposeRecord, readTournamentContext, runChange } from './logic';
 import type { RunDetail, StepDetail } from './types';
 
 const BAR_KITCHEN: readonly StaffRole[] = ['head_barista', 'barista', 'head_chef', 'chef'];
@@ -140,6 +140,9 @@ export function useStepReads(
     for (const s of cost.data?.sizes ?? []) put(s.variant_id, s.name_en, s.name_ar);
     for (const s of numbers.data?.sizes ?? []) put(s.variant_id, s.name_en, s.name_ar);
     for (const a of numbers.data?.addons ?? []) put(a.modifier_id, a.name_en, a.name_ar);
+    // Wave 5 (§2.2, #9): a renamed size or option reads by the name it had (an
+    // add-on renamed with no new price is in no other list).
+    for (const r of numbersRenames(numbers.data)) if (!out[r.id]) put(r.id, r.from_en, r.from_ar);
     for (const it of targets.data?.items ?? []) {
       put(it.menu_item_id, it.name_en, it.name_ar);
       for (const s of it.sizes) put(s.variant_id, s.name_en, s.name_ar);

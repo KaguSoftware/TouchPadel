@@ -3,6 +3,7 @@ import { Alert, AppState, Linking, Pressable, RefreshControl, ScrollView, View }
 import { Stack, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatNumber } from '@touch/i18n';
 import { Text } from '../src/i18n/text';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
@@ -14,17 +15,24 @@ import {
   CardIcon,
   CheckIcon,
   ChevronIcon,
+  ClipboardIcon,
   ClockIcon,
+  DeductionIcon,
   EnvelopeIcon,
   GlobeIcon,
+  ImageIcon,
   LockIcon,
   PencilIcon,
+  PhoneIcon,
+  PlusSquareIcon,
   RoofIcon,
   SearchIcon,
   SlidersIcon,
   StopwatchIcon,
   SunIcon,
+  SwapIcon,
   TagIcon,
+  WarningIcon,
   type IconProps,
 } from '../src/components/icons';
 import {
@@ -44,6 +52,11 @@ import { checklistTodos, localName } from '../src/features/staff/checklists/logi
 import { WorkList } from '../src/features/staff/protocols/WorkList';
 import { ListCard } from '../src/features/staff/protocols/parts';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
+import { CALL_ROLES } from '../src/features/staff/calls/logic';
+import { useOpenCallCount } from '../src/features/staff/calls/useOpenCallCount';
+import { reviewsIncidents } from '../src/features/staff/incidents/logic';
+import { useToReviewCount } from '../src/features/staff/incidents/useToReviewCount';
+import { useContentRowCount } from '../src/features/staff/content/useContentRowCount';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { useToast } from '../src/components/overlays';
 
@@ -79,6 +92,16 @@ const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
   suggestions: BellIcon,
   'ask-marketing': GlobeIcon,
   'marketing-inbox': CheckIcon,
+  // Wave 5, lane R: a guest's call comes from the phone at the table.
+  calls: PhoneIcon,
+  // Wave 5, lane P: people records.
+  deductions: DeductionIcon,
+  incidents: WarningIcon,
+  content: ImageIcon,
+  // Wave 5, lane S: the two stores.
+  'stock-log': PlusSquareIcon,
+  'stock-move': SwapIcon,
+  'stock-count': ClipboardIcon,
 };
 
 /**
@@ -88,9 +111,13 @@ const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
  * day's work, so it is never lost. Order inside a group is rows.ts's.
  */
 const ROW_GROUPS = [
+  // Wave 5, lane R (§2.1.8): a waiter's guest calls come first, above the
+  // protocols: the `waiter_call_new` push lands on Today.
+  { key: 'floor', titleKey: 'staff.calls.group', ids: ['calls'] },
   { key: 'protocols', titleKey: 'staff.shell.today.groups.protocols', ids: ['protocols', 'start', 'ideas', 'notes'] },
   { key: 'daily', titleKey: 'staff.shell.today.groups.daily', ids: null },
-  { key: 'team', titleKey: 'staff.shell.today.groups.team', ids: ['requests', 'suggestions', 'ask-marketing'] },
+  // Wave 5, lane P: a deduction is proposed about someone, like a request (§5.3).
+  { key: 'team', titleKey: 'staff.shell.today.groups.team', ids: ['requests', 'deductions', 'suggestions', 'ask-marketing'] },
 ] as const;
 
 function groupRows(rows: readonly StaffRowDef[]): { key: string; titleKey: (typeof ROW_GROUPS)[number]['titleKey']; rows: StaffRowDef[] }[] {
@@ -229,6 +256,18 @@ function TodayScreen() {
   const { status, venueId, venues, setVenueId } = useStaffStatus();
   const alerts = useWorkAlerts();
   const out = useStaffSignOut();
+  // Wave 5, lane R (§2.1.8): the open-call count on the waiter's calls row.
+  const openCalls = useOpenCallCount(
+    venueId,
+    status.kind === 'staff' && CALL_ROLES.includes(status.staff.role),
+  );
+  // Wave 5, lane P (§5.3): management's reports to review, and the content
+  // waiting on the owner or sent back to marketing.
+  const toReview = useToReviewCount(
+    venueId,
+    status.kind === 'staff' && reviewsIncidents(status.staff.role),
+  );
+  const content = useContentRowCount(venueId, status.kind === 'staff' ? status.staff.role : null);
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: staffKeys.all }), [queryClient]);
   const pull = usePullRefresh(refresh);
 
@@ -339,7 +378,17 @@ function TodayScreen() {
                     key={row.id}
                     testID={row.testID}
                     icon={<Icon size={15} color={colors.gstrong} />}
-                    label={t(row.labelKey)}
+                    label={
+                      row.id === 'calls' && openCalls > 0
+                        ? t('staff.calls.rowCount', { count: formatNumber(openCalls, locale) })
+                        : row.id === 'incidents' && toReview > 0
+                          ? t('staff.incidents.rowCount', { count: formatNumber(toReview, locale) })
+                          : row.id === 'content' && content.count > 0
+                            ? t(content.changes ? 'staff.content.rowChanges' : 'staff.content.rowCount', {
+                                count: formatNumber(content.count, locale),
+                              })
+                            : t(row.labelKey)
+                    }
                     onPress={() => router.push(row.href)}
                     last={i === group.rows.length - 1}
                   />

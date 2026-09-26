@@ -242,6 +242,23 @@ describe('StockReportScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Open in inventory' }));
     expect(navigate).toHaveBeenCalledWith({ href: '/stock?filter=low' });
   });
+
+  it('names each batch’s and count’s store, and says which way stock moved (wave 5)', async () => {
+    const user = userEvent.setup();
+    rpc.mockResolvedValue({
+      ...STOCK,
+      expired: [{ ...STOCK.expired[0], location: 'bakery' }],
+      variance: [{ ...STOCK.variance[1], location: 'bakery', transferQty: 2000 }],
+    });
+    renderIt(<StockReportScreen />);
+    await screen.findByRole('table', { name: 'Running low' });
+    await user.click(screen.getByRole('button', { name: 'Expired' }));
+    expect(within(screen.getByRole('table', { name: 'Expired' })).getByText('Bakery store')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Count differences' }));
+    const counts = screen.getByRole('table', { name: 'Count differences' });
+    expect(within(counts).getByText('Bakery store')).toBeTruthy();
+    expect(within(counts).getByText('+2,000 g')).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------

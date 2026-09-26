@@ -46,6 +46,7 @@ import { WEEKDAY_KEYS } from '../src/features/staff/protocols/labels';
 import {
   START_ROLES,
   bilingual,
+  completeRenames,
   parseVariant,
   priceProposeStart,
   startDecidedByStarter,
@@ -307,6 +308,9 @@ function StartForm({
   if (change === 'price') hints.prices = t('staff.protocols.start.pricesHint');
   if (change === 'shop_launch') hints.prices = t('staff.protocols.start.shopPricesHint');
   if (change === 'addon_price') hints.addons = t('staff.protocols.start.addonHint');
+  // Wave 5 (§2.2, #9): what a rename asks for, and what it keeps.
+  if (change === 'price') hints.renames = t('staff.protocols.start.renamesHint');
+  if (change === 'addon_price') hints.renames = t('staff.protocols.start.addonRenamesHint');
 
   const start = useMutation({
     mutationKey: staffKeys.mutation('start'),
@@ -337,7 +341,9 @@ function StartForm({
 
   const onSubmit = () => {
     setError(null);
-    const record = recordFromDraft(form.fields, draft, { fixedKeys });
+    // A rename's empty language keeps today's name, and a row that renames
+    // nothing is dropped with the untouched fixed rows (wave 5 §2.2, #9).
+    const record = recordFromDraft(form.fields, completeRenames(draft, setup.fixed.renames), { fixedKeys });
     const fallback = titlesFromRecord(kind, record);
     const typedEn = titleEn.trim() || null;
     const typedAr = titleAr.trim() || null;

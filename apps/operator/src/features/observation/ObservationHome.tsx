@@ -51,10 +51,21 @@ import { QK } from '../../lib/queryKeys';
 import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../ops/protocolsWaiting';
 import { fetchSuggestionsNew } from '../roleExtras/api';
 import { newSuggestionCount } from '../roleExtras/roleExtrasLogic';
+import { usePeopleRecordCounts } from '../deductions/peopleRecordCounts';
+import { useShiftDifferences } from '../tillShift/useShiftDifferences';
 
 type CardKey =
   | 'floorNow' | 'bookings' | 'tills'
-  | 'staffActivity' | 'requests' | 'protocols' | 'suggestions' | 'marketing' | 'audit';
+  | 'staffActivity' | 'requests' | 'protocols' | 'suggestions' | 'marketing' | 'audit'
+  // Wave 5 (wave5-addendum-2026-09-25 §5.2): their card words live with their screens.
+  | 'deductions' | 'incidents';
+
+/** A card's words: the wave-5 screens keep theirs in their own catalogs. */
+function cardKey(key: CardKey): MessageKey {
+  if (key === 'deductions') return 'ws.deductions.card';
+  if (key === 'incidents') return 'ws.incidents.card';
+  return `ws.owner.observationHome.cards.${key}`;
+}
 
 export function ObservationHomeScreen() {
   const { tr, locale } = useLocale();
@@ -81,6 +92,10 @@ export function ObservationHomeScreen() {
   const canSuggestions = canAccess(staff?.role, '/suggestions');
   const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000, enabled: canProtocols });
   const suggestionsQ = useQuery({ queryKey: QK.suggestionsNew, queryFn: fetchSuggestionsNew, refetchInterval: 60_000, enabled: canSuggestions });
+  // Wave 5: deductions to decide, incidents to review, posts to approve.
+  const people = usePeopleRecordCounts();
+  // Wave 5, till shifts (§5.2, §8 Q27): today's closed short or over, to Day close.
+  const shiftDiffs = useShiftDifferences(canAccess(staff?.role, '/admin/day-close'));
 
   const count = (n: number) => <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(n, locale)}</strong>;
   const line = (label: MessageKey, n: number) => (
@@ -118,6 +133,10 @@ export function ObservationHomeScreen() {
         return protocolsQ.data !== undefined ? line('ws.owner.observationHome.status.waitingOnYou', protocolsWaitingTotal(protocolsQ.data)) : null;
       case 'suggestions':
         return suggestionsQ.data !== undefined ? line('ws.owner.observationHome.status.newSuggestions', newSuggestionCount(suggestionsQ.data)) : null;
+      case 'deductions':
+        return people.deductions !== undefined ? line('ws.deductions.tab.waiting', people.deductions) : null;
+      case 'incidents':
+        return people.incidents !== undefined ? line('ws.incidents.filter.open', people.incidents) : null;
       default:
         return null;
     }
@@ -128,7 +147,7 @@ export function ObservationHomeScreen() {
       sectionKey="observation"
       fullWidth
       title={tr('ws.owner.observationHome.title')}
-      card={(key) => tr(`ws.owner.observationHome.cards.${key as CardKey}`)}
+      card={(key) => tr(cardKey(key as CardKey))}
       status={status}
       screensTitle={tr('ws.owner.observationHome.screens')}
     >
@@ -137,6 +156,8 @@ export function ObservationHomeScreen() {
         marketingQ={canMarketing ? marketingQ : null}
         protocolsQ={canProtocols ? protocolsQ : null}
         suggestionsQ={canSuggestions ? suggestionsQ : null}
+        people={people}
+        shiftDiffs={shiftDiffs}
       />
       <div style={{ blockSize: 'var(--tp-sp-4)' }} />
       {/* After what needs a decision, what the floor is doing right now (owner
@@ -165,6 +186,8 @@ function WaitingOnYou({
   marketingQ,
   protocolsQ,
   suggestionsQ,
+  people,
+  shiftDiffs,
 }: {
   pendingQ: Read<StaffRequestsPage>;
   /** Null when the viewer may not open marketing at all. */
@@ -172,11 +195,15 @@ function WaitingOnYou({
   /** app.protocols_waiting_count and the suggestion box's New count; null when the viewer may not open them. */
   protocolsQ: Read<unknown> | null;
   suggestionsQ: Read<unknown> | null;
+  /** Wave 5: the people-record counts, each present only for a role its read admits. */
+  people: ReturnType<typeof usePeopleRecordCounts>;
+  /** Wave 5: today's till shifts closed short or over; no read for a role that cannot open Day close. */
+  shiftDiffs: ReturnType<typeof useShiftDifferences>;
 }) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
 
-  const reads = [pendingQ, marketingQ, protocolsQ, suggestionsQ].filter((q): q is Read<unknown> => q !== null);
+  const reads = [pendingQ, marketingQ, protocolsQ, suggestionsQ, ...people.reads, shiftDiffs.read].filter((q): q is Read<unknown> => q !== null);
   const loading = reads.some((q) => q.isPending);
   const failed = reads.filter((q) => q.isError);
 
@@ -218,6 +245,21 @@ function WaitingOnYou({
       href: '/suggestions',
       icon: 'note',
     });
+  }
+  // Wave 5 (§5.2): a deduction waits on a decision like a request; an
+  // incident waits on a review note; a post waits on the owner's answer.
+  for (const [key, n, href, icon] of [
+    ['deductions', people.deductions ?? 0, '/deductions', 'banknote'],
+    ['incidents', people.incidents ?? 0, '/incidents', 'alert'],
+    ['content', people.content ?? 0, '/marketing', 'spark'],
+  ] as const) {
+    if (n > 0) {
+      rows.push({ key, count: n, title: `ws.${key}.waiting.title`, hint: `ws.${key}.waiting.hint`, action: `ws.${key}.waiting.action`, href, icon });
+    }
+  }
+  // Wave 5, till shifts (§5.2): a difference waits on someone asking why.
+  if (shiftDiffs.count > 0) {
+    rows.push({ key: 'tillShifts', count: shiftDiffs.count, title: 'ws.tillShift.ops.title', hint: 'ws.tillShift.ops.hint', action: 'ws.tillShift.ops.action', href: '/admin/day-close', icon: 'drawer' });
   }
   if (marketingQ?.data) {
     const { toStart, toEnd } = overdueCampaigns(marketingQ.data.campaigns, Date.now());

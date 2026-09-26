@@ -65,6 +65,9 @@ export const staffProtocolsEn = {
     addonNow: '{group} · now +{price}',
     addonHint: 'Type a new price only for the add-ons that should change.',
     pricesHint: 'Type a new price only for the sizes that should change.',
+    // Wave 5 (N, §2.2, #9): the rename rows under the prices.
+    renamesHint: 'Type only the names that change; an empty box keeps today’s name. A renamed size keeps its recipe and, unless you change it above, its price.',
+    addonRenamesHint: 'Type only the names that change; an empty box keeps today’s name. A renamed option keeps its price unless you change it above.',
     shopPricesHint: 'Every size needs its price before the product can go on sale.',
     ruleNow: '{days} · {from}–{to}',
     titleSection: 'Title',
@@ -226,6 +229,9 @@ export const staffProtocolsEn = {
     sales30: 'Last 30 days: {units} sold, {revenue}',
     addonLine: '{group} · {name}: {current} → {next}',
     addonSales: 'Last 30 days: {count} added, {revenue}',
+    // Wave 5 (N, §2.2, #9): renames riding on the change, at the price each sells at once applied.
+    renamesTitle: 'New names',
+    renameLine: '{from} ({price}) → {to}',
     promotionLine: 'Discount: {current} → {next}',
     promotionCost: 'At this discount, the last 30 days would have cost {cost} ({units} items).',
     rateLine: '{minutes} min: {current} → {next}',
@@ -421,6 +427,9 @@ export const staffProtocolsEn = {
     expectedEffect: 'What you expect it to do',
     menuItemId: 'Item',
     newSizes: 'New sizes',
+    renames: 'New names',
+    renamesNameEn: 'New name (English)',
+    renamesNameAr: 'New name (Arabic)',
     addons: 'Add-ons',
     modifierId: 'Add-on',
     priceDeltaIqd: 'Price (IQD)',
@@ -529,4 +538,7 @@ export const staffProtocolsEn = {
     withdrawConfirm: 'Withdraw this idea? Your head will no longer see it.',
     withdrawn: 'Withdrawn',
   },
+  // Wave 5 (N, wave5-addendum-2026-09-25 §2.2, #9, §4.1): a rename in the
+  // other language, under its line on the numbers and apply steps.
+  renamedFrom: '{from} → {to}',
 } as const;

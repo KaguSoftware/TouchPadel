@@ -133,6 +133,9 @@ export const teamEn = {
         promotionValue: 'A percentage (at most 99) or an amount in IQD, as the type says.',
         publicCode: 'Four to sixteen letters or digits. Leave empty for no code.',
         rulePrices: 'A price for each booking length, in minutes (15 to 480, in steps of 5).',
+        // Wave 5 (N, §2.2, #9): under the New names group of a price or an add-on price change.
+        renames: 'A renamed size keeps its recipe and, unless you change it above, its price.',
+        addonRenames: 'Only options on sale are listed here. A renamed option keeps its price unless you change it above.',
       },
       option: {
         classA: 'Class A',
@@ -202,6 +205,10 @@ export const teamEn = {
         prices: 'New prices',
         price_iqd: 'Price',
         new_sizes: 'New sizes',
+        // Wave 5 (N, §2.2, #9): renames of sizes or options on sale.
+        renames: 'New names',
+        renames_name_en: 'New name (English)',
+        renames_name_ar: 'New name (Arabic)',
         addons: 'Add-ons',
         modifier_id: 'Add-on',
         price_delta_iqd: 'Extra charge',

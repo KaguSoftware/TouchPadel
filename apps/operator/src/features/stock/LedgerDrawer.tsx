@@ -9,6 +9,11 @@
  * (`goods_in`) and a truncated record id ("delivery f1f70000"), neither of
  * which means anything at the counter, and its cost column crashed on the
  * fractional per-gram costs deliveries produce.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §5.2): every movement is at a store, so
+ * the history has a Store column, and a move between the stores reads "Moved
+ * between stores" with "To the bakery store" or "From the cafe store" as its
+ * note, rather than its `transfer:<id>` reason code.
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -18,23 +23,9 @@ import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Modal } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
-import { useStockFormat } from './stockUi';
+import { useStockFormat, useStoreName } from './stockUi';
 import { LEDGER_PAGE, MOVEMENT_SELECT, SK, fetchLedger, type MovementRow } from './stockKeys';
-
-const MOVEMENT_TYPES = [
-  'goods_in',
-  'production_in',
-  'sale_consumption',
-  'production_consume',
-  'waste_spill',
-  'waste_spoilage',
-  'void_after_send',
-  'expired_writeoff',
-  'count_adjustment',
-  'refund_reversal',
-  // A new item's test servings (product_release): the note is the run.
-  'product_test',
-] as const;
+import { isMovementType, transferNote } from './storeLogic';
 
 /** A product test's reason code, `run:<run id>`: the release it was made for. */
 const RUN_REASON = /^run:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
@@ -53,6 +44,7 @@ export function LedgerDrawer({
   const fmt = useStockFormat();
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
+  const storeName = useStoreName();
 
   const ledgerQ = useQuery({
     queryKey: [...SK.ledger(ingredient.ingredient_id), page, movementIds ?? null],
@@ -70,8 +62,7 @@ export function LedgerDrawer({
   });
   const rows = ledgerQ.data ?? [];
 
-  const what = (m: MovementRow) =>
-    (MOVEMENT_TYPES as readonly string[]).includes(m.movement_type) ? tr(`op.stock.movement.${m.movement_type as (typeof MOVEMENT_TYPES)[number]}`) : m.movement_type;
+  const what = (m: MovementRow) => (isMovementType(m.movement_type) ? tr(`op.stock.movement.${m.movement_type}`) : m.movement_type);
 
   const columns: Column<MovementRow>[] = [
     { key: 'when', header: tr('ws.manager.stock.ledger.when'), render: (m) => <bdi>{formatDateTime(new Date(m.at), locale)}</bdi> },
@@ -100,6 +91,11 @@ export function LedgerDrawer({
       ),
     },
     {
+      key: 'store',
+      header: tr('ws.stores.ledger.store'),
+      render: (m) => (m.location ? <span>{storeName(m.location)}</span> : <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>),
+    },
+    {
       key: 'cost',
       header: tr('ws.manager.stock.ledger.costPer', { unit: fmt.one(ingredient.unit) }),
       numeric: true,
@@ -110,6 +106,11 @@ export function LedgerDrawer({
       key: 'note',
       header: tr('ws.manager.stock.ledger.note'),
       render: (m) => {
+        // A move names the other store, never its transfer:<id> reason code.
+        if (m.movement_type === 'transfer') {
+          const note = transferNote(m.qty_delta, m.location);
+          if (note) return <span>{tr(`ws.stores.ledger.${note.dir}.${note.store}`)}</span>;
+        }
         // A product test names its release; open it rather than print its id.
         const run = m.movement_type === 'product_test' ? RUN_REASON.exec(m.reason_code ?? '')?.[1] : undefined;
         if (run) {

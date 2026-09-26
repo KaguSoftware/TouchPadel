@@ -11,6 +11,12 @@
  * as a sentence built from the alert's own payload ("300 g left, reorder at
  * 1,000 g"). A group can be dismissed at once: seventeen expiry flags raised
  * by one nightly run are one decision, not seventeen clicks.
+ *
+ * Wave 5 (wave5-addendum-2026-09-25 §5.2): a sale draws the store it prefers
+ * first and then the other one, so "sold beyond the record" is raised only
+ * when the whole venue ran out, and its line names the store the sale was at
+ * (the alert's `location`). An alert raised before the stores has none and
+ * reads as before.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -24,6 +30,7 @@ import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, StatusBadg
 import { CardTitle } from '../ops/OpsVisuals';
 import { useStockFormat } from './stockUi';
 import { ALERT_ORDER, alertKind, type AlertKind } from './stockLogic';
+import { storeOf } from './storeLogic';
 import { SK, fetchIngredients, type IngredientRow } from './stockKeys';
 
 interface AlertRow {
@@ -38,6 +45,8 @@ interface AlertRow {
     expiry_date?: string;
     expired?: boolean;
     device_id?: string;
+    /** negative_stock since wave 5: the store the sale was at. */
+    location?: string;
     [k: string]: unknown;
   };
   created_at: string;
@@ -162,8 +171,12 @@ function AlertGroup({
       // the ingredient has one, and most here do not.
       case 'out_of_stock':
         return tr('ws.manager.stock.alerts.detail.out_of_stock');
-      case 'negative_stock':
-        return tr('ws.manager.stock.alerts.detail.negative_stock', { qty: q(a.payload.shortfall) });
+      case 'negative_stock': {
+        const store = storeOf(a.payload.location);
+        return store
+          ? tr(`ws.stores.alerts.negativeAt.${store}`, { qty: q(a.payload.shortfall) })
+          : tr('ws.manager.stock.alerts.detail.negative_stock', { qty: q(a.payload.shortfall) });
+      }
       case 'expiring_soon':
         return tr('ws.manager.stock.alerts.detail.expiring_soon', { qty: q(a.payload.qty_remaining), date });
       case 'expired':

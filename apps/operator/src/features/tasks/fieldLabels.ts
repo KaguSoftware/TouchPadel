@@ -73,6 +73,11 @@ export const FIELD_LABELS = {
   prices: `${F}.prices`,
   price_iqd: `${F}.price_iqd`,
   new_sizes: `${F}.new_sizes`,
+  // Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): new names for sizes or
+  // options on sale; each row's size or option reads `variant_id` or `modifier_id`.
+  renames: `${F}.renames`,
+  'renames.name_en': `${F}.renames_name_en`,
+  'renames.name_ar': `${F}.renames_name_ar`,
   addons: `${F}.addons`,
   modifier_id: `${F}.modifier_id`,
   price_delta_iqd: `${F}.price_delta_iqd`,

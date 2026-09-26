@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -21,6 +21,8 @@ import { useLocale } from '../src/i18n/LocaleProvider';
 import { space, useTheme } from '../src/theme';
 import { Button, Card, ErrorText, Field, Hint, MicroLabel, Screen } from '../src/components/ui';
 import { ErrorState, SkeletonList } from '../src/components/states';
+import { MenuRow } from '../src/components/booking';
+import { CardIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 import { RequireStaff } from '../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
@@ -69,6 +71,7 @@ function RequestsScreen() {
   const queryClient = useQueryClient();
   const { status } = useStaffStatus();
   const params = useLocalSearchParams<{ id?: string }>();
+  const router = useRouter();
 
   const staff = status.kind === 'staff' ? status.staff : null;
   const uid = staff?.id ?? '';
@@ -187,6 +190,23 @@ function RequestsScreen() {
         <Lead>{t('staff.shell.requests.lead')}</Lead>
         {staff?.role === 'owner' ? <Hint>{t('staff.shell.requests.decideOnOperator')}</Hint> : null}
         {staff?.role === 'manager' ? <Hint>{t('staff.shell.requests.managerNote')}</Hint> : null}
+
+        {/* Wave 5 (wave5-addendum-2026-09-25 §5.3): every role reads the pay
+            deductions approved for them from here; nobody proposes one
+            against an owner, so the owner has none. */}
+        {staff && staff.role !== 'owner' ? (
+          <ListCard>
+            <MenuRow
+              testID="staff-request.deductions"
+              icon={<CardIcon size={15} color={colors.gstrong} />}
+              label={t('staff.deductions.mineRow')}
+              onPress={() =>
+                router.push({ pathname: '/staff-deductions', params: { view: 'mine' } })
+              }
+              last
+            />
+          </ListCard>
+        ) : null}
 
         <Card style={{ padding: space.m, gap: space.s }}>
           <Text accessibilityRole="header" style={{ fontFamily: fonts.body700, fontSize: 15, lineHeight: 21, color: colors.ink }}>

@@ -106,11 +106,62 @@ describe('ProductsAdmin as a manager', () => {
     await screen.findByText('Vertex');
     await user.click(within(row('Vertex')).getByRole('button', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
-    expect((within(dialog).getByLabelText('Price (IQD)') as HTMLInputElement).disabled).toBe(true);
+    // The locked price reads as a figure beside a lock, never a box that looks editable.
+    const price = within(dialog).getByRole('group', { name: 'Price (IQD)' });
+    expect(within(price).queryByRole('textbox')).toBeNull();
+    expect(price.textContent).toMatch(/290,000/);
     expect((within(dialog).getByLabelText(/^SKU/) as HTMLInputElement).disabled).toBe(false);
     expect(within(dialog).getByText(/This product is on sale/)).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Change the price' }));
     expect(nav.navigate).toHaveBeenLastCalledWith({ to: '/protocols', search: { start: 'price_promo', change: 'price', item: ON_SALE } });
+  });
+
+  // Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a size on sale is renamed
+  // through a price change, so its names lock with its price and go back as
+  // stored; a draft's stay the manager's.
+  it("locks a size on sale's names with its price, and sends them back as stored", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await screen.findByText('Vertex');
+    await user.click(within(row('Vertex')).getByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog');
+    // Read as text, not as greyed boxes.
+    expect(within(dialog).getByRole('group', { name: 'Size (English)' }).textContent).toContain('One size');
+    expect(within(dialog).getByRole('group', { name: 'Size (Arabic)' }).textContent).toContain('مقاس واحد');
+    expect(within(dialog).queryByRole('textbox', { name: 'Size (English)' })).toBeNull();
+    expect(within(dialog).getByText(/its sizes’ prices and names change through “Change the price”/)).toBeTruthy();
+    await user.type(within(dialog).getByLabelText(/^SKU/), 'VX-1');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(rpc.appRpc).toHaveBeenCalledWith(
+        'upsert_retail_variant',
+        expect.objectContaining({ p_name_en: 'One size', p_name_ar: 'مقاس واحد', p_price_iqd: 290_000 }),
+      ),
+    );
+  });
+
+  it("leaves a hidden draft's size names editable", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await screen.findByText('Hack');
+    await user.click(within(row('Hack')).getByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog');
+    expect((within(dialog).getByLabelText('Size (English)') as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it('says where a rename goes when the server refuses one', async () => {
+    const user = userEvent.setup();
+    const { AppRpcError } = await import('../../../lib/appRpc');
+    rpc.appRpc.mockRejectedValue(new AppRpcError('PRICE_VIA_PROTOCOL', 'PRICE_VIA_PROTOCOL', 'name'));
+    renderScreen();
+    await screen.findByText('Hack');
+    await user.click(within(row('Hack')).getByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Size (English)'), ' 2');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(
+      await within(dialog).findByText('Renaming a size or an option that is on sale goes through “Change the price”, with the owner’s OK.'),
+    ).toBeTruthy();
   });
 
   it('saves a new product hidden', async () => {

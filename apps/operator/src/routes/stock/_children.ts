@@ -37,6 +37,8 @@ const AlertsPanel = lazyRouteComponent(
   'AlertsPanel',
 );
 const Expiry = lazyRouteComponent(() => import('../../features/stock/Expiry'), 'Expiry');
+// Wave 5 (wave5-addendum-2026-09-25 §5.2): moving stock between the cafe and bakery stores.
+const MoveStock = lazyRouteComponent(() => import('../../features/stock/MoveStock'), 'MoveStock');
 const ProductsAdmin = lazyRouteComponent(
   () => import('../../features/stock/products/ProductsAdmin'),
   'ProductsAdmin',
@@ -87,6 +89,7 @@ export const stockChildren = [
   stockIndexRoute,
   child('ingredients', IngredientsAdmin),
   stockReceiveRoute,
+  child('moves', MoveStock),
   child('waste', WasteAndProduction),
   child('recipes', RecipeEditor),
   child('counts', CountScreen),

@@ -8,7 +8,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { fireEvent, within } from '@testing-library/react-native';
 import type { MyProtocolWork } from '@touch/core';
-import { makeT, type Locale } from '@touch/i18n';
+import { formatNumber, makeT, type Locale } from '@touch/i18n';
 import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
@@ -141,6 +141,71 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       expect(screen.queryByTestId('staff.row.marketing-inbox')).toBeNull();
     } finally {
       screen.unmount();
+    }
+  });
+
+  // Wave 5 (wave5-addendum-2026-09-25 §5.3): the people records' counted rows.
+  it('counts the reports a manager can review, and puts deductions with the requests', () => {
+    const screen = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'manager' },
+      queryData: [
+        [
+          staffKeys.incidents(V, 'open'),
+          {
+            incidents: [
+              { id: 'i1', status: 'open', can_review: true },
+              { id: 'i2', status: 'open', can_review: true },
+              // The manager's own: someone else reviews it.
+              { id: 'i3', status: 'open', can_review: false },
+            ],
+            open_count: 3,
+            total: 3,
+          },
+        ],
+      ],
+    });
+    try {
+      expect(
+        within(screen.getByTestId('staff.row.incidents')).getByText(
+          t('staff.incidents.rowCount', { count: formatNumber(2, locale) }),
+        ),
+      ).toBeTruthy();
+      expect(screen.getByText(t('staff.shell.today.groups.team'))).toBeTruthy();
+      expect(screen.getByTestId('staff.row.deductions')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('counts the posts waiting on the owner, and those sent back to marketing', () => {
+    const owner = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'owner' },
+      queryData: [[staffKeys.content(V, 'waiting'), { content: [], waiting_count: 2, total: 2 }]],
+    });
+    try {
+      expect(
+        within(owner.getByTestId('staff.row.content')).getByText(
+          t('staff.content.rowCount', { count: formatNumber(2, locale) }),
+        ),
+      ).toBeTruthy();
+    } finally {
+      owner.unmount();
+    }
+    const marketing = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'marketing' },
+      queryData: [[staffKeys.content(V, 'changes'), { content: [], waiting_count: 0, total: 1 }]],
+    });
+    try {
+      expect(
+        within(marketing.getByTestId('staff.row.content')).getByText(
+          t('staff.content.rowChanges', { count: formatNumber(1, locale) }),
+        ),
+      ).toBeTruthy();
+    } finally {
+      marketing.unmount();
     }
   });
 

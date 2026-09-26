@@ -58,6 +58,8 @@ import { QK } from '../../lib/queryKeys';
 import { fetchProtocolsWaiting, protocolsWaitingTotal } from './protocolsWaiting';
 import { fetchPurchasesToReceive } from '../stock/DriverPurchases';
 import { readPurchases } from '../stock/driverPurchasesLogic';
+import { useShiftDifferences } from '../tillShift/useShiftDifferences';
+import { usePeopleRecordCounts } from '../deductions/peopleRecordCounts';
 import {
   DAY_CLOSE_TONE,
   STOCK_HREF,
@@ -211,6 +213,13 @@ const ALERT_COPY: Record<OpsAlertKey, { title: MessageKey; hint: MessageKey; act
   expired: { title: 'ws.manager.ops.now.expired', hint: 'ws.manager.ops.now.expiredHint', action: 'ws.manager.ops.now.expiredAction', icon: 'package' },
   protocols: { title: 'ws.manager.ops.now.protocols', hint: 'ws.manager.ops.now.protocolsHint', action: 'ws.manager.ops.now.protocolsAction', icon: 'split' },
   purchases: { title: 'ws.manager.ops.now.purchases', hint: 'ws.manager.ops.now.purchasesHint', action: 'ws.manager.ops.now.purchasesAction', icon: 'package' },
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2): their words live
+  // with their screens, so Observe home says the same thing.
+  deductions: { title: 'ws.deductions.waiting.title', hint: 'ws.deductions.waiting.hint', action: 'ws.deductions.waiting.action', icon: 'banknote' },
+  incidents: { title: 'ws.incidents.waiting.title', hint: 'ws.incidents.waiting.hint', action: 'ws.incidents.waiting.action', icon: 'alert' },
+  content: { title: 'ws.content.waiting.title', hint: 'ws.content.waiting.hint', action: 'ws.content.waiting.action', icon: 'spark' },
+  // Wave 5, till shifts (§5.2): shifts closed short or over, to Day close.
+  tillShifts: { title: 'ws.tillShift.ops.title', hint: 'ws.tillShift.ops.hint', action: 'ws.tillShift.ops.action', icon: 'drawer' },
 };
 
 function NeedsYouNow({ data, go }: { data: OpsOverview; go: Go }) {
@@ -218,9 +227,14 @@ function NeedsYouNow({ data, go }: { data: OpsOverview; go: Go }) {
   // Their own reads, shared with the rail badge and Goods in (§5.4).
   const protocolsQ = useQuery({ queryKey: QK.protocolsWaiting, queryFn: fetchProtocolsWaiting, refetchInterval: 60_000 });
   const purchasesQ = useQuery({ queryKey: QK.purchasesToReceive, queryFn: fetchPurchasesToReceive, refetchInterval: 60_000 });
+  // Wave 5 (§5.2): the rail badges' own reads, each only for a role it admits.
+  const people = usePeopleRecordCounts();
+  // Wave 5 (§5.2): the day's till shifts, the day-close step's own read.
+  const shiftDiffs = useShiftDifferences(true);
   const alerts = [
     ...alertsFor(data),
-    ...workAlertsFor({ protocols: protocolsWaitingTotal(protocolsQ.data), purchases: readPurchases(purchasesQ.data).length }),
+    ...workAlertsFor({ protocols: protocolsWaitingTotal(protocolsQ.data), purchases: readPurchases(purchasesQ.data).length, deductions: people.deductions, incidents: people.incidents, content: people.content }),
+    ...workAlertsFor({ tillShifts: shiftDiffs.count }),
   ];
 
   return (

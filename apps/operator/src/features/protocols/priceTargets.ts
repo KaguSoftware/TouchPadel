@@ -253,7 +253,8 @@ export function pickTarget(change: PriceChangeKind, targets: Targets, record: Ob
     case 'price':
     case 'shop_launch': {
       const item = targets.items.find((i) => i.menu_item_id === id);
-      return { ...record, menu_item_id: id, prices: sizePrices(item), new_sizes: [] };
+      // Another item's sizes: its prices at today's, and no new size or new name carried over.
+      return { ...record, menu_item_id: id, prices: sizePrices(item), new_sizes: [], renames: [] };
     }
     case 'promotion_edit': {
       const p = targets.promotions.find((x) => x.promotion_id === id);

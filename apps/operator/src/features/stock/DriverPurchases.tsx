@@ -32,6 +32,13 @@
  * supplies), or a stock line whose ingredient was switched off after it was
  * bought, is acknowledged instead, one by one.
  *
+ * Wave 5 (wave5-addendum-2026-09-25 §2.8.2 D4, §5.2): the manager says which
+ * store the purchase goes into, the cafe store by default, with the same
+ * picker as Goods in. Shop stock lives in the cafe store only (V14), so the
+ * bakery store is off while a shop line is on the purchase, and a store with a
+ * manager's count open takes nothing until that count is finished
+ * (STORE_BEING_COUNTED).
+ *
  * Still online-only, like the rest of Goods in: no queued mutation type. The
  * pure half (the payload reader, line kinds, draft checks, unit cost) is in
  * driverPurchasesLogic.ts, and the number boxes' keystroke filter in
@@ -52,13 +59,15 @@ import { Icon } from '../../components/icons';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { todayIso } from '../admin/menu/availability';
 import { PhotoViewer } from '../checklists/StaffPhoto';
-import { IngredientName, useStockFormat } from './stockUi';
-import { SK, fetchIngredients, fetchSuppliers } from './stockKeys';
+import { IngredientName, StoreCountedNotice, StorePicker, useStockFormat } from './stockUi';
+import { SK, fetchIngredients, fetchSuppliers, fetchUnfinishedCounts } from './stockKeys';
+import { beingCounted, type StockLocation } from './storeLogic';
 import { decimalKeystroke } from './decimalInput';
 import {
   deliveredWhen,
   lineDraftProblem,
   lineKind,
+  purchaseHasShopLine,
   readPurchases,
   unitCost,
   type DriverPurchase,
@@ -203,6 +212,10 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
   const suppliersQ = useQuery({ queryKey: SK.suppliers, queryFn: fetchSuppliers });
   const suppliers = (suppliersQ.data ?? []).filter((s) => s.is_active);
   const shelfLife = new Map((ingredientsQ.data ?? []).map((i) => [i.id, i.shelf_life_days]));
+  const kindOf = new Map((ingredientsQ.data ?? []).map((i) => [i.id, i.kind as string]));
+  const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
+  /** The store the purchase goes into (wave 5): the cafe store unless the manager says otherwise. */
+  const [location, setLocation] = useState<StockLocation>('cafe');
 
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
   const [supplierId, setSupplierId] = useState('');
@@ -275,7 +288,17 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
   const problems = new Map(stockLines.map((l) => [l.id, lineDraftProblem(draftOf(l), today)]));
   const switchedOff = otherLines.some((l) => lineKind(l) === 'switchedOff');
   const invalid = [...problems.values()].some((p) => p !== null);
-  const blockReason = switchedOff ? tr('ws.supplies.purchase.receiveDisabled.switchedOff') : invalid ? tr('ws.supplies.purchase.receiveDisabled.invalid') : undefined;
+  const shopLine = purchaseHasShopLine(stockLines, kindOf);
+  const counted = beingCounted(countsQ.data, location);
+  const blockReason = switchedOff
+    ? tr('ws.supplies.purchase.receiveDisabled.switchedOff')
+    : invalid
+      ? tr('ws.supplies.purchase.receiveDisabled.invalid')
+      : counted
+        ? tr('ws.stores.picker.held')
+        : location === 'bakery' && shopLine
+          ? tr('ws.stores.picker.shopCafeOnly')
+          : undefined;
 
   function patch(id: string, part: Partial<LineDraft>, line: PurchaseLine) {
     setDrafts((d) => ({ ...d, [id]: { ...draftOf(line), ...part } }));
@@ -300,6 +323,7 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
         p_supplier_id: supplierId || null,
         p_supplier_name: supplierId ? null : supplier.trim() || null,
         p_idempotency_key: idemKey,
+        p_location: location,
       });
       setIdemKey(`purchase.receive:${crypto.randomUUID()}`);
       toast.ok(tr('ws.supplies.purchase.receivedToast'));
@@ -311,6 +335,7 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
       // A line switched off while this form was open: re-read, so it moves to
       // the lines to mark checked.
       if (e instanceof AppRpcError && e.code === 'INGREDIENT_NOT_FOUND' && e.hint === 'lines') void q.refetch();
+      if (e instanceof AppRpcError && e.code === 'STORE_BEING_COUNTED') void countsQ.refetch();
     } finally {
       setBusy(false);
     }
@@ -476,6 +501,18 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
           {switchedLines.length > 0 && (
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-2)' }}>{switchedLines.map(ackRow)}</ul>
           )}
+
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-3)' }}>
+            <StorePicker
+              label={tr('ws.stores.picker.putIn')}
+              value={location}
+              onChange={setLocation}
+              disabled={busy}
+              bakeryOff={shopLine ? tr('ws.stores.picker.shopCafeOnly') : undefined}
+              data-testid="purchase-store"
+            />
+            {counted && <StoreCountedNotice store={location} />}
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)', marginBlockStart: 'var(--tp-sp-3)' }}>
             <Field

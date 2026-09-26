@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeT } from '@touch/i18n';
 import { STAFF_ROLES, canAccess, type StaffRole } from '../../lib/auth';
-import { kitchenTaskCount, phoneRead, phoneRows, phoneSectionsFor, readMyWork, runTitle, taskStarts } from './tasksLogic';
+import { kitchenTaskCount, phoneRead, phoneRows, phoneSectionKeys, phoneSectionsFor, readMyWork, runTitle, taskStarts } from './tasksLogic';
 import { validateTasksSearch } from './search';
 
 // My tasks, pure: the caller's work lists, the starts a role gets, and the
@@ -49,8 +49,11 @@ describe('phone copies', () => {
 
   it('offers each copy only to the roles its read admits (§2.14–§2.24)', () => {
     const has = (role: StaffRole, s: string) => (phoneSectionsFor(role) as string[]).includes(s);
-    // Stock: the heads read the cafe, the desk the shop; nobody else.
-    expect(TASK_ROLES.filter((r) => has(r, 'stock')).sort()).toEqual(['court_desk', 'head_barista', 'head_chef']);
+    // Stock: the heads read the cafe, the desk the shop, and since wave 5 the
+    // waiter what he moves between the stores (STOCK_VIEW).
+    expect(TASK_ROLES.filter((r) => has(r, 'stock')).sort()).toEqual(['court_desk', 'head_barista', 'head_chef', 'waiter']);
+    // Today in the stores (M2): app.stock_today's MOVE ∪ LOG ∪ COUNT, as /tasks opens it.
+    expect(TASK_ROLES.filter((r) => has(r, 'storeToday')).sort()).toEqual(['cashier', 'chef', 'court_desk', 'head_barista', 'head_chef', 'waiter']);
     // Teachings and recipes: the bar (the assistant barista since wave 5) and the kitchen.
     expect(TASK_ROLES.filter((r) => has(r, 'teachings')).sort()).toEqual(['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef']);
     expect(TASK_ROLES.filter((r) => has(r, 'recipes')).sort()).toEqual(['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef']);
@@ -90,6 +93,79 @@ describe('phone copies', () => {
       ctx,
     );
     expect(rows[0]).toEqual({ id: 'i1', title: 'Milk', detail: '800 ml', status: { label: 'Low', tone: 'danger' } });
+  });
+
+  it('says where the stock is once the bakery store holds some (wave 5, by_location)', () => {
+    const rows = phoneRows(
+      'stock',
+      {
+        items: [
+          { ingredient_id: 'i1', name_en: 'Flour', name_ar: 'طحين', unit: 'g', on_hand: 5000, by_location: { cafe: 3000, bakery: 2000 } },
+          { ingredient_id: 'i2', name_en: 'Milk', name_ar: 'حليب', unit: 'ml', on_hand: 800, by_location: { cafe: 800, bakery: 0 } },
+        ],
+      },
+      ctx,
+    );
+    expect(rows[0]!.detail).toBe('5000 g · Cafe store 3000 g · Bakery store 2000 g');
+    // All of it in the cafe store: the total alone, as before the stores.
+    expect(rows[1]!.detail).toBe('800 ml');
+  });
+
+  it('copies the day in the stores: waiting driver deliveries first, then moves, additions and counts, never a cost', () => {
+    expect(phoneRead('storeToday', 'waiter')).toEqual({ fn: 'stock_today', args: {} });
+    expect(phoneSectionKeys('storeToday')).toEqual({ tab: 'ws.stores.today.tab', empty: 'ws.stores.today.empty' });
+    expect(phoneSectionKeys('stock')).toEqual({ tab: 'ws.rolePages.phone.stock.tab', empty: 'ws.rolePages.phone.stock.empty' });
+    const rows = phoneRows(
+      'storeToday',
+      {
+        business_date: '2026-09-26',
+        transfers: [
+          { transfer_id: 't1', from: 'cafe', to: 'bakery', moved_by_name: 'Hasan', moved_at: '2026-09-26T07:00:00Z', lines: [{ ingredient_id: 'f', name_en: 'Flour', name_ar: 'طحين', unit: 'g', qty: 5000 }] },
+        ],
+        logs: [
+          { delivery_id: 'd1', location: 'bakery', source: 'staff_log', received_by_name: 'Rusul', received_at: '2026-09-26T06:00:00Z', lines: [{ ingredient_id: 'b', name_en: 'Butter', name_ar: 'زبدة', unit: 'g', qty: 1000, expiry_date: null }] },
+          { delivery_id: 'd2', location: 'cafe', source: 'goods_in', received_by_name: 'Omar', received_at: '2026-09-26T05:00:00Z', lines: [] },
+        ],
+        driver_deliveries_waiting: 2,
+        counts: [{ count_id: 'c1', location: 'bakery', status: 'waiting', counted_by_name: 'Tiba', submitted_at: '2026-09-26T08:00:00Z', lines: [{ ingredient_id: 'f', name_en: 'Flour', name_ar: 'طحين', unit: 'g', counted_qty: 4800 }] }],
+      },
+      ctx,
+    );
+    expect(rows.map((r) => r.id)).toEqual(['driverWaiting', 't1', 'd1', 'd2', 'c1']);
+    expect(rows[0]!.title).toContain('2');
+    expect(rows[1]!.title).toBe('Moved to the bakery store');
+    expect(rows[1]!.lines).toEqual(['Flour 5000 g']);
+    expect(rows[2]!.title).toBe('Added to the bakery store');
+    expect(rows[3]!.title).toBe('Added to the cafe store · Goods in');
+    expect(rows[4]).toMatchObject({ title: 'Count of the bakery store', lines: ['Flour 4800 g'], status: { label: 'Waiting for a manager', tone: 'warn' } });
+    expect(JSON.stringify(rows)).not.toMatch(/IQD|cost/i);
+    // A section the caller's role does not get comes back null: nothing to list.
+    expect(phoneRows('storeToday', { business_date: '2026-09-26', transfers: null, logs: null, driver_deliveries_waiting: null, counts: null }, ctx)).toEqual([]);
+  });
+
+  it('copies a head’s own deduction proposals, with the decider’s note, for the heads alone (wave 5 §5.1)', () => {
+    const has = (role: StaffRole) => (phoneSectionsFor(role) as string[]).includes('myDeductionProposals');
+    expect(TASK_ROLES.filter(has).sort()).toEqual(['head_barista', 'head_chef']);
+    expect(phoneRead('myDeductionProposals', 'head_barista')).toEqual({ fn: 'my_deduction_proposals', args: {} });
+    expect(phoneSectionKeys('myDeductionProposals')).toEqual({ tab: 'ws.deductions.phone.tab', empty: 'ws.deductions.phone.empty' });
+    const rows = phoneRows(
+      'myDeductionProposals',
+      {
+        proposals: [
+          { id: 'd1', staff_name: 'Yusuf', staff_role: 'barista', amount_iqd: 25000, deduction_date: '2026-09-20', reason: 'Late three times', status: 'declined', proposed_at: '2026-09-20T09:00:00Z', decided_at: '2026-09-21T10:00:00Z', decision_note: 'Not on shift that day' },
+          { id: 'd2', staff_name: 'Hussein', staff_role: 'assistant_barista', amount_iqd: 10000, deduction_date: '2026-09-24', reason: 'Broken cup', status: 'waiting', proposed_at: '2026-09-24T09:00:00Z', decided_at: null, decision_note: null },
+        ],
+      },
+      ctx,
+    );
+    expect(rows.map((r) => [r.id, r.title, r.status?.label, r.status?.tone])).toEqual([
+      ['d1', 'Yusuf', 'Declined', 'danger'],
+      ['d2', 'Hussein', 'Waiting', 'warn'],
+    ]);
+    expect(rows[0]!.body).toBe('Late three times');
+    expect(rows[0]!.detail).toMatch(/25,000/);
+    expect(rows[0]!.lines?.[0]).toMatch(/Not on shift that day/);
+    expect(rows[1]!.lines).toBeUndefined();
   });
 
   it('names a recipe’s ingredients and never a quantity (#72)', () => {

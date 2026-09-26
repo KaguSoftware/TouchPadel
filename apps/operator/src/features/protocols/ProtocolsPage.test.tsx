@@ -433,6 +433,111 @@ describe('/protocols', () => {
     expect(JSON.stringify(sent.p_record)).not.toContain('Sara');
   });
 
+  /** A "from → to" line, its names isolated (FSI/PDI) and spaced as typed. */
+  const renamed = (text: string) => (_: string, el: Element | null) =>
+    el?.tagName === 'BDI' && (el.textContent ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim() === text;
+
+  // Wave 5 (wave5-addendum-2026-09-25 §2.2, #9): a size is renamed through the
+  // price change; only a real rename is sent, trimmed, and "Keep the name"
+  // forgets it.
+  it('renames a size through a price change, sending the new names only', async () => {
+    const user = userEvent.setup();
+    const ITEM = '0e000000-0000-4000-8000-000000000001';
+    const REGULAR = '0e000000-0000-4000-8000-000000000002';
+    const LARGE = '0e000000-0000-4000-8000-000000000003';
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) =>
+      fn === 'price_promo_targets'
+        ? {
+            items: [
+              {
+                menu_item_id: ITEM,
+                name_en: 'Latte',
+                name_ar: 'لاتيه',
+                category_kind: 'cafe',
+                is_active: true,
+                sizes: [
+                  { variant_id: REGULAR, name_en: 'Regular', name_ar: 'عادي', price_iqd: 4000 },
+                  { variant_id: LARGE, name_en: 'Large', name_ar: 'كبير', price_iqd: 5000 },
+                ],
+              },
+            ],
+            addons: [],
+            promotions: [],
+            rules: [],
+          }
+        : base(fn as Parameters<typeof base>[0], args),
+    );
+    search.start = 'price_promo';
+    search.change = 'price';
+    search.item = ITEM;
+    renderPage();
+    const sheet = await screen.findByTestId('start-sheet');
+    await user.click(await within(sheet).findByRole('button', { name: 'Rename Regular' }));
+    const en = within(sheet).getByRole('textbox', { name: /New name \(English\)/ });
+    expect((en as HTMLInputElement).value).toBe('Regular');
+    expect(within(sheet).getByText('A new name keeps this size’s recipe and, unless you change it here, its price.')).toBeTruthy();
+    await user.clear(en);
+    await user.type(en, ' Small ');
+    expect(within(sheet).getByText(renamed('Regular → Small'))).toBeTruthy();
+    // A second size opened and left as it is renames nothing.
+    await user.click(within(sheet).getByRole('button', { name: 'Rename Large' }));
+    await user.type(within(sheet).getByTestId('title-en'), 'Cup names');
+    const textareas = within(sheet).getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
+    await user.type(textareas[0]!, 'The cups are printed Small and Large');
+    await user.type(textareas[1]!, 'Guests find the size they want');
+    await user.click(screen.getByTestId('start-send'));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('start_protocol', expect.objectContaining({ p_kind: 'price_promo' })));
+    const args = rpc.mock.calls.find(([fn]) => fn === 'start_protocol')![1] as Record<string, unknown>;
+    expect(args.p_first_record).toMatchObject({
+      change: 'price',
+      menu_item_id: ITEM,
+      prices: [],
+      renames: [{ variant_id: REGULAR, name_en: 'Small', name_ar: 'عادي' }],
+    });
+  });
+
+  it('forgets a rename on Keep the name', async () => {
+    const user = userEvent.setup();
+    const ITEM = '0e000000-0000-4000-8000-000000000001';
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) =>
+      fn === 'price_promo_targets'
+        ? {
+            items: [
+              {
+                menu_item_id: ITEM,
+                name_en: 'Latte',
+                name_ar: 'لاتيه',
+                category_kind: 'cafe',
+                is_active: true,
+                sizes: [{ variant_id: '0e000000-0000-4000-8000-000000000002', name_en: 'Regular', name_ar: 'عادي', price_iqd: 4000 }],
+              },
+            ],
+            addons: [],
+            promotions: [],
+            rules: [],
+          }
+        : base(fn as Parameters<typeof base>[0], args),
+    );
+    search.start = 'price_promo';
+    search.change = 'price';
+    search.item = ITEM;
+    renderPage();
+    const sheet = await screen.findByTestId('start-sheet');
+    await user.click(await within(sheet).findByRole('button', { name: 'Rename Regular' }));
+    // Typed a word at a time: the space after "Regular" (today's name, whitespace
+    // aside) must not snap the box back before "cup".
+    const en = within(sheet).getByRole('textbox', { name: /New name \(English\)/ });
+    await user.type(en, ' cup');
+    expect((en as HTMLInputElement).value).toBe('Regular cup');
+    expect(within(sheet).getByText(renamed('Regular → Regular cup'))).toBeTruthy();
+    await user.click(within(sheet).getByRole('button', { name: 'Keep the name of Regular' }));
+    expect(within(sheet).queryByRole('textbox', { name: /New name \(English\)/ })).toBeNull();
+    expect(within(sheet).queryByText(renamed('Regular → Regular cup'))).toBeNull();
+    expect(within(sheet).getByRole('button', { name: 'Rename Regular' })).toBeTruthy();
+  });
+
   it('reads in Arabic', async () => {
     renderPage('ar');
     expect(screen.getByRole('heading', { level: 1, name: 'البروتوكولات' })).toBeTruthy();

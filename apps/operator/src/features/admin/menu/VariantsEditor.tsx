@@ -15,6 +15,11 @@
  * sale changes them through "Change the price" unless the role may edit them
  * directly (PRICE_VIA_PROTOCOL). The default size is never locked, and a row
  * saved under a lock re-sends its stored price, which the server lets through.
+ *
+ * A size's names are shown as text here and never edited, and every save
+ * re-sends the stored names: since wave 5 a launched size is renamed through
+ * "Change the price" too (§2.2, #9, the `onSale` lock's note says so), and a
+ * refusal with hint `name` says that rather than the price sentence.
  */
 import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -26,6 +31,7 @@ import { Money, Panel } from '../../../components/kit';
 import { MoneyInput } from '../../../components/inputs';
 import { useToast } from '../../../components/toast';
 import { PriceChangeButton, PriceLockNote } from '../promotions/PriceChangeStart';
+import { isRenameRefusal } from '../addons/addonsLogic';
 import type { PricesLock } from './menuLogic';
 import { useAdminMenu, type ItemRow, type VariantRow } from './useAdminMenu';
 
@@ -80,7 +86,7 @@ export function VariantsEditor({ item, pricesLock = null }: { item: ItemRow; pri
       toast.ok(tr('op.toast.saved'));
       await refresh();
     },
-    onError: (e) => toast.err(e),
+    onError: (e) => toast.err(isRenameRefusal(e) ? tr('ws.pricing.renameViaProtocol') : e),
   });
 
   const readOnly = !can.editMenu;

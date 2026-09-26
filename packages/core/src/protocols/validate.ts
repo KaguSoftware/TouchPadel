@@ -327,10 +327,14 @@ function refine(kind: ProtocolKind, stepKey: string, record: Obj, opts: StepForm
   }
   if (key === 'price_promo.propose') {
     const change = record.change as PriceChangeKind;
-    if (change === 'price') {
-      const prices = Array.isArray(record.prices) ? record.prices.length : 0;
-      const sizes = Array.isArray(record.new_sizes) ? record.new_sizes.length : 0;
-      if (prices + sizes === 0) issues.add('prices', 'RECORD_INVALID');
+    const count = (value: unknown) => (Array.isArray(value) ? value.length : 0);
+    // Something to do: a price, a new size or a rename; an add-on price or a
+    // rename (#9). Whether a name is new is the server's to say.
+    if (change === 'price' && count(record.prices) + count(record.new_sizes) + count(record.renames) === 0) {
+      issues.add('prices', 'RECORD_INVALID');
+    }
+    if (change === 'addon_price' && count(record.addons) + count(record.renames) === 0) {
+      issues.add('addons', 'RECORD_INVALID');
     }
     if (change === 'promotion' || change === 'promotion_edit') {
       for (const issue of validatePromotion(record.promotion)) issues.add(issue.field, issue.code, issue.index);
