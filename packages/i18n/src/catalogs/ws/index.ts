@@ -53,6 +53,11 @@ import { tillShiftAr } from './tillShift.ar';
 // Multi-venue slice 4: the owner's branches, stations, staff branches, report scope.
 import { branchesEn } from './branches.en';
 import { branchesAr } from './branches.ar';
+// Phase 2 Milestone 4b: Goods in's scanned receipts.
+import { receiptsEn } from './receipts.en';
+import { receiptsAr } from './receipts.ar';
+import { slipsEn } from './slips.en';
+import { slipsAr } from './slips.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -77,6 +82,8 @@ export const wsEn = {
   stores: storesEn,
   tillShift: tillShiftEn,
   branches: branchesEn,
+  receipts: receiptsEn,
+  slips: slipsEn,
 } as const;
 
 export const wsAr = {
@@ -102,4 +109,6 @@ export const wsAr = {
   stores: storesAr,
   tillShift: tillShiftAr,
   branches: branchesAr,
+  receipts: receiptsAr,
+  slips: slipsAr,
 } as const;

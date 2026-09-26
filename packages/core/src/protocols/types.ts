@@ -47,6 +47,7 @@ export type PriceChangeKind = (typeof PRICE_CHANGE_KINDS)[number];
  * teachings and requests are the role spec's (staff_media_folders, contracts
  * §2.24.2): checklist ticks, teachings and requests to marketing. Incidents is
  * wave 5's (staff_media_incidents, wave5-addendum §2.4): incident reports.
+ * Slips is Milestone 4b's (order_slip_tables, 0238): waiters' order slips.
  */
 export const PHOTO_FOLDERS = [
   'proposals',
@@ -59,6 +60,7 @@ export const PHOTO_FOLDERS = [
   'teachings',
   'requests',
   'incidents',
+  'slips',
 ] as const;
 export type PhotoFolder = (typeof PHOTO_FOLDERS)[number];
 

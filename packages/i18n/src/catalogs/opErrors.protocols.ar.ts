@@ -67,4 +67,10 @@ export const opErrorsProtocolsAr: DeepMessages<typeof opErrorsProtocolsEn> = {
   TILL_SHIFT_NOT_YOURS: 'هذه وردية شخص آخر. إغلاقها يحتاج رمز المدير.',
   TILL_SHIFT_WRONG_STATION: 'ابدأ وردية الصندوق وأنهِها من الصندوق نفسه وأنت مسجّل الدخول عليه.',
   TILL_SHIFT_UNSYNCED: 'لا تزال لدى هذا الصندوق مبيعات بانتظار الإرسال. حاول مرة أخرى بعد إرسالها.',
+  RECEIPT_NOT_FOUND: 'تعذّر العثور على هذا الوصل.',
+  RECEIPT_ALREADY_DONE: 'أُدخل هذا الوصل إلى المخزون أو وُضع جانباً بالفعل.',
+  RECEIPT_BUSY: 'تجري قراءة هذا الوصل الآن. حاول مرة أخرى بعد دقيقة.',
+  SLIP_NOT_FOUND: 'تعذّر العثور على ورقة الطلب هذه.',
+  SLIP_ALREADY_DONE: 'أُرسلت ورقة الطلب هذه إلى المطبخ أو وُضعت جانباً بالفعل.',
+  SLIP_BUSY: 'تجري قراءة ورقة الطلب هذه الآن. حاول مرة أخرى بعد دقيقة.',
 };

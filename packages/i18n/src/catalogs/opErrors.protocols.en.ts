@@ -81,4 +81,12 @@ export const opErrorsProtocolsEn = {
   TILL_SHIFT_NOT_YOURS: 'This is someone else’s shift. Closing it needs a manager’s PIN.',
   TILL_SHIFT_WRONG_STATION: 'Start and end a till shift at the till itself, signed in there.',
   TILL_SHIFT_UNSYNCED: 'This till still has sales waiting to send. Try again once they are sent.',
+  // Receipt scanning (0237): Goods in and the staff phone.
+  RECEIPT_NOT_FOUND: 'That receipt could not be found.',
+  RECEIPT_ALREADY_DONE: 'This receipt was already put into stock or set aside.',
+  RECEIPT_BUSY: 'This receipt is being read right now. Try again in a minute.',
+  // Order slips (0239): the till and the staff phone.
+  SLIP_NOT_FOUND: 'That order slip could not be found.',
+  SLIP_ALREADY_DONE: 'This order slip was already sent to the kitchen or set aside.',
+  SLIP_BUSY: 'This order slip is being read right now. Try again in a minute.',
 } as const;
