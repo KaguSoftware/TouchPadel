@@ -131,7 +131,9 @@ export type Role =
   | 'head_chef'
   | 'chef'
   | 'driver'
-  | 'marketing';
+  | 'marketing'
+  | 'assistant_barista'
+  | 'waiter';
 
 export type StationMode = 'till' | 'desk' | 'kds';
 

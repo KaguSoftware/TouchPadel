@@ -14,10 +14,10 @@ import {
 } from './auth';
 
 const ALL_ROLES: readonly StaffRole[] = STAFF_ROLES;
-/** Bar and kitchen (0155): prep's access exactly, and nothing more. */
-const KITCHEN_FAMILY = ['head_barista', 'barista', 'head_chef', 'chef'] as const;
-/** The any-staff baseline plus My tasks. */
-const TEAM = ['driver', 'marketing'] as const;
+/** Bar and kitchen (0155, the assistant barista since wave 5): prep's access exactly, and nothing more. */
+const KITCHEN_FAMILY = ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef'] as const;
+/** The any-staff baseline plus My tasks (the waiter since wave 5). */
+const TEAM = ['driver', 'marketing', 'waiter'] as const;
 
 describe('canAccess — longest-prefix match, default deny', () => {
   it('denies every role on a route that matches no prefix', () => {
@@ -103,7 +103,7 @@ describe('canAccess — longest-prefix match, default deny', () => {
     }
   });
 
-  it('gives driver and marketing My tasks and nothing else', () => {
+  it('gives driver, marketing and the waiter My tasks and nothing else', () => {
     for (const role of TEAM) {
       expect(canAccess(role, '/tasks'), role).toBe(true);
       for (const route of Object.keys(ROUTE_ROLES).filter((r) => r !== '/tasks')) {
@@ -113,7 +113,18 @@ describe('canAccess — longest-prefix match, default deny', () => {
   });
 
   it('opens My tasks to every hireable role but management, and never to prep (§5.1)', () => {
-    const TASKS = ['cashier', 'court_desk', 'head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing'];
+    const TASKS = [
+      'cashier',
+      'waiter',
+      'court_desk',
+      'head_barista',
+      'barista',
+      'assistant_barista',
+      'head_chef',
+      'chef',
+      'driver',
+      'marketing',
+    ];
     for (const role of ALL_ROLES) {
       expect(canAccess(role, '/tasks'), role).toBe(TASKS.includes(role));
     }
@@ -140,6 +151,8 @@ describe('allowedRoutes — top-level entries only', () => {
     expect(allowedRoutes('prep')).toEqual(['/kds']);
     expect(allowedRoutes('chef')).toEqual(['/kds', '/tasks']);
     expect(allowedRoutes('driver')).toEqual(['/tasks']);
+    expect(allowedRoutes('assistant_barista')).toEqual(['/kds', '/tasks']);
+    expect(allowedRoutes('waiter')).toEqual(['/tasks']);
     expect(allowedRoutes('manager')).toContain('/admin');
     expect(allowedRoutes('manager')).not.toContain('/analytics');
     expect(allowedRoutes('owner')).toContain('/analytics');
@@ -299,7 +312,7 @@ describe('capability matrix', () => {
 
   it('leaves a recipe change to the owner and ideas to the heads above the team (#65, #71)', () => {
     expect(can('manager', 'decideRecipeChanges')).toBe(false);
-    for (const role of ['barista', 'chef', 'prep', 'cashier', 'court_desk', 'driver', 'marketing'] as const) {
+    for (const role of ['barista', 'assistant_barista', 'chef', 'prep', 'cashier', 'court_desk', 'driver', 'marketing', 'waiter'] as const) {
       expect(can(role, 'reviewIdeas'), role).toBe(false);
       expect(can(role, 'writeTeachings'), role).toBe(false);
     }

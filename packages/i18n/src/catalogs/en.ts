@@ -1040,6 +1040,9 @@ export const en = {
       chef: 'Chef assistant',
       driver: 'Driver',
       marketing: 'Marketing',
+      // Wave 5 (wave5-addendum-2026-09-25 §4.2).
+      assistant_barista: 'Assistant barista',
+      waiter: 'Waiter',
     },
     days: {
       sun: 'Sun',

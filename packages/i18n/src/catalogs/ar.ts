@@ -946,6 +946,8 @@ export const ar: Messages = {
       chef: 'مساعد شيف',
       driver: 'سائق',
       marketing: 'التسويق',
+      assistant_barista: 'مساعد باريستا',
+      waiter: 'نادل',
     },
     days: {
       sun: 'الأحد',

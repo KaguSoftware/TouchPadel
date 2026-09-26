@@ -182,6 +182,8 @@ const OPTIONS = {
     chef: 'op.roles.chef',
     driver: 'op.roles.driver',
     marketing: 'op.roles.marketing',
+    assistant_barista: 'op.roles.assistant_barista',
+    waiter: 'op.roles.waiter',
   },
   recommendation: {
     go: 'staff.protocols.option.recommendation.go',

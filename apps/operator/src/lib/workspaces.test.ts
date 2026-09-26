@@ -21,13 +21,14 @@ describe('workspacesForRole', () => {
     expect(workspacesForRole('court_desk')).toEqual(['courtDesk']);
   });
   it('gives the bar and kitchen family the kitchen and nothing else, as prep had', () => {
-    for (const role of ['head_barista', 'barista', 'head_chef', 'chef'] as const) {
+    for (const role of ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef'] as const) {
       expect(workspacesForRole(role), role).toEqual(['prep']);
     }
   });
-  it('gives driver and marketing the team workspace alone', () => {
+  it('gives driver, marketing and the waiter the team workspace alone', () => {
     expect(workspacesForRole('driver')).toEqual(['team']);
     expect(workspacesForRole('marketing')).toEqual(['team']);
+    expect(workspacesForRole('waiter')).toEqual(['team']);
   });
   it('lets managers and owners enter every floor workspace, own one first', () => {
     expect(workspacesForRole('manager')[0]).toBe('manager');
@@ -73,7 +74,7 @@ describe('navigation sets', () => {
     }
     // Every role that holds a workspace can open all of it, not just the one
     // named above.
-    for (const role of ['head_barista', 'barista', 'head_chef', 'chef', 'marketing'] as const) {
+    for (const role of ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'marketing', 'waiter'] as const) {
       for (const key of workspacesForRole(role)) {
         for (const item of workspaceItems(WORKSPACES[key])) expect(canAccess(role, item.to), `${role} → ${item.to}`).toBe(true);
         expect(canAccess(role, WORKSPACES[key].home), `${role} → ${key} home`).toBe(true);

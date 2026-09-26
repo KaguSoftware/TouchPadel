@@ -2046,14 +2046,18 @@ function SignInScreen() {
  * cannot drift from the check that produced it. Nothing here decides access; it
  * only names what decided it.
  *
- * Driver and marketing hold the any-staff baseline alone, so they lead. Prep
- * sits after the bar and kitchen family it was split into (0155): every route
- * prep opens, they open too, so a refusal names a role the owner can still
- * assign rather than the retired one.
+ * Driver, marketing and the waiter hold the any-staff baseline alone, so they
+ * lead. The assistant barista holds the board and My tasks and nothing more,
+ * so he comes before the barista (wave 5 §2.1.6). Prep sits after the bar and
+ * kitchen family it was split into (0155): every route prep opens, they open
+ * too, so a refusal names a role the owner can still assign rather than the
+ * retired one.
  */
 const ROLE_ORDER: readonly StaffRole[] = [
   'driver',
   'marketing',
+  'waiter',
+  'assistant_barista',
   'barista',
   'chef',
   'head_barista',

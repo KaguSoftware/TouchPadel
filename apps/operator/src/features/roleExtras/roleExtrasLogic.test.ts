@@ -27,7 +27,7 @@ describe('suggestions', () => {
   });
 
   it('reads an unknown role as none rather than printing it', () => {
-    expect(readSuggestionsPage({ suggestions: [{ id: 'x', author_role: 'waiter' }] }).rows[0]!.authorRole).toBeNull();
+    expect(readSuggestionsPage({ suggestions: [{ id: 'x', author_role: 'sommelier' }] }).rows[0]!.authorRole).toBeNull();
   });
 });
 

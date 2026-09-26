@@ -299,8 +299,9 @@ const OWNER_SETUP: readonly NavItem[] = [
 ];
 
 /**
- * TEAM — driver and marketing (0155). One row: My tasks, their protocol steps
- * and the read-only copy of their phone pages. It is a rail and not a navless
+ * TEAM — driver and marketing (0155), and the waiter (wave 5 §2.1). One row:
+ * My tasks, their protocol steps and the read-only copy of their phone
+ * pages. It is a rail and not a navless
  * board like the kitchen's because a staff member who holds nothing but this
  * still needs Options, Go on break and Sign out.
  */
@@ -348,10 +349,12 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
   switch (role) {
     case 'cashier':
       return ['cashier'];
-    // The bar and kitchen family has exactly prep's workspace (0155).
+    // The bar and kitchen family has exactly prep's workspace (0155); the
+    // assistant barista joins it for the bar's tickets (wave 5 §2.1).
     case 'prep':
     case 'head_barista':
     case 'barista':
+    case 'assistant_barista':
     case 'head_chef':
     case 'chef':
       return ['prep'];
@@ -359,6 +362,7 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
       return ['courtDesk'];
     case 'driver':
     case 'marketing':
+    case 'waiter':
       return ['team'];
     case 'manager':
       return ['manager', 'courtDesk', 'cashier', 'prep'];

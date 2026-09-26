@@ -5,14 +5,19 @@ import type { StaffRole } from '../../../lib/auth';
 
 /**
  * Every role an account can be given, in the order the picker lists them: the
- * front of house, then the bar and the kitchen (the head before the team),
- * then the two roles off the floor (0155), then management.
+ * front of house (the waiter beside the cashier), then the bar and the kitchen
+ * (the head before the team, the assistant barista last in the bar), then the
+ * two roles off the floor (0155), then management. The two wave-5 roles
+ * (wave5-addendum-2026-09-25 §2.1.6) are given only once every station runs
+ * the operator that knows them (§7.3).
  */
 export const ASSIGNABLE_ROLES: readonly StaffRole[] = [
   'cashier',
+  'waiter',
   'court_desk',
   'head_barista',
   'barista',
+  'assistant_barista',
   'head_chef',
   'chef',
   'driver',

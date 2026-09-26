@@ -8,9 +8,11 @@ import { staffRows } from '../rows';
  * each row's roles from its screen's gate; this pins the result against the
  * tables, so a gate that widens or narrows shows up here as a Today change.
  *
- * Nothing on the Parked list (§0) has a row: no assistant barista or waiter,
- * no salaries, no day close, no stock logging, no desk report and no
- * marketing approval.
+ * Nothing on the Parked list (§0) has a row: no salaries, no day close, no
+ * stock logging, no desk report and no marketing approval. The assistant
+ * barista and the waiter are wave 5's (wave5-addendum-2026-09-25 §5.1): the
+ * baseline rows, and for the assistant barista the bar's teachings and recipe
+ * names.
  */
 const MGMT = [
   'protocols',
@@ -89,6 +91,8 @@ const EXPECTED: Record<StaffRole, string[]> = {
   court_desk: ['protocols', 'start', 'requests', 'notes', 'stock', 'suggestions', 'ask-marketing'],
   cashier: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
   prep: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
+  assistant_barista: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
+  waiter: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
 };
 
 describe('Today rows by role', () => {

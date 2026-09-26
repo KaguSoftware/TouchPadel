@@ -1,4 +1,5 @@
--- FIXTURE — dev logins for the six staff roles 0155 added. Local and staging ONLY; never prod.
+-- FIXTURE — dev logins for the six staff roles 0155 added, and the two wave 5 added
+-- (staff_roles_assistant_waiter). Local and staging ONLY; never prod.
 --
 -- docs/design/protocols/build-contracts-2026-09-23.md §1.2 (lane B, PROPOSAL): seed.sql signs
 -- in owner, manager, cashier, prep and court desk; nothing signed in as head barista, barista,
@@ -11,6 +12,8 @@
 --   chef          chef@dev.touch.local
 --   driver        driver@dev.touch.local
 --   marketing     marketing@dev.touch.local
+--   assistant_barista  assistant-barista@dev.touch.local  (wave 5, §2.1.6 of
+--   waiter             waiter@dev.touch.local              wave5-addendum-2026-09-25)
 --
 -- Ids continue seed.sql's staff series (…0001 to …0007), so they never meet a test's own
 -- accounts (tests/new-roles.test.ts creates and deletes its own per run). The 0123 trigger
@@ -40,7 +43,9 @@ select '00000000-0000-0000-0000-000000000000', v.id, 'authenticated', 'authentic
     ('a0000000-0000-4000-8000-00000000000a'::uuid, 'head-chef@dev.touch.local',    'Dev Head Chef'),
     ('a0000000-0000-4000-8000-00000000000b'::uuid, 'chef@dev.touch.local',         'Dev Chef'),
     ('a0000000-0000-4000-8000-00000000000c'::uuid, 'driver@dev.touch.local',       'Dev Driver'),
-    ('a0000000-0000-4000-8000-00000000000d'::uuid, 'marketing@dev.touch.local',    'Dev Marketing')
+    ('a0000000-0000-4000-8000-00000000000d'::uuid, 'marketing@dev.touch.local',    'Dev Marketing'),
+    ('a0000000-0000-4000-8000-00000000000e'::uuid, 'assistant-barista@dev.touch.local', 'Dev Assistant Barista'),
+    ('a0000000-0000-4000-8000-00000000000f'::uuid, 'waiter@dev.touch.local',       'Dev Waiter')
   ) as v(id, email, name)
 on conflict (id) do nothing;
 
@@ -56,7 +61,9 @@ select u.id::text, u.id,
                 'a0000000-0000-4000-8000-00000000000a',
                 'a0000000-0000-4000-8000-00000000000b',
                 'a0000000-0000-4000-8000-00000000000c',
-                'a0000000-0000-4000-8000-00000000000d')
+                'a0000000-0000-4000-8000-00000000000d',
+                'a0000000-0000-4000-8000-00000000000e',
+                'a0000000-0000-4000-8000-00000000000f')
 on conflict (provider_id, provider) do nothing;
 
 insert into staff (id, display_name, role, is_active) values
@@ -65,7 +72,9 @@ insert into staff (id, display_name, role, is_active) values
   ('a0000000-0000-4000-8000-00000000000a', 'Dev Head Chef',    'head_chef',    true),
   ('a0000000-0000-4000-8000-00000000000b', 'Dev Chef',         'chef',         true),
   ('a0000000-0000-4000-8000-00000000000c', 'Dev Driver',       'driver',       true),
-  ('a0000000-0000-4000-8000-00000000000d', 'Dev Marketing',    'marketing',    true)
+  ('a0000000-0000-4000-8000-00000000000d', 'Dev Marketing',    'marketing',    true),
+  ('a0000000-0000-4000-8000-00000000000e', 'Dev Assistant Barista', 'assistant_barista', true),
+  ('a0000000-0000-4000-8000-00000000000f', 'Dev Waiter',       'waiter',       true)
 on conflict (id) do nothing;
 
 commit;

@@ -43,9 +43,15 @@ describe('staff-admin checkCreateRole (pure)', () => {
     expect(r.message).toMatch(/barista or chef/);
   });
 
-  it('accepts each of the ten assignable roles as itself', () => {
-    expect(ROLES).toHaveLength(10);
+  it('accepts each of the twelve assignable roles as itself', () => {
+    expect(ROLES).toHaveLength(12);
     for (const role of ROLES) expect(checkCreateRole(role)).toEqual({ ok: true, role });
+  });
+
+  it('creates the wave-5 assistant barista and waiter (wave5-addendum-2026-09-25 §2.1.6)', () => {
+    // The owner creates Hussein's and Hasan's accounts through this check.
+    expect(checkCreateRole('assistant_barista')).toEqual({ ok: true, role: 'assistant_barista' });
+    expect(checkCreateRole('waiter')).toEqual({ ok: true, role: 'waiter' });
   });
 
   it('calls anything that is not exactly a role a bad request, not a retired one', () => {

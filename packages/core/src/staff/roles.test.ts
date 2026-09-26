@@ -44,6 +44,8 @@ describe('STAFF_ROLES', () => {
       'chef',
       'driver',
       'marketing',
+      'assistant_barista',
+      'waiter',
     ]);
   });
 
@@ -55,6 +57,24 @@ describe('STAFF_ROLES', () => {
     expect([...HIREABLE_ROLES].sort()).toEqual(
       STAFF_ROLES.filter((r) => r !== 'prep' && r !== 'owner').sort(),
     );
+  });
+
+  it('lists the hireable roles with each wave-5 role beside its nearest (wave 5 §2.1.6)', () => {
+    // The order app.protocol_engine_roles and the hiring position's check
+    // spell out, and the checklist and step pickers show.
+    expect(HIREABLE_ROLES).toEqual([
+      'cashier',
+      'waiter',
+      'court_desk',
+      'manager',
+      'head_barista',
+      'barista',
+      'assistant_barista',
+      'head_chef',
+      'chef',
+      'driver',
+      'marketing',
+    ]);
   });
 
   it('knows a role by exact spelling only', () => {
@@ -171,7 +191,15 @@ describe('teams, the twins of app.staff_team and app.staff_team_head (0170)', ()
       chef: 'kitchen',
       driver: null,
       marketing: null,
+      assistant_barista: 'bar',
+      waiter: null,
     });
+  });
+
+  it('puts the assistant barista in the bar under the head barista, and the waiter in no team (wave 5 §2.1.2)', () => {
+    expect(teamOf('assistant_barista')).toBe('bar');
+    expect(TEAM_HEAD[teamOf('assistant_barista')!]).toBe('head_barista');
+    expect(teamOf('waiter')).toBeNull();
   });
 
   it('names each team’s head, who belongs to that team', () => {

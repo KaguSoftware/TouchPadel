@@ -9212,6 +9212,8 @@ export type Database = {
         | "chef"
         | "driver"
         | "marketing"
+        | "assistant_barista"
+        | "waiter"
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
       ticket_status: "queued" | "preparing" | "ready" | "completed" | "voided"
@@ -9404,6 +9406,8 @@ export const Constants = {
         "chef",
         "driver",
         "marketing",
+        "assistant_barista",
+        "waiter",
       ],
       stock_unit: ["g", "ml", "pc"],
       tab_status: ["open", "awaiting_payment", "settled", "void"],

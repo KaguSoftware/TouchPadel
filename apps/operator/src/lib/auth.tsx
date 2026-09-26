@@ -228,8 +228,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/desk/customers': ['court_desk', 'cashier', 'manager', 'owner'],
   '/desk/customers/new': ['court_desk', 'manager', 'owner'],
   // The bar and kitchen family (0155) has exactly what prep had: this board
-  // and nothing else. Prep stays listed while accounts still hold it.
-  '/kds': ['prep', 'head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+  // and nothing else. Prep stays listed while accounts still hold it. The
+  // assistant barista (wave 5 §2.1) works the bar's tickets here too.
+  '/kds': ['prep', 'head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
@@ -256,10 +257,21 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/workspaces': ['manager', 'owner'],
   // Every hireable role that is not management works its protocol steps here
   // as well as on the phone (build-contracts-2026-09-23 §5.1, Q2): the
-  // driver's and marketing's landing screen, a rail row for the till and the
-  // desk, and the kitchen board's "My tasks" for the bar and kitchen. Manager
-  // and owner work theirs on /protocols; prep gets nothing new.
-  '/tasks': ['cashier', 'court_desk', 'head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing'],
+  // driver's, marketing's and the waiter's landing screen, a rail row for the
+  // till and the desk, and the kitchen board's "My tasks" for the bar and
+  // kitchen. Manager and owner work theirs on /protocols; prep gets nothing new.
+  '/tasks': [
+    'cashier',
+    'waiter',
+    'court_desk',
+    'head_barista',
+    'barista',
+    'assistant_barista',
+    'head_chef',
+    'chef',
+    'driver',
+    'marketing',
+  ],
   // Starting, deciding and shaping protocols is management's; every other
   // actor works its steps from /tasks or the phone (build-contracts-2026-09-23 §5.1).
   '/protocols': ['manager', 'owner'],
@@ -446,6 +458,7 @@ export function homeRoute(role: StaffRole): string {
     case 'prep':
     case 'head_barista':
     case 'barista':
+    case 'assistant_barista':
     case 'head_chef':
     case 'chef':
       return '/kds';
@@ -457,6 +470,7 @@ export function homeRoute(role: StaffRole): string {
       return '/panel';
     case 'driver':
     case 'marketing':
+    case 'waiter':
       return '/tasks';
   }
 }

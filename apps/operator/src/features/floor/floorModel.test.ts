@@ -227,6 +227,11 @@ describe('staff', () => {
     // Where any role without a room of its own stands.
     expect(['driver', 'marketing'].map(roomForRole)).toEqual([roomForRole('other'), roomForRole('other')]);
   });
+
+  it('puts the wave-5 assistant barista at the bar and the waiter on the floor', () => {
+    expect(roomForRole('assistant_barista')).toBe('bar');
+    expect(roomForRole('waiter')).toBe('floor');
+  });
 });
 
 // ---------------------------------------------------------------------------
