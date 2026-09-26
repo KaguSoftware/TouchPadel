@@ -2,10 +2,15 @@
  * Validates what a model returned for a receipt and turns it into the
  * Reading app.receipt_store_reading takes. Nothing a model says is trusted:
  * money becomes whole non-negative IQD, digits are folded (Arabic-Indic and
- * Persian), dates must be real YYYY-MM-DD, text is trimmed and capped, and a
- * field that does not survive is dropped rather than guessed. Then each line
- * is checked against its own numbers (flags), so the manager's review shows
- * where the reading does not add up. Pure.
+ * Persian), dates must be real YYYY-MM-DD, text is trimmed, cleaned of control
+ * and direction-override characters and capped, and a field that does not
+ * survive is dropped rather than guessed. Then each line is checked against
+ * its own numbers (flags), so the manager's review shows where the reading
+ * does not add up. Pure.
+ *
+ * Numbers as Iraq writes them: money uses dots and commas as THOUSANDS
+ * separators ("25.000" and "25,000" are 25000 IQD); a quantity uses a comma or
+ * ٫ as the DECIMAL point when one or two digits follow ("1,5" kg is 1.5).
  */
 import { RECEIPT_MAX_LINES, SLIP_MAX_LINES } from './prompt.ts';
 import type { LineFlag, RawReading, Reading, ReadingLine, SlipLine, SlipReading } from './types.ts';
@@ -20,37 +25,86 @@ const DIGITS: Record<string, string> = {};
 '٠١٢٣٤٥٦٧٨٩'.split('').forEach((d, i) => (DIGITS[d] = String(i)));
 '۰۱۲۳۴۵۶۷۸۹'.split('').forEach((d, i) => (DIGITS[d] = String(i)));
 
+/** Under this, a price or total is most likely written in thousands ("15" for 15,000). */
+export const SMALL_IQD = 250;
+
 function foldDigits(s: string): string {
   return s.replace(/[٠-٩۰-۹]/g, (d) => DIGITS[d] ?? d);
+}
+
+/** Digits folded, spaces dropped, the Arabic comma read as a comma. */
+function numeric(v: string): string {
+  return foldDigits(v).replace(/\s/g, '').replace(/،/g, ',');
 }
 
 /** A number or a numeric string ("25,000", "٢٥٠٠٠", "1.5"); undefined otherwise. */
 export function toNumber(v: unknown): number | undefined {
   if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
   if (typeof v !== 'string') return undefined;
-  const s = foldDigits(v).replace(/[\s,٬]/g, '').replace('٫', '.');
+  const s = numeric(v).replace(/[,٬]/g, '').replace('٫', '.');
   if (!/^-?\d+(\.\d+)?$/.test(s)) return undefined;
   const n = Number(s);
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Money: a dot, comma or ٬ between groups of three digits is a thousands separator ("25.000" is 25000). */
+export function toMoney(v: unknown): number | undefined {
+  if (typeof v === 'string') {
+    const s = numeric(v);
+    if (/^\d{1,3}([.,٬]\d{3})+$/.test(s)) return Number(s.replace(/[.,٬]/g, ''));
+  }
+  return toNumber(v);
+}
+
+/** A quantity: a comma or ٫ followed by one or two digits is a decimal point ("1,5" is 1.5). */
+export function toQuantity(v: unknown): number | undefined {
+  if (typeof v === 'string') {
+    const s = numeric(v);
+    if (/^\d+[,٫]\d{1,2}$/.test(s)) return Number(s.replace(/[,٫]/, '.'));
+  }
+  return toNumber(v);
+}
+
 function iqd(v: unknown): number | undefined {
-  const n = toNumber(v);
+  const n = toMoney(v);
   if (n === undefined || n < 0 || n > MAX_IQD) return undefined;
   return Math.round(n);
 }
 
 function qty(v: unknown): number | undefined {
-  const n = toNumber(v);
+  const n = toQuantity(v);
   if (n === undefined || n <= 0 || n >= MAX_QTY) return undefined;
   const r = Math.round(n * 1000) / 1000;
   return r > 0 ? r : undefined;
 }
 
-function text(v: unknown, max: number): string | undefined {
+// Characters Postgres jsonb refuses (NUL), the other C0 controls, and the
+// direction overrides and isolates that can make a reviewer read a line
+// backwards. Plain LRM/RLM/ALM marks stay: Arabic text uses them.
+const UNSAFE_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‪-‮⁦-⁩]/g;
+// A surrogate half with no partner, which jsonb refuses too.
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/** Cleaned, trimmed and capped at `max` characters (code points, as Postgres counts them). */
+export function text(v: unknown, max: number): string | undefined {
   if (typeof v !== 'string') return undefined;
-  const s = v.replace(/\s+/g, ' ').trim();
-  return s.length === 0 ? undefined : s.slice(0, max);
+  const s = v.replace(UNSAFE_CHARS, '').replace(LONE_SURROGATE, '').replace(/\s+/g, ' ').trim();
+  if (s.length === 0) return undefined;
+  const chars = Array.from(s);
+  return chars.length > max ? chars.slice(0, max).join('').trimEnd() : s;
+}
+
+/** The model marked the line unsure: true, or "true" from a model without structured output. */
+function unsure(v: unknown): boolean {
+  return v === true || (typeof v === 'string' && v.trim().toLowerCase() === 'true');
+}
+
+/** A receipt date no later than tomorrow: one further ahead is a misread. */
+function receiptDate(v: unknown, now: Date): string | undefined {
+  const d = isoDate(v);
+  if (d === undefined) return undefined;
+  const tomorrow = new Date(now.getTime() + 86_400_000).toISOString().slice(0, 10);
+  return d <= tomorrow ? d : undefined;
 }
 
 /** YYYY-MM-DD that is a real calendar day between 2000 and 2100. */
@@ -81,7 +135,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-export function validateReading(raw: RawReading): ValidateResult {
+export function validateReading(raw: RawReading, now: Date = new Date()): ValidateResult {
   const obj = parse(raw);
   if (!isObject(obj)) return { ok: false, reason: 'not a JSON object' };
   if (!Array.isArray(obj.lines)) return { ok: false, reason: 'lines is not an array' };
@@ -103,14 +157,15 @@ export function validateReading(raw: RawReading): ValidateResult {
     const ex = isoDate(el.expiry_date);
     if (ex !== undefined) line.expiry_date = ex;
     line.flags = lineFlags(line);
-    if (el.unclear === true) line.flags.push('UNCLEAR');
+    if (unsure(el.unclear)) line.flags.push('UNCLEAR');
     lines.push(line);
   }
+  if (obj.lines.length > RECEIPT_MAX_LINES && lines.length > 0) lines[lines.length - 1]!.flags.push('TRUNCATED');
 
   const reading: Reading = { lines };
   const sup = text(obj.supplier_name, 120);
   if (sup !== undefined) reading.supplier_name = sup;
-  const date = isoDate(obj.receipt_date);
+  const date = receiptDate(obj.receipt_date, now);
   if (date !== undefined) reading.receipt_date = date;
   const total = iqd(obj.total_iqd);
   if (total !== undefined) reading.total_iqd = total;
@@ -121,9 +176,12 @@ export function validateReading(raw: RawReading): ValidateResult {
   return { ok: true, reading };
 }
 
+const small = (n: number | undefined) => n !== undefined && n > 0 && n < SMALL_IQD;
+
 function lineFlags(l: ReadingLine): LineFlag[] {
   const flags: LineFlag[] = [];
   if (l.unit_price_iqd === undefined && l.line_total_iqd === undefined) flags.push('NO_PRICE');
+  if (small(l.unit_price_iqd) || small(l.line_total_iqd)) flags.push('SMALL_AMOUNT');
   if (l.qty !== undefined && l.unit_price_iqd !== undefined && l.line_total_iqd !== undefined) {
     // One dinar per unit of slack for rounding on the receipt itself.
     if (Math.abs(l.qty * l.unit_price_iqd - l.line_total_iqd) > Math.max(1, l.qty)) flags.push('ARITHMETIC');
@@ -154,7 +212,8 @@ export function tableNumber(v: unknown): string | undefined {
   const t = typeof v === 'number' ? String(v) : text(v, 40);
   if (!t) return undefined;
   const m = /\d{1,4}/.exec(foldDigits(t));
-  return m ? String(Number(m[0])) : undefined;
+  if (!m || Number(m[0]) === 0) return undefined;
+  return String(Number(m[0]));
 }
 
 export function validateSlip(raw: RawReading): ValidateSlipResult {
@@ -173,9 +232,10 @@ export function validateSlip(raw: RawReading): ValidateSlipResult {
     else line.flags.push('NO_QTY');
     const n = text(el.notes, 200);
     if (n !== undefined) line.notes = n;
-    if (el.unclear === true) line.flags.push('UNCLEAR');
+    if (unsure(el.unclear)) line.flags.push('UNCLEAR');
     lines.push(line);
   }
+  if (obj.lines.length > SLIP_MAX_LINES && lines.length > 0) lines[lines.length - 1]!.flags.push('TRUNCATED');
   const reading: SlipReading = { lines };
   const table = tableNumber(obj.table_number);
   if (table !== undefined) reading.table_number = table;

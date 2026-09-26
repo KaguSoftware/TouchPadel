@@ -23,4 +23,5 @@ export const staffMediaEn = {
   openSettings: 'Open Settings',
   unavailable: 'This version of the app cannot attach photos. Update Touch Padel, then try again.',
   failed: 'The photo did not upload. Try again.',
+  retry: 'Upload the same photo again',
 } as const;

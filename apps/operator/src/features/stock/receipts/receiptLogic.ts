@@ -11,7 +11,7 @@ import { parseQty, unitCostFromPack, type DeliveryLineDraft } from '../stockLogi
 
 export type ReceiptStatus = 'uploaded' | 'reading' | 'read' | 'failed' | 'confirmed' | 'rejected';
 export type MatchSource = 'alias' | 'trigram' | 'manual' | 'none';
-export type LineFlag = 'ARITHMETIC' | 'NO_PRICE' | 'TOTAL_MISMATCH' | 'UNCLEAR';
+export type LineFlag = 'ARITHMETIC' | 'NO_PRICE' | 'TOTAL_MISMATCH' | 'UNCLEAR' | 'SMALL_AMOUNT' | 'TRUNCATED';
 
 export interface ReceiptSummary {
   id: string;
@@ -50,6 +50,9 @@ export interface ReceiptDetail {
   storage_path: string;
   created_at: string;
   read_at: string | null;
+  /** When the current or last reading started (0240), and the database clock then. */
+  reading_started_at: string | null;
+  server_now: string | null;
   model: string | null;
   supplier_name_read: string | null;
   supplier_id: string | null;
@@ -61,7 +64,7 @@ export interface ReceiptDetail {
 
 const STATUSES: readonly ReceiptStatus[] = ['uploaded', 'reading', 'read', 'failed', 'confirmed', 'rejected'];
 const SOURCES: readonly MatchSource[] = ['alias', 'trigram', 'manual', 'none'];
-const FLAGS: readonly LineFlag[] = ['ARITHMETIC', 'NO_PRICE', 'TOTAL_MISMATCH', 'UNCLEAR'];
+const FLAGS: readonly LineFlag[] = ['ARITHMETIC', 'NO_PRICE', 'TOTAL_MISMATCH', 'UNCLEAR', 'SMALL_AMOUNT', 'TRUNCATED'];
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
@@ -120,6 +123,8 @@ export function readReceiptDetail(payload: unknown): ReceiptDetail | null {
     storage_path: str(payload.storage_path) ?? '',
     created_at: str(payload.created_at) ?? '',
     read_at: str(payload.read_at),
+    reading_started_at: str(payload.reading_started_at),
+    server_now: str(payload.server_now),
     model: str(payload.model),
     supplier_name_read: str(payload.supplier_name_read),
     supplier_id: str(payload.supplier_id),
@@ -129,9 +134,6 @@ export function readReceiptDetail(payload: unknown): ReceiptDetail | null {
     lines,
   };
 }
-
-/** Still being worked on: the list polls while one of these is reading. */
-export const isOpen = (s: ReceiptStatus) => s === 'uploaded' || s === 'reading' || s === 'read' || s === 'failed';
 
 // ---------------------------------------------------------------------------
 // A read line -> a Goods in draft
@@ -171,20 +173,38 @@ const round3 = (n: number) => Math.round(n * 1000) / 1000;
 const round4 = (n: number) => Math.round(n * 10_000) / 10_000;
 
 /**
- * The receipt's quantity in the ingredient's base unit, or null when the
- * units cannot be reconciled (the manager types it). A bottle, can or piece
- * of an ingredient kept in g or ml is taken as one pack.
+ * How the receipt's quantity becomes the ingredient's base unit: by weight or
+ * volume, as pieces, as packs of the ingredient's pack size (a box, or a
+ * bottle, can or piece of an ingredient kept in g or ml), or not at all (the
+ * manager types it). A unit word nobody knows ("درزن", "dozen") is never
+ * guessed: a piece-counted item takes the number as pieces only when the
+ * receipt printed no unit at all.
  */
+export function conversion(unit: string | null, ing: StockIngredient): 'measure' | 'pieces' | 'packs' | null {
+  const kind = readUnit(unit);
+  const printed = (unit ?? '').trim() !== '';
+  const pack = ing.pack_size !== null && ing.pack_size > 0;
+  if (ing.unit === 'g' && (kind === 'g' || kind === 'kg')) return 'measure';
+  if (ing.unit === 'ml' && (kind === 'ml' || kind === 'l')) return 'measure';
+  if (ing.unit === 'pc' && (kind === 'count' || !printed)) return 'pieces';
+  if ((kind === 'pack' || kind === 'count') && pack) return 'packs';
+  return null;
+}
+
+/** The receipt's quantity in the ingredient's base unit, or null when the units cannot be reconciled. */
 export function baseQty(qty: number | null, unit: string | null, ing: StockIngredient): number | null {
   if (qty === null || qty <= 0) return null;
   const kind = readUnit(unit);
-  const pack = ing.pack_size !== null && ing.pack_size > 0 ? ing.pack_size : null;
-  let out: number | null = null;
-  if (ing.unit === 'g' && (kind === 'g' || kind === 'kg')) out = kind === 'kg' ? qty * 1000 : qty;
-  else if (ing.unit === 'ml' && (kind === 'ml' || kind === 'l')) out = kind === 'l' ? qty * 1000 : qty;
-  else if (ing.unit === 'pc' && (kind === 'count' || kind === null)) out = qty;
-  else if ((kind === 'pack' || kind === 'count') && pack !== null) out = qty * pack;
-  return out === null ? null : round3(out);
+  switch (conversion(unit, ing)) {
+    case 'measure':
+      return round3(kind === 'kg' || kind === 'l' ? qty * 1000 : qty);
+    case 'pieces':
+      return round3(qty);
+    case 'packs':
+      return round3(qty * (ing.pack_size ?? 0));
+    default:
+      return null;
+  }
 }
 
 /** What the line cost as printed: its total, else unit price x quantity. */

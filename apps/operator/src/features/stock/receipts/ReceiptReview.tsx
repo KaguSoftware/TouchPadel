@@ -11,16 +11,21 @@
  *
  * With no model connected, or when the reading failed, the editor starts with
  * one blank line and the manager types from the photo; the reason is said
- * above it. While a reading runs the screen polls and holds the editor.
+ * above it. While a reading runs the screen polls and holds the editor, up to
+ * the server's own three minutes (lib/scanReading.ts, on the server's clock);
+ * past that the reading is stuck, and Read again and Set aside are open.
+ * Set aside is never held by a reading. A reading that lands while the
+ * manager is editing waits for them to choose it.
  *
- * Online-only like the rest of Goods in, with one idempotency key per confirm.
+ * Online-only like the rest of Goods in, with one idempotency key per confirm
+ * (a new one after a failure: the receipt itself refuses a second booking).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate, formatNumber, formatIQD, isolate } from '@touch/i18n';
-import type { MessageKey } from '@touch/i18n';
 import { appRpc, AppRpcError } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
+import { readingState, requestReading, scanErrorKey, serverOffset } from '../../../lib/scanReading';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, inputStyle, Select, Skeleton } from '../../../components/ui';
@@ -32,23 +37,18 @@ import { StoreCountedNotice, StorePicker, useStockFormat } from '../stockUi';
 import { isBlankLine, lineProblem, unitCostFromPack } from '../stockLogic';
 import { SK, fetchIngredients, fetchSuppliers, fetchUnfinishedCounts, type IngredientRow } from '../stockKeys';
 import { bakeryRefused, beingCounted, type StockLocation } from '../storeLogic';
-import { readReceipt } from './ReceiptsPanel';
 import {
   confirmLines,
+  conversion,
   draftFromLine,
   draftsTotal,
   matchTone,
   readReceiptDetail,
   totalOff,
-  type ReceiptDetail,
   type ReceiptLine,
   type ReviewDraft,
 } from './receiptLogic';
 
-const ERROR_CODES = new Set([
-  'READER_NOT_CONFIGURED', 'LLM_MONTHLY_CAP', 'LLM_DAILY_QUOTA', 'RATE_LIMITED', 'TIMEOUT', 'UPSTREAM', 'UNREADABLE',
-  'INVALID_READING', 'PHOTO_MISSING',
-]);
 const MATCH_TONE: Record<'sure' | 'check' | 'none', Tone> = { sure: 'success', check: 'warn', none: 'neutral' };
 
 const blank = (): ReviewDraft => ({
@@ -61,15 +61,11 @@ const blank = (): ReviewDraft => ({
   expiryDate: '',
 });
 
-/**
- * A reading is running, or about to (filed in the last 90 s with no answer
- * yet): poll, and hold the editor. Past that, a receipt still "uploaded" means
- * the reader never answered, and the manager types it from the photo.
- */
-const waiting = (d: ReceiptDetail | null) =>
-  d !== null &&
-  (d.status === 'reading' ||
-    (d.status === 'uploaded' && d.error_code === null && Date.now() - Date.parse(d.created_at) < 90_000));
+/** The reading's state on the server's clock, from a detail query's data. */
+function stateOf(data: unknown, receivedAt: number, now: number) {
+  const d = readReceiptDetail(data);
+  return readingState(d, now + serverOffset(d?.server_now ?? null, receivedAt));
+}
 
 export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack: () => void }) {
   const { tr, locale } = useLocale();
@@ -80,9 +76,22 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
   const q = useQuery({
     queryKey: SK.receipt(receiptId),
     queryFn: () => appRpc<unknown>('receipt_detail', { p_id: receiptId }),
-    refetchInterval: (query) => (waiting(readReceiptDetail(query.state.data)) ? 3_000 : false),
+    refetchInterval: (query) => {
+      const st = stateOf(query.state.data, query.state.dataUpdatedAt, Date.now());
+      // Stuck: the sweeper ends it within a minute; look now and then.
+      return st === 'reading' || st === 'waiting' ? 3_000 : st === 'stale' ? 15_000 : false;
+    },
   });
   const detail = useMemo(() => readReceiptDetail(q.data), [q.data]);
+  // The clock the reading state is judged by, moved on while a reading runs.
+  const [tick, setTick] = useState(() => Date.now());
+  const state = readingState(detail, tick + serverOffset(detail?.server_now ?? null, q.dataUpdatedAt));
+  const live = state === 'reading' || state === 'waiting';
+  useEffect(() => {
+    if (!live) return;
+    const t = setInterval(() => setTick(Date.now()), 5_000);
+    return () => clearInterval(t);
+  }, [live]);
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
   const suppliersQ = useQuery({ queryKey: SK.suppliers, queryFn: fetchSuppliers });
   const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
@@ -98,14 +107,20 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
   const [location, setLocation] = useState<StockLocation>('cafe');
   const [idemKey, setIdemKey] = useState(() => `receipt.confirm:${crypto.randomUUID()}`);
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** The manager changed the lines since they were seeded: a new reading asks first. */
+  const [dirty, setDirty] = useState(false);
 
   // Seed the editor once per reading, when the ingredients are known
   // (the documented "adjust state while rendering" pattern, no effect).
-  const seedKey = detail && !waiting(detail) && ingredientsQ.isSuccess && suppliersQ.isSuccess ? (detail.read_at ?? 'none') : null;
-  if (seedKey !== null && seedKey !== seededFrom && detail) {
+  const seedKey =
+    detail && !live && ingredientsQ.isSuccess && suppliersQ.isSuccess ? (detail.read_at ?? 'none') : null;
+  const newReading = seedKey !== null && seededFrom !== null && seedKey !== seededFrom && dirty;
+  if (seedKey !== null && seedKey !== seededFrom && detail && !newReading) {
     setSeededFrom(seedKey);
+    setDirty(false);
     setDrafts(
       detail.lines.length === 0
         ? [blank()]
@@ -169,7 +184,7 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
   const problems = started.filter((d) => lineProblem(d, today) !== null);
   const shopOnForm = bakeryRefused(started.map((d) => byId.get(d.ingredientId)?.kind));
   const counted = beingCounted(countsQ.data, location);
-  const reading = scanning || waiting(detail);
+  const reading = scanning || live;
   const blockReason =
     started.length === 0
       ? tr('ws.receipts.review.noLines')
@@ -181,8 +196,13 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
   const canConfirm = !reading && problems.length === 0 && blockReason === undefined;
   const drafted = draftsTotal(started);
 
+  function edit(next: (ds: ReviewDraft[]) => ReviewDraft[]) {
+    setDirty(true);
+    setDrafts(next);
+  }
+
   function patch(key: string, part: Partial<ReviewDraft>) {
-    setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...part } : d)));
+    edit((ds) => ds.map((d) => (d.key === key ? { ...d, ...part } : d)));
   }
 
   function choose(d: ReviewDraft, id: string) {
@@ -205,11 +225,32 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
     void queryClient.invalidateQueries({ queryKey: SK.receipts });
   }
 
-  async function putIntoStock() {
-    if (!canConfirm) return;
+  /** One write at a time: a double click never sends twice. */
+  async function once(run: () => Promise<void>) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
+      await run();
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+
+  /** Done elsewhere (another station, or a reply that was lost): show what the receipt is now. */
+  function refusedAsDone(e: unknown) {
+    if (e instanceof AppRpcError && e.code === 'RECEIPT_ALREADY_DONE') {
+      void q.refetch();
+      refresh();
+    }
+  }
+
+  async function putIntoStock() {
+    if (!canConfirm) return;
+    await once(async () => {
+      try {
       await appRpc('confirm_receipt', {
         p_id: receiptId,
         p_lines: confirmLines(started),
@@ -223,12 +264,16 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
       refresh();
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
       onBack();
-    } catch (e) {
-      setError(e);
-      if (e instanceof AppRpcError && e.code === 'STORE_BEING_COUNTED') void countsQ.refetch();
-    } finally {
-      setBusy(false);
-    }
+      } catch (e) {
+        setError(e);
+        // A fresh key for the next try: if this one was booked after all, the
+        // receipt refuses a second booking (RECEIPT_ALREADY_DONE), and edits
+        // made since are never answered with the first try's replay.
+        setIdemKey(`receipt.confirm:${crypto.randomUUID()}`);
+        if (e instanceof AppRpcError && e.code === 'STORE_BEING_COUNTED') void countsQ.refetch();
+        refusedAsDone(e);
+      }
+    });
   }
 
   async function setAside() {
@@ -239,32 +284,36 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
       kind: 'danger',
     });
     if (!ok) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await appRpc('reject_receipt', { p_id: receiptId, p_reason: null });
-      toast.ok(tr('ws.receipts.review.rejected'));
-      refresh();
-      onBack();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
+    await once(async () => {
+      try {
+        await appRpc('reject_receipt', { p_id: receiptId, p_reason: null });
+        toast.ok(tr('ws.receipts.review.rejected'));
+        refresh();
+        onBack();
+      } catch (e) {
+        setError(e);
+        refusedAsDone(e);
+      }
+    });
   }
 
   async function readAgain() {
+    if (inFlight.current) return;
     setScanning(true);
     setError(null);
-    await readReceipt(receiptId);
-    await q.refetch();
-    refresh();
-    setScanning(false);
+    try {
+      const refused = await requestReading({ receipt_id: receiptId });
+      if (refused) setError(refused);
+      // The manager asked for this reading: it replaces the lines.
+      setDirty(false);
+      await q.refetch();
+      refresh();
+    } finally {
+      setScanning(false);
+    }
   }
 
-  const errorKey = detail.error_code
-    ? (`ws.receipts.error.${ERROR_CODES.has(detail.error_code) ? detail.error_code : 'other'}` as MessageKey)
-    : null;
+  const errorKey = scanErrorKey(detail.error_code);
 
   return (
     <div
@@ -289,7 +338,7 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
       <Panel
         title={tr('ws.manager.stock.goodsIn.linesTitle')}
         actions={
-          <Button size="sm" kind="ghost" icon="refresh" busy={reading} disabled={busy} onClick={() => void readAgain()} data-testid="receipt.read-again">
+          <Button size="sm" kind="ghost" icon="refresh" busy={scanning} disabled={busy || reading} onClick={() => void readAgain()} data-testid="receipt.read-again">
             {tr('ws.receipts.review.readAgain')}
           </Button>
         }
@@ -297,8 +346,43 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
       >
         {reading ? (
           <MessagePresenter tone="info" icon="hourglass" message={tr('ws.receipts.review.reading')} />
+        ) : !ingredientsQ.isSuccess || !suppliersQ.isSuccess ? (
+          ingredientsQ.isError || suppliersQ.isError ? (
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+              <ErrorText error={ingredientsQ.error ?? suppliersQ.error} style={{ marginBlock: 0 }} />
+              <Button
+                size="sm"
+                icon="refresh"
+                busy={ingredientsQ.isFetching || suppliersQ.isFetching}
+                onClick={() => {
+                  void ingredientsQ.refetch();
+                  void suppliersQ.refetch();
+                }}
+              >
+                {tr('ws.kit.async.retry')}
+              </Button>
+            </div>
+          ) : (
+            <Skeleton lines={3} />
+          )
         ) : (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+            {state === 'stale' && (
+              <MessagePresenter tone="refused" icon="hourglass" message={tr('ws.receipts.review.stale')} />
+            )}
+            {newReading && (
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }} data-testid="receipt.new-reading">
+                <MessagePresenter tone="info" message={tr('ws.receipts.review.newReading')} />
+                <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                  <Button size="sm" kind="soft" onClick={() => setDirty(false)}>
+                    {tr('ws.receipts.review.useNewReading')}
+                  </Button>
+                  <Button size="sm" kind="ghost" onClick={() => setSeededFrom(seedKey)}>
+                    {tr('ws.receipts.review.keepMine')}
+                  </Button>
+                </div>
+              </div>
+            )}
             {errorKey && <MessagePresenter tone="refused" message={tr(errorKey)} />}
             <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
               {tr(detail.lines.length > 0 ? 'ws.receipts.review.lead' : 'ws.receipts.review.manualLead')}
@@ -328,7 +412,7 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
                     removable
                     onChoose={(id) => choose(d, id)}
                     onPatch={(part) => patch(d.key, part)}
-                    onRemove={() => setDrafts((ds) => ds.filter((x) => x.key !== d.key))}
+                    onRemove={() => edit((ds) => ds.filter((x) => x.key !== d.key))}
                     header={read ? <ReadStrip line={read} chosen={d.ingredientId} ingredient={byId.get(d.ingredientId) ?? null} /> : undefined}
                   />
                 );
@@ -336,7 +420,7 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
             </ol>
 
             <div>
-              <Button icon="plus" disabled={busy} onClick={() => setDrafts((ds) => [...ds, blank()])}>
+              <Button icon="plus" disabled={busy} onClick={() => edit((ds) => [...ds, blank()])}>
                 {tr('ws.receipts.review.addLine')}
               </Button>
             </div>
@@ -384,7 +468,7 @@ export function ReceiptReview({ receiptId, onBack }: { receiptId: string; onBack
 
         <ErrorText error={error} />
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-3)' }}>
-          <Button kind="ghost" icon="ban" disabled={busy || reading} onClick={() => void setAside()} data-testid="receipt.reject">
+          <Button kind="ghost" icon="ban" disabled={busy} onClick={() => void setAside()} data-testid="receipt.reject">
             {tr('ws.receipts.review.reject')}
           </Button>
           <Button
@@ -437,10 +521,18 @@ function ReadStrip({ line, chosen, ingredient }: { line: ReceiptLine; chosen: st
         <StatusBadge tone={MATCH_TONE[tone]} label={label} />
         {ingredient && tone !== 'none' && !picked && (
           <span style={{ color: 'var(--tp-muted-fg)' }}>
-            → <bdi>{locale === 'ar' ? ingredient.name_ar : ingredient.name_en}</bdi> ({fmt.unit(ingredient.unit)})
+            {locale === 'ar' ? '←' : '→'} <bdi>{locale === 'ar' ? ingredient.name_ar : ingredient.name_en}</bdi> ({fmt.unit(ingredient.unit)})
           </span>
         )}
       </div>
+      {ingredient && line.qty_read !== null && conversion(line.unit_read, ingredient) === 'packs' && (
+        <span style={{ color: 'var(--tp-warn-fg)' }} data-testid="receipt.pack-assumed">
+          {tr('ws.receipts.review.packAssumed', {
+            size: formatNumber(ingredient.pack_size ?? 0, locale),
+            unit: fmt.unit(ingredient.unit),
+          })}
+        </span>
+      )}
       {line.flags.length > 0 && (
         <ul style={{ margin: 0, paddingInlineStart: 'var(--tp-sp-4)', color: 'var(--tp-warn-fg)' }}>
           {line.flags.map((f) => (

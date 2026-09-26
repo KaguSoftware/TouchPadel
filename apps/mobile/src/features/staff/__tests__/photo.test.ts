@@ -27,6 +27,7 @@ import {
   setPhotoNativeForTests,
   staffPhotoUrl,
   uploadStaffPhoto,
+  UploadTimeout,
   type PhotoDeps,
   type PhotoNative,
 } from '../photo';
@@ -245,6 +246,13 @@ describe('uploadStaffPhoto', () => {
       upsert: false,
     });
     expect(calls).toEqual(['slot', 'read', 'upload']);
+  });
+
+  it('gives up on an upload that stalls, so the photo can be sent again', async () => {
+    upload.mockImplementationOnce(() => new Promise(() => {}));
+    await expect(uploadStaffPhoto(VENUE, 'slips', photo, { ...deps, uploadTimeoutMs: 20 })).rejects.toBeInstanceOf(
+      UploadTimeout,
+    );
   });
 
   it('uploads nothing when the slot is refused', async () => {

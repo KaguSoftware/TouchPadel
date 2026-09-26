@@ -6,6 +6,7 @@
  * the till and Goods in do, after a person checks the reading.
  */
 import { callStaffEdge, staffRpc } from '../api';
+import { StaffEdgeError } from '../edge';
 import { readMyReceipts, readMySlips, type MyReceipt, type MySlip } from './logic';
 
 export async function fileOrderSlip(venueId: string, path: string, key: string): Promise<string> {
@@ -30,13 +31,25 @@ export async function fileReceipt(venueId: string, path: string, key: string): P
 /**
  * Ask receipt-scan to read what was just filed. Its outcome (read, failed, no
  * model connected) is stored on the slip or receipt and shown where a person
- * checks it, so a failure here is not the sender's to handle.
+ * checks it, so a failure here is not the sender's to handle. A request that
+ * never reached the server (the network dropped) is tried once more a few
+ * seconds later: otherwise the paper would wait, unread, for someone at the
+ * till or Goods in to press Read again. An answer from the server, whatever it
+ * says, is never repeated (a second reading costs money).
  */
-export async function readScanned(body: { slip_id: string } | { receipt_id: string }): Promise<void> {
-  try {
-    await callStaffEdge('receipt-scan', body);
-  } catch {
-    // The status on the row says what happened.
+export async function readScanned(
+  body: { slip_id: string } | { receipt_id: string },
+  retryAfterMs = 5_000,
+): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await callStaffEdge('receipt-scan', body);
+      return;
+    } catch (e) {
+      // StaffEdgeError: the server answered. Anything else never reached it.
+      if (e instanceof StaffEdgeError || attempt > 0) return;
+      await new Promise((r) => setTimeout(r, retryAfterMs));
+    }
   }
 }
 

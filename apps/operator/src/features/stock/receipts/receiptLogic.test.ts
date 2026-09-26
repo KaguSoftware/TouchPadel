@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   baseQty,
+  conversion,
   confirmLines,
   draftFromLine,
   draftsTotal,
@@ -86,6 +87,15 @@ describe('a read line into a draft', () => {
     expect(baseQty(3, null, sugar)).toBeNull();
     expect(baseQty(0, 'kg', sugar)).toBeNull();
     expect(baseQty(1, 'pack', { ...sugar, pack_size: null })).toBeNull();
+    // A unit word nobody knows is never taken as pieces: "2 dozen eggs" is not 2 eggs.
+    expect(baseQty(2, 'dozen', eggs)).toBeNull();
+    expect(baseQty(2, 'درزن', eggs)).toBeNull();
+    expect(baseQty(24, '  ', eggs)).toBe(24);
+    expect(conversion('box', eggs)).toBe('packs');
+    expect(conversion('btl', syrup)).toBe('packs');
+    expect(conversion(null, eggs)).toBe('pieces');
+    expect(conversion('kg', sugar)).toBe('measure');
+    expect(conversion('dozen', eggs)).toBeNull();
   });
 
   it('costs per base unit from the printed total, else the pack price, else blank', () => {

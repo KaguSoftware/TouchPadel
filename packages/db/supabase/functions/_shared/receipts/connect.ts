@@ -26,13 +26,27 @@
  *      the same code reads receipts and order slips; input.kind is there if
  *      a vendor needs to know (a model per kind, say).
  *        - pass input.signal to fetch so the 60 s limit can cancel the call
+ *          (scan.ts also gives up at 60 s on its own, but an ignored signal
+ *          leaves the vendor call running and billing)
  *        - return { reading: <the parsed JSON, or the raw JSON text>,
  *                   usage: { input: <prompt tokens>, output: <output tokens> } }
- *        - throw new ReceiptReaderError(code, message) on failure:
- *            429 -> 'RATE_LIMITED', timeout/abort -> 'TIMEOUT',
- *            other HTTP or network errors -> 'UPSTREAM',
- *            the vendor refused the image -> 'UNREADABLE'
+ *          (whole numbers; the vendor's own counts, never estimated)
+ *        - throw new ReceiptReaderError(code, message, usage?) on failure:
+ *            401 / 403 (bad key, model not allowed)      -> 'NOT_CONFIGURED'
+ *            429                                          -> 'RATE_LIMITED'
+ *            timeout / abort                              -> 'TIMEOUT'
+ *            the answer was cut off (stop reason
+ *              max_tokens / MAX_TOKENS / length)          -> 'TRUNCATED'
+ *            the vendor refused the image, or the model
+ *              declined (safety block, refusal)           -> 'UNREADABLE'
+ *            any other HTTP or network error              -> 'UPSTREAM'
+ *          The message is logged: keep it short ("HTTP 500", "stop max_tokens"),
+ *          never the response body or anything that was sent.
+ *        - do not retry inside read(): a retry doubles the spend, and staff
+ *          can press "Read again" (each paper is read at most three times).
  *      validate.ts cleans whatever comes back; do not post-process here.
+ *      Then run tests/receipt-reader-conformance.ts against the new reader
+ *      (see the test case described in A below).
  *
  *   2. Store the key:  npx supabase secrets set RECEIPT_API_KEY=...
  *      (from packages/db; never in the repo or config.toml). Locally, put it
@@ -88,24 +102,28 @@
  *    - Claude sketch (REST):
  *        POST https://api.anthropic.com/v1/messages
  *        headers x-api-key: <key>, anthropic-version: 2023-06-01
- *        body { model, max_tokens: 4096, system: input.system,
+ *        body { model, max_tokens: 8192, system: input.system,
  *               messages: [{ role: 'user', content: [
  *                 { type: 'image', source: { type: 'base64', media_type: input.mediaType, data: input.imageBase64 } },
  *                 { type: 'text', text: input.userText + '\nReply with JSON matching: ' + JSON.stringify(input.schema) } ] }] }
  *        reading = the text block of body.content
  *        usage   = { input: body.usage.input_tokens, output: body.usage.output_tokens }
+ *        body.stop_reason 'max_tokens' -> TRUNCATED, 'refusal' -> UNREADABLE
+ *      (A 200-line receipt answer is long: keep the output limit at 8192 or
+ *      more, whatever the vendor, or long receipts come back cut off.)
  *      (The owner assistant already talks to Claude through
  *      _shared/assistant/provider.ts; do NOT import it here: this seam stays
  *      vendor-free except for this one file.)
- *    - Map failures: HTTP 429 -> RATE_LIMITED, an abort -> TIMEOUT, other HTTP
- *      and network errors -> UPSTREAM, a refused image -> UNREADABLE. Pass
- *      usage in the error when the vendor reports tokens on a failure.
+ *    - Map failures as in step 1 (401/403, 429, abort, cut off, refused,
+ *      anything else). Pass usage in the error when the vendor reports tokens
+ *      on a failure.
  *    - Then steps 2-5 above. The pricing row is a new migration (the next free
- *      ordinal; check supabase/migrations, it was 0240 when this was written).
+ *      ordinal; check supabase/migrations, it was 0241 when this was written).
  *    - Test: add a case to packages/db/tests/receipt-scan.test.ts that stubs
  *      fetch (vi.stubGlobal, as tests/sms-provider.test.ts does) with a
- *      recorded vendor answer and checks connectReceiptModel's reader returns
- *      { reading, usage } and maps a 429 to RATE_LIMITED.
+ *      recorded vendor answer, runs readerConformance (from
+ *      tests/receipt-reader-conformance.ts) on connectReceiptModel's reader and
+ *      expects no problems, then checks each HTTP status above maps to its code.
  *
  * B. TUNE ON REAL PAPERS. The client owes 20-30 real handwritten supplier
  *    receipts and 20-30 waiters' order slips (photos from the phone, as staff
@@ -132,9 +150,10 @@
  *    opErrors.protocols.ar.ts. Drafted by the build team.
  *
  * E. FOLLOW-UPS, not started:
- *    - Photo retention: nothing deletes the photos. A 90-day purge of the
- *      staff-media `receipts` and `slips` paths claimed by confirmed, sent or
- *      rejected papers (a cron tick like protocol-action's incident purge).
+ *    (Photo retention and the per-person and per-paper scan limits came with
+ *    0240, the scan hardening: platform_settings scan_max_reads_per_paper and
+ *    scan_daily_per_user; photos of set-aside papers go after 30 days, of
+ *    sent slips after 90; confirmed receipts are kept.)
  *    - Spend per feature: app.llm_record_usage takes p_surface
  *      ('receipt_scan' / 'order_slip_scan') but does not store it; the owner's
  *      usage page shows one total for the assistant and the scans together.

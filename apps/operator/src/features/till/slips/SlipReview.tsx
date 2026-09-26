@@ -12,15 +12,20 @@
  * "Read again" asks receipt-scan once more.
  *
  * With no model connected, or a reading that failed, the list starts with one
- * empty line and the cashier types from the photo. Online-only, like Goods in:
- * one idempotency key per send, so a double tap or a retry sends once.
+ * empty line and the cashier types from the photo. A reading runs for the
+ * server's three minutes at most (lib/scanReading.ts); past that Read again
+ * and Set aside are open, and Set aside never waits for a reading. A reading
+ * that lands while the cashier is editing waits for them to choose it.
+ * Online-only, like Goods in: one idempotency key per send, so a double tap or
+ * a retry sends once (a new key after a failure: the slip refuses a second send).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDateTime, formatNumber, isolate, type MessageKey } from '@touch/i18n';
 import { appRpc, AppRpcError } from '../../../lib/appRpc';
-import { callEdge } from '../../../lib/edge';
 import { deviceId } from '../../../lib/idem';
+import { readingState, requestReading, scanErrorKey, serverOffset } from '../../../lib/scanReading';
+import { decimalKeystroke } from '../../stock/decimalInput';
 import { QK, fetchActiveCafeTables } from '../../../lib/queries';
 import { pickName, useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
@@ -42,7 +47,6 @@ import {
   tableTabs,
   withItem,
   withSheetLine,
-  type SlipDetail,
   type SlipDraft,
   type SlipLine,
 } from './slipLogic';
@@ -50,30 +54,13 @@ import {
 export const SLIPS_KEY = ['tillSlips'] as const;
 export const slipKey = (id: string) => ['tillSlips', id] as const;
 
-const READ_ERRORS = new Set([
-  'READER_NOT_CONFIGURED', 'LLM_MONTHLY_CAP', 'LLM_DAILY_QUOTA', 'RATE_LIMITED', 'TIMEOUT', 'UPSTREAM', 'UNREADABLE',
-  'INVALID_READING', 'PHOTO_MISSING',
-]);
 const TONE: Record<'sure' | 'check' | 'none', Tone> = { sure: 'success', check: 'warn', none: 'neutral' };
 
-/** Ask receipt-scan to read a slip. Its outcome is stored on the slip, so errors are not thrown. */
-export async function readSlip(id: string): Promise<void> {
-  try {
-    await callEdge('receipt-scan', { slip_id: id }, { ttlMs: 0 });
-  } catch {
-    // The slip's status and error_code say what happened.
-  }
+/** The reading's state on the server's clock, from a detail query's data. */
+function stateOf(data: unknown, receivedAt: number, now: number) {
+  const d = readSlipDetail(data);
+  return readingState(d, now + serverOffset(d?.server_now ?? null, receivedAt));
 }
-
-/**
- * A reading is running, or about to (filed in the last 90 s with no answer
- * yet): poll, and hold the editor. Past that, a slip still "uploaded" means the
- * reader never answered, and the cashier types it from the photo.
- */
-const waiting = (d: SlipDetail | null) =>
-  d !== null &&
-  (d.status === 'reading' ||
-    (d.status === 'uploaded' && d.error_code === null && Date.now() - Date.parse(d.created_at) < 90_000));
 
 const blank = (): SlipDraft => ({ key: crypto.randomUUID(), lineId: null, itemId: '', variantId: '', qty: 1, notes: '', modifiers: [] });
 
@@ -86,9 +73,22 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
   const q = useQuery({
     queryKey: slipKey(slipId),
     queryFn: () => appRpc<unknown>('slip_detail', { p_id: slipId }),
-    refetchInterval: (query) => (waiting(readSlipDetail(query.state.data)) ? 3_000 : false),
+    refetchInterval: (query) => {
+      const st = stateOf(query.state.data, query.state.dataUpdatedAt, Date.now());
+      // Stuck: the sweeper ends it within a minute; look now and then.
+      return st === 'reading' || st === 'waiting' ? 3_000 : st === 'stale' ? 15_000 : false;
+    },
   });
   const detail = useMemo(() => readSlipDetail(q.data), [q.data]);
+  // The clock the reading state is judged by, moved on while a reading runs.
+  const [tick, setTick] = useState(() => Date.now());
+  const state = readingState(detail, tick + serverOffset(detail?.server_now ?? null, q.dataUpdatedAt));
+  const live = state === 'reading' || state === 'waiting';
+  useEffect(() => {
+    if (!live) return;
+    const t = setInterval(() => setTick(Date.now()), 5_000);
+    return () => clearInterval(t);
+  }, [live]);
   const menuQ = useQuery({ ...TILL_MENU_QUERY });
   const tabsQ = useQuery({ ...OPEN_TABS_QUERY });
   const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
@@ -102,13 +102,18 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
   const [sheetFor, setSheetFor] = useState<string | null>(null);
   const [idemKey, setIdemKey] = useState(() => `slip.send:${crypto.randomUUID()}`);
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** The cashier changed the lines since they were seeded: a new reading asks first. */
+  const [dirty, setDirty] = useState(false);
 
   // Seed once per reading, when the menu is known ("adjust state while rendering").
-  const seedKey = detail && !waiting(detail) && menu ? (detail.read_at ?? 'none') : null;
-  if (seedKey !== null && seedKey !== seededFrom && detail) {
+  const seedKey = detail && !live && menu ? (detail.read_at ?? 'none') : null;
+  const newReading = seedKey !== null && seededFrom !== null && seedKey !== seededFrom && dirty;
+  if (seedKey !== null && seedKey !== seededFrom && detail && !newReading) {
     setSeededFrom(seedKey);
+    setDirty(false);
     setDrafts(detail.lines.length === 0 ? [blank()] : detail.lines.map((l) => draftFromLine(l, menu)));
     if (tableId === null) setTableId(detail.table_id);
   }
@@ -117,7 +122,7 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
   const tableNumber = tables.find((t) => t.id === tableId)?.table_number ?? null;
   const onTable = tableTabs(tabsQ.data, tableNumber);
   const target = sendTarget(tableId, onTable, tabId);
-  const reading = scanning || waiting(detail);
+  const reading = scanning || live;
   const lineById = new Map((detail?.lines ?? []).map((l) => [l.id, l]));
   const itemById = new Map(items.map((i) => [i.id, i]));
   const firstBad = drafts.find((d) => draftProblem(d, itemById.get(d.itemId) ?? null, menu) !== null);
@@ -134,18 +139,43 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
             ? tr('ws.slips.review.problem.tab')
             : undefined;
 
+  function edit(next: (ds: SlipDraft[]) => SlipDraft[]) {
+    setDirty(true);
+    setDrafts(next);
+  }
   function patch(key: string, next: (d: SlipDraft) => SlipDraft) {
-    setDrafts((ds) => ds.map((d) => (d.key === key ? next(d) : d)));
+    edit((ds) => ds.map((d) => (d.key === key ? next(d) : d)));
   }
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: SLIPS_KEY });
   }
 
-  async function send() {
-    if (reading || blockReason !== undefined || typeof target === 'string') return;
+  /** One write at a time: a double tap never sends twice. */
+  async function once(run: () => Promise<void>) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
+      await run();
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+
+  /** Done elsewhere (another till, or a reply that was lost): show what the slip is now. */
+  function refusedAsDone(e: unknown) {
+    if (e instanceof AppRpcError && e.code === 'SLIP_ALREADY_DONE') {
+      void q.refetch();
+      refresh();
+    }
+  }
+
+  async function send() {
+    if (reading || blockReason !== undefined || typeof target === 'string') return;
+    await once(async () => {
+      try {
       await appRpc('send_order_slip', {
         p_id: slipId,
         p_items: sendItems(drafts),
@@ -159,12 +189,16 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
       refresh();
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
       onClose();
-    } catch (e) {
-      setError(e);
-      if (e instanceof AppRpcError && e.code === 'SLIP_ALREADY_DONE') refresh();
-    } finally {
-      setBusy(false);
-    }
+      } catch (e) {
+        setError(e);
+        // A fresh key for the next try: if this one went through after all, the
+        // slip refuses a second send (SLIP_ALREADY_DONE), and edits made since
+        // are never answered with the first try's replay.
+        setIdemKey(`slip.send:${crypto.randomUUID()}`);
+        refusedAsDone(e);
+        if (e instanceof AppRpcError && e.code === 'TAB_AMBIGUOUS') void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+      }
+    });
   }
 
   async function setAside() {
@@ -175,27 +209,33 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
       kind: 'danger',
     });
     if (!ok) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await appRpc('reject_order_slip', { p_id: slipId, p_reason: null });
-      toast.ok(tr('ws.slips.review.rejected'));
-      refresh();
-      onClose();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
+    await once(async () => {
+      try {
+        await appRpc('reject_order_slip', { p_id: slipId, p_reason: null });
+        toast.ok(tr('ws.slips.review.rejected'));
+        refresh();
+        onClose();
+      } catch (e) {
+        setError(e);
+        refusedAsDone(e);
+      }
+    });
   }
 
   async function readAgain() {
+    if (inFlight.current) return;
     setScanning(true);
     setError(null);
-    await readSlip(slipId);
-    await q.refetch();
-    refresh();
-    setScanning(false);
+    try {
+      const refused = await requestReading({ slip_id: slipId });
+      if (refused) setError(refused);
+      // The cashier asked for this reading: it replaces the lines.
+      setDirty(false);
+      await q.refetch();
+      refresh();
+    } finally {
+      setScanning(false);
+    }
   }
 
   const done = detail && (detail.status === 'sent' || detail.status === 'rejected');
@@ -222,10 +262,10 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
           : () => (
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', inlineSize: '100%' }}>
                 <div style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
-                  <Button kind="ghost" icon="ban" disabled={busy || reading} onClick={() => void setAside()} data-testid="slip.reject">
+                  <Button kind="ghost" icon="ban" disabled={busy} onClick={() => void setAside()} data-testid="slip.reject">
                     {tr('ws.slips.review.reject')}
                   </Button>
-                  <Button kind="ghost" icon="refresh" busy={reading} disabled={busy} onClick={() => void readAgain()} data-testid="slip.read-again">
+                  <Button kind="ghost" icon="refresh" busy={scanning} disabled={busy || reading} onClick={() => void readAgain()} data-testid="slip.read-again">
                     {tr('ws.slips.review.readAgain')}
                   </Button>
                 </div>
@@ -245,7 +285,14 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
             )
       }
     >
-      {q.isPending || !menu ? (
+      {!menu && menuQ.isError ? (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+          <ErrorText error={menuQ.error} style={{ marginBlock: 0 }} />
+          <Button size="sm" icon="refresh" busy={menuQ.isFetching} onClick={() => void menuQ.refetch()}>
+            {tr('ws.kit.async.retry')}
+          </Button>
+        </div>
+      ) : q.isPending || !menu ? (
         <Skeleton lines={5} />
       ) : !detail || done ? (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
@@ -273,12 +320,23 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
               <MessagePresenter tone="info" icon="hourglass" message={tr('ws.slips.review.reading')} />
             ) : (
               <>
-                {detail.error_code && (
-                  <MessagePresenter
-                    tone="refused"
-                    message={tr(`ws.receipts.error.${READ_ERRORS.has(detail.error_code) ? detail.error_code : 'other'}` as MessageKey)}
-                  />
+                {state === 'stale' && (
+                  <MessagePresenter tone="refused" icon="hourglass" message={tr('ws.slips.review.stale')} />
                 )}
+                {newReading && (
+                  <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }} data-testid="slip.new-reading">
+                    <MessagePresenter tone="info" message={tr('ws.slips.review.newReading')} />
+                    <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                      <Button size="sm" kind="soft" onClick={() => setDirty(false)}>
+                        {tr('ws.slips.review.useNewReading')}
+                      </Button>
+                      <Button size="sm" kind="ghost" onClick={() => setSeededFrom(seedKey)}>
+                        {tr('ws.slips.review.keepMine')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {detail.error_code && <MessagePresenter tone="refused" message={tr(scanErrorKey(detail.error_code)!)} />}
                 <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
                   {tr(detail.lines.length > 0 ? 'ws.slips.review.lead' : 'ws.slips.review.manualLead')}
                 </p>
@@ -334,12 +392,12 @@ export function SlipReview({ slipId, uploadedBy, onClose }: { slipId: string; up
                       onItem={(item) => patch(d.key, (x) => withItem(x, item))}
                       onPatch={(part) => patch(d.key, (x) => ({ ...x, ...part }))}
                       onOptions={() => setSheetFor(d.key)}
-                      onRemove={() => setDrafts((ds) => ds.filter((x) => x.key !== d.key))}
+                      onRemove={() => edit((ds) => ds.filter((x) => x.key !== d.key))}
                     />
                   ))}
                 </ol>
                 <div>
-                  <Button icon="plus" disabled={busy} onClick={() => setDrafts((ds) => [...ds, blank()])}>
+                  <Button icon="plus" disabled={busy} onClick={() => edit((ds) => [...ds, blank()])}>
                     {tr('ws.slips.review.addLine')}
                   </Button>
                 </div>
@@ -425,11 +483,11 @@ function SlipLineEditor({
           <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.slips.review.onSlip')}</span>
           <bdi style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{read.text_read}</bdi>
           {read.qty_read !== null && <span>{tr('ws.slips.review.qty', { qty: formatNumber(read.qty_read, locale) })}</span>}
-          {read.notes_read && <bdi style={{ color: 'var(--tp-muted-fg)' }}>“{read.notes_read}”</bdi>}
+          {read.notes_read && <bdi style={{ color: 'var(--tp-muted-fg)' }}>{locale === 'ar' ? '«' : '“'}{read.notes_read}{locale === 'ar' ? '»' : '”'}</bdi>}
           {matchLabel && tone && <StatusBadge tone={TONE[tone]} label={matchLabel} />}
           {readItem && !picked && tone !== 'none' && (
             <span style={{ color: 'var(--tp-muted-fg)' }}>
-              → <bdi>{pickName(locale, readItem)}</bdi>
+              {locale === 'ar' ? '←' : '→'} <bdi>{pickName(locale, readItem)}</bdi>
             </span>
           )}
           {read.flags.map((f) => (
@@ -471,15 +529,15 @@ function SlipLineEditor({
           style={{ marginBlockEnd: 0 }}
           error={problem === 'qty' ? tr('ws.slips.review.problem.qty') : undefined}
         >
+          {/* Text, not type=number: Arabic-Indic digits are typed on an Arabic
+              keyboard, and the box may be emptied while retyping (0 is "no number"). */}
           <input
             style={{ ...inputStyle, textAlign: 'center' }}
-            type="number"
+            inputMode="numeric"
             dir="ltr"
-            min={1}
-            max={99}
-            value={draft.qty}
+            value={draft.qty > 0 ? String(draft.qty) : ''}
             disabled={busy}
-            onChange={(e) => onPatch({ qty: Math.trunc(Number(e.target.value) || 0) })}
+            onChange={(e) => onPatch({ qty: Number(decimalKeystroke(e.target.value, 2).replace('.', '')) || 0 })}
           />
         </Field>
         <Button

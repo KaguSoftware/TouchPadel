@@ -58,6 +58,10 @@ export const slipsEn = {
     rejectBody: 'Nothing goes to the kitchen. The waiter sees that it was set aside.',
     rejected: 'Slip set aside',
     readAgain: 'Read again',
+    stale: 'The reading stopped answering. Read again, set it aside, or type the order from the photo.',
+    newReading: 'A new reading arrived while you were editing.',
+    useNewReading: 'Use the new reading',
+    keepMine: 'Keep my edits',
     gone: 'This slip is done',
     goneBody: 'It was sent to the kitchen or set aside already.',
     problem: {
@@ -77,6 +81,7 @@ export const slipsEn = {
     flag: {
       UNCLEAR: 'Hard to read: check it against the photo',
       NO_QTY: 'No number written: 1 is assumed',
+      TRUNCATED: 'The slip had more lines than can be read at once: add the rest from the photo',
     },
   },
 } as const;

@@ -89,4 +89,12 @@ export const opErrorsProtocolsEn = {
   SLIP_NOT_FOUND: 'That order slip could not be found.',
   SLIP_ALREADY_DONE: 'This order slip was already sent to the kitchen or set aside.',
   SLIP_BUSY: 'This order slip is being read right now. Try again in a minute.',
+  // Scan hardening (0240): Goods in, the till and the staff phone.
+  SCAN_REREAD_LIMIT: 'This paper was read three times already. Type the lines from the photo.',
+  SCAN_USER_DAILY_LIMIT: 'You have asked for the most readings allowed today. A manager can read it, or type the lines.',
+  READING_SUPERSEDED: 'Someone else read or set aside this paper meanwhile. Refresh to see it.',
+  TAB_AMBIGUOUS: 'This table has more than one open tab. Choose the tab to send the order to.',
+  DAY_CLOSED: 'The business day is closed. Open a new day before sending orders.',
+  EMPTY_DELIVERY: 'Add at least one stock line first.',
+  INVALID_LINE: 'A line has a quantity or cost that is not a number above zero. Check the lines.',
 } as const;

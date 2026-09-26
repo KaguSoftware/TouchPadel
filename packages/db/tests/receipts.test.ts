@@ -399,7 +399,8 @@ describe.skipIf(!docker)('receipt scanning (rolled-back transactions)', () => {
     expect(d2.lines[0]).toMatchObject({ match_source: 'alias', confidence: 1 });
     ok(r, 'confirm2');
     expect(ok(r, 'line2_after')).toMatchObject({ src: 'manual', conf: null });
-    expect(ok<{ uses: number }>(r, 'alias_after').uses).toBe(2);
+    // The wording now means sugar; its count starts again for the new meaning (0240).
+    expect(ok<{ uses: number }>(r, 'alias_after').uses).toBe(1);
   });
 
   it('no model: the manager types the lines; reject, bad lines and another branch are refused', () => {

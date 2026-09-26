@@ -2994,6 +2994,14 @@ export const matrix: MatrixRule[] = [
     drop: 17,
   },
   {
+    kind: 'rpc', schema: 'app', name: 'staff_media_is_evidence',
+    args: { p_name: 'items/matrix/probe.webp' }, expect: ex<RpcExpectation>('execute', { anon: 'denied' }),
+    note:
+      'the staff_media_delete policy\'s helper (0240): answers false for a name that is not evidence, never ' +
+      'raises; authenticated only, as the policy is. Which photos are evidence is tests/scan-hardening.test.ts',
+    drop: 20,
+  },
+  {
     kind: 'rpc', schema: 'app', name: 'staff_media_visible',
     args: { p_name: 'items/matrix/probe.webp' }, expect: ex<RpcExpectation>('execute', { anon: 'denied' }),
     note:
@@ -4145,6 +4153,15 @@ export const matrix: MatrixRule[] = [
     payload: { id: NIL_UUID },
     expect: ex<WriteExpectation>('denied'),
     note: 'no client write grant: aliases are learned by send_order_slip',
+    drop: 20,
+  },
+  {
+    kind: 'write',
+    name: 'scan_reads',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'service role only (0240): readings are recorded by *_begin_reading, never by a client',
     drop: 20,
   },
   {
