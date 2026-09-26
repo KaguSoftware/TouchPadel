@@ -72,8 +72,12 @@ const syrup = findTarget(targets, 'output', 'syrup')!;
 describe('who does what with recipes (#71, #72)', () => {
   it('lets the bar and kitchen family and management read, the heads ask, the owner decide', () => {
     expect(STAFF_ROLES.filter((r) => RECIPE_ROLES.includes(r)).sort()).toEqual(
-      ['barista', 'chef', 'head_barista', 'head_chef', 'manager', 'owner'],
+      ['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef', 'manager', 'owner'],
     );
+    // The assistant barista reads names (wave 5 §2.1) and asks for nothing;
+    // the waiter reads none.
+    expect(asksRecipeChanges('assistant_barista')).toBe(false);
+    expect(RECIPE_ROLES).not.toContain('waiter');
     expect(STAFF_ROLES.filter(asksRecipeChanges).sort()).toEqual(['head_barista', 'head_chef']);
     expect(STAFF_ROLES.filter(decidesRecipeChanges)).toEqual(['owner']);
     expect([...RECIPE_CHANGE_ROLES].sort()).toEqual(['head_barista', 'head_chef', 'manager', 'owner']);

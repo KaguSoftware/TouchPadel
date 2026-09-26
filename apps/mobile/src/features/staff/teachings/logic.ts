@@ -8,10 +8,14 @@
  */
 import { STAFF_TEAMS, teamOf, type StaffRole, type StaffTeam } from '@touch/core';
 
-/** Who reads teachings: the two teams and MGMT. */
+/**
+ * Who reads teachings: the two teams and MGMT, the assistant barista in the bar
+ * since wave 5 (app.teachings_for_me, re-issued by assistant_barista_waiter_access).
+ */
 export const TEACHING_ROLES: readonly StaffRole[] = [
   'head_barista',
   'barista',
+  'assistant_barista',
   'head_chef',
   'chef',
   'manager',

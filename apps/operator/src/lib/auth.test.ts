@@ -220,9 +220,9 @@ describe('capability matrix', () => {
     readProduction: ['head_chef', 'chef', 'manager', 'owner'],
     readShoppingList: ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'manager', 'owner'],
     readPurchases: ['driver', 'manager', 'owner'],
-    readTeachings: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+    readTeachings: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
     readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'manager', 'owner'],
-    readRecipes: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+    readRecipes: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
   const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
@@ -318,6 +318,18 @@ describe('capability matrix', () => {
     }
     expect(can('court_desk', 'startProtocolTournament')).toBe(true);
     expect(can('cashier', 'startProtocolTournament')).toBe(false);
+  });
+
+  it('gives the assistant barista the bar’s teachings and recipe names, and no shopping list (wave 5 §2.1.6)', () => {
+    // The two /tasks copies follow app.teachings_for_me and app.recipe_view,
+    // which assistant_barista_waiter_access opens to him; the shopping list's
+    // read does not name him (addendum §8 Q1), and the waiter joins no team.
+    expect(can('assistant_barista', 'readTeachings')).toBe(true);
+    expect(can('assistant_barista', 'readRecipes')).toBe(true);
+    expect(can('assistant_barista', 'readShoppingList')).toBe(false);
+    for (const capability of ['readTeachings', 'readRecipes', 'readShoppingList'] as const) {
+      expect(can('waiter', capability), capability).toBe(false);
+    }
   });
 
   it('never lists an unknown role', () => {

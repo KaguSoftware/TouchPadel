@@ -51,9 +51,9 @@ describe('phone copies', () => {
     const has = (role: StaffRole, s: string) => (phoneSectionsFor(role) as string[]).includes(s);
     // Stock: the heads read the cafe, the desk the shop; nobody else.
     expect(TASK_ROLES.filter((r) => has(r, 'stock')).sort()).toEqual(['court_desk', 'head_barista', 'head_chef']);
-    // Teachings and recipes: the bar and the kitchen.
-    expect(TASK_ROLES.filter((r) => has(r, 'teachings')).sort()).toEqual(['barista', 'chef', 'head_barista', 'head_chef']);
-    expect(TASK_ROLES.filter((r) => has(r, 'recipes')).sort()).toEqual(['barista', 'chef', 'head_barista', 'head_chef']);
+    // Teachings and recipes: the bar (the assistant barista since wave 5) and the kitchen.
+    expect(TASK_ROLES.filter((r) => has(r, 'teachings')).sort()).toEqual(['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef']);
+    expect(TASK_ROLES.filter((r) => has(r, 'recipes')).sort()).toEqual(['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef']);
     // Ideas: the barista and the chef assistant send them.
     expect(TASK_ROLES.filter((r) => has(r, 'myIdeas')).sort()).toEqual(['barista', 'chef']);
     // Production: the chef tiers.

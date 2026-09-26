@@ -17,7 +17,10 @@
  *   * candidates never reach the owner assistant: no readable-columns row and
  *     no index trigger;
  *   * the driver and marketing (§8.2), like every non-MGMT role: no row of
- *     hiring_candidates, none of its RPCs, no hiring start.
+ *     hiring_candidates, none of its RPCs, no hiring start;
+ *   * the assistant barista and the waiter (wave 5, wave5-addendum-2026-09-25
+ *     §2.1.4) are hireable: a position names either, and an owner-added step
+ *     may name them as actors.
  *
  * HOW. Every scenario is ONE psql transaction that is rolled back (the
  * protocols-engine-flow.test.ts harness): staff and runs are created inside
@@ -429,5 +432,35 @@ describe.skipIf(!docker)('hiring: candidates, the pick, the new account and the 
     expect(ok<{ candidates: unknown[] }>(r, 'read_b').candidates).toHaveLength(1);
     expect(ok(r, 'b_untouched')).toBeNull();
     expect(refused(r, 'client_purge')).toMatch(/permission denied/);
+  });
+
+  it('opens a position for the assistant barista and the waiter, and an owner step names them (wave 5 §2.1.4)', () => {
+    const position = (role: string) =>
+      `select app.start_protocol('hiring', null, 'Wave 5 ${role}', null, '{}',
+         '{"role":"${role}","why":"Evenings are short","hours":"18:00 to 02:00","start_date":"2026-11-01"}')`;
+    const step = (roles: string) =>
+      `select app.add_run_step({{run}}, {{s_int}},
+         '{"name_en":"Trial shift","name_ar":"وردية تجريبية","actor_roles":${roles},"needs_owner_ok":false,"optional":true,"items":[]}')`;
+    const r = scenario([
+      T('waiter', 'manager', position('waiter')),
+      T('abar', 'manager', position('assistant_barista')),
+      T('prep', 'manager', position('prep')),
+      T('unknown', 'manager', position('sommelier')),
+      RES('run', 'waiter', 'run_id'),
+      STEPK('s_int', 'run', 'interviews'),
+      T('step_waiter', 'owner', step('["waiter"]')),
+      T('step_both', 'owner', step('["assistant_barista","waiter"]')),
+      T('step_owner', 'owner', step('["owner"]')),
+      Q('actors', `select jsonb_agg(actor_roles order by position) from protocol_run_steps
+                    where run_id = {{run}} and step_key is null`),
+    ]);
+    expect(ok(r, 'waiter')).toMatchObject({ run_id: expect.any(String) });
+    expect(ok(r, 'abar')).toMatchObject({ run_id: expect.any(String) });
+    expect(refused(r, 'prep')).toBe('ROLE_RETIRED:role');
+    expect(refused(r, 'unknown')).toBe('RECORD_INVALID:role');
+    ok(r, 'step_waiter');
+    ok(r, 'step_both');
+    expect(refused(r, 'step_owner')).toBe('INVALID_ROLE:actor_roles');
+    expect(ok(r, 'actors')).toEqual(expect.arrayContaining([['waiter'], ['assistant_barista', 'waiter']]));
   });
 });

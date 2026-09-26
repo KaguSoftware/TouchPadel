@@ -17,7 +17,14 @@ import {
 describe('who reads and writes teachings (#64)', () => {
   it('lets the two teams and management read, and nobody else', () => {
     const readers = STAFF_ROLES.filter((r) => TEACHING_ROLES.includes(r)).sort();
-    expect(readers).toEqual(['barista', 'chef', 'head_barista', 'head_chef', 'manager', 'owner']);
+    expect(readers).toEqual(['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef', 'manager', 'owner']);
+  });
+
+  it('gives the assistant barista the bar’s list and nothing to write (wave 5 §2.1)', () => {
+    expect(teachingsTeamArg('assistant_barista', 'all')).toBe('bar');
+    expect(teachingFilters('assistant_barista')).toEqual([]);
+    expect(canWriteTeaching('assistant_barista')).toBe(false);
+    expect(TEACHING_ROLES).not.toContain('waiter');
   });
 
   it('lets the heads and management write', () => {

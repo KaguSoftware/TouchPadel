@@ -6,8 +6,10 @@
  *     for either and must name it; the barista, the chef and everyone outside
  *     the two teams are refused;
  *   * the bar reads the bar's teachings and not the kitchen's, the kitchen the
- *     reverse, MGMT both; cashier, court desk, driver, marketing and prep read
- *     none, through the RPC or the table;
+ *     reverse, MGMT both; cashier, court desk, driver, marketing, prep and the
+ *     waiter read none, through the RPC or the table. The assistant barista
+ *     (wave 5, wave5-addendum-2026-09-25 §2.1) is in the bar: he reads it, gets
+ *     its push and its photos, and writes nothing;
  *   * the author and MGMT edit and archive, another head may not; an archived
  *     teaching leaves the list and its photo leaves the team's reads;
  *   * a new teaching pushes teaching_new to its team only, never the author;
@@ -194,14 +196,14 @@ interface Push {
   payload: Record<string, unknown>;
 }
 
-const TEAM_ROLES = ['hb', 'bar', 'hc', 'chef'] as const;
-const OUTSIDERS = ['cashier', 'desk', 'drv', 'mkt', 'prep'] as const;
+const TEAM_ROLES = ['hb', 'bar', 'abar', 'hc', 'chef'] as const;
+const OUTSIDERS = ['cashier', 'desk', 'drv', 'mkt', 'prep', 'wtr'] as const;
 
 describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
   it('a head writes for their own team, MGMT for either; the team reads its own; the push reaches the team', () => {
     const r = scenario([
       MK('hb', 'head_barista'), MK('bar', 'barista'), MK('hc', 'head_chef'), MK('chef', 'chef'),
-      MK('drv', 'driver'), MK('mkt', 'marketing'),
+      MK('drv', 'driver'), MK('mkt', 'marketing'), MK('abar', 'assistant_barista'), MK('wtr', 'waiter'),
       T('hb_new', 'hb', save(`'  Milk texture  '`, `'Stretch to 60 degrees, then stop.'`, `, p_venue_id => {{venue}}`)),
       PUSHES('push_new', 'teaching_new'),
       T('hb_kitchen', 'hb', save(`'x'`, `'y'`, `, p_team => 'kitchen', p_venue_id => {{venue}}`)),
@@ -219,7 +221,7 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
       T('long_title', 'hb', save(`repeat('t', 121)`, `'y'`)),
       T('long_body', 'hb', save(`'x'`, `repeat('b', 4001)`)),
       T('other_venue', 'hb', save(`'x'`, `'y'`, `, p_venue_id => '00000000-0000-4000-8000-00000000fade'`)),
-      ...(['bar', 'chef', ...OUTSIDERS] as const).map((who) => T(`new_${who}`, who, save(`'x'`, `'y'`, `, p_team => 'bar'`))),
+      ...(['bar', 'abar', 'chef', ...OUTSIDERS] as const).map((who) => T(`new_${who}`, who, save(`'x'`, `'y'`, `, p_team => 'bar'`))),
 
       ...[...TEAM_ROLES, 'manager', 'owner'].map((who) => T(`list_${who}`, who, `select app.teachings_for_me({{venue}})`)),
       T('list_mgr_bar', 'manager', `select app.teachings_for_me({{venue}}, 'bar')`),
@@ -228,7 +230,7 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
       T('list_bad_team', 'manager', `select app.teachings_for_me({{venue}}, 'court')`),
       ...OUTSIDERS.map((who) => T(`list_${who}`, who, `select app.teachings_for_me({{venue}})`)),
       // §8.2: the table itself is MGMT's.
-      ...(['bar', 'hb', 'drv', 'mkt', 'manager'] as const).map((who) =>
+      ...(['bar', 'hb', 'abar', 'drv', 'mkt', 'wtr', 'manager'] as const).map((who) =>
         T(`read_${who}`, who, `select to_jsonb(count(*)) from teachings`)),
     ]);
 
@@ -255,10 +257,10 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
     expect(refused(r, 'long_title')).toBe('TEXT_TOO_LONG:title');
     expect(refused(r, 'long_body')).toBe('TEXT_TOO_LONG:body');
     expect(refused(r, 'other_venue')).toBe('FORBIDDEN');
-    for (const who of ['bar', 'chef', ...OUTSIDERS]) expect(refused(r, `new_${who}`), who).toBe('FORBIDDEN');
+    for (const who of ['bar', 'abar', 'chef', ...OUTSIDERS]) expect(refused(r, `new_${who}`), who).toBe('FORBIDDEN');
 
     const titles = (who: string) => ok<List>(r, `list_${who}`).teachings.map((t) => t.title);
-    for (const who of ['hb', 'bar']) {
+    for (const who of ['hb', 'bar', 'abar']) {
       expect(titles(who), who).toEqual(expect.arrayContaining(['Milk texture', 'Grind size', 'Opening', 'Replay']));
       expect(titles(who), who).not.toContain('Brownie bake');
       expect(titles(who), who).not.toContain('Allergens');
@@ -284,28 +286,28 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
     expect(paged.total).toBe(ok<List>(r, 'list_bar').total);
     expect(refused(r, 'list_bad_team')).toBe('INVALID_ARGUMENT:team');
     for (const who of OUTSIDERS) expect(refused(r, `list_${who}`), who).toBe('FORBIDDEN');
-    for (const who of ['bar', 'hb', 'drv', 'mkt']) expect(ok<number>(r, `read_${who}`), who).toBe(0);
+    for (const who of ['bar', 'hb', 'abar', 'drv', 'mkt', 'wtr']) expect(ok<number>(r, `read_${who}`), who).toBe(0);
     expect(ok<number>(r, `read_manager`)).toBeGreaterThan(0);
   });
 
   it('sends teaching_new to the team only, never to the author or the other team', () => {
     const r = scenario([
       MK('hb', 'head_barista'), MK('bar', 'barista'), MK('hc', 'head_chef'), MK('chef', 'chef'),
-      MK('drv', 'driver'), MK('mkt', 'marketing'),
+      MK('drv', 'driver'), MK('mkt', 'marketing'), MK('abar', 'assistant_barista'), MK('wtr', 'waiter'),
       T('new', 'hb', save(`'Milk texture'`, `'60 degrees.'`, `, p_venue_id => {{venue}}`)),
       RES('t', 'new', 'id'),
       Q('to', `select jsonb_object_agg(v.name, exists (select 1 from notification_outbox o
                   where o.created_at = now() and o.payload->>'title_key' = 'teaching_new'
                     and o.payload->>'id' = {{t}} and o.profile_id = v.val::uuid))
-                 from pg_temp.vars v where v.name in ('hb','bar','hc','chef','drv','mkt','manager','owner')`),
+                 from pg_temp.vars v where v.name in ('hb','bar','abar','hc','chef','drv','mkt','wtr','manager','owner')`),
       Q('before_edit', `select to_jsonb(count(*)) from notification_outbox o
                          where o.created_at = now() and o.payload->>'title_key' = 'teaching_new'`),
       T('edit', 'hb', save(`'Milk texture'`, `'65 degrees.'`, `, p_id => {{t}}`)),
       Q('after_edit', `select to_jsonb(count(*)) from notification_outbox o
                         where o.created_at = now() and o.payload->>'title_key' = 'teaching_new'`),
     ]);
-    expect(ok(r, 'to')).toEqual({ hb: false, bar: true, hc: false, chef: false, drv: false, mkt: false,
-                                  manager: false, owner: false });
+    expect(ok(r, 'to')).toEqual({ hb: false, bar: true, abar: true, hc: false, chef: false, drv: false, mkt: false,
+                                  wtr: false, manager: false, owner: false });
     ok(r, 'edit');
     // An edit tells no one.
     expect(ok<number>(r, 'after_edit')).toBe(ok<number>(r, 'before_edit'));
@@ -314,7 +316,7 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
   it('the author and MGMT edit and archive; another head may not; an archived teaching and its photo leave the team', () => {
     const r = scenario([
       MK('hb', 'head_barista'), MK('hb2', 'head_barista'), MK('bar', 'barista'), MK('chef', 'chef'),
-      MK('drv', 'driver'), MK('mkt', 'marketing'),
+      MK('drv', 'driver'), MK('mkt', 'marketing'), MK('abar', 'assistant_barista'), MK('wtr', 'waiter'),
       PHOTO('p1', 'hb', 'teachings'),
       PHOTO('p_steps', 'hb', 'steps'),
       PHOTO('p_other', 'bar', 'teachings'),
@@ -324,13 +326,14 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
       T('wrong_folder', 'hb', save(`'x'`, `'y'`, `, p_photos => array[{{p_steps}}], p_venue_id => {{venue}}`)),
       T('foreign_photo', 'hb', save(`'x'`, `'y'`, `, p_photos => array[{{p_other}}], p_venue_id => {{venue}}`)),
       T('too_many', 'hb', save(`'x'`, `'y'`, `, p_photos => array['a','b','c','d','e','f','g'], p_venue_id => {{venue}}`)),
-      ...(['bar', 'chef', 'hb2', 'drv', 'mkt', 'manager'] as const).map((who) => SEES(`sees_${who}`, who, 'p1')),
+      ...(['bar', 'abar', 'chef', 'hb2', 'drv', 'mkt', 'wtr', 'manager'] as const).map((who) => SEES(`sees_${who}`, who, 'p1')),
 
       T('edit_author', 'hb', save(`'Milk texture'`, `'65 degrees.'`, `, p_id => {{t}}, p_photos => array[{{p1}}]`)),
       T('edit_mgr', 'manager', save(`'Milk texture (v2)'`, `'65 degrees.'`, `, p_id => {{t}}`)),
       T('edit_team', 'manager', save(`'x'`, `'y'`, `, p_id => {{t}}, p_team => 'kitchen'`)),
       T('edit_other_head', 'hb2', save(`'x'`, `'y'`, `, p_id => {{t}}`)),
       T('edit_barista', 'bar', save(`'x'`, `'y'`, `, p_id => {{t}}`)),
+      T('edit_abar', 'abar', save(`'x'`, `'y'`, `, p_id => {{t}}`)),
       T('edit_drv', 'drv', save(`'x'`, `'y'`, `, p_id => {{t}}`)),
       T('edit_missing', 'hb', save(`'x'`, `'y'`, `, p_id => gen_random_uuid()`)),
       T('arch_other_head', 'hb2', `select to_jsonb(true) from (select app.archive_teaching({{t}})) x`),
@@ -340,7 +343,7 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
       T('arch_again', 'manager', `select to_jsonb(true) from (select app.archive_teaching({{t}})) x`),
       T('edit_archived', 'hb', save(`'x'`, `'y'`, `, p_id => {{t}}`)),
       T('list_after', 'bar', `select app.teachings_for_me({{venue}})`),
-      ...(['bar', 'hb', 'manager'] as const).map((who) => SEES(`after_${who}`, who, 'p1')),
+      ...(['bar', 'abar', 'hb', 'manager'] as const).map((who) => SEES(`after_${who}`, who, 'p1')),
       Q('audit', `select jsonb_agg(jsonb_build_object('action', a.action, 'after', a.after) order by a.at, a.id)
                     from audit_log a where a.entity = 'teaching' and a.entity_id = {{t}}`),
     ]);
@@ -352,14 +355,15 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
     // A current teaching's photo: its team (the head who wrote it is the
     // uploader) and MGMT; not the kitchen, not a driver or marketing.
     expect(ok<boolean>(r, 'sees_bar')).toBe(true);
+    expect(ok<boolean>(r, 'sees_abar')).toBe(true);
     expect(ok<boolean>(r, 'sees_hb2')).toBe(true);
     expect(ok<boolean>(r, 'sees_manager')).toBe(true);
-    for (const who of ['chef', 'drv', 'mkt']) expect(ok<boolean>(r, `sees_${who}`), who).toBe(false);
+    for (const who of ['chef', 'drv', 'mkt', 'wtr']) expect(ok<boolean>(r, `sees_${who}`), who).toBe(false);
 
     ok(r, 'edit_author');
     ok(r, 'edit_mgr');
     expect(refused(r, 'edit_team')).toBe('INVALID_ARGUMENT:team');
-    for (const who of ['edit_other_head', 'edit_barista', 'edit_drv', 'arch_other_head', 'arch_mkt', 'arch_drv']) {
+    for (const who of ['edit_other_head', 'edit_barista', 'edit_abar', 'edit_drv', 'arch_other_head', 'arch_mkt', 'arch_drv']) {
       expect(refused(r, who), who).toBe('FORBIDDEN');
     }
     expect(refused(r, 'edit_missing')).toBe('REF_NOT_FOUND:id');
@@ -368,6 +372,7 @@ describe.skipIf(!docker)('teachings (rolled-back transactions)', () => {
     expect(refused(r, 'edit_archived')).toBe('REF_NOT_FOUND:id');
     expect(ok<List>(r, 'list_after').teachings.map((t) => t.id)).not.toContain(ok<{ id: string }>(r, 'new').id);
     expect(ok<boolean>(r, 'after_bar')).toBe(false);
+    expect(ok<boolean>(r, 'after_abar')).toBe(false);
     expect(ok<boolean>(r, 'after_hb')).toBe(true);
     expect(ok<boolean>(r, 'after_manager')).toBe(true);
     // Ids and counts only: never the title or the body.

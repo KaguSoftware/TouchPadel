@@ -427,12 +427,12 @@ export const CAPABILITY_ROLES = {
   readShoppingList: ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'manager', 'owner'],
   /** The driver's purchases (app.my_purchases). */
   readPurchases: ['driver', 'manager', 'owner'],
-  /** A team's teachings (app.teachings_for_me, #64). */
-  readTeachings: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /** A team's teachings (app.teachings_for_me, #64; the assistant barista's since wave 5). */
+  readTeachings: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   /** Stock by quantity (app.staff_stock_view, #68): the heads' cafe, the desk's shop. */
   readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'manager', 'owner'],
-  /** Recipes by ingredient name (app.recipe_view, #72). */
-  readRecipes: ['head_barista', 'barista', 'head_chef', 'chef', 'manager', 'owner'],
+  /** Recipes by ingredient name (app.recipe_view, #72; the assistant barista's since wave 5). */
+  readRecipes: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   // A role's own work, which the owner does not do: its RPC refuses the owner.
   /** Marketing's own pages: its take, campaign drafts, results and the requests inbox (#73). */
   marketingWork: ['marketing'],

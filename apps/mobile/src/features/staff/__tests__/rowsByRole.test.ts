@@ -91,7 +91,7 @@ const EXPECTED: Record<StaffRole, string[]> = {
   court_desk: ['protocols', 'start', 'requests', 'notes', 'stock', 'suggestions', 'ask-marketing'],
   cashier: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
   prep: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
-  assistant_barista: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
+  assistant_barista: ['protocols', 'requests', 'notes', 'teachings', 'recipes', 'suggestions', 'ask-marketing'],
   waiter: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
 };
 

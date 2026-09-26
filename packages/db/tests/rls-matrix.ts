@@ -3596,4 +3596,36 @@ export const matrix: MatrixRule[] = [
     note: 'marketing and MGMT at the venue: the venue\'s campaigns with send and redemption counts, no money',
     drop: 17,
   },
+
+  // ── wave 5, lane R: the waiter answers guests' calls (wave5-addendum-2026-09-25
+  // §2.1.8, §8 Q3). assistant_barista_waiter_access adds the waiter to the
+  // waiter_calls read and to both call RPCs, and gives the RPCs a venue
+  // check. The waiter is not among the eight principals, and this matrix has
+  // no second venue: his cases, and another venue's call, are in
+  // assistant-barista-waiter.test.ts. These rows re-state drop 2's and drop
+  // 7's for the eight. ──────────────────────────────────────────────────
+  {
+    kind: 'select',
+    name: 'waiter_calls',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows',
+      manager: 'rows',
+      owner: 'rows',
+    }),
+    note: 'the cashier, the waiter (not in this matrix) and MGMT at the call\'s venue; a guest reads own-session calls only (the probe call is not theirs)',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ack_waiter_call',
+    args: { p_call_id: NIL_UUID }, expect: CASHIER_UP,
+    note: 'the cashier, the waiter (not in this matrix) and MGMT; an unknown call, or one at another venue, is CALL_NOT_FOUND past the guard',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'resolve_waiter_call',
+    args: { p_call_id: NIL_UUID }, expect: CASHIER_UP,
+    note: 'the cashier, the waiter (not in this matrix) and MGMT; an unknown call, or one at another venue, is CALL_NOT_FOUND past the guard',
+    drop: 18,
+  },
 ];

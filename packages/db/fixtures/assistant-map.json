@@ -1,5 +1,5 @@
 {
-  "generated_from": "7b85c419e83e8f9d420fe4f7e7f62b31d16cab62",
+  "generated_from": "d77d76f3647042bf633686d17eeeaf69032d2d1a",
   "chunks": [
     {
       "kind": "page",
@@ -1854,7 +1854,7 @@
       "ref": "action:app.ack_waiter_call",
       "lang": "en",
       "title": "app.ack_waiter_call",
-      "body": "Signature: app.ack_waiter_call(p_call_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0032 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.ack_waiter_call(p_call_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner,waiter).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, CALL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2470,7 +2470,7 @@
       "ref": "action:app.kitchen_board",
       "lang": "en",
       "title": "app.kitchen_board",
-      "body": "kitchen_board_read (build-contracts §2.23, plan #60): the kitchen board's tickets at the venue named, or with none at every venue the caller works at (app.staff_venue_ids(), the old tickets_staff_read axis), in the shape the board renders: live tickets and those completed in the last two minutes, a window fixed here; order, tab tag, lines, add-ons, notes and ready marks; no price, total or cost. The booking is filled for cashier, manager and owner only. Kitchen list of set_ticket_status at the venue; FORBIDDEN otherwise.\nSignature: app.kitchen_board(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0158 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "kitchen_board_read (build-contracts §2.23, plan #60): the kitchen board's tickets at the venue named, or with none at every venue the caller works at (app.staff_venue_ids(), the old tickets_staff_read axis), in the shape the board renders: live tickets and those completed in the last two minutes, a window fixed here; order, tab tag, lines, add-ons, notes and ready marks; no price, total or cost. The booking is filled for cashier, manager and owner only. Kitchen list of set_ticket_status at the venue; FORBIDDEN otherwise.\nSignature: app.kitchen_board(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,assistant_barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2862,7 +2862,7 @@
       "ref": "action:app.recipe_view",
       "lang": "en",
       "title": "app.recipe_view",
-      "body": "recipe_view (§2.24.6, #72). The bar and kitchen family and MGMT at the venue: {items: [{menu_item_id, name_en, name_ar, category_name_en, category_name_ar, sizes: [{variant_id, name_en, name_ar, lines: [{recipe_line_id, ingredient_id, name_en, name_ar}]}]}], prepared: [{ingredient_id, name_en, name_ar, lines: [...]}]}: the active cafe items and the active prepared ingredients with an output recipe, as ingredient names. No quantity, unit, cost or price for anyone (#72, §0 P3). With p_menu_item_id, that item only (REF_NOT_FOUND unless it is an active cafe item at one of the caller's venues) and prepared is empty. FORBIDDEN for anyone else.\nSignature: app.recipe_view(p_venue_id uuid default null, p_menu_item_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0182 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "recipe_view (§2.24.6, #72). The bar and kitchen family and MGMT at the venue: {items: [{menu_item_id, name_en, name_ar, category_name_en, category_name_ar, sizes: [{variant_id, name_en, name_ar, lines: [{recipe_line_id, ingredient_id, name_en, name_ar}]}]}], prepared: [{ingredient_id, name_en, name_ar, lines: [...]}]}: the active cafe items and the active prepared ingredients with an output recipe, as ingredient names. No quantity, unit, cost or price for anyone (#72, §0 P3). With p_menu_item_id, that item only (REF_NOT_FOUND unless it is an active cafe item at one of the caller's venues) and prepared is empty. FORBIDDEN for anyone else.\nSignature: app.recipe_view(p_venue_id uuid default null, p_menu_item_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,assistant_barista,head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3038,7 +3038,7 @@
       "ref": "action:app.resolve_waiter_call",
       "lang": "en",
       "title": "app.resolve_waiter_call",
-      "body": "Signature: app.resolve_waiter_call(p_call_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0032 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.resolve_waiter_call(p_call_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner,waiter).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, CALL_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3126,7 +3126,7 @@
       "ref": "action:app.save_teaching",
       "lang": "en",
       "title": "app.save_teaching",
-      "body": "teachings (§2.24.3). A new teaching (p_id NULL; idempotent by key): the head barista or head chef for their own team (p_team defaults to it, another team is FORBIDDEN), or MGMT for either (p_team required); tells the team (staff_info / teaching_new). An edit: its author, or MGMT at its venue; the team never changes. Title 1 to 120, body 1 to 4000, photos teachings slots of the caller (at most 6). Returns {id}. FORBIDDEN, INVALID_ARGUMENT (hint team or photos), REF_NOT_FOUND (unknown, archived or elsewhere), TEXT_REQUIRED, TEXT_TOO_LONG, PHOTO_PATH_INVALID. Audit teaching.save.\nSignature: app.save_teaching(p_title text, p_body text, p_team text default null, p_photos text[] default '{}', p_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nAudit actions written: teaching.save.\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0179 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "teachings (§2.24.3). A new teaching (p_id NULL; idempotent by key): the head barista or head chef for their own team (p_team defaults to it, another team is FORBIDDEN), or MGMT for either (p_team required); tells the team (staff_info / teaching_new). An edit: its author, or MGMT at its venue; the team never changes. Title 1 to 120, body 1 to 4000, photos teachings slots of the caller (at most 6). Returns {id}. FORBIDDEN, INVALID_ARGUMENT (hint team or photos), REF_NOT_FOUND (unknown, archived or elsewhere), TEXT_REQUIRED, TEXT_TOO_LONG, PHOTO_PATH_INVALID. Audit teaching.save.\nSignature: app.save_teaching(p_title text, p_body text, p_team text default null, p_photos text[] default '{}', p_id uuid default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nAudit actions written: teaching.save.\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3246,7 +3246,7 @@
       "ref": "action:app.set_order_item_ready",
       "lang": "en",
       "title": "app.set_order_item_ready",
-      "body": "Signature: app.set_order_item_ready(p_order_item_id uuid, p_ready boolean, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_NOT_FOUND, ITEM_VOIDED, TICKET_CLOSED.\nCalled from: apps/operator/src/features/kds/KdsBoard.tsx (pages /kds).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.set_order_item_ready(p_order_item_id uuid, p_ready boolean, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,assistant_barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, ITEM_NOT_FOUND, ITEM_VOIDED, TICKET_CLOSED.\nCalled from: apps/operator/src/features/kds/KdsBoard.tsx (pages /kds).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/kds"
     },
     {
@@ -3318,7 +3318,7 @@
       "ref": "action:app.set_ticket_status",
       "lang": "en",
       "title": "app.set_ticket_status",
-      "body": "Signature: app.set_ticket_status(p_ticket_id uuid, p_status ticket_status, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0156 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.set_ticket_status(p_ticket_id uuid, p_status ticket_status, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (prep,cashier,manager,owner,head_barista,barista,assistant_barista,head_chef,chef).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3550,7 +3550,7 @@
       "ref": "action:app.teachings_for_me",
       "lang": "en",
       "title": "app.teachings_for_me",
-      "body": "teachings (§2.24.3). The bar team (head_barista, barista) and the kitchen team (head_chef, chef) read their own team's current teachings, MGMT both or the one p_team names: {teachings: [{id, team, title, body, photos, author_name, created_at, updated_at, mine, editable}], total}, newest first, p_limit 1 to 100. FORBIDDEN for anyone else and for another team; INVALID_ARGUMENT (hint team).\nSignature: app.teachings_for_me(p_venue_id uuid default null, p_team text default null, p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0179 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "teachings (§2.24.3), re-issued by assistant_barista_waiter_access (wave 5 §2.1.4). The bar team (head_barista, barista, assistant_barista) and the kitchen team (head_chef, chef) read their own team's current teachings, MGMT both or the one p_team names: {teachings: [{id, team, title, body, photos, author_name, created_at, updated_at, mine, editable}], total}, newest first, p_limit 1 to 100. FORBIDDEN for anyone else and for another team; INVALID_ARGUMENT (hint team).\nSignature: app.teachings_for_me(p_venue_id uuid default null, p_team text default null, p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,barista,assistant_barista,head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0194 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
