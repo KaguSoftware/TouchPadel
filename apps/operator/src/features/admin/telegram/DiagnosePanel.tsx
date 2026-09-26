@@ -18,6 +18,7 @@
 import { useState } from 'react';
 import { formatNumber, type MessageKey } from '@touch/i18n';
 import { callEdge } from '../../../lib/edge';
+import { currentBranchId } from '../../../lib/venueScope';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button } from '../../../components/ui';
@@ -45,7 +46,15 @@ export function DiagnosePanel({ onUseChatId }: { onUseChatId: (chatId: string) =
   async function run() {
     setRunning(true);
     try {
-      setReport(await callEdge<{ action: 'diagnose' }, DiagnoseResponse>('telegram-diagnose', { action: 'diagnose' }, { ttlMs: 0 }));
+      // The branch in scope (0212, MV3: one group per branch), not the oldest one.
+      const branch = currentBranchId();
+      setReport(
+        await callEdge<{ action: 'diagnose'; venue_id?: string }, DiagnoseResponse>(
+          'telegram-diagnose',
+          { action: 'diagnose', ...(branch ? { venue_id: branch } : {}) },
+          { ttlMs: 0 },
+        ),
+      );
     } catch (e) {
       toast.err(e);
     } finally {

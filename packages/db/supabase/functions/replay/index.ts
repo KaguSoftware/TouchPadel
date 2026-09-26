@@ -321,7 +321,11 @@ interface ReplayBody {
   payload: unknown;
   station_id: string;
   staff_id: string;
+  /** The branch the write was queued under (0228); optional. */
+  venue_scope?: string;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -332,7 +336,7 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'invalid JSON body' }, 400);
   }
-  const { idempotency_key, mutation_type, payload, station_id, staff_id } = body ?? {};
+  const { idempotency_key, mutation_type, payload, station_id, staff_id, venue_scope } = body ?? {};
   if (
     typeof idempotency_key !== 'string' || !idempotency_key ||
     typeof mutation_type !== 'string' ||
@@ -340,6 +344,9 @@ Deno.serve(async (req) => {
     typeof staff_id !== 'string' || !staff_id
   ) {
     return json({ error: 'idempotency_key, mutation_type, payload, station_id, staff_id required' }, 400);
+  }
+  if (venue_scope !== undefined && venue_scope !== null && (typeof venue_scope !== 'string' || !UUID_RE.test(venue_scope))) {
+    return json({ error: 'venue_scope must be a uuid' }, 400);
   }
   // Key discipline (mirrors mutationEnvelopeSchema): "{station}:{type}:{ulid}".
   const [keyStation, keyType] = idempotency_key.split(':');
@@ -436,7 +443,17 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_ANON_KEY')!,
     {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: req.headers.get('Authorization')! } },
+      // 0215: the queued write's station names the branch on the replayed
+      // request, exactly as the till did when it queued it; 0228: so does the
+      // branch the screens showed then (a machine that is not a station). Both
+      // count on the server only for the owner or a member of that branch.
+      global: {
+        headers: {
+          Authorization: req.headers.get('Authorization')!,
+          'x-station-id': station_id,
+          ...(venue_scope ? { 'x-venue-scope': venue_scope } : {}),
+        },
+      },
     },
   );
   // 0115 (S3): a queued PIN-gated mutation still carries the typed PIN. Prove
@@ -510,7 +527,11 @@ Deno.serve(async (req) => {
       const prior = await record('conflict', detail);
       if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
       // Surface to the desk: shows a conflict rather than an overwrite (SoW).
+      // 0220: filed at the station's branch (the service role resolves no venue).
+      const { data: stationRow } = await service.from('stations').select('venue_id').eq('id', station_id).maybeSingle();
+      const stationVenue = (stationRow as { venue_id?: string } | null)?.venue_id;
       const alert = await service.from('manager_alerts').insert({
+        ...(stationVenue ? { venue_id: stationVenue } : {}),
         kind: 'replay_conflict',
         payload: {
           idempotency_key,

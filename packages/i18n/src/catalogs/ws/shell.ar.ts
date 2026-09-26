@@ -133,6 +133,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     panel: 'لوحة الإدارة',
     analytics: 'التحليلات',
     staff: 'الموظفون',
+    branches: 'الفروع',
     courts: 'الملاعب',
     tables: 'الطاولات ورموز QR',
     settings: 'إعدادات المكان',

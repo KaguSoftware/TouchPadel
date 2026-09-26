@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { makeT } from '@touch/i18n';
 import { LOCALES, requireLocale } from '@/lib/locales';
-import { getCachedMenu, getCachedVenue } from '@/lib/menu.server';
+import { getCachedBranches, getCachedMenu } from '@/lib/menu.server';
 import { getRequestNonce, getSiteMode } from '@/lib/site/mode.server';
 import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { crossesMidnight, everyDayWindow, formatWindow } from '@/lib/site/hours';
@@ -36,6 +36,9 @@ import { PhotoGrade } from '@/components/landing/PhotoGrade';
  * category names (the menu). Each read degrades on
  * its own: no venue → no hours line, no open pill and no WhatsApp or call buttons ("Plan
  * your visit" instead); no menu → the category-free café line.
+ *
+ * Branches (multi-venue slice 4): the hero, the booking buttons and the FAQ speak for the
+ * default (oldest open) branch; the Visit block and the JSON-LD list every open branch.
  */
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -84,16 +87,17 @@ export async function generateMetadata({
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params).locale);
-  const [venue, menu, mode, nonce] = await Promise.all([
-    getCachedVenue(),
+  const [branches, menu, mode, nonce] = await Promise.all([
+    getCachedBranches(),
     getCachedMenu(),
     getSiteMode(),
     getRequestNonce(),
   ]);
+  const venue = branches[0] ?? null;
   const everyDay = everyDayWindow(venue);
   const hours = everyDay ? formatWindow(everyDay) : null;
   const phone = venue?.phone ?? null;
-  const jsonLd = buildLandingJsonLd({ locale, origin: siteOrigin(), venue });
+  const jsonLd = buildLandingJsonLd({ locale, origin: siteOrigin(), venue, branches });
 
   return (
     <SiteShell locale={locale} mode={mode} nonce={nonce} venue={venue} path="">
@@ -111,7 +115,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <CafeHandoff locale={locale} categories={cafeCategoryList(menu.categories, locale)} />
       <AppBand locale={locale} stores={getStoreLinks()} />
       <Faq locale={locale} hours={hours} late={everyDay ? crossesMidnight(everyDay) : false} />
-      <Visit locale={locale} venue={venue} />
+      <Visit locale={locale} venue={venue} branches={branches} />
       <script
         type="application/ld+json"
         nonce={nonce}

@@ -166,6 +166,25 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   // the first two-venue day is not the day the operator shows errors.generic.
   'VENUE_REQUIRED',
   'STATION_UNKNOWN',
+  // Multi-venue slices 2–3 (0212, 0217): a row of another branch, and a
+  // chain-wide promotion that names one branch's courts, categories or items.
+  'VENUE_MISMATCH',
+  'PROMOTION_SCOPE_BRANCH',
+  // 0218: the owner's branch assignment for a staff member.
+  'STAFF_VENUE_REQUIRED',
+  'STAFF_NOT_FOUND',
+  'VENUE_NOT_FOUND',
+  // 0222–0223: stations and "Open a new branch".
+  'STATION_OTHER_BRANCH',
+  'SLUG_TAKEN',
+  'BRANCH_NOT_READY',
+  'LAST_OPEN_BRANCH',
+  'BRANCH_DAY_OPEN',
+  // 0229, 0233 (multi-venue audit): stations on purpose, and the branch lifecycle.
+  'STATION_RETIRED',
+  'STATION_HAS_HISTORY',
+  'BRANCH_HAS_BOOKINGS',
+  'VENUE_CLOSED',
   // Desk payment (0106).
   'BOOKING_TAB_OPEN',
   'BOOKING_TAB_DONOR',

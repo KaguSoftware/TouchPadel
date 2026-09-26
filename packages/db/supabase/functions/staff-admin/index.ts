@@ -40,6 +40,8 @@ interface CreateBody {
   display_name: string;
   /** Untrusted until checkCreateRole (role.ts) has passed it. */
   role: string;
+  /** 0218: the branch the account works at; optional (the default branch otherwise). */
+  venue_id?: string;
 }
 
 interface ResetBody {
@@ -77,6 +79,14 @@ Deno.serve(async (req) => {
     const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : '';
     const roleCheck = checkCreateRole(body.role);
     const password = validPassword(body.password);
+    // 0218: the branch the new account works at (optional; the default branch otherwise).
+    // Multi-venue audit: a malformed id is refused, never quietly turned into
+    // "the default branch" (the account would land at the wrong one).
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (body.venue_id != null && (typeof body.venue_id !== 'string' || !UUID_RE.test(body.venue_id))) {
+      return badRequest('venue_id must be a uuid');
+    }
+    const venueId = typeof body.venue_id === 'string' ? body.venue_id : null;
 
     if (!email.includes('@')) return badRequest('a valid email is required');
     if (!displayName) return badRequest('display_name is required');
@@ -112,6 +122,7 @@ Deno.serve(async (req) => {
       p_display_name: displayName,
       p_role: roleCheck.role,
       p_actor_id: caller.userId,
+      p_venue_id: venueId,
     });
 
     if (error) {

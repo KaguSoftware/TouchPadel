@@ -2609,23 +2609,25 @@ export const matrix: MatrixRule[] = [
     name: 'stations',
     op: 'insert',
     payload: { id: 'MATRIX-PROBE-NEVER', venue_id: VENUE_A, is_till: false },
-    note: '0124/0130: a station registers itself through app.heartbeat, which resolves the venue and audits the registration; a direct insert would file a device wherever it liked',
+    note: '0124/0130/0229: a station is registered on purpose through app.register_station (a heartbeat never registers one since 0229), which checks the branch and audits it; a direct insert would file a device wherever it liked',
     expect: ex<WriteExpectation>('denied'),
     drop: 13,
   },
   // The venue resolvers. Every one is granted to anon as well as authenticated
   // (0125/0123/0137): each is named by a column default, a policy or a CHECK,
   // and those evaluate as the WRITING role — the 0121 trap. None of them
-  // answers about anything but the caller's own context.
+  // answers about anything but the caller's own context. 0228 withdrew
+  // current_venue and current_venue_or_default from anon: no anon role writes
+  // a table directly, and both answered too much to anyone.
   {
     kind: 'rpc', schema: 'app', name: 'current_venue',
-    note: '0125: resolves station -> single membership -> single active venue, else raises VENUE_REQUIRED. A refusal is still an execute: it is a business answer, not a permission one',
-    args: { p_station_id: null }, expect: SELF_ANON_OK, drop: 13,
+    note: '0125: resolves station -> single membership -> single active venue, else raises VENUE_REQUIRED. A refusal is still an execute: it is a business answer, not a permission one. 0228: not anon (every guest insert runs in a definer body; step (1) answered station-id probes)',
+    args: { p_station_id: null }, expect: SELF_AUTHED, drop: 13,
   },
   {
     kind: 'rpc', schema: 'app', name: 'current_venue_or_default',
-    note: '0125: the cron/service_role shape — falls back to the default venue rather than raising, and is the default on the eight D tables',
-    args: {}, expect: SELF_ANON_OK, drop: 13,
+    note: '0125: the cron/service_role shape — falls back to the default venue rather than raising, and is the default on the eight D tables. 0228: not anon (it handed the default branch to anyone)',
+    args: {}, expect: SELF_AUTHED, drop: 13,
   },
   {
     kind: 'rpc', schema: 'app', name: 'staff_venue_ids',
@@ -3940,5 +3942,121 @@ export const matrix: MatrixRule[] = [
     args: { p_call_id: NIL_UUID }, expect: CASHIER_UP,
     note: 'the cashier, the waiter (not in this matrix) and MGMT; an unknown call, or one at another venue, is CALL_NOT_FOUND past the guard',
     drop: 18,
+  },
+
+  // ── drop 19: multi-venue slice 2 (0207+) ────────────────────────────────
+  // platform_settings (0207, MV5): the chain's own settings (currency, the
+  // LLM budget and price list, the per-guest hold cap). Any active staff
+  // member reads it, like venue_settings; no client writes it.
+  {
+    kind: 'select',
+    name: 'platform_settings',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows',
+      prep: 'rows',
+      court_desk: 'rows',
+      manager: 'rows',
+      owner: 'rows',
+    }),
+    note: 'the chain row is staff-only; guests reach nothing here',
+    drop: 19,
+  },
+  {
+    kind: 'write',
+    name: 'platform_settings',
+    op: 'update',
+    payload: { llm_daily_request_limit: 1 },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: assistant_set_default_model and assistant_set_monthly_cap only',
+    drop: 19,
+  },
+  // 0212 (MV2): the owner's chain-wide switch for a promotion. An unknown
+  // promotion stops the owner at PROMOTION_NOT_FOUND; nothing written.
+  {
+    kind: 'rpc', schema: 'app', name: 'set_promotion_venue',
+    args: { p_promotion_id: NIL_UUID, p_venue_id: null }, expect: OWNER_ONLY,
+    note: 'owner only; an unknown promotion is PROMOTION_NOT_FOUND past the guard',
+    drop: 19,
+  },
+  // 0218: the owner assigns a staff member's branches. An unknown staff id
+  // stops the owner at STAFF_NOT_FOUND; nothing written.
+  {
+    kind: 'rpc', schema: 'app', name: 'set_staff_venues',
+    args: { p_staff_id: NIL_UUID, p_venue_ids: [] }, expect: OWNER_ONLY,
+    note: 'owner only; an unknown staff member is STAFF_NOT_FOUND past the guard',
+    drop: 19,
+  },
+  // 0222: stations. An empty name stops a manager at INVALID_STATION and an
+  // unknown one at STATION_UNKNOWN; nothing written.
+  {
+    kind: 'rpc', schema: 'app', name: 'register_station',
+    args: { p_id: '', p_venue_id: 'c0000000-0000-4000-8000-000000000001', p_mode: 'till' }, expect: MANAGER_UP,
+    note: 'manager or owner at the branch; an empty name is INVALID_STATION past the guard',
+    drop: 19,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'retire_station',
+    args: { p_id: 'MATRIX-NEVER' }, expect: MANAGER_UP,
+    note: 'manager or owner; an unknown station is STATION_UNKNOWN past the guard',
+    drop: 19,
+  },
+  // 0223: "Open a new branch". Every probe stops past the guard with nothing written.
+  {
+    kind: 'rpc', schema: 'app', name: 'create_branch',
+    args: { p_source_venue: NIL_UUID, p_slug: 'x', p_name_en: 'x', p_name_ar: 'x' }, expect: OWNER_ONLY,
+    note: 'owner only; an unknown source is VENUE_NOT_FOUND past the guard',
+    drop: 19,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'branch_readiness',
+    args: { p_venue: 'c0000000-0000-4000-8000-000000000001' }, expect: MANAGER_UP,
+    note: 'manager or owner at the branch; read-only',
+    drop: 19,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'open_branch',
+    args: { p_venue: NIL_UUID }, expect: OWNER_ONLY,
+    note: 'owner only; an unknown branch is VENUE_NOT_FOUND past the guard',
+    drop: 19,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'close_branch',
+    args: { p_venue: NIL_UUID }, expect: OWNER_ONLY,
+    note: 'owner only; an unknown branch is VENUE_NOT_FOUND past the guard',
+    drop: 19,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'storage_path_in_use',
+    args: { p_path: 'items/none.png' }, expect: STAFF_ANY,
+    note: 'any staff member; read-only',
+    drop: 19,
+  },
+  // 0227: one staff member's branches, for the owner's staff record.
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_memberships',
+    args: { p_staff_id: NIL_UUID }, expect: OWNER_ONLY,
+    note: 'owner only; read-only',
+    drop: 19,
+  },
+  // 0225: a table QR's open branch, before any session (public by design).
+  {
+    kind: 'rpc', schema: 'app', name: 'table_branch',
+    args: { p_token: 'not-a-token' }, expect: SELF_ANON_OK,
+    note: 'anyone; an invalid token returns null',
+    drop: 19,
+  },
+  // 0225/0226: the two venue helpers the read policies call (public by design).
+  {
+    kind: 'rpc', schema: 'app', name: 'open_venue_ids',
+    args: {}, expect: SELF_ANON_OK,
+    note: 'the open branches, which guests already see; granted because the guest read policies call it',
+    drop: 19,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'visible_venue_ids',
+    args: {}, expect: SELF_ANON_OK,
+    note: 'the caller’s own scoped branches; a guest gets an empty array, not a refusal',
+    drop: 19,
   },
 ];

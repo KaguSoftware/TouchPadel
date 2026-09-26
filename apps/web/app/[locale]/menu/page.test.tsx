@@ -2,8 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { screen, within } from '@testing-library/react';
 import { t, type Locale } from '@touch/i18n';
-import { MENU_ERROR, MENU_FIXTURE, resetServerData, serverData } from '@/test/fixtures';
-import { cookieJar, renderServerPage, resetCookieJar } from '@/test/renderPage';
+import {
+  MENU_ERROR,
+  MENU_FIXTURE,
+  resetServerData,
+  SECOND_BRANCH,
+  serverData,
+  VENUE_FIXTURE,
+} from '@/test/fixtures';
+import { cookieJar, pageProps, renderServerPage, resetCookieJar } from '@/test/renderPage';
 import CafeMenuPage, { generateMetadata } from './page';
 
 /**
@@ -23,12 +30,32 @@ import CafeMenuPage, { generateMetadata } from './page';
  * lands on `error` here (the BOUND state needs a live `app.open_table_session`
  * and belongs to the e2e suite).
  */
+/** Which branch each per-branch read was asked for, in call order. */
+const reads = vi.hoisted(() => ({
+  menu: [] as (string | null)[],
+  settings: [] as (string | null)[],
+  /** tokens `getTableBranch` was asked about, and the branch it answers */
+  tokens: [] as string[],
+  tableBranch: null as string | null,
+}));
+
 vi.mock('@/lib/menu.server', async () => {
-  const { serverData } = await import('@/test/fixtures');
+  const { serverData, fixtureBranches } = await import('@/test/fixtures');
   return {
-    getCachedMenu: () => Promise.resolve(serverData.menu),
-    getCachedCafeSettings: () => Promise.resolve(serverData.settings),
-    getCachedVenue: () => Promise.resolve(serverData.venue),
+    getCachedMenu: (venueId: string | null = null) => {
+      reads.menu.push(venueId);
+      return Promise.resolve(serverData.menu);
+    },
+    getCachedCafeSettings: (venueId: string | null = null) => {
+      reads.settings.push(venueId);
+      return Promise.resolve(serverData.settings);
+    },
+    getCachedBranches: () => Promise.resolve(fixtureBranches()),
+    getTableBranch: (token: string) => {
+      reads.tokens.push(token);
+      return Promise.resolve(reads.tableBranch);
+    },
+    getCachedVenue: () => Promise.resolve(fixtureBranches()[0] ?? null),
   };
 });
 
@@ -62,6 +89,10 @@ function bandWords(): string[] {
 beforeEach(() => {
   resetServerData();
   resetCookieJar();
+  reads.menu = [];
+  reads.settings = [];
+  reads.tokens = [];
+  reads.tableBranch = null;
 });
 
 describe('café menu page', () => {
@@ -116,7 +147,7 @@ describe('café menu page', () => {
     cookieJar.table = 'tp-fixture-token';
     // renderToString runs no effects, so this is exactly the HTML a guest can
     // tap before hydration (after it, the href is refined from the live URL).
-    const html = renderToString(await CafeMenuPage({ params: Promise.resolve({ locale: 'en' }) }));
+    const html = renderToString(await CafeMenuPage(pageProps('en')));
     const switchTag = html.match(/<a[^>]*class="tp-locale-switch"[^>]*>/)?.[0] ?? '';
     expect(switchTag).toContain('href="/ar/menu"');
     // The old default was `/{other}/t/{token}`: the credential in the markup.
@@ -140,6 +171,133 @@ describe('café menu page', () => {
       canonical: '/en/menu',
       languages: { en: '/en/menu', ar: '/ar/menu', 'x-default': '/ar/menu' },
     });
+  });
+
+  it('reads the only open branch’s menu and settings, with no chooser and no branch strip', async () => {
+    await renderServerPage(CafeMenuPage, 'en');
+
+    expect(reads.menu).toEqual([VENUE_FIXTURE.id]);
+    expect(reads.settings).toEqual([VENUE_FIXTURE.id]);
+    expect(document.querySelector('.tp-branches')).toBeNull();
+    expect(document.querySelector('.tp-branchbar')).toBeNull();
+    expect(bandWords()).toHaveLength(MENU_FIXTURE.length);
+  });
+
+  it('says the menu is unavailable when the branch list could not be read, never mixing branches', async () => {
+    // Multi-venue audit: the unfiltered read returned every branch's menu at once.
+    serverData.branches = [];
+    serverData.venue = null;
+    await renderServerPage(CafeMenuPage, 'en');
+
+    expect(reads.menu).toEqual([]);
+    expect(document.querySelector('.tp-branches')).toBeNull();
+  });
+
+  describe('two open branches', () => {
+    beforeEach(() => {
+      serverData.branches = [VENUE_FIXTURE, SECOND_BRANCH];
+    });
+
+    it('asks a walk-in which branch first, one link per branch, and reads no menu', async () => {
+      await renderServerPage(CafeMenuPage, 'en');
+
+      expect(
+        screen.getByRole('heading', { level: 1, name: t('en', 'branches.web.menuPickerTitle') }),
+      ).toBeTruthy();
+      expect(screen.getByText(t('en', 'branches.web.menuPickerHint'))).toBeTruthy();
+      const list = screen.getByRole('list', { name: t('en', 'branches.common.chooseBranch') });
+      const links = within(list).getAllByRole('link');
+      expect(links.map((a) => a.getAttribute('href'))).toEqual([
+        '/en/menu?b=fixture-a',
+        '/en/menu?b=fixture-b',
+      ]);
+      expect(links[0]?.textContent).toContain(VENUE_FIXTURE.name_en);
+      // The second branch has its address stored; the first has none (no fallback line here).
+      expect(links[1]?.textContent).toContain(SECOND_BRANCH.address_en);
+      expect(reads.menu).toEqual([]);
+      expect(bandWords()).toEqual([]);
+    });
+
+    it('names the branches in Arabic at /ar', async () => {
+      await renderServerPage(CafeMenuPage, 'ar');
+
+      expect(screen.getByText(t('ar', 'branches.web.menuPickerTitle'))).toBeTruthy();
+      expect(screen.getByText(SECOND_BRANCH.name_ar)).toBeTruthy();
+      expect(screen.getByText(SECOND_BRANCH.address_ar!)).toBeTruthy();
+      expect(screen.queryByText(SECOND_BRANCH.name_en)).toBeNull();
+    });
+
+    it('serves the chosen branch’s menu for ?b=<slug>, with a way back to the chooser', async () => {
+      await renderServerPage(CafeMenuPage, 'en', { b: 'fixture-b' });
+
+      expect(reads.menu).toEqual([SECOND_BRANCH.id]);
+      expect(reads.settings).toEqual([SECOND_BRANCH.id]);
+      expect(document.querySelector('.tp-branches')).toBeNull();
+      const strip = document.querySelector<HTMLElement>('.tp-branchbar')!;
+      expect(strip.textContent).toContain(SECOND_BRANCH.name_en);
+      expect(
+        within(strip)
+          .getByRole('link', { name: t('en', 'branches.common.changeBranch') })
+          .getAttribute('href'),
+      ).toBe('/en/menu');
+      expect(bandWords()).toHaveLength(MENU_FIXTURE.length);
+    });
+
+    it('asks again for a slug that is not an open branch', async () => {
+      await renderServerPage(CafeMenuPage, 'en', { b: 'closed-branch' });
+
+      expect(document.querySelector('.tp-branches')).not.toBeNull();
+      expect(reads.menu).toEqual([]);
+    });
+
+    it('serves a table guest their table’s branch on first paint, never the chooser', async () => {
+      cookieJar.table = 'tp-fixture-token';
+      reads.tableBranch = SECOND_BRANCH.id;
+      await renderServerPage(CafeMenuPage, 'en');
+
+      expect(reads.tokens).toEqual(['tp-fixture-token']);
+      expect(reads.menu).toEqual([SECOND_BRANCH.id]);
+      expect(reads.settings).toEqual([SECOND_BRANCH.id]);
+      expect(document.querySelector('.tp-branches')).toBeNull();
+      expect(document.querySelector('.tp-branchbar')).toBeNull();
+      expect(document.querySelector('.tp-cafe__table')).not.toBeNull();
+    });
+
+    it('lets a ?b= slug beat an old table cookie (the table only browses there)', async () => {
+      // Multi-venue audit: the 12 h cookie used to override the branch the guest asked for.
+      cookieJar.table = 'tp-fixture-token';
+      reads.tableBranch = SECOND_BRANCH.id;
+      await renderServerPage(CafeMenuPage, 'en', { b: 'fixture-a' });
+
+      expect(reads.menu).toEqual([VENUE_FIXTURE.id]);
+    });
+
+    it("shows the table's branch when no branch is asked for", async () => {
+      cookieJar.table = 'tp-fixture-token';
+      reads.tableBranch = SECOND_BRANCH.id;
+      await renderServerPage(CafeMenuPage, 'en');
+
+      expect(reads.menu).toEqual([SECOND_BRANCH.id]);
+    });
+
+    it('asks which branch when the token names no open branch', async () => {
+      cookieJar.table = 'tp-fixture-token';
+      await renderServerPage(CafeMenuPage, 'en');
+
+      expect(reads.tokens).toEqual(['tp-fixture-token']);
+      expect(
+        screen.getByRole('heading', { level: 1, name: t('en', 'branches.web.menuPickerTitle') }),
+      ).toBeTruthy();
+      expect(reads.menu).toEqual([]);
+    });
+  });
+
+  it('does not ask which branch a table is at while only one is open', async () => {
+    cookieJar.table = 'tp-fixture-token';
+    await renderServerPage(CafeMenuPage, 'en');
+
+    expect(reads.tokens).toEqual([]);
+    expect(reads.menu).toEqual([VENUE_FIXTURE.id]);
   });
 
   it('404s a foreign locale segment before reading the cookie or the menu', async () => {

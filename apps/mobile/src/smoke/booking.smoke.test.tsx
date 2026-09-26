@@ -10,7 +10,9 @@
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
 import {
   TEST_RESERVATION_ID,
+  TEST_VENUE_ID,
   bookingFixture,
+  branchFixture,
   courtFixture,
   venueSettingsFixture,
 } from '../test/fixtures';
@@ -22,11 +24,16 @@ import BookingHistoryScreen from '../../app/booking-history';
 import ReviewScreen from '../../app/review';
 import SuccessScreen from '../../app/success';
 
-/** Everything the availability grid and the venue-aware screens read. */
+/**
+ * Everything the availability grid and the venue-aware screens read: ONE open
+ * branch (so no picker, as on today's install) and that branch's rows.
+ */
 const VENUE: [readonly unknown[], unknown][] = [
-  [availabilityKeys.settings, venueSettingsFixture()],
-  [availabilityKeys.courts, [courtFixture()]],
-  [availabilityKeys.rates, []],
+  [availabilityKeys.branches, [branchFixture()]],
+  [availabilityKeys.settings(TEST_VENUE_ID), venueSettingsFixture()],
+  [availabilityKeys.courts(TEST_VENUE_ID), [courtFixture()]],
+  [availabilityKeys.allCourts, [courtFixture()]],
+  [availabilityKeys.rates(TEST_VENUE_ID), []],
   [availabilityKeys.ratePrices, []],
 ];
 

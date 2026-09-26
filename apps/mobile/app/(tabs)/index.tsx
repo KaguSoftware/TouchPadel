@@ -20,6 +20,7 @@ import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign, mirror } from '../../src/i18n/direction';
 import { useVenueSettings } from '../../src/features/availability/hooks';
+import { BranchPicker } from '../../src/features/availability/BranchPicker';
 import { openNowInfo, type VenueSettingsPublic } from '../../src/features/availability/assemble';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
 import { takeBookingSheetRequest } from '../../src/features/courtTransition/openIntent';
@@ -816,7 +817,7 @@ export default function BookHomeScreen() {
             style={{ height: LOGO_H, width: LOGO_W }}
             accessibilityLabel={t('common.appName')}
           />
-          <OpenNowPill settings={settings.data} />
+          <OpenNowPill settings={settings.data ?? undefined} />
         </View>
 
         {/* Title row: [back to the court] BOOK A COURT ⇄ PICK A TIME */}
@@ -1224,6 +1225,21 @@ export default function BookHomeScreen() {
             </Animated.View>
           </Animated.View>
         </View>
+
+        {/* The branch picker (multi-venue slice 4), before the grid: which
+            branch the sheet will book at. It renders nothing with one open
+            branch, so today's tab is unchanged. It belongs to the court view
+            and leaves with BOOK A COURT (`header.out`), taking no touches and
+            hiding from screen readers while the sheet is up. The sheet then
+            shows the chosen branch's times, phone and notice. */}
+        <Animated.View
+          pointerEvents={isOpen ? 'none' : 'auto'}
+          accessibilityElementsHidden={isOpen}
+          importantForAccessibility={isOpen ? 'no-hide-descendants' : 'auto'}
+          style={{ paddingStart: space.l, paddingEnd: space.l, opacity: header.out }}
+        >
+          <BranchPicker testID="book.branch" style={{ paddingBottom: space.s }} />
+        </Animated.View>
       </View>
 
       {/* Stage: the court fills everything above the tab bar; the button sits on its net, the ball

@@ -25,7 +25,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { appRpc } from '../../../lib/appRpc';
 import { supabase } from '../../../lib/supabase';
 import type { StaffRole } from '../../../lib/auth';
-import { useLocale } from '../../../lib/i18n';
+import { useLocale, pickName } from '../../../lib/i18n';
+import { useVenue } from '../../../lib/venue';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, Field, inputStyle } from '../../../components/ui';
@@ -198,6 +199,8 @@ export function StaffAccountEditor({
         </div>
       </Section>
 
+      <BranchesField staff={staff} canManage={canManage && staff.is_active} onError={setError} />
+
       <Section title={tr('ws.owner.staff.stations.title')}>
         {approvesWithPin(staff.role) ? (
           <Note>{tr('ws.owner.staff.stations.management')}</Note>
@@ -346,4 +349,79 @@ function Note({ children }: { children: ReactNode }) {
 
 function Actions({ children }: { children: ReactNode }) {
   return <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end' }}>{children}</div>;
+}
+
+/**
+ * The branches this person works at (multi-venue slice 4, 0218/0227). Owner
+ * only, and only once there is more than one branch. An owner works at every
+ * branch and holds none; someone at two branches picks one on every screen.
+ */
+function BranchesField({ staff, canManage, onError }: { staff: StaffRow; canManage: boolean; onError: (e: unknown) => void }) {
+  const { tr, locale } = useLocale();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  // The owner holds no memberships and sees every branch in the switcher list;
+  // canManage already says the viewer may edit staff (owner-only screen).
+  const { venues } = useVenue();
+  const isOwner = canManage;
+  const key = ['staffMemberships', staff.id] as const;
+  const membershipsQ = useQuery({
+    queryKey: key,
+    enabled: isOwner && venues.length > 1 && staff.role !== 'owner',
+    queryFn: () => appRpc<string[]>('staff_memberships', { p_staff_id: staff.id }),
+  });
+  const [draft, setDraft] = useState<Set<string> | null>(null);
+  useEffect(() => setDraft(null), [membershipsQ.data]);
+  const current = useMemo(() => new Set(membershipsQ.data ?? []), [membershipsQ.data]);
+  const chosen = draft ?? current;
+  const dirty = draft !== null && (draft.size !== current.size || [...draft].some((v) => !current.has(v)));
+
+  const save = useMutation({
+    mutationFn: (ids: string[]) => appRpc('set_staff_venues', { p_staff_id: staff.id, p_venue_ids: ids }),
+    onSuccess: () => {
+      toast.ok(tr('ws.branches.staff.save'));
+      onError(null);
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: unknown) => onError(e),
+  });
+
+  if (!isOwner || venues.length <= 1) return null;
+  if (staff.role === 'owner') {
+    return (
+      <Section title={tr('ws.branches.staff.branches')}>
+        <Note>{tr('ws.branches.staff.owner')}</Note>
+      </Section>
+    );
+  }
+  return (
+    <Section title={tr('ws.branches.staff.branches')}>
+      <Note>{tr('ws.branches.staff.branchesHint')}</Note>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)' }}>
+        {venues.map((v) => (
+          <label key={v.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+            <input
+              type="checkbox"
+              checked={chosen.has(v.id)}
+              disabled={!canManage || save.isPending}
+              onChange={(e) => {
+                const next = new Set(chosen);
+                if (e.target.checked) next.add(v.id);
+                else next.delete(v.id);
+                setDraft(next);
+              }}
+            />
+            {pickName(locale, v)}
+          </label>
+        ))}
+      </div>
+      {dirty && (
+        <div>
+          <Button size="sm" kind="primary" busy={save.isPending} disabled={chosen.size === 0} onClick={() => save.mutate([...chosen])}>
+            {tr('ws.branches.staff.save')}
+          </Button>
+        </div>
+      )}
+    </Section>
+  );
 }

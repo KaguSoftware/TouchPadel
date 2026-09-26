@@ -6,7 +6,7 @@
  *
  * For every product release live for 30 days (app.release_due_reviews): its
  * input (app.release_review_input, the model's only input), the model from
- * the run venue's llm_default_model (venue-qualified; Q13), one structured
+ * platform_settings.llm_default_model (the chain's, 0207; was per venue, Q13), one structured
  * call returning {en, ar} under the spend cap (app.llm_begin_request, then
  * app.llm_record_usage with surface 'release_review'), the number gate and
  * the template fallback of analytics-insights, then app.release_review_save,
@@ -40,13 +40,15 @@ function ports(service: SupabaseClient): ReviewPorts {
   return {
     dueReviews: async () => ((await rpc('release_due_reviews', { p_limit: 5 })) as DueReview[] | null) ?? [],
     input: (runId) => rpc('release_review_input', { p_run_id: runId }),
-    async modelFor(venueId) {
+    // 0207: the model is the chain's (platform_settings, MV5), the same for every
+    // venue; the venue argument stays so review.ts keeps one seam per run.
+    async modelFor(_venueId) {
       const { data, error } = await service
-        .from('venue_settings')
+        .from('platform_settings')
         .select('llm_default_model')
-        .eq('venue_id', venueId)
+        .eq('id', true)
         .maybeSingle();
-      if (error) throw new Error(`venue_settings: ${error.message}`);
+      if (error) throw new Error(`platform_settings: ${error.message}`);
       return (data as { llm_default_model?: string | null } | null)?.llm_default_model ?? null;
     },
     writer(model): ReviewWriter | null {

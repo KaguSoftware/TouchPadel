@@ -156,7 +156,7 @@ if (signInError) {
   console.error(`\nFAIL  owner sign-in failed: ${signInError.message} (seeded owner missing? see tests/helpers.ts)`);
   process.exit(1);
 }
-const { data: venue } = await supabase.from('venue_settings').select('timezone').maybeSingle();
+const { data: venue } = await supabase.from('platform_settings').select('timezone').eq('id', true).maybeSingle();
 const tz = venue?.timezone ?? 'Asia/Baghdad';
 
 const listTools = catalog.ASSISTANT_TOOLS.filter((t) => t.kind === 'list' && t.rpc);

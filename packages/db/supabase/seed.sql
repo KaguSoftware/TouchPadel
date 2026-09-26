@@ -184,3 +184,10 @@ update staff set pin_hash = extensions.crypt('380517', extensions.gen_salt('bf')
  where id = 'a0000000-0000-4000-8000-000000000002';
 update staff set pin_hash = extensions.crypt('492738', extensions.gen_salt('bf'))
  where id = 'a0000000-0000-4000-8000-000000000006';
+
+-- The operator's browser bridge beats as station DEV1 (apps/operator/src/ipc/bridge.ts).
+-- Since 0229 a heartbeat never registers a machine (decision A1), so the dev and
+-- e2e till is registered here, the way a manager does in Settings > Stations.
+insert into stations (id, venue_id, is_till, mode)
+values ('DEV1', app.default_venue(), true, 'till')
+on conflict (id) do nothing;

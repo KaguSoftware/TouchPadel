@@ -6,16 +6,18 @@
  *   1. app.claim_due_telegram(50): queued, attempts < 8, due, SKIP LOCKED;
  *      the claim bumps `attempts` up front.
  *   2. Render each row from its payload SNAPSHOT (never re-reads live rows) in
- *      the language from `cafe_settings.telegram_lang` (payload wins if it
- *      ever carries `lang`), then Bot API `sendMessage` (HTML + inline keyboard).
+ *      the language from its branch's `cafe_settings.telegram_lang` (per branch
+ *      since 0209; payload wins if it ever carries `lang`), then Bot API
+ *      `sendMessage` (HTML + inline keyboard).
  *   3. Stamp the row:
  *        ok            -> status 'sent', sent_at, telegram_message_id, text,
  *                         reply_markup (the callback needs both for editMessageText)
  *        429           -> stay 'queued', scheduled_for = now + retry_after
  *        network / 5xx -> stay 'queued', last_error, backoff min(5s * 2^attempts, 5min)
  *        400 + migrate_to_chat_id -> the group became a supergroup: follow it once
- *                         (row chat_id, and cafe_settings.telegram_chat_id when it still
- *                         holds the old id, so taps keep passing 0039's chat check),
+ *                         (row chat_id, and the row's branch's cafe_settings.telegram_chat_id
+ *                         when it still holds the old id, so taps keep passing 0039's
+ *                         chat check),
  *                         then resend in the same pass
  *        other 4xx     -> 'failed' (bad token / chat not found / parse error: retrying
  *                         cannot help; the owner re-queues via app.retry_telegram_outbox)
@@ -43,6 +45,8 @@ interface OutboxRow {
   chat_id: string;
   payload: Record<string, unknown>;
   attempts: number;
+  /** 0126: the branch the alert belongs to; its group and language are per branch (0209, 0212). */
+  venue_id: string;
 }
 
 interface TgResponse {
@@ -125,11 +129,14 @@ Deno.serve(async (req) => {
     if (rows.length === 0) return json({ configured: true, claimed: 0, sent: 0, failed: 0, skipped: 0 });
 
     // Language: payload wins if present (not today, per 0032), else one settings read.
-    let settingLang: Lang | null = null;
+    // telegram_lang per branch (0209): one read for every branch in this batch.
+    const langByVenue = new Map<string, Lang>();
     const needsSetting = rows.some((r) => !(r.payload?.lang === 'ar' || r.payload?.lang === 'en'));
     if (needsSetting) {
-      const { data: s } = await db.from('cafe_settings').select('value').eq('key', 'telegram_lang').maybeSingle();
-      settingLang = s?.value === 'en' ? 'en' : 'ar';
+      const { data: s } = await db.from('cafe_settings').select('venue_id, value').eq('key', 'telegram_lang');
+      for (const r of (s ?? []) as { venue_id: string; value: unknown }[]) {
+        langByVenue.set(r.venue_id, r.value === 'en' ? 'en' : 'ar');
+      }
     }
 
     let sent = 0;
@@ -137,7 +144,7 @@ Deno.serve(async (req) => {
     let skipped = 0;
 
     for (const row of rows) {
-      const lang: Lang = row.payload?.lang === 'en' ? 'en' : row.payload?.lang === 'ar' ? 'ar' : (settingLang ?? 'ar');
+      const lang: Lang = row.payload?.lang === 'en' ? 'en' : row.payload?.lang === 'ar' ? 'ar' : (langByVenue.get(row.venue_id) ?? 'ar');
 
       let text: string;
       let replyMarkup: unknown;
@@ -167,12 +174,18 @@ Deno.serve(async (req) => {
         const newChatId = outcome.newChatId;
         console.warn(`outbox ${row.id}: chat ${row.chat_id} migrated to ${newChatId}`);
         // Only move the setting if nobody has changed it since this row was enqueued.
-        const { data: current } = await db.from('cafe_settings').select('value').eq('key', 'telegram_chat_id').maybeSingle();
+        const { data: current } = await db
+          .from('cafe_settings')
+          .select('value')
+          .eq('key', 'telegram_chat_id')
+          .eq('venue_id', row.venue_id)
+          .maybeSingle();
         if (current?.value === row.chat_id) {
           const { error: settingErr } = await db
             .from('cafe_settings')
             .update({ value: newChatId, updated_at: new Date().toISOString() })
-            .eq('key', 'telegram_chat_id');
+            .eq('key', 'telegram_chat_id')
+            .eq('venue_id', row.venue_id);
           if (settingErr) console.error('telegram_chat_id follow failed:', settingErr.message);
         }
         await db.from('telegram_outbox').update({ chat_id: newChatId }).eq('id', row.id);

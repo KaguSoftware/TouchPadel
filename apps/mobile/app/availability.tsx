@@ -7,6 +7,7 @@ import { wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../src/features/availability/useAvailabilityBooking';
+import { BranchPicker } from '../src/features/availability/BranchPicker';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
@@ -72,6 +73,12 @@ export default function AvailabilityScreen() {
           />
         </View>
       ) : null}
+
+      {/* Which branch these times are for; nothing with one open branch. */}
+      <BranchPicker
+        testID="availability.branch"
+        style={{ marginTop: space.s, paddingStart: GUTTER, paddingEnd: GUTTER }}
+      />
 
       {/*
         Day strip — venue timezone + Latin digits via the shared formatters.

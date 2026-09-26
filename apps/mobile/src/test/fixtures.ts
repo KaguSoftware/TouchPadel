@@ -17,6 +17,10 @@ import type { Locale } from '@touch/i18n';
 const TEST_USER_ID = '00000000-0000-4000-8000-00000000beef';
 export const TEST_RESERVATION_ID = '11111111-1111-4111-8111-111111111111';
 const TEST_COURT_ID = '22222222-2222-4222-8222-222222222222';
+/** The one open branch every guest case books at (0122's default id). */
+export const TEST_VENUE_ID = 'c0000000-0000-4000-8000-000000000001';
+/** A second branch, for the cases that need the picker to show. */
+export const TEST_VENUE_2_ID = '44444444-4444-4444-8444-444444444444';
 
 export interface ProfileFixture {
   id: string;
@@ -82,6 +86,30 @@ export function venueSettingsFixture(over: Record<string, unknown> = {}) {
     cancellation_window_hours: 2,
     protected_horizon_hours: 0,
     phone: '009647700000000',
+    venue_id: TEST_VENUE_ID,
+    venue_name_en: 'Touch Padel',
+    venue_name_ar: 'تاتش بادل',
+    ...over,
+  };
+}
+
+/**
+ * One open branch as the branch list holds it (`availabilityKeys.branches`,
+ * branch.ts `Branch`). One of these alone means no picker, as on a
+ * one-branch install.
+ */
+export function branchFixture(over: Record<string, unknown> = {}) {
+  return {
+    venue_id: TEST_VENUE_ID,
+    venue_slug: 'touch-padel',
+    venue_name: 'Touch Padel',
+    venue_name_en: 'Touch Padel',
+    venue_name_ar: 'تاتش بادل',
+    address_en: null,
+    address_ar: null,
+    map_url: null,
+    phone: '009647700000000',
+    timezone: 'Asia/Baghdad',
     ...over,
   };
 }
@@ -89,6 +117,7 @@ export function venueSettingsFixture(over: Record<string, unknown> = {}) {
 export function courtFixture(over: Record<string, unknown> = {}) {
   return {
     id: TEST_COURT_ID,
+    venue_id: TEST_VENUE_ID,
     name_en: 'Court One',
     name_ar: 'الملعب الأول',
     description_en: null,
