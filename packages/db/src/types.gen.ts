@@ -768,6 +768,10 @@ export type Database = {
           total_iqd: number
         }[]
       }
+      cancel_deduction: {
+        Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
       cancel_reservation: {
         Args: { p_reason?: string; p_reservation_id: string }
         Returns: Json
@@ -951,6 +955,10 @@ export type Database = {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
       }
+      decide_deduction: {
+        Args: { p_approve: boolean; p_id: string; p_note?: string }
+        Returns: Json
+      }
       decide_recipe_change: {
         Args: { p_approve: boolean; p_id: string; p_reason?: string }
         Returns: Json
@@ -975,6 +983,20 @@ export type Database = {
       }
       decline_release_idea: {
         Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
+      deduction_targets: { Args: { p_venue_id?: string }; Returns: Json }
+      deductions_month: {
+        Args: { p_month?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      deductions_page: {
+        Args: {
+          p_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_venue_id?: string
+        }
         Returns: Json
       }
       default_venue: { Args: never; Returns: string }
@@ -1230,6 +1252,14 @@ export type Database = {
       }
       my_campaign_drafts: { Args: { p_venue_id?: string }; Returns: Json }
       my_checklists_today: { Args: { p_venue_id?: string }; Returns: Json }
+      my_deduction_proposals: {
+        Args: { p_limit?: number; p_venue_id?: string }
+        Returns: Json
+      }
+      my_deductions: {
+        Args: { p_month?: string; p_venue_id?: string }
+        Returns: Json
+      }
       my_marketing_notes: {
         Args: { p_limit?: number; p_venue_id?: string }
         Returns: Json
@@ -1455,6 +1485,17 @@ export type Database = {
       promotion_base_iqd: {
         Args: { p_scope: Json; p_tab_id: string }
         Returns: number
+      }
+      propose_deduction: {
+        Args: {
+          p_amount_iqd: number
+          p_date: string
+          p_idempotency_key?: string
+          p_reason: string
+          p_staff_id: string
+          p_venue_id?: string
+        }
+        Returns: Json
       }
       protocol_check_hiring_add_staff: {
         Args: { p_photos: string[]; p_record: Json; p_run_step_id: string }
@@ -2859,6 +2900,7 @@ export type Database = {
         }
         Returns: Json
       }
+      withdraw_deduction: { Args: { p_id: string }; Returns: Json }
       withdraw_marketing_request: { Args: { p_id: string }; Returns: Json }
       withdraw_protocol: { Args: { p_run_id: string }; Returns: Json }
       withdraw_recipe_change: { Args: { p_id: string }; Returns: Json }
@@ -7211,6 +7253,99 @@ export type Database = {
           },
           {
             foreignKeyName: "reservations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      salary_deductions: {
+        Row: {
+          amount_iqd: number
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          deduction_date: string
+          id: string
+          pay_month: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          staff_id: string
+          status: string
+          venue_id: string
+        }
+        Insert: {
+          amount_iqd: number
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          deduction_date: string
+          id?: string
+          pay_month?: string | null
+          proposed_at?: string
+          proposed_by: string
+          reason: string
+          staff_id: string
+          status?: string
+          venue_id: string
+        }
+        Update: {
+          amount_iqd?: number
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          deduction_date?: string
+          id?: string
+          pay_month?: string | null
+          proposed_at?: string
+          proposed_by?: string
+          reason?: string
+          staff_id?: string
+          status?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_deductions_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_deductions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_deductions_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_deductions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_deductions_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"

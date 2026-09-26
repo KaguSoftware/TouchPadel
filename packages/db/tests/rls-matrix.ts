@@ -3597,6 +3597,79 @@ export const matrix: MatrixRule[] = [
     drop: 17,
   },
 
+  // ── wave 5, lane P: people records (wave5-addendum-2026-09-25 §2.5-§2.7,
+  // §2.12). staff_push_keys_wave5 and staff_media_incidents grant no new RPC,
+  // so they have no rows here. Every new table refuses a client write, and
+  // its reads are proven against rolled-back rows in its own test file: this
+  // matrix has no probe row in them. The heads, the bar and kitchen staff,
+  // the driver, marketing and the two wave-5 roles are not among the eight
+  // principals; their cases live in those files too. ─────────────────────
+  // salary_deductions (§2.5): MGMT rows, everyone else silence
+  // (salary-deductions.test.ts).
+  {
+    kind: 'write',
+    name: 'salary_deductions',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'no client write grant: propose_deduction, withdraw_deduction, decide_deduction and cancel_deduction only',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deduction_targets',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'the head barista and the head chef (their own team, not in this matrix) and MGMT at the venue',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'propose_deduction',
+    args: { p_staff_id: NIL_UUID, p_amount_iqd: 0, p_date: DAY_FROM, p_reason: 'matrix', p_venue_id: VENUE_A },
+    expect: MANAGER_UP,
+    note: 'the heads (not in this matrix) and MGMT at the venue; an amount of 0 stops at INVALID_AMOUNT before the target check, so nothing is written',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'withdraw_deduction',
+    args: { p_id: NIL_UUID }, expect: STAFF_ANY,
+    note: 'any active staff member; then the proposer only. An unknown deduction is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'decide_deduction',
+    args: { p_id: NIL_UUID, p_approve: true }, expect: STAFF_ANY,
+    note: 'any active staff member; then MGMT at the deduction\'s venue, never the proposer or the person. An unknown deduction is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'cancel_deduction',
+    args: { p_id: NIL_UUID, p_reason: 'matrix' }, expect: STAFF_ANY,
+    note: 'any active staff member; then the owner. An unknown deduction is REF_NOT_FOUND',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deductions_page',
+    args: { p_venue_id: VENUE_A, p_filter: 'matrix-never' }, expect: MANAGER_UP,
+    note: 'MGMT at the venue; an unknown filter fails INVALID_ARGUMENT past the guard',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deductions_month',
+    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: MANAGER_UP,
+    note: 'MGMT at the venue: one pay month by person',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_deduction_proposals',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'the heads (not in this matrix) and MGMT at the venue: their own proposals',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_deductions',
+    args: { p_venue_id: VENUE_A, p_month: DAY_FROM }, expect: STAFF_ANY,
+    note: 'any active staff member at the venue: their own approved and cancelled deductions',
+    drop: 18,
+  },
   // ── wave 5, lane R: the waiter answers guests' calls (wave5-addendum-2026-09-25
   // §2.1.8, §8 Q3). assistant_barista_waiter_access adds the waiter to the
   // waiter_calls read and to both call RPCs, and gives the RPCs a venue

@@ -297,6 +297,15 @@
     "withdraw_release_idea",
     "withdraw_staff_request",
     "withdraw_step",
-    "write_off_expired"
+    "write_off_expired",
+    "deduction_targets",
+    "propose_deduction",
+    "withdraw_deduction",
+    "decide_deduction",
+    "cancel_deduction",
+    "deductions_page",
+    "deductions_month",
+    "my_deduction_proposals",
+    "my_deductions"
   ]
 }

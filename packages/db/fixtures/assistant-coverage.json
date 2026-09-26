@@ -109,7 +109,8 @@
     "tickets": "table_read",
     "venue_settings": "table_read",
     "venues": "table_read",
-    "waiter_calls": "table_read"
+    "waiter_calls": "table_read",
+    "salary_deductions": "excluded: staff pay deductions, money about a named person; never readable by the owner assistant or any LLM"
   },
   "views": {
     "cafe_settings_public": "table_read",
@@ -696,7 +697,16 @@
     "write_audit": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "write_audit_external": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "write_off_expired": "map:action",
-    "trg_waiter_call_push": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client"
+    "trg_waiter_call_push": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "deduction_targets": "map:action",
+    "propose_deduction": "map:action",
+    "withdraw_deduction": "map:action",
+    "decide_deduction": "map:action",
+    "cancel_deduction": "map:action",
+    "deductions_page": "map:action",
+    "deductions_month": "map:action",
+    "my_deduction_proposals": "map:action",
+    "my_deductions": "map:action"
   },
   "routes": {
     "/admin": "map:page",

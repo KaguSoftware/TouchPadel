@@ -121,6 +121,8 @@ truncate table
   public.telegram_actions,
   public.staff_breaks,
   public.staff_requests,
+  -- wave 5, lane P (wave5-addendum §7.8, PROPOSAL): test-period records.
+  public.salary_deductions,
   public.station_staff,
   -- `stations` is the device registry (0124). Dev sessions and test tills
   -- registered themselves here; a real till re-registers on its first

@@ -1,5 +1,5 @@
 {
-  "generated_from": "799cd342382e4adc49837788f4ee55566e440dd5",
+  "generated_from": "f254201666b54bf65e399788a376c0cb2c1ff288",
   "chunks": [
     {
       "kind": "page",
@@ -2099,6 +2099,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.cancel_deduction",
+      "lang": "en",
+      "title": "app.cancel_deduction",
+      "body": "salary_deductions (wave5-addendum §2.5.3). The owner cancels an approved deduction, never one against themselves, with a reason (1 to 1000); the row and its pay month stay, and it leaves every total. No push. Returns {status: cancelled, cancelled_at}. REF_NOT_FOUND, FORBIDDEN, INVALID_TRANSITION (not approved), CANNOT_DECIDE_OWN, REASON_REQUIRED, TEXT_TOO_LONG (hint reason). Audit staff.deduction.cancel {status}.\nSignature: app.cancel_deduction(p_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: staff.deduction.cancel.\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_TRANSITION, CANNOT_DECIDE_OWN, REASON_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.cancel_reservation",
       "lang": "en",
       "title": "app.cancel_reservation",
@@ -2243,6 +2251,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.decide_deduction",
+      "lang": "en",
+      "title": "app.decide_deduction",
+      "body": "salary_deductions (wave5-addendum §2.5.3). A manager or owner at the deduction's venue approves or declines a waiting deduction, never one they proposed or one against themselves; a decline needs a note (at most 1000). An approval stamps pay_month, the venue's business month today (V16). Tells the proposer (staff_decided / deduction_approved or deduction_declined) and, on an approval, the person (staff_info / deduction_recorded), with no amount. Returns {status, decided_at, pay_month}. REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT (hint approve), TEXT_TOO_LONG (hint note), REASON_REQUIRED. Audit staff.deduction.approve / .decline {status}.\nSignature: app.decide_deduction(p_id uuid, p_approve boolean, p_note text default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, CANNOT_DECIDE_OWN, INVALID_ARGUMENT, TEXT_TOO_LONG, REASON_REQUIRED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.decide_recipe_change",
       "lang": "en",
       "title": "app.decide_recipe_change",
@@ -2279,6 +2295,30 @@
       "lang": "en",
       "title": "app.decline_release_idea",
       "body": "product_release (§2.9). The head of the idea's team (head_barista for bar, head_chef for kitchen) or MGMT at its venue declines a waiting idea with a reason (<= 1000), which the author reads; the author is told (staff_decided / idea_declined). REF_NOT_FOUND, FORBIDDEN, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG. Returns {status}. Audit protocol.release.idea_decline (no text).\nSignature: app.decline_release_idea(p_id uuid, p_reason text) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: protocol.release.idea_decline.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED, REASON_REQUIRED, TEXT_TOO_LONG.\nCalled from: apps/operator/src/features/roleExtras/Ideas.tsx.\nDefined in migration 0172 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deduction_targets",
+      "lang": "en",
+      "title": "app.deduction_targets",
+      "body": "salary_deductions (wave5-addendum §2.5.3). The heads and MGMT at the venue: {staff: [{id, display_name, role}]} by name, the people the caller may propose a deduction for: a head's own team's active members at the venue (app.staff_team), never a head role or themselves; MGMT every active non-owner at the venue but themselves. FORBIDDEN for anyone else.\nSignature: app.deduction_targets(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deductions_month",
+      "lang": "en",
+      "title": "app.deductions_month",
+      "body": "salary_deductions (wave5-addendum §2.5.3, V16). MGMT at the venue, every person but the caller: {month, totals: {approved_iqd, approved_count, waiting_iqd, waiting_count, people}, people: [{staff_id, display_name, role, is_active, approved_iqd, approved_count, waiting_iqd, waiting_count, deductions: [{id, amount_iqd, deduction_date, dated_earlier, reason, status, proposed_by_name, decided_by_name, decided_at}]}]} for p_month (NULL: the venue's current business month): the approved and cancelled rows whose pay month it is, and in the current month the waiting rows too. Cancelled rows are listed and in no total. FORBIDDEN for anyone else.\nSignature: app.deductions_month(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deductions_page",
+      "lang": "en",
+      "title": "app.deductions_page",
+      "body": "salary_deductions (wave5-addendum §2.5.3). MGMT at the venue, every row but the ones against the caller: {deductions: [{id, staff_id, staff_name, staff_role, amount_iqd, deduction_date, pay_month, dated_earlier, reason, status, proposed_by_name, proposed_by_role, proposed_at, decided_by_name, decided_at, decision_note, cancelled_by_name, cancelled_at, cancel_reason, can_decide, can_cancel}], waiting_count, total} for p_filter waiting, decided (approved, declined, cancelled) or all, waiting first and then newest, p_limit 1 to 200. INVALID_ARGUMENT (hint filter); FORBIDDEN for anyone else.\nSignature: app.deductions_page(p_venue_id uuid default null, p_filter text default 'waiting', p_limit int default 50, p_offset int default 0) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2611,6 +2651,22 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.my_deduction_proposals",
+      "lang": "en",
+      "title": "app.my_deduction_proposals",
+      "body": "salary_deductions (wave5-addendum §2.5.2, §2.5.3). The heads and MGMT at the venue: {proposals: [{id, staff_name, staff_role, amount_iqd, deduction_date, reason, status, proposed_at, decided_at, decision_note}]}, the caller's own proposals at every status, newest first, p_limit 1 to 100 (default 30). No totals. FORBIDDEN for anyone else.\nSignature: app.my_deduction_proposals(p_venue_id uuid default null, p_limit int default 30) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.my_deductions",
+      "lang": "en",
+      "title": "app.my_deductions",
+      "body": "salary_deductions (wave5-addendum §2.5.2, §2.5.3). Any active staff member at the venue: {month, total_iqd, deductions: [{id, amount_iqd, deduction_date, dated_earlier, reason, status, decided_at}]}, their own approved and cancelled deductions whose pay month is p_month (NULL: the venue's current business month); total_iqd counts the approved ones. Never a waiting, declined or withdrawn row, the proposer, the decision note or the cancel reason. FORBIDDEN for anyone else.\nSignature: app.my_deductions(p_venue_id uuid default null, p_month date default null) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.my_marketing_notes",
       "lang": "en",
       "title": "app.my_marketing_notes",
@@ -2767,6 +2823,14 @@
       "lang": "en",
       "title": "app.production_today",
       "body": "staff_production (§2.16). The head chef, the chef and MGMT at the venue: {items: [{ingredient_id, name_en, name_ar, unit, on_hand, par_level, below_par, made_today, shelf_life_days}]}, every active prepared ingredient with an output recipe, below par first; made_today is the business day's production_in. No cost. FORBIDDEN for anyone else.\nSignature: app.production_today(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_chef,chef,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0167 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.propose_deduction",
+      "lang": "en",
+      "title": "app.propose_deduction",
+      "body": "salary_deductions (wave5-addendum §2.5.3). The heads and MGMT at the venue: proposes a deduction of 1 to 2,000,000 IQD, dated within the 60 days up to the venue's business date, with a reason (1 to 500), for one of app.deduction_targets. Tells MGMT at the venue but the person (staff_decide / deduction_proposed, the proposer's name only; dedupe deduction:<proposer>, 15 minutes). Returns {id, status: waiting}. Idempotent by key. FORBIDDEN (hint staff_id: not among the caller's targets), INVALID_AMOUNT, INVALID_ARGUMENT (hint date), TEXT_REQUIRED, TEXT_TOO_LONG (hint reason). Audit staff.deduction.propose {status}.\nSignature: app.propose_deduction(p_staff_id uuid, p_amount_iqd bigint, p_date date, p_reason text, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner).\nAudit actions written: staff.deduction.propose.\nError codes: FORBIDDEN, INVALID_AMOUNT, INVALID_ARGUMENT, TEXT_REQUIRED, TEXT_TOO_LONG.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3747,6 +3811,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.withdraw_deduction",
+      "lang": "en",
+      "title": "app.withdraw_deduction",
+      "body": "salary_deductions (wave5-addendum §2.5.3). The proposer takes back a waiting deduction. Returns {status}. REF_NOT_FOUND (unknown or elsewhere), FORBIDDEN (not theirs), SUBMISSION_DECIDED (already decided or withdrawn). No push. Audit staff.deduction.withdraw {status}.\nSignature: app.withdraw_deduction(p_id uuid) returns jsonb.\nGranted to: authenticated. Guard: any active staff row.\nAudit actions written: staff.deduction.withdraw.\nError codes: FORBIDDEN, REF_NOT_FOUND, SUBMISSION_DECIDED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0197 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.withdraw_marketing_request",
       "lang": "en",
       "title": "app.withdraw_marketing_request",
@@ -4455,6 +4527,14 @@
       "lang": "en",
       "title": "table reservations",
       "body": "Created in migration 0008.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  court_id uuid not null references courts(id)\n  kind reservation_kind not null\n  status reservation_status not null default 'pending'\n  start_at timestamptz not null\n  end_at timestamptz not null\n  period tstzrange generated always as (tstzrange(start_at, end_at, '[)')) stored\n  guest_id uuid references profiles(id)\n  guest_name text — walk-in without account\n  guest_phone text\n  created_by_staff_id uuid references staff(id)\n  source reservation_source not null\n  rate_rule_id uuid references rate_rules(id) — PRICE PROVENANCE\n  price_iqd iqd — snapshot at confirm; explainable forever\n  hold_expires_at timestamptz — kind='hold' only\n  cancelled_at timestamptz\n  cancellation_reason text\n  notes text\n  device_id text\n  idempotency_key text unique — '{station}:{mutation_type}:{ulid}' (override #2)\n  client_ref text unique — '{station}-{ulid}' client entity ref (override #2)\n  created_at timestamptz not null default now()\n  series_id uuid references reservation_series(id)\n  cancelled_by cancellation_actor — 0088. Who cancelled this booking, stamped by app.cancel_reservation. NULL = cancelled before 0088 with no audit row to recover the actor from, or never cancelled at all — read it together with status, never on its own. A no_show leaves it null: that stamps cancelled_at (0075) but was not cancelled by anybody.\n  venue_id uuid\n  block_purpose text — event_court_blocks (§2.11): 'event' on a maintenance block a tournament asked for (app.block_courts_for_event); NULL on every other row. Analytics counts an event block as open time and reports it as event_minutes; only a block that is not an event is subtracted from open time.\n  protocol_run_id uuid — event_court_blocks (§2.11): the tournament run an event block belongs to; its stop cancels the run's future blocks. NULL on every other row.",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:salary_deductions",
+      "lang": "en",
+      "title": "table salary_deductions",
+      "body": "salary_deductions (wave5-addendum §2.5, answer #2): pay deductions a head proposes for a member of their team (or MGMT for anyone at the venue), decided by a manager or the owner. A record, not payroll: the owner pays outside the system. Read by MGMT at the venue; the proposer and the person read through RPCs. Never readable by the owner assistant or any LLM.\nCreated in migration 0197.\nColumns:\n  id uuid primary key default gen_random_uuid() — Deduction id.\n  venue_id uuid not null references venues(id) — The venue.\n  staff_id uuid not null references staff(id) — The person the deduction is against.\n  amount_iqd iqd not null — The amount, 1 to 2,000,000 IQD.\n  deduction_date date not null — When it happened: within the 60 days up to the venue's business date when proposed. Not the pay month.\n  pay_month date — The first day of the venue's business month on the day it was approved; set on approval and kept on a cancel, NULL otherwise.\n  reason text not null — Why, as typed by the proposer (1 to 500 characters).\n  proposed_by uuid not null references staff(id) — The head or manager who proposed it.\n  proposed_at timestamptz not null default now() — When it was proposed.\n  status text not null default 'waiting' — waiting, approved or declined (decided), withdrawn (by the proposer) or cancelled (an approval the owner took back).\n  decided_by uuid references staff(id) — The manager or owner who decided it: never the proposer or the person.\n  decided_at timestamptz — When it was decided.\n  decision_note text — The decider's note (at most 1000 characters); required on a decline.\n  cancelled_by uuid references staff(id) — The owner who cancelled the approval.\n  cancelled_at timestamptz — When the approval was cancelled.\n  cancel_reason text — Why the approval was cancelled (1 to 1000 characters).",
       "route": null
     },
     {
@@ -7831,6 +7911,126 @@
       "lang": "en",
       "title": "reservations.rate_rule_id",
       "body": "uuid references rate_rules(id)\nPRICE PROVENANCE",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.amount_iqd",
+      "lang": "en",
+      "title": "salary_deductions.amount_iqd",
+      "body": "iqd not null\nThe amount, 1 to 2,000,000 IQD.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.cancel_reason",
+      "lang": "en",
+      "title": "salary_deductions.cancel_reason",
+      "body": "text\nWhy the approval was cancelled (1 to 1000 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.cancelled_at",
+      "lang": "en",
+      "title": "salary_deductions.cancelled_at",
+      "body": "timestamptz\nWhen the approval was cancelled.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.cancelled_by",
+      "lang": "en",
+      "title": "salary_deductions.cancelled_by",
+      "body": "uuid references staff(id)\nThe owner who cancelled the approval.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.decided_at",
+      "lang": "en",
+      "title": "salary_deductions.decided_at",
+      "body": "timestamptz\nWhen it was decided.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.decided_by",
+      "lang": "en",
+      "title": "salary_deductions.decided_by",
+      "body": "uuid references staff(id)\nThe manager or owner who decided it: never the proposer or the person.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.decision_note",
+      "lang": "en",
+      "title": "salary_deductions.decision_note",
+      "body": "text\nThe decider's note (at most 1000 characters); required on a decline.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.deduction_date",
+      "lang": "en",
+      "title": "salary_deductions.deduction_date",
+      "body": "date not null\nWhen it happened: within the 60 days up to the venue's business date when proposed. Not the pay month.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.id",
+      "lang": "en",
+      "title": "salary_deductions.id",
+      "body": "uuid primary key default gen_random_uuid()\nDeduction id.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.pay_month",
+      "lang": "en",
+      "title": "salary_deductions.pay_month",
+      "body": "date\nThe first day of the venue's business month on the day it was approved; set on approval and kept on a cancel, NULL otherwise.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.proposed_at",
+      "lang": "en",
+      "title": "salary_deductions.proposed_at",
+      "body": "timestamptz not null default now()\nWhen it was proposed.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.proposed_by",
+      "lang": "en",
+      "title": "salary_deductions.proposed_by",
+      "body": "uuid not null references staff(id)\nThe head or manager who proposed it.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.reason",
+      "lang": "en",
+      "title": "salary_deductions.reason",
+      "body": "text not null\nWhy, as typed by the proposer (1 to 500 characters).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.staff_id",
+      "lang": "en",
+      "title": "salary_deductions.staff_id",
+      "body": "uuid not null references staff(id)\nThe person the deduction is against.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:salary_deductions.status",
+      "lang": "en",
+      "title": "salary_deductions.status",
+      "body": "text not null default 'waiting'\nwaiting, approved or declined (decided), withdrawn (by the proposer) or cancelled (an approval the owner took back).",
       "route": null
     },
     {

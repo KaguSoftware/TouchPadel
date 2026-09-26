@@ -47,6 +47,9 @@ const FORBIDDEN = [
   // touches a candidate; one that ever did would be sending a job applicant's
   // name or phone to the LLM.
   /candidate_name/i, /candidate_phone/i,
+  // salary_deductions (wave5-addendum §2.5): a tripwire only. A deduction is
+  // money about a named person and never reaches an LLM.
+  /deduction/i,
 ];
 
 /**
