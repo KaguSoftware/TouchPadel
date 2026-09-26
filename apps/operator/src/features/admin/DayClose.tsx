@@ -45,7 +45,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatDate, formatIQD, formatNumber, formatTime } from '@touch/i18n';
+import { formatDate, formatIQD, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
@@ -70,7 +70,7 @@ import {
 } from '../../components/kit';
 import { MoneyInput } from '../../components/inputs';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { downloadCsv, toCsv } from '../analytics/csv';
+import { downloadWorkbook } from '../analytics/exportTables';
 import type { DayStateList } from '../checklists/checklistLogic';
 import { auditDrillHref, tillTabHref, type ExceptionKey } from '../ops/opsLogic';
 import { CardTitle, FigureRow, MARK_FG, RowList, Step } from '../ops/OpsVisuals';
@@ -396,12 +396,16 @@ export function DayClose() {
   const joinNames = (names: readonly string[]) => names.join(locale === 'ar' ? '، ' : ', ');
 
   function exportCsv() {
-    const { headers, rows } = dayCloseCsv(
+    const csvKey = (k: string) => tr(`ws.manager.dayClose.csv.${k}` as MessageKey);
+    const bundle = dayCloseCsv(
       {
-        figure: tr('ws.manager.dayClose.csv.figure'),
-        value: tr('ws.manager.dayClose.csv.value'),
-        count: tr('ws.manager.dayClose.csv.count'),
-        authorisers: tr('ws.manager.dayClose.csv.authorisers'),
+        tabFigures: csvKey('tabFigures'),
+        figure: csvKey('figure'),
+        value: csvKey('value'),
+        count: csvKey('count'),
+        authorisers: csvKey('authorisers'),
+        note: csvKey('note'),
+        partOf: csvKey('partOf'),
         cashExpected: tr('ws.manager.dayClose.cashExpected'),
         cashCounted: tr('ws.manager.dayClose.cashCounted'),
         variance: tr('ws.manager.dayClose.difference'),
@@ -416,12 +420,27 @@ export function DayClose() {
         cardPayments: tr('ws.manager.dayClose.cardPayments'),
         deskCash: tr('ws.manager.dayClose.deskCash'),
         deskCard: tr('ws.manager.dayClose.deskCard'),
+        adjustments: csvKey('adjustments'),
+        date: csvKey('date'),
+        time: csvKey('time'),
+        what: csvKey('what'),
+        appliesTo: csvKey('appliesTo'),
+        reason: csvKey('reason'),
+        amount: csvKey('amount'),
+        appliedBy: csvKey('appliedBy'),
+        authorisedBy: csvKey('authorisedBy'),
+        tab: csvKey('tab'),
       },
       closeResult,
       summary,
       adjustments,
       joinNames,
-      (a) => adjustmentWords(a, tr).join(' · '),
+      // The same words the adjustments table on this screen shows, one per column.
+      {
+        what: (a) => adjustmentKindWords(a, tr),
+        scope: (a) => (a.order_item_id ? tr('ws.manager.dayClose.scopeItem') : tr('ws.manager.dayClose.scopeBill')),
+        reason: (a) => reasonWords(a.reason_code, tr),
+      },
       tillShiftCsvRows(shiftDay, {
         shift: (name, station) => tr('ws.tillShift.dayClose.csv.shift', { name, station }),
         shiftOpen: (name, station) => tr('ws.tillShift.dayClose.csv.shiftOpen', { name, station }),
@@ -433,7 +452,7 @@ export function DayClose() {
       }),
     );
     const date = closeResult?.business_date ?? day?.business_date ?? 'day';
-    downloadCsv(`day-close-${date}.csv`, toCsv(headers, rows));
+    downloadWorkbook(`day-close-${date}`, locale, bundle);
   }
 
   // ---------------------------------------------------------------- loading
@@ -1134,11 +1153,15 @@ function LastClose() {
 }
 
 /** "10% off", "whole bill", "Complimentary" — the three things a row of tab_adjustments says. */
-function adjustmentWords(a: DayAdjustmentRow, tr: Tr): string[] {
+/** "10% off", "Amount off the bill", "Price changed by hand". */
+function adjustmentKindWords(a: DayAdjustmentRow, tr: Tr): string {
   const { kind, percent } = describeAdjustmentKind(a);
-  const what = kind === 'percent' && percent !== null ? tr('ws.manager.dayClose.kind.percent', { percent }) : tr(`ws.manager.dayClose.kind.${kind === 'percent' ? 'other' : kind}`);
+  return kind === 'percent' && percent !== null ? tr('ws.manager.dayClose.kind.percent', { percent }) : tr(`ws.manager.dayClose.kind.${kind === 'percent' ? 'other' : kind}`);
+}
+
+function adjustmentWords(a: DayAdjustmentRow, tr: Tr): string[] {
   const scope = a.order_item_id ? tr('ws.manager.dayClose.scopeItem') : tr('ws.manager.dayClose.scopeBill');
-  return [what, scope, reasonWords(a.reason_code, tr)].filter((s): s is string => Boolean(s));
+  return [adjustmentKindWords(a, tr), scope, reasonWords(a.reason_code, tr)].filter((s): s is string => Boolean(s));
 }
 
 function reasonWords(code: string | null, tr: Tr): string | null {

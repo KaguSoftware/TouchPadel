@@ -224,6 +224,7 @@ export function tillTabHref(tabId: string): string {
  * expiry screen, which is where a batch is written off.
  */
 export const STOCK_HREF = {
+  out: '/stock?filter=out',
   low: '/stock?filter=low',
   belowPar: '/stock?filter=belowPar',
   expiringSoon: '/stock/expiry',

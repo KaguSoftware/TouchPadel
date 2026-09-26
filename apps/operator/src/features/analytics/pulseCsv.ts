@@ -4,7 +4,7 @@
  * numbers only (money in IQD, rates in percent); a figure the page could not
  * compute is an empty cell, never 0.
  */
-import type { CsvCell } from './csv';
+import type { CsvCell } from './exportTables';
 
 export interface PulseFigure {
   label: string;

@@ -105,7 +105,7 @@ describe('ManagementPanelScreen — four states', () => {
   });
 });
 
-describe('ManagementPanelScreen — Export CSV', () => {
+describe('ManagementPanelScreen — Export', () => {
   it('pulls the transactions behind every figure into the file, not the totals alone', async () => {
     rpc.mockImplementation(async (fn: string, args: unknown) => {
       if (fn === 'panel_headline') {
@@ -125,38 +125,51 @@ describe('ManagementPanelScreen — Export CSV', () => {
         ],
       };
     });
-    const blobs: string[] = [];
-    // jsdom's Blob has no text(); a FileReader reads it.
+    const archives: string[] = [];
+    // The export is a workbook: a zip of XML parts, stored uncompressed, so
+    // decoding the whole blob is enough to read the parts back.
     const createObjectURL = vi.fn((b: Blob) => {
       const reader = new FileReader();
-      reader.onload = () => blobs.push(String(reader.result));
-      reader.readAsText(b);
+      reader.onload = () => archives.push(new TextDecoder().decode(reader.result as ArrayBuffer));
+      reader.readAsArrayBuffer(b);
       return 'blob:x';
     });
     Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const names: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
 
     renderPanel();
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
     await waitFor(() => expect(click).toHaveBeenCalled());
-    await waitFor(() => expect(blobs).toHaveLength(1));
+    await waitFor(() => expect(archives).toHaveLength(1));
 
     // One drill per figure the server sent, over the panel's period.
     const drills = rpc.mock.calls.filter(([fn]) => fn === 'report_drill').map(([, a]) => a as { p_figure: string; p_from: string; p_to: string });
     expect(drills.map((d) => d.p_figure).sort()).toEqual(['refunds', 'revenue']);
     expect(drills.every((d) => d.p_from < d.p_to)).toBe(true);
 
-    const csv = blobs[0]!;
-    expect(csv).toContain('Period from,');
-    // A label with a comma in it is quoted, as any CSV cell must be.
-    expect(csv).toContain('"Compared with, from",2026-07-23');
-    expect(csv).toContain('Revenue,revenue,Headline,IQD,15000,12000,3000,25');
-    expect(csv).toContain('Refunds,refunds,"Discounts, refunds and waste",IQD,5000,4000,1000,25');
-    expect(csv).toContain('Revenue,revenue,revenue-1,');
-    expect(csv).toContain('Refunds,refunds,refunds-1,');
-    expect(csv).toContain('Quality issue · Cash,refund · quality · cash,Dev,s1,tab-9,5000');
+    // Three tables, so a zip — not one sheet with three headers in it.
+    // Three tables, so three sheets in one workbook — not three headers in one sheet.
+    expect(names[0]).toMatch(/^management-panel_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const book = archives[0]!;
+    expect(book).toContain('xl/worksheets/sheet1.xml');
+    expect(book).toContain('xl/worksheets/sheet3.xml');
+    expect(book).toContain('<sheet name="Period" sheetId="1"');
+    expect(book).toContain('<sheet name="Figures" sheetId="2"');
+    expect(book).toContain('<sheet name="Transactions" sheetId="3"');
+    // Headings are written whole and columns are sized, so nothing is cut off.
+    expect(book).toContain('Compared with, from');
+    expect(book).toMatch(/<col min="1" max="1" width="\d+" customWidth="1"\/>/);
+    // The figures are numbers, not strings of digits.
+    expect(book).toContain('<v>15000</v>');
+    expect(book).toContain('<v>3000</v>');
+    // The facts are still in words, and the date is a real date.
+    expect(book).toContain('Quality issue');
+    expect(book).toContain('<autoFilter');
     click.mockRestore();
   });
 
@@ -168,7 +181,7 @@ describe('ManagementPanelScreen — Export CSV', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     renderPanel();
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
     expect(await screen.findByText('The export could not be completed. Nothing was downloaded.')).toBeTruthy();
     expect(click).not.toHaveBeenCalled();
     click.mockRestore();

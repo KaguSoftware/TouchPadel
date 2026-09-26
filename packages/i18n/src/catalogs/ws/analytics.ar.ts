@@ -375,7 +375,7 @@ export const analyticsAr: DeepMessages<typeof analyticsEn> = {
   twin: {
     table: 'عرض كجدول',
     chart: 'عرض كرسم',
-    csv: 'تنزيل CSV',
+    csv: 'تنزيل',
   },
   heatmap: {
     hint: 'مرّر المؤشر فوق خلية لقراءة قيمتها',

@@ -6,7 +6,8 @@
  */
 import type { MutationType } from '@touch/core/schemas/mutations';
 import { errorStringCode } from '../../lib/queueResults';
-import type { CsvCell } from '../analytics/csv';
+import type { CsvCell, ExportBundle, ExportTable } from '../analytics/exportTables';
+import { cellText, momentCells, shortId } from '../analytics/cellFormat';
 import { isUnfinished, readDayState, type DayStateList } from '../checklists/checklistLogic';
 import type { ListShift, OutsideRow, ShiftList } from '../tillShift/tillShiftLogic';
 
@@ -118,6 +119,8 @@ export function varianceMagnitude(varianceIqd: number): number {
 }
 
 export interface CsvLabels {
+  /** The close figures sheet. */
+  tabFigures: string;
   figure: string;
   value: string;
   count: string;
@@ -136,12 +139,46 @@ export interface CsvLabels {
   cardPayments: string;
   deskCash: string;
   deskCard: string;
+  note: string;
+  partOf: string;
+  /** The authorised adjustments sheet. */
+  adjustments: string;
+  date: string;
+  time: string;
+  what: string;
+  appliesTo: string;
+  reason: string;
+  amount: string;
+  appliedBy: string;
+  authorisedBy: string;
+  tab: string;
+}
+
+/** The words the screen already says for one adjustment, split into its columns. */
+export interface AdjustmentWords {
+  /** "10% off", "Amount off the bill", "Price changed by hand". */
+  what: (a: DayAdjustmentRow) => string;
+  /** "The whole bill" or "One item". */
+  scope: (a: DayAdjustmentRow) => string;
+  reason: (a: DayAdjustmentRow) => string | null;
 }
 
 /**
- * Rows for the client-side CSV export: the close figures, then the
- * discounts / voids / refunds / waste summary with the authoriser names, then
- * one row per authorised adjustment. Everything is a server figure.
+ * Two tables, so two files.
+ *
+ * They used to be one. The close figures are a list of amounts — opening
+ * float, cash taken, expected, counted, the difference — and the authorised
+ * adjustments are a list of events, each with its own time, reason and two
+ * people. Putting the events under the figures meant the `Figure` column held
+ * either the name of a figure or a whole sentence describing a discount
+ * ("10% off · the whole bill · Complimentary"), the `Count` column held either
+ * a real count or a hard-coded 1, and the two could not be sorted, filtered or
+ * totalled apart. Split, each file is a table about one thing.
+ *
+ * Every number is the server's. `figuresCsv`'s `note` column says when a line
+ * is a part of the line above it rather than an addition to it — the desk's
+ * share of the cash is already inside the cash total, and a manager summing
+ * the column would otherwise count it twice.
  */
 export function dayCloseCsv(
   labels: CsvLabels,
@@ -149,45 +186,58 @@ export function dayCloseCsv(
   summary: DaySummaryRow | null,
   adjustments: readonly DayAdjustmentRow[],
   joinNames: (names: readonly string[]) => string,
-  /** The words the screen shows for an adjustment ("10% off · whole bill · Complimentary"). */
-  describe: (a: DayAdjustmentRow) => string,
-  /** The day's till-shift rows (tillShiftCsvRows), appended last. */
+  words: AdjustmentWords,
+  /** The day's till-shift rows (tillShiftCsvRows), appended last on the figures sheet. */
   shiftRows: readonly CsvCell[][] = [],
-): { headers: string[]; rows: CsvCell[][] } {
-  const headers = [labels.figure, labels.value, labels.count, labels.authorisers];
+): ExportBundle {
+  return [figuresTable(labels, close, summary, joinNames, shiftRows), adjustmentsTable(labels, adjustments, words)];
+}
+
+function figuresTable(
+  labels: CsvLabels,
+  close: CloseResult | null,
+  summary: DaySummaryRow | null,
+  joinNames: (names: readonly string[]) => string,
+  shiftRows: readonly CsvCell[][],
+): ExportTable {
   const rows: CsvCell[][] = [];
+  const line = (figure: string, value: CsvCell, count: CsvCell = null, who: CsvCell = null, note: CsvCell = null) => rows.push([figure, value, count, who, note]);
+
   if (summary) {
-    rows.push([labels.openingFloat, summary.opening_float_iqd, null, null]);
-    rows.push([labels.cashPayments, summary.cash_payments_iqd, null, null]);
-    // Parts of the two lines above, not additions to them.
-    if (summary.desk_cash_iqd != null) rows.push([labels.deskCash, summary.desk_cash_iqd, null, null]);
-    rows.push([labels.cardPayments, summary.card_payments_iqd, null, null]);
-    if (summary.desk_card_iqd != null) rows.push([labels.deskCard, summary.desk_card_iqd, null, null]);
+    line(labels.openingFloat, summary.opening_float_iqd);
+    line(labels.cashPayments, summary.cash_payments_iqd);
+    // Parts of the two lines above, not additions to them — the note column says so.
+    if (summary.desk_cash_iqd != null) line(labels.deskCash, summary.desk_cash_iqd, null, null, labels.partOf);
+    line(labels.cardPayments, summary.card_payments_iqd);
+    if (summary.desk_card_iqd != null) line(labels.deskCard, summary.desk_card_iqd, null, null, labels.partOf);
   }
   if (close) {
-    rows.push([labels.cashExpected, close.cash_expected_iqd, null, null]);
-    rows.push([labels.cashCounted, close.cash_counted_iqd, null, null]);
-    rows.push([labels.variance, close.cash_variance_iqd, null, null]);
-    rows.push([labels.cardExpected, close.card_expected_iqd, null, null]);
-    rows.push([labels.cardBatch, close.card_terminal_batch_iqd, null, null]);
+    line(labels.cashExpected, close.cash_expected_iqd);
+    line(labels.cashCounted, close.cash_counted_iqd);
+    line(labels.variance, close.cash_variance_iqd);
+    line(labels.cardExpected, close.card_expected_iqd);
+    line(labels.cardBatch, close.card_terminal_batch_iqd);
   }
   if (summary) {
-    const names = joinNames(summary.authorizer_names ?? []);
-    rows.push([labels.discounts, summary.discounts_iqd, summary.adjustment_count, names]);
-    rows.push([labels.voids, summary.voided_lines_iqd, summary.voided_line_count, null]);
-    rows.push([labels.refunds, summary.refunds_iqd, summary.refund_count, null]);
-    rows.push([labels.waste, summary.waste_cost_iqd, null, null]);
+    line(labels.discounts, summary.discounts_iqd, summary.adjustment_count, joinNames(summary.authorizer_names ?? []));
+    line(labels.voids, summary.voided_lines_iqd, summary.voided_line_count);
+    line(labels.refunds, summary.refunds_iqd, summary.refund_count);
+    line(labels.waste, summary.waste_cost_iqd);
   }
-  for (const a of adjustments) {
-    rows.push([
-      describe(a),
-      a.amount_iqd,
-      1,
-      a.authorized_by_name ?? a.applied_by_name ?? null,
-    ]);
-  }
-  rows.push(...shiftRows);
-  return { headers, rows };
+  // Figure, value, count and authoriser, like every line above; no note.
+  for (const r of shiftRows) rows.push([...r.slice(0, 4), null]);
+  return { name: labels.tabFigures, columns: [labels.figure, { header: labels.value, type: 'money' }, { header: labels.count, type: 'number' }, labels.authorisers, labels.note], rows };
+}
+
+function adjustmentsTable(labels: CsvLabels, adjustments: readonly DayAdjustmentRow[], words: AdjustmentWords): ExportTable {
+  return {
+    name: labels.adjustments,
+    columns: [labels.date, labels.time, labels.what, labels.appliesTo, labels.reason, { header: labels.amount, type: 'money' }, labels.appliedBy, labels.authorisedBy, labels.tab],
+    rows: adjustments.map((a): CsvCell[] => {
+      const [day, time] = momentCells(a.created_at);
+      return [day, time, cellText(words.what(a)), cellText(words.scope(a)), cellText(words.reason(a)), a.amount_iqd, cellText(a.applied_by_name), cellText(a.authorized_by_name), shortId(a.tab_id)];
+    }),
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -54,7 +54,7 @@ import {
   type Period,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { downloadCsv, toCsvSections } from '../analytics/csv';
+import { downloadWorkbook } from '../analytics/exportTables';
 import { DrillDialog } from '../reports/DrillDialog';
 import { FigureGroup } from '../reports/FigureGroup';
 import { readDrill } from '../reports/reportPayloads';
@@ -113,19 +113,18 @@ export function ManagementPanelScreen() {
     setExportFailed(false);
     try {
       const transactions = await Promise.all(DRILLABLE_FIGURES.filter((k) => figures.has(k)).map((k) => fetchAllTransactions(k, period, fetchDrill)));
-      const csv = toCsvSections(
-        buildPanelExport({
-          period,
-          compare,
-          comparison: compare === 'none' ? null : (headlineQ.data?.comparison ?? null),
-          figures,
-          transactions,
-          exportedAt: new Date(),
-          tr,
-          locale,
-        }),
-      );
-      downloadCsv(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}.csv`, csv);
+      const bundle = buildPanelExport({
+        period,
+        compare,
+        comparison: compare === 'none' ? null : (headlineQ.data?.comparison ?? null),
+        figures,
+        transactions,
+        exportedAt: new Date(),
+        tr,
+        locale,
+      });
+      // Three tables, so three sheets in one workbook.
+      downloadWorkbook(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}`, locale, bundle);
     } catch (error) {
       console.error('panel export failed', error);
       setExportFailed(true);

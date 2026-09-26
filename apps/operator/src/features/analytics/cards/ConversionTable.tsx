@@ -21,7 +21,7 @@ import { pickLocale, type ItemConversion } from '@touch/core';
 import { Button } from '../../../components/ui';
 import { useLocale } from '../../../lib/i18n';
 import { DataTable, ResultCount, SearchField, StatusBadge, type Column } from '../../../components/kit';
-import { downloadCsv, toCsv } from '../csv';
+import { downloadTable } from '../exportTables';
 import type { Formatters } from '../format';
 import { CardShell, type CardState } from './CardShell';
 
@@ -120,17 +120,17 @@ export function ConversionTable({
 
 
   function exportCsv() {
-    const csv = toCsv(
-      [
+    downloadTable(`conversion-${rangeLabel}`, locale, {
+      name: tr('analytics.conversion.title'),
+      columns: [
         tr('analytics.conversion.item'),
-        tr('analytics.conversion.views'),
-        tr('analytics.conversion.carts'),
-        tr('analytics.conversion.sold'),
-        tr('analytics.conversion.conv'),
+        { header: tr('analytics.conversion.views'), type: 'number' as const },
+        { header: tr('analytics.conversion.carts'), type: 'number' as const },
+        { header: tr('analytics.conversion.sold'), type: 'number' as const },
+        { header: tr('analytics.conversion.conv'), type: 'percent' as const },
       ],
-      filtered.map((r) => [r.name, r.views, r.carts, r.sold, Math.min(100, Math.round(r.convPct))]),
-    );
-    downloadCsv(`conversion-${rangeLabel}.csv`, csv);
+      rows: filtered.map((r) => [r.name, r.views, r.carts, r.sold, Math.min(100, Math.round(r.convPct))]),
+    });
   }
 
   return (

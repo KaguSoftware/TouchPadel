@@ -8,7 +8,8 @@
  * `report_stock` returns no `rows` at all, only named lists (0068), and the
  * generic table only ever read `rows`. Every list is now shown.
  *
- * Four of the six lists — running low, below par, expiring, expired — are the
+ * Five of the seven lists — out of stock, running low, below par, expiring,
+ * expired — are the
  * stock as it is NOW; the server does not range them. Only "Used" and "Count
  * differences" follow the period. Each list says which it is, so nobody moves
  * the dates and wonders why nothing changed. The category select is gone:
@@ -55,15 +56,17 @@ import {
   type ReportColumn,
   type Tr,
 } from './ReportParts';
+import { dayCell, timeCell } from '../analytics/cellFormat';
 import { readStock, type BelowParRow, type ConsumptionRow, type ExpiryRow, type LowStockRow, type StockReport, type VarianceRow } from './reportPayloads';
 
-type View = 'low' | 'belowPar' | 'expiring' | 'expired' | 'used' | 'counts';
-const VIEWS: readonly View[] = ['low', 'belowPar', 'expiring', 'expired', 'used', 'counts'];
+type View = 'out' | 'low' | 'belowPar' | 'expiring' | 'expired' | 'used' | 'counts';
+const VIEWS: readonly View[] = ['out', 'low', 'belowPar', 'expiring', 'expired', 'used', 'counts'];
 /** The lists that are the stock as it is now, whatever the period. */
-const NOW: ReadonlySet<View> = new Set(['low', 'belowPar', 'expiring', 'expired']);
+const NOW: ReadonlySet<View> = new Set(['out', 'low', 'belowPar', 'expiring', 'expired']);
 type Locale = ReturnType<typeof useLocale>['locale'];
 
 const OPEN: Partial<Record<View, { href: string; label: MessageKey }>> = {
+  out: { href: STOCK_HREF.out, label: 'ws.reports.stock.openInventory' },
   low: { href: STOCK_HREF.low, label: 'ws.reports.stock.openInventory' },
   belowPar: { href: STOCK_HREF.belowPar, label: 'ws.reports.stock.openInventory' },
   expiring: { href: STOCK_HREF.expiringSoon, label: 'ws.reports.stock.openExpiry' },
@@ -75,7 +78,7 @@ export function StockReportScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const { period, setPeriod, today, ready } = useReportPeriod();
-  const [view, setView] = useState<View>('low');
+  const [view, setView] = useState<View>('out');
   const [onlyDifferences, setOnlyDifferences] = useState(true);
 
   const args = { p_from: period.from, p_to: period.to, p_filters: {} };
@@ -92,6 +95,7 @@ export function StockReportScreen() {
   const variance = data ? (onlyDifferences ? data.variance.filter((v) => v.varianceQty !== 0) : data.variance) : [];
 
   const notes: Record<View, MessageKey[]> = {
+    out: ['ws.reports.stock.notes.par'],
     low: ['ws.reports.stock.notes.alertAt', 'ws.reports.stock.notes.par'],
     belowPar: ['ws.reports.stock.notes.par'],
     expiring: [],
@@ -104,8 +108,8 @@ export function StockReportScreen() {
     if (!data) return;
     const base = tr('ws.reports.export.stock');
     const parts = { view };
-    const t = tableFor(view, data, variance, cols, tr('ws.reports.columns.unit'));
-    exportTable(base, period, parts, t);
+    const t = tableFor(view, data, variance, cols, tr('ws.reports.columns.unit'), tr('ws.reports.stock.columns.countedAtTime'));
+    exportTable(base, locale, period, parts, t);
   }
 
   const open = OPEN[view];
@@ -121,6 +125,7 @@ export function StockReportScreen() {
           <>
             <FigureBand label={tr('ws.reports.nav.stock')}>
               <HeadlineFigure label={tr('ws.reports.stock.value')} value={money(data.valueIqd, locale)} hint={tr('ws.reports.stock.valueHint')} />
+              <HeadlineFigure label={tr('ws.reports.stock.out')} value={count(data.out.length, locale)} tone={data.out.length ? 'danger' : 'neutral'} />
               <HeadlineFigure label={tr('ws.reports.stock.low')} value={count(data.low.length, locale)} tone={data.low.length ? 'danger' : 'neutral'} />
               <HeadlineFigure label={tr('ws.reports.stock.belowPar')} value={count(data.belowPar.length, locale)} tone={data.belowPar.length ? 'warn' : 'neutral'} />
               <HeadlineFigure label={tr('ws.reports.stock.expiring')} value={count(data.expiringSoon.length, locale)} tone={data.expiringSoon.length ? 'warn' : 'neutral'} />
@@ -162,6 +167,8 @@ function StockView({ view, data, variance, cols, tr }: { view: View; data: Stock
   const label = tr(`ws.reports.stock.views.${view}`);
   const empty = (key: MessageKey) => <EmptyState compact kind="nothingToDo" title={tr(key)} />;
   switch (view) {
+    case 'out':
+      return data.out.length === 0 ? empty('ws.reports.stock.empty.out') : <ReportTable<LowStockRow> label={label} columns={cols.out} rows={data.out} rowKey={(r) => r.ingredientId} />;
     case 'low':
       return data.low.length === 0 ? empty('ws.reports.stock.empty.low') : <ReportTable<LowStockRow> label={label} columns={cols.low} rows={data.low} rowKey={(r) => r.ingredientId} />;
     case 'belowPar':
@@ -180,9 +187,11 @@ function StockView({ view, data, variance, cols, tr }: { view: View; data: Stock
 }
 
 /** The list on screen as CSV: bare quantities, with the unit in a column of its own. */
-function tableFor(view: View, data: StockReport, variance: VarianceRow[], cols: ReturnType<typeof stockColumns>, unitHeader: string) {
+function tableFor(view: View, data: StockReport, variance: VarianceRow[], cols: ReturnType<typeof stockColumns>, unitHeader: string, countedAtTimeHeader: string) {
   const unit = [{ header: unitHeader, value: (r: { unit: string | null }) => r.unit }];
   switch (view) {
+    case 'out':
+      return tableCsv(cols.out, data.out, unit);
     case 'low':
       return tableCsv(cols.low, data.low, unit);
     case 'belowPar':
@@ -194,7 +203,8 @@ function tableFor(view: View, data: StockReport, variance: VarianceRow[], cols: 
     case 'used':
       return tableCsv(cols.used, data.consumption, unit);
     case 'counts':
-      return tableCsv(cols.counts, variance, unit);
+      // The clock beside the date column, so both sort the way a spreadsheet expects.
+      return tableCsv(cols.counts, variance, [{ header: countedAtTimeHeader, value: (r: VarianceRow) => timeCell(r.countedAt) }, ...unit]);
   }
 }
 
@@ -267,6 +277,7 @@ function stockColumns(tr: Tr, locale: Locale) {
   };
   const screen = <T,>(c: ReportColumn<T>[]) => c;
   return {
+    out: screen<LowStockRow>([ingredient(), q('onHand', 'ws.reports.stock.columns.onHand', { strong: true, tone: 'danger' }), q('parLevel', 'ws.reports.stock.columns.par')]),
     low: screen<LowStockRow>([ingredient(), q('onHand', 'ws.reports.stock.columns.onHand', { strong: true, tone: 'danger' }), q('threshold', 'ws.reports.stock.columns.alertAt'), q('parLevel', 'ws.reports.stock.columns.par')]),
     belowPar: screen<BelowParRow>([ingredient(), q('onHand', 'ws.reports.stock.columns.onHand'), q('parLevel', 'ws.reports.stock.columns.par'), q('shortfall', 'ws.reports.stock.columns.shortBy', { strong: true, tone: 'warn' })]),
     expiring: screen<ExpiryRow>([ingredient(), store(), q('qtyRemaining', 'ws.reports.stock.columns.qty'), useBy, days('ws.reports.stock.columns.daysLeft'), money_('valueIqd', 'ws.reports.stock.columns.value', true)]),
@@ -278,7 +289,9 @@ function stockColumns(tr: Tr, locale: Locale) {
         header: tr('ws.reports.stock.columns.countedOn'),
         render: (r) => (r.countedAt ? <bdi>{formatDateTime(new Date(r.countedAt), locale)}</bdi> : '—'),
         sort: (r) => r.countedAt,
-        csv: (r) => r.countedAt,
+        // `2026-09-23`, not `2026-09-23T11:05:23.481Z`: a date a spreadsheet
+        // sorts and groups by. The clock is the column after it.
+        csv: (r) => dayCell(r.countedAt),
       },
       ingredient(),
       store(),

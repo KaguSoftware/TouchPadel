@@ -116,10 +116,10 @@ export function CafeReportScreen() {
     if (!data) return;
     const base = tr('ws.reports.export.cafe');
     const parts = { view, cat: categoryId || undefined };
-    if (view === 'categories') return exportTable(base, period, parts, tableCsv(columns.categories, data.categories));
-    if (view === 'waste') return exportTable(base, period, parts, tableCsv(columns.waste, data.waste));
+    if (view === 'categories') return exportTable(base, locale, period, parts, tableCsv(columns.categories, data.categories));
+    if (view === 'waste') return exportTable(base, locale, period, parts, tableCsv(columns.waste, data.waste));
     // Items: sales and cost together, whichever of the two item breakdowns is showing.
-    exportTable(base, period, parts, tableCsv([...columns.items, ...columns.profit.slice(2)], data.items));
+    exportTable(base, locale, period, parts, tableCsv([...columns.items, ...columns.profit.slice(2)], data.items));
   }
 
   return (
@@ -260,7 +260,8 @@ function cafeColumns(tr: Tr, locale: Locale) {
         header: tr('ws.reports.cafe.columns.reason'),
         render: (r) => <bdi>{wasteReasonWords(r.reason, tr)}</bdi>,
         sort: (r) => wasteReasonWords(r.reason, tr),
-        csv: (r) => r.reason,
+        // The words, not `wrong_item`: the file says what the screen says.
+        csv: (r) => wasteReasonWords(r.reason, tr),
       },
       n<WasteReasonRow>('count', 'ws.reports.cafe.columns.times', c),
       n<WasteReasonRow>('costIqd', 'ws.reports.cafe.columns.cost', m, true),
