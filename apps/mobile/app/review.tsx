@@ -22,6 +22,7 @@ import { Button, Card, DashedDivider, ErrorText, LinkText, Screen } from '../src
 import { PayAtDeskCard, SummaryGrid } from '../src/components/booking';
 import { ConfirmAlert } from '../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
+import { requestBookingSheet } from '../src/features/courtTransition/openIntent';
 
 /**
  * Review & confirm (design 2026-08-31): navy hold card with live countdown and
@@ -203,12 +204,16 @@ function ReviewScreen() {
   };
 
   // From the sheet, the grid the guest left is still open underneath — pop back
-  // to it (the settled hold invalidated availability, so it is fresh); from the
-  // standalone screen, land on the standalone screen.
-  const backToGrid = useBack('/availability');
+  // to it (the settled hold invalidated availability, so it is fresh). Any other
+  // way in (the post-auth hold) asks the Book tab for its sheet and goes there:
+  // the standalone Availability screen is gone (owner, 2026-09-26).
+  const backToGrid = useBack('/(tabs)');
   const backToAvailability = () => {
     if (params.origin === 'sheet') backToGrid();
-    else router.replace('/availability');
+    else {
+      requestBookingSheet();
+      router.navigate('/(tabs)');
+    }
   };
 
   // ── Terminal states ────────────────────────────────────────────────────────

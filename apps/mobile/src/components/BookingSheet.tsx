@@ -48,6 +48,7 @@ import {
 } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
@@ -187,6 +188,7 @@ export function BookingSheet({
 
   // Staggers are linear, so they depend only on how many pills there are.
   const pillCount = a.tzDates.length;
+
   const pills = useMemo(
     () =>
       Array.from({ length: pillCount + 1 }, (_, i) =>
@@ -304,10 +306,18 @@ export function BookingSheet({
     );
   } else {
     grid = (
+      // Both court cards sit fully in view and the block does not move up or
+      // down (owner, 2026-09-26); only each court's times swipe sideways. Kept
+      // a ScrollView with scrolling OFF, not swapped for a View: the date
+      // chips' glass stopped rendering when this block's structure changed, so
+      // the committed layout is left exactly as it was. The spacing below is
+      // trimmed so two courts fit GRID_H.
       <ScrollView
         ref={gridRef}
+        scrollEnabled={false}
+        bounces={false}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: 14 }}
+        contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD }}
       >
         {/* One lane per court, name above, its times running sideways under it (owner, 2026-09-26).
             Keyed by POSITION, as the rows were: a day change reuses the lane
@@ -319,7 +329,7 @@ export function BookingSheet({
             <Animated.View
               key={r}
               style={{
-                marginBottom: 8,
+                marginBottom: r === a.lanes.length - 1 ? 0 : 6,
                 opacity: e.opacity,
                 transform: [{ translateY: e.translateY }, { scale: e.scale }],
               }}
@@ -518,7 +528,11 @@ export function BookingSheet({
                     label: t('booking.durationMinutes', { minutes: m }),
                   }))}
                   value={a.durationMin}
-                  onChange={a.setDurationMin}
+                  // A selection tick on a real change, as the time lanes tick (owner, 2026-09-26).
+                  onChange={(m) => {
+                    if (m !== a.durationMin) void Haptics.selectionAsync().catch(() => {});
+                    a.setDurationMin(m);
+                  }}
                   activeColor={colors.gstrong}
                 />
               </Animated.View>
@@ -591,8 +605,8 @@ export function BookingSheet({
                 </Animated.View>
               ) : null}
 
-              {/* Time grid: four rows visible, vertical scroll; rows pass under
-                  the card's clipped edge. The one block that gives way on a short stage */}
+              {/* Time grid: two court cards, not scrolled. The one block that
+                  gives way on a short stage */}
               <View style={{ height: GRID_H, minHeight: 96, flexShrink: 1, marginTop: 6 }}>
                 {grid}
               </View>

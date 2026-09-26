@@ -3,7 +3,6 @@ import {
   AccessibilityInfo,
   Animated,
   BackHandler,
-  Image,
   InteractionManager,
   Platform,
   Pressable,
@@ -52,9 +51,6 @@ import { Court3D } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
 
-/** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
-const LOGO_H = 30;
-const LOGO_W = Math.round(LOGO_H * (900 / 332));
 const android = Platform.OS === 'android';
 /**
  * Android's navigation icon is the platform's own control, so it keeps the
@@ -105,11 +101,12 @@ const PICK_PILL_TEXT_PAD = android ? 8 : 6;
 /**
  * Extra air above the title row, on iOS only.
  *
- * The row opens on `space.sm` (12) under the logo, and the capsule then pulls
- * itself back up by its own PAD_Y so it grows around the line rather than
- * pushing it down — which leaves only ~6 pt between the logo and the plate's top
- * edge. That was fine while the capsule barely had an edge; with real glass, and
- * its bright rim on iOS 26, the boundary is visible and reads as crowded.
+ * The capsule pulls itself back up by its own PAD_Y so it grows around the
+ * line rather than pushing it down, which leaves its plate's top edge close to
+ * whatever is above the row (the logo row, until the logo moved to the court's
+ * turf on 2026-09-26; now the status bar). That was fine while the capsule
+ * barely had an edge; with real glass, and its bright rim on iOS 26, the
+ * boundary is visible and reads as crowded.
  *
  * It goes on the ROW, not on the capsule. Both headings then take it together,
  * which is what keeps BOOK A COURT and PICK A TIME cross-fading in place: they
@@ -793,56 +790,37 @@ export default function BookHomeScreen() {
         <BrandPattern />
       </View>
 
-      {/* Everything above the stage — logo, open-now pill, heading — stands
+      {/* Everything above the stage — heading, open-now pill — stands
           directly on the pattern, at the strength the rest of
           the page has it. There WAS a reading shade over this whole block; it
           is gone because it made the top of the page a different picture from
           the bottom, which is the thing the owner kept pointing at. The one
           string it was genuinely protecting, the open-now pill, carries its own
-          plate now (OpenNowPill) — the logo is artwork and the heading is
-          display-sized, so neither needed it.
+          plate now (OpenNowPill) — the heading is display-sized, so it never
+          needed it.
 
           `zIndex: 1` still lives here, so the whole block paints over the
           lifted court the way each row used to on its own. */}
       <View style={{ zIndex: 1 }}>
-        {/* Header: logo + open-now pill. Above the stage in z so the lifted court passes beneath. */}
+        {/* Header: [back to the court] BOOK A COURT ⇄ PICK A TIME on the
+            leading edge, where the logo was (owner, 2026-09-26: the logo is
+            painted on the court's turf now, courtTransition/courtLogo.ts), and
+            the open-now pill on the trailing edge. Above the stage in z so the
+            lifted court passes beneath. */}
         <View
           style={{
             paddingStart: space.l,
             paddingEnd: space.l,
-            paddingTop: 10,
-            paddingBottom: 6,
+            // The capsule pulls itself up by its own PAD_Y round the heading,
+            // and on iOS its glass rim wants air above it. The air goes on the
+            // WHOLE row, so both headings take it together and BOOK A COURT ⇄
+            // PICK A TIME still cross-fade in place.
+            paddingTop: 10 + PICK_PILL_TOP_AIR,
             flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            alignItems: 'flex-start',
           }}
         >
-          <Image
-            source={
-              appearance === 'dark'
-                ? require('../../assets/logo-white.png')
-                : require('../../assets/logo.png')
-            }
-            resizeMode="contain"
-            style={{ height: LOGO_H, width: LOGO_W }}
-            accessibilityLabel={t('common.appName')}
-          />
-          <OpenNowPill settings={settings.data ?? undefined} />
-        </View>
-
-        {/* Title row: [back to the court] BOOK A COURT ⇄ PICK A TIME */}
-        <View
-          style={{
-            paddingStart: space.l,
-            paddingEnd: space.l,
-            // The capsule's plate used to sit ~6 pt under the logo row and read
-            // as crowded against it once it became real glass with a visible
-            // rim. The air goes on the WHOLE row, so both headings take it
-            // together and BOOK A COURT ⇄ PICK A TIME still cross-fade in place.
-            paddingTop: space.sm + PICK_PILL_TOP_AIR,
-          }}
-        >
-          <Animated.View style={{ transform: [{ translateX: header.shift }] }}>
+          <Animated.View style={{ flex: 1, transform: [{ translateX: header.shift }] }}>
             {/* The two headings cross-fade in place on the back button's slice.
                 Only the words change, so the squiggle is drawn ONCE underneath
                 rather than inside each Title: two identical marks fading through
@@ -1233,6 +1211,16 @@ export default function BookHomeScreen() {
             >
               <TitleSquiggle />
             </Animated.View>
+          </Animated.View>
+          {/* Belongs to the court view, like the branch picker: it leaves with
+              BOOK A COURT, so the wider PICK A TIME capsule never runs into it. */}
+          <Animated.View
+            pointerEvents={isOpen ? 'none' : 'auto'}
+            accessibilityElementsHidden={isOpen}
+            importantForAccessibility={isOpen ? 'no-hide-descendants' : 'auto'}
+            style={{ marginStart: space.sm, opacity: header.out }}
+          >
+            <OpenNowPill settings={settings.data ?? undefined} />
           </Animated.View>
         </View>
 

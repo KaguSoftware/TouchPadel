@@ -1,10 +1,11 @@
 /**
- * The availability + hold flow as ONE hook, shared by the standalone
- * Availability screen (app/availability.tsx) and the in-place booking sheet
+ * The availability + hold flow as ONE hook, behind the in-place booking sheet
  * that floats over the court on the Book tab (components/BookingSheet.tsx,
- * court → booking transition, design 2026-09-01).
+ * court → booking transition, design 2026-09-01). It was shared with a
+ * standalone Availability screen until that was removed (owner, 2026-09-26);
+ * every way in now opens the sheet.
  *
- * Extracted from the screen without behaviour change so both surfaces run the
+ * Extracted from that screen without behaviour change, so the sheet runs the
  * same flow: merged capacity across courts, trading-night day chips, a guest
  * tap → Welcome with the slot kept as pending intent, an incomplete profile →
  * complete-profile, degraded → desk-only cells and refusals.
@@ -113,7 +114,7 @@ export interface AvailabilityBookingOptions {
 }
 
 export function useAvailabilityBooking(
-  { origin }: AvailabilityBookingOptions = { origin: 'screen' },
+  { origin }: AvailabilityBookingOptions = { origin: 'sheet' },
 ): AvailabilityBooking {
   const { t, locale } = useLocale();
   const router = useRouter();

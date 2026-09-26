@@ -199,7 +199,6 @@ const testIdElements = [
   'DayChip',
   'SlotCell',
   'CourtLaneRow',
-  'CourtSwitch',
   'UpcomingBookingRow',
   'PastBookingRow',
   'NextUpCard',

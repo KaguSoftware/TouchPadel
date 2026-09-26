@@ -4,8 +4,27 @@
  * pay-at-desk card, degraded banners, day chips and merged slot cells.
  * Stateless — all data arrives as props (spec §06).
  */
-import { memo, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
+import {
+  Animated,
+  Platform,
+  Pressable,
+  type ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Text } from '../i18n/text';
 import {
   formatDayNumber,
@@ -38,8 +57,6 @@ import {
   WifiOffIcon,
   type IconProps,
 } from './icons';
-import { GlassView } from 'expo-glass-effect';
-import { liquidGlass } from '../lib/liquidGlass';
 import { BrandPattern } from './BrandPattern';
 import { Button, SectionLabel } from './ui';
 
@@ -1113,8 +1130,7 @@ export function DayChip({
    */
   compact?: boolean;
 }) {
-  const { colors, fonts, tracking, appearance } = useTheme();
-  const chipRadius = compact ? 12 : radius.cell;
+  const { colors, fonts, tracking } = useTheme();
   return (
     <Pressable
       testID={testID}
@@ -1129,36 +1145,12 @@ export function DayChip({
         paddingBottom: compact ? 6 : 8,
         paddingStart: compact ? 5 : 6,
         paddingEnd: compact ? 5 : 6,
-        borderRadius: chipRadius,
-        // Same border WIDTH on glass, so the chip keeps its size; the glass
-        // draws its own edge, so the line itself goes clear.
+        borderRadius: compact ? 12 : radius.cell,
         borderWidth: 1.5,
-        borderColor: liquidGlass ? 'transparent' : selected ? brand.blue : colors.line,
-        backgroundColor: liquidGlass
-          ? 'transparent'
-          : selected
-            ? brand.blue
-            : closed
-              ? colors.sub
-              : colors.card,
-        overflow: liquidGlass ? 'hidden' : undefined,
+        borderColor: selected ? brand.blue : colors.line,
+        backgroundColor: selected ? brand.blue : closed ? colors.sub : colors.card,
       }}
     >
-      {/* iOS 26: the system's Liquid Glass (owner, 2026-09-26), as on the PICK A
-          TIME capsule and the open-now pill. The selected day is the same glass
-          tinted brand blue, so it still reads as THE day at a glance; a closed
-          day is plain glass with its faded words. Interactive, so the chip
-          answers a touch the way a system glass control does. */}
-      {liquidGlass ? (
-        <GlassView
-          pointerEvents="none"
-          isInteractive
-          colorScheme={appearance === 'dark' ? 'dark' : 'light'}
-          glassEffectStyle="regular"
-          tintColor={selected ? brand.blue : undefined}
-          style={[StyleSheet.absoluteFill, { borderRadius: chipRadius }]}
-        />
-      ) : null}
       <Text
         style={{
           fontFamily: compact ? fonts.body800 : fonts.body700,
@@ -1415,6 +1407,15 @@ export function freeCountOf(cells: readonly MergedCell[]): number {
   return cells.filter((c) => c.state === 'free').length;
 }
 
+// The lane's selector: two times either side of the middle, outermost first.
+const LANE_GAP = 6;
+const LANE_SCALE = [0.7, 0.82, 1, 0.82, 0.7];
+const LANE_OPACITY = [0.3, 0.6, 1, 0.6, 0.3];
+/** Turned back, the side facing the middle nearer. */
+const LANE_TURN = ['40deg', '28deg', '0deg', '-28deg', '-40deg'];
+/** Pulls the shrunk side times back in so the gaps between them stay even. */
+const LANE_TUCK = [-30, -8, 0, 8, 30];
+
 /**
  * The booking sheet's court card (owner, 2026-09-26): a header — the court's
  * number badge, its name, indoor/outdoor, and a live "N free" pill — over the
@@ -1424,11 +1425,17 @@ export function freeCountOf(cells: readonly MergedCell[]): number {
  * The card is a translucent `card` wash so it reads as glass on the sheet's
  * frosted plate.
  *
+ * The times are a selector (owner, 2026-09-26): the lane snaps one time into
+ * its middle at full size, the times either side shrink, dim and turn back,
+ * and a selection haptic ticks as each new time reaches the middle. A tap on
+ * a side time brings it to the middle; a tap on the middle one books it.
+ *
  * `key={dir}` for the reason the day strip carries it: on Android a horizontal
  * offset is physical, so a lane already on screen across a language switch
- * would show its logical END. For the same reason a new day / duration
- * (`resetKey`) scrolls an LTR lane back to x = 0 in place, and remounts an RTL
- * one, where x = 0 is not reliably the start.
+ * would show its logical END — and in RTL the first time sits at the far end
+ * of the scroll range, which `flip` accounts for. For the same reason a new
+ * day / duration (`resetKey`) scrolls an LTR lane back to x = 0 in place, and
+ * remounts an RTL one, where x = 0 is not reliably the start.
  */
 export function CourtLaneRow({
   index,
@@ -1460,11 +1467,50 @@ export function CourtLaneRow({
   const { t, dir } = useLocale();
   const dark = appearance === 'dark';
   const scrollRef = useRef<ScrollView>(null);
+  /** The logical index of the time in the middle. */
+  const activeRef = useRef(0);
   useEffect(() => {
+    activeRef.current = 0;
     if (dir === 'ltr') scrollRef.current?.scrollTo({ x: 0, animated: false });
   }, [resetKey, dir]);
 
   const PAD = 8;
+  const step = cellWidth + LANE_GAP;
+  const n = cells.length;
+  const flip = dir === 'rtl' && Platform.OS === 'android';
+  const [laneW, setLaneW] = useState(0);
+  // Enough lead-in and tail that the first and last time can sit in the middle.
+  const side = laneW > 0 ? (laneW - cellWidth) / 2 : PAD;
+  const [scrollX] = useState(() => new Animated.Value(0));
+
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+        useNativeDriver: true,
+        listener: (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+          if (n === 0) return;
+          const slot = Math.max(0, Math.min(n - 1, Math.round(e.nativeEvent.contentOffset.x / step)));
+          const i = flip ? n - 1 - slot : slot;
+          if (i === activeRef.current) return;
+          activeRef.current = i;
+          void Haptics.selectionAsync().catch(() => {});
+        },
+      }),
+    [scrollX, n, step, flip],
+  );
+
+  // Stable per lane, so the memoised cells still skip re-renders.
+  const onCellPress = useCallback(
+    (cell: MergedCell) => {
+      const i = cells.indexOf(cell);
+      if (i < 0 || i === activeRef.current) {
+        onPress(cell);
+        return;
+      }
+      scrollRef.current?.scrollTo({ x: (flip ? n - 1 - i : i) * step, animated: true });
+    },
+    [cells, onPress, flip, n, step],
+  );
   return (
     <View
       style={{
@@ -1509,103 +1555,60 @@ export function CourtLaneRow({
         </View>
         <CourtFreePill free={freeCountOf(cells)} fontSize={9.5} />
       </View>
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         key={dir === 'rtl' ? `rtl|${resetKey}` : 'ltr'}
         horizontal
         showsHorizontalScrollIndicator={false}
+        snapToInterval={step}
+        decelerationRate="fast"
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          setLaneW((prev) => (prev === w ? prev : w));
+        }}
         style={{ flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={{ gap: 6, paddingStart: PAD, paddingEnd: PAD }}
+        contentContainerStyle={{ gap: LANE_GAP, paddingStart: side, paddingEnd: side }}
       >
-        {cells.map((cell, c) => (
-          <SlotCell
-            key={c}
-            testID={slotTestID(testID, cell)}
-            compact
-            width={cellWidth}
-            cell={cell}
-            time={timeFor(cell)}
-            sub={subFor(cell)}
-            capacityLine=""
-            onPress={onPress}
-          />
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-/**
- * The Availability screen's court picker (owner, 2026-09-26, layout "C"): one
- * segment per court — its badge and name — over a `seg` track, the selected
- * one raised on `card`. Each segment is `${testID}.<courtId>`.
- */
-export function CourtSwitch({
-  courts,
-  value,
-  onChange,
-  testID,
-}: {
-  courts: readonly { courtId: string; index: number; name: string }[];
-  value: string;
-  onChange: (courtId: string) => void;
-  testID: string;
-}) {
-  const { colors, fonts, tracking } = useTheme();
-  return (
-    <View
-      accessibilityRole="tablist"
-      style={{
-        flexDirection: 'row',
-        padding: 3,
-        gap: 3,
-        borderRadius: 14,
-        backgroundColor: colors.seg,
-      }}
-    >
-      {courts.map((c) => {
-        const on = c.courtId === value;
-        return (
-          <Pressable
-            key={c.courtId}
-            testID={`${testID}.${c.courtId}`}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: on }}
-            onPress={() => onChange(c.courtId)}
-            style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 7,
-              minHeight: 44,
-              paddingStart: 8,
-              paddingEnd: 8,
-              borderRadius: 11,
-              backgroundColor: on ? colors.card : 'transparent',
-              boxShadow: on ? shadows.thumb : undefined,
-              opacity: pressed && !on ? 0.7 : 1,
-            })}
-          >
-            <View style={{ opacity: on ? 1 : 0.45 }}>
-              <CourtBadge index={c.index} size={22} />
-            </View>
-            <Text
-              numberOfLines={1}
+        {cells.map((cell, c) => {
+          const at = (flip ? n - 1 - c : c) * step;
+          const range = [at - 2 * step, at - step, at, at + step, at + 2 * step];
+          const lerp = (out: number[]) =>
+            scrollX.interpolate({ inputRange: range, outputRange: out, extrapolate: 'clamp' });
+          return (
+            <Animated.View
+              key={c}
               style={{
-                flexShrink: 1,
-                fontFamily: fonts.display900,
-                fontSize: 13,
-                letterSpacing: tracking(0.4),
-                textTransform: 'uppercase',
-                color: on ? colors.ink : colors.mut,
+                opacity: lerp(LANE_OPACITY),
+                transform: [
+                  { perspective: 600 },
+                  { translateX: lerp(LANE_TUCK) },
+                  {
+                    rotateY: scrollX.interpolate({
+                      inputRange: range,
+                      outputRange: LANE_TURN,
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                  { scale: lerp(LANE_SCALE) },
+                ],
               }}
             >
-              {c.name}
-            </Text>
-          </Pressable>
-        );
-      })}
+              <SlotCell
+                testID={slotTestID(testID, cell)}
+                compact
+                width={cellWidth}
+                cell={cell}
+                time={timeFor(cell)}
+                sub={subFor(cell)}
+                capacityLine=""
+                onPress={onCellPress}
+              />
+            </Animated.View>
+          );
+        })}
+      </Animated.ScrollView>
     </View>
   );
 }

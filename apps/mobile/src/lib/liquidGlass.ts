@@ -2,7 +2,7 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 /**
  * iOS 26's Liquid Glass, for every surface that draws it (the PICK A TIME
- * capsule, the open-now pill, the date chips).
+ * capsule and the open-now pill).
  *
  * `isLiquidGlassAvailable()` is the system's own answer, not a version check: it
  * is false on Android (where the module falls back to a plain View), false below
