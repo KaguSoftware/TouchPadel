@@ -101,6 +101,13 @@ Deno.serve(async (req) => {
 
   // The branch to diagnose (0212, MV3: one Telegram group per branch): the body's
   // venue_id, else the oldest active branch.
+  if (
+    body.venue_id != null &&
+    (typeof body.venue_id !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.venue_id))
+  ) {
+    return json({ error: 'BAD_REQUEST', message: 'venue_id must be a uuid' }, 400);
+  }
   let venueId = typeof body.venue_id === 'string' && body.venue_id ? body.venue_id : null;
   if (!venueId) {
     const { data: v } = await service

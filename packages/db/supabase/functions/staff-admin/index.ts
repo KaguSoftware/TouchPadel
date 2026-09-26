@@ -80,8 +80,13 @@ Deno.serve(async (req) => {
     const roleCheck = checkCreateRole(body.role);
     const password = validPassword(body.password);
     // 0218: the branch the new account works at (optional; the default branch otherwise).
-    const venueId =
-      typeof body.venue_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.venue_id) ? body.venue_id : null;
+    // Multi-venue audit: a malformed id is refused, never quietly turned into
+    // "the default branch" (the account would land at the wrong one).
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (body.venue_id != null && (typeof body.venue_id !== 'string' || !UUID_RE.test(body.venue_id))) {
+      return badRequest('venue_id must be a uuid');
+    }
+    const venueId = typeof body.venue_id === 'string' ? body.venue_id : null;
 
     if (!email.includes('@')) return badRequest('a valid email is required');
     if (!displayName) return badRequest('display_name is required');
