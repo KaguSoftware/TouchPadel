@@ -1343,6 +1343,10 @@ export type Database = {
         }
         Returns: Json
       }
+      price_promo_addon_renames: {
+        Args: { p_value: Json; p_venue: string }
+        Returns: Json
+      }
       price_promo_addons: {
         Args: { p_value: Json; p_venue: string }
         Returns: Json
@@ -1404,6 +1408,10 @@ export type Database = {
       }
       price_promo_rule: {
         Args: { p_value: Json; p_venue: string }
+        Returns: Json
+      }
+      price_promo_size_renames: {
+        Args: { p_item: string; p_value: Json }
         Returns: Json
       }
       price_promo_sizes: {
