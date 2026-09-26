@@ -50,6 +50,9 @@ import { storesEn } from './stores.en';
 import { storesAr } from './stores.ar';
 import { tillShiftEn } from './tillShift.en';
 import { tillShiftAr } from './tillShift.ar';
+// Multi-venue slice 4: the owner's branches, stations, staff branches, report scope.
+import { branchesEn } from './branches.en';
+import { branchesAr } from './branches.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -73,6 +76,7 @@ export const wsEn = {
   content: contentEn,
   stores: storesEn,
   tillShift: tillShiftEn,
+  branches: branchesEn,
 } as const;
 
 export const wsAr = {
@@ -97,4 +101,5 @@ export const wsAr = {
   content: contentAr,
   stores: storesAr,
   tillShift: tillShiftAr,
+  branches: branchesAr,
 } as const;

@@ -29,6 +29,7 @@ import {
   openGuestSession,
   ensureOpenDay,
   ensureTillFresh,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -91,7 +92,7 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
 
     const { data: settings, error } = await svc
       .from('venue_settings')
-      .select('heartbeat_stale_seconds, protected_horizon_hours')
+      .select('heartbeat_stale_seconds, protected_horizon_hours').eq('venue_id', VENUE_A_ID)
       .single();
     if (error) throw new Error(`venue_settings read failed: ${error.message}`);
     staleSeconds = (settings as { heartbeat_stale_seconds: number }).heartbeat_stale_seconds;

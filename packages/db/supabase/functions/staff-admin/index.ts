@@ -40,6 +40,8 @@ interface CreateBody {
   display_name: string;
   /** Untrusted until checkCreateRole (role.ts) has passed it. */
   role: string;
+  /** 0218: the branch the account works at; optional (the default branch otherwise). */
+  venue_id?: string;
 }
 
 interface ResetBody {
@@ -77,6 +79,9 @@ Deno.serve(async (req) => {
     const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : '';
     const roleCheck = checkCreateRole(body.role);
     const password = validPassword(body.password);
+    // 0218: the branch the new account works at (optional; the default branch otherwise).
+    const venueId =
+      typeof body.venue_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.venue_id) ? body.venue_id : null;
 
     if (!email.includes('@')) return badRequest('a valid email is required');
     if (!displayName) return badRequest('display_name is required');
@@ -112,6 +117,7 @@ Deno.serve(async (req) => {
       p_display_name: displayName,
       p_role: roleCheck.role,
       p_actor_id: caller.userId,
+      p_venue_id: venueId,
     });
 
     if (error) {

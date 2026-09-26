@@ -155,6 +155,7 @@ export const shellEn = {
     panel: 'Management panel',
     analytics: 'Analytics',
     staff: 'Staff',
+    branches: 'Branches',
     courts: 'Courts',
     tables: 'Tables & QR',
     settings: 'Venue settings',

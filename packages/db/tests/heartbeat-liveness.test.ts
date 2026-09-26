@@ -27,6 +27,7 @@ import {
   appRpc,
   ensureTillFresh,
   SEED_STAFF,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -52,7 +53,7 @@ describe.skipIf(!up)('venue heartbeat liveness', () => {
     cashier = await signedInClient(SEED_STAFF.cashier);
     const { data: settings } = await svc
       .from('venue_settings')
-      .select('heartbeat_stale_seconds')
+      .select('heartbeat_stale_seconds').eq('venue_id', VENUE_A_ID)
       .single();
     staleSeconds = (settings as { heartbeat_stale_seconds: number }).heartbeat_stale_seconds;
   });

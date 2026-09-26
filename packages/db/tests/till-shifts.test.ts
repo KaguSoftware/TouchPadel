@@ -1485,7 +1485,20 @@ commit;`);
     const settle0106 = /\$settle_0106\$([\s\S]*?)\$settle_0106\$/.exec(m0106)?.[1];
     expect(settle0106).toBeTruthy();
     const settleLive = psql(`select prosrc from pg_proc where oid = 'app.settle_tab(uuid,payment_method,bigint,bigint,text,text,bigint)'::regprocedure`);
-    expect(settleLive).toBe(settle0106!.trim());
+    // Multi-venue slice 3 (0217) re-issued it with one venue guard (a v_venue
+    // declaration and one block after the role guard) and nothing else: the
+    // live body is 0217's, and 0217's without the guard is 0106's.
+    const m0217 = readFileSync(
+      fileURLToPath(new URL('../supabase/migrations/20260926000217_cross_venue_guards.sql', import.meta.url)),
+      'utf8',
+    );
+    const settle0217 = /\$settle_tab_0217\$([\s\S]*?)\$settle_tab_0217\$/.exec(m0217)?.[1];
+    expect(settle0217).toBeTruthy();
+    expect(settleLive).toBe(settle0217!.trim());
+    const unguarded = settle0217!
+      .replace('  v_venue uuid;\n', '')
+      .replace(/ {2}-- 0217:[^\n]*\n {2}v_venue := [^\n]*\n {2}if v_venue is not null then\n[\s\S]*?\n {2}end if;\n/, '');
+    expect(unguarded.trim()).toBe(settle0106!.trim());
 
     // TI2, over every stamped row in the database: the same station and venue,
     // and for a payment the same day.
@@ -1508,7 +1521,7 @@ commit;`);
     const upd = await svc.from('payments').update({ till_shift_id: null }).eq('id', yesterdayCash30k);
     expect(upd.error?.message).toMatch(/append-only/i);
 
-    const src = psql(`select prosrc from pg_proc where oid = 'app.close_day(bigint,bigint,text,text)'::regprocedure`);
+    const src = psql(`select prosrc from pg_proc where oid = 'app.close_day(bigint,bigint,text,text,uuid)'::regprocedure`);
     const m0020 = readFileSync(
       fileURLToPath(new URL('../supabase/migrations/20260824000020_day_close.sql', import.meta.url)),
       'utf8',

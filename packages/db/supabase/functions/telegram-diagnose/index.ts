@@ -67,9 +67,9 @@ Deno.serve(async (req) => {
   const caller = await requireStaffRole(req, service, ['owner']);
   if (caller instanceof Response) return caller;
 
-  let body: { action?: unknown } = {};
+  let body: { action?: unknown; venue_id?: unknown } = {};
   try {
-    body = (await req.json()) as { action?: unknown };
+    body = (await req.json()) as { action?: unknown; venue_id?: unknown };
   } catch {
     // An empty body is a plain diagnose.
   }
@@ -99,10 +99,33 @@ Deno.serve(async (req) => {
 
   const checks: DiagnoseCheck[] = [];
 
+  // The branch to diagnose (0212, MV3: one Telegram group per branch): the body's
+  // venue_id, else the oldest active branch.
+  let venueId = typeof body.venue_id === 'string' && body.venue_id ? body.venue_id : null;
+  if (!venueId) {
+    const { data: v } = await service
+      .from('venues')
+      .select('id')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    venueId = (v as { id?: string } | null)?.id ?? null;
+  }
+
   // DB facts first — they do not depend on the token.
   const [settingsQ, outboxQ, allowQ] = await Promise.all([
-    service.from('cafe_settings').select('key, value').in('key', ['telegram_enabled', 'telegram_chat_id']),
-    service.from('telegram_outbox').select('chat_id, status, last_error').order('id', { ascending: false }).limit(20),
+    service
+      .from('cafe_settings')
+      .select('key, value')
+      .eq('venue_id', venueId ?? '00000000-0000-0000-0000-000000000000')
+      .in('key', ['telegram_enabled', 'telegram_chat_id']),
+    service
+      .from('telegram_outbox')
+      .select('chat_id, status, last_error')
+      .eq('venue_id', venueId ?? '00000000-0000-0000-0000-000000000000')
+      .order('id', { ascending: false })
+      .limit(20),
     service.from('telegram_staff').select('is_active, staff:staff_id(is_active)'),
   ]);
   if (settingsQ.error || outboxQ.error || allowQ.error) {

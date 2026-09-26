@@ -187,6 +187,7 @@ export const ownerEn = {
     },
     cards: {
       staff: 'Who can sign in, what each person can open, and the manager PINs that approve discounts and voids.',
+      branches: 'Every Touch location. Open a new branch as a copy of an existing one, set it up, then open it to guests.',
       courts: 'The courts guests and the desk can book: names, photos, booking lengths and calendar order.',
       tables: 'The cafe tables and the QR card on each one. Switch a waiter bell, print a card, or replace a lost one.',
       settings: 'Opening hours, closed days, when the business day starts, and the venue details fixed at setup.',
@@ -194,6 +195,7 @@ export const ownerEn = {
     },
     status: {
       staff: 'People with access',
+      branches: 'Branches',
       courts: 'Open for booking',
       tables: 'Tables in use',
       dayStarts: 'Business day starts',

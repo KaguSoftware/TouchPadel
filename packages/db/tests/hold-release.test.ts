@@ -127,8 +127,9 @@ describe.skipIf(!up)('0060 release_hold', () => {
 
   it('THE REPRO: releasing a hold frees a slot of the per-account quota', async () => {
     const { data: vs } = await svc
-      .from('venue_settings')
+      .from('platform_settings')
       .select('max_live_holds_per_guest')
+      .eq('id', true)
       .single();
     const cap = (vs as { max_live_holds_per_guest: number }).max_live_holds_per_guest;
     expect(cap).toBeGreaterThan(0);

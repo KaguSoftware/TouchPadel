@@ -36,6 +36,7 @@ import {
   ensureTillFresh,
   futureSlot,
   createTestCafeTable,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -212,7 +213,7 @@ describe.skipIf(!up)('0067 promotions', () => {
     const { error } = await svc.from('promotions').update({ enabled: false }).eq('enabled', true);
     if (error) throw new Error(`disable leftovers: ${error.message}`);
 
-    const { data: vs } = await svc.from('venue_settings').select('timezone').single();
+    const { data: vs } = await svc.from('venue_settings').select('timezone').eq('venue_id', VENUE_A_ID).single();
     tz = (vs as { timezone: string }).timezone;
 
     itemA = await createTestMenuItem(svc, 'promo-a', 6000);

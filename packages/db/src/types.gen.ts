@@ -275,6 +275,7 @@ export type Database = {
       addon_items_of: { Args: { p_group_ids: string[] }; Returns: string[] }
       addon_prices_guard: { Args: { p_before: Json }; Returns: undefined }
       addon_prices_snapshot: { Args: { p_item_ids: string[] }; Returns: Json }
+      analysis_venue: { Args: never; Returns: string }
       analytics_assert_basis: { Args: { p_basis: string }; Returns: undefined }
       analytics_best_sellers: {
         Args: {
@@ -440,7 +441,7 @@ export type Database = {
         Returns: undefined
       }
       assert_not_degraded_for: {
-        Args: { p_start_at: string }
+        Args: { p_start_at: string; p_venue?: string }
         Returns: undefined
       }
       assistant_archive_component: {
@@ -688,6 +689,7 @@ export type Database = {
         Args: { p_reservation_ids: string[] }
         Returns: Json
       }
+      branch_readiness: { Args: { p_venue: string }; Returns: Json }
       break_allowance_seconds: { Args: never; Returns: number }
       break_cover_candidates: {
         Args: { p_for: string; p_station_id: string }
@@ -727,9 +729,15 @@ export type Database = {
           variant_id: string
         }[]
       }
-      cafe_setting: { Args: { p_key: string }; Returns: Json }
-      cafe_setting_bool: { Args: { p_key: string }; Returns: boolean }
-      cafe_setting_int: { Args: { p_key: string }; Returns: number }
+      cafe_setting: { Args: { p_key: string; p_venue?: string }; Returns: Json }
+      cafe_setting_bool: {
+        Args: { p_key: string; p_venue?: string }
+        Returns: boolean
+      }
+      cafe_setting_int: {
+        Args: { p_key: string; p_venue?: string }
+        Returns: number
+      }
       cafe_setting_spec: {
         Args: { p_key: string }
         Returns: {
@@ -750,7 +758,10 @@ export type Database = {
           min_role: Database["public"]["Enums"]["staff_role"]
         }[]
       }
-      cafe_setting_text: { Args: { p_key: string }; Returns: string }
+      cafe_setting_text: {
+        Args: { p_key: string; p_venue?: string }
+        Returns: string
+      }
       cafe_settled_tabs: {
         Args: { p_ts_from?: string; p_ts_to?: string }
         Returns: {
@@ -842,12 +853,23 @@ export type Database = {
       clear_pin_lockout: { Args: { p_staff_id: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       clear_table_token_secret_prev: { Args: never; Returns: Json }
+      close_branch: {
+        Args: { p_venue: string }
+        Returns: Database["public"]["Tables"]["venues"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "venues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       close_day: {
         Args: {
           p_card_batch_iqd?: number
           p_cash_counted_iqd: number
           p_device_id?: string
           p_notes?: string
+          p_venue_id?: string
         }
         Returns: Json
       }
@@ -960,6 +982,19 @@ export type Database = {
         Args: { p_device_id: string; p_pin: string; p_staff_id: string }
         Returns: Json
       }
+      create_branch: {
+        Args: {
+          p_address_ar?: string
+          p_address_en?: string
+          p_name_ar: string
+          p_name_en: string
+          p_phone?: string
+          p_slug: string
+          p_source_venue: string
+          p_timezone?: string
+        }
+        Returns: Json
+      }
       create_guest_order: {
         Args: {
           p_device_id?: string
@@ -988,8 +1023,8 @@ export type Database = {
         }
         Returns: Json
       }
-      current_open_day: { Args: never; Returns: string }
-      current_open_day_locked: { Args: never; Returns: string }
+      current_open_day: { Args: { p_venue?: string }; Returns: string }
+      current_open_day_locked: { Args: { p_venue?: string }; Returns: string }
       current_unit_cost: {
         Args: { p_item_id: string; p_variant_id: string }
         Returns: number
@@ -1093,7 +1128,12 @@ export type Database = {
       }
       end_break: { Args: { p_device_id: string; p_pin: string }; Returns: Json }
       enqueue_telegram: {
-        Args: { p_kind: string; p_payload?: Json; p_ref_id: string }
+        Args: {
+          p_kind: string
+          p_payload?: Json
+          p_ref_id: string
+          p_venue?: string
+        }
         Returns: number
       }
       expire_stale_holds: {
@@ -1406,11 +1446,22 @@ export type Database = {
         }
         Returns: number
       }
+      open_branch: {
+        Args: { p_venue: string }
+        Returns: Database["public"]["Tables"]["venues"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "venues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       open_day: {
         Args: {
           p_business_date?: string
           p_device_id?: string
           p_opening_float_iqd: number
+          p_venue_id?: string
         }
         Returns: Json
       }
@@ -1435,6 +1486,7 @@ export type Database = {
         }
         Returns: Json
       }
+      open_venue_ids: { Args: never; Returns: string[] }
       ops_overview: { Args: never; Returns: Json }
       order_is_callers: { Args: { p_order_id: string }; Returns: boolean }
       order_is_shop: { Args: { p_order_id: string }; Returns: boolean }
@@ -2037,8 +2089,19 @@ export type Database = {
           p_display_name: string
           p_role: Database["public"]["Enums"]["staff_role"]
           p_staff_id: string
+          p_venue_id?: string
         }
         Returns: Json
+      }
+      register_station: {
+        Args: { p_id: string; p_mode: string; p_venue_id: string }
+        Returns: Database["public"]["Tables"]["stations"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "stations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       reject_insight: {
         Args: { p_reason?: string; p_text: string }
@@ -2165,6 +2228,7 @@ export type Database = {
         Args: { p_filters?: Json; p_from: string; p_to: string }
         Returns: Json
       }
+      report_venues: { Args: never; Returns: string[] }
       reports_available_minutes: {
         Args: { p_from: string; p_to: string }
         Returns: number
@@ -2193,6 +2257,16 @@ export type Database = {
       resolve_venue: { Args: { p_station_id?: string }; Returns: string }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       retire_device: { Args: { p_device_id: string }; Returns: Json }
+      retire_station: {
+        Args: { p_id: string }
+        Returns: Database["public"]["Tables"]["stations"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "stations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
       review_incident: { Args: { p_id: string; p_note: string }; Returns: Json }
       revise_content: {
@@ -2315,6 +2389,7 @@ export type Database = {
           p_pattern: string
           p_start_time: string
           p_starts_on: string
+          p_venue?: string
           p_weekdays: number[]
         }
         Returns: {
@@ -2335,14 +2410,17 @@ export type Database = {
         Returns: undefined
       }
       set_cafe_setting: {
-        Args: { p_key: string; p_value: Json }
+        Args: { p_key: string; p_value: Json; p_venue_id?: string }
         Returns: Json
       }
       set_cafe_setting_internal: {
-        Args: { p_key: string; p_value: Json }
+        Args: { p_key: string; p_value: Json; p_venue?: string }
         Returns: Json
       }
-      set_cafe_settings: { Args: { p_settings: Json }; Returns: Json }
+      set_cafe_settings: {
+        Args: { p_settings: Json; p_venue_id?: string }
+        Returns: Json
+      }
       set_campaign_status: {
         Args: { p_id: string; p_status: string }
         Returns: Json
@@ -2384,7 +2462,11 @@ export type Database = {
         Returns: undefined
       }
       set_opening_hours: {
-        Args: { p_closed_dates?: string[]; p_opening_hours?: Json }
+        Args: {
+          p_closed_dates?: string[]
+          p_opening_hours?: Json
+          p_venue_id?: string
+        }
         Returns: undefined
       }
       set_order_item_ready: {
@@ -2402,6 +2484,16 @@ export type Database = {
       set_promotion_enabled_internal: {
         Args: { p_enabled: boolean; p_id: string }
         Returns: Json
+      }
+      set_promotion_venue: {
+        Args: { p_promotion_id: string; p_venue_id: string }
+        Returns: Database["public"]["Tables"]["promotions"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "promotions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_recipe: {
         Args: { p_lines?: Json; p_target: string; p_target_id: string }
@@ -2425,6 +2517,10 @@ export type Database = {
           p_role: Database["public"]["Enums"]["staff_role"]
           p_staff_id: string
         }
+        Returns: Json
+      }
+      set_staff_venues: {
+        Args: { p_staff_id: string; p_venue_ids: string[] }
         Returns: Json
       }
       set_station_staff: {
@@ -2454,9 +2550,12 @@ export type Database = {
         }
         Returns: Json
       }
-      set_venue_details: { Args: { p_patch: Json }; Returns: Json }
+      set_venue_details: {
+        Args: { p_patch: Json; p_venue_id?: string }
+        Returns: Json
+      }
       set_waiter_call_cooldown: {
-        Args: { p_seconds: number }
+        Args: { p_seconds: number; p_venue_id?: string }
         Returns: undefined
       }
       settle_tab: {
@@ -2560,6 +2659,7 @@ export type Database = {
       }
       staff_media_venue: { Args: { p_name: string }; Returns: string }
       staff_media_visible: { Args: { p_name: string }; Returns: boolean }
+      staff_memberships: { Args: { p_staff_id: string }; Returns: string[] }
       staff_requests_page: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
@@ -2621,6 +2721,7 @@ export type Database = {
         Args: { p_note: string; p_run_id: string }
         Returns: Json
       }
+      storage_path_in_use: { Args: { p_path: string }; Returns: boolean }
       submit_content: {
         Args: {
           p_body: string
@@ -2720,6 +2821,7 @@ export type Database = {
       sweep_degraded_periods: { Args: never; Returns: undefined }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
+      table_branch: { Args: { p_token: string }; Returns: string }
       table_qr_tokens: { Args: never; Returns: Json }
       table_token_secret: { Args: never; Returns: string }
       table_token_secret_prev: { Args: never; Returns: string }
@@ -2744,7 +2846,7 @@ export type Database = {
       telegram_call_payload: { Args: { p_call_id: string }; Returns: Json }
       telegram_nudge: { Args: never; Returns: undefined }
       telegram_order_payload: { Args: { p_order_id: string }; Returns: Json }
-      telegram_send_test: { Args: never; Returns: Json }
+      telegram_send_test: { Args: { p_venue_id?: string }; Returns: Json }
       text_control_class: { Args: never; Returns: string }
       text_control_class_multiline: { Args: never; Returns: string }
       tick_run_item: {
@@ -3124,6 +3226,7 @@ export type Database = {
         Returns: boolean
       }
       verify_table_token: { Args: { p_token: string }; Returns: string }
+      visible_venue_ids: { Args: never; Returns: string[] }
       void_after_send: {
         Args: {
           p_device_id?: string
@@ -3267,7 +3370,7 @@ export type Database = {
           reason: string | null
           text: string
           text_key: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           created_at?: string
@@ -3276,7 +3379,7 @@ export type Database = {
           reason?: string | null
           text: string
           text_key: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           created_at?: string
@@ -3285,7 +3388,7 @@ export type Database = {
           reason?: string | null
           text?: string
           text_key?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -3316,7 +3419,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           compare_basis?: string
@@ -3329,7 +3432,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           compare_basis?: string
@@ -3342,7 +3445,7 @@ export type Database = {
           range_from?: string
           range_to?: string
           scope?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -3379,7 +3482,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           court_id?: string | null
@@ -3391,7 +3494,7 @@ export type Database = {
           range_from: string
           range_to: string
           scope?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           court_id?: string | null
@@ -3403,7 +3506,7 @@ export type Database = {
           range_from?: string
           range_to?: string
           scope?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -3832,7 +3935,7 @@ export type Database = {
           id: number
           reason_code: string | null
           search_text: unknown
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           action: string
@@ -3848,7 +3951,7 @@ export type Database = {
           id?: never
           reason_code?: string | null
           search_text?: unknown
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           action?: string
@@ -3864,7 +3967,7 @@ export type Database = {
           id?: never
           reason_code?: string | null
           search_text?: unknown
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -3883,6 +3986,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           value: Json
+          venue_id: string
         }
         Insert: {
           is_public: boolean
@@ -3890,6 +3994,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           value: Json
+          venue_id?: string
         }
         Update: {
           is_public?: boolean
@@ -3897,6 +4002,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           value?: Json
+          venue_id?: string
         }
         Relationships: [
           {
@@ -3904,6 +4010,13 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cafe_settings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -3916,7 +4029,7 @@ export type Database = {
           is_active: boolean
           table_number: string
           token_version: number
-          venue_id: string | null
+          venue_id: string
           zone: string | null
         }
         Insert: {
@@ -3926,7 +4039,7 @@ export type Database = {
           is_active?: boolean
           table_number: string
           token_version?: number
-          venue_id?: string | null
+          venue_id?: string
           zone?: string | null
         }
         Update: {
@@ -3936,7 +4049,7 @@ export type Database = {
           is_active?: boolean
           table_number?: string
           token_version?: number
-          venue_id?: string | null
+          venue_id?: string
           zone?: string | null
         }
         Relationships: [
@@ -4148,7 +4261,7 @@ export type Database = {
           name_en: string
           photo_path: string | null
           sort_order: number
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           active_from?: string | null
@@ -4163,7 +4276,7 @@ export type Database = {
           name_en: string
           photo_path?: string | null
           sort_order?: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           active_from?: string | null
@@ -4178,7 +4291,7 @@ export type Database = {
           name_en?: string
           photo_path?: string | null
           sort_order?: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -4297,7 +4410,7 @@ export type Database = {
           opened_by: string
           opening_float_iqd: number
           status: Database["public"]["Enums"]["day_status"]
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           business_date: string
@@ -4314,7 +4427,7 @@ export type Database = {
           opened_by: string
           opening_float_iqd: number
           status?: Database["public"]["Enums"]["day_status"]
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           business_date?: string
@@ -4331,7 +4444,7 @@ export type Database = {
           opened_by?: string
           opening_float_iqd?: number
           status?: Database["public"]["Enums"]["day_status"]
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -4363,21 +4476,21 @@ export type Database = {
           ended_at: string | null
           id: string
           started_at: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           detected_by?: string
           ended_at?: string | null
           id?: string
           started_at: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           detected_by?: string
           ended_at?: string | null
           id?: string
           started_at?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -4399,7 +4512,7 @@ export type Database = {
           source: string
           supplier_id: string | null
           supplier_name: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           id?: string
@@ -4410,7 +4523,7 @@ export type Database = {
           source?: string
           supplier_id?: string | null
           supplier_name?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           id?: string
@@ -4421,7 +4534,7 @@ export type Database = {
           source?: string
           supplier_id?: string | null
           supplier_name?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -4517,7 +4630,7 @@ export type Database = {
           last_seen_at: string
           queue_depth: number
           staff_id: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           app_version?: string | null
@@ -4526,7 +4639,7 @@ export type Database = {
           last_seen_at?: string
           queue_depth?: number
           staff_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           app_version?: string | null
@@ -4535,7 +4648,7 @@ export type Database = {
           last_seen_at?: string
           queue_depth?: number
           staff_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -4578,7 +4691,7 @@ export type Database = {
           last_activity_at: string
           linked_profile_id: string | null
           table_id: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           auth_user_id: string
@@ -4589,7 +4702,7 @@ export type Database = {
           last_activity_at?: string
           linked_profile_id?: string | null
           table_id: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           auth_user_id?: string
@@ -4600,7 +4713,7 @@ export type Database = {
           last_activity_at?: string
           linked_profile_id?: string | null
           table_id?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -4814,7 +4927,7 @@ export type Database = {
           supplier_name: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
           variant_id: string | null
-          venue_id: string | null
+          venue_id: string
           waste_allowance_percent: number
           yield_percent: number
         }
@@ -4833,7 +4946,7 @@ export type Database = {
           supplier_name?: string | null
           unit: Database["public"]["Enums"]["stock_unit"]
           variant_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
           waste_allowance_percent?: number
           yield_percent?: number
         }
@@ -4852,7 +4965,7 @@ export type Database = {
           supplier_name?: string | null
           unit?: Database["public"]["Enums"]["stock_unit"]
           variant_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
           waste_allowance_percent?: number
           yield_percent?: number
         }
@@ -4938,7 +5051,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["alert_kind"]
           payload: Json
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           acknowledged_at?: string | null
@@ -4947,7 +5060,7 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["alert_kind"]
           payload: Json
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           acknowledged_at?: string | null
@@ -4956,7 +5069,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["alert_kind"]
           payload?: Json
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -4984,7 +5097,7 @@ export type Database = {
           name_en: string
           rule: Json
           updated_at: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           created_at?: string
@@ -4994,7 +5107,7 @@ export type Database = {
           name_en: string
           rule?: Json
           updated_at?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           created_at?: string
@@ -5004,7 +5117,7 @@ export type Database = {
           name_en?: string
           rule?: Json
           updated_at?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -5045,7 +5158,7 @@ export type Database = {
           suggested_by: string | null
           suggestion_note: string | null
           updated_at: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           audience_id?: string | null
@@ -5068,7 +5181,7 @@ export type Database = {
           suggested_by?: string | null
           suggestion_note?: string | null
           updated_at?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           audience_id?: string | null
@@ -5091,7 +5204,7 @@ export type Database = {
           suggested_by?: string | null
           suggestion_note?: string | null
           updated_at?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -5480,7 +5593,7 @@ export type Database = {
           serve_temp: string
           sort_order: number
           tax_group_id: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           id?: string
@@ -5493,7 +5606,7 @@ export type Database = {
           serve_temp?: string
           sort_order?: number
           tax_group_id: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           id?: string
@@ -5506,7 +5619,7 @@ export type Database = {
           serve_temp?: string
           sort_order?: number
           tax_group_id?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -5688,7 +5801,7 @@ export type Database = {
           sold_out: boolean
           sort_order: number
           unavailable_on: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           category_id: string
@@ -5709,7 +5822,7 @@ export type Database = {
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           category_id?: string
@@ -5730,7 +5843,7 @@ export type Database = {
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -5763,7 +5876,7 @@ export type Database = {
           min_select: number
           name_ar: string
           name_en: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           id?: string
@@ -5771,7 +5884,7 @@ export type Database = {
           min_select?: number
           name_ar: string
           name_en: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           id?: string
@@ -5779,7 +5892,7 @@ export type Database = {
           min_select?: number
           name_ar?: string
           name_en?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -6052,7 +6165,7 @@ export type Database = {
           source: Database["public"]["Enums"]["order_source"]
           status: Database["public"]["Enums"]["order_status"]
           tab_id: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           device_id?: string | null
@@ -6064,7 +6177,7 @@ export type Database = {
           source: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           device_id?: string | null
@@ -6076,7 +6189,7 @@ export type Database = {
           source?: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           tab_id?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -6130,7 +6243,7 @@ export type Database = {
           tab_id: string
           tendered_iqd: number | null
           till_shift_id: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           amount_iqd: number
@@ -6145,7 +6258,7 @@ export type Database = {
           tab_id: string
           tendered_iqd?: number | null
           till_shift_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           amount_iqd?: number
@@ -6160,7 +6273,7 @@ export type Database = {
           tab_id?: string
           tendered_iqd?: number | null
           till_shift_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -6206,6 +6319,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_settings: {
+        Row: {
+          currency: string
+          id: boolean
+          llm_cost_micros_per_mtok: number
+          llm_daily_request_limit: number
+          llm_default_model: string
+          llm_monthly_cost_cap_micros: number
+          llm_pricing: Json
+          max_live_holds_per_guest: number
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          currency?: string
+          id?: boolean
+          llm_cost_micros_per_mtok?: number
+          llm_daily_request_limit?: number
+          llm_default_model?: string
+          llm_monthly_cost_cap_micros?: number
+          llm_pricing?: Json
+          max_live_holds_per_guest?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          currency?: string
+          id?: boolean
+          llm_cost_micros_per_mtok?: number
+          llm_daily_request_limit?: number
+          llm_default_model?: string
+          llm_monthly_cost_cap_micros?: number
+          llm_pricing?: Json
+          max_live_holds_per_guest?: number
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -6345,6 +6497,7 @@ export type Database = {
           type: string
           updated_at: string
           value: number
+          venue_id: string | null
           weekdays: number[]
         }
         Insert: {
@@ -6366,6 +6519,7 @@ export type Database = {
           type: string
           updated_at?: string
           value: number
+          venue_id?: string | null
           weekdays?: number[]
         }
         Update: {
@@ -6387,6 +6541,7 @@ export type Database = {
           type?: string
           updated_at?: string
           value?: number
+          venue_id?: string | null
           weekdays?: number[]
         }
         Relationships: [
@@ -6395,6 +6550,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -7042,7 +7204,7 @@ export type Database = {
           start_time: string
           valid_from: string | null
           valid_to: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           court_id?: string | null
@@ -7055,7 +7217,7 @@ export type Database = {
           start_time: string
           valid_from?: string | null
           valid_to?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           court_id?: string | null
@@ -7068,7 +7230,7 @@ export type Database = {
           start_time?: string
           valid_from?: string | null
           valid_to?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -7346,7 +7508,7 @@ export type Database = {
           reason_code: string
           refunded_by: string
           till_shift_id: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           amount_iqd: number
@@ -7357,7 +7519,7 @@ export type Database = {
           reason_code: string
           refunded_by: string
           till_shift_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           amount_iqd?: number
@@ -7368,7 +7530,7 @@ export type Database = {
           reason_code?: string
           refunded_by?: string
           till_shift_id?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -7610,7 +7772,7 @@ export type Database = {
           pattern: string
           start_time: string
           starts_on: string
-          venue_id: string | null
+          venue_id: string
           weekdays: number[]
         }
         Insert: {
@@ -7630,7 +7792,7 @@ export type Database = {
           pattern: string
           start_time: string
           starts_on: string
-          venue_id?: string | null
+          venue_id?: string
           weekdays?: number[]
         }
         Update: {
@@ -7650,7 +7812,7 @@ export type Database = {
           pattern?: string
           start_time?: string
           starts_on?: string
-          venue_id?: string | null
+          venue_id?: string
           weekdays?: number[]
         }
         Relationships: [
@@ -7712,7 +7874,7 @@ export type Database = {
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           block_purpose?: string | null
@@ -7743,7 +7905,7 @@ export type Database = {
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status?: Database["public"]["Enums"]["reservation_status"]
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           block_purpose?: string | null
@@ -7774,7 +7936,7 @@ export type Database = {
           source?: Database["public"]["Enums"]["reservation_source"]
           start_at?: string
           status?: Database["public"]["Enums"]["reservation_status"]
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -8090,7 +8252,7 @@ export type Database = {
           staff_id: string
           started_at: string
           station_id: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           business_date: string
@@ -8101,7 +8263,7 @@ export type Database = {
           staff_id: string
           started_at?: string
           station_id: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           business_date?: string
@@ -8112,7 +8274,7 @@ export type Database = {
           staff_id?: string
           started_at?: string
           station_id?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -8347,21 +8509,21 @@ export type Database = {
           created_by: string | null
           staff_id: string
           station_id: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           staff_id: string
           station_id: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
           staff_id?: string
           station_id?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -8405,6 +8567,7 @@ export type Database = {
         Row: {
           id: string
           is_till: boolean
+          mode: string | null
           registered_at: string
           registered_by: string | null
           retired_at: string | null
@@ -8413,6 +8576,7 @@ export type Database = {
         Insert: {
           id: string
           is_till?: boolean
+          mode?: string | null
           registered_at?: string
           registered_by?: string | null
           retired_at?: string | null
@@ -8421,6 +8585,7 @@ export type Database = {
         Update: {
           id?: string
           is_till?: boolean
+          mode?: string | null
           registered_at?: string
           registered_by?: string | null
           retired_at?: string | null
@@ -8455,7 +8620,7 @@ export type Database = {
           qty_remaining: number
           received_at: string
           unit_cost_iqd: number
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           delivery_line_id?: string | null
@@ -8468,7 +8633,7 @@ export type Database = {
           qty_remaining: number
           received_at?: string
           unit_cost_iqd: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           delivery_line_id?: string | null
@@ -8481,7 +8646,7 @@ export type Database = {
           qty_remaining?: number
           received_at?: string
           unit_cost_iqd?: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -8600,7 +8765,7 @@ export type Database = {
           location: Database["public"]["Enums"]["stock_location"]
           source: string
           started_at: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           counted_by: string
@@ -8609,7 +8774,7 @@ export type Database = {
           location?: Database["public"]["Enums"]["stock_location"]
           source?: string
           started_at?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           counted_by?: string
@@ -8618,7 +8783,7 @@ export type Database = {
           location?: Database["public"]["Enums"]["stock_location"]
           source?: string
           started_at?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -8655,7 +8820,7 @@ export type Database = {
           staff_id: string | null
           ticket_id: string | null
           unit_cost_iqd: number | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           at?: string
@@ -8674,7 +8839,7 @@ export type Database = {
           staff_id?: string | null
           ticket_id?: string | null
           unit_cost_iqd?: number | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           at?: string
@@ -8693,7 +8858,7 @@ export type Database = {
           staff_id?: string | null
           ticket_id?: string | null
           unit_cost_iqd?: number | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -9044,7 +9209,7 @@ export type Database = {
           table_id: string | null
           tax_iqd: number | null
           total_iqd: number | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           court_iqd?: number
@@ -9065,7 +9230,7 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           court_iqd?: number
@@ -9086,7 +9251,7 @@ export type Database = {
           table_id?: string | null
           tax_iqd?: number | null
           total_iqd?: number | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -9154,7 +9319,7 @@ export type Database = {
           name_ar: string
           name_en: string
           rate_bp: number
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           id?: string
@@ -9162,7 +9327,7 @@ export type Database = {
           name_ar: string
           name_en: string
           rate_bp?: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           id?: string
@@ -9170,7 +9335,7 @@ export type Database = {
           name_ar?: string
           name_en?: string
           rate_bp?: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -9257,7 +9422,7 @@ export type Database = {
           tg_first_name: string
           tg_user_id: number
           tg_username: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           action: string
@@ -9269,7 +9434,7 @@ export type Database = {
           tg_first_name: string
           tg_user_id: number
           tg_username?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           action?: string
@@ -9281,7 +9446,7 @@ export type Database = {
           tg_first_name?: string
           tg_user_id?: number
           tg_username?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -9333,7 +9498,7 @@ export type Database = {
           status: string
           telegram_message_id: number | null
           text: string | null
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           attempts?: number
@@ -9350,7 +9515,7 @@ export type Database = {
           status?: string
           telegram_message_id?: number | null
           text?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           attempts?: number
@@ -9367,7 +9532,7 @@ export type Database = {
           status?: string
           telegram_message_id?: number | null
           text?: string | null
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -9438,7 +9603,7 @@ export type Database = {
           started_at: string | null
           status: Database["public"]["Enums"]["ticket_status"]
           target_seconds: number
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           actual_prep_seconds?: number | null
@@ -9453,7 +9618,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           target_seconds?: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           actual_prep_seconds?: number | null
@@ -9468,7 +9633,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
           target_seconds?: number
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -9654,7 +9819,7 @@ export type Database = {
           table_token_ttl_minutes: number
           tax_inclusive: boolean
           timezone: string
-          venue_id: string | null
+          venue_id: string
           venue_name: string
           waiter_call_cooldown_seconds: number
         }
@@ -9683,7 +9848,7 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
-          venue_id?: string | null
+          venue_id?: string
           venue_name: string
           waiter_call_cooldown_seconds?: number
         }
@@ -9712,7 +9877,7 @@ export type Database = {
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
-          venue_id?: string | null
+          venue_id?: string
           venue_name?: string
           waiter_call_cooldown_seconds?: number
         }
@@ -9720,33 +9885,45 @@ export type Database = {
       }
       venues: {
         Row: {
+          address_ar: string | null
+          address_en: string | null
           created_at: string
           id: string
           is_active: boolean
+          map_url: string | null
           name_ar: string
           name_en: string
           phone: string | null
           slug: string
+          status: Database["public"]["Enums"]["venue_status"]
           timezone: string
         }
         Insert: {
+          address_ar?: string | null
+          address_en?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          map_url?: string | null
           name_ar: string
           name_en: string
           phone?: string | null
           slug: string
+          status?: Database["public"]["Enums"]["venue_status"]
           timezone?: string
         }
         Update: {
+          address_ar?: string | null
+          address_en?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          map_url?: string | null
           name_ar?: string
           name_en?: string
           phone?: string | null
           slug?: string
+          status?: Database["public"]["Enums"]["venue_status"]
           timezone?: string
         }
         Relationships: []
@@ -9765,7 +9942,7 @@ export type Database = {
           resolved_label: string | null
           status: Database["public"]["Enums"]["waiter_call_status"]
           table_id: string
-          venue_id: string | null
+          venue_id: string
         }
         Insert: {
           acknowledged_at?: string | null
@@ -9780,7 +9957,7 @@ export type Database = {
           resolved_label?: string | null
           status?: Database["public"]["Enums"]["waiter_call_status"]
           table_id: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Update: {
           acknowledged_at?: string | null
@@ -9795,7 +9972,7 @@ export type Database = {
           resolved_label?: string | null
           status?: Database["public"]["Enums"]["waiter_call_status"]
           table_id?: string
-          venue_id?: string | null
+          venue_id?: string
         }
         Relationships: [
           {
@@ -9841,16 +10018,17 @@ export type Database = {
         Row: {
           key: string | null
           value: Json | null
+          venue_id: string | null
         }
-        Insert: {
-          key?: string | null
-          value?: Json | null
-        }
-        Update: {
-          key?: string | null
-          value?: Json | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cafe_settings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       court_availability: {
         Row: {
@@ -10009,6 +10187,7 @@ export type Database = {
           qty_remaining: number | null
           unit: Database["public"]["Enums"]["stock_unit"] | null
           unit_cost_iqd: number | null
+          venue_id: string | null
         }
         Relationships: [
           {
@@ -10031,6 +10210,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_stock_by_location"
             referencedColumns: ["ingredient_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -10171,40 +10357,23 @@ export type Database = {
       }
       venue_settings_public: {
         Row: {
+          address_ar: string | null
+          address_en: string | null
           cancellation_window_hours: number | null
           closed_dates: string[] | null
           currency: string | null
+          map_url: string | null
           max_booking_horizon_days: number | null
           opening_hours: Json | null
           phone: string | null
           protected_horizon_hours: number | null
           table_token_ttl_minutes: number | null
           timezone: string | null
+          venue_id: string | null
           venue_name: string | null
-        }
-        Insert: {
-          cancellation_window_hours?: number | null
-          closed_dates?: string[] | null
-          currency?: string | null
-          max_booking_horizon_days?: number | null
-          opening_hours?: Json | null
-          phone?: string | null
-          protected_horizon_hours?: number | null
-          table_token_ttl_minutes?: number | null
-          timezone?: string | null
-          venue_name?: string | null
-        }
-        Update: {
-          cancellation_window_hours?: number | null
-          closed_dates?: string[] | null
-          currency?: string | null
-          max_booking_horizon_days?: number | null
-          opening_hours?: Json | null
-          phone?: string | null
-          protected_horizon_hours?: number | null
-          table_token_ttl_minutes?: number | null
-          timezone?: string | null
-          venue_name?: string | null
+          venue_name_ar: string | null
+          venue_name_en: string | null
+          venue_slug: string | null
         }
         Relationships: []
       }
@@ -10270,6 +10439,7 @@ export type Database = {
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
       ticket_status: "queued" | "preparing" | "ready" | "completed" | "voided"
+      venue_status: "preparing" | "open" | "closed"
       waiter_call_reason: "order" | "bill" | "water" | "assistance"
       waiter_call_status: "raised" | "acknowledged" | "resolved"
     }
@@ -10467,6 +10637,7 @@ export const Constants = {
       stock_unit: ["g", "ml", "pc"],
       tab_status: ["open", "awaiting_payment", "settled", "void"],
       ticket_status: ["queued", "preparing", "ready", "completed", "voided"],
+      venue_status: ["preparing", "open", "closed"],
       waiter_call_reason: ["order", "bill", "water", "assistance"],
       waiter_call_status: ["raised", "acknowledged", "resolved"],
     },
