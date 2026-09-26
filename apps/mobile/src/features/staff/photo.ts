@@ -189,6 +189,8 @@ export async function pickPhoto(source: PhotoSource): Promise<PickedPhoto | null
 export interface PhotoDeps {
   client: Client;
   fetch: (uri: string) => Promise<{ arrayBuffer: () => Promise<ArrayBuffer> }>;
+  /** Tests shorten it; the app uses UPLOAD_TIMEOUT_MS. */
+  uploadTimeoutMs?: number;
 }
 
 // The app's client, resolved on first use rather than imported, so loading this
@@ -221,11 +223,37 @@ export async function uploadStaffPhoto(
   if (typeof path !== 'string') throw new Error('staff_media_slot returned no path');
 
   const body = await (await deps.fetch(photo.uri)).arrayBuffer();
-  const upload = await deps.client.storage
-    .from(STAFF_MEDIA_BUCKET)
-    .upload(path, body, { contentType: photo.mime, upsert: false });
+  const upload = await withinUploadTime(
+    deps.client.storage.from(STAFF_MEDIA_BUCKET).upload(path, body, { contentType: photo.mime, upsert: false }),
+    deps.uploadTimeoutMs ?? UPLOAD_TIMEOUT_MS,
+  );
   if (upload.error) throw upload.error;
   return path;
+}
+
+/**
+ * How long one upload may take before the phone gives up and offers to try
+ * again: a café's network can stall without failing. A late upload lands in a
+ * slot nobody claims, which the orphan purge removes.
+ */
+export const UPLOAD_TIMEOUT_MS = 45_000;
+
+export class UploadTimeout extends Error {
+  constructor() {
+    super('UPLOAD_TIMEOUT');
+    this.name = 'UploadTimeout';
+  }
+}
+
+function withinUploadTime<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  p.catch(() => {});
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new UploadTimeout()), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 /** A 10-minute signed URL to show a stored work photo (§2.3). */

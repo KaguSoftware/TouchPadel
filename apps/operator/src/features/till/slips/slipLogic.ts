@@ -10,7 +10,7 @@ import type { BasketLine, ItemRow, ModifierGroupRow, ModifierRow, TabListRow, Ti
 
 export type SlipStatus = 'uploaded' | 'reading' | 'read' | 'failed' | 'sent' | 'rejected';
 export type SlipMatch = 'alias' | 'trigram' | 'manual' | 'none';
-export type SlipFlag = 'UNCLEAR' | 'NO_QTY';
+export type SlipFlag = 'UNCLEAR' | 'NO_QTY' | 'TRUNCATED';
 
 export interface SlipSummary {
   id: string;
@@ -48,6 +48,9 @@ export interface SlipDetail {
   storage_path: string;
   created_at: string;
   read_at: string | null;
+  /** When the current or last reading started (0240), and the database clock then. */
+  reading_started_at: string | null;
+  server_now: string | null;
   table_number_read: string | null;
   table_id: string | null;
   table_number: string | null;
@@ -57,7 +60,7 @@ export interface SlipDetail {
 
 const STATUSES: readonly SlipStatus[] = ['uploaded', 'reading', 'read', 'failed', 'sent', 'rejected'];
 const MATCHES: readonly SlipMatch[] = ['alias', 'trigram', 'manual', 'none'];
-const FLAGS: readonly SlipFlag[] = ['UNCLEAR', 'NO_QTY'];
+const FLAGS: readonly SlipFlag[] = ['UNCLEAR', 'NO_QTY', 'TRUNCATED'];
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
@@ -104,6 +107,8 @@ export function readSlipDetail(payload: unknown): SlipDetail | null {
     storage_path: str(payload.storage_path) ?? '',
     created_at: str(payload.created_at) ?? '',
     read_at: str(payload.read_at),
+    reading_started_at: str(payload.reading_started_at),
+    server_now: str(payload.server_now),
     table_number_read: str(payload.table_number_read),
     table_id: str(payload.table_id),
     table_number: str(payload.table_number),

@@ -20,7 +20,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDateTime, formatNumber, isolate } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
-import { callEdge } from '../../../lib/edge';
+import { requestReading } from '../../../lib/scanReading';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText } from '../../../components/ui';
@@ -46,13 +46,13 @@ export function fetchReceipts(): Promise<unknown> {
   return appRpc<unknown>('receipts_to_review', { p_venue_id: null });
 }
 
-/** Ask receipt-scan to read one receipt. Its outcome is stored on the receipt, so errors are not thrown. */
-export async function readReceipt(id: string): Promise<void> {
-  try {
-    await callEdge('receipt-scan', { receipt_id: id }, { ttlMs: 0 });
-  } catch {
-    // The receipt's status and error_code say what happened; the review shows them.
-  }
+/**
+ * Ask receipt-scan to read a receipt just filed. Its outcome is stored on the
+ * receipt (the review shows it); a refusal it cannot store has nobody to show
+ * it to here, and the review's Read again says it if it happens again.
+ */
+async function readReceipt(id: string): Promise<void> {
+  await requestReading({ receipt_id: id });
 }
 
 export function ReceiptsPanel() {

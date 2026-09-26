@@ -10,12 +10,17 @@
  * photo from an earlier round arrives as a path plus a signed URL
  * (staffPhotoUrl) and is shown the same way.
  *
+ * A café's network is not always kind: an upload gives up after 45 s
+ * (uploadStaffPhoto), and a photo that did not upload is kept, with a link to
+ * upload the same picture again rather than take it twice. One pick or upload
+ * runs at a time, whichever control started it.
+ *
  * TEST IDs derive from the required `testID`: `${testID}.add`,
- * `${testID}.<n>.remove` (n = the photo's index, from 0) and
- * `${testID}.settings`. Screens pass `<route>.photo` (staff-step.photo,
+ * `${testID}.<n>.remove` (n = the photo's index, from 0),
+ * `${testID}.retry` and `${testID}.settings`. Screens pass `<route>.photo` (staff-step.photo,
  * staff-start.photo) or `staff-purchase.receipt`.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -36,6 +41,7 @@ import {
   pickPhoto,
   uploadStaffPhoto,
   type PhotoFolder,
+  type PickedPhoto,
   type PhotoSource,
 } from '../features/staff/photo';
 import { radius, space, useTheme } from '../theme';
@@ -119,21 +125,49 @@ export function PhotoButton({
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const [busy, setBusy] = useState(false);
+  const running = useRef(false);
   const [problem, setProblem] = useState<Problem>(null);
+  /** A photo taken whose upload failed: offered again, so it is not taken twice. */
+  const [unsent, setUnsent] = useState<PickedPhoto | null>(null);
+
+  const upload = async (picked: PickedPhoto) => {
+    try {
+      const path = await uploadStaffPhoto(venueId, folder, picked);
+      setUnsent(null);
+      onChange([...photos, { path, uri: picked.uri }]);
+    } catch (error) {
+      setUnsent(picked);
+      setProblem(problemFor(error));
+    }
+  };
 
   const add = async (forced?: PhotoSource) => {
+    if (running.current || disabled || venueId === '') return;
     setProblem(null);
     const source = forced ?? firstSource ?? (await chooseSource(t));
     if (!source) return;
+    running.current = true;
     setBusy(true);
     try {
       const picked = await pickPhoto(source);
-      if (!picked) return;
-      const path = await uploadStaffPhoto(venueId, folder, picked);
-      onChange([...photos, { path, uri: picked.uri }]);
+      if (picked) await upload(picked);
     } catch (error) {
       setProblem(problemFor(error));
     } finally {
+      running.current = false;
+      setBusy(false);
+    }
+  };
+
+  const retry = async () => {
+    if (running.current || disabled || !unsent) return;
+    setProblem(null);
+    running.current = true;
+    setBusy(true);
+    try {
+      await upload(unsent);
+    } finally {
+      running.current = false;
       setBusy(false);
     }
   };
@@ -222,7 +256,15 @@ export function PhotoButton({
           </Pressable>
         )}
       </View>
-      {firstSource === 'camera' && !full ? (
+      {unsent && !full && !busy ? (
+        <LinkText
+          testID={`${testID}.retry`}
+          label={t('staff.media.retry')}
+          onPress={() => void retry()}
+          style={{ marginTop: space.xs }}
+        />
+      ) : null}
+      {firstSource === 'camera' && !full && !busy && !disabled ? (
         <LinkText
           testID={`${testID}.library`}
           label={t('staff.media.library')}
