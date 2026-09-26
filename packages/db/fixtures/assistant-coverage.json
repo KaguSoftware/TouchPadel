@@ -741,7 +741,9 @@
     "transfer_stock": "map:action",
     "stock_cost_estimate": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "log_stock": "map:action",
-    "price_logged_stock": "map:action"
+    "price_logged_stock": "map:action",
+    "stock_pick_list": "map:action",
+    "stock_today": "map:action"
   },
   "routes": {
     "/admin": "map:page",

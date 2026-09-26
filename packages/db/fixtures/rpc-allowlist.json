@@ -322,6 +322,8 @@
     "discard_count",
     "transfer_stock",
     "log_stock",
-    "price_logged_stock"
+    "price_logged_stock",
+    "stock_pick_list",
+    "stock_today"
   ]
 }

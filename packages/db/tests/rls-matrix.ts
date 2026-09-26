@@ -3849,6 +3849,20 @@ export const matrix: MatrixRule[] = [
     note: 'MGMT at the delivery\'s venue; an unknown delivery is REF_NOT_FOUND (hint delivery)',
     drop: 18,
   },
+  // stock_store_reads.
+  {
+    kind: 'rpc', schema: 'app', name: 'stock_pick_list',
+    args: { p_purpose: 'matrix-never', p_venue_id: VENUE_A }, expect: CASHIER_DESK_UP,
+    note: 'LOG, MOVE or COUNT at the venue (of these principals the cashier, the desk and MGMT); an unknown purpose fails INVALID_ARGUMENT (hint purpose) past the guard',
+    drop: 18,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'stock_today',
+    args: { p_venue_id: VENUE_A }, expect: CASHIER_DESK_UP,
+    note: 'LOG, MOVE or COUNT at the venue: a read, each section only for its roles, no cost',
+    drop: 18,
+  },
+
   // ── wave 5, lane R: the waiter answers guests' calls (wave5-addendum-2026-09-25
   // §2.1.8, §8 Q3). assistant_barista_waiter_access adds the waiter to the
   // waiter_calls read and to both call RPCs, and gives the RPCs a venue

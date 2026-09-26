@@ -2566,6 +2566,16 @@ export type Database = {
         Args: { p_ingredient: string }
         Returns: Record<string, unknown>
       }
+      stock_pick_list: {
+        Args: {
+          p_location?: string
+          p_purpose: string
+          p_query?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      stock_today: { Args: { p_venue_id?: string }; Returns: Json }
       stop_protocol: {
         Args: { p_note: string; p_run_id: string }
         Returns: Json

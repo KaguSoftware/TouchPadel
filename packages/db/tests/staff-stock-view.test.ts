@@ -293,4 +293,40 @@ describe.skipIf(!docker)('staff_stock_view (rolled-back transactions)', () => {
     expect(view).toMatchObject({ on_hand: 100, below_par: false });
     expect(make).toMatchObject({ on_hand: view.on_hand, below_par: view.below_par });
   });
+
+  // Wave 5 (wave5-addendum-2026-09-25 §2.8.5, lane S): each row splits its
+  // on-hand by store, and the waiter reads what he moves.
+  it('splits on_hand by store, and the waiter reads purchased and prepared stock', () => {
+    const r = scenario([
+      MK('wtr', 'waiter'),
+      ING('flour', 'purchased', 'g'),
+      ING('cake', 'prepared', 'pc'),
+      ING('cap', 'retail', 'pc'),
+      `insert into stock_batches (ingredient_id, qty_received, qty_remaining, unit_cost_iqd, venue_id, location)
+       select v.val::uuid, q, q, 2, '${VENUE_A_ID}', l::stock_location
+         from pg_temp.vars v
+         join (values ('flour', 700, 'cafe'), ('flour', 300, 'bakery'), ('cake', 12, 'bakery'), ('cap', 4, 'cafe')) x(n, q, l)
+           on x.n = v.name;`,
+      MK('hc', 'head_chef'),
+      ...(['wtr', 'hc', 'manager'] as const).map((who) => T(`view_${who}`, who, `select app.staff_stock_view({{venue}})`)),
+      T('wtr_retail', 'wtr', `select app.staff_stock_view({{venue}}, 'retail')`),
+      T('wtr_prepared', 'wtr', `select app.staff_stock_view({{venue}}, 'prepared')`),
+    ]);
+    type Split = Row & { by_location: { cafe: number; bakery: number } };
+    const byName = (label: string) =>
+      Object.fromEntries(ok<{ items: Split[] }>(r, label).items.filter((i) => i.name_en.startsWith('SSV ')).map((i) => [i.name_en, i]));
+    const wtr = byName('view_wtr');
+    expect(Object.keys(wtr).sort()).toEqual(['SSV cake', 'SSV flour']);
+    expect(wtr['SSV flour']).toMatchObject({ on_hand: 1000, by_location: { cafe: 700, bakery: 300 } });
+    expect(wtr['SSV cake']).toMatchObject({ on_hand: 12, by_location: { cafe: 0, bakery: 12 } });
+    const mgr = byName('view_manager');
+    expect(mgr['SSV cap']).toMatchObject({ on_hand: 4, by_location: { cafe: 4, bakery: 0 } });
+    for (const row of Object.values(mgr)) {
+      expect(row.by_location.cafe + row.by_location.bakery, row.name_en).toBe(row.on_hand);
+    }
+    expect(Object.keys(byName('view_hc')).sort()).toEqual(['SSV cake', 'SSV flour']);
+    expect(refused(r, 'wtr_retail')).toBe('FORBIDDEN:kind');
+    expect(names(r, 'wtr_prepared')).toEqual(['SSV cake']);
+    for (const label of ['view_wtr', 'view_manager']) expect(moneyKeys(ok(r, label)), label).toEqual([]);
+  });
 });

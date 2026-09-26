@@ -1,5 +1,5 @@
 {
-  "generated_from": "9b5a7878752050794d278724dba3c1485932b293",
+  "generated_from": "b12acad8521020bdc08e2731653be620e1b5db88",
   "chunks": [
     {
       "kind": "page",
@@ -3598,7 +3598,7 @@
       "ref": "action:app.staff_stock_view",
       "lang": "en",
       "title": "app.staff_stock_view",
-      "body": "staff_stock_view (§2.24.5, #68). The head barista and head chef (purchased and prepared), the court desk (retail, with the shop product and size each row backs) and MGMT (all three) at the venue: {as_of, items: [{ingredient_id, kind, name_en, name_ar, unit, pack_size, on_hand, par_level, low_stock_threshold, low, below_par, next_expiry, product}]}, active ingredients, low first, then by name. on_hand is the sum of stock_batches.qty_remaining; low is on_hand at or under the threshold; below_par is strictly under par. No cost, price, supplier or delivery. FORBIDDEN for anyone else and (hint kind) for a kind outside the caller's; INVALID_ARGUMENT (hint kind) for an unknown kind.\nSignature: app.staff_stock_view(p_venue_id uuid default null, p_kind text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,court_desk,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0181 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "staff_stock_view (§2.24.5, #68) + stock_store_reads (wave 5 §2.8.5). The head barista, the head chef and the waiter (purchased and prepared), the court desk (retail, with the shop product and size each row backs) and MGMT (all three) at the venue: {as_of, items: [{ingredient_id, kind, name_en, name_ar, unit, pack_size, on_hand, par_level, low_stock_threshold, low, below_par, next_expiry, product, by_location: {cafe, bakery}}]}, active ingredients, low first, then by name. on_hand is the sum of stock_batches.qty_remaining and by_location splits it by store; low is on_hand at or under the threshold; below_par is strictly under par. No cost, price, supplier or delivery. FORBIDDEN for anyone else and (hint kind) for a kind outside the caller's; INVALID_ARGUMENT (hint kind) for an unknown kind.\nSignature: app.staff_stock_view(p_venue_id uuid default null, p_kind text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,court_desk,waiter,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0204 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3631,6 +3631,22 @@
       "lang": "en",
       "title": "app.start_protocol",
       "body": "protocols_engine_rpcs (§2.7), re-issued by tournament_desk_start (§2.11). Starts a run of the venue's template for p_kind (tournament: p_variant) and submits step 1 from p_first_record in the same transaction. Starters by kind: product_release head_barista, head_chef, manager, owner; tournament court_desk, manager, owner (tournament_desk_start, #67); hiring manager, owner; price_promo manager, marketing, owner. The owner types both titles, anyone else at least one. Returns {run_id, status, first_step_id, submission_id, auto}. PROTOCOL_NOT_READY until the kind's start hook exists. Idempotent on p_idempotency_key. Audit protocol.start, protocol.submit (+ protocol.auto).\nSignature: app.start_protocol(p_kind text, p_variant text default null, p_title_en text default null, p_title_ar text default null, p_data jsonb default '{}', p_first_record jsonb default null, p_photos text[] default '{}', p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,manager,owner,marketing,court_desk).\nAudit actions written: protocol.start.\nError codes: FORBIDDEN, INVALID_ARGUMENT, TEXT_BOTH_LANGUAGES_REQUIRED, TEXT_REQUIRED, RECORD_INVALID, PROTOCOL_NOT_FOUND, PROTOCOL_NOT_READY, NOT_STEP_ACTOR.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0178 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.stock_pick_list",
+      "lang": "en",
+      "title": "app.stock_pick_list",
+      "body": "stock_store_reads (wave 5 §2.8.5). What the phone's store pages may name, per purpose, at the venue: log (LOG: the caller's log kinds, shop stock only at the cafe; default the caller's home store; the desk is refused the bakery), move (MOVE: purchased and prepared stock held at the source store p_location, default cafe, with on_hand there), count (COUNT: names and units only; the bakery leaves shop stock out; the head chef and chef count the bakery only). Returns {purpose, location, items: [{ingredient_id, name_en, name_ar, unit, kind, pack_size, on_hand?}]}, at most 300, by English name, p_query on either name. No cost. FORBIDDEN (also hints purpose, location); INVALID_ARGUMENT (purpose, location).\nSignature: app.stock_pick_list(p_purpose text, p_location text default null, p_venue_id uuid default null, p_query text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,chef,cashier,court_desk,waiter,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0204 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.stock_today",
+      "lang": "en",
+      "title": "app.stock_today",
+      "body": "stock_store_reads (wave 5 §2.8.5). MOVE, LOG or COUNT at the venue, for the business day: {business_date, transfers (MOVE: [{transfer_id, from, to, moved_by_name, moved_at, lines: [{ingredient_id, name_en, name_ar, unit, qty}]}]), logs (LOG: every delivery of the day cut to the kinds the caller may log, [{delivery_id, location, source, received_by_name, received_at, lines: [{ingredient_id, name_en, name_ar, unit, qty, expiry_date}]}]), driver_deliveries_waiting (LOG: purchases delivered and still to receive), counts (COUNT: phone counts of the last 30 days at the stores the caller counts, [{count_id, location, status waiting|applied, counted_by_name, submitted_at, applied_at, lines: [{ingredient_id, name_en, name_ar, unit, counted_qty}]}])}; a section outside the caller's roles is null. No cost, supplier, note, theoretical or variance. FORBIDDEN for anyone else.\nSignature: app.stock_today(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,chef,cashier,court_desk,waiter,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0204 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
