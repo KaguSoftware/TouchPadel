@@ -9,7 +9,7 @@ done and what is left. Update it in the same commit as the work it describes.
 | --- | --- |
 | Milestone 0 (criticals before any Phase 2 table) | code side complete (item 11 web/mobile/bench, S10, item 12 docs landed 2026-09-21; CI green on `main` for the first time since 09-20); hosted at 0121 complete then, 0153 complete as of 2026-09-23. Left: the S1 staff rotation (urgent), PITR + staging project, Auth dashboard settings, release-gate §2/§3/§5, the staging-reviewer decision, the CI-produced bench baseline. About 90 % overall |
 | The client-visible Phase 2 items | 1 built of the 6 still in scope (Touch Shop, 2026-09-22). Customer 360 dropped by the client 2026-09-22; AI receipt scanning deferred by Parsa the same day |
-| Milestone 1 (multi-venue) | slice 1 of 4 (schema foundation, 0122–0138) **live on hosted since 2026-09-21** (pushed 16:34 from the second machine, `b3e7e1e`..`58b5b27`, without the staging rehearsal that was decided), with the review fixes 0139 (`abc6016`, pushed the same evening); verified 2026-09-23 by `migration list --linked` (0001–0153, 0 pending). Slice 2a (local, ordinals 0139–0150) discarded 2026-09-23. Slices 2–4 not started; slice 2 restarts at 0158 (0155–0157 are the new staff roles) |
+| Milestone 1 (multi-venue) | slice 1 of 4 (schema foundation, 0122–0138) **live on hosted since 2026-09-21** (pushed 16:34 from the second machine, `b3e7e1e`..`58b5b27`, without the staging rehearsal that was decided), with the review fixes 0139 (`abc6016`, pushed the same evening); verified 2026-09-23 by `migration list --linked` (0001–0153, 0 pending). Slice 2a (local, ordinals 0139–0150) discarded 2026-09-23. **Slices 2–4 and the owner's "Open a new branch" built locally 2026-09-26, not pushed** (migrations 0207–0227; operator, mobile and web changes; plan approved by Parsa 2026-09-26, decisions MV1–MV10; design notes `docs/design/multi-venue/slice-2-2026-09-26.md` and `slice-3-4-2026-09-26.md`). Left: the owner steps (hosted at 0206, staging rehearsal), the push, the operator tag on every station, the mobile 1.0 build, then opening the second branch from Setup › Branches |
 | Whole programme by effort (≈ 40 agent-weeks) | about 15 % |
 
 ## Milestone 0 — done
@@ -100,6 +100,46 @@ Restored 2026-09-23: this heading and the 0122–0124 items were lost in `58b5b2
 - [ ] **Rollout, in this order:** `db-migrate.yml` applies 0155–0157 → approve the `functions-deploy.yml` run for `staff-admin` → cut the operator tag straight after → every station reports the new version under Venue settings › Venue details › Devices → only then create a new-role account or move a prep account. Operator 0.2.19 and older read an unknown role as revoked (60 s re-check, not-staff screen with no update button), and between the function deploy and the tag an owner on the old build cannot create any kitchen account. `HANDOFF.md` Day 33 has the detail.
 - [x] 0157: `tabs`, `orders`, `order_items`, `order_item_modifiers` back on an explicit list (driver and marketing read no priced order data); `app.set_staff_role` refuses a move onto prep (`ROLE_RETIRED`), Majed's call 2026-09-23.
 - [ ] A later migration drops `prep` from the kitchen guards once no active prep account is left.
+
+## Milestone 1 — slice 2 (settings per venue), built 2026-09-26, not pushed
+
+Design note: `docs/design/multi-venue/slice-2-2026-09-26.md`. Whole-milestone plan approved 2026-09-26 (Parsa): slices 2–4 and an owner "Open a new branch" button. MV1: a branch is created Preparing by copying a chosen branch, then "Open to guests". MV2: promotions per branch, or NULL for every branch. MV3: one Telegram group per branch.
+
+- [x] 0207 `platform_settings`: the chain's singleton (currency, LLM day timezone, per-guest hold cap, LLM budget and prices); every LLM and assistant body re-issued; the old columns stay unread until a later drop; four edge functions read it.
+- [x] 0208 `venue_settings` keyed by `venue_id` (unique index; `id` deprecated); `venues` gains the address; `venue_settings_public` has one row per active branch; the three writers take `p_venue_id`.
+- [x] 0209 `cafe_settings` keyed `(venue_id, key)`; accessors take an optional branch; writers take the branch; public view, policy and realtime payload are per branch.
+- [x] 0210 booking family reads the court's branch; `hold_slot` names the court's venue on the hold.
+- [x] 0211 guest cafe family and the business-day helpers read their own branch; guest session and waiter-call rows name it.
+- [x] 0212 degraded fallback dropped; promotions per branch (MV2, owner `set_promotion_venue`, `PROMOTION_SCOPE_BRANCH`); Telegram per branch (MV3), including the three Telegram edge functions.
+- [x] 0213 `SET NOT NULL` on 37 tables behind the validated CHECKs; `types.gen.ts` regenerated.
+- [x] 0214 analytics helpers, `v_expiring_soon` and `flag_expired_batches` per branch.
+- [x] Gates: `check:rpc-registry` (allowlist + matrix row for `set_promotion_venue`, floor 307/309), `check:assistant-coverage`, assistant map regenerated, `check:authz` (script reads the probe court's branch), `check:broadcast`, `check:locks`, `check:safeupdate`, `check:analytics`, `check:invariants`; operator, web and mobile typecheck clean.
+- [ ] **Waiver for the push:** `MIGRATION-RISK-ACCEPTED: slice 2: unique indexes on 1-row venue_settings and ~25-row cafe_settings; SET NOT NULL backed by validated CHECKs`.
+- [ ] Owner, before any multi-venue push: confirm hosted is at 0206 (`migration list --linked`), create the staging project, rehearse 0207–0214 there.
+- [ ] Local noise seen while building (not from this slice): `protocol-action` served-function cases need `supabase functions serve`; a long-lived local database collects test courts (299 on 2026-09-26) until `analytics_courts_summary` over 400 days times out; `PIN_LOCKED` in the RLS matrix after other suites (clear `app.pin_attempts`).
+
+## Milestone 1 — slices 3–4 and "Open a new branch", built 2026-09-26, not pushed
+
+Design note: `docs/design/multi-venue/slice-3-4-2026-09-26.md` (decisions MV9: the operator names its station and branch in request headers; MV10: staff reads follow the branch in scope).
+
+- [x] 0215 `resolve_venue` reads the `x-station-id` header; 0226 step 2c reads `x-venue-scope`.
+- [x] 0216 the day per branch (`open_day`, `close_day`, `current_open_day(_locked)`).
+- [x] 0217 cross-venue guards on 19 row-creating RPCs (`VENUE_MISMATCH`) and the guest order path.
+- [x] 0218 membership trigger fix, `register_staff(p_venue_id)`, `set_staff_venues`; 0227 `staff_memberships`.
+- [x] 0219 report scope on 21 report/analytics bodies; courts analytics on one branch.
+- [x] 0220 per-branch cron audit rows; `replay` alert at the station's branch.
+- [x] 0221 the slice-3 index set (waiver).
+- [x] 0222 `venues.status` (preparing/open/closed), stations `mode`, `register_station`, `retire_station`.
+- [x] 0223 `create_branch`, `branch_readiness`, `open_branch`, `close_branch`, `storage_path_in_use`.
+- [x] 0224 per-branch realtime topics (+ legacy for one release), policies and the SEC-28 gate.
+- [x] 0225 guests read and book open branches only; `open_table_session` returns `venue_id`; `table_branch`.
+- [x] 0226 `visible_venue_ids()` on all 69 staff read policies, `report_venues()` follows it.
+- [x] Operator: venue context and headers, rail switcher, Setup › Branches (create / readiness / open / close), Stations panel, staff branches, report "All branches", shared-photo keep. `@touch/operator` typecheck, lint, 2016 tests.
+- [x] Mobile: branch picker, per-branch availability/degraded/realtime, staff floor topic. typecheck, lint, 1130 tests, 233 smoke.
+- [x] Web: per-branch menu (`table_branch` on first paint), walk-in chooser, club site lists branches. typecheck, lint, 439 tests.
+- [x] db: `branch-create.test.ts`, `multi-venue-slices.test.ts`; every gate green (registry 319/321, coverage, map, authz, broadcast, locks, safeupdate, analytics, invariants).
+- [ ] Owner: hosted at 0206 check; staging project and rehearsal of 0207–0227; the push with the waiver; the operator tag installed on every station before a second branch exists; the mobile 1.0 build.
+- [ ] Follow-ups: assistant per-conversation branch scope; a two-branch e2e spec (helpers still assume one venue); a later migration dropping the legacy realtime topics and the deprecated `venue_settings.llm_*` columns.
 
 ## Milestones 1–6 — not started
 
