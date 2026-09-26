@@ -738,7 +738,10 @@
     "receive_delivery_internal": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "submit_stock_count": "map:action",
     "discard_count": "map:action",
-    "transfer_stock": "map:action"
+    "transfer_stock": "map:action",
+    "stock_cost_estimate": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "log_stock": "map:action",
+    "price_logged_stock": "map:action"
   },
   "routes": {
     "/admin": "map:page",

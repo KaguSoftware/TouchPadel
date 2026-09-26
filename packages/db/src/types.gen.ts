@@ -1238,6 +1238,16 @@ export type Database = {
         Args: { p_ingredients: string[] }
         Returns: undefined
       }
+      log_stock: {
+        Args: {
+          p_idempotency_key?: string
+          p_lines?: Json
+          p_location?: string
+          p_note?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       mark_checklist_item: {
         Args: {
           p_done: boolean
@@ -1433,6 +1443,10 @@ export type Database = {
           p_starts_on: string
           p_weekdays: number[]
         }
+        Returns: Json
+      }
+      price_logged_stock: {
+        Args: { p_delivery_id: string; p_lines: Json }
         Returns: Json
       }
       price_promo_addon_renames: {
@@ -2547,6 +2561,10 @@ export type Database = {
           p_venue_id?: string
         }
         Returns: Json
+      }
+      stock_cost_estimate: {
+        Args: { p_ingredient: string }
+        Returns: Record<string, unknown>
       }
       stop_protocol: {
         Args: { p_note: string; p_run_id: string }

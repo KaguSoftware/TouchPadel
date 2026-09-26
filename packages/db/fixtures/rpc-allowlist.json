@@ -320,6 +320,8 @@
     "content_detail",
     "submit_stock_count",
     "discard_count",
-    "transfer_stock"
+    "transfer_stock",
+    "log_stock",
+    "price_logged_stock"
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "generated_from": "ca524d18e3c23136c51ddfaa2f94248f1236a7de",
+  "generated_from": "9b5a7878752050794d278724dba3c1485932b293",
   "chunks": [
     {
       "kind": "page",
@@ -2587,6 +2587,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.log_stock",
+      "lang": "en",
+      "title": "app.log_stock",
+      "body": "stock_logs (wave 5 §2.8.5, D4-D5). The head barista, the head chef, the cashier, the court desk and MGMT at the venue: adds p_lines [{ingredient_id, qty, unit?, expiry_date?}] (1 to 50, each once; unit the base unit or pack) to store p_location (default the caller's home store) as one staff_log delivery, costed by app.stock_cost_estimate. Kinds: the heads purchased; the desk retail; the cashier and MGMT purchased and retail. Shop stock goes to the cafe only; prepared stock is never logged. Returns {delivery_id, location, lines: [{ingredient_id, qty, expiry_date}]}: no cost. Idempotent by key. FORBIDDEN (also hint location: the desk and the bakery); INVALID_ARGUMENT (hints location, lines, unit, kind, expiry_date); INVALID_QTY; INGREDIENT_NOT_FOUND; TEXT_TOO_LONG (note, 200); STORE_BEING_COUNTED. Audit stock.log {location, lines, cost_sources} (counts).\nSignature: app.log_stock(p_location text default null, p_lines jsonb default null, p_note text default null, p_venue_id uuid default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (head_barista,head_chef,cashier,court_desk,manager,owner).\nAudit actions written: stock.log.\nError codes: FORBIDDEN, TEXT_TOO_LONG, INVALID_ARGUMENT, INGREDIENT_NOT_FOUND, INVALID_QTY.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0203 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.mark_checklist_item",
       "lang": "en",
       "title": "app.mark_checklist_item",
@@ -2831,6 +2839,14 @@
       "lang": "en",
       "title": "app.preview_series",
       "body": "Signature: app.preview_series(p_court_id uuid, p_pattern text, p_weekdays int[], p_start_time time, p_duration_min int, p_starts_on date, p_ends_on date) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, COURT_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0066 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.price_logged_stock",
+      "lang": "en",
+      "title": "app.price_logged_stock",
+      "body": "stock_logs (wave 5 §2.8.5, D5). MGMT at the delivery's venue: sets the cost per base unit of a staff log's lines, p_lines [{delivery_line_id, unit_cost_iqd}] (0 to under 1e9, 4 places). Revalues the line (cost_source becomes entered), its batch and that batch's transfer copies; booked movements keep the estimate. State-idempotent. Returns {delivery_id, updated}. FORBIDDEN; REF_NOT_FOUND (hint delivery: unknown, another venue's, or not a staff log; hint lines: a line of another delivery); INVALID_ARGUMENT (lines, unit_cost_iqd). Audit stock.price_log with both costs.\nSignature: app.price_logged_stock(p_delivery_id uuid, p_lines jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager,owner).\nAudit actions written: stock.price_log.\nError codes: FORBIDDEN, REF_NOT_FOUND, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0203 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
