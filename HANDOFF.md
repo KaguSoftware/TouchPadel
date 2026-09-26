@@ -1880,6 +1880,93 @@ against the code. The record is `docs/design/multi-venue/audit-2026-09-26.md`, a
 - Regenerating an earlier migration needs a file cutoff, so its bodies do not come from later
   files.
 
+## Day 37 (2026-09-26 → 27) — scanned paper: supplier receipts and waiters' order slips (Milestone 4b)
+
+Parsa picked 4b (AI receipt scanning, deferred 09-22) and widened it. His rules:
+- the model sits in **one file** so any vendor (Gemini, Claude Sonnet, …) can be dropped in later;
+- the papers are mostly **handwritten**;
+- they link to the café's own items;
+- staff take the photo with the camera **inside the phone app** and it appears on the operator,
+  **with everything logged**.
+
+"Both" kinds of paper were chosen. Plan: `~/.claude/plans/what-are-the-things-fuzzy-thimble.md`.
+Built locally; **not committed, not pushed.**
+
+- **The AI seam:** `packages/db/supabase/functions/_shared/receipts/connect.ts` is the only file
+  that knows a model. It returns `null` today.
+  - The pipeline passes it `{kind, imageBase64, mediaType, system, userText, schema, signal}`, so
+    one connection reads both kinds of paper.
+  - `RECEIPT_READER=fake` gives the stand-in `fake.ts`, which is what local runs, CI and e2e use.
+  - With no model, `receipt-scan` answers 503 `RECEIPT_READER_NOT_CONFIGURED`, the paper stays
+    `uploaded`, and a person types the lines from the photo. Nothing breaks.
+  - `connect.ts` carries a five-step connect checklist in its header:
+    1. implement `read()`;
+    2. `supabase secrets set RECEIPT_API_KEY`;
+    3. set `RECEIPT_MODEL`;
+    4. add a `platform_settings.llm_pricing` row for the model;
+    5. `llm_daily_request_limit` must be above 0 on hosted, or every scan answers 429.
+  - A boundary test fails if a key name or vendor call appears anywhere else.
+- **Prompts** (`prompt.ts`) are written for handwritten Iraqi Arabic:
+  - amounts written in thousands ("15 ألف" = 15000);
+  - crossed-out numbers ignored;
+  - "ط5" means table 5;
+  - a per-line `unclear` flag for what the model could not read with confidence.
+  `validate.ts` cleans every answer (digits folded, whole IQD, real dates) and adds arithmetic and
+  total checks.
+- **Supplier receipts (0236/0237) → café stock:**
+  - The driver or a manager photographs the receipt, on the phone ("Scan a receipt") or as a file
+    on Goods in.
+  - Lines are matched to stock ingredients: a learned alias first, then `pg_trgm` over
+    `app.search_norm` names.
+  - A manager reviews them in Goods in beside the photo. Units convert to the base unit (kg→g,
+    L→ml, a box → its pack size) and cost per base unit comes from the printed total.
+  - `confirm_receipt` books ONE delivery through `receive_delivery_internal`, with source
+    `receipt`, and learns the wording as a per-supplier alias.
+- **Order slips (0238/0239) → café menu → the till:**
+  - A waiter (or the cashier or management) photographs the slip on the phone ("Scan an order",
+    in the floor group next to Calls). The camera opens straight away.
+  - The slip is matched to menu variants: "كابتشينو كبير" becomes Cappuccino, Large, and a
+    shortened name is matched by word similarity. The table is found by the digits of its number.
+  - It appears live on the till under **Scanned orders**: an `order_slip` broadcast on the floor
+    topics, and each new slip chimes once.
+  - The cashier checks it in a dialog: the item picker, size, quantity, the kitchen note, and
+    options through the till's own `ItemSheet` (a required group holds the send). They pick the
+    table or tab and press Send.
+  - `send_order_slip` calls **`app.till_add_items`**, so the order, prices, modifier rules, stock
+    and the kitchen ticket are exactly the till's. It opens a tab with `app.open_tab` when the
+    table has none, and learns the wording as a menu alias.
+  - The phone never calls a till RPC.
+- **Logged:**
+  - `audit_log` rows `receipt.create/read/read_failed/confirm/reject` and
+    `order_slip.create/read/read_failed/send/reject`;
+  - every paper keeps its photo, who took it, who sent or confirmed it, and the order or delivery;
+  - the phone lists the person's own papers with their status (`my_order_slips`, `my_receipts`);
+  - the till keeps today's sent slips under a fold.
+- **Photos:**
+  - a new staff-media folder `slips`;
+  - `staff_media_slot`, `is_staff_media_path` and `staff_media_visible` are re-issued verbatim from
+    0196, plus one rule: the cashier reads a slip's photo;
+  - the client twins (`PHOTO_FOLDERS`, the phone's `PhotoFolder`, protocol-action's path regex)
+    name the same eleven folders;
+  - the operator uploads receipts at 2560 px.
+- **Tested:**
+  - `tests/receipts.test.ts` (3) and `tests/order-slips.test.ts` (3), both against the local
+    stack;
+  - `tests/receipt-scan.test.ts` (20, pure);
+  - RLS matrix 500 cases, registry floor 331/333;
+  - `check:broadcast`, `authz`, `safeupdate`, `locks`, `invariants` and `analytics`;
+  - operator 2024+ tests, mobile 1134 + 237 smoke;
+  - `e2e/tests/operator-scan.spec.ts` (EN till, `@ar` Goods in).
+  - CI's functions server gets `RECEIPT_READER=fake`.
+- **Root `CLAUDE.md` gained a push rule** (Parsa, 09-26): every push or sync runs the CI gates
+  first, watches every run to green, and fixes red before any new work.
+- **Left:**
+  - connect a model in `connect.ts` (Parsa's call on the vendor);
+  - 20–30 real handwritten receipts and slips to tune the prompts;
+  - the Arabic, reviewed by the client;
+  - commit and push when Parsa says so;
+  - a 90-day photo purge is a follow-up.
+
 ## File map (key files)
 - **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
   it is, Part B the criticals pass, Part C the scope items and the milestone plan, Part C+ the
