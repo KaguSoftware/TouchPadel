@@ -29,7 +29,10 @@ export function cafeCategoryList(
     .filter((c) => c.items.length > 0)
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((c) => (locale === 'ar' ? c.name_ar : c.name_en).trim())
-    .filter((name) => name.length > 0);
+    .filter((name) => name.length > 0)
+    // Every open branch's menu is one list here, and a copied branch repeats
+    // its source's categories: name each once.
+    .filter((name, i, all) => all.indexOf(name) === i);
   if (names.length === 0) return null;
   const shown = names
     .slice(0, limit)

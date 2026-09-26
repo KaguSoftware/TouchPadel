@@ -153,6 +153,11 @@ export function branchAddress(
  * `javascript:` or bare-text value out of an href.
  */
 export function branchMapUrl(branch: BranchContact | null | undefined): string {
+  return branchOwnMapUrl(branch) ?? MAPS_URL;
+}
+
+/** A branch's own pinned https map link, or null (no Durrat Karbala fallback). */
+export function branchOwnMapUrl(branch: BranchContact | null | undefined): string | null {
   const url = filled(branch?.map_url);
-  return url && /^https:\/\//i.test(url) ? url : MAPS_URL;
+  return url && /^https:\/\//i.test(url) ? url : null;
 }
