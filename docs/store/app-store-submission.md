@@ -64,8 +64,10 @@ Answered from what the binary does. The mobile app has **no analytics, crash-rep
 
 The binary has two kinds of account. **Guests** book courts. **Venue staff**, whose accounts the owner creates on
 the operator (there is no staff sign-up), sign in with email and password and see a separate staff area: their
-tasks in the venue's protocols, checklists, the shopping list, notes on new menu items and their requests
-(`docs/design/protocols/plan-2026-09-23.md` §6). The two User Content rows below come from staff accounts only.
+tasks in the venue's protocols, checklists, the shopping list, notes on new menu items, their requests, incident
+reports and their own pay deductions (`docs/design/protocols/plan-2026-09-23.md` §6;
+`docs/design/protocols/wave5-addendum-2026-09-25.md` §5.3). The two User Content rows and the Other Financial Info
+row below come from staff accounts only.
 
 **Do you or your third-party partners collect data from this app? → Yes**
 
@@ -76,17 +78,21 @@ tasks in the venue's protocols, checklists, the shopping list, notes on new menu
 | Contact Info → **Phone Number** | Yes | Yes | No | App Functionality. Required: sign-in, the one-time WhatsApp code at sign-up, the desk calling about a booking |
 | Identifiers → **User ID** | Yes | Yes | No | App Functionality. The account id, and the push token reminders go to |
 | Other Data → **Other Data Types** | Yes | Yes | No | App Functionality. The bookings (court, date, time, group size) |
-| User Content → **Photos or Videos** | Yes | Yes | No | App Functionality. **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task). Re-encoded on the phone without location or camera metadata. A guest account cannot upload a photo |
-| User Content → **Other User Content** | Yes | Yes | No | App Functionality. **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item or a marketing draft |
+| User Content → **Photos or Videos** | Yes | Yes | No | App Functionality. **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task, an incident report). Re-encoded on the phone without location or camera metadata. A guest account cannot upload a photo |
+| User Content → **Other User Content** | Yes | Yes | No | App Functionality. **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |
+| Financial Info → **Other Financial Info** | Yes | Yes | No | App Functionality. **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) recorded against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |
 
 For each: "Is this data used for tracking?" → **No**. Purposes: tick **App Functionality** only.
 
-**Not collected:** Health & Fitness, Financial Info, Location, Sensitive Info, Contacts, User Content (Emails or
-Text Messages, Audio Data, Gameplay Content, Customer Support), Browsing History, Search History, Purchases,
+**Not collected:** Health & Fitness, Financial Info other than the staff-only row above (no payment, credit or
+card info), Location, Sensitive Info, Contacts, User Content (Emails or Text Messages, Audio Data, Gameplay
+Content, Customer Support), Browsing History, Search History, Purchases,
 Usage Data (Product Interaction, Advertising Data, Other Usage Data), Diagnostics (Crash Data, Performance Data,
 Other Diagnostic Data), Device ID, Physical Address, Other Contact Info.
 
-The iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`) lists the same seven types. The
+The iOS privacy manifest (`apps/mobile/app.config.ts` → `ios.privacyManifests`) lists the same seven types; the
+Other Financial Info row (wave 5) needs `NSPrivacyCollectedDataTypeOtherFinancialInfo` added there (linked, not tracking,
+app functionality) before the build that carries the staff deductions page. The
 camera and photo-library prompts (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, EN and AR in
 `apps/mobile/locales/ios.{en,ar}.json`) appear only in the staff area, when a staff member adds a work photo. The
 app never asks for the microphone.

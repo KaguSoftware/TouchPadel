@@ -74,7 +74,7 @@ export const legalEn = {
         'If you choose one of these, we receive your name, your email address and an account ID from that provider. Apple may give us a private relay address instead of your real email. We never receive your Apple or Google password.',
       notesLead: 'Notes the venue keeps.',
       notes:
-        'Staff can add short notes and labels to your customer record — for example a birthday, a preference or a payment note — so they can serve you well. Only staff can see them.',
+        'Staff can add short notes and labels to your customer record — for example a birthday, a preference or a payment note — so they can serve you well. Only staff can see them. If an incident happens at the venue, staff may record what happened and who was involved. The record is kept for up to a year, only the staff member who wrote it and the venue’s managers and owner can read it, and it is never sent to the AI assistant.',
       consentLead: 'Your agreement.',
       consent: 'The version of our Terms of Service and this policy you accepted, and when.',
       technicalLead: 'Security and audit records.',
