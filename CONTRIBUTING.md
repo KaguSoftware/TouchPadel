@@ -4,7 +4,7 @@
 
 1. **Docker Desktop** with the WSL2 backend (Settings → General → "Use the WSL 2 based engine").
    If WSL2 is missing: `wsl --install` in an elevated terminal, reboot.
-2. **Node 20+** and **pnpm 9** (`corepack enable` gives you the pinned pnpm).
+2. **Node 22+** and **pnpm 9** (`corepack enable` gives you the pinned pnpm).
 3. **Supabase CLI**: `pnpm dlx supabase --version` works without a global install; a global
    install (`scoop install supabase` or the .exe from GitHub releases) is faster day-to-day.
 4. Clone, then:
@@ -44,3 +44,5 @@
 - Architecture truth: `docs/design/design-arch.md`.
 - Who does what, week by week: `docs/design/design-delivery.md`.
 - When docs disagree: the "Resolved design calls" table in the approved plan / `HANDOFF.md`.
+
+- Questions not covered here: open a discussion before large refactors.

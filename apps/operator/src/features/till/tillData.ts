@@ -173,6 +173,35 @@ export const OPEN_TABS_QUERY = {
   refetchInterval: 30_000,
 };
 
+/**
+ * True when a tab can simply be removed rather than settled — the mirror of
+ * app.cancel_tab's guard (migration 0085).
+ *
+ * The server is the authority and re-checks all of this under the tab's row
+ * lock; this decides only whether the board OFFERS the control, so it must be
+ * at least as strict as the server or the cashier gets a refusal where they
+ * were shown a confirm. A booking counts as money because its court fee is
+ * owed whether or not anything has been ordered — and the board's own total
+ * cannot see the court fee, so it must not be used to make this call.
+ *
+ * `Array.isArray` rather than computeTabTotals' `?? []`, and the difference
+ * matters. These rows come out of the persisted query cache and an older one
+ * may predate an embed; `(tab.orders ?? []).length === 0` would read a MISSING
+ * orders array as an empty one and offer to remove a tab that has a bill on
+ * it. Absent evidence is not evidence of absence — an embed we cannot see
+ * keeps the tab.
+ */
+export function tabIsRemovable(tab: TabListRow): boolean {
+  const empty = (rows: unknown): boolean => Array.isArray(rows) && rows.length === 0;
+  return (
+    tab.status === 'open' &&
+    empty(tab.orders) &&
+    empty(tab.payments) &&
+    empty(tab.tab_adjustments) &&
+    !tab.reservation
+  );
+}
+
 /** True when any order on the tab arrived from the guest web menu. */
 export function tabHasWebOrder(tab: Pick<TabListRow, 'orders'>): boolean {
   // `?? []` for the same reason computeTabTotals guards its arrays: a row out

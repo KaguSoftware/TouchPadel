@@ -16,6 +16,6 @@ export {
   formatPercent,
   VENUE_TZ,
 } from './formatting';
-export { isolate, dirAttr, FSI, PDI } from './bidi';
+export { isolate, isolateLtr, dirAttr, FSI, PDI, LRI } from './bidi';
 export { isRtl, dir, oppositeDir, logicalSign } from './rtl';
 export type { Direction } from './rtl';

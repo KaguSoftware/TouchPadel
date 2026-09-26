@@ -36,3 +36,31 @@ export function chunkArray<T>(items: readonly T[], size: number): T[][] {
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;
 }
+
+/**
+ * The slice keys a chunked value of `count` parts occupies: `k.0 … k.{count-1}`.
+ *
+ * Shared by the adapter's own cleanup and by the deletion purge (SEC-16), so
+ * the two can never disagree about where a slice lives — a purge that swept a
+ * different naming scheme than the writer used would look like it worked and
+ * leave JWT fragments in the keychain.
+ */
+export function chunkKeyNames(key: string, count: number): string[] {
+  if (!Number.isInteger(count) || count < 0) throw new RangeError('count must be a non-negative integer');
+  return Array.from({ length: count }, (_, i) => `${key}.${i}`);
+}
+
+/**
+ * How far past the manifest a purge sweeps for ORPHAN slices (SEC-16).
+ *
+ * A torn write — the process dying between `setItem`'s chunk writes and its
+ * manifest write, or between `removeItem`'s two steps — leaves slices with no
+ * manifest pointing at them. `removeItem` reads the manifest to decide what to
+ * delete, so it deletes nothing in that state and the fragments survive. A
+ * deletion has to remove them anyway, so it sweeps blind to this bound.
+ *
+ * 64 * 1800 bytes = ~115 KB, two orders of magnitude past any Supabase session,
+ * and the sweep costs 64 keychain misses once, on a screen the user only ever
+ * reaches to destroy their account.
+ */
+export const PURGE_SWEEP_LIMIT = 64;

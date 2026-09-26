@@ -22,6 +22,8 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'TAB_NOT_OPEN',
   'TAB_NOT_FOUND',
   'TAB_MERGED',
+  'TAB_NOT_EMPTY',
+  'TAB_DAY_MISMATCH',
   'TENDER_SHORT',
   'ALREADY_PAID',
   // Renderer-minted: touch:resolve-queue-row refused (day-close dismiss).

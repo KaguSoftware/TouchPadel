@@ -56,6 +56,7 @@ const intentOf = (v: HoldVars) => `${v.courtId}|${v.startAt.toISOString()}|${v.d
 export function useHoldSlot() {
   const queryClient = useQueryClient();
   return useMutation<HoldResult, Error, HoldVars>({
+    mutationKey: ['hold-slot'],
     mutationFn: (vars) => holdSlot(supabase, { ...vars, idempotencyKey: idemKeyFor(intentOf(vars)) }),
     onSettled: (_data, _error, vars) => {
       clearIdemKey(intentOf(vars));
@@ -67,6 +68,7 @@ export function useHoldSlot() {
 export function useConfirmBooking() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ['confirm-booking'],
     mutationFn: (holdId: string) => confirmBooking(supabase, holdId),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['availability'] });
@@ -89,6 +91,7 @@ export function useConfirmBooking() {
 export function useReleaseHold() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ['release-hold'],
     mutationFn: (holdId: string) => releaseHold(supabase, holdId),
     retry: (failureCount, error) => failureCount < 3 && isTransportError(error),
     onSettled: () => {
@@ -102,6 +105,7 @@ export function useReleaseHold() {
 export function useCancelReservation() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ['cancel-reservation'],
     mutationFn: (reservationId: string) => cancelReservation(supabase, reservationId),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['availability'] });

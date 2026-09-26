@@ -17,6 +17,7 @@ export function useOwnProfile(enabled: boolean) {
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ['update-profile'],
     mutationFn: async (fields: { full_name?: string; phone?: string | null; preferred_lang?: Locale }) => {
       const { data } = await supabase.auth.getUser();
       const uid = data.user?.id;

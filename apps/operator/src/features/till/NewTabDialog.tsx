@@ -154,13 +154,19 @@ export function NewTabDialog({
   const preboundMissing =
     Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);
 
+  // Whitespace is not an anchor. Untrimmed, a single space in "By name" both
+  // satisfied the anchor gate here and passed app.open_tab's
+  // TAB_ANCHOR_REQUIRED check (`p_label is null`), opening a tab the board can
+  // only render as a blank row.
+  const trimmedLabel = label.trim();
+
   async function submit() {
     setBusy(true);
     setError(null);
     try {
       const outcome = await mutate<{ tab_id: string }>('tab.open', {
         ...(tableId ? { tableId } : {}),
-        ...(label ? { label } : {}),
+        ...(trimmedLabel ? { label: trimmedLabel } : {}),
         ...(reservationId ? { reservationId } : {}),
       });
       if (outcome.result) {
@@ -171,7 +177,7 @@ export function NewTabDialog({
         addOfflineTab({
           idemKey: outcome.idempotencyKey,
           localId: outcome.localId,
-          label: label || null,
+          label: trimmedLabel || null,
           tableNumber: tableId
             ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null)
             : null,
@@ -186,8 +192,14 @@ export function NewTabDialog({
   }
 
   const bound = reservations.find((r) => r.id === reservationId);
-  // app.open_tab needs at least one anchor; which one is the cashier's choice.
-  const anchored = Boolean(tableId || label || reservationId);
+  /*
+   * A tab is anchored to a SEAT: a table, or a booking (which carries its own
+   * court). A name on its own is not an anchor — it used to be, and a tab with
+   * nothing but a name cannot be found by anyone who was not standing at the
+   * till when it was opened. The name stays as the tab's display label, which
+   * is the job it was actually doing. Mirrored by app.open_tab (0084).
+   */
+  const anchored = Boolean(tableId || reservationId);
 
   return (
     <Modal
@@ -230,7 +242,7 @@ export function NewTabDialog({
       {preboundMissing && (
         <MessagePresenter tone="refused" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} message={tr('ws.cashier.newTab.bookingMissing')} />
       )}
-      <Field label={tr('op.till.table')}>
+      <Field label={tr('op.till.table')} required={!reservationId}>
         <select style={inputStyle} value={tableId} onChange={(e) => setTableId(e.target.value)} autoFocus>
           <option value="">{tr('op.till.chooseTable')}</option>
           {(tablesQ.data ?? []).map((t) => (
@@ -240,7 +252,7 @@ export function NewTabDialog({
           ))}
         </select>
       </Field>
-      <Field label={tr('op.till.byName')}>
+      <Field label={tr('op.till.byName')} optional hint={tr('ws.cashier.newTab.nameHint')}>
         <input style={inputStyle} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
       </Field>
       <Field label={tr('op.till.reservationLabel')}>

@@ -37,7 +37,27 @@ export class StationExistsError extends Error {
   }
 }
 
-const DEV_DEFAULTS = { stationId: 'TILL1', mode: 'till' as StationMode };
+/**
+ * The identity a machine gets when it HAS NONE — SEC-32.
+ *
+ * It used to be `TILL1`, which is a perfectly good station id, and that was the
+ * bug: a machine with no identity was handed a real one. `station_id` is not
+ * decoration. It prefixes every idempotency key (`lib/idem.ts`), it is the
+ * `p_device_id` that keys the manager-PIN rate limiter, and it is the device on
+ * every audit row. Two misconfigured machines both calling themselves TILL1
+ * share an idempotency namespace and a PIN lockout bucket, and the audit trail
+ * names a till that did not take the sale.
+ *
+ * `UNCONFIGURED` is deliberately not a plausible station id. If it ever reaches
+ * a row, the row is legibly wrong rather than quietly attributed to somebody
+ * else's till — and `canTrade()` below is what stops it getting that far.
+ */
+export const UNCONFIGURED_STATION_ID = 'UNCONFIGURED';
+
+const DEV_DEFAULTS = { stationId: UNCONFIGURED_STATION_ID, mode: 'till' as StationMode };
+
+/** Modes a station.json may declare. Anything else is a broken install. */
+const MODES: readonly StationMode[] = ['till', 'desk', 'kds'];
 
 let cached: StationConfig | null = null;
 
@@ -68,10 +88,22 @@ export function loadStation(): StationConfig {
   try {
     const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as StationFile;
     // TODO: zod-validate via @touch/core schemas instead of this hand check.
-    const mode: StationMode = raw.mode === 'desk' || raw.mode === 'kds' ? raw.mode : 'till';
+    //
+    // SEC-32: a PRESENT file that does not say who this machine is, or says a
+    // mode this build does not know, is a BROKEN INSTALL — not an invitation to
+    // pick something. Both used to fall back silently: a station.json missing
+    // `station_id` came back `configured: true` as TILL1 with no error at all,
+    // so a mistyped file traded happily under another till's identity; and a
+    // mode of "KDS" (wrong case) turned a kitchen screen into a kiosked till.
+    // Neither is visible to anyone until the day's takings do not reconcile.
+    const stationId = typeof raw.station_id === 'string' ? raw.station_id.trim() : '';
+    if (!stationId) throw new Error('station.json has no station_id');
+    if (typeof raw.mode !== 'string' || !MODES.includes(raw.mode as StationMode)) {
+      throw new Error(`station.json has an unknown mode: ${JSON.stringify(raw.mode)}`);
+    }
     cached = {
-      stationId: raw.station_id ?? DEV_DEFAULTS.stationId,
-      mode,
+      stationId,
+      mode: raw.mode as StationMode,
       tillHost: raw.till_host,
       lanPsk: raw.lan_psk,
       lanBind: raw.lan_bind,
@@ -108,4 +140,23 @@ export function writeStation(config: StationFile): void {
 
 export function resetStationCache(): void {
   cached = null;
+}
+
+/**
+ * May this machine act as a station — take a sale, print, serve the LAN?
+ *
+ * SEC-32, "a station with no station.json should refuse to trade, not guess".
+ * The renderer already refuses: `__root.tsx` shows the setup screen when
+ * `!configured` and the broken-install screen when `configError` is set. This
+ * is the same rule for the MAIN process, which had no equivalent check — it
+ * would have served the LAN and printed under whatever identity `loadStation`
+ * returned.
+ *
+ * Deliberately NOT a hard refusal to boot. The process must still come up: the
+ * setup screen that fixes the problem is rendered by this very window, and a
+ * shell that exits on a bad config is a venue PC nobody can repair without a
+ * developer. Boot, show the problem, refuse the WORK.
+ */
+export function canTrade(station: StationConfig = loadStation()): boolean {
+  return station.configured && !station.configError && station.stationId !== UNCONFIGURED_STATION_ID;
 }

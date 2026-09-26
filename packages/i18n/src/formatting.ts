@@ -102,12 +102,50 @@ export function formatIQD(amount: number, locale: Locale): string {
   if (!Number.isInteger(amount)) {
     throw new TypeError(`formatIQD expects an integer IQD amount, got ${amount}`);
   }
-  const fmt = new Intl.NumberFormat(intlLocale(locale), {
-    style: 'currency',
-    currency: 'IQD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  const memo = `${locale}|${amount}`;
+  const cached = iqdCache.get(memo);
+  if (cached !== undefined) return cached;
+  const formatted = buildIQD(amount, locale);
+  // A grid shows one price per duration band, so the memo answers nearly every
+  // cell after the first — and the whole string is what the cell renders.
+  if (iqdCache.size >= IQD_CACHE_MAX) iqdCache.clear();
+  iqdCache.set(memo, formatted);
+  return formatted;
+}
+
+/**
+ * Construction is the expensive half of `Intl.NumberFormat` (the same ICU
+ * lookup `dtfCache` above exists for), and this ran it PER CALL — once per
+ * priced cell in the availability grid, plus a `formatToParts` on top. On the
+ * Book tab that lands on the JS thread the 3D court draws its rally from, so
+ * every grid rebuild cost the animation frames it could not spare.
+ */
+const nfCache = new Map<string, Intl.NumberFormat>();
+
+function nf(key: string, build: () => Intl.NumberFormat): Intl.NumberFormat {
+  let f = nfCache.get(key);
+  if (!f) {
+    f = build();
+    nfCache.set(key, f);
+  }
+  return f;
+}
+
+/** Formatted prices, keyed by amount + locale — small, and cleared wholesale. */
+const IQD_CACHE_MAX = 256;
+const iqdCache = new Map<string, string>();
+
+function buildIQD(amount: number, locale: Locale): string {
+  const fmt = nf(
+    `iqd|${locale}`,
+    () =>
+      new Intl.NumberFormat(intlLocale(locale), {
+        style: 'currency',
+        currency: 'IQD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }),
+  );
   if (locale === 'ar') return fmt.format(amount);
 
   // Hermes' Intl is a shim over the platform's formatter, not full ICU.
@@ -129,7 +167,7 @@ export function formatIQD(amount: number, locale: Locale): string {
 
 /** Plain grouped number with Latin digits (counts, quantities). */
 export function formatNumber(value: number, locale: Locale): string {
-  return new Intl.NumberFormat(intlLocale(locale)).format(value);
+  return nf(`num|${locale}`, () => new Intl.NumberFormat(intlLocale(locale))).format(value);
 }
 
 /**
@@ -141,8 +179,12 @@ export function formatNumber(value: number, locale: Locale): string {
  * (rulebook 12.4). The sign is the caller's — this formats the magnitude.
  */
 export function formatPercent(value: number, locale: Locale): string {
-  return new Intl.NumberFormat(intlLocale(locale), {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value);
+  return nf(
+    `pct|${locale}`,
+    () =>
+      new Intl.NumberFormat(intlLocale(locale), {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }),
+  ).format(value);
 }

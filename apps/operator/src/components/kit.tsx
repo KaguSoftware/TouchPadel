@@ -91,6 +91,8 @@ export function Panel({
   muted,
   padded = true,
   level = 2,
+  className,
+  bodyClassName,
   style,
   'data-testid': testId,
 }: {
@@ -99,6 +101,11 @@ export function Panel({
   children: ReactNode;
   muted?: boolean;
   padded?: boolean;
+  /** For the grid hooks in GlobalStyles — spanning a row needs a media query. */
+  className?: string;
+  /** On the padded body, not the section: `tp-cq` makes it the container the
+      field rows inside measure themselves against. */
+  bodyClassName?: string;
   /**
    * Heading rank. A Panel nested inside another Panel — or inside a section
    * that already owns the h2 — must not emit a second h2 at the same depth,
@@ -112,6 +119,7 @@ export function Panel({
   return (
     <section
       data-testid={testId}
+      className={className}
       style={{
         background: muted ? 'var(--tp-surface-2)' : 'var(--tp-surface)',
         border: '1px solid var(--tp-border)',
@@ -136,7 +144,9 @@ export function Panel({
           {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}
-      <div style={padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : undefined}>{children}</div>
+      <div className={bodyClassName} style={padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : undefined}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -1756,17 +1766,24 @@ export function SegmentedControl<T extends string>({
   options,
   size = 'md',
   'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
+  'aria-describedby': ariaDescribedBy,
 }: {
   value: T;
   onChange: (v: T) => void;
   options: readonly { value: T; label: ReactNode; icon?: IconName; disabled?: boolean }[];
   size?: 'sm' | 'md';
   'aria-label'?: string;
+  /** Field(group) names the group from its own label text rather than wrapping it. */
+  'aria-labelledby'?: string;
+  'aria-describedby'?: string;
 }) {
   return (
     <div
       role="group"
       aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+      aria-describedby={ariaDescribedBy}
       style={{
         display: 'inline-flex',
         background: 'var(--tp-surface-2)',

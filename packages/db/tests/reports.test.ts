@@ -28,6 +28,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   futureSlot,
+  createTestCafeTable,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -107,6 +108,8 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     // Cafe side: a till tab with one item, settled in cash.
     item = await createTestMenuItem(svc, 'reports', ITEM_PRICE);
     const opened = await appRpc(cashier, 'open_tab', {
+      // 0084: a tab is anchored to a seat; the label is only its name.
+      p_table_id: await createTestCafeTable(svc, 'reports'),
       p_label: 'reports-tab',
       p_idempotency_key: testIdemKey('tab.open'),
     }).then(outcome);

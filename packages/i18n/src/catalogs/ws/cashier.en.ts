@@ -104,6 +104,12 @@ export const cashierEn = {
     count: '{count} open',
     guest: 'Guest',
     court: 'Court',
+    // Remove-an-empty-tab (0085), driven from the status badge itself.
+    removeArm: 'Remove this tab',
+    removeAsk: 'Remove?',
+    removeConfirm: 'Yes, remove',
+    removeKeep: 'Keep',
+    removeBlocked: 'A payment is to be made for this table.',
   },
 
   detail: {
@@ -278,6 +284,7 @@ export const cashierEn = {
     fromBooking: 'Bound to booking',
     fromBookingHint: 'This tab is opened for the booking chosen on the desk; the court fee is added at settlement.',
     bookingMissing: 'That booking is not available to open a tab on (already has a tab, or not today).',
-    needAnchor: 'Pick a table, type a name, or choose a booking.',
+    needAnchor: 'Pick a table, or choose a booking.',
+    nameHint: 'Shown on the tab instead of the table number. It does not open a tab on its own.',
   },
 } as const;

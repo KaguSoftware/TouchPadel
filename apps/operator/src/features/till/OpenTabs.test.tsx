@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../lib/i18n';
+import { AppRpcError } from '../../lib/appRpc';
 import { OpenTabsBoard, ageLabel, filterBoardRows, type BoardRow } from './OpenTabs';
 
 const NOW = Date.parse('2026-09-03T12:00:00Z');
@@ -18,6 +19,7 @@ const rows: BoardRow[] = [
     total: 8000,
     stamped: false,
     web: false,
+    removable: true,
   },
   {
     id: 'b',
@@ -30,6 +32,7 @@ const rows: BoardRow[] = [
     total: 25000,
     stamped: false,
     web: true,
+    removable: false,
   },
 ];
 
@@ -46,6 +49,7 @@ function renderBoard(over: Partial<Parameters<typeof OpenTabsBoard>[0]>) {
     onMerge: vi.fn(),
     onOpenTab: vi.fn(),
     onRetry: vi.fn(),
+    onRemoveTab: vi.fn(),
     ...over,
   };
   render(
@@ -106,6 +110,66 @@ describe('OpenTabsBoard — four states', () => {
   });
 });
 
+describe('removing an empty tab from the status badge', () => {
+  /** The badge doubles as the control, so it is addressed by its status text. */
+  const badge = (name: RegExp) => screen.getByRole('button', { name });
+
+  it('arms on the first press and emits the id on confirm', async () => {
+    const user = userEvent.setup();
+    const props = renderBoard({});
+    expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
+
+    await user.click(badge(/^Open —/));
+    await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
+    expect(props.onRemoveTab).toHaveBeenCalledOnce();
+    expect(props.onRemoveTab).toHaveBeenCalledWith('a');
+  });
+
+  it('does not remove anything until the confirm is pressed', async () => {
+    const user = userEvent.setup();
+    const props = renderBoard({});
+    await user.click(badge(/^Open —/));
+    expect(screen.getByText('Remove?')).toBeTruthy();
+    expect(props.onRemoveTab).not.toHaveBeenCalled();
+    // …and 'Keep' backs out without touching the tab.
+    await user.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
+    expect(props.onRemoveTab).not.toHaveBeenCalled();
+  });
+
+  it('arming the row does not also open it on the till', async () => {
+    const user = userEvent.setup();
+    const props = renderBoard({});
+    await user.click(badge(/^Open —/));
+    expect(props.onSelect).not.toHaveBeenCalled();
+  });
+
+  it('a tab with money on it is refused in place, with no confirm offered', async () => {
+    const user = userEvent.setup();
+    const props = renderBoard({});
+    await user.click(badge(/^Awaiting payment —/));
+    expect(screen.getByText('A payment is to be made for this table.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
+    expect(props.onRemoveTab).not.toHaveBeenCalled();
+  });
+
+  it('arming a second row disarms the first', async () => {
+    const user = userEvent.setup();
+    renderBoard({});
+    await user.click(badge(/^Open —/));
+    expect(screen.getByText('Remove?')).toBeTruthy();
+    await user.click(badge(/^Awaiting payment —/));
+    expect(screen.queryByText('Remove?')).toBeNull();
+  });
+
+  it('a server refusal lands on the row it belongs to', () => {
+    // The board's rows are a cached read, so a tab can gain an order between
+    // the render and the press; the answer must appear where the press was.
+    renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY') } });
+    expect(screen.getByText('There is a payment to be made on this tab, so it cannot be removed. Settle it instead.')).toBeTruthy();
+  });
+});
+
 describe('filterBoardRows', () => {
   it('matches within the chosen facet and sorts rows with that facet first', () => {
     expect(filterBoardRows(rows, 'table', 't8').map((r) => r.id)).toEqual(['a']);
@@ -115,6 +179,17 @@ describe('filterBoardRows', () => {
   });
   it('also matches the label so a table search finds a by-name tab typed in full', () => {
     expect(filterBoardRows(rows, 'table', 'Ali').map((r) => r.id)).toEqual(['b']);
+  });
+  it('counts table numbers instead of spelling them', () => {
+    // table_number is text, so the board used to read 1, 10, 11, 12, 2.
+    const numbered = ['2', '10', '1', 'T10', '12', 'T2', '11'].map((table, i) => ({
+      ...rows[0]!,
+      id: table,
+      table,
+      label: `Table ${table}`,
+      openedAt: new Date(NOW - i * 60_000).toISOString(),
+    }));
+    expect(filterBoardRows(numbered, 'table', '').map((r) => r.table)).toEqual(['1', '2', '10', '11', '12', 'T2', 'T10']);
   });
 });
 

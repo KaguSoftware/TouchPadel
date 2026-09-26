@@ -1,5 +1,12 @@
 import * as SecureStore from 'expo-secure-store';
-import { CHUNK_SIZE, buildManifest, parseManifest, splitChunks } from './chunk';
+import {
+  CHUNK_SIZE,
+  PURGE_SWEEP_LIMIT,
+  buildManifest,
+  chunkKeyNames,
+  parseManifest,
+  splitChunks,
+} from './chunk';
 
 /**
  * Chunking storage adapter for expo-secure-store.
@@ -22,12 +29,10 @@ import { CHUNK_SIZE, buildManifest, parseManifest, splitChunks } from './chunk';
 
 
 async function clearChunks(key: string, upTo: number): Promise<void> {
-  const kills: Promise<void>[] = [];
-  for (let i = 0; i < upTo; i++) kills.push(SecureStore.deleteItemAsync(`${key}.${i}`));
-  await Promise.all(kills);
+  await Promise.all(chunkKeyNames(key, upTo).map((k) => SecureStore.deleteItemAsync(k)));
 }
 
-export { splitChunks, parseManifest, buildManifest, CHUNK_SIZE } from './chunk';
+export { splitChunks, parseManifest, buildManifest, chunkKeyNames, CHUNK_SIZE, PURGE_SWEEP_LIMIT } from './chunk';
 
 export const chunkedSecureStore = {
   async getItem(key: string): Promise<string | null> {
@@ -68,3 +73,53 @@ export const chunkedSecureStore = {
     await SecureStore.deleteItemAsync(key);
   },
 };
+
+/**
+ * SEC-16 — remove a key AND every slice that could belong to it.
+ *
+ * `chunkedSecureStore.removeItem` is the right thing for normal use: it reads
+ * the manifest and deletes exactly the slices it names. That is precisely why
+ * it is NOT enough for a deletion. It deletes what the manifest CLAIMS, and the
+ * two states a deletion has to survive are the ones where the manifest lies:
+ *
+ *   - the manifest is gone but slices remain (a torn `removeItem`, or a torn
+ *     `setItem` that wrote chunks and died before the manifest). `removeItem`
+ *     then reads null, concludes "not chunked", deletes the head key alone, and
+ *     leaves refresh-token fragments in the keychain forever.
+ *   - the value shrank from many chunks to few and an earlier write's orphans
+ *     were never claimed by any manifest since.
+ *
+ * So this sweeps blind to PURGE_SWEEP_LIMIT after doing the manifest-driven
+ * removal. Blind means "delete this key whether or not anything is there";
+ * SecureStore.deleteItemAsync on an absent key is a no-op, not an error.
+ *
+ * Never throws. A keychain that refuses one delete must not abort the purge and
+ * leave the REST of the session behind — the caller has already destroyed the
+ * account server-side, so failing loudly here would strand the user in an app
+ * holding a session for a user that no longer exists.
+ */
+export async function purgeSecureKey(key: string): Promise<void> {
+  try {
+    await chunkedSecureStore.removeItem(key);
+  } catch {
+    /* fall through to the blind sweep — it covers the head key too */
+  }
+  const kills = [key, ...chunkKeyNames(key, PURGE_SWEEP_LIMIT)].map(async (k) => {
+    try {
+      await SecureStore.deleteItemAsync(k);
+    } catch {
+      /* one stubborn slice must not abort the rest */
+    }
+  });
+  await Promise.all(kills);
+}
+
+/**
+ * Purge several keys. Sequential rather than parallel: each key already fans
+ * out to PURGE_SWEEP_LIMIT + 1 keychain calls, and iOS's keychain serialises
+ * under contention anyway — running the whole cross-product at once buys
+ * nothing and has been the source of `errSecNotAvailable` on cold keystores.
+ */
+export async function purgeSecureKeys(keys: readonly string[]): Promise<void> {
+  for (const key of keys) await purgeSecureKey(key);
+}

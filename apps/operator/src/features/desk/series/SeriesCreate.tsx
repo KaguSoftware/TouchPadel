@@ -2,8 +2,8 @@
  * 06.5 RecurringSeriesCreateScreen — a whole series in one action.
  * Flow: build the pattern → "Check clashes" (preview_series, read-only) →
  * resolve every clash (skip the date, or move it to a court the server says
- * is free) → create_series in one transaction. Submission stays disabled
- * while any clash is unresolved (spec 06.5). States: ready · checking ·
+ * is free) → create_series in one transaction. Every clash must be resolved
+ * before the series is created (spec 06.5). States: ready · checking ·
  * conflictsFound · busy · error.
  */
 import { useMemo, useState } from 'react';
@@ -17,6 +17,7 @@ import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel, SegmentedControl, StatusBadge, asyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
+import { nameFromQuery, phoneDigitCount, phoneFromQuery, sanitizeName, sanitizePhone } from '../deskLogic';
 import { todayInTz } from '../useTradingNight';
 import { CustomerPicker, type PickedCustomer } from '../customers/CustomerPicker';
 import type { SeriesCreateResult, SeriesOccurrencePreview, SeriesPattern, SeriesPreview } from '../deskTypes';
@@ -34,6 +35,10 @@ import {
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
+const TIME_RE = /^\d{2}:\d{2}$/;
+/** Short enough that no country's number reaches it — a typo, not a number. */
+const PHONE_MIN_DIGITS = 7;
+
 /** "{station}:series.create:{ulid}" — the same shape mutate() uses, for an RPC outside the queue. */
 function seriesIdempotencyKey(): string {
   const ref = clientRef();
@@ -41,6 +46,18 @@ function seriesIdempotencyKey(): string {
 }
 
 type Phase = 'ready' | 'checking' | 'conflictsFound' | 'busy' | 'error';
+
+/** How much of the form the operator has asked about, and may therefore be told about. */
+type ErrorScope = 'none' | 'pattern' | 'all';
+
+export interface PatternErrors {
+  court?: string;
+  time?: string;
+  startsOn?: string;
+  weekdays?: string;
+  weeks?: string;
+  endsOn?: string;
+}
 
 export function RecurringSeriesCreateScreen() {
   const { tr, locale } = useLocale();
@@ -65,6 +82,16 @@ export function RecurringSeriesCreateScreen() {
   const [walkInName, setWalkInName] = useState('');
   const [walkInPhone, setWalkInPhone] = useState('');
   const [notes, setNotes] = useState('');
+  /*
+   * Whether each box below holds something the operator typed into it. While
+   * one does not, the customer search mirrors every keystroke into it: a search
+   * that turns out to have no account IS the walk-in case, and the desk used to
+   * have to type the whole thing a second time to book it. The search takes
+   * either a name or a number, so each box takes the half of the query that
+   * belongs to it — letters to one, digits to the other.
+   */
+  const [nameTouched, setNameTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   const [preview, setPreview] = useState<{ key: string; occurrences: SeriesOccurrencePreview[] } | null>(null);
   const [resolutions, setResolutions] = useState<ResolutionMap>({});
@@ -72,6 +99,7 @@ export function RecurringSeriesCreateScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [result, setResult] = useState<SeriesCreateResult | null>(null);
+  const [errorScope, setErrorScope] = useState<ErrorScope>('none');
 
   const court = courts.find((c) => c.id === draft.courtId) ?? courts[0];
   const effective: SeriesDraft = useMemo(
@@ -82,20 +110,58 @@ export function RecurringSeriesCreateScreen() {
     }),
     [draft, court],
   );
-  const problem = draftProblem(effective);
+  // The venue's own date: a station in another zone must not be able to book
+  // into a day the courts have already finished.
+  const today = todayInTz(tz);
+  const problem = draftProblem(effective, today);
   const key = draftKey(effective);
   const stale = preview !== null && preview.key !== key;
   const occurrences = preview?.occurrences ?? [];
   const unresolved = unresolvedDates(occurrences, resolutions);
   const clashes = conflictCount(occurrences);
   const hasCustomer = customer !== null || walkInName.trim().length > 0;
+  /*
+   * A series books the same slot for weeks. When one of those weeks has to be
+   * moved or dropped there has to be someone to tell, so the number is what
+   * create_series will actually send: the box if it holds one, otherwise the
+   * linked account's.
+   */
+  const effectivePhone = walkInPhone.trim() || customer?.phone || '';
+  const phoneDigits = phoneDigitCount(effectivePhone);
+  const phoneMissing = phoneDigits === 0;
+  const phoneTooShort = phoneDigits > 0 && phoneDigits < PHONE_MIN_DIGITS;
+  const phoneUnusable = phoneMissing || phoneTooShort;
 
   const phase: Phase = busy ? 'busy' : checking ? 'checking' : error != null ? 'error' : preview && !stale && clashes > 0 ? 'conflictsFound' : 'ready';
   const canSubmit = phase === 'ready' || (phase === 'conflictsFound' && unresolved.length === 0);
-  const submitEnabled = preview !== null && !stale && canSubmit && hasCustomer && problem === null && !busy && !checking;
+  const submitReady = preview !== null && !stale && canSubmit && hasCustomer && problem === null && !phoneUnusable && !busy && !checking;
 
-  async function checkClashes() {
-    if (problem !== null) return;
+  /*
+   * Rulebook 4.3. Five conditions used to hold these two buttons shut, and a
+   * shut button says nothing about WHICH box is empty — the desk had to guess,
+   * or reverse-engineer the rule. The buttons are live now, and a click that
+   * cannot go through names every unmet condition in red under the box it
+   * belongs to. `errorScope` keeps that honest: "Check clashes" does not need a
+   * customer, so it never accuses the customer panel of anything.
+   *
+   * Each condition is computed on its own rather than read off draftProblem,
+   * which stops at the first: an empty court used to hide an empty time.
+   */
+  const patternErrors: PatternErrors = {
+    court: !effective.courtId ? tr('ws.courtDesk.series.invalidCourt') : undefined,
+    time: !TIME_RE.test(effective.startTime) ? tr('ws.courtDesk.series.invalidTime') : undefined,
+    weekdays: effective.pattern === 'weekdays' && effective.weekdays.length === 0 ? tr('ws.courtDesk.series.invalidWeekdays') : undefined,
+    startsOn: effective.startsOn < today ? tr('ws.courtDesk.series.invalidPast') : undefined,
+    weeks: effective.endMode === 'weeks' && (!Number.isInteger(effective.weeks) || effective.weeks < 1) ? tr('ws.courtDesk.series.invalidWeeks') : undefined,
+    endsOn: effective.endMode === 'date' && effective.endsOn <= effective.startsOn ? tr('ws.courtDesk.series.invalidEnd') : undefined,
+  };
+  const shownPatternErrors: PatternErrors = errorScope === 'none' ? {} : patternErrors;
+  const nameError = errorScope === 'all' && !hasCustomer ? tr('ws.courtDesk.series.invalidName') : undefined;
+  const phoneError =
+    errorScope !== 'all' ? undefined : phoneMissing ? tr('ws.courtDesk.series.phoneRequired') : phoneTooShort ? tr('ws.courtDesk.series.invalidPhone') : undefined;
+  const anyFieldError = problem !== null || (errorScope === 'all' && (!hasCustomer || phoneUnusable));
+
+  async function runCheck() {
     setChecking(true);
     setError(null);
     setResult(null);
@@ -111,8 +177,23 @@ export function RecurringSeriesCreateScreen() {
     }
   }
 
+  /** Always clickable; only the pattern half of the form gates the RPC. */
+  function checkClashes() {
+    setErrorScope((prev) => (prev === 'all' ? 'all' : 'pattern'));
+    if (problem !== null) return;
+    void runCheck();
+  }
+
   async function submit() {
-    if (!submitEnabled) return;
+    setErrorScope('all');
+    if (problem !== null || !hasCustomer || phoneUnusable || busy || checking) return;
+    // Nothing is ever created without a preview, so the first click here runs
+    // the check instead of dead-ending the operator on "check clashes first".
+    if (preview === null || stale) {
+      void runCheck();
+      return;
+    }
+    if (unresolved.length > 0) return;
     setBusy(true);
     setError(null);
     try {
@@ -129,6 +210,7 @@ export function RecurringSeriesCreateScreen() {
       setResult(data);
       setPreview(null);
       setResolutions({});
+      setErrorScope('none');
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
       void queryClient.invalidateQueries({ queryKey: ['reservationsWeek'] });
     } catch (e) {
@@ -138,27 +220,20 @@ export function RecurringSeriesCreateScreen() {
     }
   }
 
-  const problemText =
-    problem === 'weekdays' ? tr('ws.courtDesk.series.invalidWeekdays') : problem === 'weeks' ? tr('ws.courtDesk.series.invalidWeeks') : problem === 'end' ? tr('ws.courtDesk.series.invalidEnd') : null;
-
-  /*
-   * Rulebook 4.3. Five separate conditions hold this button shut and the
-   * screen used to state none of them on the control itself, so a desk that
-   * had filled the form in and could not see why nothing happened had to
-   * reverse-engineer the rule. First unmet condition wins, in the order the
-   * operator would meet them.
-   */
-  const submitBlockedReason =
-    problemText ??
-    (!hasCustomer
-      ? tr('ws.courtDesk.series.needsCustomer')
+  /** One line beside the footer buttons, for what no single field can carry. */
+  const footerHint = submitReady
+    ? undefined
+    : anyFieldError
+      ? errorScope === 'none'
+        ? undefined
+        : tr('ws.courtDesk.series.fixFields')
       : preview === null
         ? tr('ws.courtDesk.series.needsCheck')
         : stale
           ? tr('ws.courtDesk.series.staleDraft')
           : unresolved.length > 0
             ? tr('ws.courtDesk.series.unresolved', { count: formatNumber(unresolved.length, locale) })
-            : undefined);
+            : undefined;
 
   return (
     <div>
@@ -182,60 +257,87 @@ export function RecurringSeriesCreateScreen() {
             </div>
           </Panel>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1rem', alignItems: 'start' }}>
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <Panel title={tr('ws.courtDesk.series.pattern')}>
-                <SeriesPatternBuilder draft={effective} courts={courts} disabled={busy} onChange={setDraft} />
-                {problemText && <MessagePresenter tone="refused" message={problemText} style={{ marginBlockStart: '0.25rem' }} />}
-              </Panel>
-              <Panel title={tr('ws.courtDesk.series.customer')}>
-                <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: '0.6rem' }}>{tr('ws.courtDesk.series.customerHint')}</p>
-                <CustomerPicker
-                  value={customer}
-                  disabled={busy}
-                  onChange={(next) => {
-                    setCustomer(next);
-                    if (next && !walkInName) setWalkInName(next.name);
-                    if (next && !walkInPhone && next.phone) setWalkInPhone(next.phone);
-                  }}
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Field label={tr('ws.courtDesk.series.walkInName')} required={customer === null}>
-                    <input style={inputStyle} value={walkInName} disabled={busy} onChange={(e) => setWalkInName(e.target.value)} />
-                  </Field>
-                  <Field label={tr('ws.courtDesk.series.walkInPhone')}>
-                    <input style={inputStyle} dir="ltr" inputMode="tel" value={walkInPhone} disabled={busy} onChange={(e) => setWalkInPhone(e.target.value)} />
-                  </Field>
-                </div>
-                <Field label={tr('ws.courtDesk.series.notes')}>
-                  <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
+          /*
+           * Pattern and customer sit side by side — two inputs of equal
+           * standing — and the occurrences they produce run the full width
+           * underneath, which is where a table of dates can actually be read.
+           */
+          <div className="tp-split" style={{ gap: '1rem' }}>
+            <Panel title={tr('ws.courtDesk.series.pattern')} bodyClassName="tp-cq">
+              <SeriesPatternBuilder draft={effective} courts={courts} disabled={busy} minDate={today} errors={shownPatternErrors} onChange={setDraft} />
+            </Panel>
+
+            <Panel title={tr('ws.courtDesk.series.customer')} bodyClassName="tp-cq">
+              <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: '0.6rem', marginBlockStart: 0 }}>{tr('ws.courtDesk.series.customerHint')}</p>
+              <CustomerPicker
+                value={customer}
+                disabled={busy}
+                onQueryChange={(q) => {
+                  if (!nameTouched) setWalkInName(nameFromQuery(q));
+                  if (!phoneTouched) setWalkInPhone(phoneFromQuery(q));
+                }}
+                onChange={(next) => {
+                  setCustomer(next);
+                  if (next) {
+                    // What the account says outranks what was searched for.
+                    if (!nameTouched || walkInName.trim() === '') setWalkInName(sanitizeName(next.name));
+                    if (next.phone && (!phoneTouched || walkInPhone.trim() === '')) setWalkInPhone(sanitizePhone(next.phone));
+                  }
+                }}
+              />
+              <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
+                <Field label={tr('ws.courtDesk.series.walkInName')} required={customer === null} error={nameError}>
+                  <input
+                    style={inputStyle}
+                    value={walkInName}
+                    disabled={busy}
+                    maxLength={200}
+                    onChange={(e) => {
+                      setNameTouched(true);
+                      setWalkInName(sanitizeName(e.target.value));
+                    }}
+                  />
                 </Field>
-              </Panel>
-            </div>
+                <Field label={tr('ws.courtDesk.series.walkInPhone')} required error={phoneError}>
+                  <input
+                    style={inputStyle}
+                    dir="ltr"
+                    inputMode="tel"
+                    autoComplete="off"
+                    maxLength={30}
+                    value={walkInPhone}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setPhoneTouched(true);
+                      setWalkInPhone(sanitizePhone(e.target.value));
+                    }}
+                  />
+                </Field>
+              </div>
+              <Field label={tr('ws.courtDesk.series.notes')} style={{ marginBlockEnd: 0 }}>
+                <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
+              </Field>
+            </Panel>
 
             <Panel
               title={tr('ws.courtDesk.series.previewTitle')}
+              className="tp-split-full"
               actions={
-                <Button
-                  kind={preview ? 'default' : 'primary'}
-                  icon="search"
-                  busy={checking}
-                  disabled={busy || problem !== null}
-                  disabledReason={problemText ?? undefined}
-                  onClick={() => void checkClashes()}
-                >
-                  {preview ? tr('ws.courtDesk.series.recheck') : tr('ws.courtDesk.series.checkClashes')}
-                </Button>
+                preview && !checking ? (
+                  <StatusBadge
+                    size="sm"
+                    tone={stale ? 'neutral' : clashes > 0 ? 'danger' : 'success'}
+                    label={tr('ws.courtDesk.series.previewLead', { count: formatNumber(occurrences.length, locale), conflicts: formatNumber(clashes, locale) })}
+                  />
+                ) : undefined
               }
             >
               <ErrorText error={error} />
-              {checking && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.series.checking')}</p>}
+              {checking && <p style={{ color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('ws.courtDesk.series.checking')}</p>}
+              {!checking && preview === null && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{tr('ws.courtDesk.series.emptyPreview')}</p>}
               {stale && !checking && <MessagePresenter tone="refused" message={tr('ws.courtDesk.series.staleDraft')} style={{ marginBlockEnd: '0.6rem' }} />}
               {preview && !checking && (
                 <>
-                  <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.5rem' }}>
-                    {tr('ws.courtDesk.series.previewLead', { count: formatNumber(occurrences.length, locale), conflicts: formatNumber(clashes, locale) })}
-                  </p>
                   {clashes === 0 ? (
                     <MessagePresenter tone="success" message={tr('ws.courtDesk.series.noClashes')} style={{ marginBlockEnd: '0.6rem' }} />
                   ) : unresolved.length > 0 ? (
@@ -249,19 +351,49 @@ export function RecurringSeriesCreateScreen() {
                     resolutions={resolutions}
                     tz={tz}
                     disabled={busy}
-                    onResolve={(date, action, courtId) =>
-                      setResolutions((prev) => ({ ...prev, [date]: action === 'skip' ? { date, action } : { date, action, courtId: courtId! } }))
-                    }
+                    onResolve={(date, action, courtId) => setResolutions((prev) => ({ ...prev, [date]: action === 'skip' ? { date, action } : { date, action, courtId: courtId! } }))}
                   />
                 </>
               )}
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginBlockStart: '0.85rem' }}>
-                <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
-                  {tr('common.cancel')}
-                </Link>
-                <Button kind="primary" icon="repeat" busy={busy} disabled={!submitEnabled} disabledReason={submitBlockedReason} onClick={() => void submit()}>
-                  {tr('ws.courtDesk.series.submit')}
-                </Button>
+              {/*
+                Every action in one bar at the foot of the panel, bled to its
+                edges. They used to be split between the panel header and a
+                floating row, so the two halves of one decision — check, then
+                create — never sat next to each other, and "cancel" outranked
+                both by sitting where the eye lands first.
+              */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  marginBlockStart: '0.85rem',
+                  marginInline: '-0.85rem',
+                  marginBlockEnd: '-0.75rem',
+                  paddingBlock: '0.6rem',
+                  paddingInline: '0.85rem',
+                  borderBlockStart: '1px solid var(--tp-border)',
+                  background: 'var(--tp-surface-2)',
+                }}
+              >
+                {footerHint && (
+                  <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', minInlineSize: 0 }}>
+                    <Icon name="info" size={14} />
+                    {footerHint}
+                  </span>
+                )}
+                <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginInlineStart: 'auto' }}>
+                  <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
+                    {tr('common.cancel')}
+                  </Link>
+                  <Button icon="search" busy={checking} disabled={busy} onClick={checkClashes}>
+                    {preview ? tr('ws.courtDesk.series.recheck') : tr('ws.courtDesk.series.checkClashes')}
+                  </Button>
+                  <Button kind="primary" icon="repeat" busy={busy} disabled={checking} onClick={() => void submit()}>
+                    {tr('ws.courtDesk.series.submit')}
+                  </Button>
+                </span>
               </div>
             </Panel>
           </div>
@@ -279,11 +411,17 @@ export function SeriesPatternBuilder({
   draft,
   courts,
   disabled,
+  minDate,
+  errors,
   onChange,
 }: {
   draft: SeriesDraft;
   courts: readonly CourtRow[];
   disabled?: boolean;
+  /** The earliest date the series may start — the venue's today. */
+  minDate?: string;
+  /** What is wrong with which box, once the operator has asked. */
+  errors?: PatternErrors;
   onChange: (next: SeriesDraft) => void;
 }) {
   const { tr, locale } = useLocale();
@@ -292,10 +430,12 @@ export function SeriesPatternBuilder({
   const set = (patch: Partial<SeriesDraft>) => onChange({ ...draft, ...patch });
   return (
     <div>
-      <Field label={tr('ws.courtDesk.series.court')} required>
+      <Field label={tr('ws.courtDesk.series.court')} required error={errors?.court}>
         <Select value={draft.courtId} disabled={disabled} onChange={(courtId) => set({ courtId, durationMin: 0 })} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
       </Field>
-      <Field label={tr('ws.courtDesk.series.pattern')}>
+      {/* group: a <label> around a set of buttons forwards hover AND click to
+          the first of them — see Field. */}
+      <Field label={tr('ws.courtDesk.series.pattern')} group>
         <SegmentedControl<SeriesPattern>
           value={draft.pattern}
           onChange={(pattern) => set({ pattern })}
@@ -307,12 +447,24 @@ export function SeriesPatternBuilder({
         />
       </Field>
       {draft.pattern === 'weekdays' && (
-        <Field label={tr('ws.courtDesk.series.weekdaysPick')} required>
-          <div role="group" aria-label={tr('ws.courtDesk.series.weekdaysPick')} style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+        <Field label={tr('ws.courtDesk.series.weekdaysPick')} required group error={errors?.weekdays}>
+          {/*
+            inline-flex, not flex: a full-width row made every pixel to the
+            right of "Sat" part of the group, and while the group was wrapped in
+            a <label> that dead space hovered and selected Sunday.
+          */}
+          <div role="group" style={{ display: 'inline-flex', gap: '0.3rem', flexWrap: 'wrap' }}>
             {WEEKDAY_KEYS.map((k, i) => {
               const on = draft.weekdays.includes(i);
               return (
-                <Button key={k} size="sm" kind={on ? 'primary' : 'default'} aria-pressed={on} disabled={disabled} onClick={() => set({ weekdays: on ? draft.weekdays.filter((d) => d !== i) : [...draft.weekdays, i] })}>
+                <Button
+                  key={k}
+                  size="sm"
+                  kind={on ? 'primary' : 'default'}
+                  aria-pressed={on}
+                  disabled={disabled}
+                  onClick={() => set({ weekdays: on ? draft.weekdays.filter((d) => d !== i) : [...draft.weekdays, i] })}
+                >
                   {tr(`ws.courtDesk.common.weekday.${k}`)}
                 </Button>
               );
@@ -320,11 +472,20 @@ export function SeriesPatternBuilder({
           </div>
         </Field>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-        <Field label={tr('ws.courtDesk.series.startsOn')} required>
-          <input type="date" style={inputStyle} value={draft.startsOn} disabled={disabled} onChange={(e) => e.target.value && set({ startsOn: e.target.value })} />
+      <div className="tp-grid" data-cols="3" style={{ gap: '0.75rem' }}>
+        <Field label={tr('ws.courtDesk.series.startsOn')} required error={errors?.startsOn}>
+          {/* `min` greys the past out of the picker; it does not stop a typed
+              date, which is what errors.startsOn is for. */}
+          <input
+            type="date"
+            style={inputStyle}
+            value={draft.startsOn}
+            min={minDate}
+            disabled={disabled}
+            onChange={(e) => e.target.value && set({ startsOn: e.target.value })}
+          />
         </Field>
-        <Field label={tr('ws.courtDesk.series.time')} required>
+        <Field label={tr('ws.courtDesk.series.time')} required error={errors?.time}>
           <input type="time" step={1800} style={inputStyle} value={draft.startTime} disabled={disabled} onChange={(e) => set({ startTime: e.target.value })} />
         </Field>
         <Field label={tr('ws.courtDesk.series.duration')}>
@@ -337,25 +498,46 @@ export function SeriesPatternBuilder({
           </select>
         </Field>
       </div>
-      <Field label={tr('ws.courtDesk.series.endMode')}>
-        <SegmentedControl<'weeks' | 'date'>
-          value={draft.endMode}
-          onChange={(endMode) => set({ endMode })}
-          options={[
-            { value: 'weeks', label: tr('ws.courtDesk.series.afterWeeks') },
-            { value: 'date', label: tr('ws.courtDesk.series.onDate') },
-          ]}
-        />
-      </Field>
-      {draft.endMode === 'weeks' ? (
-        <Field label={tr('ws.courtDesk.series.weeks')} required>
-          <input type="number" min={1} step={1} inputMode="numeric" style={{ ...inputStyle, inlineSize: '8rem' }} value={draft.weeks} disabled={disabled} onChange={(e) => set({ weeks: Number(e.target.value) })} />
+      {/* How it ends and WHEN it ends are one decision, so they share a row.
+          The weeks box used to be a stubby 8rem stub floating under a
+          full-width control. */}
+      <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
+        <Field label={tr('ws.courtDesk.series.endMode')} group style={{ marginBlockEnd: 0 }}>
+          <SegmentedControl<'weeks' | 'date'>
+            value={draft.endMode}
+            onChange={(endMode) => set({ endMode })}
+            options={[
+              { value: 'weeks', label: tr('ws.courtDesk.series.afterWeeks') },
+              { value: 'date', label: tr('ws.courtDesk.series.onDate') },
+            ]}
+          />
         </Field>
-      ) : (
-        <Field label={tr('ws.courtDesk.series.endsOn')} required>
-          <input type="date" style={inputStyle} value={draft.endsOn} min={draft.startsOn} disabled={disabled} onChange={(e) => e.target.value && set({ endsOn: e.target.value })} />
-        </Field>
-      )}
+        {draft.endMode === 'weeks' ? (
+          <Field label={tr('ws.courtDesk.series.weeks')} required error={errors?.weeks} style={{ marginBlockEnd: 0 }}>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              style={{ ...inputStyle, maxInlineSize: '12rem' }}
+              value={draft.weeks}
+              disabled={disabled}
+              onChange={(e) => set({ weeks: Number(e.target.value) })}
+            />
+          </Field>
+        ) : (
+          <Field label={tr('ws.courtDesk.series.endsOn')} required error={errors?.endsOn} style={{ marginBlockEnd: 0 }}>
+            <input
+              type="date"
+              style={inputStyle}
+              value={draft.endsOn}
+              min={minDate && minDate > draft.startsOn ? minDate : draft.startsOn}
+              disabled={disabled}
+              onChange={(e) => e.target.value && set({ endsOn: e.target.value })}
+            />
+          </Field>
+        )}
+      </div>
     </div>
   );
 }

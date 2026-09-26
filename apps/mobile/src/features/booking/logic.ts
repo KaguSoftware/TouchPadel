@@ -50,7 +50,17 @@ export interface BookingRow {
   price_iqd: number | null;
   /** kind='hold' only; the TTL deadline (0008). Absent on bookings. */
   hold_expires_at?: string | null;
+  /**
+   * Who cancelled it (0088): 'guest' — this account, in the app — or 'staff',
+   * meaning the desk. Null on anything that was not cancelled, AND on a
+   * cancellation older than 0088 whose actor nobody recorded, which is why
+   * every reader here treats null as "not known" rather than as a value.
+   */
+  cancelled_by?: string | null;
 }
+
+/** The two actors app.cancel_reservation can stamp (0088). */
+export type CancelActor = 'guest' | 'staff';
 
 const LIVE_STATUSES = new Set(['pending', 'confirmed', 'arrived']);
 
@@ -106,6 +116,38 @@ export function splitBookings(
 }
 
 /**
+ * Who ended a cancelled booking — or null when that is not known.
+ *
+ * Null covers three different rows and must not be collapsed with either
+ * actor: a booking that was never cancelled, a cancellation stamped before
+ * 0088 added the column, and a value the server one day starts sending that
+ * this build has never heard of. Everything downstream renders nothing at all
+ * for null, so an unknown actor reads as the old wording rather than as a
+ * guess about the venue or about the guest.
+ *
+ * Not derivable client-side: 'cancelled' says the slot went back, never who
+ * put it back, and `cancellation_reason` is optional desk text that the guest
+ * path does not write. Only the RPC's own staff check knows (0088).
+ */
+export function cancelActor(row: BookingRow): CancelActor | null {
+  if (row.status !== 'cancelled') return null;
+  return row.cancelled_by === 'guest' || row.cancelled_by === 'staff' ? row.cancelled_by : null;
+}
+
+/**
+ * The caption under a cancelled row in a list — "Cancelled by you" or
+ * "Cancelled by the venue" — or null when the actor is unknown, where the
+ * status badge alone is already the whole truth.
+ */
+export function cancelActorLabel(
+  row: BookingRow,
+): 'booking.cancelledByYou' | 'booking.cancelledByVenue' | null {
+  const actor = cancelActor(row);
+  if (!actor) return null;
+  return actor === 'guest' ? 'booking.cancelledByYou' : 'booking.cancelledByVenue';
+}
+
+/**
  * The line that explains why a booking is over — or null while it is still
  * live. Detail rendered it for `cancelled` only, so the two endings the guest
  * did NOT ask for said nothing at all: a no-show closed by the desk (0075) and
@@ -113,13 +155,29 @@ export function splitBookings(
  * quietly stopped meaning anything, with no way to tell that from a booking
  * still standing.
  *
+ * A cancellation now names its ACTOR when one was recorded (0088). "This
+ * booking was cancelled" is true of both endings and useful for neither: a
+ * guest who cancelled it themselves is being told something they already know,
+ * and a guest whose court the venue took back is being told nothing at all —
+ * the one reading that sends someone to the desk. `by` null keeps the original
+ * sentence, which is the honest answer for a cancellation predating the column.
+ *
  * `completed` gets no notice: the guest played, and there is nothing to say.
  */
 export function endedNotice(
   status: string,
-): 'booking.cancelledNotice' | 'booking.noShowNotice' | 'booking.expiredNotice' | null {
+  by?: string | null,
+):
+  | 'booking.cancelledNotice'
+  | 'booking.cancelledByYouNotice'
+  | 'booking.cancelledByVenueNotice'
+  | 'booking.noShowNotice'
+  | 'booking.expiredNotice'
+  | null {
   switch (status) {
     case 'cancelled':
+      if (by === 'guest') return 'booking.cancelledByYouNotice';
+      if (by === 'staff') return 'booking.cancelledByVenueNotice';
       return 'booking.cancelledNotice';
     case 'no_show':
       return 'booking.noShowNotice';
@@ -181,13 +239,37 @@ export function startProximity(row: BookingRow, now: Date): StartProximity {
 }
 
 /**
- * Past bookings the guest actually turned up for — the "N played" chip under
- * the title. Cancellations, no-shows and expiries are history but not games,
- * and counting them would inflate the one number on the screen that is a small
- * point of pride.
+ * Past bookings the guest actually turned up for: the games the desk closed as
+ * played ('completed') and the ones it checked in and never reopened
+ * ('arrived'). Cancellations, no-shows and expiries are history but not games.
+ *
+ * This is both the "N played" tally under the title and the list that tab
+ * shows, so the number and the rows under it can never disagree.
+ */
+export function playedGames(past: readonly BookingRow[]): BookingRow[] {
+  return past.filter((r) => r.status === 'completed' || r.status === 'arrived');
+}
+
+/**
+ * How many of those there are — the "N played" tab under the title.
  */
 export function playedCount(past: readonly BookingRow[]): number {
-  return past.filter((r) => r.status === 'completed' || r.status === 'arrived').length;
+  return playedGames(past).length;
+}
+
+/**
+ * Bookings that were CANCELLED — by the guest here, or by the desk — and gave
+ * their slot back. The third tab on My reservations.
+ *
+ * Deliberately status === 'cancelled' and nothing else. A no-show is a booking
+ * the guest kept and did not turn up for, and an expired row is a hold that ran
+ * out before it was ever confirmed; neither was cancelled by anyone, and
+ * sweeping them in here to pad the tab would put a "No-show" badge under a
+ * heading that says Cancelled. They stay in Booking history, which is the
+ * complete past and is linked from under this list.
+ */
+export function cancelledBookings(past: readonly BookingRow[]): BookingRow[] {
+  return past.filter((r) => r.status === 'cancelled');
 }
 
 /**
@@ -203,10 +285,7 @@ export function playedCount(past: readonly BookingRow[]): number {
  * The comparison is on `end_at` for the same reason the split is: a game that
  * had not finished when history was cleared is not history yet.
  */
-export function visiblePast(
-  past: readonly BookingRow[],
-  clearedAt: string | null,
-): BookingRow[] {
+export function visiblePast(past: readonly BookingRow[], clearedAt: string | null): BookingRow[] {
   if (!clearedAt) return [...past];
   const cutoff = new Date(clearedAt).getTime();
   if (!Number.isFinite(cutoff)) return [...past];

@@ -92,6 +92,13 @@ jobs:
       - name: Web hardening lock
         run: pnpm security:web
 
+      # SEC-36, the quiet-error rule. A guest must never see a stack trace, a
+      # raw Postgres error or a constraint name. The mappers are correct today;
+      # this exists because `catch (e) { setError(e.message) }` is one line, in
+      # one new screen, that reads as diligence in review and turns no test red.
+      - name: Quiet-error rule (guest surfaces)
+        run: pnpm security:quiet-errors
+
       # Electron: sandbox / contextIsolation / nodeIntegration and the navigation
       # guards. A pure regression lock — it passes today and exists so a
       # debugging session cannot quietly undo the hardening on the venue PC.
@@ -103,6 +110,11 @@ jobs:
       # exactly as staff do, so an unclassified RPC is an unguarded one.
       - name: RPC registry + authz coverage
         run: pnpm --filter @touch/db check:rpc-registry
+
+      # SEC-28 (broadcast payloads) and SEC-29 (analytics payload) read the live
+      # catalog over docker exec, so they run in the db job below, after
+      # `supabase start`. Listing them here with no stack made this job fail on
+      # every run.
 
       # Lock-taking and destructive DDL, scoped to the migrations THIS PR changes.
       # The 57 non-concurrent indexes already applied cannot be rewritten, so

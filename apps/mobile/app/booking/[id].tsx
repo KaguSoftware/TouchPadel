@@ -29,7 +29,7 @@ import {
   StatusPill,
   SummaryGrid,
 } from '../../src/components/booking';
-import { ConfirmationDialog, useToast } from '../../src/components/overlays';
+import { ConfirmAlert, useToast } from '../../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 
@@ -61,6 +61,7 @@ function BookingDetailScreen() {
   // adds no second subscription when it is opened from Bookings.
   useCourtsBroadcast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Eligibility follows the clock: the window can close while the guest looks.
@@ -87,22 +88,20 @@ function BookingDetailScreen() {
     start.getTime() > now.getTime() &&
     (booking.status === 'confirmed' || booking.status === 'pending');
   const eligible = booking != null && policyKnown && canCancel(booking, windowHours, now);
-  const endedNoticeKey = booking ? endedNotice(booking.status) : null;
+  const endedNoticeKey = booking ? endedNotice(booking.status, booking.cancelled_by) : null;
   const windowEnd =
     start && windowHours > 0 ? new Date(start.getTime() - windowHours * 3_600_000) : null;
 
+  // The native alert dismisses itself as soon as a button is tapped, so the
+  // open flag closes here rather than on the result; the pending write shows as
+  // the Cancel booking button's own spinner (busy={cancel.isPending}).
   const onCancelConfirm = () => {
     if (!booking) return;
     setError(null);
+    setDialogOpen(false);
     cancel.mutate(booking.id, {
-      onSuccess: () => {
-        setDialogOpen(false);
-        toast(t('booking.cancelledToast'), 'info');
-      },
-      onError: (err) => {
-        setDialogOpen(false);
-        setError(t(mapErrorToKey(err)));
-      },
+      onSuccess: () => toast(t('booking.cancelledToast'), 'info'),
+      onError: (err) => setError(t(mapErrorToKey(err))),
     });
   };
 
@@ -123,6 +122,24 @@ function BookingDetailScreen() {
       <Stack.Screen
         options={{ title: booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : '' }}
       />
+      {/*
+        Spec 05.16: the venue contact whenever the venue is degraded, closed
+        only by its × — a guest looking at a stale booking needs the number in
+        reach however long they spend reading, and however often the query
+        refetches. In flow rather than floating, matching the Book tab: an
+        overlay covered the top of the detail it was commenting on.
+      */}
+      {degraded && !noticeClosed ? (
+        <View style={{ marginBottom: space.s }}>
+          <DegradedBanner
+            lead={t('degraded.leadConnectionLost')}
+            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+            phone={phone}
+            blockLead
+            onDismiss={() => setNoticeClosed(true)}
+          />
+        </View>
+      ) : null}
       {reservation.isLoading ? (
         <SkeletonList rows={2} height={140} />
       ) : reservation.isError ? (
@@ -145,18 +162,6 @@ function BookingDetailScreen() {
           contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Spec 05.16: the venue contact whenever the venue is degraded. */}
-          {degraded ? (
-            <View style={{ marginBottom: 10 }}>
-              <DegradedBanner
-                tight
-                lead={t('degraded.leadConnectionLost')}
-                message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-                phone={phone}
-              />
-            </View>
-          ) : null}
-
           <Card>
             <View
               style={{
@@ -338,6 +343,12 @@ function BookingDetailScreen() {
             and no hint that the slot had gone. The desk marks a no-show and
             from the guest's side the booking simply stops meaning anything,
             which is exactly what it looks like when nothing happened at all.
+
+            A cancellation names WHO ended it (0088) when the actor was
+            recorded: the venue taking a court back and the guest's own tap
+            arrive at the identical badge, and only one of them is worth a
+            call to the desk. An older cancellation with no actor stored keeps
+            the original sentence rather than guessing at one.
           */}
           {endedNoticeKey ? (
             <View
@@ -364,15 +375,20 @@ function BookingDetailScreen() {
         </ScrollView>
       )}
 
-      <ConfirmationDialog
+      <ConfirmAlert
         visible={dialogOpen}
         title={t('booking.cancelDialogTitle')}
         body={t('booking.cancelDialogBody', {
           when: start ? formatDateTime(start, locale) : '',
         })}
-        confirmLabel={cancel.isPending ? t('booking.cancelling') : t('booking.cancelBooking')}
-        busy={cancel.isPending}
-        danger
+        // Short labels on purpose: iOS puts two alert buttons side by side only
+        // when both fit one row, and stacks them otherwise — "Cancel booking"
+        // was long enough to force the stack. The title carries the noun.
+        confirmLabel={t('booking.cancelDialogConfirm')}
+        // "Keep it", not "Cancel" — next to a cancel-the-booking button, a
+        // Cancel button is ambiguous about which cancellation it means.
+        cancelLabel={t('common.keepIt')}
+        destructive
         onConfirm={onCancelConfirm}
         onDismiss={() => setDialogOpen(false)}
       />

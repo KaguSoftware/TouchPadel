@@ -68,6 +68,12 @@ export const en = {
     nameRequired: 'Enter your full name.',
     emailInvalid: 'Enter a valid email address.',
     phoneRequired: 'Enter your phone number.',
+    phoneInvalid: "That doesn't look like a phone number.",
+    // Country-code picker on every phone field. Iraq is the default (the venue's
+    // own country) — the guest changes it here.
+    countryCode: 'Country code',
+    countryCodeSearch: 'Search country or code',
+    countryCodeNoResults: 'No country matches that.',
     // Verification body is three lines with the address in bold (design).
     checkEmailLead: 'We sent a verification link to',
     checkEmailTail: 'Open it to activate your account.',
@@ -132,7 +138,7 @@ export const en = {
     phoneSignInBody: "We'll text you a 6-digit code. No password needed.",
     phoneLinkBody: "We'll text a 6-digit code to confirm this number is yours.",
     phoneNationalPlaceholder: '0770 123 4567',
-    phoneInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
+    phoneOtpInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
     sendCode: 'Send code',
     otpTitle: 'Enter the code',
     otpBody: 'We sent a 6-digit code to {phone}.',
@@ -161,8 +167,6 @@ export const en = {
     openNow: 'Open now · {hours}',
     closedNow: 'Closed right now',
     reserveFooter: 'Reserve in the app · pay at the desk on arrival',
-    // The 3D rally holds with the ball in a player's hand after a while idle (battery).
-    rallyPaused: 'No audience, so the rally is paused. Tap to play on.',
     courtPhoto: 'Court photo',
     fromPrice: 'From {price}',
     perHour: '{price} / hr',
@@ -493,10 +497,18 @@ export const en = {
     slotInPast: 'That time has already passed.',
     upcoming: 'Upcoming',
     past: 'Past',
+    // The heading over the Played tab's list. 'Past' is everything that
+    // is over, cancellations included; 'Played' is only the games the desk
+    // closed as played, which is what that tab filters to.
+    played: 'Played',
+    // The Cancelled tab. `cancelled` above is a sentence ("Booking cancelled."),
+    // so the tab and its heading get their own one-word string.
+    cancelledTab: 'Cancelled',
     stateFree: 'Free',
     stateHeld: 'Held',
     stateBooked: 'Booked',
     stateBlocked: 'Unavailable',
+    callOnly: 'Call only',
     statusPending: 'Pending',
     statusConfirmed: 'Confirmed',
     statusArrived: 'Arrived',
@@ -560,6 +572,8 @@ export const en = {
     historyClearedToast: 'Booking history cleared',
     noHistoryTitle: 'No past games',
     noHistoryBody: 'Games you have played will be listed here once they are over.',
+    noCancelledTitle: 'Nothing cancelled',
+    noCancelledBody: 'Bookings you or the desk cancel will be listed here.',
     // "More life" pass (owner, 2026-09-05): My bookings stopped being a flat
     // list — a hero card for the next game, counted section headings, and a
     // timeline down Past. These are the strings that pass carries.
@@ -572,6 +586,7 @@ export const en = {
     startsInDays: 'In {count} days',
     upcomingCount: '{count} upcoming',
     playedCount: '{count} played',
+    cancelledCount: '{count} cancelled',
     weeklySeries: 'Weekly series',
     bookingRef: 'Booking {ref}',
     priceAtDesk: 'Price · at desk',
@@ -579,6 +594,21 @@ export const en = {
     freeCancelUntil: 'Free cancellation until {when}.',
     windowClosedTitle: 'Cancellation window closed',
     windowClosedBody: 'The free window ended at {when}. The desk can still help with changes.',
+    // WHO cancelled it (0088). "This booking was cancelled" is true of both
+    // endings and useful for neither — it tells a guest who cancelled it
+    // themselves something they already know, and tells one whose court the
+    // venue took back nothing at all. The short pair captions a row on My
+    // reservations > Cancelled; the notices carry the detail screen.
+    cancelledByYou: 'Cancelled by you',
+    cancelledByVenue: 'Cancelled by the venue',
+    cancelledByYouNotice: 'You cancelled this booking, and the slot went back on the grid.',
+    // "Were not expecting", not "were not told": the desk also cancels for
+    // guests who phone in, and calling that an unexplained cancellation would
+    // send someone to reception over a booking they ended themselves.
+    cancelledByVenueNotice:
+      'The venue cancelled this booking, and the slot went back on the grid. Speak to the desk if you were not expecting that.',
+    // The fallback, kept for cancellations from before the actor was recorded:
+    // saying nothing about who is honest, and guessing would not be.
     cancelledNotice: 'This booking was cancelled. The slot has been released back to the grid.',
     // A no-show is closed by the venue, not by the guest — so it says who did
     // it and where to take it, rather than leaving a booking that has quietly
@@ -589,6 +619,11 @@ export const en = {
     payAtDeskShort: 'Pay at the desk. No online payment — settle at reception on arrival.',
     cancelDialogTitle: 'Cancel this booking?',
     cancelDialogBody: "Your slot on {when} goes back on the grid. This can't be undone in the app.",
+    // The confirm button INSIDE the alert, deliberately shorter than the
+    // screen's "Cancel booking": iOS only lays two alert buttons out side by
+    // side when both labels fit one row, and stacks them otherwise. The title
+    // already says what is being cancelled, so the button need not repeat it.
+    cancelDialogConfirm: 'Cancel it',
     cancelledToast: 'Booking cancelled — slot released',
     notFound: 'This booking could not be found.',
     // Held slots (0058): a hold the guest has not confirmed yet.
@@ -627,11 +662,20 @@ export const en = {
     confirmNewPassword: 'Confirm new password',
     updatePassword: 'Update password',
     fillAllFields: 'Fill in all three fields.',
-    // Unsaved-changes prompt on back (spec 05.18 `dirty`).
-    discardTitle: 'Discard changes?',
-    discardBody: "Your edits haven't been saved.",
-    discard: 'Discard',
-    keepEditing: 'Keep editing',
+    // SEC-16 — in-app account deletion. Both stores require a path to this from
+    // INSIDE the app; a support email or a web form does not satisfy either.
+    deleteAccount: 'Delete account',
+    deleteHeading: 'This cannot be undone.',
+    // Says what SURVIVES as well as what goes. app.delete_my_account (0077)
+    // anonymises the bookings rather than removing them, because the venue's
+    // books have to keep adding up — a guest who is told "everything is
+    // deleted" and later sees the court still reserved has been misled.
+    deleteBody:
+      'Your account, your name and your phone number are deleted immediately, and you are signed out everywhere. Bookings you have already made stay in the venue\u2019s records with no name attached to them, because the venue has to keep its own accounts.',
+    deleteTypePrompt: 'Type {word} below to confirm.',
+    // The word the guest types. LOCALISED, and deliberately not the RPC's
+    // p_confirm token — see features/profile/deletion.ts.
+    deleteConfirmWord: 'DELETE',
   },
   settings: {
     title: 'Settings',
@@ -646,6 +690,8 @@ export const en = {
     appearance: 'Appearance',
     light: 'Light',
     dark: 'Dark',
+    automatic: 'System',
+    automaticNote: 'System follows your device\u2019s appearance setting.',
     languageNote: 'Switching to العربية flips the whole app right-to-left, instantly.',
     notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',
@@ -816,6 +862,7 @@ export const en = {
     tableTitle: 'Your table — Touch Cafe',
   },
   errors: {
+    title: 'Something went wrong',
     generic: 'Something went wrong. Please try again.',
     network: 'No connection. Check your internet and try again.',
     notFound: 'We could not find what you were looking for.',
@@ -848,7 +895,7 @@ export const en = {
     // The bold lead sentence renders separately (DegradedBanner `lead`).
     leadConnectionLost: 'Venue connection lost.',
     leadDeskOnly: 'Desk-only period.',
-    bannerCourts: 'Booking for today & tomorrow is desk-only for now. Call {phone}.',
+    bannerCourts: 'Booking for today & tomorrow is desk-only for now.',
     bannerAvailability: 'Today & tomorrow can only be booked at the desk · {phone}',
     bannerBookings: 'Your bookings are shown as last known. Call {phone} for changes.',
   },
@@ -1684,6 +1731,8 @@ export const en = {
       TAB_NOT_OPEN: 'This tab is not open.',
       TAB_NOT_FOUND: 'Tab not found.',
       TAB_MERGED: 'This tab was merged into another tab.',
+      TAB_NOT_EMPTY: 'There is a payment to be made on this tab, so it cannot be removed. Settle it instead.',
+      TAB_DAY_MISMATCH: 'This tab belongs to a different business day.',
       TENDER_SHORT: 'Tendered amount is less than the amount due.',
       ALREADY_PAID: 'This tab is already fully paid.',
       QUEUE_ROW_NOT_RESOLVABLE: 'This write cannot be dismissed: it is still travelling or has already synced.',
@@ -1735,7 +1784,7 @@ export const en = {
       SLOT_IN_PAST: 'That slot is in the past.',
       COURT_NOT_FOUND: 'Court not found.',
       TABLE_NOT_FOUND: 'Table not found.',
-      TAB_ANCHOR_REQUIRED: 'A tab needs a table, a name, or a reservation.',
+      TAB_ANCHOR_REQUIRED: 'A tab needs a table or a booking. A name on its own is not enough.',
       NOT_MOVABLE: 'This reservation can no longer be moved.',
       NOT_EXTENDABLE: 'This reservation can no longer be extended.',
       NOT_CANCELLABLE: 'This reservation can no longer be cancelled.',

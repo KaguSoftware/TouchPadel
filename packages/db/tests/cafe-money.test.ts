@@ -29,7 +29,6 @@ import {
   openFreshDay,
   forceCloseAllDays,
   ensureTillFresh,
-  type GuestSession,
 } from './helpers';
 
 const up = await stackAvailable();

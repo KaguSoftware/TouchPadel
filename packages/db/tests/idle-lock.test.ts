@@ -23,12 +23,31 @@ describe.skipIf(!up)('0064 idle lock', () => {
   let manager: SupabaseClient;
   let owner: SupabaseClient;
 
+  /** Delete this suite's ':self:' attempt rows, and PROVE the delete landed. */
+  const clearSelfAttempts = async () => {
+    const { error } = await svc
+      .schema('app')
+      .from('pin_attempts')
+      .delete()
+      .like('device_id', '%:self:%');
+    expect(error).toBeNull();
+  };
+
   beforeAll(async () => {
     svc = serviceClient();
     manager = await signedInClient(SEED_STAFF.manager);
     owner = await signedInClient(SEED_STAFF.owner);
     // Clear this suite's rate-limit residue from prior runs.
-    await svc.from('pin_attempts').delete().like('device_id', '%:self:%');
+    //
+    // .schema('app') is LOAD-BEARING and was MISSING here. pin_attempts exists
+    // only in schema `app`, so the bare svc.from(...) resolved to
+    // public.pin_attempts, came back PGRST205 "Could not find the table", and
+    // deleted nothing — for the whole life of this suite. The error was never
+    // checked, so it looked like a cleanup. It is asserted now: a cleanup that
+    // silently does nothing is worse than none, because the suite is written as
+    // though it ran. (Found while building 0086; see handoff §6.13 on suites
+    // leaving rows behind.)
+    await clearSelfAttempts();
   });
 
   afterAll(async () => {
@@ -56,7 +75,7 @@ describe.skipIf(!up)('0064 idle lock', () => {
     // The manager is unaffected — the limiter keys on the caller.
     const other = await appRpc(manager, 'verify_own_pin', { p_pin: DEV_PINS.manager });
     expect(other.data).toBe(true);
-    await svc.from('pin_attempts').delete().like('device_id', '%:self:%');
+    await clearSelfAttempts();
   });
 
   it('refuses anonymous sessions and names NO_PIN_SET for pin-less staff', async () => {

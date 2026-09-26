@@ -19,7 +19,7 @@
 import type { ReactNode } from 'react';
 import { Animated, StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
 import type { Direction } from '@touch/i18n';
-import { useTheme } from '../theme';
+import { useTheme, useThemeSwitch } from '../theme';
 import { useLocale, useLocaleSwitch } from './LocaleProvider';
 
 export type Dir = Direction;
@@ -38,16 +38,27 @@ export function mirror(dir: Dir): ViewStyle | undefined {
  * and ABOVE everything that paints — toasts, banners, the navigator — so all
  * of it follows the language.
  *
- * Also hosts the switch crossfade, as an opaque COVER over the tree rather
- * than the tree's own opacity: the tree hosts UIKit material (the native bar,
- * the native tab bar's blur, BlurView) whose effects break under an ancestor
- * alpha below 1, and a translucent root would force an offscreen pass of the
- * whole surface for the fade. The cover fades up, the language flips in one
- * commit beneath it, the cover fades away; it takes the touches meanwhile.
+ * Also hosts the two switch crossfades — language and theme — each as an
+ * opaque COVER over the tree rather than the tree's own opacity: the tree
+ * hosts UIKit material (the native bar, the native tab bar's blur, BlurView)
+ * whose effects break under an ancestor alpha below 1, and a translucent root
+ * would force an offscreen pass of the whole surface for the fade. A cover
+ * fades up, the change flips in one commit beneath it, the cover fades away;
+ * it takes the touches meanwhile.
+ *
+ * The theme cover is the OUTER of the two. The language cover is painted from
+ * `colors.bg`, so a theme switch would recolor it mid-fade if it sat on top;
+ * underneath, it is simply hidden for the one frame that matters. The two
+ * never run together anyway — each blocks input for its whole window.
  */
 export function DirectionRoot({ children }: { children: ReactNode }) {
   const { dir } = useLocale();
   const { switching, cover } = useLocaleSwitch();
+  const {
+    switching: themeSwitching,
+    cover: themeCover,
+    coverColor: themeCoverColor,
+  } = useThemeSwitch();
   const { colors } = useTheme();
   return (
     <View style={{ flex: 1, direction: dir }}>
@@ -56,6 +67,20 @@ export function DirectionRoot({ children }: { children: ReactNode }) {
         style={[
           StyleSheet.absoluteFill,
           { backgroundColor: colors.bg, opacity: cover, pointerEvents: switching ? 'auto' : 'none' },
+        ]}
+      />
+      {/* Painted from the theme switch's own color, which lags the commit by a
+          phase: the outgoing background on the way up, the incoming one on the
+          way down. `colors.bg` would flip with the tree and cut the dissolve
+          in half. */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: themeCoverColor,
+            opacity: themeCover,
+            pointerEvents: themeSwitching ? 'auto' : 'none',
+          },
         ]}
       />
     </View>

@@ -37,13 +37,20 @@ export async function confirmBooking(client: Client, holdId: string) {
   return data as { duplicate?: boolean; reservation_id?: string; price_iqd?: number | null };
 }
 
-/** app.cancel_reservation (0008) — guest cancel inside policy. */
+/**
+ * app.cancel_reservation (0008/0088) — guest cancel inside policy.
+ *
+ * `cancelled_by` comes back as 'guest' from this path by construction; the
+ * screens read it off the refetched row rather than from here, because the
+ * same column on a booking the DESK cancelled is the case that matters and
+ * that one never passes through this function.
+ */
 export async function cancelReservation(client: Client, reservationId: string) {
   const { data, error } = await client.schema('app').rpc('cancel_reservation', {
     p_reservation_id: reservationId,
   });
   if (error) throw error;
-  return data as { reservation_id?: string; status?: string };
+  return data as { reservation_id?: string; status?: string; cancelled_by?: string };
 }
 
 /**
@@ -65,7 +72,7 @@ export async function releaseHold(client: Client, reservationId: string) {
 export async function fetchMyReservations(client: Client): Promise<BookingRow[]> {
   const { data, error } = await client
     .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at')
+    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at, cancelled_by')
     .order('start_at', { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -76,7 +83,7 @@ export async function fetchMyReservations(client: Client): Promise<BookingRow[]>
 export async function fetchReservationById(client: Client, id: string): Promise<BookingRow | null> {
   const { data, error } = await client
     .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at')
+    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at, cancelled_by')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;

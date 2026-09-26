@@ -8,7 +8,7 @@ import { Icon } from './icons';
  * silently and waits for a human; this is the human's control. Two faces:
  * a rail row for workspaces with navigation, and a floating pill for the
  * kitchen screen, which has no rail. Neither auto-fires: a restart mid-ticket
- * is the operator's call, and the manager-PIN quit installs it anyway.
+ * is the operator's call, and Quit to desktop installs it anyway.
  */
 export function UpdateReadyControl({
   version,

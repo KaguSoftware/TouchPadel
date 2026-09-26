@@ -29,6 +29,8 @@ import {
   createTestCourt,
   ensureOpenDay,
   ensureTillFresh,
+  createTestCafeTable,
+  SEED_STAFF_IDS,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -45,6 +47,8 @@ describe.skipIf(!up)('0053 till completeness', () => {
 
   async function openTab(label: string): Promise<string> {
     const res = await appRpc(cashier, 'open_tab', {
+      // 0084: a tab is anchored to a seat; the label is only its name.
+      p_table_id: await createTestCafeTable(svc, 'till-complete'),
       p_label: label,
       p_idempotency_key: testIdemKey('tab.open'),
     });
@@ -406,6 +410,195 @@ describe.skipIf(!up)('0053 till completeness', () => {
       const guest = await anonymousSessionClient();
       const res = await appRpc(guest, 'split_by_item', { p_tab_id: tabId, p_groups: [[], []] });
       expect(res.error?.message).toBe('FORBIDDEN');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Tab anchor (0084)
+  // -------------------------------------------------------------------------
+  describe('app.open_tab requires a seat', () => {
+    it('refuses a tab carrying nothing but a name', async () => {
+      const res = await appRpc(cashier, 'open_tab', {
+        p_label: `nameless-${Date.now()}`,
+        p_idempotency_key: testIdemKey('tab.open'),
+      });
+      expect(res.error?.message).toBe('TAB_ANCHOR_REQUIRED');
+    });
+
+    it('refuses whitespace as a label, which used to pass the null check', async () => {
+      const res = await appRpc(cashier, 'open_tab', {
+        p_label: '   ',
+        p_idempotency_key: testIdemKey('tab.open'),
+      });
+      expect(res.error?.message).toBe('TAB_ANCHOR_REQUIRED');
+    });
+
+    it('stores a blank label as NULL rather than as spaces', async () => {
+      const res = await appRpc(cashier, 'open_tab', {
+        p_table_id: await createTestCafeTable(svc, 'blank-label'),
+        p_label: '   ',
+        p_idempotency_key: testIdemKey('tab.open'),
+      });
+      if (res.error) throw new Error(`open_tab: ${res.error.message}`);
+      const { data } = await svc
+        .from('tabs')
+        .select('label')
+        .eq('id', (res.data as { tab_id: string }).tab_id)
+        .single();
+      expect((data as { label: string | null }).label).toBeNull();
+    });
+
+    it('accepts a booking as the seat, with no table — it carries its own court', async () => {
+      const courtId = await createTestCourt(svc, `Court 0084 ${Date.now()}`);
+      const start = new Date(Date.now() + 40 * 86_400_000);
+      start.setUTCHours(10, 0, 0, 0);
+      const { data, error } = await svc
+        .from('reservations')
+        .insert({
+          court_id: courtId,
+          kind: 'booking',
+          status: 'confirmed',
+          source: 'desk',
+          start_at: start.toISOString(),
+          end_at: new Date(start.getTime() + 60 * 60_000).toISOString(),
+          guest_name: 'Anchor Test',
+          price_iqd: 30_000,
+        })
+        .select('id')
+        .single();
+      if (error) throw new Error(error.message);
+      const res = await appRpc(cashier, 'open_tab', {
+        p_reservation_id: (data as { id: string }).id,
+        p_idempotency_key: testIdemKey('tab.open'),
+      });
+      expect(res.error?.message, res.error?.message).toBeUndefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Cancel an empty tab (0085)
+  // -------------------------------------------------------------------------
+  describe('app.cancel_tab', () => {
+    async function statusOf(tabId: string) {
+      const { data } = await svc
+        .from('tabs')
+        .select('status, merged_into_tab_id, total_iqd')
+        .eq('id', tabId)
+        .single();
+      return data as { status: string; merged_into_tab_id: string | null; total_iqd: number | null };
+    }
+
+    it('voids an untouched tab, and does not pretend it was merged', async () => {
+      const tabId = await openTab('cancel-clean');
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      expect(res.error?.message, res.error?.message).toBeUndefined();
+
+      const row = await statusOf(tabId);
+      expect(row.status).toBe('void');
+      // A NULL pointer is what tells a later reader this was cancelled rather
+      // than folded into another tab — the two are different evenings.
+      expect(row.merged_into_tab_id).toBeNull();
+      expect(Number(row.total_iqd)).toBe(0);
+    });
+
+    it('writes an audit row naming who did it', async () => {
+      const tabId = await openTab('cancel-audited');
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      if (res.error) throw new Error(res.error.message);
+      const { data } = await svc
+        .from('audit_log')
+        .select('action, entity_id, actor_id, before, after')
+        .eq('action', 'tab.cancel')
+        .eq('entity_id', tabId)
+        .single();
+      const row = data as { actor_id: string | null; before: { status: string }; after: { status: string } };
+      expect(row.actor_id).not.toBeNull();
+      expect(row.before.status).toBe('open');
+      expect(row.after.status).toBe('void');
+    });
+
+    it('refuses a tab that has an order on it', async () => {
+      const tabId = await openTab('cancel-with-order');
+      await addItem(tabId, itemA);
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      expect(res.error?.message).toBe('TAB_NOT_EMPTY');
+      expect((await statusOf(tabId)).status).toBe('open');
+    });
+
+    it('refuses a tab whose order was voided — the row is still the record of one', async () => {
+      // The client mirror (tabIsRemovable) counts order ROWS for exactly this
+      // reason: a voided order leaves a zero total but a real history, and a
+      // tab with a history is settled at zero, not made to disappear.
+      const tabId = await openTab('cancel-voided-order');
+      await addItem(tabId, itemA);
+      const { error } = await svc.from('orders').update({ status: 'voided' }).eq('tab_id', tabId);
+      if (error) throw new Error(`seed voided order: ${error.message}`);
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      expect(res.error?.message).toBe('TAB_NOT_EMPTY');
+    });
+
+    it('refuses a tab that has been paid against', async () => {
+      // Inserted directly so this hits the payments branch rather than the
+      // orders branch, which fires first on any tab with a real bill.
+      const tabId = await openTab('cancel-paid');
+      const { data: tab } = await svc.from('tabs').select('day_session_id').eq('id', tabId).single();
+      const { error } = await svc.from('payments').insert({
+        tab_id: tabId,
+        day_session_id: (tab as { day_session_id: string }).day_session_id,
+        method: 'cash',
+        amount_iqd: 1000,
+        recorded_by: SEED_STAFF_IDS.cashier,
+      });
+      if (error) throw new Error(`seed payment: ${error.message}`);
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      expect(res.error?.message).toBe('TAB_NOT_EMPTY');
+    });
+
+    it('refuses a tab bound to a booking, whose court fee is owed with nothing ordered', async () => {
+      const courtId = await createTestCourt(svc, `Court 0085 ${Date.now()}`);
+      const start = new Date(Date.now() + 45 * 86_400_000);
+      start.setUTCHours(10, 0, 0, 0);
+      const { data: booking, error: bookErr } = await svc
+        .from('reservations')
+        .insert({
+          court_id: courtId,
+          kind: 'booking',
+          status: 'confirmed',
+          source: 'desk',
+          start_at: start.toISOString(),
+          end_at: new Date(start.getTime() + 60 * 60_000).toISOString(),
+          guest_name: 'Cancel Test',
+          price_iqd: 30_000,
+        })
+        .select('id')
+        .single();
+      if (bookErr) throw new Error(bookErr.message);
+      const opened = await appRpc(cashier, 'open_tab', {
+        p_reservation_id: (booking as { id: string }).id,
+        p_idempotency_key: testIdemKey('tab.open'),
+      });
+      if (opened.error) throw new Error(`open_tab: ${opened.error.message}`);
+      const tabId = (opened.data as { tab_id: string }).tab_id;
+
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      expect(res.error?.message).toBe('TAB_NOT_EMPTY');
+      expect((await statusOf(tabId)).status).toBe('open');
+    });
+
+    it('is not a second way to void an already-cancelled tab', async () => {
+      const tabId = await openTab('cancel-twice');
+      const first = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      if (first.error) throw new Error(first.error.message);
+      const second = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      expect(second.error?.message).toBe('TAB_NOT_OPEN');
+    });
+
+    it('is refused for an anonymous guest', async () => {
+      const tabId = await openTab('cancel-guest');
+      const guest = await anonymousSessionClient();
+      const res = await appRpc(guest, 'cancel_tab', { p_tab_id: tabId });
+      expect(res.error?.message).toBe('FORBIDDEN');
+      expect((await statusOf(tabId)).status).toBe('open');
     });
   });
 

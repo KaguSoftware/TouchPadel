@@ -264,16 +264,25 @@ export const ticketStatusPayloadSchema = z
 
 export type TicketStatusPayload = z.infer<typeof ticketStatusPayloadSchema>;
 
-/** tab.open — app.open_tab(p_table_id, p_label, p_reservation_id, ...). */
+/**
+ * tab.open — app.open_tab(p_table_id, p_label, p_reservation_id, ...).
+ *
+ * The anchor is a SEAT: a table, or a reservation (which carries its own
+ * court). `label` is the tab's display name and is NOT an anchor — a tab with
+ * nothing but a name is unfindable by anyone who did not open it, and the
+ * untrimmed version let a single space stand in for one. `.trim()` runs before
+ * `.min(1)`, so whitespace fails the length check instead of passing it.
+ * Mirrored by app.open_tab (migration 0084) and by the till's new-tab dialog.
+ */
 export const tabOpenPayloadSchema = z
   .object({
     tableId: uuid.optional(),
-    label: z.string().min(1).max(200).optional(),
+    label: z.string().trim().min(1).max(200).optional(),
     reservationId: uuid.optional(),
   })
   .strict()
-  .refine((p) => p.tableId !== undefined || p.label !== undefined || p.reservationId !== undefined, {
-    message: 'a tab needs a table, a label or a reservation',
+  .refine((p) => p.tableId !== undefined || p.reservationId !== undefined, {
+    message: 'a tab needs a table or a reservation',
     path: ['tableId'],
   });
 

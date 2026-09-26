@@ -44,7 +44,7 @@ function PhoneSignInForm({ mode }: { mode: Mode }) {
     setFieldError(null);
     const { e164, error: invalid } = validatePhoneInput(raw);
     if (!e164 || invalid) {
-      setFieldError(t('auth.phoneInvalid'));
+      setFieldError(t('auth.phoneOtpInvalid'));
       return;
     }
     setBusy(true);

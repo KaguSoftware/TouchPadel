@@ -20,6 +20,16 @@
  *           the classic Postgres privilege-escalation shape. Coverage is
  *           159/159 today with zero offenders, so this passes on the first run.
  *
+ *   PIN TIMING (0086/SEC-13).  app.verify_manager_pin must hash the candidate
+ *           PIN in ONE pass over every active manager. It used to run two — a
+ *           `count(*)` over all of them and a `select … limit 1` that stopped
+ *           at the first match — so a CORRECT pin returned measurably sooner
+ *           than a wrong one, and bcrypt's deliberate slowness made the gap
+ *           wide. This lives here rather than in a test because 0086 also pads
+ *           every call to a 250 ms floor, which MASKS the difference from the
+ *           outside: a behavioural test cannot see the regression come back.
+ *           The shape is the only observable, so the shape is what is locked.
+ *
  * Reads the catalog through the stack's own container, same as
  * check-lock-order.mjs and check-safe-update.mjs.
  *
@@ -118,6 +128,18 @@ const definerCount = Number(
 `),
 );
 
+// ── PIN verification is a single constant-work scan (0086 / SEC-13) ──────────
+// prosrc is the function body as stored. Counting crypt() call sites in it is
+// crude and exactly right for this: two of them means two scans, which is the
+// timing leak, whatever else the body says.
+const pinBody = query(`
+  select coalesce(p.prosrc, '')
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and p.proname = 'verify_manager_pin';
+`);
+const cryptCalls = (pinBody.match(/crypt\s*\(/g) ?? []).length;
+const padsToFloor = /pin_pad_to_floor/.test(pinBody);
+
 // ── report ────────────────────────────────────────────────────────────────────
 console.log('Database invariant locks\n');
 console.log(
@@ -126,6 +148,10 @@ console.log(
 );
 console.log(
   `  definer fns    ${definerCount} total · ${definerCount - unpinned.length} with a pinned search_path`,
+);
+console.log(
+  `  pin timing     verify_manager_pin: ${cryptCalls} crypt() scan(s) · ` +
+    `${padsToFloor ? 'pads to the floor' : 'NO PAD'}`,
 );
 console.log('');
 
@@ -155,6 +181,19 @@ if (unpinned.length > 0) {
   );
 }
 
+if (cryptCalls !== 1 || !padsToFloor) {
+  problems.push(
+    `app.verify_manager_pin leaks the answer through timing:\n` +
+      `        crypt() call sites: ${cryptCalls} (must be exactly 1)\n` +
+      `        pads to app.pin_delay_floor(): ${padsToFloor ? 'yes' : 'NO'}\n\n` +
+      '      A second crypt() scan is a second pass that can stop early on a MATCH, so a\n' +
+      '      correct PIN comes back sooner than a wrong one — the one signal a PIN gate\n' +
+      '      must not emit. Use the single aggregate from migration 0086:\n' +
+      '        select count(*), (array_agg(id order by id))[1] into v_matches, v_id …\n' +
+      '      and keep the app.pin_pad_to_floor(v_started) call on EVERY exit path.',
+  );
+}
+
 if (staleAllowlist.length > 0) {
   console.log('Stale allowlist entries — these views are no longer owner-rights:');
   for (const n of staleAllowlist) console.log(`        ${n}`);
@@ -163,7 +202,8 @@ if (staleAllowlist.length > 0) {
 
 if (problems.length === 0) {
   console.log('PASS  every view is security_invoker=on except the four audited projections,');
-  console.log('      and every SECURITY DEFINER function pins its search_path.');
+  console.log('      every SECURITY DEFINER function pins its search_path, and');
+  console.log('      verify_manager_pin hashes in one constant-work scan behind a delay floor.');
   process.exit(0);
 }
 

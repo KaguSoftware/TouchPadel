@@ -12,7 +12,7 @@ import {
   resolveRow,
   setConnOnline,
 } from './queue';
-import { loadStation, writeStation } from './station';
+import { canTrade, loadStation, writeStation } from './station';
 import { completeFirstRun } from './first-run';
 import { isPairingCode } from './pairing-code';
 import { LAN_KDS_PORT, pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
@@ -142,9 +142,10 @@ function createWindow(): BrowserWindow {
     kiosk: !relaxed && (station.mode === 'till' || station.mode === 'kds'),
     autoHideMenuBar: true,
     frame: relaxed,
-    // Production: the window closes only through the manager-PIN quit
-    // (touch:quit-app below) — a till someone can casually X out of is a till
-    // that silently stops heartbeating and degrades the whole venue.
+    // Production: the window closes only through Quit to desktop
+    // (touch:quit-app below), so there is no OS titlebar X on a till — but
+    // that action no longer asks for a PIN, so what stops a casual exit is
+    // its confirmation dialog, not a credential.
     closable: relaxed,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -225,6 +226,17 @@ if (gotTheLock) {
 
     ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
       guardIpc('enqueue', () => {
+        // SEC-32: a machine that does not know which station it is must not
+        // take a sale. The renderer already refuses (it shows the setup or
+        // broken-install screen instead of the till), so reaching here means
+        // something bypassed the shell UI — a stale window, a replayed IPC
+        // message. Every queued row carries station_id into the idempotency
+        // key, the audit trail and the day's reconciliation, so accepting one
+        // from an unidentified machine is worse than dropping it: it is a sale
+        // filed under somebody else's till.
+        if (!canTrade(station)) {
+          throw new Error('station is not configured — refusing to queue a mutation');
+        }
         const envelope = validateMutationEnvelope(m);
         const result = enqueue(envelope);
         // The insert is fsynced; replay immediately — online, the round trip
@@ -239,6 +251,10 @@ if (gotTheLock) {
 
     ipcMain.on(IPC.lanStatus, (_e, v: unknown) => {
       guardIpc('lanStatus', () => {
+        // Same rule (SEC-32): an unidentified machine does not announce itself
+        // on the venue LAN. kdsStation is how a till labels which kitchen
+        // screen acknowledged a ticket.
+        if (!canTrade(station)) return null;
         const update = validateLanStatus(v);
         lanClient?.sendStatus({ ...update, kdsStation: station.stationId });
         return null;
@@ -277,8 +293,8 @@ if (gotTheLock) {
     // A manager dismissing a row the worker will never deliver (409 conflict /
     // deterministic 4xx). Until this existed, one ITEM_UNAVAILABLE on an
     // offline order held day close shut forever: 'failed' is terminal, blocks
-    // close, and nothing could clear it. Same offline PIN gate as quitApp; the
-    // renderer verifies server-side first when online.
+    // close, and nothing could clear it. Manager PIN against the offline
+    // cache; the renderer verifies server-side first when online.
     ipcMain.handle(IPC.resolveQueueRow, (_e, v: unknown) =>
       guardIpc('resolveQueueRow', () => {
         const req = validateResolveQueueRow(v);
@@ -307,6 +323,9 @@ if (gotTheLock) {
       }
       const html = (validated.data as { html?: string } | null)?.html;
       if (!html) return { ok: false, error: 'no-html' };
+      // SEC-32. A receipt is a financial document naming the station that
+      // issued it; an unidentified machine must not print one.
+      if (!canTrade(station)) return { ok: false, error: 'no-printer' };
       if (!station.printer) {
         // No printer configured — the renderer falls back to window.print();
         // the on-screen bill satisfies SOW L456 meanwhile.
@@ -352,14 +371,13 @@ if (gotTheLock) {
       });
     });
 
-    // Manager-PIN quit (design-arch §2.5): the ONLY way a production window
-    // closes. The renderer verifies the pin server-side first when online
-    // (verify_manager_pin) and pushes it to the offline cache; this handler
-    // re-checks against that cache so a random keypress can never kill a till.
-    ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
+    // Quit to desktop (design-arch §2.5): the ONLY way a production window
+    // closes. This took a manager PIN and re-checked it against the offline
+    // cache here, so a compromised renderer could not end service on its own.
+    // That gate is gone by request — main now exits on the renderer's word,
+    // and the renderer's confirmation dialog is the only thing in the way.
+    ipcMain.handle(IPC.quitApp, () =>
       guardIpc('quitApp', () => {
-        const unlocked = unlockPinOffline(validatePin(pin));
-        if (!unlocked) return { ok: false as const, error: 'pin not recognised' };
         setTimeout(() => {
           // A downloaded update installs on the way out. app.exit() skips
           // will-quit, so autoInstallOnAppQuit alone would never fire here.
@@ -386,9 +404,10 @@ if (gotTheLock) {
       guardIpc('saveStation', () => completeFirstRun(validateStationSetup(v))),
     );
 
-    // The till's pairing card: behind the same offline PIN gate as quitApp
-    // (the renderer verifies server-side first when online). The code is the
-    // LAN secret, so it only ever crosses the bridge after a manager PIN.
+    // The till's pairing card: behind the offline PIN gate (the renderer
+    // verifies server-side first when online). The code is the LAN secret, so
+    // it only ever crosses the bridge after a manager PIN — unlike quitApp,
+    // which no longer asks for one.
     ipcMain.handle(IPC.getPairingInfo, (_e, pin: unknown) =>
       guardIpc('getPairingInfo', () => {
         if (!unlockPinOffline(validatePin(pin))) return { ok: false as const, error: 'pin not recognised' as const };

@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../errors';
 import {
   canCancel,
+  cancelActor,
+  cancelActorLabel,
+  cancelledBookings,
   endedNotice,
   isLiveHold,
   parseHoldResult,
   playedCount,
+  playedGames,
   secondsUntil,
   splitBookings,
   startProximity,
@@ -227,17 +231,37 @@ describe('startProximity', () => {
   });
 });
 
-describe('playedCount', () => {
+describe('playedGames / playedCount', () => {
+  const past = [
+    row({ id: 'done', status: 'completed' }),
+    row({ id: 'in', status: 'arrived' }),
+    row({ id: 'off', status: 'cancelled' }),
+    row({ id: 'noshow', status: 'no_show' }),
+    row({ id: 'lapsed', status: 'expired' }),
+  ];
+
   it('counts only bookings the guest turned up for', () => {
-    expect(
-      playedCount([
-        row({ status: 'completed' }),
-        row({ status: 'arrived' }),
-        row({ status: 'cancelled' }),
-        row({ status: 'no_show' }),
-        row({ status: 'expired' }),
-      ]),
-    ).toBe(2);
+    expect(playedCount(past)).toBe(2);
+  });
+
+  // The Played tab lists exactly what its chip counts: if these two ever
+  // disagreed, the heading would promise rows the list does not have.
+  it('lists the same games it counts, in the order given', () => {
+    expect(playedGames(past).map((r) => r.id)).toEqual(['done', 'in']);
+    expect(playedGames(past)).toHaveLength(playedCount(past));
+  });
+
+  it('keeps the source list untouched', () => {
+    const games = playedGames(past);
+    games.pop();
+    expect(past).toHaveLength(5);
+  });
+
+  // The Cancelled tab takes cancellations and ONLY cancellations: a no-show or
+  // a lapsed hold under a heading that says Cancelled would be a row whose own
+  // badge contradicts it.
+  it('lists cancellations without no-shows or lapsed holds', () => {
+    expect(cancelledBookings(past).map((r) => r.id)).toEqual(['off']);
   });
 });
 
@@ -249,10 +273,57 @@ describe('endedNotice', () => {
     expect(endedNotice('expired')).toBe('booking.expiredNotice');
   });
 
+  // 0088. The venue taking a court back and the guest's own tap land on the
+  // identical badge, and only one of them is worth a call to the desk.
+  it('names who cancelled it when the actor was recorded', () => {
+    expect(endedNotice('cancelled', 'guest')).toBe('booking.cancelledByYouNotice');
+    expect(endedNotice('cancelled', 'staff')).toBe('booking.cancelledByVenueNotice');
+  });
+
+  // An actor nobody stored, and a value this build has never heard of, are the
+  // same thing: not known. Both keep the sentence that claims nothing.
+  it('falls back to the plain notice when the actor is unknown', () => {
+    for (const by of [null, undefined, '', 'system']) {
+      expect(endedNotice('cancelled', by)).toBe('booking.cancelledNotice');
+    }
+  });
+
   it('says nothing about a booking that is still live, or one that was played', () => {
     for (const status of ['pending', 'confirmed', 'arrived', 'completed']) {
       expect(endedNotice(status)).toBeNull();
     }
+  });
+});
+
+describe('cancelActor (0088)', () => {
+  it('reads the recorded actor off a cancelled row', () => {
+    expect(cancelActor(row({ status: 'cancelled', cancelled_by: 'guest' }))).toBe('guest');
+    expect(cancelActor(row({ status: 'cancelled', cancelled_by: 'staff' }))).toBe('staff');
+  });
+
+  // A no-show stamps cancelled_at (0075) but nobody cancelled it, so it must
+  // never pick up a caption saying somebody did.
+  it('is null for anything that was not cancelled, whatever the column says', () => {
+    for (const status of ['pending', 'confirmed', 'arrived', 'completed', 'no_show', 'expired']) {
+      expect(cancelActor(row({ status, cancelled_by: 'staff' }))).toBeNull();
+    }
+  });
+
+  it('is null when the actor was never recorded or is not one this build knows', () => {
+    expect(cancelActor(row({ status: 'cancelled' }))).toBeNull();
+    expect(cancelActor(row({ status: 'cancelled', cancelled_by: null }))).toBeNull();
+    expect(cancelActor(row({ status: 'cancelled', cancelled_by: 'system' }))).toBeNull();
+  });
+
+  it('captions a row only when it can name somebody', () => {
+    expect(cancelActorLabel(row({ status: 'cancelled', cancelled_by: 'guest' }))).toBe(
+      'booking.cancelledByYou',
+    );
+    expect(cancelActorLabel(row({ status: 'cancelled', cancelled_by: 'staff' }))).toBe(
+      'booking.cancelledByVenue',
+    );
+    expect(cancelActorLabel(row({ status: 'cancelled' }))).toBeNull();
+    expect(cancelActorLabel(row({ status: 'completed', cancelled_by: 'staff' }))).toBeNull();
   });
 });
 

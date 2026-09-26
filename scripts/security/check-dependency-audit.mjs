@@ -49,6 +49,9 @@ try {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'ignore'],
+    // pnpm is `pnpm.cmd` on Windows; without a shell execFile cannot find it and
+    // the gate reports "no output" on every developer PC. CI (Linux) is unaffected.
+    shell: process.platform === 'win32',
   });
 } catch (err) {
   raw = err.stdout ?? '';

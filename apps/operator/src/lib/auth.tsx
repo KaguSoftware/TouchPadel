@@ -16,14 +16,19 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 import { touch } from '../ipc/bridge';
 import { setMutateStaffId } from './mutate';
+import {
+  ROLE_RECHECK_MS,
+  nextStaff,
+  resolveStaffRow,
+  shouldDropRealtime,
+  type RoleResolution,
+  type StaffInfo,
+  type StaffRole,
+} from './roleResolution';
 
-export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
-
-export interface StaffInfo {
-  id: string;
-  displayName: string;
-  role: StaffRole;
-}
+// Defined in the pure roleResolution module so the SEC-35 policy can be tested
+// under plain node; re-exported so every existing import site is unchanged.
+export type { StaffInfo, StaffRole };
 
 interface AuthContextValue {
   session: Session | null;
@@ -37,14 +42,56 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function fetchStaff(userId: string): Promise<StaffInfo | null> {
-  const { data, error } = await supabase
-    .from('staff')
-    .select('id, display_name, role, is_active')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error || !data || !data.is_active) return null;
-  return { id: data.id, displayName: data.display_name, role: data.role as StaffRole };
+/**
+ * SEC-35. Resolve the caller's staff row into active / revoked / unknown.
+ *
+ * This used to collapse all three into `null`, which meant a two-second network
+ * blip threw a trading till onto the "you are not staff" screen — and, because
+ * that was unacceptable, nothing re-ran the lookup, so a deactivated staff
+ * member kept a live Realtime feed until their access token expired an hour
+ * later. See roleResolution.ts.
+ */
+async function resolveStaff(userId: string): Promise<RoleResolution> {
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id, display_name, role, is_active')
+      .eq('id', userId)
+      .maybeSingle();
+    return resolveStaffRow(data, error);
+  } catch (error) {
+    // A thrown fetch is a transport failure, never an answer about the account.
+    return resolveStaffRow(null, error ?? new Error('staff lookup threw'));
+  }
+}
+
+/**
+ * SEC-35, the actual drop.
+ *
+ * Realtime authorises a PRIVATE topic when the channel subscribes and does not
+ * re-authorise one that is already open, so a channel opened before the
+ * deactivation keeps delivering kds / floor / courts traffic for as long as the
+ * signed JWT stays valid. Removing the channels is the only thing that stops
+ * it from the client side.
+ *
+ * Order matters. `removeAllChannels` first, so nothing is left subscribed;
+ * `setAuth(undefined)` after, so any later subscribe attempt carries the anon
+ * key rather than the revoked staff token. Both are best-effort: this runs on
+ * the path where the account is already gone, and throwing here would leave the
+ * provider mid-update with the channels still up — the exact state it is
+ * trying to leave.
+ */
+async function dropRealtime(): Promise<void> {
+  try {
+    await supabase.removeAllChannels();
+  } catch {
+    /* best effort — the setAuth below still de-privileges the socket */
+  }
+  try {
+    await supabase.realtime.setAuth();
+  } catch {
+    /* nothing further to try */
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -77,10 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (next) {
         // Private realtime channels (kds/floor/courts) need realtime auth.
         supabase.realtime.setAuth(next.access_token);
-        const info = await fetchStaff(next.user.id);
-        if (cancelled) return;
-        setStaff(info);
-        setNotStaff(info === null);
+        await applyResolution(await resolveStaff(next.user.id));
       } else {
         setStaff(null);
         setNotStaff(false);
@@ -88,12 +132,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
 
+    /**
+     * Apply one resolution. 'unknown' deliberately changes NOTHING — not the
+     * staff info, not the notStaff flag — so a blip on the venue's wifi cannot
+     * evict a cashier mid-sale.
+     */
+    async function applyResolution(resolution: RoleResolution) {
+      if (cancelled) return;
+      if (shouldDropRealtime(resolution)) await dropRealtime();
+      if (cancelled) return;
+      setStaff((prev) => nextStaff(prev, resolution));
+      if (resolution.kind !== 'unknown') setNotStaff(resolution.kind === 'revoked');
+    }
+
+    /**
+     * SEC-35. Re-resolve the role on a timer and whenever the window is
+     * brought back to the front.
+     *
+     * Without this the role is only ever re-read on an auth state change, and
+     * the next one is the token refresh — up to jwt_expiry away. That is the
+     * whole hour 0081's header calls out as its honest limit. The visibility
+     * hook is the cheap half: a manager deactivating somebody usually walks
+     * over to that till next, and switching to it re-checks immediately.
+     */
+    async function recheck() {
+      if (cancelled) return;
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user.id;
+      if (!uid || cancelled) return;
+      await applyResolution(await resolveStaff(uid));
+    }
+
     supabase.auth.getSession().then(({ data }) => void applySession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       void applySession(next);
     });
+
+    const timer = setInterval(() => void recheck(), ROLE_RECHECK_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void recheck();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
       sub.subscription.unsubscribe();
     };
   }, []);

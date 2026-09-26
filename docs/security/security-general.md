@@ -412,8 +412,47 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       WORKING while being unsettable through the product. Now `719264` / `380517`, with `DEV_PINS`, the
       e2e specs, the operator's client-side check and the README moved to match.
       8 tests in `pin-strength.test.ts`. (SEC-13 · DEV)
-- [ ] Make every PIN failure path return the same code, message and delay; audit every lockout and every manager-cleared lock. (SEC-13 · DEV)
-- [ ] Write and test the **quiet-error rule**: no stack traces, no raw Postgres errors, no "user 4412 not found" that confirms which accounts exist — the same generic message whether the account exists or not, with the full error going to the tracker. A guest must never see a constraint name. (SEC-36 · FE1+FE2)
+- [x] ~~Make every PIN failure path return the same code, message and delay; audit every lockout and every
+      manager-cleared lock.~~ — **done 2026-09-09, migration 0086.**
+      **Code and message were already uniform** and are left alone: `verify_manager_pin` returns NULL for
+      every non-match and all five money callers turn that into the single code PIN_INVALID.
+      `verify_own_pin`'s FORBIDDEN / NO_PIN_SET are NOT an oracle — they tell the caller about the caller —
+      and NO_PIN_SET is load-bearing for the SEC-34 lock screen, so collapsing them was refused.
+      **The DELAY leak was real.** `verify_manager_pin` ran TWO bcrypt scans, and only the second
+      (`limit 1`) could stop early — so a CORRECT pin came back measurably sooner than a wrong one.
+      Collapsed to one aggregate that always evaluates every candidate: constant work, and roughly half
+      the bcrypt cost on the happy path. Both verifiers now also pad to a 250 ms floor
+      (`app.pin_delay_floor`) on EVERY exit including the PIN_LOCKED raise, so a lockout is not the fast
+      answer either. ⚠ Cost stated plainly: every manager authorisation now takes ≥250 ms.
+      **The lockout is audited** as `staff.pin_locked` — written at the failure that REACHES the threshold,
+      not at the raise, because `raise` rolls the insert back with it (the 0011 lesson). Writing it at the
+      raise site was tried first and `entity_id` being NOT NULL then aborted the whole transaction and
+      silently disabled the lockout; the test caught it on its first run.
+      **`app.clear_pin_lockout`** (manager/owner, audited as `staff.pin_lockout_cleared`) gives a lockout a
+      release valve — there was none, and a cashier sitting out five minutes with a queue is how a shared
+      manager PIN gets learned. It deletes only in-window FAILED attempts; the successful ones are the
+      record of who authorised what.
+      12 tests in `pin-uniformity.test.ts`; the single-scan SHAPE is locked by `check:invariants` instead,
+      because the delay floor masks it from any behavioural test — mutation-proven in both directions.
+      Also fixed here: `idle-lock.test.ts`'s cleanup had never run for the life of the suite
+      (`svc.from('pin_attempts')` resolves to `public`, PGRST205; the table is in `app`). (SEC-13 · DEV)
+- [x] ~~Write and test the **quiet-error rule**: no stack traces, no raw Postgres errors, no "user 4412 not
+      found" that confirms which accounts exist — the same generic message whether the account exists or
+      not, with the full error going to the tracker. A guest must never see a constraint name.~~ —
+      **done 2026-09-09**, `scripts/security/check-quiet-errors.mjs`, wired into CI as
+      `pnpm security:quiet-errors`, and the PR checklist line now names it.
+      The audit found the three mappers already correct — `mapErrorToKey`, `rpcErrorKey`,
+      `errorToMessageKey` all fall back to a generic key — so the rule was not at risk from them. It is at
+      risk from the NEXT screen, where `catch (e) { setError(e.message) }` reads as diligence in review and
+      turns no test red. One real hit fixed: `useOrders.loadError` on the guest café app was typed
+      `string | null` and held the raw PostgREST message; nothing rendered it YET, which is exactly why it
+      was worth fixing — the type invited it. Now a `MessageKey`, which cannot be rendered without `tr()`.
+      apps/operator is deliberately OUT of scope (staff terminal; its CrashScreen shows the error in a
+      collapsed `<details>` on purpose) and the reason is in the script header.
+      **Mutation-tested both ways**, and the first version of the state pattern was found by that run to
+      miss `setError((err as Error).message)` — the cast form, which is the shape that actually occurs.
+      A `__DEV__`-guarded debug line is recognised rather than waived, because Metro strips the branch
+      from a release build; removing that guard makes the gate fire. (SEC-36 · FE1+FE2)
 - [x] ~~Audit the private broadcast payloads the KDS and floor view receive: assert prep never receives a
       price, total or guest field~~ — **done 2026-09-07**, `packages/db/scripts/check-broadcast-payloads.mjs`,
       wired into CI. The audit found the payloads already correct: all 11 `realtime.send` call sites use
@@ -469,7 +508,17 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       server-side can retract a signed JWT; shortening that is the SEC-05 dashboard box in Phase 0.
       6 tests, including a refresh token captured before the deactivation failing afterwards — and one
       asserting it WORKED before, so the test cannot pass vacuously.
-      Still open, client-side: drop the operator's Realtime channel on the next role-resolution failure. (SEC-35 · DEV)
+      ✅ **Client half done 2026-09-09.** `apps/operator/src/lib/roleResolution.ts` + `auth.tsx`. The
+      operator re-resolves the staff role every 60s and on window focus, and on a DEFINITE revocation
+      calls `removeAllChannels()` then `realtime.setAuth()` — which is the only thing that stops a
+      channel that was already SUBSCRIBED, since Realtime authorises a private topic at subscribe time
+      and never re-authorises an open one. That turns the "up to jwt_expiry" exposure above into ~60s,
+      and 60s is the number the leaver drill will measure.
+      The load-bearing part is the three-way split: `fetchStaff` used to return `null` for a revocation
+      AND for a failed query, so a two-second wifi drop would have thrown a trading till onto the
+      "you are not staff" screen — which is precisely why nothing dared re-check on a timer before.
+      'unknown' now changes nothing at all; only 'revoked' drops the channel. 16 tests, three mutants
+      caught. (SEC-35 · DEV)
 
 ---
 
@@ -526,7 +575,26 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       the reservations scrub from 0077 turns exactly two of them red and nothing else, so they are not
       vacuous. The whole-table sweep uses a per-run marker — a fixed literal tripped over residue from an
       earlier run and would have been flaky. (SEC-15 · DEV)
-- [ ] ★ `[FREEZE]` Build the in-app deletion screen with a typed confirmation; on success clear every chunk of the secure-store adapter, delete the push token locally and server-side, route to signed-out. No email, no support ticket. (SEC-16 · FE1)
+- [x] ★ `[FREEZE]` ~~Build the in-app deletion screen with a typed confirmation; on success clear every
+      chunk of the secure-store adapter, delete the push token locally and server-side, route to
+      signed-out. No email, no support ticket.~~ — **done 2026-09-09.** `apps/mobile/app/delete-account.tsx`,
+      reached from a Profile menu row; registered on the ROOT stack so UIKit draws its own back item.
+      The confirmation word is LOCALISED (`profile.deleteConfirmWord`, DELETE / حذف) and is deliberately
+      NOT the RPC's `p_confirm` token: making an Arabic-first app's guest type a Latin word to close their
+      account is a comprehension test, not a confirmation.
+      **The order is the security property** and it is a pure function (`features/profile/deletion.ts`):
+      the server delete goes FIRST, so a failure on a flaky connection leaves the device untouched and the
+      guest can simply press the button again; every local step after it is best-effort and unconditional,
+      because once the RPC returns the account is gone and the only correct behaviour is to finish the
+      teardown. The purge sweeps the supabase-js session key — DERIVED the way supabase-js derives it
+      (`lib/authStorageKey.ts`), since pinning a different `storageKey` would sign out every existing
+      install — plus a blind sweep to `PURGE_SWEEP_LIMIT` for orphan chunks a torn write leaves with no
+      manifest, plus `tp.historyClearedAt.<uid>`, whose KEY contains the guest's auth uuid and which no
+      sign-out path touches. `tp.locale` / `tp.appearance` are deliberately kept: deleting an account is
+      not a factory reset. Expo's own push token is surrendered locally
+      (`unregisterPushTokenLocally`) as well as server-side, because 0077 can only null the column.
+      21 tests in `deletion.test.ts`, mutation-checked: moving the server call after the local steps turns
+      the "leaves the device untouched" test red. (SEC-16 · FE1)
 - [ ] `[FREEZE]` Verify on a physical device of each platform: delete, force-quit, reopen, still signed out, old token refused. (SEC-16 · FE1)
 - [ ] ★ `[FREEZE]` Publish a **web** deletion-request page on the real domain, both locales. Google Play requires a URL reachable without installing the app. (SEC-17 · FE2)
 - [ ] ★ `[FREEZE]` Publish the privacy notice in Arabic and English, matching the code: the exact stored-field list, the processors, the legal basis, a contact address. Arabic is the default locale, so it is the primary text. (SEC-17 · FE2)
@@ -648,7 +716,22 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       **already done** (reconciled 2026-09-07). `queueStatus()` returns
       `degraded: !rendererOnline || workerUnreachable` — two independent witnesses, the renderer's
       heartbeat verdict and the sync worker's own transport failures. Nothing is hard-coded. (SEC-32 · DEV)
-- [ ] Stop `station.ts:37-42` defaulting a misconfigured machine into a working station identity. A station with no `station.json` should refuse to trade, not guess. (SEC-32 · DEV)
+- [x] ~~Stop `station.ts:37-42` defaulting a misconfigured machine into a working station identity. A
+      station with no `station.json` should refuse to trade, not guess.~~ — **done 2026-09-09.**
+      The guessed id was `TILL1`, a perfectly good station id, and that was the bug: `station_id`
+      prefixes every idempotency key, is the `p_device_id` that keys the manager-PIN rate limiter, and
+      is the device on every audit row. Two misconfigured machines calling themselves TILL1 shared all
+      three with the real till. It is now `UNCONFIGURED`, which is deliberately not a plausible id.
+      **The hole that actually traded** was not the missing-file path (the renderer already shows the
+      setup screen for that) but a PRESENT file with no `station_id`: `raw.station_id ?? 'TILL1'` came
+      back `configured: true` with NO error, so a mistyped station.json traded happily under another
+      till's identity. A missing/blank `station_id`, and a `mode` this build does not know (`"KDS"`,
+      wrong case, silently became a kiosked `till`), are now both `configError` — a broken install, not
+      an invitation to pick something.
+      `canTrade()` is the same rule for the MAIN process, which had no equivalent check and would have
+      queued, printed and served the LAN under whatever identity `loadStation` returned; it now guards
+      `enqueue`, `lanStatus` and the receipt printer. It does NOT refuse to boot: the setup screen that
+      fixes the problem is rendered by that very window. 14 tests in `station.test.ts`. (SEC-32 · DEV)
 - [x] ★ ~~Strip control bytes and Unicode bidi overrides from guest text at write time~~ — **done
       2026-09-07, migration 0080.** `app.safe_line` (names, phones) and `app.safe_text` (notes, keeps
       line breaks) over a shared control class: C0/C1, zero-width, and every bidi override and isolate.
@@ -683,7 +766,23 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       `status.update`) and none is a print. `local-data-surface.test.ts` now pins both: the frame set is
       asserted exactly, the KDS modules are asserted never to import the print module, and the transport
       is asserted to contain no `createServer`/`listen`. (SEC-31 · DEV)
-- [ ] Resolve the self-unlock PIN gap: PINs exist only for `manager`/`owner` today, so a cashier has nothing to unlock with. Either lock returns to the staff picker with the account password, or add a **separate** unlock PIN in a separate column with a verification function that can never satisfy an approval RPC. Do not reuse the manager PIN. (SEC-34 · FE2)
+- [x] ~~Resolve the self-unlock PIN gap: PINs exist only for `manager`/`owner` today, so a cashier has
+      nothing to unlock with.~~ — **done 2026-09-09, migration 0087.**
+      **Decision: the account password, not a second PIN** — the box's first route. A separate unlock PIN
+      means a new column, a new verification function, a new set-PIN flow and a second PIN-shaped secret
+      beside the manager PIN, all to buy back an availability inconvenience; and two similar secrets on
+      one keypad is how people type one into the other's prompt. The account password meanwhile CANNOT
+      satisfy an approval RPC structurally and for free: every approval path takes `p_pin` and calls
+      `verify_manager_pin` against `staff.pin_hash`, which a GoTrue re-auth never touches. The separation
+      the box asks a new function to guarantee is a property this route simply has.
+      Both credentials were already implemented; what was missing was knowing WHICH to show BEFORE the
+      person guesses. The screen fell back to the password only AFTER a failed PIN attempt — so a cashier
+      had to fail at a credential they were never issued, in front of a queue, which is the moment the
+      lock becomes a nuisance and the manager's PIN gets learned. `app.has_own_pin()` answers about the
+      caller alone and takes no argument, so it cannot be pointed at another account; the lock now opens
+      on the right field, says why, and stays there on the next idle timeout.
+      6 tests in `self-unlock.test.ts`, mutation-proven — a role-based implementation (`role in
+      ('manager','owner')`) and one without the `is_active` predicate each turn a test red. (SEC-34 · FE2)
 
 ---
 

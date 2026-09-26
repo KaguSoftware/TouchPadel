@@ -8,7 +8,12 @@ import { useLocale } from '../src/i18n/LocaleProvider';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useMyBookings } from '../src/features/booking/hooks';
 import { useClearHistory, useHistoryClearedAt } from '../src/features/booking/history';
-import { splitBookings, visiblePast, type BookingRow } from '../src/features/booking/logic';
+import {
+  cancelActorLabel,
+  splitBookings,
+  visiblePast,
+  type BookingRow,
+} from '../src/features/booking/logic';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useCourts } from '../src/features/availability/hooks';
 import { formatPrice } from '../src/lib/price';
@@ -17,7 +22,7 @@ import { Button, Hint, Screen } from '../src/components/ui';
 import { ListHeading, PastBookingRow } from '../src/components/booking';
 import { ClockIcon } from '../src/components/icons';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { ConfirmationDialog, useToast } from '../src/components/overlays';
+import { ConfirmAlert, useToast } from '../src/components/overlays';
 
 /**
  * Booking history (owner, 2026-09-08) — every previous game, and the only place
@@ -32,7 +37,9 @@ import { ConfirmationDialog, useToast } from '../src/components/overlays';
  * CLEAR HISTORY HIDES; IT DOES NOT DELETE. A reservation is the venue's record
  * too, so the app has no business destroying one to tidy a list — the cut is an
  * ISO timestamp on this device (features/booking/history.ts), the rows stay on
- * the account, and the dialog says so before anything happens.
+ * the account, and the confirmation says so before anything happens — as the
+ * platform's own alert (UIAlertController / Material dialog), so a destructive
+ * action wears the chrome the OS uses for one.
  */
 function BookingHistoryScreen() {
   const { t, locale } = useLocale();
@@ -61,17 +68,16 @@ function BookingHistoryScreen() {
     return m;
   }, [courts.data, locale]);
 
-  const onClear = () =>
+  // The native alert dismisses itself the moment a button is tapped, so the
+  // open flag closes here rather than on the result — the pending write shows
+  // as the footer button's spinner, not as a dialog held open over it.
+  const onClear = () => {
+    setDialogOpen(false);
     clear.mutate(undefined, {
-      onSuccess: () => {
-        setDialogOpen(false);
-        toast(t('booking.historyClearedToast'), 'info');
-      },
-      onError: (err) => {
-        setDialogOpen(false);
-        toast(t(mapErrorToKey(err)), 'error');
-      },
+      onSuccess: () => toast(t('booking.historyClearedToast'), 'info'),
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
     });
+  };
 
   const header = <Stack.Screen options={{ title: t('booking.historyTitle') }} />;
 
@@ -102,12 +108,17 @@ function BookingHistoryScreen() {
 
   const renderRow = (item: BookingRow, index: number) => {
     const start = new Date(item.start_at);
+    // The same caption the tab's rows carry (0088): this list mixes every
+    // ending, so a cancellation here has to say whose it was for exactly the
+    // reason it does there.
+    const actor = cancelActorLabel(item);
     return (
       <PastBookingRow
         courtName={courtNames.get(item.court_id) ?? ''}
         when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
         price={formatPrice(item.price_iqd, locale)}
         status={item.status}
+        note={actor ? t(actor) : null}
         first={index === 0}
         last={index === history.length - 1}
         onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
@@ -162,14 +173,13 @@ function BookingHistoryScreen() {
         }
       />
 
-      <ConfirmationDialog
+      <ConfirmAlert
         visible={dialogOpen}
-        danger
+        destructive
         title={t('booking.clearHistoryPrompt')}
         body={t('booking.clearHistoryBody')}
         confirmLabel={t('booking.clearHistory')}
         cancelLabel={t('common.cancel')}
-        busy={clear.isPending}
         onConfirm={onClear}
         onDismiss={() => setDialogOpen(false)}
       />

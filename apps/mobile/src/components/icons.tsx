@@ -100,10 +100,26 @@ export const EnvelopeIcon = ({ size = 16, color, strokeWidth = 2 }: IconProps) =
   </Svg>
 );
 export const CheckIcon = (p: IconProps) => <StrokeIcon d={['M4.5 12.5l5 5 10-11']} {...p} />;
+export const CloseIcon = (p: IconProps) => <StrokeIcon d={['M6 6l12 12M18 6L6 18']} {...p} />;
+/**
+ * Deliberately NOT flipped. A magnifier is an object, not a direction: the
+ * glass reads as the same tool whichever way the language runs, and mirroring
+ * it under RTL only makes the handle collide with the text it sits beside.
+ */
+export const SearchIcon = (p: IconProps) => (
+  <StrokeIcon d={['M11 4a7 7 0 100 14 7 7 0 000-14zM16.2 16.2L21 21']} {...p} />
+);
 export const ChevronIcon = (p: IconProps) => <StrokeIcon d={['M9 6l6 6-6 6']} flip {...p} />;
 export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6']} flip {...p} />;
 export const PencilIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 20l1.2-4.2L16.5 4.5a2.05 2.05 0 012.9 2.9L8.2 18.8 4 20z']} {...p} />
+);
+/**
+ * SEC-16 — the delete-account row. Not directional, so no `flip`: a bin is the
+ * same shape in both reading orders.
+ */
+export const TrashIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 7h16M10 4h4M9.5 11v6M14.5 11v6M6 7l1 12.5h10L18 7']} {...p} />
 );
 export const LockIcon = (p: IconProps) => (
   <StrokeIcon d={['M8 10.5V8a4 4 0 018 0v2.5M5.5 10.5h13V20h-13v-9.5z']} {...p} />

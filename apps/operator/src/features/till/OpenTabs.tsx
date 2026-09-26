@@ -11,11 +11,14 @@
  * open the board shows the running figure from the same tested mirror the
  * till uses (computeTabTotals) and says so.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
+import { appRpc } from '../../lib/appRpc';
+import { errorToMessageKey } from '../../lib/errors';
+import { compareTableNumbers } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -28,6 +31,7 @@ import {
   PageHeader,
   SearchField,
   SegmentedControl,
+  StatusBadge,
   TabStatusIndicator,
   Toolbar,
   asyncStatus,
@@ -39,7 +43,7 @@ import { WaiterCallsPanel } from './WaiterCallsPanel';
 import { NewTabDialog } from './NewTabDialog';
 import { MergeTabsDialog } from './ManagerActions';
 import { computeTabTotals } from './tabTotals';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, type TabListRow } from './tillData';
+import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, tabIsRemovable, type TabListRow } from './tillData';
 import { muted } from './tillStyles';
 
 export type TabsFilter = 'table' | 'court' | 'name';
@@ -56,6 +60,8 @@ export interface BoardRow {
   total: number;
   stamped: boolean;
   web: boolean;
+  /** Nothing to reconcile — the status badge offers to remove it (0085). */
+  removable: boolean;
 }
 
 /** Elapsed label for a server timestamp — display only. */
@@ -74,6 +80,10 @@ export function filterBoardRows(rows: readonly BoardRow[], filter: TabsFilter, q
     if (!q) return true;
     return facet(r).toLowerCase().includes(q) || r.label.toLowerCase().includes(q);
   };
+  // `table_number` is text, so a plain localeCompare orders the board 1, 10,
+  // 11, 12, 2 — the numeric collator counts instead. Court and guest are prose
+  // and stay on the plain comparison.
+  const compare = filter === 'table' ? compareTableNumbers : (x: string, y: string) => x.localeCompare(y);
   return rows
     .filter(matches)
     .sort((a, b) => {
@@ -81,8 +91,95 @@ export function filterBoardRows(rows: readonly BoardRow[], filter: TabsFilter, q
       const fb = facet(b);
       if (fa && !fb) return -1;
       if (!fa && fb) return 1;
-      return fa.localeCompare(fb) || a.openedAt.localeCompare(b.openedAt);
+      return compare(fa, fb) || a.openedAt.localeCompare(b.openedAt);
     });
+}
+
+/**
+ * The Status cell, which doubles as the remove control (0085).
+ *
+ * A tab opened on the wrong table used to have no way off the board: settling
+ * it for zero invents a sale and merging it invents a group. So the badge that
+ * says "Open" is also the button that takes it back — press once to arm,
+ * confirm to remove. Two presses, both on the thing already being looked at,
+ * and no dialog: this is the screen a cashier uses standing up.
+ *
+ * The blocked case is deliberately reachable rather than dead. A badge that
+ * simply does not respond teaches nothing, so pressing a tab that owes money
+ * answers the question instead — one red line, in the cell, saying that the
+ * table has a payment to be made. That is also where a server refusal lands:
+ * the board's copy of a tab is a cached read, so a waiter's order can arrive
+ * between the render and the press, and the answer to that race must appear in
+ * exactly the same place as the answer to the ordinary case.
+ */
+function TabStatusCell({
+  row,
+  armed,
+  busy,
+  error,
+  onArm,
+  onConfirm,
+}: {
+  row: BoardRow;
+  armed: boolean;
+  busy: boolean;
+  error: unknown;
+  onArm: (next: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const { tr } = useLocale();
+  const warn: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'flex-start',
+    gap: '0.3rem',
+    color: 'var(--tp-danger-fg)',
+    fontSize: 'var(--tp-fs-xs)',
+    lineHeight: 1.3,
+    maxInlineSize: '12rem',
+    textWrap: 'balance',
+  };
+
+  if (armed && row.removable) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+        <StatusBadge tone="danger" icon="trash" size="sm" label={tr('ws.cashier.tabs.removeAsk')} />
+        <Button size="sm" kind="danger" busy={busy} onClick={onConfirm}>
+          {tr('ws.cashier.tabs.removeConfirm')}
+        </Button>
+        <Button size="sm" disabled={busy} onClick={() => onArm(false)}>
+          {tr('ws.cashier.tabs.removeKeep')}
+        </Button>
+      </span>
+    );
+  }
+
+  return (
+    <span style={{ display: 'grid', justifyItems: 'start', gap: '0.3rem' }}>
+      <button
+        type="button"
+        onClick={() => onArm(!armed)}
+        // The badge is the accessible name ("Open"); the hidden span appends
+        // what pressing it does, because a control whose whole name is its
+        // current state announces as a label rather than as a button.
+        style={{ border: 0, background: 'none', padding: 0, margin: 0, font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+      >
+        <TabStatusIndicator status={row.status} size="sm" />
+        <span className="tp-sr-only"> — {tr('ws.cashier.tabs.removeArm')}</span>
+      </button>
+      {armed && !row.removable && (
+        <span role="alert" style={warn}>
+          <Icon name="alert" size={12} style={{ marginBlockStart: '0.15rem', flexShrink: 0 }} />
+          {tr('ws.cashier.tabs.removeBlocked')}
+        </span>
+      )}
+      {error != null && (
+        <span role="alert" style={warn}>
+          <Icon name="alert" size={12} style={{ marginBlockStart: '0.15rem', flexShrink: 0 }} />
+          {tr(errorToMessageKey(error))}
+        </span>
+      )}
+    </span>
+  );
 }
 
 export function OpenTabsBoard({
@@ -98,6 +195,9 @@ export function OpenTabsBoard({
   onMerge,
   onOpenTab,
   onRetry,
+  onRemoveTab,
+  removingId,
+  removeError,
 }: {
   status: AsyncStatus;
   rows: readonly BoardRow[];
@@ -111,9 +211,28 @@ export function OpenTabsBoard({
   onMerge: (survivorId: string) => void;
   onOpenTab: () => void;
   onRetry: () => void;
+  /** Confirmed removal of an empty tab (0085). */
+  onRemoveTab: (id: string) => void;
+  /** The tab whose cancel_tab call is in flight. */
+  removingId?: string | null;
+  /** A refusal from the server, against the row it belongs to. */
+  removeError?: { id: string; error: unknown } | null;
 }) {
   const { tr, locale } = useLocale();
   const visible = useMemo(() => filterBoardRows(rows, filter, query), [rows, filter, query]);
+  /*
+   * Which row is asking "remove?". One id, not a set: two tabs mid-confirm at
+   * once is not a state a cashier ever wants, and arming a second row is the
+   * clearest possible way to say they are done with the first.
+   */
+  const [armedId, setArmedId] = useState<string | null>(null);
+  // Escape backs out of the confirm, the way it backs out of every dialog here.
+  useEffect(() => {
+    if (armedId === null) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setArmedId(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [armedId]);
 
   const columns: Column<BoardRow>[] = [
     {
@@ -137,7 +256,24 @@ export function OpenTabsBoard({
         </span>
       ),
     },
-    { key: 'status', header: tr('ws.cashier.tabs.colStatus'), render: (r) => <TabStatusIndicator status={r.status} size="sm" /> },
+    {
+      key: 'status',
+      header: tr('ws.cashier.tabs.colStatus'),
+      // No stopPropagation: DataTable's own CELL_CONTROL guard already keeps a
+      // <button> inside a cell from firing the row's navigate, by click and by
+      // Enter — so arming a removal cannot also open the tab it is about to
+      // remove.
+      render: (r) => (
+        <TabStatusCell
+          row={r}
+          armed={armedId === r.id}
+          busy={removingId === r.id}
+          error={removeError?.id === r.id ? removeError.error : null}
+          onArm={(next) => setArmedId(next ? r.id : null)}
+          onConfirm={() => onRemoveTab(r.id)}
+        />
+      ),
+    },
     {
       key: 'source',
       header: tr('ws.cashier.tabs.colSource'),
@@ -253,6 +389,8 @@ export function OpenTabsScreen() {
   const [newTab, setNewTab] = useState(false);
   const [mergeSurvivor, setMergeSurvivor] = useState<TabListRow | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<{ id: string; error: unknown } | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -303,12 +441,34 @@ export function OpenTabsScreen() {
         // running figure, not a settled one, and must not render as stamped.
         stamped: t.total_iqd != null,
         web: tabHasWebOrder(t),
+        removable: tabIsRemovable(t),
       })),
     [tabsQ.data, taxCtx, tr, locale],
   );
 
   function goToTill(id: string) {
     void navigate({ to: '/till', search: { tab: id } });
+  }
+
+  /**
+   * app.cancel_tab, not mutate(): removing a tab is an online-only correction
+   * (the server re-checks emptiness under the row lock, which a queued replay
+   * minutes later cannot do meaningfully) and it takes the same direct-RPC
+   * route as merge_tabs, the other tab-shape change on this screen.
+   */
+  async function removeTab(id: string) {
+    setRemovingId(id);
+    setRemoveError(null);
+    try {
+      await appRpc('cancel_tab', { p_tab_id: id });
+      await queryClient.invalidateQueries({ queryKey: ['tabs'] });
+    } catch (e) {
+      // Refusals belong in the row, not in a toast: the cashier is looking at
+      // the tab they pressed, and the answer is about that tab.
+      setRemoveError({ id, error: e });
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   return (
@@ -326,6 +486,9 @@ export function OpenTabsScreen() {
         onMerge={(id) => setMergeSurvivor((tabsQ.data ?? []).find((t) => t.id === id) ?? null)}
         onOpenTab={() => setNewTab(true)}
         onRetry={() => void tabsQ.refetch()}
+        onRemoveTab={(id) => void removeTab(id)}
+        removingId={removingId}
+        removeError={removeError}
       />
       <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <StartShiftBanner />

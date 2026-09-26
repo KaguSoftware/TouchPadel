@@ -18,7 +18,7 @@
     "@touch/db": "workspace:*",
     "@touch/i18n": "workspace:*",
     "@touch/ui": "workspace:*",
-    "next": "^16.3.0",
+    "next": "^16.3.4",
     "posthog-js": "^1.418.16",
     "react": "19.2.3",
     "react-dom": "19.2.3",

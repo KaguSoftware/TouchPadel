@@ -9,6 +9,8 @@ import type { Locale } from './t';
 export const FSI = '⁨';
 /** U+2069 POP DIRECTIONAL ISOLATE */
 export const PDI = '⁩';
+/** U+2066 LEFT-TO-RIGHT ISOLATE */
+export const LRI = '⁦';
 
 /**
  * Wrap a string in FSI/PDI so it renders with its own first-strong direction,
@@ -17,6 +19,16 @@ export const PDI = '⁩';
  */
 export function isolate(str: string): string {
   return `${FSI}${str}${PDI}`;
+}
+
+/**
+ * Wrap a string in LRI/PDI so it always renders left-to-right, whatever its
+ * own first strong character is and whatever surrounds it. Use for values that
+ * are structurally LTR rather than natural-language text — phone numbers,
+ * emails, URLs, codes — where `isolate` would flip an Arabic-leading value.
+ */
+export function isolateLtr(str: string): string {
+  return `${LRI}${str}${PDI}`;
 }
 
 /** Value for the HTML `dir` attribute for a locale. */

@@ -32,6 +32,8 @@ export const shellAr: DeepMessages<typeof shellEn> = {
   lock: {
     title: 'المحطة مقفلة',
     hint: 'مسجّل الدخول باسم {name}. افتح القفل للمتابعة من حيث توقفت.',
+    // SEC-34
+    hintPassword: 'مسجّل الدخول باسم {name}. لا يوجد رمز سري لفتح القفل لهذا الحساب، لذا أدخل كلمة المرور.',
     pin: 'رمزك السري',
     unlock: 'فتح القفل',
     usePassword: 'استخدم كلمة المرور بدلًا من ذلك',
@@ -108,6 +110,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     signOut: 'تسجيل الخروج',
     station: 'المحطة {id}',
     quit: 'الخروج إلى سطح المكتب',
+    quitConfirm: 'هذا ينهي الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز خارج الاتصال.',
     kitchenNoNav: 'شاشة المطبخ',
     version: 'الإصدار {version}',
     pairKitchen: 'إقران شاشة مطبخ',

@@ -317,6 +317,7 @@ export type Database = {
         Args: { p_reason_code: string; p_scope: string; p_series_id: string }
         Returns: Json
       }
+      cancel_tab: { Args: { p_tab_id: string }; Returns: Json }
       claim_due_notifications: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["notification_outbox"]["Row"][]
@@ -338,6 +339,7 @@ export type Database = {
         }
       }
       claim_replay: { Args: { p_fn: string; p_key: string }; Returns: Json }
+      clear_pin_lockout: { Args: { p_staff_id: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       clear_table_token_secret_prev: { Args: never; Returns: Json }
       close_day: {
@@ -479,6 +481,7 @@ export type Database = {
       flag_expired_batches: { Args: never; Returns: undefined }
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
+      has_own_pin: { Args: never; Returns: boolean }
       heartbeat: {
         Args: {
           p_app_version?: string
@@ -641,7 +644,9 @@ export type Database = {
       }
       phone_canon: { Args: { p_phone: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
+      pin_delay_floor: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
+      pin_pad_to_floor: { Args: { p_started: string }; Returns: undefined }
       preview_series: {
         Args: {
           p_court_id: string
@@ -3382,6 +3387,7 @@ export type Database = {
         Row: {
           cancellation_reason: string | null
           cancelled_at: string | null
+          cancelled_by: Database["public"]["Enums"]["cancellation_actor"] | null
           client_ref: string | null
           court_id: string
           created_at: string
@@ -3407,6 +3413,9 @@ export type Database = {
         Insert: {
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          cancelled_by?:
+            | Database["public"]["Enums"]["cancellation_actor"]
+            | null
           client_ref?: string | null
           court_id: string
           created_at?: string
@@ -3432,6 +3441,9 @@ export type Database = {
         Update: {
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          cancelled_by?:
+            | Database["public"]["Enums"]["cancellation_actor"]
+            | null
           client_ref?: string | null
           court_id?: string
           created_at?: string
@@ -4767,6 +4779,7 @@ export type Database = {
         | "expiring_soon"
         | "replay_conflict"
       campaign_status: "draft" | "scheduled" | "live" | "ended" | "cancelled"
+      cancellation_actor: "guest" | "staff"
       day_status: "open" | "closing" | "closed"
       ingredient_kind: "purchased" | "prepared"
       marketing_channel: "telegram" | "guest_site" | "in_venue"
@@ -4944,6 +4957,7 @@ export const Constants = {
         "replay_conflict",
       ],
       campaign_status: ["draft", "scheduled", "live", "ended", "cancelled"],
+      cancellation_actor: ["guest", "staff"],
       day_status: ["open", "closing", "closed"],
       ingredient_kind: ["purchased", "prepared"],
       marketing_channel: ["telegram", "guest_site", "in_venue"],

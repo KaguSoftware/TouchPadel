@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
   BackHandler,
   Image,
+  InteractionManager,
   Platform,
   Pressable,
   StyleSheet,
@@ -12,13 +13,13 @@ import {
 } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useFocusEffect } from 'expo-router';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign } from '../../src/i18n/direction';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import {
   openNowInfo,
-  venuePhoneOf,
   type VenueSettingsPublic,
 } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
@@ -47,10 +48,9 @@ import { BlurView } from 'expo-blur';
 import { BrandPattern } from '../../src/components/BrandPattern';
 import { DegradedBanner } from '../../src/components/booking';
 import { BackChevronIcon, TitleSquiggle } from '../../src/components/icons';
-import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
+import { Court3D } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
-import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
@@ -171,6 +171,10 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const [now, setNow] = useState(() => new Date());
+  // NOT in a transition. Transition work on this tab waits behind the rally's
+  // frame loop for React's 5 s Normal-priority deadline (see the note in
+  // useAvailabilityBooking), and a pill that says "open" five seconds after
+  // closing time is worse than the one frame this costs.
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
@@ -267,8 +271,18 @@ function NetCta({
           justifyContent: 'center',
           paddingStart: space.l,
           paddingEnd: space.l,
-          boxShadow: pressed ? `0 0 0 ${brand.navy}` : `0 8px 0 ${brand.navy}`,
-          transform: [{ translateY: pressed ? 8 : 0 }],
+          // Pressing drops the button the 8 px onto its own shadow. `hidden`
+          // holds it DOWN from there: the tap that opens the sheet disables
+          // this Pressable in the same commit, so `pressed` fell back to false
+          // and the button snapped up 8 px in one frame — while its fade and
+          // its 24 px slide were already under way. That one-frame kick up,
+          // immediately reversed, is what read as the button shaking as the
+          // sheet opened (owner, 2026-09-08). It now stays on the shadow and
+          // simply fades from there. Coming back, `hidden` clears at
+          // p ≤ SHEET_GONE, where SPEC.button.fade has the button at zero
+          // opacity, so the lift back up is never on screen.
+          boxShadow: pressed || hidden ? `0 0 0 ${brand.navy}` : `0 8px 0 ${brand.navy}`,
+          transform: [{ translateY: pressed || hidden ? 8 : 0 }],
         })}
       >
         {/* No lineHeight: a 16 pt box on a 14 pt face cropped the label's
@@ -340,6 +354,7 @@ export default function BookHomeScreen() {
   const reduceMotion = useReduceMotion();
   const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
     useCourtTransition();
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
@@ -357,10 +372,53 @@ export default function BookHomeScreen() {
   const [patternRect, setPatternRect] = useState<LayoutRectangle | null>(null);
   const [stageRect, setStageRect] = useState<LayoutRectangle | null>(null);
   const [glUnavailable, setGlUnavailable] = useState(false);
-  // Touches in the sheet count as watching: the rally behind it plays on / restarts its idle clock.
-  const courtRef = useRef<Court3DHandle>(null);
-  const wakeCourt = useCallback(() => courtRef.current?.wake(), []);
   const [sheetBusy, setSheetBusy] = useState(false);
+  /**
+   * THE SHEET IS BUILT BEFORE IT IS ASKED FOR.
+   *
+   * Opening it used to do everything at once, on the frame of the tap: pull in
+   * the sheet's whole module subtree, build its ~40 components, subscribe six
+   * queries, fire five requests and join the realtime channel. The first press
+   * of "Check availability" therefore cost around 200 ms and the court's rally
+   * — drawn from a rAF loop on this same thread — lurched through all of it
+   * (owner, 2026-09-10). Later presses were fine, which is the tell: this is
+   * one-time setup, not the work of opening.
+   *
+   * Module loading is the biggest single piece and the least visible one.
+   * Expo's Metro inlines requires, so `BookingSheet` is not fetched when this
+   * file loads but when the branch below first RENDERS it — and in dev that is
+   * a round trip to the dev server (the "Android Bundled … (N modules)" line in
+   * the log). Nothing about that has to happen under a finger.
+   *
+   * So the sheet mounts once the tab has settled, invisible (p rests at 0: the
+   * card sits 360 px down at zero opacity, takes no touches and is hidden from
+   * screen readers) and never unmounts again. The tap is then only the spring.
+   * `runAfterInteractions` keeps it out of the way of whatever is animating,
+   * and the transition lets React time-slice the build so the rally keeps its
+   * frames through it.
+   *
+   * The transition is safe HERE and nowhere else on this screen. Transition
+   * work waits behind the rally's frame loop for React's 5 s Normal-priority
+   * deadline (the long note in useAvailabilityBooking has the whole story), so
+   * anything the guest is waiting on must not use one. Nobody is waiting on
+   * this: arriving late costs only a first open that pays the mount it would
+   * have paid anyway.
+   *
+   * The cost is that a closed sheet keeps its queries: one extra
+   * `court_availability` read a minute while this tab is open, alongside the
+   * degraded probe this screen already runs at that rate. In exchange the
+   * grid is warm when it appears — real times rather than a skeleton.
+   */
+  const [sheetPrewarmed, setSheetPrewarmed] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (sheetPrewarmed) return;
+      const handle = InteractionManager.runAfterInteractions(() => {
+        startTransition(() => setSheetPrewarmed(true));
+      });
+      return () => handle.cancel();
+    }, [sheetPrewarmed]),
+  );
   const onUnavailable = useCallback(() => setGlUnavailable(true), []);
   const onCourtSize = useCallback((size: { width: number; height: number }) => {
     setCourtSize((prev) =>
@@ -486,7 +544,6 @@ export default function BookHomeScreen() {
   const courtShade = withAlpha(colors.page, SHADE_ALPHA[appearance] * FOOTER_SHADE_SCALE);
   const clear = withAlpha(colors.page, 0);
 
-  const phone = venuePhoneOf(settings.data);
   const cta = <NetCta progress={progress} hidden={sheetMounted} onPress={open} />;
   // Box height S, blank band f·H at its top: start it m above the stage so
   // f·(S + m) − m = COURT_GAP, i.e. m = (f·S − gap) / (1 − f).
@@ -572,17 +629,6 @@ export default function BookHomeScreen() {
           />
           <OpenNowPill settings={settings.data} />
         </View>
-
-        {degraded ? (
-          <View style={{ marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
-            <DegradedBanner
-              lead={t('degraded.leadConnectionLost')}
-              // Isolated: an RTL paragraph would otherwise reorder the number groups.
-              message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
-              phone={phone}
-            />
-          </View>
-        ) : null}
 
         {/* Title row: [back to the court] BOOK A COURT ⇄ PICK A TIME */}
         <View style={{ paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}>
@@ -752,6 +798,35 @@ export default function BookHomeScreen() {
           setStageRect(e.nativeEvent.layout);
         }}
       >
+        {/*
+          Under the heading, not above it: the venue notice is a note about the
+          page, so BOOK A COURT stays the first thing read on the tab.
+
+          OUT OF FLOW, and inside the stage. The header block and the stage are
+          flex siblings and the stage is `flex: 1`, so an in-flow notice took
+          its height straight out of the court — which visibly shrank the moment
+          the venue went offline and grew back when the guest closed it. Absolute
+          here means the stage measures the same either way, and `top: 0` is the
+          stage's own top edge: immediately under the title, where it was.
+        */}
+        {degraded && !noticeClosed ? (
+          <View
+            pointerEvents="box-none"
+            style={{ position: 'absolute', top: 0, start: space.l, end: space.l, zIndex: 3 }}
+          >
+            <DegradedBanner
+              lead={t('degraded.leadConnectionLost')}
+              // No number in the copy: it sent a long digit run through a narrow
+              // banner, which wrapped away from the "Call" that introduced it.
+              // Profile already has a Call-the-venue row that dials directly.
+              message={t('degraded.bannerCourts')}
+              blockLead
+              // Closed by the guest alone — a refetch flipping `degraded` back
+              // on must not resurrect a notice they have already dealt with.
+              onDismiss={() => setNoticeClosed(true)}
+            />
+          </View>
+        ) : null}
         {glUnavailable ? (
           // No GL context on this device: the flat court, button underneath as before.
           <Animated.View
@@ -777,7 +852,6 @@ export default function BookHomeScreen() {
           </Animated.View>
         ) : (
           <Court3D
-            ref={courtRef}
             patternBox={courtPatternBox}
             style={[stageBounds, { top: courtTop, bottom: tabBarHeight }]}
             layerStyle={courtLayer}
@@ -786,41 +860,6 @@ export default function BookHomeScreen() {
             reduceMotion={reduceMotion}
             onSize={onCourtSize}
             onUnavailable={onUnavailable}
-            pausedNote={
-              // The idle hold's note, above the footer line (Court3D fades it).
-              <View
-                style={{
-                  position: 'absolute',
-                  start: space.l,
-                  end: space.l,
-                  bottom: FOOTER_SPACE + 6,
-                  alignItems: 'center',
-                }}
-              >
-                <View
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 7,
-                    borderRadius: radius.pill,
-                    backgroundColor: colors.card,
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: colors.line,
-                  }}
-                >
-                  <Text
-                    accessibilityLiveRegion="polite"
-                    style={{
-                      textAlign: 'center',
-                      fontFamily: fonts.body600,
-                      fontSize: 11.5,
-                      color: colors.mut,
-                    }}
-                  >
-                    {t('courts.rallyPaused')}
-                  </Text>
-                </View>
-              </View>
-            }
           >
             {net ? (
               // Post to post on the tape, centred on it, following it through the
@@ -908,14 +947,13 @@ export default function BookHomeScreen() {
           </Text>
         </Animated.View>
 
-        {sheetMounted ? (
+        {sheetMounted || sheetPrewarmed ? (
           <BookingSheet
             progress={progress}
             direction={direction}
             bottomInset={tabBarHeight}
             isOpen={isOpen}
             onBusyChange={setSheetBusy}
-            onInteraction={wakeCourt}
           />
         ) : null}
 

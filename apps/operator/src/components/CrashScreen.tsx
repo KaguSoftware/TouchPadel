@@ -59,7 +59,14 @@ function Actions({
   reloadLabel: string;
 }) {
   return (
-    <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-4)' }}>
+    <div
+      style={{
+        display: 'flex',
+        gap: 'var(--tp-sp-2-5)',
+        flexWrap: 'wrap',
+        marginBlockStart: 'var(--tp-sp-4)',
+      }}
+    >
       {onRetry && (
         <Button kind="primary" onClick={onRetry}>
           {retryLabel}
@@ -94,7 +101,9 @@ export function CrashPanel({
   return (
     <div style={wrapStyle(fullBleed)}>
       <div style={{ ...card, maxInlineSize: '32rem' }} role="alert">
-        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>{tr('op.crash.title')}</h1>
+        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>
+          {tr('op.crash.title')}
+        </h1>
         <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.body')}</p>
         <Actions
           onRetry={onRetry}
@@ -104,7 +113,9 @@ export function CrashPanel({
           reloadLabel={tr('op.crash.reload')}
         />
         <details style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
-          <summary style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+          <summary
+            style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}
+          >
             {tr('op.crash.details')}
           </summary>
           <pre
@@ -126,14 +137,27 @@ export function CrashPanel({
 }
 
 /** The 404 screen. Same shape, no retry — retrying a bad URL changes nothing. */
-export function NotFoundPanel({ onHome, fullBleed = false }: { onHome?: () => void; fullBleed?: boolean }) {
+export function NotFoundPanel({
+  onHome,
+  fullBleed = false,
+}: {
+  onHome?: () => void;
+  fullBleed?: boolean;
+}) {
   const { tr } = useLocale();
   return (
     <div style={wrapStyle(fullBleed)}>
       <div style={{ ...card, maxInlineSize: '32rem' }} role="alert">
-        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>{tr('op.crash.notFoundTitle')}</h1>
+        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>
+          {tr('op.crash.notFoundTitle')}
+        </h1>
         <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.notFoundBody')}</p>
-        <Actions onHome={onHome} retryLabel="" homeLabel={tr('op.crash.home')} reloadLabel={tr('op.crash.reload')} />
+        <Actions
+          onHome={onHome}
+          retryLabel=""
+          homeLabel={tr('op.crash.home')}
+          reloadLabel={tr('op.crash.reload')}
+        />
       </div>
     </div>
   );

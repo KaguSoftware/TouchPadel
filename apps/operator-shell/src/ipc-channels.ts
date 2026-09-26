@@ -27,7 +27,7 @@ export const IPC = {
   pinObserved: 'touch:pin-observed',
   /** Renderer → main (send, KDS stations): a bump to carry over the LAN to the till. */
   lanStatus: 'touch:lan-status',
-  /** Invoke: manager-PIN quit — the only way a production window closes. */
+  /** Invoke: quit to desktop — the only way a production window closes. No PIN. */
   quitApp: 'touch:quit-app',
   /** Invoke (first run only): write station.json, then relaunch. Refused once configured. */
   saveStation: 'touch:save-station',

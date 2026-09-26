@@ -606,6 +606,44 @@ function IdleLock() {
 
   const enabled = !!staff && timeoutS > 0;
 
+  /**
+   * SEC-34, the self-unlock gap. Does THIS person have an unlock PIN?
+   *
+   * PINs are only ever set on manager and owner accounts — a PIN is the manager
+   * AUTHORISATION on the money paths, so nobody has had a reason to give the
+   * cashier who actually works this till one. Until 0087 the screen could not
+   * know that, so it showed everybody a PIN box and only offered the password
+   * AFTER a wrong guess. A cashier had to fail at a credential they were never
+   * issued, in front of a queue, before being shown the one they have. That is
+   * how a lock becomes a nuisance and a shared manager PIN becomes the fix.
+   *
+   * `null` = not yet known. The screen renders the PIN field meanwhile, because
+   * the answer arrives in one round trip and flipping a field out from under
+   * somebody who has already started typing is worse than a brief default. The
+   * NO_PIN_SET fallback in `unlock()` stays as the backstop for exactly that
+   * race — and for an account whose PIN is cleared while the till sits locked.
+   */
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!locked || hasPin !== null) return;
+    let cancelled = false;
+    void appRpc<boolean>('has_own_pin', {})
+      .then((v) => {
+        if (cancelled) return;
+        setHasPin(v);
+        // Only switch TO the password. Never switch away from it: if the person
+        // has already chosen "Use password instead", this answer must not yank
+        // the field back to a PIN box mid-typing.
+        if (!v) setUsePassword(true);
+      })
+      // A failed probe is not an answer. Leaving hasPin null keeps the PIN
+      // field and the NO_PIN_SET fallback, which is exactly the old behaviour.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [locked, hasPin]);
+
   useEffect(() => {
     if (!enabled) return;
     const bump = () => {
@@ -626,7 +664,10 @@ function IdleLock() {
     setLocked(false);
     setPin('');
     setPassword('');
-    setUsePassword(false);
+    // SEC-34: an account with NO pin stays on the password field. Resetting to
+    // the PIN box would put the cashier back in front of the credential they do
+    // not have on the very next idle timeout, which is the whole gap.
+    setUsePassword(hasPin === false);
     setError(null);
     lastActivity.current = Date.now();
   }
@@ -733,7 +774,11 @@ function IdleLock() {
           <h2 style={{ fontSize: 'var(--tp-fs-xl)' }}>{tr('ws.shell.lock.title')}</h2>
         </div>
         <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
-          {tr('ws.shell.lock.hint', { name: staff.displayName })}
+          {/* SEC-34: say WHY the password is being asked for, so a cashier with
+              no PIN is not left wondering what they have forgotten. */}
+          {hasPin === false && usePassword
+            ? tr('ws.shell.lock.hintPassword', { name: staff.displayName })
+            : tr('ws.shell.lock.hint', { name: staff.displayName })}
         </p>
         {usePassword ? (
           <Field label={tr('auth.passwordLabel')}>
@@ -768,7 +813,11 @@ function IdleLock() {
             {tr('ws.shell.lock.switchUser')}
           </Button>
           <span style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
-            {!usePassword && (
+            {/* Offered only to somebody who HAS a PIN and is being asked for it.
+                For a cashier with none, "Use password instead" is the only
+                route, and presenting it as the alternative implies a PIN they
+                could have used. */}
+            {!usePassword && hasPin !== false && (
               <Button kind="ghost" onClick={() => setUsePassword(true)} disabled={busy}>
                 {tr('ws.shell.lock.usePassword')}
               </Button>
@@ -789,8 +838,14 @@ function IdleLock() {
 }
 
 /**
- * Manager-PIN "Quit to desktop" (design-arch §2.5) — production kiosk windows
- * are not closable any other way. Hidden entirely in browser mode.
+ * "Quit to desktop" (design-arch §2.5) — production kiosk windows are not
+ * closable any other way. Hidden entirely in browser mode.
+ *
+ * NO CREDENTIAL. This sat behind the manager PIN (verify_manager_pin online,
+ * main's offline cache otherwise) so a till could not be casually ended. That
+ * gate is gone by request: what remains is a plain confirmation that names the
+ * cost, and main exits on the word of the renderer alone. The dialog is the
+ * whole protection against a stray tap now, which is why it stays.
  *
  * Rulebook 7.8: it carries its own separator and its own muted weight because
  * it ENDS SERVICE on this till, and it used to sit directly beneath "Sign out"
@@ -798,11 +853,18 @@ function IdleLock() {
  * action to a destructive one. The rule lives here rather than in the rail so
  * that in browser mode, where this component renders nothing, it leaves no
  * stray line behind (rulebook 4.4).
+ *
+ * TWO PLACEMENTS. The rail is only reachable once someone is signed
+ * in, so a kiosk sitting at sign-in — powered on by mistake, or signed out at
+ * the end of the night — had no way out of a frameless, non-closable window at
+ * all. `variant="signIn"` puts the same control where that window's own close
+ * button would be. It carries its own placement for the same reason the rail
+ * variant carries its own separator: browser mode then renders nothing rather
+ * than an empty corner box.
  */
-function QuitToDesktop() {
+function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
   const { tr } = useLocale();
   const [open, setOpen] = useState(false);
-  const [pin, setPin] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   if (typeof window === 'undefined' || !window.touch) return null;
@@ -811,43 +873,50 @@ function QuitToDesktop() {
     setBusy(true);
     setError(null);
     try {
-      try {
-        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
-        touch.pinObserved(pin);
-      } catch (e) {
-        // Offline: fall through to the cache check in main. A server REFUSAL
-        // (PIN_INVALID / PIN_LOCKED) still surfaces — do not quit around it.
-        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
-      }
-      const res = await touch.quitApp(pin);
+      // Main exits ~50 ms after replying, so `busy` is the last thing the
+      // screen shows. A refusal only reaches here in browser mode, where the
+      // control does not render at all — it is surfaced rather than swallowed
+      // so a future refusal cannot fail silently on a station.
+      const res = await touch.quitApp();
       if (!res.ok) throw new Error(res.error ?? 'refused');
     } catch (e) {
       setError(e);
-    } finally {
       setBusy(false);
     }
   }
 
   return (
     <>
-      <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
-        <button
-          type="button"
-          className="tp-nav-item"
+      {variant === 'rail' ? (
+        <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
+          <button
+            type="button"
+            className="tp-nav-item"
+            onClick={() => setOpen(true)}
+            style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+          >
+            <Icon name="x" size={16} />
+            <span>{tr('ws.shell.nav.quit')}</span>
+          </button>
+        </div>
+      ) : (
+        <Button
+          kind="ghost"
+          size="sm"
+          icon="x"
           onClick={() => setOpen(true)}
-          style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', color: 'var(--tp-muted-fg)' }}
         >
-          <Icon name="x" size={16} />
-          <span>{tr('ws.shell.nav.quit')}</span>
-        </button>
-      </div>
+          {tr('ws.shell.nav.quit')}
+        </Button>
+      )}
       {/*
         * This was a bare fixed <div>: no Escape, no focus trap, no click
-        * outside, no focus return to the control that opened it, and no
-        * autoFocus on the PIN field a cashier had opened it to type into. The
-        * shared Modal does all five, so the fork is deleted rather than
-        * repaired (rulebook 12.1) — and its z-index comes from the scale with
-        * it, replacing a hand-typed 40.
+        * outside, and no focus return to the control that opened it. The shared
+        * Modal does all four, so the fork is deleted rather than repaired
+        * (rulebook 12.1) — and its z-index comes from the scale with it,
+        * replacing a hand-typed 40. With the PIN field gone, Escape and the
+        * returned focus are the whole undo for a mis-tap.
         */}
       {open && (
         <Modal
@@ -857,23 +926,13 @@ function QuitToDesktop() {
           footer={
             <>
               <Button onClick={() => setOpen(false)}>{tr('common.back')}</Button>
-              <Button kind="danger" busy={busy} disabled={pin.length < 4} onClick={() => void quit()}>
+              <Button kind="danger" busy={busy} onClick={() => void quit()}>
                 {tr('ws.shell.nav.quit')}
               </Button>
             </>
           }
         >
-          <Field label={tr('op.common.pin')}>
-            <input
-              style={inputStyle}
-              type="password"
-              inputMode="numeric"
-              dir="ltr"
-              autoFocus
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-            />
-          </Field>
+          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitConfirm')}</p>
           <ErrorText error={error} />
         </Modal>
       )}
@@ -1057,7 +1116,13 @@ function SignInScreen() {
           {tr('ws.shell.signIn.tagline')}
         </p>
       </aside>
-      <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+        {/* A till and a kitchen screen run frameless and non-closable, and the
+            rail — the only other way out — is behind a sign-in. A station
+            powered on by mistake, or signed out at the end of the night, was
+            therefore a machine nobody could close. Same manager-PIN gate as
+            the rail's; only the placement is the window control's. */}
+        <QuitToDesktop variant="signIn" />
         <form onSubmit={(e) => void submit(e)} className="tp-rise" style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h1 style={{ fontSize: 'var(--tp-fs-2xl)', marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.signIn.title')}</h1>
           <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.shell.signIn.lead')}</p>

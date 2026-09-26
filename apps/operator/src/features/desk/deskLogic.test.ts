@@ -6,7 +6,12 @@ import {
   groupByStart,
   isOverrideRefusal,
   isVisible,
+  nameFromQuery,
   paymentStatusFor,
+  phoneDigitCount,
+  phoneFromQuery,
+  sanitizeName,
+  sanitizePhone,
   toBookingStatus,
 } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
@@ -152,5 +157,72 @@ describe('allowedMarks / isOverrideRefusal', () => {
     expect(isOverrideRefusal('RESERVATION_NOT_STARTED')).toBe(true);
     expect(isOverrideRefusal('SLOT_TAKEN')).toBe(false);
     expect(isOverrideRefusal(undefined)).toBe(false);
+  });
+});
+
+describe('sanitizePhone', () => {
+  it('drops letters, keeps the punctuation a number is written with', () => {
+    expect(sanitizePhone('+964 (770) 123-4567')).toBe('+964 (770) 123-4567');
+    expect(sanitizePhone('077abc0123456')).toBe('0770123456');
+    expect(sanitizePhone('Ahmed')).toBe('');
+  });
+
+  it('folds Arabic-Indic and Persian digits to the ASCII the API stores', () => {
+    expect(sanitizePhone('٠٧٧٠١٢٣٤٥٦')).toBe('0770123456');
+    expect(sanitizePhone('۰۷۷۹')).toBe('0779');
+  });
+
+  it('counts only the digits', () => {
+    expect(phoneDigitCount('+964 (770) 123-4567')).toBe(13);
+    expect(phoneDigitCount('')).toBe(0);
+    expect(phoneDigitCount('++ -- ()')).toBe(0);
+  });
+});
+
+describe('sanitizeName', () => {
+  it('takes the digits out and leaves the name alone', () => {
+    expect(sanitizeName('Ahmed Al-Rawi')).toBe('Ahmed Al-Rawi');
+    expect(sanitizeName("O'Neill")).toBe("O'Neill");
+    expect(sanitizeName('أحمد الراوي')).toBe('أحمد الراوي');
+    expect(sanitizeName('Ahmed 0770123456')).toBe('Ahmed ');
+  });
+
+  it('catches Arabic-Indic and Persian digits too', () => {
+    expect(sanitizeName('أحمد ٠٧٧٠')).toBe('أحمد ');
+    expect(sanitizeName('۰۷')).toBe('');
+  });
+});
+
+describe('splitting a customer search between the name and phone boxes', () => {
+  it('sends a name to one box and nothing to the other', () => {
+    expect(nameFromQuery('Ahmed Al-Rawi')).toBe('Ahmed Al-Rawi');
+    // The hyphen in "Al-Rawi" is legal phone punctuation; it is not a number.
+    expect(phoneFromQuery('Ahmed Al-Rawi')).toBe('');
+  });
+
+  it('sends a number to one box and nothing to the other', () => {
+    expect(phoneFromQuery('0770 123 4567')).toBe('0770 123 4567');
+    // The spaces between the groups are all that survives sanitizing.
+    expect(nameFromQuery('0770 123 4567')).toBe('');
+    expect(phoneFromQuery('+964 770 123 4567')).toBe('+964 770 123 4567');
+  });
+
+  it('splits a query that holds both', () => {
+    expect(nameFromQuery('Ahmed 0770123456')).toBe('Ahmed');
+    expect(phoneFromQuery('Ahmed 0770123456')).toBe('0770123456');
+    expect(phoneFromQuery('Al-Rawi 0770123456')).toBe('0770123456');
+  });
+
+  it('reads Arabic either way round', () => {
+    expect(nameFromQuery('أحمد')).toBe('أحمد');
+    expect(phoneFromQuery('أحمد')).toBe('');
+    expect(phoneFromQuery('٠٧٧٠١٢٣')).toBe('0770123');
+  });
+
+  it('gives both boxes nothing for a query that is neither', () => {
+    expect(nameFromQuery('   ')).toBe('');
+    expect(phoneFromQuery('   ')).toBe('');
+    expect(nameFromQuery('--')).toBe('');
+    expect(phoneFromQuery('--')).toBe('');
   });
 });
