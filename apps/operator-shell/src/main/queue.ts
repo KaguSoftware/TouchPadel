@@ -18,6 +18,8 @@ export interface QueueRow {
   createdAt: string;
   staffId: string | null;
   deviceId: string | null;
+  /** The branch the write was queued under (v6, multi-venue audit 0228), or null. */
+  venueScope: string | null;
   state: 'pending' | 'inflight' | 'acked' | 'conflict' | 'failed' | 'resolved';
   attempts: number;
   lastError: string | null;
@@ -136,7 +138,17 @@ function migrate(d: Database.Database): void {
       d.exec('ALTER TABLE pin_cache ADD COLUMN staff_id TEXT');
     }
   }
-  d.pragma('user_version = 5');
+  if (version < 6) {
+    // v6 (multi-venue audit, 0228): the branch the screens showed when the write
+    // was queued. Replay sends it as x-venue-scope, so a write queued on a
+    // machine that is not a registered station lands at that branch. Nullable:
+    // older rows and a registered station's rows go without (its branch wins).
+    const cols = d.pragma('table_info(mutation_queue)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'venue_scope')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN venue_scope TEXT');
+    }
+  }
+  d.pragma('user_version = 6');
 }
 
 /** Open (or create) a queue db at an explicit path — the testable seam. */
@@ -215,8 +227,10 @@ export function enqueue(m: MutationEnvelope): { localId: string; state: 'queued'
   openQueue()
     .prepare(
       `INSERT INTO mutation_queue
-         (local_id, idempotency_key, mutation_type, payload, payload_enc, created_at, staff_id, device_id)
-       VALUES (@localId, @idempotencyKey, @mutationType, @payload, @payloadEnc, @createdAt, @staffId, @deviceId)`,
+         (local_id, idempotency_key, mutation_type, payload, payload_enc, created_at, staff_id, device_id,
+          venue_scope)
+       VALUES (@localId, @idempotencyKey, @mutationType, @payload, @payloadEnc, @createdAt, @staffId, @deviceId,
+               @venueScope)`,
     )
     .run({
       localId: m.localId,
@@ -227,6 +241,7 @@ export function enqueue(m: MutationEnvelope): { localId: string; state: 'queued'
       createdAt: m.createdAt,
       staffId: m.staffId,
       deviceId: m.deviceId,
+      venueScope: m.venueScope ?? null,
     });
   // better-sqlite3 is synchronous; with synchronous=FULL the WAL is fsynced before
   // .run() returns — safe to confirm to the renderer now.
@@ -247,6 +262,7 @@ function toRow(r: Record<string, unknown>): QueueRow {
     createdAt: r.created_at as string,
     staffId: (r.staff_id as string | null) ?? null,
     deviceId: (r.device_id as string | null) ?? null,
+    venueScope: (r.venue_scope as string | null) ?? null,
     state: r.state as QueueRow['state'],
     attempts: r.attempts as number,
     lastError: (r.last_error as string | null) ?? null,
@@ -372,6 +388,7 @@ export function listBlockingRows(): QueueRow[] {
         createdAt: r.created_at as string,
         staffId: (r.staff_id as string | null) ?? null,
         deviceId: (r.device_id as string | null) ?? null,
+        venueScope: (r.venue_scope as string | null) ?? null,
         state: 'failed' as QueueRow['state'],
         attempts: r.attempts as number,
         lastError: err.message,

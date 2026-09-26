@@ -127,6 +127,8 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
           payload: row.payload,
           station_id: row.deviceId,
           staff_id: row.staffId,
+          // 0228: the branch the write was queued under (x-venue-scope on replay).
+          ...(row.venueScope ? { venue_scope: row.venueScope } : {}),
         }),
       });
     } catch (error) {

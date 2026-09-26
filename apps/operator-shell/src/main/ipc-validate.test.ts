@@ -60,11 +60,19 @@ describe('validateMutationEnvelope', () => {
   it('accepts a well-formed envelope and returns only known fields', () => {
     const result = validateMutationEnvelope(envelope({ sneaky: 'extra' }));
     expect(Object.keys(result).sort()).toEqual(
-      ['createdAt', 'deviceId', 'idempotencyKey', 'localId', 'mutationType', 'payload', 'staffId'].sort(),
+      ['createdAt', 'deviceId', 'idempotencyKey', 'localId', 'mutationType', 'payload', 'staffId', 'venueScope'].sort(),
     );
     expect((result as Record<string, unknown>).sneaky).toBeUndefined();
     expect(result.staffId).toBe(STAFF);
     expect(result.deviceId).toBe('TILL-01');
+    // No branch named: the row carries none (a registered station's own branch wins on the server).
+    expect(result.venueScope).toBeNull();
+  });
+
+  it('keeps a queued branch (0228) and refuses one that is not a uuid', () => {
+    const branch = 'c0000000-0000-4000-8000-000000000001';
+    expect(validateMutationEnvelope(envelope({ venueScope: branch })).venueScope).toBe(branch);
+    expect(() => validateMutationEnvelope(envelope({ venueScope: 'branch-a' }))).toThrow(/venueScope/);
   });
 
   it.each([

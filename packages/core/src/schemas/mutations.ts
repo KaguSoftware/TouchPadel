@@ -511,6 +511,14 @@ const baseFields = {
   staffId: uuid,
   /** The station that owns the durable queue, e.g. 'TILL-01'. */
   deviceId: stationSchema,
+  /**
+   * The branch the screens showed when the write was queued (multi-venue audit,
+   * 0228): replay sends it as x-venue-scope, so a write from a machine that is
+   * not a registered station lands at that branch, not wherever the replay-time
+   * scope points. Absent on rows queued before it existed, and on a station
+   * (whose own branch always wins on the server).
+   */
+  venueScope: uuid.nullable().optional(),
 } as const;
 
 const envelopeVariants = z.discriminatedUnion('mutationType', [
