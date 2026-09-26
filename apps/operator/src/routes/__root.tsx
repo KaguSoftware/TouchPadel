@@ -15,6 +15,7 @@
  */
 import { Link, Outlet, createRootRoute, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
@@ -64,6 +65,7 @@ import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '..
 import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
 import { RailMoreMenu } from '../components/RailMoreMenu';
 import { RailBranch } from '../components/RailBranch';
+import { useVenue } from '../lib/venue';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
 import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
@@ -347,6 +349,9 @@ function NotStaffScreen({ email, onSignOut }: { email: string | null; onSignOut:
 // WorkspaceShell — rail + banner region + routed screen
 // ---------------------------------------------------------------------------
 function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatState | null }) {
+  // Every screen remounts when the branch changes, so no editor keeps a draft
+  // seeded from the last branch and saves it into this one.
+  const { branchId } = useVenue();
   const available = useMemo(() => workspacesForRole(role), [role]);
   const [active, setActiveState] = useState<WorkspaceKey>(() => loadWorkspace(role));
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -464,7 +469,9 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
                 paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
               }}
             >
-              <Outlet />
+              <Fragment key={branchId ?? 'no-branch'}>
+                <Outlet />
+              </Fragment>
             </main>
           </div>
         </div>

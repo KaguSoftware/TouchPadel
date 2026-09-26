@@ -23,7 +23,7 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 export const QK = {
-  /** venue_settings_public, one row: timezone + hours + closed dates. */
+  /** venue_settings, the branch in scope's row: timezone + hours + closed dates. */
   venueSettings: ['venueSettings'] as const satisfies QueryKey,
   /** Active courts, ordered for display. */
   courts: ['courts'] as const satisfies QueryKey,
