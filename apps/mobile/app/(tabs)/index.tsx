@@ -248,7 +248,18 @@ const COURT_GAP = 8;
  * The "Open now · 09:00–02:00" pill. Owns the minute clock so the rest of the
  * screen — the GL court in particular — does not re-render every minute.
  */
-function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }) {
+function OpenNowPill({
+  settings,
+  fade,
+}: {
+  settings: VenueSettingsPublic | undefined;
+  /**
+   * BOOK A COURT's own fade (`header.out`) while the sheet is mounted, so the
+   * pill leaves and returns with the heading; a plain 1 at rest. See the
+   * comment on the pill's call site for why it must be a plain 1 at rest.
+   */
+  fade: Animated.AnimatedInterpolation<number> | 1;
+}) {
   const { t } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const dark = appearance === 'dark';
@@ -276,10 +287,14 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
     //
     // The border WIDTH is kept on the Liquid Glass branch and only its colour
     // dropped (the capsule has no rim): the pill must not change size.
-    // GlassView renders here because nothing above the pill fades — the
-    // condition the capsule's park exists to meet.
-    <View
+    // The whole pill fades as one, glass included (owner, 2026-09-26). A
+    // GlassView under an alpha < 1 draws nothing, and one that has started
+    // life that way may not come back, so at rest `fade` is a plain 1 (no
+    // animated node over the glass at all) and the glass is REMOUNTED fresh
+    // each time the pill comes to rest (`key` on the call site).
+    <Animated.View
       style={{
+        opacity: fade,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
@@ -327,7 +342,7 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
             keeps "09:00–02:00" in order (formatTimeRange does the same). */}
         {info.open ? t('courts.openNow', { hours: isolate(info.label) }) : t('courts.closedNow')}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -1212,16 +1227,25 @@ export default function BookHomeScreen() {
               <TitleSquiggle />
             </Animated.View>
           </Animated.View>
-          {/* Belongs to the court view, like the branch picker: it leaves with
-              BOOK A COURT, so the wider PICK A TIME capsule never runs into it. */}
-          <Animated.View
+          {/* Belongs to the court view, like the branch picker: it fades out
+              with BOOK A COURT when the sheet opens and back in as it closes
+              (owner, 2026-09-26). The fade is only attached while the sheet is
+              mounted; the sheet unmounts at p 0.25 on the way down, where
+              `header.out` is already ~1, so dropping to a plain 1 there does
+              not show. The `key` remounts the pill at that moment, so its glass
+              is created fresh with nothing fading above it. */}
+          <View
             pointerEvents={isOpen ? 'none' : 'auto'}
             accessibilityElementsHidden={isOpen}
             importantForAccessibility={isOpen ? 'no-hide-descendants' : 'auto'}
-            style={{ marginStart: space.sm, opacity: header.out }}
+            style={{ marginStart: space.sm }}
           >
-            <OpenNowPill settings={settings.data ?? undefined} />
-          </Animated.View>
+            <OpenNowPill
+              key={sheetMounted ? 'fading' : 'rest'}
+              settings={settings.data ?? undefined}
+              fade={sheetMounted ? header.out : 1}
+            />
+          </View>
         </View>
 
         {/* The branch picker (multi-venue slice 4), before the grid: which
