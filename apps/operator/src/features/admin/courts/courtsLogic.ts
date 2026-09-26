@@ -55,3 +55,22 @@ export function courtUsageFromError(error: unknown): CourtUsage | null {
     return zero;
   }
 }
+
+/**
+ * Calendar order when only some courts are listed (switched-off courts fold
+ * away). Moving a court swaps it with its neighbour IN THE LIST THE OWNER SEES,
+ * and the full order sent to app.reorder_courts keeps every hidden court where
+ * it was. Null when the move goes nowhere (top of the list, bottom, unknown id).
+ */
+export function moveAmongShown(allIds: readonly string[], shownIds: readonly string[], id: string, delta: -1 | 1): string[] | null {
+  const at = shownIds.indexOf(id);
+  const neighbour = shownIds[at + delta];
+  if (at < 0 || neighbour === undefined) return null;
+  const from = allIds.indexOf(id);
+  const to = allIds.indexOf(neighbour);
+  if (from < 0 || to < 0) return null;
+  const next = [...allIds];
+  next[from] = neighbour;
+  next[to] = id;
+  return next;
+}

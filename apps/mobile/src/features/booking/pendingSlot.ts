@@ -17,13 +17,12 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Which surface the slot was tapped on: the booking sheet over the court on
- * the Book tab, or the standalone Availability screen. Downstream screens use
- * it to send the guest BACK to the surface they came from (a hold that fails
- * after sign-in, Review's "back to availability") instead of always to the
- * standalone route over a still-open sheet.
+ * Which surface the slot was tapped on. Only the booking sheet over the court
+ * on the Book tab is left — the standalone Availability screen was removed
+ * (owner, 2026-09-26) — but Review still reads it to tell "the sheet is open
+ * beneath me, pop back to it" from a way in that must ask for the sheet.
  */
-export type SlotOrigin = 'sheet' | 'screen';
+export type SlotOrigin = 'sheet';
 
 export interface PendingSlot {
   courtId: string;

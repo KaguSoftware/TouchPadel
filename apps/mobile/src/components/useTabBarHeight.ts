@@ -6,8 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 /** Standard `UITabBar` content height, above the home-indicator inset. */
 const IOS_TAB_BAR_HEIGHT = 49;
 
-/** Design: 62 pt bar; the nav-bar inset is added below it (TabsLayout.android). */
-const ANDROID_TAB_BAR_HEIGHT = 62;
+/**
+ * Must stay equal to TAB_BAR_BASE in navigation/TabsLayout.android.tsx — this
+ * is the fallback for the same bar, so a mismatch pads scroll content to a
+ * height the bar does not have. Both are 56, sized to the bar's own content now
+ * that the hidden nav bar contributes no inset.
+ */
+const ANDROID_TAB_BAR_HEIGHT = 56;
 
 /**
  * Height of whichever tab bar is mounted, so screens can pad their scroll
@@ -29,5 +34,8 @@ export function useTabBarHeight(): number {
   const measured = useContext(BottomTabBarHeightContext);
   const bottomInset = useSafeAreaInsets().bottom;
   if (measured != null) return measured;
+  // `bottomInset` is 0 on Android (navigation/immersiveInsets.tsx zeroes it, so
+  // nothing reserves space for the overlaying nav bar); on iOS it is the real
+  // home-indicator inset the bar still sits above.
   return (Platform.OS === 'ios' ? IOS_TAB_BAR_HEIGHT : ANDROID_TAB_BAR_HEIGHT) + bottomInset;
 }

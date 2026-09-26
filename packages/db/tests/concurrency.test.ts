@@ -389,18 +389,14 @@ describe.skipIf(!up)('cafe concurrency (contractual cases 8-9, drops 2/3)', () =
       expect(tickets).toHaveLength(1); // replay never spawned a second KDS ticket
     }
 
-    // Replay bookkeeping (0021): the till's log of the same key dedupes too.
-    const logArgs = {
-      p_device_id: 'TILL-TEST',
-      p_idempotency_key: key,
-      p_entity: 'order',
-      p_result: 'duplicate',
-    };
-    const log1 = await appRpc(cashier, 'log_replay', logArgs).then(outcome);
-    const log2 = await appRpc(cashier, 'log_replay', logArgs).then(outcome);
-    expect(log1.ok, log1.errorMessage).toBe(true);
-    expect(log1.duplicate).toBe(false);
-    expect(log2.duplicate).toBe(true);
+    // Replay bookkeeping: since 0114 sync_replays is written ONLY by the replay
+    // edge function as the service role (app.log_replay is gone — S5). The
+    // ledger's unique key is what dedupes a second attempt at the same write.
+    const ledgerRow = { device_id: 'TILL-TEST', idempotency_key: key, entity: 'order', result: 'duplicate' };
+    const ins1 = await svc.from('sync_replays').insert(ledgerRow);
+    const ins2 = await svc.from('sync_replays').insert(ledgerRow);
+    expect(ins1.error).toBeNull();
+    expect(ins2.error?.code).toBe('23505');
   });
 
   it('case 9: 10 concurrent orders FEFO-draining 3 batches -> exact sums, no negative batch, ONE overdraft alert', async () => {

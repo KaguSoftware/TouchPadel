@@ -14,6 +14,7 @@ import {
   outcome,
   SEED_STAFF,
   DEV_PINS,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -108,6 +109,7 @@ describe.skipIf(!up)('0064 idle lock', () => {
     const { data } = await svc
       .from('cafe_settings')
       .select('value')
+      .eq('venue_id', VENUE_A_ID)
       .eq('key', 'till_idle_lock_seconds')
       .single();
     expect((data as { value: number }).value).toBe(120);

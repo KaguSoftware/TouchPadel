@@ -3,7 +3,7 @@
  * in packages/db/tests/helpers.ts (service-role client, staff sign-in,
  * generate_table_token as owner, ensureOpenDay, ensureTillFresh).
  */
-import type { Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -25,6 +25,39 @@ export const SEED_STAFF = {
   prep: 'prep@dev.touch.local',
   court_desk: 'desk@dev.touch.local',
 } as const;
+
+/**
+ * Pick an option in a dropdown, native or not. The operator's dropdowns are
+ * `Select` (components/ui.tsx), a combobox with its own popup rather than a
+ * native <select>, so `selectOption()` refuses them. A string picks by value
+ * (the option's data-value, which reads the same in both locales); `{ label }`
+ * picks by the visible text, as selectOption() did.
+ */
+export async function choose(select: Locator, option: string | { label: string }): Promise<void> {
+  if ((await select.evaluate((el) => el.tagName)) === 'SELECT') {
+    await select.selectOption(option);
+    return;
+  }
+  // A grouped list writes its group ahead of the label ("Cafe · Beans"), where
+  // a native <optgroup> kept it out of the option: the label still matches.
+  const escaped = typeof option === 'string' ? '' : option.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Already showing it — a form with one choice starts on it, as a native
+  // select would, and selectOption() was a no-op there too.
+  if (typeof option !== 'string' && new RegExp(`^(?:.+ · )?${escaped}$`).test((await select.innerText()).trim())) return;
+  const list = select.page().getByRole('listbox');
+  // A click that lands while the dialog is still settling can leave the popup
+  // shut; open it until it is open rather than waiting on one that never came.
+  await expect(async () => {
+    if (!(await list.isVisible())) await select.click();
+    await expect(list).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+  const item =
+    typeof option === 'string'
+      ? list.locator(`[role="option"][data-value="${option}"]`)
+      : list.getByRole('option', { name: new RegExp(`^(?:.+ · )?${escaped}$`) });
+  await item.click();
+  await list.waitFor({ state: 'hidden' });
+}
 
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false } } as const;
 
@@ -128,6 +161,25 @@ export async function ensureTillFresh(svc: SupabaseClient): Promise<void> {
     .select('device_id');
   if (error) throw new Error(`ensureTillFresh failed: ${error.message}`);
   if (data && data.length > 0) return;
+
+  // Since 0229 a heartbeat row belongs to a live, registered station (a
+  // heartbeat never registers one), so the seeded till is registered first,
+  // the way a manager does in Settings > Stations.
+  const { data: venue, error: vErr } = await svc
+    .from('venues')
+    .select('id')
+    .eq('is_active', true)
+    .order('created_at')
+    .limit(1)
+    .single();
+  if (vErr) throw new Error(`ensureTillFresh venue failed: ${vErr.message}`);
+  const { error: stErr } = await svc
+    .from('stations')
+    .upsert(
+      { id: 'TILL-E2E', venue_id: (venue as { id: string }).id, is_till: true, mode: 'till', retired_at: null },
+      { onConflict: 'id' },
+    );
+  if (stErr) throw new Error(`ensureTillFresh station failed: ${stErr.message}`);
 
   const { error: insErr } = await svc
     .from('device_heartbeats')
@@ -337,4 +389,27 @@ export function channelJoined(page: Page, topic = 'menu'): Promise<void> {
       });
     });
   }).then(() => page.waitForTimeout(1_000));
+}
+
+// ---------------------------------------------------------------------------
+// Till shifts (wave5-addendum-2026-09-25 §5.1, §8 Q30): a cashier's or the
+// desk's first payment at a station asks for a shift of their own first.
+// ---------------------------------------------------------------------------
+
+/**
+ * Call right after pressing Cash or Card. When the payment pane asks for a
+ * shift ("Start my shift"), take what the drawer is offered as counted with
+ * "That's right", so the tender opens in its place; with a shift of theirs
+ * already open, or for a manager, the tender is already there and this only
+ * waits for it.
+ */
+export async function passShiftGate(page: Page): Promise<void> {
+  const start = page.getByRole('dialog', { name: 'Start my shift' });
+  const tender = page.getByRole('dialog', { name: /^(Cash|Card)$/ });
+  await expect(start.or(tender)).toBeVisible();
+  if (await start.isVisible()) {
+    await start.getByRole('button', { name: 'That’s right' }).click();
+    await expect(start).toBeHidden();
+  }
+  await expect(tender).toBeVisible();
 }

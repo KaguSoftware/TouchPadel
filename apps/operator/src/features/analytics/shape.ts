@@ -8,6 +8,13 @@
 import type { ItemRef } from '@touch/core';
 import type { PosthogQueryResult } from '../../lib/analyticsApi';
 
+/**
+ * The named SQL queries of the cafe tab. Lives here, not in useAnalyticsData,
+ * so the fixtures (and packages/db's insights-fallback test) can name a query
+ * without pulling the React hook and its component imports into their graph.
+ */
+export type SqlKey = 'dailySales' | 'dailySalesPrev' | 'soldItems' | 'bestSellers' | 'boughtTogether' | 'itemMargins' | 'promo' | 'menuSnapshot' | 'hourly';
+
 export const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
   return Number.isFinite(n) ? n : 0;
@@ -20,19 +27,32 @@ const obj = (v: unknown): Record<string, unknown> =>
 // ---------------------------------------------------------------------------
 // SQL
 // ---------------------------------------------------------------------------
+/** One business day of app.analytics_daily_sales (0095): money on the SETTLE day, counts on their event clocks. */
 export interface DailySalesRow {
   date: string;
+  /** Cafe NET revenue: total − court fee − refunds. */
   revenueIqd: number;
+  /** Cafe revenue before refunds (total − court fee). */
+  cafeGrossIqd: number;
+  /** Court fees paid on cafe tabs, for reconciliation with the courts tab. */
+  courtFeesIqd: number;
+  /** Refunds of the tabs settled that day, whenever they were made. */
+  refundsIqd: number;
+  /** Payments − refunds by method; cash + card = gross + court fees − refunds. */
   cashIqd: number;
   cardIqd: number;
   tabs: number;
   orders: number;
+  /** Units net of itemised refunds. */
   itemsQty: number;
+  /** Discounts stamped on the settled tabs. */
   discountIqd: number;
   visits: number;
   guestOrders: number;
   tillOrders: number;
   waiterCalls: number;
+  /** Stock written off that day, at its movement cost (0099): the panel's waste figure, by day. */
+  wasteIqd: number;
 }
 
 export function parseDailySales(json: unknown): DailySalesRow[] {
@@ -41,6 +61,9 @@ export function parseDailySales(json: unknown): DailySalesRow[] {
     return {
       date: str(o.business_date),
       revenueIqd: num(o.revenue_iqd),
+      cafeGrossIqd: num(o.cafe_gross_iqd),
+      courtFeesIqd: num(o.court_fees_iqd),
+      refundsIqd: num(o.refunds_iqd),
       cashIqd: num(o.cash_iqd),
       cardIqd: num(o.card_iqd),
       tabs: num(o.tabs_settled),
@@ -51,6 +74,7 @@ export function parseDailySales(json: unknown): DailySalesRow[] {
       guestOrders: num(o.guest_orders),
       tillOrders: num(o.till_orders),
       waiterCalls: num(o.waiter_calls),
+      wasteIqd: num(o.waste_iqd),
     };
   });
 }
@@ -162,7 +186,8 @@ export interface ItemMarginRow extends ItemRef {
 
 export interface ItemMargins {
   basis: string;
-  costAsOf: string;
+  /** 0095: 'line_snapshot' — the cost stamped on each line when it was sold. */
+  costBasis: string;
   items: ItemMarginRow[];
   coverage: { revenueWithCostPct: number; itemsWithCost: number; itemsTotal: number };
 }
@@ -172,7 +197,7 @@ export function parseItemMargins(json: unknown): ItemMargins {
   const cov = obj(o.coverage);
   return {
     basis: str(o.basis),
-    costAsOf: str(o.cost_as_of),
+    costBasis: str(o.cost_basis),
     items: arr(o.items)
       .map((r) => {
         const i = obj(r);
@@ -251,6 +276,24 @@ export function parseMenuSnapshot(json: unknown): MenuSnapshotRow[] {
       };
     })
     .filter((r) => r.id !== '');
+}
+
+export interface HourlyCell {
+  /** Weekday of the BUSINESS day, 0 = Sunday. */
+  dow: number;
+  /** Venue-local clock hour of placed_at. */
+  hour: number;
+  orders: number;
+  qty: number;
+  revenueIqd: number;
+}
+
+/** app.analytics_hourly: till orders by (business dow, local hour). */
+export function parseHourly(json: unknown): HourlyCell[] {
+  return arr(json).map((r) => {
+    const o = obj(r);
+    return { dow: num(o.dow), hour: num(o.hour), orders: num(o.orders), qty: num(o.qty), revenueIqd: num(o.revenue_iqd) };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -349,22 +392,6 @@ export function parseBasketToCall(r?: PosthogQueryResult): BasketToCall {
   };
 }
 
-export interface TableActivityRow {
-  table: string;
-  sessions: number;
-  views: number;
-  waiterCalls: number;
-  orders: number;
-}
-export const parseTableActivity = (r?: PosthogQueryResult): TableActivityRow[] =>
-  rowsToObjects(r).map((o) => ({
-    table: str(o.table_number),
-    sessions: num(o.sessions),
-    views: num(o.views),
-    waiterCalls: num(o.waiter_calls),
-    orders: num(o.orders),
-  }));
-
 export interface HeatCell {
   dow: number;
   hour: number;
@@ -378,19 +405,6 @@ export const parseHeatmap = (r?: PosthogQueryResult): HeatCell[] =>
     views: num(o.views),
     sessions: num(o.sessions),
   }));
-
-export interface PeakHourRow {
-  hour: number;
-  views: number;
-  sessions: number;
-}
-export function parsePeakHours(r?: PosthogQueryResult): PeakHourRow[] {
-  const by = new Map(rowsToObjects(r).map((o) => [num(o.hour), o]));
-  return Array.from({ length: 24 }, (_, h) => {
-    const o = by.get(h);
-    return { hour: h, views: o ? num(o.views) : 0, sessions: o ? num(o.sessions) : 0 };
-  });
-}
 
 export interface PromoSurface {
   kind: 'featured' | 'suggested';
@@ -467,20 +481,3 @@ export const parseCategoryPopularity = (r?: PosthogQueryResult): CategoryPopRow[
       sessions: num(o.sessions),
     }))
     .filter((x) => x.id !== '');
-
-export interface LocalePref {
-  locale: string;
-  sessions: number;
-  medianSeconds: number;
-  topItems: { id: string; name: string; sessions: number; rate: number }[];
-}
-export const parseLocalePreferences = (r?: PosthogQueryResult): LocalePref[] =>
-  rowsToObjects(r).map((o) => ({
-    locale: str(o.locale),
-    sessions: num(o.sessions),
-    medianSeconds: num(o.median_seconds),
-    topItems: arr(o.top_items).map((t) => {
-      const x = obj(t);
-      return { id: str(x.item_id), name: str(x.item_name), sessions: num(x.sessions), rate: num(x.rate) };
-    }),
-  }));

@@ -6,13 +6,19 @@
  *   1. app.claim_due_telegram(50): queued, attempts < 8, due, SKIP LOCKED;
  *      the claim bumps `attempts` up front.
  *   2. Render each row from its payload SNAPSHOT (never re-reads live rows) in
- *      the language from `cafe_settings.telegram_lang` (payload wins if it
- *      ever carries `lang`), then Bot API `sendMessage` (HTML + inline keyboard).
+ *      the language from its branch's `cafe_settings.telegram_lang` (per branch
+ *      since 0209; payload wins if it ever carries `lang`), then Bot API
+ *      `sendMessage` (HTML + inline keyboard).
  *   3. Stamp the row:
  *        ok            -> status 'sent', sent_at, telegram_message_id, text,
  *                         reply_markup (the callback needs both for editMessageText)
  *        429           -> stay 'queued', scheduled_for = now + retry_after
  *        network / 5xx -> stay 'queued', last_error, backoff min(5s * 2^attempts, 5min)
+ *        400 + migrate_to_chat_id -> the group became a supergroup: follow it once
+ *                         (row chat_id, and the row's branch's cafe_settings.telegram_chat_id
+ *                         when it still holds the old id, so taps keep passing 0039's
+ *                         chat check),
+ *                         then resend in the same pass
  *        other 4xx     -> 'failed' (bad token / chat not found / parse error: retrying
  *                         cannot help; the owner re-queues via app.retry_telegram_outbox)
  *        attempts >= 8 -> 'failed' whatever the error
@@ -25,6 +31,7 @@
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { json } from '../_shared/http.ts';
 import { keyboardByKind, renderByKind, type Lang } from '../_shared/telegram.ts';
+import { migrateToChatId } from '../_shared/telegramDiagnose.ts';
 
 const CLAIM_LIMIT = 50;
 const RETRY_CAP = 8; // mirrors attempts < 8 in app.claim_due_telegram
@@ -38,6 +45,8 @@ interface OutboxRow {
   chat_id: string;
   payload: Record<string, unknown>;
   attempts: number;
+  /** 0126: the branch the alert belongs to; its group and language are per branch (0209, 0212). */
+  venue_id: string;
 }
 
 interface TgResponse {
@@ -45,11 +54,12 @@ interface TgResponse {
   result?: { message_id?: number };
   error_code?: number;
   description?: string;
-  parameters?: { retry_after?: number };
+  parameters?: { retry_after?: number; migrate_to_chat_id?: number };
 }
 
 type SendOutcome =
   | { kind: 'ok'; messageId: number | null }
+  | { kind: 'migrated'; newChatId: string; description: string }
   | { kind: 'rate_limited'; retryAfterSec: number; description: string }
   | { kind: 'transient'; description: string }
   | { kind: 'permanent'; description: string };
@@ -76,6 +86,8 @@ async function sendMessage(token: string, body: Record<string, unknown>): Promis
   }
   const code = data?.error_code ?? res.status;
   const description = `HTTP ${code}: ${data?.description ?? res.statusText ?? 'unknown'}`;
+  const newChatId = migrateToChatId(data);
+  if (newChatId) return { kind: 'migrated', newChatId, description };
   if (code === 429) {
     return { kind: 'rate_limited', retryAfterSec: data?.parameters?.retry_after ?? 5, description };
   }
@@ -117,11 +129,14 @@ Deno.serve(async (req) => {
     if (rows.length === 0) return json({ configured: true, claimed: 0, sent: 0, failed: 0, skipped: 0 });
 
     // Language: payload wins if present (not today, per 0032), else one settings read.
-    let settingLang: Lang | null = null;
+    // telegram_lang per branch (0209): one read for every branch in this batch.
+    const langByVenue = new Map<string, Lang>();
     const needsSetting = rows.some((r) => !(r.payload?.lang === 'ar' || r.payload?.lang === 'en'));
     if (needsSetting) {
-      const { data: s } = await db.from('cafe_settings').select('value').eq('key', 'telegram_lang').maybeSingle();
-      settingLang = s?.value === 'en' ? 'en' : 'ar';
+      const { data: s } = await db.from('cafe_settings').select('venue_id, value').eq('key', 'telegram_lang');
+      for (const r of (s ?? []) as { venue_id: string; value: unknown }[]) {
+        langByVenue.set(r.venue_id, r.value === 'en' ? 'en' : 'ar');
+      }
     }
 
     let sent = 0;
@@ -129,7 +144,7 @@ Deno.serve(async (req) => {
     let skipped = 0;
 
     for (const row of rows) {
-      const lang: Lang = row.payload?.lang === 'en' ? 'en' : row.payload?.lang === 'ar' ? 'ar' : (settingLang ?? 'ar');
+      const lang: Lang = row.payload?.lang === 'en' ? 'en' : row.payload?.lang === 'ar' ? 'ar' : (langByVenue.get(row.venue_id) ?? 'ar');
 
       let text: string;
       let replyMarkup: unknown;
@@ -154,7 +169,31 @@ Deno.serve(async (req) => {
       };
       if (replyMarkup) body.reply_markup = replyMarkup;
 
-      const outcome = await sendMessage(token, body);
+      let outcome = await sendMessage(token, body);
+      if (outcome.kind === 'migrated') {
+        const newChatId = outcome.newChatId;
+        console.warn(`outbox ${row.id}: chat ${row.chat_id} migrated to ${newChatId}`);
+        // Only move the setting if nobody has changed it since this row was enqueued.
+        const { data: current } = await db
+          .from('cafe_settings')
+          .select('value')
+          .eq('key', 'telegram_chat_id')
+          .eq('venue_id', row.venue_id)
+          .maybeSingle();
+        if (current?.value === row.chat_id) {
+          const { error: settingErr } = await db
+            .from('cafe_settings')
+            .update({ value: newChatId, updated_at: new Date().toISOString() })
+            .eq('key', 'telegram_chat_id')
+            .eq('venue_id', row.venue_id);
+          if (settingErr) console.error('telegram_chat_id follow failed:', settingErr.message);
+        }
+        await db.from('telegram_outbox').update({ chat_id: newChatId }).eq('id', row.id);
+        body.chat_id = newChatId;
+        outcome = await sendMessage(token, body);
+        // A second migration answer cannot be followed again in this pass.
+        if (outcome.kind === 'migrated') outcome = { kind: 'permanent', description: outcome.description };
+      }
       const exhausted = row.attempts >= RETRY_CAP; // attempts already bumped by the claim
       let patch: Record<string, unknown>;
 

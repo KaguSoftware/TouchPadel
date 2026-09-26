@@ -10,16 +10,16 @@ describe('parseAuthLink', () => {
     });
   });
 
-  it('reads implicit tokens from the fragment', () => {
+  it('refuses raw tokens on the fragment (S6, 2026-09-20: login CSRF)', () => {
+    // A link that carries a session is a link that can sign this phone into
+    // someone else's account. It parses as "not an auth callback", so nothing
+    // downstream can act on it.
     expect(
       parseAuthLink('touchpadel://reset-password#access_token=at&refresh_token=rt&type=recovery'),
-    ).toEqual({
-      kind: 'tokens',
-      path: 'reset-password',
-      accessToken: 'at',
-      refreshToken: 'rt',
-      type: 'recovery',
-    });
+    ).toBeNull();
+    expect(
+      parseAuthLink('touchpadel://verify-email?access_token=at&refresh_token=rt'),
+    ).toBeNull();
   });
 
   it('reads an error, url-decoding the description', () => {
@@ -36,6 +36,12 @@ describe('parseAuthLink', () => {
     });
   });
 
+  it('reads an error from the fragment, where the implicit flow puts it', () => {
+    expect(
+      parseAuthLink('touchpadel://reset-password#error=access_denied&error_code=otp_expired'),
+    ).toMatchObject({ kind: 'error', path: 'reset-password', code: 'otp_expired' });
+  });
+
   it('prefers an error over a code delivered alongside it', () => {
     expect(parseAuthLink('touchpadel://verify-email?code=abc&error=access_denied')?.kind).toBe(
       'error',
@@ -43,19 +49,16 @@ describe('parseAuthLink', () => {
   });
 
   it('does not mistake a fragment separator for the query separator', () => {
-    expect(parseAuthLink('touchpadel://reset-password#access_token=a?b&refresh_token=rt')).toEqual({
-      kind: 'tokens',
+    expect(parseAuthLink('touchpadel://reset-password#code=a?b&x=1')).toEqual({
+      kind: 'pkce',
       path: 'reset-password',
-      accessToken: 'a?b',
-      refreshToken: 'rt',
-      type: null,
+      code: 'a?b',
     });
   });
 
   it('ignores links that carry no auth payload', () => {
     expect(parseAuthLink('touchpadel://bookings')).toBeNull();
     expect(parseAuthLink('touchpadel://verify-email')).toBeNull();
-    // An access_token without its refresh_token is not a usable session.
     expect(parseAuthLink('touchpadel://reset-password#access_token=at')).toBeNull();
     expect(parseAuthLink('not-a-url')).toBeNull();
     expect(parseAuthLink(null)).toBeNull();
@@ -86,18 +89,16 @@ describe('parseAuthLink', () => {
 });
 
 describe('isRecoveryLink', () => {
-  it('trusts an explicit type over the path', () => {
-    const link = parseAuthLink(
-      'touchpadel://verify-email#access_token=a&refresh_token=b&type=recovery',
-    );
-    expect(link && isRecoveryLink(link)).toBe(true);
-  });
-
-  it('falls back to the redirect path when there is no type', () => {
+  it('decides from the redirect path alone', () => {
     const reset = parseAuthLink('touchpadel://reset-password?code=x');
     const verify = parseAuthLink('touchpadel://verify-email?code=x');
     expect(reset && isRecoveryLink(reset)).toBe(true);
     expect(verify && isRecoveryLink(verify)).toBe(false);
+  });
+
+  it('ignores a type param — a link cannot promote itself to a recovery link', () => {
+    const link = parseAuthLink('touchpadel://verify-email?code=x&type=recovery');
+    expect(link && isRecoveryLink(link)).toBe(false);
   });
 });
 

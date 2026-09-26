@@ -143,15 +143,18 @@ describe('itemMomentum', () => {
     const r = itemMomentum(
       [
         { id: 'e001', count: 30 },
-        { id: 'e002', count: 8 },
+        { id: 'e002', count: 25 },
         { id: 'e003', count: 4 },
         { id: 'flat', count: 20 },
+        // Under the twenty-view floor in both windows: a trend nobody should read.
+        { id: 'small', count: 12 },
       ],
       [
         { id: 'e001', count: 10 },
-        { id: 'gone', count: 12 },
+        { id: 'gone', count: 24 },
         { id: 'flat', count: 21 },
         { id: 'tiny', count: 2 },
+        { id: 'small', count: 3 },
       ],
       now,
       engagementWindow(prev, null),
@@ -162,7 +165,8 @@ describe('itemMomentum', () => {
       ['e002', null, true],
       ['e001', 200, false],
     ]);
-    expect(r.fading.map((i) => [i.id, i.current, i.previous, i.deltaPct])).toEqual([['gone', 0, 12, -100]]);
+    expect(r.fading.map((i) => [i.id, i.current, i.previous, i.deltaPct])).toEqual([['gone', 0, 24, -100]]);
+    expect(r.rising.map((i) => i.id)).not.toContain('small');
     expect(r.rising[0]).toMatchObject({ nameEn: 'Cappuccino' });
   });
 });

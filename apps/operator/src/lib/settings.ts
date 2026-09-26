@@ -4,7 +4,10 @@
  * (RLS: manager|owner). Writes: `app.set_cafe_setting(p_key, p_value jsonb)`
  * — validated + audited server-side; owner-only keys return FORBIDDEN.
  */
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { businessTodayISO, normalizeBusinessDayStart } from '@touch/core';
+import { VENUE_TZ } from '@touch/i18n';
 import { supabase } from './supabase';
 import { appRpc } from './appRpc';
 
@@ -34,6 +37,8 @@ export interface CafeSettings {
   analytics_engagement_floor: string | null;
   /** 0064: seconds of till inactivity before the lock overlay (0 = disabled). */
   till_idle_lock_seconds: number;
+  /** 0105: minutes of break per person per business day, across all their breaks (0 = no breaks). */
+  break_allowance_minutes: number;
 }
 export type CafeSettingKey = keyof CafeSettings;
 
@@ -59,6 +64,7 @@ export const CAFE_SETTING_DEFAULTS: Readonly<CafeSettings> = {
   analytics_excluded_item_ids: [],
   analytics_engagement_floor: null,
   till_idle_lock_seconds: 300,
+  break_allowance_minutes: 60,
 };
 
 export const CAFE_SETTING_KEYS = Object.keys(CAFE_SETTING_DEFAULTS) as readonly CafeSettingKey[];
@@ -156,6 +162,32 @@ export function useCafeSettings() {
     staleTime: 30_000,
   });
   return { ...query, settings: query.data ?? CAFE_SETTING_DEFAULTS };
+}
+
+/**
+ * The venue's business day, as `app.business_date(now())` computes it: venue
+ * time less the business-day start hour. Anything the server stamps with that
+ * date (a menu item's `unavailable_on`) must be compared against this, not the
+ * station's calendar, which moved on at midnight while the venue kept trading.
+ */
+export function useBusinessToday(): string {
+  return useBusinessDay().todayIso;
+}
+
+/**
+ * The business day in the three shapes callers need: the date, that date as a
+ * station-local midnight (what presetPeriod counts from), and the start hour
+ * a business day begins at (for instant bounds).
+ */
+export function useBusinessDay(): { todayIso: string; today: Date; startHour: number } {
+  const { settings } = useCafeSettings();
+  const startHour = normalizeBusinessDayStart(settings.analytics_business_day_start_hour);
+  const todayIso = businessTodayISO(new Date(), startHour, VENUE_TZ);
+  const today = useMemo(() => {
+    const [y, m, d] = todayIso.split('-').map(Number);
+    return new Date(y!, (m ?? 1) - 1, d ?? 1);
+  }, [todayIso]);
+  return { todayIso, today, startHour };
 }
 
 export interface SetCafeSettingInput<K extends CafeSettingKey = CafeSettingKey> {

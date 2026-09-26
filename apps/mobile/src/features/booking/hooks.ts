@@ -65,11 +65,13 @@ export function useHoldSlot() {
   });
 }
 
+type ConfirmVars = { holdId: string };
+
 export function useConfirmBooking() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ['confirm-booking'],
-    mutationFn: (holdId: string) => confirmBooking(supabase, holdId),
+    mutationFn: ({ holdId }: ConfirmVars) => confirmBooking(supabase, holdId),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['availability'] });
       void queryClient.invalidateQueries({ queryKey: bookingKeys.mine });

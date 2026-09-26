@@ -26,8 +26,49 @@ import {
   SEED_STAFF,
   SEED_STAFF_IDS,
 } from './helpers';
+import { Constants } from '../src/types.gen';
+import { RETIRED_ROLES, ROLES, checkCreateRole } from '../supabase/functions/staff-admin/role';
 
 const up = await stackAvailable();
+
+// ── the create role check (pure, no stack needed) ───────────────────────────
+// The edge function is the only wall against a new prep account (0155): the
+// database still admits prep in every guard, so nothing else would catch it.
+describe('staff-admin checkCreateRole (pure)', () => {
+  it('refuses prep by name, pointing at barista and chef', () => {
+    const r = checkCreateRole('prep');
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toBe('ROLE_RETIRED');
+    expect(r.message).toMatch(/barista or chef/);
+  });
+
+  it('accepts each of the twelve assignable roles as itself', () => {
+    expect(ROLES).toHaveLength(12);
+    for (const role of ROLES) expect(checkCreateRole(role)).toEqual({ ok: true, role });
+  });
+
+  it('creates the wave-5 assistant barista and waiter (wave5-addendum-2026-09-25 §2.1.6)', () => {
+    // The owner creates Hussein's and Hasan's accounts through this check.
+    expect(checkCreateRole('assistant_barista')).toEqual({ ok: true, role: 'assistant_barista' });
+    expect(checkCreateRole('waiter')).toEqual({ ok: true, role: 'waiter' });
+  });
+
+  it('calls anything that is not exactly a role a bad request, not a retired one', () => {
+    for (const role of [undefined, null, 7, '', 'prep ', 'Prep', 'PREP', 'baker', ['prep']]) {
+      const r = checkCreateRole(role);
+      expect(r.ok, String(role)).toBe(false);
+      if (!r.ok) expect(r.error, String(role)).toBe('BAD_REQUEST');
+    }
+  });
+
+  it('splits every staff_role value into assignable or retired, and nothing is both', () => {
+    // A later `alter type staff_role add value` that forgets this function fails here.
+    const all = [...ROLES, ...RETIRED_ROLES].sort();
+    expect(all).toEqual([...Constants.public.Enums.staff_role].sort());
+    expect(new Set(all).size).toBe(all.length);
+  });
+});
 
 describe.skipIf(!up)('0051 staff administration', () => {
   let svc: SupabaseClient;
@@ -40,7 +81,18 @@ describe.skipIf(!up)('0051 staff administration', () => {
 
   async function makeStaff(
     tag: string,
-    role: 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner' = 'cashier',
+    role:
+      | 'cashier'
+      | 'prep'
+      | 'court_desk'
+      | 'manager'
+      | 'owner'
+      | 'head_barista'
+      | 'barista'
+      | 'head_chef'
+      | 'chef'
+      | 'driver'
+      | 'marketing' = 'cashier',
   ): Promise<string> {
     const email = `staffadmin-${tag}-${Date.now()}-${created.length}@test.touch.local`;
     const { data, error } = await svc.auth.admin.createUser({
@@ -156,10 +208,11 @@ describe.skipIf(!up)('0051 staff administration', () => {
       expect(row.after.role).toBe('manager');
     });
 
-    it('clears the PIN when the role drops below manager', async () => {
-      // PINs exist for managers and owners only (0026). Leaving one behind on a
-      // demoted cashier is a live authorisation credential for someone who can
-      // no longer authorise anything.
+    it('keeps the PIN when the role drops below manager (0105)', async () => {
+      // Until 0105 a demotion cleared the PIN, because a PIN existed only to
+      // approve money moves. It is the person's PIN now — it starts and ends
+      // their breaks and unlocks the station — and verify_manager_pin filters
+      // on the role at verification time, so nothing is left that can approve.
       const id = await makeStaff('demote', 'manager');
       expect((await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '482913' })).error)
         .toBeNull();
@@ -168,7 +221,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
       expect(
         (await appRpc(owner, 'set_staff_role', { p_staff_id: id, p_role: 'cashier' })).error,
       ).toBeNull();
-      expect((await readStaff(id)).pin_hash).toBeNull();
+      expect((await readStaff(id)).pin_hash).not.toBeNull();
     });
 
     it('keeps the PIN when moving between manager and owner', async () => {

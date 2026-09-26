@@ -34,34 +34,37 @@
  * Pure: no supabase, no react. The policy is what has to be right, so the
  * policy is what is tested (`roleResolution.test.ts`).
  */
-export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
+/**
+ * The role list, the row shape and the classification itself now live in
+ * `@touch/core/staff/roles`, shared with the staff phone
+ * (docs/design/protocols/build-contracts-2026-09-23.md §7.1). This file keeps
+ * what is the operator's own: what a resolution means for a till (below), and
+ * re-exports the rest so every import site stays as it was.
+ */
+import {
+  resolveStaffRow as resolveStaffRowShared,
+  type RoleResolution as SharedRoleResolution,
+  type StaffRow,
+} from '@touch/core/staff/roles';
 
-export interface StaffInfo {
-  id: string;
-  displayName: string;
-  role: StaffRole;
-}
-
-export type RoleResolution =
-  /** A staff row exists and is active. */
-  | { kind: 'active'; info: StaffInfo }
-  /** Definite: no staff row, or the row says is_active = false. */
-  | { kind: 'revoked' }
-  /** We could not ask. Says nothing about the account either way. */
-  | { kind: 'unknown' };
-
-/** The shape `select id, display_name, role, is_active from staff` returns. */
-export interface StaffRow {
-  id: string;
-  display_name: string;
-  role: string;
-  is_active: boolean;
-}
-
-const ROLES: readonly string[] = ['cashier', 'prep', 'court_desk', 'manager', 'owner'];
+export {
+  ROLE_RECHECK_MS,
+  STAFF_ROLES,
+  nextStaff,
+  type StaffInfo,
+  type StaffRole,
+  type StaffRow,
+} from '@touch/core/staff/roles';
 
 /**
- * Classify one staff lookup.
+ * The operator's three answers. The shared classifier has a fourth,
+ * `unknown_role` (an active row holding a role this build does not know); here
+ * it never escapes `resolveStaffRow` below.
+ */
+export type RoleResolution = Exclude<SharedRoleResolution, { kind: 'unknown_role' }>;
+
+/**
+ * Classify one staff lookup, the operator's way.
  *
  * ERROR WINS OVER DATA, deliberately: PostgREST can return both, and a response
  * carrying an error is not one to draw conclusions from. Reading a partial row
@@ -70,24 +73,16 @@ const ROLES: readonly string[] = ['cashier', 'prep', 'court_desk', 'manager', 'o
  * An unrecognised `role` string is 'revoked', not 'active'. A role this build
  * does not know cannot be checked against ROUTE_ROLES, and a value that fails
  * every comparison would render an operator with no navigation and no
- * explanation. Refusing it is both safer and more legible.
+ * explanation. Refusing it is both safer and more legible. (The phone reads
+ * the same answer as "update the app"; a station's build is installed by
+ * whoever runs the venue, not by the person signing in.)
  */
 export function resolveStaffRow(
   row: Partial<StaffRow> | null | undefined,
   error: unknown,
 ): RoleResolution {
-  if (error) return { kind: 'unknown' };
-  if (!row || row.is_active !== true) return { kind: 'revoked' };
-  if (typeof row.id !== 'string' || !row.id) return { kind: 'revoked' };
-  if (typeof row.role !== 'string' || !ROLES.includes(row.role)) return { kind: 'revoked' };
-  return {
-    kind: 'active',
-    info: {
-      id: row.id,
-      displayName: typeof row.display_name === 'string' ? row.display_name : '',
-      role: row.role as StaffRole,
-    },
-  };
+  const resolution = resolveStaffRowShared(row, error);
+  return resolution.kind === 'unknown_role' ? { kind: 'revoked' } : resolution;
 }
 
 /**
@@ -100,37 +95,3 @@ export function resolveStaffRow(
 export function shouldDropRealtime(resolution: RoleResolution): boolean {
   return resolution.kind === 'revoked';
 }
-
-/**
- * What the provider should hold after this resolution.
- *
- * 'unknown' returns `previous` unchanged — that is the whole point of the
- * three-way split. Note it does NOT re-assert 'active' into a null: a session
- * that never resolved stays unresolved.
- */
-export function nextStaff(previous: StaffInfo | null, resolution: RoleResolution): StaffInfo | null {
-  switch (resolution.kind) {
-    case 'active':
-      return resolution.info;
-    case 'revoked':
-      return null;
-    case 'unknown':
-      return previous;
-  }
-}
-
-/**
- * How often the signed-in role is re-checked.
- *
- * This is the number that decides how long a leaver keeps a live feed, so it is
- * the number the SEC-35 leaver drill will measure ("disable an account, confirm
- * sessions end everywhere, record the elapsed time"). Without a re-check the
- * answer is "up to jwt_expiry", 60 minutes today.
- *
- * 60s is a single indexed one-row select per till per minute — nothing next to
- * the polling refetchIntervals the same screens already run — and it turns that
- * hour into a minute. It is not shorter because the remaining exposure is
- * bounded by service reality: nobody is deactivated and then watched for the
- * next thirty seconds.
- */
-export const ROLE_RECHECK_MS = 60_000;

@@ -24,6 +24,7 @@ import {
   createTestMenuItem,
   addModifierToItem,
   snapshotCafeSettings,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -322,7 +323,7 @@ describe.skipIf(!up)('0050 operator atomic writes', () => {
   // -------------------------------------------------------------------------
   describe('app.set_cafe_settings', () => {
     async function readSetting(key: string): Promise<unknown> {
-      const { data } = await svc.from('cafe_settings').select('value').eq('key', key).maybeSingle();
+      const { data } = await svc.from('cafe_settings').select('value').eq('venue_id', VENUE_A_ID).eq('key', key).maybeSingle();
       return (data as { value: unknown } | null)?.value ?? null;
     }
 

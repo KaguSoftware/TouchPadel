@@ -22,7 +22,10 @@ export interface CategoryRow {
   name_ar: string;
   sort_order: number;
   is_active: boolean;
-  tax_group: { rate_bp: number } | null;
+  /** `id` and `is_active` are absent on a menu cached before they were selected. */
+  tax_group: { id?: string; rate_bp: number; is_active?: boolean } | null;
+  /** 0144: 'shop' for a Touch Shop section. Absent on a menu cached before 0144 (read as café). */
+  kind?: 'cafe' | 'shop';
 }
 export interface VariantRow {
   id: string;
@@ -32,6 +35,9 @@ export interface VariantRow {
   price_iqd: number;
   is_default: boolean;
   sort_order: number;
+  /** 0144: Touch Shop sizes only; the barcode is what a scanner types. */
+  sku?: string | null;
+  barcode?: string | null;
 }
 export interface ModifierRow {
   id: string;
@@ -93,7 +99,7 @@ export const TILL_MENU_QUERY = {
       const [cats, items, groups, mods, avail] = await Promise.all([
         supabase
           .from('menu_categories')
-          .select('id, name_en, name_ar, sort_order, is_active, tax_group:tax_groups(rate_bp)')
+          .select('id, name_en, name_ar, sort_order, is_active, kind, tax_group:tax_groups(id, rate_bp, is_active)')
           .order('sort_order'),
         supabase
           .from('menu_items')
@@ -137,14 +143,15 @@ export interface TabListRow {
   table: { table_number: string } | null;
   reservation: {
     guest_name: string | null;
-    court: { name_en: string; name_ar: string } | null;
+    /** `id` so the board groups on the court itself, not on a localised name. */
+    court: { id: string; name_en: string; name_ar: string } | null;
   } | null;
   orders: {
     source: string;
     status: string;
-    order_items: { line_total_iqd: number; voided: boolean; menu_item: { category_id: string } | null }[];
+    order_items: { id?: string; line_total_iqd: number; voided: boolean; menu_item: { category_id: string } | null }[];
   }[];
-  tab_adjustments: { kind: string; amount_iqd: number }[];
+  tab_adjustments: { kind: string; amount_iqd: number; order_item_id?: string | null }[];
   payments: { amount_iqd: number }[];
 }
 
@@ -157,9 +164,9 @@ export const OPEN_TABS_QUERY = {
         .select(
           `id, status, label, opened_at, total_iqd,
            table:cafe_tables(table_number),
-           reservation:reservations(guest_name, court:courts(name_en, name_ar)),
-           orders(source, status, order_items(line_total_iqd, voided, menu_item:menu_items(category_id))),
-           tab_adjustments(kind, amount_iqd),
+           reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(id, name_en, name_ar)),
+           orders!orders_tab_id_fkey(source, status, order_items(id, line_total_iqd, voided, menu_item:menu_items(category_id))),
+           tab_adjustments(kind, amount_iqd, order_item_id),
            payments(amount_iqd)`,
         )
         .in('status', ['open', 'awaiting_payment'])
@@ -174,8 +181,20 @@ export const OPEN_TABS_QUERY = {
 };
 
 /**
- * True when a tab can simply be removed rather than settled — the mirror of
- * app.cancel_tab's guard (migration 0085).
+ * WHY a tab cannot simply be removed, or null when it can — the mirror of
+ * app.cancel_tab's guard (migration 0085/0100).
+ *
+ * This used to answer a bare yes/no, and the board turned every no into the
+ * one sentence it had: "a payment is to be made for this table". Four of the
+ * five ways a tab is held are not payments — an order, a discount, a booking's
+ * court fee, a tab already being settled — so the till told the cashier to
+ * look for money that was not there, and the fix for the tab they were
+ * actually holding went unnamed. The server has always said which branch
+ * fired (`detail` on TAB_NOT_EMPTY); this is the same answer, computed early,
+ * so the board can say it before the press as well as after.
+ *
+ * The order of the tests matches app.cancel_tab's, so the reason shown before
+ * the press is the reason the server would give after it.
  *
  * The server is the authority and re-checks all of this under the tab's row
  * lock; this decides only whether the board OFFERS the control, so it must be
@@ -189,17 +208,25 @@ export const OPEN_TABS_QUERY = {
  * may predate an embed; `(tab.orders ?? []).length === 0` would read a MISSING
  * orders array as an empty one and offer to remove a tab that has a bill on
  * it. Absent evidence is not evidence of absence — an embed we cannot see
- * keeps the tab.
+ * keeps the tab, under 'unknown': the honest answer is that this copy of the
+ * row cannot tell, not that some particular thing is owed.
  */
+export type TabRemovalBlocker = 'settling' | 'orders' | 'payments' | 'adjustments' | 'reservation' | 'unknown';
+
+export function tabRemovalBlocker(tab: TabListRow): TabRemovalBlocker | null {
+  const seen = (rows: unknown): rows is unknown[] => Array.isArray(rows);
+  if (tab.status !== 'open') return 'settling';
+  if (!seen(tab.orders) || !seen(tab.payments) || !seen(tab.tab_adjustments)) return 'unknown';
+  if (tab.orders.length > 0) return 'orders';
+  if (tab.payments.length > 0) return 'payments';
+  if (tab.tab_adjustments.length > 0) return 'adjustments';
+  if (tab.reservation) return 'reservation';
+  return null;
+}
+
+/** True when a tab can simply be removed rather than settled. */
 export function tabIsRemovable(tab: TabListRow): boolean {
-  const empty = (rows: unknown): boolean => Array.isArray(rows) && rows.length === 0;
-  return (
-    tab.status === 'open' &&
-    empty(tab.orders) &&
-    empty(tab.payments) &&
-    empty(tab.tab_adjustments) &&
-    !tab.reservation
-  );
+  return tabRemovalBlocker(tab) === null;
 }
 
 /** True when any order on the tab arrived from the guest web menu. */
@@ -242,12 +269,16 @@ export interface TabAdjustmentRow {
   amount_iqd: number;
   /** 'promotion' marks a server-applied promotion (build plan §0); anything else is a manager action. */
   reason_code: string;
+  /** Set on a line discount, null on a whole-tab one (computeTabTotals spreads those pro rata). */
+  order_item_id: string | null;
 }
 
 export interface TabDetail {
   id: string;
   status: string;
   label: string | null;
+  /** Absent on a detail cached before the column joined the select. */
+  opened_at?: string | null;
   subtotal_iqd: number | null;
   total_iqd: number | null;
   court_iqd: number;
@@ -255,7 +286,7 @@ export interface TabDetail {
   table: { table_number: string } | null;
   reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
   orders: TabOrderRow[];
-  payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null }[];
+  payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null; refunds: { amount_iqd: number }[] }[];
   tab_adjustments: TabAdjustmentRow[];
 }
 
@@ -263,10 +294,10 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
   const { data, error } = await supabase
     .from('tabs')
     .select(
-      `id, status, label, subtotal_iqd, total_iqd, court_iqd, reservation_id,
+      `id, status, label, opened_at, subtotal_iqd, total_iqd, court_iqd, reservation_id,
        table:cafe_tables(table_number),
-       reservation:reservations(guest_name, court:courts(name_en, name_ar)),
-       orders (
+       reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
+       orders!orders_tab_id_fkey (
          id, status, source, placed_at,
          order_items (
            id, qty, unit_price_iqd, line_total_iqd, voided, notes,
@@ -275,8 +306,8 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
            order_item_modifiers(qty, price_delta_iqd, modifier:modifiers(name_en, name_ar))
          )
        ),
-       payments(id, method, amount_iqd, change_iqd),
-       tab_adjustments(id, kind, amount_iqd, reason_code)`,
+       payments(id, method, amount_iqd, change_iqd, refunds(amount_iqd)),
+       tab_adjustments(id, kind, amount_iqd, reason_code, order_item_id)`,
     )
     .eq('id', tabId)
     .single();
@@ -311,6 +342,63 @@ export interface BasketLine {
 /** Display estimate for one basket line (unit + modifier deltas) × qty. Never sent to the server. */
 export function basketLineEstimate(l: BasketLine): number {
   return (l.unitPriceIqd + l.modifiers.reduce((s, m) => s + m.priceDeltaIqd * m.qty, 0)) * l.qty;
+}
+
+/**
+ * Whether this role can read the court bookings the till offers. `reservations`
+ * is readable by court_desk, manager and owner (policy reservations_staff_read,
+ * 0008), and since 0106 by a cashier for tonight's bookings — any booking that
+ * carries a tab or starts within a day of now (reservations_cashier_read). That
+ * is exactly the window the till's picker asks for, so the cashier can open a
+ * tab by court and charge a table's tab to a booking (SOW L443). Before 0106
+ * the picker came back empty for a cashier whatever was booked, which is why
+ * this gate exists. A UX mirror of the policies — the server stays the
+ * authority, exactly as with lib/auth's permissions.
+ */
+export function canReadBookings(role: string | null | undefined): boolean {
+  return role === 'cashier' || role === 'court_desk' || role === 'manager' || role === 'owner';
+}
+
+/** A tab that is still taking orders or payment — the one tab a booking may have at a time (0106). */
+const LIVE_TAB_STATUSES: ReadonlySet<string> = new Set(['open', 'awaiting_payment']);
+
+/**
+ * True when a booking can take a new tab: it has no LIVE tab. A settled tab
+ * does not hold it — since 0106 a second tab charges only the court fee still
+ * owed (0 once the court was paid), so drinks after a paid court are a normal
+ * tab, not a double charge. A live tab does: the server allows one per booking
+ * and refuses a second with BOOKING_TAB_OPEN. A missing embed reads as no tabs,
+ * which is safe here: the server's unique index is the guard, the picker only
+ * decides what to offer.
+ */
+export function bookingTakesNewTab(r: { tabs?: readonly { status: string }[] | null }): boolean {
+  return !(r.tabs ?? []).some((t) => LIVE_TAB_STATUSES.has(t.status));
+}
+
+/**
+ * The one line a merge donor is offered under in the Merge tabs picker.
+ *
+ * It exists because that picker used to end `?? t.id.slice(0, 8)` and showed a
+ * raw UUID fragment. That was not a rare fallback: a tab has no `guest_name`
+ * whenever the booking was made by a signed-in account (`reservations` requires
+ * guest_id OR guest_name), and a booking tab with no cafe table and no free
+ * label has nothing else -- so the tabs a cashier most often merges were
+ * exactly the ones shown as `3f2a1b9c` (reported 2026-09-23).
+ *
+ * Built on `tabAnchorLabel`, which cannot return an id, then widened with the
+ * court and the time so several booking tabs are told apart rather than all
+ * reading "Reservation". Both extras are optional: a cafe tab has neither and
+ * keeps its plain table label.
+ */
+export function mergeDonorLabel(
+  tab: { table: { table_number: string } | null; reservation: { guest_name: string | null } | null; label: string | null },
+  words: { table: string; reservation: string },
+  courtName: string | null,
+  time: string | null,
+): string {
+  const anchor = tabAnchorLabel(tab, words.table, words.reservation);
+  const extra = [courtName, time].filter((x): x is string => x !== null && x !== '');
+  return extra.length > 0 ? `${anchor} · ${extra.join(' · ')}` : anchor;
 }
 
 /** The label a tab is known by on the floor: table number, guest name or free label. */

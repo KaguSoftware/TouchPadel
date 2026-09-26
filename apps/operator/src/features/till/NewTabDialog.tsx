@@ -6,15 +6,19 @@
  * envelope's idempotency key (lib/offlineTabs).
  */
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
-import { QK, fetchActiveCafeTables } from '../../lib/queries';
+import { QK, fetchActiveCafeTables, fetchVenueSettings } from '../../lib/queries';
+import { tonightScope } from '../desk/useTradingNight';
 import { useLocale, pickName } from '../../lib/i18n';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
+import { useAuth } from '../../lib/auth';
+import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
+import { Switch } from '../../components/Switch';
+import { bookingTakesNewTab, canReadBookings, type TabListRow } from './tillData';
 import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
 export interface OpenReservationRow {
@@ -22,30 +26,29 @@ export interface OpenReservationRow {
   start_at: string;
   guest_name: string | null;
   court: { name_en: string; name_ar: string } | null;
-  tabs: { id: string }[];
+  tabs: { id: string; status: string }[];
 }
 
 /**
- * Today's confirmed/arrived bookings that have no tab yet. RLS: cashiers may
- * see none — the picker simply stays empty for them.
+ * Today's confirmed/arrived bookings without a live tab. RLS: since 0106 a
+ * cashier reads tonight's bookings too (reservations_cashier_read).
  */
 export function useTodaysOpenReservations(enabled = true) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ['openTabReservations'],
     enabled,
     queryFn: async () => {
-      const dayStart = new Date();
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+      const night = await tonightScope(() => queryClient.ensureQueryData({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings }));
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_at, end_at, guest_name, court:courts(name_en, name_ar), tabs(id)')
+        .select('id, start_at, end_at, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar), tabs!tabs_reservation_id_fkey(id, status)')
         .in('status', ['confirmed', 'arrived'])
-        .gte('start_at', dayStart.toISOString())
-        .lt('start_at', dayEnd.toISOString())
+        .gte('start_at', night.start)
+        .lt('start_at', night.end)
         .order('start_at');
       if (error) throw error;
-      return (data as unknown as OpenReservationRow[]).filter((r) => (r.tabs ?? []).length === 0);
+      return (data as unknown as OpenReservationRow[]).filter((r) => night.isTonight(r.start_at) && bookingTakesNewTab(r));
     },
   });
 }
@@ -71,7 +74,7 @@ export function reservationMatches(r: OpenReservationRow, query: string): boolea
   );
 }
 
-/** Searchable list of today's bookings without a tab; one is selected at a time. */
+/** Searchable list of today's bookings without a live tab; one is selected at a time. */
 export function ReservationPicker({
   rows,
   selectedId,
@@ -130,26 +133,63 @@ export function ReservationPicker({
   );
 }
 
+/**
+ * app.open_tab through the queue; resolves to the id the till selects. Online
+ * that is the server's tab id. Queued offline the tab.open is durably on disk
+ * and replays on reconnect, and its key is the tab's local identity until the
+ * server id exists. The floor's tap-to-open and this dialog share it.
+ */
+export async function openTabOn(
+  anchor: { tableId?: string; label?: string; reservationId?: string; kind?: 'shop' },
+  tableNumber: string | null,
+): Promise<string> {
+  const outcome = await mutate<{ tab_id: string }>('tab.open', {
+    ...(anchor.kind ? { kind: anchor.kind } : {}),
+    ...(anchor.tableId ? { tableId: anchor.tableId } : {}),
+    ...(anchor.label ? { label: anchor.label } : {}),
+    ...(anchor.reservationId ? { reservationId: anchor.reservationId } : {}),
+  });
+  if (outcome.result) return outcome.result.tab_id;
+  addOfflineTab({ idemKey: outcome.idempotencyKey, localId: outcome.localId, label: anchor.label ?? null, tableNumber });
+  return `${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`;
+}
+
 export function NewTabDialog({
   onClose,
   onOpened,
   initialReservationId,
+  openTabs = [],
+  onPickExisting,
+  shopEnabled = false,
 }: {
   onClose: () => void;
   onOpened: (tabId: string) => void;
   /** `/till?reservation=<id>` — pre-bind the tab to that booking. */
   initialReservationId?: string;
+  /** The floor's open tabs, so a table that already has one can say so. */
+  openTabs?: readonly Pick<TabListRow, 'id' | 'table'>[];
+  /** Go to a table's existing tab instead of opening a second one. */
+  onPickExisting?: (tabId: string) => void;
+  /** The menu has a Touch Shop section, so a counter sale (no table) is on offer (0145). */
+  shopEnabled?: boolean;
 }) {
   const { tr, locale } = useLocale();
+  const { staff } = useAuth();
+  // A role that cannot read bookings (see canReadBookings) would get a select
+  // that only ever held "No booking". Shown when it can hold something, or
+  // when the desk already chose the booking.
+  const showBookings = canReadBookings(staff?.role) || Boolean(initialReservationId);
   const [tableId, setTableId] = useState('');
   const [label, setLabel] = useState('');
   const [reservationId, setReservationId] = useState(initialReservationId ?? '');
+  // A shop counter sale: no table, no booking, a name or a number instead.
+  const [counter, setCounter] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   // ACTIVE tables only (QK.activeCafeTables is separate from the QR admin's all-rows key).
   const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
-  const reservationsQ = useTodaysOpenReservations();
+  const reservationsQ = useTodaysOpenReservations(canReadBookings(staff?.role) || Boolean(initialReservationId));
   const reservations = reservationsQ.data ?? [];
   const preboundMissing =
     Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);
@@ -164,26 +204,14 @@ export function NewTabDialog({
     setBusy(true);
     setError(null);
     try {
-      const outcome = await mutate<{ tab_id: string }>('tab.open', {
-        ...(tableId ? { tableId } : {}),
-        ...(trimmedLabel ? { label: trimmedLabel } : {}),
-        ...(reservationId ? { reservationId } : {}),
-      });
-      if (outcome.result) {
-        onOpened(outcome.result.tab_id);
-      } else {
-        // Queued offline: durably on disk, replays on reconnect. Its tab.open
-        // key is its local identity until the server id exists.
-        addOfflineTab({
-          idemKey: outcome.idempotencyKey,
-          localId: outcome.localId,
-          label: trimmedLabel || null,
-          tableNumber: tableId
-            ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null)
-            : null,
-        });
-        onOpened(`${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`);
-      }
+      onOpened(
+        counter
+          ? await openTabOn({ kind: 'shop', label: trimmedLabel }, null)
+          : await openTabOn(
+              { tableId: tableId || undefined, label: trimmedLabel || undefined, reservationId: reservationId || undefined },
+              tableId ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null) : null,
+            ),
+      );
     } catch (e) {
       setError(e);
     } finally {
@@ -199,31 +227,44 @@ export function NewTabDialog({
    * till when it was opened. The name stays as the tab's display label, which
    * is the job it was actually doing. Mirrored by app.open_tab (0084).
    */
-  const anchored = Boolean(tableId || reservationId);
+  const anchored = counter ? trimmedLabel.length > 0 : Boolean(tableId || reservationId);
+  const chosenTable = (tablesQ.data ?? []).find((t) => t.id === tableId);
+  // Two tabs on one table split its bill in a way nobody asked for; the usual
+  // intent is "add to the table's tab". Said, not blocked — a second party at
+  // a shared table is real.
+  const existing = chosenTable ? openTabs.find((t) => t.table?.table_number === chosenTable.table_number) : undefined;
 
   return (
     <Modal
       title={tr('op.till.newTab')}
       onClose={onClose}
-      footer={
+      footer={(close) => (
         // Reserved height: the reason line below "Open tab" appears and clears
         // as the cashier picks an anchor, and the button it explains must not
         // travel while they are reaching for it.
         <div style={reasonedFooter}>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
             kind="primary"
             busy={busy}
             disabled={!anchored}
-            disabledReason={anchored ? undefined : tr('ws.cashier.newTab.needAnchor')}
+            disabledReason={
+              anchored
+                ? undefined
+                : counter
+                  ? tr('ws.cashier.newTab.needLabel')
+                  : showBookings
+                    ? tr('ws.cashier.newTab.needAnchor')
+                    : tr('ws.cashier.newTab.needTable')
+            }
             onClick={() => void submit()}
           >
             {tr('op.till.openTabBtn')}
           </Button>
         </div>
-      }
+      )}
     >
       {initialReservationId && bound && (
         <MessagePresenter
@@ -242,29 +283,62 @@ export function NewTabDialog({
       {preboundMissing && (
         <MessagePresenter tone="refused" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} message={tr('ws.cashier.newTab.bookingMissing')} />
       )}
+      {shopEnabled && !initialReservationId && (
+        <div style={{ marginBlockEnd: 'var(--tp-sp-3)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <Switch checked={counter} onChange={setCounter} label={tr('ws.cashier.newTab.counterSale')} />
+          <span style={muted}>{tr('ws.cashier.newTab.counterSaleHint')}</span>
+        </div>
+      )}
+      {counter ? (
+        <Field label={tr('op.till.byName')} required hint={tr('ws.cashier.newTab.counterNameHint')}>
+          <input style={inputStyle} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} autoFocus />
+        </Field>
+      ) : (
+      <>
       <Field label={tr('op.till.table')} required={!reservationId}>
-        <select style={inputStyle} value={tableId} onChange={(e) => setTableId(e.target.value)} autoFocus>
-          <option value="">{tr('op.till.chooseTable')}</option>
-          {(tablesQ.data ?? []).map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.table_number}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={tableId}
+          onChange={setTableId}
+          options={[
+            { value: '', label: tr('op.till.chooseTable') },
+            ...(tablesQ.data ?? []).map((t) => ({ value: t.id, label: String(t.table_number) })),
+          ]}
+        />
       </Field>
+      {existing && (
+        <MessagePresenter
+          tone="info"
+          icon="receipt"
+          style={{ marginBlock: 'calc(-1 * var(--tp-sp-1)) var(--tp-sp-3)' }}
+          message={
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+              {tr('ws.cashier.newTab.tableHasTab')}
+              {onPickExisting && (
+                <Button size="sm" iconEnd="arrowUpRight" onClick={() => onPickExisting(existing.id)}>
+                  {tr('ws.cashier.newTab.goToTab')}
+                </Button>
+              )}
+            </span>
+          }
+        />
+      )}
       <Field label={tr('op.till.byName')} optional hint={tr('ws.cashier.newTab.nameHint')}>
         <input style={inputStyle} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
       </Field>
-      <Field label={tr('op.till.reservationLabel')}>
-        <select style={inputStyle} value={reservationId} onChange={(e) => setReservationId(e.target.value)}>
-          <option value="">{tr('op.till.noReservation')}</option>
-          {reservations.map((r) => (
-            <option key={r.id} value={r.id}>
-              {reservationOptionLabel(tr, locale, r)}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {showBookings && (
+        <Field label={tr('op.till.reservationLabel')} optional>
+          <Select
+            value={reservationId}
+            onChange={setReservationId}
+            options={[
+              { value: '', label: tr('op.till.noReservation') },
+              ...reservations.map((r) => ({ value: r.id, label: reservationOptionLabel(tr, locale, r) })),
+            ]}
+          />
+        </Field>
+      )}
+      </>
+      )}
       <ErrorText error={error} />
     </Modal>
   );

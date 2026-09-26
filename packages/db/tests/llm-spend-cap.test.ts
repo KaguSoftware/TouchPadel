@@ -36,13 +36,13 @@ describe.skipIf(!up)('0079 LLM spend cap (SEC-29)', () => {
   afterEach(async () => {
     await svc.from('llm_usage').delete().neq('usage_date', '1970-01-01');
     await svc
-      .from('venue_settings')
+      .from('platform_settings')
       .update({
         llm_daily_request_limit: 200,
         llm_monthly_cost_cap_micros: 20000000,
         llm_cost_micros_per_mtok: 500000,
       })
-      .not('id', 'is', null);
+      .eq('id', true);
   });
 
   const begin = () => svc.schema('app').rpc('llm_begin_request').then(outcome);
@@ -57,7 +57,7 @@ describe.skipIf(!up)('0079 LLM spend cap (SEC-29)', () => {
       .then(outcome);
 
   const setLimits = (patch: Record<string, number>) =>
-    svc.from('venue_settings').update(patch).not('id', 'is', null);
+    svc.from('platform_settings').update(patch).eq('id', true);
 
   it('counts a request and reports the standing budget', async () => {
     const res = await begin();

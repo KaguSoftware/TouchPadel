@@ -13,6 +13,8 @@
  * tested without a database.
  */
 
+import { wallTimeToUtc } from '@touch/core';
+
 export interface AuditRow {
   id: number;
   at: string;
@@ -26,6 +28,12 @@ export interface AuditRow {
   after: unknown;
   reason_code: string | null;
   device_id: string | null;
+  /**
+   * Display names `app.audit_log_page` (0068) already joins — staff name or,
+   * for a guest, the profile's full name. Absent on the direct-table fallback.
+   */
+  actor_name?: string | null;
+  authorizer_name?: string | null;
 }
 
 /**
@@ -88,13 +96,16 @@ export const EMPTY_FILTER: AuditFilter = {
   onlyMissingReason: false,
 };
 
-export function matchesAudit(row: AuditRow, filter: AuditFilter): boolean {
+export function matchesAudit(row: AuditRow, filter: AuditFilter, words: readonly string[] = []): boolean {
   if (filter.family && actionFamily(row.action) !== filter.family) return false;
-  if (filter.actorId && row.actor_id !== filter.actorId) return false;
+  if (filter.actorId && row.actor_id !== filter.actorId && row.authorizer_id !== filter.actorId) return false;
   if (filter.onlyMissingReason && !missingReason(row)) return false;
   const q = filter.query.trim().toLowerCase();
   if (!q) return true;
-  return [row.action, row.entity, row.entity_id, row.reason_code, row.device_id, row.actor_role]
+  // `words` is what the screen shows for the row (the action in plain
+  // language, the person's name), so a manager can search for what they SEE —
+  // "refund", a name — as well as the stored code the overview links with.
+  return [row.action, row.entity, row.entity_id, row.reason_code, row.device_id, row.actor_role, row.actor_name, ...words]
     .filter((v): v is string => typeof v === 'string')
     .some((v) => v.toLowerCase().includes(q));
 }
@@ -174,22 +185,27 @@ export function actorLabel(
 // ---------------------------------------------------------------------------
 
 export interface PeriodBounds {
-  /** ISO instant at the start of `from` on the station clock. */
+  /** ISO instant the `from` business day starts at. */
   fromIso: string;
-  /** ISO instant at the start of the day AFTER `to` (exclusive upper bound). */
+  /** ISO instant the business day AFTER `to` starts at (exclusive upper bound). */
   toExclusiveIso: string;
 }
 
 /**
- * Inclusive YYYY-MM-DD range → half-open instant range for `at`. Built on the
- * station's calendar day; the server's audit page function re-anchors to the
- * venue day when it is available.
+ * Inclusive range of BUSINESS days → half-open instant range for `at`. A
+ * business day starts at `startHour` in the venue's zone, as
+ * app.business_date counts it, so a night's 00:00–02:00 tail stays with its
+ * night. This used the station's calendar midnight and said the server
+ * re-anchored to the venue day; it does not (audit_log_page filters
+ * `at >= p_from and at < p_to` as given), so at 01:30 "Today" missed
+ * tonight's 22:00 void, and "Yesterday" cut every night at midnight.
  */
-export function periodBounds(period: { from: string; to: string }): PeriodBounds {
-  const from = new Date(`${period.from}T00:00:00`);
-  const to = new Date(`${period.to}T00:00:00`);
-  to.setDate(to.getDate() + 1);
-  return { fromIso: from.toISOString(), toExclusiveIso: to.toISOString() };
+export function periodBounds(period: { from: string; to: string }, startHour: number, tz: string): PeriodBounds {
+  const start = startHour * 60;
+  return {
+    fromIso: wallTimeToUtc(period.from, start, tz).toISOString(),
+    toExclusiveIso: wallTimeToUtc(period.to, 24 * 60 + start, tz).toISOString(),
+  };
 }
 
 /** True when `row.at` falls inside the period (used by the direct-select fallback re-check). */
@@ -232,4 +248,288 @@ export function auditCsv(
       .join('; '),
   ]);
   return { headers, rows: out };
+}
+
+// ---------------------------------------------------------------------------
+// Plain language (the screen shows words; the CSV keeps the stored codes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every action the migrations write (grep `write_audit` in
+ * packages/db/supabase/migrations), as catalog keys. The table used to print
+ * `tab.settle`, `menu.item.sold_out` and `table_token.prev_secret_cleared` in
+ * a monospace font. A new server action that is not listed here still shows —
+ * under its area's name, with the code beside it — rather than disappearing.
+ */
+export const ACTION_KEYS = [
+  'account.delete',
+  'analytics.insight.reject',
+  'analytics.insight.unreject',
+  'analytics.insights.save',
+  'analytics.patterns.save',
+  'checklist.template.save',
+  'courts.create',
+  'courts.delete',
+  'courts.reorder',
+  'courts.update',
+  'customer.create',
+  'customer.flags_set',
+  'customer.note_add',
+  'customer.note_edit',
+  'day.close',
+  'day.open',
+  'discount.apply',
+  'drawer.open',
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §2.9.4, §5.2).
+  'drawer.shift_close',
+  'drawer.shift_close_by_day',
+  'drawer.shift_open',
+  'incident.purge',
+  'incident.redact',
+  'incident.report',
+  'incident.review',
+  'marketing.audience_save',
+  'marketing.campaign.suggest',
+  'marketing.campaign_save',
+  'marketing.campaign_status',
+  'marketing.content.approve',
+  'marketing.content.changes',
+  'marketing.content.decline',
+  'marketing.content.revise',
+  'marketing.content.submit',
+  'marketing.content.withdraw',
+  'marketing.note.add',
+  'marketing.request.add',
+  'marketing.request.answer',
+  'marketing.request.withdraw',
+  'menu.category.create',
+  'menu.category.photo',
+  'menu.category.reorder',
+  'menu.category.update',
+  'menu.item.addons',
+  'menu.item.availability',
+  'menu.item.cost',
+  'menu.item.create',
+  'menu.item.link_group',
+  'menu.item.photo',
+  'menu.item.reorder',
+  'menu.item.sold_out',
+  'menu.item.update',
+  'menu.modifier.create',
+  'menu.modifier.reorder',
+  'menu.modifier.reveals',
+  'menu.modifier.update',
+  'menu.modifier_group.create',
+  'menu.modifier_group.update',
+  'menu.variant.create',
+  'menu.variant.update',
+  'order_item.void',
+  'payment.refund',
+  'price.override',
+  'promotion.apply',
+  'promotion.drop_on_merge',
+  'promotion.generate_code',
+  'promotion.replace',
+  'promotion.set_enabled',
+  'promotion.upsert',
+  'protocol.auto',
+  'protocol.decide',
+  'protocol.hiring.candidate_delete',
+  'protocol.hiring.candidate_save',
+  'protocol.hiring.complete',
+  'protocol.hiring.purge',
+  'protocol.price.apply',
+  'protocol.promo.apply',
+  'protocol.release.accept',
+  'protocol.release.idea_decline',
+  'protocol.release.idea_start',
+  'protocol.release.idea_submit',
+  'protocol.release.idea_withdraw',
+  'protocol.release.launch',
+  'protocol.release.review',
+  'protocol.run.add_step',
+  'protocol.run.edit_items',
+  'protocol.skip',
+  'protocol.start',
+  'protocol.stop',
+  'protocol.submit',
+  'protocol.template.save',
+  'protocol.unschedule',
+  'protocol.withdraw',
+  'protocol.withdraw_run',
+  'purchase.acknowledge',
+  'purchase.deliver',
+  'purchase.receive',
+  'purchase.record',
+  'rates.rule.create',
+  'rates.rule.update',
+  'reservation.cancel',
+  'reservation.confirm',
+  'reservation.create',
+  'reservation.event_block',
+  'reservation.extend',
+  'reservation.hold',
+  'reservation.mark_arrived',
+  'reservation.mark_completed',
+  'reservation.mark_no_show',
+  'reservation.move',
+  'reservation.price_override',
+  'reservation.release',
+  'series.cancel',
+  'series.create',
+  'settings.cafe',
+  'settings.opening_hours',
+  'settings.waiter_cooldown',
+  'shopping.add',
+  'shopping.approve',
+  'shopping.cancel',
+  'shopping.decline',
+  'staff.active_set',
+  'staff.create',
+  'staff.deduction.approve',
+  'staff.deduction.cancel',
+  'staff.deduction.decline',
+  'staff.deduction.propose',
+  'staff.deduction.withdraw',
+  'staff.password_reset',
+  'staff.pin_cleared',
+  'staff.pin_collision',
+  'staff.pin_locked',
+  'staff.pin_lockout_cleared',
+  'staff.pin_set',
+  'staff.rename',
+  'staff.role_set',
+  'staff_request.decide',
+  'staff_request.submit',
+  'staff_request.withdraw',
+  'stock.discard_count',
+  'stock.finalize_count',
+  'stock.ingredient.create',
+  'stock.ingredient.update',
+  'stock.log',
+  'stock.price_log',
+  'stock.product_test',
+  'stock.receive_delivery',
+  'stock.recipe.change_approve',
+  'stock.recipe.change_decline',
+  'stock.recipe.change_submit',
+  'stock.recipe.change_withdraw',
+  'stock.recipe.set',
+  'stock.record_production',
+  'stock.record_waste',
+  'stock.start_count',
+  'stock.submit_count',
+  'stock.transfer',
+  'stock.write_off_expired',
+  'tab.cancel',
+  'tab.merge',
+  'tab.settle',
+  'table.bell',
+  'table.qr_tokens_read',
+  'table.token.rotate',
+  'table.upsert',
+  'table_token.accepted_prev_secret',
+  'table_token.prev_secret_cleared',
+  'table_token.secret_rotated',
+  'teaching.archive',
+  'teaching.save',
+  'telegram.o.seen',
+  'telegram.o.served',
+  'telegram.o.void',
+  'telegram.staff_set',
+  'telegram.w.ack',
+  'telegram.w.done',
+] as const;
+
+/** The areas (dotted prefixes) the known actions fall into. */
+export const FAMILY_KEYS = [
+  'account',
+  'analytics',
+  'checklist',
+  'courts',
+  'customer',
+  'day',
+  'discount',
+  'drawer',
+  'incident',
+  'marketing',
+  'menu',
+  'order_item',
+  'payment',
+  'price',
+  'promotion',
+  'protocol',
+  'purchase',
+  'rates',
+  'reservation',
+  'series',
+  'settings',
+  'shopping',
+  'staff',
+  'staff_request',
+  'stock',
+  'tab',
+  'table',
+  'table_token',
+  'teaching',
+  'telegram',
+] as const;
+
+/** `menu.item.sold_out` → `menuItemSoldOut`: a stored code as a catalog key segment. */
+export function codeToKey(code: string): string {
+  return code.replace(/[._:-]+([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}
+
+export function knownActionKey(action: string): string | null {
+  return (ACTION_KEYS as readonly string[]).includes(action) ? codeToKey(action) : null;
+}
+
+export function knownFamilyKey(family: string): string | null {
+  return (FAMILY_KEYS as readonly string[]).includes(family) ? codeToKey(family) : null;
+}
+
+/**
+ * The area filter's options: every known area plus any new one present in the
+ * data. The filter is applied on the server now, so a list built only from the
+ * loaded page would shrink to the chosen area the moment it was chosen.
+ */
+export function familyOptions(rows: readonly AuditRow[]): string[] {
+  return [...new Set<string>([...FAMILY_KEYS, ...actionFamilies(rows)])].sort();
+}
+
+/** An exact, known action code — safe to hand the server as a prefix filter. */
+export function isActionCode(query: string): boolean {
+  return (ACTION_KEYS as readonly string[]).includes(query.trim());
+}
+
+/**
+ * Fields left out of the on-screen before/after list: row ids, foreign keys,
+ * idempotency keys, tokens and secrets. They mean nothing to a manager reading
+ * what changed; the CSV export keeps every field.
+ */
+export function isTechnicalField(field: string): boolean {
+  return field === 'id' || field.endsWith('_id') || field.endsWith('_ids') || /idempotency|token|secret|blur|_hash$/.test(field);
+}
+
+/** `sold_out` → `Sold out`, `price_iqd` → `Price (IQD)`. */
+export function humanizeField(field: string): string {
+  const iqd = field.endsWith('_iqd');
+  const base = (iqd ? field.slice(0, -4) : field).replace(/_/g, ' ').trim();
+  const words = base.charAt(0).toUpperCase() + base.slice(1);
+  return iqd ? `${words} (IQD)` : words;
+}
+
+/**
+ * What the record is called, from the row itself: a menu item's name, a
+ * guest's name, a tab's label. The table used to print the table name and a
+ * uuid (`tabs a173d62b-…`).
+ */
+export function recordName(before: unknown, after: unknown, locale: 'en' | 'ar'): string | null {
+  const src = isRecord(after) ? after : isRecord(before) ? before : null;
+  if (!src) return null;
+  const localized = locale === 'ar' ? src.name_ar : src.name_en;
+  for (const v of [localized, src.name_en, src.display_name, src.guest_name, src.full_name, src.name, src.label, src.table_number]) {
+    if (typeof v === 'string' && v.trim() !== '') return v;
+  }
+  return null;
 }

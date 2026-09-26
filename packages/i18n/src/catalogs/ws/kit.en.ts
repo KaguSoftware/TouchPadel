@@ -90,10 +90,11 @@ export const kitEn = {
   },
   refused: {
     title: 'Not allowed for your role',
-    body: '{action} needs the {role} role. The control stays here so you can see what is available; ask a {role} to do it.',
+    body: '{action} needs the {role} role. The control stays here so you can see what is available; ask someone with that role to do it.',
   },
   conflict: {
-    title: 'The server refused this change',
+    // The desk's clashes: a slot, a court or a tournament's time already held.
+    title: 'Time clash',
     body: 'Someone else took this slot or changed this record first. Nothing was saved.',
     dismiss: 'Understood',
   },
@@ -180,7 +181,31 @@ export const kitEn = {
     more: 'More',
     refresh: 'Refresh',
     unsaved: 'Unsaved changes',
-    dirtyLeave: 'You have unsaved changes. Leave and lose them?',
+    dirtyLeave: 'You have unsaved changes',
+    dirtyLeaveBody: 'Everything you changed here will be lost. Are you sure you want to close?',
+    dirtyLeaveConfirm: 'Discard changes',
+    dirtyLeaveCancel: 'Keep editing',
+  },
+  /** Accessible name of the InfoTip's default trigger (components/InfoTip.tsx). */
+  infoTip: {
+    label: 'More about this',
+  },
+  /** The zoomed-out month shared by the desk calendar and the observe boards. */
+  calendar: {
+    month: 'Month',
+    zoomOutHint: 'Zoom out to the month',
+    zoomInHint: 'Zoom back into the day',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
+    closed: 'Closed',
+    fewer: 'Fewer',
+    more: 'More',
+    scaleNote: 'Shaded against the busiest day of the month.',
+    busiest: 'Busiest: {date} · {count}',
+    bookings: '{count} bookings',
+    bookingsOne: '{count} booking',
+    tabs: '{count} tabs',
+    tabsOne: '{count} tab',
   },
   common: {
     on: 'On',

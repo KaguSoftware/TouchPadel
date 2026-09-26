@@ -1,6 +1,7 @@
 /**
  * "Looked, not bought" — per item, the abandoned views split by how long the
- * guest stayed on the item (5–10 s / 10–20 s / 20 s+). Day-level suppression is
+ * guest stayed on the item: 5–10 s (the legend says "under 10 s": views shorter
+ * than 5 s are not counted as a read at all), 10–20 s, 20 s+. Day-level suppression is
  * already applied by `abandonedViewsNet`, so every bar here is a view on a day
  * the item did NOT sell.
  */
@@ -9,9 +10,10 @@ import type { AbandonedView } from '@touch/core';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
-import { AXIS, DWELL, GRID } from './colors';
+import { useChartColors } from './colors';
 
 export function AbandonedViewsChart({ rows, f }: { rows: readonly AbandonedView[]; f: Formatters }) {
+  const { AXIS, DWELL, GRID } = useChartColors();
   const { tr, dir, locale } = useLocale();
   const data = rows.slice(0, 8).map((r) => ({
     label: pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id,

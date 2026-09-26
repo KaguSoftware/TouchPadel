@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { router, Stack } from 'expo-router';
+import { router, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -12,8 +12,8 @@ import { useFonts } from 'expo-font';
 // LocaleDirContext is marked deprecated there in favour of I18nManager — which
 // this app pins LTR on purpose (see RootStack), so the context stays.
 import { LocaleDirContext } from 'expo-router/react-navigation';
-import { ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ImmersiveInsets } from '../src/navigation/immersiveInsets';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { queryClient, persistOptions, startFocusLifecycle } from '../src/lib/queryClient';
@@ -28,10 +28,16 @@ import { lastKnownPreference } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { useNavigationTheme } from '../src/navigation/theme';
 import { useNativeBarDirection } from '../src/navigation/headerDirection';
-import { AuthProvider } from '../src/features/auth/context';
+import { AuthProvider, useAuth } from '../src/features/auth/context';
+import { StaffStatusProvider, settledStaffStatus } from '../src/features/staff/StaffStatusProvider';
+import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
-import { installNotificationHandler } from '../src/features/profile/push';
+import {
+  forgetWrittenPushToken,
+  installNotificationHandler,
+  startPushRegistrationLifecycle,
+} from '../src/features/profile/push';
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
@@ -47,9 +53,11 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
 // fallback type, no light→dark flash, no en→ar flash).
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 // ...and then it CROSS-FADES into BootOverlay, which is painted in the splash's
-// own #3360AB by the time this runs. Without the fade the wordmark cuts to the
-// smiley ball on an identical ground, which reads as a glitch rather than as
-// one screen becoming the next. (iOS honours `fade`; Android ignores it.)
+// own #3360AB by the time this runs, with the splash's own wordmark drawn from
+// the brand's vector paths at the splash's width — so the two frames are the
+// same picture and the fade is a safety net, not a transition. It stays: an
+// OS that lands a pixel off gets a blend rather than a cut. (iOS honours
+// `fade`; Android ignores it.)
 //
 // Expo Go serves its OWN splash from a prebuilt binary, so `setOptions` cannot
 // reach it: the call is a no-op that only logs a warning. Skipping it there
@@ -117,6 +125,7 @@ function CrashScreen({ error, retry }: ErrorBoundaryProps) {
   return (
     <View style={styles.fill}>
       <ErrorState
+        testID="app.crash"
         title={t('errors.crashTitle')}
         message={t('errors.crashBody')}
         retryLabel={t('common.retry')}
@@ -141,7 +150,12 @@ function ConfigErrorBody() {
   const { t } = useLocale();
   return (
     <View style={styles.fill}>
-      <ErrorState title={t('errors.configTitle')} message={t('errors.configBody')} retryLabel="" />
+      <ErrorState
+        testID="app.config-error"
+        title={t('errors.configTitle')}
+        message={t('errors.configBody')}
+        retryLabel=""
+      />
       {__DEV__ ? <Text style={styles.devDetail}>{configError}</Text> : null}
     </View>
   );
@@ -151,6 +165,46 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  // The Terms consent gate (0153): records the sign-up switch once the session
+  // lands, or presents accept-terms to an account that has not accepted the
+  // current version. Here because it needs the session and the router.
+  useTermsGate();
+  // Push registration lives HERE, under AuthProvider, because it needs the live
+  // session: the server drops a notification on the floor when the profile
+  // holds no token (migration 0075's trigger returns early and nothing
+  // backfills), so the token has to be written the moment a session exists —
+  // not when the Book tab happens to render, which is where it used to sit.
+  // `hasSession` is read through a ref so the lifecycle is installed ONCE and
+  // still sees the current session; re-installing it per sign-in would drop
+  // Expo's token-rotation listener on every auth event.
+  const { session } = useAuth();
+  const sessionRef = useRef(session);
+  const pushSync = useRef<((reason: string) => void) | null>(null);
+  useEffect(() => {
+    const stop = startPushRegistrationLifecycle({
+      hasSession: () => sessionRef.current !== null,
+    });
+    pushSync.current = stop.sync;
+    return () => {
+      pushSync.current = null;
+      stop();
+    };
+  }, []);
+  // Signing in while the app is already open fires no AppState event, so the
+  // lifecycle is nudged by hand. Signing OUT nulls the column server-side
+  // (SEC-21), so the cached "already written" token must be forgotten or the
+  // next sign-in would skip the rewrite as redundant.
+  //
+  // This effect also seeds sessionRef, and runs AFTER the one above: the
+  // lifecycle's own start-up sync therefore sees a null ref and no-ops, and
+  // this effect is what actually registers on a cold start with a restored
+  // session. Deliberate — one registration, from the branch that knows the
+  // session is real.
+  useEffect(() => {
+    sessionRef.current = session;
+    if (session) pushSync.current?.('signed-in');
+    else forgetWrittenPushToken();
+  }, [session]);
   // The direction the NATIVE bar is told, plus the short window in which its
   // back item is left off so UIKit rebuilds the chevron under the new
   // mirroring. Both come from one module — see ./src/navigation/headerDirection.
@@ -197,11 +251,16 @@ function RootStack() {
           <Stack.Screen name="sign-in" />
           <Stack.Screen name="sign-up" />
           <Stack.Screen name="forgot-password" />
-          <Stack.Screen name="availability" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="change-password" />
           <Stack.Screen name="delete-account" />
+          {/* Consent gate (0153): a modal with no swipe-to-dismiss — accept,
+          sign out, or delete the account are the only ways out. */}
+          <Stack.Screen
+            name="accept-terms"
+            options={{ presentation: 'modal', gestureEnabled: false, headerShown: false }}
+          />
           {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own
@@ -282,11 +341,14 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
   // Push: foreground display, the Android channel, and "tap opens the booking".
   // Once per app life — it does not depend on language or theme. The booking
   // screen carries its own RequireSession, so a tap while signed out lands on
-  // the sign-in it redirects to.
+  // the sign-in it redirects to. A staff tap opens its staff screen, and only
+  // once the phone is known to be signed in as staff (build-contracts §6.8).
   useEffect(
     () =>
       installNotificationHandler({
         onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
+        onOpenStaff: (href) => router.push(href),
+        staffStatus: settledStaffStatus,
       }),
     [],
   );
@@ -307,24 +369,32 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     // network at all.
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
-        <LocaleProvider initialLocale={prefs.locale}>
-          <ThemeProvider initialAppearance={prefs.appearance}>
-            {/* Everything that paints sits under DirectionRoot: the navigator,
-                the offline banner, the toast host ToastProvider appends. */}
-            <DirectionRoot>
-              <AuthProvider>
-                <ToastProvider>
-                  <ThemedChrome />
-                  <RootStack />
-                  <ConnectivityBanner />
-                </ToastProvider>
-              </AuthProvider>
-              {/* Over the navigator and the native tab bar, outside every
-                  route: the loading screen, and the hand on the splash. */}
-              <BootOverlay />
-            </DirectionRoot>
-          </ThemeProvider>
-        </LocaleProvider>
+        <ImmersiveInsets>
+          <LocaleProvider initialLocale={prefs.locale}>
+            <ThemeProvider initialAppearance={prefs.appearance}>
+              {/* Everything that paints sits under DirectionRoot: the navigator,
+                  the offline banner, the toast host ToastProvider appends. */}
+              <DirectionRoot>
+                <AuthProvider>
+                  <ToastProvider>
+                    {/* Guest or staff, for everything below (build-contracts §6.5).
+                        Inside AuthProvider: it reads the session's own staff row.
+                        Inside ToastProvider: it says why a Google or Apple
+                        session on a staff account was signed out (§6.6). */}
+                    <StaffStatusProvider>
+                      <ThemedChrome />
+                      <RootStack />
+                      <ConnectivityBanner />
+                    </StaffStatusProvider>
+                  </ToastProvider>
+                </AuthProvider>
+                {/* Over the navigator and the native tab bar, outside every
+                    route: the loading screen, and the hand on the splash. */}
+                <BootOverlay />
+              </DirectionRoot>
+            </ThemeProvider>
+          </LocaleProvider>
+        </ImmersiveInsets>
       </SafeAreaProvider>
     </PersistQueryClientProvider>
   );

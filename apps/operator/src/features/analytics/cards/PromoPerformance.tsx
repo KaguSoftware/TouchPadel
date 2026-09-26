@@ -35,7 +35,7 @@ export function PromoPerformance({ raw, state, f }: { raw: RawAnalytics | null; 
         })}
         {sales && sales.qty > 0 && (
           <p style={{ ...muted, margin: 0 }}>
-            {f.num(sales.qty)} · {f.money(sales.revenueIqd)} · −{f.money(sales.discountIqd)}
+            {tr('analytics.cards.promoSales', { qty: f.num(sales.qty), money: f.money(sales.revenueIqd), discount: f.money(sales.discountIqd) })}
           </p>
         )}
       </div>

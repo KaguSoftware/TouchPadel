@@ -3,9 +3,13 @@ import { FIGURE_KEYS, FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsE
 
 describe('figure metadata', () => {
   it('covers the twelve panel figures, each in exactly one group', () => {
-    expect(FIGURE_KEYS).toHaveLength(12);
-    const all = [...figuresIn('headline'), ...figuresIn('padel'), ...figuresIn('cafe')].map((f) => f.key);
+    expect(FIGURE_KEYS).toHaveLength(13);
+    const all = [...figuresIn('headline'), ...figuresIn('padel'), ...figuresIn('cafe'), ...figuresIn('losses')].map((f) => f.key);
     expect([...all].sort()).toEqual([...FIGURE_KEYS].sort());
+  });
+  it('lists money given away or thrown out as its own group, not under the cafe', () => {
+    expect(figuresIn('losses').map((f) => f.key)).toEqual(['discounts', 'refunds', 'waste']);
+    expect(figuresIn('cafe').map((f) => f.key)).toEqual(['cafeRevenue', 'cafeNet', 'orders', 'avgOrderValue']);
   });
   it('inverts the figures where a rise is bad', () => {
     expect(FIGURES.refunds.invert).toBe(true);
@@ -53,8 +57,12 @@ describe('figuresToCsvRows', () => {
       ],
     });
     expect(figuresToCsvRows(m, (k) => k.toUpperCase())).toEqual([
-      ['REVENUE', 100, null, null, null],
-      ['ORDERS', 3, 2, 1, 50],
+      ['REVENUE', 'revenue', 'headline', 'money', 100, null, null, null],
+      ['ORDERS', 'orders', 'cafe', 'count', 3, 2, 1, 50],
     ]);
+  });
+  it('lets the screen word the group and the kind', () => {
+    const m = mapFigures({ figures: [{ key: 'waste', value: 7 }] });
+    expect(figuresToCsvRows(m, (k) => k, (g) => `G:${g}`, (k) => `K:${k}`)).toEqual([['waste', 'waste', 'G:losses', 'K:money', 7, null, null, null]]);
   });
 });

@@ -18,7 +18,9 @@ const RESEND_COOLDOWN_S = 30;
  * Pending-verification (design 2026-08-31): centered envelope moment with a
  * cooldown on resend. When the emailed link lands a session (useAuthDeepLink
  * exchanges it), this screen advances itself to the verified-result screen —
- * the (auth) layout deliberately does not bounce these two routes.
+ * the (auth) layout deliberately does not bounce these two routes. Reached
+ * from the email segment of sign-up, and from sign-in when the account's
+ * link was never opened (email sign-up restored 2026-09-20).
  */
 export default function VerifyEmailScreen() {
   const { t } = useLocale();
@@ -134,6 +136,7 @@ export default function VerifyEmailScreen() {
         {notice ? <Hint style={{ textAlign: 'center' }}>{notice}</Hint> : null}
         <ErrorText>{error}</ErrorText>
         <Button
+          testID="verify-email.resend"
           label={
             coolingDown ? t('auth.resendIn', { seconds: secondsLeft }) : t('auth.resendLink')
           }
@@ -146,13 +149,16 @@ export default function VerifyEmailScreen() {
           style={{ marginTop: 22, alignSelf: 'stretch' }}
         />
         <Button
+          testID="verify-email.use-different-email"
           label={t('auth.useDifferentEmail')}
-          onPress={() => router.replace('/sign-up')}
+          // Back to the email segment, not the phone default (2026-09-20).
+          onPress={() => router.replace({ pathname: '/sign-up', params: { method: 'email' } })}
           variant="ghost"
           labelColor={colors.fnt}
           style={{ marginTop: space.sm }}
         />
         <Button
+          testID="verify-email.sign-out"
           label={t('auth.signOut')}
           onPress={() => void onSignOut()}
           variant="ghost"

@@ -7,12 +7,22 @@
  * - Throws `EdgeError`; lib/errors.ts maps it to `op.errors.EDGE_<code>`.
  */
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
+import { parseSseChunk, parseSseData } from '../features/assistant/sse';
 
 export type EdgeFunctionName =
   | 'analytics-posthog'
   | 'analytics-insights'
   | 'staff-admin'
-  | 'desk-customer-create';
+  | 'desk-customer-create'
+  | 'telegram-diagnose'
+  | 'assistant-chat'
+  | 'assistant-index'
+  | 'assistant-job'
+  | 'assistant-component'
+  // The owner's Launch of a new item (build-contracts-2026-09-23 §2.20, §5.3).
+  | 'protocol-action'
+  // Goods in's scanned receipts (0237): reads one with the connected model.
+  | 'receipt-scan';
 
 export type EdgeErrorCode =
   'NOT_CONFIGURED' | 'FORBIDDEN' | 'AUTH_REQUIRED' | 'UPSTREAM' | 'RATE_LIMITED' | 'UNKNOWN';
@@ -111,6 +121,13 @@ export interface CallEdgeOptions {
   cacheKey?: string;
   /** Cache TTL; 0 disables caching for this call. */
   ttlMs?: number;
+  /**
+   * Retry once on a 5xx. Defaults to on only for cacheable calls (ttlMs > 0):
+   * an uncached call is a write or a billed model call, and a 502 from the
+   * gateway can arrive after the function has committed — the retry then got
+   * DUPLICATE_PHONE, or billed the model twice, for a call that had worked.
+   */
+  retry?: boolean;
   signal?: AbortSignal;
 }
 
@@ -146,7 +163,7 @@ export async function callEdge<Req, Res>(
     signal: opts.signal,
   };
 
-  let retried = false;
+  let retried = !(opts.retry ?? ttl > 0);
   for (;;) {
     const res = await fetch(url, init);
     const payload = await parseBody(res);
@@ -166,4 +183,78 @@ export async function callEdge<Req, Res>(
       bodyCode(payload),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// streamEdge — the assistant's `text/event-stream` door (contracts §Lane D)
+// ---------------------------------------------------------------------------
+
+export interface StreamEdgeOptions {
+  /** Called once per SSE event, in order, with the JSON-parsed `data`. */
+  onEvent: (name: string, data: unknown) => void;
+  /** The Stop button: aborting rejects the fetch with an AbortError. */
+  signal?: AbortSignal;
+}
+
+/**
+ * POST to `/functions/v1/{fn}` and read the response as server-sent events.
+ * Same JWT header and error mapping as `callEdge`: a non-2xx response is a
+ * plain JSON body (the edge refuses auth and quota before it starts to stream)
+ * and becomes an `EdgeError` through `statusToEdgeCode`. Never cached, never
+ * retried: a stream that broke half-way already showed the owner half an
+ * answer, and repeating a billed model call behind their back is not a retry.
+ */
+export async function streamEdge<Req>(fn: EdgeFunctionName, body: Req, opts: StreamEdgeOptions): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new EdgeError(401, 'AUTH_REQUIRED', 'no staff session');
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: supabaseAnonKey,
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify(body ?? {}),
+    signal: opts.signal,
+  });
+
+  if (!res.ok) {
+    const payload = await parseBody(res);
+    throw new EdgeError(
+      res.status,
+      statusToEdgeCode(res.status, payload),
+      bodyMessage(payload) ?? `edge ${fn} failed with ${res.status}`,
+      bodyCode(payload),
+    );
+  }
+
+  const emit = (events: readonly { event: string; data: string }[]) => {
+    for (const ev of events) opts.onEvent(ev.event, parseSseData(ev.data));
+  };
+
+  if (!res.body) {
+    // A 2xx with no streaming body (a test double, or a proxy that buffered
+    // the whole thing): treat the text as one chunk.
+    const text = await res.text();
+    emit(parseSseChunk(text.endsWith('\n\n') ? text : `${text}\n\n`).events);
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parsed = parseSseChunk(buffer);
+    buffer = parsed.rest;
+    emit(parsed.events);
+  }
+  buffer += decoder.decode();
+  // A final event the server did not terminate with a blank line still counts.
+  if (buffer.trim() !== '') emit(parseSseChunk(`${buffer}\n\n`).events);
 }

@@ -38,6 +38,12 @@ const ARABIC = /[؀-ۿ]/;
  * `data-sold-out` slams the stamp on, `data-unavailable` greys an 86'd item.
  * A non-orderable row is NOT a button - it must not open a sheet whose CTA
  * would then be dead.
+ *
+ * The control is a real `<button>` around the item's name, stretched over the
+ * whole row by CSS (card.css.ts), so the row stays one big tap target while the
+ * `<article>` keeps its own role (a11y review 2026-09-24: `role="button"` on an
+ * article is not allowed, axe aria-allowed-role, 70 rows). Its name is the item's
+ * name; Enter and Space come with the element.
  */
 export function MenuCard({
   item,
@@ -95,20 +101,8 @@ export function MenuCard({
       data-highlight={item.highlight !== 'none' ? item.highlight : undefined}
       data-sold-out={item.sold_out ? 'true' : undefined}
       data-unavailable={!orderable ? 'true' : undefined}
-      role={orderable ? 'button' : undefined}
-      tabIndex={orderable ? 0 : undefined}
+      data-orderable={orderable ? 'true' : undefined}
       onPointerDown={orderable ? warm : undefined}
-      onClick={orderable ? () => onOpen(item) : undefined}
-      onKeyDown={
-        orderable
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onOpen(item);
-              }
-            }
-          : undefined
-      }
     >
       {/* A category the design draws no icon for (an operator's own) and an item
           with no photo have nothing to put here — that section keeps the
@@ -125,9 +119,20 @@ export function MenuCard({
 
       <div className="tp-menu-item__body">
         <div className="tp-menu-item__head">
-          <span className="tp-menu-item__name" data-latin={ARABIC.test(name) ? undefined : 'true'}>
-            {name}
-          </span>
+          {orderable ? (
+            <button
+              type="button"
+              className="tp-menu-item__name tp-menu-item__open"
+              data-latin={ARABIC.test(name) ? undefined : 'true'}
+              onClick={() => onOpen(item)}
+            >
+              {name}
+            </button>
+          ) : (
+            <span className="tp-menu-item__name" data-latin={ARABIC.test(name) ? undefined : 'true'}>
+              {name}
+            </span>
+          )}
           {!orderable && !item.sold_out && (
             <span className="tp-temp tp-temp--cold">{tr('cafe.unavailableShort')}</span>
           )}

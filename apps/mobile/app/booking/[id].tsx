@@ -8,10 +8,15 @@ import { formatDate, formatDateTime, formatTimeRange, isolate } from '@touch/i18
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
-import { canCancel, displayRef, endedNotice } from '../../src/features/booking/logic';
+import { canCancel, dayPart, displayRef, endedNotice, isCourtFeePaid } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useCourtsBroadcast, useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../src/features/availability/assemble';
+import {
+  useAllCourts,
+  useCourtsBroadcast,
+  useGuestVenue,
+  useVenueSettings,
+} from '../../src/features/availability/hooks';
+import { DEFAULT_TZ, venuePhoneOf } from '../../src/features/availability/assemble';
 import { callPhone } from '../../src/lib/phone';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
@@ -24,7 +29,6 @@ import {
 } from '../../src/components/ui';
 import { useBack } from '../../src/navigation/back';
 import {
-  DegradedBanner,
   PayAtDeskCard,
   StatusPill,
   SummaryGrid,
@@ -48,9 +52,19 @@ function BookingDetailScreen() {
   // Fetched by id (RLS-scoped) — finding it in the 100-row list made any older
   // booking opened from a push tap render "not found".
   const reservation = useReservation(typeof id === 'string' ? id : undefined);
-  const courts = useCourts();
-  const settings = useVenueSettings();
-  const degraded = useIsDegraded();
+  // The settings of the booking's OWN branch (its cancellation window, its
+  // phone, its clock), whichever branch the Book tab shows. The row names its
+  // branch (0235); a row cached before that falls back to its court's branch.
+  // Until the branch is known the settings wait (null), so the policy is never
+  // judged against another branch's window.
+  const courts = useAllCourts();
+  const bookingCourtId = reservation.data?.court_id;
+  const bookingVenue =
+    reservation.data?.venue_id ?? courts.data?.find((c) => c.id === bookingCourtId)?.venue_id;
+  const settings = useVenueSettings(
+    bookingVenue ?? (courts.isSuccess && reservation.isSuccess ? undefined : null),
+  );
+  const guestVenueId = useGuestVenue().venueId;
   const cancel = useCancelReservation();
   const toast = useToast();
   // The desk can end this booking while the guest is looking straight at it —
@@ -59,9 +73,8 @@ function BookingDetailScreen() {
   // one that kept showing it after the venue closed it, until a 15 s staleTime
   // happened to lapse against a refocus. Reference-counted and shared, so this
   // adds no second subscription when it is opened from Bookings.
-  useCourtsBroadcast();
+  useCourtsBroadcast(bookingVenue ?? guestVenueId);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [noticeClosed, setNoticeClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Eligibility follows the clock: the window can close while the guest looks.
@@ -80,6 +93,8 @@ function BookingDetailScreen() {
   // red refusal card a second later.
   const policyKnown = settings.isSuccess;
   const windowHours = settings.data?.cancellation_window_hours ?? 0;
+  // The venue's clock decides "good evening", not the phone's.
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   const start = booking ? new Date(booking.start_at) : null;
   const end = booking ? new Date(booking.end_at) : null;
   const upcomingActive =
@@ -122,28 +137,15 @@ function BookingDetailScreen() {
       <Stack.Screen
         options={{ title: booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : '' }}
       />
-      {/*
-        Spec 05.16: the venue contact whenever the venue is degraded, closed
-        only by its × — a guest looking at a stale booking needs the number in
-        reach however long they spend reading, and however often the query
-        refetches. In flow rather than floating, matching the Book tab: an
-        overlay covered the top of the detail it was commenting on.
-      */}
-      {degraded && !noticeClosed ? (
-        <View style={{ marginBottom: space.s }}>
-          <DegradedBanner
-            lead={t('degraded.leadConnectionLost')}
-            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-            phone={phone}
-            blockLead
-            onDismiss={() => setNoticeClosed(true)}
-          />
-        </View>
-      ) : null}
+      {/* No venue notice here either (spec 05.16 put one above the detail; the
+          owner took every one of them off the top of screens on 2026-09-11 —
+          the sheet carries it at booking time). The venue's number stays in
+          reach on this screen through the window-closed card's Call button. */}
       {reservation.isLoading ? (
         <SkeletonList rows={2} height={140} />
       ) : reservation.isError ? (
         <ErrorState
+          testID="booking-detail.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(reservation.error))}
           retryLabel={t('common.retry')}
@@ -152,6 +154,7 @@ function BookingDetailScreen() {
         />
       ) : !booking ? (
         <ErrorState
+          testID="booking-detail.not-found"
           title={t('errors.notFound')}
           message={t('booking.notFound')}
           retryLabel={t('common.back')}
@@ -276,6 +279,7 @@ function BookingDetailScreen() {
                 </Text>
               ) : null}
               <Button
+                testID="booking-detail.cancel"
                 label={t('booking.cancelBooking')}
                 variant="dangerOutline"
                 size="compact"
@@ -325,6 +329,7 @@ function BookingDetailScreen() {
                 })}
               </Text>
               <Button
+                testID="booking-detail.call-venue"
                 label={t('booking.callVenue')}
                 variant="danger"
                 size="compact"
@@ -368,7 +373,18 @@ function BookingDetailScreen() {
           ) : null}
 
           <View style={{ marginTop: 10 }}>
-            <PayAtDeskCard lead={`${t('booking.payAtDeskTitle')}.`} body={t('booking.payAtDeskShort')} />
+            {/* Once the desk has taken the money this card is the only place
+                the guest would ever learn it: the app takes no payment, so
+                "pay at the desk" stood on every booking forever, including
+                ones already settled. */}
+            {isCourtFeePaid(booking) ? (
+              <PayAtDeskCard
+                lead={`${t('booking.paidTitle')}.`}
+                body={t(dayPart(now, tz) === 'evening' ? 'booking.paidEvening' : 'booking.paidDay')}
+              />
+            ) : (
+              <PayAtDeskCard lead={`${t('booking.payAtDeskTitle')}.`} body={t('booking.payAtDeskShort')} />
+            )}
           </View>
 
           <ErrorText>{error}</ErrorText>

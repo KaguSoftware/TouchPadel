@@ -1,6 +1,6 @@
 import { StrictMode, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { RouterProvider, createRouter, useNavigate } from '@tanstack/react-router';
+import { RouterProvider, createHashHistory, createRouter, useNavigate } from '@tanstack/react-router';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { PERSIST_BUSTER, makePersister, shouldPersistQuery } from './lib/persist';
@@ -24,15 +24,27 @@ import { financialRoute } from './routes/financial';
 import { observationRoute } from './routes/observation';
 import { observationChildren } from './routes/observation/_children';
 import { marketingRoute } from './routes/marketing';
+import { assistantRoute } from './routes/assistant';
+import { assistantChildren } from './routes/assistant/_children';
 import { workspacesRoute } from './routes/workspaces';
+import { tasksRoute } from './routes/tasks';
+import { protocolsRoute } from './routes/protocols';
+import { suggestionsRoute } from './routes/suggestions';
+// Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
+import { deductionsRoute } from './routes/deductions';
+import { incidentsRoute } from './routes/incidents';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
+import { analyticsChildren } from './routes/analytics/_children';
 import { LocaleProvider, useLocale } from './lib/i18n';
+import { ThemeModeProvider, useThemeMode } from './lib/themeMode';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
+import { VenueProvider } from './lib/venue';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
 import { initQueueResults } from './lib/queueResults';
 import { initOfflineTabRetirement } from './lib/offlineTabs';
+import { isElectron } from './lib/mutate';
 
 // Code-based route tree for the shell phase. TODO(FE2): switch to file-based codegen
 // (@tanstack/router-plugin generating routeTree.gen.ts) once typed search params land.
@@ -48,10 +60,16 @@ const routeTree = rootRoute.addChildren([
   financialRoute,
   observationRoute.addChildren([...observationChildren]),
   marketingRoute,
+  assistantRoute.addChildren([...assistantChildren]),
   reportsRoute.addChildren([...reportsChildren]),
   stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),
-  analyticsRoute,
+  analyticsRoute.addChildren([...analyticsChildren]),
+  tasksRoute,
+  protocolsRoute,
+  suggestionsRoute,
+  deductionsRoute,
+  incidentsRoute,
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */
@@ -78,6 +96,12 @@ function RouteNotFoundScreen() {
 
 const router = createRouter({
   routeTree,
+  // The shell loads index.html from file://, where a pushState path such as
+  // /till becomes file:///C:/till — fine until anything reloads (Ctrl+R, the
+  // crash panel's Reload, the shell's render-process-gone recovery), which then
+  // asks the disk for a file that does not exist and leaves a white window.
+  // Hash history keeps the document URL on index.html. Browsers keep real paths.
+  ...(isElectron() ? { history: createHashHistory() } : {}),
   defaultErrorComponent: RouteErrorScreen,
   defaultNotFoundComponent: RouteNotFoundScreen,
   // Report before rendering the panel, so a screen that crashes in a loop still
@@ -117,9 +141,11 @@ function ShellCrash({ error, reset }: { error: unknown; reset: () => void }) {
 
 function ThemedApp() {
   const { dir } = useLocale();
-  // Operator surfaces use the padel theme (cafe theme is for guest cafe pages).
+  // Operator surfaces use the operator theme (cafe theme is for guest cafe
+  // pages), in whichever appearance this station chose — paper, or blue mode.
+  const { mode } = useThemeMode();
   return (
-    <ThemeProvider theme="operator" dir={dir}>
+    <ThemeProvider theme="operator" dir={dir} mode={mode}>
       <AppErrorBoundary fallback={(error, reset) => <ShellCrash error={error} reset={reset} />}>
         <AuthProvider>
           <PersistQueryClientProvider
@@ -131,7 +157,9 @@ function ThemedApp() {
               dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
             }}
           >
-            <RouterProvider router={router} />
+            <VenueProvider>
+              <RouterProvider router={router} />
+            </VenueProvider>
           </PersistQueryClientProvider>
         </AuthProvider>
       </AppErrorBoundary>
@@ -149,7 +177,9 @@ if (!rootEl) throw new Error('#root missing in index.html');
 createRoot(rootEl).render(
   <StrictMode>
     <LocaleProvider>
-      <ThemedApp />
+      <ThemeModeProvider>
+        <ThemedApp />
+      </ThemeModeProvider>
     </LocaleProvider>
   </StrictMode>,
 );

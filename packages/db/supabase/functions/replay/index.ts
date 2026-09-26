@@ -8,10 +8,18 @@
  *  - applied                    -> RPC result echo, HTTP 200, sync_replays 'applied'
  *  - exclusion conflict (23P01 / SLOT_TAKEN) -> HTTP 409, sync_replays 'conflict'
  *    + manager_alerts('replay_conflict') — the desk resolves manually, no overwrite
+ *  - transient (serialization, deadlock, lock/statement timeout, pool, connection)
+ *                               -> HTTP 503 { result: 'retry' }, NOTHING recorded: the
+ *    write was never judged, and a sync_replays row here would turn the till's
+ *    retry into a 'duplicate' ack of a settle that never happened (C1)
+ *  - PIN-gated types (adjustment.apply): verify_manager_pin runs first as the staff
+ *    session (0115) so the lockout counts; its refusal is handled like the RPC's
  *  - anything else (validation, forbidden, ...) -> mapped error, AND a
  *    sync_replays row (result 'conflict' with the error detail): a queued write
  *    must never vanish without a durable trace — the till still marks the queue
- *    row failed and surfaces it, but the server keeps the record.
+ *    row failed and surfaces it, but the server keeps the record. Secrets in
+ *    the payload (a manager PIN on adjustment.apply) are redacted before the
+ *    record is written or echoed (S2).
  *
  * AuthZ: the request must carry a STAFF session JWT. The RPC dispatch reuses
  * that JWT (a client bound to the caller's Authorization header) so every
@@ -23,7 +31,9 @@ import {
   createServiceClient,
   getCallerUserId,
 } from '../_shared/supabase.ts';
-import { json, mapPgError, isExclusionConflict, type PgError } from '../_shared/http.ts';
+import { json, mapPgError, isExclusionConflict, isRetryablePgError, type PgError } from '../_shared/http.ts';
+import { redactSecrets } from '../_shared/redact.ts';
+import mutationTypes from '../_shared/mutation-types.json' with { type: 'json' };
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // ---------------------------------------------------------------------------
@@ -110,11 +120,18 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
   //   settle_tab(p_tab_id, p_method, p_tendered_iqd, p_amount_iqd,
   //              p_idempotency_key, p_device_id)
   //   apply_discount(p_tab_id, p_kind, p_value, p_pin, p_reason_code,
-  //                  p_order_item_id, p_device_id)                       — no idem key
+  //                  p_order_item_id, p_device_id, p_idempotency_key)    — keyed since 0049 (0119)
   //   override_price(p_order_item_id, p_new_unit_price_iqd, p_pin,
-  //                  p_reason_code, p_device_id)                         — no idem key
+  //                  p_reason_code, p_device_id, p_idempotency_key)      — keyed since 0049 (0119)
   //   record_waste(p_ingredient_id, p_qty, p_movement_type, p_reason_code,
-  //                p_device_id)                                          — no idem key
+  //                p_device_id, p_idempotency_key)                       — keyed since 0049
+  // Item 9 / C3 (0120):
+  //   cancel_tab(p_tab_id, p_reason_code, p_device_id, p_idempotency_key)
+  //   settle_zero_tab(p_tab_id, p_reason_code, p_device_id, p_idempotency_key)
+  //   refund(p_payment_id, p_amount_iqd, p_pin, p_reason_code, p_items,
+  //          p_device_id, p_idempotency_key)
+  //   void_after_send(p_order_item_id, p_pin, p_reason_code, p_device_id)  — no idem key
+  //                  (void_order_item_internal is state-idempotent, 0039)
   'tab.open': (p, c) => ({
     rpc: 'open_tab',
     entity: 'tab',
@@ -122,6 +139,8 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_table_id: p?.tableId ?? null,
       p_label: p?.label ?? null,
       p_reservation_id: p?.reservationId ?? null,
+      // 0145: a shop counter sale; omitted for a café tab (same call as mutate.ts).
+      ...(p?.kind === 'shop' ? { p_kind: 'shop' } : {}),
       ...common(c),
     }),
   }),
@@ -152,6 +171,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_method: p?.method,
       p_tendered_iqd: p?.tenderedIqd ?? null,
       p_amount_iqd: p?.amountIqd ?? null,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null, // 0106: TOTAL_CHANGED guard
       ...common(c),
     }),
   }),
@@ -163,6 +183,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_method: p?.method,
       p_tendered_iqd: p?.tenderedIqd ?? null,
       p_amount_iqd: p?.amountIqd ?? null,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null, // 0106: TOTAL_CHANGED guard
       ...common(c),
     }),
   }),
@@ -210,6 +231,43 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_movement_type: p?.movementType ?? 'waste_spill',
       p_reason_code: p?.reasonCode ?? null,
       ...common(c),            // 0049: was p_device_id only -- a replay deducted stock twice
+      ...wasteLocation(p),     // wave 5: the store, only when the payload names one
+    }),
+  }),
+
+  // --- Item 9 / C3 (0120): the till's money corrections ------------------------
+  'tab.cancel': (p, c) => ({
+    rpc: 'cancel_tab',
+    entity: 'tab',
+    args: () => ({ p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, ...common(c) }),
+  }),
+  'tab.settle_zero': (p, c) => ({
+    rpc: 'settle_zero_tab',
+    entity: 'tab',
+    args: () => ({ p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, ...common(c) }),
+  }),
+  'payment.refund': (p, c) => ({
+    rpc: 'refund',
+    entity: 'refund',
+    args: () => ({
+      p_payment_id: p?.paymentId,
+      p_amount_iqd: p?.amountIqd,
+      p_pin: p?.pin,
+      p_reason_code: p?.reasonCode,
+      p_items: refundItems(p),
+      ...common(c),
+    }),
+  }),
+  'order_item.void': (p, c) => ({
+    rpc: 'void_after_send',
+    entity: 'order_item',
+    // State-idempotent (void_order_item_internal returns {duplicate:true} on a
+    // voided line, 0039), so no p_idempotency_key -- like set_ticket_status.
+    args: () => ({
+      p_order_item_id: p?.orderItemId,
+      p_pin: p?.pin,
+      p_reason_code: p?.reasonCode,
+      p_device_id: c.stationId,
     }),
   }),
 };
@@ -219,6 +277,17 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
  * jsonb shape app.add_order_items reads: variant_id / qty / notes /
  * modifiers[{modifier_id, qty}].
  */
+// Parity with the shared list (C4): a type added in one place and not the
+// other fails this function at BOOT, which fails the deploy loudly instead of a
+// 400 on the first real replay of the missing type.
+{
+  const here = Object.keys(MUTATION_RPCS).sort();
+  const shared = [...mutationTypes.types].sort();
+  if (JSON.stringify(here) !== JSON.stringify(shared)) {
+    throw new Error(`replay MUTATION_RPCS drifted from _shared/mutation-types.json: ${JSON.stringify({ here, shared })}`);
+  }
+}
+
 function orderItems(p: any): unknown[] {
   const items = Array.isArray(p?.items) ? p.items : [];
   return items.map((it: any) => ({
@@ -232,6 +301,18 @@ function orderItems(p: any): unknown[] {
   }));
 }
 
+/** payment.refund items -> app.refund's p_items jsonb, or null for a money-only refund. */
+function refundItems(p: any): unknown[] | null {
+  const items = Array.isArray(p?.items) ? p.items : [];
+  if (items.length === 0) return null;
+  return items.map((it: any) => ({ order_item_id: it?.orderItemId, qty: it?.qty }));
+}
+
+/** stock.waste's store (wave 5 §2.8.6): p_location only when the payload names one. */
+function wasteLocation(p: any): Record<string, unknown> {
+  return p?.location ? { p_location: p.location } : {};
+}
+
 class BadRequest extends Error {}
 
 interface ReplayBody {
@@ -240,7 +321,11 @@ interface ReplayBody {
   payload: unknown;
   station_id: string;
   staff_id: string;
+  /** The branch the write was queued under (0228); optional. */
+  venue_scope?: string;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -251,7 +336,7 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'invalid JSON body' }, 400);
   }
-  const { idempotency_key, mutation_type, payload, station_id, staff_id } = body ?? {};
+  const { idempotency_key, mutation_type, payload, station_id, staff_id, venue_scope } = body ?? {};
   if (
     typeof idempotency_key !== 'string' || !idempotency_key ||
     typeof mutation_type !== 'string' ||
@@ -259,6 +344,9 @@ Deno.serve(async (req) => {
     typeof staff_id !== 'string' || !staff_id
   ) {
     return json({ error: 'idempotency_key, mutation_type, payload, station_id, staff_id required' }, 400);
+  }
+  if (venue_scope !== undefined && venue_scope !== null && (typeof venue_scope !== 'string' || !UUID_RE.test(venue_scope))) {
+    return json({ error: 'venue_scope must be a uuid' }, 400);
   }
   // Key discipline (mirrors mutationEnvelopeSchema): "{station}:{type}:{ulid}".
   const [keyStation, keyType] = idempotency_key.split(':');
@@ -290,7 +378,7 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (dup.error) return json({ error: dup.error.message }, 500);
   if (dup.data) {
-    return json({ result: 'duplicate', prior_result: dup.data.result, echo: dup.data.conflict_detail });
+    return json({ result: 'duplicate', prior_result: dup.data.result, echo: redactSecrets(dup.data.conflict_detail) });
   }
 
   const routeFor = MUTATION_RPCS[mutation_type];
@@ -355,12 +443,44 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_ANON_KEY')!,
     {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: req.headers.get('Authorization')! } },
+      // 0215: the queued write's station names the branch on the replayed
+      // request, exactly as the till did when it queued it; 0228: so does the
+      // branch the screens showed then (a machine that is not a station). Both
+      // count on the server only for the owner or a member of that branch.
+      global: {
+        headers: {
+          Authorization: req.headers.get('Authorization')!,
+          'x-station-id': station_id,
+          ...(venue_scope ? { 'x-venue-scope': venue_scope } : {}),
+        },
+      },
     },
   );
-  const { data: rpcResult, error: rpcError } = await asStaff
-    .schema('app')
-    .rpc(route.rpc, route.args(effectivePayload, ctx));
+  // 0115 (S3): a queued PIN-gated mutation still carries the typed PIN. Prove
+  // it to verify_manager_pin FIRST, as the staff session — its own statement, so
+  // the attempt persists whatever the money RPC does next — and let the RPC
+  // consume the grant that verification minted. A refusal here (PIN_INVALID,
+  // PIN_LOCKED) is terminal for the row and is recorded below exactly like any
+  // other RPC refusal; a transient error is retried like any other.
+  let rpcResult: unknown = null;
+  let rpcError: PgError | null = null;
+  const queuedPin = (effectivePayload as { pin?: unknown } | null)?.pin;
+  if (mutationTypes.pinGatedRpcs.includes(route.rpc) && typeof queuedPin === 'string') {
+    const verified = await asStaff
+      .schema('app')
+      .rpc('verify_manager_pin', { p_pin: queuedPin, p_device_id: station_id });
+    if (verified.error) rpcError = verified.error as PgError;
+    // A wrong PIN RETURNS null (the attempt is already recorded); make it the
+    // same terminal refusal the RPC used to raise.
+    else if (verified.data === null) rpcError = { code: 'P0001', message: 'PIN_INVALID' };
+  }
+  if (!rpcError) {
+    const dispatched = await asStaff
+      .schema('app')
+      .rpc(route.rpc, route.args(effectivePayload, ctx));
+    rpcResult = dispatched.data;
+    rpcError = (dispatched.error as PgError | null) ?? null;
+  }
 
   // NOTE on sync_replays: canonical DDL (design-data §1.9) has `conflict_detail
   // jsonb`; this endpoint uses that column as the generic result echo for ALL
@@ -390,18 +510,28 @@ Deno.serve(async (req) => {
 
   if (rpcError) {
     const pgErr = rpcError as PgError;
+    // Transient: the write was never judged. Record NOTHING (see header) and
+    // answer 503 so the worker releases the row to pending with backoff.
+    if (isRetryablePgError(pgErr)) {
+      const mapped = mapPgError(pgErr);
+      return json({ result: 'retry', ...mapped }, mapped.status);
+    }
     if (isExclusionConflict(pgErr)) {
       const detail = {
         code: 'SLOT_TAKEN',
         message: pgErr.message,
         details: pgErr.details ?? null,
         mutation_type,
-        payload,
+        payload: redactSecrets(payload),
       };
       const prior = await record('conflict', detail);
-      if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: prior.conflict_detail });
+      if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
       // Surface to the desk: shows a conflict rather than an overwrite (SoW).
+      // 0220: filed at the station's branch (the service role resolves no venue).
+      const { data: stationRow } = await service.from('stations').select('venue_id').eq('id', station_id).maybeSingle();
+      const stationVenue = (stationRow as { venue_id?: string } | null)?.venue_id;
       const alert = await service.from('manager_alerts').insert({
+        ...(stationVenue ? { venue_id: stationVenue } : {}),
         kind: 'replay_conflict',
         payload: {
           idempotency_key,
@@ -423,11 +553,11 @@ Deno.serve(async (req) => {
       message: pgErr.message,
       details: pgErr.details ?? null,
       mutation_type,
-      payload,
+      payload: redactSecrets(payload),
     };
     const priorErr = await record('conflict', errDetail);
     if (priorErr) {
-      return json({ result: 'duplicate', prior_result: priorErr.result, echo: priorErr.conflict_detail });
+      return json({ result: 'duplicate', prior_result: priorErr.result, echo: redactSecrets(priorErr.conflict_detail) });
     }
     return json({ result: 'error', ...mapped }, mapped.status);
   }
@@ -436,7 +566,7 @@ Deno.serve(async (req) => {
   // already existed (e.g. an online race): record the truthful outcome.
   const wasDuplicate = !!(rpcResult && typeof rpcResult === 'object' && (rpcResult as any).duplicate);
   const prior = await record(wasDuplicate ? 'duplicate' : 'applied', rpcResult);
-  if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: prior.conflict_detail });
+  if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
 
   return json({ result: wasDuplicate ? 'duplicate' : 'applied', echo: rpcResult });
 });

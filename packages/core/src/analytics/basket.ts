@@ -36,7 +36,18 @@ export type RawPair = {
 /** A lone co-order isn't a pattern. */
 export const MIN_PAIR_SUPPORT = 2;
 
-/** Rank raw co-occurrence rows: strongest pairs first, confidence from the rarer side. */
+/**
+ * Below this lift a pair is two popular items landing in the same basket by
+ * chance (water with everything): it is not a combo worth suggesting.
+ */
+export const MIN_PAIR_LIFT = 1.3;
+
+/**
+ * Rank raw co-occurrence rows: the pairs that happen MORE than chance first
+ * (lift, then count), confidence from the rarer side. A pair whose lift is
+ * known and under the floor is dropped; a pair with no order total (lift
+ * unknown) is kept and sorts after every pair with a lift.
+ */
 export function rankPairs(raw: readonly RawPair[], limit = 8): ItemPair[] {
   const out: ItemPair[] = [];
   for (const r of raw) {
@@ -46,16 +57,18 @@ export function rankPairs(raw: readonly RawPair[], limit = 8): ItemPair[] {
     const cb = Math.max(assertCount(r.bCount, 'bCount'), count);
     const [a, b, base, other] = ca <= cb ? [r.a, r.b, ca, cb] : [r.b, r.a, cb, ca];
     const orders = r.orders === undefined ? null : assertCount(r.orders, 'orders');
+    const lift = orders !== null && orders > 0 ? (count * orders) / (base * other) : null;
+    if (lift !== null && lift < MIN_PAIR_LIFT) continue;
     out.push({
       a,
       b,
       count,
       confidencePct: Math.round((count / base) * 100),
-      lift: orders !== null && orders > 0 ? (count * orders) / (base * other) : null,
+      lift,
     });
   }
   return out
-    .sort((p, q) => q.count - p.count || q.confidencePct - p.confidencePct || p.a.localeCompare(q.a) || p.b.localeCompare(q.b))
+    .sort((p, q) => (q.lift ?? -1) - (p.lift ?? -1) || q.count - p.count || q.confidencePct - p.confidencePct || p.a.localeCompare(q.a) || p.b.localeCompare(q.b))
     .slice(0, limit);
 }
 

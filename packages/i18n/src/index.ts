@@ -10,6 +10,7 @@ export {
   formatTimeRange,
   formatWeekdayShort,
   formatMonthShort,
+  formatMonthYear,
   formatDayNumber,
   formatIQD,
   formatNumber,

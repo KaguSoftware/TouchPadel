@@ -122,7 +122,8 @@ for (const s of sends) {
   }
 
   // 2. Money and identity, on the staff topics.
-  const staffTopic = STAFF_TOPICS.some((t) => new RegExp(`'${t}'`).test(s.topic));
+  // 0224 (MV7): the literal topic ('kds') and the per-branch one ('kds:' || venue).
+  const staffTopic = STAFF_TOPICS.some((t) => new RegExp(`'${t}(?:'|:)`).test(s.topic));
   if (!staffTopic) continue;
 
   const keys = [...flat.matchAll(/'([a-z0-9_]+)'\s*,/gi)].map((k) => k[1]);

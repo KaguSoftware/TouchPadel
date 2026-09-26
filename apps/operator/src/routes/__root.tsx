@@ -3,7 +3,7 @@
  * WorkspaceSwitcher entry, SessionLockScreen, WorkspaceShell with the
  * per-workspace navigation rail and the global DegradedBanner region.
  *
- * Five workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
+ * Six workspaces on one build: the rail is chosen by the ACTIVE WORKSPACE
  * (lib/workspaces.ts), never by filtering one shared menu. The prep workspace
  * renders no navigation at all — a wall-mounted kitchen screen has nothing to
  * get lost in.
@@ -13,8 +13,9 @@
  * its own list, and a way back to the workspace. Which section is open comes
  * from the URL, so a deep link and a reload land on the same rail as a click.
  */
-import { Link, Outlet, createRootRoute, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet, createRootRoute, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
@@ -27,8 +28,11 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { useAuth, canAccess, homeRoute, type StaffRole } from '../lib/auth';
+import { useQuery } from '@tanstack/react-query';
+import { formatNumber } from '@touch/i18n';
+import { useAuth, can, canAccess, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
+import { useThemeMode } from '../lib/themeMode';
 import {
   WORKSPACES,
   isNavActive,
@@ -39,28 +43,53 @@ import {
   workspaceForRoute,
   workspaceOwnsPath,
   workspacesForRole,
+  type NavGroup,
   type NavItem,
+  type NavSection,
   type WorkspaceKey,
 } from '../lib/workspaces';
+import { QK } from '../lib/queryKeys';
+import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../features/ops/protocolsWaiting';
+import { fetchSuggestionsNew } from '../features/roleExtras/api';
+import { newSuggestionCount } from '../features/roleExtras/roleExtrasLogic';
+// Wave 5, people records: the rail's three counts (wave5-addendum-2026-09-25 §5.2).
+import { fetchDeductionsWaiting } from '../features/deductions/api';
+import { deductionsWaitingCount } from '../features/deductions/deductionsLogic';
+import { fetchIncidentsOpen } from '../features/incidents/api';
+import { incidentsOpenCount } from '../features/incidents/incidentsLogic';
+import { fetchContentWaiting } from '../features/content/api';
+import { contentWaitingCount } from '../features/content/contentLogic';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
-import { ChevronBack, ChevronForward, Icon, CourtLines } from '../components/icons';
+import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
+import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
+import { RailMoreMenu } from '../components/RailMoreMenu';
+import { RailBranch } from '../components/RailBranch';
+import { useVenue } from '../lib/venue';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
 import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
 import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
-import { ConfirmProvider } from '../components/ConfirmDialog';
-import { touch, type UpdateReadyInfo } from '../ipc/bridge';
+import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
+import { touch, type LeaveResult, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
 import { isElectron } from '../lib/mutate';
+import { ScreenOwnerClaim, ScreenOwnerProvider, useScreenOwned } from '../lib/screenOwner';
 import { useUpdateReady } from '../lib/updates';
 import { UpdateReadyControl } from '../components/UpdateReady';
 import { StationSetupContainer } from '../features/setup/StationSetupContainer';
-import { qrModules, qrPath } from '../features/admin/qr/qrCardGeometry';
-import { formatPairingCode } from '@touch/core';
+import { QueueFailureToasts } from '../components/QueueFailureToasts';
+import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
+import { BreakOverlay } from '../features/breaks/BreakOverlay';
+import { BreakRailControl } from '../features/breaks/BreakRailControl';
+import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
+import { ShiftProvider } from '../features/tillShift/ShiftProvider';
+import { ShiftRailControl } from '../features/tillShift/ShiftRailControl';
+import { useTillShift } from '../features/tillShift/shiftContext';
+import { LockLeaveGuard } from '../features/tillShift/LockLeaveGuard';
 
 export const rootRoute = createRootRoute({
   component: RootProviders,
@@ -72,12 +101,82 @@ function RootProviders() {
   return (
     <>
       <GlobalStyles />
-      <ToastProvider>
-        <ConfirmProvider>
-          <RootShell />
-        </ConfirmProvider>
-      </ToastProvider>
+      {/* Wraps the strip AND everything that can open an overlay, so an
+          overlay's claim reaches the strip. */}
+      <ScreenOwnerProvider>
+        <WindowDragStrip />
+        <ToastProvider>
+          {/* A queued write the server refused after its caller stopped waiting
+              (item 9): the toast is the cue, Day close holds the row. */}
+          <QueueFailureToasts />
+          <ConfirmProvider>
+            {/* The macOS red traffic light's confirmation. It lives up here
+                because that button works on EVERY screen — sign-in and the
+                first-run setup included — while the rail's Quit row only
+                exists once somebody is signed in. Renders nothing until main
+                says the button was pressed. */}
+            <QuitToDesktop variant="windowClose" />
+            <RootShell />
+          </ConfirmProvider>
+        </ToastProvider>
+      </ScreenOwnerProvider>
     </>
+  );
+}
+
+/**
+ * Lets the operator move the macOS window by its top edge, on EVERY screen.
+ *
+ * It lives up here rather than in WorkspaceShell because most of the screens
+ * that need it are the ones rendered before the shell exists — sign-in, first
+ * run, the boot and config-error screens — and a window you cannot move while
+ * signing in is the one place it is most annoying.
+ *
+ * Fixed and overlaid, not laid out: the pre-auth screens are 100vh boxes, so a
+ * real row would push them past the viewport and grow a scrollbar.
+ *
+ * `pointerEvents: none` is what makes overlaying safe. A drag region otherwise
+ * swallows the clicks under it (electron/electron#1354), which here would eat
+ * the top of the rail and of every screen. Chromium registers the draggable
+ * region with macOS from the painted box and does NOT consult pointer-events,
+ * so the window still drags while the controls underneath stay clickable —
+ * verified both ways with real OS mouse events, since the two behaviours look
+ * contradictory and neither is documented.
+ *
+ * Electron on macOS only: titleBarInset is 0/absent on Windows, in browser dev
+ * and on every kiosk, and this renders nothing there.
+ */
+/**
+ * Height of the band the macOS traffic lights are drawn into, for the few
+ * screens that put something in the top corners and would otherwise put it
+ * underneath them. 0 everywhere the lights do not exist.
+ */
+function useTitleBarInset(): number {
+  return useMemo(() => touch.getStation().titleBarInset ?? 0, []);
+}
+
+function WindowDragStrip() {
+  const inset = useTitleBarInset();
+  const owned = useScreenOwned();
+  // An overlay is up and owns its own top edge. Not painting the strip is the
+  // only thing that frees those pixels — see lib/screenOwner.tsx.
+  if (!inset || owned) return null;
+  return (
+    <div
+      aria-hidden="true"
+      data-no-print
+      style={
+        {
+          position: 'fixed',
+          insetBlockStart: 0,
+          insetInline: 0,
+          blockSize: inset,
+          zIndex: 'var(--tp-z-drag)',
+          pointerEvents: 'none',
+          WebkitAppRegion: 'drag',
+        } as CSSProperties
+      }
+    />
   );
 }
 
@@ -98,6 +197,15 @@ export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) throw new Error('useWorkspace outside WorkspaceShell');
   return ctx;
+}
+/**
+ * The same context for a screen that only ADDS something when it happens to
+ * be inside the shell — the kitchen board's way back, which a unit test
+ * renders on its own. Nothing depends on it being there, so an absent shell
+ * is a fact to read, not a bug to throw on.
+ */
+export function useWorkspaceOrNull(): WorkspaceContextValue | null {
+  return useContext(WorkspaceContext);
 }
 
 // Nav filtering is UX only; RLS + in-RPC role guards are the real wall.
@@ -129,14 +237,7 @@ function RootShell() {
   if (loading) return <AppBootScreen fullBleed />;
   if (!session) return <SignInScreen />;
   if (notStaff || !staff) {
-    return (
-      <AppBootScreen
-        fullBleed
-        error={tr('op.signIn.notStaff')}
-        onRetry={() => window.location.reload()}
-        onSignOut={() => void signOut()}
-      />
-    );
+    return <NotStaffScreen email={session.user.email ?? null} onSignOut={() => void signOut()} />;
   }
 
   return <WorkspaceShell role={staff.role} venue={venue} />;
@@ -209,10 +310,48 @@ export function AppBootScreen({
   );
 }
 
+/**
+ * A signed-in account with no active staff row. This used to be the boot
+ * screen's failure face — "The app could not start." over "This account is not
+ * registered as staff." with Try again as the primary button — but the app had
+ * started fine, and reloading cannot give an account a staff row. What the
+ * person can actually do is sign in as somebody else, or have the owner add
+ * them and check again, so those are the two buttons, in that order, and the
+ * screen says which account it is talking about.
+ */
+function NotStaffScreen({ email, onSignOut }: { email: string | null; onSignOut: () => void }) {
+  const { tr } = useLocale();
+  return (
+    <div role="alert" style={{ minBlockSize: '100vh', display: 'grid', placeItems: 'center', paddingBlock: 'var(--tp-sp-6)', paddingInline: 'var(--tp-sp-5)', background: 'var(--tp-bg)' }}>
+      <div className="tp-rise" style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'center', textAlign: 'center', maxInlineSize: '30rem' }}>
+        <BrandLockup size={36} title="Touch Padel" />
+        <span style={{ display: 'grid', placeItems: 'center', inlineSize: '3rem', blockSize: '3rem', borderRadius: '50%', background: 'var(--tp-warn-soft)', color: 'var(--tp-warn-fg)', marginBlockStart: 'var(--tp-sp-2)' }}>
+          <Icon name="user" size={22} />
+        </span>
+        <h1 style={{ fontSize: 'var(--tp-fs-2xl)' }}>{tr('ws.shell.signIn.notStaffTitle')}</h1>
+        <p style={{ color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.shell.signIn.notStaffBody', { email: email ?? '—' })}
+        </p>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'center', marginBlockStart: 'var(--tp-sp-2)' }}>
+          <Button kind="primary" icon="logOut" onClick={onSignOut}>
+            {tr('ws.shell.signIn.otherAccount')}
+          </Button>
+          <Button icon="refresh" onClick={() => window.location.reload()}>
+            {tr('ws.shell.signIn.checkAgain')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // WorkspaceShell — rail + banner region + routed screen
 // ---------------------------------------------------------------------------
 function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatState | null }) {
+  // Every screen remounts when the branch changes, so no editor keeps a draft
+  // seeded from the last branch and saves it into this one.
+  const { branchId } = useVenue();
   const available = useMemo(() => workspacesForRole(role), [role]);
   const [active, setActiveState] = useState<WorkspaceKey>(() => loadWorkspace(role));
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -244,19 +383,64 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   const value = useMemo(() => ({ active, available, setActive }), [active, available, setActive]);
   const workspace = WORKSPACES[active];
   const noNav = workspace.groups.length === 0;
+  // The dark wall-screen theme belongs to the BOARD, not to every screen of
+  // the navless workspace: the bar and kitchen roles open My tasks from the
+  // board's header (/tasks, build-contracts-2026-09-23 §5.1), and a desk page
+  // on the board's black ground would be unreadable. The page carries its own
+  // way back to the board.
+  const board = noNav && (path === '/kds' || path.startsWith('/kds/'));
+  // The kitchen screen is wall-mounted: no traffic lights over its header, and
+  // so no room to reserve for them either. Both follow noNav, not the board:
+  // My tasks opened from it has no rail to keep the lights off its title
+  // either. Both are restored the moment the operator leaves the workspace.
+  useEffect(() => {
+    touch.pushChromeless(noNav);
+  }, [noNav]);
+  // Browser mode has no kiosk window to hide chrome on, so the board asks the
+  // OS itself for full screen instead — same "wall screen, no chrome" intent
+  // as pushChromeless above, just through the other door. Electron already
+  // opens its KDS window with `kiosk: true` (main/index.ts), so this would be
+  // a no-op there at best and a fight with ExitFullscreen's own control at
+  // worst; it runs in browser mode only. Best-effort: a browser can refuse
+  // fullscreen (no prior user gesture, permission policy), and the board is
+  // usable either way, so failures are swallowed rather than surfaced.
+  useEffect(() => {
+    if (isElectron()) return;
+    if (noNav) {
+      void document.documentElement.requestFullscreen?.().catch(() => {});
+    } else if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => {});
+    }
+  }, [noNav]);
   // A downloaded update waiting for a restart: a rail row where there is a
   // rail, a floating pill on the kitchen screen, which has none.
   const update = useUpdateReady();
 
   return (
     <WorkspaceContext.Provider value={value}>
+      {/* Break state (0105) sits above the rail, the routed screen and both
+          locks: the rail row starts a break, the overlay owns the station
+          while somebody is away, and the idle lock defers to it. */}
+      <BreakProvider>
+      {/* Till shifts (wave5-addendum §2.9): the station's shift, read once for
+          the rail row, the payment pane's gate and the leaving guard. Offline
+          (the beat itself failed) the gate fails open. */}
+      <ShiftProvider offline={venue?.error != null}>
+      {/* The owner assistant's drawer (docs/design/assistant §5.1) is one
+          sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
+          and it is mounted once, beside the break overlay. */}
+      <AssistantDrawerProvider>
       <div
-        data-workspace={active}
-        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
+        data-workspace={noNav && !board ? undefined : active}
+        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: board ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
       >
-        <SkipToMain />
         <IdleLock />
-        <VenueStatusBanner state={venue} />
+        <BreakOverlay />
+        <AssistantDrawer />
+        {/* On the kitchen screen there is no rail, so the strip spans the
+            window as it always has. Where there IS a rail it moves inside the
+            content column instead — see below. */}
+        {noNav && <VenueStatusBanner state={venue} />}
         {noNav && update && (
           <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
         )}
@@ -264,105 +448,146 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           {!noNav && <WorkspaceNav workspaceKey={active} path={path} update={update} />}
           {/* tabIndex -1 so the skip link has somewhere to land; the routed
               screen's own first heading is the next stop from here. */}
-          <main
-            id="tp-main"
-            tabIndex={-1}
-            style={{
-              flex: 1,
-              minInlineSize: 0,
-              minBlockSize: 0,
-              overflow: 'auto',
-              paddingBlock: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-4)',
-              paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
-            }}
-          >
-            <Outlet />
-          </main>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minInlineSize: 0, minBlockSize: 0 }}>
+            {/* The strip starts where the rail ends, not at the window's edge.
+                Full width, it ran under the macOS traffic lights: 'hiddenInset'
+                draws them INSIDE the page, and the rail is the only thing that
+                reserves room for them (its spacer). Beginning after the blue
+                panel puts the strip clear of the buttons without a second
+                inset to keep in step with the first. */}
+            {!noNav && <VenueStatusBanner state={venue} />}
+            <main
+              id="tp-main"
+              tabIndex={-1}
+              style={{
+                flex: 1,
+                minInlineSize: 0,
+                minBlockSize: 0,
+                overflow: 'auto',
+                paddingBlock: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-4)',
+                paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
+              }}
+            >
+              <Fragment key={branchId ?? 'no-branch'}>
+                <Outlet />
+              </Fragment>
+            </main>
+          </div>
         </div>
       </div>
+      </AssistantDrawerProvider>
+      </ShiftProvider>
+      </BreakProvider>
     </WorkspaceContext.Provider>
   );
 }
 
 /**
- * The first thing a keyboard reaches on every screen. The owner's rail renders
- * 17 links and four footer controls ahead of the routed content, so without it
- * every navigation costs up to 21 Tab presses on a workspace PRODUCT.md calls
- * keyboard-first. Invisible until it is focused, so a mouse never meets it.
- *
- * It moves focus to #tp-main itself instead of letting the browser follow the
- * fragment: a bare hash href would push '#tp-main' into the router's location
- * and leave it hanging off every URL after it.
+ * A rail row's live count (NavItem.badge): what waits on the signed-in person
+ * behind that row (build-contracts-2026-09-23 §5.1, §5.4). Each badge is one
+ * shared read, refetched every minute and on focus, so every row and screen
+ * that shows the same count agrees with the others.
  */
-function SkipToMain() {
-  const { tr } = useLocale();
-  const [shown, setShown] = useState(false);
-  return (
-    <a
-      href="#tp-main"
-      className={shown ? undefined : 'tp-sr-only'}
-      onFocus={() => setShown(true)}
-      onBlur={() => setShown(false)}
-      onClick={(e) => {
-        e.preventDefault();
-        document.getElementById('tp-main')?.focus();
-      }}
-      style={
-        shown
-          ? {
-              position: 'fixed',
-              insetBlockStart: 'var(--tp-sp-2)',
-              insetInlineStart: 'var(--tp-sp-2)',
-              zIndex: 'var(--tp-z-popover)',
-              background: 'var(--tp-surface)',
-              color: 'var(--tp-accent)',
-              border: '1px solid var(--tp-border-input)',
-              borderRadius: 'var(--tp-radius-ctl)',
-              boxShadow: 'var(--tp-shadow-popover)',
-              paddingBlock: 'var(--tp-sp-2)',
-              paddingInline: 'var(--tp-sp-3)',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }
-          : undefined
-      }
-    >
-      {tr('ws.shell.nav.skipToMain')}
-    </a>
-  );
+function useNavBadge(badge: NavItem['badge'] | undefined): number {
+  return useBadgeSum(badge ? [badge] : []);
 }
 
 /**
- * The rail's ONE start edge (rulebook 10.8). Header, group label, link and
- * identity line all resolve to RAIL_PAD + RAIL_ITEM_PAD from the rail's inline
- * start, so nothing sits a few pixels off its neighbour. The header used to be
- * inset 0.9rem against everything else's 1.2rem, and the rhythm around it was
- * freehand — 0.9 / 0.7 / 0.6 / 0.5 / 0.45 / 0.4 / 0.2 / 0.15rem, not one of
- * them on the 4px scale.
- *
- * RAIL_ITEM_PAD is applied inline rather than in GlobalStyles because
- * .tp-nav-item's own 0.7rem is shared with consumers outside this file.
+ * What a set of rows counts between them: a section's button (Observe) and a
+ * closed rail group (the manager's Run the day) show it, so a count is never
+ * tucked away where the operator cannot see it.
  */
-const RAIL_PAD = 'var(--tp-sp-2)';
-const RAIL_ITEM_PAD = 'var(--tp-sp-3)';
-const RAIL_EDGE = `calc(${RAIL_PAD} + ${RAIL_ITEM_PAD})`;
+function useRowsBadge(items: readonly NavItem[]): number {
+  return useBadgeSum(items.filter((i) => !i.hidden).map((i) => i.badge));
+}
 
-const navItemStyle: CSSProperties = { paddingInline: RAIL_ITEM_PAD };
-/** A rail control that is a <button>, not a <Link>: same box, no chrome. */
-const navButtonStyle: CSSProperties = {
-  ...navItemStyle,
-  background: 'transparent',
-  border: 'none',
-  inlineSize: '100%',
-  cursor: 'pointer',
-  font: 'inherit',
-  textAlign: 'start',
-};
+/**
+ * The sum of the named badges' counts, one shared read each. A wave-5 count
+ * (wave5-addendum-2026-09-25 §5.2) is read only by the role that acts on it:
+ * the Incidents row sits on the desk's and the till's rail too, and
+ * app.incidents_page would refuse them, so theirs carries no count.
+ */
+function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number {
+  const { staff } = useAuth();
+  const on = new Set(badges);
+  const protocols = useQuery({
+    queryKey: QK.protocolsWaiting,
+    queryFn: fetchProtocolsWaiting,
+    enabled: on.has('protocolsWaiting'),
+    refetchInterval: 60_000,
+  });
+  const suggestions = useQuery({
+    queryKey: QK.suggestionsNew,
+    queryFn: fetchSuggestionsNew,
+    enabled: on.has('suggestionsNew'),
+    refetchInterval: 60_000,
+  });
+  // A row counts only what it names: a disabled query still hands back what
+  // another row cached under the same key, so the flag gates the sum too.
+  const deductionsOn = on.has('deductionsWaiting') && can(staff?.role, 'decideDeductions');
+  const incidentsOn = on.has('incidentsOpen') && can(staff?.role, 'reviewIncidents');
+  const contentOn = on.has('contentWaiting') && can(staff?.role, 'decideContent');
+  const deductions = useQuery({
+    queryKey: QK.deductionsWaiting,
+    queryFn: fetchDeductionsWaiting,
+    enabled: deductionsOn,
+    refetchInterval: 60_000,
+  });
+  const incidents = useQuery({
+    queryKey: QK.incidentsOpen,
+    queryFn: fetchIncidentsOpen,
+    enabled: incidentsOn,
+    refetchInterval: 60_000,
+  });
+  const content = useQuery({
+    queryKey: QK.contentWaiting,
+    queryFn: fetchContentWaiting,
+    enabled: contentOn,
+    refetchInterval: 60_000,
+  });
+  return (
+    (on.has('protocolsWaiting') ? protocolsWaitingTotal(protocols.data) : 0) +
+    (on.has('suggestionsNew') ? newSuggestionCount(suggestions.data) : 0) +
+    (deductionsOn && deductions.isSuccess ? deductionsWaitingCount(deductions.data) : 0) +
+    (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
+    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0)
+  );
+}
+
+/** The count at a row's end: nothing at zero, so a quiet rail stays quiet. */
+function RailCount({ count }: { count: number }) {
+  const { tr, locale } = useLocale();
+  if (count <= 0) return null;
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        style={{
+          flexShrink: 0,
+          minInlineSize: '1.4rem',
+          paddingInline: 'var(--tp-sp-1-5)',
+          borderRadius: 'var(--tp-radius-pill)',
+          background: 'var(--tp-rail-green)',
+          color: 'var(--tp-rail)',
+          fontSize: 'var(--tp-fs-xs)',
+          fontWeight: 700,
+          lineHeight: 1.6,
+          textAlign: 'center',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {formatNumber(count, locale)}
+      </span>
+      <span className="tp-sr-only">{tr('ws.shell.nav.badge', { count: formatNumber(count, locale) })}</span>
+    </>
+  );
+}
 
 /** One rail destination. Same row whether it comes from a group or a section. */
 function RailLink({ item, path }: { item: NavItem; path: string }) {
   const { tr } = useLocale();
   const active = isNavActive(item, path);
+  const count = useNavBadge(item.badge);
   return (
     <Link
       to={item.to}
@@ -375,7 +600,112 @@ function RailLink({ item, path }: { item: NavItem; path: string }) {
       <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {tr(`ws.shell.nav.${item.labelKey}`)}
       </span>
+      <RailCount count={count} />
     </Link>
+  );
+}
+
+/** A section's row on the workspace rail: it opens a place, so a forward chevron, and its count. */
+function SectionLink({ section }: { section: NavSection }) {
+  const { tr } = useLocale();
+  const count = useRowsBadge(section.items);
+  return (
+    <Link to={section.home} className="tp-nav-item" style={navItemStyle}>
+      <Icon name={section.icon} size={17} />
+      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {tr(`ws.shell.section.${section.key}`)}
+      </span>
+      <RailCount count={count} />
+      <ChevronForward size={14} />
+    </Link>
+  );
+}
+
+const RAIL_OPEN_KEY = 'touch-operator-rail-open';
+
+function loadOpenGroup(): string | null {
+  try {
+    return localStorage.getItem(RAIL_OPEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveOpenGroup(key: string | null): void {
+  try {
+    if (key) localStorage.setItem(RAIL_OPEN_KEY, key);
+    else localStorage.removeItem(RAIL_OPEN_KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
+/**
+ * A titled group of rail rows that opens and closes from its title.
+ *
+ * Closed by default so the rail reads as a short list of places (Today, Run
+ * the day, Records, Setup) rather than twelve rows. Only one group is open at
+ * a time — opening one closes whichever other group was open, so the rail
+ * never grows into the full twelve-row list. Two rules keep it from hiding
+ * where the operator is:
+ *
+ *  - The group holding the current screen opens itself, including when the
+ *    operator arrives there from a link on another screen, so the lit row is
+ *    never tucked away inside a closed group.
+ *  - What the operator opened by hand is remembered on this station, so a
+ *    manager who keeps Setup open does not have to reopen it every shift.
+ *
+ * The rows are `inert` while closed, so Tab never lands on something that
+ * cannot be seen. The height animates through a 0fr → 1fr grid track, which
+ * needs no measured height and is cut to nothing by the reduced-motion rule
+ * in GlobalStyles.
+ */
+function RailGroup({
+  labelKey,
+  items,
+  path,
+  open,
+  onToggle,
+}: {
+  labelKey: NonNullable<NavGroup['labelKey']>;
+  items: readonly NavItem[];
+  path: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { tr } = useLocale();
+  const listId = `rail-group-${labelKey}`;
+  // Open, the rows show their own counts.
+  const count = useRowsBadge(items);
+
+  return (
+    <div style={{ display: 'grid' }}>
+      <button
+        type="button"
+        className="tp-nav-item tp-rail-group"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={onToggle}
+        style={navButtonStyle}
+      >
+        <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {tr(`ws.shell.nav.${labelKey}`)}
+        </span>
+        {!open && <RailCount count={count} />}
+        <span className="tp-rail-group-chevron" style={{ display: 'inline-flex' }}>
+          <Icon name="chevronDown" size={14} />
+        </span>
+      </button>
+      <div id={listId} className="tp-rail-group-body" data-open={open ? 'true' : undefined}>
+        <div style={{ overflow: 'hidden', minBlockSize: 0 }} inert={!open}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}>
+            {items.map((item) => (
+              <RailLink key={item.to} item={item} path={path} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -391,16 +721,71 @@ function WorkspaceNav({
   path: string;
   update: UpdateReadyInfo | null;
 }) {
-  const { tr, toggleLocale, locale } = useLocale();
+  const { tr } = useLocale();
   const { staff, signOut } = useAuth();
   const { available } = useWorkspace();
+  const tillShift = useTillShift();
   const station = touch.getStation();
   const workspace = WORKSPACES[workspaceKey];
-  const canSwitch = available.length > 1;
+  // Only the jokers change workspace (owner call, 2026-09-18): a cashier or a
+  // desk clerk has one, and the row was never more than a dead end for them.
+  const canSwitch = available.length > 1 && (staff?.role === 'manager' || staff?.role === 'owner');
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+  // Leaving a section for its workspace is a move the person may not have
+  // meant, so it asks first. Switch workspace does not: it only opens the
+  // picker, and the picker asks when a different workspace is chosen.
+  const leaveTo = async (to: string, destination: string) => {
+    const ok = await confirm({
+      title: tr('ws.shell.nav.leaveTitle', { destination }),
+      body: tr('ws.shell.nav.leaveBody'),
+      confirmLabel: tr('ws.shell.nav.leaveConfirm'),
+      kind: 'primary',
+    });
+    if (ok) void navigate({ to });
+  };
+  // Sign out asks first, through the same dialog the leave paths use. It is
+  // one press on the rail foot and it ends the shift, so a stray touch while
+  // reaching for the identity block should not drop the till to a sign-in.
+  const confirmSignOut = async () => {
+    // Wave 5 §5.1: with the person's own till shift open here, Sign out asks
+    // about the drawer instead (End my shift, Sign out anyway, Cancel).
+    if (tillShift.guardSignOut(() => void signOut())) return;
+    const ok = await confirm({
+      title: tr('ws.shell.nav.signOutTitle'),
+      body: tr('ws.shell.nav.signOutBody'),
+      confirmLabel: tr('ws.shell.nav.signOutConfirm'),
+      // Red, and the confirm button says the deed rather than "Yes, …" —
+      // the words that were pressed on the rail come back on the button that
+      // carries them out.
+      kind: 'danger',
+      // Beside Cancel, not pushed to the far edge (owner call, 2026-09-21).
+      // Rulebook 7.8 spreads a destructive confirm so a mis-tap cannot land
+      // on it; signing out is red but REVERSIBLE — you sign back in — so it
+      // pairs like every other dialog instead. A real destructive write keeps
+      // the spread.
+      pairActions: true,
+    });
+    if (ok) await signOut();
+  };
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
   const section = sectionForPath(workspace, path);
   const sections = (workspace.sections ?? []).filter((sec) => canAccess(staff?.role, sec.home));
+
+  // Accordion: at most one group open at a time. The group holding the
+  // current screen always wins, so arriving via a link never leaves the lit
+  // row buried in a closed group; otherwise the last group opened by hand on
+  // this station, remembered across shifts.
+  const visibleGroups = workspace.groups
+    .map((group) => ({ group, items: group.items.filter((item) => canAccess(staff?.role, item.to)) }))
+    .filter(({ items }) => items.length > 0);
+  const activeGroupKey = visibleGroups.find(({ items }) => items.some((item) => isNavActive(item, path)))?.group.labelKey ?? null;
+  const [openGroup, setOpenGroup] = useState<string | null>(() => activeGroupKey ?? loadOpenGroup());
+
+  useEffect(() => {
+    if (activeGroupKey) setOpenGroup(activeGroupKey);
+  }, [activeGroupKey]);
 
   return (
     <nav
@@ -417,15 +802,48 @@ function WorkspaceNav({
         overflow: 'hidden',
       }}
     >
-      {/* Rail header: the one committed brand surface. */}
-      <div style={{ position: 'relative', paddingBlock: 'var(--tp-sp-4) var(--tp-sp-3)', paddingInline: RAIL_EDGE, borderBlockEnd: '1px solid var(--tp-rail-border)', overflow: 'hidden' }}>
+      {/* Rail header: the one committed brand surface.
+
+          Its top padding ALSO carries the room the macOS traffic lights need
+          ('hiddenInset' draws them inside the page, right here). That used to
+          be a separate spacer above this block, which read as an empty navy
+          band between the buttons and the lockup — the court lines started
+          below it and the header looked pushed down. Folding it into the
+          header's own padding clears the buttons with no band. 0 on Windows,
+          in browser dev, and on every kiosk, where the scale value stands. */}
+      <div
+        style={{
+          position: 'relative',
+          paddingBlockStart: station.titleBarInset ? `${station.titleBarInset}px` : 'var(--tp-sp-4)',
+          paddingBlockEnd: 'var(--tp-sp-3)',
+          paddingInline: RAIL_EDGE,
+          borderBlockEnd: '1px solid var(--tp-rail-border)',
+          overflow: 'hidden',
+        }}
+      >
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           <CourtLines opacity={0.16} />
         </div>
         <div style={{ position: 'relative' }}>
-          <BrandLockup size={26} tone="onDark" />
-          {/* The way out of a section, in the place a browser back button
-              would be and above the name of where you are. Sizing, surface and
+          {/* 34, not the old 26: the header's top padding grew to clear the
+              macOS traffic lights, and at 26 the lockup read as small against
+              it. Still below the sign-in screen's 40, which is the hero. */}
+          <BrandLockup size={34} tone="onDark" />
+          {/* The title sits straight under the lockup; in a section the back
+              control follows the lead, below. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
+            <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
+              <Icon name={section ? section.icon : workspace.icon} size={16} />
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
+              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
+            </span>
+          </div>
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
+            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
+          </p>
+          {/* The way out of a section, below the name of where you are and
+              its lead, so the title reads first. Sizing, surface and
               colour live in .tp-rail-back (GlobalStyles) — this is a control,
               not a footnote: a section is somewhere the operator passes
               through, so leaving it is the most-pressed row on the panel. */}
@@ -439,37 +857,38 @@ function WorkspaceNav({
               accessible name, so a screen reader still hears "Back to
               Management" and only the pixels are shorter.
             */
-            <Link
-              to={workspace.home}
+            <button
+              type="button"
               className="tp-rail-back"
-              style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}
+              style={{ marginBlockStart: 'var(--tp-sp-2-5)', font: 'inherit', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, cursor: 'pointer', textAlign: 'start' }}
               aria-label={tr('ws.shell.nav.backTo', { workspace: tr(`ws.shell.workspace.${workspaceKey}`) })}
+              onClick={() => void leaveTo(workspace.home, tr(`ws.shell.workspace.${workspaceKey}`))}
             >
               <ChevronBack size={14} />
               <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tr(`ws.shell.workspace.${workspaceKey}`)}
               </span>
-            </Link>
+            </button>
           )}
-          {/* One gap either way now. The section case used to be tightened to
-              --tp-sp-1 so the back link read as part of the title below it;
-              the back link is a bordered control now, and crowding a title
-              against its edge just looks like a mistake. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
-            <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
-              <Icon name={section ? section.icon : workspace.icon} size={16} />
-            </span>
-            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
-              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
-            </span>
-          </div>
-          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
-            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
-          </p>
+          {/* Multi-venue slice 4: which branch this screen is for (a switcher for the owner). */}
+          <RailBranch />
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>
+      {/* Collapsible groups carry their own 44px title row, so they stack at a
+          small gap; the wide gap is for plain lists that have no title between
+          them. */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          paddingBlock: 'var(--tp-sp-2-5)',
+          paddingInline: RAIL_PAD,
+          display: 'grid',
+          gap: !section && workspace.groups.some((g) => g.labelKey) ? 'var(--tp-sp-1)' : 'var(--tp-sp-4)',
+          alignContent: 'start',
+        }}
+      >
         {section ? (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
             {sectionRailItems(section)
@@ -480,33 +899,37 @@ function WorkspaceNav({
           </div>
         ) : (
           <>
-            {workspace.groups.map((group, gi) => (
-              <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-                {group.labelKey && (
-                  <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, paddingInline: RAIL_ITEM_PAD, marginBlockEnd: 'var(--tp-sp-1)' }}>
-                    {tr(`ws.shell.nav.${group.labelKey}`)}
-                  </p>
-                )}
-                {group.items
-                  .filter((item) => canAccess(staff?.role, item.to))
-                  .map((item) => (
+            {visibleGroups.map(({ group, items }, gi) =>
+              group.labelKey ? (
+                <RailGroup
+                  key={group.labelKey}
+                  labelKey={group.labelKey}
+                  items={items}
+                  path={path}
+                  open={openGroup === group.labelKey}
+                  onToggle={() =>
+                    setOpenGroup((cur) => {
+                      const next = cur === group.labelKey ? null : group.labelKey!;
+                      saveOpenGroup(next);
+                      return next;
+                    })
+                  }
+                />
+              ) : (
+                <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+                  {items.map((item) => (
                     <RailLink key={item.to} item={item} path={path} />
                   ))}
-              </div>
-            ))}
+                </div>
+              ),
+            )}
 
             {/* One row per section, chevron forward: this opens a place, it
                 does not switch a screen. */}
             {sections.length > 0 && (
               <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
                 {sections.map((sec) => (
-                  <Link key={sec.key} to={sec.home} className="tp-nav-item" style={navItemStyle}>
-                    <Icon name={sec.icon} size={17} />
-                    <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {tr(`ws.shell.section.${sec.key}`)}
-                    </span>
-                    <ChevronForward size={14} />
-                  </Link>
+                  <SectionLink key={sec.key} section={sec} />
                 ))}
               </div>
             )}
@@ -515,21 +938,21 @@ function WorkspaceNav({
       </div>
 
       <div style={{ borderBlockStart: '1px solid var(--tp-rail-border)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-0)' }}>
-        {canSwitch && (
-          <Link to="/workspaces" className="tp-nav-item" style={navItemStyle} data-active={path === '/workspaces' ? 'true' : undefined}>
-            <Icon name="repeat" size={16} />
-            <span>{tr('ws.shell.nav.switchWorkspace')}</span>
-          </Link>
-        )}
-        <button type="button" className="tp-nav-item" onClick={toggleLocale} style={navButtonStyle}>
-          <Icon name="globe" size={16} />
-          <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
-        </button>
-        <button type="button" className="tp-nav-item" onClick={() => void signOut()} style={navButtonStyle}>
-          <Icon name="logOut" size={16} />
-          <span>{tr('auth.signOut')}</span>
-        </button>
-        <PairKitchenScreen />
+        {/* Workspace, assistant, language and appearance behind one row. The
+            assistant is owner-only and the switch manager-and-up, so the menu
+            holds two items for a cashier and four for an owner. */}
+        <RailMoreMenu
+          canSwitch={canSwitch}
+          // On the picker the row is lit rather than hidden, so the menu holds
+          // the same items on every screen. RailMoreMenu makes the press a no-op
+          // there, so pressing it never reloads the screen already showing.
+          onWorkspacePicker={path === '/workspaces'}
+          // Straight to the picker: looking at the list of workspaces moves
+          // nothing. The question is asked on the picker, when a DIFFERENT
+          // workspace is chosen (owner call, 2026-09-22) — that is the step
+          // that changes the whole rail.
+          onSwitchWorkspace={() => void navigate({ to: '/workspaces' })}
+        />
         {update && (
           <UpdateReadyControl
             variant="rail"
@@ -539,47 +962,139 @@ function WorkspaceNav({
           />
         )}
 
-        {/* Rulebook 4.5 wants the role and the scoped context legible at all
+        {/* 0105: "Go on break" / "{name} is back". Same box as the rows above
+            it; its caption uses the identity block's muted line. */}
+        <BreakRailControl
+          style={navButtonStyle}
+          captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
+        />
+
+        {/* Wave 5 §5.1: the till shift, under the break row and drawn the same
+            way: "Start my shift", or "End my shift" over "My shift · since …". */}
+        <ShiftRailControl
+          style={navButtonStyle}
+          captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
+        />
+
+        {/* Who is at this till, and the way off it.
+
+            Rulebook 4.5 wants the role and the scoped context legible at all
             times. One line reading "Mohammed Al-Rashid · Court desk · TILL-01"
             inside a 13.5rem rail truncated to about the first name, so in
             practice neither the role nor the station was visible at all. Name
             and role share a line because they answer "who is signed in"; the
             station answers "which till" and gets its own, using the
-            ws.shell.nav.station key that had been sitting unused. */}
-        <div style={{ paddingInline: RAIL_ITEM_PAD, paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
-            <bdi
-              title={staff?.displayName}
-              style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-brand-white)' }}
+            ws.shell.nav.station key that had been sitting unused.
+
+            The build is NOT here. It used to sit under the station as a
+            third line, answering a question asked about twice a year in
+            front of every shift all day. It now stands once, centred at the
+            foot of the workspace chooser (routes/workspaces.tsx), where
+            somebody looking up "which version is that till on" can be sent.
+
+            Sign out is an icon button on the END edge, beside those two lines
+            (owner call, 2026-09-21). It ends the shift, it does not go
+            anywhere, so it should not read as one more nav row above rows that
+            navigate; and standing beside the name and the station, it is
+            unmistakably the control that ends THAT session. Icon-only,
+            because the glyph plus its aria-label says it in the width a
+            13.5rem rail can spare next to the text.
+
+            `flex-start` + the name row's own half-leading, NOT `center`: the
+            text beside it is a two-line stack, and centring against both
+            floats the button down by the station line — a muted caption it
+            has nothing to do with. Sitting on the name's optical centre makes
+            it read as that person's control. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-2)', minInlineSize: 0, paddingInline: RAIL_ITEM_PAD, paddingBlockStart: 'var(--tp-sp-2)' }}>
+          {/* sp-2, not sp-1: the name and the station answer two different
+              questions — who is signed in, and which till — and at 0.25rem
+              the station read as a second line of the name rather than as
+              its own fact. */}
+          <div style={{ flex: 1, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            <RailIdentity />
+            <p
+              title={tr('ws.shell.nav.station', { id: station.stationId })}
+              style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {staff?.displayName}
-            </bdi>
-            <StatusBadge
-              size="sm"
-              dot={false}
-              label={tr(`op.roles.${staff?.role ?? 'cashier'}`)}
-              style={{ flexShrink: 0 }}
-            />
+              {tr('ws.shell.nav.station', { id: station.stationId })}
+            </p>
           </div>
-          <p
-            title={tr('ws.shell.nav.station', { id: station.stationId })}
-            style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            {tr('ws.shell.nav.station', { id: station.stationId })}
-          </p>
-          {/* The shell build, so "which version is that till on" is answerable
-              from the till itself and not only from device_heartbeats. */}
-          <p
-            dir="ltr"
-            style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'start' }}
-          >
-            {tr('ws.shell.nav.version', { version: station.appVersion })}
-          </p>
+          <Button
+            size="sm"
+            icon="logOut"
+            onClick={() => void confirmSignOut()}
+            aria-label={tr('auth.signOut')}
+            title={tr('auth.signOut')}
+            data-testid="rail.signOut"
+            /* Rail palette + the rail's hover ground; see .tp-rail-btn. */
+            className="tp-rail-btn"
+            style={{
+              flexShrink: 0,
+              /* The full touch target on EVERY rail, not just the two that get
+                 it from [data-workspace='cashier'|'prep'] in GlobalStyles
+                 (owner call, 2026-09-23). Sign out ends the shift and it is
+                 the one control on the rail with no label to aim at, so the
+                 desk clerk and the manager get the same square the till has
+                 always had. Set here rather than by dropping size="sm",
+                 because the size also carries the glyph and padding scale the
+                 rail's other footer rows are drawn at. */
+              inlineSize: 'var(--tp-touch)',
+              minBlockSize: 'var(--tp-touch)',
+              /* The square is taller than the name it sits beside, so a flush
+                 top sets it a touch high. Half that difference puts its glyph
+                 on the name's optical centre. */
+              marginBlockStart: '-0.1rem',
+              /* Pull the border box onto the rail's true end edge, so the
+                 button's edge lines up with RAIL_EDGE the way every other
+                 row's text does rather than sitting a border in from it. */
+              marginInlineEnd: '-1px',
+            }}
+          />
         </div>
 
         <QuitToDesktop />
       </div>
     </nav>
+  );
+}
+
+/**
+ * Who is at this station. Normally the signed-in person and their role; while
+ * a cover holds the till (0105) it is the cover's name with a "Covering"
+ * badge and, underneath, whom they are covering for — the session behind the
+ * screen is still the first person's, and the rail must not pretend otherwise.
+ */
+function RailIdentity() {
+  const { tr } = useLocale();
+  const { staff } = useAuth();
+  const brk = useBreak();
+  const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
+  const name = cover ? cover.display_name : staff?.displayName;
+  return (
+    /* No padding of its own: the rail's foot now wraps this and the station /
+       version lines in one padded row beside the sign-out button. */
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+        <bdi
+          title={name}
+          style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-brand-white)' }}
+        >
+          {name}
+        </bdi>
+        <StatusBadge
+          size="sm"
+          dot={false}
+          tone={cover ? 'warn' : 'neutral'}
+          label={cover ? tr('ws.shell.break.covering') : tr(`op.roles.${staff?.role ?? 'cashier'}`)}
+          style={{ flexShrink: 0 }}
+        />
+      </div>
+      {cover && (
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {tr('ws.shell.break.coveringFor', { name: staff?.displayName ?? '' })}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -594,6 +1109,23 @@ function IdleLock() {
   const { tr } = useLocale();
   const { staff, session, signOut } = useAuth();
   const { settings } = useCafeSettings();
+  const brk = useBreak();
+  /**
+   * 0105. While somebody COVERS the station, the lock asks for THEIR PIN —
+   * the signed-in person is on a break and not here to type theirs. The
+   * cover's PIN is re-verified through app.cover_station, which is
+   * idempotent for the same person. `ownerBack` is the other way off: the
+   * person on break has returned to a locked till and ends the break with
+   * their own PIN, which unlocks as well. While the person is AWAY with no
+   * cover, the break screen is the lock, and this one stands down.
+   */
+  const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
+  const [ownerBack, setOwnerBack] = useState(false);
+  // Wave 5 §5.1, the leaving guard: Switch user with the signed-in person's
+  // own till shift open here asks first, inside this card. A dialog over the
+  // lock would sit under it (--tp-z-lock), and the lock is not closable.
+  const tillShift = useTillShift();
+  const [leaving, setLeaving] = useState(false);
   const timeoutS = settings.till_idle_lock_seconds;
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState('');
@@ -603,8 +1135,12 @@ function IdleLock() {
   const [busy, setBusy] = useState(false);
   const lastActivity = useRef(Date.now());
   const cardRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLInputElement>(null);
+  // "Type your PIN first" — shown on the field when Unlock is pressed empty.
+  const [empty, setEmpty] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
 
-  const enabled = !!staff && timeoutS > 0;
+  const enabled = !!staff && timeoutS > 0 && brk.phase !== 'away';
 
   /**
    * SEC-34, the self-unlock gap. Does THIS person have an unlock PIN?
@@ -668,15 +1204,70 @@ function IdleLock() {
     // the PIN box would put the cashier back in front of the credential they do
     // not have on the very next idle timeout, which is the whole gap.
     setUsePassword(hasPin === false);
+    setOwnerBack(false);
+    setLeaving(false);
     setError(null);
+    setEmpty(false);
     lastActivity.current = Date.now();
   }
 
+  /**
+   * A wrong PIN used to leave focus nowhere: the field was `disabled` while
+   * the check ran, and a disabled control drops focus, so every retry started
+   * with a tap back into the box. The fields are read-only while busy instead
+   * and focus is put back here, so a mistyped PIN is fixed by just typing.
+   */
+  function refocus() {
+    requestAnimationFrame(() => fieldRef.current?.focus());
+  }
+
+  function switchMode(toPassword: boolean) {
+    setUsePassword(toPassword);
+    setError(null);
+    setEmpty(false);
+    setPin('');
+    setPassword('');
+    refocus();
+  }
+
+  // The password belongs to the signed-in account; a cover has only a PIN.
+  const pinOnly = !!cover;
+  const askPassword = usePassword && !pinOnly;
+
+  /**
+   * The line under "Station locked", or null when there is nothing worth
+   * saying. A plain idle lock is the null case: the title and the PIN box
+   * already say it. The three that remain each carry a fact the screen does
+   * not otherwise give — who is covering, that the break is ending, and why
+   * a password is being asked of somebody who has no PIN.
+   */
+  const lead = cover
+    ? ownerBack
+      ? tr('ws.shell.break.endLead')
+      : tr('ws.shell.break.lockCovering', { name: cover.display_name })
+    : hasPin === false && usePassword
+      ? tr('ws.shell.lock.hintPassword')
+      : null;
+
   async function unlock() {
+    if (busy) return;
+    if ((askPassword ? password : pin).length === 0) {
+      setEmpty(true);
+      refocus();
+      return;
+    }
+    setEmpty(false);
     setBusy(true);
     setError(null);
     try {
-      if (usePassword) {
+      if (cover) {
+        // Both throw PIN_INVALID / PIN_LOCKED like verify_own_pin would.
+        if (ownerBack) await brk.end(pin);
+        else await brk.cover(cover.id, pin);
+        clearAndUnlock();
+        return;
+      }
+      if (askPassword) {
         const email = session?.user.email;
         if (!email) throw new Error('no email on session');
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
@@ -691,11 +1282,14 @@ function IdleLock() {
       if (!ok) {
         setError(new AppRpcError('PIN_INVALID', 'PIN_INVALID'));
         setPin('');
+        refocus();
         return;
       }
-      // Only an authorising role's pin feeds the offline manager-pin cache.
+      // Only an authorising role's pin feeds the offline manager-pin cache,
+      // tagged as this person's own: offline, it is what stops them letting
+      // themselves out of the station with it (Quit / Exit full screen).
       if (staff && (staff.role === 'manager' || staff.role === 'owner')) {
-        touch.pinObserved(pin);
+        touch.pinObserved(pin, staff.id);
       }
       clearAndUnlock();
     } catch (e) {
@@ -706,6 +1300,7 @@ function IdleLock() {
         setError(e);
       }
       setPin('');
+      refocus();
     } finally {
       setBusy(false);
     }
@@ -757,80 +1352,187 @@ function IdleLock() {
         overflow: 'hidden',
       }}
     >
+      <ScreenOwnerClaim />
       {/* One opacity, in one place. This used to be 0.6 on the wrapper times
           0.14 on the motif = 0.084, i.e. an undifferentiated navy rectangle —
           on the longest-lived full-screen brand moment in a shift. */}
       <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
         <CourtLines opacity={0.2} />
       </div>
-      <BrandLockup
-        size={28}
-        tone="onDark"
-        style={{ position: 'absolute', insetBlockStart: '2rem', insetInlineStart: '2rem' }}
-      />
-      <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, position: 'relative', outline: 'none', inlineSize: 'min(22rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
-          <Icon name="lock" size={18} style={{ color: 'var(--tp-accent)' }} />
-          <h2 style={{ fontSize: 'var(--tp-fs-xl)' }}>{tr('ws.shell.lock.title')}</h2>
-        </div>
-        <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
-          {/* SEC-34: say WHY the password is being asked for, so a cashier with
-              no PIN is not left wondering what they have forgotten. */}
-          {hasPin === false && usePassword
-            ? tr('ws.shell.lock.hintPassword', { name: staff.displayName })
-            : tr('ws.shell.lock.hint', { name: staff.displayName })}
-        </p>
-        {usePassword ? (
-          <Field label={tr('auth.passwordLabel')}>
-            <input
-              style={inputStyle}
-              type="password"
-              value={password}
-              autoFocus
-              disabled={busy}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void unlock()}
-            />
-          </Field>
-        ) : (
-          <Field label={tr('ws.shell.lock.pin')}>
-            <input
-              style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
-              type="password"
-              inputMode="numeric"
-              dir="ltr"
-              value={pin}
-              autoFocus
-              disabled={busy}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => e.key === 'Enter' && void unlock()}
-            />
-          </Field>
-        )}
-        <ErrorText error={error} />
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Button kind="ghost" icon="users" onClick={() => void signOut()} disabled={busy}>
-            {tr('ws.shell.lock.switchUser')}
-          </Button>
-          <span style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
-            {/* Offered only to somebody who HAS a PIN and is being asked for it.
-                For a cashier with none, "Use password instead" is the only
-                route, and presenting it as the alternative implies a PIN they
-                could have used. */}
-            {!usePassword && hasPin !== false && (
-              <Button kind="ghost" onClick={() => setUsePassword(true)} disabled={busy}>
-                {tr('ws.shell.lock.usePassword')}
-              </Button>
+      {/*
+        Who is signed in is the headline, because it is the first thing anyone
+        walking up to a locked till needs: is this my session or somebody
+        else's? Then one field, one full-width Unlock, and the two ways out as
+        quiet links underneath. The old card spread Switch user, Use password
+        instead and Unlock over three ragged lines of equal-looking buttons,
+        and once someone chose the password there was no way back to the PIN.
+
+        The logo sits above the card, centered with it as one column, rather
+        than pinned to the corner — this is the longest-lived full-screen
+        brand moment in a shift, so the mark belongs with the card it is
+        introducing, not off in a corner unrelated to it.
+      */}
+      <div style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-6)' }}>
+        <BrandLockup size={96} tone="onDark" />
+        <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-6)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-5)' }}>
+          {/* The header is one centred column: who is signed in, and — only
+              when there is something to say — one line under it.
+
+              Neither the lock glyph nor "Station locked" is drawn any more. A
+              full-screen card asking for a PIN over the darkened station is
+              already unmistakably a lock, so the eyebrow named what the person
+              could see and pushed the thing they came for down the card. It
+              survives as the overlay's aria-label, which is where it does real
+              work: a screen reader still announces "Station locked" on open.
+
+              The line beneath carries only what the screen does NOT otherwise
+              say — who is covering, that a break is ending, and (SEC-34) why a
+              password is being asked of somebody with no PIN. A plain idle lock
+              has nothing to add, so the line is absent rather than empty. */}
+          <div style={{ display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 'var(--tp-sp-2)' }}>
+            <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+              <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
+              {cover && !ownerBack ? (
+                <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
+              ) : (
+                <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
+              )}
+            </h2>
+            {lead !== null && (
+              <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', textWrap: 'balance' }}>{lead}</p>
             )}
-            <Button
-              kind="primary"
-              busy={busy}
-              disabled={usePassword ? password.length === 0 : pin.length < 4}
-              onClick={() => void unlock()}
-            >
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void unlock();
+            }}
+            style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}
+          >
+            {askPassword ? (
+              <Field
+                label={tr('auth.passwordLabel')}
+                error={empty ? tr('ws.shell.lock.passwordFirst') : undefined}
+                hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
+                style={{ marginBlockEnd: 0 }}
+              >
+                <input
+                  ref={fieldRef}
+                  style={inputStyle}
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  autoFocus
+                  readOnly={busy}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setEmpty(false);
+                  }}
+                  onKeyDown={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+                  onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+                />
+              </Field>
+            ) : (
+              <Field label={tr('ws.shell.lock.pin')} error={empty ? tr('ws.shell.lock.pinFirst') : undefined} style={{ marginBlockEnd: 0 }}>
+                <input
+                  ref={fieldRef}
+                  style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  dir="ltr"
+                  value={pin}
+                  autoFocus
+                  readOnly={busy}
+                  onChange={(e) => {
+                    setPin(e.target.value.replace(/\D/g, ''));
+                    setEmpty(false);
+                  }}
+                />
+              </Field>
+            )}
+            <ErrorText error={error} style={{ marginBlock: 0 }} />
+            <Button kind="primary" size="lg" type="submit" icon="lock" busy={busy} style={{ inlineSize: '100%' }}>
               {tr('ws.shell.lock.unlock')}
             </Button>
-          </span>
+            {/* The other-credential link belongs to the button above it: it
+                changes what you are about to type, so it sits just under
+                Unlock rather than a full card gap away down with Sign out.
+                Inside the form for that reason, at the form's own tighter
+                rhythm, with the ghost button's padding pulled back so the
+                gap reads as sp-1 rather than sp-1 plus its own box.
+
+                Offered only to somebody who HAS a PIN. For a cashier with
+                none, the password is the only route, and a PIN link would
+                imply a PIN they could have used. */}
+            {cover ? (
+              <Button
+                kind="ghost"
+                size="sm"
+                icon={ownerBack ? undefined : 'undo'}
+                onClick={() => {
+                  setOwnerBack((v) => !v);
+                  setError(null);
+                  setPin('');
+                  refocus();
+                }}
+                disabled={busy}
+                style={{ justifySelf: 'center', marginBlockStart: 'calc(-1 * var(--tp-sp-2))' }}
+              >
+                {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
+              </Button>
+            ) : hasPin !== false ? (
+              <Button
+                kind="ghost"
+                size="sm"
+                onClick={() => switchMode(!usePassword)}
+                disabled={busy}
+                style={{ justifySelf: 'center', marginBlockStart: 'calc(-1 * var(--tp-sp-2))' }}
+              >
+                {usePassword ? tr('ws.shell.lock.usePin') : tr('ws.shell.lock.usePassword')}
+              </Button>
+            ) : null}
+          </form>
+          {/* The way OFF the station rather than into it, so it stands alone at
+              the foot of the card, centred, divided from the unlock path by a
+              rule.
+
+              `flex-shrink: 0` is what keeps the icon on the label's line. This
+              is the widest control on the card — "Not {name}? Sign out" carries
+              a name, and the Arabic is wider still — so in a flex row it was
+              squeezed below its content width. .tp-btn's own `white-space:
+              nowrap` cannot help there: the icon is a flex SIBLING of the text
+              with `flex: 0 0 auto`, so it held its box while the label took the
+              whole squeeze and dropped beneath it. Refusing to shrink lets the
+              button keep its natural width; the card is 24rem and the label
+              fits, and a name long enough to exceed it now widens the button
+              rather than folding the glyph off its line. */}
+          {leaving ? (
+            /* The leaving guard, in place of the way off it guards. */
+            <LockLeaveGuard name={staff.displayName} onBack={() => setLeaving(false)} onSignOut={() => void signOut()} />
+          ) : (
+          <div style={{ display: 'flex', justifyContent: 'center', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
+            <Button
+              kind="ghost"
+              size="sm"
+              onClick={() => (tillShift.mineHere ? setLeaving(true) : void signOut())}
+              disabled={busy}
+              style={{ flexShrink: 0, maxInlineSize: '100%' }}
+            >
+              {/* The glyph is button CONTENT rather than the `icon` prop so it
+                  can be nudged. `align-items: center` centres the icon's box
+                  against the label's LINE box, and a 1.25 line-height line box
+                  is taller than the letters it holds — the extra sits mostly
+                  below the baseline, as descender space this label barely uses.
+                  Centred against that, the arrow rides above the visual middle
+                  of the words. 1px down puts it on the text's optical centre.
+                  Done here, not in Button's shared slot, which every other
+                  icon button in the app depends on. */}
+              <Icon name="logOut" size={14} style={{ marginBlockStart: '1px' }} />
+              <bdi style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr('ws.shell.lock.switchUser', { name: staff.displayName })}</bdi>
+            </Button>
+          </div>
+          )}
         </div>
       </div>
     </div>
@@ -838,14 +1540,194 @@ function IdleLock() {
 }
 
 /**
+ * "Exit forced full screen" — the middle ground between a kiosk and Quit.
+ *
+ * Production till and KDS windows open with `kiosk: true` (main/index.ts
+ * createWindow), which on macOS takes the menu bar and the traffic lights and
+ * on Windows takes the taskbar. That is right for trading and wrong for the
+ * half hour where someone has to reach the OS: install a printer driver, take
+ * a support call, open a PDF beside the till. Until now the only way out of
+ * that was Quit, which ends service to answer a question that did not need
+ * service ended.
+ *
+ * So this leaves the kiosk and leaves the app running. Nothing is lost and
+ * the station keeps trading, but it is still leaving: on a locked station it
+ * takes a manager's PIN that is not the signed-in person's own (owner call,
+ * 2026-09-23 — staff are kept inside the app), and main locks the window
+ * again at the next sign-in or sign-out. It stays quieter than Quit — same
+ * muted rail weight, no danger colour — because it is the reversible one.
+ *
+ * Electron fixes `frame` at window creation, so a production window cannot
+ * grow a titlebar here; main compensates by resizing it off full-bleed, which
+ * is what actually reads as "you are out" on both platforms.
+ *
+ * Nothing at all in browser mode (rulebook 4.4), where there is no kiosk.
+ */
+function ExitFullscreen() {
+  const { tr } = useLocale();
+  const { staff } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  // Only while the window IS full screen. Windowed, the macOS traffic lights
+  // are right there and this row is a second control for what the green one
+  // already does; full screen, they are hidden behind a mouse-to-the-top
+  // reveal a touch station cannot perform, and this is the only way back.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.touch) return;
+    return touch.onFullscreenState(setFullscreen);
+  }, []);
+
+  if (typeof window === 'undefined' || !window.touch) return null;
+  if (!fullscreen) return null;
+  const locked = touch.getStation().locked === true;
+
+  function close() {
+    setOpen(false);
+    setPin('');
+    setError(null);
+  }
+
+  async function exit() {
+    setBusy(true);
+    setError(null);
+    try {
+      if (locked) await proveLeavePin(pin, staff?.id ?? null);
+      const refusal = leaveRefusal(await touch.exitFullscreen(pin));
+      if (refusal) throw refusal;
+      // No success line: the window visibly leaving full screen IS the
+      // feedback, and a rail that keeps a sentence around after the fact only
+      // adds something to ignore. A failure still speaks, below.
+      close();
+    } catch (e) {
+      setError(e);
+      setPin('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="tp-nav-item"
+        onClick={() => (locked ? setOpen(true) : void exit())}
+        disabled={busy}
+        style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)' }}
+      >
+        <Icon name="shrink" size={16} />
+        <span>{tr('ws.shell.nav.exitFullscreen')}</span>
+      </button>
+      {!locked && error != null && (
+        <div style={{ paddingInline: RAIL_ITEM_PAD }}>
+          <ErrorText error={error} />
+        </div>
+      )}
+      {open && (
+        <Modal
+          title={tr('ws.shell.nav.exitFullscreen')}
+          size="sm"
+          onClose={close}
+          footer={
+            <>
+              <Button onClick={close}>{tr('common.back')}</Button>
+              <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void exit()}>
+                {tr('ws.shell.nav.exitFullscreen')}
+              </Button>
+            </>
+          }
+        >
+          <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void exit()} />
+          <ErrorText error={error} />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/**
+ * Staff are kept inside the app (owner call, 2026-09-23): on a locked station
+ * (StationInfo.locked — every configured production one) Quit and Exit forced
+ * full screen take a manager's PIN, and never the signed-in person's own.
+ *
+ * Signed in, the PIN is proved to verify_manager_pin first. It returns the
+ * manager's id, which is how "not your own" is told, and the PIN is then
+ * cached tagged with that id so main — which re-checks every exit against the
+ * offline cache (pin-cache.ts mayLeave) — can tell the same thing offline.
+ * Offline, the call fails as UNKNOWN and main's cache is the whole check.
+ * Signed out there is no session to ask the server with, and no "own" to
+ * exclude: main's cache alone decides.
+ */
+async function proveLeavePin(pin: string, signedInStaffId: string | null): Promise<void> {
+  if (!signedInStaffId) return;
+  try {
+    const authorizer = await appRpc<string | null>('verify_manager_pin', {
+      p_pin: pin,
+      p_device_id: touch.getStation().stationId,
+    });
+    // null is a wrong PIN (the function raises only for a lockout or a
+    // non-staff caller); refused before the cache can learn it.
+    if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
+    if (authorizer === signedInStaffId) throw new AppRpcError('PIN_OWN', 'PIN_OWN');
+    touch.pinObserved(pin, authorizer);
+  } catch (e) {
+    if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+  }
+}
+
+/** Main's answer to quitApp / exitFullscreen, as the error the dialog shows (null: let out). */
+function leaveRefusal(res: LeaveResult): Error | null {
+  if (res.ok) return null;
+  if (res.error === 'own pin') return new AppRpcError('PIN_OWN', res.error);
+  // The same fact the server states as PIN_INVALID, so it reads "Incorrect
+  // PIN." — at sign-in the cache is the only check that ran.
+  if (res.error === 'pin not recognised') return new AppRpcError('PIN_INVALID', res.error);
+  return new Error(res.error);
+}
+
+function LeavePinField({
+  pin,
+  setPin,
+  busy,
+  onEnter,
+}: {
+  pin: string;
+  setPin: (pin: string) => void;
+  busy: boolean;
+  onEnter: () => void;
+}) {
+  const { tr } = useLocale();
+  return (
+    <Field label={tr('ws.shell.nav.leavePin')} hint={tr('ws.shell.nav.leavePinHint')}>
+      <input
+        style={inputStyle}
+        type="password"
+        inputMode="numeric"
+        autoComplete="off"
+        dir="ltr"
+        autoFocus
+        maxLength={12}
+        disabled={busy}
+        value={pin}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+        onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && onEnter()}
+      />
+    </Field>
+  );
+}
+
+/**
  * "Quit to desktop" (design-arch §2.5) — production kiosk windows are not
  * closable any other way. Hidden entirely in browser mode.
  *
- * NO CREDENTIAL. This sat behind the manager PIN (verify_manager_pin online,
- * main's offline cache otherwise) so a till could not be casually ended. That
- * gate is gone by request: what remains is a plain confirmation that names the
- * cost, and main exits on the word of the renderer alone. The dialog is the
- * whole protection against a stray tap now, which is why it stays.
+ * MANAGER PIN, NOT YOUR OWN. The PIN gate was taken off by request once, and
+ * is back (owner call, 2026-09-23): staff are kept inside the app, so on a
+ * locked station the dialog names the cost AND takes a manager's PIN that is
+ * not the signed-in person's (proveLeavePin; main re-checks it). In dev and
+ * on first run it is the plain confirmation it was.
  *
  * Rulebook 7.8: it carries its own separator and its own muted weight because
  * it ENDS SERVICE on this till, and it used to sit directly beneath "Sign out"
@@ -862,38 +1744,73 @@ function IdleLock() {
  * variant carries its own separator: browser mode then renders nothing rather
  * than an empty corner box.
  */
-function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
+function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'windowClose' }) {
   const { tr } = useLocale();
+  const { staff } = useAuth();
   const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // With an update waiting, Quit installs it and the app opens again on it
+  // (main/updater.ts installOnQuit): someone quitting to reach the desktop
+  // is told before the app comes back on its own.
+  const update = useUpdateReady();
+  // The sign-in variant sits in the top INLINE-END corner, inside the band
+  // the window-drag strip covers. It has to out-rank that strip and opt out
+  // of the drag, or the corner it lives in belongs to the window, not to it.
+  const inset = useTitleBarInset();
+
+  // 'windowClose' renders no control of its own: it is the macOS red traffic
+  // light's dialog. Main prevents the close and pushes touch:close-requested,
+  // and the window stays open until the operator confirms here.
+  useEffect(() => {
+    if (variant !== 'windowClose') return;
+    if (typeof window === 'undefined' || !window.touch) return;
+    return touch.onCloseRequested(() => setOpen(true));
+  }, [variant]);
+
   if (typeof window === 'undefined' || !window.touch) return null;
+  // The sign-in control stands down where the red traffic light already asks
+  // this question. It stays on a till or a KDS: those kiosks have no traffic
+  // lights, and with the rail behind a sign-in it is their only way out.
+  if (variant === 'signIn' && inset) return null;
+  const locked = touch.getStation().locked === true;
+
+  function close() {
+    setOpen(false);
+    setPin('');
+    setError(null);
+  }
 
   async function quit() {
     setBusy(true);
     setError(null);
     try {
+      if (locked) await proveLeavePin(pin, staff?.id ?? null);
       // Main exits ~50 ms after replying, so `busy` is the last thing the
-      // screen shows. A refusal only reaches here in browser mode, where the
-      // control does not render at all — it is surfaced rather than swallowed
-      // so a future refusal cannot fail silently on a station.
-      const res = await touch.quitApp();
-      if (!res.ok) throw new Error(res.error ?? 'refused');
+      // screen shows on success.
+      const refusal = leaveRefusal(await touch.quitApp(pin));
+      if (refusal) throw refusal;
     } catch (e) {
       setError(e);
+      setPin('');
       setBusy(false);
     }
   }
 
   return (
     <>
-      {variant === 'rail' ? (
+      {variant === 'windowClose' ? null : variant === 'rail' ? (
         <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
+          {/* Above Quit, inside Quit's separator rather than behind one of its
+              own: both rows are "get out of the kiosk", and the destructive one
+              stays last so the reversible one is what a hurried tap lands on. */}
+          <ExitFullscreen />
           <button
             type="button"
             className="tp-nav-item"
             onClick={() => setOpen(true)}
-            style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+            style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)' }}
           >
             <Icon name="x" size={16} />
             <span>{tr('ws.shell.nav.quit')}</span>
@@ -905,7 +1822,19 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
           size="sm"
           icon="x"
           onClick={() => setOpen(true)}
-          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', color: 'var(--tp-muted-fg)' }}
+          style={
+            {
+              position: 'absolute',
+              insetBlockStart: 'var(--tp-sp-3)',
+              insetInlineEnd: 'var(--tp-sp-3)',
+              color: 'var(--tp-muted-fg)',
+              // Above the drag strip, and not draggable itself: this corner is
+              // the button's, even though the strip crosses it.
+              ...(inset
+                ? { zIndex: 'var(--tp-z-drag-over)', WebkitAppRegion: 'no-drag' }
+                : {}),
+            } as CSSProperties
+          }
         >
           {tr('ws.shell.nav.quit')}
         </Button>
@@ -915,155 +1844,27 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
         * outside, and no focus return to the control that opened it. The shared
         * Modal does all four, so the fork is deleted rather than repaired
         * (rulebook 12.1) — and its z-index comes from the scale with it,
-        * replacing a hand-typed 40. With the PIN field gone, Escape and the
-        * returned focus are the whole undo for a mis-tap.
+        * replacing a hand-typed 40. Escape and the returned focus are the
+        * undo for a mis-tap.
         */}
       {open && (
         <Modal
           title={tr('ws.shell.nav.quit')}
           size="sm"
-          onClose={() => setOpen(false)}
+          onClose={close}
           footer={
             <>
-              <Button onClick={() => setOpen(false)}>{tr('common.back')}</Button>
-              <Button kind="danger" busy={busy} onClick={() => void quit()}>
+              <Button onClick={close}>{tr('common.back')}</Button>
+              <Button kind="danger" busy={busy} disabled={locked && pin.length < 4} onClick={() => void quit()}>
                 {tr('ws.shell.nav.quit')}
               </Button>
             </>
           }
         >
           <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitConfirm')}</p>
+          {update && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitInstallsUpdate')}</p>}
+          {locked && <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void quit()} />}
           <ErrorText error={error} />
-        </Modal>
-      )}
-    </>
-  );
-}
-
-/**
- * "Pair a kitchen screen" — the till's pairing card (design-arch §2.4; SEC-31
- * "a bearer token minted at pairing"). The code IS the LAN secret, so it sits
- * behind the same manager-PIN gate as Quit: verify_manager_pin server-side
- * when online, the offline cache in main otherwise (touch:get-pairing-info
- * re-checks). Till stations only; nothing at all in browser mode.
- */
-function PairKitchenScreen() {
-  const { tr } = useLocale();
-  const [open, setOpen] = useState(false);
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
-  const [info, setInfo] = useState<{ host: string | null; port: number; code: string } | null>(null);
-  const [refusal, setRefusal] = useState<'not-a-till' | 'no-psk' | 'custom-psk' | null>(null);
-  if (!isElectron() || touch.getStation().mode !== 'till') return null;
-
-  function close() {
-    setOpen(false);
-    setPin('');
-    setInfo(null);
-    setRefusal(null);
-    setError(null);
-  }
-
-  async function reveal() {
-    setBusy(true);
-    setError(null);
-    try {
-      try {
-        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
-        touch.pinObserved(pin);
-      } catch (e) {
-        // Offline: fall through to the cache check in main. A server REFUSAL
-        // (PIN_INVALID / PIN_LOCKED) still surfaces.
-        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
-      }
-      const res = await touch.getPairingInfo(pin);
-      if (!('ok' in res)) throw new Error(res.error);
-      if (!res.ok) {
-        if (res.error === 'pin not recognised') throw new Error(res.error);
-        setRefusal(res.error);
-        return;
-      }
-      setInfo({ host: res.host, port: res.port, code: res.code });
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const qr = info ? qrPath(qrModules(info.code)) : null;
-  const refusalKey = { 'not-a-till': 'notTill', 'no-psk': 'noPsk', 'custom-psk': 'customPsk' } as const;
-
-  return (
-    <>
-      <button type="button" className="tp-nav-item" onClick={() => setOpen(true)} style={navButtonStyle}>
-        <Icon name="qr" size={16} />
-        <span>{tr('ws.shell.nav.pairKitchen')}</span>
-      </button>
-      {open && (
-        <Modal
-          title={tr('ws.shell.pair.title')}
-          size="sm"
-          onClose={close}
-          footer={
-            info || refusal ? (
-              <Button onClick={close}>{tr('common.back')}</Button>
-            ) : (
-              <>
-                <Button onClick={close}>{tr('common.back')}</Button>
-                <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void reveal()}>
-                  {tr('ws.shell.pair.title')}
-                </Button>
-              </>
-            )
-          }
-        >
-          {info && qr ? (
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'center', textAlign: 'center' }}>
-              <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.pair.lead')}</p>
-              <p
-                dir="ltr"
-                aria-label={tr('ws.shell.pair.code')}
-                style={{ fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, letterSpacing: '0.18em', fontVariantNumeric: 'tabular-nums' }}
-              >
-                {formatPairingCode(info.code)}
-              </p>
-              <svg
-                viewBox={`-2 -2 ${qr.size + 4} ${qr.size + 4}`}
-                width="9rem"
-                height="9rem"
-                role="img"
-                aria-label={tr('ws.shell.pair.code')}
-                style={{ background: 'var(--tp-brand-white)', color: '#000', borderRadius: 'var(--tp-radius-ctl)' }}
-              >
-                <path d={qr.d} fill="currentColor" shapeRendering="crispEdges" />
-              </svg>
-              <p dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                {info.host
-                  ? tr('ws.shell.pair.host', { host: info.host, port: String(info.port) })
-                  : tr('ws.shell.pair.noHost')}
-              </p>
-            </div>
-          ) : refusal ? (
-            <p role="alert">{tr(`ws.shell.pair.${refusalKey[refusal]}`)}</p>
-          ) : (
-            <>
-              <Field label={tr('op.common.pin')}>
-                <input
-                  style={inputStyle}
-                  type="password"
-                  inputMode="numeric"
-                  dir="ltr"
-                  autoFocus
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                  onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && void reveal()}
-                />
-              </Field>
-              <ErrorText error={error} />
-            </>
-          )}
         </Modal>
       )}
     </>
@@ -1073,33 +1874,97 @@ function PairKitchenScreen() {
 // ---------------------------------------------------------------------------
 // StaffSignInScreen — email + password. States: ready · busy · error.
 // ---------------------------------------------------------------------------
+type SignInFailure = 'invalid' | 'network' | 'disabled';
+
+/**
+ * What went wrong, in the three cases a person can do something different
+ * about. Supabase says "User is banned" for an account an owner turned off —
+ * that used to read as a wrong password, so a disabled cashier kept retyping
+ * a password that was right. The "disabled" copy had been sitting unused.
+ */
+function signInFailure(err: unknown): SignInFailure {
+  const e = err as { name?: string; message?: string; status?: number; code?: string } | null;
+  const msg = (e?.message ?? '').toLowerCase();
+  if (e?.name === 'AuthRetryableFetchError' || e?.status === 0 || msg.includes('fetch') || msg.includes('network')) return 'network';
+  if (e?.code === 'user_banned' || msg.includes('banned')) return 'disabled';
+  return 'invalid';
+}
+
 function SignInScreen() {
   const { signIn } = useAuth();
-  const { tr, toggleLocale, locale } = useLocale();
+  const { tr, toggleLocale, locale, dir } = useLocale();
+  const { mode, toggleMode } = useThemeMode();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<'invalid' | 'network' | null>(null);
+  const [error, setError] = useState<SignInFailure | null>(null);
+  // Which field was empty on submit. The button used to sit disabled until
+  // both were filled, which told nobody why it would not press.
+  const [missing, setMissing] = useState<'email' | 'password' | null>(null);
+  const [capsLock, setCapsLock] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  // The traffic lights stay at the window's physical top-LEFT in both
+  // languages, while these two panels are placed logically — so the navy panel
+  // is under them in English and the form panel is under them in Arabic.
+  // Whichever is physically first takes the padding.
+  const inset = useTitleBarInset();
+  const navyIsUnderLights = dir === 'ltr';
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
+    if (!email.trim()) {
+      setMissing('email');
+      emailRef.current?.focus();
+      return;
+    }
+    if (!password) {
+      setMissing('password');
+      passwordRef.current?.focus();
+      return;
+    }
+    setMissing(null);
     setBusy(true);
     setError(null);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
+      // Stays busy on success: the shell replaces this screen once the role
+      // lookup lands (AuthProvider publishes the session after it), and the
+      // button coming back for that round trip invited a second submit.
     } catch (err) {
-      const msg = err instanceof Error ? err.message.toLowerCase() : '';
-      setError(msg.includes('fetch') || msg.includes('network') ? 'network' : 'invalid');
-    } finally {
       setBusy(false);
+      const kind = signInFailure(err);
+      setError(kind);
+      // A wrong password is retyped, not edited: clear it and put the cursor
+      // back. A network failure keeps both, because nothing was wrong with them.
+      if (kind === 'invalid') setPassword('');
+      passwordRef.current?.focus();
     }
   }
+
+  const caps = (ev: KeyboardEvent<HTMLInputElement>) => setCapsLock(ev.getModifierState('CapsLock'));
 
   return (
     <div style={{ minBlockSize: '100vh', display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)', background: 'var(--tp-bg)' }}>
       <aside
         aria-hidden="true"
-        style={{ position: 'relative', background: 'var(--tp-rail)', color: 'var(--tp-brand-white)', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2rem' }}
+        style={
+          {
+            position: 'relative',
+            background: 'var(--tp-rail)',
+            color: 'var(--tp-brand-white)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '2rem',
+            // Room for the macOS traffic lights, in English — in Arabic this
+            // panel is on the right and the form takes the padding instead.
+            // Dragging is WindowDragStrip's, across the whole top edge.
+            paddingBlockStart: inset && navyIsUnderLights ? `${inset}px` : undefined,
+          } as CSSProperties
+        }
       >
         {/* The swoosh, bleeding off the inline end the way it does across the
             brand deck's covers. It settles in behind the lockup; the ONE call
@@ -1116,52 +1981,93 @@ function SignInScreen() {
           {tr('ws.shell.signIn.tagline')}
         </p>
       </aside>
-      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+      <div
+        style={{
+          position: 'relative',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 'var(--tp-sp-6)',
+          // Arabic: this panel is the physically first one, so the traffic
+          // lights are over ITS corner.
+          paddingBlockStart: inset && !navyIsUnderLights ? `${inset}px` : undefined,
+        }}
+      >
+        {/* The language switch is a page control, so it sits in the page's
+            outer BOTTOM corner: bottom-right in English, bottom-left in
+            Arabic, which is what insetInlineEnd resolves to on its own. Not
+            inline-START — that is this panel's inner edge, which put it in
+            the middle of the window beside the form. And not the top corner,
+            where it crowded the window controls. */}
+        <div style={{ position: 'absolute', insetBlockEnd: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', display: 'flex', gap: 'var(--tp-sp-1)' }}>
+          {/* The glyph is button CONTENT, not the `icon` prop: `icon` takes a
+              name out of the set and swaps the whole <svg> on a flip, which is
+              the blink ThemeModeIcon exists to replace. 14px is what `size="sm"`
+              gives its own icon slot, so the row is unchanged. */}
+          <Button kind="ghost" size="sm" onClick={toggleMode} aria-pressed={mode === 'blue'}>
+            <ThemeModeIcon mode={mode} size={14} />
+            {tr(mode === 'blue' ? 'ws.shell.nav.lightMode' : 'ws.shell.nav.blueMode')}
+          </Button>
+          <Button kind="ghost" size="sm" icon="globe" onClick={toggleLocale}>
+            <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
+          </Button>
+        </div>
         {/* A till and a kitchen screen run frameless and non-closable, and the
             rail — the only other way out — is behind a sign-in. A station
             powered on by mistake, or signed out at the end of the night, was
-            therefore a machine nobody could close. Same manager-PIN gate as
-            the rail's; only the placement is the window control's. */}
+            therefore a machine nobody could close. Only the placement is the
+            window control's. */}
         <QuitToDesktop variant="signIn" />
-        <form onSubmit={(e) => void submit(e)} className="tp-rise" style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+        <form noValidate onSubmit={(e) => void submit(e)} className="tp-rise" style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h1 style={{ fontSize: 'var(--tp-fs-2xl)', marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.signIn.title')}</h1>
           <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.shell.signIn.lead')}</p>
-          <Field label={tr('auth.emailLabel')}>
+          <Field label={tr('auth.emailLabel')} error={missing === 'email' ? tr('ws.shell.signIn.emailRequired') : undefined}>
             <input
+              ref={emailRef}
               style={inputStyle}
               dir="ltr"
               type="email"
               autoComplete="username"
               autoFocus
               value={email}
-              disabled={busy}
-              onChange={(e) => setEmail(e.target.value)}
+              readOnly={busy}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (missing === 'email') setMissing(null);
+              }}
             />
           </Field>
-          <Field label={tr('auth.passwordLabel')}>
+          <Field
+            label={tr('auth.passwordLabel')}
+            error={missing === 'password' ? tr('ws.shell.signIn.passwordRequired') : undefined}
+            hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
+          >
             <input
+              ref={passwordRef}
               style={inputStyle}
               dir="ltr"
               type="password"
               autoComplete="current-password"
               value={password}
-              disabled={busy}
-              onChange={(e) => setPassword(e.target.value)}
+              readOnly={busy}
+              onKeyDown={caps}
+              onKeyUp={caps}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (missing === 'password') setMissing(null);
+              }}
             />
           </Field>
           {error && (
-            <p role="alert" style={{ color: 'var(--tp-danger-fg)', background: 'var(--tp-danger-soft)', borderRadius: 'var(--tp-radius-ctl)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-2)' }}>
-              {error === 'network' ? tr('ws.shell.signIn.network') : tr('op.signIn.failed')}
+            <p role="alert" style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'flex-start', color: 'var(--tp-danger-fg)', background: 'var(--tp-danger-soft)', borderRadius: 'var(--tp-radius-ctl)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-2-5)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-2)' }}>
+              <Icon name={error === 'network' ? 'wifiOff' : 'alert'} size={16} style={{ flex: '0 0 auto', marginBlockStart: '0.1rem' }} />
+              <span>
+                {error === 'network' ? tr('ws.shell.signIn.network') : error === 'disabled' ? tr('ws.shell.signIn.disabled') : tr('ws.shell.signIn.invalid')}
+              </span>
             </p>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBlockStart: 'var(--tp-sp-2)' }}>
-            <Button kind="ghost" icon="globe" onClick={toggleLocale}>
-              <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
-            </Button>
-            <Button kind="primary" type="submit" busy={busy} disabled={!email || !password}>
-              {tr('op.signIn.submit')}
-            </Button>
-          </div>
+          <Button kind="primary" size="lg" type="submit" busy={busy} style={{ inlineSize: '100%', marginBlockStart: 'var(--tp-sp-1)' }}>
+            {tr('op.signIn.submit')}
+          </Button>
         </form>
       </div>
     </div>
@@ -1179,8 +2085,29 @@ function SignInScreen() {
  * never a second copy of the rules — so the sentence a refused operator reads
  * cannot drift from the check that produced it. Nothing here decides access; it
  * only names what decided it.
+ *
+ * Driver, marketing and the waiter hold the any-staff baseline alone, so they
+ * lead. The assistant barista holds the board and My tasks and nothing more,
+ * so he comes before the barista (wave 5 §2.1.6). Prep sits after the bar and
+ * kitchen family it was split into (0155): every route prep opens, they open
+ * too, so a refusal names a role the owner can still assign rather than the
+ * retired one.
  */
-const ROLE_ORDER: readonly StaffRole[] = ['prep', 'cashier', 'court_desk', 'manager', 'owner'];
+const ROLE_ORDER: readonly StaffRole[] = [
+  'driver',
+  'marketing',
+  'waiter',
+  'assistant_barista',
+  'barista',
+  'chef',
+  'head_barista',
+  'head_chef',
+  'prep',
+  'cashier',
+  'court_desk',
+  'manager',
+  'owner',
+];
 function requiredRoleFor(route: string): StaffRole {
   return ROLE_ORDER.find((r) => canAccess(r, route)) ?? 'owner';
 }

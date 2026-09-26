@@ -34,6 +34,7 @@ import {
   SEED_STAFF,
   DEV_PINS,
   createTestCafeTable,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -53,7 +54,7 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
     const { error } = await svc
       .from('venue_settings')
       .update({ closed_dates: dates })
-      .eq('id', true);
+      .eq('venue_id', VENUE_A_ID);
     if (error) throw new Error(`closed_dates update failed: ${error.message}`);
   }
 

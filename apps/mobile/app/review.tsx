@@ -22,6 +22,7 @@ import { Button, Card, DashedDivider, ErrorText, LinkText, Screen } from '../src
 import { PayAtDeskCard, SummaryGrid } from '../src/components/booking';
 import { ConfirmAlert } from '../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
+import { requestBookingSheet } from '../src/features/courtTransition/openIntent';
 
 /**
  * Review & confirm (design 2026-08-31): navy hold card with live countdown and
@@ -161,7 +162,7 @@ function ReviewScreen() {
   const onConfirm = () => {
     setError(null);
     setDialogOpen(false);
-    confirm.mutate(holdId, {
+    confirm.mutate({ holdId }, {
       onSuccess: (result) => {
         keepHoldRef.current = true; // this hold is a booking now — never release it
         const id = result.reservation_id ?? holdId;
@@ -203,12 +204,16 @@ function ReviewScreen() {
   };
 
   // From the sheet, the grid the guest left is still open underneath — pop back
-  // to it (the settled hold invalidated availability, so it is fresh); from the
-  // standalone screen, land on the standalone screen.
-  const backToGrid = useBack('/availability');
+  // to it (the settled hold invalidated availability, so it is fresh). Any other
+  // way in (the post-auth hold) asks the Book tab for its sheet and goes there:
+  // the standalone Availability screen is gone (owner, 2026-09-26).
+  const backToGrid = useBack('/(tabs)');
   const backToAvailability = () => {
     if (params.origin === 'sheet') backToGrid();
-    else router.replace('/availability');
+    else {
+      requestBookingSheet();
+      router.navigate('/(tabs)');
+    }
   };
 
   // ── Terminal states ────────────────────────────────────────────────────────
@@ -271,6 +276,7 @@ function ReviewScreen() {
           </Text>
           {/* Design: inline-width green button (padding 14×26, 13 pt). */}
           <Button
+            testID="review.back-to-availability"
             label={t('booking.backToAvailability')}
             onPress={backToAvailability}
             variant="cta"
@@ -471,6 +477,7 @@ function ReviewScreen() {
               {t('auth.profileIncompleteNotice')}
             </Text>
             <LinkText
+              testID="review.add-phone"
               label={t('auth.addPhoneLink')}
               color={colors.ambstrong}
               onPress={addPhone}
@@ -499,6 +506,7 @@ function ReviewScreen() {
         }}
       >
         <Button
+          testID="review.reserve"
           label={t('booking.reserveCta')}
           onPress={() => setDialogOpen(true)}
           variant="cta"

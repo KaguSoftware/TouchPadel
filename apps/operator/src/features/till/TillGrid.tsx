@@ -17,7 +17,12 @@ import { moveInGrid } from './keymap';
 import { quickVariant } from './quickAdd';
 import { deriveTileState, tileInteractive, type TileState } from './tileState';
 import type { CategoryRow, ItemRow } from './tillData';
-import { muted, sectionTitle } from './tillStyles';
+import { muted } from './tillStyles';
+
+/** Rows of categories the strip shows before it scrolls, and the gap between them. */
+const STRIP_ROWS = 3;
+const STRIP_GAP = 'var(--tp-sp-1-5)';
+const STRIP_PAD = 'var(--tp-sp-1-5)';
 
 export function CategoryStrip({
   categories,
@@ -33,18 +38,39 @@ export function CategoryStrip({
 }) {
   const { tr, locale } = useLocale();
   return (
-    // A venue with many categories must never squeeze the item grid to nothing:
-    // the strip keeps at most three rows and scrolls, the grid keeps the rest.
+    /*
+     * A venue with many categories must never squeeze the item grid to nothing:
+     * the strip keeps at most three rows and scrolls, the grid keeps the rest.
+     *
+     * The cap is COMPUTED from the row height and the gap rather than typed as
+     * a round number. It used to be a flat 8.75rem against 44px buttons and a
+     * 0.375rem gap — 140px where three rows need 144 — so the third row was
+     * clipped through the middle of its buttons and the fourth showed as a
+     * sliver below it, which read as the strip being broken rather than
+     * scrollable.
+     */
     <div
       role="group"
       aria-label={tr('ws.cashier.till.categories')}
       style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: 'var(--tp-sp-1-5)',
+        gap: STRIP_GAP,
         flexShrink: 0,
-        maxBlockSize: '8.75rem',
+        /* The bordered box is what says "this scrolls": a strip that simply
+           ran out of room mid-row looked like a rendering fault, while the
+           same rows inside a frame read as a container with more in it. The
+           padding is what the cap above adds to, or the third row would be
+           clipped by exactly the padding it sits on. Same frame the other
+           scrolling lists in the till use. */
+        maxBlockSize: `calc(${STRIP_ROWS} * var(--tp-touch) + ${STRIP_ROWS - 1} * ${STRIP_GAP} + 2 * ${STRIP_PAD})`,
         overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        background: 'var(--tp-surface-2)',
+        padding: STRIP_PAD,
+        alignContent: 'start',
       }}
     >
       {categories.map((c, i) => {
@@ -162,7 +188,7 @@ export function MenuItemGrid({
             : state === 'blockedByStock'
               ? tr('ws.cashier.till.tile.blockedByStockHint')
               : state === 'noTab'
-                ? tr('ws.cashier.till.noActiveTabBody')
+                ? tr('ws.cashier.till.tile.noTab')
                 : quick
                   ? tr('ws.cashier.till.tile.quick')
                   : tr('ws.cashier.till.tile.sheet');
@@ -206,7 +232,7 @@ export function MenuItemGrid({
               <bdi>{pickName(locale, item)}</bdi>
             </span>
             <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: 'var(--tp-sp-1-5)' }}>
-              {defVariant && (
+              {defVariant && state !== 'blockedByStock' && (
                 <span style={{ ...muted, fontVariantNumeric: 'tabular-nums' }}>
                   {item.menu_item_variants.length > 1 && <span>{tr('ws.cashier.till.tile.from')} </span>}
                   <bdi>{formatIQD(defVariant.price_iqd, locale)}</bdi>
@@ -231,7 +257,7 @@ export function MenuItemGrid({
   );
 }
 
-/** Legend under the grid: the two disabled looks, named. */
+/** Legend under the grid: the two disabled looks, named. Shown only when one of them is on screen. */
 export function TileLegend() {
   const { tr } = useLocale();
   const chip: React.CSSProperties = {
@@ -242,8 +268,7 @@ export function TileLegend() {
     color: 'var(--tp-muted-fg)',
   };
   return (
-    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-1-5)' }} aria-hidden="true">
-      <span style={sectionTitle}>{tr('ws.cashier.till.items')}</span>
+    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-2)' }} aria-hidden="true">
       <span style={chip}>
         <span style={{ inlineSize: 'var(--tp-sp-3)', blockSize: 'var(--tp-sp-3)', border: '1px dashed var(--tp-border-strong)', borderRadius: 'var(--tp-radius-sm)' }} />
         {tr('ws.cashier.till.tile.unavailable')}

@@ -1,0 +1,85 @@
+/**
+ * `ws.receipts.*` — Goods in ▸ Scanned receipts (Phase 2 Milestone 4b, 0236/0237): the list
+ * with the Scan a receipt button, and one receipt opened for review beside its photo.
+ * "The AI" is what the manager sees; which model reads is chosen in
+ * packages/db/supabase/functions/_shared/receipts/connect.ts.
+ * Mirror every key in receipts.ar.ts.
+ */
+export const receiptsEn = {
+  panel: {
+    title: 'Scanned receipts',
+    lead: 'Photograph a supplier’s receipt, check what was read against the photo, then put it into stock.',
+    empty: 'No receipts waiting. Scan one here, or from the staff phone.',
+    scan: 'Scan a receipt',
+    uploading: 'Uploading…',
+    badge: '{count} to check',
+    from: '{name} · {time}',
+    lines: 'Lines matched: {matched} of {count}',
+    check: 'Check',
+    wrongType: 'That file is not a photo. Use a JPEG, PNG or WebP picture.',
+    tooBig: 'That photo is over 5 MB.',
+    saved: 'Receipt saved',
+  },
+  status: {
+    uploaded: 'Waiting',
+    reading: 'Reading…',
+    read: 'Ready to check',
+    failed: 'Could not read',
+    confirmed: 'In stock',
+    rejected: 'Set aside',
+  },
+  // supplier_receipts.error_code, shown on the review screen.
+  error: {
+    READER_NOT_CONFIGURED: 'No AI is connected to read receipts yet. Type the lines from the photo.',
+    LLM_MONTHLY_CAP: 'This month’s AI budget is spent. Type the lines from the photo.',
+    LLM_DAILY_QUOTA: 'Today’s AI limit is reached. Type the lines, or read it again tomorrow.',
+    RATE_LIMITED: 'The AI service is busy. Try Read again in a minute.',
+    TIMEOUT: 'The AI took too long to answer. Try Read again.',
+    UPSTREAM: 'The AI service did not answer. Try Read again.',
+    UNREADABLE: 'No lines were found on this photo. Type them, or scan a clearer photo.',
+    INVALID_READING: 'The AI’s answer was not a receipt. Try Read again, or type the lines.',
+    PHOTO_MISSING: 'The photo could not be opened. Set this receipt aside and scan it again.',
+    other: 'The receipt could not be read. Type the lines from the photo.',
+  },
+  review: {
+    title: 'Check a scanned receipt',
+    back: 'Back to Goods in',
+    photo: 'Receipt photo',
+    openPhoto: 'Open the photo',
+    reading: 'Reading the receipt. This can take up to a minute.',
+    lead: 'Check each line against the photo. Quantities are in the stock unit and the cost is per that unit. Remove lines that are not stock, such as a delivery fee.',
+    manualLead: 'Type each stock line from the photo.',
+    onReceipt: 'On the receipt',
+    qty: 'Qty {qty}',
+    qtyUnit: 'Qty {qty} {unit}',
+    lineTotal: 'Total {amount}',
+    match: {
+      sure: 'Matched',
+      alias: 'Matched from an earlier receipt',
+      check: 'Check this match',
+      none: 'No match: pick the ingredient, or remove the line',
+      manual: 'Picked by hand',
+    },
+    flag: {
+      ARITHMETIC: 'Quantity × price is not the line total',
+      NO_PRICE: 'No price was read',
+      TOTAL_MISMATCH: 'The lines do not add up to the receipt total',
+      UNCLEAR: 'Hard to read: check it against the photo',
+    },
+    supplierRead: 'The receipt names: {name}',
+    dated: 'Dated {date}',
+    total: 'These lines come to {drafted}.',
+    totalOff: 'These lines come to {drafted}; the receipt says {printed}.',
+    addLine: 'Add a line',
+    confirm: 'Put into stock',
+    confirmed: 'Receipt put into stock',
+    noLines: 'Add at least one stock line first.',
+    reject: 'Set aside',
+    rejectTitle: 'Set this receipt aside?',
+    rejectBody: 'Nothing goes into stock. Use this for a photo that is not a supplier receipt, or one that was already entered.',
+    rejected: 'Receipt set aside',
+    readAgain: 'Read again',
+    gone: 'This receipt is done',
+    goneBody: 'It was put into stock or set aside already.',
+  },
+} as const;

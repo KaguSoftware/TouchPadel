@@ -1,0 +1,16 @@
+{
+  "_readme": [
+    "Deliberate overloads in schema app: one entry per function name that MAY end the migration",
+    "replay with more than one live signature, with the reason. check-rpc-registry.mjs fails on any",
+    "other name that does (scripts/lib/fn-signatures.mjs); tests/rpc-overloads.test.ts proves the same",
+    "list against pg_proc. Why: 0115 re-issued apply_discount and override_price at arities 0049 had",
+    "dropped, creating stray overloads nobody could see (0119 removed them). A name enters this file",
+    "only when both signatures are meant to coexist and are called by different code."
+  ],
+  "allowed": {
+    "business_date": "0034:62-75 — the 1-arg definer form (venue timezone + day-start setting) wraps the 3-arg immutable arithmetic the analytics GROUP BYs inline; both service_role only",
+    "is_degraded": "0137 — is_degraded(p_venue uuid) answers for one venue; the zero-arg form kept from 0026 delegates through app.current_venue_or_default() so anon can still call it on the guest menu before any identity exists (R3). PostgREST picks by argument name: {} the zero-arg, {p_venue} the one-arg",
+    "llm_record_usage": "0079 3-arg form (analytics-insights: p_model_calls, p_prompt_tokens, p_completion_tokens) beside the 0111 7-arg per-kind form (assistant-chat); disjoint parameter names, both service_role only",
+    "venue_mode": "0137 — venue_mode(p_venue uuid) answers for one venue; the zero-arg form kept from 0021 delegates through app.current_venue_or_default() and must never raise, because it is the guest apps' first call. Same PostgREST argument-name disambiguation as is_degraded"
+  }
+}

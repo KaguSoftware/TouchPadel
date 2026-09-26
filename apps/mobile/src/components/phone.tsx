@@ -33,18 +33,19 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { CountryPickerNative } from './phone.ios-picker';
-import { REDUCED_MOTION_MS } from '../features/courtTransition/spec';
+import { REDUCED_MOTION_MS } from '@touch/court3d/spec';
 import { Text } from '../i18n/text';
 import { useLocale, useLocaleSwitch } from '../i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../theme';
 import { SearchIcon } from './icons';
-import { Field } from './ui';
+import { Field, LINE } from './ui';
 import {
   COUNTRIES,
   countryByIso,
   flagOf,
   formatNational,
   maxNationalDigits,
+  parsePhone,
   sanitizeNationalInput,
   type Country,
 } from '../features/profile/phone';
@@ -58,6 +59,7 @@ export function PhoneField({
   error,
   dense,
   placeholder,
+  testID,
 }: {
   iso: string;
   onChangeIso: (iso: string) => void;
@@ -69,6 +71,14 @@ export function PhoneField({
   error?: string | null;
   dense?: boolean;
   placeholder?: string;
+  /**
+   * `<route>.phone` for the digits input. The country chip that opens the
+   * picker takes `${testID}.country`, and each row of the picker
+   * `${testID}.country.<iso>` — a test picks Iraq by name, not by scroll
+   * offset in a 66-row list. REQUIRED: the chip, the picker and its rows all
+   * derive their ids from it.
+   */
+  testID: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t } = useLocale();
@@ -78,8 +88,15 @@ export function PhoneField({
   // native field enforces. Derived from a dummy full-length number rather than
   // from `shown`, which would shrink to whatever is typed so far and lock the
   // field at its current length.
+  //
+  // Padded with room for a `+` and a full dial code on top of the national
+  // digits: a QuickType/Contacts suggestion replaces the field with the whole
+  // international number in one native write, before `onType` ever runs, so a
+  // cap sized only for bare national digits truncated the autofill and left
+  // `onType`'s parser working from a chopped string. `onType` still does the
+  // real trim once it knows which country the pasted number belongs to.
   const maxShownLength = useMemo(
-    () => formatNational(iso, '0'.repeat(maxNationalDigits(iso))).length,
+    () => formatNational(iso, '0'.repeat(maxNationalDigits(iso))).length + 1 + MAX_DIAL_LENGTH,
     [iso],
   );
   // `undefined` means "leave the caret alone" — the state after the guest has
@@ -90,6 +107,19 @@ export function PhoneField({
   );
   const onType = useCallback(
     (next: string) => {
+      // The iOS QuickType/Contacts suggestion replaces the whole field with a
+      // `+`-prefixed E.164 number (own dial code included), not a keystroke —
+      // sanitizing that as national digits would double up the code already
+      // shown in the chip. Route it through the same parser used when a
+      // stored number is loaded, so the chip and the digits both update.
+      if (next.includes('+')) {
+        const { iso: parsedIso, national: parsedNational } = parsePhone(next);
+        if (parsedIso !== iso) onChangeIso(parsedIso);
+        onChangeNational(parsedNational);
+        const end = formatNational(parsedIso, parsedNational).length;
+        setSelection({ start: end, end });
+        return;
+      }
       // Capped to the country's own length: past it the digits are dropped, so
       // the field stops rather than accepting a number that could never dial.
       const digits = sanitizeNationalInput(next, iso);
@@ -99,7 +129,7 @@ export function PhoneField({
       const end = formatNational(iso, digits).length;
       setSelection({ start: end, end });
     },
-    [iso, onChangeNational],
+    [iso, onChangeIso, onChangeNational],
   );
   // Once the platform reports the caret where we asked for it, control is
   // handed back: holding `selection` fixed would stop the guest tapping into
@@ -125,6 +155,7 @@ export function PhoneField({
        * both languages, only the label moves.
        */}
       <Field
+        testID={testID}
         ltrBox
         label={label}
         // The VALUE shown is grouped for the country; the value stored stays
@@ -162,6 +193,7 @@ export function PhoneField({
         error={error}
         lead={
           <Pressable
+            testID={`${testID}.country`}
             accessibilityRole="button"
             accessibilityLabel={t('auth.countryCode')}
             accessibilityValue={{ text: `+${country.dial}` }}
@@ -183,16 +215,25 @@ export function PhoneField({
               // box and eats into this padding. Without the correction the
               // visible gap here is 8.55 px against 10 px on the other side.
               paddingEnd: CHIP_GAP + CHEVRON_BLEED,
-              // Matches the input's own vertical padding, so the divider and
-              // the text share a baseline box.
-              paddingTop: dense ? 13 : 14,
-              paddingBottom: dense ? 13 : 14,
+              // The chip FILLS the row's fixed height, exactly as the input
+              // beside it does (see the `boxHeight` note in ui.tsx), so the
+              // divider spans the same box the text sits in. Its own vertical
+              // padding would make it the taller of the two and reintroduce
+              // the mismatch this replaced.
+              alignSelf: 'stretch',
+              justifyContent: 'center',
             }}
           >
             {/* Conditional: `flagOf` returns '' for a code it cannot map, and
                 an empty Text would still consume the row's `gap`, leaving the
                 code floating off the leading edge for no visible reason. */}
-            {flag ? <Text style={{ fontSize: 15 }}>{flag}</Text> : null}
+            {/* `lineHeight` pinned to the same `LINE` as the `+90` text and
+                the digits: an emoji glyph's own intrinsic line box is much
+                taller than its `fontSize` suggests, so left to its natural
+                metrics the flag renders visibly larger/offset than its
+                neighbours even though all three are centered in the same
+                row. */}
+            {flag ? <Text style={{ fontSize: 15, lineHeight: LINE }}>{flag}</Text> : null}
             {/* Latin content in an Arabic UI: pinned LTR so the plus stays in
                 front of the digits. `writingDirection` is a paragraph
                 property, not a physical alignment — the rule the RTL guard
@@ -201,6 +242,12 @@ export function PhoneField({
               style={{
                 fontFamily: fonts.body600,
                 fontSize: 14,
+                // Matches the digits' own `lineHeight` (`LINE`) so the chip's
+                // text and the TextInput beside it sit on the same baseline —
+                // left to its natural line height, iOS renders this Text's
+                // glyph a hair higher than the TextInput's, which reserves
+                // the fixed line box below the baseline.
+                lineHeight: LINE,
                 color: colors.ink,
                 writingDirection: 'ltr',
               }}
@@ -229,6 +276,7 @@ export function PhoneField({
       />
 
       <CountryPicker
+        testID={`${testID}.country`}
         visible={pickerOpen}
         selected={iso}
         onSelect={(next) => {
@@ -283,6 +331,10 @@ const CHEVRON_BLEED = 1.45;
  * riding a fixed inset that only suited one of them.
  */
 const DIVIDER_TRIM = 3;
+/** Longest dial code in the table (e.g. `1684`), so the field's native
+ * `maxLength` can admit any country's full `+`-prefixed number pasted or
+ * autofilled in one write, whatever country is currently selected. */
+const MAX_DIAL_LENGTH = Math.max(...COUNTRIES.map((c) => c.dial.length));
 
 /**
  * The chip's disclosure caret, drawn from two borders — no icon asset. It
@@ -316,11 +368,16 @@ function Chevron({ color }: { color: string }) {
  * cannot drift: `Intl.DisplayNames` is the platform's own CLDR data, with the
  * English name as the fallback on a runtime built without full ICU.
  */
-function CountryPicker(props: {
+function CountryPicker({
+  testID,
+  ...props
+}: {
   visible: boolean;
   selected: string;
   onSelect: (iso: string) => void;
   onClose: () => void;
+  /** `<route>.phone.country`; each JS row becomes `${testID}.<iso>`. */
+  testID: string;
 }) {
   const { locale } = useLocale();
   const display = useMemo(() => {
@@ -340,10 +397,13 @@ function CountryPicker(props: {
     },
     [display],
   );
+  // The iOS sheet is SwiftUI (@expo/ui), drawn by UIKit out of the RN tree —
+  // there is no RN node on it to hang a testID from, exactly as with
+  // NativeTabs.Trigger. It takes no id; the chip that opens it carries one.
   return Platform.OS === 'ios' ? (
     <CountryPickerIOS {...props} nameOf={nameOf} />
   ) : (
-    <CountryPickerJS {...props} nameOf={nameOf} />
+    <CountryPickerJS {...props} testID={testID} nameOf={nameOf} />
   );
 }
 
@@ -403,6 +463,7 @@ function CountryPickerJS({
   onSelect,
   onClose,
   nameOf,
+  testID,
 }: {
   visible: boolean;
   selected: string;
@@ -410,6 +471,8 @@ function CountryPickerJS({
   onClose: () => void;
   /** Shared with the iOS sheet by the dispatcher, so the two cannot drift. */
   nameOf: (c: Country) => string;
+  /** `<route>.phone.country`; the search field, the scrim and each row hang off it. */
+  testID: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t, dir } = useLocale();
@@ -476,6 +539,7 @@ function CountryPickerJS({
           }}
         >
           <Pressable
+            testID={`${testID}.scrim`}
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}
             onPress={onClose}
@@ -530,6 +594,7 @@ function CountryPickerJS({
               {t('auth.countryCode')}
             </Text>
             <Field
+              testID={`${testID}.search`}
               value={query}
               onChangeText={setQuery}
               placeholder={t('auth.countryCodeSearch')}
@@ -599,6 +664,7 @@ function CountryPickerJS({
             }
             renderItem={({ item }) => (
               <CountryRow
+                testID={`${testID}.${item.iso.toLowerCase()}`}
                 country={item}
                 name={nameOf(item)}
                 active={item.iso === selected}
@@ -851,15 +917,19 @@ const CountryRow = memo(function CountryRow({
   name,
   active,
   onSelect,
+  testID,
 }: {
   country: Country;
   name: string;
   active: boolean;
   onSelect: (iso: string) => void;
+  /** `<route>.phone.country.<iso>` — the row is named by WHICH country it is. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={() => onSelect(country.iso)}

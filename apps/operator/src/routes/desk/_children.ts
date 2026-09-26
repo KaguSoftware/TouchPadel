@@ -37,6 +37,28 @@ function validateCustomerSearch(raw: Record<string, unknown>): CustomerSearchPar
 function validateBookingSearch(raw: Record<string, unknown>): { customer?: string } {
   return typeof raw.customer === 'string' ? { customer: raw.customer } : {};
 }
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** `/desk?date=YYYY-MM-DD&customer=<id>`: open on a day, and/or book for a customer. */
+function validateCalendarSearch(raw: Record<string, unknown>): { date?: string; customer?: string } {
+  return {
+    ...(typeof raw.date === 'string' && ISO_DATE.test(raw.date) ? { date: raw.date } : {}),
+    ...(typeof raw.customer === 'string' ? { customer: raw.customer } : {}),
+  };
+}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * `/desk/block?date=YYYY-MM-DD`: the day the calendar was showing.
+ * `/desk/block?run=<uuid>&step=<uuid>`: a tournament's courts step, opened
+ * from Protocols or My tasks (event mode, build-contracts §5.1); both or neither.
+ */
+function validateBlockSearch(raw: Record<string, unknown>): { date?: string; run?: string; step?: string } {
+  const run = typeof raw.run === 'string' && UUID.test(raw.run) ? raw.run.toLowerCase() : undefined;
+  const step = typeof raw.step === 'string' && UUID.test(raw.step) ? raw.step.toLowerCase() : undefined;
+  return {
+    ...(typeof raw.date === 'string' && ISO_DATE.test(raw.date) ? { date: raw.date } : {}),
+    ...(run && step ? { run, step } : {}),
+  };
+}
 
 const child = <P extends string>(path: P, guardRoute: string, Component: Parameters<typeof guarded>[1]) =>
   createRoute({
@@ -53,6 +75,16 @@ export const deskIndexRoute = createRoute({
   component: guarded('/desk', DeskCalendar),
   pendingComponent: RoutePending,
   wrapInSuspense: true,
+  validateSearch: validateCalendarSearch,
+});
+
+export const courtBlockRoute = createRoute({
+  getParentRoute: () => deskRoute,
+  path: 'block',
+  component: guarded('/desk', CourtBlock),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
+  validateSearch: validateBlockSearch,
 });
 
 export const bookingDetailRoute = createRoute({
@@ -86,7 +118,7 @@ export const deskChildren = [
   deskIndexRoute,
   child('today', '/desk', TodaysBoard),
   bookingDetailRoute,
-  child('block', '/desk', CourtBlock),
+  courtBlockRoute,
   child('series/new', '/desk', SeriesCreate),
   child('series/$id', '/desk', SeriesDetail),
   customerSearchRoute,

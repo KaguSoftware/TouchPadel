@@ -7,6 +7,8 @@ export default [
   ...base, // typescript-eslint recommended + the repo's RTL logical-property guard
   {
     // supabase/functions/* run on Deno with their own types; lint them with `deno lint`, not this config.
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.ts', '**/*.gen.ts', 'supabase/functions/**'],
+    // supabase/.temp is the CLI's scratch space (`supabase start` drops minified
+    // edge-runtime sources there); CI never has it, a machine with Docker does.
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.ts', '**/*.gen.ts', 'supabase/functions/**', 'supabase/.temp/**'],
   },
 ];

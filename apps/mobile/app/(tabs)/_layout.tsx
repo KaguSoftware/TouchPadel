@@ -17,4 +17,8 @@
  */
 export const unstable_settings = { initialRouteName: 'index' };
 
-export { default } from '../../src/navigation/TabsLayout';
+/**
+ * Through the staff gate: a guest gets TabsLayout unchanged, a staff session is
+ * sent to Today before the tabs mount (src/features/staff/GuestTabsGate.tsx).
+ */
+export { default } from '../../src/features/staff/GuestTabsGate';

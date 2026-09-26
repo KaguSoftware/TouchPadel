@@ -19,6 +19,10 @@ import type { Locale } from '@touch/i18n';
 import { rememberLocale } from '../i18n/lastLocale';
 import { rememberAppearance } from '../theme/lastAppearance';
 import type { AppearancePreference } from '../theme/lastAppearance';
+import { rememberStaffHint } from '../features/staff/hint';
+import { STAFF_HINT_KEY } from '../features/staff/status';
+import { rememberGuestVenue } from '../features/availability/guestVenue';
+import { GUEST_VENUE_KEY } from '../features/availability/branch';
 import { addBreadcrumb, captureException } from './telemetry';
 
 export const APPEARANCE_KEY = 'tp.appearance';
@@ -86,11 +90,23 @@ export async function loadBootPrefs(): Promise<BootPrefs> {
   let appearance: BootAppearance = 'light';
   let locale: Locale | null = null;
   try {
-    const pairs = await AsyncStorage.multiGet([APPEARANCE_KEY, LOCALE_KEY]);
+    // The staff device hint rides along (build-contracts-2026-09-23 §6.5): known
+    // before the first frame, a staff cold start waits for its row instead of
+    // mounting the guest tabs. Unreadable, it is simply no hint.
+    // The guest's branch too (multi-venue slice 4): known before the first
+    // frame, the Book tab never shows the default branch's grid first.
+    const pairs = await AsyncStorage.multiGet([
+      APPEARANCE_KEY,
+      LOCALE_KEY,
+      STAFF_HINT_KEY,
+      GUEST_VENUE_KEY,
+    ]);
     for (const [key, value] of pairs) {
       if (key === APPEARANCE_KEY && (value === 'light' || value === 'dark' || value === 'automatic'))
         appearance = value;
       if (key === LOCALE_KEY) locale = asLocale(value);
+      if (key === STAFF_HINT_KEY) rememberStaffHint(value);
+      if (key === GUEST_VENUE_KEY) rememberGuestVenue(value);
     }
   } catch (error) {
     captureException(error, { label: 'bootPrefs.read' });

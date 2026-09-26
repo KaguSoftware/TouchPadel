@@ -1,61 +1,66 @@
 /**
- * apple-revoke — Apple's half of account deletion. NOT IMPLEMENTED YET, on
- * purpose, and this file is the record of why.
+ * apple-revoke — Apple's half of account deletion (App Store Review Guideline
+ * 5.1.1(v)): revoke the user's Sign in with Apple grant BEFORE their account is
+ * deleted.
  *
- *   POST { authorizationCode }  ->  200 { revoked: true }
- *                               ->  501 { error: 'NOT_CONFIGURED' }   ← today
+ *   POST { authorizationCode }   (Authorization: Bearer <the guest's session JWT>)
+ *     -> 200 { revoked: true, tokenTypeHint, identityMatched }
+ *     -> 400 { error: 'BAD_REQUEST' }
+ *     -> 401 { error: 'AUTH_REQUIRED' }
+ *     -> 405 { error: 'METHOD_NOT_ALLOWED' }
+ *     -> 409 { error: 'APPLE_IDENTITY_MISMATCH' }       the code belonged to a different Apple ID
+ *     -> 500 { error: 'APPLE_KEY_INVALID' }             the .p8 secret will not import / sign
+ *     -> 501 { error: 'NOT_CONFIGURED', missing }       one of the four secrets is unset
+ *     -> 502 { error: 'APPLE_TOKEN_EXCHANGE_FAILED' | 'APPLE_REVOKE_FAILED', appleStatus, appleError }
  *
- * WHAT APPLE REQUIRES. An app that offers Sign in with Apple must call
- * POST https://appleid.apple.com/auth/revoke when the user deletes their
- * account. `auth.admin.deleteUser` does not do it, and neither does migration
- * 0077 — App Review rejects for this specifically, so it is a store blocker, not
- * a nicety (docs/design/social-signin-2026-09-01.md §306).
+ * WHY THE DEVICE SENDS A FRESH CODE. Supabase's native Apple sign-in is an
+ * id-token grant: it never receives a refresh token, so there is nothing stored
+ * to revoke. The deletion flow (apps/mobile/app/delete-account.tsx ->
+ * features/profile/deletion.ts) therefore re-runs the Apple sheet for a fresh
+ * one-time `authorizationCode` and posts it here. This function (apple.ts):
  *
- * WHY IT CANNOT BE WRITTEN YET. The id-token grant Supabase uses yields no
- * refresh token to revoke, so the deletion flow has to re-authenticate with
- * Apple for a fresh `authorizationCode`, exchange it for a token, and revoke
- * that — server-side, signing a client-secret JWT (ES256) with a Sign in with
- * Apple **.p8 key**. That key does not exist: it needs Apple Developer
- * enrolment, which is days of identity verification and is blocked on a human
- * (HANDOFF-security.md §4). Writing the signing and exchange now would mean
- * shipping a few hundred lines that have never once run against Apple.
+ *   1. signs a client-secret JWT — ES256 with the Sign in with Apple .p8 key,
+ *      header { alg, kid: APPLE_KEY_ID }, claims { iss: APPLE_TEAM_ID, iat,
+ *      exp: iat + 5 min, aud: https://appleid.apple.com, sub: APPLE_CLIENT_ID };
+ *   2. POST https://appleid.apple.com/auth/token (grant_type=authorization_code)
+ *      -> refresh_token (access_token when Apple returns no refresh token);
+ *   3. POST https://appleid.apple.com/auth/revoke with that token and the
+ *      matching token_type_hint. HTTP 200 = revoked.
  *
- * SO WHAT HAPPENS TODAY. Deletion is NOT held hostage to a missing credential —
- * a guest who asks to be deleted is deleted. app.delete_my_account (0077)
- * instead records `apple_revoke_pending: true` on its audit row whenever the
- * account carried an Apple identity, so the outstanding obligation is queryable
- * rather than merely remembered:
+ * ORDER. This must run while the account still exists: the caller's JWT dies
+ * with app.delete_my_account (0077), and verify_jwt = true (config.toml) plus
+ * getCallerUserId below refuse anything else. Only a signed-in user can spend a
+ * code here, and the id_token's `sub` is compared with that user's own Apple
+ * identity so a code from some other Apple ID is reported rather than counted.
+ *
+ * DELETION IS NEVER HELD HOSTAGE. Any non-2xx here (including 501 while the
+ * secrets are unset) and the app deletes the account anyway. app.delete_my_account
+ * has no parameter for "revocation succeeded", so its audit row keeps recording
+ * `apple_revoke_pending: true` for every account that carried an Apple identity,
+ * whether or not this call succeeded; the success is visible in this function's
+ * logs (`[apple-revoke] revoked`) and in the app's account.delete breadcrumb.
  *
  *   select count(*) from audit_log
  *    where action = 'account.delete' and (after->>'apple_revoke_pending')::bool;
  *
- * HOW THIS STOPS BEING FORGOTTEN. tests/apple-revoke.test.ts is armed, not
- * merely skipped: it goes RED the moment either the Apple secrets are configured
- * (someone has the key — finish the job) or an Apple identity appears in
- * auth.identities (a real user can now sign in with Apple, so the obligation is
- * live and being breached). Until one of those is true nothing is owed, and a
- * permanently red gate would only teach people to ignore it.
+ * NEVER LOGGED OR ECHOED: the authorizationCode, the client secret, the tokens,
+ * the key. Apple's short `error` token (e.g. invalid_grant) is.
  *
- * TO FINISH IT: set APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID and
- * APPLE_PRIVATE_KEY_P8, then replace the block below with — sign a client-secret
- * JWT (ES256, aud https://appleid.apple.com, iss = team id, sub = client id),
- * POST it with the authorizationCode to /auth/token, then POST the returned
- * refresh token to /auth/revoke with token_type_hint=refresh_token.
+ * SECRETS (hosted: `pnpm exec supabase secrets set NAME=value`):
+ *   APPLE_TEAM_ID         10-character Team ID            BR42V976FS
+ *   APPLE_KEY_ID          10-character Key ID of the Sign in with Apple key
+ *   APPLE_CLIENT_ID       the native app's bundle id      com.kagu.touchpadel
+ *   APPLE_PRIVATE_KEY_P8  the whole AuthKey_<KEYID>.p8 including the BEGIN/END
+ *                         lines; real newlines or literal \n both accepted
+ *
+ * DEPLOY: `pnpm exec supabase functions deploy apple-revoke` (from packages/db;
+ * config.toml already pins verify_jwt = true for it).
+ *
+ * covered by packages/db/tests/apple-revoke.test.ts
  */
 import { createServiceClient, getCallerUserId } from '../_shared/supabase.ts';
 import { json } from '../_shared/http.ts';
-
-/** Every secret the real implementation needs. Absent = not configured. */
-const REQUIRED_SECRETS = [
-  'APPLE_TEAM_ID',
-  'APPLE_KEY_ID',
-  'APPLE_CLIENT_ID',
-  'APPLE_PRIVATE_KEY_P8',
-] as const;
-
-export function missingSecrets(env: { get(k: string): string | undefined }): string[] {
-  return REQUIRED_SECRETS.filter((k) => !(env.get(k) ?? '').trim());
-}
+import { appleConfigFromEnv, missingSecrets, revokeWithAuthorizationCode } from './apple.ts';
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
@@ -64,42 +69,68 @@ Deno.serve(async (req: Request) => {
   const userId = await getCallerUserId(req, service);
   if (!userId) return json({ error: 'AUTH_REQUIRED' }, 401);
 
-  let body: { authorizationCode?: string };
+  let body: { authorizationCode?: unknown };
   try {
     body = await req.json();
   } catch {
     return json({ error: 'BAD_REQUEST', message: 'expected a JSON body' }, 400);
   }
-  if (!body.authorizationCode?.trim()) {
+  const authorizationCode = typeof body.authorizationCode === 'string' ? body.authorizationCode.trim() : '';
+  if (!authorizationCode) {
     return json({ error: 'BAD_REQUEST', message: 'authorizationCode is required' }, 400);
   }
 
-  const missing = missingSecrets(Deno.env);
-  if (missing.length > 0) {
-    // Deliberate, and reported rather than swallowed: the caller must be able to
-    // tell "Apple was revoked" from "Apple was not reachable and nobody noticed".
+  const config = appleConfigFromEnv(Deno.env);
+  if (!config) {
+    const missing = missingSecrets(Deno.env);
+    // Reported rather than swallowed: the caller must be able to tell "Apple was
+    // revoked" from "Apple was never asked".
     return json(
       {
         error: 'NOT_CONFIGURED',
         message:
           'Sign in with Apple token revocation is not configured. Missing: ' +
-          `${missing.join(', ')}. Account deletion still proceeds; the outstanding ` +
-          'revocation is recorded on the audit row as apple_revoke_pending.',
+          `${missing.join(', ')}. Account deletion still proceeds; the audit row ` +
+          'records apple_revoke_pending.',
         missing,
       },
       501,
     );
   }
 
-  // Unreachable until the secrets above exist. Left as an explicit failure
-  // rather than a silent success, so a half-finished deploy cannot look green.
-  return json(
-    {
-      error: 'NOT_IMPLEMENTED',
-      message:
-        'Apple credentials are present but the revocation exchange has not been ' +
-        'written. See the header of this file for the four steps.',
-    },
-    501,
-  );
+  let result;
+  try {
+    result = await revokeWithAuthorizationCode({ config, authorizationCode, fetch: (url, init) => fetch(url, init) });
+  } catch (err) {
+    // Only signing can throw: the .p8 secret is malformed. Never echo it.
+    console.error(`[apple-revoke] client secret signing failed: ${err instanceof Error ? err.name : 'error'}`);
+    return json({ error: 'APPLE_KEY_INVALID', message: 'APPLE_PRIVATE_KEY_P8 could not be used to sign.' }, 500);
+  }
+
+  if (!result.ok) {
+    console.warn(`[apple-revoke] ${result.code} status=${result.status ?? 'unreachable'} apple_error=${result.appleError ?? '-'}`);
+    return json({ error: result.code, appleStatus: result.status, appleError: result.appleError }, 502);
+  }
+
+  // Did the code belong to THIS account's Apple identity? Best-effort: a lookup
+  // failure leaves identityMatched null rather than failing a completed revoke.
+  let identityMatched: boolean | null = null;
+  if (result.sub) {
+    const { data, error } = await service.auth.admin.getUserById(userId);
+    if (!error && data.user) {
+      const subs = (data.user.identities ?? [])
+        .filter((i) => i.provider === 'apple')
+        .map((i) => (i.identity_data?.sub as string | undefined) ?? i.id);
+      identityMatched = subs.includes(result.sub);
+    }
+  }
+  if (identityMatched === false) {
+    // The token we just minted for that other Apple ID is revoked too, but this
+    // account's own grant is not proven gone — say so.
+    console.warn('[apple-revoke] APPLE_IDENTITY_MISMATCH');
+    return json({ error: 'APPLE_IDENTITY_MISMATCH' }, 409);
+  }
+
+  console.log(`[apple-revoke] revoked token_type_hint=${result.tokenTypeHint} identity_matched=${identityMatched}`);
+  return json({ revoked: true, tokenTypeHint: result.tokenTypeHint, identityMatched });
 });

@@ -5,7 +5,8 @@
  * phone come back as codes and land on the field. States: ready · busy · error.
  */
 import { useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { callEdge, EdgeError, type EdgeFunctionName } from '../../../lib/edge';
 import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
@@ -52,6 +53,7 @@ export function CustomerCreateScreen() {
   const [email, setEmail] = useState('');
   const [lang, setLang] = useState<Lang>(locale);
   const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>(null);
   const [fieldError, setFieldError] = useState<FieldError | null>(null);
   const [touched, setTouched] = useState(false);
@@ -70,6 +72,8 @@ export function CustomerCreateScreen() {
       const body: CreateBody = { fullName: fullName.trim(), phone: phone.trim(), preferredLang: lang, ...(email.trim() ? { email: email.trim() } : {}) };
       const res = await callEdge<CreateBody, { id: string }>(DESK_CUSTOMER_CREATE, body, { ttlMs: 0 });
       toast.ok(tr('ws.courtDesk.createCustomer.created'));
+      // The Customers list is kept in memory; the new record belongs in it now.
+      void queryClient.invalidateQueries({ queryKey: ['customerDirectory'] });
       void navigate({ to: '/desk/customers/$id', params: { id: res.id } });
     } catch (e) {
       const fe = fieldErrorOf(e);
@@ -81,76 +85,86 @@ export function CustomerCreateScreen() {
   }
 
   return (
-    <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
+    /*
+     * The page takes the full width of the desk shell. Capped at the form
+     * measure it was one narrow column against two thirds of empty station
+     * monitor; the four fields pair up in a 2-up grid driven by the PANEL
+     * instead, so a wide window reads as two short rows and a narrow one still
+     * stacks them.
+     */
+    <div>
       <PageHeader title={tr('ws.courtDesk.createCustomer.title')} subtitle={tr('ws.courtDesk.createCustomer.lead')} />
-      <Panel>
+      <Panel bodyClassName="tp-cq">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void submit();
           }}
         >
-          <Field label={tr('ws.courtDesk.createCustomer.name')} required error={touched && nameMissing ? tr('ws.courtDesk.createCustomer.errors.nameRequired') : undefined}>
-            <input style={inputStyle} value={fullName} disabled={busy} autoFocus maxLength={200} onChange={(e) => setFullName(e.target.value)} />
-          </Field>
-          <Field
-            label={tr('ws.courtDesk.createCustomer.phone')}
-            required
-            hint={tr('ws.courtDesk.createCustomer.phoneHint')}
-            error={
-              fieldError === 'DUPLICATE_PHONE' || fieldError === 'INVALID_PHONE'
-                ? tr(`ws.courtDesk.createCustomer.errors.${fieldError}`)
-                : touched && phoneMissing
-                  ? tr('ws.courtDesk.createCustomer.errors.phoneRequired')
-                  : undefined
-            }
-          >
-            <input
-              style={inputStyle}
-              dir="ltr"
-              inputMode="tel"
-              autoComplete="off"
-              value={phone}
-              disabled={busy}
-              maxLength={30}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                if (fieldError === 'DUPLICATE_PHONE' || fieldError === 'INVALID_PHONE') setFieldError(null);
-              }}
-            />
-          </Field>
-          <Field label={tr('ws.courtDesk.createCustomer.email')} error={fieldError === 'DUPLICATE_EMAIL' ? tr('ws.courtDesk.createCustomer.errors.DUPLICATE_EMAIL') : undefined}>
-            <input
-              style={inputStyle}
-              dir="ltr"
-              type="email"
-              inputMode="email"
-              autoComplete="off"
-              value={email}
-              disabled={busy}
-              maxLength={200}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (fieldError === 'DUPLICATE_EMAIL') setFieldError(null);
-              }}
-            />
-          </Field>
-          <Field label={tr('ws.courtDesk.createCustomer.language')}>
-            <Select<Lang>
-              value={lang}
-              disabled={busy}
-              onChange={setLang}
-              options={[
-                { value: 'en', label: tr('ws.courtDesk.customers.lang.en') },
-                { value: 'ar', label: tr('ws.courtDesk.customers.lang.ar') },
-              ]}
-            />
-          </Field>
+          {/* Row gap is 0: every Field already carries its own block-end margin. */}
+          <div className="tp-grid" data-cols="2" style={{ gap: '0 var(--tp-sp-4)' }}>
+            <Field label={tr('ws.courtDesk.createCustomer.name')} required error={touched && nameMissing ? tr('ws.courtDesk.createCustomer.errors.nameRequired') : undefined}>
+              <input style={inputStyle} value={fullName} disabled={busy} autoFocus maxLength={200} onChange={(e) => setFullName(e.target.value)} />
+            </Field>
+            <Field
+              label={tr('ws.courtDesk.createCustomer.phone')}
+              required
+              hint={tr('ws.courtDesk.createCustomer.phoneHint')}
+              error={
+                fieldError === 'DUPLICATE_PHONE' || fieldError === 'INVALID_PHONE'
+                  ? tr(`ws.courtDesk.createCustomer.errors.${fieldError}`)
+                  : touched && phoneMissing
+                    ? tr('ws.courtDesk.createCustomer.errors.phoneRequired')
+                    : undefined
+              }
+            >
+              <input
+                style={inputStyle}
+                dir="ltr"
+                inputMode="tel"
+                autoComplete="off"
+                value={phone}
+                disabled={busy}
+                maxLength={30}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (fieldError === 'DUPLICATE_PHONE' || fieldError === 'INVALID_PHONE') setFieldError(null);
+                }}
+              />
+            </Field>
+            <Field label={tr('ws.courtDesk.createCustomer.email')} error={fieldError === 'DUPLICATE_EMAIL' ? tr('ws.courtDesk.createCustomer.errors.DUPLICATE_EMAIL') : undefined}>
+              <input
+                style={inputStyle}
+                dir="ltr"
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                value={email}
+                disabled={busy}
+                maxLength={200}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldError === 'DUPLICATE_EMAIL') setFieldError(null);
+                }}
+              />
+            </Field>
+            <Field label={tr('ws.courtDesk.createCustomer.language')}>
+              <Select<Lang>
+                value={lang}
+                disabled={busy}
+                onChange={setLang}
+                options={[
+                  { value: 'en', label: tr('ws.courtDesk.customers.lang.en') },
+                  { value: 'ar', label: tr('ws.courtDesk.customers.lang.ar') },
+                ]}
+              />
+            </Field>
+          </div>
           <ErrorText error={error} />
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <Link to="/desk/customers" className="tp-btn" data-kind="ghost" data-size="md">
+            <Button kind="ghost" onClick={() => void navigate({ to: '/desk/customers' })}>
               {tr('ws.courtDesk.createCustomer.cancel')}
-            </Link>
+            </Button>
             <Button type="submit" kind="primary" icon="userPlus" busy={busy} disabled={busy}>
               {tr('ws.courtDesk.createCustomer.submit')}
             </Button>

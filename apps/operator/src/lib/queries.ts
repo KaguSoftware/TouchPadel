@@ -22,28 +22,17 @@
  * which costs nothing on tables this size). Where they genuinely want different
  * rows, they get different keys.
  */
-import type { QueryKey } from '@tanstack/react-query';
 import type { OpeningHours } from '@touch/core';
 import { supabase } from './supabase';
+import { currentBranchId } from './venueScope';
 import { cachedQuery } from './refCache';
 
 // ---------------------------------------------------------------------------
-// Key registry — every shared key in one place, so a collision is visible.
-// Feature-private keys (['tab', id], ['profilesSearch', q], the analytics tree)
-// stay in their own modules; they are not shared and cannot collide.
+// Key registry. The keys live in queryKeys.ts (a leaf module, so the write
+// path can read them without joining this file's refCache → mutate import
+// loop) and are re-exported here, where every screen already imports them.
 // ---------------------------------------------------------------------------
-export const QK = {
-  /** venue_settings_public, one row: timezone + hours + closed dates. */
-  venueSettings: ['venueSettings'] as const satisfies QueryKey,
-  /** Active courts, ordered for display. */
-  courts: ['courts'] as const satisfies QueryKey,
-  /** The open (or closing) day session, or null. */
-  day: ['day'] as const satisfies QueryKey,
-  /** ACTIVE cafe tables only — the till's table picker. */
-  activeCafeTables: ['cafeTables', 'active'] as const satisfies QueryKey,
-  /** ALL cafe tables including inactive — the QR admin's editor. */
-  allCafeTables: ['cafeTables', 'all'] as const satisfies QueryKey,
-} as const;
+export { QK, RESERVATION_LIST_KEYS, invalidateReservations } from './queryKeys';
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -81,11 +70,17 @@ export interface DaySessionRow {
  * desk calendar silently lost when a narrower query shared this key.
  */
 export async function fetchVenueSettings(): Promise<VenueSettingsRow> {
-  const { data, error } = await supabase
-    .from('venue_settings_public')
-    .select('timezone, opening_hours, closed_dates')
-    .single();
+  // One row per branch since 0208: this station's (or the switcher's). The
+  // table, not venue_settings_public: staff RLS (0226) narrows it to the branch
+  // in scope, and it holds a branch that is still preparing, which the public
+  // view (open branches only) does not — a new branch's hours are a readiness
+  // item and must be editable before it opens.
+  const branch = currentBranchId();
+  let q = supabase.from('venue_settings').select('timezone, opening_hours, closed_dates');
+  if (branch) q = q.eq('venue_id', branch);
+  const { data, error } = await q.limit(1).maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('VENUE_REQUIRED');
   return data as unknown as VenueSettingsRow;
 }
 

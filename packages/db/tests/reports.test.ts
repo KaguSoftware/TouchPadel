@@ -35,7 +35,7 @@ const up = await stackAvailable();
 
 type Figure = { key: string; value: number; previous: number | null; changeAbs: number | null; changePct: number | null };
 type RevenueRow = {
-  period: string; padelIqd: number; cafeIqd: number; totalIqd: number; cashIqd: number; cardIqd: number;
+  period: string; padelIqd: number; cafeIqd: number; cafeNetIqd: number; totalIqd: number; cashIqd: number; cardIqd: number;
   discountsIqd: number; voidsIqd: number; refundsIqd: number; taxIqd: number; orders: number; bookings: number;
 };
 type Column = { key: string; labelEn: string; labelAr: string; kind: string };
@@ -245,7 +245,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
   // -------------------------------------------------------------------------
   // panel_headline
   // -------------------------------------------------------------------------
-  it('panel_headline: revenue = padel + cafe, both include the fixture, cash reconciles with payments - refunds', async () => {
+  it('panel_headline: revenue = padel + cafe net, both include the fixture, cash reconciles with payments - refunds', async () => {
     const res = await appRpc(owner, 'panel_headline', { p_from: from, p_to: to, p_compare: 'none' }).then(outcome);
     expect(res.ok, res.errorMessage).toBe(true);
     const d = res.data as { period: { from: string; to: string }; comparison: null; figures: Figure[] };
@@ -254,7 +254,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
 
     const byKey = Object.fromEntries(d.figures.map((f) => [f.key, f]));
     expect(Object.keys(byKey).sort()).toEqual(
-      ['avgOrderValue', 'bookings', 'cafeRevenue', 'card', 'cash', 'discounts', 'noShows', 'orders', 'padelRevenue', 'refunds', 'revenue', 'waste'].sort(),
+      ['avgOrderValue', 'bookings', 'cafeNet', 'cafeRevenue', 'card', 'cash', 'discounts', 'noShows', 'orders', 'padelRevenue', 'refunds', 'revenue', 'waste'].sort(),
     );
     for (const f of d.figures) {
       expect(Number.isInteger(f.value), f.key).toBe(true);
@@ -263,22 +263,52 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
       expect(f.changePct, f.key).toBeNull();
     }
 
-    expect(byKey.revenue!.value).toBe(byKey.padelRevenue!.value + byKey.cafeRevenue!.value);
+    // 0099: revenue counts the cafe after refunds, like the Analytics venue revenue tile.
+    expect(byKey.revenue!.value).toBe(byKey.padelRevenue!.value + byKey.cafeNet!.value);
     expect(byKey.padelRevenue!.value).toBeGreaterThanOrEqual(reservationPrice);
     expect(byKey.cafeRevenue!.value).toBeGreaterThanOrEqual(tabTotal);
+    // 0096: cafeNet is the cafe figure after refunds, read from the same helper Analytics uses.
+    expect(byKey.cafeNet!.value).toBeLessThanOrEqual(byKey.cafeRevenue!.value);
+    expect(byKey.cafeNet!.value).toBeGreaterThanOrEqual(byKey.cafeRevenue!.value - byKey.refunds!.value);
     expect(byKey.bookings!.value).toBeGreaterThanOrEqual(1);
     expect(byKey.orders!.value).toBeGreaterThanOrEqual(1);
     expect(byKey.avgOrderValue!.value).toBe(Math.round(byKey.cafeRevenue!.value / byKey.orders!.value));
 
-    // Raw truth for the same window (service role): every payment / refund.
-    const { data: pays } = await svc
-      .from('payments').select('id, amount_iqd, method')
-      .gte('created_at', window.ts_from).lt('created_at', window.ts_to);
-    const payRows = (pays ?? []) as { id: string; amount_iqd: number; method: string }[];
-    const { data: refs } = await svc
-      .from('refunds').select('amount_iqd, payment_id')
-      .gte('created_at', window.ts_from).lt('created_at', window.ts_to);
-    const refRows = (refs ?? []) as { amount_iqd: number; payment_id: string }[];
+    // 0099: the Analytics Cafe tab's waste is the panel's waste, day by day.
+    const dailyWaste = await appRpc(owner, 'analytics_daily_sales', { p_from: from, p_to: to }).then(outcome);
+    expect(dailyWaste.ok, dailyWaste.errorMessage).toBe(true);
+    const wasteSum = (dailyWaste.data as { waste_iqd: number }[]).reduce((s, r) => s + Number(r.waste_iqd), 0);
+    expect(wasteSum).toBe(byKey.waste!.value);
+
+    // Raw truth for the same window (service role): every payment / refund,
+    // whichever suite wrote it. A shared database keeps every earlier run's
+    // rows, so each read is paged (PostgREST returns at most max_rows = 1000
+    // rows) and any error fails here; ignored, it read as zero money (the
+    // analytics.test.ts pattern).
+    const pageAll = async <T>(
+      what: string,
+      q: (lo: number, hi: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+    ): Promise<T[]> => {
+      const out: T[] = [];
+      for (let lo = 0; ; lo += 500) {
+        const { data, error } = await q(lo, lo + 499);
+        expect(error, `${what}, rows ${lo}+`).toBeNull();
+        out.push(...(data ?? []));
+        if ((data ?? []).length < 500) return out;
+      }
+    };
+    const payRows = await pageAll<{ id: string; amount_iqd: number; method: string }>('payments', (lo, hi) =>
+      svc
+        .from('payments').select('id, amount_iqd, method')
+        .gte('created_at', window.ts_from).lt('created_at', window.ts_to)
+        .order('id').range(lo, hi),
+    );
+    const refRows = await pageAll<{ id: string; amount_iqd: number; payment_id: string }>('refunds', (lo, hi) =>
+      svc
+        .from('refunds').select('id, amount_iqd, payment_id')
+        .gte('created_at', window.ts_from).lt('created_at', window.ts_to)
+        .order('id').range(lo, hi),
+    );
     const paid = (m: string) => payRows.filter((p) => p.method === m).reduce((s, p) => s + Number(p.amount_iqd), 0);
     const refunded = (m: string) =>
       refRows.filter((r) => payRows.find((p) => p.id === r.payment_id)?.method === m).reduce((s, r) => s + Number(r.amount_iqd), 0);
@@ -322,7 +352,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
 
     expect(d.comparison).toBeNull();
     expect(d.columns.map((c) => c.key)).toEqual([
-      'period', 'padelIqd', 'cafeIqd', 'totalIqd', 'cashIqd', 'cardIqd',
+      'period', 'padelIqd', 'cafeIqd', 'cafeNetIqd', 'shopIqd', 'totalIqd', 'cashIqd', 'cardIqd',
       'discountsIqd', 'voidsIqd', 'refundsIqd', 'taxIqd', 'orders', 'bookings',
     ]);
     for (const c of d.columns) {
@@ -337,13 +367,22 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     }
     for (const r of d.rows) {
       expect(r.period >= from && r.period <= to, r.period).toBe(true);
-      expect(Number(r.totalIqd)).toBe(Number(r.padelIqd) + Number(r.cafeIqd));
+      // 0099: the total counts the cafe after refunds.
+      expect(Number(r.totalIqd)).toBe(Number(r.padelIqd) + Number(r.cafeNetIqd));
     }
     expect(d.rows.map((r) => r.period)).toEqual([...d.rows.map((r) => r.period)].sort());
 
     const tabDay = d.rows.find((r) => r.period === today)!;
     expect(tabDay, `no row for ${today}`).toBeDefined();
     expect(Number(tabDay.cafeIqd)).toBeGreaterThanOrEqual(tabTotal);
+    expect(Number(tabDay.cafeNetIqd)).toBeLessThanOrEqual(Number(tabDay.cafeIqd));
+    // 0096: Reports and Analytics read the SAME helper, so the day agrees to the dinar.
+    const daily = await appRpc(owner, 'analytics_daily_sales', { p_from: from, p_to: to }).then(outcome);
+    expect(daily.ok, daily.errorMessage).toBe(true);
+    const dailyRow = (daily.data as { business_date: string; cafe_gross_iqd: number; cafe_net_iqd: number; discount_iqd: number }[]).find((r) => r.business_date === today)!;
+    expect(Number(tabDay.cafeIqd)).toBe(Number(dailyRow.cafe_gross_iqd));
+    expect(Number(tabDay.cafeNetIqd)).toBe(Number(dailyRow.cafe_net_iqd));
+    expect(Number(tabDay.discountsIqd)).toBe(Number(dailyRow.discount_iqd));
     expect(Number(tabDay.cashIqd)).toBeGreaterThanOrEqual(tabTotal);
     expect(Number(tabDay.orders)).toBeGreaterThanOrEqual(1);
     const bookDay = d.rows.find((r) => r.period === bookingDay)!;
@@ -398,6 +437,8 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(Number(row.bookedMinutes)).toBe(60);
     expect(Number(row.revenueIqd)).toBe(reservationPrice);
     expect(Number(row.availableMinutes)).toBeGreaterThan(0);
+    // 0097: available minutes are per court; one court filtered = the total.
+    expect(Number(d.totals.availableMinutes)).toBe(Number(row.availableMinutes));
     expect(Number(row.occupancyPct)).toBeCloseTo((60 * 100) / Number(row.availableMinutes), 1);
     expect(Number(row.peakBookings) + Number(row.offPeakBookings)).toBe(1);
     expect(Number(row.cancellations)).toBe(0);
@@ -500,7 +541,9 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(mine.kind).toBe('tab');
     expect(Number(mine.amountIqd)).toBe(tabTotal);
     expect(mine.staffName).toBe('Dev Cashier');
-    for (const t of tx) expect(Object.keys(t).sort()).toEqual(['amountIqd', 'at', 'id', 'kind', 'label', 'reference', 'staffId', 'staffName']);
+    // 0102 added `detail`: the facts behind the English label, for the operator to word.
+    for (const t of tx) expect(Object.keys(t).sort()).toEqual(['amountIqd', 'at', 'detail', 'id', 'kind', 'label', 'reference', 'staffId', 'staffName']);
+    expect((mine as unknown as { detail: { sub: string } }).detail.sub).toBe('settledTab');
     expect(tx.length).toBeLessThanOrEqual(500);
     // Newest first.
     for (let i = 1; i < tx.length; i++) expect(tx[i - 1]!.at >= tx[i]!.at).toBe(true);
@@ -525,7 +568,30 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     const byCourt = await appRpc(manager, 'report_drill', { p_figure: `court:${courtId}`, p_key: null, p_from: from, p_to: to }).then(outcome);
     expect((byCourt.data as { transactions: Drill[] }).transactions.map((t) => t.id)).toEqual([reservationId]);
 
-    for (const fig of ['revenue', 'padelRevenue', 'cafeRevenue', 'cash', 'card']) {
+    const net = await appRpc(owner, 'report_drill', { p_figure: 'cafeNet', p_key: null, p_from: from, p_to: to }).then(outcome);
+    expect(net.ok, net.errorMessage).toBe(true);
+    const ntx = (net.data as { transactions: Drill[] }).transactions;
+    expect(ntx.find((t) => t.id === tabId)?.amountIqd).toBe(tabTotal); // nothing refunded on this tab
+
+    // 0099: revenue lists each tab once, at its net amount, so its rows add up to the headline.
+    // The drill keeps the newest 500 rows and dates a booking by its slot, so on a shared
+    // database leftover bookings between today and next week sort above this tab and pushed it
+    // out of a from..to read (leftover bookings later today do the same to a one-day read). The
+    // tab is read on its own business day under the cashier who settled it; the booking under
+    // its own court.
+    const rev = await appRpc(owner, 'report_drill', {
+      p_figure: 'revenue', p_key: `staff:${SEED_STAFF_IDS.cashier}`, p_from: today, p_to: today,
+    }).then(outcome);
+    expect(rev.ok, rev.errorMessage).toBe(true);
+    const rtx = (rev.data as { transactions: Drill[] }).transactions;
+    expect(rtx.filter((t) => t.id === tabId)).toHaveLength(1);
+    expect(Number(rtx.find((t) => t.id === tabId)!.amountIqd)).toBe(Number(ntx.find((t) => t.id === tabId)!.amountIqd));
+    const revCourt = await appRpc(owner, 'report_drill', { p_figure: 'revenue', p_key: `court:${courtId}`, p_from: from, p_to: to }).then(outcome);
+    expect(revCourt.ok, revCourt.errorMessage).toBe(true);
+    const rctx = (revCourt.data as { transactions: Drill[] }).transactions;
+    expect(rctx.map((t) => [t.id, Number(t.amountIqd)])).toEqual([[reservationId, reservationPrice]]);
+
+    for (const fig of ['revenue', 'padelRevenue', 'cafeRevenue', 'cafeNet', 'cash', 'card']) {
       const m = await appRpc(manager, 'report_drill', { p_figure: fig, p_key: null, p_from: from, p_to: to }).then(outcome);
       expect(m.errorMessage, `${fig} as manager`).toContain('FORBIDDEN');
     }

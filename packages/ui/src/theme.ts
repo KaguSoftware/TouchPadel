@@ -17,6 +17,8 @@ import { fontVars } from './tokens/typography';
 import { fontFaceCss } from './fontFace';
 import { cafeBrandVars, dirVars, statusVars } from './tokens/cafeBrand';
 import { operatorVars } from './tokens/operator';
+import { OPERATOR_BLUE_MODE, operatorBlueVars } from './tokens/operatorBlue';
+import { SITE_NIGHT_MODE, siteLightVars, siteNightVars, siteScaleVars } from './tokens/site';
 
 function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): string {
   return Object.entries(vars)
@@ -39,9 +41,34 @@ function themeBlock(name: ThemeName): string {
     ...palettes[name],
     ...(name === 'operator' ? {} : statusVars),
     ...(name === 'cafe' ? cafeBrandVars : {}),
+    // The public site (tokens/site.ts): light extras + the shared scale. Its night mode
+    // is a separate block below, keyed like the operator's blue mode.
+    ...(name === 'padel' ? { ...siteLightVars, ...siteScaleVars } : {}),
     ...(name === 'operator' ? operatorVars : {}),
   };
   return `:root[data-theme='${name}'],\n[data-theme='${name}'] {\n${varsBlock(vars)}\n}`;
+}
+
+/**
+ * The operator's blue mode (tokens/operatorBlue.ts): the same theme with the
+ * brand blue moved into the ground. Keyed by a SECOND attribute on the same
+ * element rather than a fourth theme name, so every `[data-theme='operator']`
+ * rule in the app keeps matching and only the colours it names are replaced.
+ * Two attributes (0,3,0) out-specify the theme block (0,2,0) by construction.
+ */
+function operatorBlueBlock(): string {
+  const sel = `[data-theme='operator'][data-mode='${OPERATOR_BLUE_MODE}']`;
+  return `:root${sel},\n${sel} {\n  color-scheme: dark;\n${varsBlock(operatorBlueVars)}\n}`;
+}
+
+/**
+ * The public site's night mode (tokens/site.ts) — the guest app's blue mode on the web.
+ * Same two-attribute mechanism as the operator's: `[data-theme='padel'][data-mode='night']`
+ * (0,3,0) out-specifies the padel block (0,2,0), so only the colours it names change.
+ */
+function siteNightBlock(): string {
+  const sel = `[data-theme='padel'][data-mode='${SITE_NIGHT_MODE}']`;
+  return `:root${sel},\n${sel} {\n  color-scheme: dark;\n${varsBlock(siteNightVars)}\n}`;
 }
 
 export const themeCss: string = [
@@ -56,8 +83,10 @@ export const themeCss: string = [
   // the `[dir='rtl']` override below (0,1,0) and pin the sign to +1.
   `:root {\n${varsBlock({ ...fontVars, ...dirVars })}\n}`,
   themeBlock('padel'),
+  siteNightBlock(),
   themeBlock('cafe'),
   themeBlock('operator'),
+  operatorBlueBlock(),
   // Base ground: paint from tokens so an unthemed flash never shows raw UA colors.
   // Fallbacks are tokens, not raw #fff / #000: DESIGN.md forbids both, and an
   // unthemed flash is exactly the moment a raw value would be visible.

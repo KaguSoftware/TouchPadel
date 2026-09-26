@@ -70,6 +70,11 @@ export const MUTATION_TYPES = [
   'tab.open',
   'tab.settle',
   'adjustment.apply',
+  // Item 9 / C3 (0120) — same order as packages/core (the test compares arrays).
+  'tab.cancel',
+  'tab.settle_zero',
+  'payment.refund',
+  'order_item.void',
 ] as const;
 
 const MUTATION_TYPE_ALT = MUTATION_TYPES.map((t) => t.replace(/\./g, '\\.')).join('|');
@@ -122,6 +127,13 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
     fail('idempotencyKey and deviceId disagree on the station');
   }
 
+  // The branch the write was queued under (0228): optional, a uuid when present.
+  let venueScope: string | null = null;
+  if (raw.venueScope != null) {
+    venueScope = requireString(raw.venueScope, 'venueScope', 64);
+    if (!uuidRegex.test(venueScope)) fail('venueScope must be a uuid');
+  }
+
   const createdAt = requireString(raw.createdAt, 'createdAt', 64);
   if (Number.isNaN(Date.parse(createdAt))) fail('createdAt must be an ISO timestamp');
 
@@ -142,6 +154,7 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
     createdAt,
     staffId,
     deviceId,
+    venueScope,
   };
 }
 
@@ -229,10 +242,17 @@ export function validateAuthState(value: unknown): AuthState | null {
   return { accessToken, staffId, supabaseUrl: supabaseUrl.replace(/\/+$/, ''), anonKey };
 }
 
+/** Whether the renderer is showing a screen that wants no window buttons. */
+export function validateChromeless(value: unknown): boolean {
+  if (typeof value !== 'boolean') fail('chromeless must be a boolean');
+  return value;
+}
+
 export function validateConnState(value: unknown): boolean {
   if (typeof value !== 'boolean') fail('connState must be a boolean');
   return value;
 }
+
 
 /** A KDS renderer's bump, bound for the till over the LAN. kdsStation is
  *  stamped by main from station.json — never trusted from the renderer. */
@@ -255,6 +275,13 @@ export function validateLanStatus(value: unknown): { ref: string; status: 'prepa
  * one IPC argument that must never reach a log line, so the value is never
  * echoed in the error message.
  */
+/** touch:pin-observed's optional second argument: whose pin it is. */
+export function validatePinOwner(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string' || !uuidRegex.test(value)) fail('pin owner must be a uuid');
+  return value as string;
+}
+
 export function validatePin(value: unknown): string {
   if (typeof value !== 'string') fail('pin must be a string');
   const pin = value as string;

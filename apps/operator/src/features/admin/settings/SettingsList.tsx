@@ -47,18 +47,11 @@ export function SettingsGroup({
   return (
     <Panel level={level} title={title} actions={actions} padded={false} style={style}>
       {description && (
-        <p
-          style={{
-            color: 'var(--tp-muted-fg)',
-            fontSize: 'var(--tp-fs-sm)',
-            paddingBlock: 'var(--tp-sp-2-5)',
-            paddingInline: 'var(--tp-sp-4)',
-            borderBlockEnd: '1px solid var(--tp-border)',
-            maxInlineSize: '70ch',
-          }}
-        >
-          {description}
-        </p>
+        // The rule under the description belongs to the row, not to the text:
+        // on the paragraph it stopped at the 70ch measure, half-way across.
+        <div style={{ paddingBlock: 'var(--tp-sp-2-5)', paddingInline: 'var(--tp-sp-4)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+          <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', maxInlineSize: '70ch' }}>{description}</p>
+        </div>
       )}
       {rows.map((row, i) => (
         <div key={i} style={{ borderBlockStart: i > 0 ? '1px solid var(--tp-border)' : undefined }}>

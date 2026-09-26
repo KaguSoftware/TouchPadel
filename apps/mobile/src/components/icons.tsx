@@ -111,6 +111,15 @@ export const SearchIcon = (p: IconProps) => (
 );
 export const ChevronIcon = (p: IconProps) => <StrokeIcon d={['M9 6l6 6-6 6']} flip {...p} />;
 export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6']} flip {...p} />;
+/**
+ * Android's back affordance. Material navigates back with an ARROW (shaft plus
+ * head), not iOS's bare chevron — the two platforms draw the same gesture with
+ * different glyphs, so the button that means "back" uses whichever one the user
+ * already reads as back. Directional like the chevron: it mirrors under RTL.
+ */
+export const BackArrowIcon = (p: IconProps) => (
+  <StrokeIcon d={['M20 12H4M10 6l-6 6 6 6']} flip {...p} />
+);
 export const PencilIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 20l1.2-4.2L16.5 4.5a2.05 2.05 0 012.9 2.9L8.2 18.8 4 20z']} {...p} />
 );
@@ -136,6 +145,41 @@ export const CardIcon = ({ size = 16, color, strokeWidth = 2 }: IconProps) => (
     <Circle cx={12} cy={12} r={2.6} stroke={color} strokeWidth={strokeWidth} />
     <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
   </Svg>
+);
+
+// Wave 5 (wave5-addendum-2026-09-25 §5.3): the Today rows' own glyphs.
+/** Pay deductions: a bill with an amount taken off. */
+export const DeductionIcon = (p: IconProps) => (
+  <StrokeIcon d={['M6 3h12v18l-3-1.5-3 1.5-3-1.5L6 21V3zM9 11h6']} {...p} />
+);
+/** Incidents: the warning triangle. */
+export const WarningIcon = (p: IconProps) => (
+  <StrokeIcon d={['M12 4L2.8 19.5h18.4L12 4zM12 10v4.2M12 17h.01']} {...p} />
+);
+/** Content for approval: a picture. */
+export const ImageIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 5h16v14H4V5zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9h.01']} {...p} />
+);
+// Phase 2 Milestone 4b: the camera pages' Today rows.
+/** Scan an order: a camera. */
+export const CameraIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 7.5h3.5L9 5h6l1.5 2.5H20V19H4V7.5zM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6z']} {...p} />
+);
+/** Scan a receipt: a paper slip with a torn foot and two lines. */
+export const ReceiptIcon = (p: IconProps) => (
+  <StrokeIcon d={['M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3zM9 8h6M9 12h6M9 16h3']} {...p} />
+);
+/** Add to stock: a square with a plus. */
+export const PlusSquareIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4.5 4.5h15v15h-15v-15zM12 8.5v7M8.5 12h7']} {...p} />
+);
+/** Move stock: two arrows passing, from one store to the other; directional, so it mirrors under RTL. */
+export const SwapIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 8h14l-3.5-3.5M20 16H6l3.5 3.5']} flip {...p} />
+);
+/** Count the store: a clipboard with lines. */
+export const ClipboardIcon = (p: IconProps) => (
+  <StrokeIcon d={['M9 3.5h6v3H9v-3zM9 5H6v15.5h12V5h-3M9 11h6M9 15h4']} {...p} />
 );
 
 /** The brand padel-ball mark (circle + two racket-face arcs), 48-viewBox. */

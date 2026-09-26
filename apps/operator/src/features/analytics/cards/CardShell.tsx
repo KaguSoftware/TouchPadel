@@ -3,30 +3,60 @@
  * non-happy states (operator-slice.md §5.4 "States per card"):
  * skeleton while loading, empty note, "not configured" notice, error + retry.
  *
+ * Two kinds of text sit under a title and they are kept apart on purpose:
+ * `tip` is an EXPLANATION (what is counted, the denominator, the bucket rule)
+ * and lives behind the info button, read on hover, focus or tap; `note` is
+ * STATE (an estimate, a sample size, a gap in the data) and stays visible,
+ * because a fact about this period must not hide behind a hover.
+ *
+ * `refreshing` is the refetch state: the previous render stays in place at
+ * reduced opacity instead of collapsing into a skeleton, so nothing jumps
+ * while the period is re-read (dataviz: "refetch keeps the frame").
+ *
  * The private `Chip` that used to live here is gone: it was a second status
  * vocabulary ("good / bad" against the system's "success / danger") painted in
- * a second palette — its "good" was Padel Green, the accent that means live /
- * ready / arrived everywhere else, and its "warn" was plain grey. Every call
- * site now renders `StatusBadge`, so a confidence tag on the owner's screen and
- * a ticket state on the kitchen board mean the same colour.
+ * a second palette. Every call site renders `StatusBadge`.
  */
 import type { CSSProperties, ReactNode } from 'react';
 import type { MessageKey } from '@touch/i18n';
 import { Button, ErrorText, Skeleton, card } from '../../../components/ui';
+import { InfoTip } from '../../../components/InfoTip';
 import { useLocale } from '../../../lib/i18n';
 
-export type CardState = 'loading' | 'ready' | 'empty' | 'unconfigured' | 'error';
+/**
+ * `unconfigured` and `unavailable` are the guest-menu (PostHog) states: not
+ * set up, or set up and not answering. Both print one short muted line; the
+ * page's notice carries the full sentence (and the retry) ONCE, instead of a
+ * red "Something went wrong" in every card that reads guest-menu data.
+ */
+export type CardState = 'loading' | 'ready' | 'empty' | 'unconfigured' | 'unavailable' | 'error';
 
 const head: CSSProperties = {
   display: 'flex',
-  alignItems: 'baseline',
+  alignItems: 'center',
   justifyContent: 'space-between',
   gap: 'var(--tp-sp-2)',
   marginBlockEnd: 'var(--tp-sp-2)',
+  minBlockSize: '1.85rem',
 };
 
 export const cardTitle: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 700 };
 export const muted: CSSProperties = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 };
+
+/**
+ * Every analytics card wears a brand-colour strip on top, the same palette as
+ * the reports' figure groups (GlobalStyles, .tp-tone-card). The owner asked
+ * for the colours mixed rather than in order (2026-09-24), so the colour is
+ * picked from the card's title: it looks random across a page but a card
+ * keeps its colour from one render, and one visit, to the next.
+ */
+const TONES = ['blue', 'green', 'black', 'sky'] as const;
+
+function toneFor(title: string): (typeof TONES)[number] {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) | 0;
+  return TONES[Math.abs(h) % TONES.length]!;
+}
 
 export function CardShell({
   title,
@@ -34,6 +64,8 @@ export function CardShell({
   children,
   actions,
   note,
+  tip,
+  refreshing = false,
   emptyKey = 'analytics.empty.generic',
   error,
   onRetry,
@@ -45,8 +77,12 @@ export function CardShell({
   children: ReactNode;
   /** Buttons / chips rendered on the inline-end of the title row. */
   actions?: ReactNode;
-  /** Muted line under the title (source, coverage, assumptions). */
+  /** Muted line under the title: STATE (source, coverage, sample size). */
   note?: ReactNode;
+  /** EXPLANATION behind the info button beside the title. */
+  tip?: ReactNode;
+  /** A refetch is in flight: keep the frame, dim it. */
+  refreshing?: boolean;
   emptyKey?: MessageKey;
   error?: unknown;
   onRetry?: () => void;
@@ -55,15 +91,21 @@ export function CardShell({
 }) {
   const { tr } = useLocale();
   return (
-    <div style={{ ...card, ...style }}>
+    // The strip is inline because card's own inline border would win over a class.
+    <div className="tp-tone-card" data-tone={toneFor(title)} style={{ ...card, borderBlockStart: '3px solid var(--tp-tone)', ...style }}>
       <div style={head}>
-        <h3 style={cardTitle}>{title}</h3>
-        {actions && <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>{actions}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+          <h3 style={cardTitle}>{title}</h3>
+          {tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title })} />}
+        </div>
+        {actions && <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexShrink: 0 }}>{actions}</div>}
       </div>
-      {note && <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{note}</p>}
+      {/* A div, not a paragraph: a note may carry a link or a small share bar. */}
+      {note && <div style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{note}</div>}
       {state === 'loading' && <Skeleton lines={skeletonLines} />}
       {state === 'empty' && <p style={muted}>{tr(emptyKey)}</p>}
-      {state === 'unconfigured' && <p style={muted}>{tr('analytics.notices.noPosthog')}</p>}
+      {state === 'unconfigured' && <p style={muted}>{tr('ws.analytics.cafe.engagementOff')}</p>}
+      {state === 'unavailable' && <p style={muted}>{tr('ws.analytics.cafe.engagementDown')}</p>}
       {state === 'error' && (
         <div>
           {/* A card may know its error or only that one happened — never render an
@@ -82,7 +124,14 @@ export function CardShell({
           )}
         </div>
       )}
-      {state === 'ready' && children}
+      {state === 'ready' && (
+        <div
+          aria-busy={refreshing || undefined}
+          style={{ opacity: refreshing ? 0.55 : 1, transition: 'opacity var(--tp-dur-fast) var(--tp-ease-out)' }}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { formatDate, formatTime, formatTimeRange, formatWeekdayShort } from '@to
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks';
+import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import {
   cancelActorLabel,
   cancelledBookings,
@@ -21,19 +22,18 @@ import {
 import { useHistoryClearedAt } from '../../src/features/booking/history';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
-  useCourts,
+  useAllCourts,
   useCourtsBroadcast,
-  useIsDegraded,
+  useGuestVenue,
   useVenueSettings,
 } from '../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../src/features/availability/assemble';
+import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
 import {
-  DegradedBanner,
   FilterChip,
   HeldSlotCard,
   ListHeading,
@@ -120,16 +120,20 @@ export default function BookingsScreen() {
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const bookings = useMyBookings();
+  const pull = usePullRefresh(bookings.refetch);
   const [tab, setTab] = useState<Tab>('upcoming');
-  const courts = useCourts();
+  // Every open branch's courts: a guest's bookings can be at any branch.
+  const courts = useAllCourts();
+  // The hero's day count is the venue's calendar, not the phone's: the date
+  // beside it is formatted in this same zone.
   const settings = useVenueSettings();
-  const degraded = useIsDegraded();
-  // Closed by the guest, not by a timer or a refetch — see `notice` below.
-  const [noticeClosed, setNoticeClosed] = useState(false);
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   const release = useReleaseHold();
   const cleared = useHistoryClearedAt();
   const toast = useToast();
-  useCourtsBroadcast(); // desk moves/cancels reflect live
+  // Desk moves/cancels reflect live, on the guest's branch's topic; a booking
+  // at another branch still refreshes on the list's own refetch.
+  useCourtsBroadcast(useGuestVenue().venueId);
 
   // The upcoming/past boundary follows the clock, not the last data change —
   // a booking that ended while the screen was open used to stay "Upcoming".
@@ -244,6 +248,7 @@ export default function BookingsScreen() {
         const start = new Date(row.start_at);
         return (
           <HeldSlotCard
+            testID={`bookings.held.${row.id}`}
             key={row.id}
             courtName={courtNames.get(row.court_id) ?? ''}
             when={`${formatDate(start, locale)} · ${formatTimeRange(start, new Date(row.end_at), locale)}`}
@@ -288,18 +293,21 @@ export default function BookingsScreen() {
       style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2, marginBottom: 4 }}
     >
       <FilterChip
+        testID="bookings.filter.upcoming"
         icon={CalendarIcon}
         label={t('booking.upcomingCount', { count: upcoming.length })}
         selected={tab === 'upcoming'}
         onPress={() => setTab('upcoming')}
       />
       <FilterChip
+        testID="bookings.filter.played"
         icon={CheckIcon}
         label={t('booking.playedCount', { count: played.length })}
         selected={tab === 'played'}
         onPress={() => setTab('played')}
       />
       <FilterChip
+        testID="bookings.filter.cancelled"
         icon={CloseIcon}
         label={t('booking.cancelledCount', { count: cancelled.length })}
         selected={tab === 'cancelled'}
@@ -308,31 +316,17 @@ export default function BookingsScreen() {
     </View>
   );
 
-  const phone = venuePhoneOf(settings.data);
-
-  /**
-   * The venue notice sits in flow under the heading and stays until the guest
-   * closes it — a refetch flipping `degraded` back on must not resurrect one
-   * they have already dealt with. It rides inside the header, so it survives
-   * the screen flipping between loading, error, empty and list.
-   */
-  const notice =
-    degraded && !noticeClosed ? (
-      <View style={{ marginTop: 2, marginBottom: space.s }}>
-        <DegradedBanner
-          lead={t('degraded.leadConnectionLost')}
-          message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-          phone={phone}
-          blockLead
-          onDismiss={() => setNoticeClosed(true)}
-        />
-      </View>
-    ) : null;
+  // No venue notice here any more. The till's stale heartbeat used to raise
+  // the amber "venue connection lost" banner over this list too (owner,
+  // 2026-09-11: "still there in the reservations tab"); it lives in the
+  // booking sheet now, at the one moment it matters. A booking the desk
+  // changed while offline still arrives here through the realtime channel
+  // and the refetch, and the detail screen has its own Call the venue.
 
   const header = (
     <View style={{ paddingTop: space.l }}>
       <Title>{t('booking.myBookings')}</Title>
-      {notice}
+
       {tabs}
       {heldSection}
     </View>
@@ -358,6 +352,8 @@ export default function BookingsScreen() {
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <EmptyState
+            testID="bookings.signed-out"
+            actionTestID="bookings.sign-in"
             fill
             title={t('booking.noBookingsTitle')}
             message={t('auth.signedOutPitch')}
@@ -385,6 +381,7 @@ export default function BookingsScreen() {
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <ErrorState
+            testID="bookings.error"
             title={t('errors.loadFailedTitle')}
             message={t(mapErrorToKey(bookings.error))}
             retryLabel={t('common.retry')}
@@ -429,9 +426,10 @@ export default function BookingsScreen() {
   // The hero: the very next game, out of the list and onto the brand's navy.
   const renderHero = (item: BookingRow) => {
     const start = new Date(item.start_at);
-    const proximity = startProximity(item, now);
+    const proximity = startProximity(item, now, tz);
     return (
       <NextUpCard
+        testID="bookings.next-up"
         label={t('booking.nextUp')}
         courtName={courtNames.get(item.court_id) ?? ''}
         status={item.status}
@@ -452,6 +450,7 @@ export default function BookingsScreen() {
     const start = new Date(item.start_at);
     return (
       <UpcomingBookingRow
+        testID={`bookings.upcoming.${item.id}`}
         date={start}
         courtName={courtNames.get(item.court_id) ?? ''}
         // The date badge already carries month and day; the row adds the
@@ -512,6 +511,7 @@ export default function BookingsScreen() {
           // Indented past the rail so it starts where the cards do and the
           // timeline reads as ending above it, not through it.
           <Pressable
+            testID="bookings.history-link"
             accessibilityRole="link"
             onPress={() => router.push('/booking-history')}
             style={({ pressed }) => ({
@@ -551,6 +551,7 @@ export default function BookingsScreen() {
     const actor = cancelActorLabel(item);
     return (
       <PastBookingRow
+        testID={`bookings.past.${item.id}`}
         courtName={courtNames.get(item.court_id) ?? ''}
         when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
         price={formatPrice(item.price_iqd, locale)}
@@ -570,11 +571,13 @@ export default function BookingsScreen() {
           {header}
           <View style={[{ flex: 1 }, bottomPad]}>
             <EmptyState
+              testID="bookings.empty"
+              actionTestID="bookings.book-court"
               fill
               title={t('booking.noBookingsTitle')}
               message={t('booking.noBookingsBody')}
               actionLabel={t('booking.title')}
-              onAction={() => router.push('/availability')}
+              onAction={bookNext}
             />
           </View>
         </>
@@ -588,8 +591,8 @@ export default function BookingsScreen() {
           contentContainerStyle={bottomPad}
           refreshControl={
             <RefreshControl
-              refreshing={bookings.isRefetching}
-              onRefresh={() => void bookings.refetch()}
+              refreshing={pull.refreshing}
+              onRefresh={pull.onRefresh}
               tintColor={colors.blue}
             />
           }
@@ -620,6 +623,7 @@ export default function BookingsScreen() {
               pastFooter(section.key === 'played')
             ) : section.data.length === 0 && section.key === 'upcoming' ? (
               <Pressable
+                testID="bookings.book-next"
                 accessibilityRole="link"
                 onPress={bookNext}
                 style={({ pressed }) => ({

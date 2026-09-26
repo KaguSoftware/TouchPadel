@@ -101,26 +101,54 @@ export async function discoverTill(code: string, opts: DiscoverOpts = {}): Promi
   if (hosts.length === 0) return { status: 'no-lan' };
 
   // Fixed-size worker pool over the host list; each worker pulls the next index.
-  const open: string[] = [];
+  // Results are recorded at the host's own index, not pushed: 64 workers finish
+  // in whatever order the network answers, so pushing made `open` — and with it
+  // the tills offered to staff — ordered by latency and different every scan.
+  const isOpen = new Array<boolean>(hosts.length).fill(false);
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < hosts.length) {
       if (signal?.aborted) return;
-      const host = hosts[next++]!;
-      if (await probeTcp(host, port, connectTimeoutMs, signal)) open.push(host);
+      const index = next++;
+      isOpen[index] = await probeTcp(hosts[index]!, port, connectTimeoutMs, signal);
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, hosts.length) }, worker));
+  const open = hosts.filter((_, index) => isOpen[index]);
+  if (signal?.aborted) return { status: 'none' };
+
+  // Handshakes run on the same bounded pool as the probes. This was a plain
+  // sequential `for`, which was fine only under the assumption above — that
+  // almost nothing answers on 47810, so `open` holds a host or two. Networks
+  // break that assumption: anything that accepts every outbound SYN (a VPN, a
+  // captive portal, a corporate filter) hands the confirm phase EVERY swept
+  // host, and each dud then costs the full 1.5 s handshake timeout one after
+  // another — minutes across a /24, with the kitchen screen simply sat on the
+  // setup spinner. Concurrently it stays bounded by the timeout, not the count.
+  //
+  // Outcomes are collected by index rather than pushed, so the reported order
+  // still follows the host list however the handshakes interleave — otherwise
+  // "which till do you mean" could reorder itself between two identical scans.
+  const outcomes = new Array<ConfirmOutcome | undefined>(open.length);
+  let cursor = 0;
+  const confirmWorker = async (): Promise<void> => {
+    while (cursor < open.length) {
+      if (signal?.aborted) return;
+      const index = cursor++;
+      outcomes[index] = await confirmTill(open[index]!, port, code, handshakeTimeoutMs);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, open.length) }, confirmWorker),
+  );
   if (signal?.aborted) return { status: 'none' };
 
   const tills: string[] = [];
   const rejected: string[] = [];
-  for (const host of open) {
-    if (signal?.aborted) return { status: 'none' };
-    const outcome = await confirmTill(host, port, code, handshakeTimeoutMs);
-    if (outcome === 'ok') tills.push(host);
-    else if (outcome === 'bad-code') rejected.push(host);
-  }
+  open.forEach((host, index) => {
+    if (outcomes[index] === 'ok') tills.push(host);
+    else if (outcomes[index] === 'bad-code') rejected.push(host);
+  });
   if (tills.length > 0) return { status: 'found', tills };
   if (rejected.length > 0) return { status: 'bad-code', candidates: rejected };
   return { status: 'none' };

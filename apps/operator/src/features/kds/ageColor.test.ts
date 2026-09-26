@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageColor, ageState, ageStateVar, formatAge } from './ageColor';
+import { ageColor, ageParts, ageState, ageStateVar, formatAge } from './ageColor';
 
 const TARGET = 600; // default tickets.target_seconds
 
@@ -39,6 +39,24 @@ describe('formatAge', () => {
     expect(formatAge(0)).toBe('0:00');
     expect(formatAge(65)).toBe('1:05');
     expect(formatAge(600)).toBe('10:00');
+  });
+});
+
+describe('ageParts', () => {
+  it('is the m:ss clock under an hour', () => {
+    expect(ageParts(0)).toEqual({ kind: 'clock', text: '0:00' });
+    expect(ageParts(3599)).toEqual({ kind: 'clock', text: '59:59' });
+    expect(ageParts(-5)).toEqual({ kind: 'clock', text: '0:00' });
+  });
+
+  it('steps to hours and minutes past an hour, never a four-digit minute count', () => {
+    expect(ageParts(3600)).toEqual({ kind: 'hours', h: 1, m: 0 });
+    expect(ageParts(3600 * 5 + 60 * 7 + 30)).toEqual({ kind: 'hours', h: 5, m: 7 });
+  });
+
+  it('steps to whole days past a day', () => {
+    expect(ageParts(86_400)).toEqual({ kind: 'days', d: 1 });
+    expect(ageParts(3673 * 60)).toEqual({ kind: 'days', d: 2 });
   });
 });
 

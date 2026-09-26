@@ -1,6 +1,6 @@
 /**
  * Management panel figure model (spec 06.39). Maps the `panel_headline`
- * result onto the twelve figures the panel knows, with their display kind,
+ * result onto the thirteen figures the panel knows, with their display kind,
  * the report each opens, and whether a rise is bad (refunds, waste, no-shows).
  * Pure: no formatting, no arithmetic — the server's `changeAbs` / `changePct`
  * are rendered as given.
@@ -11,6 +11,7 @@ export const FIGURE_KEYS = [
   'revenue',
   'padelRevenue',
   'cafeRevenue',
+  'cafeNet',
   'cash',
   'card',
   'bookings',
@@ -23,7 +24,13 @@ export const FIGURE_KEYS = [
 ] as const;
 export type FigureKey = (typeof FIGURE_KEYS)[number];
 
-export type FigureGroup = 'headline' | 'padel' | 'cafe';
+/**
+ * `losses` is money given away or thrown out: discounts, refunds, waste. They
+ * sat at the bottom of the cafe column, which made that column twice the
+ * padel column's height and left a hole beside it — and a refund or a
+ * discount is not only a cafe matter to an owner reading the list.
+ */
+export type FigureGroup = 'headline' | 'padel' | 'cafe' | 'losses';
 export type ReportPath = '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff';
 
 export interface FigureMeta {
@@ -43,11 +50,13 @@ export const FIGURES: Record<FigureKey, FigureMeta> = {
   bookings: { key: 'bookings', kind: 'count', report: '/reports/courts', group: 'padel' },
   noShows: { key: 'noShows', kind: 'count', invert: true, report: '/reports/courts', group: 'padel' },
   cafeRevenue: { key: 'cafeRevenue', kind: 'money', report: '/reports/cafe', group: 'cafe' },
+  // 0096: the cafe after its refunds, the same figure the Analytics "Cafe sales" tile shows.
+  cafeNet: { key: 'cafeNet', kind: 'money', report: '/reports/cafe', group: 'cafe' },
   orders: { key: 'orders', kind: 'count', report: '/reports/cafe', group: 'cafe' },
   avgOrderValue: { key: 'avgOrderValue', kind: 'money', report: '/reports/cafe', group: 'cafe' },
-  discounts: { key: 'discounts', kind: 'money', invert: true, report: '/reports/revenue', group: 'cafe' },
-  refunds: { key: 'refunds', kind: 'money', invert: true, report: '/reports/revenue', group: 'cafe' },
-  waste: { key: 'waste', kind: 'money', invert: true, report: '/reports/stock', group: 'cafe' },
+  discounts: { key: 'discounts', kind: 'money', invert: true, report: '/reports/revenue', group: 'losses' },
+  refunds: { key: 'refunds', kind: 'money', invert: true, report: '/reports/revenue', group: 'losses' },
+  waste: { key: 'waste', kind: 'money', invert: true, report: '/reports/stock', group: 'losses' },
 };
 
 /** Figures per group in display order. */
@@ -65,6 +74,10 @@ export interface HeadlineFigureRow {
 
 export interface PanelHeadline {
   figures?: HeadlineFigureRow[] | null;
+  /** The window the figures cover, as the server resolved it. */
+  period?: { from: string; to: string } | null;
+  /** The window the changes are measured against; absent when comparing with nothing. */
+  comparison?: { from: string; to: string } | null;
 }
 
 const KEY_SET: ReadonlySet<string> = new Set(FIGURE_KEYS);
@@ -88,13 +101,23 @@ export function panelIsEmpty(result: PanelHeadline | null | undefined): boolean 
   return figures.every((f) => f.value == null || f.value === 0);
 }
 
-/** One CSV row per known figure, raw numbers, in panel order. */
-export function figuresToCsvRows(figures: ReadonlyMap<FigureKey, HeadlineFigureRow>, labelOf: (key: FigureKey) => string): CsvCell[][] {
+/**
+ * One CSV row per known figure, raw numbers, in panel order: the label, then
+ * the server key, the group and the kind (so a reader can tell IQD from a
+ * count), then value, previous, change and change %.
+ */
+export function figuresToCsvRows(
+  figures: ReadonlyMap<FigureKey, HeadlineFigureRow>,
+  labelOf: (key: FigureKey) => string,
+  groupOf: (group: FigureGroup) => string = (g) => g,
+  kindOf: (kind: FigureMeta['kind']) => string = (k) => k,
+): CsvCell[][] {
   const rows: CsvCell[][] = [];
   for (const key of FIGURE_KEYS) {
     const f = figures.get(key);
     if (!f) continue;
-    rows.push([labelOf(key), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null]);
+    const meta = FIGURES[key];
+    rows.push([labelOf(key), key, groupOf(meta.group), kindOf(meta.kind), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null]);
   }
   return rows;
 }

@@ -17,18 +17,32 @@
  *
  * Every row leads with a 66 px thumbnail on the section band's own tint: the
  * item's photo when it has one, otherwise the section's icon (MenuCard). The
- * full photo still lives in the sheet the row opens. A row stays tappable:
- * `role="button"` is set only while the item is orderable, so a sold-out row
- * never opens a sheet with a dead CTA.
+ * full photo still lives in the sheet the row opens. A row stays tappable: an
+ * orderable row's name is a real <button> whose ::after covers the whole row
+ * (the article is the positioned box), so a tap anywhere opens the sheet and the
+ * focus ring is drawn round the row. Only an orderable row gets one, so a
+ * sold-out row never opens a sheet with a dead CTA.
+ *
+ * An unavailable row says so in words and keeps its words readable: the
+ * "Unavailable" label (or the SOLD OUT stamp) carries the state, and only the
+ * pictures fade (thumbnail, serve-temp chips). The whole row used to fade to 0.45,
+ * which put the label near 1.9:1 and the name and price near 2:1, so the only
+ * word saying the item cannot be ordered was nearly invisible (a11y review
+ * 2026-09-24).
  */
 export const cardCss = `
 .tp-menu-item { display: flex; align-items: center; gap: 8px; padding-block: 13px; padding-inline: 6px; margin-inline: -6px;
   border-block-end: 1px solid var(--tp-cafe-rule); position: relative;
   transition: background var(--tp-dur-fast); }
 .tp-menu-item:last-child { border-block-end: 0; }
-.tp-menu-item[role='button'] { cursor: pointer; }
-.tp-menu-item[role='button']:active { background: var(--tp-cafe-blue-tint); border-radius: var(--tp-radius-xs); }
-.tp-menu-item--off, .tp-menu-item[data-unavailable='true'] { opacity: 0.45; }
+.tp-menu-item[data-orderable='true'] { cursor: pointer; }
+.tp-menu-item[data-orderable='true']:active { background: var(--tp-cafe-blue-tint); border-radius: var(--tp-radius-xs); }
+.tp-menu-item__open { display: block; margin: 0; padding: 0; border: 0; background: none; text-align: start; cursor: pointer; }
+.tp-menu-item__open::after { content: ''; position: absolute; inset: 0; border-radius: var(--tp-radius-xs); }
+.tp-menu-item__open:focus-visible { outline: none; }
+.tp-menu-item__open:focus-visible::after { outline: 3px solid var(--tp-accent); outline-offset: 2px; }
+.tp-menu-item--off { opacity: 0.45; }
+.tp-menu-item[data-unavailable='true'] :is(.tp-menu-item__thumb, .tp-menu-item__temps) { opacity: 0.45; }
 .tp-menu-item[data-highlight='blue'] { background: var(--tp-highlight-blue-bg); box-shadow: var(--tp-highlight-ring-blue); border-radius: var(--tp-radius-sm); }
 .tp-menu-item[data-highlight='brown'] { background: var(--tp-highlight-green-bg); box-shadow: var(--tp-highlight-ring-green); border-radius: var(--tp-radius-sm); }
 

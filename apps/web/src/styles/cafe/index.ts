@@ -1,6 +1,8 @@
 /**
- * Touch Cafe app stylesheet — inlined by the root layout after the @touch/ui
- * token CSS (`${themeCss}\n${cafeCss}`), zero render-blocking requests.
+ * Touch Cafe app stylesheet — inlined by the café's own pages (`CafeStyles`, the
+ * menu and the staff download page) after the root layout's @touch/ui token CSS,
+ * zero render-blocking requests. Since 2026-09-24 the layout no longer inlines it
+ * into every page: the site's pages never used a rule of it.
  *
  * Rules (enforced by cafe-css.test.ts): CSS LOGICAL PROPERTIES ONLY, colours
  * only via var(--tp-*) (raw literals only in tokens-bridge), one breakpoint,
@@ -22,6 +24,7 @@ import { tutorialCss } from './tutorial.css';
 import { footerCss } from './footer.css';
 import { motionCss } from './motion.css';
 import { downloadCss } from './download.css';
+import { branchesCss } from './branches.css';
 
 /** Module map (name → css) — the guard test iterates this so nothing slips past it. */
 export const cafeCssModules = {
@@ -41,6 +44,7 @@ export const cafeCssModules = {
   footer: footerCss,
   motion: motionCss,
   download: downloadCss,
+  branches: branchesCss,
 } as const;
 
 export const cafeCss: string = Object.entries(cafeCssModules)

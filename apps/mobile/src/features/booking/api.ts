@@ -28,7 +28,13 @@ export async function holdSlot(client: Client, args: HoldSlotArgs): Promise<Hold
   return parseHoldResult(data);
 }
 
-/** app.confirm_booking (0008/0021) — hold -> confirmed booking. */
+/**
+ * app.confirm_booking (0008/0021) — hold -> confirmed booking.
+ *
+ * Sends `p_hold_id` only. Padel is always four players (owner call), so the app
+ * never asks for a group size and never sends `p_players`; the server keeps
+ * that parameter only as an ignored, deprecated one for older builds.
+ */
 export async function confirmBooking(client: Client, holdId: string) {
   const { data, error } = await client.schema('app').rpc('confirm_booking', {
     p_hold_id: holdId,
@@ -68,24 +74,26 @@ export async function releaseHold(client: Client, reservationId: string) {
   return data as { reservation_id?: string; status?: string; released?: boolean };
 }
 
-/** Own reservations (RLS restricts to guest_id = auth.uid()). */
+/**
+ * Own reservations, newest first (app.my_reservations, 0150).
+ *
+ * A table read would do for everything here EXCEPT the two payment figures:
+ * `reservations` records what a booking costs and nothing about what was paid,
+ * and the tables that do (`tabs`, `payments`) are staff-only by RLS. The RPC is
+ * the guest-side counterpart of the desk's `booking_bill`, guarded by
+ * `guest_id = auth.uid()` inside its own body.
+ */
 export async function fetchMyReservations(client: Client): Promise<BookingRow[]> {
-  const { data, error } = await client
-    .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at, cancelled_by')
-    .order('start_at', { ascending: false })
-    .limit(100);
+  const { data, error } = await client.schema('app').rpc('my_reservations', {});
   if (error) throw error;
   return (data ?? []) as BookingRow[];
 }
 
-/** One own reservation by id (RLS: guest_id = auth.uid()). Null when not found / not ours. */
+/** One own reservation by id (0150). Null when not found / not ours. */
 export async function fetchReservationById(client: Client, id: string): Promise<BookingRow | null> {
   const { data, error } = await client
-    .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at, cancelled_by')
-    .eq('id', id)
-    .maybeSingle();
+    .schema('app')
+    .rpc('my_reservations', { p_reservation_id: id });
   if (error) throw error;
-  return (data as BookingRow | null) ?? null;
+  return ((data ?? [])[0] as BookingRow | undefined) ?? null;
 }

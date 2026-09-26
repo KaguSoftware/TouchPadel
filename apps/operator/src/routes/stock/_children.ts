@@ -37,6 +37,16 @@ const AlertsPanel = lazyRouteComponent(
   'AlertsPanel',
 );
 const Expiry = lazyRouteComponent(() => import('../../features/stock/Expiry'), 'Expiry');
+// Wave 5 (wave5-addendum-2026-09-25 §5.2): moving stock between the cafe and bakery stores.
+const MoveStock = lazyRouteComponent(() => import('../../features/stock/MoveStock'), 'MoveStock');
+const ProductsAdmin = lazyRouteComponent(
+  () => import('../../features/stock/products/ProductsAdmin'),
+  'ProductsAdmin',
+);
+const SuppliersAdmin = lazyRouteComponent(
+  () => import('../../features/stock/products/SuppliersAdmin'),
+  'SuppliersAdmin',
+);
 
 const child = <P extends string>(path: P, Component: Parameters<typeof guarded>[1]) =>
   createRoute({
@@ -55,10 +65,33 @@ export const stockIndexRoute = createRoute({
   wrapInSuspense: true,
 });
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Goods in opened on one of the driver's purchases (build-contracts-2026-09-23
+ * §5.1): `?purchase=<id>`, or on one scanned receipt (0237): `?receipt=<id>`.
+ * Anything else is dropped, so a mangled link lands on the ordinary Goods in
+ * form; a purchase wins over a receipt.
+ */
+export function validateReceiveSearch(raw: Record<string, unknown>): { purchase?: string; receipt?: string } {
+  if (typeof raw.purchase === 'string' && UUID_RE.test(raw.purchase)) return { purchase: raw.purchase.toLowerCase() };
+  return typeof raw.receipt === 'string' && UUID_RE.test(raw.receipt) ? { receipt: raw.receipt.toLowerCase() } : {};
+}
+
+export const stockReceiveRoute = createRoute({
+  getParentRoute: () => stockRoute,
+  path: 'receive',
+  component: guarded('/stock', ReceiveDelivery),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
+  validateSearch: validateReceiveSearch,
+});
+
 export const stockChildren = [
   stockIndexRoute,
   child('ingredients', IngredientsAdmin),
-  child('receive', ReceiveDelivery),
+  stockReceiveRoute,
+  child('moves', MoveStock),
   child('waste', WasteAndProduction),
   child('recipes', RecipeEditor),
   child('counts', CountScreen),
@@ -66,4 +99,6 @@ export const stockChildren = [
   child('margins', Margins),
   child('alerts', AlertsPanel),
   child('expiry', Expiry),
+  child('products', ProductsAdmin),
+  child('suppliers', SuppliersAdmin),
 ] as const;

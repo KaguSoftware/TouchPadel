@@ -1,25 +1,25 @@
 /**
- * Jump nav for the five zones. Lives on the inline-end side of the control deck
+ * Jump nav for a tab's zones. Lives on the inline-end side of the sticky bar
  * (desktop only) and highlights whichever zone the scroll-spy reports.
  */
+import { useMemo } from 'react';
 import { useLocale } from '../../lib/i18n';
-import { ZONES, useZoneSpy } from './Zone';
+import { scrollToZone, useZoneSpy, type ZoneDef } from './Zone';
 
-const IDS = ZONES.map((z) => z.id);
-
-export function ZoneNav() {
+export function ZoneNav({ zones }: { zones: readonly ZoneDef[] }) {
   const { tr } = useLocale();
-  const active = useZoneSpy(IDS);
+  const ids = useMemo(() => zones.map((z) => z.id), [zones]);
+  const active = useZoneSpy(ids);
   return (
     <nav aria-label={tr('analytics.deck.jumpTo')} style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-      {ZONES.map((zone) => {
+      {zones.map((zone) => {
         const selected = zone.id === active;
         return (
           <button
             key={zone.id}
             type="button"
             aria-current={selected ? 'true' : undefined}
-            onClick={() => document.getElementById(`zone-${zone.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            onClick={() => scrollToZone(zone.id)}
             style={{
               // The deck stands every control on --tp-row-h; these pills came
               // to ~30px and floated inside that band.
@@ -28,17 +28,21 @@ export function ZoneNav() {
               paddingInline: 'var(--tp-sp-3)',
               borderRadius: 'var(--tp-radius-pill)',
               border: `1px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-              background: selected ? 'var(--tp-accent)' : 'transparent',
+              // Unselected chips take the same --tp-surface fill as the
+              // unselected Courts | Cafe tab beside them: transparent let the
+              // bar's own ground show through, so the two rows of controls on
+              // one bar read as two different materials.
+              background: selected ? 'var(--tp-accent)' : 'var(--tp-surface)',
               color: selected ? 'var(--tp-accent-contrast)' : 'var(--tp-muted-fg)',
               fontSize: 'var(--tp-fs-sm)',
+              // The lit chip carries the weight too, so the active section is
+              // legible without relying on the accent fill alone.
+              fontWeight: selected ? 700 : 500,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
           >
-            <span aria-hidden="true" style={{ opacity: 0.7, marginInlineEnd: 'var(--tp-sp-1-5)' }}>
-              {zone.ordinal}
-            </span>
-            {tr(zone.titleKey)}
+            {tr(zone.navKey ?? zone.titleKey)}
           </button>
         );
       })}

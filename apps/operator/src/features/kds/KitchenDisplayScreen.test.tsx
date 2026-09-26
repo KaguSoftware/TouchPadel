@@ -63,6 +63,22 @@ function renderScreen(over: Partial<KitchenDisplayScreenProps> = {}) {
   return props;
 }
 
+describe('KitchenDisplayScreen exit', () => {
+  it('no exit control when the account holds nothing but the prep board', () => {
+    renderScreen();
+    expect(screen.queryByTestId('kds-exit')).toBeNull();
+  });
+
+  it('staff with another workspace get one way back, in the header', async () => {
+    const onExit = vi.fn();
+    renderScreen({ onExit });
+    const exit = screen.getByRole('button', { name: 'Leave kitchen display' });
+    expect(screen.getByTestId('kds-exit')).toBe(exit);
+    await userEvent.click(exit);
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('KitchenDisplayScreen states', () => {
   it('loading: a dark skeleton, no list, the legend still on screen', () => {
     renderScreen({ status: 'loading', tickets: [] });
@@ -92,16 +108,38 @@ describe('KitchenDisplayScreen states', () => {
     expect(screen.queryByRole('navigation')).toBeNull();
   });
 
-  it('empty: says so in kitchen-size type', () => {
-    renderScreen({ status: 'empty', tickets: [] });
-    expect(screen.getByText('No active tickets — all caught up')).toBeTruthy();
+  it('the clock is the header\u2019s own middle column, not a sibling of the open count', () => {
+    renderScreen();
+    const clock = screen.getByTestId('kds-clock');
+    expect(clock.textContent).toBeTruthy();
+    // Centred on the header means it is a direct child of the three-column
+    // grid, between the two 1fr side columns. Nested inside either side it
+    // would drift as that side's contents changed width.
+    const header = clock.closest('header');
+    expect(header).toBeTruthy();
+    expect(clock.parentElement).toBe(header);
+    const columns = Array.from(header!.children);
+    expect(columns).toHaveLength(3);
+    expect(columns[1]).toBe(clock);
+    // The count and the pill are in the end column, so neither can push it.
+    expect(screen.getByTestId('open-count').parentElement).toBe(columns[2]);
+    expect(screen.getByTestId('connection-pill').parentElement).toBe(columns[2]);
   });
 
-  it('error: names the failure and retries', async () => {
+  it('empty: says so in kitchen-size type, without a "0 open" repeating it', () => {
+    renderScreen({ status: 'empty', tickets: [] });
+    expect(screen.getByText('No tickets — all caught up')).toBeTruthy();
+    expect(screen.queryByTestId('open-count')).toBeNull();
+  });
+
+  it('error: names the failure once, prints no count it never received, and retries', async () => {
     const user = userEvent.setup();
     const props = renderScreen({ status: 'error', tickets: [], error: new Error('boom') });
     expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
-    expect(screen.getByText('The ticket queue could not be loaded')).toBeTruthy();
+    expect(screen.getByText('Tickets could not be loaded')).toBeTruthy();
+    // The generic fallback adds nothing under a title that already says it.
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
+    expect(screen.queryByTestId('open-count')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(props.onRetry).toHaveBeenCalledOnce();
   });
@@ -110,16 +148,47 @@ describe('KitchenDisplayScreen states', () => {
     renderScreen({ degraded: true, tickets: [ticket({ canMarkItems: false })] });
     expect(screen.getByText(/arriving from the till over the local network/)).toBeTruthy();
     expect(screen.queryByRole('checkbox')).toBeNull();
-    expect(screen.getByText('Item marks return when the connection is back.')).toBeTruthy();
+    expect(screen.getByText('Ticking items comes back when the connection does.')).toBeTruthy();
   });
 
   it('stale: the banner the e2e suite reads, and the card carries data-stale', () => {
     renderScreen({ staleCount: 2, tickets: [ticket({ stale: true })] });
     const banner = screen.getByTestId('stale-banner');
     expect(banner.textContent).toContain('⚠');
-    expect(banner.textContent).toContain('2 tickets need attention');
+    expect(banner.textContent).toContain('need attention');
+    expect(within(banner).getByText('2')).toBeTruthy();
     expect(screen.getByTestId('ticket-card').getAttribute('data-stale')).toBe('true');
     expect(screen.getByText('Waiting too long')).toBeTruthy();
+  });
+});
+
+describe('KitchenDisplayScreen cards', () => {
+  it('an age past an hour reads in hours, past a day in days — never a four-digit minute count', () => {
+    renderScreen({
+      tickets: [
+        ticket({ ageSeconds: 3600 * 2 + 60 * 5, ageState: 'late' }),
+        ticket({ id: 't2', ageSeconds: 3673 * 60, ageState: 'late' }),
+      ],
+    });
+    const cards = screen.getAllByTestId('ticket-card');
+    expect(within(cards[0]!).getByText('2h 5m')).toBeTruthy();
+    expect(within(cards[1]!).getByText('2d')).toBeTruthy();
+    expect(screen.queryByText(/^\d{3,}:\d\d$/)).toBeNull();
+  });
+
+  it('progress shows only where there is more than one item to tick', () => {
+    renderScreen();
+    const cards = screen.getAllByTestId('ticket-card');
+    expect(within(cards[0]!).getByText('1 of 2 ready')).toBeTruthy();
+    expect(within(cards[1]!).queryByText(/of 1 ready/)).toBeNull();
+  });
+
+  it('the legend lists only the keys no button already shows', () => {
+    renderScreen();
+    const legend = screen.getByTestId('key-legend');
+    expect(within(legend).getByText('Esc')).toBeTruthy();
+    expect(within(legend).queryByText('S')).toBeNull();
+    expect(within(legend).queryByText('C')).toBeNull();
   });
 });
 

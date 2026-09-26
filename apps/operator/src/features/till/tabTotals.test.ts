@@ -3,6 +3,7 @@ import {
   computeTabTotals,
   discountBreakdown,
   liveLines,
+  taxContextFrom,
   type TaxContext,
   type TotalsInput,
   type TotalsLine,
@@ -13,8 +14,8 @@ import {
 // rules it mirrors are 0036's, and each one below is a defect that migration
 // actually fixed.
 
-const NO_TAX: TaxContext = { rateByCategory: new Map(), taxInclusive: false };
-const TEN_PCT: TaxContext = { rateByCategory: new Map([['food', 1000]]), taxInclusive: false };
+const NO_TAX: TaxContext = taxContextFrom([], false);
+const TEN_PCT: TaxContext = taxContextFrom([{ id: 'food', tax_group: { id: 'vat', rate_bp: 1000 } }], false);
 
 function line(total: number, over: Partial<TotalsLine> = {}) {
   return {
@@ -54,10 +55,19 @@ describe('computeTabTotals', () => {
       subtotal: 0,
       discount: 0,
       tax: 0,
+      court: 0,
       total: 0,
       paid: 0,
       due: 0,
     });
+  });
+
+  it('reports no court fee when none is passed — a plain table tab is unchanged', () => {
+    const t = computeTabTotals(tab(), TEN_PCT);
+    expect(t.court).toBe(0);
+    expect(t.total).toBe(11_000);
+    expect(computeTabTotals(tab(), TEN_PCT, null)).toEqual(t);
+    expect(computeTabTotals(tab(), TEN_PCT, 0)).toEqual(t);
   });
 
   it('sums the live lines', () => {
@@ -85,10 +95,10 @@ describe('computeTabTotals', () => {
     expect(t.tax).toBe(0);
   });
 
-  it('treats tax_inclusive as display-only', () => {
-    // 0036: the figure is shown on the bill and NOT added again.
+  it('carves an inclusive tax out of the price and does not add it', () => {
+    // 0106: rate/(10000+rate). 10,000 already containing 10% holds 909, not 1,000.
     const t = computeTabTotals(tab(), { ...TEN_PCT, taxInclusive: true });
-    expect(t.tax).toBe(1000);
+    expect(t.tax).toBe(909);
     expect(t.total).toBe(10_000);
   });
 
@@ -148,16 +158,16 @@ describe('computeTabTotals', () => {
     expect(t.tax).toBe(333);
   });
 
-  it('groups by RATE, so two categories at the same rate round once', () => {
+  it('groups by TAX GROUP, so two categories in one group round once', () => {
     // Rounding each category separately would drift against the server, which
     // rounds per tax group.
-    const two: TaxContext = {
-      rateByCategory: new Map([
-        ['food', 1000],
-        ['snack', 1000],
-      ]),
-      taxInclusive: false,
-    };
+    const two = taxContextFrom(
+      [
+        { id: 'food', tax_group: { id: 'vat', rate_bp: 1000 } },
+        { id: 'snack', tax_group: { id: 'vat', rate_bp: 1000 } },
+      ],
+      false,
+    );
     const t = computeTabTotals(
       tab({
         orders: [
@@ -177,6 +187,163 @@ describe('computeTabTotals', () => {
     const t = computeTabTotals(tab(), null);
     expect(t.tax).toBe(0);
     expect(t.total).toBe(10_000);
+  });
+});
+
+describe('computeTabTotals — tax on the discounted base, as 0106 computes it', () => {
+  // food is taxed at 10%; drink is in no tax group at all.
+  const ctx = (active = true) =>
+    taxContextFrom(
+      [
+        { id: 'food', tax_group: { id: 'vat', rate_bp: 1000, is_active: active } },
+        { id: 'drink', tax_group: null },
+      ],
+      false,
+    );
+  const drink = { menu_item: { category_id: 'drink' } };
+
+  it('taxes what is left after a whole-tab discount, not the full lines', () => {
+    // 100,000 less 20,000 -> 8,000 tax and 88,000 due. The old mirror said 10,000 / 90,000.
+    const t = computeTabTotals(
+      tab({
+        orders: [{ status: 'sent', order_items: [line(100_000)] }],
+        tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 20_000, order_item_id: null }],
+      }),
+      ctx(),
+    );
+    expect(t.tax).toBe(8000);
+    expect(t.total).toBe(88_000);
+  });
+
+  it('spreads a whole-tab discount pro rata, untaxed groups included', () => {
+    // 10,000 off 100,000: food carries 60% of it (6,000), so 54,000 is taxed.
+    const t = computeTabTotals(
+      tab({
+        orders: [{ status: 'sent', order_items: [line(60_000, { id: 'a' }), line(40_000, { id: 'b', ...drink })] }],
+        tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 10_000, order_item_id: null }],
+      }),
+      ctx(),
+    );
+    expect(t.tax).toBe(5400);
+    expect(t.total).toBe(95_400);
+  });
+
+  it('takes a line discount off its own group only', () => {
+    const t = computeTabTotals(
+      tab({
+        orders: [{ status: 'sent', order_items: [line(60_000, { id: 'a' }), line(40_000, { id: 'b', ...drink })] }],
+        tab_adjustments: [{ kind: 'discount_percent', amount_iqd: 6000, order_item_id: 'a' }],
+      }),
+      ctx(),
+    );
+    expect(t.discount).toBe(6000);
+    expect(t.tax).toBe(5400);
+    expect(t.total).toBe(99_400);
+  });
+
+  it('drops a line discount whose line was voided', () => {
+    const t = computeTabTotals(
+      tab({
+        orders: [{ status: 'sent', order_items: [line(10_000, { id: 'a' }), line(5000, { id: 'v', voided: true })] }],
+        tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 5000, order_item_id: 'v' }],
+      }),
+      ctx(),
+    );
+    expect(t.discount).toBe(0);
+    expect(t.total).toBe(11_000);
+  });
+
+  it('charges no tax for an inactive group, which still takes its share of the discount', () => {
+    const t = computeTabTotals(
+      tab({
+        orders: [{ status: 'sent', order_items: [line(50_000, { id: 'a' }), line(50_000, { id: 'b', menu_item: { category_id: 'bev' } })] }],
+        tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 10_000, order_item_id: null }],
+      }),
+      taxContextFrom(
+        [
+          { id: 'food', tax_group: { id: 'old', rate_bp: 1000, is_active: false } },
+          { id: 'bev', tax_group: { id: 'vat', rate_bp: 1000 } },
+        ],
+        false,
+      ),
+    );
+    // bev: 50,000 less half the 10,000 -> 45,000 taxed -> 4,500.
+    expect(t.tax).toBe(4500);
+  });
+
+  it('lets only the whole-tab discount that survives the cap reduce the base', () => {
+    // 8,000 line + 5,000 tab on 10,000: the cap leaves 2,000 of the tab discount.
+    const t = computeTabTotals(
+      tab({
+        orders: [{ status: 'sent', order_items: [line(10_000, { id: 'a' })] }],
+        tab_adjustments: [
+          { kind: 'discount_amount', amount_iqd: 8000, order_item_id: 'a' },
+          { kind: 'discount_amount', amount_iqd: 5000, order_item_id: null },
+        ],
+      }),
+      ctx(),
+    );
+    expect(t.discount).toBe(10_000);
+    expect(t.tax).toBe(0);
+    expect(t.total).toBe(0);
+  });
+
+  it('keys a group cached before its id was selected by its rate', () => {
+    const t = computeTabTotals(tab(), taxContextFrom([{ id: 'food', tax_group: { rate_bp: 1000 } }], false));
+    expect(t.tax).toBe(1000);
+  });
+});
+
+describe('computeTabTotals — the court fee is a server figure', () => {
+  // D4: the till's due and printed bill used to leave the court out, so the
+  // "one payment" bill read short by the court while the server charged it.
+
+  it('adds the court fee it is given to the total and the amount due', () => {
+    const t = computeTabTotals(tab(), TEN_PCT, 30_000);
+    expect(t.court).toBe(30_000);
+    expect(t.subtotal).toBe(10_000);
+    expect(t.total).toBe(41_000);
+    expect(t.due).toBe(41_000);
+  });
+
+  it('charges a court-only booking tab with nothing ordered', () => {
+    const t = computeTabTotals(tab({ orders: [] }), NO_TAX, 30_000);
+    expect(t).toMatchObject({ subtotal: 0, court: 30_000, total: 30_000, due: 30_000 });
+  });
+
+  it('never lets a discount eat into the court fee — goods are floored first', () => {
+    // 0106: greatest(subtotal - discount + tax, 0) + court.
+    const t = computeTabTotals(
+      tab({ tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 10_000 }] }),
+      NO_TAX,
+      30_000,
+    );
+    expect(t.discount).toBe(10_000);
+    expect(t.total).toBe(30_000);
+  });
+
+  it('keeps tax off the court fee', () => {
+    const t = computeTabTotals(tab(), TEN_PCT, 30_000);
+    expect(t.tax).toBe(1000);
+  });
+
+  it('counts payments against goods and court together', () => {
+    const t = computeTabTotals(tab({ payments: [{ amount_iqd: 35_000 }] }), NO_TAX, 30_000);
+    expect(t.paid).toBe(35_000);
+    expect(t.due).toBe(5000);
+  });
+
+  it('a court already paid on another tab arrives as 0 and charges nothing', () => {
+    expect(computeTabTotals(tab(), NO_TAX, 0)).toMatchObject({ court: 0, total: 10_000 });
+  });
+
+  it('ignores a nonsense court figure rather than charging it', () => {
+    expect(computeTabTotals(tab(), NO_TAX, -5000).court).toBe(0);
+    expect(computeTabTotals(tab(), NO_TAX, Number.NaN).total).toBe(10_000);
+  });
+
+  it('is all zeroes for no tab, even with a court figure', () => {
+    expect(computeTabTotals(null, NO_TAX, 30_000)).toMatchObject({ court: 0, total: 0, due: 0 });
   });
 });
 

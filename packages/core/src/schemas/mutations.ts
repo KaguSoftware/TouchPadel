@@ -26,9 +26,34 @@ export const MUTATION_TYPES = [
   'tab.open',
   'tab.settle',
   'adjustment.apply',
+  // Item 9 / C3 (0120): the till's money corrections, queued like everything else.
+  // Appended in this order in EVERY copy (the shell's test compares arrays).
+  'tab.cancel',
+  'tab.settle_zero',
+  'payment.refund',
+  'order_item.void',
 ] as const;
 
 export type MutationType = (typeof MUTATION_TYPES)[number];
+
+/**
+ * RPCs that take a manager PIN. Since migration 0115 they do not check the PIN
+ * themselves: the caller proves it to app.verify_manager_pin first (its own
+ * transaction, so the attempt persists and the lockout can engage) and the RPC
+ * consumes the single-use grant that verification minted. Every transport that
+ * calls one of these must verify first — apps/operator/src/lib/appRpc.ts,
+ * packages/db/tests/helpers.ts and functions/replay/index.ts do. The list is
+ * mirrored in functions/_shared/mutation-types.json for Deno; a test holds
+ * them equal.
+ */
+export const PIN_GATED_RPCS = [
+  'apply_discount',
+  'override_price',
+  'refund',
+  'void_after_send',
+  'write_off_expired',
+] as const;
+export const PIN_GATED_RPC_SET: ReadonlySet<string> = new Set(PIN_GATED_RPCS);
 
 /** Crockford base32, 26 chars (no I, L, O, U). */
 const ULID_SRC = '[0-9A-HJKMNP-TV-Z]{26}';
@@ -174,7 +199,21 @@ export const paymentRecordPayloadSchema = z
 
 export type PaymentRecordPayload = z.infer<typeof paymentRecordPayloadSchema>;
 
-export const reservationCreatePayloadSchema = z
+/**
+ * 0147 dropped the group size (padel is always four). A payload queued by a
+ * till on an older build may still carry `players`; it is removed here before
+ * the strict shape check, so that row drains instead of being refused. Every
+ * other unknown key (a price, a rate id) is still refused by `.strict()`.
+ */
+function dropLegacyPlayers(raw: unknown): unknown {
+  if (raw !== null && typeof raw === 'object' && !Array.isArray(raw) && 'players' in raw) {
+    const { players: _legacy, ...rest } = raw as Record<string, unknown>;
+    return rest;
+  }
+  return raw;
+}
+
+const reservationCreateShape = z
   .object({
     clientRef: clientRefSchema,
     courtId: uuid,
@@ -205,6 +244,8 @@ export const reservationCreatePayloadSchema = z
     }
   });
 
+export const reservationCreatePayloadSchema = z.preprocess(dropLegacyPlayers, reservationCreateShape);
+
 export type ReservationCreatePayload = z.infer<typeof reservationCreatePayloadSchema>;
 
 /**
@@ -234,6 +275,12 @@ export const orderAddItemsPayloadSchema = z
           .strict(),
       )
       .min(1),
+    /**
+     * 0146: every line is a Touch Shop item. The server decides this from the
+     * rows (no ticket for a shop order); the flag only tells the till's LAN KDS
+     * fallback, which knows nothing of the menu, not to show a racket to the kitchen.
+     */
+    shop: z.literal(true).optional(),
     // NOTE: no price fields — unit_price_iqd / line_total_iqd are DB snapshots at send time.
   })
   .strict()
@@ -279,12 +326,20 @@ export const tabOpenPayloadSchema = z
     tableId: uuid.optional(),
     label: z.string().trim().min(1).max(200).optional(),
     reservationId: uuid.optional(),
+    /** 0145: a Touch Shop counter sale — the one tab that needs no table or booking, only a label. */
+    kind: z.enum(['cafe', 'shop']).optional(),
   })
   .strict()
-  .refine((p) => p.tableId !== undefined || p.reservationId !== undefined, {
-    message: 'a tab needs a table or a reservation',
-    path: ['tableId'],
-  });
+  .refine(
+    (p) =>
+      p.tableId !== undefined ||
+      p.reservationId !== undefined ||
+      (p.kind === 'shop' && p.label !== undefined),
+    {
+      message: 'a tab needs a table or a reservation (a shop counter sale needs a label)',
+      path: ['tableId'],
+    },
+  );
 
 export type TabOpenPayload = z.infer<typeof tabOpenPayloadSchema>;
 
@@ -300,6 +355,12 @@ export const tabSettlePayloadSchema = z
     method: z.enum(['cash', 'card']),
     amountIqd: intIqd.optional(),
     tenderedIqd: intIqd.optional(),
+    /**
+     * The bill total the clerk was shown (0106). When present, settle_tab
+     * refuses with TOTAL_CHANGED if the server's total differs, so a card
+     * amount keyed into the terminal can never silently disagree with the bill.
+     */
+    expectedTotalIqd: intIqd.optional(),
   })
   .strict()
   .superRefine((p, ctx) => {
@@ -370,8 +431,71 @@ export const adjustmentApplyPayloadSchema = z
 
 export type AdjustmentApplyPayload = z.infer<typeof adjustmentApplyPayloadSchema>;
 
+// ---------------------------------------------------------------------------
+// Item 9 / C3 (0120): the till's remaining money corrections join the queue.
+// The PIN rides in the payload where the RPC takes one (refund, void): the
+// replay function proves it to verify_manager_pin first and the RPC spends the
+// grant (0115). Reason codes may carry a typed note ("code: note"; the prompt
+// caps the note at 200 characters).
+// ---------------------------------------------------------------------------
+
+const pinSchema = z.string().regex(/^\d{4,12}$/, 'pin must be 4-12 digits');
+const reasonCodeSchema = z.string().trim().min(1).max(300);
+
+/** tab.cancel — app.cancel_tab: an OPEN tab with nothing on it goes, with a reason. */
+export const tabCancelPayloadSchema = z.object({ tabId: uuid, reasonCode: reasonCodeSchema }).strict();
+export type TabCancelPayload = z.infer<typeof tabCancelPayloadSchema>;
+
+/** tab.settle_zero — app.settle_zero_tab: a tab that owes nothing closes as settled, no payment row. */
+export const tabSettleZeroPayloadSchema = z
+  .object({ tabId: uuid, reasonCode: reasonCodeSchema })
+  .strict();
+export type TabSettleZeroPayload = z.infer<typeof tabSettleZeroPayloadSchema>;
+
+/**
+ * payment.refund — app.refund (manager PIN). amountIqd is what goes back, never
+ * a price: the server checks it against what is left on the payment. Naming
+ * lines is what restocks them (refund_items_restock); absent = money only.
+ */
+export const paymentRefundPayloadSchema = z
+  .object({
+    paymentId: uuid,
+    amountIqd: z.number().int().positive(),
+    pin: pinSchema,
+    reasonCode: reasonCodeSchema,
+    items: z
+      .array(z.object({ orderItemId: uuid, qty: z.number().int().positive() }).strict())
+      .min(1)
+      .optional(),
+  })
+  .strict();
+export type PaymentRefundPayload = z.infer<typeof paymentRefundPayloadSchema>;
+
+/** order_item.void — app.void_after_send (manager PIN): a sent line is voided as waste. */
+export const orderItemVoidPayloadSchema = z
+  .object({ orderItemId: uuid, pin: pinSchema, reasonCode: reasonCodeSchema })
+  .strict();
+export type OrderItemVoidPayload = z.infer<typeof orderItemVoidPayloadSchema>;
+
+/**
+ * stock.waste — app.record_waste. qty is numeric on the server (grams may be fractional).
+ * location (wave 5 §2.8.6) is the store the waste came from; absent, the server takes the
+ * caller's home store, and the mappers send p_location only when it is present, so a queue
+ * written before the stores replays unchanged.
+ */
+export const stockWastePayloadSchema = z
+  .object({
+    ingredientId: uuid,
+    qty: z.number().positive().finite(),
+    movementType: z.enum(['waste_spill', 'waste_spoilage']).default('waste_spill'),
+    reasonCode: reasonCodeSchema,
+    location: z.enum(['cafe', 'bakery']).optional(),
+  })
+  .strict();
+export type StockWastePayload = z.infer<typeof stockWastePayloadSchema>;
+
 // TODO(core): tighten the remaining payloads as their call sites move onto the queue:
-// reservation.update, waiter_call.action, stock.waste currently accept z.unknown().
+// reservation.update and waiter_call.action currently accept z.unknown().
 const todoPayload = z.unknown();
 
 // ---------------------------------------------------------------------------
@@ -387,6 +511,14 @@ const baseFields = {
   staffId: uuid,
   /** The station that owns the durable queue, e.g. 'TILL-01'. */
   deviceId: stationSchema,
+  /**
+   * The branch the screens showed when the write was queued (multi-venue audit,
+   * 0228): replay sends it as x-venue-scope, so a write from a machine that is
+   * not a registered station lands at that branch, not wherever the replay-time
+   * scope points. Absent on rows queued before it existed, and on a station
+   * (whose own branch always wins on the server).
+   */
+  venueScope: uuid.nullable().optional(),
 } as const;
 
 const envelopeVariants = z.discriminatedUnion('mutationType', [
@@ -432,7 +564,11 @@ const envelopeVariants = z.discriminatedUnion('mutationType', [
     .object({ ...baseFields, mutationType: z.literal('waiter_call.action'), payload: todoPayload })
     .strict(),
   z
-    .object({ ...baseFields, mutationType: z.literal('stock.waste'), payload: todoPayload })
+    .object({
+      ...baseFields,
+      mutationType: z.literal('stock.waste'),
+      payload: stockWastePayloadSchema,
+    })
     .strict(),
   z
     .object({ ...baseFields, mutationType: z.literal('tab.open'), payload: tabOpenPayloadSchema })
@@ -449,6 +585,30 @@ const envelopeVariants = z.discriminatedUnion('mutationType', [
       ...baseFields,
       mutationType: z.literal('adjustment.apply'),
       payload: adjustmentApplyPayloadSchema,
+    })
+    .strict(),
+  z
+    .object({ ...baseFields, mutationType: z.literal('tab.cancel'), payload: tabCancelPayloadSchema })
+    .strict(),
+  z
+    .object({
+      ...baseFields,
+      mutationType: z.literal('tab.settle_zero'),
+      payload: tabSettleZeroPayloadSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...baseFields,
+      mutationType: z.literal('payment.refund'),
+      payload: paymentRefundPayloadSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...baseFields,
+      mutationType: z.literal('order_item.void'),
+      payload: orderItemVoidPayloadSchema,
     })
     .strict(),
 ]);

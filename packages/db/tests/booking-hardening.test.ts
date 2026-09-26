@@ -31,6 +31,7 @@ import {
   testIdemKey,
   outcome,
   SEED_STAFF,
+  VENUE_A_ID,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -99,8 +100,9 @@ describe.skipIf(!up)('0048 booking hardening (padel audit C1, H1-H4)', () => {
 
   it('C1: live holds are capped per account (HOLD_QUOTA_EXCEEDED)', async () => {
     const { data: vs } = await svc
-      .from('venue_settings')
+      .from('platform_settings')
       .select('max_live_holds_per_guest')
+      .eq('id', true)
       .single();
     const cap = (vs as { max_live_holds_per_guest: number }).max_live_holds_per_guest;
     expect(cap).toBeGreaterThan(0);
@@ -129,7 +131,7 @@ describe.skipIf(!up)('0048 booking hardening (padel audit C1, H1-H4)', () => {
   it('C1: a slot beyond the booking horizon is refused (BEYOND_HORIZON)', async () => {
     const { data: vs } = await svc
       .from('venue_settings')
-      .select('max_booking_horizon_days')
+      .select('max_booking_horizon_days').eq('venue_id', VENUE_A_ID)
       .single();
     const horizon = (vs as { max_booking_horizon_days: number }).max_booking_horizon_days;
     expect(horizon).toBeGreaterThan(0);
@@ -360,7 +362,7 @@ describe.skipIf(!up)('0048 desk re-pricing and re-validation (H1, H2)', () => {
     const { error } = await svc
       .from('venue_settings')
       .update({ closed_dates: [closed] })
-      .eq('id', true);
+      .eq('venue_id', VENUE_A_ID);
     expect(error).toBeNull();
 
     try {
@@ -372,7 +374,7 @@ describe.skipIf(!up)('0048 desk re-pricing and re-validation (H1, H2)', () => {
       expect(moved.ok).toBe(false);
       expect(moved.errorMessage).toContain('CLOSED_DATE');
     } finally {
-      await svc.from('venue_settings').update({ closed_dates: [] }).eq('id', true);
+      await svc.from('venue_settings').update({ closed_dates: [] }).eq('venue_id', VENUE_A_ID);
     }
   });
 

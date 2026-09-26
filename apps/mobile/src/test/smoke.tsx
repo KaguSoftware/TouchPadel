@@ -1,0 +1,165 @@
+/**
+ * `renderRoute` — one screen, under the providers it really ships with.
+ *
+ * A screen in this app is not a standalone component. It reads its language
+ * from `LocaleProvider`, its colours from `ThemeProvider`, its safe-area from
+ * `SafeAreaProvider`, its data from a `QueryClient`, its session from
+ * `AuthProvider` and its toast from `ToastProvider` — and it MIRRORS because
+ * `DirectionRoot` puts a Yoga `direction` on the root. Rendering one without
+ * that stack does not test the screen, it tests whether the screen throws on a
+ * missing context.
+ *
+ * So this reproduces app/_layout.tsx's provider tree exactly, minus its chrome:
+ * no `RootStack` (the test IS the screen), no `BootOverlay`, no
+ * `ConnectivityBanner`, no splash and no font gate — none of which a screen can
+ * see, and all of which would put async work between `render()` and the first
+ * assertion. `AuthProvider` is jest.setup.ts's injectable stand-in, which is
+ * what lets a gated screen resolve on its first render instead of after a
+ * spinner (that file explains why).
+ *
+ * `PersistQueryClientProvider` becomes a plain `QueryClientProvider` with a
+ * FRESH client per render: persistence is a disk read, `retry: false` turns a
+ * failing fixture into a failing render immediately instead of three seconds
+ * later, and a shared client would leak one case's data into the next.
+ *
+ * STAFF CASES (build-contracts-2026-09-23 §6.2). The app mounts
+ * `StaffStatusProvider` inside AuthProvider; a guest case leaves it out and
+ * reads the context default, `guest`, so it renders exactly as before. A case
+ * with `staff` signs the test session in, mounts the provider, and seeds its
+ * two reads (the own staff row with its venue ids, and the venue names) under
+ * `staffKeys`, which `staleTime: Infinity` keeps from being fetched again: the
+ * provider resolves `staff` on the first render, so `RequireStaff` lets the
+ * screen through synchronously.
+ */
+import type { ComponentType, ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { render, type RenderResult } from '@testing-library/react-native';
+import type { StaffRole } from '@touch/core';
+import type { Locale } from '@touch/i18n';
+import { LocaleProvider } from '../i18n/LocaleProvider';
+import { DirectionRoot } from '../i18n/direction';
+import { ThemeProvider } from '../theme';
+import { AuthProvider } from '../features/auth/context';
+import { StaffStatusProvider } from '../features/staff/StaffStatusProvider';
+import { staffKeys } from '../features/staff/keys';
+import { ToastProvider } from '../components/overlays';
+import { resetRouterState } from './routerState';
+import { TEST_SESSION, setTestSession } from './authState';
+
+/**
+ * A real device's insets, so a screen that pads by them lays out as it does on
+ * hardware. `initialWindowMetrics` is null under test (there is no window), and
+ * a null metrics makes `SafeAreaProvider` wait for an `onLayout` that never
+ * comes — every `useSafeAreaInsets()` consumer then renders nothing at all.
+ */
+const METRICS = initialWindowMetrics ?? {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  // `left` / `right` are PHYSICAL by the safe-area API's own contract — an
+  // `EdgeInsets` names the four screen edges, not the four logical ones, and
+  // the provider mirrors nothing. Same deliberate exception the hit-slop in
+  // components/ui.tsx takes, and both of these are 0 anyway.
+  // eslint-disable-next-line no-restricted-syntax
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+
+export interface RenderRouteOptions {
+  locale?: Locale;
+  /** What `useLocalSearchParams()` answers — `booking/[id]` needs an `id`. */
+  params?: Record<string, string>;
+  /** `usePathname()` / `useSegments()`. */
+  pathname?: string;
+  session?: 'in' | 'out';
+  /** Seeded into the fresh QueryClient: `[queryKey, data]` pairs, after the staff seeds. */
+  queryData?: [readonly unknown[], unknown][];
+  /**
+   * A staff session: signed in, StaffStatusProvider mounted, the own row seeded
+   * with this role at these venues (one venue, venue A's id, when left out).
+   */
+  staff?: { role: StaffRole; venues?: string[] };
+}
+
+/** The venue a staff case works at unless it names others (packages/db tests' VENUE_A_ID). */
+export const TEST_VENUE_ID = 'c0000000-0000-4000-8000-000000000001';
+
+/** The two reads StaffStatusProvider makes, answered for the test session's uid. */
+export function staffSeeds(staff: NonNullable<RenderRouteOptions['staff']>): [readonly unknown[], unknown][] {
+  const uid = TEST_SESSION.user.id;
+  const venues = staff.venues ?? [TEST_VENUE_ID];
+  return [
+    [
+      staffKeys.status(uid),
+      { row: { id: uid, display_name: 'Test Staff', role: staff.role, is_active: true }, venueIds: venues },
+    ],
+    [staffKeys.venues(uid), venues.map((id, i) => ({ id, name_en: `Venue ${i + 1}`, name_ar: `المكان ${i + 1}` }))],
+  ];
+}
+
+export interface SmokeResult extends RenderResult {
+  /**
+   * The direction the tree actually RESOLVED to, read off the one node that
+   * carries it (`app.direction-root`, src/i18n/direction.tsx).
+   *
+   * Flattened rather than read from `style.direction`: the root's style is a
+   * single object today but a screen-level change could make it an array, and
+   * an assertion that silently read `undefined` off one would pass for `ltr`
+   * on every Arabic case.
+   */
+  direction: () => string | undefined;
+}
+
+export function renderRoute(
+  Component: ComponentType<Record<string, never>>,
+  {
+    locale = 'en',
+    params = {},
+    pathname = '/',
+    session = 'out',
+    queryData = [],
+    staff,
+  }: RenderRouteOptions = {},
+): SmokeResult {
+  resetRouterState(params, pathname);
+  setTestSession(staff ? 'in' : session);
+
+  const client = new QueryClient({
+    defaultOptions: {
+      // A smoke render must fail on the first attempt or not at all: with
+      // retries a broken fixture spends the whole timeout looking like a
+      // loading state.
+      queries: { retry: false, gcTime: Infinity, staleTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+  for (const [key, data] of [...(staff ? staffSeeds(staff) : []), ...queryData]) client.setQueryData(key, data);
+
+  // The app's order: AuthProvider, the toasts, then (for staff) StaffStatusProvider.
+  const withStaff = (children: ReactNode) =>
+    staff ? <StaffStatusProvider>{children}</StaffStatusProvider> : children;
+
+  const result = render(
+    <QueryClientProvider client={client}>
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <LocaleProvider initialLocale={locale}>
+          <ThemeProvider>
+            <DirectionRoot>
+              <AuthProvider>
+                <ToastProvider>{withStaff(<Component />)}</ToastProvider>
+              </AuthProvider>
+            </DirectionRoot>
+          </ThemeProvider>
+        </LocaleProvider>
+      </SafeAreaProvider>
+    </QueryClientProvider>,
+  );
+
+  return {
+    ...result,
+    direction: () => {
+      const root = result.getByTestId('app.direction-root');
+      const flat = StyleSheet.flatten(root.props.style) as { direction?: string } | undefined;
+      return flat?.direction;
+    },
+  };
+}

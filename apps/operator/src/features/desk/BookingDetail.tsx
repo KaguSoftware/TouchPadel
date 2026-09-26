@@ -7,13 +7,23 @@
  *
  * Notes are read-only here: no reservation RPC takes a notes argument
  * (move / extend / cancel / mark only), so there is no honest way to write
- * one. Stated on screen rather than faked.
+ * one. They show when there are some, and nothing pretends to edit them.
+ *
+ * Marking arrived and completed are one click with no reason prompt: they are
+ * the normal course of a booking, not overrides, and the prompt's reasons
+ * ("customer request", "weather"…) did not describe them. Everything that
+ * changes or ends the booking still asks why.
+ *
+ * The court fee and any cafe bill charged to the booking are paid right here
+ * (CourtBillPanel, 0106) — the desk takes the money without the till.
+ * "Charge on till" stays only for roles that can open the till, as a way to
+ * add items; the court desk never sees a button that leads to a refusal.
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { wallTimeToUtc } from '@touch/core';
-import { formatDate, formatDateTime, formatTimeRange, VENUE_TZ } from '@touch/i18n';
+import { DateField } from '../../components/inputs';
+import { formatDate, formatIQD, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
@@ -21,6 +31,7 @@ import { QK, fetchActiveCourts, fetchVenueSettings } from '../../lib/queries';
 import { errorToMessageKey } from '../../lib/errors';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
+import { canAccess, useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Select, inputStyle, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
@@ -31,14 +42,15 @@ import {
   Money,
   PageHeader,
   Panel,
-  PaymentStatusIndicator,
   ReasonCodePrompt,
 } from '../../components/kit';
-import { allowedMarks, isLive, isOverrideRefusal, paymentStatusFor } from './deskLogic';
+import { allowedMarks, isLive, isOverrideRefusal } from './deskLogic';
+import { nightTimeToUtc, tradingDateOf } from './calendar/monthLogic';
 import { ReservationBadge } from './deskStatus';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import { OVERRIDE_REASONS, STEP_MIN } from './ReservationActionsDialog';
-import { useTabLinks } from './useTradingNight';
+import { CourtBillPanel } from './payment/CourtBillPanel';
+import type { BookingBill } from './payment/deskPaymentLogic';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
 
@@ -62,6 +74,7 @@ export function BookingDetailScreen() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { staff } = useAuth();
 
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
   const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts });
@@ -84,7 +97,6 @@ export function BookingDetailScreen() {
     queryFn: () => appRpc<CustomerRecord>('customer_record', { p_customer_id: r!.guest_id }),
     retry: false,
   });
-  const tabLinksQ = useTabLinks(useMemo(() => (r ? [r.id] : []), [r]));
 
   const [pending, setPending] = useState<ActionKind | null>(null);
   const [busy, setBusy] = useState<ActionKind | null>(null);
@@ -97,52 +109,69 @@ export function BookingDetailScreen() {
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['reservation', id] });
     void queryClient.invalidateQueries({ queryKey: ['reservations'] });
-    void queryClient.invalidateQueries({ queryKey: ['reservationsWeek'] });
+    void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     void queryClient.invalidateQueries({ queryKey: ['series'] });
+    // Moving, extending or ending a booking can change what it owes (0106).
+    void queryClient.invalidateQueries({ queryKey: ['bookingBill'] });
+    void queryClient.invalidateQueries({ queryKey: ['bookingBillStates'] });
   }
 
-  async function run(kind: ActionKind, reason: string) {
+  /** `reason` is absent for arrived / completed: the server records its own default. */
+  async function run(kind: ActionKind, reason?: string) {
     if (!r) return;
     setBusy(kind);
     setError(null);
     setRefused(null);
     setDone(false);
     const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
+    let queued = false;
     try {
       switch (kind) {
         case 'arrived':
         case 'completed':
         case 'noShow':
-          await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: kind === 'noShow' ? 'no_show' : kind, reason });
+          queued = (await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: kind === 'noShow' ? 'no_show' : kind, reason })).queued;
           break;
         case 'shorten':
-          await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(), reason });
+          queued = (await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(), reason })).queued;
           break;
         case 'extend':
-          await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(), reason });
+          queued = (await mutate('reservation.update', { action: 'extend', reservationId: r.id, newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(), reason })).queued;
           break;
         case 'cancel':
-          await mutate('reservation.update', { action: 'cancel', reservationId: r.id, reason });
+          queued = (await mutate('reservation.update', { action: 'cancel', reservationId: r.id, reason })).queued;
           break;
         case 'move': {
           if (!move) return;
           const [hh, mm] = move.time.split(':').map(Number);
-          const start = wallTimeToUtc(move.date, (hh ?? 0) * 60 + (mm ?? 0), tz);
-          await mutate('reservation.update', {
-            action: 'move',
-            reservationId: r.id,
-            courtId: move.courtId,
-            startAt: start.toISOString(),
-            endAt: new Date(start.getTime() + durationMs).toISOString(),
-            reason,
-          });
+          const start = nightTimeToUtc(move.date, (hh ?? 0) * 60 + (mm ?? 0), tz, settingsQ.data?.opening_hours);
+          queued = (
+            await mutate('reservation.update', {
+              action: 'move',
+              reservationId: r.id,
+              courtId: move.courtId,
+              startAt: start.toISOString(),
+              endAt: new Date(start.getTime() + durationMs).toISOString(),
+              reason,
+            })
+          ).queued;
           setShowMove(false);
           break;
         }
       }
       setPending(null);
-      setDone(true);
-      toast.ok(tr('ws.courtDesk.detail.done'));
+      // "Saved" only for what the server took; a queued change is not applied yet.
+      setDone(!queued);
+      if (queued) {
+        toast.info(tr('ws.courtDesk.detail.queued'));
+        invalidate();
+        return;
+      }
+      // Completing a game whose court fee is still open says so, once, where
+      // the clerk is looking — the bill panel beside it offers the payment.
+      const owed = kind === 'completed' ? queryClient.getQueryData<BookingBill>(['bookingBill', r.id]) : undefined;
+      if (owed && owed.court_remaining_iqd > 0) toast.info(`${tr('ws.courtDesk.payment.completedOwed')} ${formatIQD(owed.court_remaining_iqd, locale)}`);
+      else toast.ok(tr('ws.courtDesk.detail.done'));
       invalidate();
     } catch (e) {
       if (e instanceof AppRpcError && isOverrideRefusal(e.code)) {
@@ -169,8 +198,24 @@ export function BookingDetailScreen() {
   const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
   const durationMs = r ? new Date(r.end_at).getTime() - new Date(r.start_at).getTime() : 0;
   const canShorten = live && durationMs - STEP_MIN * 60_000 >= minDurationMin * 60_000;
+  // Where the date + time boxes currently point, and whether that is a start
+  // in the past. Same rule as the calendar's drag: moving a booking backwards
+  // past now takes it off the guest's app while the desk still shows it
+  // confirmed (Parsa, 2026-09-23). A start that does not move is a court
+  // change and stays allowed.
+  const moveStart =
+    move && /^\d{2}:\d{2}$/.test(move.time)
+      ? nightTimeToUtc(move.date, Number(move.time.slice(0, 2)) * 60 + Number(move.time.slice(3, 5)), tz, settingsQ.data?.opening_hours)
+      : null;
+  const movePast = Boolean(
+    r && moveStart && moveStart.getTime() < Date.now() && moveStart.getTime() !== new Date(r.start_at).getTime(),
+  );
   const customer = customerQ.data;
-  const title = !r ? tr('ws.courtDesk.detail.title') : r.kind === 'booking' ? (r.guest_name ?? customer?.customer.full_name ?? tr('ws.courtDesk.detail.walkIn')) : tr(`ws.courtDesk.detail.kindLabel.${r.kind}`);
+  const guestName = r ? (r.guest_name ?? customer?.customer.full_name ?? null) : null;
+  const title = !r ? tr('ws.courtDesk.detail.title') : r.kind === 'booking' ? (guestName ?? tr('ws.courtDesk.detail.walkIn')) : tr(`ws.courtDesk.detail.kindLabel.${r.kind}`);
+  const night = r ? tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours) : null;
+  const canCharge = canAccess(staff?.role, '/till');
+  const start = r ? new Date(r.start_at) : null;
 
   const actionLabel: Record<ActionKind, string> = {
     move: tr('ws.courtDesk.detail.reason.move'),
@@ -185,29 +230,27 @@ export function BookingDetailScreen() {
   return (
     <div>
       <PageHeader
-        eyebrow={tr('ws.courtDesk.detail.eyebrow')}
+        eyebrow={r && r.kind === 'booking' ? tr('ws.courtDesk.detail.eyebrow') : undefined}
         title={title}
         subtitle={
-          r ? (
+          r && start ? (
             <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <bdi>{court ? pickName(locale, court) : ''}</bdi>
-              <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi>
-              <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
+              <bdi>
+                {formatWeekdayShort(start, locale, tz)} · {formatDate(start, locale, tz)}
+              </bdi>
+              <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>{formatTimeRange(start, new Date(r.end_at), locale, tz)}</bdi>
               <ReservationBadge reservation={r} />
             </span>
           ) : undefined
         }
         actions={
           <>
-            <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
-              {tr('ws.courtDesk.detail.backToCalendar')}
-            </Link>
-            {r && r.kind === 'booking' && (
-              <Button
-                icon="receipt"
-                title={tr('ws.courtDesk.detail.chargeCafeLead')}
-                onClick={() => void navigate({ to: '/till', search: { reservation: r.id } as never })}
-              >
+            <Button icon="calendar" onClick={() => void navigate({ to: '/desk', search: (night ? { date: night } : {}) as never })}>
+              {tr('ws.courtDesk.detail.seeOnCalendar')}
+            </Button>
+            {r && r.kind === 'booking' && canCharge && (
+              <Button icon="receipt" title={tr('ws.courtDesk.detail.chargeCafeLead')} onClick={() => void navigate({ to: '/till', search: { reservation: r.id } as never })}>
                 {tr('ws.courtDesk.detail.chargeCafe')}
               </Button>
             )}
@@ -216,11 +259,9 @@ export function BookingDetailScreen() {
       />
 
       {search.customer && (
-        <MessagePresenter
-          tone="refused"
-          message={tr('ws.courtDesk.customers.attachBooking') + ' — ' + tr('ws.courtDesk.detail.notesReadOnly')}
-          style={{ marginBlockEnd: '0.75rem' }}
-        />
+        // Nothing can link a customer to a booking after it is made (no RPC
+        // takes a guest id on an existing reservation). Say what to do instead.
+        <MessagePresenter tone="refused" message={tr('ws.courtDesk.detail.attachUnavailable')} style={{ marginBlockEnd: '0.75rem' }} />
       )}
 
       <AsyncStateWrapper
@@ -232,63 +273,65 @@ export function BookingDetailScreen() {
             icon="calendar"
             title={tr('ws.courtDesk.detail.notFound')}
             action={
-              <Link to="/desk" className="tp-btn" data-kind="default" data-size="md">
-                {tr('ws.courtDesk.detail.backToCalendar')}
-              </Link>
+              <Button onClick={() => void navigate({ to: '/desk' })}>{tr('ws.courtDesk.detail.backToCalendar')}</Button>
             }
           />
         }
       >
-        {r && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(18rem, 2fr)', gap: '1rem', alignItems: 'start' }}>
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <Panel>
-                <DescriptionList
-                  columns={2}
-                  items={[
-                    { label: tr('ws.courtDesk.detail.when'), value: <bdi>{formatDateTime(new Date(r.start_at), locale, tz)}</bdi> },
-                    { label: tr('ws.courtDesk.detail.court'), value: <bdi>{court ? pickName(locale, court) : r.court_id}</bdi> },
-                    {
-                      label: tr('ws.courtDesk.detail.customer'),
-                      value: (
-                        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <bdi>{r.guest_name ?? customer?.customer.full_name ?? tr('ws.courtDesk.detail.walkIn')}</bdi>
-                          {customer?.flags.map((f, i) => (
-                            <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
-                          ))}
-                          {r.guest_id && (
-                            <Link to="/desk/customers/$id" params={{ id: r.guest_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>
-                              {tr('ws.courtDesk.detail.openCustomer')}
+        {r && start && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1rem', alignItems: 'start' }}>
+            <Panel title={tr('ws.courtDesk.detail.details')}>
+              <DescriptionList
+                columns={2}
+                items={[
+                  ...(r.kind === 'booking'
+                    ? [
+                        {
+                          label: tr('ws.courtDesk.detail.customer'),
+                          value: (
+                            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <bdi>{guestName ?? tr('ws.courtDesk.detail.walkIn')}</bdi>
+                              {customer?.flags.map((f, i) => (
+                                <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
+                              ))}
+                              {r.guest_id && (
+                                <Link to="/desk/customers/$id" params={{ id: r.guest_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
+                                  {tr('ws.courtDesk.detail.openCustomer')}
+                                </Link>
+                              )}
+                            </span>
+                          ),
+                        },
+                        { label: tr('ws.courtDesk.detail.contact'), value: r.guest_phone ? <bdi dir="ltr">{r.guest_phone}</bdi> : '—' },
+                        { label: tr('ws.courtDesk.detail.price'), value: <Money amount={r.price_iqd} />, numeric: true },
+                      ]
+                    : []),
+                  { label: tr('ws.courtDesk.detail.court'), value: <bdi>{court ? pickName(locale, court) : '—'}</bdi> },
+                  { label: tr('ws.courtDesk.detail.when'), value: <bdi>{formatTimeRange(start, new Date(r.end_at), locale, tz)}</bdi> },
+                  ...(r.source === 'mobile' || r.source === 'desk' ? [{ label: tr('ws.courtDesk.detail.source'), value: tr(`ws.courtDesk.detail.sourceLabel.${r.source}`) }] : []),
+                  ...(r.series_id
+                    ? [
+                        {
+                          label: tr('ws.courtDesk.detail.series'),
+                          value: (
+                            <Link to="/desk/series/$id" params={{ id: r.series_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, textDecoration: 'none' }}>
+                              {tr('ws.courtDesk.detail.viewSeries')}
                             </Link>
-                          )}
-                        </span>
-                      ),
-                    },
-                    { label: tr('ws.courtDesk.detail.contact'), value: r.guest_phone ? <bdi dir="ltr">{r.guest_phone}</bdi> : '—' },
-                    { label: tr('ws.courtDesk.detail.price'), value: <Money amount={r.price_iqd} />, numeric: true },
-                    { label: tr('ws.courtDesk.detail.payment'), value: <PaymentStatusIndicator paymentStatus={paymentStatusFor(r, tabLinksQ.data)} size="sm" /> },
-                    { label: tr('ws.courtDesk.detail.kind'), value: tr(`ws.courtDesk.detail.kindLabel.${r.kind}`) },
-                    { label: tr('ws.courtDesk.detail.source'), value: r.source === 'mobile' || r.source === 'desk' ? tr(`ws.courtDesk.detail.sourceLabel.${r.source}`) : '—' },
-                    ...(r.series_id
-                      ? [
-                          {
-                            label: tr('ws.courtDesk.detail.series'),
-                            value: (
-                              <Link to="/desk/series/$id" params={{ id: r.series_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600 }}>
-                                {tr('ws.courtDesk.detail.viewSeries')}
-                              </Link>
-                            ),
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              </Panel>
-              <Panel title={tr('ws.courtDesk.detail.notes')}>
-                {r.notes ? <p style={{ whiteSpace: 'pre-wrap' }}>{r.notes}</p> : <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.detail.noNotes')}</p>}
-                <p style={{ marginBlockStart: '0.5rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.detail.notesReadOnly')}</p>
-              </Panel>
-            </div>
+                          ),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+              {r.notes && (
+                <div style={{ marginBlockStart: '0.75rem', paddingBlockStart: '0.75rem', borderBlockStart: '1px solid var(--tp-border)' }}>
+                  <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.25rem' }}>{tr('ws.courtDesk.detail.notes')}</p>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{r.notes}</p>
+                </div>
+              )}
+            </Panel>
+
+            {r.kind === 'booking' && <CourtBillPanel reservationId={r.id} tz={tz} />}
 
             <Panel title={tr('ws.courtDesk.detail.actions')}>
               {done && <MessagePresenter tone="success" message={tr('ws.courtDesk.detail.done')} style={{ marginBlockEnd: '0.75rem' }} />}
@@ -300,41 +343,38 @@ export function BookingDetailScreen() {
               {live && r.kind === 'booking' && (
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
                   {marks.includes('arrived') && (
-                    <Button icon="check" kind="primary" busy={busy === 'arrived'} disabled={busy !== null} onClick={() => setPending('arrived')}>
+                    <Button icon="check" kind="primary" size="lg" busy={busy === 'arrived'} disabled={busy !== null} onClick={() => void run('arrived')}>
                       {tr('ws.courtDesk.detail.arrived')}
                     </Button>
                   )}
                   {marks.includes('completed') && (
-                    <Button icon="checkCircle" busy={busy === 'completed'} disabled={busy !== null} onClick={() => setPending('completed')}>
+                    <Button icon="checkCircle" size="lg" busy={busy === 'completed'} disabled={busy !== null} onClick={() => void run('completed')}>
                       {tr('ws.courtDesk.detail.completed')}
                     </Button>
                   )}
-                  {marks.includes('no_show') && (
-                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => setPending('noShow')}>
-                      {tr('ws.courtDesk.detail.noShow')}
-                    </Button>
-                  )}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <Button
-                      icon="minus"
-                      busy={busy === 'shorten'}
-                      disabled={busy !== null || !canShorten}
-                      disabledReason={canShorten ? undefined : tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
-                      onClick={() => setPending('shorten')}
-                    >
+                  <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockStart: marks.length > 0 ? '0.5rem' : 0 }}>{tr('ws.courtDesk.calendar.changeTitle')}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', alignItems: 'start' }}>
+                    <Button icon="minus" busy={busy === 'shorten'} disabled={busy !== null || !canShorten} onClick={() => setPending('shorten')}>
                       {tr('ws.courtDesk.detail.shorten')}
                     </Button>
                     <Button icon="plus" busy={busy === 'extend'} disabled={busy !== null} onClick={() => setPending('extend')}>
                       {tr('ws.courtDesk.detail.extend')}
                     </Button>
                   </div>
+                  {/* Rulebook 4.3, under the pair rather than inside one cell, so the two buttons stay the same height. */}
+                  {!canShorten && (
+                    <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '-0.25rem' }}>
+                      {tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
+                    </p>
+                  )}
                   <Button
                     icon="repeat"
                     aria-pressed={showMove}
                     disabled={busy !== null}
                     onClick={() => {
                       setShowMove((v) => !v);
-                      if (!move) setMove({ courtId: r.court_id, date: new Date(r.start_at).toLocaleDateString('en-CA', { timeZone: tz }), time: '' });
+                      // The NIGHT, as the calendar's move uses: a 01:00 booking is on the night before.
+                      if (!move) setMove({ courtId: r.court_id, date: tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours), time: '' });
                     }}
                   >
                     {tr('ws.courtDesk.detail.move')}
@@ -346,7 +386,7 @@ export function BookingDetailScreen() {
                         <Select value={move.courtId} onChange={(courtId) => setMove({ ...move, courtId })} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
                       </Field>
                       <Field label={tr('ws.courtDesk.detail.newDate')}>
-                        <input type="date" style={inputStyle} value={move.date} onChange={(e) => e.target.value && setMove({ ...move, date: e.target.value })} />
+                        <DateField value={move.date} onChange={(date) => setMove({ ...move, date })} />
                       </Field>
                       <Field label={tr('ws.courtDesk.detail.newTime')}>
                         <input type="time" step={STEP_MIN * 60} style={inputStyle} value={move.time} onChange={(e) => setMove({ ...move, time: e.target.value })} />
@@ -354,13 +394,24 @@ export function BookingDetailScreen() {
                       <Button
                         kind="primary"
                         busy={busy === 'move'}
-                        disabled={busy !== null || !/^\d{2}:\d{2}$/.test(move.time)}
-                        disabledReason={tr('ws.courtDesk.detail.moveNeedsTime')}
+                        disabled={busy !== null || !/^\d{2}:\d{2}$/.test(move.time) || movePast}
+                        disabledReason={movePast ? tr('ws.courtDesk.detail.movePast') : tr('ws.courtDesk.detail.moveNeedsTime')}
                         onClick={() => setPending('move')}
                       >
                         {tr('ws.courtDesk.detail.moveSubmit')}
                       </Button>
                     </div>
+                  )}
+                  {marks.includes('no_show') && (
+                    // One click, like arrived and completed above: the guest did
+                    // not turn up, and there is nothing to explain. The server
+                    // asks for no reason either -- mark_reservation coalesces a
+                    // missing one to 'no_show' -- so the "Reason required" modal
+                    // this used to open was the app inventing a rule nothing
+                    // downstream held it to (owner, 2026-09-23).
+                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => void run('noShow')}>
+                      {tr('ws.courtDesk.detail.noShow')}
+                    </Button>
                   )}
                   <Button kind="danger" icon="ban" busy={busy === 'cancel'} disabled={busy !== null} onClick={() => setPending('cancel')}>
                     {tr('ws.courtDesk.detail.cancel')}

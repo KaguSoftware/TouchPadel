@@ -3,20 +3,32 @@
  * tested under plain node, like booking/errors.ts.
  *
  * After GoTrue has processed the token embedded in an auth email it redirects
- * the browser to our custom scheme. Three shapes can arrive:
+ * the browser to our custom scheme. Two shapes are accepted:
  *
  *   touchpadel://verify-email?code=<auth_code>                  PKCE (flowType: 'pkce')
- *   touchpadel://reset-password#access_token=…&refresh_token=…&type=recovery
+ *   touchpadel://reset-password?code=<auth_code>                PKCE, recovery
  *   touchpadel://verify-email?error=access_denied&error_code=otp_expired&…
  *
+ * A third shape used to be accepted and no longer is (S6, 2026-09-20):
+ *
+ *   touchpadel://reset-password#access_token=…&refresh_token=…&type=recovery
+ *
+ * Raw tokens on a link are a login-CSRF vector: anyone who can get this phone
+ * to open a crafted link — a chat message, a QR code, a web page — could sign
+ * it into a session THEY hold, and every booking the guest then makes lands on
+ * the attacker's account. A PKCE code carries no such risk, because only the
+ * device that minted the verifier can exchange it. The app requests PKCE
+ * (src/lib/supabase.ts) so GoTrue never sends the token form to us anyway;
+ * this parser simply refuses to honour it if something else does.
+ *
  * Which of query / fragment carries the params depends on the flow, so both are
- * read. A link with no recognisable auth payload parses to null: an ordinary
+ * still read: GoTrue puts a REFUSAL on the fragment under the implicit flow. A
+ * link with no recognisable auth payload parses to null: an ordinary
  * `touchpadel://bookings` share link must never be mistaken for a callback.
  */
 
 export type AuthLink =
   | { kind: 'pkce'; path: string; code: string }
-  | { kind: 'tokens'; path: string; accessToken: string; refreshToken: string; type: string | null }
   | { kind: 'error'; path: string; code: string; description: string | null };
 
 /** A malformed %-escape must not throw the whole link away. */
@@ -78,23 +90,20 @@ export function parseAuthLink(url: string | null | undefined): AuthLink | null {
   const code = params.get('code');
   if (code) return { kind: 'pkce', path, code };
 
-  const accessToken = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  if (accessToken && refreshToken) {
-    return { kind: 'tokens', path, accessToken, refreshToken, type: params.get('type') ?? null };
-  }
-
+  // Anything else — including access_token / refresh_token pairs — is not an
+  // auth callback this app will act on (see the header).
   return null;
 }
 
 /**
  * Recovery links land on a screen OUTSIDE the (auth) group, and a failed one
  * has to be sent somewhere different from a failed sign-up link — so the two
- * have to be told apart. `type` is authoritative when present; otherwise the
- * path we asked GoTrue to redirect to (RESET_REDIRECT) is.
+ * have to be told apart. The path we asked GoTrue to redirect to
+ * (RESET_REDIRECT, allow-listed on the project) is the only evidence used: a
+ * `type` param on the link is whatever the link's author wrote, and since
+ * 2026-09-20 nothing about a session is decided from a link's own claims.
  */
 export function isRecoveryLink(link: AuthLink): boolean {
-  if (link.kind === 'tokens' && link.type) return link.type === 'recovery';
   return link.path === 'reset-password';
 }
 

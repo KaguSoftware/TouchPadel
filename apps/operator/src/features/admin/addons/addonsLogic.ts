@@ -107,3 +107,109 @@ export function moveInList<T>(list: readonly T[], index: number, direction: 'up'
 export function sameOrder(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
+
+export type ChoiceRule =
+  | { kind: 'exactly'; count: number }
+  | { kind: 'range'; min: number; max: number }
+  | { kind: 'upTo'; max: number };
+
+/**
+ * The group's min/max as the rule a guest meets, so screens can say it in
+ * words ("Required · choose 1", "Optional · choose up to 2") instead of
+ * printing "(0–2)".
+ */
+export function choiceRule(min: number, max: number): ChoiceRule {
+  if (min <= 0) return { kind: 'upTo', max };
+  if (min === max) return { kind: 'exactly', count: min };
+  return { kind: 'range', min, max };
+}
+
+/**
+ * The compulsory add-on lock (price_promo, build-contracts-2026-09-23 §2.13):
+ * a manager's choice limit, item link, reveal or option switch that makes
+ * guests pay more for an item or a choice is refused with PRICE_VIA_PROTOCOL,
+ * hint required_addon. No price change covers it, so the screen says the
+ * owner makes it instead of pointing at Protocols.
+ */
+export function isRequiredAddonRefusal(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const e = error as { code?: unknown; hint?: unknown };
+  return e.code === 'PRICE_VIA_PROTOCOL' && e.hint === 'required_addon';
+}
+
+/**
+ * The rename lock (wave5-addendum-2026-09-25 §2.2, #9): a manager renaming a
+ * launched size, or a launched paid option, is refused PRICE_VIA_PROTOCOL
+ * with hint `name` (0195, upsert_variant and upsert_modifier; also through
+ * upsert_retail_variant). A rename goes through "Change the price", so the
+ * screen says that rather than the price sentence.
+ */
+export function isRenameRefusal(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const e = error as { code?: unknown; hint?: unknown };
+  return e.code === 'PRICE_VIA_PROTOCOL' && e.hint === 'name';
+}
+
+/**
+ * Launched = on sale now or at some point: launched_at set, or switched on,
+ * the same test app.upsert_modifier's lock makes (price_promo, #51, #53).
+ */
+export function addonLaunched(m: { launched_at: string | null; is_active: boolean }): boolean {
+  return m.launched_at !== null || m.is_active;
+}
+
+export interface AddonLock {
+  /** The price is read-only: "Change the price", an addon_price change. */
+  priceLocked: boolean;
+  /**
+   * The names are read-only: a paid option on sale is renamed through
+   * "Change the price" too (§2.2, #9). A free one keeps its direct rename.
+   */
+  nameLocked: boolean;
+  /**
+   * A paid option never on sale: its switch is off and "Put on sale" sends
+   * its price to the owner. Its price stays editable until then.
+   */
+  needsLaunch: boolean;
+}
+
+/**
+ * What an option row offers a caller without `editLaunchedPrices` or
+ * `launchDirectly` (a manager, build-contracts-2026-09-23 §5.5). Reordering
+ * and switching a launched option off and on stay as they are: each re-sends
+ * the stored price, which the lock lets through. A free option (0 IQD) carries
+ * no price, so it may be switched on directly. Renaming a launched PAID option
+ * goes through a price change since wave 5 (§2.2, #9: 0195's upsert_modifier
+ * compares the btrimmed names); a free one, or one never on sale, is renamed
+ * here as before.
+ */
+export function addonLock(
+  m: { launched_at: string | null; is_active: boolean; price_delta_iqd: number },
+  caps: { editLaunchedPrices: boolean; launchDirectly: boolean },
+): AddonLock {
+  const launched = addonLaunched(m);
+  return {
+    priceLocked: !caps.editLaunchedPrices && launched,
+    nameLocked: !caps.editLaunchedPrices && launched && m.price_delta_iqd > 0,
+    needsLaunch: !caps.launchDirectly && !launched && m.price_delta_iqd > 0,
+  };
+}
+
+/**
+ * A new option's switch as it is saved: a manager's paid one goes in hidden
+ * (upsert_modifier's p_is_active defaults to true, which would be refused
+ * LAUNCH_VIA_PROTOCOL); a free one, and anything the owner adds, goes on.
+ */
+export function newOptionActive(deltaIqd: number, launchDirectly: boolean): boolean {
+  return launchDirectly || deltaIqd <= 0;
+}
+
+/** The options (in any group) that reveal `groupId`, in a stable order. */
+export function revealersOf<M extends ModifierLike>(
+  groupId: string,
+  reveals: readonly RevealLike[],
+  modifiers: readonly M[],
+): M[] {
+  const ids = new Set(reveals.filter((r) => r.group_id === groupId).map((r) => r.modifier_id));
+  return modifiers.filter((m) => ids.has(m.id));
+}

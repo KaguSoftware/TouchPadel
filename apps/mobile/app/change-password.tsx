@@ -5,9 +5,15 @@ import { useBack } from '../src/navigation/back';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { supabase } from '../src/lib/supabase';
-import { signIn } from '../src/features/auth/api';
+import { signIn, signInWithPhone } from '../src/features/auth/api';
 import { changePassword } from '../src/features/profile/api';
 import { mapErrorToKey } from '../src/features/booking/errors';
+import {
+  classifySignInFailure,
+  classifyUpdateFailure,
+  passwordProofOf,
+} from '../src/features/profile/changePasswordFlow';
+import { captureException } from '../src/lib/telemetry';
 import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
 import { useToast } from '../src/components/overlays';
 
@@ -39,23 +45,54 @@ function ChangePasswordScreen() {
     if (!current || !next || !confirm) return setError(t('profile.fillAllFields'));
     if (next.length < 8) return setNextError(t('auth.passwordTooShort'));
     if (next !== confirm) return setConfirmError(t('auth.passwordMismatch'));
-    const email = session?.user.email;
-    if (!email) return setError(t('auth.sessionExpired'));
+    // The server refuses an unchanged password too (same_password); saying so
+    // here saves the round trip and the vaguer message.
+    if (next === current) return setNextError(t('profile.newPasswordSame'));
+    // Phone accounts prove it by number, older email accounts by email.
+    const proof = passwordProofOf(session?.user);
+    if (!proof) return setError(t('auth.sessionExpired'));
 
     setBusy(true);
     try {
-      // Proof-of-knowledge: the current password must still sign in.
+      // Proof-of-knowledge: the current password must still sign in. Every
+      // failure here used to read "Email or password is incorrect" — on a
+      // screen with no email field, and for failures that were not the
+      // password at all (changePasswordFlow.ts). Now each is named.
       try {
-        await signIn(supabase, email, current);
-      } catch {
-        setBusy(false);
-        return setCurrentError(t('auth.invalidCredentials'));
+        if (proof.kind === 'phone') await signInWithPhone(supabase, proof.phone, current);
+        else await signIn(supabase, proof.email, current);
+      } catch (err) {
+        switch (classifySignInFailure(err)) {
+          case 'wrong-password':
+            return setCurrentError(t('profile.currentPasswordWrong'));
+          case 'email-not-confirmed':
+            return setError(t('auth.verifyEmailSent', { email: proof.kind === 'email' ? proof.email : '' }));
+          default:
+            captureException(err, { label: 'changePassword.proof' });
+            return setError(t(mapErrorToKey(err)));
+        }
       }
-      await changePassword(supabase, next);
+      try {
+        await changePassword(supabase, next);
+      } catch (err) {
+        switch (classifyUpdateFailure(err)) {
+          case 'same-password':
+            return setNextError(t('profile.newPasswordSame'));
+          case 'weak-password':
+            return setNextError(t('auth.passwordTooShort'));
+          case 'reauthentication':
+            // The project's "secure password change" setting wants an emailed
+            // nonce this screen does not collect; the reset-link flow is the
+            // path that works regardless.
+            captureException(err, { label: 'changePassword.reauth' });
+            return setError(t('profile.passwordChangeUnavailable'));
+          default:
+            captureException(err, { label: 'changePassword.update' });
+            return setError(t(mapErrorToKey(err)));
+        }
+      }
       toast(t('auth.passwordUpdated'));
       back();
-    } catch (err) {
-      setError(t(mapErrorToKey(err)));
     } finally {
       setBusy(false);
     }
@@ -66,6 +103,7 @@ function ChangePasswordScreen() {
       <Stack.Screen options={{ title: t('profile.changePassword') }} />
       <FormScreen contentStyle={{ paddingTop: 4 }}>
         <Field
+          testID="change-password.current-password"
           placeholder={t('profile.currentPassword')}
           value={current}
           onChangeText={setCurrent}
@@ -76,6 +114,7 @@ function ChangePasswordScreen() {
           error={currentError}
         />
         <Field
+          testID="change-password.new-password"
           placeholder={t('profile.newPasswordMin')}
           value={next}
           onChangeText={setNext}
@@ -86,6 +125,7 @@ function ChangePasswordScreen() {
           error={nextError}
         />
         <Field
+          testID="change-password.confirm-password"
           placeholder={t('profile.confirmNewPassword')}
           value={confirm}
           onChangeText={setConfirm}
@@ -97,6 +137,7 @@ function ChangePasswordScreen() {
         />
         <ErrorText>{error}</ErrorText>
         <Button
+          testID="change-password.submit"
           label={t('profile.updatePassword')}
           variant="cta"
           busy={busy}

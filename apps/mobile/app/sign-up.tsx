@@ -1,16 +1,27 @@
 import { useState } from 'react';
-import { View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Linking, Pressable, Switch, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
+import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
+import {
+  isEmailTaken,
+  mapEmailAuthError,
+  parseAuthMethod,
+  signUpHidExistingEmail,
+  type AuthMethod,
+} from '../src/features/auth/emailAuth';
 import type { Locale } from '@touch/i18n';
+import { CURRENT_TERMS_VERSION } from '@touch/core';
+import { Text } from '../src/i18n/text';
 import { supabase } from '../src/lib/supabase';
-import { signUp, validateSignUp } from '../src/features/auth/api';
+import { signUpWithEmail, signUpWithPhone, validateSignUp } from '../src/features/auth/api';
 import { verifyRedirect } from '../src/features/auth/redirects';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { mapErrorToKey } from '../src/features/booking/errors';
+import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { space } from '../src/theme';
+import { space, useTheme } from '../src/theme';
+import { legalUrl, type LegalPage } from '../src/lib/legal';
 import {
   Button,
   ErrorText,
@@ -18,43 +29,64 @@ import {
   FooterLink,
   FormScreen,
   LabeledDivider,
+  LinkText,
   MicroLabel,
   Screen,
   SegmentedControl,
   Title,
 } from '../src/components/ui';
 import { PhoneField } from '../src/components/phone';
-import { composePhone, DEFAULT_ISO, validatePhone } from '../src/features/profile/phone';
+import { DEFAULT_ISO } from '../src/features/profile/phone';
 import { SocialSignInBlock } from '../src/components/social';
 import { useToast } from '../src/components/overlays';
 
+type FieldErrors = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+};
+
 /**
- * Create account (design 2026-08-31): name · email · password · phone ·
- * preferred language — four fields in the design's order, no confirm-password
- * (spec 05.3). Validation renders on the field it concerns.
+ * Create account: first name · surname · (email) · phone · password ·
+ * preferred language, with a password proved by the phone number (default
+ * segment, owner decision 2026-09-15) or by an email address (restored beside
+ * phone 2026-09-20, Phase 2 plan O2). Validation renders on the field it
+ * concerns, in the form's order.
  *
- * Continue with Apple / Google sit above the form (vendor addition 2026-09-01;
- * SOW L259-260 lists social sign-in as not included). A social sign-up needs no
- * email verification — provider emails are verified — so it never lands on
- * verify-email; a missing phone is collected on complete-profile instead.
+ *   phone  submitting sends ONE code — WhatsApp, or SMS when the number has no
+ *          WhatsApp — to confirm the number (app/verify-otp.tsx, mode signup);
+ *          every later sign-in is phone + password with no code.
+ *   email  submitting mails ONE link; app/verify-email.tsx waits for it and
+ *          useAuthDeepLink exchanges it. The phone is still required (spec
+ *          05.3: the desk calls it), so an email guest never meets
+ *          PHONE_REQUIRED at confirm_booking; complete-profile remains the
+ *          backstop for accounts that lack one.
+ *
+ * Continue with Apple / Google sit above the form (vendor addition 2026-09-01).
+ * A social sign-up has no phone, so complete-profile collects one before the
+ * first booking.
  */
 function SignUpScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
-  const [fullName, setFullName] = useState('');
+  const params = useLocalSearchParams<{ method?: string }>();
+  const [method, setMethod] = useState<AuthMethod>(() => parseAuthMethod(params.method));
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  // Country + national digits; `signUp` receives the composed E.164.
+  // Country + national digits; the API receives the composed E.164.
   const [iso, setIso] = useState(DEFAULT_ISO);
   const [national, setNational] = useState('');
+  const [password, setPassword] = useState('');
   const [preferredLang, setPreferredLang] = useState<Locale>(locale);
+  // 0153: the Terms consent. Required to submit; the version rides in the
+  // sign-up metadata and useTermsGate records it once the session lands.
+  const [agreed, setAgreed] = useState(false);
+  const { colors, fonts } = useTheme();
   const [busy, setBusy] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-    phone?: string;
-  }>({});
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
@@ -66,30 +98,93 @@ function SignUpScreen() {
     disabled: busy,
   });
 
+  const openLegal = (page: LegalPage) => {
+    void Linking.openURL(legalUrl(page, locale)).catch(() => toast(t('settings.linkFailed'), 'error'));
+  };
+
+  /** Shared field checks; the E.164 or null when something is wrong (already rendered). */
+  const validate = (): string | null => {
+    const invalid = validateSignUp({
+      firstName,
+      lastName,
+      email: method === 'email' ? email : undefined,
+      phoneNational: national,
+      password,
+    });
+    if (invalid === 'FIRST_NAME_REQUIRED') {
+      setFieldErrors({ firstName: t('auth.firstNameRequired') });
+      return null;
+    }
+    if (invalid === 'LAST_NAME_REQUIRED') {
+      setFieldErrors({ lastName: t('auth.lastNameRequired') });
+      return null;
+    }
+    if (invalid === 'EMAIL_INVALID') {
+      setFieldErrors({ email: t(email.trim() ? 'auth.emailInvalid' : 'auth.emailRequired') });
+      return null;
+    }
+    if (invalid === 'PHONE_REQUIRED') {
+      setFieldErrors({ phone: t('auth.phoneRequired') });
+      return null;
+    }
+    const { e164 } = validatePhoneInput(iso, national);
+    // A code to a number that cannot be one is paid for; stop at the field.
+    if (!e164) {
+      setFieldErrors({ phone: t('auth.phoneOtpInvalid') });
+      return null;
+    }
+    if (invalid === 'PASSWORD_TOO_SHORT') {
+      setFieldErrors({ password: t('auth.passwordTooShort') });
+      return null;
+    }
+    return e164;
+  };
+
   const onSubmit = async () => {
     setError(null);
     setFieldErrors({});
     social.clearError();
-    const phone = composePhone(iso, national);
-    const invalid = validateSignUp({ fullName, email, password, phone });
-    if (invalid === 'NAME_REQUIRED') return setFieldErrors({ name: t('auth.nameRequired') });
-    if (invalid === 'EMAIL_INVALID') return setFieldErrors({ email: t('auth.emailInvalid') });
-    if (invalid === 'PASSWORD_TOO_SHORT') return setFieldErrors({ password: t('auth.passwordTooShort') });
-    if (invalid === 'PHONE_REQUIRED') return setFieldErrors({ phone: t('auth.phoneRequired') });
-    if (invalid) return setError(t('errors.validation'));
-    // Length check runs LAST so the field order of the form is the order the
-    // guest is corrected in — name, email, password, then the phone.
-    if (validatePhone(iso, national)) return setFieldErrors({ phone: t('auth.phoneInvalid') });
+    const e164 = validate();
+    if (!e164) return;
+    if (!agreed) return setError(t('auth.termsRequired'));
     setBusy(true);
     try {
-      await signUp(supabase, { fullName, email, phone, password, preferredLang }, verifyRedirect());
+      if (method === 'email') {
+        const data = await signUpWithEmail(
+          supabase,
+          { firstName, lastName, email, phone: e164, password, preferredLang, termsVersion: CURRENT_TERMS_VERSION },
+          verifyRedirect(),
+        );
+        if (signUpHidExistingEmail(data)) return setFieldErrors({ email: t('auth.emailTaken') });
+      } else {
+        await signUpWithPhone(supabase, {
+          firstName,
+          lastName,
+          phone: e164,
+          password,
+          preferredLang,
+          termsVersion: CURRENT_TERMS_VERSION,
+        });
+      }
       // The chosen language becomes the app language — strings, faces and
       // layout direction switch in one commit, under a short crossfade, before
-      // the verify screen comes up.
+      // the code / check-your-email screen comes up.
       await setLocale(preferredLang);
-      router.replace({ pathname: '/verify-email', params: { email } });
+      if (method === 'email') {
+        // Confirmations on: no session yet, verify-email waits for the link.
+        // Off: the session has landed and verify-email's own session effect
+        // advances to verify-result.
+        router.replace({ pathname: '/verify-email', params: { email: email.trim() } });
+      } else {
+        router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signup' } });
+      }
     } catch (err) {
-      setError(t(mapErrorToKey(err)));
+      if (method === 'email' && isEmailTaken(err)) return setFieldErrors({ email: t('auth.emailTaken') });
+      if (method === 'phone' && isPhoneTaken(err)) return setFieldErrors({ phone: t('auth.phoneTaken') });
+      if (classifyUpdateFailure(err) === 'weak-password') {
+        return setFieldErrors({ password: t('auth.passwordTooShort') });
+      }
+      setError(t(method === 'email' ? mapEmailAuthError(err) : mapOtpError(err)));
     } finally {
       setBusy(false);
     }
@@ -97,9 +192,10 @@ function SignUpScreen() {
 
   return (
     <Screen gutter={20} edges={[]}>
-      <FormScreen>
+      <FormScreen contentStyle={{ flexGrow: 1 }}>
         <Title plain>{t('auth.signUp')}</Title>
         <SocialSignInBlock
+          testID="sign-up.social"
           available={social.available}
           busyProvider={social.busyProvider}
           disabled={busy || holdBusy}
@@ -107,32 +203,69 @@ function SignUpScreen() {
           style={{ marginTop: 14 }}
         />
         {hasSocial(social.available) ? (
-          <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
+          <LabeledDivider label={t('auth.orContinueWithPassword')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
+        <View style={{ marginTop: 6 }}>
+          <SegmentedControl<AuthMethod>
+            testID="sign-up.method"
+            options={[
+              { value: 'phone', label: t('auth.phoneLabel') },
+              { value: 'email', label: t('auth.emailLabel') },
+            ]}
+            value={method}
+            onChange={(next) => {
+              setMethod(next);
+              setFieldErrors({});
+              setError(null);
+            }}
+          />
+        </View>
         <Field
-          placeholder={t('auth.fullNameLabel')}
-          value={fullName}
-          onChangeText={setFullName}
+          testID="sign-up.first-name"
+          placeholder={t('auth.firstNameLabel')}
+          value={firstName}
+          onChangeText={setFirstName}
           autoCapitalize="words"
-          autoComplete="name"
-          textContentType="name"
-          error={fieldErrors.name}
+          autoComplete="given-name"
+          textContentType="givenName"
+          error={fieldErrors.firstName}
           style={{ marginTop: 6 }}
         />
         <Field
-          placeholder={t('auth.emailLabel')}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoComplete="email"
-          textContentType="emailAddress"
-          importantForAutofill="yes"
-          autoCorrect={false}
-          spellCheck={false}
-          secureTextEntry={false}
-          error={fieldErrors.email}
+          testID="sign-up.last-name"
+          placeholder={t('auth.lastNameLabel')}
+          value={lastName}
+          onChangeText={setLastName}
+          autoCapitalize="words"
+          autoComplete="family-name"
+          textContentType="familyName"
+          error={fieldErrors.lastName}
+        />
+        {method === 'email' ? (
+          <Field
+            testID="sign-up.email"
+            placeholder={t('auth.emailLabel')}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            error={fieldErrors.email}
+          />
+        ) : null}
+        <PhoneField
+          testID="sign-up.phone"
+          placeholder={t('auth.phoneLabel')}
+          iso={iso}
+          onChangeIso={setIso}
+          national={national}
+          onChangeNational={setNational}
+          error={fieldErrors.phone}
         />
         <Field
+          testID="sign-up.password"
           placeholder={t('auth.passwordMinPlaceholder')}
           value={password}
           onChangeText={setPassword}
@@ -141,17 +274,10 @@ function SignUpScreen() {
           textContentType="newPassword"
           error={fieldErrors.password}
         />
-        <PhoneField
-          placeholder={t('auth.phoneLabel')}
-          iso={iso}
-          onChangeIso={setIso}
-          national={national}
-          onChangeNational={setNational}
-          error={fieldErrors.phone}
-        />
         <View style={{ marginTop: space.sm }}>
           <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
           <SegmentedControl<Locale>
+            testID="sign-up.language"
             options={[
               { value: 'en', label: t('settings.english') },
               { value: 'ar', label: t('settings.arabic') },
@@ -161,8 +287,36 @@ function SignUpScreen() {
             pinOrder
           />
         </View>
+        {/* 0153: the whole row toggles, so the sentence is a real target too. */}
+        <Pressable
+          testID="sign-up.terms-row"
+          accessibilityRole="switch"
+          accessibilityState={{ checked: agreed }}
+          onPress={() => setAgreed((v) => !v)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.l }}
+        >
+          <Switch
+            testID="sign-up.terms"
+            value={agreed}
+            onValueChange={setAgreed}
+            trackColor={{ true: colors.blue, false: colors.line }}
+            accessibilityLabel={t('auth.termsAgree')}
+          />
+          <Text style={{ flex: 1, fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.ink }}>
+            {t('auth.termsAgree')}
+          </Text>
+        </Pressable>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.l, marginTop: space.s }}>
+          <LinkText testID="sign-up.read-terms" label={t('auth.readTerms')} onPress={() => openLegal('terms')} />
+          <LinkText
+            testID="sign-up.read-privacy"
+            label={t('settings.privacyPolicy')}
+            onPress={() => openLegal('privacy')}
+          />
+        </View>
         <ErrorText>{error ?? social.errorText}</ErrorText>
         <Button
+          testID="sign-up.submit"
           label={t('auth.signUp')}
           onPress={() => void onSubmit()}
           busy={busy || holdBusy}
@@ -171,10 +325,12 @@ function SignUpScreen() {
           style={{ marginTop: space.l }}
         />
         <FooterLink
+          testID="sign-up.sign-in"
           lead={t('auth.alreadyLead')}
           label={t('auth.signIn')}
-          // Reached from Profile as well as Welcome — always land on sign-in.
-          onPress={() => router.replace('/sign-in')}
+          // Reached from Profile as well as Welcome — always land on sign-in,
+          // on the segment the guest was using here.
+          onPress={() => router.replace({ pathname: '/sign-in', params: { method } })}
           style={{ marginTop: 18 }}
         />
       </FormScreen>

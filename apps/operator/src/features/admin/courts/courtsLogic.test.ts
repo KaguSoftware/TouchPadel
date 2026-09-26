@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { courtUsageFromError, durationsValid, toggleDuration } from './courtsLogic';
+import { courtUsageFromError, durationsValid, moveAmongShown, toggleDuration } from './courtsLogic';
 import { AppRpcError } from '../../../lib/appRpc';
 
 describe('toggleDuration', () => {
@@ -44,5 +44,25 @@ describe('courtUsageFromError', () => {
     expect(courtUsageFromError(new AppRpcError('COURT_IN_USE', 'COURT_IN_USE'))).toEqual(zero);
     expect(courtUsageFromError(new AppRpcError('COURT_IN_USE', 'x', undefined, 'not json'))).toEqual(zero);
     expect(courtUsageFromError(new AppRpcError('COURT_IN_USE', 'x', undefined, '{"reservations":"?"}'))).toEqual(zero);
+  });
+});
+
+describe('moveAmongShown', () => {
+  const all = ['a', 'off1', 'b', 'off2', 'c'];
+  const shown = ['a', 'b', 'c'];
+
+  it('swaps with the neighbour the owner can SEE, leaving folded courts where they were', () => {
+    expect(moveAmongShown(all, shown, 'b', -1)).toEqual(['b', 'off1', 'a', 'off2', 'c']);
+    expect(moveAmongShown(all, shown, 'b', 1)).toEqual(['a', 'off1', 'c', 'off2', 'b']);
+  });
+
+  it('is the plain adjacent swap when nothing is folded', () => {
+    expect(moveAmongShown(shown, shown, 'a', 1)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('goes nowhere past either end or for an unknown court', () => {
+    expect(moveAmongShown(all, shown, 'a', -1)).toBeNull();
+    expect(moveAmongShown(all, shown, 'c', 1)).toBeNull();
+    expect(moveAmongShown(all, shown, 'zz', 1)).toBeNull();
   });
 });

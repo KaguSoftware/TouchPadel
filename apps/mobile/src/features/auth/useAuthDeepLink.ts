@@ -4,15 +4,21 @@ import { router, useRootNavigationState } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { authLinkErrorKey, isRecoveryLink, parseAuthLink, type AuthLink } from './deepLink';
+import { markRecoverySession } from './recovery';
 
 /**
- * Turns the tokens on an auth deep link into a session.
+ * Turns the PKCE code on an auth deep link into a session.
  *
  * Nothing did this before. `expo-linking` was a dependency imported nowhere and
  * supabase.ts sets `detectSessionInUrl: false` (right on native — there is no
  * URL bar to read), so an emailed verification or recovery link could never
  * sign anyone in even once it pointed at the app. Mounted once, from
  * app/_layout.tsx.
+ *
+ * Only a code is ever exchanged. A link carrying raw tokens used to be handed
+ * to setSession() here; that let any link this phone opened sign it into the
+ * link author's account (S6, login CSRF), so parseAuthLink no longer produces
+ * such a link at all (2026-09-20).
  *
  * Navigation on the HAPPY path is deliberately left alone: expo-router already
  * routes touchpadel://verify-email and touchpadel://reset-password to their
@@ -43,8 +49,8 @@ export function useAuthDeepLink(): void {
       // forwards an unconfirmed account to verify-email and its resend button.
       router.replace(
         isRecoveryLink(link)
-          ? { pathname: '/forgot-password', params: { authError } }
-          : { pathname: '/sign-in', params: { authError } },
+          ? { pathname: '/forgot-password', params: { authError, method: 'email' } }
+          : { pathname: '/sign-in', params: { authError, method: 'email' } },
       );
     };
 
@@ -59,20 +65,22 @@ export function useAuthDeepLink(): void {
         return;
       }
       try {
-        const { error } =
-          link.kind === 'pkce'
-            ? await supabase.auth.exchangeCodeForSession(link.code)
-            : await supabase.auth.setSession({
-                access_token: link.accessToken,
-                refresh_token: link.refreshToken,
-              });
+        const { error } = await supabase.auth.exchangeCodeForSession(link.code);
         if (error) throw error;
         // AuthProvider's onAuthStateChange listener takes it from here.
-        addBreadcrumb('auth.deepLink.session', { recovery: isRecoveryLink(link) });
-        // A recovery link must land on the reset form. Under Expo Go the URL is
-        // exp://…/--/reset-password and this hook has already consumed the
-        // cold-start URL, so expo-router's own linking may never route it.
-        if (isRecoveryLink(link) && !cancelled) router.replace('/reset-password');
+        const recovery = isRecoveryLink(link);
+        addBreadcrumb('auth.deepLink.session', { recovery });
+        if (recovery) {
+          // The exchange just proved control of the account's mailbox: this is
+          // what lets app/reset-password.tsx render its form (S6). Marked
+          // BEFORE navigating so the screen never mounts in its "link expired"
+          // state and flips a frame later.
+          markRecoverySession();
+          // A recovery link must land on the reset form. Under Expo Go the URL
+          // is exp://…/--/reset-password and this hook has already consumed
+          // the cold-start URL, so expo-router's own linking may never route it.
+          if (!cancelled) router.replace('/reset-password');
+        }
       } catch (error) {
         // The common non-expiry failure is a PKCE verifier mismatch: the link
         // was opened on a different device from the one that signed up, so the
