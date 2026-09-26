@@ -235,6 +235,8 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
   '/admin/staff': ['owner'],
+  // Multi-venue slice 4: the branches and "Open a new branch" are the owner's.
+  '/admin/branches': ['owner'],
   '/analytics': ['owner'],
   '/ops': ['manager', 'owner'],
   '/panel': ['owner'],
@@ -302,6 +304,7 @@ export const SUB_ROUTES = {
     '/admin/telegram',
     '/admin/settings',
     '/admin/staff',
+    '/admin/branches',
     '/admin/audit',
   ],
   '/stock': [

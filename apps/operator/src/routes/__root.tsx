@@ -63,6 +63,7 @@ import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
 import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
 import { RailMoreMenu } from '../components/RailMoreMenu';
+import { RailBranch } from '../components/RailBranch';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
 import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
@@ -913,6 +914,8 @@ function WorkspaceNav({
           <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
             {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
           </p>
+          {/* Multi-venue slice 4: which branch this screen is for (a switcher for the owner). */}
+          <RailBranch />
         </div>
       </div>
 

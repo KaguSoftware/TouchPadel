@@ -26,6 +26,7 @@ import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../compone
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { TAX_GROUPS_KEY, VENUE_ADMIN_KEY, bpToPercent, fetchTaxGroups, fetchVenueAdmin, type TaxGroupRow, type VenueAdminRow } from './venueQueries';
 import { DevicesPanel } from './DevicesPanel';
+import { StationsPanel } from './StationsPanel';
 import {
   VENUE_RANGES,
   draftFromVenue,
@@ -131,6 +132,8 @@ export function VenueDetailsTab() {
             </>
           ))}
         {venueQ.data && <DevicesPanel staleSeconds={venueQ.data.heartbeat_stale_seconds} />}
+        {/* Multi-venue slice 4 (0222): register this machine at the branch; retire a gone station. */}
+        <StationsPanel />
         {venueQ.data && (
           <Panel title={tr('ws.owner.settings.details.fixedTitle')}>
             <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.fixedNote')}</p>

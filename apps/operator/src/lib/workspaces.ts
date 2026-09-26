@@ -45,7 +45,7 @@ export interface NavItem {
     | 'today' | 'calendar' | 'customers' | 'newSeries' | 'blockCourt'
     | 'till' | 'openTabs' | 'cashDrawer'
     | 'overview' | 'bookings' | 'tills' | 'dayClose' | 'menu' | 'rates' | 'promotions' | 'stock' | 'reports' | 'audit'
-    | 'panel' | 'analytics' | 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite'
+    | 'panel' | 'analytics' | 'staff' | 'branches' | 'courts' | 'tables' | 'settings' | 'guestSite'
     // Management's Financial / Observation sections (see the header note).
     | 'menuPrices'
     | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
@@ -315,6 +315,7 @@ const OWNER_STOCK: readonly NavItem[] = [
 const OWNER_SETUP: readonly NavItem[] = [
   { to: '/setup', labelKey: 'overview', icon: 'grid', exact: true },
   { to: '/admin/staff', labelKey: 'staff', icon: 'shield' },
+  { to: '/admin/branches', labelKey: 'branches', icon: 'home' },
   { to: '/admin/courts', labelKey: 'courts', icon: 'court' },
   { to: '/admin/qr', labelKey: 'tables', icon: 'qr' },
   { to: '/admin/settings', labelKey: 'settings', icon: 'settings', activePrefix: '/admin/settings' },

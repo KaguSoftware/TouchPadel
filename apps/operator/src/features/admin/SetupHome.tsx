@@ -49,6 +49,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatNumber, type MessageKey } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
+import { useVenue } from '../../lib/venue';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../lib/i18n';
 import { useCafeSettings } from '../../lib/settings';
@@ -65,7 +66,7 @@ import { SK as STOCK_KEYS, fetchNeedsCostCount } from '../stock/stockKeys';
 import { permissionsFor } from '../../lib/auth';
 import { holdersWithoutPin } from '../tillShift/tillShiftLogic';
 
-type CardKey = 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite';
+type CardKey = 'staff' | 'branches' | 'courts' | 'tables' | 'settings' | 'guestSite';
 
 /** Telegram states that mean "switched on, and staff are still not being told". */
 const TELEGRAM_BROKEN: readonly TelegramHealth[] = ['noGroup', 'failing', 'stuck'];
@@ -75,6 +76,7 @@ export function SetupHomeScreen() {
   const cafe = useCafeSettings();
 
   const staffQ = useQuery({ queryKey: STAFF_QUERY_KEY, queryFn: () => appRpc<StaffRow[]>('list_staff') });
+  const { venues } = useVenue();
   const courtsQ = useQuery({
     queryKey: ['courts', 'setupHome'],
     queryFn: async () => {
@@ -128,6 +130,8 @@ export function SetupHomeScreen() {
     switch (key as CardKey) {
       case 'staff':
         return figure('ws.owner.setupHome.status.staff', staffQ.data?.filter((s) => s.is_active).length);
+      case 'branches':
+        return figure('ws.owner.setupHome.status.branches', venues.length || undefined);
       case 'courts':
         return figure('ws.owner.setupHome.status.courts', courtsQ.data);
       case 'tables':
