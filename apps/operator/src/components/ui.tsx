@@ -1050,6 +1050,11 @@ export function Tabs<T extends string>({
         borderBlockEnd: '1px solid var(--tp-border)',
         marginBlockEnd: '0.9rem',
         overflowX: 'auto',
+        // overflow-x alone turns overflow-y to auto as well, and the tabs'
+        // -1px underline margin then grew a vertical scrollbar. Still
+        // swipeable when the strip is too narrow, just without a bar.
+        overflowY: 'hidden',
+        scrollbarWidth: 'none',
         ...style,
       }}
     >
