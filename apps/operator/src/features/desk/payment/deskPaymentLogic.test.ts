@@ -5,7 +5,11 @@ import {
   canTakePayment,
   chargeLabelOf,
   closeBillPlan,
+  onlinePaymentsTaken,
+  onlineRefundState,
+  paidOnlineOnly,
   panelStateOf,
+  paymentMethodKey,
   statesById,
   toSettle,
   unsettledBefore,
@@ -115,6 +119,44 @@ describe('panelStateOf', () => {
   });
   it('a live booking with no court price', () => {
     expect(panelStateOf(bill({ court_remaining_iqd: 0 }, { price_iqd: null }))).toBe('noFee');
+  });
+});
+
+describe('online deposit (build-contracts-2026-09-27)', () => {
+  it('a deposit paid online leaves the rest to take, not "owed again"', () => {
+    const b = bill({ court_paid_iqd: 15_000, court_remaining_iqd: 15_000, online_paid_iqd: 15_000 });
+    expect(paidOnlineOnly(b)).toBe(true);
+    expect(panelStateOf(b)).toBe('depositRest');
+    expect(canTakePayment('depositRest')).toBe(true);
+  });
+  it('desk money on top of the deposit, then a dearer booking, is owed again', () => {
+    const b = bill({ court_paid_iqd: 30_000, court_remaining_iqd: 5_000, online_paid_iqd: 15_000 });
+    expect(paidOnlineOnly(b)).toBe(false);
+    expect(panelStateOf(b)).toBe('owedAgain');
+  });
+  it('a deposit that covers the whole fee is paid; a bill without the field reads as no deposit', () => {
+    expect(panelStateOf(bill({ court_paid_iqd: 30_000, court_remaining_iqd: 0, online_paid_iqd: 30_000 }))).toBe('paid');
+    expect(paidOnlineOnly(bill({ court_paid_iqd: 15_000 }))).toBe(false);
+  });
+  it('the till only ever names cash and card; anything else on a bill is online', () => {
+    expect(paymentMethodKey('cash')).toBe('cash');
+    expect(paymentMethodKey('card')).toBe('card');
+    expect(paymentMethodKey('qi')).toBe('online');
+  });
+  it('lists only deposits that took money, earliest first', () => {
+    const p = (id: string, succeeded_at: string | null, status = 'succeeded') => ({ id, status, amount_iqd: 15_000, refund_amount_iqd: null, succeeded_at, refunded_at: null, sandbox: false });
+    const b = bill({ online_payments: [p('late', '2099-09-02T10:00:00Z'), p('failed', null, 'failed'), p('early', '2099-09-01T10:00:00Z')] });
+    expect(onlinePaymentsTaken(b).map((x) => x.id)).toEqual(['early', 'late']);
+    expect(onlinePaymentsTaken(bill())).toEqual([]);
+  });
+  it('says what became of a refund', () => {
+    const base = { amount_iqd: 20_000, refund_amount_iqd: 20_000 };
+    expect(onlineRefundState({ ...base, status: 'succeeded' })).toBe('none');
+    expect(onlineRefundState({ ...base, status: 'succeeded', forfeited: true })).toBe('kept');
+    expect(onlineRefundState({ ...base, status: 'refund_pending' })).toBe('pending');
+    expect(onlineRefundState({ ...base, status: 'refund_failed' })).toBe('failed');
+    expect(onlineRefundState({ ...base, status: 'refunded' })).toBe('refunded');
+    expect(onlineRefundState({ ...base, status: 'refunded', refund_amount_iqd: 5_000 })).toBe('refundedPart');
   });
 });
 

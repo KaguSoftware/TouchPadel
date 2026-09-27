@@ -1,5 +1,5 @@
 {
-  "generated_from": "75a0b566e9755b37064fca81a86a905bc6282799",
+  "generated_from": "69b532f57cd27f5e1dbadffcc85b576a8b256dee",
   "chunks": [
     {
       "kind": "page",
@@ -2270,7 +2270,7 @@
       "ref": "action:app.confirm_booking",
       "lang": "en",
       "title": "app.confirm_booking",
-      "body": "Signature: app.confirm_booking(p_hold_id uuid, p_guest_name text default null, p_guest_phone text default null, p_players int default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: reservation.confirm.\nError codes: AUTH_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, HOLD_EXPIRED, PHONE_REQUIRED, GUEST_REQUIRED, NO_RATE, PRICE_CHANGED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0210 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.confirm_booking(p_hold_id uuid, p_guest_name text default null, p_guest_phone text default null, p_players int default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: reservation.confirm.\nError codes: AUTH_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, HOLD_EXPIRED, PHONE_REQUIRED, DEPOSIT_REQUIRED, GUEST_REQUIRED, NO_RATE, PRICE_CHANGED.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2483,6 +2483,62 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.deposit_attention",
+      "lang": "en",
+      "title": "app.deposit_attention",
+      "body": "0242. Manager, owner. Online deposits a person must look at: refund_failed, refund_pending for more than 24 hours, and succeeded deposits whose booking is no longer live.\nSignature: app.deposit_attention(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deposit_quote",
+      "lang": "en",
+      "title": "app.deposit_quote",
+      "body": "0242. Review's deposit terms for the caller's own hold: {deposit_mode (effective for this guest), deposit_iqd, price_iqd, rest_iqd, window_seconds, active (the live attempt or null)}. Mode is off and amounts 0 when deposits are off. AUTH_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN.\nSignature: app.deposit_quote(p_hold_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deposit_refund_manual",
+      "lang": "en",
+      "title": "app.deposit_refund_manual",
+      "body": "0242. Manager, owner, with a manager PIN. Marks an online deposit refunded because the guest got the money back another way (cash at the desk, a bank transfer). The note says how. Nothing is sent to Qi.\nSignature: app.deposit_refund_manual(p_payment_id uuid, p_pin text, p_note text, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: deposit.refund_manual.\nError codes: FORBIDDEN, REASON_REQUIRED, PAYMENT_NOT_FOUND, VENUE_MISMATCH, PAYMENT_STATE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deposit_refund_request",
+      "lang": "en",
+      "title": "app.deposit_refund_request",
+      "body": "Signature: app.deposit_refund_request(p_payment_id uuid, p_amount_iqd bigint default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, PAYMENT_NOT_FOUND, VENUE_MISMATCH.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deposit_refund_retry",
+      "lang": "en",
+      "title": "app.deposit_refund_retry",
+      "body": "Signature: app.deposit_refund_retry(p_payment_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: deposit.refund_retry.\nError codes: FORBIDDEN, PAYMENT_NOT_FOUND, VENUE_MISMATCH, PAYMENT_STATE.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deposit_settings",
+      "lang": "en",
+      "title": "app.deposit_settings",
+      "body": "Signature: app.deposit_settings(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN, VENUE_SETTINGS_MISSING.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.deposit_status",
+      "lang": "en",
+      "title": "app.deposit_status",
+      "body": "0242. One payment attempt by its request_id, as the guest's payment screen renders it (contracts §2.2). The guest reads their own; court desk, manager and owner read their branch's. PAYMENT_NOT_FOUND for an unknown or foreign ref alike.\nSignature: app.deposit_status(p_request_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nError codes: AUTH_REQUIRED, PAYMENT_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.discard_count",
       "lang": "en",
       "title": "app.discard_count",
@@ -2526,7 +2582,7 @@
       "ref": "action:app.expire_stale_holds",
       "lang": "en",
       "title": "app.expire_stale_holds",
-      "body": "0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL.\nSignature: app.expire_stale_holds(p_court_id uuid default null, p_period tstzrange default null) returns int.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0071 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL. 0242: skips a hold whose online payment is still open, until ten minutes after that payment's deadline.\nSignature: app.expire_stale_holds(p_court_id uuid default null, p_period tstzrange default null) returns int.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2902,7 +2958,7 @@
       "ref": "action:app.my_reservations",
       "lang": "en",
       "title": "app.my_reservations",
-      "body": "0152. The caller's own reservations (guest_id = auth.uid()), newest first, capped at 100, with the court fee paid and still owed on each, and cancelled_at (0075: the moment the booking became history). Null id lists them; an id returns that one. The guest-side counterpart of booking_bill, which is staff-only.\nSignature: app.my_reservations(p_reservation_id uuid default null) returns table(id uuid, court_id uuid, kind text, status text, start_at timestamptz, end_at timestamptz, price_iqd bigint, hold_expires_at timestamptz, cancelled_by text, cancelled_at timestamptz, court_paid_iqd bigint, court_remaining_iqd bigint, venue_id uuid).\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0235 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0152. The caller's own reservations (guest_id = auth.uid()), newest first, capped at 100, with the court fee paid and still owed on each, and cancelled_at (0075: the moment the booking became history). Null id lists them; an id returns that one. The guest-side counterpart of booking_bill, which is staff-only.\nSignature: app.my_reservations(p_reservation_id uuid default null) returns table(id uuid, court_id uuid, kind text, status text, start_at timestamptz, end_at timestamptz, price_iqd bigint, hold_expires_at timestamptz, cancelled_by text, cancelled_at timestamptz, court_paid_iqd bigint, court_remaining_iqd bigint, venue_id uuid, online_paid_iqd bigint, payment_status text, payment_ref uuid).\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3262,7 +3318,7 @@
       "ref": "action:app.release_hold",
       "lang": "en",
       "title": "app.release_hold",
-      "body": "0058: guest hands back an OWN unconfirmed hold (kind=hold, status=pending) -> expired. Idempotent. Not a path around cancellation_window_hours: confirmed bookings still go through app.cancel_reservation.\nSignature: app.release_hold(p_reservation_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.release.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, NOT_A_HOLD.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0060 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0058: guest hands back an OWN unconfirmed hold (kind=hold, status=pending) -> expired. Idempotent. Not a path around cancellation_window_hours: confirmed bookings still go through app.cancel_reservation.\nSignature: app.release_hold(p_reservation_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.release.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, NOT_A_HOLD.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3550,8 +3606,16 @@
       "ref": "action:app.set_customer_flags",
       "lang": "en",
       "title": "app.set_customer_flags",
-      "body": "Signature: app.set_customer_flags(p_customer_id uuid, p_flags jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: customer.flags_set.\nError codes: FORBIDDEN, INVALID_FLAGS, CUSTOMER_NOT_FOUND, INVALID_FLAG, LABEL_LENGTH, DUPLICATE_FLAG.\nCalled from: apps/operator/src/features/desk/customers/CustomerRecord.tsx (pages /desk).\nDefined in migration 0065 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.set_customer_flags(p_customer_id uuid, p_flags jsonb) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk,manager,owner).\nAudit actions written: customer.flags_set.\nError codes: FORBIDDEN, INVALID_FLAGS, CUSTOMER_NOT_FOUND, INVALID_FLAG, LABEL_LENGTH, DUPLICATE_FLAG.\nCalled from: apps/operator/src/features/desk/customers/CustomerRecord.tsx (pages /desk).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
       "route": "/desk"
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.set_deposit_settings",
+      "lang": "en",
+      "title": "app.set_deposit_settings",
+      "body": "0242. Owner. Patch the branch's deposit rules (deposit_mode off|optional|required, deposit_percent_bp 100..10000, deposit_min_iqd 0..10M, deposit_max_iqd null or min..10M, deposit_window_seconds 120..1800, deposit_forfeit_no_show). Returns deposit_settings. Audited venue.deposit_settings.\nSignature: app.set_deposit_settings(p_patch jsonb, p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (owner).\nAudit actions written: venue.deposit_settings.\nError codes: FORBIDDEN, INVALID_ARGUMENT.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
     },
     {
       "kind": "action",
@@ -4483,6 +4547,22 @@
     },
     {
       "kind": "table",
+      "ref": "table:booking_payment_events",
+      "lang": "en",
+      "title": "table booking_payment_events",
+      "body": "0241. Append-only log of every payment message (Qi webhooks and status answers, matched or not: an unmatched webhook has payment_id null) and every decision taken about a payment. Card data never lands here: the edge functions strip maskedPan, rrn and authId first.\nCreated in migration 0241.\nColumns:\n  id bigint generated always as identity primary key\n  payment_id uuid references booking_payments(id)\n  source text not null check (source in ('begin', 'created', 'webhook', 'poll', 'reconcile', 'refund', 'manual', 'decision'))\n  provider_status text check (provider_status is null or char_length(provider_status) <= 64)\n  signature_ok boolean\n  note text check (note is null or char_length(note) <= 300)\n  raw jsonb not null default '{}'::jsonb\n  at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:booking_payments",
+      "lang": "en",
+      "title": "table booking_payments",
+      "body": "0241. One online payment attempt on a court booking (a deposit, Qi Card hosted page). Written only by the app.deposit_* functions (0242); request_id is what Qi gets, provider_payment_id what Qi answered. reservation_id is the booking the money is for (it moves when a swept hold is re-created as a booking); hold_id is where the attempt began and never changes. Not a till payment: no recorded_by, no day, not in the cash count.\nCreated in migration 0241.\nColumns:\n  id uuid primary key default gen_random_uuid()\n  venue_id uuid not null default app.current_venue() references venues(id)\n  reservation_id uuid not null references reservations(id)\n  hold_id uuid not null references reservations(id)\n  guest_id uuid references profiles(id) on delete set null\n  purpose text not null default 'deposit' check (purpose in ('deposit'))\n  provider text not null check (provider in ('qi', 'fake'))\n  sandbox boolean not null default false\n  request_id uuid not null unique\n  provider_payment_id text unique check (provider_payment_id is null or char_length(provider_payment_id) between 1 and 200)\n  amount_iqd iqd not null check (amount_iqd > 0)\n  quoted_price_iqd iqd not null\n  locale text not null default 'ar' check (locale in ('en', 'ar'))\n  status text not null default 'created' check (status in ('created', 'pending', 'succeeded', 'failed', 'expired', 'refund_pending', 'refunded', 'refund_failed'))\n  provider_status text check (provider_status is null or char_length(provider_status) <= 64)\n  form_url text check (form_url is null or (form_url ~ '^https?://' and char_length(form_url) <= 2048))\n  deadline_at timestamptz not null\n  last_checked_at timestamptz\n  succeeded_at timestamptz\n  failed_at timestamptz\n  expired_at timestamptz\n  forfeited_at timestamptz\n  failure_code text check (failure_code is null or failure_code in ('declined', 'auth_failed', 'bank_error', 'cancelled'))\n  refund_reason text check (refund_reason is null or refund_reason in ('guest_cancel', 'staff_cancel', 'no_show', 'slot_lost', 'venue_offline', 'amount_mismatch', 'duplicate_success', 'manual', 'staff_refund'))\n  refund_amount_iqd iqd\n  refund_request_id uuid unique\n  refund_provider_id text check (refund_provider_id is null or char_length(refund_provider_id) <= 200)\n  refund_note text check (refund_note is null or char_length(refund_note) <= 300)\n  refund_requested_at timestamptz\n  refunded_at timestamptz\n  refund_attempts int not null default 0\n  cancel_attempts int not null default 0\n  claimed_at timestamptz\n  created_at timestamptz not null default now()\n  updated_at timestamptz not null default now() — Money moved exactly when these say it did (plan §3.2, I3).",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:cafe_settings",
       "lang": "en",
       "title": "table cafe_settings",
@@ -4854,7 +4934,7 @@
       "ref": "table:profiles",
       "lang": "en",
       "title": "table profiles",
-      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.",
+      "body": "Created in migration 0004.\nColumns:\n  id uuid primary key references auth.users(id) on delete cascade\n  full_name text not null\n  phone text — captured day one per scope (future SMS identity)\n  preferred_lang text not null default 'en' check (preferred_lang in ('en','ar'))\n  expo_push_token text\n  created_at timestamptz not null default now()\n  deleted_at timestamptz — Set by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).\n  terms_version text — The Terms of Service / Privacy Policy version the guest last accepted (CURRENT_TERMS_VERSION in packages/core/src/legal.ts). Written only by app.accept_terms. Null = never accepted; the app shows its consent screen.\n  terms_accepted_at timestamptz — Server time app.accept_terms recorded the acceptance of terms_version. Retained on the 0077 tombstone as proof the terms applied.\n  payment_sandbox boolean not null default false — 0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.",
       "route": null
     },
     {
@@ -5286,7 +5366,7 @@
       "ref": "table:venue_settings",
       "lang": "en",
       "title": "table venue_settings",
-      "body": "0006, per branch since 0208. One row per venue: opening hours, closed dates, booking and degraded-mode thresholds, guest cafe limits, tax and rounding. The chain's settings live in platform_settings (0207).\nCreated in migration 0006.\nColumns:\n  id boolean primary key default true check (id) — DEPRECATED 0208: the 0006 singleton key. Always true; no longer unique. Kept so a body not yet re-issued still compiles. Never use it in new code: key by venue_id.\n  venue_name text not null\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad'\n  opening_hours jsonb not null — {\"mon\":[[\"09:00\",\"23:00\"]],...} config blob\n  closed_dates date[] not null default '{}'\n  hold_ttl_seconds int not null default 300\n  protected_horizon_hours int not null default 48 — degraded-mode lockout window\n  heartbeat_stale_seconds int not null default 45 — till POSTs every 10s; stale past this\n  table_token_ttl_minutes int not null default 90 — guest session inactivity expiry\n  waiter_call_cooldown_seconds int not null default 120\n  cancellation_window_hours int not null default 12\n  cash_rounding_iqd int not null default 1 — 1 = no rounding (override #1)\n  expiring_soon_days int not null default 3\n  tax_inclusive boolean not null default false\n  phone text\n  max_live_holds_per_guest int not null default 3 — 0048/C1: cap on unexpired pending holds per auth.uid(). 0 disables the cap.\n  max_booking_horizon_days int not null default 180 — 0048/C1: how far ahead a guest may hold a slot. 0 disables the horizon. Default 180 is deliberately generous -- it exists to bound the C1 abuse (holds arbitrarily far out, forever), not to shorten the venue booking window; max_live_holds_per_guest is the tight constraint. Tighten here if Touch wants a shorter window.\n  llm_daily_request_limit int not null default 200 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_cost_micros_per_mtok bigint not null default 500000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  guest_orders_per_minute int not null default 6 — 0082/SEC-25. Orders one guest table session may submit per rolling minute. 6 is generous for a real table — a group ordering in waves — and far below what a script does. 0 disables guest ordering entirely.\n  guest_items_per_order int not null default 40 — 0082/SEC-25. Line items in a single guest order. 40 covers a large table; it stops one request queueing hundreds of tickets.\n  tab_confirm_threshold_iqd bigint not null default 150000 — 0082/SEC-25. Tab value above which the TILL asks staff to confirm before adding more. Advisory: read by the operator UI, not enforced here — a genuine large tab must never be blocked by the database mid-service.\n  llm_pricing jsonb not null default '{}'::jsonb — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  venue_id uuid — 0126, key since 0208 (unique index venue_settings_venue_id_key; not null by the validated CHECK venue_settings_venue_id_present of 0139). One row per branch.\n  llm_default_model text not null default 'claude-opus-5' — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.",
+      "body": "0006, per branch since 0208. One row per venue: opening hours, closed dates, booking and degraded-mode thresholds, guest cafe limits, tax and rounding. The chain's settings live in platform_settings (0207).\nCreated in migration 0006.\nColumns:\n  id boolean primary key default true check (id) — DEPRECATED 0208: the 0006 singleton key. Always true; no longer unique. Kept so a body not yet re-issued still compiles. Never use it in new code: key by venue_id.\n  venue_name text not null\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad'\n  opening_hours jsonb not null — {\"mon\":[[\"09:00\",\"23:00\"]],...} config blob\n  closed_dates date[] not null default '{}'\n  hold_ttl_seconds int not null default 300\n  protected_horizon_hours int not null default 48 — degraded-mode lockout window\n  heartbeat_stale_seconds int not null default 45 — till POSTs every 10s; stale past this\n  table_token_ttl_minutes int not null default 90 — guest session inactivity expiry\n  waiter_call_cooldown_seconds int not null default 120\n  cancellation_window_hours int not null default 12\n  cash_rounding_iqd int not null default 1 — 1 = no rounding (override #1)\n  expiring_soon_days int not null default 3\n  tax_inclusive boolean not null default false\n  phone text\n  max_live_holds_per_guest int not null default 3 — 0048/C1: cap on unexpired pending holds per auth.uid(). 0 disables the cap.\n  max_booking_horizon_days int not null default 180 — 0048/C1: how far ahead a guest may hold a slot. 0 disables the horizon. Default 180 is deliberately generous -- it exists to bound the C1 abuse (holds arbitrarily far out, forever), not to shorten the venue booking window; max_live_holds_per_guest is the tight constraint. Tighten here if Touch wants a shorter window.\n  llm_daily_request_limit int not null default 200 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  llm_cost_micros_per_mtok bigint not null default 500000 — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  guest_orders_per_minute int not null default 6 — 0082/SEC-25. Orders one guest table session may submit per rolling minute. 6 is generous for a real table — a group ordering in waves — and far below what a script does. 0 disables guest ordering entirely.\n  guest_items_per_order int not null default 40 — 0082/SEC-25. Line items in a single guest order. 40 covers a large table; it stops one request queueing hundreds of tickets.\n  tab_confirm_threshold_iqd bigint not null default 150000 — 0082/SEC-25. Tab value above which the TILL asks staff to confirm before adding more. Advisory: read by the operator UI, not enforced here — a genuine large tab must never be blocked by the database mid-service.\n  llm_pricing jsonb not null default '{}'::jsonb — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  venue_id uuid — 0126, key since 0208 (unique index venue_settings_venue_id_key; not null by the validated CHECK venue_settings_venue_id_present of 0139). One row per branch.\n  llm_default_model text not null default 'claude-opus-5' — DEPRECATED 0207: moved to platform_settings; no function reads it. Dropped by a later migration.\n  deposit_mode text not null default 'off' — 0241. Online deposit on guest bookings: off (never asked), optional (Pay now or pay at the desk), required (pay first). Owner-set via app.set_deposit_settings. Ships off.\n  deposit_percent_bp int not null default 5000 — 0241. Deposit as basis points of the court price (5000 = 50 %), rounded up to 250 IQD, then held between deposit_min_iqd and deposit_max_iqd and never above the price.\n  deposit_min_iqd bigint not null default 10000\n  deposit_max_iqd bigint\n  deposit_window_seconds int not null default 900 — 0241. How long a guest has on the payment page; the hold is extended to cover it.\n  deposit_forfeit_no_show boolean not null default true — 0241. A no-show keeps the deposit (true) or refunds it (false). A cancelled booking always refunds.",
       "route": null
     },
     {
@@ -6111,6 +6191,14 @@
       "lang": "en",
       "title": "audit_log.venue_id",
       "body": "uuid\n0126 (multi-venue slice 1): defaults to app.current_venue_or_default(), not\n  app.current_venue() — cron sweeps and service_role paths audit too, and an audit row is never worth refusing a write over (R1).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:booking_payments.updated_at",
+      "lang": "en",
+      "title": "booking_payments.updated_at",
+      "body": "timestamptz not null default now()\nMoney moved exactly when these say it did (plan §3.2, I3).",
       "route": null
     },
     {
@@ -7863,6 +7951,14 @@
       "lang": "en",
       "title": "profiles.deleted_at",
       "body": "timestamptz\nSet by app.delete_my_account. The row is a TOMBSTONE: anonymised, retained only so reservations.guest_id and the venue statistics keep a parent. Never set by hand — the on_auth_user_deleted trigger reads it to tell a self-deletion (row survives) from an admin rollback (row is dropped).",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:profiles.payment_sandbox",
+      "lang": "en",
+      "title": "profiles.payment_sandbox",
+      "body": "boolean not null default false\n0241. Set by hand on the store review account only: its deposits go to Qi's sandbox (test card, no money), are stamped sandbox and never count as paid or as revenue.",
       "route": null
     },
     {
@@ -10571,6 +10667,38 @@
     },
     {
       "kind": "column",
+      "ref": "column:venue_settings.deposit_forfeit_no_show",
+      "lang": "en",
+      "title": "venue_settings.deposit_forfeit_no_show",
+      "body": "boolean not null default true\n0241. A no-show keeps the deposit (true) or refunds it (false). A cancelled booking always refunds.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:venue_settings.deposit_mode",
+      "lang": "en",
+      "title": "venue_settings.deposit_mode",
+      "body": "text not null default 'off'\n0241. Online deposit on guest bookings: off (never asked), optional (Pay now or pay at the desk), required (pay first). Owner-set via app.set_deposit_settings. Ships off.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:venue_settings.deposit_percent_bp",
+      "lang": "en",
+      "title": "venue_settings.deposit_percent_bp",
+      "body": "int not null default 5000\n0241. Deposit as basis points of the court price (5000 = 50 %), rounded up to 250 IQD, then held between deposit_min_iqd and deposit_max_iqd and never above the price.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:venue_settings.deposit_window_seconds",
+      "lang": "en",
+      "title": "venue_settings.deposit_window_seconds",
+      "body": "int not null default 900\n0241. How long a guest has on the payment page; the hold is extended to cover it.",
+      "route": null
+    },
+    {
+      "kind": "column",
       "ref": "column:venue_settings.guest_items_per_order",
       "lang": "en",
       "title": "venue_settings.guest_items_per_order",
@@ -10951,6 +11079,54 @@
       "lang": "en",
       "title": "venue_settings.currency",
       "body": "char(3) not null default 'IQD'\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.deposit_forfeit_no_show",
+      "lang": "en",
+      "title": "venue_settings.deposit_forfeit_no_show",
+      "body": "boolean not null default true\n0241. A no-show keeps the deposit (true) or refunds it (false). A cancelled booking always refunds.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.deposit_max_iqd",
+      "lang": "en",
+      "title": "venue_settings.deposit_max_iqd",
+      "body": "bigint\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.deposit_min_iqd",
+      "lang": "en",
+      "title": "venue_settings.deposit_min_iqd",
+      "body": "bigint not null default 10000\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.deposit_mode",
+      "lang": "en",
+      "title": "venue_settings.deposit_mode",
+      "body": "text not null default 'off'\n0241. Online deposit on guest bookings: off (never asked), optional (Pay now or pay at the desk), required (pay first). Owner-set via app.set_deposit_settings. Ships off.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.deposit_percent_bp",
+      "lang": "en",
+      "title": "venue_settings.deposit_percent_bp",
+      "body": "int not null default 5000\n0241. Deposit as basis points of the court price (5000 = 50 %), rounded up to 250 IQD, then held between deposit_min_iqd and deposit_max_iqd and never above the price.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "setting",
+      "ref": "setting:venue_settings.deposit_window_seconds",
+      "lang": "en",
+      "title": "venue_settings.deposit_window_seconds",
+      "body": "int not null default 900\n0241. How long a guest has on the payment page; the hold is extended to cover it.\nOne row for the venue; read whole by the settings_read tool. Edited on /admin/settings and /admin/hours.",
       "route": "/admin/settings"
     },
     {
@@ -11574,7 +11750,7 @@
       "ref": "label:op.errors#5",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts)",
-      "body": "MODIFIER_INVALID: إحدى الإضافات المختارة لا تنتمي إلى هذا الصنف.\nMODIFIER_NOT_FOUND: الإضافة غير موجودة.\nGROUP_NOT_FOUND: مجموعة الإضافات غير موجودة.\nREVEAL_SELF: لا يمكن للخيار أن يكشف مجموعته نفسها.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.\nINVALID_SETTING_VALUE: هذه القيمة غير صالحة لهذا الإعداد.\nINVALID_PCT: النسبة المئوية يجب أن تكون بين 0 و99.\nTABLE_NUMBER_TAKEN: رقم الطاولة هذا مستخدم بالفعل.\nINVALID_TABLE_NUMBER: رقم طاولة غير صالح.\nINVALID_COOLDOWN: فترة الانتظار يجب أن تكون بين 30 و600 ثانية.\nBELL_DISABLED: جرس النادل معطّل لهذه الطاولة.\nCALL_COOLDOWN: نادت هذه الطاولة قبل لحظات — انتظر انتهاء فترة الانتظار.\nCALL_NOT_FOUND: نداء النادل غير موجود.\nTOKEN_INVALID: رمز الطاولة هذا لم يعد صالحًا.\nTELEGRAM_NOT_CONFIGURED: تيليغرام غير مُعدّ — أضف معرّف مجموعة الدردشة أولًا.\nOUTBOX_NOT_FOUND: رسالة الصادر غير موجودة.\nINVALID_KIND: نوع رسالة غير معروف.\nREF_NOT_FOUND: السجل المُشار إليه لم يعد موجودًا.\nREF_REQUIRED: هذه الرسالة تحتاج إلى مرجع.\nACTOR_REQUIRED: هذا الإجراء يتطلب موظفًا مسجّل الدخول.\nINVALID_ACTION: إجراء غير معروف.\nVOID_REQUIRES_REFUND: هذا الحساب يحتوي على دفعات — أعد المبلغ قبل الإلغاء.\nINVALID_ARGUMENT: إدخال غير صالح — تحقق من القيم وحاول مجددًا.\nREJECTION_NOT_FOUND: الاستنتاج المرفوض لم يعد موجودًا.\nREFUND_EXCEEDS_PAYMENT: المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.\nPAYMENT_NOT_FOUND: لم يتم العثور على هذه الدفعة.\nITEM_NOT_ON_TAB: هذا السطر ليس على هذا الحساب.\nIDEMPOTENCY_CONFLICT: حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.",
+      "body": "MODIFIER_INVALID: إحدى الإضافات المختارة لا تنتمي إلى هذا الصنف.\nMODIFIER_NOT_FOUND: الإضافة غير موجودة.\nGROUP_NOT_FOUND: مجموعة الإضافات غير موجودة.\nREVEAL_SELF: لا يمكن للخيار أن يكشف مجموعته نفسها.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.\nINVALID_SETTING_VALUE: هذه القيمة غير صالحة لهذا الإعداد.\nINVALID_PCT: النسبة المئوية يجب أن تكون بين 0 و99.\nTABLE_NUMBER_TAKEN: رقم الطاولة هذا مستخدم بالفعل.\nINVALID_TABLE_NUMBER: رقم طاولة غير صالح.\nINVALID_COOLDOWN: فترة الانتظار يجب أن تكون بين 30 و600 ثانية.\nBELL_DISABLED: جرس النادل معطّل لهذه الطاولة.\nCALL_COOLDOWN: نادت هذه الطاولة قبل لحظات — انتظر انتهاء فترة الانتظار.\nCALL_NOT_FOUND: نداء النادل غير موجود.\nTOKEN_INVALID: رمز الطاولة هذا لم يعد صالحًا.\nTELEGRAM_NOT_CONFIGURED: تيليغرام غير مُعدّ — أضف معرّف مجموعة الدردشة أولًا.\nOUTBOX_NOT_FOUND: رسالة الصادر غير موجودة.\nINVALID_KIND: نوع رسالة غير معروف.\nREF_NOT_FOUND: السجل المُشار إليه لم يعد موجودًا.\nREF_REQUIRED: هذه الرسالة تحتاج إلى مرجع.\nACTOR_REQUIRED: هذا الإجراء يتطلب موظفًا مسجّل الدخول.\nINVALID_ACTION: إجراء غير معروف.\nVOID_REQUIRES_REFUND: هذا الحساب يحتوي على دفعات — أعد المبلغ قبل الإلغاء.\nINVALID_ARGUMENT: إدخال غير صالح — تحقق من القيم وحاول مجددًا.\nREJECTION_NOT_FOUND: الاستنتاج المرفوض لم يعد موجودًا.\nREFUND_EXCEEDS_PAYMENT: المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.\nPAYMENT_NOT_FOUND: لم يتم العثور على هذه الدفعة.\nPAYMENT_STATE: تغيّرت هذه الدفعة منذ أن فتحتها. تعرض القائمة الآن حالتها الحالية.\nREFUND_TOO_LARGE: مبلغ الاسترجاع أكبر مما دفعه الضيف إلكترونيًا.\nITEM_NOT_ON_TAB: هذا السطر ليس على هذا الحساب.\nIDEMPOTENCY_CONFLICT: حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.",
       "route": null
     },
     {
@@ -11590,7 +11766,7 @@
       "ref": "label:op.errors#6",
       "lang": "en",
       "title": "op.errors (packages/i18n/src/catalogs/en.ts)",
-      "body": "TELEGRAM_NOT_CONFIGURED: Telegram is not configured — add the group chat ID first.\nOUTBOX_NOT_FOUND: Outbox message not found.\nINVALID_KIND: Unknown message kind.\nREF_NOT_FOUND: The referenced record no longer exists.\nREF_REQUIRED: A reference is required for this message.\nACTOR_REQUIRED: A signed-in staff member is required for this action.\nINVALID_ACTION: Unknown action.\nVOID_REQUIRES_REFUND: This tab has payments — refund before voiding.\nINVALID_ARGUMENT: Invalid input — check the values and try again.\nREJECTION_NOT_FOUND: That rejected finding no longer exists.\nREFUND_EXCEEDS_PAYMENT: The refund is more than what is left on this payment.\nPAYMENT_NOT_FOUND: That payment could not be found.\nITEM_NOT_ON_TAB: That line is not on this tab.\nIDEMPOTENCY_CONFLICT: This was already saved from another session. Refresh to see the latest.",
+      "body": "TELEGRAM_NOT_CONFIGURED: Telegram is not configured — add the group chat ID first.\nOUTBOX_NOT_FOUND: Outbox message not found.\nINVALID_KIND: Unknown message kind.\nREF_NOT_FOUND: The referenced record no longer exists.\nREF_REQUIRED: A reference is required for this message.\nACTOR_REQUIRED: A signed-in staff member is required for this action.\nINVALID_ACTION: Unknown action.\nVOID_REQUIRES_REFUND: This tab has payments — refund before voiding.\nINVALID_ARGUMENT: Invalid input — check the values and try again.\nREJECTION_NOT_FOUND: That rejected finding no longer exists.\nREFUND_EXCEEDS_PAYMENT: The refund is more than what is left on this payment.\nPAYMENT_NOT_FOUND: That payment could not be found.\nPAYMENT_STATE: This payment has changed since you opened it. The list now shows where it is.\nREFUND_TOO_LARGE: The refund is more than the guest paid online.\nITEM_NOT_ON_TAB: That line is not on this tab.\nIDEMPOTENCY_CONFLICT: This was already saved from another session. Refresh to see the latest.",
       "route": null
     },
     {
@@ -12958,7 +13134,7 @@
       "ref": "label:ws.courtDesk.payment",
       "lang": "ar",
       "title": "ws.courtDesk.payment (packages/i18n/src/catalogs/ws/courtDesk.ar.ts)",
-      "body": "title: رسوم الملعب والفاتورة\ncourtFee: رسوم الملعب\ncafeItems: طلبات المقهى · {count}\ndiscount: الخصم\ntax: الضريبة\ntotal: المجموع\npaidSoFar: المدفوع حتى الآن\ndue: المطلوب الآن\ncash: نقداً\ncard: بطاقة\naddCafeBill: إضافة فاتورة مقهى\ndayClosed: يوم العمل غير مفتوح، فلا يمكن استلام أي دفعة. يفتحه المدير من إغلاق اليوم.\ndayClosedReason: افتح يوم العمل أولاً\nnotCharged: لم تُدفع رسوم الملعب البالغة {amount}.\nbillOpen: لهذا الحجز فاتورة مفتوحة. المتبقي للدفع {amount}.\nowedAgain: دُفعت رسوم الملعب، لكن الحجز صار أغلى. لا يزال مستحقاً {amount}.\npaid: رسوم الملعب مدفوعة.\nnoFee: لا رسوم ملعب على هذا الحجز.\nended: هذا الحجز {status}. لا شيء مستحق عليه.\ncloseBill: لا شيء مستحق على الفاتورة المفتوحة لهذا الحجز. أغلقها ليتمكن إغلاق اليوم.\ncloseBillAction: إغلاق الفاتورة\ncloseBillTitle: إغلاق هذه الفاتورة؟\ncloseBillBody: لا شيء مستحق عليها. ستُسجَّل مغلقة دون استلام أي مبلغ.\nclosedToast: أُغلقت الفاتورة.\nrefundDue: دُفع {amount} أكثر مما يكلفه الحجز الآن. يعيده المدير من الصندوق، ثم يمكن إغلاق الفاتورة.\nopenTill: فتح في الصندوق\nhistory: الدفعات\nhistoryRow: {time} · {method} · بواسطة {name}\nsomeone: موظف\npaidToast: استُلمت الدفعة.\ngoToToday: الذهاب إلى اليوم\nresume: البقاء على هذا الحجز\npaidChangeToast: استُلمت الدفعة. أعطِ الباقي {amount}.\nqueuedToast: حُفظت الدفعة. ستصل إلى الخادم عند عودة الاتصال.\nopenQueued: تعذّر فتح الفاتورة دون اتصال. حاول مرة أخرى عند عودة الاتصال.\ncloseQueuedToast: حُفظ إغلاق الفاتورة. سيُسجَّل عند عودة الاتصال.\ncloseQueued: الإغلاق بانتظار المزامنة؛ تتحدّث الفاتورة عند عودة الاتصال.\nloading: جارٍ تحميل الفاتورة…\nerror: تعذّر تحميل الفاتورة.\nretry: حاول مرة أخرى\ncompletedOwed: سُجّل الحجز منتهياً. رسوم الملعب لم تُدفع بعد.",
+      "body": "title: رسوم الملعب والفاتورة\ncourtFee: رسوم الملعب\ncafeItems: طلبات المقهى · {count}\ndiscount: الخصم\ntax: الضريبة\ntotal: المجموع\npaidSoFar: المدفوع حتى الآن\ndue: المطلوب الآن\ncash: نقداً\ncard: بطاقة\naddCafeBill: إضافة فاتورة مقهى\ndayClosed: يوم العمل غير مفتوح، فلا يمكن استلام أي دفعة. يفتحه المدير من إغلاق اليوم.\ndayClosedReason: افتح يوم العمل أولاً\nnotCharged: لم تُدفع رسوم الملعب البالغة {amount}.\nbillOpen: لهذا الحجز فاتورة مفتوحة. المتبقي للدفع {amount}.\nowedAgain: دُفعت رسوم الملعب، لكن الحجز صار أغلى. لا يزال مستحقاً {amount}.\npaid: رسوم الملعب مدفوعة.\nnoFee: لا رسوم ملعب على هذا الحجز.\nended: هذا الحجز {status}. لا شيء مستحق عليه.\ncloseBill: لا شيء مستحق على الفاتورة المفتوحة لهذا الحجز. أغلقها ليتمكن إغلاق اليوم.\ncloseBillAction: إغلاق الفاتورة\ncloseBillTitle: إغلاق هذه الفاتورة؟\ncloseBillBody: لا شيء مستحق عليها. ستُسجَّل مغلقة دون استلام أي مبلغ.\nclosedToast: أُغلقت الفاتورة.\nrefundDue: دُفع {amount} أكثر مما يكلفه الحجز الآن. يعيده المدير من الصندوق، ثم يمكن إغلاق الفاتورة.\nopenTill: فتح في الصندوق\nhistory: الدفعات\nhistoryRow: {time} · {method} · بواسطة {name}\nsomeone: موظف\npaidToast: استُلمت الدفعة.\ngoToToday: الذهاب إلى اليوم\nresume: البقاء على هذا الحجز\npaidChangeToast: استُلمت الدفعة. أعطِ الباقي {amount}.\nqueuedToast: حُفظت الدفعة. ستصل إلى الخادم عند عودة الاتصال.\nopenQueued: تعذّر فتح الفاتورة دون اتصال. حاول مرة أخرى عند عودة الاتصال.\ncloseQueuedToast: حُفظ إغلاق الفاتورة. سيُسجَّل عند عودة الاتصال.\ncloseQueued: الإغلاق بانتظار المزامنة؛ تتحدّث الفاتورة عند عودة الاتصال.\nloading: جارٍ تحميل الفاتورة…\nerror: تعذّر تحميل الفاتورة.\nretry: حاول مرة أخرى\ncompletedOwed: سُجّل الحجز منتهياً. رسوم الملعب لم تُدفع بعد.\nonline: إلكترونيًا\npaidOnline: مدفوع إلكترونيًا\ncourtFeeRest: رسوم الملعب بعد العربون الإلكتروني\ndepositRest: دفع الزبون عربونًا إلكترونيًا. المتبقي من رسوم الملعب {amount}.\nhistoryOnline: {time} · دُفع إلكترونيًا من التطبيق\nonlineKept: احتُفظ به لعدم الحضور\nonlineRefundPending: الاسترجاع في الطريق\nonlineRefundFailed: فشل الاسترجاع",
       "route": "/till"
     },
     {
@@ -12966,7 +13142,23 @@
       "ref": "label:ws.courtDesk.payment",
       "lang": "en",
       "title": "ws.courtDesk.payment (packages/i18n/src/catalogs/ws/courtDesk.en.ts)",
-      "body": "title: Court fee and bill\ncourtFee: Court fee\ncafeItems: Cafe items · {count}\ndiscount: Discount\ntax: Tax\ntotal: Total\npaidSoFar: Paid so far\ndue: To pay now\ncash: Cash\ncard: Card\naddCafeBill: Add a cafe bill\ndayClosed: The trading day is not open, so no payment can be taken. A manager opens it in Day close.\ndayClosedReason: Open the trading day first\nnotCharged: The court fee of {amount} has not been paid.\nbillOpen: This booking has an open bill. {amount} is left to pay.\nowedAgain: The court was paid, but the booking now costs more. {amount} is still owed.\npaid: The court fee is paid.\nnoFee: This booking has no court fee.\nended: This booking is {status}. Nothing is owed on it.\ncloseBill: Nothing is owed on the open bill for this booking. Close it so the day can close.\ncloseBillAction: Close the bill\ncloseBillTitle: Close this bill?\ncloseBillBody: Nothing is owed on it. It will be recorded as closed with nothing taken.\nclosedToast: Bill closed.\nrefundDue: {amount} was paid more than this booking now costs. A manager refunds it at the till, then the bill can close.\nopenTill: Open on till\nhistory: Payments\nhistoryRow: {time} · {method} · by {name}\nsomeone: staff\npaidToast: Payment taken.\ngoToToday: Go to today\nresume: Stay on this booking\npaidChangeToast: Payment taken. Give {amount} change.\nqueuedToast: Payment saved. It will reach the server when the connection is back.\nopenQueued: The bill could not be opened while offline. Try again when the connection is back.\ncloseQueuedToast: Bill close saved. It will be recorded when the connection is back.\ncloseQueued: The close is waiting to sync; the bill updates when the connection is back.\nloading: Loading the bill…\nerror: The bill could not be loaded.\nretry: Try again\ncompletedOwed: Marked completed. The court fee is still not paid.",
+      "body": "title: Court fee and bill\ncourtFee: Court fee\ncafeItems: Cafe items · {count}\ndiscount: Discount\ntax: Tax\ntotal: Total\npaidSoFar: Paid so far\ndue: To pay now\ncash: Cash\ncard: Card\naddCafeBill: Add a cafe bill\ndayClosed: The trading day is not open, so no payment can be taken. A manager opens it in Day close.\ndayClosedReason: Open the trading day first\nnotCharged: The court fee of {amount} has not been paid.\nbillOpen: This booking has an open bill. {amount} is left to pay.\nowedAgain: The court was paid, but the booking now costs more. {amount} is still owed.\npaid: The court fee is paid.\nnoFee: This booking has no court fee.\nended: This booking is {status}. Nothing is owed on it.\ncloseBill: Nothing is owed on the open bill for this booking. Close it so the day can close.\ncloseBillAction: Close the bill\ncloseBillTitle: Close this bill?\ncloseBillBody: Nothing is owed on it. It will be recorded as closed with nothing taken.\nclosedToast: Bill closed.\nrefundDue: {amount} was paid more than this booking now costs. A manager refunds it at the till, then the bill can close.\nopenTill: Open on till\nhistory: Payments\nhistoryRow: {time} · {method} · by {name}\nsomeone: staff\npaidToast: Payment taken.\ngoToToday: Go to today\nresume: Stay on this booking\npaidChangeToast: Payment taken. Give {amount} change.\nqueuedToast: Payment saved. It will reach the server when the connection is back.\nopenQueued: The bill could not be opened while offline. Try again when the connection is back.\ncloseQueuedToast: Bill close saved. It will be recorded when the connection is back.\ncloseQueued: The close is waiting to sync; the bill updates when the connection is back.\nloading: Loading the bill…\nerror: The bill could not be loaded.\nretry: Try again\ncompletedOwed: Marked completed. The court fee is still not paid.\nonline: Online\npaidOnline: Paid online\ncourtFeeRest: Court fee, after the online deposit\ndepositRest: The guest paid a deposit online. {amount} of the court fee is left to pay.",
+      "route": "/till"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.payment#2",
+      "lang": "ar",
+      "title": "ws.courtDesk.payment (packages/i18n/src/catalogs/ws/courtDesk.ar.ts)",
+      "body": "onlineRefunded: مُسترجَع\nonlineRefundedPart: استُرجع {amount}\ntest: تجريبية\ntestHint: دفعة تجريبية لم تتحرك فيها أموال حقيقية.",
+      "route": "/till"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.courtDesk.payment#2",
+      "lang": "en",
+      "title": "ws.courtDesk.payment (packages/i18n/src/catalogs/ws/courtDesk.en.ts)",
+      "body": "historyOnline: {time} · Paid online in the app\nonlineKept: Kept for the no-show\nonlineRefundPending: Refund on its way\nonlineRefundFailed: Refund failed\nonlineRefunded: Refunded\nonlineRefundedPart: {amount} refunded\ntest: Test\ntestHint: A test payment. No real money moved.",
       "route": "/till"
     },
     {
@@ -12974,7 +13166,7 @@
       "ref": "label:ws.courtDesk.record",
       "lang": "ar",
       "title": "ws.courtDesk.record (packages/i18n/src/catalogs/ws/courtDesk.ar.ts)",
-      "body": "eyebrow: زبون\nnotFound: هذا الزبون غير موجود.\ncontact: التواصل\nphone: الهاتف\nemail: البريد\nlanguage: اللغة المفضلة\nsince: زبون منذ\nflags: العلامات\naddFlags: إضافة علامة\neditFlags: تعديل العلامات\nflagsTitle: علامات الزبون\nflagsLead: تظهر العلامات أينما ظهر هذا الزبون — في الحجوزات والطاولات ونتائج البحث.\nflagLabel: التسمية (اختياري)\nflagOn: مفعّل\nsaveFlags: حفظ العلامات\ncounts: السجل\nbookings: الحجوزات\ncancellations: الإلغاءات\nnoShows: عدم الحضور\ncafeOrders: طلبات المقهى\nupcoming: الحجوزات القادمة\nupcomingEmpty: لا شيء قادم.\nhistory: الحجوزات السابقة\nhistoryEmpty: لا حجوزات سابقة.\ncafe: طلبات المقهى\nseries: السلاسل\nnotes: ملاحظات الموظفين\nnotesLead: مرئية للموظفين فقط. لا تُطبع ولا تُعرض للضيف أبداً.\nnoNotes: لا ملاحظات بعد.\nnoteEmpty: اكتب الملاحظة أولاً.\naddNote: إضافة ملاحظة\nnotePlaceholder: اكتب ملاحظة للفريق…\nsaveNote: حفظ الملاحظة\neditNote: تعديل\ncancelEdit: إلغاء\nedited: مُعدَّلة\nby: بواسطة {name}\nnewBooking: حجز لهذا الزبون\nbackToSearch: الزبائن\norderTotal: الإجمالي\norderDate: التاريخ\norderTable: الطاولة\noccurrences: {count} مواعيد",
+      "body": "eyebrow: زبون\nnotFound: هذا الزبون غير موجود.\ncontact: التواصل\nphone: الهاتف\nemail: البريد\nlanguage: اللغة المفضلة\nsince: زبون منذ\nflags: العلامات\naddFlags: إضافة علامة\neditFlags: تعديل العلامات\nflagsTitle: علامات الزبون\nflagsLead: تظهر العلامات أينما ظهر هذا الزبون — في الحجوزات والطاولات ونتائج البحث.\nflagLabel: التسمية (اختياري)\nflagOn: مفعّل\nsaveFlags: حفظ العلامات\ndepositExemptHint: يحجز من التطبيق دون أن يدفع عربونًا مسبقًا، حتى لو طلبه النادي.\ncounts: السجل\nbookings: الحجوزات\ncancellations: الإلغاءات\nnoShows: عدم الحضور\ncafeOrders: طلبات المقهى\nupcoming: الحجوزات القادمة\nupcomingEmpty: لا شيء قادم.\nhistory: الحجوزات السابقة\nhistoryEmpty: لا حجوزات سابقة.\ncafe: طلبات المقهى\nseries: السلاسل\nnotes: ملاحظات الموظفين\nnotesLead: مرئية للموظفين فقط. لا تُطبع ولا تُعرض للضيف أبداً.\nnoNotes: لا ملاحظات بعد.\nnoteEmpty: اكتب الملاحظة أولاً.\naddNote: إضافة ملاحظة\nnotePlaceholder: اكتب ملاحظة للفريق…\nsaveNote: حفظ الملاحظة\neditNote: تعديل\ncancelEdit: إلغاء\nedited: مُعدَّلة\nby: بواسطة {name}\nnewBooking: حجز لهذا الزبون\nbackToSearch: الزبائن\norderTotal: الإجمالي\norderDate: التاريخ\norderTable: الطاولة\noccurrences: {count} مواعيد",
       "route": "/desk"
     },
     {
@@ -12982,7 +13174,7 @@
       "ref": "label:ws.courtDesk.record",
       "lang": "en",
       "title": "ws.courtDesk.record (packages/i18n/src/catalogs/ws/courtDesk.en.ts)",
-      "body": "eyebrow: Customer\nnotFound: This customer does not exist.\ncontact: Contact\nphone: Phone\nemail: Email\nlanguage: Preferred language\nsince: Customer since\nflags: Flags\naddFlags: Add a flag\neditFlags: Edit flags\nflagsTitle: Customer flags\nflagsLead: Flags surface wherever this customer appears — on bookings, tabs and search results.\nflagLabel: Label (optional)\nflagOn: Set\nsaveFlags: Save flags\ncounts: History\nbookings: Bookings\ncancellations: Cancellations\nnoShows: No-shows\ncafeOrders: Cafe orders\nupcoming: Upcoming bookings\nupcomingEmpty: Nothing upcoming.\nhistory: Past bookings\nhistoryEmpty: No past bookings.\ncafe: Cafe orders\nseries: Series\nnotes: Staff notes\nnotesLead: Visible to staff only. Never printed, never shown to the guest.\nnoNotes: No notes yet.\nnoteEmpty: Write the note first.\naddNote: Add note\nnotePlaceholder: Write a note for the team…\nsaveNote: Save note\neditNote: Edit\ncancelEdit: Cancel\nedited: edited\nby: by {name}\nnewBooking: Book for this customer\nbackToSearch: Customers\norderTotal: Total\norderDate: Date\norderTable: Table\noccurrences: {count} occurrences",
+      "body": "eyebrow: Customer\nnotFound: This customer does not exist.\ncontact: Contact\nphone: Phone\nemail: Email\nlanguage: Preferred language\nsince: Customer since\nflags: Flags\naddFlags: Add a flag\neditFlags: Edit flags\nflagsTitle: Customer flags\nflagsLead: Flags surface wherever this customer appears — on bookings, tabs and search results.\nflagLabel: Label (optional)\nflagOn: Set\nsaveFlags: Save flags\ndepositExemptHint: Books in the app without paying a deposit first, even when the club asks for one.\ncounts: History\nbookings: Bookings\ncancellations: Cancellations\nnoShows: No-shows\ncafeOrders: Cafe orders\nupcoming: Upcoming bookings\nupcomingEmpty: Nothing upcoming.\nhistory: Past bookings\nhistoryEmpty: No past bookings.\ncafe: Cafe orders\nseries: Series\nnotes: Staff notes\nnotesLead: Visible to staff only. Never printed, never shown to the guest.\nnoNotes: No notes yet.\nnoteEmpty: Write the note first.\naddNote: Add note\nnotePlaceholder: Write a note for the team…\nsaveNote: Save note\neditNote: Edit\ncancelEdit: Cancel\nedited: edited\nby: by {name}\nnewBooking: Book for this customer\nbackToSearch: Customers\norderTotal: Total\norderDate: Date\norderTable: Table\noccurrences: {count} occurrences",
       "route": "/desk"
     },
     {
@@ -13630,7 +13822,7 @@
       "ref": "label:ws.kit.flags",
       "lang": "ar",
       "title": "ws.kit.flags (packages/i18n/src/catalogs/ws/kit.ar.ts)",
-      "body": "vip: VIP\nbirthday: عيد ميلاد\npayment_note: ملاحظة دفع\nspecial_request: طلب خاص",
+      "body": "vip: VIP\nbirthday: عيد ميلاد\npayment_note: ملاحظة دفع\nspecial_request: طلب خاص\ndeposit_exempt: بلا عربون",
       "route": null
     },
     {
@@ -13638,7 +13830,7 @@
       "ref": "label:ws.kit.flags",
       "lang": "en",
       "title": "ws.kit.flags (packages/i18n/src/catalogs/ws/kit.en.ts)",
-      "body": "vip: VIP\nbirthday: Birthday\npayment_note: Payment note\nspecial_request: Special request",
+      "body": "vip: VIP\nbirthday: Birthday\npayment_note: Payment note\nspecial_request: Special request\ndeposit_exempt: No deposit needed",
       "route": null
     },
     {
@@ -14056,6 +14248,22 @@
       "title": "ws.manager.menu (packages/i18n/src/catalogs/ws/manager.en.ts)",
       "body": "form.activeHint: Switched off, the item is hidden from the till and the guest menu.\nform.availability: Availability\nform.now.orderable: Guests can order this now.\nform.now.inactive: Guests cannot order this: the item is switched off.\nform.now.soldOut: Guests cannot order this: it is sold out.\nform.now.offToday: Guests cannot order this today: it is off for today.\nform.now.blocked: Guests cannot order this: an ingredient is out of stock.\nform.soldOutHint: Stays off until someone switches it back on.\nform.offTodayTitle: Off for today\nform.offTodayHint: Takes it off until tomorrow, then it comes back on its own.\nform.offTodayUntil: Off today — back on {date}.\nform.markOff: Take off for today\nform.restore: Put back on now\nform.blockedTitle: Blocked by stock\nform.blockedBody: The kitchen is out of an ingredient this item needs, so the till and website will not sell it. This is not a toggle: it clears when stock is received or counted.\nform.blockedIngredients: Out of stock: {names}\nform.blockedUnknown: The blocking ingredient could not be named from this station. Check On hand under Stock.\nform.saveFirst: Save the item to manage sizes, add-ons and availability.\nform.sizes.title: Sizes and prices\nform.sizes.size: Size\nform.sizes.price: Price (IQD)\nform.sizes.default: Default\nform.sizes.defaultHint: The default size is the one the till and the guest menu pick first.\nform.sizes.newSize: New size\nform.sizes.empty: No sizes yet. Add one so the item has a price.\nform.groups.title: Add-on choices\nform.groups.lead: Switch on the add-on groups guests choose from on this item.\nform.groups.offered: Offered on this item\nform.groups.others: Other add-on groups\nform.groups.showOthers: Show other groups\nform.groups.hideOthers: Hide other groups\nform.groups.noneOffered: No add-on groups are offered on this item yet.\nform.groups.noOptions: No options in this group yet.\nform.groups.manage: Edit groups in Add-ons\nform.groups.none: No add-on groups exist yet. Create them in Add-ons.",
       "route": "/admin/menu"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.onlineRefunds",
+      "lang": "ar",
+      "title": "ws.manager.onlineRefunds (packages/i18n/src/catalogs/ws/manager.ar.ts)",
+      "body": "title: استرجاعات إلكترونية تحتاج إلى متابعة\nlead: عرابين دفعها الضيوف إلكترونيًا وتعذّر استرجاعها تلقائيًا. أعد المحاولة، أو سجّل التسوية بعد أن يُعاد المبلغ إلى الضيف بطريقة أخرى.\nempty: لا شيء بانتظارك. اكتملت كل الاسترجاعات الإلكترونية.\nnoName: ضيف بلا اسم\ntest: تجريبية\ntestHint: دفعة تجريبية لم تتحرك فيها أموال حقيقية.\nkind.refundFailed.label: فشل الاسترجاع\nkind.refundFailed.hint: لم تقبل كي كارد الاسترجاع. أعد المحاولة، أو أعِد المبلغ إلى الضيف بطريقة أخرى.\nkind.refundSlow.label: الاسترجاع غير مؤكَّد\nkind.refundSlow.hint: طُلب قبل أكثر من يوم ولم تؤكّده كي كارد بعد.\nkind.paidNotLive.label: مدفوع والحجز غير قائم\nkind.paidNotLive.hint: دفع الضيف العربون لكن الحجز لم يعد قائمًا. أعِد العربون إليه.\nwhy: السبب: {reason}\nreasons.guest_cancel: ألغى الضيف الحجز\nreasons.staff_cancel: ألغى المكتب الحجز\nreasons.no_show: لم يحضر الضيف\nreasons.slot_lost: حُجز الموعد لغيره قبل اكتمال الدفع\nreasons.venue_offline: كان الحجز الإلكتروني متوقفًا\nreasons.amount_mismatch: المبلغ المدفوع غير مطابق\nreasons.duplicate_success: دُفع مرتين\nreasons.manual: سوّاه الموظفون\nreasons.staff_refund: استرجعه الموظفون\naskedAt: طُلب الاسترجاع {time}\npaidAt: دُفع {time}\nattempts: عدد المحاولات: {count}\nretry: أعد المحاولة\nretried: أُرسل الاسترجاع إلى كي كارد مرة أخرى.\nrefund: إعادة المبلغ إلى الضيف\nrefundTitle: إعادة {amount} إلى {name}؟\nrefundBody: يعود العربون إلى البطاقة التي دفع بها الضيف، ولا يمكن التراجع عن ذلك.\nrefundConfirm: أعِد المبلغ\nrefundAsked: أُرسل الاسترجاع إلى كي كارد.\nsettle: سُوّي بطريقة أخرى\nsettleTitle: سُوّي بطريقة أخرى\nsettleLead: {amount} للضيف {name}. اكتب كيف أُعيد إليه المبلغ، وبذلك يُغلق الاسترجاع.\nnote: كيف تمّت التسوية؟\nnoteHint: مثلًا: أُعيد المبلغ نقدًا في المكتب يوم السبت.\npinHint: يحتاج هذا إلى الرمز السري للمدير.\nsettleNeeds: اكتب كيف تمّت التسوية وأدخل الرمز السري\nsettleConfirm: تسجيل التسوية\nsettled: سُجّلت تسوية الاسترجاع.",
+      "route": "/ops"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.onlineRefunds",
+      "lang": "en",
+      "title": "ws.manager.onlineRefunds (packages/i18n/src/catalogs/ws/manager.en.ts)",
+      "body": "title: Online refunds needing attention\nlead: Deposits guests paid online that could not be refunded on their own. Try again, or record it once the guest has been paid back another way.\nempty: Nothing waiting. Every online refund has gone through.\nnoName: Guest with no name\ntest: Test\ntestHint: A test payment. No real money moved.\nkind.refundFailed.label: Refund failed\nkind.refundFailed.hint: Qi Card did not accept the refund. Try again, or pay the guest back another way.\nkind.refundSlow.label: Refund not confirmed\nkind.refundSlow.hint: Asked for over a day ago, and Qi Card has not confirmed it yet.\nkind.paidNotLive.label: Paid, booking not on\nkind.paidNotLive.hint: The guest paid a deposit, but the booking is no longer on. Refund it to the guest.\nwhy: Why: {reason}\nreasons.guest_cancel: the guest cancelled\nreasons.staff_cancel: the desk cancelled\nreasons.no_show: the guest did not show up\nreasons.slot_lost: the slot was taken before the payment finished\nreasons.venue_offline: online booking was paused\nreasons.amount_mismatch: the amount paid did not match\nreasons.duplicate_success: paid twice\nreasons.manual: settled by staff\nreasons.staff_refund: refunded by staff\naskedAt: Refund asked for {time}\npaidAt: Paid {time}\nattempts: Tried {count} times\nretry: Try again\nretried: Refund sent to Qi Card again.\nrefund: Refund to guest\nrefundTitle: Refund {amount} to {name}?\nrefundBody: The deposit goes back to the card the guest paid with. This cannot be undone.\nrefundConfirm: Refund\nrefundAsked: Refund sent to Qi Card.\nsettle: Settled another way\nsettleTitle: Settled another way\nsettleLead: {amount} to {name}. Say how the guest was paid back; this closes the refund.\nnote: How was it settled?\nnoteHint: For example: paid back in cash at the desk on Saturday.\npinHint: A manager PIN authorises this.\nsettleNeeds: Say how it was settled and enter a PIN\nsettleConfirm: Mark as settled\nsettled: Refund marked as settled.",
+      "route": "/ops"
     },
     {
       "kind": "label",
@@ -14718,7 +14926,7 @@
       "ref": "label:ws.owner.settings#3",
       "lang": "ar",
       "title": "ws.owner.settings (packages/i18n/src/catalogs/ws/owner.ar.ts)",
-      "body": "trading.taxInUse: مستخدمة\ntrading.taxInactive: غير مستخدمة\ntrading.taxInclusive: أسعار القائمة شاملة الضريبة\ntrading.taxNone: لا توجد مجموعات ضريبة.\ntrading.policyTitle: قواعد الحجز\ntrading.cancellationWindow: الإلغاء المجاني\ntrading.cancellationWindowHint: يمكن للضيف الإلغاء دون رسوم حتى هذه المدة قبل بدء حجزه.\ntrading.beforeStart: حتى {time} قبل البداية\ntrading.holdTtl: مهلة إكمال الحجز\ntrading.holdTtlHint: أثناء حجز الضيف يُحفظ له الموعد هذه المدة، ثم يُتاح لغيره.\ntrading.bookingHorizon: إلى أي مدى مسبقًا يحجز الضيوف\ntrading.bookingHorizonHint: لا يستطيع الضيوف حجز موعد أبعد من هذه المدة.\ntrading.maxHolds: المواعيد التي يحجزها ضيف واحد في آن\ntrading.maxHoldsHint: يمنع ضيفًا واحدًا من حجز مواعيد كثيرة أثناء تردده.\ntrading.protectedHorizon: حجوزات مقفلة عند انقطاع الاتصال\ntrading.protectedHorizonHint: إذا فقد التطبيق اتصاله بالخادم، لا يمكن تغيير الحجوزات التي تبدأ خلال هذه المدة، حتى لا يُحجز موعد مرتين.\ntrading.heartbeatStale: صمت أجهزة الكاشير قبل وضع عدم الاتصال\ntrading.noShow: عدم الحضور\ntrading.noShowValue: يسجّله المكتب\ntrading.noShowBody: لا توجد قاعدة تلقائية. يسجّل المكتب عدم الحضور على الحجز، ويظهر العدد في تقرير الملاعب.\ntrading.noLimit: بلا حد\ntrading.hours: {count} س\ntrading.minutes: {count} د\ntrading.days: {count} يوم\ntrading.seconds: {count} ث\ncontact.venueName: اسم المكان\ncontact.phone: الهاتف\ncontact.phoneNone: لا يوجد رقم هاتف\ncontact.timezone: المنطقة الزمنية",
+      "body": "trading.taxInUse: مستخدمة\ntrading.taxInactive: غير مستخدمة\ntrading.taxInclusive: أسعار القائمة شاملة الضريبة\ntrading.taxNone: لا توجد مجموعات ضريبة.\ntrading.policyTitle: قواعد الحجز\ntrading.cancellationWindow: الإلغاء المجاني\ntrading.cancellationWindowHint: يمكن للضيف الإلغاء دون رسوم حتى هذه المدة قبل بدء حجزه.\ntrading.beforeStart: حتى {time} قبل البداية\ntrading.holdTtl: مهلة إكمال الحجز\ntrading.holdTtlHint: أثناء حجز الضيف يُحفظ له الموعد هذه المدة، ثم يُتاح لغيره.\ntrading.bookingHorizon: إلى أي مدى مسبقًا يحجز الضيوف\ntrading.bookingHorizonHint: لا يستطيع الضيوف حجز موعد أبعد من هذه المدة.\ntrading.maxHolds: المواعيد التي يحجزها ضيف واحد في آن\ntrading.maxHoldsHint: يمنع ضيفًا واحدًا من حجز مواعيد كثيرة أثناء تردده.\ntrading.protectedHorizon: حجوزات مقفلة عند انقطاع الاتصال\ntrading.protectedHorizonHint: إذا فقد التطبيق اتصاله بالخادم، لا يمكن تغيير الحجوزات التي تبدأ خلال هذه المدة، حتى لا يُحجز موعد مرتين.\ntrading.heartbeatStale: صمت أجهزة الكاشير قبل وضع عدم الاتصال\ntrading.noShow: عدم الحضور\ntrading.noShowValue: يسجّله المكتب\ntrading.noShowBody: لا توجد قاعدة تلقائية. يسجّل المكتب عدم الحضور على الحجز، ويظهر العدد في تقرير الملاعب.\ntrading.noLimit: بلا حد\ntrading.hours: {count} س\ntrading.minutes: {count} د\ntrading.days: {count} يوم\ntrading.seconds: {count} ث\ncontact.venueName: اسم المكان\ncontact.phone: الهاتف\ncontact.phoneNone: لا يوجد رقم هاتف\ncontact.timezone: المنطقة الزمنية\ndeposit.title: العربون الإلكتروني (كي كارد)\ndeposit.lead: يستطيع الضيف الذي يحجز ملعبًا من التطبيق أن يدفع جزءًا من السعر ببطاقة كي كارد أثناء الحجز، ويستلم مكتب الملاعب الباقي عند وصوله. أما الحجوزات التي يسجّلها المكتب فلا تحتاج إلى عربون أبدًا.\ndeposit.connectNote: لا يستطيع الضيوف الدفع إلكترونيًا إلا بعد ربط حساب النادي في كي كارد. يتولّى الربطَ من جهّز لكم النظام، فاسألوه قبل تشغيل هذه الميزة.\ndeposit.ownerOnly: المالك وحده يستطيع تغيير قواعد العربون الإلكتروني.\ndeposit.modeLabel: طلب عربون من الضيوف\ndeposit.recommended: الأنسب للبداية\ndeposit.mode.off.label: متوقف",
       "route": "/admin/settings"
     },
     {
@@ -14726,7 +14934,23 @@
       "ref": "label:ws.owner.settings#3",
       "lang": "en",
       "title": "ws.owner.settings (packages/i18n/src/catalogs/ws/owner.en.ts)",
-      "body": "trading.currencyHint: Every price and payment is in this one currency.\ntrading.taxTitle: Tax by item group\ntrading.taxLead: The tax rate each group of menu items carries.\ntrading.taxGroup: Item group\ntrading.taxRate: Rate\ntrading.taxStatus: Status\ntrading.taxInUse: In use\ntrading.taxInactive: Not in use\ntrading.taxInclusive: Menu prices include tax\ntrading.taxNone: No tax groups are set up.\ntrading.policyTitle: Booking rules\ntrading.cancellationWindow: Free cancellation\ntrading.cancellationWindowHint: A guest can cancel without charge up to this long before their booking starts.\ntrading.beforeStart: Up to {time} before\ntrading.holdTtl: Time to finish a booking\ntrading.holdTtlHint: While a guest is booking, the slot is held for them this long, then released for others.\ntrading.bookingHorizon: How far ahead guests can book\ntrading.bookingHorizonHint: Guests cannot book a slot further ahead than this.\ntrading.maxHolds: Slots one guest can hold at once\ntrading.maxHoldsHint: Stops one guest holding many slots while they decide.\ntrading.protectedHorizon: Bookings locked while offline\ntrading.protectedHorizonHint: If the app loses its connection to the server, bookings that start within this time cannot be changed, so nothing is double-booked.\ntrading.heartbeatStale: Tills silent before offline mode\ntrading.noShow: No-shows\ntrading.noShowValue: Marked by the desk\ntrading.noShowBody: There is no automatic rule. The desk marks a no-show on the booking, and the count appears in the courts report.\ntrading.noLimit: No limit\ntrading.hours: {count} h\ntrading.minutes: {count} min\ntrading.days: {count} days\ntrading.seconds: {count} s\ncontact.venueName: Venue name\ncontact.phone: Phone\ncontact.phoneNone: No phone number set\ncontact.timezone: Timezone",
+      "body": "trading.currencyHint: Every price and payment is in this one currency.\ntrading.taxTitle: Tax by item group\ntrading.taxLead: The tax rate each group of menu items carries.\ntrading.taxGroup: Item group\ntrading.taxRate: Rate\ntrading.taxStatus: Status\ntrading.taxInUse: In use\ntrading.taxInactive: Not in use\ntrading.taxInclusive: Menu prices include tax\ntrading.taxNone: No tax groups are set up.\ntrading.policyTitle: Booking rules\ntrading.cancellationWindow: Free cancellation\ntrading.cancellationWindowHint: A guest can cancel without charge up to this long before their booking starts.\ntrading.beforeStart: Up to {time} before\ntrading.holdTtl: Time to finish a booking\ntrading.holdTtlHint: While a guest is booking, the slot is held for them this long, then released for others.\ntrading.bookingHorizon: How far ahead guests can book\ntrading.bookingHorizonHint: Guests cannot book a slot further ahead than this.\ntrading.maxHolds: Slots one guest can hold at once\ntrading.maxHoldsHint: Stops one guest holding many slots while they decide.\ntrading.protectedHorizon: Bookings locked while offline\ntrading.protectedHorizonHint: If the app loses its connection to the server, bookings that start within this time cannot be changed, so nothing is double-booked.\ntrading.heartbeatStale: Tills silent before offline mode\ntrading.noShow: No-shows\ntrading.noShowValue: Marked by the desk\ntrading.noShowBody: There is no automatic rule. The desk marks a no-show on the booking, and the count appears in the courts report.\ntrading.noLimit: No limit\ntrading.hours: {count} h\ntrading.minutes: {count} min\ntrading.days: {count} days\ntrading.seconds: {count} s\ncontact.venueName: Venue name\ncontact.phone: Phone\ncontact.phoneNone: No phone number set\ncontact.timezone: Timezone\ndeposit.title: Online deposit (Qi Card)\ndeposit.lead: Guests booking a court in the app can pay part of the price by Qi Card as they book. The desk takes the rest when they arrive. Bookings made at the desk never need a deposit.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.settings#4",
+      "lang": "ar",
+      "title": "ws.owner.settings (packages/i18n/src/catalogs/ws/owner.ar.ts)",
+      "body": "deposit.mode.off.body: يحجز الضيوف كما يفعلون الآن، ويدفعون المبلغ كاملًا في المكتب.\ndeposit.mode.optional.label: اختياري\ndeposit.mode.optional.body: يختار الضيف بين دفع العربون الآن ودفع المبلغ كاملًا في المكتب.\ndeposit.mode.required.label: إلزامي\ndeposit.mode.required.body: لا يُثبَّت الحجز إلا بعد دفع العربون. ويبقى بإمكان الضيوف الذين يحملون علامة «بلا عربون» أن يحجزوا من دونه.\ndeposit.percent: مقدار العربون\ndeposit.percentUnit: % من سعر الملعب\ndeposit.percentValue: {percent}% من سعر الملعب\ndeposit.percentHint: يُقرَّب صعودًا إلى أقرب 250 دينارًا، ولا يتجاوز سعر الملعب أبدًا.\ndeposit.min: أدنى عربون\ndeposit.minHint: لا يقلّ أي عربون عن هذا المبلغ، إلا إذا كان سعر الملعب أقل منه.\ndeposit.max: أعلى عربون\ndeposit.maxHint: اتركه فارغًا إن لم ترد حدًّا أعلى.\ndeposit.noMax: بلا حدّ\ndeposit.iqd: دينار\ndeposit.window: مهلة الدفع\ndeposit.windowHint: يبقى الموعد محجوزًا للضيف طوال هذه المدة أثناء الدفع، فإن لم يُكمله في الوقت أُتيح لغيره.\ndeposit.noShow: إذا لم يحضر الضيف\ndeposit.noShowHint: الحجز الذي يلغيه الضيف أو المكتب يُعاد إليه عربونه دائمًا.\ndeposit.noShowKeep: الاحتفاظ بالعربون\ndeposit.noShowRefund: استرجاع العربون\ndeposit.appliesNow: تسري على الحجوزات الجديدة فور الحفظ.\ndeposit.save: حفظ قواعد العربون\ndeposit.saved: حُفظت قواعد العربون.\ndeposit.errors.maxBelowMin: يجب ألّا يقلّ أعلى عربون عن أدنى عربون.\ndeposit.errors.refused: لم تُقبل هذه القيمة. راجعها ثم احفظ مرة أخرى.",
+      "route": "/admin/settings"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.owner.settings#4",
+      "lang": "en",
+      "title": "ws.owner.settings (packages/i18n/src/catalogs/ws/owner.en.ts)",
+      "body": "deposit.connectNote: Guests can only pay online once the club's Qi Card account is connected. Whoever set up your system connects it, so ask them before you turn this on.\ndeposit.ownerOnly: Only the owner can change the online deposit rules.\ndeposit.modeLabel: Ask guests for a deposit\ndeposit.recommended: Recommended to start\ndeposit.mode.off.label: Off\ndeposit.mode.off.body: Guests book as they do now and pay everything at the desk.\ndeposit.mode.optional.label: Optional\ndeposit.mode.optional.body: Guests choose: pay the deposit now, or pay everything at the desk.\ndeposit.mode.required.label: Required\ndeposit.mode.required.body: A booking is confirmed only once the deposit is paid. Guests marked \"No deposit needed\" can still book without one.\ndeposit.percent: Deposit size\ndeposit.percentUnit: % of the court price\ndeposit.percentValue: {percent}% of the court price\ndeposit.percentHint: Rounded up to the nearest 250 IQD, and never more than the court price.\ndeposit.min: Smallest deposit\ndeposit.minHint: No deposit is less than this, unless the court costs less.\ndeposit.max: Largest deposit\ndeposit.maxHint: Leave empty for no limit.\ndeposit.noMax: No limit\ndeposit.iqd: IQD\ndeposit.window: Time to pay\ndeposit.windowHint: The slot is held this long while the guest pays. If they do not finish in time, it is released for others.\ndeposit.noShow: When a guest does not show up\ndeposit.noShowHint: A booking cancelled by the guest or the desk always gets its deposit back.\ndeposit.noShowKeep: Keep the deposit\ndeposit.noShowRefund: Refund the deposit\ndeposit.appliesNow: Applies to new bookings as soon as you save.\ndeposit.save: Save deposit rules\ndeposit.saved: Deposit rules saved.\ndeposit.errors.maxBelowMin: The largest deposit cannot be less than the smallest.\ndeposit.errors.refused: This was not accepted. Check it and save again.",
       "route": "/admin/settings"
     },
     {
@@ -16955,6 +17179,14 @@
     },
     {
       "kind": "system",
+      "ref": "system:cron:tp_deposit_sweep",
+      "lang": "en",
+      "title": "cron job tp_deposit_sweep",
+      "body": "Runs select app.deposit_nudge();. Schedules seen in migrations, latest last: '30 seconds' (0242), '* * * * *' (0242). cron.schedule upserts by job name, so the latest definition that pg_cron accepts is live.",
+      "route": null
+    },
+    {
+      "kind": "system",
       "ref": "system:cron:tp_expiry_flagging",
       "lang": "en",
       "title": "cron job tp_expiry_flagging",
@@ -17099,10 +17331,50 @@
     },
     {
       "kind": "system",
+      "ref": "system:edge:deposit-begin",
+      "lang": "en",
+      "title": "edge function deposit-begin",
+      "body": "verify_jwt = true (supabase/config.toml).\ndeposit-begin — the guest taps \"Pay now\" on Review (plan §4, contracts §3).\n\n  POST (guest JWT)  { hold_id: uuid, locale: 'en' | 'ar' }\n    → 200 { request_id, form_url, amount_iqd, deadline_at, status: 'pending' }\n    → { error: CODE } 400 BAD_REQUEST | PHONE_REQUIRED, 401 AUTH_REQUIRED,\n      403 FORBIDDEN, 404 HOLD_NOT_FOUND, 409 HOLD_EXPIRED | DEPOSITS_OFF,\n      429 TOO_MANY_ATTEMPTS, 503 PROVIDER_UNAVAILABLE | DEGRADED_LOCKOUT | RETRY_LATER\n\n1. app.deposit_prepare records the attempt (or hands back the live one on\n   this hold: a double tap opens the same page) and stretches the hold to the\n   payment window.\n2. The gateway creates the payment with OUR request_id. If that call dies\n   after the gateway made the payment, the next tap reuses the same\n   request_id; the gateway answers \"already used\" and we look it up instead\n   of creating a second one.\n3. app.deposit_mark_created stores the gateway's id and page URL.\n\nNothing here can mark a payment paid or failed: the webhook, the payment\nscreen's polls and the reconciler do, through app.deposit_apply.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:edge:deposit-reconcile",
+      "lang": "en",
+      "title": "edge function deposit-reconcile",
+      "body": "verify_jwt = true (supabase/config.toml).\ndeposit-reconcile — the payment sweeper (plan §4). Called by pg_cron through\napp.deposit_nudge (tp_deposit_sweep, every 30 s) and nudged right after a\nrefund is requested.\n\n  POST (service role only)  {}\n    → 200 { checked, cancelled, refunded, refund_failed, errors }\n    → 403 for any other caller\n\nFor each payment app.deposits_due_for_reconcile claims (60 s lease):\n  check   open past its deadline, or pending and unheard for 90 s: ask the\n          gateway and apply. Still open past the deadline → cancel it at the\n          gateway and apply what it says; three failed cancels → GIVE_UP\n          (expired; a SUCCESS that still arrives later is honoured).\n  refund  refund_pending: send the refund with the request id minted when\n          it was requested (so a retry is the same refund), then\n          app.deposit_refund_apply. A refund the gateway says it already\n          has, but whose outcome we never saw, is refund_failed: a manager\n          checks the gateway's dashboard instead of us guessing.\n\nBounded: 50 rows and a 45 s budget, under the cron's 60 s lease.",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:edge:deposit-status",
+      "lang": "en",
+      "title": "edge function deposit-status",
+      "body": "verify_jwt = true (supabase/config.toml).\ndeposit-status — what the app's payment screen polls (plan §5.3, contracts §3).\n\n  POST (guest JWT)  { ref: uuid }   (ref = booking_payments.request_id)\n    → 200 the app.deposit_status JSON (contracts §2.2)\n    → { error } 400 BAD_REQUEST, 401 AUTH_REQUIRED, 404 PAYMENT_NOT_FOUND\n\nReads as the CALLER (their JWT), so app.deposit_status's ownership check\ndecides what they may see. When the attempt is still open and nobody asked\nthe gateway in the last 3 seconds, asks it now and applies the answer\n(source 'poll'): this is what makes a lost webhook harmless. A gateway that\ndoes not answer changes nothing; the screen keeps showing \"checking\".",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:edge:deposit-webhook",
+      "lang": "en",
+      "title": "edge function deposit-webhook",
+      "body": "verify_jwt = false (supabase/config.toml).\ndeposit-webhook — Qi Card's notificationUrl (plan §4; developers-gate.qi.iq\n\"Webhook Notifications\", checked 2026-09-27).\n\n  POST (from Qi, no JWT)  the payment object; header X-Signature\n    → 200 { ok }   processed, or a payment we can never match (so Qi stops)\n    → 401          signature present but wrong, or wrong key: logged, not applied\n    → 400          not JSON\n    → 500          our database or Qi's status call failed: Qi retries\n\nWHY verify_jwt = false: Qi carries no Supabase JWT. Authenticity is Qi's\nRSA signature over `paymentId|amount.000|currency|creationDate|status`,\nverified with QI_WEBHOOK_PUBLIC_KEY_PEM (QI_SANDBOX_WEBHOOK_PUBLIC_KEY_PEM\nfor a sandbox payment).\n\nThe body is never the truth on its own. For every payment we can match we\nask Qi's status endpoint (with OUR credentials) and apply THAT answer, as\nQi's own docs advise. So until Qi hands over its public key, an unsigned\nwebhook is still useful as a hint (\"go and look now\") and cannot be used\nto forge a payment: a forger can only make us check. With a key set, a bad\nsignature is refused outright. Only when Qi's status call fails do we fall\nback to the body, and only a body whose signature verified.\n\nLocal stack only: the payments-fake page signs its notifications with an\nHMAC of the service role key (X-Fake-Signature) instead.",
+      "route": null
+    },
+    {
+      "kind": "system",
       "ref": "system:edge:desk-customer-create",
       "lang": "en",
       "title": "edge function desk-customer-create",
       "body": "verify_jwt = true (supabase/config.toml).\ndesk-customer-create — a walk-in gets a real guest account from the desk\n(spec 06.10 CustomerCreateScreen; build plan §0 \"Customer creation at the\ndesk creates a real guest account (auth user + profile) through a\nstaff-gated edge function, so the guest can later claim it\").\n\n  POST { fullName, phone, email?, preferredLang: 'en' | 'ar' }  ->  201 { id }\n\nErrors (JSON `{ error, message }`):\n  400 BAD_REQUEST      — body shape, name length, preferredLang\n  400 INVALID_PHONE    — fewer than 7 or more than 15 digits once normalised\n  409 DUPLICATE_PHONE  — a profile already carries the same number (canonical\n                         form, 0065 app.phone_canon: 0770… ≡ +964770… ≡ ٠٧٧٠…)\n  409 DUPLICATE_EMAIL  — GoTrue already has that address\n  401 AUTH_REQUIRED / 403 FORBIDDEN — from requireStaffRole\n\nWHY AN EDGE FUNCTION. An account is an auth.users row, and only the GoTrue\nadmin API creates one — the same reason staff-admin (0051) exists. Every\nrow-level rule lives in migration 0065 (`app.find_customer_by_phone`,\n`app.desk_register_customer`, both service-role only); this file only\nsequences the two calls around `auth.admin.createUser`.\n\nTHE PASSWORD. Random, 32 bytes of entropy, never returned and never shown:\nthe guest claims the account later through \"forgot password\" (real email)\nor through a future phone-based claim flow — spec 06.10 gives the desk no\npassword field, and a password the operator can read aloud is a password\nthe operator knows.\n\nTHE EMAIL. Optional at the desk (spec 06.10 lists it as a field, the SOW\nmakes the phone the identity). When absent the account is created under\n`<digits>@guest.touch.local` — see phone.ts — with `email_confirm: true`,\nbecause nothing can receive a confirmation there and an unconfirmed account\ncannot sign in. A real email is also confirmed on creation: the operator\nhas the guest in front of them, and a confirmation mail that never gets\nclicked would leave the record half-made.\n\nThe caller must be active staff with role court",
+      "route": null
+    },
+    {
+      "kind": "system",
+      "ref": "system:edge:payments-fake",
+      "lang": "en",
+      "title": "edge function payments-fake",
+      "body": "verify_jwt = false (supabase/config.toml).\npayments-fake — the pretend Qi payment page, LOCAL STACK ONLY (plan §8).\nAnswers 404 to everything anywhere else (it checks at every request, so a\ndeploy by mistake exposes nothing).\n\n  GET  ?ref=<request_id>   the page: amount, and four buttons\n  POST ref=…&action=…      succeed | decline | otp | nothing\n       → records what the pretend bank decided, sends deposit-webhook a\n         Qi-shaped notification (HMAC-signed, X-Fake-Signature), then\n         303s the browser to the finish URL, exactly like Qi's page\n\n\"Do nothing\" leaves the payment open, to walk the deadline → cancel →\nexpired path. Run with PAYMENTS_PROVIDER=fake in supabase/functions/.env;\nset PAYMENTS_FAKE_PAGE_URL to a LAN address to open it from a phone.",
       "route": null
     },
     {
@@ -18535,6 +18807,70 @@
       "lang": "en",
       "title": "docs/client/phone-otp-activation.md › C. Activation (us, in this order)",
       "body": "entry as well, the pair is chosen NOW, by the owner, for this review:\n   the number from that script's run, the code picked by you on the spot. **Never** `SUPABASE_AUTH_SMS_TEST_OTP_CODE`,\n   never the local development code, never any value that appears anywhere in this repository or its git history — a\n   test-OTP pair on a live project is a working sign-in for anyone who can read the repo (this is exactly finding M8,\n   `docs/security/security-audit-2026-09-13.md:191`). Record the pair in the password manager, delete it from the\n   dashboard once the review decision lands, and generate a new one for the next review cycle. `--delete` on the same\n   script cancels the reviewer's bookings and removes the account.\n8. **OTPIQ — one live send** before opening the gate. The adapter (`functions/_shared/sms/otpiq.ts`) matches the\n   vendor's published API reference (read 2026-09-12) and is pinned by `packages/db/tests/sms-provider.test.ts`, but the\n   account itself has not been exercised. Send one code to a staff phone with `enabled = true` for that phone's window,\n   read `app.sms_sends`. In `error`: `misconfigured: missing OTPIQ_API_KEY` = the secret is not set; `otpiq 400` with\n   \"trial mode\" = the account has no credit yet and only delivers to the owner's own number; \"SenderID not found / not\n   accepted\" = `OTPIQ_SENDER_ID` is set before approval (unset it); `otpiq 401` = wrong key. The function log prints the\n   remaining credit after every successful send. **The log's `channel` always reads `whatsapp` on `whatsapp-sms`** —\n   OTPIQ picks the real channel after it answers us, and only its `trackSms` endpoint (which we do not call) knows which\n   one delivered, so read per-message truth in the OTPIQ dashboard, not in `app.sms_sends`. Test once with a number that\n   has WhatsApp (code arrives from OTPIQ's WhatsApp account) and once with one that does NOT — the point of the\n   fallback: a code must still arrive, as an SMS, from a generic number until A2 approves the",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#1",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › Online deposit (Qi Card): the activation runbook",
+      "body": "# Online deposit (Qi Card): the activation runbook\n\nGuests can pay a deposit on a court booking in the app, on Qi Card's own payment page. Everything is built\nand tested, and it stays switched off until the steps below are done. Nothing a guest sees changes until\n§D, when the owner turns it on in Settings.\n\n**Status (2026-09-27):** built and tested on the local stack and against Qi's public sandbox. **Not on\nhosted yet:** the code sits in the working tree under the push hold. Not activated.\n\n- Design: `docs/design/payments/qi-deposit-plan-2026-09-20.md`. Binding shapes:\n  `docs/design/payments/build-contracts-2026-09-27.md`.\n- Database: migrations 0241 (tables, settings) and 0242 (the state machine and its hooks).\n- Edge functions: `deposit-begin`, `deposit-status`, `deposit-webhook`, `deposit-reconcile`, and\n  `payments-fake` (runs on the local stack only). Qi's URLs, headers and field names live only in\n  `packages/db/supabase/functions/_shared/payments/`.\n- Apps: the mobile Review, payment and booking screens; the website's `/{locale}/pay/return`; the operator's\n  Settings, bill panel, refund list and customer flag.\n\n---",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#2",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › A. What to get from Qi Card",
+      "body": "## A. What to get from Qi Card\n\nHand these over the way `API.md` says (\"How to hand these over\"), never in chat.\n\n| # | Item | Goes into | Notes |\n|---|---|---|---|\n| A1 | Production API base URL | `QI_BASE_URL` | Must be https, e.g. `https://…qi.iq/api/v1`. Qi does not publish it; ask. |\n| A2 | Terminal id | `QI_TERMINAL_ID` | Sent as `X-Terminal-Id`. |\n| A3 | Basic-auth username and password | `QI_USERNAME`, `QI_PASSWORD` | |\n| A4 | Qi's webhook public key (PEM) | `QI_WEBHOOK_PUBLIC_KEY_PEM` | \"Contact the Payment Gateway team to request it\" (their docs). Either `BEGIN PUBLIC KEY` or `BEGIN RSA PUBLIC KEY` works. Until it is set, a webhook is only a hint to ask Qi (see §F), so payments still complete. |\n| A5 | Does our terminal use **signature-based auth**? | `QI_SIGNING_PRIVATE_KEY_PEM` | Only if Qi says yes. Then generate a key pair (`openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out qi-signing.pem`), send Qi the public half (`openssl rsa -in qi-signing.pem -pubout`), and set the private PEM as the secret. |\n| A6 | Allow our return address | — | Tell Qi the payment page returns to `https://www.touch-padel.com/{en,ar}/pay/return` and that notifications go to `https://lczijabnorujcgmbuqlw.supabase.co/functions/v1/deposit-webhook`. Qi's error 26 (`INVALID_PAYMENT_FORM_DOMAIN`) suggests domains can be allow-listed. |\n| A7 | Still open with Qi | — | How long a payment page stays payable (our window is 15 min and must be shorter), refund time limit, settlement schedule and fees, whether webhook retries stop, whether they allow-list IPs. None of these block activation. |",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#3",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › B. Ship the code (lifts the push hold, so only on Majed's word)",
+      "body": "## B. Ship the code (lifts the push hold, so only on Majed's word)\n\n1. Push `main`. Because `packages/db` changed, this runs **DB Migrate** (applies 0241 and 0242 to hosted),\n   **Functions Deploy** (the five functions and `send-push` with the new `deposit_refunded` copy) and the\n   Vercel build (the return page). Follow each run to green (root `CLAUDE.md`, \"Pushing\").\n2. Confirm the return page is live in both languages:\n   `curl -sI 'https://www.touch-padel.com/en/pay/return?ref=00000000-0000-4000-8000-000000000000'` and the\n   same with `/ar/`: both 200.\n3. Confirm `functions_base_url` is in the vault (the refund sweeper uses it, like push):\n   `select name from vault.secrets where name in ('functions_base_url', 'service_role_key');` returns both rows.\n4. Confirm the sweeper is scheduled: `select jobname, schedule from cron.job where jobname = 'tp_deposit_sweep';`\n5. A **new mobile build** is needed (new screens and routes). Production `eas build` and store submission are\n   Parsa's to run. Before submitting, update the store copy that says \"pay at the desk\", plus the privacy\n   answers (plan §9): the app never sees card data, but \"Purchase History\" becomes yes.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#4",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › C. Set the secrets (hosted)",
+      "body": "## C. Set the secrets (hosted)\n\nFrom `packages/db`:\n\n```sh\npnpm exec supabase secrets set --project-ref lczijabnorujcgmbuqlw \\\n  PAYMENTS_PROVIDER=qi \\\n  QI_BASE_URL='https://…' QI_TERMINAL_ID='…' QI_USERNAME='…' QI_PASSWORD='…' \\\n  QI_WEBHOOK_PUBLIC_KEY_PEM=\"$(cat qi-webhook-public.pem)\"\n```\n\nOptional:\n- `QI_SIGNING_PRIVATE_KEY_PEM=\"$(cat qi-signing.pem)\"` for signature-based auth only (A5).\n- The sandbox, for the store review account (§E): `QI_SANDBOX_TERMINAL_ID`, `QI_SANDBOX_USERNAME` and\n  `QI_SANDBOX_PASSWORD`, from Qi's public \"Sandbox Environment\" page. `QI_SANDBOX_BASE_URL` defaults to Qi's\n  sandbox host.\n- `PAYMENTS_SITE_URL` only if the website moves off `https://www.touch-padel.com`.\n\nWhat each state does:\n- `PAYMENTS_PROVIDER` unset: every \"Pay now\" answers \"payment unavailable\", nothing is recorded or charged,\n  and the app offers pay at the desk.\n- A secret missing or `QI_BASE_URL` not https: the same, with the reason in the function log\n  (`[payments] qi is misconfigured: missing …`).",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#5",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › D. Turn it on (the owner, in the operator)",
+      "body": "## D. Turn it on (the owner, in the operator)\n\nSettings → Venue details → **Online deposit (Qi Card)**. Per branch:\n- Mode: **off** (default), **optional** (Pay now, or pay everything at the desk), or **required** (pay first).\n  Start with **optional** for a week and watch the refund list.\n- Deposit: 50 %, at least 10,000 IQD, no maximum, 15 minutes to pay, no-show keeps the deposit. All can be\n  changed.\n- One guest can be excused from `required`: the desk sets the customer flag **No deposit needed**.\n\nTurning it back **off** stops new payments at once. A payment already under way still finishes, gets\nconfirmed, or gets refunded.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#6",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › E. Prove it on hosted before guests see it",
+      "body": "## E. Prove it on hosted before guests see it\n\n1. Set the sandbox secrets (§C) and mark one test account:\n   `update profiles set payment_sandbox = true where id = '<test account uuid>';`\n2. With mode `optional`, book on that account and tap Pay now. On Qi's page, use Qi's published **web** test\n   card (on their Sandbox Environment page; 3-D Secure code `123123` if asked).\n3. Expect, within seconds: the app shows the booking confirmed, and the desk bill shows the booking with a\n   **Test** marker. Sandbox money never counts as paid, so the desk still asks for the full price.\n4. Cancel the booking. Within about a minute the payment reads refunded (`deposit_attention` stays empty).\n5. The same account is the App Review account's recipe (plan §9): give the reviewer the test card.\n\nWhat Qi's sandbox showed on 2026-09-27, all handled in code (`_shared/payments/qi.ts`):\n- A reused request id answers error **5** \"already used\" (not 1 or 10, as the docs suggest).\n- \"Not found\" is HTTP 403 with code 12.\n- The status call carries no page link.\n- A cancelled payment keeps `status: CREATED` with `canceled: true`.\n- Refunds answer `SUCCESS` at once, and the status call still says `SUCCESS` after a refund.\n- Qi appends `&requestId=…&paymentId=…&status=SUCCESS` to our return URL. We ignore it on purpose: the app\n  only believes Qi's API.\n- The web test card needed no 3-D Secure code.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#7",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › F. How it behaves (for whoever is on call)",
+      "body": "## F. How it behaves (for whoever is on call)\n\n- **The truth is Qi's status API, asked with our credentials.** The webhook, the app's polling (every 2 s,\n  then every 5 s) and the sweeper (every 30 s) are three ways of asking. The first answer to arrive wins, and\n  the others are no-ops.\n- **Webhooks:** with the key set, a bad signature is refused (401) and logged. Without it, the body is used\n  only to find the payment, then Qi is asked. A forger can make us check, never make us book.\n- **Paid but the slot is gone** (taken meanwhile, or the venue went offline): the money goes back\n  automatically. It is never a paid payment without a booking.\n- **Cancelled booking:** refunded automatically. **No-show:** deposit kept (the Settings switch changes this).\n- **A refund Qi refuses, or one we could not confirm:** it appears in **Online refunds needing attention**\n  (owner Financial home, manager Today). Retry it, or mark it \"Settled another way\" with the manager PIN\n  after refunding the guest in cash.\n- **Every message from Qi** is kept in `booking_payment_events` without card data: `select * from\n  booking_payment_events where payment_id = '<id>' order by id;`",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/client/qi-card-activation.md#8",
+      "lang": "en",
+      "title": "docs/client/qi-card-activation.md › G. Local development",
+      "body": "## G. Local development\n\n`packages/db/supabase/functions/.env`: `PAYMENTS_PROVIDER=fake`. Then `pnpm exec supabase functions serve\n--env-file supabase/functions/.env` from `packages/db`. \"Pay now\" opens the fake page, with Succeed,\nDeclined, Wrong code and Do nothing buttons. From a phone, set `PAYMENTS_FAKE_PAGE_URL` to the Mac's LAN\naddress. The fake refuses to load anywhere but the local stack.",
       "route": null
     },
     {
@@ -24931,10 +25267,90 @@
     },
     {
       "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#1",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › Online deposit (Qi Card): build contracts",
+      "body": "# Online deposit (Qi Card): build contracts\n\nDate: 2026-09-27. Binding for every lane of the deposit build. The plan is\n`qi-deposit-plan-2026-09-20.md`; where this file and the plan disagree, this file wins (it\nwas written against the code as of `69b532f5`, after multi-venue).\n\nStatus: built 2026-09-27 and tested on the local stack (fake provider) and against Qi's public\nsandbox. On hosted, what remains is shipping the code, setting the Qi secrets and turning the\nswitch on in Settings (`docs/client/qi-card-activation.md`).",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#10",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 6. Operator (`apps/operator`)",
+      "body": "## 6. Operator (`apps/operator`)\n\n- Owner Settings: an \"Online deposit\" section (mode switch, percent, minimum, maximum,\n  window, no-show rule) reading `deposit_settings`, writing `set_deposit_settings`.\n- Court bill panel: \"Paid online · X\" line from `booking_bill.online_paid_iqd`.\n- Manager Financial: \"Online refunds needing attention\" from `deposit_attention` with Retry\n  (`deposit_refund_retry`) and \"Settled another way\" (`deposit_refund_manual`, manager PIN).\n- Customer flags: `deposit_exempt` offered with the other flags.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#2",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 1. Decisions taken (owner can change every one in Settings later)",
+      "body": "## 1. Decisions taken (owner can change every one in Settings later)\n\n| Plan item | Taken | Where it lives |\n|---|---|---|\n| Deposit size | 50 % of the court price, at least 10,000 IQD, no cap, rounded **up** to 250 IQD | `venue_settings.deposit_percent_bp`, `deposit_min_iqd`, `deposit_max_iqd` |\n| Launch mode | `off` until the owner switches it on; `optional` is the recommended first setting | `venue_settings.deposit_mode` |\n| Payment window | 15 minutes | `venue_settings.deposit_window_seconds` (120..1800) |\n| Cancelled booking (guest or staff) | deposit is always refunded | the `reservations` trigger (§2.4) |\n| No-show | deposit is kept (forfeit), switchable | `venue_settings.deposit_forfeit_no_show` |\n| Per-guest exemption | `customer_flags` type `deposit_exempt` turns `required` into `optional` for that guest | `app.deposit_mode_for` |\n| App Review | `profiles.payment_sandbox` routes that guest's payments to Qi's sandbox; stamped `sandbox`, left out of figures | edge `deposit-begin` |\n| Desk bookings | never need a deposit | `staff_create_reservation` untouched |\n\nGuests cannot cancel inside the cancellation window (`CANCELLATION_WINDOW`), so the plan's\n\"forfeit inside the window\" setting has nothing to act on and is not built.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#3",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 2. Database (migrations 0241, 0242)",
+      "body": "## 2. Database (migrations 0241, 0242)\n\n### 2.1 Tables\n\n`booking_payments` (branch table, `zz_branch_guard` scoped): `id`, `venue_id`,\n`reservation_id` (what the money is for, may move to a re-created booking), `hold_id` (the hold\nthe payment began on, never changes), `guest_id` (null after account deletion), `purpose`\n('deposit'), `provider` ('qi' | 'fake'), `sandbox`, `request_id` (uuid, unique, what Qi gets),\n`provider_payment_id` (Qi's paymentId, unique), `amount_iqd`, `quoted_price_iqd`, `locale`\n('en' | 'ar'), `status`, `provider_status`, `form_url`, `deadline_at`, `last_checked_at`,\n`succeeded_at`, `failed_at`, `expired_at`, `forfeited_at`, `refund_reason`,\n`refund_amount_iqd`, `refund_request_id`, `refund_provider_id`, `refund_requested_at`,\n`refunded_at`, `refund_attempts`, `cancel_attempts`, `failure_code`, `claimed_at`,\n`created_at`, `updated_at`.\n\n`status`: `created` → `pending` → `succeeded` | `failed` | `expired`;\n`succeeded` → `refund_pending` → `refunded` | `refund_failed`; `refund_failed` → `refund_pending`\n(retry) | `refunded` (manual).\n\n`failure_code` (what the app shows on `failed`): `declined`, `auth_failed`, `bank_error`,\n`cancelled`.\n\n`refund_reason`: `guest_cancel`, `staff_cancel`, `no_show`, `slot_lost`, `venue_offline`,\n`amount_mismatch`, `duplicate_success`, `manual`, `staff_refund`.\n\n`booking_payment_events`: append-only log of every byte from Qi (and our own decisions).\nService-only.\n\n### 2.2 Guest RPCs (`authenticated`, ownership-guarded)\n\n`app.deposit_quote(p_hold_id uuid) → jsonb`\n\n```json\n{ \"deposit_mode\": \"off|optional|required\",\n  \"deposit_iqd\": 20000, \"price_iqd\": 40000, \"rest_iqd\": 20000,\n  \"window_seconds\": 900,\n  \"active\": null | { \"request_id\": \"uuid\", \"status\": \"created|pending\", \"form_url\": \"…\", \"deadline_at\": \"…\" } }\n```\n\n`deposit_iqd`/`rest_iqd` are 0 and the mode is `off` when deposits are off. Refusals:\n`AUTH_REQUIRED`, `HOLD_NOT_FOUND`, `FORBIDDEN`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#4",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 2. Database (migrations 0241, 0242)",
+      "body": "`app.deposit_status(p_request_id uuid) → jsonb` (guest: own; staff at the branch: any)\n\n```json\n{ \"request_id\": \"uuid\", \"status\": \"created|pending|succeeded|failed|expired|refund_pending|refunded|refund_failed\",\n  \"failure_code\": null | \"declined|auth_failed|bank_error|cancelled\",\n  \"amount_iqd\": 20000, \"price_iqd\": 40000, \"rest_iqd\": 20000,\n  \"deadline_at\": \"…\", \"form_url\": \"…\" | null,\n  \"refund_reason\": null | \"…\", \"refund_amount_iqd\": null | 20000, \"refunded_at\": null | \"…\",\n  \"sandbox\": false,\n  \"deposit_mode\": \"optional\",            // effective mode for this guest at this branch, now\n  \"attempts_left\": 2,                    // new attempts allowed on this hold\n  \"hold_live\": true,                     // the hold can still be paid or confirmed\n  \"reservation\": { \"id\": \"uuid\", \"kind\": \"hold|booking\", \"status\": \"…\", \"court_id\": \"uuid\",\n                   \"start_at\": \"…\", \"end_at\": \"…\", \"venue_id\": \"uuid\" },\n  \"server_now\": \"…\" }\n```\n\nRefusals: `AUTH_REQUIRED`, `PAYMENT_NOT_FOUND` (unknown ref and someone else's ref look the same).\n\n`app.my_reservations(p_reservation_id uuid default null)` gains three columns:\n`online_paid_iqd bigint` (succeeded deposits net of refunds, 0 when none),\n`payment_status text` (latest attempt's status or null), `payment_ref uuid` (its request_id or null).\n\n`app.confirm_booking` now refuses `DEPOSIT_REQUIRED` for a guest when the effective mode is\n`required` and the hold has no succeeded payment. Everything else is unchanged.\n\n`app.release_hold` no longer releases a hold with a `created|pending` payment: it answers\n`{released:false, status:'pending', payment_in_progress:true}`.\n\n### 2.3 Staff RPCs\n\n`app.deposit_settings(p_venue_id uuid default null) → jsonb` (manager, owner):\n`{venue_id, deposit_mode, deposit_percent_bp, deposit_min_iqd, deposit_max_iqd,\ndeposit_window_seconds, deposit_forfeit_no_show}`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#5",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 2. Database (migrations 0241, 0242)",
+      "body": "`app.set_deposit_settings(p_patch jsonb, p_venue_id uuid default null) → jsonb` (owner): same\nkeys, returns the new settings. Bounds: `deposit_mode` in off/optional/required;\n`deposit_percent_bp` 100..10000; `deposit_min_iqd` 0..10,000,000; `deposit_max_iqd` null or\n≥ min; `deposit_window_seconds` 120..1800; `deposit_forfeit_no_show` boolean. Refusals:\n`FORBIDDEN`, `INVALID_ARGUMENT` (detail = key). Audited `venue.deposit_settings`.\n\n`app.deposit_attention(p_venue_id uuid default null) → jsonb` (manager, owner): array of\n`{id, request_id, reservation_id, guest_name, guest_phone, amount_iqd, refund_amount_iqd,\nstatus, refund_reason, refund_requested_at, refund_attempts, succeeded_at, sandbox,\ncourt_name_en, court_name_ar, start_at}` for `refund_failed`, `refund_pending` older than\n24 h, and `succeeded` whose booking is not live and not forfeited.\n\n`app.deposit_refund_retry(p_payment_id uuid) → jsonb` (manager, owner): `refund_failed →\nrefund_pending`. Refusals: `FORBIDDEN`, `PAYMENT_NOT_FOUND`, `PAYMENT_STATE`.\n\n`app.deposit_refund_manual(p_payment_id uuid, p_pin text, p_note text, p_device_id text default\nnull) → jsonb` (manager, owner): in `PIN_GATED_RPCS`, so the caller proves the PIN to\n`verify_manager_pin` first and the RPC spends the 0115 grant. `refund_pending | refund_failed |\nsucceeded → refunded` (reason `manual` when it was succeeded). Refusals: `FORBIDDEN`,\n`PIN_GRANT_REQUIRED`, `PAYMENT_NOT_FOUND`, `PAYMENT_STATE`, `REASON_REQUIRED`.\n\n`app.deposit_refund_request(p_payment_id uuid, p_amount_iqd bigint default null) → jsonb`\n(manager, owner): `succeeded → refund_pending` with `refund_reason='staff_refund'` (partial\nwhen an amount is given, e.g. a price override below the deposit). Refusals: `FORBIDDEN`,\n`PAYMENT_NOT_FOUND`, `PAYMENT_STATE`, `REFUND_TOO_LARGE`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#6",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 2. Database (migrations 0241, 0242)",
+      "body": "`app.booking_bill` gains `online_paid_iqd` and `online_payments` (array of\n`{id, status, amount_iqd, refund_amount_iqd, succeeded_at, refunded_at, sandbox}`).\n`court_paid_iqd` already includes succeeded deposits for a live booking, so\n`court_remaining_iqd` and every tab's court line charge only the rest.\n\n`app.customer_flags` type `deposit_exempt` is accepted by `set_customer_flags`.\n\n### 2.4 Server-only (service role)\n\n`deposit_prepare`, `deposit_mark_created`, `deposit_apply`, `deposit_log_event`,\n`deposits_due_for_reconcile`, `deposit_refund_apply`, `deposit_note_cancel_attempt`,\n`deposit_nudge` (cron `tp_deposit_sweep`). A trigger on `reservations` turns a cancelled\nbooking's succeeded deposit into `refund_pending`, and a no-show's into a forfeit or a refund.\n\n### 2.5 New error codes\n\nGuest (mobile `CODE_TO_KEY`): `DEPOSITS_OFF`, `DEPOSIT_REQUIRED`, `TOO_MANY_ATTEMPTS`,\n`PAYMENT_NOT_FOUND`. Staff (operator `MAPPED_CODES`): `PAYMENT_NOT_FOUND`, `PAYMENT_STATE`,\n`REFUND_TOO_LARGE`. Edge-only (never raised by SQL): `PROVIDER_UNAVAILABLE`, `BAD_REQUEST`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#7",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 3. Edge functions (`packages/db/supabase/functions`)",
+      "body": "## 3. Edge functions (`packages/db/supabase/functions`)\n\nError body everywhere: `{ \"error\": \"CODE\", \"message\"?: \"…\" }`.\n\n`POST deposit-begin` (user JWT). Body `{ \"hold_id\": uuid, \"locale\": \"en\"|\"ar\" }`.\n200 → `{ \"request_id\", \"form_url\", \"amount_iqd\", \"deadline_at\", \"status\": \"pending\" }`.\nErrors: 401 `AUTH_REQUIRED`, 400 `BAD_REQUEST` | `PHONE_REQUIRED`, 403 `FORBIDDEN`,\n404 `HOLD_NOT_FOUND`, 409 `HOLD_EXPIRED` | `DEPOSITS_OFF`, 429 `TOO_MANY_ATTEMPTS`,\n503 `PROVIDER_UNAVAILABLE` | `DEGRADED_LOCKOUT`. Calling it again for the same hold while an\nattempt is live returns that attempt (same `request_id`, same `form_url`).\n\n`POST deposit-status` (user JWT). Body `{ \"ref\": uuid }`. 200 → the `deposit_status` JSON\nabove, after asking Qi when the attempt is still open. Errors: 401, 400 `BAD_REQUEST`,\n404 `PAYMENT_NOT_FOUND`. A Qi outage never changes the answer; it returns the last known state.\n\n`POST deposit-webhook` (no JWT; Qi's RSA signature). `POST deposit-reconcile` (service role,\ncron). `payments-fake` (local stack only): `GET /functions/v1/payments-fake?ref=<request_id>`\nis the stand-in for Qi's payment page, with Succeed / Decline / Wrong OTP / Do nothing buttons.\n\nReturn path: Qi sends the browser to `https://www.touch-padel.com/{locale}/pay/return?ref=<request_id>`\n(`PAYMENTS_SITE_URL` overrides the origin), which opens `touchpadel://pay/return?ref=<request_id>`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#8",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 4. Mobile (`apps/mobile`)",
+      "body": "## 4. Mobile (`apps/mobile`)\n\n- `app/pay/return.tsx`: landing for `touchpadel://pay/return?ref=`; dismisses the browser and\n  `router.replace('/pay/status?ref=…')`.\n- `app/pay/status.tsx`: the one payment screen; renders only what `deposit-status` says\n  (plan §5.3 table). Polls every 2 s for 60 s, then every 5 s until `deadline_at + 60 s`.\n- `app/+not-found.tsx`: designed \"That page isn't here\" with My bookings and Book a court.\n- Review: calls `deposit_quote` after the hold; `off` → today's Confirm; `optional` →\n  \"Pay {deposit} now\" (primary) and \"Confirm, pay at the desk\" (secondary); `required` → only\n  the pay button. Pay → `deposit-begin` → save pending payment → push `/pay/status` →\n  `WebBrowser.openBrowserAsync(form_url)`.\n- Pending payment persisted per user (`tp.pendingPayment.<userId>`), cleared on any terminal\n  state and in the account-deletion purge.\n- Booking detail and the bookings list: \"Paid online X · Y at the desk\" from\n  `online_paid_iqd`; a hold with `payment_status` created/pending shows \"Finish payment\".\n- i18n namespace `deposit.*` in `packages/i18n/src/catalogs/{en,ar}.ts`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/design/payments/build-contracts-2026-09-27.md#9",
+      "lang": "en",
+      "title": "docs/design/payments/build-contracts-2026-09-27.md › 5. Web (`apps/web`)",
+      "body": "## 5. Web (`apps/web`)\n\n`app/[locale]/pay/return/page.tsx`: never shows a result; opens the app, shows an\n\"Open the app\" button and a download link; `noindex`.",
+      "route": null
+    },
+    {
+      "kind": "doc",
       "ref": "doc:docs/design/payments/qi-deposit-plan-2026-09-20.md#1",
       "lang": "en",
       "title": "docs/design/payments/qi-deposit-plan-2026-09-20.md › Online deposit for reservations — Qi Card, iOS + Android",
-      "body": "# Online deposit for reservations — Qi Card, iOS + Android\n\nDate: 2026-09-20. Status: plan, nothing built. Owner decisions are marked **DECIDE**.\nFacts about Qi come from `developers-gate.qi.iq` and its OpenAPI spec (fetched 2026-09-20);\nfacts about this repo come from the code as of `3d70643`. Anything not verified is marked\n**ASK QI** or **UNVERIFIED**, never assumed.\n\nThe bar set for this feature: no dead ends, no false positives (\"paid\" when not), no false\nnegatives (\"failed\" when paid), every server state maps to exactly one screen, every URL a\nguest can land on exists before the first real credential is issued.\n\n---",
+      "body": "# Online deposit for reservations — Qi Card, iOS + Android\n\nDate: 2026-09-20. Status: **built 2026-09-27** (migrations 0241–0242, the deposit edge functions, the\nmobile, web and operator screens), dormant until the Qi secrets are set and the owner switches it on:\n`docs/client/qi-card-activation.md`. What was built differs from this plan where\n`build-contracts-2026-09-27.md` says so. Owner decisions are marked **DECIDE**.\nFacts about Qi come from `developers-gate.qi.iq` and its OpenAPI spec (fetched 2026-09-20);\nfacts about this repo come from the code as of `3d70643`. Anything not verified is marked\n**ASK QI** or **UNVERIFIED**, never assumed.\n\nThe bar set for this feature: no dead ends, no false positives (\"paid\" when not), no false\nnegatives (\"failed\" when paid), every server state maps to exactly one screen, every URL a\nguest can land on exists before the first real credential is issued.\n\n---",
       "route": null
     },
     {

@@ -141,7 +141,7 @@ const tEn = {
   vPrice: '50,000 IQD',
   payAtDeskTitle: 'Pay at the desk',
   payAtDeskBody:
-    'Your court is reserved now. You pay at reception when you arrive — there is no online payment in this app.',
+    'Your court is reserved now. Anything left to pay is settled at reception when you arrive.',
   policyLine:
     'Free cancellation until 4 hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
   reserveCta: 'Reserve court',
@@ -150,7 +150,7 @@ const tEn = {
   successTitle: 'Court reserved',
   refLabel: 'REF TP-7C3E',
   successPayBody:
-    "Show up, check in at reception and pay there. We'll send a reminder before your slot.",
+    "Show up, check in at reception and settle anything still owed there. We'll send a reminder before your slot.",
   viewBooking: 'View booking',
   done: 'Done',
 
@@ -263,14 +263,14 @@ const tAr = {
   vPrice: arIqd('50,000'),
   payAtDeskTitle: 'الدفع عند الاستقبال',
   payAtDeskBody:
-    'ملعبك محجوز الآن. تدفع في الاستقبال عند وصولك — لا يوجد دفع إلكتروني في هذا التطبيق.',
+    'ملعبك محجوز الآن. يُسدَّد أي مبلغ متبقٍّ في الاستقبال عند وصولك.',
   policyLine:
     'إلغاء مجاني حتى 4 ساعات قبل موعدك. بعد ذلك تُدار التغييرات عبر الاستقبال. قد يؤدي تكرار عدم الحضور إلى تقييد الحجز من التطبيق.',
   reserveCta: 'حجز الملعب',
 
   successTitle: 'تم حجز الملعب',
   refLabel: 'المرجع TP-7C3E',
-  successPayBody: 'احضر وسجّل وصولك في الاستقبال وادفع هناك. سنرسل لك تذكيرًا قبل موعدك.',
+  successPayBody: 'احضر وسجّل وصولك في الاستقبال وسدّد هناك أي مبلغ متبقٍّ. سنرسل لك تذكيرًا قبل موعدك.',
   viewBooking: 'عرض الحجز',
   done: 'تم',
 

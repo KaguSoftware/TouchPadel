@@ -37,7 +37,8 @@ export function AppBand({
   }));
 
   return (
-    <section className="tp-appband" aria-labelledby="app-title">
+    // `id="app"`: the payment return page's "Don't have the app?" lands here (/{locale}#app).
+    <section id="app" className="tp-appband" aria-labelledby="app-title">
       <AppScreens
         screens={screens}
         head={

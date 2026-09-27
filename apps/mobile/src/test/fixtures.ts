@@ -13,6 +13,7 @@
  * its hook, and a literal copy in a test is exactly how the two drift.
  */
 import type { Locale } from '@touch/i18n';
+import type { DepositQuote, DepositStatus } from '../features/deposit/logic';
 
 const TEST_USER_ID = '00000000-0000-4000-8000-00000000beef';
 export const TEST_RESERVATION_ID = '11111111-1111-4111-8111-111111111111';
@@ -126,6 +127,62 @@ export function courtFixture(over: Record<string, unknown> = {}) {
     photo_path: null,
     duration_options: [60, 90],
     sort_order: 1,
+    ...over,
+  };
+}
+
+/**
+ * One online-deposit attempt as the payment screen's query holds it (the
+ * PARSED `deposit_status`, features/deposit/logic.ts): pending, its window ten
+ * minutes from now, on a hold still live, with the bank's page to reopen.
+ */
+export function depositStatusFixture(
+  over: { ref?: string; reservationId?: string } & Partial<DepositStatus> = {},
+): DepositStatus {
+  const { ref = '55555555-5555-4555-8555-555555555555', reservationId = TEST_RESERVATION_ID, ...rest } = over;
+  const start = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 90 * 60 * 1000);
+  return {
+    ref,
+    status: 'pending',
+    failureCode: null,
+    amountIqd: 15000,
+    priceIqd: 30000,
+    restIqd: 15000,
+    deadlineAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    formUrl: 'https://payments.example.test/pay?ref=' + ref,
+    refundReason: null,
+    refundAmountIqd: null,
+    refundedAt: null,
+    sandbox: false,
+    depositMode: 'optional',
+    attemptsLeft: 2,
+    holdLive: true,
+    reservation: {
+      id: reservationId,
+      kind: 'hold',
+      status: 'pending',
+      courtId: TEST_COURT_ID,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      venueId: TEST_VENUE_ID,
+    },
+    serverNow: new Date().toISOString(),
+    ...rest,
+  };
+}
+
+/** app.deposit_quote, parsed, for Review: `off` unless a case asks for a mode. */
+export function depositQuoteFixture(over: Partial<DepositQuote> = {}): DepositQuote {
+  const mode = over.mode ?? 'off';
+  const deposit = mode === 'off' ? 0 : 15000;
+  return {
+    mode,
+    depositIqd: deposit,
+    priceIqd: 30000,
+    restIqd: 30000 - deposit,
+    windowSeconds: 900,
+    active: null,
     ...over,
   };
 }

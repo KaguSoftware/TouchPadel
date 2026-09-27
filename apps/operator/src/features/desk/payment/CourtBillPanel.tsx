@@ -11,6 +11,13 @@
  *   nothing owed on a bill    → Close the bill (so the day can close)
  *   more paid than owed       → a manager refunds at the till
  *   paid / ended / no fee     → a sentence, and the payments taken
+ *   deposit paid online       → "Paid online · X", and the rest by Cash · Card
+ *
+ * An online deposit (Qi Card, build-contracts-2026-09-27) is not a till
+ * payment: it is never offered at Cash · Card, and it reaches this panel only
+ * as app.booking_bill's `online_paid_iqd` (already inside court_paid_iqd, so
+ * every figure below is the rest) and `online_payments`, which the payments
+ * list shows beside the desk's own with what became of any refund.
  *
  * Cash and card go through the till's own PaymentPane and mutate('tab.settle'),
  * carrying the total the clerk was shown: if the bill moved in between (an item
@@ -20,7 +27,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatIQD, formatNumber, formatTime, VENUE_TZ } from '@touch/i18n';
+import { formatDateTime, formatIQD, formatNumber, formatTime, VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { mutate } from '../../../lib/mutate';
 import { AppRpcError } from '../../../lib/appRpc';
 import { resultErrorCode } from '../../../lib/queueResults';
@@ -29,10 +36,20 @@ import { canAccess, permissionsFor, useAuth } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Modal } from '../../../components/ui';
-import { MessagePresenter, Money, Panel } from '../../../components/kit';
+import { MessagePresenter, Money, Panel, StatusBadge, type Tone } from '../../../components/kit';
 import { PaymentPane } from '../../till/PaymentPane';
 import { AddCafeBillDialog } from './AddCafeBillDialog';
-import { canAddCafeBill, canTakePayment, closeBillPlan, panelStateOf, type BookingBill } from './deskPaymentLogic';
+import {
+  canAddCafeBill,
+  canTakePayment,
+  closeBillPlan,
+  onlinePaymentsTaken,
+  onlineRefundState,
+  panelStateOf,
+  paymentMethodKey,
+  type BookingBill,
+  type OnlineRefundState,
+} from './deskPaymentLogic';
 import { useBookingBill } from './useBookingBill';
 
 type Method = 'cash' | 'card';
@@ -198,6 +215,8 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
         return tr('ws.courtDesk.payment.notCharged', { amount: amount(bill.court_remaining_iqd) });
       case 'owedAgain':
         return tr('ws.courtDesk.payment.owedAgain', { amount: amount(bill.court_remaining_iqd) });
+      case 'depositRest':
+        return tr('ws.courtDesk.payment.depositRest', { amount: amount(bill.court_remaining_iqd) });
       case 'billOpen':
         return tr('ws.courtDesk.payment.billOpen', { amount: amount(tab?.due_iqd ?? 0) });
       case 'closeBill':
@@ -220,6 +239,13 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
   const payable = allowed && canTakePayment(state);
   const dayBlocked = !bill.day_open;
   const payments = bill.settled_tabs.flatMap((t) => t.payments);
+  const online = onlinePaymentsTaken(bill);
+  const onlinePaid = bill.online_paid_iqd ?? 0;
+  // Earliest first: the deposit is usually paid days before the desk sees the guest.
+  const history = [
+    ...online.map((p) => ({ kind: 'online' as const, at: p.succeeded_at ?? '', p })),
+    ...payments.map((p) => ({ kind: 'desk' as const, at: p.created_at, p })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
 
   return (
     <Panel title={tr('ws.courtDesk.payment.title')}>
@@ -251,11 +277,18 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
         {notice && <MessagePresenter tone="refused" message={notice} />}
         <ErrorText error={paying || confirmClose ? null : error} />
 
+        {onlinePaid > 0 && (
+          <dl style={{ margin: 0 }} data-testid="paid-online">
+            {/* The server leaves test payments out of this figure; they show, marked, in the list below. */}
+            <BillRow label={tr('ws.courtDesk.payment.paidOnline')} amount={onlinePaid} />
+          </dl>
+        )}
+
         {tab && (
           // A bill reads like a receipt: what each line is, and its amount on
           // the far edge, with the total set apart and what is left to pay last.
           <dl style={{ margin: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            <BillRow label={tr('ws.courtDesk.payment.courtFee')} amount={tab.court_iqd} />
+            <BillRow label={tr(onlinePaid > 0 ? 'ws.courtDesk.payment.courtFeeRest' : 'ws.courtDesk.payment.courtFee')} amount={tab.court_iqd} />
             {tab.item_count > 0 && <BillRow label={tr('ws.courtDesk.payment.cafeItems', { count: formatNumber(tab.item_count, locale) })} amount={tab.subtotal_iqd} />}
             {tab.discount_iqd > 0 && <BillRow label={tr('ws.courtDesk.payment.discount')} amount={-tab.discount_iqd} />}
             {tab.tax_iqd > 0 && <BillRow label={tr('ws.courtDesk.payment.tax')} amount={tab.tax_iqd} />}
@@ -301,22 +334,34 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
           </div>
         )}
 
-        {payments.length > 0 && (
+        {history.length > 0 && (
           <section>
             <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.courtDesk.payment.history')}</h3>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-              {payments.map((p) => (
-                <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
-                  <bdi style={{ color: 'var(--tp-muted-fg)' }}>
-                    {tr('ws.courtDesk.payment.historyRow', {
-                      time: formatTime(new Date(p.created_at), locale, tz),
-                      method: tr(p.method === 'cash' ? 'ws.courtDesk.payment.cash' : 'ws.courtDesk.payment.card'),
-                      name: p.recorded_by_name ?? tr('ws.courtDesk.payment.someone'),
-                    })}
-                  </bdi>
-                  <Money amount={p.amount_iqd} />
-                </li>
-              ))}
+              {history.map((h) =>
+                h.kind === 'desk' ? (
+                  <li key={h.p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
+                    <bdi style={{ color: 'var(--tp-muted-fg)' }}>
+                      {tr('ws.courtDesk.payment.historyRow', {
+                        time: formatTime(new Date(h.p.created_at), locale, tz),
+                        method: tr(`ws.courtDesk.payment.${paymentMethodKey(h.p.method)}`),
+                        name: h.p.recorded_by_name ?? tr('ws.courtDesk.payment.someone'),
+                      })}
+                    </bdi>
+                    <Money amount={h.p.amount_iqd} />
+                  </li>
+                ) : (
+                  <li key={h.p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', minInlineSize: 0 }}>
+                      {/* A deposit can be days old, so it carries its date as well as its time. */}
+                      <bdi style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.payment.historyOnline', { time: formatDateTime(new Date(h.at), locale, tz) })}</bdi>
+                      <OnlineRefundBadge state={onlineRefundState(h.p)} refundIqd={h.p.refund_amount_iqd} />
+                      {h.p.sandbox && <TestMarker />}
+                    </span>
+                    <Money amount={h.p.amount_iqd} />
+                  </li>
+                ),
+              )}
             </ul>
           </section>
         )}
@@ -362,6 +407,28 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
       )}
     </Panel>
   );
+}
+
+const REFUND_BADGE: Record<Exclude<OnlineRefundState, 'none'>, { tone: Tone; key: MessageKey }> = {
+  kept: { tone: 'neutral', key: 'ws.courtDesk.payment.onlineKept' },
+  pending: { tone: 'warn', key: 'ws.courtDesk.payment.onlineRefundPending' },
+  failed: { tone: 'danger', key: 'ws.courtDesk.payment.onlineRefundFailed' },
+  refunded: { tone: 'neutral', key: 'ws.courtDesk.payment.onlineRefunded' },
+  refundedPart: { tone: 'neutral', key: 'ws.courtDesk.payment.onlineRefundedPart' },
+};
+
+/** What became of an online deposit's refund, beside its line in the payments list. */
+function OnlineRefundBadge({ state, refundIqd }: { state: OnlineRefundState; refundIqd: number | null }) {
+  const { tr, locale } = useLocale();
+  if (state === 'none') return null;
+  const b = REFUND_BADGE[state];
+  return <StatusBadge tone={b.tone} size="sm" label={tr(b.key, { amount: formatIQD(refundIqd ?? 0, locale) })} />;
+}
+
+/** A sandbox payment (the app-review account): shown, never mistaken for money. */
+function TestMarker() {
+  const { tr } = useLocale();
+  return <StatusBadge tone="neutral" size="sm" dot={false} label={tr('ws.courtDesk.payment.test')} title={tr('ws.courtDesk.payment.testHint')} />;
 }
 
 function BillRow({ label, amount, strong, divider }: { label: string; amount: number; strong?: boolean; divider?: boolean }) {

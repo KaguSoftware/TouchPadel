@@ -23,6 +23,7 @@ import {
 import { authStorageKeyFor } from '../../../lib/authStorageKey';
 import { chunkKeyNames, PURGE_SWEEP_LIMIT } from '../../../lib/chunk';
 import { historyClearedKey } from '../../booking/historyKeys';
+import { pendingPaymentKey } from '../../deposit/pendingPayment';
 import { localKeysToPurge, secureKeysToPurge } from '../purgeKeys';
 
 const SUPABASE_URL = 'https://abcdefghijklmnop.supabase.co';
@@ -345,10 +346,17 @@ describe('what the purge sweeps', () => {
     expect(secureKeysToPurge(SUPABASE_URL)).toEqual(['sb-abcdefghijklmnop-auth-token']);
   });
 
-  it('sweeps the user-scoped AsyncStorage key, whose NAME contains the uuid', () => {
+  it('sweeps the user-scoped AsyncStorage keys, whose NAMES contain the uuid', () => {
     const uid = '11111111-2222-3333-4444-555555555555';
-    expect(localKeysToPurge(uid)).toEqual([`tp.historyClearedAt.${uid}`]);
-    expect(localKeysToPurge(uid)[0]).toContain(uid);
+    // The history cut, and the pointer to an online deposit still in flight
+    // (build-contracts-2026-09-27 §4) — named by the SAME function the
+    // deposit screens write it with, so the two cannot drift apart.
+    expect(localKeysToPurge(uid)).toEqual([
+      `tp.historyClearedAt.${uid}`,
+      `tp.pendingPayment.${uid}`,
+    ]);
+    expect(localKeysToPurge(uid)).toContain(pendingPaymentKey(uid));
+    for (const key of localKeysToPurge(uid)) expect(key).toContain(uid);
     // No session, nothing to name — and definitely not `tp.historyClearedAt.`.
     expect(localKeysToPurge(null)).toEqual([]);
     expect(localKeysToPurge('')).toEqual([]);
@@ -370,10 +378,11 @@ describe('what the purge sweeps', () => {
     expect(chunkKeyNames('k', PURGE_SWEEP_LIMIT)).toHaveLength(PURGE_SWEEP_LIMIT);
   });
 
-  it('names the history key from the same helper the writer uses', () => {
-    // Guards against the purge hardcoding a prefix that history.ts later moves.
+  it('names each key from the same helper its writer uses', () => {
+    // Guards against the purge hardcoding a prefix that history.ts (or the
+    // deposit's pending pointer) later moves.
     const uid = 'abc';
-    expect(localKeysToPurge(uid)).toEqual([historyClearedKey(uid)]);
+    expect(localKeysToPurge(uid)).toEqual([historyClearedKey(uid), pendingPaymentKey(uid)]);
   });
 });
 

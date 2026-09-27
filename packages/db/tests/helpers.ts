@@ -139,7 +139,9 @@ export async function shapedGuest(
  * RAW behaviour — no grant, PIN_GRANT_REQUIRED — calls c.schema('app').rpc
  * directly, as pin-grants.test.ts does.
  */
-const PIN_GATED_RPCS = new Set(['apply_discount', 'override_price', 'refund', 'void_after_send', 'write_off_expired']);
+const PIN_GATED_RPCS = new Set([
+  'apply_discount', 'override_price', 'refund', 'void_after_send', 'write_off_expired', 'deposit_refund_manual',
+]);
 
 /**
  * Call an app-schema RPC. For a PIN-gated RPC carrying p_pin it proves the PIN

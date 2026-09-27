@@ -286,6 +286,10 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'TILL_SHIFT_NOT_YOURS',
   'TILL_SHIFT_WRONG_STATION',
   'TILL_SHIFT_UNSYNCED',
+  // Online deposits (build-contracts-2026-09-27 §2.5). PAYMENT_NOT_FOUND is
+  // mapped above with the till refunds and says the same thing here.
+  'PAYMENT_STATE',
+  'REFUND_TOO_LARGE',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',

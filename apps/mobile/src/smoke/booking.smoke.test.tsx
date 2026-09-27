@@ -15,9 +15,11 @@ import {
   bookingFixture,
   branchFixture,
   courtFixture,
+  depositQuoteFixture,
   venueSettingsFixture,
 } from '../test/fixtures';
 import { bookingKeys } from '../features/booking/hooks';
+import { depositKeys } from '../features/deposit/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
 import BookingDetailScreen from '../../app/booking/[id]';
 import BookingHistoryScreen from '../../app/booking-history';
@@ -37,9 +39,11 @@ const VENUE: [readonly unknown[], unknown][] = [
   [availabilityKeys.ratePrices, []],
 ];
 
+const HOLD_ID = '33333333-3333-4333-8333-333333333333';
+
 /** A hold that has not expired, as the booking sheet hands it to Review. */
 const holdParams = () => ({
-  holdId: '33333333-3333-4333-8333-333333333333',
+  holdId: HOLD_ID,
   expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   priceIqd: '30000',
   courtNameEn: 'Court One',
@@ -91,8 +95,25 @@ const CASES: SmokeCase[] = [
     Component: ReviewScreen,
     labelKey: 'booking.reserveCta',
     // Without a live `holdId` the screen renders its "hold expired" branch and
-    // a way back to availability instead of the CTA.
-    options: { session: 'in', params: holdParams(), queryData: VENUE },
+    // a way back to availability instead of the CTA. Deposits off: today's
+    // Confirm, unchanged (build-contracts-2026-09-27 §4).
+    options: {
+      session: 'in',
+      params: holdParams(),
+      queryData: [...VENUE, [depositKeys.quote(HOLD_ID), depositQuoteFixture({ mode: 'off' })]],
+    },
+  },
+  {
+    route: 'review',
+    Component: ReviewScreen,
+    // Deposits optional: "Pay X now" leads, and the same Confirm becomes the
+    // second choice, "Confirm, pay at the desk", under the same id.
+    labelKey: 'deposit.confirmPayAtDeskCta',
+    options: {
+      session: 'in',
+      params: holdParams(),
+      queryData: [...VENUE, [depositKeys.quote(HOLD_ID), depositQuoteFixture({ mode: 'optional' })]],
+    },
   },
   {
     route: 'success',

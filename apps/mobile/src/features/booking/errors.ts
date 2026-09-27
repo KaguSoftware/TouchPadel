@@ -144,6 +144,17 @@ const CODE_TO_KEY = {
   // guests' calls on the phone, and a call at another venue or one that is gone
   // is CALL_NOT_FOUND. The operator already maps it.
   CALL_NOT_FOUND: 'op.errors.CALL_NOT_FOUND',
+  // The online deposit (build-contracts-2026-09-27 §2.5). The first four are
+  // raised by SQL; PROVIDER_UNAVAILABLE only ever comes from the deposit-begin
+  // edge function's body, and reaches here as a DepositEdgeError whose message
+  // is the code. Review and the payment screen act on several of these
+  // (DEPOSIT_REQUIRED refreshes the quote, DEPOSITS_OFF falls back to Confirm);
+  // the text is what the guest reads either way.
+  DEPOSITS_OFF: 'deposit.errors.depositsOff',
+  DEPOSIT_REQUIRED: 'deposit.errors.depositRequired',
+  TOO_MANY_ATTEMPTS: 'deposit.errors.tooManyAttempts',
+  PAYMENT_NOT_FOUND: 'deposit.errors.paymentNotFound',
+  PROVIDER_UNAVAILABLE: 'deposit.errors.providerUnavailable',
 } as const satisfies Record<string, MessageKey>;
 
 export type RpcErrorCode = keyof typeof CODE_TO_KEY;

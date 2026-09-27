@@ -185,6 +185,48 @@ describe('CourtBillView', () => {
     expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
   });
 
+  it('a deposit paid online: says the rest is owed, shows "Paid online", and takes the rest at Cash', async () => {
+    const user = userEvent.setup();
+    view(
+      bill({
+        court_paid_iqd: 15000,
+        court_remaining_iqd: 15000,
+        online_paid_iqd: 15000,
+        online_payments: [{ id: 'op1', status: 'succeeded', amount_iqd: 15000, refund_amount_iqd: null, succeeded_at: '2099-09-01T09:00:00.000Z', refunded_at: null, sandbox: false }],
+      }),
+    );
+    expect(screen.getByText(/paid a deposit online/)).toBeTruthy();
+    expect(screen.queryByText(/costs more/)).toBeNull();
+    expect(within(screen.getByTestId('paid-online')).getByText('Paid online')).toBeTruthy();
+    expect(screen.getByText(/Paid online in the app$/)).toBeTruthy();
+    expect(screen.queryByText('Test')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Cash' }));
+    expect(mutate).toHaveBeenCalledWith('tab.open', { reservationId: 'r1' });
+  });
+
+  it('an open bill after a deposit names its court line as the rest', () => {
+    view(bill({ court_paid_iqd: 15000, court_remaining_iqd: 15000, online_paid_iqd: 15000, live_tab: tab({ court_iqd: 15000, total_iqd: 30000, due_iqd: 30000 }) }));
+    expect(screen.getByText('Court fee, after the online deposit')).toBeTruthy();
+    expect(screen.queryByText('Court fee')).toBeNull();
+  });
+
+  it('a cancelled booking with a sandbox deposit: the refund state and the test marker are shown', () => {
+    view(
+      bill(
+        {
+          live: false,
+          court_paid_iqd: 0,
+          court_remaining_iqd: 0,
+          online_paid_iqd: 15000,
+          online_payments: [{ id: 'op1', status: 'refund_pending', amount_iqd: 15000, refund_amount_iqd: 15000, succeeded_at: '2099-09-01T09:00:00.000Z', refunded_at: null, sandbox: true }],
+        },
+        'cancelled',
+      ),
+    );
+    expect(screen.getByText('Refund on its way')).toBeTruthy();
+    expect(screen.getAllByText('Test').length).toBeGreaterThan(0);
+  });
+
   it('a role without court payment sees the state but no buttons', () => {
     role = 'prep';
     view(bill({ live_tab: tab() }));

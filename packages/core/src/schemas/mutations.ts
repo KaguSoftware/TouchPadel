@@ -52,6 +52,8 @@ export const PIN_GATED_RPCS = [
   'refund',
   'void_after_send',
   'write_off_expired',
+  // 0242: "settled another way" on an online deposit refund.
+  'deposit_refund_manual',
 ] as const;
 export const PIN_GATED_RPC_SET: ReadonlySet<string> = new Set(PIN_GATED_RPCS);
 

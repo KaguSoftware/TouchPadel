@@ -4206,4 +4206,57 @@ export const matrix: MatrixRule[] = [
     note: 'any active staff member: their own supplier receipts of the last 30 days',
     drop: 20,
   },
+
+  // ── 0241–0242: the online deposit (Qi Card) ─────────────────────────────
+  // Nil ids stop every allowed principal past the guard with nothing written:
+  // deposit_quote at HOLD_NOT_FOUND, deposit_status / the refund actions at
+  // PAYMENT_NOT_FOUND, set_deposit_settings at INVALID_ARGUMENT (an empty
+  // patch). The guest pair is ownership-guarded, so every signed-in principal
+  // executes and learns nothing about anyone else's payment.
+  {
+    kind: 'rpc', schema: 'app', name: 'deposit_quote',
+    args: { p_hold_id: NIL_UUID }, expect: SELF_AUTHED,
+    note: 'the caller\'s own hold only (FORBIDDEN otherwise); an unknown hold is HOLD_NOT_FOUND',
+    drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deposit_status',
+    args: { p_request_id: NIL_UUID }, expect: SELF_AUTHED,
+    note: 'the caller\'s own payment, or court desk / MGMT at its branch; anything else reads as PAYMENT_NOT_FOUND',
+    drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deposit_settings',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'manager and owner read the branch\'s deposit rules',
+    drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_deposit_settings',
+    args: { p_patch: {}, p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    note: 'owner only; an empty patch is INVALID_ARGUMENT, so nothing changes',
+    drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deposit_attention',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'online refunds a person must look at',
+    drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deposit_refund_retry',
+    args: { p_payment_id: NIL_UUID }, expect: MANAGER_UP,
+    drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deposit_refund_request',
+    args: { p_payment_id: NIL_UUID }, expect: MANAGER_UP,
+    drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'deposit_refund_manual',
+    args: { p_payment_id: NIL_UUID, p_pin: MANAGER_PIN, p_note: 'matrix' }, expect: MANAGER_UP,
+    note: 'the helper proves the PIN first (0115), then the role guard; an unknown payment is PAYMENT_NOT_FOUND before any grant is spent',
+    drop: 21,
+  },
 ];

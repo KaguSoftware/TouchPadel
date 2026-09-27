@@ -24,9 +24,11 @@ import { useLocale, pickName } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
+import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
 import { TAX_GROUPS_KEY, VENUE_ADMIN_KEY, bpToPercent, fetchTaxGroups, fetchVenueAdmin, type TaxGroupRow, type VenueAdminRow } from './venueQueries';
 import { DevicesPanel } from './DevicesPanel';
 import { StationsPanel } from './StationsPanel';
+import { Facts, NumberField } from './settingsFields';
 import {
   VENUE_RANGES,
   draftFromVenue,
@@ -86,7 +88,7 @@ export function VenueDetailsTab() {
       <AsyncStateWrapper status={asyncStatus(venueQ, () => false)} error={venueQ.error} onRetry={() => void venueQ.refetch()} skeleton={<Skeleton lines={6} />}>
         {venueQ.data &&
           (canEdit ? (
-            <VenueForm saved={venueQ.data} />
+            <VenueForm saved={venueQ.data} afterRules={<DepositSettingsPanel canEdit />} />
           ) : (
             <>
               <Panel title={tr('ws.owner.settings.details.venueTitle')}>
@@ -120,6 +122,7 @@ export function VenueDetailsTab() {
                   ]}
                 />
               </Panel>
+              <DepositSettingsPanel canEdit={false} />
               <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
                 <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
                 <Facts
@@ -166,8 +169,13 @@ export function VenueDetailsTab() {
   );
 }
 
-/** The owner's editor: the venue, the booking rules, and a save bar once something changed. */
-function VenueForm({ saved }: { saved: VenueAdminRow }) {
+/**
+ * The owner's editor: the venue, the booking rules, and a save bar once
+ * something changed. `afterRules` sits right under the booking rules: the
+ * online deposit is a booking rule to the owner, but it is its own write
+ * (app.set_deposit_settings) with its own save, so it is not part of this draft.
+ */
+function VenueForm({ saved, afterRules }: { saved: VenueAdminRow; afterRules?: ReactNode }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
@@ -271,6 +279,8 @@ function VenueForm({ saved }: { saved: VenueAdminRow }) {
         </div>
       </Panel>
 
+      {afterRules}
+
       <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))' }}>
@@ -323,63 +333,5 @@ function VenueForm({ saved }: { saved: VenueAdminRow }) {
       )}
       {save.error != null && !(save.error instanceof AppRpcError && save.error.code === 'INVALID_ARGUMENT') && <ErrorText error={save.error} />}
     </>
-  );
-}
-
-function NumberField({ label, hint, unit, value, onChange, error }: { label: string; hint: string; unit: string; value: string; onChange: (v: string) => void; error?: string }) {
-  return (
-    <Field label={label} hint={hint} error={error} style={{ marginBlockEnd: 0 }}>
-      <UnitInput unit={unit} value={value} onChange={onChange} />
-    </Field>
-  );
-}
-
-/** A whole-number input with its unit written after it, so "12" is never read as minutes. */
-function UnitInput({ unit, value, onChange, ...rest }: { unit: string; value: string; onChange: (v: string) => void; [aria: string]: unknown }) {
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-      <input
-        {...(rest as Record<string, unknown>)}
-        style={{ ...inputStyle, inlineSize: '7rem', fontVariantNumeric: 'tabular-nums' }}
-        dir="ltr"
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
-      />
-      <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{unit}</span>
-    </span>
-  );
-}
-
-/**
- * Label, value and one line of what it means — the value at the end of the
- * row, where the eye lands after reading the label, as on the /ops cards.
- */
-function Facts({ rows }: { rows: { label: string; value: ReactNode | null; empty?: string; hint?: string }[] }) {
-  return (
-    <dl style={{ margin: 0, display: 'grid' }}>
-      {rows.map((r, i) => (
-        <div
-          key={r.label}
-          style={{
-            display: 'flex',
-            gap: 'var(--tp-sp-4)',
-            alignItems: 'baseline',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            paddingBlock: 'var(--tp-sp-2)',
-            borderBlockStart: i > 0 ? '1px solid var(--tp-border)' : undefined,
-          }}
-        >
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 18rem', minInlineSize: 0 }}>
-            <dt style={{ fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>{r.label}</dt>
-            {r.hint && <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{r.hint}</dd>}
-          </div>
-          <dd style={{ margin: 0, fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'end', color: r.value === null ? 'var(--tp-muted-fg)' : undefined }}>
-            {r.value === null ? r.empty : r.value}
-          </dd>
-        </div>
-      ))}
-    </dl>
   );
 }
