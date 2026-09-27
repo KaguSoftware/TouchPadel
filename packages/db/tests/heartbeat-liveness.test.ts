@@ -26,9 +26,11 @@ import {
   anonymousSessionClient,
   appRpc,
   ensureTillFresh,
+  ensureOpenDay,
   SEED_STAFF,
   VENUE_A_ID,
   registerTestStation,
+  setOfflineMode,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -52,6 +54,9 @@ describe.skipIf(!up)('venue heartbeat liveness', () => {
   beforeAll(async () => {
     svc = serviceClient();
     cashier = await signedInClient(SEED_STAFF.cashier);
+    // 0247: a branch is only degraded while it trades; 0248: with offline mode on.
+    await ensureOpenDay(await signedInClient(SEED_STAFF.manager), svc);
+    await setOfflineMode(svc, true);
     const { data: settings } = await svc
       .from('venue_settings')
       .select('heartbeat_stale_seconds').eq('venue_id', VENUE_A_ID)
@@ -69,6 +74,7 @@ describe.skipIf(!up)('venue heartbeat liveness', () => {
     // putting them back can leave the venue degraded for whichever suite runs
     // next — which is exactly what happened the first time.
     await ensureTillFresh(svc);
+    await setOfflineMode(svc, false);
     await cashier.auth.signOut();
   });
 

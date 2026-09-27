@@ -17,14 +17,14 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0246`
-  (`20260927000246_shop_products.sql`; 0243–0246 Touch Shop as its own desk; 0241–0242 online
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0248`
+  (`20260927000248_offline_mode_switch.sql`; 0248 the owner's offline-mode switch, off by default; 0247 degraded mode only while a day is open; 0243–0246 Touch Shop as its own desk; 0241–0242 online
   deposits; 0240 the scanned-paper audit fixes; 0236–0239 scanned paper, Milestone 4b; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0247`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0249`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.

@@ -1,5 +1,6 @@
 /**
- * Degraded mode (0021): stale TILL heartbeats flip app.is_degraded(); guest
+ * Degraded mode (0021): stale TILL heartbeats flip app.is_degraded() while the
+ * branch has an open business day (0247); guest
  * writes are then refused — hold_slot only INSIDE the protected horizon
  * (venue_settings.protected_horizon_hours, default 48h), cafe ordering and
  * waiter calls outright (DEGRADED_LOCKOUT, errcode P0001) — and a fresh
@@ -28,9 +29,11 @@ import {
   createTestCafeTable,
   openGuestSession,
   ensureOpenDay,
+  forceCloseAllDays,
   ensureTillFresh,
   VENUE_A_ID,
   registerTestStation,
+  setOfflineMode,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -38,6 +41,7 @@ const up = await stackAvailable();
 // Deliberately NOT 'TILL%'-prefixed: degraded detection must key off the
 // explicit is_till flag (0026); the name prefix is only legacy back-compat.
 const TILL_DEVICE = 'REG-01';
+const DESK_DEVICE = 'DESK-DEGRADED-PROBE';
 
 describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)', () => {
   let svc: SupabaseClient;
@@ -48,6 +52,8 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
   let horizonHours: number;
 
   async function makeDegraded(): Promise<void> {
+    // 0247: only a trading branch can be degraded.
+    await ensureOpenDay(manager, svc);
     const stale = new Date(Date.now() - (staleSeconds + 120) * 1000).toISOString();
     // Ensure at least one till device exists (bootstrap deviation: a venue that
     // never heartbeated is NOT degraded), then stale every till — flag or
@@ -81,6 +87,8 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
     svc = serviceClient();
     manager = await signedInClient(SEED_STAFF.manager);
     cashier = await signedInClient(SEED_STAFF.cashier);
+    // 0248: offline mode is off by default; this suite is about it being on.
+    await setOfflineMode(svc, true);
     // Single-till invariant for the recovery test: drop till rows left over
     // from earlier runs (flagged or legacy-named) so ONE fresh heartbeat
     // un-degrades the venue.
@@ -103,7 +111,10 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
 
   afterAll(async () => {
     // Never leave the venue degraded for later suites / reruns.
-    if (svc) await ensureTillFresh(svc);
+    if (svc) {
+      await ensureTillFresh(svc);
+      await setOfflineMode(svc, false);
+    }
   });
 
   it('stale is_till-flagged heartbeats -> app.is_degraded() = true (0026 flag, non-TILL name)', async () => {
@@ -178,6 +189,68 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
     const call = await appRpc(guest, 'raise_waiter_call', { p_reason: 'water' }).then(outcome);
     expect(call.ok).toBe(false);
     expect(call.errorMessage).toContain('DEGRADED_LOCKOUT');
+  });
+
+  it('0247: a stale till with no open day is NOT degraded, and closing the day ends the period', async () => {
+    await makeDegraded();
+    // The minute cron is not running here; a desk beat sweeps this branch.
+    await registerTestStation(svc, DESK_DEVICE, { isTill: false });
+    const sweep = async () => {
+      const beat = await appRpc(cashier, 'heartbeat', { p_device_id: DESK_DEVICE, p_is_till: false });
+      expect(beat.error).toBeNull();
+    };
+    await sweep();
+    const open = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_A_ID).is('ended_at', null);
+    expect(open.data ?? [], 'trading with a silent till opens a period').toHaveLength(1);
+
+    // The night: the day is closed and the till is switched off.
+    await forceCloseAllDays(svc);
+    const { data: degraded } = await appRpc(anonClient(), 'is_degraded', {});
+    expect(degraded).toBe(false);
+    await sweep();
+    const stillOpen = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_A_ID).is('ended_at', null);
+    expect(stillOpen.data ?? [], 'no open day, no degraded period').toHaveLength(0);
+
+    // Guests book inside the protected horizon again.
+    const guest = await guestClient(svc, 'degraded-closed-day');
+    const res = await appRpc(guest, 'hold_slot', {
+      p_court_id: courtId,
+      p_start_at: insideHorizonOpenSlot().toISOString(),
+      p_duration_min: 60,
+    }).then(outcome);
+    expect(res.ok, res.errorMessage).toBe(true);
+
+    await svc.from('device_heartbeats').delete().eq('device_id', DESK_DEVICE);
+  });
+
+  it('0248: the owner switches offline mode off and the venue is online at once', async () => {
+    await makeDegraded();
+    expect((await appRpc(anonClient(), 'is_degraded', {})).data).toBe(true);
+
+    const owner = await signedInClient(SEED_STAFF.owner);
+    const managerTry = await appRpc(manager, 'set_venue_details', { p_patch: { offline_mode_enabled: false } }).then(outcome);
+    expect(managerTry.errorMessage).toContain('FORBIDDEN');
+    const bad = await appRpc(owner, 'set_venue_details', { p_patch: { offline_mode_enabled: 'no' } }).then(outcome);
+    expect(bad.errorMessage).toContain('INVALID_ARGUMENT');
+
+    const off = await appRpc(owner, 'set_venue_details', { p_patch: { offline_mode_enabled: false } }).then(outcome);
+    expect(off.ok, off.errorMessage).toBe(true);
+    expect((off.data as { offline_mode_enabled: boolean }).offline_mode_enabled).toBe(false);
+    expect((await appRpc(anonClient(), 'is_degraded', {})).data).toBe(false);
+    const open = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_A_ID).is('ended_at', null);
+    expect(open.data ?? [], 'switching off ends the logged period').toHaveLength(0);
+
+    // Guests order again with the till still silent.
+    const guest = await anonymousSessionClient();
+    const order = await appRpc(guest, 'create_guest_order', {
+      p_items: [{ variant_id: '00000000-0000-4000-8000-000000000000', qty: 1 }],
+    }).then(outcome);
+    expect(order.errorMessage ?? '').not.toContain('DEGRADED_LOCKOUT');
+
+    const on = await appRpc(owner, 'set_venue_details', { p_patch: { offline_mode_enabled: true } }).then(outcome);
+    expect(on.ok, on.errorMessage).toBe(true);
+    expect((await appRpc(anonClient(), 'is_degraded', {})).data).toBe(true);
+    await owner.auth.signOut();
   });
 
   it('fresh app.heartbeat recovers: is_degraded false, guest writes work again', async () => {
