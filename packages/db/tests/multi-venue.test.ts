@@ -42,6 +42,7 @@ import {
   ensureTestRateRule,
   ensureVenueBProbeData,
   deactivateVenueBProbeData,
+  setOfflineMode,
   appRpc,
   SEED_STAFF,
   SEED_STAFF_IDS,
@@ -164,6 +165,8 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
     }).select('id').single();
     if (bDay.error) throw new Error(`venue B open day failed: ${bDay.error.message}`);
     bDayId = (bDay.data as { id: string }).id;
+    // 0248: offline mode is off by default; B needs it on to read degraded.
+    await setOfflineMode(svc, true, VENUE_B_ID);
 
     anon = anonClient();
     owner = await signedInClient(SEED_STAFF.owner);
@@ -175,6 +178,7 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   });
 
   afterAll(async () => {
+    await setOfflineMode(svc, false, VENUE_B_ID);
     if (bDayId) {
       await svc.from('day_sessions').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', bDayId);
     }
@@ -367,7 +371,7 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   it('8. degraded mode is per venue: B is stale, A is not', async () => {
     const atB = await appRpc(anon, 'is_degraded', { p_venue: VENUE_B_ID });
     expect(atB.error).toBeNull();
-    expect(atB.data, "venue B trades and its only till last beat a day ago").toBe(true);
+    expect(atB.data, "venue B has offline mode on, trades, and its only till last beat a day ago").toBe(true);
 
     const atA = await appRpc(anon, 'is_degraded', { p_venue: VENUE_A_ID });
     expect(atA.error).toBeNull();

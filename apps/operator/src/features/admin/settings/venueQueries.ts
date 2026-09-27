@@ -22,6 +22,8 @@ export interface VenueAdminRow {
   heartbeat_stale_seconds: number;
   max_booking_horizon_days: number;
   max_live_holds_per_guest: number;
+  /** 0248: false means the branch always counts as online. */
+  offline_mode_enabled: boolean;
 }
 
 export interface TaxGroupRow {
@@ -35,7 +37,7 @@ export interface TaxGroupRow {
 export async function fetchVenueAdmin(): Promise<VenueAdminRow> {
   const { data, error } = await supabase
     .from('venue_settings')
-    .select('venue_name, currency, timezone, phone, tax_inclusive, cancellation_window_hours, hold_ttl_seconds, protected_horizon_hours, heartbeat_stale_seconds, max_booking_horizon_days, max_live_holds_per_guest')
+    .select('venue_name, currency, timezone, phone, tax_inclusive, cancellation_window_hours, hold_ttl_seconds, protected_horizon_hours, heartbeat_stale_seconds, max_booking_horizon_days, max_live_holds_per_guest, offline_mode_enabled')
     .single();
   if (error) throw error;
   return data as VenueAdminRow;

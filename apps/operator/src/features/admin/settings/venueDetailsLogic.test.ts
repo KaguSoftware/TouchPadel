@@ -32,6 +32,7 @@ const saved: VenueAdminRow = {
   heartbeat_stale_seconds: 45,
   max_booking_horizon_days: 180,
   max_live_holds_per_guest: 3,
+  offline_mode_enabled: false,
 };
 
 describe('editing venue details', () => {

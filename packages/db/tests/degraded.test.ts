@@ -33,6 +33,7 @@ import {
   ensureTillFresh,
   VENUE_A_ID,
   registerTestStation,
+  setOfflineMode,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -86,6 +87,8 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
     svc = serviceClient();
     manager = await signedInClient(SEED_STAFF.manager);
     cashier = await signedInClient(SEED_STAFF.cashier);
+    // 0248: offline mode is off by default; this suite is about it being on.
+    await setOfflineMode(svc, true);
     // Single-till invariant for the recovery test: drop till rows left over
     // from earlier runs (flagged or legacy-named) so ONE fresh heartbeat
     // un-degrades the venue.
@@ -108,7 +111,10 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
 
   afterAll(async () => {
     // Never leave the venue degraded for later suites / reruns.
-    if (svc) await ensureTillFresh(svc);
+    if (svc) {
+      await ensureTillFresh(svc);
+      await setOfflineMode(svc, false);
+    }
   });
 
   it('stale is_till-flagged heartbeats -> app.is_degraded() = true (0026 flag, non-TILL name)', async () => {
@@ -215,6 +221,36 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
     expect(res.ok, res.errorMessage).toBe(true);
 
     await svc.from('device_heartbeats').delete().eq('device_id', DESK_DEVICE);
+  });
+
+  it('0248: the owner switches offline mode off and the venue is online at once', async () => {
+    await makeDegraded();
+    expect((await appRpc(anonClient(), 'is_degraded', {})).data).toBe(true);
+
+    const owner = await signedInClient(SEED_STAFF.owner);
+    const managerTry = await appRpc(manager, 'set_venue_details', { p_patch: { offline_mode_enabled: false } }).then(outcome);
+    expect(managerTry.errorMessage).toContain('FORBIDDEN');
+    const bad = await appRpc(owner, 'set_venue_details', { p_patch: { offline_mode_enabled: 'no' } }).then(outcome);
+    expect(bad.errorMessage).toContain('INVALID_ARGUMENT');
+
+    const off = await appRpc(owner, 'set_venue_details', { p_patch: { offline_mode_enabled: false } }).then(outcome);
+    expect(off.ok, off.errorMessage).toBe(true);
+    expect((off.data as { offline_mode_enabled: boolean }).offline_mode_enabled).toBe(false);
+    expect((await appRpc(anonClient(), 'is_degraded', {})).data).toBe(false);
+    const open = await svc.from('degraded_periods').select('id').eq('venue_id', VENUE_A_ID).is('ended_at', null);
+    expect(open.data ?? [], 'switching off ends the logged period').toHaveLength(0);
+
+    // Guests order again with the till still silent.
+    const guest = await anonymousSessionClient();
+    const order = await appRpc(guest, 'create_guest_order', {
+      p_items: [{ variant_id: '00000000-0000-4000-8000-000000000000', qty: 1 }],
+    }).then(outcome);
+    expect(order.errorMessage ?? '').not.toContain('DEGRADED_LOCKOUT');
+
+    const on = await appRpc(owner, 'set_venue_details', { p_patch: { offline_mode_enabled: true } }).then(outcome);
+    expect(on.ok, on.errorMessage).toBe(true);
+    expect((await appRpc(anonClient(), 'is_degraded', {})).data).toBe(true);
+    await owner.auth.signOut();
   });
 
   it('fresh app.heartbeat recovers: is_degraded false, guest writes work again', async () => {

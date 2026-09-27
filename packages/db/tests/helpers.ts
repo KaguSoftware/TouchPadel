@@ -618,6 +618,23 @@ export async function ensureTillFresh(
 }
 
 /**
+ * Switch a branch's offline (degraded) mode on or off (0248). It is off by
+ * default, so a suite that wants degraded mode switches it on first and back
+ * off in its afterAll.
+ */
+export async function setOfflineMode(
+  svc: SupabaseClient,
+  enabled: boolean,
+  venueId: string = VENUE_A_ID,
+): Promise<void> {
+  const { error } = await svc
+    .from('venue_settings')
+    .update({ offline_mode_enabled: enabled })
+    .eq('venue_id', venueId);
+  if (error) throw new Error(`setOfflineMode failed: ${error.message}`);
+}
+
+/**
  * Deterministic probe rows for the Drop 2+3 RLS matrix 'rows' expectations —
  * idempotent (fixed ee57-prefixed ids + ignoreDuplicates), created with the
  * service client so the matrix never depends on fixtures being applied.

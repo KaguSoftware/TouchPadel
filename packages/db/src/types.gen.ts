@@ -10840,6 +10840,7 @@ export type Database = {
           llm_pricing: Json
           max_booking_horizon_days: number
           max_live_holds_per_guest: number
+          offline_mode_enabled: boolean
           opening_hours: Json
           phone: string | null
           protected_horizon_hours: number
@@ -10875,6 +10876,7 @@ export type Database = {
           llm_pricing?: Json
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
+          offline_mode_enabled?: boolean
           opening_hours: Json
           phone?: string | null
           protected_horizon_hours?: number
@@ -10910,6 +10912,7 @@ export type Database = {
           llm_pricing?: Json
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
+          offline_mode_enabled?: boolean
           opening_hours?: Json
           phone?: string | null
           protected_horizon_hours?: number
