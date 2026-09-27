@@ -4,6 +4,19 @@ Written 2026-09-19 at `main` @ `3d70643` (clean tree, `two` fully merged). Sourc
 
 **Status 2026-09-20: approved and building.** Change-control is agreed; the build runs on `main`, Parsa + agents only, criticals first. The newest dated "Status" section below is the live status; Parts A–D are the 09-19 audit and stand as written except where the status section corrects them. The fuller decision record and per-milestone design were written to `~/.claude/plans/i-got-this-scope-binary-piglet.md`, which is **not on the dev machine** (checked 2026-09-23). Until Parsa copies it into the repo, the repo files — this file, `PHASE-2-CHECKLIST.md` and `HANDOFF.md` — are the record, and where they disagree with a memory of that file, the repo wins.
 
+## Status 2026-09-27: open matches designed
+
+- **Open matches (item 3) were planned with Parsa and approved on 2026-09-27**, as their own milestone 6, built next, before coaching; tournaments become milestone 7. The change order is revised to match (EN + AR), still unsigned.
+- **The model:**
+  - An open match is started on a free slot and **holds no court while it fills**: a normal booking of the last free court for that time bumps it (OM-13).
+  - The fourth seat books the court in the same transaction.
+  - Every seat is backed by a **reusable open-match ticket**: bought once by Qi, priced about one seat, locked while in a match, back after play, lost only on a no-show (OM-45, OM-46).
+  - Everyone who plays pays their full share at the desk. When one player is missing, the others choose to play or to call it off (OM-47).
+  - No player levels, no mixed category, preset quick messages only, report / block / ban.
+- **It replaces §C3 below** (host-owned booking, `event_participants`, host covers empty seats, down payments), the 09-20 decisions line on matches, and the milestone-6 line of the checklist.
+- **Binding design:** `docs/design/open-matches/build-contracts-2026-09-27.md` (decisions OM-3…OM-48, defaults DF-1…DF-21, one set of names, migrations 0249–0261).
+- **Next:** the contracts' lane sections and their adversarial review, ASK QI (fees, refund limit, minimum amount), and the client's inputs (ticket price, the Arabic word for "ticket", a consumer-law check on non-expiring tickets, tax).
+
 ## Status 2026-09-26
 
 - **Hosted is at 0235, with 17 edge functions deployed.** The audit fixes (below) were applied by the push itself: `db-migrate.yml` run 36251957199 applied 0228–0235, and `functions-deploy.yml` run 36251957127 redeployed `assistant-chat`, `replay`, `staff-admin` and `telegram-diagnose`. Earlier the same day: before the slices 2–4 push, Parsa's `migration list --linked` showed 0001–0206 on both sides. After it Parsa ran `npx supabase db push --linked` and `npx supabase functions deploy` from `packages/db`, because the deploy workflows failed on an expired `SUPABASE_ACCESS_TOKEN`. The secret was replaced and both workflow re-runs went green, so auto-deploy on push works again.
@@ -343,6 +356,8 @@ Each item: what the SOW said, what exists, decisions (resolved ones are stated a
 **Depends on.** C0; C1 for paid lessons. **Size.** 4 to 5 weeks.
 
 ### C3. Open matches and seat splitting (item 3)
+
+> **Superseded 2026-09-27** by `docs/design/open-matches/build-contracts-2026-09-27.md` (waits-for-four matches with reusable tickets). Kept below as the 09-19 record.
 
 **Decided:** no player levels in v1; matches are open to anyone; join policy is host approval to compensate; seat payment online via C1 intents (`kind = 'seat'`) or at the desk per player.
 
