@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BrowserWindow, app, dialog, ipcMain, screen, shell } from 'electron';
-import { IPC, type PrintResult } from '../ipc-channels';
+import { IPC, type LeaveRefusal, type PrintResult } from '../ipc-channels';
 import {
   enqueue,
   getCachedRef,
@@ -23,6 +23,7 @@ import { startUpdater, updaterPendingFile, type UpdaterHandle } from './updater'
 import { startHeartbeat } from './heartbeat';
 import { getAuthState, setAuthState } from './auth-state';
 import { mayLeave, observePin, unlockPinOffline } from './pin-cache';
+import { learnSession, ownerMayLeave } from './owner-exit';
 import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
 import {
@@ -491,6 +492,9 @@ if (gotTheLock) {
       guardIpc('authState', () => {
         const next = validateAuthState(s);
         setAuthState(next);
+        // Whether this session is the owner's, who leaves without a PIN
+        // (owner-exit.ts). Learnt now, while the station is most likely online.
+        void learnSession(next);
         // A released station goes back in when the person changes: the next
         // shift is not let out because a manager let the last one out and
         // forgot. A token refresh is the same person, so it changes nothing.
@@ -667,22 +671,34 @@ if (gotTheLock) {
     // kept inside the app. Re-checked here against the offline cache so a
     // compromised renderer cannot end service on its own word; the renderer
     // verifies online first and tags the PIN with its owner (pinObserved).
+    //
+    // The owner is the exception (owner call, 2026-09-27): an empty PIN asks
+    // main to let the signed-in person out as the owner, which main confirms
+    // with the server itself (owner-exit.ts). Anyone else, or an owner it
+    // cannot confirm, gets 'pin required' and the renderer asks for the
+    // manager PIN after all. The PIN is validated before anything is awaited,
+    // so guardIpc still catches a malformed one.
+    const leaveCheck = (pin: unknown): Promise<LeaveRefusal | null> => {
+      if (!stationLocked) return Promise.resolve(null);
+      if (pin === '') return ownerMayLeave(getAuthState()).then((ok) => (ok ? null : 'pin required'));
+      const verdict = mayLeave(validatePin(pin), getAuthState()?.staffId ?? null);
+      return Promise.resolve(verdict === 'ok' ? null : verdict);
+    };
     ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
-      guardIpc('quitApp', () => {
-        if (stationLocked) {
-          const verdict = mayLeave(validatePin(pin), getAuthState()?.staffId ?? null);
-          if (verdict !== 'ok') return { ok: false as const, error: verdict };
-        }
-        setTimeout(() => {
-          // A downloaded update installs on the way out and the app opens
-          // again on it. app.exit() skips will-quit, so autoInstallOnAppQuit
-          // alone would never fire here; installOnQuit quits itself, and exits
-          // hard if that quit stalls. With nothing waiting, or an install
-          // that refuses on the spot, this just exits.
-          if (!updater?.installOnQuit()) app.exit(0);
-        }, 50); // let the reply reach the renderer
-        return { ok: true as const };
-      }),
+      guardIpc('quitApp', () =>
+        leaveCheck(pin).then((refusal) => {
+          if (refusal) return { ok: false as const, error: refusal };
+          setTimeout(() => {
+            // A downloaded update installs on the way out and the app opens
+            // again on it. app.exit() skips will-quit, so autoInstallOnAppQuit
+            // alone would never fire here; installOnQuit quits itself, and exits
+            // hard if that quit stalls. With nothing waiting, or an install
+            // that refuses on the spot, this just exits.
+            if (!updater?.installOnQuit()) app.exit(0);
+          }, 50); // let the reply reach the renderer
+          return { ok: true as const };
+        }),
+      ),
     );
     // "Exit forced full screen" — the escape hatch for a station that needs to
     // be driven like a normal machine for a moment (a support session, reading
@@ -703,44 +719,44 @@ if (gotTheLock) {
     ipcMain.handle(IPC.exitFullscreen, (e, pin: unknown) =>
       guardIpc('exitFullscreen', () => {
         const win = BrowserWindow.fromWebContents(e.sender);
-        if (!win || win.isDestroyed()) return { ok: false as const, error: 'no-window' as const };
-        if (stationLocked) {
-          const verdict = mayLeave(validatePin(pin), getAuthState()?.staffId ?? null);
-          if (verdict !== 'ok') return { ok: false as const, error: verdict };
-        }
-        released.add(win);
-        win.setMinimizable(true);
-        // Order matters: kiosk off first, because on macOS leaving kiosk is
-        // itself a fullscreen transition and setFullScreen(false) before it
-        // gets undone. setSimpleFullScreen covers the macOS-only variant.
-        if (win.isKiosk()) win.setKiosk(false);
-        if (win.isFullScreen()) win.setFullScreen(false);
-        if (process.platform === 'darwin' && win.isSimpleFullScreen()) {
-          win.setSimpleFullScreen(false);
-        }
-        win.setClosable(true);
-        win.setMenuBarVisibility(true);
-        win.setAutoHideMenuBar(false);
-        win.setAlwaysOnTop(false);
-        // Production windows are built frameless (`frame: relaxed`), and
-        // Electron cannot grow a titlebar after creation — so dropping kiosk
-        // alone would leave an undecorated sheet still covering the screen,
-        // which reads as "nothing happened". Shrink it to a windowed size and
-        // centre it: that, not the titlebar, is what tells the operator they
-        // are out, and the desktop behind it becomes reachable either way.
-        if (win.isMaximized()) win.unmaximize();
-        const { width, height } = screen.getDisplayMatching(win.getBounds()).workAreaSize;
-        win.setBounds(
-          {
-            width: Math.round(width * 0.9),
-            height: Math.round(height * 0.9),
-            x: Math.round(width * 0.05),
-            y: Math.round(height * 0.05),
-          },
-          true,
-        );
-        win.setMovable(true);
-        return { ok: true as const };
+        if (!win || win.isDestroyed()) return Promise.resolve({ ok: false as const, error: 'no-window' as const });
+        return leaveCheck(pin).then((refusal) => {
+          if (refusal) return { ok: false as const, error: refusal };
+          if (win.isDestroyed()) return { ok: false as const, error: 'no-window' as const };
+          released.add(win);
+          win.setMinimizable(true);
+          // Order matters: kiosk off first, because on macOS leaving kiosk is
+          // itself a fullscreen transition and setFullScreen(false) before it
+          // gets undone. setSimpleFullScreen covers the macOS-only variant.
+          if (win.isKiosk()) win.setKiosk(false);
+          if (win.isFullScreen()) win.setFullScreen(false);
+          if (process.platform === 'darwin' && win.isSimpleFullScreen()) {
+            win.setSimpleFullScreen(false);
+          }
+          win.setClosable(true);
+          win.setMenuBarVisibility(true);
+          win.setAutoHideMenuBar(false);
+          win.setAlwaysOnTop(false);
+          // Production windows are built frameless (`frame: relaxed`), and
+          // Electron cannot grow a titlebar after creation — so dropping kiosk
+          // alone would leave an undecorated sheet still covering the screen,
+          // which reads as "nothing happened". Shrink it to a windowed size and
+          // centre it: that, not the titlebar, is what tells the operator they
+          // are out, and the desktop behind it becomes reachable either way.
+          if (win.isMaximized()) win.unmaximize();
+          const { width, height } = screen.getDisplayMatching(win.getBounds()).workAreaSize;
+          win.setBounds(
+            {
+              width: Math.round(width * 0.9),
+              height: Math.round(height * 0.9),
+              x: Math.round(width * 0.05),
+              y: Math.round(height * 0.05),
+            },
+            true,
+          );
+          win.setMovable(true);
+          return { ok: true as const };
+        });
       }),
     );
 

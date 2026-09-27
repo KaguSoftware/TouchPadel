@@ -62,7 +62,7 @@ export const en = {
     pinInvalid: 'Incorrect PIN.',
     sessionExpired: 'Your session has expired. Please sign in again.',
     phoneLabel: 'Phone number',
-    firstNameLabel: 'First name',
+    firstNameLabel: 'Name',
     lastNameLabel: 'Surname',
     confirmPasswordLabel: 'Confirm password',
     preferredLanguage: 'Preferred language',
@@ -75,7 +75,7 @@ export const en = {
     passwordMinPlaceholder: 'Password (min 8 characters)',
     // Field-level validation (spec 05.3/05.4) — rendered on the field it concerns.
     nameRequired: 'Enter your full name.',
-    firstNameRequired: 'Enter your first name.',
+    firstNameRequired: 'Enter your name.',
     lastNameRequired: 'Enter your surname.',
     passwordRequired: 'Enter your password.',
     emailRequired: 'Enter your email address.',

@@ -96,7 +96,10 @@ const ANDROID_BTN_BLEED = (BACK_BTN_ANDROID - BACK_BTN_SLOT_ANDROID) / 2;
  * at a smaller number.
  */
 const PICK_PILL_PAD_X = android ? 6 : 12;
-const PICK_PILL_PAD_Y = 6;
+// iOS 6 → 10: at 6 the glass rim hugged the caps and the squiggle under them
+// (owner, 2026-09-27). The capsule bleeds back up by the same amount (its
+// negative marginTop), so the words do not move and the cross-fade still lands.
+const PICK_PILL_PAD_Y = android ? 6 : 10;
 const PICK_PILL_TEXT_PAD = android ? 8 : 6;
 /**
  * Extra air above the title row, on iOS only.
@@ -139,8 +142,8 @@ const PICK_PILL_GAP = android ? 6 : 8;
  * It was 3, which over-corrected: at PAD_Y 6 that left 3 pt of air above the
  * caps against 9 below — the plate visibly crowding the words at the top (owner,
  * 2026-09-19). 1 keeps the correction's direction without swallowing the top
- * padding, landing at 5 above / 7 below, which reads level once the empty
- * descender room is discounted.
+ * padding, landing at 5 above / 7 below at PAD_Y 6 (9 / 11 at iOS's 10), which
+ * reads level once the empty descender room is discounted.
  *
  * ARABIC TAKES NONE OF IT. There the line box is × 1.45 (Title), because ج/ح/ي
  * drop well under the baseline and actually use that room — the surplus this

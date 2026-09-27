@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { router, usePathname } from 'expo-router';
+import { router, usePathname, useRootNavigationState } from 'expo-router';
 import { useAuth } from '../auth/context';
 import { isStaffArea } from '../staff/status';
 import { useStaffStatus } from '../staff/StaffStatusProvider';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
-import { consentAction } from './consent';
+import { consentAction, shouldPushGate, stackHas } from './consent';
 import { useAcceptTerms, useOwnConsent } from './hooks';
 
 /**
@@ -37,10 +37,21 @@ export function useTermsGate(): void {
   const consent = useOwnConsent(uid);
   const accept = useAcceptTerms();
   const recording = useRef(false);
+  // When the consent screen was last pushed, until the stack shows it.
+  const pushedAt = useRef<number | null>(null);
+  const inStack = stackHas(useRootNavigationState(), 'accept-terms');
 
   const action = uid ? consentAction(consent.data, user?.user_metadata) : 'none';
 
   useEffect(() => {
+    if (inStack || action !== 'ask') pushedAt.current = null;
+    const push = shouldPushGate({
+      action,
+      onExemptScreen: EXEMPT.has(pathname),
+      inStack,
+      pushedAt: pushedAt.current,
+      now: Date.now(),
+    });
     if (action === 'record' && !recording.current) {
       recording.current = true;
       addBreadcrumb('consent.record-from-signup');
@@ -51,11 +62,12 @@ export function useTermsGate(): void {
           recording.current = false;
         },
       });
-    } else if (action === 'ask' && !EXEMPT.has(pathname)) {
+    } else if (push) {
       addBreadcrumb('consent.ask');
+      pushedAt.current = Date.now();
       router.push('/accept-terms');
     }
-    // `accept` is a fresh object each render; the action and route decide.
+    // `accept` is a fresh object each render; the action, route and stack decide.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [action, pathname]);
+  }, [action, pathname, inStack]);
 }
