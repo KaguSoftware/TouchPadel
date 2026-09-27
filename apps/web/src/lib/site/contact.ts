@@ -97,14 +97,11 @@ export function telUrl(phone: string | null | undefined): string | null {
   return digits ? `tel:+${digits}` : null;
 }
 
-/** Where the club is, as Google Maps searches it (owner, 2026-09-23: "darra karbela"). */
-const MAPS_QUERY = 'درّة كربلاء، كربلاء';
-
 /**
- * "Open in Google Maps": a search for Durrat Karbala. A link out, never an iframe (the
- * CSP has no frame-src). When the owner sends a pinned place link, it replaces this.
+ * "Open in Google Maps": the club's pinned place link (owner, 2026-09-27). A link out,
+ * never an iframe (the CSP has no frame-src). A branch's own `map_url` overrides it.
  */
-export const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(MAPS_QUERY)}`;
+export const MAPS_URL = 'https://maps.app.goo.gl/zzqKgB17ZSLt4BAR8';
 
 /**
  * The branch fields the site prints (multi-venue slice 4). Every one is

@@ -1,0 +1,180 @@
+import type { ReactNode } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LocaleProvider } from '../../lib/i18n';
+import { appRpc } from '../../lib/appRpc';
+import { DepositSettingsPanel } from './DepositSettingsPanel';
+import { DepositAttentionPanel } from './DepositAttentionPanel';
+import type { DepositAttentionRow, DepositSettings } from './depositApi';
+
+// Both panels over a real query client; the server is appRpc, mocked per RPC
+// name, so what each screen SENDS is what is asserted.
+
+const SETTINGS: DepositSettings = {
+  venue_id: 'v1',
+  deposit_mode: 'off',
+  deposit_percent_bp: 5000,
+  deposit_min_iqd: 10000,
+  deposit_max_iqd: null,
+  deposit_window_seconds: 900,
+  deposit_forfeit_no_show: true,
+};
+
+let settings: DepositSettings = SETTINGS;
+let attention: DepositAttentionRow[] = [];
+
+vi.mock('../../lib/appRpc', () => ({
+  AppRpcError: class AppRpcError extends Error {
+    constructor(
+      public code: string,
+      message?: string,
+      public hint?: string,
+      public details?: string,
+    ) {
+      super(message ?? code);
+    }
+  },
+  appRpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
+    if (fn === 'deposit_settings') return settings;
+    if (fn === 'set_deposit_settings') return { ...settings, ...(args.p_patch as object) };
+    if (fn === 'deposit_attention') return attention;
+    return {};
+  }),
+}));
+vi.mock('../../lib/idem', () => ({ deviceId: () => 'DESK-1' }));
+vi.mock('../../lib/queries', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, fetchVenueSettings: async () => ({ timezone: 'Asia/Baghdad' }) };
+});
+vi.mock('../../components/toast', () => ({ useToast: () => ({ ok: vi.fn(), err: vi.fn(), info: vi.fn() }) }));
+
+function mount(ui: ReactNode) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={qc}>
+      <LocaleProvider>{ui}</LocaleProvider>
+    </QueryClientProvider>,
+  );
+}
+
+function row(over: Partial<DepositAttentionRow> = {}): DepositAttentionRow {
+  return {
+    id: 'pay-1',
+    request_id: 'req-1',
+    reservation_id: 'res-1',
+    guest_name: 'Sara',
+    guest_phone: '+9647700000000',
+    amount_iqd: 20000,
+    refund_amount_iqd: 20000,
+    status: 'refund_failed',
+    refund_reason: 'guest_cancel',
+    refund_requested_at: '2026-09-25T10:00:00Z',
+    refund_attempts: 3,
+    succeeded_at: '2026-09-24T09:00:00Z',
+    sandbox: false,
+    court_name_en: 'Court 1',
+    court_name_ar: 'ملعب 1',
+    start_at: '2026-09-26T17:00:00Z',
+    ...over,
+  };
+}
+
+const calls = (fn: string) => vi.mocked(appRpc).mock.calls.filter(([name]) => name === fn);
+
+beforeEach(() => {
+  settings = SETTINGS;
+  attention = [];
+  vi.mocked(appRpc).mockClear();
+});
+
+describe('DepositSettingsPanel', () => {
+  it('the owner turns deposits on: only the changed keys go, in the server units, for this branch', async () => {
+    const user = userEvent.setup();
+    mount(<DepositSettingsPanel canEdit />);
+    await user.click(await screen.findByRole('radio', { name: /Optional/ }));
+    const percent = screen.getByRole('textbox', { name: /^Deposit size/ });
+    await user.clear(percent);
+    await user.type(percent, '30');
+    const payWindow = screen.getByRole('textbox', { name: /^Time to pay/ });
+    await user.clear(payWindow);
+    await user.type(payWindow, '10');
+    await user.click(screen.getByRole('button', { name: 'Save deposit rules' }));
+    await waitFor(() => expect(calls('set_deposit_settings')).toHaveLength(1));
+    expect(calls('set_deposit_settings')[0]![1]).toEqual({
+      p_patch: { deposit_mode: 'optional', deposit_percent_bp: 3000, deposit_window_seconds: 600 },
+      p_venue_id: null,
+    });
+  });
+
+  it('a cap below the minimum is refused before anything is sent', async () => {
+    const user = userEvent.setup();
+    mount(<DepositSettingsPanel canEdit />);
+    await user.type(await screen.findByRole('textbox', { name: /Largest deposit/ }), '5000');
+    await user.click(screen.getByRole('button', { name: 'Save deposit rules' }));
+    expect(await screen.findByText('The largest deposit cannot be less than the smallest.')).toBeTruthy();
+    expect(calls('set_deposit_settings')).toHaveLength(0);
+  });
+
+  it('a manager reads the rules and is told who changes them', async () => {
+    mount(<DepositSettingsPanel canEdit={false} />);
+    expect(await screen.findByText('Only the owner can change the online deposit rules.')).toBeTruthy();
+    expect(screen.getByText('50% of the court price')).toBeTruthy();
+    expect(screen.queryByRole('radio')).toBeNull();
+  });
+});
+
+describe('DepositAttentionPanel', () => {
+  it('says nothing on the home while deposits are off and nothing waits', async () => {
+    mount(<DepositAttentionPanel />);
+    await waitFor(() => expect(calls('deposit_settings')).toHaveLength(1));
+    expect(screen.queryByTestId('deposit-attention')).toBeNull();
+  });
+
+  it('shows its empty state once deposits are on', async () => {
+    settings = { ...SETTINGS, deposit_mode: 'optional' };
+    mount(<DepositAttentionPanel />);
+    expect(await screen.findByText('Nothing waiting. Every online refund has gone through.')).toBeTruthy();
+  });
+
+  it('a failed refund: Retry sends it again', async () => {
+    const user = userEvent.setup();
+    attention = [row()];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    expect(await screen.findByText('Refund failed')).toBeTruthy();
+    expect(screen.getByText(/Why: the guest cancelled/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(calls('deposit_refund_retry')).toHaveLength(1));
+    expect(calls('deposit_refund_retry')[0]![1]).toEqual({ p_payment_id: 'pay-1' });
+  });
+
+  it('settled another way: needs a note and a PIN, and sends both with this station', async () => {
+    const user = userEvent.setup();
+    attention = [row({ status: 'refund_pending', sandbox: true })];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    expect(await screen.findByText('Test')).toBeTruthy();
+    // A pending refund cannot be retried (PAYMENT_STATE); it can only be settled.
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Settled another way' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    const confirm = dialog.getByRole('button', { name: 'Mark as settled' });
+    await user.type(dialog.getByRole('textbox', { name: /How was it settled/ }), 'Cash at the desk');
+    await user.click(confirm);
+    expect(calls('deposit_refund_manual')).toHaveLength(0);
+    await user.type(dialog.getByLabelText(/^PIN/), '4821');
+    await user.click(confirm);
+    await waitFor(() => expect(calls('deposit_refund_manual')).toHaveLength(1));
+    expect(calls('deposit_refund_manual')[0]![1]).toEqual({ p_payment_id: 'pay-1', p_pin: '4821', p_note: 'Cash at the desk', p_device_id: 'DESK-1' });
+  });
+
+  it('a paid deposit on a booking that is no longer on is refunded after a confirm', async () => {
+    const user = userEvent.setup();
+    attention = [row({ status: 'succeeded', refund_amount_iqd: null, refund_requested_at: null, refund_reason: null })];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    await user.click(await screen.findByRole('button', { name: 'Refund to guest' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Refund' }));
+    await waitFor(() => expect(calls('deposit_refund_request')).toHaveLength(1));
+    expect(calls('deposit_refund_request')[0]![1]).toEqual({ p_payment_id: 'pay-1' });
+  });
+});

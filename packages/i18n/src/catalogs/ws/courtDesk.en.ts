@@ -400,6 +400,7 @@ export const courtDeskEn = {
     flagLabel: 'Label (optional)',
     flagOn: 'Set',
     saveFlags: 'Save flags',
+    depositExemptHint: 'Books in the app without paying a deposit first, even when the club asks for one.',
     counts: 'History',
     bookings: 'Bookings',
     cancellations: 'Cancellations',
@@ -523,6 +524,20 @@ export const courtDeskEn = {
     error: 'The bill could not be loaded.',
     retry: 'Try again',
     completedOwed: 'Marked completed. The court fee is still not paid.',
+    // Online deposit (build-contracts-2026-09-27 §6). Not a till method: the
+    // desk only ever takes the rest, by Cash or Card.
+    online: 'Online',
+    paidOnline: 'Paid online',
+    courtFeeRest: 'Court fee, after the online deposit',
+    depositRest: 'The guest paid a deposit online. {amount} of the court fee is left to pay.',
+    historyOnline: '{time} · Paid online in the app',
+    onlineKept: 'Kept for the no-show',
+    onlineRefundPending: 'Refund on its way',
+    onlineRefundFailed: 'Refund failed',
+    onlineRefunded: 'Refunded',
+    onlineRefundedPart: '{amount} refunded',
+    test: 'Test',
+    testHint: 'A test payment. No real money moved.',
   },
 
   // 0106 — pulling a cafe table's bill onto a booking

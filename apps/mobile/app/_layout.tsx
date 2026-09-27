@@ -33,6 +33,7 @@ import { StaffStatusProvider, settledStaffStatus } from '../src/features/staff/S
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
+import { usePendingPaymentResume } from '../src/features/deposit/hooks';
 import {
   forgetWrittenPushToken,
   installNotificationHandler,
@@ -165,6 +166,9 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  // An online deposit still in flight when the app was killed (on the bank's
+  // 3-D Secure page, say) reopens its payment screen on the next launch.
+  usePendingPaymentResume();
   // The Terms consent gate (0153): records the sign-up switch once the session
   // lands, or presents accept-terms to an account that has not accepted the
   // current version. Here because it needs the session and the router.
@@ -269,6 +273,12 @@ function RootStack() {
           <Stack.Screen name="booking/[id]" />
           <Stack.Screen name="booking-history" />
           <Stack.Screen name="success" options={{ headerShown: false }} />
+          {/* The online deposit (build-contracts-2026-09-27 §4). The return
+          link's landing lives a frame or two and draws no bar; the payment
+          screen carries its own RequireSession, like the screens above. */}
+          <Stack.Screen name="pay/return" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pay/status" />
+          <Stack.Screen name="+not-found" />
           <Stack.Screen name="reset-password" />
         </Stack>
       </NavigationThemeProvider>

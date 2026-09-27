@@ -217,6 +217,16 @@ verify_jwt = true                           # owner session JWT to launch (the b
 verify_jwt = true                           # cron/pg_net posts with the service-role JWT; service role only
 [functions.receipt-scan]
 verify_jwt = true                           # staff session JWT (driver/manager/owner); the body re-checks the staff row and receipt_detail as the caller
+[functions.deposit-begin]
+verify_jwt = true                           # the guest's own session JWT; deposit_prepare re-checks the hold's owner
+[functions.deposit-status]
+verify_jwt = true                           # the guest's own session JWT; deposit_status runs AS that JWT (ownership)
+[functions.deposit-webhook]
+verify_jwt = false                          # Qi Card carries no Supabase JWT; its RSA X-Signature is the auth, and the body is re-checked against Qi's status API
+[functions.deposit-reconcile]
+verify_jwt = true                           # cron/pg_net posts with the service-role JWT; service role only
+[functions.payments-fake]
+verify_jwt = false                          # the local stand-in payment page, opened in a browser; answers 404 anywhere but the local stack
 
 # Edge runtime policy for `supabase functions serve` ONLY (hosted always keeps
 # workers alive). The default `oneshot` spins a fresh worker per request, so an

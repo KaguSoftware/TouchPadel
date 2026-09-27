@@ -56,7 +56,7 @@ function location(res: Response): string {
 
 describe('proxy matcher', () => {
   it('reaches every page route, with and without a locale prefix', () => {
-    for (const p of ['/', '/en', '/ar', '/ar/', '/en/t', '/ar/t/', '/t', '/t/abc123', '/en/t/abc123', '/en/download', '/en/menu', '/ar/menu/', '/menu', '/ar/privacy']) {
+    for (const p of ['/', '/en', '/ar', '/ar/', '/en/t', '/ar/t/', '/t', '/t/abc123', '/en/t/abc123', '/en/download', '/en/menu', '/ar/menu/', '/menu', '/ar/privacy', '/en/pay/return', '/ar/pay/return', '/pay/return']) {
       expect(matches(p), `${p} must be proxied`).toBe(true);
     }
   });
@@ -124,6 +124,27 @@ describe('proxy()', () => {
       expect(res.headers.get('cache-control'), p).toBeNull();
       expect(res.headers.get('referrer-policy'), p).toBeNull();
     }
+  });
+
+  it('passes the payment return page through untouched: no redirect, no cookie, the ref intact', () => {
+    // Qi sends the guest's browser here after paying (app/[locale]/pay/return/page.tsx).
+    // A redirect would risk the query; a cookie would break the page's no-cookie promise.
+    const ref = '7c1d2a44-0f3e-4b8a-9d61-2f5e8c9a1b30';
+    for (const p of [`/en/pay/return?ref=${ref}`, `/ar/pay/return?ref=${ref}`]) {
+      const res = proxy(req(p));
+      expect(res.status, p).toBe(200);
+      expect(res.headers.get('x-middleware-next'), p).toBe('1');
+      expect(res.headers.get('location'), p).toBeNull();
+      expect(res.headers.get('set-cookie'), p).toBeNull();
+      expect(res.headers.get('content-security-policy'), p).toMatch(/script-src 'nonce-/);
+    }
+    // A locale-less return URL gets a locale in one hop and keeps its ref.
+    const hop = proxy(req(`/pay/return?ref=${ref}`, { cookie: 'tp-locale=en' }));
+    expect(hop.status).toBe(307);
+    const to = new URL(hop.headers.get('location') ?? '', ORIGIN);
+    expect(to.pathname).toBe('/en/pay/return');
+    expect(to.searchParams.get('ref')).toBe(ref);
+    expect(hop.headers.get('set-cookie')).toBeNull();
   });
 
   it('sends a locale-less /menu to the negotiated locale', () => {

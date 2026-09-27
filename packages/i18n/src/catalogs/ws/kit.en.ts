@@ -72,6 +72,7 @@ export const kitEn = {
     birthday: 'Birthday',
     payment_note: 'Payment note',
     special_request: 'Special request',
+    deposit_exempt: 'No deposit needed',
   },
   pin: {
     title: 'Manager authorisation',

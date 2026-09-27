@@ -25,6 +25,7 @@
  */
 import { authStorageKeyFor } from '../../lib/authStorageKey';
 import { historyClearedKey } from '../booking/historyKeys';
+import { pendingPaymentKey } from '../deposit/pendingPayment';
 
 /**
  * The SecureStore keys a purge must sweep.
@@ -49,10 +50,16 @@ export function secureKeysToPurge(supabaseUrl: string | undefined): string[] {
  * their bookings — on a phone whose owner has just been told everything was
  * deleted.
  *
+ * `tp.pendingPayment.<uid>` (build-contracts-2026-09-27 §4) is the same kind
+ * of key: the device's pointer to an online deposit still in flight, named by
+ * the uuid and holding the payment's ref. The money trail lives on the server
+ * (guest_id is nulled there, the payment row kept); nothing on this phone may
+ * keep pointing at it after the account is gone.
+ *
  * Returns nothing for a missing id rather than building
  * `tp.historyClearedAt.undefined`, which would delete a key belonging to
  * nobody and report success.
  */
 export function localKeysToPurge(userId: string | null | undefined): string[] {
-  return userId ? [historyClearedKey(userId)] : [];
+  return userId ? [historyClearedKey(userId), pendingPaymentKey(userId)] : [];
 }

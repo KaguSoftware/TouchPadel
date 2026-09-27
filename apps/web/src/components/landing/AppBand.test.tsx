@@ -56,6 +56,11 @@ describe('AppBand', () => {
     expect(shown()).toBe('/brand/app/availability-en.webp');
   });
 
+  it('answers to #app, the payment return page\'s "Don\'t have the app?" link', () => {
+    band();
+    expect(document.getElementById('app')?.classList.contains('tp-appband')).toBe(true);
+  });
+
   it('shows the Arabic screens on the Arabic page', () => {
     band('ar');
     expect(shown()).toBe('/brand/app/availability-ar.webp');

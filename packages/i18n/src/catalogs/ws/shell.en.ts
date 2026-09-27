@@ -164,9 +164,11 @@ export const shellEn = {
     // per report on the screen itself.
     menuPrices: 'Menu prices',
     // Stock section rows. 'inventory' owns the whole /stock module, which
-    // keeps its own sub-nav; 'stockValue' is the /reports/stock figure.
+    // keeps its own sub-nav; 'stockValue' is the /reports/stock figure;
+    // 'shop' is Touch Shop's products (/stock/products).
     inventory: 'Inventory',
     stockValue: 'Stock value',
+    shop: 'Shop',
     // Observation section rows.
     floorNow: 'Floor now',
     staffActivity: 'Staff activity',
@@ -245,6 +247,9 @@ export const shellEn = {
     // else's manager PIN.
     leavePin: 'Manager PIN',
     leavePinHint: 'A manager other than you has to enter their PIN.',
+    // The owner leaves without a PIN, but the shell checks the role with the
+    // server first; offline and never checked, it falls back to the PIN.
+    leaveOwnerUnconfirmed: "Couldn't confirm you're the owner right now, so a manager's PIN is needed.",
     kitchenNoNav: 'Kitchen display',
     version: 'Version {version}',
     updateReady: 'Update ready',

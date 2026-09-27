@@ -85,6 +85,11 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
       title: 'Test notification',
       body: () => 'Push notifications are working on this phone.',
     },
+    // 0241: an online deposit went back to the guest's card (app.deposit_refund_apply).
+    deposit_refunded: {
+      title: 'Deposit refunded',
+      body: (court, when) => `Your deposit for ${court} at ${when} is on its way back to your card.`,
+    },
   },
   ar: {
     booking_confirmed: {
@@ -106,6 +111,10 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     test: {
       title: 'إشعار تجريبي',
       body: () => 'الإشعارات تعمل على هذا الهاتف.',
+    },
+    deposit_refunded: {
+      title: 'تمت إعادة العربون',
+      body: (court, when) => `العربون الذي دفعته لحجز ${court} الساعة ${when} في طريقه إلى بطاقتك.`,
     },
   },
 };
@@ -133,7 +142,8 @@ interface OutboxRow {
     | 'staff_task'
     | 'staff_decide'
     | 'staff_decided'
-    | 'staff_info';
+    | 'staff_info'
+    | 'deposit_refunded';
   /**
    * Reservation snapshot for the booking kinds; `{ source }` only for `test`;
    * `{ route, id, title_key, params, dedupe? }` for the staff kinds.

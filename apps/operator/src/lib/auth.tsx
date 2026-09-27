@@ -482,6 +482,12 @@ export const CAPABILITY_ROLES = {
    * (permissions.takeCourtPayment) closes the other person's shift first.
    */
   payOnOthersShift: ['manager', 'owner'],
+  /**
+   * Quit and Exit forced full screen on a locked station with no manager PIN
+   * (owner call, 2026-09-27). Main confirms the role with the server itself
+   * (operator-shell main/owner-exit.ts) and asks for the PIN when it cannot.
+   */
+  leaveStationWithoutPin: ['owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;

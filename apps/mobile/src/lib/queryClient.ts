@@ -140,6 +140,28 @@ queryClient.setMutationDefaults(['staff', 'mutation'], {
 });
 
 /**
+ * The online deposit (build-contracts-2026-09-27 §4), keyed under
+ * `depositKeys` (features/deposit/keys.ts).
+ *
+ * `begin` runs now or fails now, like a staff write: a payment page that a
+ * paused mutation opened minutes after the tap, on whatever screen the guest
+ * had moved to, is worse than "no connection". One retry is safe because the
+ * edge function answers a live attempt with the same ref and page.
+ *
+ * The quote fails FAST. Review falls back to its plain Confirm when it cannot
+ * read the terms (a server without deposit_quote answers PGRST202, which
+ * reads as a server fault and would otherwise hold the button for three
+ * backed-off retries); only a dropped connection is worth one more go.
+ */
+queryClient.setMutationDefaults(['deposit', 'mutation'], {
+  networkMode: 'always',
+  retry: (failureCount, error) => failureCount < 1 && isRetriable(error),
+});
+queryClient.setQueryDefaults(['deposit', 'quote'], {
+  retry: (failureCount, error) => failureCount < 1 && isTransportError(error),
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -155,7 +177,9 @@ export const persister = createAsyncStoragePersister({
  * Never persist authenticated, user-specific data we cannot re-authorise on
  * restore, and never persist a failed query. The whole `staff` family stays in
  * memory: a staff row, a work list or a purchase read back from disk would be
- * shown before the account is re-checked, possibly a previous account's.
+ * shown before the account is re-checked, possibly a previous account's. So
+ * does the `deposit` family: a payment's state painted from disk on a cold
+ * start is exactly the "paid" (or "failed") the server never said.
  */
 export const persistOptions = {
   persister,
@@ -165,7 +189,8 @@ export const persistOptions = {
       query.state.status === 'success' &&
       query.queryKey[0] !== 'my-bookings' &&
       query.queryKey[0] !== 'reservation' &&
-      query.queryKey[0] !== 'staff',
+      query.queryKey[0] !== 'staff' &&
+      query.queryKey[0] !== 'deposit',
   },
 } as const;
 

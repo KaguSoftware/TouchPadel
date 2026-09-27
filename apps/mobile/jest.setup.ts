@@ -126,6 +126,8 @@ jest.mock('expo-router', () => {
     navigate: record('navigate'),
     back: record('back'),
     dismissAll: record('dismissAll'),
+    // app/pay/return.tsx pops back to the payment screen already underneath.
+    dismissTo: record('dismissTo'),
     canGoBack: () => false,
     setParams: record('setParams'),
   };
@@ -410,6 +412,18 @@ jest.mock('expo-linking', () => ({
   getInitialURL: jest.fn(() => Promise.resolve(null)),
   parse: (url: string) => ({ path: url, queryParams: {} }),
   useURL: () => null,
+}));
+
+/**
+ * The in-app browser the online deposit opens Qi's page in
+ * (src/features/deposit/browser.ts). Nothing opens in Node: `openBrowserAsync`
+ * resolves as if the guest closed the sheet, which is the answer the payment
+ * screen is written to treat as "ask the server again".
+ */
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn(() => Promise.resolve({ type: 'cancel' })),
+  dismissBrowser: jest.fn(() => Promise.resolve({ type: 'dismiss' })),
+  WebBrowserPresentationStyle: { PAGE_SHEET: 'pageSheet', FULL_SCREEN: 'fullScreen' },
 }));
 
 jest.mock('expo-apple-authentication', () => ({

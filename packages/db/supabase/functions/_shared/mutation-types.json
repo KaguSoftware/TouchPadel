@@ -22,6 +22,7 @@
     "override_price",
     "refund",
     "void_after_send",
-    "write_off_expired"
+    "write_off_expired",
+    "deposit_refund_manual"
   ]
 }

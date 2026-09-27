@@ -64,6 +64,7 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     birthday: 'عيد ميلاد',
     payment_note: 'ملاحظة دفع',
     special_request: 'طلب خاص',
+    deposit_exempt: 'بلا عربون',
   },
   pin: {
     title: 'تفويض المدير',

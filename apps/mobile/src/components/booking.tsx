@@ -302,6 +302,8 @@ export function HeldSlotCard({
   busy,
   onResume,
   onRelease,
+  paymentInProgress = false,
+  onFinishPayment,
   testID,
 }: {
   courtName: string;
@@ -312,6 +314,14 @@ export function HeldSlotCard({
   busy: boolean;
   onResume: () => void;
   onRelease: () => void;
+  /**
+   * An online deposit is running on this hold (build-contracts-2026-09-27
+   * §4). The card then offers "Finish payment" and nothing else: the server
+   * will not release a hold whose payment is open (release_hold answers
+   * `payment_in_progress`), so a Release button would be a lie.
+   */
+  paymentInProgress?: boolean;
+  onFinishPayment?: () => void;
   /**
    * `bookings.held.<reservationId>`. The two actions derive `.resume` and
    * `.release` from it: a hold is identified by WHICH hold it is, and its
@@ -353,6 +363,16 @@ export function HeldSlotCard({
             {when}
             {price ? ` · ${price}` : ''}
           </Text>
+          {paymentInProgress ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 }}>
+              <CardIcon size={13} color={colors.ambstrong} />
+              <Text
+                style={{ fontFamily: fonts.body700, fontSize: 11.5, color: colors.ambtext }}
+              >
+                {t('deposit.paymentInProgress')}
+              </Text>
+            </View>
+          ) : null}
         </View>
         {/* The deadline, in tabular figures so the digits do not jitter. */}
         <View style={{ alignItems: 'flex-end' }}>
@@ -379,26 +399,38 @@ export function HeldSlotCard({
           </Text>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
-        <Button
-          testID={testID ? `${testID}.resume` : undefined}
-          label={t('booking.finishBooking')}
-          onPress={onResume}
-          variant="cta"
-          size="compact"
-          disabled={busy}
-          style={{ flex: 1 }}
-        />
-        <Button
-          testID={testID ? `${testID}.release` : undefined}
-          label={t('booking.releaseHold')}
-          onPress={onRelease}
-          variant="secondary"
-          size="compact"
-          busy={busy}
-          style={{ flex: 1 }}
-        />
-      </View>
+      {paymentInProgress ? (
+        <View style={{ marginTop: 11 }}>
+          <Button
+            testID={testID ? `${testID}.finish-payment` : undefined}
+            label={t('deposit.finishPayment')}
+            onPress={onFinishPayment ?? onResume}
+            variant="cta"
+            size="compact"
+          />
+        </View>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
+          <Button
+            testID={testID ? `${testID}.resume` : undefined}
+            label={t('booking.finishBooking')}
+            onPress={onResume}
+            variant="cta"
+            size="compact"
+            disabled={busy}
+            style={{ flex: 1 }}
+          />
+          <Button
+            testID={testID ? `${testID}.release` : undefined}
+            label={t('booking.releaseHold')}
+            onPress={onRelease}
+            variant="secondary"
+            size="compact"
+            busy={busy}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -493,6 +525,7 @@ export function NextUpCard({
   imminent,
   ctaLabel,
   onPress,
+  note,
   testID,
 }: {
   /** "Next up". */
@@ -511,6 +544,8 @@ export function NextUpCard({
   imminent: boolean;
   ctaLabel: string;
   onPress: () => void;
+  /** "20,000 IQD paid online · 20,000 IQD at the desk" (the online deposit), pre-translated. */
+  note?: string | null;
   /** `bookings.next-up` — there is only ever one of these on the tab. */
   testID?: string;
 }) {
@@ -668,6 +703,11 @@ export function NextUpCard({
           <MetaItem icon={CalendarIcon} text={when} color={ink.meta} iconColor={ink.glyph} size={12.5} />
           <MetaItem icon={ClockIcon} text={timeRange} color={ink.meta} iconColor={ink.glyph} size={12.5} />
         </View>
+        {note ? (
+          <View style={{ marginTop: 6 }}>
+            <MetaItem icon={CardIcon} text={note} color={ink.meta} iconColor={ink.glyph} size={12} />
+          </View>
+        ) : null}
         <View
           style={{
             height: StyleSheet.hairlineWidth,
@@ -818,6 +858,7 @@ export function UpcomingBookingRow({
   price,
   status,
   onPress,
+  note,
   testID,
 }: {
   date: Date;
@@ -827,6 +868,8 @@ export function UpcomingBookingRow({
   price: string | null;
   status: string;
   onPress: () => void;
+  /** The online deposit's "paid online · at the desk" line, pre-translated. */
+  note?: string | null;
   /** `bookings.upcoming.<reservationId>` — a list row is named by its entity. */
   testID?: string;
 }) {
@@ -868,6 +911,11 @@ export function UpcomingBookingRow({
           <MetaItem icon={CalendarIcon} text={weekday} color={colors.mut} size={11.5} />
           <MetaItem icon={ClockIcon} text={timeRange} color={colors.mut} size={11.5} />
         </View>
+        {note ? (
+          <View style={{ marginTop: 3 }}>
+            <MetaItem icon={CardIcon} text={note} color={colors.gtext} size={11} />
+          </View>
+        ) : null}
       </View>
       {/* Column, so `flex-end` is the cross axis — Yoga resolves it against the
           layout direction, i.e. the trailing edge in both languages. */}

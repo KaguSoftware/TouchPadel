@@ -51,7 +51,11 @@ export function useAcceptTerms() {
   return useMutation({
     mutationKey: ['accept-terms'],
     mutationFn: () => acceptTerms(supabase),
-    onSuccess: () => {
+    onSuccess: (row) => {
+      // Into the cache now, before the screen closes. Only invalidating left the
+      // old row in place until the refetch landed, and the route change from
+      // closing the screen made the gate present it again.
+      queryClient.setQueriesData({ queryKey: ['own-consent'] }, row);
       void queryClient.invalidateQueries({ queryKey: ['own-consent'] });
     },
   });

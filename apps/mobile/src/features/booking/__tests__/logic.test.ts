@@ -37,6 +37,14 @@ describe('error mapping', () => {
     expect(mapErrorToKey(new Error('BEYOND_HORIZON'))).toBe('booking.beyondHorizon');
     expect(mapErrorToKey(new Error('ACCOUNT_REQUIRED'))).toBe('booking.accountRequired');
     expect(mapErrorToKey(new Error('NOT_A_HOLD'))).toBe('booking.notAHold');
+    // The online deposit (build-contracts-2026-09-27 §2.5), SQL and edge alike.
+    expect(mapErrorToKey(new Error('DEPOSITS_OFF'))).toBe('deposit.errors.depositsOff');
+    expect(mapErrorToKey(new Error('DEPOSIT_REQUIRED'))).toBe('deposit.errors.depositRequired');
+    expect(mapErrorToKey(new Error('TOO_MANY_ATTEMPTS'))).toBe('deposit.errors.tooManyAttempts');
+    expect(mapErrorToKey(new Error('PAYMENT_NOT_FOUND'))).toBe('deposit.errors.paymentNotFound');
+    expect(mapErrorToKey(new Error('PROVIDER_UNAVAILABLE'))).toBe(
+      'deposit.errors.providerUnavailable',
+    );
   });
 
   it('finds codes embedded in longer messages', () => {
@@ -496,6 +504,22 @@ describe('isCourtFeePaid', () => {
     expect(isCourtFeePaid(row({ status: 'pending', court_paid_iqd: 0, court_remaining_iqd: 0 }))).toBe(
       false,
     );
+  });
+
+  it('reads an online deposit as part paid, and a deposit that covers it all as paid', () => {
+    // build-contracts-2026-09-27 §2.3: court_paid_iqd already includes the
+    // succeeded deposit of a live booking, so a deposit alone is "something
+    // taken" with the rest still owed, and only the full fee reads as paid.
+    expect(
+      isCourtFeePaid(
+        row({ online_paid_iqd: 15000, court_paid_iqd: 15000, court_remaining_iqd: 15000 }),
+      ),
+    ).toBe(false);
+    expect(
+      isCourtFeePaid(
+        row({ online_paid_iqd: 15000, court_paid_iqd: 40000, court_remaining_iqd: 0 }),
+      ),
+    ).toBe(true);
   });
 
   it('treats an unknown figure as unpaid', () => {
