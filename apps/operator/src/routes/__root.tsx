@@ -35,6 +35,7 @@ import { useLocale } from '../lib/i18n';
 import { useThemeMode } from '../lib/themeMode';
 import {
   WORKSPACES,
+  activeNavItem,
   isNavActive,
   loadWorkspace,
   saveWorkspace,
@@ -583,10 +584,13 @@ function RailCount({ count }: { count: number }) {
   );
 }
 
-/** One rail destination. Same row whether it comes from a group or a section. */
-function RailLink({ item, path }: { item: NavItem; path: string }) {
+/**
+ * One rail destination. Same row whether it comes from a group or a section.
+ * `active` is decided by the list (activeNavItem), not the row, so a row whose
+ * prefix covers a more specific sibling stays dark on the sibling's page.
+ */
+function RailLink({ item, active }: { item: NavItem; active: boolean }) {
   const { tr } = useLocale();
-  const active = isNavActive(item, path);
   const count = useNavBadge(item.badge);
   return (
     <Link
@@ -677,6 +681,7 @@ function RailGroup({
   const listId = `rail-group-${labelKey}`;
   // Open, the rows show their own counts.
   const count = useRowsBadge(items);
+  const current = activeNavItem(items, path);
 
   return (
     <div style={{ display: 'grid' }}>
@@ -700,7 +705,7 @@ function RailGroup({
         <div style={{ overflow: 'hidden', minBlockSize: 0 }} inert={!open}>
           <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}>
             {items.map((item) => (
-              <RailLink key={item.to} item={item} path={path} />
+              <RailLink key={item.to} item={item} active={item === current} />
             ))}
           </div>
         </div>
@@ -772,6 +777,8 @@ function WorkspaceNav({
   // back. Read from the path, so the rail and the screen can never disagree.
   const section = sectionForPath(workspace, path);
   const sections = (workspace.sections ?? []).filter((sec) => canAccess(staff?.role, sec.home));
+  const sectionRows = section ? sectionRailItems(section).filter((item) => canAccess(staff?.role, item.to)) : [];
+  const sectionCurrent = activeNavItem(sectionRows, path);
 
   // Accordion: at most one group open at a time. The group holding the
   // current screen always wins, so arriving via a link never leaves the lit
@@ -891,11 +898,9 @@ function WorkspaceNav({
       >
         {section ? (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-            {sectionRailItems(section)
-              .filter((item) => canAccess(staff?.role, item.to))
-              .map((item) => (
-                <RailLink key={item.to} item={item} path={path} />
-              ))}
+            {sectionRows.map((item) => (
+              <RailLink key={item.to} item={item} active={item === sectionCurrent} />
+            ))}
           </div>
         ) : (
           <>
@@ -918,7 +923,7 @@ function WorkspaceNav({
               ) : (
                 <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
                   {items.map((item) => (
-                    <RailLink key={item.to} item={item} path={path} />
+                    <RailLink key={item.to} item={item} active={item === activeNavItem(items, path)} />
                   ))}
                 </div>
               ),

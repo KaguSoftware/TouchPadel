@@ -1,5 +1,5 @@
 {
-  "generated_from": "69b532f57cd27f5e1dbadffcc85b576a8b256dee",
+  "generated_from": "692705981524c9497ad7b59634e24b154c8a270b",
   "chunks": [
     {
       "kind": "page",
@@ -445,8 +445,8 @@
       "kind": "page",
       "ref": "page:/stock/products",
       "lang": "en",
-      "title": "/stock/products",
-      "body": "\"Shop products\": one row per size of every Touch Shop product (a menu item in a shop section) with SKU, barcode, price, on hand and supplier; \"New product\" writes app.upsert_menu_item then app.upsert_retail_variant, \"Add size\" and \"Edit\" write app.upsert_retail_variant, which keeps each size's own stock row (unit pc) in step. For a manager a product's prices go to the owner: a new product is saved hidden, a hidden product never on sale keeps its prices editable and offers \"Put on sale\" (a shop_launch price or promo change on /protocols), and a product on sale has its prices read-only with \"Change the price\" in place of \"Add size\", while its SKU, barcode, supplier, pack cost and low-stock level stay editable.\nRoles: manager, owner.\nNot a rail row: reached from inside another screen or by URL.",
+      "title": "/stock/products — Shop",
+      "body": "\"Shop products\": one row per size of every Touch Shop product (a menu item in a shop section) with SKU, barcode, price, on hand and supplier; \"New product\" writes app.upsert_menu_item then app.upsert_retail_variant, \"Add size\" and \"Edit\" write app.upsert_retail_variant, which keeps each size's own stock row (unit pc) in step. For a manager a product's prices go to the owner: a new product is saved hidden, a hidden product never on sale keeps its prices editable and offers \"Put on sale\" (a shop_launch price or promo change on /protocols), and a product on sale has its prices read-only with \"Change the price\" in place of \"Add size\", while its SKU, barcode, supplier, pack cost and low-stock level stay editable.\nRoles: manager, owner.\nReached from: Operations: \"Shop\"; Management › Stock: \"Shop\".",
       "route": "/stock/products"
     },
     {
@@ -718,7 +718,7 @@
       "ref": "nav:manager",
       "lang": "ar",
       "title": "مساحة العمل: العمليات",
-      "body": "مساحة العمل \"العمليات\" تبدأ من /ops.\nالصفوف: اليوم → /ops; البروتوكولات → /protocols; الاقتراحات → /suggestions; الحجوزات → /desk; الحسابات المفتوحة → /till/tabs; المخزون → /stock; إغلاق اليوم → /admin/day-close\nإدارة اليوم: \nالسجلات: التقارير → /reports/courts; سجل التدقيق → /admin/audit\nالإعداد: القائمة → /admin/menu; الأسعار → /admin/rates; العروض → /admin/promotions",
+      "body": "مساحة العمل \"العمليات\" تبدأ من /ops.\nالصفوف: اليوم → /ops; البروتوكولات → /protocols; الاقتراحات → /suggestions; الحجوزات → /desk; الحسابات المفتوحة → /till/tabs; المخزون → /stock; المتجر → /stock/products; إغلاق اليوم → /admin/day-close\nإدارة اليوم: \nالسجلات: التقارير → /reports/courts; سجل التدقيق → /admin/audit\nالإعداد: القائمة → /admin/menu; الأسعار → /admin/rates; العروض → /admin/promotions",
       "route": "/ops"
     },
     {
@@ -726,7 +726,7 @@
       "ref": "nav:manager",
       "lang": "en",
       "title": "Workspace: Operations",
-      "body": "Workspace \"Operations\" opens at /ops.\nRows: Today → /ops; Protocols → /protocols; Suggestions → /suggestions; Bookings → /desk; Open tabs → /till/tabs; Stock → /stock; Day close → /admin/day-close\nRun the day: \nRecords: Reports → /reports/courts; Audit log → /admin/audit\nSetup: Menu → /admin/menu; Rates → /admin/rates; Promotions → /admin/promotions",
+      "body": "Workspace \"Operations\" opens at /ops.\nRows: Today → /ops; Protocols → /protocols; Suggestions → /suggestions; Bookings → /desk; Open tabs → /till/tabs; Stock → /stock; Shop → /stock/products; Day close → /admin/day-close\nRun the day: \nRecords: Reports → /reports/courts; Audit log → /admin/audit\nSetup: Menu → /admin/menu; Rates → /admin/rates; Promotions → /admin/promotions",
       "route": "/ops"
     },
     {
@@ -888,6 +888,22 @@
       "title": "Operations: Stock",
       "body": "Rail row \"Stock\" in the Operations workspace opens /stock. Arabic label: \"المخزون\". Roles: manager, owner.",
       "route": "/stock"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:manager:-:/stock/products",
+      "lang": "ar",
+      "title": "العمليات: المتجر",
+      "body": "صف \"المتجر\" في مساحة \"العمليات\" يفتح /stock/products. الاسم بالإنجليزية: \"Shop\". الأدوار: manager, owner.",
+      "route": "/stock/products"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:manager:-:/stock/products",
+      "lang": "en",
+      "title": "Operations: Shop",
+      "body": "Rail row \"Shop\" in the Operations workspace opens /stock/products. Arabic label: \"المتجر\". Roles: manager, owner.",
+      "route": "/stock/products"
     },
     {
       "kind": "nav",
@@ -1438,7 +1454,7 @@
       "ref": "nav:owner:stock",
       "lang": "ar",
       "title": "الإدارة › المخزون",
-      "body": "الموجود، والتوريدات، والهدر، والجرد، وقيمة ما على الرفوف\nالصفحة الرئيسية: /stock\nالصفوف: إدارة المخزون → /stock; قيمة المخزون → /reports/stock",
+      "body": "الموجود، والتوريدات، والهدر، والجرد، وقيمة ما على الرفوف\nالصفحة الرئيسية: /stock\nالصفوف: إدارة المخزون → /stock; قيمة المخزون → /reports/stock; المتجر → /stock/products",
       "route": "/stock"
     },
     {
@@ -1446,7 +1462,7 @@
       "ref": "nav:owner:stock",
       "lang": "en",
       "title": "Management › Stock",
-      "body": "On hand, deliveries, waste, counts and what the shelves are worth\nHome: /stock\nRows: Inventory → /stock; Stock value → /reports/stock",
+      "body": "On hand, deliveries, waste, counts and what the shelves are worth\nHome: /stock\nRows: Inventory → /stock; Stock value → /reports/stock; Shop → /stock/products",
       "route": "/stock"
     },
     {
@@ -1480,6 +1496,22 @@
       "title": "Management › Stock: Inventory",
       "body": "Rail row \"Inventory\" in the Management workspace › Stock opens /stock. Arabic label: \"إدارة المخزون\". Roles: manager, owner.",
       "route": "/stock"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:owner:stock:/stock/products",
+      "lang": "ar",
+      "title": "الإدارة › المخزون: المتجر",
+      "body": "صف \"المتجر\" في مساحة \"الإدارة\" › المخزون يفتح /stock/products. الاسم بالإنجليزية: \"Shop\". الأدوار: manager, owner.",
+      "route": "/stock/products"
+    },
+    {
+      "kind": "nav",
+      "ref": "nav:owner:stock:/stock/products",
+      "lang": "en",
+      "title": "Management › Stock: Shop",
+      "body": "Rail row \"Shop\" in the Management workspace › Stock opens /stock/products. Arabic label: \"المتجر\". Roles: manager, owner.",
+      "route": "/stock/products"
     },
     {
       "kind": "nav",
@@ -16086,7 +16118,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "ar",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.ar.ts)",
-      "body": "today: اليوم\ncalendar: التقويم\ncustomers: العملاء\nnewSeries: سلسلة جديدة\nblockCourt: حجب ملعب\ntill: الكاشير\nopenTabs: الحسابات المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الكاشير\ndayClose: إغلاق اليوم\nmenu: القائمة\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار القائمة\ninventory: إدارة المخزون\nstockValue: قيمة المخزون\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: الطلبات\nmarketing: التسويق\ntelegram: تيليجرام\nassistant: المساعد\nmyTasks: مهامي\nprotocols: البروتوكولات\nsuggestions: الاقتراحات\ndeductions: الخصومات من الراتب\nincidents: الحوادث\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nleaveTitle: {destination}؟\nleaveBody: أنت على وشك مغادرة هذه الشاشة. لن يضيع شيء هنا، ويمكنك العودة بالطريقة نفسها.\nleaveConfirm: نعم، انتقل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: هذا ينهي جلستك على هذه المحطة. كل ما تم إرساله محفوظ؛ وسيحتاج الشخص التالي إلى تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة\nquit: الخروج إلى سطح المكتب\nquitConfirm: هذا ينهي الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز خارج الاتصال.\nquitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرمز السري للمدير\nleavePinHint: يجب أن يُدخل مدير غيرك رمزه السري.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: أعد التشغيل للتحديث إلى {version}",
+      "body": "today: اليوم\ncalendar: التقويم\ncustomers: العملاء\nnewSeries: سلسلة جديدة\nblockCourt: حجب ملعب\ntill: الكاشير\nopenTabs: الحسابات المفتوحة\ncashDrawer: درج النقد\noverview: نظرة عامة\nbookings: الحجوزات\ntills: الكاشير\ndayClose: إغلاق اليوم\nmenu: القائمة\nrates: الأسعار\npromotions: العروض\nstock: المخزون\nreports: التقارير\naudit: سجل التدقيق\npanel: لوحة الإدارة\nanalytics: التحليلات\nstaff: الموظفون\nbranches: الفروع\ncourts: الملاعب\ntables: الطاولات ورموز QR\nsettings: إعدادات المكان\nguestSite: موقع الضيوف\nmenuPrices: أسعار القائمة\ninventory: إدارة المخزون\nstockValue: قيمة المخزون\nshop: المتجر\nfloorNow: الصالة الآن\nstaffActivity: نشاط الموظفين\nrequests: الطلبات\nmarketing: التسويق\ntelegram: تيليجرام\nassistant: المساعد\nmyTasks: مهامي\nprotocols: البروتوكولات\nsuggestions: الاقتراحات\ndeductions: الخصومات من الراتب\nincidents: الحوادث\nbadge: بانتظارك: {count}\ngroupOperations: العمليات\ngroupRun: إدارة اليوم\ngroupRecords: السجلات\ngroupSetup: الإعداد\nbackTo: العودة إلى {workspace}\nmore: خيارات\nmoreMenu: إعدادات المحطة\nswitchWorkspace: تبديل مساحة العمل\nleaveTitle: {destination}؟\nleaveBody: أنت على وشك مغادرة هذه الشاشة. لن يضيع شيء هنا، ويمكنك العودة بالطريقة نفسها.\nleaveConfirm: نعم، انتقل\nlanguage: English\nlanguageAlt: العربية\nblueMode: الوضع الأزرق\nlightMode: الوضع الفاتح\nsignOut: تسجيل الخروج\nsignOutTitle: تسجيل الخروج؟\nsignOutBody: هذا ينهي جلستك على هذه المحطة. كل ما تم إرساله محفوظ؛ وسيحتاج الشخص التالي إلى تسجيل الدخول.\nsignOutConfirm: تسجيل الخروج\nstation: المحطة {id}\nexitFullscreen: الخروج من وضع ملء الشاشة\nquit: الخروج إلى سطح المكتب\nquitConfirm: هذا ينهي الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز خارج الاتصال.\nquitInstallsUpdate: التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.\nleavePin: الرمز السري للمدير\nleavePinHint: يجب أن يُدخل مدير غيرك رمزه السري.\nkitchenNoNav: شاشة المطبخ\nversion: الإصدار {version}\nupdateReady: التحديث جاهز\nrestartToUpdate: أعد التشغيل للتحديث إلى {version}",
       "route": null
     },
     {
@@ -16094,7 +16126,7 @@
       "ref": "label:ws.shell.nav",
       "lang": "en",
       "title": "ws.shell.nav (packages/i18n/src/catalogs/ws/shell.en.ts)",
-      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\ninventory: Inventory\nstockValue: Stock value\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nmyTasks: My tasks\nprotocols: Protocols\nsuggestions: Suggestions\ndeductions: Pay deductions\nincidents: Incidents\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nleaveTitle: {destination}?\nleaveBody: You are about to leave this screen. Nothing here is lost; you can come back the same way.\nleaveConfirm: Yes, go\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}",
+      "body": "today: Today\ncalendar: Calendar\ncustomers: Customers\nnewSeries: New series\nblockCourt: Block court\ntill: Till\nopenTabs: Open tabs\ncashDrawer: Cash drawer\noverview: Overview\nbookings: Bookings\ntills: Tills\ndayClose: Day close\nmenu: Menu\nrates: Rates\npromotions: Promotions\nstock: Stock\nreports: Reports\naudit: Audit log\npanel: Management panel\nanalytics: Analytics\nstaff: Staff\nbranches: Branches\ncourts: Courts\ntables: Tables & QR\nsettings: Venue settings\nguestSite: Guest site\nmenuPrices: Menu prices\ninventory: Inventory\nstockValue: Stock value\nshop: Shop\nfloorNow: Floor now\nstaffActivity: Staff activity\nrequests: Requests\nmarketing: Marketing\ntelegram: Telegram\nassistant: Assistant\nmyTasks: My tasks\nprotocols: Protocols\nsuggestions: Suggestions\ndeductions: Pay deductions\nincidents: Incidents\nbadge: {count} waiting on you\ngroupOperations: Operations\ngroupRun: Run the day\ngroupRecords: Records\ngroupSetup: Setup\nbackTo: Back to {workspace}\nmore: Options\nmoreMenu: Station controls\nswitchWorkspace: Switch workspace\nleaveTitle: {destination}?\nleaveBody: You are about to leave this screen. Nothing here is lost; you can come back the same way.\nleaveConfirm: Yes, go\nlanguage: العربية\nlanguageAlt: English\nblueMode: Blue mode\nlightMode: Light mode\nsignOut: Sign out\nsignOutTitle: Sign out?\nsignOutBody: This ends your session on this station. Anything already sent is safe; the next person will need to sign in.\nsignOutConfirm: Sign out\nstation: Station {id}\nexitFullscreen: Exit forced full screen\nquit: Quit to desktop\nquitConfirm: This ends service on this station. Orders stop and the venue sees it go offline.\nquitInstallsUpdate: An update is ready. Quitting installs it, then the app opens again by itself.\nleavePin: Manager PIN\nleavePinHint: A manager other than you has to enter their PIN.\nkitchenNoNav: Kitchen display\nversion: Version {version}\nupdateReady: Update ready\nrestartToUpdate: Restart to update to {version}",
       "route": null
     },
     {
@@ -35215,86 +35247,6 @@
       "lang": "en",
       "title": "README.md › CI and release",
       "body": "## CI and release\n\nWorkflows live in `.github/workflows/`:\n\n- `ci.yml` runs on every PR and push to main: secret and hygiene gates, lint/typecheck/test/build,\n  an Electron ABI smoke on Windows, an Expo bundle check, a clean local Supabase run with\n  migration, RLS, lock-order and concurrency tests, and the Playwright suite.\n- `db-drift.yml` diffs the hosted project against the migration head nightly (02:00 Baghdad).\n- `db-migrate.yml` pushes migrations to staging on `workflow_dispatch` or when a main push touches\n  `packages/db/supabase/migrations/**`, behind the `staging` GitHub Environment.\n- `operator-release.yml` builds and signs the Electron installer on `operator-v*` tags and publishes\n  it to the public `KaguSoftware/touchpadel-releases` repo.\n\nEvery push to `main` is also a Vercel production build of the website. Commit as often as you\nlike, but push in batches.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#1",
-      "lang": "en",
-      "title": "SECURITY.md › Security Policy",
-      "body": "# Security Policy\n\nTouch Padel is the venue system for a padel-and-cafe site in Iraq: a guest booking app, a\npublic website with QR cafe ordering, and a Windows operator app, all on one Supabase\nPostgres. It handles real bookings, real payments in IQD, and real guests' phone numbers.\n\nThis repository is public. The database it talks to is not, and it is **live**. Please read\nthe testing rules in §4 before you touch anything.\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#10",
-      "lang": "en",
-      "title": "SECURITY.md › 9 · For contributors",
-      "body": "## 9 · For contributors\n\nThe rules you are bound by are in `CONTRIBUTING.md` and\n`docs/security/layer-1-rules-and-decisions.md` (§1, §5 and §6 are binding). The short version:\nschema changes are migrations only, the service-role key exists only in `packages/db/.env` and\nGitHub Environment secrets, nothing is written to the hosted database through the dashboard SQL\nEditor, and if you find a secret in a file you stop and flag it rather than fixing it quietly.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#2",
-      "lang": "en",
-      "title": "SECURITY.md › 1 · Reporting a vulnerability",
-      "body": "## 1 · Reporting a vulnerability\n\n**Report privately, through GitHub:**\n\n> **[Security → Advisories → Report a vulnerability](https://github.com/KaguSoftware/TouchPadel/security/advisories/new)**\n\nThat opens a private advisory visible only to you and the maintainers. Nothing is published\nuntil there is a fix.\n\n**Do not open a public issue for a security problem.** A public report is a disclosure: it\nreaches whoever is watching this repository at the same moment it reaches us, and the venue\ncannot patch a live till and a released desktop installer in the minutes that gives us.\nPublic issues are the right place for ordinary bugs, questions, and anything that is not a\nsecurity weakness — use them freely for that.\n\nIf GitHub is unavailable to you, open a public issue that says only *\"I have a security\nreport, please open a private channel\"* — with no details, no repro, no affected path — and\na maintainer will come to you.\n\nA good report contains:\n\n| Field | What to include |\n|---|---|\n| Where | The surface (web / mobile / operator SPA / operator shell / database) and, if you can, the file or endpoint |\n| What | What an attacker gets: read another guest's data, book without paying, change a price, run code on the venue PC |\n| How | Minimal steps to reproduce, ideally against a local stack (§4) |\n| Version | Commit SHA, or the operator app version shown on the station setup screen |\n| Impact | Your own read of severity, and whether it needs auth, staff access, or physical presence in the venue |\n\nReports written in Arabic or English are equally welcome.\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#3",
-      "lang": "en",
-      "title": "SECURITY.md › 2 · What happens next",
-      "body": "## 2 · What happens next\n\n| Stage | Target |\n|---|---|\n| We acknowledge your report | 3 working days |\n| We tell you our severity assessment and rough plan | 10 working days |\n| Critical fix shipped (guest data exposure, payment or auth bypass, RCE on the venue PC) | As fast as we can, measured in days |\n| Everything else | With the normal release flow |\n\nThis is a small team on a delivery deadline, not a 24/7 security desk. If a target slips we\nwill tell you rather than go quiet.\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#4",
-      "lang": "en",
-      "title": "SECURITY.md › 3 · Disclosure",
-      "body": "## 3 · Disclosure\n\nWe work to coordinated disclosure. Please give us **90 days** from your report before making\nit public, or until a fix ships — whichever comes first. If we need longer we will ask, with\na reason. If we go silent past 90 days, publish; that is your right and we will not treat it\nas a hostile act.\n\nWhen the fix ships we publish a GitHub Security Advisory and credit you by the name or handle\nyou choose, unless you prefer to stay anonymous. There is no bug bounty — this is a client\nproject, not a funded programme, so what we can offer is credit and a straight answer.\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#5",
-      "lang": "en",
-      "title": "SECURITY.md › 4 · Testing rules — read before you probe anything",
-      "body": "## 4 · Testing rules — read before you probe anything\n\n**There is one Supabase project and it is the client's production database. There is no\nstaging.** Every table you might poke at holds real reservations and real guests' phone\nnumbers, and the venue trades on it during opening hours.\n\n**Do not**, against any live Touch Padel deployment:\n\n- run automated scanners, fuzzers, or dependency-confusion probes\n- attempt any denial of service, load test, or rate-limit exhaustion\n- create real bookings or cafe orders you do not intend to honour\n- test with real people's phone numbers or email addresses\n- attempt to access, download, or retain any guest or staff record\n- attempt social engineering of venue staff, or any physical access to the operator PC\n\n**Do instead** — the whole system runs locally, with fixtures and no real data:\n\n```sh\npnpm i\npnpm db:start        # local Supabase via Docker\npnpm db:reset        # migrations + seed fixtures\npnpm dev\n```\n\nFixtures use this repository's synthetic phone range, `+964 7XX 000000N` — please stay inside\nit. `CONTRIBUTING.md` has the full setup, including Windows.\n\n**If you incidentally reach real guest or staff data:** stop immediately, do not save or copy\nit, do not share it, and say so in your report. Telling us is not an admission of anything —\nit lets us assess whether the venue owes anyone a notification.\n\n**Safe harbour.** If you follow this policy in good faith, we will treat your work as\nauthorised research, we will not pursue legal action, and we will not report you. If you are\nunsure whether something is in bounds, ask first in a private advisory.\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#6",
-      "lang": "en",
-      "title": "SECURITY.md › 5 · Scope",
-      "body": "## 5 · Scope\n\nIn scope:\n\n| Surface | Notes |\n|---|---|\n| `apps/web` | Public site and the QR cafe ordering flow — no login, the least-defended surface by design |\n| `apps/mobile` | Guest booking app (React Native / Expo) |\n| `apps/operator` | Operator SPA: till, calendar, KDS, stock, admin |\n| `apps/operator-shell` | Electron shell: offline queue, LAN KDS, ESC/POS printing, auto-update |\n| `packages/db` | Migrations, RLS policies, RPCs, and the authorization matrix |\n| `packages/core` | Money, splits, idempotency, time — arithmetic bugs here are security bugs |\n| CI and release | Workflow injection, secret exposure, unsigned or hijackable artifacts |\n\nWeaknesses we especially want to hear about: anything that reads another guest's rows,\nanything that books or pays without the money being right, anything that escalates a guest\nsession to staff, and anything that gets code onto the venue PC through the auto-updater.\n\nOut of scope:\n\n- Findings from an automated scanner with no demonstrated impact.\n- Missing headers or best-practice flags on surfaces that hold nothing. Report them as issues;\n  they are welcome, just not advisories.\n- Vulnerabilities in Supabase, Vercel, Expo or GitHub themselves — report those to their vendors.\n- Anything requiring an already-compromised operator PC, a rooted device, or a stolen staff\n  credential.\n- Social engineering, phishing of staff, physical attacks on the venue.\n- The known, dated dependency waivers in `.security/audit-waivers.json` and the four accepted\n  Supabase advisor findings in `docs/security/security-advisor-waiver-2026-09-06.md` — these are\n  decisions with owners and expiry dates, not oversights. A *new* reachability argument against\n  one of them is very much in scope.\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#7",
-      "lang": "en",
-      "title": "SECURITY.md › 6 · Supported versions",
-      "body": "## 6 · Supported versions\n\nThe project is pre-1.0 and under active development. Only the current line gets fixes.\n\n| Surface | Supported |\n|---|---|\n| Operator desktop — latest `operator-v*` release | Yes. Fixes ship here; installed copies auto-update from the public releases repo |\n| Operator desktop — any older release | No. Update to the latest |\n| Web — the deployed head of `main` | Yes, continuously deployed |\n| Mobile — the latest store build / EAS update | Yes |\n| Forks, and any branch other than `main` | No |\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#8",
-      "lang": "en",
-      "title": "SECURITY.md › 7 · If you found a leaked credential",
-      "body": "## 7 · If you found a leaked credential\n\nTreat it as urgent and report it privately, even if it looks expired or scoped to a test\nproject. Do not use it to confirm it works — tell us where you saw it (file, commit, built\nartifact, log) and let us rotate it.\n\nEvery push and pull request runs `gitleaks` over the **full history**, plus a gate that fails\nif a secret-bearing file was ever committed, plus a scan of the built web, desktop and mobile\nartifacts. A credential that got past all of that is exactly the report we want.\n\n---",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:SECURITY.md#9",
-      "lang": "en",
-      "title": "SECURITY.md › 8 · What is already automated",
-      "body": "## 8 · What is already automated\n\nSo you know what ground is covered before you spend time on it. Every one of these runs on\nevery pull request and every push to `main` (`.github/workflows/ci.yml`, or `pnpm security`\nlocally):\n\n- `gitleaks` across full git history, plus a secret scan of the built web, desktop and mobile bundles.\n- Public env-var naming — nothing secret may hide behind `NEXT_PUBLIC_`, `EXPO_PUBLIC_` or `VITE_`.\n- Dependency audit, gated on new vulnerable dependencies, with dated waivers for the backlog.\n- Committed-data hygiene — fails on a real email, a national-ID-shaped number, or a dialable\n  Iraqi mobile in any fixture, seed or intake pack.\n- Web hardening lock (CSP with a per-request nonce, HSTS, `frame-ancestors`) and an Electron\n  hardening lock.\n- RPC registry and authorization coverage against the RLS matrix.\n- Migration safety — destructive or lock-taking DDL in changed migrations, and a mandatory\n  `lock_timeout` preamble.\n- A clean local Supabase run on every PR: migrations from scratch, RLS, lock-order and\n  concurrency tests.\n- Nightly schema-drift check against the hosted project (02:00 Asia/Baghdad).\n- Weekly grouped Dependabot updates.\n\nThe reasoning behind each of these lives in `docs/security/`.\n\n---",
       "route": null
     }
   ]
