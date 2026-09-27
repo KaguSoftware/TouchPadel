@@ -21,6 +21,14 @@ const { Icon, Label } = NativeTabs.Trigger;
  * one that is right. The 14x3 green active dot has no UIKit equivalent and is
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
+ *
+ * NO testIDs HERE, deliberately. `NativeTabs.Trigger` is a CONFIGURATION node,
+ * not a view: it describes a `UITabBarItem` that UIKit draws outside the React
+ * tree, so there is no RN node to hang an id from and nothing a testID could
+ * reach. Android's bar is ordinary Pressables and carries `tabs.book` /
+ * `tabs.bookings` / `tabs.profile`; the smoke tests see those same three ids
+ * through the `expo-router/unstable-native-tabs` mock, which stands in for
+ * UIKit (jest.setup.ts explains what that does and does not prove).
  */
 export default function TabsLayoutIOS() {
   const { t } = useLocale();

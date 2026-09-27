@@ -26,6 +26,8 @@ import {
 /** courts row subset (bilingual names resolved by the screen via pickLocale). */
 export interface CourtRow {
   id: string;
+  /** The court's branch (every court row has one since 0213). Optional: fixtures and old caches omit it. */
+  venue_id?: string | null;
   name_en: string;
   name_ar: string;
   description_en: string | null;
@@ -74,6 +76,10 @@ export interface VenueSettingsPublic {
   /** Venue contact number for the degraded-mode message. Optional: the column
    *  lands with a later migration — treat null/absent identically. */
   phone?: string | null;
+  /** The branch this row belongs to (0208: one row per open branch). */
+  venue_id?: string | null;
+  venue_name_en?: string | null;
+  venue_name_ar?: string | null;
 }
 
 export const DEFAULT_TZ = 'Asia/Baghdad';
@@ -290,7 +296,11 @@ export function groupByStart(slots: readonly Slot[]): GridCell[] {
  */
 export function venuePhoneOf(settings: unknown): string | null {
   const p = (settings as { phone?: unknown } | null | undefined)?.phone;
-  return typeof p === 'string' && p.trim().length > 0 ? p : null;
+  if (typeof p !== 'string' || p.trim().length === 0) return null;
+  // Venue numbers are seeded with the `00` international access prefix;
+  // normalize to `+` so display and dialing both use E.164-ish form.
+  const stripped = p.replace(/[^\d+]/g, '');
+  return stripped.startsWith('00') ? `+${stripped.slice(2)}` : stripped;
 }
 
 // ── Merged capacity grid (design 2026-08-31) ─────────────────────────────────

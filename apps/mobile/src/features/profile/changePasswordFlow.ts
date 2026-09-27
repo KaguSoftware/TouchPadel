@@ -15,6 +15,8 @@
  * and, on older servers, only the message; both are read, code first.
  */
 
+import { hasRealEmail } from '../auth/phoneOtp';
+
 /** The minimal shape of a GoTrue AuthError this module reads. */
 export interface AuthFailure {
   code?: string | null;
@@ -62,18 +64,52 @@ export function classifyUpdateFailure(err: unknown): UpdateFailure {
 }
 
 /**
- * Can this account change a password at all? Only an account with an EMAIL
- * (password) identity has one to change; a guest who only ever signed in with
+ * Can this account change a password at all? Only an account with a password
+ * identity has one: `email` (accounts from before 2026-09-15, staff) or
+ * `phone` (every guest sign-up since). A guest who only ever signed in with
  * Google or Apple has no password, and for them "current password" cannot be
  * right — every attempt failed as "incorrect" and the feature looked broken.
  * GoTrue lists every linked provider in `app_metadata.providers`, with the
  * first one alone in `app_metadata.provider` on older tokens.
+ *
+ * A social account that later LINKED a number also lists `phone` but has no
+ * password; passwordProofOf still offers the row, and the guest recovers
+ * through Forgot password. That case is rare enough not to hide the row for
+ * everyone.
  */
+const PASSWORD_PROVIDERS = ['email', 'phone'];
+
 export function hasPasswordSignIn(
   user: { app_metadata?: { provider?: string; providers?: string[] } | null } | null | undefined,
 ): boolean {
   const meta = user?.app_metadata;
   if (!meta) return false;
-  if (Array.isArray(meta.providers)) return meta.providers.includes('email');
-  return meta.provider === 'email';
+  if (Array.isArray(meta.providers)) return meta.providers.some((p) => PASSWORD_PROVIDERS.includes(p));
+  return PASSWORD_PROVIDERS.includes(meta.provider ?? '');
+}
+
+/**
+ * What the change-password screen re-authenticates with: the phone for a
+ * phone account (GoTrue stores it as digits, no '+'), else a real email.
+ * Null when the account has no password to prove.
+ */
+export type PasswordProof = { kind: 'phone'; phone: string } | { kind: 'email'; email: string };
+
+export function passwordProofOf(
+  user:
+    | {
+        email?: string | null;
+        phone?: string | null;
+        app_metadata?: { provider?: string; providers?: string[] } | null;
+      }
+    | null
+    | undefined,
+): PasswordProof | null {
+  if (!user || !hasPasswordSignIn(user)) return null;
+  const meta = user.app_metadata;
+  const providers = Array.isArray(meta?.providers) ? meta.providers : [meta?.provider ?? ''];
+  const digits = (user.phone ?? '').replace(/\D/g, '');
+  if (providers.includes('phone') && digits) return { kind: 'phone', phone: `+${digits}` };
+  if (providers.includes('email') && hasRealEmail(user)) return { kind: 'email', email: user.email!.trim() };
+  return null;
 }

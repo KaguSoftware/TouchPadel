@@ -81,6 +81,10 @@ export const operatorVars = {
   '--tp-accent-active': `oklch(38% 0.13 ${HUE})`,
   '--tp-accent-soft': `oklch(94% 0.03 ${HUE})`,
   '--tp-accent-soft-fg': `oklch(38% 0.12 ${HUE})`,
+  // The one hover ground for everything a pointer can land on (owner call,
+  // 2026-09-24): the pale accent-blue tint, with the page's own ink on it.
+  '--tp-hover': 'var(--tp-accent-soft)',
+  '--tp-hover-fg': 'var(--tp-accent-soft-fg)',
 
   // Status families. Four rungs each, and the rung decides the job:
   //   FILL   a ground large enough to read colour off (a chip, a band)
@@ -146,6 +150,11 @@ export const operatorVars = {
 
   // focus ring
   '--tp-ring': '0 0 0 2px var(--tp-brand-white), 0 0 0 4px var(--tp-brand-blue)',
+  /** The room a focus ring needs OUTSIDE the control it belongs to: the global
+   *  rule draws a 2px outline at a 2px offset. A scrolling box whose children
+   *  reach its edge must pad itself by this much, or it clips the ring of the
+   *  first and last child in every row. */
+  '--tp-focus-room': '4px',
 
   // shape
   /** Chips, grid cells, skeleton blocks — below a control. Was hand-typed as
@@ -162,6 +171,34 @@ export const operatorVars = {
   '--tp-shadow-raised': `0 1px 2px oklch(20% 0.03 ${HUE} / 0.12)`,
   '--tp-shadow-popover': `0 1px 2px oklch(20% 0.03 ${HUE} / 0.06), 0 8px 24px oklch(20% 0.03 ${HUE} / 0.12)`,
   '--tp-shadow-dialog': `0 2px 6px oklch(20% 0.03 ${HUE} / 0.08), 0 24px 64px oklch(20% 0.03 ${HUE} / 0.22)`,
+
+  // ── glass: the frosted ground for a menu that floats over the data ───────
+  /* Used ONLY by a popover that sits above content the operator is still
+     reading (the select menu). It is a translucent --tp-surface, so what shows
+     through is the page's own hue rather than a grey wash, and it is paired
+     with --tp-glass-blur in a @supports guard: where backdrop-filter is not
+     available the fallback is the opaque --tp-surface, never this value on its
+     own. The alpha, not the blur radius, is what stops a hard edge under the
+     pane from still reading as an edge: a big radius over too little alpha
+     leaves chart bars visible as shapes. 86% softens them to a wash and keeps
+     body text above the 4.5:1 floor (measured on rendered pixels, not
+     estimated) — legibility is not negotiable on a till. */
+  '--tp-glass': `oklch(99.4% 0.002 ${HUE} / 0.86)`,
+  /** A hairline lit from above, which is what reads as "pane of glass". */
+  '--tp-glass-border': `oklch(100% 0 0 / 0.7)`,
+  '--tp-glass-blur': 'blur(28px) saturate(1.9)',
+  /* The STICKY BAR's ground. Built on --tp-bg, not --tp-surface, because the
+     bar is page ground that content scrolls beneath — that scrolling content
+     is the only thing the frost has to show. Held more transparent than the
+     menu: a toolbar is a large area, and an alpha that suits a small panel
+     makes a whole bar read as opaque. */
+  '--tp-glass-bar': `oklch(96.5% 0.005 ${HUE} / 0.6)`,
+  /* A CONTROL standing ON that frosted bar. It cannot be translucent over a
+     translucent ground — two 88% layers stack to a muddy 98% and the control
+     stops reading as a control — so it is a near-opaque lift of --tp-surface
+     with its own, lighter blur. The border does the real work here. */
+  '--tp-glass-ctl': `oklch(99.4% 0.002 ${HUE} / 0.8)`,
+  '--tp-glass-blur-sm': 'blur(14px) saturate(1.5)',
 
   // type scale (rem) — ratio ≈ 1.2, product register
   '--tp-fs-xs': '0.75rem',
@@ -227,11 +264,62 @@ export const operatorVars = {
   // z-index scale
   /** Sticky table heads sat on a bare z-index:1, outside the scale. */
   '--tp-z-table-head': '5',
+  /**
+   * A sticky bar that owns the top of a scrolling pane (the analytics filter
+   * bar). It has to outrank --tp-z-table-head: a sticky `th` inside the pane
+   * pins to the scrollport's top edge, which is BEHIND the bar, and on an
+   * equal z-index the later element in DOM order — the table — would paint
+   * over it.
+   */
+  '--tp-z-section-bar': '6',
   '--tp-z-sticky': '10',
   '--tp-z-rail': '20',
   '--tp-z-banner': '30',
   '--tp-z-popover': '40',
+  /**
+   * The macOS window-drag strip along the top edge (Electron shell only).
+   * Above the rail, the banner and any popover, so the window stays movable by
+   * its top edge on every screen.
+   *
+   * Being BELOW the overlay, the lock and the toast is necessary but NOT
+   * sufficient for those to keep their own top edge interactive: Chromium hands
+   * macOS a drag region built from the strip's painted box and never consults
+   * z-order, so an overlay that merely outranks it still has those pixels eaten.
+   * An overlay claims the edge with `useOwnsScreen()` (operator
+   * lib/screenOwner.tsx), which unmounts the strip outright.
+   */
+  '--tp-z-drag': '50',
+  /**
+   * A control that sits INSIDE the drag strip's band and has to stay the
+   * owner of its corner — the sign-in Quit button. One step above the strip,
+   * and it pairs with `-webkit-app-region: no-drag` on the same element:
+   * the z-index wins the paint, the no-drag wins the pointer.
+   */
+  '--tp-z-drag-over': '51',
   '--tp-z-overlay': '100',
+  /**
+   * A panel that has to paint over its OWN scrim while both are children of
+   * one overlay — the assistant drawer's sheet. Not a way to outrank another
+   * overlay: two overlays at --tp-z-overlay are settled by DOM order, and the
+   * later one (the Modal you just opened) is meant to win.
+   */
+  '--tp-z-overlay-raised': '101',
+  /**
+   * A dropdown's own panel (components/SelectMenu.tsx), which is PORTALLED to
+   * <body> and so is a sibling of any dialog rather than a child of it. It has
+   * to outrank --tp-z-overlay-raised, because most of the app's dropdowns are
+   * inside a Modal and at --tp-z-popover the panel opened BEHIND the dialog —
+   * invisible, on every one of them. Still below --tp-z-lock: the idle lock
+   * covers everything, an open menu included.
+   */
+  '--tp-z-menu': '120',
+  /**
+   * An InfoTip's bubble. Above --tp-z-menu because a tip can be opened from
+   * inside a menu's own panel (the analytics Settings panel holds both), and
+   * at the same rung the two were settled by DOM order — which put the tip
+   * behind the panel that owns it.
+   */
+  '--tp-z-tooltip': '130',
   '--tp-z-lock': '150',
   '--tp-z-toast': '200',
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 
@@ -10,11 +10,20 @@ import { LocaleProvider } from '../../lib/i18n';
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
+vi.mock('../../lib/settings', () => ({
+  useCafeSettings: () => ({ isSuccess: true, isError: false, settings: { analytics_business_day_start_hour: 4 } }),
+}));
+// The live floor has its own reads, broadcasts and a three.js scene; the
+// panel's tests are about the panel's figures. It is covered in
+// ../floor/LiveFloor.test.tsx.
+vi.mock('../floor/LiveFloor', () => ({ LiveFloor: () => <div data-testid="live-floor" /> }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(),
 }));
 
+import { VENUE_TZ } from '@touch/i18n';
+import { addDays, businessTodayISO } from '@touch/core';
 import { appRpc } from '../../lib/appRpc';
 import { ManagementPanelScreen } from './ManagementPanel';
 
@@ -46,6 +55,14 @@ describe('ManagementPanelScreen — four states', () => {
     expect(rpc).toHaveBeenCalledWith('panel_headline', expect.objectContaining({ p_compare: 'previousPeriod' }));
   });
 
+  it('opens on the window Analytics opens on: the last 30 days, ending on the business day', () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    renderPanel();
+    const today = businessTodayISO(new Date(), 4, VENUE_TZ);
+    expect(rpc).toHaveBeenCalledWith('panel_headline', { p_from: addDays(today, -29), p_to: today, p_compare: 'previousPeriod' });
+    expect(screen.getByRole('button', { name: 'Last 30 days', pressed: true })).toBeTruthy();
+  });
+
   it('ready: renders the server figures verbatim, with comparison', async () => {
     rpc.mockResolvedValue({
       figures: [
@@ -74,8 +91,8 @@ describe('ManagementPanelScreen — four states', () => {
     renderPanel();
     expect(await screen.findByText('No trading in this period')).toBeTruthy();
     expect(screen.getByText('Nothing was sold or booked between these dates. Pick another period.')).toBeTruthy();
-    // The empty state offers a wider range on top of the preset strip.
-    expect(screen.getAllByRole('button', { name: 'Last 30 days' }).length).toBeGreaterThan(1);
+    // The default is already the last 30 days, so the way out is last month, on top of the preset strip.
+    expect(screen.getAllByRole('button', { name: 'Last month' }).length).toBeGreaterThan(1);
   });
 
   it('error: surfaces the failure with a retry', async () => {
@@ -85,5 +102,88 @@ describe('ManagementPanelScreen — four states', () => {
     expect(alerts.some((a) => a.textContent?.includes('This could not be loaded.'))).toBe(true);
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     await waitFor(() => expect(rpc).toHaveBeenCalled());
+  });
+});
+
+describe('ManagementPanelScreen — Export', () => {
+  it('pulls the transactions behind every figure into the file, not the totals alone', async () => {
+    rpc.mockImplementation(async (fn: string, args: unknown) => {
+      if (fn === 'panel_headline') {
+        return {
+          period: { from: '2026-08-22', to: '2026-09-20' },
+          comparison: { from: '2026-07-23', to: '2026-08-21' },
+          figures: [
+            { key: 'revenue', value: 15000, previous: 12000, changeAbs: 3000, changePct: 25 },
+            { key: 'refunds', value: 5000, previous: 4000, changeAbs: 1000, changePct: 25 },
+          ],
+        };
+      }
+      const a = args as { p_figure: string };
+      return {
+        transactions: [
+          { id: `${a.p_figure}-1`, at: '2026-09-01T10:00:00Z', kind: 'refund', label: 'refund · quality · cash', amountIqd: 5000, staffId: 's1', staffName: 'Dev', reference: 'tab-9', detail: { sub: 'refund', reason: 'quality', method: 'cash' } },
+        ],
+      };
+    });
+    const archives: string[] = [];
+    // The export is a workbook: a zip of XML parts, stored uncompressed, so
+    // decoding the whole blob is enough to read the parts back.
+    const createObjectURL = vi.fn((b: Blob) => {
+      const reader = new FileReader();
+      reader.onload = () => archives.push(new TextDecoder().decode(reader.result as ArrayBuffer));
+      reader.readAsArrayBuffer(b);
+      return 'blob:x';
+    });
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
+    const names: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
+
+    renderPanel();
+    expect(await screen.findByText('15,000 IQD')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    await waitFor(() => expect(archives).toHaveLength(1));
+
+    // One drill per figure the server sent, over the panel's period.
+    const drills = rpc.mock.calls.filter(([fn]) => fn === 'report_drill').map(([, a]) => a as { p_figure: string; p_from: string; p_to: string });
+    expect(drills.map((d) => d.p_figure).sort()).toEqual(['refunds', 'revenue']);
+    expect(drills.every((d) => d.p_from < d.p_to)).toBe(true);
+
+    // Three tables, so a zip — not one sheet with three headers in it.
+    // Three tables, so three sheets in one workbook — not three headers in one sheet.
+    expect(names[0]).toMatch(/^management-panel_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const book = archives[0]!;
+    expect(book).toContain('xl/worksheets/sheet1.xml');
+    expect(book).toContain('xl/worksheets/sheet3.xml');
+    expect(book).toContain('<sheet name="Period" sheetId="1"');
+    expect(book).toContain('<sheet name="Figures" sheetId="2"');
+    expect(book).toContain('<sheet name="Transactions" sheetId="3"');
+    // Headings are written whole and columns are sized, so nothing is cut off.
+    expect(book).toContain('Compared with, from');
+    expect(book).toMatch(/<col min="1" max="1" width="\d+" customWidth="1"\/>/);
+    // The figures are numbers, not strings of digits.
+    expect(book).toContain('<v>15000</v>');
+    expect(book).toContain('<v>3000</v>');
+    // The facts are still in words, and the date is a real date.
+    expect(book).toContain('Quality issue');
+    expect(book).toContain('<autoFilter');
+    click.mockRestore();
+  });
+
+  it('says so and downloads nothing when a drill fails', async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'panel_headline') return { figures: [{ key: 'revenue', value: 15000 }] };
+      throw new Error('FORBIDDEN');
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    renderPanel();
+    expect(await screen.findByText('15,000 IQD')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    expect(await screen.findByText('The export could not be completed. Nothing was downloaded.')).toBeTruthy();
+    expect(click).not.toHaveBeenCalled();
+    click.mockRestore();
   });
 });

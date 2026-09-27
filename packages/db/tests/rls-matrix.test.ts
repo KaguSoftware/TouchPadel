@@ -21,9 +21,12 @@ import {
   ensureCustomerProbeData,
   ensurePromotionProbeData,
   ensureTillFresh,
+  ensureStationProbe,
   appRpc,
+  probeId,
   SEED_STAFF,
   DEV_PINS,
+  VENUE_A_ID,
 } from './helpers';
 import {
   matrix,
@@ -61,9 +64,11 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   menu_item_costs: ['item_id', '00000000-0000-4000-8000-000000000000'],
   // drop 5 (0065) — customer_flags has a composite pk, no `id`
   customer_flags: ['customer_id', '00000000-0000-4000-8000-000000000000'],
+  // drop 13 (0123) — staff_venues has a composite pk, no `id`
+  staff_venues: ['staff_id', '00000000-0000-4000-8000-000000000000'],
 };
 
-describe.skipIf(!up)('RLS role matrix (drops 1-7: the whole granted RPC surface bar three)', () => {
+describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface bar three)', () => {
   const clients = {} as Record<Principal, SupabaseClient>;
   let svc: SupabaseClient;
 
@@ -76,6 +81,12 @@ describe.skipIf(!up)('RLS role matrix (drops 1-7: the whole granted RPC surface 
     await ensureCustomerProbeData(svc); // drop 5 (0065) probe note + flag
     await ensurePromotionProbeData(svc); // drop 5 (0067) disabled probe promotion + redemption
     await ensureTillFresh(svc); // degraded mode would corrupt guest-RPC guard outcomes
+    await ensureStationProbe(svc); // drop 13 (0124): a registered till at venue A
+    // drop 14 (0144): one supplier, so the management 'rows' has something to read.
+    const { error: supErr } = await svc
+      .from('suppliers')
+      .upsert({ id: probeId('5a01'), venue_id: VENUE_A_ID, name: 'RLS Probe Supplier' });
+    if (supErr) throw new Error(`probe supplier failed: ${supErr.message}`);
     const probeCourt = await createTestCourt(svc, 'RLS-probe');
     const { error: resErr } = await svc.from('reservations').insert({
       court_id: probeCourt,
@@ -87,6 +98,19 @@ describe.skipIf(!up)('RLS role matrix (drops 1-7: the whole granted RPC surface 
       guest_name: 'RLS Probe',
     });
     if (resErr) throw new Error(`probe reservation failed: ${resErr.message}`);
+    // 0106 reservations_cashier_read: a booking starting within a day of now is
+    // readable by the cashier (the till charges tabs to tonight's bookings), so
+    // the cashier's 'rows' does not depend on what other suites left behind.
+    const { error: nearErr } = await svc.from('reservations').insert({
+      court_id: probeCourt,
+      kind: 'booking',
+      status: 'confirmed',
+      start_at: new Date(Date.now() + 2 * 3600_000).toISOString(),
+      end_at: new Date(Date.now() + 3 * 3600_000).toISOString(),
+      source: 'desk',
+      guest_name: 'RLS Probe Tonight',
+    });
+    if (nearErr) throw new Error(`near-now probe reservation failed: ${nearErr.message}`);
     // drop 5 (0066): a series belonging to no guest, for the reservation_series row.
     const { error: seriesErr } = await svc.from('reservation_series').insert({
       court_id: probeCourt,
@@ -182,6 +206,17 @@ describe.skipIf(!up)('RLS role matrix (drops 1-7: the whole granted RPC surface 
   }
 
   // ── Stateful named cases the declarative matrix cannot express ────────────
+
+  it('reservations_cashier_read (0106): the cashier sees tonight, not the calendar', async () => {
+    const far = await clients.cashier.from('reservations').select('id').eq('guest_name', 'RLS Probe');
+    expect(far.error).toBeNull();
+    expect(far.data ?? []).toHaveLength(0);
+    const near = await clients.cashier.from('reservations').select('id').eq('guest_name', 'RLS Probe Tonight');
+    expect(near.error).toBeNull();
+    expect((near.data ?? []).length).toBeGreaterThan(0);
+    const prep = await clients.prep.from('reservations').select('id').eq('guest_name', 'RLS Probe Tonight');
+    expect(prep.data ?? []).toHaveLength(0);
+  });
 
   it('verify_manager_pin: correct PIN returns authorizer; wrong PIN -> null; 6th attempt -> PIN_LOCKED', async () => {
     const device = `TEST-PIN-${Date.now()}`;

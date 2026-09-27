@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import * as geometry from '../logoMark';
 import * as paths from '../logoPaths';
-import { parseSvgPath } from '../svgPath';
+import { parseSvgPath } from '@touch/court3d/svgPath';
 
 const here = dirname(fileURLToPath(import.meta.url));
 

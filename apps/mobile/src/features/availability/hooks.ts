@@ -6,8 +6,11 @@ import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureMessage } from '../../lib/telemetry';
 import { useAuth } from '../auth/context';
 import {
-  fetchCourts,
+  fetchAllCourts,
   fetchAvailabilityWindow,
+  fetchBranches,
+  fetchCourts,
+  fetchIsDegraded,
   fetchRatePrices,
   fetchRateRules,
   fetchVenueSettings,
@@ -21,42 +24,97 @@ import {
   type RateRuleRow,
   type VenueSettingsPublic,
 } from './assemble';
+import { courtsTopic, pickGuestVenueId, showsBranchPicker, type Branch } from './branch';
+import { useStoredGuestVenue, writeGuestVenue } from './guestVenue';
+import { availabilityKeys } from './keys';
 import type { CourtSlots } from '@touch/core';
 
-export const availabilityKeys = {
-  settings: ['venue-settings'] as const,
-  courts: ['courts'] as const,
-  rates: ['rate-rules'] as const,
-  ratePrices: ['rate-rule-prices'] as const,
-  /**
-   * Busy ranges for the WHOLE day strip, fetched once (api.fetchAvailabilityWindow).
-   * Still under the 'availability' prefix, which is what every invalidation
-   * in the app — the hold/confirm/cancel mutations, the realtime broadcast —
-   * targets.
-   */
-  window: (from: string, to: string) => ['availability', 'window', from, to] as const,
-};
+export { availabilityKeys };
 
-export function useVenueSettings() {
+const NO_BRANCHES: Branch[] = [];
+
+/** Every open branch (one venue_settings_public row each). */
+export function useBranches() {
   return useQuery({
-    queryKey: availabilityKeys.settings,
-    queryFn: () => fetchVenueSettings(supabase),
+    queryKey: availabilityKeys.branches,
+    queryFn: () => fetchBranches(supabase),
     staleTime: 5 * 60_000,
   });
 }
 
-export function useCourts() {
+export interface GuestVenue {
+  /** The branch the guest books at; null until the branch list is read (or none is open). */
+  venueId: string | null;
+  /** Its row, for the picker's label and the name lines. */
+  branch: Branch | null;
+  branches: Branch[];
+  /** More than one open branch: the Book tab shows the picker. */
+  showPicker: boolean;
+  setVenueId: (venueId: string) => void;
+  /** The branch list query, so a screen can wait on it and retry it. */
+  query: ReturnType<typeof useBranches>;
+}
+
+/**
+ * The branch the guest books at: the remembered one while it is still open,
+ * otherwise the default (branch.ts). One open branch is used silently.
+ */
+export function useGuestVenue(): GuestVenue {
+  const query = useBranches();
+  const stored = useStoredGuestVenue();
+  const branches = query.data ?? NO_BRANCHES;
+  const venueId = pickGuestVenueId(branches, stored);
+  const branch = branches.find((b) => b.venue_id === venueId) ?? null;
+  const setVenueId = useCallback((id: string) => void writeGuestVenue(id), []);
+  return {
+    venueId,
+    branch,
+    branches,
+    showPicker: showsBranchPicker(branches),
+    setVenueId,
+    query,
+  };
+}
+
+/**
+ * A branch's public settings: the guest's branch unless one is named (a
+ * booking's own branch on its detail screen). `undefined` means "the guest's".
+ */
+export function useVenueSettings(venueId?: string | null) {
+  const guest = useGuestVenue();
+  const id = venueId === undefined ? guest.venueId : venueId;
   return useQuery({
-    queryKey: availabilityKeys.courts,
-    queryFn: () => fetchCourts(supabase),
+    queryKey: availabilityKeys.settings(id ?? ''),
+    queryFn: () => fetchVenueSettings(supabase, id!),
+    enabled: !!id,
     staleTime: 5 * 60_000,
   });
 }
 
-export function useRateRules() {
+/** One branch's active courts (the grid). */
+export function useCourts(venueId: string | null) {
   return useQuery({
-    queryKey: availabilityKeys.rates,
-    queryFn: () => fetchRateRules(supabase),
+    queryKey: availabilityKeys.courts(venueId ?? ''),
+    queryFn: () => fetchCourts(supabase, venueId!),
+    enabled: !!venueId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Every open branch's courts, for naming a reservation's court wherever it is. */
+export function useAllCourts() {
+  return useQuery({
+    queryKey: availabilityKeys.allCourts,
+    queryFn: () => fetchAllCourts(supabase),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useRateRules(venueId: string | null) {
+  return useQuery({
+    queryKey: availabilityKeys.rates(venueId ?? ''),
+    queryFn: () => fetchRateRules(supabase, venueId!),
+    enabled: !!venueId,
     staleTime: 5 * 60_000,
   });
 }
@@ -107,9 +165,8 @@ const NO_CLOCK = new Date(0);
  *
  * react-query hands back a stable reference until data actually changes, so
  * identity across all five inputs is a sound key: a refetch that returns new
- * rows misses and rebuilds, one that changes nothing hits. Module-level, so the
- * Book tab's sheet and the standalone Availability screen share one copy, and
- * capped at a little over one entry per day chip on the strip.
+ * rows misses and rebuilds, one that changes nothing hits. Module-level, so it
+ * outlives the Book tab's sheet remounting, and capped at a little over one entry per day chip on the strip.
  */
 const GRID_CACHE_MAX = 8;
 interface GridCacheEntry {
@@ -164,6 +221,46 @@ function buildDayGrid(date: string, src: GridSources): CourtSlots[] {
 const EMPTY_GRID: CourtSlots[] = [];
 
 /**
+ * The strip's busy ranges, as ONE query.
+ *
+ * Its own hook because TWO consumers need the same rows AND the same object
+ * identity: the grid this screen renders (useDayGrid) and the warm-up that
+ * assembles every other day chip (useWarmDayGrids). react-query gives a second
+ * observer on one key the same data reference, so the module grid cache can go
+ * on validating by reference across both — and, unlike reading the cache
+ * through `getQueryData`, a subscription also tells the warm-up WHEN the rows
+ * land. See the note on useWarmDayGrids for why that mattered.
+ *
+ * Gated on venue settings: the window's bounds are venue-local midnights, so it
+ * waits for the timezone rather than fetching a day under the wrong offset.
+ * And on the branch's courts: the view carries no venue, so the rows are
+ * narrowed to that branch's court ids (multi-venue slice 4).
+ */
+function useAvailabilityWindow(
+  venueId: string | null,
+  courts: readonly CourtRow[] | undefined,
+  from: string,
+  to: string,
+  tz: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: availabilityKeys.window(venueId ?? '', from, to),
+    queryFn: () =>
+      fetchAvailabilityWindow(
+        supabase,
+        (courts ?? []).map((c) => c.id),
+        from,
+        to,
+        tz,
+      ),
+    enabled: enabled && !!venueId && courts !== undefined,
+    staleTime: 15_000,
+    refetchInterval: 60_000, // holds expire server-side; keep the grid honest
+  });
+}
+
+/**
  * Assembled, priced grid for one venue-local trading night.
  *
  * `strip` is the whole set of dates on offer: the busy ranges behind ALL of
@@ -172,9 +269,11 @@ const EMPTY_GRID: CourtSlots[] = [];
  * which night is built.
  */
 export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
-  const settings = useVenueSettings();
-  const courts = useCourts();
-  const rules = useRateRules();
+  const guest = useGuestVenue();
+  const venueId = guest.venueId;
+  const settings = useVenueSettings(venueId);
+  const courts = useCourts(venueId);
+  const rules = useRateRules(venueId);
   const prices = useRatePrices();
   const tz = settings.data?.timezone ?? DEFAULT_TZ;
 
@@ -182,18 +281,19 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
   // the selected date alone, so the first paint is never blocked on it.
   const from = strip[0] ?? date;
   const to = strip[strip.length - 1] ?? date;
-  const availability = useQuery({
-    queryKey: availabilityKeys.window(from, to),
-    queryFn: () => fetchAvailabilityWindow(supabase, from, to, tz),
-    enabled: settings.isSuccess,
-    staleTime: 15_000,
-    refetchInterval: 60_000, // holds expire server-side; keep the grid honest
-  });
+  const availability = useAvailabilityWindow(
+    venueId,
+    courts.data,
+    from,
+    to,
+    tz,
+    settings.isSuccess,
+  );
 
   const grid = useMemo<CourtSlots[]>(
     () =>
       buildDayGrid(date, {
-        settings: settings.data,
+        settings: settings.data ?? undefined,
         courts: courts.data,
         rules: rules.data,
         prices: prices.data,
@@ -202,7 +302,11 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
     [date, settings.data, courts.data, rules.data, prices.data, availability.data],
   );
 
-  const queries = [settings, courts, rules, prices, availability];
+  // The branch list leads: until it answers there is no branch, every other
+  // query is disabled, and a disabled query is neither loading nor failed. So
+  // without it the grid would read as an empty day rather than a skeleton, and
+  // a failed list would leave nothing for Retry to retry.
+  const queries = [guest.query, settings, courts, rules, prices, availability];
   // Retry every query that can set isError. This used to refetch ONLY
   // `availability` while isError was `some()` over all five — so if courts,
   // rates or settings failed, the Retry button did nothing, forever.
@@ -225,7 +329,7 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
 
   return {
     grid,
-    settings: settings.data,
+    settings: settings.data ?? undefined,
     isLoading: queries.some((q) => q.isLoading),
     isError: queries.some((q) => q.isError),
     error: queries.find((q) => q.isError)?.error ?? null,
@@ -249,15 +353,30 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
  * with one shared request behind them the queries are gone and only the builds
  * remain. Guests move along the strip, not just next door.
  *
+ * IT RUNS OFF THE ROWS, NOT OFF A CACHE READ. This used to fire as soon as
+ * venue settings succeeded and take its inputs from `queryClient.getQueryData`,
+ * which meant it could not work: the busy-ranges query is GATED on those same
+ * settings (`enabled: settings.isSuccess`), so at the only moment this effect
+ * ran the rows it needed had not been requested yet. `buildDayGrid` returned
+ * the empty grid for all six dates, cached nothing, and the effect — with
+ * nothing in its dependencies that changes when data arrives — never ran again.
+ * Every chip was therefore still cold when it was tapped, which is exactly the
+ * work this is here to have done already. Subscribing to the five queries makes
+ * the arrival of any of them re-warm the strip, and makes the inputs the same
+ * objects the render path validates its cache against.
+ *
  * Deferred behind `InteractionManager`, and one build per turn of the event
  * loop: `runAfterInteractions` puts them after whatever is animating, and the
  * spacing keeps seven of them from landing in one tick — this shares a JS
  * thread with the court's rally loop, and a tick is a frame.
  */
 export function useWarmDayGrids(dates: readonly string[], date: string): void {
-  const queryClient = useQueryClient();
-  const settings = useVenueSettings();
-  const ready = settings.isSuccess;
+  const { venueId } = useGuestVenue();
+  const settings = useVenueSettings(venueId);
+  const courts = useCourts(venueId);
+  const rules = useRateRules(venueId);
+  const prices = useRatePrices();
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   // The selection is built by the render that needs it, so it is skipped here;
   // it also leads the list so a re-selection does not re-do the others first.
   //
@@ -265,22 +384,39 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
   // actually change and not on every minute tick that hands back an
   // equal-but-new `dates` array.
   const pending = dates.filter((d) => d !== date).join(',');
-  // The window the strip's rows were fetched under — the same key useDayGrid built.
+  // The window the strip's rows were fetched under — the same key, and so the
+  // same observer and the same rows, as useDayGrid's.
   const from = dates[0] ?? date;
   const to = dates[dates.length - 1] ?? date;
+  const availability = useAvailabilityWindow(
+    venueId,
+    courts.data,
+    from,
+    to,
+    tz,
+    settings.isSuccess,
+  );
 
+  const settingsData = settings.data ?? undefined;
+  const courtsData = courts.data;
+  const rulesData = rules.data;
+  const pricesData = prices.data;
+  const availabilityData = availability.data;
   useEffect(() => {
-    if (!ready || pending === '') return;
+    if (pending === '') return;
+    // Nothing to build from yet. The effect re-runs on each of these arriving,
+    // so the strip is warmed by whichever one lands last.
+    if (!settingsData || !courtsData || !rulesData || !pricesData || !availabilityData) return;
     let cancelled = false;
     const handle = InteractionManager.runAfterInteractions(async () => {
       for (const d of pending.split(',')) {
         if (cancelled) return;
         buildDayGrid(d, {
-          settings: queryClient.getQueryData(availabilityKeys.settings),
-          courts: queryClient.getQueryData(availabilityKeys.courts),
-          rules: queryClient.getQueryData(availabilityKeys.rates),
-          prices: queryClient.getQueryData(availabilityKeys.ratePrices),
-          availability: queryClient.getQueryData(availabilityKeys.window(from, to)),
+          settings: settingsData,
+          courts: courtsData,
+          rules: rulesData,
+          prices: pricesData,
+          availability: availabilityData,
         });
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
@@ -289,40 +425,75 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
       cancelled = true;
       handle.cancel();
     };
-  }, [pending, from, to, ready, queryClient]);
+  }, [pending, settingsData, courtsData, rulesData, pricesData, availabilityData]);
 }
 
-/** The one live 'courts' channel, shared by every mounted consumer (see useCourtsBroadcast). */
+/** One live per-branch 'courts:<venue>' channel, shared by every mounted consumer (see useCourtsBroadcast). */
 interface SharedChannel {
   token: string;
+  topic: string;
   channel: RealtimeChannel;
   consumers: number;
   removed: boolean;
 }
-let sharedCourts: SharedChannel | null = null;
+const sharedCourts = new Map<string, SharedChannel>();
+/**
+ * Topics whose channel is still leaving. realtime-js keys channels by topic and
+ * `channel(topic)` hands back one still LEAVING after `removeChannel`, on which
+ * `subscribe()` does nothing, so a quick A -> B -> A branch switch used to land
+ * on a dead channel and fall back to the 60 s poll. A new channel on a topic
+ * waits for the old one's removal (the operator's lib/realtime.ts rule).
+ */
+const leavingCourts = new Map<string, Promise<unknown>>();
 
 function dropSharedCourts(s: SharedChannel): void {
   if (s.removed) return;
   s.removed = true;
-  void supabase.removeChannel(s.channel);
-  if (sharedCourts === s) sharedCourts = null;
+  const done = supabase.removeChannel(s.channel).catch(() => undefined);
+  leavingCourts.set(s.topic, done);
+  void done.then(() => {
+    if (leavingCourts.get(s.topic) === done) leavingCourts.delete(s.topic);
+  });
+  if (sharedCourts.get(s.topic) === s) sharedCourts.delete(s.topic);
+}
+
+/** The shared channel for a topic, created (and subscribed) when there is none. */
+function subscribeCourts(topic: string, token: string, onSlot: () => void): SharedChannel {
+  let mine = sharedCourts.get(topic);
+  if (!mine) {
+    supabase.realtime.setAuth(token);
+    const channel = supabase
+      .channel(topic, { config: { private: true } })
+      .on('broadcast', { event: 'slot_changed' }, onSlot)
+      .subscribe((status) => {
+        // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
+        // quietly stale with no signal to the user or to telemetry.
+        if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
+          captureMessage('realtime.courts.' + status, 'warning');
+      });
+    mine = { token, topic, channel, consumers: 0, removed: false };
+    sharedCourts.set(topic, mine);
+  }
+  return mine;
 }
 
 /**
- * Live grid refresh: 'courts' broadcast-from-database topic (0022). Private
- * channel — realtime auth is set on sign-in (AuthProvider) and refreshed here
- * before subscribing. Payload is slot-taken/freed only; we just invalidate.
- * Re-subscribes when the session appears or changes (it used to read the
- * session once at mount, so signing in on the screen never subscribed).
+ * Live grid refresh: the branch's 'courts:<venue_id>' broadcast-from-database
+ * topic (0224; the building-wide 'courts' topic of 0022 is being retired).
+ * Private channel — realtime auth is set on sign-in (AuthProvider) and
+ * refreshed here before subscribing. Payload is slot-taken/freed only; we just
+ * invalidate. Re-subscribes when the session appears or changes, and when the
+ * branch does. `venueId` null (no branch known yet) subscribes to nothing.
  *
- * REFERENCE-COUNTED, one channel per token: supabase-js hands back the SAME
- * channel object for a topic that already exists and `removeChannel` leaves
- * it for everyone, so two mounted consumers (the Book tab's booking sheet
- * under a pushed Availability or Review screen, the Bookings tab under either)
- * used to share one subscription that whichever unmounted first silently
- * killed for the survivor — which then only saw the 60 s poll.
+ * REFERENCE-COUNTED, one channel per topic per token: supabase-js hands back
+ * the SAME channel object for a topic that already exists and `removeChannel`
+ * leaves it for everyone, so two mounted consumers (the Book tab's booking
+ * sheet under a pushed Availability or Review screen, the Bookings tab under
+ * either) used to share one subscription that whichever unmounted first
+ * silently killed for the survivor — which then only saw the 60 s poll.
  */
-export function useCourtsBroadcast(): void {
+export function useCourtsBroadcast(venueId: string | null): void {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const token = session?.access_token ?? null;
@@ -333,51 +504,52 @@ export function useCourtsBroadcast(): void {
   });
 
   useEffect(() => {
-    if (!token) return;
-    // A rotated token retires the old channel NOW, so `channel('courts')`
-    // below creates a fresh one instead of returning the stale instance.
-    if (sharedCourts && sharedCourts.token !== token) dropSharedCourts(sharedCourts);
-    if (!sharedCourts) {
-      supabase.realtime.setAuth(token);
-      const channel = supabase
-        .channel('courts', { config: { private: true } })
-        .on('broadcast', { event: 'slot_changed' }, () => invalidate.current())
-        .subscribe((status) => {
-          // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
-          // quietly stale with no signal to the user or to telemetry.
-          if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
-          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
-            captureMessage('realtime.courts.' + status, 'warning');
-        });
-      sharedCourts = { token, channel, consumers: 0, removed: false };
-    }
-    const mine = sharedCourts;
-    mine.consumers += 1;
-    return () => {
-      mine.consumers -= 1;
-      if (mine.consumers === 0) dropSharedCourts(mine);
+    if (!token || !venueId) return;
+    const topic = courtsTopic(venueId);
+    let cancelled = false;
+    let held: SharedChannel | null = null;
+    const join = (): void => {
+      if (cancelled) return;
+      // A rotated token retires the old channel NOW, so the channel below is a
+      // fresh one instead of the stale instance.
+      const existing = sharedCourts.get(topic);
+      if (existing && existing.token !== token) dropSharedCourts(existing);
+      if (!sharedCourts.get(topic)) {
+        const leaving = leavingCourts.get(topic);
+        if (leaving) {
+          void leaving.then(join);
+          return;
+        }
+      }
+      held = subscribeCourts(topic, token, () => invalidate.current());
+      held.consumers += 1;
     };
-  }, [token]);
+    join();
+    return () => {
+      cancelled = true;
+      if (!held) return;
+      held.consumers -= 1;
+      if (held.consumers === 0) dropSharedCourts(held);
+    };
+  }, [token, venueId]);
 }
 
 /**
  * Proactive degraded-mode signal for the design's amber banners (courts /
- * availability / bookings). `app.is_degraded()` is granted to anon (0008), so
- * signed-out browsing gets the banner too. The refusal path in booking/errors
- * remains the authority — this only warns BEFORE the tap.
+ * availability / bookings). `app.is_degraded(p_venue)` is granted to anon
+ * (0008, per branch since slice 4), so signed-out browsing gets the banner
+ * too. The refusal path in booking/errors remains the authority — this only
+ * warns BEFORE the tap.
  *
- * NOTE: it reports the VENUE's till connectivity, never this phone's. A stale
+ * NOTE: it reports the BRANCH's till connectivity, never this phone's. A stale
  * dev till heartbeat on the hosted project kept this true for every guest
  * until migration 0057 — the banner was faithfully reporting it.
  */
-export function useIsDegraded(): boolean {
+export function useIsDegraded(venueId: string | null): boolean {
   const query = useQuery({
-    queryKey: ['is-degraded'],
-    queryFn: async () => {
-      const { data, error } = await supabase.schema('app').rpc('is_degraded');
-      if (error) throw error;
-      return data === true;
-    },
+    queryKey: availabilityKeys.degraded(venueId ?? ''),
+    queryFn: () => fetchIsDegraded(supabase, venueId!),
+    enabled: !!venueId,
     staleTime: 30_000,
     refetchInterval: 60_000,
     // A failed probe must never take the booking UI down with it.

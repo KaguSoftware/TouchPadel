@@ -16,6 +16,9 @@
  * change). Limits are restored and every row this file writes is removed in
  * afterAll.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stackAvailable, serviceClient, anonClient, signedInClient, appRpc, SEED_STAFF } from './helpers';
@@ -62,6 +65,30 @@ describe('phone normaliser: edge-function copy agrees with @touch/core', () => {
     expect(e164FromGotrue('9647701234567')).toBe('+9647701234567');
     expect(e164FromGotrue('')).toBeNull();
     expect(e164FromGotrue(undefined)).toBeNull();
+  });
+});
+
+// ── pure: the hook's HTTP status contract with GoTrue ───────────────────────
+describe('send-sms-otp index.ts answers every refusal with HTTP 200', () => {
+  // GoTrue relays `{ error: { http_code, message } }` only from a 200/202
+  // response; any other status becomes a generic 500 and the app loses the
+  // reason (observed on hosted 2026-09-15). 429/503 would also be retried.
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../supabase/functions/send-sms-otp/index.ts'), 'utf8');
+
+  it('never sends hookError() with a non-200 status, except to a non-POST caller', () => {
+    const calls = [...src.matchAll(/json\(\s*hookError\(([^)]*)\)\s*,\s*([^)]+)\)/g)].map((m) => ({ args: m[1]!, status: m[2]!.trim() }));
+    const offenders = calls.filter((c) => c.status !== '200' && !c.args.includes('METHOD_NOT_ALLOWED'));
+    expect(offenders).toEqual([]);
+  });
+
+  it('routes every refusal through refuse(), which is pinned to 200', () => {
+    expect(src).toMatch(/function refuse\(httpCode: number, message: string\): Response \{\s*return json\(hookError\(httpCode, message\), 200\);/);
+    for (const reason of ['UNAUTHORIZED', 'BAD_REQUEST', 'SMS_SEND_FAILED']) {
+      expect(src).toContain(`refuse(`);
+      expect(src).toContain(`'${reason}'`);
+    }
+    expect(src).toContain('return refuse(statusForRefusal(reason), reason);');
+    expect(src).not.toMatch(/,\s*(401|400|403|429|500|503)\)\s*;/);
   });
 });
 
@@ -142,6 +169,11 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
 });
 
 // ── pure: payload + template + error contract ───────────────────────────────
+// The '123456' literals below are ARGUMENTS to renderTemplate / parseHookPayload
+// — any six digits would do, and these functions never read the configuration.
+// They are not the configured test_otp pair, which since S10 lives only in
+// SUPABASE_AUTH_SMS_TEST_OTP_CODE (packages/db/.env, or a CI repository
+// variable) and is read below by the stack block.
 describe('send-sms-otp otp.ts', () => {
   it('parses the GoTrue Send SMS payload', () => {
     expect(
@@ -182,14 +214,18 @@ describe('send-sms-otp otp.ts', () => {
 });
 
 // ── stack: the gate, the result stamp, the grants, the trigger ──────────────
-const TEST_NUMBER = '+9647700000001'; // config.toml [auth.sms.test_otp]
-const TEST_CODE = '123456';
+// config.toml [auth.sms.test_otp]. The CODE is not in the repository (S10): the
+// CLI substitutes env(SUPABASE_AUTH_SMS_TEST_OTP_CODE) at `supabase start`, so
+// the value that started the stack is the one this file has to send. Without it
+// the stack block skips rather than failing on a wrong code.
+const TEST_NUMBER = process.env.SUPABASE_AUTH_SMS_TEST_OTP_NUMBER ?? '+9647700000001';
+const TEST_CODE = process.env.SUPABASE_AUTH_SMS_TEST_OTP_CODE ?? '';
 const GATE_PHONE = '+9647709990069';
 const GATE_CANONS = ['7709990069', '995419010203'];
 
 type Decision = { allowed: boolean; reason?: string; send_id: number };
 
-describe.skipIf(!up)('0069 sms_send_gate / sms_send_result / phone sign-up (stack)', () => {
+describe.skipIf(!up || !TEST_CODE)('0069 sms_send_gate / sms_send_result / phone sign-up (stack)', () => {
   let svc: SupabaseClient;
   const limits = () => svc.schema('app').from('sms_limits');
   const sends = () => svc.schema('app').from('sms_sends');

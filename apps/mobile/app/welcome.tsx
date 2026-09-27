@@ -11,7 +11,6 @@ import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { mirror } from '../src/i18n/direction';
 import { clearPendingSlot, usePendingSlot } from '../src/features/booking/pendingSlot';
-import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
 import { brand, radius, useTheme } from '../src/theme';
 import { Button } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
@@ -119,25 +118,25 @@ function WelcomeScreen() {
       </View>
 
       <View style={{ paddingStart: 20, paddingEnd: 20, paddingBottom: 26 + insets.bottom, gap: 9 }}>
+        {/* Both lead to a password screen with phone (default) and email segments
+            (phone-only 2026-09-15; email restored beside it 2026-09-20). Create
+            account is the green CTA, as designed. */}
         <Button
+          testID="welcome.sign-in"
           label={t('auth.signIn')}
           onPress={() => router.push('/sign-in')}
           variant="secondary"
           style={{ backgroundColor: brand.white, borderWidth: 0 }}
           labelColor={brand.welcomeInk}
         />
-        {/* Phone OTP entry — dormant vendor-addition scaffold (2026-09-05); off unless EXPO_PUBLIC_PHONE_OTP=on. */}
-        {phoneOtpEnabled() ? (
-          <Button
-            label={t('auth.continueWithPhone')}
-            onPress={() => router.push('/phone-sign-in')}
-            variant="secondary"
-            style={{ backgroundColor: `${brand.white}22`, borderColor: `${brand.white}55` }}
-            labelColor={brand.white}
-          />
-        ) : null}
-        <Button label={t('auth.signUp')} onPress={() => router.push('/sign-up')} variant="cta" />
         <Button
+          testID="welcome.sign-up"
+          label={t('auth.signUp')}
+          onPress={() => router.push('/sign-up')}
+          variant="cta"
+        />
+        <Button
+          testID="welcome.keep-browsing"
           label={t('auth.keepBrowsing')}
           onPress={() => {
             clearPendingSlot();

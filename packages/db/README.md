@@ -121,9 +121,16 @@ Secrets: both functions use only the platform-injected `SUPABASE_URL` /
 ### Cron for send-push
 
 **Since migration 0048 this is scheduled by the migration itself** (`tp_push_sweep`,
-every minute, calling `app.push_nudge()`), so there is nothing to do by hand. It was a
+calling `app.push_nudge()`), so there is nothing to do by hand. It was a
 manual step living only in this README until 2026-08-27, which is exactly why it was
 never run on the hosted project and no booking notification had ever sent.
+
+**Since 0090** the booking trigger calls `app.push_nudge()` the moment it queues a
+confirmed / cancelled / no-show notification, so those leave in seconds, and
+`tp_push_sweep` runs every 30 seconds (every minute where pg_cron predates the
+seconds syntax) as the safety net for reminders and retries. Overlapping senders are
+safe: `claim_due_notifications` leases each row (`claimed_at`) for 60 s, and
+`send-push` bounds its Expo request at 15 s so it always finishes inside the lease.
 
 `app.push_nudge()` reads `functions_base_url` and `service_role_key` through
 `app.secret()` (Vault first, `app.secrets` fallback) — the same indirection

@@ -3,7 +3,7 @@
  * locales (`ar-IQ-u-nu-latn`) — consistent with `formatIQD` and with the CSV
  * export, so a figure reads the same in a card, a tooltip and a spreadsheet.
  */
-import type { Locale } from '@touch/i18n';
+import { VENUE_TZ, type Locale } from '@touch/i18n';
 
 export interface Formatters {
   locale: Locale;
@@ -11,6 +11,8 @@ export interface Formatters {
   money: (iqd: number) => string;
   /** "1,234" */
   num: (n: number) => string;
+  /** "3.4" — at most one decimal, for averages and hours; `num` would round 6.5 hours to "7". */
+  num1: (n: number) => string;
   /** "1.2K", "3.4M" */
   compact: (n: number) => string;
   /** "42%" — one decimal only when |n| < 10 and not integer. */
@@ -21,6 +23,8 @@ export interface Formatters {
   date: (iso: string, withYear?: boolean) => string;
   /** "12 Aug – 3 Sep" */
   dateRange: (from: string, to: string) => string;
+  /** "12 Aug, 14:05" in the venue's timezone, from a timestamp (ISO 8601). */
+  dateTime: (iso: string) => string;
   /** "2m 15s" / "45s" */
   duration: (seconds: number) => string;
   /** "07:00" */
@@ -55,6 +59,7 @@ export function makeFormatters(locale: Locale): Formatters {
     timeZone: 'UTC',
   });
   const weekdayNf = new Intl.DateTimeFormat(t, { weekday: 'short', timeZone: 'UTC' });
+  const dateTimeNf = new Intl.DateTimeFormat(t, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: VENUE_TZ });
   const unit = locale === 'ar' ? 'د.ع' : 'IQD';
   const minus = '−';
 
@@ -66,6 +71,7 @@ export function makeFormatters(locale: Locale): Formatters {
       return `${v < 0 ? minus : ''}${body} ${unit}`;
     },
     num: (n) => nf.format(Math.round(n)),
+    num1: (n) => nf1.format(n),
     compact: (n) => compactNf.format(n),
     pct: (n) => {
       const abs = Math.abs(n);
@@ -80,6 +86,10 @@ export function makeFormatters(locale: Locale): Formatters {
     date: (iso, withYear = false) => (withYear ? dayMonthYear : dayMonth).format(parseIso(iso)),
     dateRange: (from, to) =>
       from === to ? dayMonth.format(parseIso(from)) : `${dayMonth.format(parseIso(from))} – ${dayMonth.format(parseIso(to))}`,
+    dateTime: (iso) => {
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? '' : dateTimeNf.format(d);
+    },
     duration: (seconds) => {
       const s = Math.max(0, Math.round(seconds));
       const m = Math.floor(s / 60);

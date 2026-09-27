@@ -52,3 +52,22 @@ export function formatAge(ageSeconds: number): string {
   const r = s % 60;
   return `${m}:${String(r).padStart(2, '0')}`;
 }
+
+/**
+ * How an age is printed on the board. Under an hour it is the m:ss clock the
+ * cooks watch tick. Past that the clock stopped meaning anything — a ticket
+ * left overnight read "3673:32", a number nobody can turn into "yesterday" at
+ * a glance — so it steps to hours and minutes, then to whole days. The words
+ * around the numbers are the caller's (they are translated).
+ */
+export type AgeParts =
+  | { kind: 'clock'; text: string }
+  | { kind: 'hours'; h: number; m: number }
+  | { kind: 'days'; d: number };
+
+export function ageParts(ageSeconds: number): AgeParts {
+  const s = Math.max(0, Math.floor(ageSeconds));
+  if (s < 3600) return { kind: 'clock', text: formatAge(s) };
+  if (s < 86_400) return { kind: 'hours', h: Math.floor(s / 3600), m: Math.floor((s % 3600) / 60) };
+  return { kind: 'days', d: Math.floor(s / 86_400) };
+}

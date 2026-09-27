@@ -1,10 +1,21 @@
 import { describe, it, expect } from 'vitest';
+import { makeT } from '@touch/i18n';
 import {
   EMPTY_FILTER,
   actionFamilies,
   actionFamily,
+  ACTION_KEYS,
+  FAMILY_KEYS,
   actorLabel,
   auditCsv,
+  codeToKey,
+  familyOptions,
+  humanizeField,
+  isActionCode,
+  isTechnicalField,
+  knownActionKey,
+  knownFamilyKey,
+  recordName,
   diffFields,
   formatValue,
   inPeriod,
@@ -199,27 +210,207 @@ describe('actorLabel', () => {
 });
 
 describe('periodBounds / inPeriod', () => {
-  it('turns an inclusive date range into a half-open instant range', () => {
-    const b = periodBounds({ from: '2026-09-01', to: '2026-09-03' });
-    expect(new Date(b.fromIso).getDate()).toBe(1);
-    // Exclusive upper bound is the START of the 4th, so the whole 3rd is inside.
-    expect(new Date(b.toExclusiveIso).getDate()).toBe(4);
-    expect(new Date(b.toExclusiveIso).getHours()).toBe(0);
+  // Baghdad (UTC+3), business days starting at 04:00 as app.business_date counts them.
+  const TZ = 'Asia/Baghdad';
+  it('turns an inclusive range of business days into a half-open instant range', () => {
+    const b = periodBounds({ from: '2026-09-01', to: '2026-09-03' }, 4, TZ);
+    expect(b.fromIso).toBe('2026-09-01T01:00:00.000Z'); // 04:00 on the 1st, venue time
+    expect(b.toExclusiveIso).toBe('2026-09-04T01:00:00.000Z'); // 04:00 on the 4th
   });
-  it('checks a row against the bounds', () => {
-    const b = periodBounds({ from: '2026-09-01', to: '2026-09-01' });
-    expect(inPeriod({ at: new Date(2026, 8, 1, 12).toISOString() }, b)).toBe(true);
-    expect(inPeriod({ at: new Date(2026, 8, 2, 0, 0, 1).toISOString() }, b)).toBe(false);
+  it("keeps a night's after-midnight tail with its night", () => {
+    const b = periodBounds({ from: '2026-09-01', to: '2026-09-01' }, 4, TZ);
+    // 22:00 and 01:30 (next calendar day) venue time are both the night of the 1st.
+    expect(inPeriod({ at: '2026-09-01T19:00:00.000Z' }, b)).toBe(true);
+    expect(inPeriod({ at: '2026-09-01T22:30:00.000Z' }, b)).toBe(true);
+    // 04:30 on the 2nd is the next business day.
+    expect(inPeriod({ at: '2026-09-02T01:30:00.000Z' }, b)).toBe(false);
   });
 });
 
 describe('auditCsv', () => {
-  it('names the actor and flattens the change list into one cell', () => {
-    const names = new Map([['a0000000-0000-4000-8000-000000000001', 'Dev Owner']]);
-    const labels = { when: 'When', actor: 'Actor', role: 'Role', authoriser: 'Auth', action: 'Action', entity: 'Record', entityId: 'Id', reason: 'Reason', device: 'Station', changes: 'Changes' };
-    const { headers, rows } = auditCsv(labels, [row({ before: { sold_out: false }, after: { sold_out: true } })], names);
-    expect(headers).toHaveLength(10);
-    expect(rows[0]![1]).toBe('Dev Owner');
-    expect(rows[0]![9]).toBe('sold_out: false → true');
+  const labels = {
+    date: 'Date', time: 'Time', who: 'Who', role: 'Role', authoriser: 'Authorised by',
+    what: 'What happened', record: 'Record', field: 'Field changed', was: 'Was', became: 'Became',
+    reason: 'Reason', station: 'Station', actionCode: 'Action code', recordType: 'Record type', recordId: 'Record id',
+  };
+  const words = {
+    actor: () => 'Dev Owner',
+    authoriser: () => null,
+    role: (r: string | null) => (r === 'manager' ? 'Manager' : r),
+    action: (a: string) => (a === 'menu.item.sold_out' ? 'Item sold out or back on sale' : a),
+    record: () => 'Iced Latte',
+    reason: (c: string) => (c === 'comp' ? 'Complimentary' : c),
+    yes: 'Yes',
+    no: 'No',
+  };
+
+  it('gives every changed field its own row instead of one cell holding the list', () => {
+    const { headers, rows } = auditCsv(
+      labels,
+      [row({ action: 'menu.item.sold_out', entity: 'menu_items', before: { sold_out: false, price_iqd: 5000 }, after: { sold_out: true, price_iqd: 6000 } })],
+      words,
+    );
+    expect(headers).toEqual(['Date', 'Time', 'Who', 'Role', 'Authorised by', 'What happened', 'Record', 'Field changed', 'Was', 'Became', 'Reason', 'Station', 'Action code', 'Record type', 'Record id']);
+    expect(rows).toHaveLength(2);
+    // The entry's columns repeat; Field / Was / Became hold one fact each.
+    expect(rows.map((r) => [r[7], r[8], r[9]])).toEqual([
+      ['Price (IQD)', '5000', '6000'],
+      ['Sold out', 'No', 'Yes'],
+    ]);
+    expect(rows[0]!.slice(2, 7)).toEqual(['Dev Owner', 'Manager', null, 'Item sold out or back on sale', 'Iced Latte']);
+    expect(rows[0]!.slice(10)).toEqual(['Complimentary', 'TILL-01', 'menu.item.sold_out', 'Menu items', 'tab-1']);
+  });
+
+  it('writes the date and the time in their own columns, not an ISO instant', () => {
+    const at = new Date(2026, 7, 28, 9, 5).toISOString();
+    const { rows } = auditCsv(labels, [row({ at })], words);
+    expect(rows[0]!.slice(0, 2)).toEqual(['2026-08-28', '09:05']);
+  });
+
+  it('keeps an entry that changed nothing, as one row', () => {
+    const { rows } = auditCsv(labels, [row({ before: null, after: null })], words);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.slice(7, 10)).toEqual([null, null, null]);
+  });
+
+  it('puts the fields worth reading before the ids and the timestamps', () => {
+    const { rows } = auditCsv(
+      labels,
+      [row({ before: { updated_at: '2026-01-01T00:00:00Z', tab_id: 'x', name_en: 'Old' }, after: { updated_at: '2026-01-02T00:00:00Z', tab_id: 'y', name_en: 'New' } })],
+      words,
+    );
+    expect(rows.map((r) => r[7])).toEqual(['Name en', 'Updated at', 'Tab id']);
+  });
+
+  it('cuts a value that would otherwise spill across the sheet', () => {
+    const long = 'x'.repeat(400);
+    const { rows } = auditCsv(labels, [row({ before: { note: '' }, after: { note: long } })], words);
+    const became = rows[0]![9] as string;
+    expect(became.length).toBeLessThanOrEqual(160);
+    expect(became.endsWith('…')).toBe(true);
+  });
+});
+
+describe('plain language', () => {
+  it('turns a stored code into a catalog key segment', () => {
+    expect(codeToKey('menu.item.sold_out')).toBe('menuItemSoldOut');
+    expect(codeToKey('table_token.prev_secret_cleared')).toBe('tableTokenPrevSecretCleared');
+    expect(codeToKey('telegram.w.ack')).toBe('telegramWAck');
+  });
+
+  it('knows the actions the server writes and says so for a new one', () => {
+    expect(knownActionKey('tab.settle')).toBe('tabSettle');
+    expect(knownActionKey('brand.new_thing')).toBeNull();
+    expect(knownFamilyKey('order_item')).toBe('orderItem');
+    expect(knownFamilyKey('zzz')).toBeNull();
+  });
+
+  it('has words in both languages for every known action and area', () => {
+    // A key in the list with no catalog entry would print the raw key path.
+    for (const locale of ['en', 'ar'] as const) {
+      const t = makeT(locale);
+      for (const a of ACTION_KEYS) {
+        const key = `ws.manager.audit.actions.${codeToKey(a)}`;
+        expect(t(key as never), `${locale} ${a}`).not.toBe(key);
+      }
+      for (const f of FAMILY_KEYS) {
+        const key = `ws.manager.audit.families.${codeToKey(f)}`;
+        expect(t(key as never), `${locale} ${f}`).not.toBe(key);
+      }
+    }
+  });
+
+  it('names every action the protocols and staff-phone work writes (build-contracts-2026-09-23 §2.22)', () => {
+    // The exact strings the migrations pass to app.write_audit; one missing
+    // here would print under its area with the stored code beside it.
+    const written = [
+      'protocol.start', 'protocol.submit', 'protocol.auto', 'protocol.withdraw', 'protocol.withdraw_run',
+      'protocol.decide', 'protocol.skip', 'protocol.stop', 'protocol.unschedule', 'protocol.run.edit_items',
+      'protocol.run.add_step', 'protocol.template.save', 'protocol.release.accept', 'protocol.release.launch',
+      'protocol.release.review', 'protocol.price.apply', 'protocol.promo.apply', 'protocol.hiring.candidate_save',
+      'protocol.hiring.candidate_delete', 'protocol.hiring.complete', 'protocol.hiring.purge', 'stock.product_test',
+      'checklist.template.save', 'shopping.add', 'shopping.cancel', 'purchase.record', 'purchase.receive',
+      'purchase.acknowledge', 'marketing.campaign.suggest', 'marketing.note.add', 'reservation.event_block',
+      // The role spec.
+      'protocol.release.idea_submit', 'protocol.release.idea_withdraw', 'protocol.release.idea_decline',
+      'protocol.release.idea_start', 'teaching.save', 'teaching.archive', 'stock.recipe.change_submit',
+      'stock.recipe.change_withdraw', 'stock.recipe.change_approve', 'stock.recipe.change_decline',
+      'shopping.approve', 'shopping.decline', 'purchase.deliver', 'marketing.request.add',
+      'marketing.request.withdraw', 'marketing.request.answer',
+    ];
+    for (const a of written) expect(knownActionKey(a), a).not.toBeNull();
+    expect(knownActionKey('protocol.withdraw_run')).toBe('protocolWithdrawRun');
+    for (const f of ['protocol', 'checklist', 'shopping', 'purchase', 'teaching']) expect(knownFamilyKey(f), f).toBe(f);
+  });
+
+  it('names every action the wave-5 stores write (wave5-addendum-2026-09-25 §5.2)', () => {
+    for (const a of ['stock.transfer', 'stock.log', 'stock.price_log', 'stock.submit_count', 'stock.discard_count']) {
+      expect(knownActionKey(a), a).not.toBeNull();
+    }
+    expect(knownActionKey('stock.price_log')).toBe('stockPriceLog');
+  });
+
+  it('names every action the wave-5 people records write, and the incident area (wave5-addendum-2026-09-25 §5.2)', () => {
+    const written = [
+      'staff.deduction.propose', 'staff.deduction.withdraw', 'staff.deduction.approve', 'staff.deduction.decline',
+      'staff.deduction.cancel', 'incident.report', 'incident.review', 'incident.redact', 'incident.purge',
+      'marketing.content.submit', 'marketing.content.revise', 'marketing.content.withdraw', 'marketing.content.approve',
+      'marketing.content.changes', 'marketing.content.decline',
+    ];
+    for (const a of written) expect(knownActionKey(a), a).not.toBeNull();
+    expect(knownActionKey('staff.deduction.propose')).toBe('staffDeductionPropose');
+    expect(knownFamilyKey('incident')).toBe('incident');
+  });
+
+  it('names the till-shift actions, in the drawer area (wave5-addendum-2026-09-25 §2.9.4)', () => {
+    expect(knownActionKey('drawer.shift_open')).toBe('drawerShiftOpen');
+    expect(knownActionKey('drawer.shift_close')).toBe('drawerShiftClose');
+    expect(knownActionKey('drawer.shift_close_by_day')).toBe('drawerShiftCloseByDay');
+    expect(knownFamilyKey('drawer')).toBe('drawer');
+  });
+
+  it('offers every known area in the filter, plus any new one in the data', () => {
+    // The area filter now runs on the server; options built from the loaded
+    // page alone collapsed to the chosen area the moment it was chosen.
+    const options = familyOptions([row({ action: 'menu.item.update' }), row({ action: 'zzz.new' })]);
+    expect(options).toContain('reservation');
+    expect(options).toContain('zzz');
+  });
+
+  it('only treats an exact known action as a server filter', () => {
+    expect(isActionCode('discount.apply')).toBe(true);
+    expect(isActionCode(' discount.apply ')).toBe(true);
+    expect(isActionCode('discount')).toBe(false);
+    expect(isActionCode('refund')).toBe(false);
+  });
+
+  it('leaves ids, keys and secrets out of the on-screen change list', () => {
+    for (const f of ['id', 'day_session_id', 'idempotency_key', 'table_token', 'secret', 'photo_blur']) {
+      expect(isTechnicalField(f), f).toBe(true);
+    }
+    for (const f of ['sold_out', 'name_en', 'price_iqd', 'status', 'settled_at']) {
+      expect(isTechnicalField(f), f).toBe(false);
+    }
+  });
+
+  it('humanizes a column name', () => {
+    expect(humanizeField('sold_out')).toBe('Sold out');
+    expect(humanizeField('total_iqd')).toBe('Total (IQD)');
+  });
+
+  it('names the record from the row itself, in the reader\'s language', () => {
+    expect(recordName(null, { name_en: 'Latte', name_ar: 'لاتيه' }, 'ar')).toBe('لاتيه');
+    expect(recordName({ guest_name: 'Omar' }, null, 'en')).toBe('Omar');
+    expect(recordName({ id: 'x' }, { id: 'x', status: 'settled' }, 'en')).toBeNull();
+  });
+
+  it('searches the words the screen shows as well as the codes', () => {
+    expect(matchesAudit(row(), { ...EMPTY_FILTER, query: 'discount given' }, ['Discount given'])).toBe(true);
+    expect(matchesAudit(row({ actor_name: 'Sara' }), { ...EMPTY_FILTER, query: 'sara' })).toBe(true);
+  });
+
+  it('finds a person as the PIN holder too, as the server filter does', () => {
+    const r = row({ actor_id: 'cashier-1', authorizer_id: 'manager-1' });
+    expect(matchesAudit(r, { ...EMPTY_FILTER, actorId: 'manager-1' })).toBe(true);
   });
 });

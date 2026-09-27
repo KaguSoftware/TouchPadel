@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { AppState, Linking, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
@@ -10,6 +10,7 @@ import { isolate, type Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import {
   getPushPermissionState,
+  permissionStateAfter,
   registerPushToken,
   type PushPermissionState,
 } from '../src/features/profile/push';
@@ -21,9 +22,10 @@ import { supabase } from '../src/lib/supabase';
 import { errorMessageOf } from '../src/lib/network';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { callPhone } from '../src/lib/phone';
+import { legalUrl, type LegalPage } from '../src/lib/legal';
 import { radius, space, useTheme, type AppearancePreference } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
-import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
+import { BellIcon, GlobeIcon, LockIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 
 /**
@@ -56,13 +58,38 @@ export default function SettingsScreen() {
   const [pushState, setPushState] = useState<PushPermissionState>('undetermined');
   const [busyPush, setBusyPush] = useState(false);
 
+  /**
+   * Re-probe on every foreground, not just on mount.
+   *
+   * The denied branch sends the guest to system settings. Coming back, the
+   * screen is still mounted, so a one-shot mount probe kept showing "turned
+   * off" (with the same button) after they had just turned it ON — and, worse,
+   * nothing registered a token, so the permission they had granted delivered
+   * nothing. Re-probing here closes both halves: the state catches up, and a
+   * grant made outside the app registers on return.
+   */
   useEffect(() => {
     let cancelled = false;
-    void getPushPermissionState().then((state) => {
-      if (!cancelled) setPushState(state);
+    const probe = () => {
+      void getPushPermissionState().then((state) => {
+        if (cancelled) return;
+        setPushState(state);
+        // Permission granted while we were away: mint and store the token.
+        // Silent — the OS dialog has already been answered.
+        if (state === 'granted') {
+          void registerPushToken({ prompt: false }).then((result) =>
+            addBreadcrumb('push.register', { result, reason: 'settings-foreground' }),
+          );
+        }
+      });
+    };
+    probe();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') probe();
     });
     return () => {
       cancelled = true;
+      sub.remove();
     };
   }, []);
 
@@ -75,9 +102,15 @@ export default function SettingsScreen() {
   const onEnablePush = async () => {
     setBusyPush(true);
     const result = await registerPushToken();
-    setPushState(
-      result === 'registered' ? 'granted' : result === 'denied' ? 'denied' : 'unavailable',
-    );
+    addBreadcrumb('push.register', { result, reason: 'settings-button' });
+    // `failed` is NOT `unavailable`: the phone can do push, something went
+    // wrong (no network, a token mint that threw). Saying "not available on
+    // this device" there is a lie the guest cannot act on, so permissionStateAfter
+    // keeps whatever the OS still reports and flags it as an error instead.
+    const observed = result === 'failed' ? await getPushPermissionState() : 'unavailable';
+    const next = permissionStateAfter(result, observed);
+    setPushState(next.state);
+    if (next.errored) toast(t('errors.generic'), 'error');
     setBusyPush(false);
   };
 
@@ -133,6 +166,10 @@ export default function SettingsScreen() {
     });
   };
 
+  const openLegal = (page: LegalPage) => {
+    void Linking.openURL(legalUrl(page, locale)).catch(() => toast(t('settings.linkFailed'), 'error'));
+  };
+
   // Expo Go reports ITS OWN native version; the app's comes from the config.
   const appVersion = Constants.expoConfig?.version ?? Application.nativeApplicationVersion ?? '0.0.0';
   const build = isRunningInExpoGo() ? 'dev' : (Application.nativeBuildVersion ?? '0');
@@ -159,6 +196,7 @@ export default function SettingsScreen() {
           {groupLabel(<MoonIcon size={13} color={colors.gstrong} />, t('settings.appearance'))}
           <View style={{ marginTop: 8 }}>
             <SegmentedControl<AppearancePreference>
+              testID="settings.appearance"
               options={[
                 { value: 'automatic', label: t('settings.automatic') },
                 { value: 'light', label: t('settings.light') },
@@ -191,6 +229,7 @@ export default function SettingsScreen() {
           {groupLabel(<GlobeIcon size={13} color={colors.gstrong} />, t('settings.language'))}
           <View style={{ marginTop: 8 }}>
             <SegmentedControl<Locale>
+              testID="settings.language"
               options={[
                 { value: 'en', label: t('settings.english') },
                 { value: 'ar', label: t('settings.arabic') },
@@ -229,6 +268,7 @@ export default function SettingsScreen() {
                 ✓ {t('settings.notifGranted')}
               </Text>
               <Button
+                testID="settings.send-test-push"
                 label={t('settings.sendTestPush')}
                 variant="secondary"
                 size="compact"
@@ -251,6 +291,7 @@ export default function SettingsScreen() {
                 {t('settings.notifDenied')}
               </Text>
               <Button
+                testID="settings.open-system-settings"
                 label={t('settings.openSystemSettings')}
                 variant="secondary"
                 size="compact"
@@ -274,6 +315,7 @@ export default function SettingsScreen() {
                 {t('settings.notifBody')}
               </Text>
               <Button
+                testID="settings.enable-push"
                 label={t('settings.enablePush')}
                 variant="cta"
                 size="compact"
@@ -320,6 +362,7 @@ export default function SettingsScreen() {
               ) : null}
             </View>
             <Button
+              testID="settings.call-venue"
               label={t('common.call')}
               variant="primary"
               size="compact"
@@ -333,6 +376,38 @@ export default function SettingsScreen() {
                 paddingEnd: 18,
                 borderRadius: radius.pill,
               }}
+            />
+          </View>
+        </Card>
+
+        {/* About: the privacy policy has to be reachable in the app (5.1.1(i)); the
+            terms are what the guest accepted (0153). */}
+        <Card style={{ padding: space.m }}>
+          {groupLabel(<LockIcon size={13} color={colors.gstrong} />, t('settings.about'))}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+            <Button
+              testID="settings.privacy-policy"
+              label={t('settings.privacyPolicy')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('privacy')}
+              style={{ flexGrow: 1 }}
+            />
+            <Button
+              testID="settings.terms"
+              label={t('settings.terms')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('terms')}
+              style={{ flexGrow: 1 }}
+            />
+            <Button
+              testID="settings.support"
+              label={t('settings.support')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('support')}
+              style={{ flexGrow: 1 }}
             />
           </View>
         </Card>

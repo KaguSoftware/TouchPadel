@@ -32,16 +32,20 @@ export function GoogleButton({
   onPress,
   busy,
   disabled,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   busy?: boolean;
   disabled?: boolean;
+  /** `<route>.google`, minted by the call site (or by the block below). */
+  testID?: string;
 }) {
   const { appearance } = useTheme();
   const g = vendor.google[appearance];
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
@@ -97,20 +101,29 @@ export function SocialSignInBlock({
   disabled,
   onPress,
   style,
+  testID,
 }: {
   available: SocialAvailability;
   busyProvider: SocialProvider | null;
   disabled?: boolean;
   onPress: (provider: SocialProvider) => void;
   style?: StyleProp<ViewStyle>;
+  /**
+   * `<route>.social` for the block; the two buttons derive `${testID}.apple`
+   * and `${testID}.google` from it, so a test names a PROVIDER rather than a
+   * position — the block renders one, the other, or both depending on the
+   * platform and on Expo Go.
+   */
+  testID?: string;
 }) {
   const { t } = useLocale();
   if (!available.apple && !available.google) return null;
   const otherBusy = (p: SocialProvider) => busyProvider !== null && busyProvider !== p;
   return (
-    <View style={[{ gap: GAP }, style]}>
+    <View testID={testID} style={[{ gap: GAP }, style]}>
       {available.apple ? (
         <AppleButton
+          testID={testID ? `${testID}.apple` : undefined}
           label={t('auth.continueWithApple')}
           onPress={() => onPress('apple')}
           busy={busyProvider === 'apple'}
@@ -120,6 +133,7 @@ export function SocialSignInBlock({
       ) : null}
       {available.google ? (
         <GoogleButton
+          testID={testID ? `${testID}.google` : undefined}
           label={t('auth.continueWithGoogle')}
           onPress={() => onPress('google')}
           busy={busyProvider === 'google'}

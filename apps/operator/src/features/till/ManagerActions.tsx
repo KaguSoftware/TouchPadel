@@ -15,13 +15,13 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, formatTime } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
-import { deviceId } from '../../lib/idem';
-import { mutate } from '../../lib/mutate';
+import { mutate, type MutateOutcome } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
+import { mergeDonorLabel } from './tillData';
 import { requiredRoleFor } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle } from '../../components/ui';
 import { MessagePresenter, Money, PermissionRefusedNotice } from '../../components/kit';
@@ -35,6 +35,14 @@ export interface RefundablePayment {
   id: string;
   method: string;
   amount_iqd: number;
+  /** What has already gone back on this payment (refunds.payment_id); absent on a detail cached before the join. */
+  refunds?: readonly { amount_iqd: number }[];
+}
+
+/** What is still refundable on a payment: its amount less every refund already recorded. */
+export function refundableIqd(p: Pick<RefundablePayment, 'amount_iqd' | 'refunds'>): number {
+  const refunded = (p.refunds ?? []).reduce((sum, r) => sum + (r.amount_iqd ?? 0), 0);
+  return Math.max(0, p.amount_iqd - refunded);
 }
 
 export interface RefundableLine {
@@ -56,21 +64,26 @@ export function RefundDialog({
   lines: readonly RefundableLine[];
   /** `can.refund` — false renders the `refused` state; the controls stay visible. */
   canRefund: boolean;
-  onDone(): void;
+  /**
+   * `outcome.queued`: the refund is safe on the durable queue but the server has
+   * not answered yet (item 9); `outcome.localId` is what its result will carry.
+   */
+  onDone(outcome: Pick<MutateOutcome, 'queued' | 'localId'>, paymentId: string): void;
   onClose(): void;
 }) {
   const { tr, locale } = useLocale();
   const [paymentId, setPaymentId] = useState(payments[0]?.id ?? '');
-  const [amount, setAmount] = useState<number>(payments[0]?.amount_iqd ?? 0);
+  const [amount, setAmount] = useState<number>(payments[0] ? refundableIqd(payments[0]) : 0);
   const [items, setItems] = useState<Record<string, number>>({});
   const [pinOpen, setPinOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
   const payment = payments.find((p) => p.id === paymentId);
-  const max = payment?.amount_iqd ?? 0;
+  // Capped at what is left on the payment, not what was paid: a second refund
+  // may not exceed the remainder (the server refuses REFUND_EXCEEDS_PAYMENT too).
+  const max = payment ? refundableIqd(payment) : 0;
   const valid = !!payment && amount > 0 && amount <= max;
-  const namedItems = Object.values(items).some((q) => q > 0);
   /*
    * Rulebook 4.3, in the order the cashier meets them. The permission case is
    * NOT repeated here: PermissionRefusedNotice already names the role at the
@@ -91,19 +104,23 @@ export function RefundDialog({
     try {
       const chosen = Object.entries(items)
         .filter(([, qty]) => qty > 0)
-        .map(([order_item_id, qty]) => ({ order_item_id, qty }));
-      await appRpc('refund', {
-        p_payment_id: paymentId,
-        p_amount_iqd: amount,
-        p_pin: pin,
-        p_reason_code: reasonCode,
+        .map(([orderItemId, qty]) => ({ orderItemId, qty }));
+      // Item 9 (0120): the refund rides the durable queue like a discount. The
+      // PIN travels in the payload and is proved to verify_manager_pin at
+      // replay; online, the server answers inside the call and a refusal
+      // throws here exactly as the direct RPC did.
+      const outcome = await mutate('payment.refund', {
+        paymentId,
+        amountIqd: amount,
+        pin,
+        reasonCode,
         // Naming the items is what reverses the stock movement (L453).
-        p_items: chosen.length > 0 ? chosen : null,
-        p_device_id: deviceId(),
+        ...(chosen.length > 0 ? { items: chosen } : {}),
       });
-      touch.pinObserved(pin); // server just verified it — cache for offline unlock
+      // Cache for the offline unlock only once the server has verified it.
+      if (!outcome.queued) touch.pinObserved(pin);
       setPinOpen(false);
-      onDone();
+      onDone({ queued: outcome.queued, localId: outcome.localId }, paymentId);
     } catch (e) {
       setError(e);
       setPinOpen(false);
@@ -117,9 +134,9 @@ export function RefundDialog({
       <Modal
         title={tr('op.till.refund')}
         onClose={onClose}
-        footer={
+        footer={(close) => (
           <div style={reasonedFooter}>
-            <Button onClick={onClose} disabled={busy}>
+            <Button onClick={close} disabled={busy}>
               {tr('common.cancel')}
             </Button>
             <Button
@@ -132,7 +149,7 @@ export function RefundDialog({
               {tr('op.till.refund')}
             </Button>
           </div>
-        }
+        )}
       >
         {!canRefund && (
           <PermissionRefusedNotice action={tr('ws.cashier.refund.refusedAction')} requiredRole={requiredRoleFor('refund')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
@@ -141,19 +158,17 @@ export function RefundDialog({
           <p style={muted}>{tr('op.till.refundNoPayments')}</p>
         ) : (
           <>
-            <MessagePresenter
-              tone={namedItems ? 'info' : 'refused'}
-              icon="package"
-              message={tr('ws.cashier.refund.consequence')}
-              style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-            />
+            {/* Info, not a warning: a money-only refund is a legitimate choice,
+                and the dialog opened on an amber box before anything was done. */}
+            <MessagePresenter tone="info" icon="package" message={tr('ws.cashier.refund.consequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
             <Field label={tr('op.till.refundPayment')}>
               <Select
                 value={paymentId}
                 disabled={!canRefund}
                 onChange={(v) => {
                   setPaymentId(v);
-                  setAmount(payments.find((p) => p.id === v)?.amount_iqd ?? 0);
+                  const next = payments.find((p) => p.id === v);
+                  setAmount(next ? refundableIqd(next) : 0);
                 }}
                 options={payments.map((p) => ({
                   value: p.id,
@@ -261,9 +276,9 @@ export function OverridePriceDialog({
         title={tr('op.till.override')}
         onClose={onClose}
         size="sm"
-        footer={
+        footer={(close) => (
           <div style={reasonedFooter}>
-            <Button onClick={onClose} disabled={busy}>
+            <Button onClick={close} disabled={busy}>
               {tr('common.cancel')}
             </Button>
             <Button
@@ -276,13 +291,13 @@ export function OverridePriceDialog({
               {tr('op.till.override')}
             </Button>
           </div>
-        }
+        )}
       >
         <p style={{ fontWeight: 600 }}>
           <bdi>{label}</bdi>
         </p>
         <div style={{ ...kvRow, ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>
-          <span>{tr('op.till.overrideCurrent', { amount: '' }).trim()}</span>
+          <span>{tr('op.till.overrideCurrentLabel')}</span>
           <Money amount={currentUnitPriceIqd} />
         </div>
         <Field label={tr('op.till.overrideNew')}>
@@ -312,8 +327,9 @@ export function OverridePriceDialog({
 interface MergeCandidate {
   id: string;
   label: string | null;
+  opened_at: string;
   table: { table_number: string } | null;
-  reservation: { guest_name: string | null } | null;
+  reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
 }
 
 export function MergeTabsDialog({
@@ -327,7 +343,7 @@ export function MergeTabsDialog({
   onDone(): void;
   onClose(): void;
 }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const [donorId, setDonorId] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -338,7 +354,12 @@ export function MergeTabsDialog({
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, label, table:cafe_tables(table_number), reservation:reservations(guest_name)')
+        // The court and the open time are here so a booking tab has something
+        // human to be listed under: an account holder's booking carries no
+        // guest_name, and this picker used to fall back to a UUID fragment.
+        .select(
+          'id, label, opened_at, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar))',
+        )
         .in('status', ['open', 'awaiting_payment'])
         .is('merged_into_tab_id', null)
         .neq('id', survivorTabId)
@@ -349,8 +370,12 @@ export function MergeTabsDialog({
   });
 
   function nameOf(t: MergeCandidate): string {
-    if (t.table) return `${tr('op.till.table')} ${t.table.table_number}`;
-    return t.reservation?.guest_name ?? t.label ?? t.id.slice(0, 8);
+    return mergeDonorLabel(
+      t,
+      { table: tr('op.till.table'), reservation: tr('op.till.forReservation') },
+      t.reservation?.court ? pickName(locale, t.reservation.court) : null,
+      formatTime(new Date(t.opened_at), locale),
+    );
   }
 
   async function submit() {
@@ -371,11 +396,12 @@ export function MergeTabsDialog({
   return (
     <Modal
       title={tr('ws.cashier.merge.title')}
-      onClose={busy ? () => {} : onClose}
+      dismissible={!busy}
+      onClose={onClose}
       size="sm"
-      footer={
+      footer={(close) => (
         <div style={reasonedFooter}>
-          <Button onClick={onClose} disabled={busy}>
+          <Button onClick={close} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
@@ -389,7 +415,7 @@ export function MergeTabsDialog({
             {tr('ws.cashier.merge.confirm')}
           </Button>
         </div>
-      }
+      )}
     >
       <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.merge.into', { name: survivorLabel })}</p>
       <ErrorText error={candidatesQ.error} />
@@ -400,7 +426,8 @@ export function MergeTabsDialog({
           <Select
             value={donorId}
             onChange={setDonorId}
-            options={[{ value: '', label: tr('ws.cashier.merge.donor') }, ...candidates.map((t) => ({ value: t.id, label: nameOf(t) }))]}
+            placeholder={tr('ws.cashier.merge.choose')}
+            options={candidates.map((t) => ({ value: t.id, label: nameOf(t) }))}
           />
         </Field>
       )}

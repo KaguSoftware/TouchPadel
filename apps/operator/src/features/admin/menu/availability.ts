@@ -88,7 +88,11 @@ export function stockBlockFor(item: ItemAvailabilityInput, data: StockBlockData 
   return { blocked: true, ingredients };
 }
 
-/** Station calendar date as YYYY-MM-DD (a display predicate, not time arithmetic). */
+/**
+ * Station calendar date as YYYY-MM-DD. Not for anything the server stamps with
+ * app.business_date (menu availability uses useBusinessToday); the stock form
+ * uses it for expiry-date bounds.
+ */
 export function todayIso(now = new Date()): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }

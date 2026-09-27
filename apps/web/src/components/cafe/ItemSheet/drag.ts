@@ -66,6 +66,10 @@ export function useSheetDrag(
    * the life of the component — the drag silently did nothing.
    */
   const [header, setHeader] = useState<HTMLElement | null>(null);
+  // No dependency list ON PURPOSE: a ref's `.current` changing never re-runs an
+  // effect, so this must look at the ref after every render. The guard keeps
+  // it from looping — it only sets state when the node actually changed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (headerRef.current !== header) setHeader(headerRef.current);
   });

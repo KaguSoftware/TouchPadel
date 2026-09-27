@@ -143,6 +143,46 @@ describe.skipIf(!up)('0062 courts admin', () => {
       p_is_active: false,
     });
     expect(ok.error).toBeNull();
+    // 0097: retiring stamps the last active day.
+    const { data: retired } = await svc.from('courts').select('active_to').eq('id', id).single();
+    expect((retired as { active_to: string }).active_to).toBe(new Date().toISOString().slice(0, 10));
+  });
+
+  it('0097: the active window is stored, validated, and cleared when a court comes back', async () => {
+    const id = await createCourt(`CW-${Date.now()}`);
+    const win = await appRpc(manager, 'upsert_court', {
+      p_id: id, p_name_en: 'CW', p_name_ar: 'س', p_indoor: true, p_active_from: '2026-01-15', p_active_to: '2026-03-31',
+    });
+    expect(win.error).toBeNull();
+    const { data: row } = await svc.from('courts').select('active_from, active_to').eq('id', id).single();
+    expect(row).toEqual({ active_from: '2026-01-15', active_to: '2026-03-31' });
+
+    const bad = outcome(
+      await appRpc(manager, 'upsert_court', {
+        p_id: id, p_name_en: 'CW', p_name_ar: 'س', p_indoor: true, p_active_from: '2026-04-01', p_active_to: '2026-03-31',
+      }),
+    );
+    expect(bad.errorMessage).toContain('INVALID_ACTIVE_WINDOW');
+
+    // Deactivate with an unchanged window: the stamp is the date the caller gave.
+    const off = await appRpc(manager, 'upsert_court', {
+      p_id: id, p_name_en: 'CW', p_name_ar: 'س', p_indoor: true, p_is_active: false, p_active_from: '2026-01-15', p_active_to: '2026-03-31',
+    });
+    expect(off.error).toBeNull();
+    // Reactivate, passing the stored window back unchanged: the retirement date clears.
+    const on = await appRpc(manager, 'upsert_court', {
+      p_id: id, p_name_en: 'CW', p_name_ar: 'س', p_indoor: true, p_is_active: true, p_active_from: '2026-01-15', p_active_to: '2026-03-31',
+    });
+    expect(on.error).toBeNull();
+    const { data: back } = await svc.from('courts').select('is_active, active_from, active_to').eq('id', id).single();
+    expect(back).toEqual({ is_active: true, active_from: '2026-01-15', active_to: null });
+
+    // A court created inactive is retired from day one.
+    const bornOff = await appRpc(manager, 'upsert_court', { p_name_en: `CX-${Date.now()}`, p_name_ar: 'س', p_indoor: true, p_is_active: false });
+    expect(bornOff.error).toBeNull();
+    made.push(bornOff.data as string);
+    const { data: bornRow } = await svc.from('courts').select('active_to').eq('id', bornOff.data as string).single();
+    expect((bornRow as { active_to: string }).active_to).toBe(new Date().toISOString().slice(0, 10));
   });
 
   it('delete_court removes a court nothing references, audited', async () => {

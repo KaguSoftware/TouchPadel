@@ -1,4 +1,4 @@
-import { VENUE_TZ } from '@touch/i18n';
+import { VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { displayWindows } from '@touch/core';
 import type { VenueOpeningHours } from '../menu';
 
@@ -21,6 +21,17 @@ import type { VenueOpeningHours } from '../menu';
  */
 export const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 export type DayKey = (typeof DAY_KEYS)[number];
+
+/** Catalog label per day — shared by the footer table and the support page. */
+export const DAY_LABEL: Record<DayKey, MessageKey> = {
+  mon: 'cafe.days.mon',
+  tue: 'cafe.days.tue',
+  wed: 'cafe.days.wed',
+  thu: 'cafe.days.thu',
+  fri: 'cafe.days.fri',
+  sat: 'cafe.days.sat',
+  sun: 'cafe.days.sun',
+};
 
 /** en-CA is the ISO-ish `YYYY-MM-DD` locale — used to read the venue's date. */
 function venueParts(now: Date): { isoDate: string; dayKey: DayKey } {

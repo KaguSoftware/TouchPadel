@@ -73,6 +73,16 @@ if (!nextConfig) {
     'no-referrer and no-store on /t/* is what stops a QR card printed before the cookie\n' +
       '      exchange from leaking its token in a Referer header.',
   );
+  // Since 2026-09-23 the exchange lands on the café menu, /{locale}/menu, which
+  // reads the tp-table cookie and serialises the token into its RSC payload.
+  // So the menu is a table route too: its source must carry the table set.
+  require_(
+    'the café menu carries the table headers',
+    /source:\s*['"`]\/:locale\(en\|ar\)\/menu['"`],\s*headers:\s*\[\s*\.\.\.TABLE_ROUTE_HEADERS/.test(headersBody),
+    'a bound /{locale}/menu response holds the table token in its RSC payload; without\n' +
+      '      no-store + private it may sit in a shared cache or bfcache for the next person on\n' +
+      '      that phone, and without no-referrer the page URL leaks to third parties.',
+  );
 }
 
 // ── proxy.ts ──────────────────────────────────────────────────────────────────
@@ -99,6 +109,15 @@ if (!proxy) {
     'without the exchange the table\'s bearer credential sits in the address bar for the whole\n' +
       '      session — sent in Referer to every third party, captured as $current_url, and left in\n' +
       '      browser history.',
+  );
+  // Next's dev server stamps its own Cache-Control over next.config.ts on a
+  // page, so the proxy re-applies the table set on the menu. Name-level check;
+  // src/lib/security/proxy.test.ts pins the behaviour.
+  require_(
+    'the proxy re-applies no-store on the café menu',
+    /MENU_URL/.test(proxy) && /\/menu/.test(proxy) && /no-store/.test(proxy),
+    'the menu is where the table session lives since 2026-09-23; the proxy override is the\n' +
+      '      copy of no-store + no-referrer that does not depend on Next leaving next.config alone.',
   );
 }
 
@@ -161,21 +180,25 @@ const swPlugins = SW_HINTS.filter((h) => h.re.test(pkg) || (nextConfig && h.re.t
 if (swFiles.length === 0 && swPlugins.length === 0) {
   passes.push('no service worker (PWA rule holds vacuously)');
 } else {
-  // A service worker MAY exist — but it must exclude the table route.
+  // A service worker MAY exist — but it must exclude the table routes: /t (the
+  // token URL and the old session hop) AND /menu, where the session has lived
+  // since 2026-09-23 and whose RSC payload carries the token when bound.
   const swText = swFiles.map((f) => read(f) ?? '').join('\n') + '\n' + (nextConfig ?? '');
-  const excludesTableRoute = /\/t\b[\s\S]{0,120}(exclude|denylist|navigateFallbackDenylist|skip)/i.test(swText) ||
-    /(exclude|denylist|navigateFallbackDenylist|skip)[\s\S]{0,120}\/t\b/i.test(swText);
+  const excludes = (route) =>
+    new RegExp(`${route}\\b[\\s\\S]{0,120}(exclude|denylist|navigateFallbackDenylist|skip)`, 'i').test(swText) ||
+    new RegExp(`(exclude|denylist|navigateFallbackDenylist|skip)[\\s\\S]{0,120}${route}\\b`, 'i').test(swText);
+  const excludesTableRoute = excludes('\\/t') && excludes('\\/menu');
   require_(
-    'service worker excludes /t from caching',
+    'service worker excludes /t and /menu from caching',
     excludesTableRoute,
     'A service worker now exists (' +
       [...swFiles, ...swPlugins.map((p) => p.what)].join(', ') +
       ')\n' +
-      '      but nothing shows /t being excluded from it. A cached table page is one guest\'s\n' +
-      '      session served to the next person who opens the app on that phone, and a cached\n' +
-      '      /t/{token} puts the credential in Cache Storage, where page script CAN read it —\n' +
-      '      undoing the HttpOnly cookie entirely.\n' +
-      '      FIX: exclude /t (and /t/*) from precache and from any navigation fallback.',
+      '      but nothing shows both /t and /menu being excluded from it. A cached table page\n' +
+      '      is one guest\'s session served to the next person who opens the app on that phone,\n' +
+      '      and a cached /t/{token} or bound /menu puts the credential in Cache Storage, where\n' +
+      '      page script CAN read it — undoing the HttpOnly cookie entirely.\n' +
+      '      FIX: exclude /t, /t/* and /{locale}/menu from precache and from any navigation fallback.',
   );
 }
 

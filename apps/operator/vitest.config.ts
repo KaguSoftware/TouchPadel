@@ -27,5 +27,11 @@ export default defineConfig({
     environmentMatchGlobs: [['src/**/*.test.tsx', 'jsdom']],
     setupFiles: ['./vitest.setup.ts'],
     restoreMocks: true,
+    // The component suites wait up to 5s for their skeletons (`waitFor … { timeout:
+    // 5000 }`), which is the same as vitest's default test budget, so one slow wait
+    // leaves nothing for the assertions. On CI's 2-vCPU runner, sharing the CPU
+    // with `turbo build` of every other package, the analytics tabs run ~3x
+    // slower than locally: CourtsTab's store test hit 6.1s on 2026-09-16.
+    testTimeout: 20_000,
   },
 });

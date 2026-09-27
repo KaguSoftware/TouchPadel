@@ -61,7 +61,11 @@ export function DirectionRoot({ children }: { children: ReactNode }) {
   } = useThemeSwitch();
   const { colors } = useTheme();
   return (
-    <View style={{ flex: 1, direction: dir }}>
+    // The ONE id this app hard-codes rather than taking from a call site: it
+    // is not a control on a route, it is the root every route hangs under, and
+    // the smoke tests read the resolved `direction` off exactly this node to
+    // prove a screen mirrored (src/test/smoke.tsx `direction()`).
+    <View testID="app.direction-root" style={{ flex: 1, direction: dir }}>
       {children}
       <Animated.View
         style={[

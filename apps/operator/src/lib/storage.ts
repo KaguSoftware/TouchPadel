@@ -63,10 +63,16 @@ export function publicUrl(path: string): string {
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-/** Best-effort delete — never blocks a save; a stale object is only wasted space. */
+/**
+ * Best-effort delete — never blocks a save; a stale object is only wasted space.
+ * Multi-venue (0223, MV6): a new branch shares the photos of the branch it was
+ * copied from, so an object another row still points at is kept.
+ */
 export async function removeMedia(path: string | null | undefined): Promise<void> {
   if (!path) return;
   try {
+    const { data: inUse, error } = await supabase.schema('app').rpc('storage_path_in_use', { p_path: path });
+    if (error || inUse) return;
     await supabase.storage.from(MEDIA_BUCKET).remove([path]);
   } catch {
     /* orphaned objects are harmless; a later sweep can reclaim them */

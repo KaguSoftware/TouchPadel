@@ -13,6 +13,11 @@
  * tested without a database.
  */
 
+import { wallTimeToUtc } from '@touch/core';
+
+import type { CsvCell } from '../../analytics/exportTables';
+import { cellText, humanizeCode, momentCells, shortId, valueCell } from '../../analytics/cellFormat';
+
 export interface AuditRow {
   id: number;
   at: string;
@@ -26,6 +31,12 @@ export interface AuditRow {
   after: unknown;
   reason_code: string | null;
   device_id: string | null;
+  /**
+   * Display names `app.audit_log_page` (0068) already joins — staff name or,
+   * for a guest, the profile's full name. Absent on the direct-table fallback.
+   */
+  actor_name?: string | null;
+  authorizer_name?: string | null;
 }
 
 /**
@@ -88,13 +99,16 @@ export const EMPTY_FILTER: AuditFilter = {
   onlyMissingReason: false,
 };
 
-export function matchesAudit(row: AuditRow, filter: AuditFilter): boolean {
+export function matchesAudit(row: AuditRow, filter: AuditFilter, words: readonly string[] = []): boolean {
   if (filter.family && actionFamily(row.action) !== filter.family) return false;
-  if (filter.actorId && row.actor_id !== filter.actorId) return false;
+  if (filter.actorId && row.actor_id !== filter.actorId && row.authorizer_id !== filter.actorId) return false;
   if (filter.onlyMissingReason && !missingReason(row)) return false;
   const q = filter.query.trim().toLowerCase();
   if (!q) return true;
-  return [row.action, row.entity, row.entity_id, row.reason_code, row.device_id, row.actor_role]
+  // `words` is what the screen shows for the row (the action in plain
+  // language, the person's name), so a manager can search for what they SEE —
+  // "refund", a name — as well as the stored code the overview links with.
+  return [row.action, row.entity, row.entity_id, row.reason_code, row.device_id, row.actor_role, row.actor_name, ...words]
     .filter((v): v is string => typeof v === 'string')
     .some((v) => v.toLowerCase().includes(q));
 }
@@ -103,6 +117,13 @@ export interface FieldChange {
   field: string;
   before: string;
   after: string;
+}
+
+/** The same change with its stored values untouched, so an export can format them itself. */
+export interface RawFieldChange {
+  field: string;
+  before: unknown;
+  after: unknown;
 }
 
 /** Render a jsonb leaf the way a manager reads it, not the way JSON prints it. */
@@ -118,27 +139,33 @@ export function formatValue(value: unknown): string {
 }
 
 /**
- * The fields that actually changed between `before` and `after`.
+ * The fields that actually changed between `before` and `after`, values as
+ * stored.
  *
  * A raw jsonb pair is unreadable at a glance — `menu_items` has eighteen
  * columns and a sold-out toggle changes one. Insert rows (`before` null) and
  * delete rows (`after` null) are shown whole, because for those the whole row
  * IS the change.
  */
-export function diffFields(before: unknown, after: unknown): FieldChange[] {
+export function rawDiffFields(before: unknown, after: unknown): RawFieldChange[] {
   const b = isRecord(before) ? before : null;
   const a = isRecord(after) ? after : null;
   if (!b && !a) return [];
 
   const keys = [...new Set([...Object.keys(b ?? {}), ...Object.keys(a ?? {})])].sort();
-  const out: FieldChange[] = [];
+  const out: RawFieldChange[] = [];
   for (const field of keys) {
     const bv = b ? b[field] : undefined;
     const av = a ? a[field] : undefined;
     if (sameValue(bv, av)) continue;
-    out.push({ field, before: formatValue(bv), after: formatValue(av) });
+    out.push({ field, before: bv, after: av });
   }
   return out;
+}
+
+/** The changed fields with both sides already said in words — what the screen shows. */
+export function diffFields(before: unknown, after: unknown): FieldChange[] {
+  return rawDiffFields(before, after).map((c) => ({ field: c.field, before: formatValue(c.before), after: formatValue(c.after) }));
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -174,22 +201,27 @@ export function actorLabel(
 // ---------------------------------------------------------------------------
 
 export interface PeriodBounds {
-  /** ISO instant at the start of `from` on the station clock. */
+  /** ISO instant the `from` business day starts at. */
   fromIso: string;
-  /** ISO instant at the start of the day AFTER `to` (exclusive upper bound). */
+  /** ISO instant the business day AFTER `to` starts at (exclusive upper bound). */
   toExclusiveIso: string;
 }
 
 /**
- * Inclusive YYYY-MM-DD range → half-open instant range for `at`. Built on the
- * station's calendar day; the server's audit page function re-anchors to the
- * venue day when it is available.
+ * Inclusive range of BUSINESS days → half-open instant range for `at`. A
+ * business day starts at `startHour` in the venue's zone, as
+ * app.business_date counts it, so a night's 00:00–02:00 tail stays with its
+ * night. This used the station's calendar midnight and said the server
+ * re-anchored to the venue day; it does not (audit_log_page filters
+ * `at >= p_from and at < p_to` as given), so at 01:30 "Today" missed
+ * tonight's 22:00 void, and "Yesterday" cut every night at midnight.
  */
-export function periodBounds(period: { from: string; to: string }): PeriodBounds {
-  const from = new Date(`${period.from}T00:00:00`);
-  const to = new Date(`${period.to}T00:00:00`);
-  to.setDate(to.getDate() + 1);
-  return { fromIso: from.toISOString(), toExclusiveIso: to.toISOString() };
+export function periodBounds(period: { from: string; to: string }, startHour: number, tz: string): PeriodBounds {
+  const start = startHour * 60;
+  return {
+    fromIso: wallTimeToUtc(period.from, start, tz).toISOString(),
+    toExclusiveIso: wallTimeToUtc(period.to, 24 * 60 + start, tz).toISOString(),
+  };
 }
 
 /** True when `row.at` falls inside the period (used by the direct-select fallback re-check). */
@@ -198,38 +230,398 @@ export function inPeriod(row: Pick<AuditRow, 'at'>, bounds: PeriodBounds): boole
 }
 
 export interface AuditCsvLabels {
-  when: string;
-  actor: string;
+  date: string;
+  time: string;
+  who: string;
   role: string;
   authoriser: string;
-  action: string;
-  entity: string;
-  entityId: string;
+  what: string;
+  record: string;
+  field: string;
+  was: string;
+  became: string;
   reason: string;
-  device: string;
-  changes: string;
+  station: string;
+  actionCode: string;
+  recordType: string;
+  recordId: string;
 }
 
-/** Headers + one row per entry; changes are flattened to `field: before → after; …`. */
+/** The words the screen already says for a row, reused so the file matches the screen. */
+export interface AuditCsvWords {
+  /** The person, by name — not a uuid. */
+  actor: (row: AuditRow) => string;
+  /** Who entered the PIN, when the action was escalated to someone else. */
+  authoriser: (row: AuditRow) => string | null;
+  role: (role: string | null) => string | null;
+  /** The stored action in plain language ("Refund given"), not `payment.refund`. */
+  action: (action: string) => string;
+  /** What the record is called — the menu item's name, the guest's name. */
+  record: (row: AuditRow) => string | null;
+  reason: (code: string) => string;
+  yes: string;
+  no: string;
+}
+
+/**
+ * One row per CHANGED FIELD, not one row per entry.
+ *
+ * The old export put every field of an entry into a single `Changes` cell as
+ * `field: before → after; field: before → after; …`. A menu-item edit has
+ * eighteen columns, so that cell ran to hundreds of characters, spilled across
+ * the whole sheet, could not be filtered, could not be sorted, and could not
+ * be read. It also wrote the raw ISO instant, the raw action code and the full
+ * uuid in the first columns, so the three cells a manager actually reads were
+ * the three hardest to find.
+ *
+ * Now each change is its own row: the entry's columns (when, who, what, which
+ * record) repeat, and `Field` / `Was` / `Became` hold one fact each. That is
+ * the shape a spreadsheet filters and pivots — "show me every price change",
+ * "every field Ahmed touched" — and no cell is longer than a phrase. An entry
+ * whose before/after carry nothing still gets its one row, so no entry is lost.
+ *
+ * Fields are ordered with the ones a person reads first and the ids, tokens
+ * and timestamps after them; every field is still in the file, because the
+ * export is where an investigation that needs them goes.
+ */
 export function auditCsv(
   labels: AuditCsvLabels,
   rows: readonly AuditRow[],
-  names: ReadonlyMap<string, string>,
-): { headers: string[]; rows: (string | number | null)[][] } {
-  const headers = [labels.when, labels.actor, labels.role, labels.authoriser, labels.action, labels.entity, labels.entityId, labels.reason, labels.device, labels.changes];
-  const out = rows.map((r) => [
-    r.at,
-    actorLabel(r.actor_id, r.actor_role, names),
-    r.actor_role,
-    r.authorizer_id ? actorLabel(r.authorizer_id, null, names) : null,
-    r.action,
-    r.entity,
-    r.entity_id,
-    r.reason_code,
-    r.device_id,
-    diffFields(r.before, r.after)
-      .map((c) => `${c.field}: ${c.before} → ${c.after}`)
-      .join('; '),
-  ]);
+  words: AuditCsvWords,
+): { headers: string[]; rows: CsvCell[][] } {
+  const headers = [
+    labels.date,
+    labels.time,
+    labels.who,
+    labels.role,
+    labels.authoriser,
+    labels.what,
+    labels.record,
+    labels.field,
+    labels.was,
+    labels.became,
+    labels.reason,
+    labels.station,
+    labels.actionCode,
+    labels.recordType,
+    labels.recordId,
+  ];
+  const valueWords = { yes: words.yes, no: words.no };
+  const out: CsvCell[][] = [];
+
+  for (const row of rows) {
+    const [day, time] = momentCells(row.at);
+    const head: CsvCell[] = [day, time, cellText(words.actor(row)), words.role(row.actor_role), cellText(words.authoriser(row)), cellText(words.action(row.action)), cellText(words.record(row))];
+    const tail: CsvCell[] = [row.reason_code ? cellText(words.reason(row.reason_code)) : null, cellText(row.device_id), row.action, humanizeCode(row.entity), shortId(row.entity_id)];
+
+    const changes = orderedChanges(row.before, row.after);
+    if (changes.length === 0) {
+      out.push([...head, null, null, null, ...tail]);
+      continue;
+    }
+    for (const change of changes) {
+      out.push([...head, humanizeField(change.field), valueCell(change.before, valueWords), valueCell(change.after, valueWords), ...tail]);
+    }
+  }
   return { headers, rows: out };
+}
+
+/** The changed fields, the ones worth reading first, then ids and timestamps. */
+export function orderedChanges(before: unknown, after: unknown): RawFieldChange[] {
+  const changes = rawDiffFields(before, after);
+  return [...changes].sort((a, b) => {
+    const rank = technicalRank(a.field) - technicalRank(b.field);
+    return rank !== 0 ? rank : a.field.localeCompare(b.field);
+  });
+}
+
+function technicalRank(field: string): number {
+  if (isTechnicalField(field)) return 2;
+  // `created_at` / `updated_at` change on every write and say nothing on their own.
+  if (/_at$/.test(field)) return 1;
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Plain language (the screen shows words; the CSV keeps the stored codes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every action the migrations write (grep `write_audit` in
+ * packages/db/supabase/migrations), as catalog keys. The table used to print
+ * `tab.settle`, `menu.item.sold_out` and `table_token.prev_secret_cleared` in
+ * a monospace font. A new server action that is not listed here still shows —
+ * under its area's name, with the code beside it — rather than disappearing.
+ */
+export const ACTION_KEYS = [
+  'account.delete',
+  'analytics.insight.reject',
+  'analytics.insight.unreject',
+  'analytics.insights.save',
+  'analytics.patterns.save',
+  'checklist.template.save',
+  'courts.create',
+  'courts.delete',
+  'courts.reorder',
+  'courts.update',
+  'customer.create',
+  'customer.flags_set',
+  'customer.note_add',
+  'customer.note_edit',
+  'day.close',
+  'day.open',
+  'discount.apply',
+  'drawer.open',
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §2.9.4, §5.2).
+  'drawer.shift_close',
+  'drawer.shift_close_by_day',
+  'drawer.shift_open',
+  'incident.purge',
+  'incident.redact',
+  'incident.report',
+  'incident.review',
+  'marketing.audience_save',
+  'marketing.campaign.suggest',
+  'marketing.campaign_save',
+  'marketing.campaign_status',
+  'marketing.content.approve',
+  'marketing.content.changes',
+  'marketing.content.decline',
+  'marketing.content.revise',
+  'marketing.content.submit',
+  'marketing.content.withdraw',
+  'marketing.note.add',
+  'marketing.request.add',
+  'marketing.request.answer',
+  'marketing.request.withdraw',
+  'menu.category.create',
+  'menu.category.photo',
+  'menu.category.reorder',
+  'menu.category.update',
+  'menu.item.addons',
+  'menu.item.availability',
+  'menu.item.cost',
+  'menu.item.create',
+  'menu.item.link_group',
+  'menu.item.photo',
+  'menu.item.reorder',
+  'menu.item.sold_out',
+  'menu.item.update',
+  'menu.modifier.create',
+  'menu.modifier.reorder',
+  'menu.modifier.reveals',
+  'menu.modifier.update',
+  'menu.modifier_group.create',
+  'menu.modifier_group.update',
+  'menu.variant.create',
+  'menu.variant.update',
+  'order_item.void',
+  'payment.refund',
+  'price.override',
+  'promotion.apply',
+  'promotion.drop_on_merge',
+  'promotion.generate_code',
+  'promotion.replace',
+  'promotion.set_enabled',
+  'promotion.upsert',
+  'protocol.auto',
+  'protocol.decide',
+  'protocol.hiring.candidate_delete',
+  'protocol.hiring.candidate_save',
+  'protocol.hiring.complete',
+  'protocol.hiring.purge',
+  'protocol.price.apply',
+  'protocol.promo.apply',
+  'protocol.release.accept',
+  'protocol.release.idea_decline',
+  'protocol.release.idea_start',
+  'protocol.release.idea_submit',
+  'protocol.release.idea_withdraw',
+  'protocol.release.launch',
+  'protocol.release.review',
+  'protocol.run.add_step',
+  'protocol.run.edit_items',
+  'protocol.skip',
+  'protocol.start',
+  'protocol.stop',
+  'protocol.submit',
+  'protocol.template.save',
+  'protocol.unschedule',
+  'protocol.withdraw',
+  'protocol.withdraw_run',
+  'purchase.acknowledge',
+  'purchase.deliver',
+  'purchase.receive',
+  'purchase.record',
+  'rates.rule.create',
+  'rates.rule.update',
+  'reservation.cancel',
+  'reservation.confirm',
+  'reservation.create',
+  'reservation.event_block',
+  'reservation.extend',
+  'reservation.hold',
+  'reservation.mark_arrived',
+  'reservation.mark_completed',
+  'reservation.mark_no_show',
+  'reservation.move',
+  'reservation.price_override',
+  'reservation.release',
+  'series.cancel',
+  'series.create',
+  'settings.cafe',
+  'settings.opening_hours',
+  'settings.waiter_cooldown',
+  'shopping.add',
+  'shopping.approve',
+  'shopping.cancel',
+  'shopping.decline',
+  'staff.active_set',
+  'staff.create',
+  'staff.deduction.approve',
+  'staff.deduction.cancel',
+  'staff.deduction.decline',
+  'staff.deduction.propose',
+  'staff.deduction.withdraw',
+  'staff.password_reset',
+  'staff.pin_cleared',
+  'staff.pin_collision',
+  'staff.pin_locked',
+  'staff.pin_lockout_cleared',
+  'staff.pin_set',
+  'staff.rename',
+  'staff.role_set',
+  'staff_request.decide',
+  'staff_request.submit',
+  'staff_request.withdraw',
+  'stock.discard_count',
+  'stock.finalize_count',
+  'stock.ingredient.create',
+  'stock.ingredient.update',
+  'stock.log',
+  'stock.price_log',
+  'stock.product_test',
+  'stock.receive_delivery',
+  'stock.recipe.change_approve',
+  'stock.recipe.change_decline',
+  'stock.recipe.change_submit',
+  'stock.recipe.change_withdraw',
+  'stock.recipe.set',
+  'stock.record_production',
+  'stock.record_waste',
+  'stock.start_count',
+  'stock.submit_count',
+  'stock.transfer',
+  'stock.write_off_expired',
+  'tab.cancel',
+  'tab.merge',
+  'tab.settle',
+  'table.bell',
+  'table.qr_tokens_read',
+  'table.token.rotate',
+  'table.upsert',
+  'table_token.accepted_prev_secret',
+  'table_token.prev_secret_cleared',
+  'table_token.secret_rotated',
+  'teaching.archive',
+  'teaching.save',
+  'telegram.o.seen',
+  'telegram.o.served',
+  'telegram.o.void',
+  'telegram.staff_set',
+  'telegram.w.ack',
+  'telegram.w.done',
+] as const;
+
+/** The areas (dotted prefixes) the known actions fall into. */
+export const FAMILY_KEYS = [
+  'account',
+  'analytics',
+  'checklist',
+  'courts',
+  'customer',
+  'day',
+  'discount',
+  'drawer',
+  'incident',
+  'marketing',
+  'menu',
+  'order_item',
+  'payment',
+  'price',
+  'promotion',
+  'protocol',
+  'purchase',
+  'rates',
+  'reservation',
+  'series',
+  'settings',
+  'shopping',
+  'staff',
+  'staff_request',
+  'stock',
+  'tab',
+  'table',
+  'table_token',
+  'teaching',
+  'telegram',
+] as const;
+
+/** `menu.item.sold_out` → `menuItemSoldOut`: a stored code as a catalog key segment. */
+export function codeToKey(code: string): string {
+  return code.replace(/[._:-]+([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}
+
+export function knownActionKey(action: string): string | null {
+  return (ACTION_KEYS as readonly string[]).includes(action) ? codeToKey(action) : null;
+}
+
+export function knownFamilyKey(family: string): string | null {
+  return (FAMILY_KEYS as readonly string[]).includes(family) ? codeToKey(family) : null;
+}
+
+/**
+ * The area filter's options: every known area plus any new one present in the
+ * data. The filter is applied on the server now, so a list built only from the
+ * loaded page would shrink to the chosen area the moment it was chosen.
+ */
+export function familyOptions(rows: readonly AuditRow[]): string[] {
+  return [...new Set<string>([...FAMILY_KEYS, ...actionFamilies(rows)])].sort();
+}
+
+/** An exact, known action code — safe to hand the server as a prefix filter. */
+export function isActionCode(query: string): boolean {
+  return (ACTION_KEYS as readonly string[]).includes(query.trim());
+}
+
+/**
+ * Fields left out of the on-screen before/after list: row ids, foreign keys,
+ * idempotency keys, tokens and secrets. They mean nothing to a manager reading
+ * what changed; the CSV export keeps every field.
+ */
+export function isTechnicalField(field: string): boolean {
+  return field === 'id' || field.endsWith('_id') || field.endsWith('_ids') || /idempotency|token|secret|blur|_hash$/.test(field);
+}
+
+/** `sold_out` → `Sold out`, `price_iqd` → `Price (IQD)`. */
+export function humanizeField(field: string): string {
+  const iqd = field.endsWith('_iqd');
+  const base = (iqd ? field.slice(0, -4) : field).replace(/_/g, ' ').trim();
+  const words = base.charAt(0).toUpperCase() + base.slice(1);
+  return iqd ? `${words} (IQD)` : words;
+}
+
+/**
+ * What the record is called, from the row itself: a menu item's name, a
+ * guest's name, a tab's label. The table used to print the table name and a
+ * uuid (`tabs a173d62b-…`).
+ */
+export function recordName(before: unknown, after: unknown, locale: 'en' | 'ar'): string | null {
+  const src = isRecord(after) ? after : isRecord(before) ? before : null;
+  if (!src) return null;
+  const localized = locale === 'ar' ? src.name_ar : src.name_en;
+  for (const v of [localized, src.name_en, src.display_name, src.guest_name, src.full_name, src.name, src.label, src.table_number]) {
+    if (typeof v === 'string' && v.trim() !== '') return v;
+  }
+  return null;
 }

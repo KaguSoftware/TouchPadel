@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
+import { venueFetch } from './venueScope';
 
 // Renderer Supabase client. In browser mode (this session) it carries both
 // reads AND writes (writes go through app.* RPCs — see lib/appRpc.ts).
@@ -44,4 +45,8 @@ const resolved = resolveSupabaseEnv(import.meta.env);
 export const supabaseUrl = resolved.url;
 export const supabaseAnonKey = resolved.anonKey;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Multi-venue slice 4: every call names this station and the branch in scope
+// (lib/venueScope.ts); the server resolves venues and scopes staff reads by them.
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: venueFetch },
+});

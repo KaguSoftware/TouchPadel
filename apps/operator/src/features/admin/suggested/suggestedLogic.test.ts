@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SUGGESTION_CAP, canAddSuggestion, suggestionCandidates } from './suggestedLogic';
+import { SUGGESTION_CAP, canAddSuggestion, suggestionCandidates, suggestionCounts } from './suggestedLogic';
 
 describe('canAddSuggestion', () => {
   it('rejects self, duplicates and the cap', () => {
@@ -25,5 +25,14 @@ describe('suggestionCandidates', () => {
     expect(suggestionCandidates('a', ['d'], items, 'latte').map((i) => i.id)).toEqual([]);
     expect(suggestionCandidates('b', [], items, 'latte').map((i) => i.id)).toEqual(['a', 'd']);
     expect(suggestionCandidates('b', [], items, 'كبير').map((i) => i.id)).toEqual(['d']);
+  });
+});
+
+describe('suggestionCounts', () => {
+  it('counts saved suggestions per item', () => {
+    const counts = suggestionCounts([{ item_id: 'a' }, { item_id: 'a' }, { item_id: 'b' }]);
+    expect(counts.get('a')).toBe(2);
+    expect(counts.get('b')).toBe(1);
+    expect(counts.get('c')).toBeUndefined();
   });
 });

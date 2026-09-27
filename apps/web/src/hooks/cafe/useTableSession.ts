@@ -21,6 +21,12 @@ export interface TableSession {
   expiresAt: string;
   /** false ⇒ management switched this table's bell off (0031): hide the FAB. */
   bellEnabled: boolean;
+  /**
+   * The table's branch, as `open_table_session` returns it (0225). The menu, the
+   * café settings and the degraded check follow it. Null on a stack that does
+   * not return it: the page keeps the branch it rendered.
+   */
+  venueId: string | null;
 }
 
 export interface UseTableSession {
@@ -35,9 +41,7 @@ export interface UseTableSession {
 }
 
 type BootResult =
-  | { name: 'invalid' }
-  | { name: 'error' }
-  | { name: 'bound'; session: TableSession };
+  { name: 'invalid' } | { name: 'error' } | { name: 'bound'; session: TableSession };
 
 /**
  * One shared boot per token (module scope). React StrictMode double-mounts the
@@ -58,13 +62,20 @@ function bootSession(sb: BrowserSupabase, token: string): Promise<BootResult> {
       if (error) return { name: 'error' };
     }
     const { data, error } = await appRpc(sb, 'open_table_session', { p_token: token });
-    if (error) return isRpcError(error, 'TOKEN_INVALID') ? { name: 'invalid' } : { name: 'error' };
+    if (error) {
+      // 0225: a table at a branch that is not open to guests is TABLE_NOT_FOUND —
+      // for the guest that is the same dead QR as a forged one: scan again.
+      return isRpcError(error, 'TOKEN_INVALID') || isRpcError(error, 'TABLE_NOT_FOUND')
+        ? { name: 'invalid' }
+        : { name: 'error' };
+    }
     const row = data as {
       session_id: string;
       table_id: string;
       table_number: string;
       expires_at: string;
       bell_enabled?: boolean;
+      venue_id?: string | null;
     };
     return {
       name: 'bound',
@@ -75,6 +86,8 @@ function bootSession(sb: BrowserSupabase, token: string): Promise<BootResult> {
         expiresAt: row.expires_at,
         // 0031 added the key; a pre-0031 stack (staging) simply keeps the bell.
         bellEnabled: row.bell_enabled !== false,
+        // 0225 returns the table's branch; a pre-0225 stack keeps the rendered one.
+        venueId: row.venue_id ?? null,
       },
     };
   })().catch((): BootResult => ({ name: 'error' }));

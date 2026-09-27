@@ -1,9 +1,10 @@
 /**
- * Which court a phone gets. The scene (scene.ts) costs most in two places —
- * the shadow pass (a 1024² map re-rendered every frame with every racket part
- * as a caster) and the 36-sphere ball trail — so a low-end phone gets the
- * SAME court without those two: the ball keeps its ground disc, which reads
- * as its shadow from the top-down camera anyway.
+ * Which court a phone gets. The scene (scene.ts) costs most in the shadow
+ * pass — a 1024² map re-rendered every frame with every racket part as a
+ * caster — so a low-end phone gets the SAME court without it: the ball keeps
+ * its ground disc, which reads as its shadow from the top-down camera anyway.
+ * The ball trail is NOT cut; unlit spheres that never write depth are cheap,
+ * and it is the effect people notice, so lite only halves the ghost count.
  *
  * The tier is decided once, from expo-device's year class (Facebook's
  * device-year heuristic: RAM, cores, clock on Android; the model on iOS) and
@@ -11,9 +12,12 @@
  * the platforms have their own lines. An Android phone that reports nothing
  * is assumed low-end; an iPhone that reports nothing is a model newer than
  * expo-device's table, so it is assumed fine. Pure: unit-tested; the
- * expo-device reads live in deviceQuality.ts.
+ * expo-device reads live in deviceQuality.ts. The two builds themselves are the
+ * shared court's (@touch/court3d/quality).
  */
-export type CourtQuality = 'full' | 'lite';
+import type { CourtQuality } from '@touch/court3d/quality';
+
+export type { CourtQuality };
 
 export type CourtOS = 'ios' | 'android' | 'other';
 

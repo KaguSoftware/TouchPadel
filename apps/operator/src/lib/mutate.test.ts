@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
+// Relative on purpose: the replay function (Deno) cannot import @touch/core, so this
+// JSON under functions/_shared is the one artefact all three copies are checked against.
+import shared from '../../../../packages/db/supabase/functions/_shared/mutation-types.json';
+import { MUTATION_TYPES, PIN_GATED_RPCS } from '@touch/core/schemas/mutations';
 import { DIRECT_RPC } from './mutate';
 
 /**
@@ -17,6 +20,19 @@ const UUID_B = '5c9f1f1e-2b3a-4c4d-8e9f-000000000002';
 describe('DIRECT_RPC', () => {
   it('covers every registered mutation type', () => {
     expect(Object.keys(DIRECT_RPC).sort()).toEqual([...MUTATION_TYPES].sort());
+  });
+
+  it('matches the shared mutation-types.json the replay function boots against', () => {
+    // Deno cannot import @touch/core, so the replay function asserts its
+    // MUTATION_RPCS against this JSON at boot. Asserting the same list here
+    // closes the loop: core ↔ operator ↔ replay are one list, proven, not mirrored
+    // by comment (PHASE-2 criticals, C4).
+    expect([...shared.types].sort()).toEqual([...MUTATION_TYPES].sort());
+    expect(Object.keys(DIRECT_RPC).sort()).toEqual([...shared.types].sort());
+  });
+
+  it('matches the shared pinGatedRpcs list the replay function verifies against (0115)', () => {
+    expect([...shared.pinGatedRpcs].sort()).toEqual([...PIN_GATED_RPCS].sort());
   });
 
   it('order.add_items maps to till_add_items with snake_case items', () => {
@@ -61,6 +77,9 @@ describe('DIRECT_RPC', () => {
     const card = DIRECT_RPC['tab.settle']({ tabId: UUID_A, method: 'card' }, KEY, DEV);
     expect(card.args.p_tendered_iqd).toBeNull();
     expect(card.args.p_amount_iqd).toBeNull();
+    expect(card.args.p_expected_total_iqd).toBeNull();
+    const guarded = DIRECT_RPC['tab.settle']({ tabId: UUID_A, method: 'card', expectedTotalIqd: 45000 }, KEY, DEV);
+    expect(guarded.args.p_expected_total_iqd).toBe(45000);
   });
 
   it('adjustment.apply discriminates discount vs price override, both idempotent (0049)', () => {
@@ -128,6 +147,19 @@ describe('DIRECT_RPC', () => {
     expect(call.args.p_guest_id).toBeNull();
   });
 
+  it('reservation.create never sends p_players, even for a legacy payload that carries players (0147)', () => {
+    const base = {
+      clientRef: 'DESK-01-01J5XABCDEFGHJKMNPQRSTVWXY',
+      courtId: UUID_A,
+      kind: 'booking',
+      startAt: '2026-09-07T15:00:00.000Z',
+      endAt: '2026-09-07T16:00:00.000Z',
+      guestName: 'Walk-in',
+    };
+    expect('p_players' in DIRECT_RPC['reservation.create'](base, KEY, DEV).args).toBe(false);
+    expect('p_players' in DIRECT_RPC['reservation.create']({ ...base, players: 4 }, KEY, DEV).args).toBe(false);
+  });
+
   it('waiter_call.action routes ack vs resolve', () => {
     expect(DIRECT_RPC['waiter_call.action']({ callId: UUID_A, action: 'ack' }, KEY, DEV).fn).toBe(
       'ack_waiter_call',
@@ -135,6 +167,64 @@ describe('DIRECT_RPC', () => {
     expect(
       DIRECT_RPC['waiter_call.action']({ callId: UUID_A, action: 'resolve' }, KEY, DEV).fn,
     ).toBe('resolve_waiter_call');
+  });
+
+  // --- Item 9 / C3 (0120) -------------------------------------------------------
+  it('tab.cancel and tab.settle_zero carry the reason, the key and the device', () => {
+    const cancel = DIRECT_RPC['tab.cancel']({ tabId: UUID_A, reasonCode: 'mistake: opened twice' }, KEY, DEV);
+    expect(cancel.fn).toBe('cancel_tab');
+    expect(cancel.args).toEqual({ p_tab_id: UUID_A, p_reason_code: 'mistake: opened twice', p_idempotency_key: KEY, p_device_id: DEV });
+    const zero = DIRECT_RPC['tab.settle_zero']({ tabId: UUID_A, reasonCode: 'booking_no_show' }, KEY, DEV);
+    expect(zero.fn).toBe('settle_zero_tab');
+    expect(zero.args).toEqual({ p_tab_id: UUID_A, p_reason_code: 'booking_no_show', p_idempotency_key: KEY, p_device_id: DEV });
+  });
+
+  it('payment.refund maps items to snake_case p_items, or null for a money-only refund', () => {
+    const withItems = DIRECT_RPC['payment.refund'](
+      { paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'wrong_item', items: [{ orderItemId: UUID_B, qty: 2 }] },
+      KEY,
+      DEV,
+    );
+    expect(withItems.fn).toBe('refund');
+    expect(withItems.args).toEqual({
+      p_payment_id: UUID_A,
+      p_amount_iqd: 5000,
+      p_pin: '1234',
+      p_reason_code: 'wrong_item',
+      p_items: [{ order_item_id: UUID_B, qty: 2 }],
+      p_idempotency_key: KEY,
+      p_device_id: DEV,
+    });
+    const moneyOnly = DIRECT_RPC['payment.refund']({ paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'goodwill' }, KEY, DEV);
+    expect(moneyOnly.args.p_items).toBeNull();
+  });
+
+  it('order_item.void declares NO idempotency key — void_order_item_internal is state-idempotent', () => {
+    const call = DIRECT_RPC['order_item.void']({ orderItemId: UUID_B, pin: '1234', reasonCode: 'dropped' }, KEY, DEV);
+    expect(call.fn).toBe('void_after_send');
+    expect(call.args).toEqual({ p_order_item_id: UUID_B, p_pin: '1234', p_reason_code: 'dropped', p_device_id: DEV });
+    expect('p_idempotency_key' in call.args).toBe(false);
+  });
+
+  it('stock.waste maps to record_waste with the key, defaulting the movement to a spill', () => {
+    const call = DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 2.5, reasonCode: 'dropped a tray' }, KEY, DEV);
+    expect(call.fn).toBe('record_waste');
+    expect(call.args).toEqual({
+      p_ingredient_id: UUID_A,
+      p_qty: 2.5,
+      p_movement_type: 'waste_spill',
+      p_reason_code: 'dropped a tray',
+      p_idempotency_key: KEY,
+      p_device_id: DEV,
+    });
+    expect(DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 1, movementType: 'waste_spoilage', reasonCode: 'x' }, KEY, DEV).args.p_movement_type).toBe('waste_spoilage');
+  });
+
+  it('stock.waste passes the store only when the payload names one (wave 5 §2.8.6)', () => {
+    const bakery = DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 1, reasonCode: 'x', location: 'bakery' }, KEY, DEV);
+    expect(bakery.args.p_location).toBe('bakery');
+    const none = DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 1, reasonCode: 'x' }, KEY, DEV);
+    expect('p_location' in none.args).toBe(false);
   });
 
   it('never lets a price field through — prices are server snapshots', () => {

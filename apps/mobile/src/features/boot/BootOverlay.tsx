@@ -42,7 +42,7 @@
  * message is exactly the silent-white-screen bug in another colour.
  */
 import { useEffect, useState } from 'react';
-import { Animated, Easing, StyleSheet } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LtrIsland } from '../../i18n/direction';
 import { useReduceMotion } from '../../lib/useReduceMotion';
@@ -61,11 +61,18 @@ const WATCHDOG_MS = 1500;
 
 /**
  * The lockup's width, in points — and it MUST equal the native splash's
- * `imageWidth` in app.config.ts (220), as `brand.blue` must equal its
+ * `imageWidth` in app.config.ts, as `brand.blue` must equal its
  * `backgroundColor`, because this screen's first frame is the splash's last
  * one. bootOverlay.test.ts holds the two files to each other.
+ *
+ * IT DIFFERS BY PLATFORM because the splash's own width does. Android 12+ masks
+ * `windowSplashScreenAnimatedIcon` to a circle and clipped the 220 pt lockup
+ * down to "ouch Pad"; the splash plugin's android block therefore draws it at
+ * 150, the widest this 900x332 mark can be inside that mask. iOS has no mask
+ * and keeps 220. A single number here would restore the snap at the handoff —
+ * in whichever direction it was wrong.
  */
-const LOGO_W = 220;
+const LOGO_W = Platform.OS === 'android' ? 150 : 220;
 const FRAME = logoFrame(LOGO_W);
 
 /**

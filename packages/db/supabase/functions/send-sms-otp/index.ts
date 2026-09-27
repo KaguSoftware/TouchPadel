@@ -10,13 +10,22 @@
  *
  *   POST (from GoTrue only)  { user: { id, phone, ... }, sms: { otp, sms_type? } }
  *     -> 200 {}                                   sent (or `log` provider)
- *     -> 401 { error: { http_code: 401, message: 'UNAUTHORIZED' } }   bad / missing Standard-Webhooks signature
- *     -> 400 { error: { http_code: 400, message: 'BAD_REQUEST' } }
- *     -> 403 { error: { http_code: 403, message: 'SMS_DISABLED' | 'PHONE_NOT_ALLOWED' } }
- *     -> 429 { error: { http_code: 429, message: 'PHONE_RATE' | 'DAILY_CAP' } }
- *     -> 500 { error: { http_code: 500, message: 'SMS_SEND_FAILED' } }
+ *     -> 200 { error: { http_code: 401, message: 'UNAUTHORIZED' } }   bad / missing Standard-Webhooks signature
+ *     -> 200 { error: { http_code: 400, message: 'BAD_REQUEST' } }
+ *     -> 200 { error: { http_code: 403, message: 'SMS_DISABLED' | 'PHONE_NOT_ALLOWED' } }
+ *     -> 200 { error: { http_code: 429, message: 'PHONE_RATE' | 'DAILY_CAP' } }
+ *     -> 200 { error: { http_code: 500, message: 'SMS_SEND_FAILED' } }
  *   The message string is what GoTrue relays to the app as the auth error, so
  *   the app can map it (features/auth/phoneOtp.ts).
+ *
+ * WHY EVERY REFUSAL IS HTTP 200. GoTrue reads the `{ error }` body ONLY on a
+ * 200/202 response (supabase/auth internal/hooks/hookshttp: 200 -> hookserrors.
+ * Check -> the client gets http_code + message). Any other status is swallowed
+ * into a generic 500 "Unexpected status code returned from hook", so the app
+ * could never tell "switched off" from "too many" from "vendor down" — found
+ * on hosted 2026-09-15 with the gate closed. And a 429/503 carrying a
+ * retry-after header would make GoTrue RETRY the hook, i.e. send a second
+ * billed code; never return those.
  *
  * WHY verify_jwt = false. GoTrue calls with no Supabase JWT; authenticity is
  * the Standard-Webhooks HMAC over the raw body (verify.ts), keyed by
@@ -29,17 +38,26 @@
  * per number", or "stop now". The gate ships DISABLED, so this function
  * refuses every send until the runbook flips app.sms_limits.enabled.
  *
- * Secrets: SEND_SMS_HOOK_SECRET, SMS_PROVIDER (log | twilio | otpiq) and the
+ * THE VENDOR IS BEHIND ONE FUNCTION. This file never names a vendor: it calls
+ * `sendSms()` from _shared/sms, the single seam every edge function uses to
+ * text a guest. Swapping vendors is a secrets change (SMS_PROVIDER + keys),
+ * not an edit here — see _shared/sms/types.ts for the contract and recipe.
+ *
+ * Secrets: SEND_SMS_HOOK_SECRET, SMS_PROVIDER (log | twilio | otpiq | whatsapp) and the
  * chosen vendor's keys — see supabase/functions/.env.example.
  */
 import { json } from '../_shared/http.ts';
+import { sendSms, SmsProviderError } from '../_shared/sms/index.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { hookError, parseHookPayload, renderTemplate, statusForRefusal } from './otp.ts';
-import { providerFromEnv } from './providers/index.ts';
-import { SmsProviderError } from './providers/types.ts';
 import { headersOf, verifyStandardWebhook } from './verify.ts';
 
-const provider = providerFromEnv((name) => Deno.env.get(name));
+const env = (name: string) => Deno.env.get(name);
+
+/** A refusal GoTrue relays to the app: always HTTP 200, the real status in the body (see header). */
+function refuse(httpCode: number, message: string): Response {
+  return json(hookError(httpCode, message), 200);
+}
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(hookError(405, 'METHOD_NOT_ALLOWED'), 405);
@@ -52,19 +70,19 @@ Deno.serve(async (req) => {
   });
   if (!verified.ok) {
     console.warn(`[send-sms-otp] refused: ${verified.reason}`);
-    return json(hookError(401, 'UNAUTHORIZED'), 401);
+    return refuse(401, 'UNAUTHORIZED');
   }
 
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(raw);
   } catch {
-    return json(hookError(400, 'BAD_REQUEST'), 400);
+    return refuse(400, 'BAD_REQUEST');
   }
   const parsed = parseHookPayload(parsedJson);
   if (!parsed.ok) {
     console.warn(`[send-sms-otp] bad payload: ${parsed.reason}`);
-    return json(hookError(400, 'BAD_REQUEST'), 400);
+    return refuse(400, 'BAD_REQUEST');
   }
   const { payload } = parsed;
 
@@ -76,48 +94,60 @@ Deno.serve(async (req) => {
   });
   if (gate.error) {
     console.error(`[send-sms-otp] sms_send_gate failed: ${gate.error.message}`);
-    return json(hookError(500, 'SMS_SEND_FAILED'), 500);
+    return refuse(500, 'SMS_SEND_FAILED');
   }
   const decision = gate.data as { allowed: boolean; reason?: string; send_id: number };
   if (!decision.allowed) {
     const reason = decision.reason ?? 'SMS_DISABLED';
     console.warn(`[send-sms-otp] refused ${reason} for ${payload.phoneE164.slice(0, 7)}…`);
-    return json(hookError(statusForRefusal(reason), reason), statusForRefusal(reason));
+    return refuse(statusForRefusal(reason), reason);
+  }
+
+  // The guest's language, for vendors with per-language templates (Meta
+  // WhatsApp). Best effort: a brand-new phone sign-up has the default row, a
+  // missing profile or a query error simply leaves it unset.
+  let lang: 'en' | 'ar' | undefined;
+  if (payload.userId) {
+    const prof = await service.from('profiles').select('preferred_lang').eq('id', payload.userId).maybeSingle();
+    const v = prof.data?.preferred_lang;
+    if (v === 'en' || v === 'ar') lang = v;
   }
 
   try {
-    const result = await provider.send({
-      to: payload.phoneE164,
-      body: renderTemplate(payload.otp),
-      code: payload.otp,
-    });
+    const result = await sendSms(
+      { to: payload.phoneE164, body: renderTemplate(payload.otp), code: payload.otp, lang },
+      env,
+    );
     await service.schema('app').rpc('sms_send_result', {
       p_send_id: decision.send_id,
       p_status: 'sent',
-      p_provider: provider.name,
+      p_provider: result.provider,
       p_channel: result.channel ?? null,
       p_provider_msg_id: result.id ?? null,
       p_error: null,
       p_cost_iqd: result.costIqd ?? null,
     });
+    if (typeof result.remainingCredit === 'number') {
+      console.log(`[send-sms-otp] ${result.provider} remaining credit ${result.remainingCredit}`);
+    }
     return json({}, 200);
   } catch (error) {
-    const message =
+    // sendSms only ever rejects with SmsProviderError; the fallback covers a
+    // throw from the stamp RPC client itself.
+    const failure =
       error instanceof SmsProviderError
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : String(error);
-    console.error(`[send-sms-otp] ${provider.name} send failed: ${message}`);
+        ? error
+        : new SmsProviderError('unknown', error instanceof Error ? error.message : String(error));
+    console.error(`[send-sms-otp] ${failure.provider} send failed: ${failure.message}`);
     await service.schema('app').rpc('sms_send_result', {
       p_send_id: decision.send_id,
       p_status: 'failed',
-      p_provider: provider.name,
+      p_provider: failure.provider,
       p_channel: null,
       p_provider_msg_id: null,
-      p_error: message.slice(0, 500),
+      p_error: failure.message.slice(0, 500),
       p_cost_iqd: null,
     });
-    return json(hookError(500, 'SMS_SEND_FAILED'), 500);
+    return refuse(500, 'SMS_SEND_FAILED');
   }
 });

@@ -14,6 +14,7 @@ import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import {
   eligibleRevealGroups,
+  isRequiredAddonRefusal,
   minMaxError,
   moveInList,
   revealedGroupIds,
@@ -44,7 +45,7 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
       toast.ok(tr('op.toast.saved'));
       await refresh();
     },
-    onError: (e) => toast.err(e),
+    onError: (e) => toast.err(isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e),
   });
 
   const createSub = useMutation({
@@ -66,7 +67,7 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
       toast.ok(tr('op.toast.saved'));
       await refresh();
     },
-    onError: (e) => toast.err(e),
+    onError: (e) => toast.err(isRequiredAddonRefusal(e) ? tr('ws.pricing.addons.requiredAddon') : e),
   });
 
   async function clearAll() {

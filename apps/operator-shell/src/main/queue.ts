@@ -18,6 +18,8 @@ export interface QueueRow {
   createdAt: string;
   staffId: string | null;
   deviceId: string | null;
+  /** The branch the write was queued under (v6, multi-venue audit 0228), or null. */
+  venueScope: string | null;
   state: 'pending' | 'inflight' | 'acked' | 'conflict' | 'failed' | 'resolved';
   attempts: number;
   lastError: string | null;
@@ -51,7 +53,8 @@ const BASE_DDL = `
   CREATE TABLE IF NOT EXISTS pin_cache (
     pin_hash   TEXT PRIMARY KEY,                       -- scrypt(pin, station salt), cached on online success
     role       TEXT NOT NULL,                          -- authorisation level the pin demonstrated
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    staff_id   TEXT                                    -- v5: whose pin, when the server said so
   );
   CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,                            -- e.g. 'pin_salt', cache bookkeeping
@@ -90,7 +93,9 @@ function migrate(d: Database.Database): void {
     // model — the server never exposes whose pin a hash is). The v1 table was
     // never written by anything, so drop-and-recreate loses no data.
     const pinCols = d.pragma('table_info(pin_cache)') as { name: string }[];
-    if (pinCols.some((c) => c.name === 'staff_id')) {
+    // Keyed on the missing pin_hash, not on staff_id: v5 brings a (nullable,
+    // non-key) staff_id back, and a fresh file is created with it.
+    if (pinCols.length > 0 && !pinCols.some((c) => c.name === 'pin_hash')) {
       d.exec('DROP TABLE pin_cache');
       d.exec(`CREATE TABLE pin_cache (
         pin_hash   TEXT PRIMARY KEY,
@@ -122,7 +127,28 @@ function migrate(d: Database.Database): void {
     }
     d.pragma('user_version = 3');
   }
-  d.pragma('user_version = 4');
+  if (version < 5) {
+    // v5: whose PIN a cached hash is, when the server said so (verify_manager_pin
+    // returns the manager's id; the lock screen's verify_own_pin is the signed-in
+    // person's). Leaving the station needs a manager PIN that is NOT the signed-in
+    // person's own, and offline this column is the only way to tell. Nullable: a
+    // pin observed after a queued write has no owner attached, and says so.
+    const cols = d.pragma('table_info(pin_cache)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'staff_id')) {
+      d.exec('ALTER TABLE pin_cache ADD COLUMN staff_id TEXT');
+    }
+  }
+  if (version < 6) {
+    // v6 (multi-venue audit, 0228): the branch the screens showed when the write
+    // was queued. Replay sends it as x-venue-scope, so a write queued on a
+    // machine that is not a registered station lands at that branch. Nullable:
+    // older rows and a registered station's rows go without (its branch wins).
+    const cols = d.pragma('table_info(mutation_queue)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'venue_scope')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN venue_scope TEXT');
+    }
+  }
+  d.pragma('user_version = 6');
 }
 
 /** Open (or create) a queue db at an explicit path — the testable seam. */
@@ -201,8 +227,10 @@ export function enqueue(m: MutationEnvelope): { localId: string; state: 'queued'
   openQueue()
     .prepare(
       `INSERT INTO mutation_queue
-         (local_id, idempotency_key, mutation_type, payload, payload_enc, created_at, staff_id, device_id)
-       VALUES (@localId, @idempotencyKey, @mutationType, @payload, @payloadEnc, @createdAt, @staffId, @deviceId)`,
+         (local_id, idempotency_key, mutation_type, payload, payload_enc, created_at, staff_id, device_id,
+          venue_scope)
+       VALUES (@localId, @idempotencyKey, @mutationType, @payload, @payloadEnc, @createdAt, @staffId, @deviceId,
+               @venueScope)`,
     )
     .run({
       localId: m.localId,
@@ -213,6 +241,7 @@ export function enqueue(m: MutationEnvelope): { localId: string; state: 'queued'
       createdAt: m.createdAt,
       staffId: m.staffId,
       deviceId: m.deviceId,
+      venueScope: m.venueScope ?? null,
     });
   // better-sqlite3 is synchronous; with synchronous=FULL the WAL is fsynced before
   // .run() returns — safe to confirm to the renderer now.
@@ -233,6 +262,7 @@ function toRow(r: Record<string, unknown>): QueueRow {
     createdAt: r.created_at as string,
     staffId: (r.staff_id as string | null) ?? null,
     deviceId: (r.device_id as string | null) ?? null,
+    venueScope: (r.venue_scope as string | null) ?? null,
     state: r.state as QueueRow['state'],
     attempts: r.attempts as number,
     lastError: (r.last_error as string | null) ?? null,
@@ -358,6 +388,7 @@ export function listBlockingRows(): QueueRow[] {
         createdAt: r.created_at as string,
         staffId: (r.staff_id as string | null) ?? null,
         deviceId: (r.device_id as string | null) ?? null,
+        venueScope: (r.venue_scope as string | null) ?? null,
         state: 'failed' as QueueRow['state'],
         attempts: r.attempts as number,
         lastError: err.message,

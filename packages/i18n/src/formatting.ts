@@ -80,6 +80,11 @@ export function formatMonthShort(date: Date, locale: Locale, timeZone: string = 
   return dtf(locale, timeZone, { month: 'short' }).format(date);
 }
 
+/** Month and year for a calendar heading: "September 2026" / "أيلول 2026". */
+export function formatMonthYear(date: Date, locale: Locale, timeZone: string = VENUE_TZ): string {
+  return dtf(locale, timeZone, { month: 'long', year: 'numeric' }).format(date);
+}
+
 /** Day of month with Latin digits: "24". */
 export function formatDayNumber(date: Date, locale: Locale, timeZone: string = VENUE_TZ): string {
   return dtf(locale, timeZone, { day: 'numeric' }).format(date);

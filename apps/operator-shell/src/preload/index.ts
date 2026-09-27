@@ -5,6 +5,7 @@ import {
   type DiscoverRequest,
   type DiscoverResult,
   type LanFrameForRenderer,
+  type LeaveResult,
   type MutationEnvelope,
   type MutationResult,
   type PairingInfoResult,
@@ -44,16 +45,41 @@ const touch = {
   sendLanStatus: (update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void =>
     ipcRenderer.send(IPC.lanStatus, update),
 
-  quitApp: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.quitApp),
+  quitApp: (pin: string): Promise<LeaveResult> => ipcRenderer.invoke(IPC.quitApp, pin),
+
+  exitFullscreen: (pin: string): Promise<LeaveResult> =>
+    ipcRenderer.invoke(IPC.exitFullscreen, pin),
 
   getCachedRef: (key: string): Promise<unknown> => ipcRenderer.invoke(IPC.getCachedRef, key),
 
   // Fire-and-forget pushes: the renderer is the auth + connectivity authority.
   pushAuthState: (s: AuthState | null): void => ipcRenderer.send(IPC.authState, s),
   pushConnState: (online: boolean): void => ipcRenderer.send(IPC.connState, online),
+  /** The kitchen board is up (or gone) — hides/shows the macOS traffic lights. */
+  pushChromeless: (chromeless: boolean): void => ipcRenderer.send(IPC.chromeless, chromeless),
   cachePut: (key: string, payload: unknown): void =>
     ipcRenderer.send(IPC.cachePut, { key, payload }),
-  pinObserved: (pin: string): void => ipcRenderer.send(IPC.pinObserved, pin),
+  pinObserved: (pin: string, staffId?: string): void =>
+    ipcRenderer.send(IPC.pinObserved, pin, staffId),
+
+  /**
+   * Full-screen state, pushed on every change and once on subscribe — the
+   * rail mounts long after the window settled, so a subscriber has to be told
+   * where things stand rather than wait for the next transition.
+   */
+  onFullscreenState: (cb: (fullscreen: boolean) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, fullscreen: boolean) => cb(fullscreen);
+    ipcRenderer.on(IPC.fullscreenState, listener);
+    void ipcRenderer.invoke(IPC.fullscreenState).then((v: boolean) => cb(v));
+    return () => ipcRenderer.removeListener(IPC.fullscreenState, listener);
+  },
+
+  /** The red traffic light was pressed; main has held the close. */
+  onCloseRequested: (cb: () => void): (() => void) => {
+    const listener = () => cb();
+    ipcRenderer.on(IPC.closeRequested, listener);
+    return () => ipcRenderer.removeListener(IPC.closeRequested, listener);
+  },
 
   onMutationResult: (cb: (r: MutationResult) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, r: MutationResult) => cb(r);
@@ -85,11 +111,13 @@ const touch = {
 
   // Auto-update (main/updater.ts). The rail mounts after sign-in, long after
   // the push may have landed, so a subscriber first asks for the current state.
-  onUpdateReady: (cb: (info: UpdateReadyInfo) => void): (() => void) => {
+  // null withdraws an update (its install refused, an installer started, or a
+  // newer download is replacing it).
+  onUpdateReady: (cb: (info: UpdateReadyInfo | null) => void): (() => void) => {
     void ipcRenderer.invoke(IPC.updateState).then((info: UpdateReadyInfo | null) => {
       if (info) cb(info);
     });
-    const listener = (_e: IpcRendererEvent, info: UpdateReadyInfo) => cb(info);
+    const listener = (_e: IpcRendererEvent, info: UpdateReadyInfo | null) => cb(info);
     ipcRenderer.on(IPC.updateReady, listener);
     return () => ipcRenderer.removeListener(IPC.updateReady, listener);
   },

@@ -118,5 +118,185 @@ export function countWithoutCost(
   items: readonly { id: string; is_active: boolean }[],
   costs: ReadonlyMap<string, number>,
 ): number {
-  return items.filter((i) => i.is_active && !costs.has(i.id)).length;
+  return items.filter((i) => lacksCost(i, costs)).length;
+}
+
+/** Whether an item counts as "without a cost": active and no cost row (unknown, never 0). */
+export function lacksCost(item: { id: string; is_active: boolean }, costs: ReadonlyMap<string, number>): boolean {
+  return item.is_active && !costs.has(item.id);
+}
+
+export type ItemListMode = 'category' | 'search' | 'noCost';
+
+export interface ListableItem extends Sortable, Named {
+  category_id: string;
+  is_active: boolean;
+}
+
+/**
+ * The rows the item list shows, and whether they can be reordered.
+ *
+ * Reordering is a within-one-category operation, so it is only offered on the
+ * plain category view. A search looks through EVERY category (searching from
+ * the wrong category used to find nothing and print "1 of 1"), and the
+ * "without a cost" view gathers items from every category too; both show the
+ * category name on each row and turn the arrows off. The cost filter narrows
+ * first, then the search within it.
+ */
+export function itemListView<T extends ListableItem>(
+  items: readonly T[],
+  opts: {
+    categoryId: string | null;
+    search: string;
+    noCostOnly: boolean;
+    costs: ReadonlyMap<string, number>;
+    /** Category id → its position in the category list, so mixed rows keep the menu's order. */
+    categoryRank: ReadonlyMap<string, number>;
+  },
+): { rows: T[]; mode: ItemListMode; reorderable: boolean } {
+  const searching = opts.search.trim() !== '';
+  if (opts.noCostOnly) {
+    const rows = items.filter((i) => lacksCost(i, opts.costs) && matchesSearch(i, opts.search));
+    return { rows: sortAcrossCategories(rows, opts.categoryRank), mode: 'noCost', reorderable: false };
+  }
+  if (searching) {
+    const rows = items.filter((i) => matchesSearch(i, opts.search));
+    return { rows: sortAcrossCategories(rows, opts.categoryRank), mode: 'search', reorderable: false };
+  }
+  return { rows: sortRows(items.filter((i) => i.category_id === opts.categoryId)), mode: 'category', reorderable: true };
+}
+
+/** Rows from several categories: grouped by category, then the category's own order. */
+function sortAcrossCategories<T extends ListableItem>(rows: readonly T[], rank: ReadonlyMap<string, number>): T[] {
+  const r = (id: string) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
+  return [...rows].sort(
+    (a, b) =>
+      r(a.category_id) - r(b.category_id) ||
+      a.sort_order - b.sort_order ||
+      a.name_en.localeCompare(b.name_en) ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+/** The sort_order that puts a NEW row at the end of `rows`. */
+export function nextSortOrder(rows: readonly { sort_order: number }[]): number {
+  return rows.length === 0 ? 0 : Math.max(...rows.map((r) => r.sort_order)) + 1;
+}
+
+export type OrderableState = 'orderable' | 'inactive' | 'soldOut' | 'offToday' | 'blocked';
+
+/**
+ * Can a guest order this item right now, and if not, the first reason. Same
+ * precedence as the server's `menu_item_availability`: the item's own switches
+ * explain the greying before stock does. `offToday` reads the flag against the
+ * station date, exactly as the item list's badge does.
+ */
+export function orderableState(
+  item: { is_active: boolean; sold_out: boolean; unavailable_on: string | null },
+  todayIso: string,
+  blockedByStock: boolean,
+): OrderableState {
+  if (!item.is_active) return 'inactive';
+  if (item.sold_out) return 'soldOut';
+  if (item.unavailable_on === todayIso) return 'offToday';
+  if (blockedByStock) return 'blocked';
+  return 'orderable';
+}
+
+/* ---------- product release and the manager locks (build-contracts-2026-09-23 §2.9, §2.13, §5.5) ---------- */
+
+export type CategoryKind = 'cafe' | 'shop';
+
+/** Run statuses after which a released item is an ordinary menu item. */
+const RELEASE_OVER: readonly string[] = ['live', 'done'];
+
+export interface ReleaseState {
+  is_active: boolean;
+  launched_at: string | null;
+  release_run_id: string | null;
+  release_run: { status: string } | null;
+}
+
+/**
+ * Still in its product release: the run is neither live nor done. The server
+ * then refuses a price change, a new size and the switch-on for everyone, the
+ * owner included (ITEM_IN_RELEASE): the price step sets the prices and the
+ * owner's Launch puts it on sale. A run this station cannot read counts as
+ * unfinished; the server is the wall either way.
+ */
+export function inRelease(item: ReleaseState): boolean {
+  return item.release_run_id !== null && !RELEASE_OVER.includes(item.release_run?.status ?? '');
+}
+
+/**
+ * Not a draft: on sale once, or on sale now. The server's size lock reads the
+ * same test (`launched_at is not null or is_active`), and every item that
+ * existed when product_release landed counts as launched.
+ */
+export function everOnSale(item: Pick<ReleaseState, 'is_active' | 'launched_at'>): boolean {
+  return item.launched_at !== null || item.is_active;
+}
+
+/**
+ * Why the sizes are read-only: the release sets them, or a price change does.
+ * `onSale` locks the sizes' names with their prices (wave5-addendum-2026-09-25
+ * §2.2, #9: 0195's upsert_variant refuses a manager's rename of a launched
+ * size with PRICE_VIA_PROTOCOL hint `name`); a rename rides on "Change the
+ * price" as `renames`.
+ */
+export type PricesLock = 'inRelease' | 'onSale';
+/** Why the Active switch cannot be switched on from this form. */
+export type SwitchLock = 'inRelease' | 'ownerLaunches' | 'putOnSale' | 'savedHidden';
+
+export interface ItemLocks {
+  prices: PricesLock | null;
+  switchOn: SwitchLock | null;
+}
+
+/**
+ * What the item form locks, and why, mirroring upsert_menu_item and
+ * upsert_variant; `item` null is a new item in a category of `kind`.
+ *  - In release: prices and the switch, for everyone.
+ *  - On sale, without editLaunchedPrices: prices and the sizes' names, which
+ *    change through a price change. The switch works as before, so a launched
+ *    item a manager switched off is switched back on as today.
+ *  - A draft, without launchDirectly: prices stay editable (the draft
+ *    exception). A café draft goes on sale when the owner launches it, a shop
+ *    draft through Put on sale (a shop_launch change), and a new shop product
+ *    is saved hidden. A new café item never opens the form: its button is
+ *    "Propose a new item" (newItemMode).
+ */
+export function itemLocks(
+  item: ReleaseState | null,
+  kind: CategoryKind,
+  caps: { editLaunchedPrices: boolean; launchDirectly: boolean },
+): ItemLocks {
+  if (item === null) {
+    if (caps.launchDirectly) return { prices: null, switchOn: null };
+    return { prices: null, switchOn: kind === 'shop' ? 'savedHidden' : 'ownerLaunches' };
+  }
+  if (inRelease(item)) return { prices: 'inRelease', switchOn: 'inRelease' };
+  if (everOnSale(item)) return { prices: caps.editLaunchedPrices ? null : 'onSale', switchOn: null };
+  if (caps.launchDirectly) return { prices: null, switchOn: null };
+  return { prices: null, switchOn: kind === 'shop' ? 'putOnSale' : 'ownerLaunches' };
+}
+
+/**
+ * The page's add button. Without launchDirectly a new café item starts as a
+ * product release (ITEM_VIA_RELEASE, #52); a shop product is still created
+ * here, saved hidden.
+ */
+export function newItemMode(kind: CategoryKind | undefined, launchDirectly: boolean): 'create' | 'propose' {
+  return !launchDirectly && kind === 'cafe' ? 'propose' : 'create';
+}
+
+/** A run title as its starter typed it: staff may type one language, so fall back to the other. */
+export function runTitle(
+  locale: 'en' | 'ar',
+  run: { title_en: string | null; title_ar: string | null } | null,
+): string | null {
+  if (!run) return null;
+  const en = run.title_en?.trim() || null;
+  const ar = run.title_ar?.trim() || null;
+  return locale === 'ar' ? (ar ?? en) : (en ?? ar);
 }

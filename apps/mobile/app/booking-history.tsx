@@ -16,7 +16,7 @@ import {
   type BookingRow,
 } from '../src/features/booking/logic';
 import { mapErrorToKey } from '../src/features/booking/errors';
-import { useCourts } from '../src/features/availability/hooks';
+import { useAllCourts } from '../src/features/availability/hooks';
 import { formatPrice } from '../src/lib/price';
 import { space, useTheme } from '../src/theme';
 import { Button, Hint, Screen } from '../src/components/ui';
@@ -49,7 +49,8 @@ function BookingHistoryScreen() {
   const insets = useSafeAreaInsets();
   const bookings = useMyBookings();
   const pull = usePullRefresh(bookings.refetch);
-  const courts = useCourts();
+  // Every open branch's courts: past bookings can be at any branch.
+  const courts = useAllCourts();
   const cleared = useHistoryClearedAt();
   const clear = useClearHistory();
   const toast = useToast();
@@ -98,6 +99,7 @@ function BookingHistoryScreen() {
       <Screen edges={[]}>
         {header}
         <ErrorState
+          testID="booking-history.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(bookings.error))}
           retryLabel={t('common.retry')}
@@ -116,6 +118,7 @@ function BookingHistoryScreen() {
     const actor = cancelActorLabel(item);
     return (
       <PastBookingRow
+        testID={`booking-history.past.${item.id}`}
         courtName={courtNames.get(item.court_id) ?? ''}
         when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
         price={formatPrice(item.price_iqd, locale)}
@@ -154,13 +157,19 @@ function BookingHistoryScreen() {
           ) : null
         }
         ListEmptyComponent={
-          <EmptyState fill title={t('booking.noHistoryTitle')} message={t('booking.noHistoryBody')} />
+          <EmptyState
+            testID="booking-history.empty"
+            fill
+            title={t('booking.noHistoryTitle')}
+            message={t('booking.noHistoryBody')}
+          />
         }
         renderItem={({ item, index }) => renderRow(item, index)}
         ListFooterComponent={
           history.length > 0 ? (
             <View style={{ marginTop: space.l }}>
               <Button
+                testID="booking-history.clear"
                 label={t('booking.clearHistory')}
                 variant="dangerOutline"
                 size="compact"

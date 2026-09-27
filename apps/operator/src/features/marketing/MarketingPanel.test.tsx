@@ -83,7 +83,10 @@ describe('MarketingPanelScreen', () => {
     // strip above it legitimately reads 0 scheduled / 0 draft.
     const table = within(screen.getByRole('table'));
     expect(table.queryByText('0')).toBeNull();
-    expect(table.getByText('—')).toBeTruthy();
+    // The result cell is words only — the reason, never a number.
+    const result = table.getByText('Not measurable').parentElement!;
+    expect(result.textContent).toBe('Not measurableNo promotion attached');
+    expect(result.textContent).not.toMatch(/\d/);
     // Reach is still reported: the send happened, only the outcome is unknown.
     expect(table.getByText('120')).toBeTruthy();
   });
@@ -108,7 +111,7 @@ describe('MarketingPanelScreen', () => {
       ]),
     );
     renderPanel();
-    expect(await screen.findByText('14')).toBeTruthy();
+    expect(await screen.findByText('Times used: 14')).toBeTruthy();
     expect(screen.getByText(/420,000/)).toBeTruthy();
     expect(screen.queryByText('Not measurable')).toBeNull();
   });

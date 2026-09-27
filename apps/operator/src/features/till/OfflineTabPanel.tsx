@@ -32,7 +32,10 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
       await mutate('tab.settle', {
         tabIdemKey: idemKey,
         method,
-        ...(total > 0 ? { amountIqd: total } : {}),
+        // No amount: the server charges its own full due at replay. `total` is
+        // an estimate without tax or promotions, and sent as the amount it
+        // replayed as a PART payment, leaving the tab open on the server while
+        // it vanished here as settled. A short cash tender is refused instead.
         ...(tenderedIqd != null ? { tenderedIqd } : {}),
       });
       markOfflineSettled(idemKey);

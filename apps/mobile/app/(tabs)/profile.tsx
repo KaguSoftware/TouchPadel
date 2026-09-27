@@ -7,8 +7,8 @@ import { isolate, isolateLtr } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
-import { hasRealEmail, phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
-import { hasPasswordSignIn } from '../../src/features/profile/changePasswordFlow';
+import { phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
+import { passwordProofOf } from '../../src/features/profile/changePasswordFlow';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -122,12 +122,14 @@ export default function ProfileScreen() {
             {t('auth.signedOutPitch')}
           </Text>
           <Button
+            testID="profile.sign-in"
             label={t('auth.signIn')}
             variant="primary"
             onPress={() => router.push('/sign-in')}
             style={{ alignSelf: 'stretch', marginTop: space.xl }}
           />
           <Button
+            testID="profile.sign-up"
             label={t('auth.signUp')}
             variant="cta"
             onPress={() => router.push('/sign-up')}
@@ -167,6 +169,7 @@ export default function ProfileScreen() {
         <SkeletonList rows={2} height={90} />
       ) : profile.isError ? (
         <ErrorState
+          testID="profile.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(profile.error))}
           retryLabel={t('common.retry')}
@@ -252,6 +255,7 @@ export default function ProfileScreen() {
                 {t(profile.data?.phone ? 'profile.completeNameNudge' : 'profile.completeProfileNudge')}
               </Text>
               <Button
+                testID="profile.complete-profile"
                 label={t(profile.data?.phone ? 'auth.addNameLink' : 'auth.addPhoneLink')}
                 variant="secondary"
                 size="compact"
@@ -273,37 +277,41 @@ export default function ProfileScreen() {
             }}
           >
             <MenuRow
+              testID="profile.edit-profile"
               icon={<PencilIcon size={15} color={colors.gstrong} />}
               label={t('profile.editProfile')}
               onPress={() => router.push('/profile-edit')}
             />
-            {/* No password exists for a phone-only account, and a desk-created
-              walk-in's synthetic address has no mailbox to recover to. */}
-            {/* …and only for an account that HAS a password: a guest who only
-              ever signed in with Google or Apple has none, and for them every
-              "current password" is wrong — the row looked broken, not absent. */}
-            {hasRealEmail(session?.user) && hasPasswordSignIn(session?.user) ? (
+            {/* Only for an account that HAS a password — a phone sign-up, or an
+              older email account. A guest who only ever signed in with Google or
+              Apple has none, and for them every "current password" is wrong — the
+              row looked broken, not absent. A desk-created walk-in's synthetic
+              address has nothing to prove either. */}
+            {passwordProofOf(session?.user) ? (
               <MenuRow
+                testID="profile.change-password"
                 icon={<LockIcon size={15} color={colors.gstrong} />}
                 label={t('profile.changePassword')}
                 onPress={() => router.push('/change-password')}
               />
             ) : null}
-            {/* Phone OTP scaffold (dormant): an email / social account verifies
-              its number once so a later phone sign-in lands on THIS account. */}
+            {/* A social account with no verified number proves one here. */}
             {phoneOtpEnabled() && !session?.user.phone ? (
               <MenuRow
+                testID="profile.verify-phone"
                 icon={<PhoneIcon size={15} color={colors.gstrong} />}
                 label={t('auth.verifyPhoneRow')}
                 onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
             <MenuRow
+              testID="profile.settings"
               icon={<SlidersIcon size={15} color={colors.gstrong} />}
               label={t('settings.title')}
               onPress={() => router.push('/settings')}
             />
             <MenuRow
+              testID="profile.call-venue"
               icon={<PhoneIcon size={15} color={colors.gstrong} />}
               label={t('profile.callVenue')}
               onPress={onCallVenue}
@@ -315,6 +323,7 @@ export default function ProfileScreen() {
               confirmation rather than opening a dialog — the act is not
               undoable, and an Alert is what a mis-tap dismisses by habit. */}
             <MenuRow
+              testID="profile.delete-account"
               icon={<TrashIcon size={15} color={colors.redtext} />}
               iconBg={colors.redtint}
               label={t('profile.deleteAccount')}
@@ -331,6 +340,7 @@ export default function ProfileScreen() {
               text in a blue outline on navy did not read as anything (owner,
               2026-09-11). The one red on this screen is the row that earns it. */}
           <Button
+            testID="profile.sign-out"
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"

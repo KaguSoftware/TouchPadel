@@ -18,6 +18,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL } from '../playwright.config';
 import {
+  choose,
   DEV_PASSWORD,
   FIXTURE_COURTS_EN,
   SEED_STAFF,
@@ -28,10 +29,14 @@ import {
   signedInClient,
   appRpc,
   voidOpenTabsForTable,
+  passShiftGate,
 } from './helpers';
 
 const TILL_TABLE = fixtureTableId(8); // T8
-const WALKIN_NAME = 'E2E Walk-in';
+// No digits in a guest name: the desk strips them as the operator types
+// (deskLogic sanitizeName), so 'E2E Walk-in' would be saved as 'EE Walk-in'
+// and every lookup below would miss it.
+const WALKIN_NAME = 'Playwright Walk-in';
 
 async function signIn(page: Page, email: string) {
   await page.goto(OPERATOR_URL);
@@ -94,34 +99,64 @@ test.describe('operator journeys', () => {
     const block = page.getByRole('button', { name: new RegExp(WALKIN_NAME) });
     await expect(block).toBeVisible();
 
+    /*
+     * The grid still lines up under the booking.
+     *
+     * The cards are placed explicitly and the slots used to be auto-placed,
+     * so grid flowed the slots AROUND each card: every slot below a booking
+     * sat one card-span too low, in implicit rows grid invented at the
+     * bottom, and the desk read a long gap under the booking with each free
+     * slot offered against the wrong time. The gutter never moved, so the
+     * check is that each slot's top still matches its own label's top.
+     */
+    const misaligned = await page.evaluate(() => {
+      const times = [...document.querySelectorAll<HTMLElement>('[data-grid-time]')];
+      const tops = new Map(times.map((el) => [el.dataset.gridTime!, el.getBoundingClientRect().top]));
+      const bad: string[] = [];
+      for (const slot of document.querySelectorAll<HTMLElement>('[data-slot-min]')) {
+        const want = tops.get(slot.dataset.slotMin!);
+        if (want === undefined) continue;
+        // A row is 2.4rem; a drift of a whole row is the bug, sub-pixel is not.
+        if (Math.abs(slot.getBoundingClientRect().top - want) > 4) {
+          bad.push(slot.dataset.slotMin!);
+        }
+      }
+      return bad;
+    });
+    expect(misaligned).toEqual([]);
+
     // Cancel with a reason.
     await block.click();
     const actions = page.getByRole('dialog', { name: WALKIN_NAME });
     await actions.getByRole('button', { name: 'Cancel booking' }).click();
-    await actions.getByLabel('Reason').selectOption('customer_request');
+    await choose(actions.getByLabel('Reason'), 'customer_request');
     await actions.getByRole('button', { name: 'Cancel booking' }).click();
     await expect(actions).toBeHidden();
     await expect(block).toBeHidden();
 
+    // Sign-out is confirmed (ws.shell.nav.signOutTitle): the rail button only
+    // OPENS the dialog, and the dialog's own button is what ends the session.
     await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('dialog', { name: 'Sign out?' }).getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByRole('heading', { name: 'Staff sign-in' })).toBeVisible();
   });
 
   test('cashier: open tab, add items, settle cash with change', async ({ page }) => {
     await signIn(page, SEED_STAFF.cashier);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({
+    // The till lands on the floor plan.
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
-    // ---- open a tab on T8 -------------------------------------------------
-    await page.getByRole('button', { name: '+', exact: true }).click();
-    const newTab = page.getByRole('dialog', { name: 'New tab' });
-    const tableSelect = newTab.getByLabel('Table');
-    await expect(tableSelect.locator('option', { hasText: 'T8' })).toHaveCount(1);
-    await tableSelect.selectOption({ label: 'T8' });
+    // ---- open a tab on T8: tap the free table, confirm --------------------
+    // The table's name leads its label ("Table T8, Free"), on the plan or in
+    // the off-plan row when leftover test tables sort ahead of it.
+    await page.getByRole('button', { name: /^Table T8, Free/ }).click();
+    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T8?' });
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
-    await expect(page.getByRole('heading', { name: 'Table T8' })).toBeVisible();
+    // exact: the basket's own "Basket for Table T8" heading matches a substring.
+    await expect(page.getByRole('heading', { name: 'Table T8', exact: true })).toBeVisible();
 
     // ---- item 1: Cappuccino (Regular) + Oat Milk modifier -----------------
     // Leftover db-test categories can sort ahead of the fixtures — pick the
@@ -144,11 +179,17 @@ test.describe('operator journeys', () => {
     // the new basket ± controls bump and remove the line ---------------------
     await page.getByRole('button', { name: /Desserts/ }).click();
     await page.getByRole('button', { name: /^Kunafa/ }).click();
+    // The basket starts short, its lines folded away so the item grid keeps the
+    // screen. Opened only now: open, it takes the grid's room, and the tiles
+    // above are needed until the last item is in.
+    await page.getByRole('button', { name: 'Show the basket lines' }).click();
     await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
     await page.getByRole('button', { name: '+1' }).last().click();
     await expect(page.getByText('2× Kunafa (Regular)')).toBeVisible();
     await page.getByRole('button', { name: '−1' }).last().click();
-    await page.getByRole('button', { name: '−1' }).last().click();
+    await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
+    // −1 stops at one; taking the line off is its own button.
+    await page.getByRole('button', { name: 'Remove line' }).last().click();
     await expect(page.getByText(/× Kunafa/)).toHaveCount(0);
     await page.getByRole('button', { name: /Hot Drinks/ }).click();
 
@@ -162,6 +203,8 @@ test.describe('operator journeys', () => {
 
     // ---- settle cash: tendered 10,000 -> change 2,000 ---------------------
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
+    // The cashier's first payment here asks for a shift first (wave 5).
+    await passShiftGate(page);
     const cash = page.getByRole('dialog', { name: 'Cash' });
     await cash.getByLabel('Tendered').fill('10000');
     await expect(cash.getByText('2,000 IQD')).toBeVisible(); // change preview
@@ -177,14 +220,16 @@ test.describe('operator journeys', () => {
       '2,000 IQD',
     );
   });
-  test('court_desk: week view shows the whole week, and an override records a reason', async ({
+  test('court_desk: the month calendar shows the booking, and an override records a reason', async ({
     page,
   }) => {
-    // SOW L307 asks for a day AND week calendar across all courts; the desk was
-    // day-only. SOW L313 requires a reason on every override — the RPCs have
+    // SOW L307 asks for more than a day calendar; the desk's zoomed-out level is
+    // now a month (it replaced the week view, owner call 2026-09-13). SOW L313
+    // requires a reason on every override — the RPCs have
     // taken one since 0048 and the desk never passed it, so every move, extend
     // and status change was audited as the generic 'staff_op'.
-    const name = `E2E Week ${Date.now()}`;
+    // Letters only, for the same reason as WALKIN_NAME: the timestamp is spelled a-j.
+    const name = `Playwright Week ${String(Date.now()).replace(/\d/g, (d) => 'abcdefghij'[Number(d)]!)}`;
     let reservationId: string | null = null;
 
     try {
@@ -196,6 +241,7 @@ test.describe('operator journeys', () => {
 
       // Book tomorrow so every slot is in the future.
       await page.getByRole('button', { name: '›' }).click();
+      const tomorrow = await page.getByLabel('Date').inputValue();
       await expect(page.getByTitle('Free').first()).toBeVisible();
       await page.getByTitle('Free').nth(8).click();
       const dialog = page.getByRole('dialog', { name: 'New booking' });
@@ -203,7 +249,7 @@ test.describe('operator journeys', () => {
       // 90 minutes, so shortening lands on 60 — a duration the fixture rate
       // rules actually price. The venue sells 60/90/120; shortening to 30 has
       // no price and the server rightly refuses it.
-      await dialog.getByLabel('Duration').selectOption('90');
+      await choose(dialog.getByLabel('Duration'), '90');
       await dialog.getByRole('button', { name: 'Create booking' }).click();
       await expect(dialog).toBeHidden();
 
@@ -214,23 +260,21 @@ test.describe('operator journeys', () => {
         .single();
       reservationId = (made as { id: string }).id;
 
-      // The same booking is visible in the week view, which is the point of
-      // having one: the day grid answers "what is court 2 doing at 19:00", the
-      // week answers "are we free on Saturday".
-      // 'Week' also matches the week-view chips' accessible names, so anchor it.
-      await page.getByRole('button', { name: 'Week', exact: true }).click();
-      await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible({
-        timeout: 15_000,
-      });
+      // Zoom out: tomorrow's square in the month counts the booking just made.
+      await page.getByRole('button', { name: 'Month', exact: true }).click();
+      const square = page.locator(`[data-cal-date="${tomorrow}"]`);
+      await expect(square).not.toHaveAttribute('aria-label', /· 0 bookings$/, { timeout: 15_000 });
 
-      // Open it from the week grid — the SAME detail modal, so move, shorten,
-      // extend and cancel all work here without a second code path.
+      // Pressing the day zooms back into its grid, where the booking opens the
+      // SAME detail modal — move, shorten, extend and cancel all work from here.
+      await square.click();
+      await expect(page.getByTitle('Free').first()).toBeVisible();
       await page.getByRole('button', { name: new RegExp(name) }).first().click();
       const actions = page.getByRole('dialog', { name });
       await expect(actions).toBeVisible();
 
       // Shorten: SOW L310 lists it and there was no UI path at all.
-      await actions.getByLabel('Reason for this change').selectOption('customer_request');
+      await choose(actions.getByLabel('Reason for this change'), 'customer_request');
       const { data: beforeRow } = await svc
         .from('reservations')
         .select('end_at')
@@ -333,7 +377,8 @@ test.describe('operator journeys', () => {
     try {
       await signIn(page, SEED_STAFF.manager);
       await page.goto(`${OPERATOR_URL}/admin/hours`);
-      await expect(page.getByRole('heading', { name: 'Opening hours' })).toBeVisible({
+      // level 1: the page title; the settings section repeats it as an h2.
+      await expect(page.getByRole('heading', { name: 'Opening hours', level: 1 })).toBeVisible({
         timeout: 30_000,
       });
 
@@ -346,6 +391,10 @@ test.describe('operator journeys', () => {
       // The close is on the following day, and the screen has to say so.
       await expect(page.getByText('next day').first()).toBeVisible();
 
+      // Save stays disabled until something is edited. Edit and put the value
+      // back: the form is dirty, the hours are exactly what was loaded.
+      await opens.first().fill('10:00');
+      await opens.first().fill('09:00');
       await page.getByRole('button', { name: /Save/ }).click();
 
       // Both windows still present in the database, on every day.
@@ -391,13 +440,12 @@ test.describe('operator journeys', () => {
     await signIn(page, SEED_STAFF.manager);
     // A manager lands on the desk (homeRoute), not the till.
     await page.goto(`${OPERATOR_URL}/till`);
-    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
-    await page.getByRole('button', { name: '+', exact: true }).click();
-    const newTab = page.getByRole('dialog', { name: 'New tab' });
-    await newTab.getByLabel('Table').selectOption({ label: 'T7' });
+    await page.getByRole('button', { name: /^Table T7, Free/ }).click();
+    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T7?' });
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
 
@@ -410,22 +458,29 @@ test.describe('operator journeys', () => {
     await expect(page.getByText('3,000 IQD').first()).toBeVisible();
 
     // ---- price override (L450-451): PIN + reason, same as a discount -----
-    await page.getByRole('button', { name: 'Change price' }).first().click();
+    // A sent line keeps Change price / Void behind a press on the line itself.
+    await page.getByRole('button', { name: /Turkish Coffee.*change price or void/ }).click();
+    await page.getByRole('button', { name: /^Change price — .*Turkish Coffee/ }).click();
     const override = page.getByRole('dialog', { name: 'Change price' });
     await override.getByLabel('New price each').fill('2500');
     await override.getByRole('button', { name: 'Change price' }).click();
     const pin = page.getByRole('dialog', { name: 'Change price' }).last();
-    await pin.getByLabel('Reason').selectOption('staff_error');
+    await choose(pin.getByLabel('Reason'), 'staff_error');
     await pin.getByLabel('Manager PIN').fill('380517');
     await pin.getByRole('button', { name: /Confirm|Apply|Change price/ }).last().click();
 
     await expect(async () => {
-      const { data } = await svc
+      // !orders_tab_id_fkey: 0133 added a second tabs <-> orders foreign key, so
+      // a bare embed is PGRST201 and `data` comes back null. The error was being
+      // dropped on the floor, which turned that into "Cannot read properties of
+      // null (reading 'orders')" twenty seconds later — throw it instead.
+      const { data, error: embedErr } = await svc
         .from('tabs')
-        .select('id, orders(order_items(unit_price_iqd))')
+        .select('id, orders!orders_tab_id_fkey(order_items(unit_price_iqd))')
         .eq('table_id', TABLE)
         .in('status', ['open', 'awaiting_payment'])
         .single();
+      if (embedErr) throw new Error(`tabs query failed: ${embedErr.code} ${embedErr.message}`);
       const prices = (data as { orders: { order_items: { unit_price_iqd: number }[] }[] }).orders
         .flatMap((o) => o.order_items)
         .map((i) => i.unit_price_iqd);
@@ -443,6 +498,8 @@ test.describe('operator journeys', () => {
 
     // ---- settle, then refund with the item going back to stock (L453) ----
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
+    // Run alone (--grep), no earlier test left this cashier's shift open (wave 5 §8 Q30).
+    await passShiftGate(page);
     const cash = page.getByRole('dialog', { name: 'Cash' });
     await cash.getByLabel('Tendered').fill('2500');
     await cash.getByRole('button', { name: 'Record payment' }).click();
@@ -455,7 +512,7 @@ test.describe('operator journeys', () => {
     await refund.getByLabel('Turkish Coffee').fill('1');
     await refund.getByRole('button', { name: 'Refund', exact: true }).click();
     const refundPin = page.getByRole('dialog', { name: 'Refund' }).last();
-    await refundPin.getByLabel('Reason').selectOption('quality');
+    await choose(refundPin.getByLabel('Reason'), 'quality');
     await refundPin.getByLabel('Manager PIN').fill('380517');
     await refundPin.getByRole('button', { name: /Confirm|Apply|Refund/ }).last().click();
 

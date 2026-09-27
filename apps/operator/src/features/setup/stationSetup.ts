@@ -69,6 +69,7 @@ export type SetupAction =
   | { type: 'scanResult'; result: DiscoverResult }
   | { type: 'pickTill'; host: string }
   | { type: 'saveAnyway' }
+  | { type: 'enterAddress' }
   | { type: 'saveFailed'; error: 'already-configured' | 'write-failed' | 'ipc' }
   | { type: 'retry' };
 
@@ -148,10 +149,16 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
     case 'notFound':
       switch (action.type) {
         case 'retry':
-          // A refused code is cleared so the next attempt starts from the till's card.
-          return state.reason === 'bad-code' ? { ...state.details, code: '' } : state.details;
+          // A refused code is cleared so the next attempt starts from the till's
+          // card. Anything else searches again straight away: "Try again" used
+          // to drop back to the form — the same place Back went — so the
+          // person had to press Find the till a second time to actually retry.
+          return state.reason === 'bad-code' ? { ...state.details, code: '' } : { step: 'scanning', details: state.details };
         case 'back':
           return state.details;
+        case 'enterAddress':
+          // The message says "or enter its address"; this opens exactly that field.
+          return { ...state.details, showAdvanced: true };
         case 'saveAnyway':
           if (!canSaveAnyway(state)) return state;
           return { step: 'saving', details: state.details, request: requestFor(state.details) };
@@ -163,7 +170,13 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
       return action.type === 'saveFailed' ? { step: 'failed', details: state.details, error: action.error } : state;
 
     case 'failed':
-      if (action.type === 'retry') return state.details;
+      // Retry saves the same thing again rather than re-showing a form whose
+      // answers were already accepted. Already-configured is not retried: the
+      // screen tells the person to restart instead.
+      if (action.type === 'retry') {
+        if (state.error === 'already-configured') return state;
+        return { step: 'saving', details: state.details, request: requestFor(state.details, state.details.host || undefined) };
+      }
       if (action.type === 'back') return { step: 'mode' };
       return state;
   }

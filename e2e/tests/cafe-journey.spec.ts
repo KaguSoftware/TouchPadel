@@ -51,8 +51,9 @@ test.describe('guest cafe journey (EN)', () => {
 
   test('reveals + featured discount + order + live status', async ({ page }) => {
     // The printed URL is locale-less, and proxy.ts EXCHANGES the token for an
-    // HttpOnly cookie on the way in — a 307 to the token-less `/{locale}/t`
-    // carrying a Set-Cookie (layer-1-rules-and-decisions.md §7). This assertion
+    // HttpOnly cookie on the way in — a 307 to the token-less café menu at
+    // `/{locale}/menu` (it was `/{locale}/t` until 2026-09-23) carrying a
+    // Set-Cookie (layer-1-rules-and-decisions.md §7). This assertion
     // used to require the URL to stay verbatim; that was correct until the
     // exchange landed, because the token in the URL travelled to every third
     // party in `Referer`, into PostHog as `$current_url`, and into history.
@@ -62,7 +63,7 @@ test.describe('guest cafe journey (EN)', () => {
     // surviving in the address bar, which is what is asserted here now.
     await page.goto(`/t/${token}`);
     expect(page.url(), 'the table token must not survive in the URL').not.toContain(token);
-    expect(new URL(page.url()).pathname).toMatch(/^\/(en|ar)\/t$/);
+    expect(new URL(page.url()).pathname).toMatch(/^\/(en|ar)\/menu$/);
 
     // The menu is server-rendered, so it is readable BEFORE the anonymous
     // sign-in binds the table.

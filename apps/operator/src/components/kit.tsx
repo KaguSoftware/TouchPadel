@@ -7,14 +7,14 @@
  * Inline styles with logical properties only; interaction states via the
  * class hooks in GlobalStyles.
  */
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { formatIQD, formatNumber, formatPercent } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import type { StaffRole } from '../lib/auth';
 import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinner, card, inputStyle, type ReasonCode } from './ui';
 import { Icon, type IconName } from './icons';
-import { BilingualFields } from './inputs';
+import { BilingualFields, DateField } from './inputs';
 
 // ---------------------------------------------------------------------------
 // Page structure
@@ -22,6 +22,7 @@ import { BilingualFields } from './inputs';
 
 export function PageHeader({
   title,
+  titleAfter,
   subtitle,
   actions,
   eyebrow,
@@ -29,6 +30,12 @@ export function PageHeader({
   style,
 }: {
   title: string;
+  /**
+   * Sits on the title's own line, beside the heading rather than out in
+   * `actions` at the far end of the header. For the control that belongs TO
+   * the title — a refresh of what this page shows — where the eye already is.
+   */
+  titleAfter?: ReactNode;
   subtitle?: ReactNode;
   eyebrow?: ReactNode;
   actions?: ReactNode;
@@ -52,12 +59,19 @@ export function PageHeader({
               {eyebrow}
             </p>
           )}
-          <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+          {titleAfter ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+              {titleAfter}
+            </div>
+          ) : (
+            <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
+          )}
           {subtitle && (
             <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem', maxInlineSize: '70ch' }}>{subtitle}</p>
           )}
         </div>
-        {actions && <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
+        {actions && <div className="tp-page-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
       </div>
       {children}
     </header>
@@ -83,6 +97,13 @@ export function Toolbar({ children, style, end }: { children?: ReactNode; end?: 
   );
 }
 
+/**
+ * Whether a surface sits inside a Panel's body. A DataTable there drops its
+ * own border: the panel already draws the edge, and a bordered table inside a
+ * bordered panel read as a card inside a card.
+ */
+const InPanel = createContext(false);
+
 /** A grouped section with an optional title row. Use sparingly: most content needs no container. */
 export function Panel({
   title,
@@ -90,6 +111,7 @@ export function Panel({
   children,
   muted,
   padded = true,
+  fill,
   level = 2,
   className,
   bodyClassName,
@@ -101,6 +123,13 @@ export function Panel({
   children: ReactNode;
   muted?: boolean;
   padded?: boolean;
+  /**
+   * Hand the panel the height it was given, and its body on to the one thing
+   * inside. A panel is otherwise as tall as its contents — right for a form,
+   * wrong for a log that owns a column of the page: a three-row table left the
+   * rest of that column as bare page background.
+   */
+  fill?: boolean;
   /** For the grid hooks in GlobalStyles — spanning a row needs a media query. */
   className?: string;
   /** On the padded body, not the section: `tp-cq` makes it the container the
@@ -125,6 +154,7 @@ export function Panel({
         border: '1px solid var(--tp-border)',
         borderRadius: 'var(--tp-radius-panel)',
         overflow: 'hidden',
+        ...(fill ? { display: 'flex', flexDirection: 'column', minBlockSize: 0 } : null),
         ...style,
       }}
     >
@@ -144,8 +174,14 @@ export function Panel({
           {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}
-      <div className={bodyClassName} style={padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : undefined}>
-        {children}
+      <div
+        className={bodyClassName}
+        style={{
+          ...(padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : null),
+          ...(fill ? { flex: 1, minBlockSize: 0, display: 'flex', flexDirection: 'column' } : null),
+        }}
+      >
+        <InPanel.Provider value={true}>{children}</InPanel.Provider>
       </div>
     </section>
   );
@@ -404,7 +440,11 @@ export function StatusBadge({
         background: t.bg,
         color: t.fg,
         borderRadius: 'var(--tp-radius-pill)',
-        paddingBlock: size === 'sm' ? '0.1rem' : '0.2rem',
+        /* The label below sets line-height 1 so the glyphs can be centred,
+           which takes 0.3em off the content box the 1.3 used to give it.
+           Padding gives it back, so the pill keeps the height it has had
+           everywhere it is already placed and only the text moves. */
+        paddingBlock: size === 'sm' ? 'calc(0.1rem + 0.15em)' : 'calc(0.2rem + 0.15em)',
         paddingInline: size === 'sm' ? '0.45rem' : '0.6rem',
         fontSize: size === 'sm' ? 'var(--tp-fs-xs)' : 'var(--tp-fs-sm)',
         fontWeight: 600,
@@ -418,7 +458,16 @@ export function StatusBadge({
       ) : dot ? (
         <span aria-hidden="true" style={{ inlineSize: '0.45rem', blockSize: '0.45rem', borderRadius: '50%', background: t.dot }} />
       ) : null}
-      {label}
+      {/* The label is a SPAN, not a bare text node, and it carries the
+          line-height. A bare text node inside this inline-flex forms an
+          anonymous inline box sized by the FONT's metrics — ascent and descent
+          — not by the 1.3 above. Those metrics are asymmetric (the descent
+          reserves room for a 'g' the word "Owner" does not have), so the
+          symmetric padding-block was centring a box that was not where the
+          glyphs sat, and every text-only pill — the rail's role, "You",
+          "Hidden", "Off" — rode a hair high inside it. An explicit flex item
+          at line-height 1 is a box the flex centring can put in the middle. */}
+      <span style={{ lineHeight: 1 }}>{label}</span>
     </span>
   );
 }
@@ -547,6 +596,34 @@ const sortHeaderButton: CSSProperties = {
   textAlign: 'start',
 };
 
+type RowBlock<T> = { kind: 'row'; row: T } | { kind: 'group'; key: string; rows: T[] };
+
+/**
+ * Split rows into groups, in FIRST-APPEARANCE order.
+ *
+ * A group takes every row sharing its key, not just adjacent ones, so the
+ * combined figure in its header is the whole truth even when the table is
+ * sorted by something else. The group lands where its first row was, and rows
+ * with a null key stay exactly where they were — so turning grouping on never
+ * shuffles the rows that are not grouped.
+ */
+function buildRowBlocks<T>(rows: readonly T[], groupBy?: (row: T) => string | null): RowBlock<T>[] {
+  if (!groupBy) return rows.map((row) => ({ kind: 'row', row }));
+  const blocks: RowBlock<T>[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const key = groupBy(row);
+    if (key === null) {
+      blocks.push({ kind: 'row', row });
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    blocks.push({ kind: 'group', key, rows: rows.filter((r) => groupBy(r) === key) });
+  }
+  return blocks;
+}
+
 export function DataTable<T>({
   columns,
   rows,
@@ -557,8 +634,11 @@ export function DataTable<T>({
   selectedKey,
   emptyContent,
   dense,
+  fill,
   maxBlockSize,
   footer,
+  groupBy,
+  renderGroupHeader,
   'aria-label': ariaLabel,
 }: {
   columns: readonly Column<T>[];
@@ -570,80 +650,29 @@ export function DataTable<T>({
   selectedKey?: string | null;
   emptyContent?: ReactNode;
   dense?: boolean;
+  /** Take the whole height of a `fill` Panel (or any flex column) and scroll inside it. */
+  fill?: boolean;
   /** Scroll inside the table instead of the page. */
   maxBlockSize?: string;
   footer?: ReactNode;
+  /**
+   * Gather rows under a shared heading. Returning null leaves a row on its own,
+   * exactly as an ungrouped table renders it, so a board can group some rows
+   * and not others. Opt-in: without this the table renders as it always has.
+   */
+  groupBy?: (row: T) => string | null;
+  /** The heading cell for one group; it spans every column. */
+  renderGroupHeader?: (key: string, rows: readonly T[]) => ReactNode;
   'aria-label'?: string;
 }) {
   const { tr } = useLocale();
-  return (
-    <div
-      style={{
-        border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-panel)',
-        overflow: 'auto',
-        maxBlockSize,
-        background: 'var(--tp-surface)',
-      }}
-    >
-      <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
-        <thead>
-          <tr>
-            {columns.map((c) => {
-              const align = c.align ?? (c.numeric ? 'end' : 'start');
-              const active = sort?.key === c.key;
-              const sortable = Boolean(c.sortable && onSort);
-              const inner = (
-                <>
-                  {c.header}
-                  {active && (
-                    <Icon
-                      name="chevronDown"
-                      size={12}
-                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
-                      style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
-                    />
-                  )}
-                </>
-              );
-              return (
-                <th
-                  key={c.key}
-                  data-align={align}
-                  data-sortable={sortable ? 'true' : undefined}
-                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                  style={{ inlineSize: c.width }}
-                >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      style={{
-                        ...sortHeaderButton,
-                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
-                      }}
-                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
-                    >
-                      {inner}
-                    </button>
-                  ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
-                  )}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
-                {emptyContent ?? tr('ws.kit.table.noRows')}
-              </td>
-            </tr>
-          )}
-          {rows.map((row, i) => {
-            const key = rowKey(row, i);
-            return (
+  const inPanel = useContext(InPanel);
+
+  // One row, extracted so a grouped table renders the same markup inside a
+  // group as an ungrouped one does at the top level.
+  const renderRow = (row: T, i: number) => {
+    const key = rowKey(row, i);
+    return (
               <tr
                 key={key}
                 data-clickable={onRowClick ? 'true' : undefined}
@@ -717,9 +746,93 @@ export function DataTable<T>({
                   );
                 })}
               </tr>
-            );
-          })}
+    );
+  };
+
+  return (
+    <div
+      style={{
+        border: inPanel ? undefined : '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        overflow: 'auto',
+        maxBlockSize,
+        background: 'var(--tp-surface)',
+        ...(fill ? { flex: 1, minBlockSize: 0 } : null),
+      }}
+    >
+      <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
+        <thead>
+          <tr>
+            {columns.map((c) => {
+              const align = c.align ?? (c.numeric ? 'end' : 'start');
+              const active = sort?.key === c.key;
+              const sortable = Boolean(c.sortable && onSort);
+              const inner = (
+                <>
+                  {c.header}
+                  {active && (
+                    <Icon
+                      name="chevronDown"
+                      size={12}
+                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
+                      style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
+                    />
+                  )}
+                </>
+              );
+              return (
+                <th
+                  key={c.key}
+                  data-align={align}
+                  data-sortable={sortable ? 'true' : undefined}
+                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  style={{ inlineSize: c.width }}
+                >
+                  {sortable ? (
+                    <button
+                      type="button"
+                      style={{
+                        ...sortHeaderButton,
+                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
+                      }}
+                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
+                    >
+                      {inner}
+                    </button>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
+                  )}
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
+                {emptyContent ?? tr('ws.kit.table.noRows')}
+              </td>
+            </tr>
+          )}
+          {buildRowBlocks(rows, groupBy).map((block) =>
+            block.kind === 'group' ? (
+              <Fragment key={`g:${block.key}`}>
+                {renderGroupHeader && (
+                  <tr data-group-header="true">
+                    <td colSpan={columns.length} style={{ background: 'var(--tp-surface-2)' }}>
+                      {renderGroupHeader(block.key, block.rows)}
+                    </td>
+                  </tr>
+                )}
+                {block.rows.map((row) => renderRow(row, rows.indexOf(row)))}
+              </Fragment>
+            ) : (
+              renderRow(block.row, rows.indexOf(block.row))
+            ),
+          )}
         </tbody>
+
         {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>
@@ -778,7 +891,8 @@ const menuItemStyle: CSSProperties = {
   minBlockSize: 'var(--tp-touch)',
   paddingBlock: 'var(--tp-sp-2)',
   paddingInline: 'var(--tp-sp-3)',
-  background: 'none',
+  // No inline `background`: it outranked the .tp-row hover rule, so the menu's
+  // rows never lit up. GlobalStyles clears the button ground instead.
   border: 'none',
   font: 'inherit',
   textAlign: 'start',
@@ -1270,11 +1384,12 @@ export function HeadlineFigure({
         {busy ? <Skeleton lines={1} blockSize="1.6rem" style={{ inlineSize: '60%' }} /> : value}
       </span>
       <span style={{ display: 'block', marginBlockStart: '0.3rem', minBlockSize: '1rem' }}>
-        {comparison ? (
-          <ComparisonDelta changeAbs={comparison.changeAbs} changePct={comparison.changePct} format={format} invert={invert} />
-        ) : hint ? (
-          <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>
-        ) : null}
+        {/* Both when both exist: a report tile's note ("Bookings: 15") still
+            matters once a comparison is switched on. */}
+        {comparison && <ComparisonDelta changeAbs={comparison.changeAbs} changePct={comparison.changePct} format={format} invert={invert} />}
+        {hint && (
+          <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: comparison ? '0.15rem' : 0 }}>{hint}</span>
+        )}
       </span>
     </>
   );
@@ -1284,25 +1399,40 @@ export function HeadlineFigure({
     textAlign: 'start',
     inlineSize: '100%',
     minInlineSize: 0,
+    // The app-wide colour strip (GlobalStyles, tp-headline-tile): set by the
+    // tile's place in its row, and unset inside a report figure group, whose
+    // own card already wears it. Inline because card's border would win.
+    borderBlockStart: 'var(--tp-tile-strip, 1px solid var(--tp-border))',
   };
   return clickable ? (
-    <button type="button" className="tp-tile" onClick={onDrill} style={base} title={tr('ws.kit.drill.title')}>
+    <button type="button" className="tp-tile tp-headline-tile" onClick={onDrill} style={base} title={tr('ws.kit.drill.title')}>
       {inner}
     </button>
   ) : (
-    <div style={base}>{inner}</div>
+    <div className="tp-headline-tile" style={base}>{inner}</div>
   );
 }
 
 export type ComparisonMode = 'previousPeriod' | 'sameLastYear' | 'none';
-export function ComparisonControl({ mode, onChange, disabled }: { mode: ComparisonMode; onChange: (m: ComparisonMode) => void; disabled?: boolean }) {
+export function ComparisonControl({
+  mode,
+  onChange,
+  disabled,
+  label,
+}: {
+  mode: ComparisonMode;
+  onChange: (m: ComparisonMode) => void;
+  disabled?: boolean;
+  /** Its accessible name when a visible label sits beside it ("Compare with"). */
+  label?: string;
+}) {
   const { tr } = useLocale();
   return (
     <Select<ComparisonMode>
       value={mode}
       onChange={onChange}
       disabled={disabled}
-      aria-label={tr('ws.kit.comparison.vs', { label: '' })}
+      aria-label={label ?? tr('ws.kit.comparison.vs', { label: '' })}
       style={{ inlineSize: 'auto' }}
       options={[
         { value: 'none', label: tr('ws.kit.comparison.none') },
@@ -1360,43 +1490,46 @@ export function DateRangeControl({
   onChange,
   presets = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30'],
   disabled,
+  now,
 }: {
   period: Period;
   onChange: (p: Period) => void;
   presets?: readonly Exclude<PeriodPreset, 'custom'>[];
   disabled?: boolean;
+  /** The day presets count back from. Defaults to the station clock; pass the venue's business day to match Analytics. */
+  now?: Date;
 }) {
   const { tr } = useLocale();
   const [draft, setDraft] = useState<Period>(period);
   useEffect(() => setDraft(period), [period]);
   const active = useMemo(() => presets.find((p) => {
-    const pp = presetPeriod(p);
+    const pp = presetPeriod(p, now);
     return pp.from === period.from && pp.to === period.to;
-  }), [presets, period]);
+  }), [presets, period, now]);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }} role="group">
       {presets.map((p) => (
-        <Button key={p} size="sm" aria-pressed={active === p} disabled={disabled} onClick={() => onChange(presetPeriod(p))}>
+        <Button key={p} size="sm" aria-pressed={active === p} disabled={disabled} onClick={() => onChange(presetPeriod(p, now))}>
           {tr(`ws.kit.dateRange.${p}`)}
         </Button>
       ))}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginInlineStart: '0.4rem' }}>
-        <input
-          type="date"
-          aria-label={tr('ws.kit.dateRange.from')}
+        {/* DateField: a raw date input let '20266-…' through the `from > to`
+            string check, and formatting it threw, taking the whole report down. */}
+        <DateField
+          ariaLabel={tr('ws.kit.dateRange.from')}
           value={draft.from}
           disabled={disabled}
-          onChange={(e) => e.target.value && setDraft((d) => ({ ...d, from: e.target.value }))}
-          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
+          onChange={(v) => setDraft((d) => ({ ...d, from: v }))}
+          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         <span style={{ color: 'var(--tp-muted-fg)' }}>–</span>
-        <input
-          type="date"
-          aria-label={tr('ws.kit.dateRange.to')}
+        <DateField
+          ariaLabel={tr('ws.kit.dateRange.to')}
           value={draft.to}
           disabled={disabled}
-          onChange={(e) => e.target.value && setDraft((d) => ({ ...d, to: e.target.value }))}
-          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
+          onChange={(v) => setDraft((d) => ({ ...d, to: v }))}
+          style={{ inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         {(draft.from !== period.from || draft.to !== period.to) && (
           <Button size="sm" kind="soft" disabled={disabled || draft.from > draft.to} onClick={() => onChange(draft)}>
@@ -1439,7 +1572,7 @@ export function DrillThroughPanel<T>({
 }) {
   const { tr } = useLocale();
   return (
-    <Modal title={title ?? tr('ws.kit.drill.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('ws.kit.drill.close')}</Button>}>
+    <Modal title={title ?? tr('ws.kit.drill.title')} onClose={onClose} size="lg" footer={(close) => (<Button onClick={close}>{tr('ws.kit.drill.close')}</Button>)}>
       <AsyncStateWrapper
         status={status}
         onRetry={onRetry}
@@ -1480,7 +1613,8 @@ export function PinPromptOverlay({
     <Modal
       title={tr('ws.kit.pin.title')}
       subtitle={tr('ws.kit.pin.lead', { action })}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       size="sm"
       footer={
         <>
@@ -1543,7 +1677,8 @@ export function ReasonCodePrompt({
     <Modal
       title={tr('ws.kit.reason.title')}
       subtitle={tr('ws.kit.reason.lead', { action })}
-      onClose={busy ? () => {} : onCancel}
+      dismissible={!busy}
+      onClose={onCancel}
       size="sm"
       footer={
         <>
@@ -1607,7 +1742,7 @@ export function PermissionRefusedNotice({ action, requiredRole, style }: { actio
     >
       <Icon name="shield" size={16} style={{ marginBlockStart: '0.1rem', flexShrink: 0 }} />
       <span>
-        <strong>{tr('ws.kit.refused.title')}</strong> — {tr('ws.kit.refused.body', { action, role })}
+        <strong>{tr('ws.kit.refused.title')}</strong>: {tr('ws.kit.refused.body', { action, role })}
       </span>
     </div>
   );
@@ -1662,7 +1797,22 @@ export function MessagePresenter({ message, tone, icon, rise, style }: { message
 }
 
 /** A rejected write, not a warning. */
-export function ConflictNotice({ body, onResolve, resolveLabel, children, style }: { body?: ReactNode; onResolve?: () => void; resolveLabel?: string; children?: ReactNode; style?: CSSProperties }) {
+export function ConflictNotice({
+  title,
+  body,
+  onResolve,
+  resolveLabel,
+  children,
+  style,
+}: {
+  /** The heading; defaults to the desk's "Time clash". A caller whose clash is not about time names its own. */
+  title?: ReactNode;
+  body?: ReactNode;
+  onResolve?: () => void;
+  resolveLabel?: string;
+  children?: ReactNode;
+  style?: CSSProperties;
+}) {
   const { tr } = useLocale();
   return (
     <div
@@ -1680,7 +1830,7 @@ export function ConflictNotice({ body, onResolve, resolveLabel, children, style 
       }}
     >
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontWeight: 700 }}>
-        <Icon name="ban" size={18} /> {tr('ws.kit.conflict.title')}
+        <Icon name="ban" size={18} /> {title ?? tr('ws.kit.conflict.title')}
       </div>
       <p style={{ fontSize: 'var(--tp-fs-sm)' }}>{body ?? tr('ws.kit.conflict.body')}</p>
       {children}
@@ -1811,7 +1961,7 @@ export function SegmentedControl<T extends string>({
               paddingBlock: size === 'sm' ? '0.2rem' : '0.35rem',
               paddingInline: size === 'sm' ? '0.55rem' : '0.8rem',
               fontSize: size === 'sm' ? 'var(--tp-fs-sm)' : 'var(--tp-fs-md)',
-              fontWeight: 600,
+              fontWeight: active ? 700 : 600,
               background: active ? 'var(--tp-surface)' : 'transparent',
               color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
               boxShadow: active ? 'var(--tp-shadow-raised)' : undefined,
@@ -1822,7 +1972,15 @@ export function SegmentedControl<T extends string>({
             }}
           >
             {o.icon && <Icon name={o.icon} size={14} />}
-            {o.label}
+            {/* The selected segment is bold, and bold is wider: each label is
+                laid out in a zero-height bold ghost so the group keeps one
+                width and nothing shifts as the selection moves. */}
+            <span style={{ display: 'grid' }}>
+              <span style={{ gridArea: '1 / 1' }}>{o.label}</span>
+              <span aria-hidden="true" style={{ gridArea: '1 / 1', fontWeight: 700, visibility: 'hidden', blockSize: 0 }}>
+                {o.label}
+              </span>
+            </span>
           </button>
         );
       })}
@@ -1834,12 +1992,16 @@ export function SegmentedControl<T extends string>({
 // Money helpers for display (formatting only; no arithmetic)
 // ---------------------------------------------------------------------------
 
-export function Money({ amount, style, strong }: { amount: number | null | undefined; style?: CSSProperties; strong?: boolean }) {
+/**
+ * `unit={false}` drops the IQD suffix for callers whose column header already
+ * carries the unit — repeating it on every row is noise, not information.
+ */
+export function Money({ amount, style, strong, unit = true }: { amount: number | null | undefined; style?: CSSProperties; strong?: boolean; unit?: boolean }) {
   const { locale } = useLocale();
   if (amount == null) return <span style={{ color: 'var(--tp-muted-fg)', ...style }}>—</span>;
   return (
     <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', fontWeight: strong ? 700 : undefined, ...style }}>
-      {formatIQD(amount, locale)}
+      {unit ? formatIQD(amount, locale) : formatNumber(amount, locale)}
     </span>
   );
 }

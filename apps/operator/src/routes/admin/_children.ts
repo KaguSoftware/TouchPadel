@@ -19,6 +19,7 @@ import { adminTelegramRoute } from './telegram';
 import { adminSettingsRoute } from './settings';
 import { adminStaffRoute } from './staff';
 import { adminAuditRoute } from './audit';
+import { adminBranchesRoute } from './branches';
 
 export const adminChildren = [
   adminIndexRoute,
@@ -38,4 +39,5 @@ export const adminChildren = [
   adminSettingsRoute,
   adminStaffRoute,
   adminAuditRoute,
+  adminBranchesRoute,
 ] as const;

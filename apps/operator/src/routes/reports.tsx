@@ -4,12 +4,15 @@
  */
 import { Outlet, createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
+import { ReportBranchScope } from '../features/reports/ReportBranchScope';
 
 export const reportsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/reports',
   component: () => (
     <RequireRole route="/reports">
+      {/* Multi-venue slice 4 (MV8): the owner may widen these pages to every branch. */}
+      <ReportBranchScope />
       <Outlet />
     </RequireRole>
   ),

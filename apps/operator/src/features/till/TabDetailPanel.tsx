@@ -7,6 +7,15 @@
  * app.compute_tab_totals; the server re-stamps every figure at settlement and
  * the change shown after a cash payment is the server's echo.
  *
+ * The court fee is the one figure the mirror cannot work out (0106: it is what
+ * is still OWED on the booking, which depends on the booking's other tabs). A
+ * booking tab reads it from app.booking_bill while open and from the stamped
+ * `court_iqd` once settled. Until the bill has loaded, Cash, Card, Split and
+ * the bill are held with a reason rather than offering a total short by the
+ * court. A booking tab's settle carries the server's own total as
+ * `expectedTotalIqd`, so a price that moved since the bill was read is refused
+ * (TOTAL_CHANGED) and re-read instead of silently charging a different sum.
+ *
  * States: loading · ready · busy · error · voidRefused (VOID_REQUIRES_REFUND —
  * the void control stays visible with the refusal beside it) · partiallyPaid ·
  * settled.
@@ -15,28 +24,53 @@
  * cashier must be able to read WHICH tab this is and reach Pay without
  * scrolling, on a tab with two lines and on one with forty; and the pay target
  * must not move between those two tabs, or between any of the states above.
+ *
+ * What the body leaves out, on purpose:
+ *  - An "Open" badge on an open tab (the only kind the till selects). The
+ *    header says when the tab was opened and where its orders came from.
+ *  - A standing paragraph about voiding sent lines. The void dialog states the
+ *    consequence at the moment it applies.
+ *  - Two always-visible icon buttons on every line. A line opens its own
+ *    "Change price / Void" row when pressed: rare actions, one press away.
+ *  - The promotion box. It took a third of the panel on every tab and is used
+ *    on a few; it opens from "Promotion" among the actions.
+ *  - "Due" twice. The amount still to pay after a part payment is said once,
+ *    in the pay footer beside the buttons that take it.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatIQD } from '@touch/i18n';
-import { supabase } from '../../lib/supabase';
+import { formatIQD, formatTime } from '@touch/i18n';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
+import { resultErrorCode } from '../../lib/queueResults';
+import { usePendingResults } from '../../lib/pendingResults';
+import { QK } from '../../lib/queries';
 import { touch } from '../../ipc/bridge';
 import { useLocale, pickName } from '../../lib/i18n';
-import { requiredRoleFor, usePermissions } from '../../lib/auth';
+import { useAuth, usePermissions } from '../../lib/auth';
 import { Button, ErrorText, Field, PinReasonModal, Skeleton, inputStyle } from '../../components/ui';
-import { Kbd, MessagePresenter, Money, PermissionRefusedNotice, ReasonCodePrompt, TabStatusIndicator } from '../../components/kit';
+import { Kbd, MessagePresenter, Money, ReasonCodePrompt, SegmentedControl, StatusBadge, TabStatusIndicator } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { computeTabTotals, discountBreakdown } from './tabTotals';
+import { useTaxContext } from './useTaxContext';
 import { BillView } from './BillView';
 import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
 import { SplitBillDialog } from './SplitBillDialog';
 import { ChargeToBookingDialog } from './ChargeToBookingDialog';
-import { PaymentPane, type PaymentMethod } from './PaymentPane';
-import { TILL_MENU_QUERY, tabDetailQuery, tabAnchorLabel, type TabLineRow } from './tillData';
-import { kvRow, muted, numeric, sectionTitle } from './tillStyles';
+import { PaymentPane, type PaymentMethod, type SettleResult } from './PaymentPane';
+import { canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type TabLineRow } from './tillData';
+import { actionButton, kvRow, muted, numeric, sectionTitle } from './tillStyles';
+import { DRAWER_REASONS } from './drawerReasons';
+import { useTillShiftOptional } from '../tillShift/shiftContext';
+
+/** The part of app.booking_bill (0106) the till reads. Every figure is the server's. */
+interface TillBookingBill {
+  reservation: { court_name_en: string | null; court_name_ar: string | null } | null;
+  live_tab: { id: string; court_iqd: number; total_iqd: number } | null;
+  court_paid_iqd: number;
+  court_remaining_iqd: number;
+}
 
 type Overlay =
   | { kind: 'none' }
@@ -57,12 +91,18 @@ export function TabDetailPanel({
   onSwitchTab,
 }: {
   tabId: string;
+  /** Lines in the till's basket not yet sent to this tab — they are not on its bill. */
   onClosedTab: () => void;
   /** The tab was merged into / replaced by another one — select that instead. */
   onSwitchTab: (id: string) => void;
 }) {
   const { tr, locale } = useLocale();
   const can = usePermissions();
+  const { staff } = useAuth();
+  const tillShift = useTillShiftOptional();
+  const bookingsVisible = canReadBookings(staff?.role);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [openLineId, setOpenLineId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
   const [discountKind, setDiscountKind] = useState<'discount_percent' | 'discount_amount'>('discount_percent');
@@ -71,6 +111,42 @@ export function TabDetailPanel({
   const [promoNotice, setPromoNotice] = useState<{ tone: 'success' | 'refused'; text: string } | null>(null);
   const [drawerNoted, setDrawerNoted] = useState(false);
   const [voidRefused, setVoidRefused] = useState(false);
+  /**
+   * Voids that went onto the durable queue (item 9, 0120): line id -> the
+   * envelope's localId, until the server answers. A pending line shows its
+   * badge and hides its actions; the ack refetches the tab (the line comes back
+   * voided) and retires the entry, a refusal retires it and lands where the
+   * synchronous one would have — VOID_REQUIRES_REFUND beside the lines,
+   * anything else as the action error. (The root also toasts it.)
+   */
+  const pendingVoids = usePendingResults<string>((_lineId, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    if (code === 'VOID_REQUIRES_REFUND') setVoidRefused(true);
+    else setActionError(new AppRpcError(code, code));
+  });
+  /**
+   * Refunds on the queue, unanswered: payment id -> localId. The "saved on
+   * this station" notice shows while any is held and goes with the ack (the
+   * payments list refetches then) or the refusal (shown as the action error).
+   */
+  const pendingRefunds = usePendingResults<string>((_paymentId, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    const detail = (r.serverResult as { details?: unknown } | null)?.details;
+    setActionError(new AppRpcError(code, code, undefined, typeof detail === 'string' ? detail : undefined));
+  });
+  /**
+   * Payments on the queue, unanswered: localId -> localId. While any is held
+   * the due on screen is stale (the server has not taken it yet), so the pay
+   * buttons wait and a notice says why. A queued settle used to close the pane
+   * with no word, and the cashier took the same payment again.
+   */
+  const pendingSettles = usePendingResults<string>((_localId, r) => {
+    const code = resultErrorCode(r) ?? 'UNKNOWN';
+    setActionError(new AppRpcError(code, code));
+  });
+  const { clear: clearPendingVoids } = pendingVoids;
+  const { clear: clearPendingRefunds } = pendingRefunds;
+  const { clear: clearPendingSettles } = pendingSettles;
   const [actionError, setActionError] = useState<unknown>(null);
   const [pinError, setPinError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -78,39 +154,56 @@ export function TabDetailPanel({
 
   const tabQ = useQuery(tabDetailQuery(tabId));
 
-  // Tax rates come off the SAME ['menu'] cache the grid already holds.
-  const menuForTaxQ = useQuery({ ...TILL_MENU_QUERY });
-  const taxInclusiveQ = useQuery({
-    queryKey: ['taxInclusive'],
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('venue_settings').select('tax_inclusive').single();
-      if (error) throw error;
-      return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
-    },
-  });
-  const taxCtx = useMemo(() => {
-    if (!menuForTaxQ.data || taxInclusiveQ.data === undefined) return null;
-    return {
-      rateByCategory: new Map(menuForTaxQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0])),
-      taxInclusive: taxInclusiveQ.data,
-    };
-  }, [menuForTaxQ.data, taxInclusiveQ.data]);
+  const taxCtx = useTaxContext();
 
   const tab = tabQ.data;
-  const totals = useMemo(() => computeTabTotals(tab ?? null, taxCtx), [tab, taxCtx]);
+  const settled = tab?.status === 'settled';
+  const reservationId = tab?.reservation_id ?? null;
+
+  // The court fee still owed, from the server (see the header). Keyed like the
+  // desk's booking bill so the two screens share one read and one invalidation.
+  const billQ = useQuery({
+    queryKey: ['bookingBill', reservationId],
+    enabled: Boolean(reservationId) && tab !== undefined && !settled,
+    retry: false,
+    queryFn: () => appRpc<TillBookingBill>('booking_bill', { p_reservation_id: reservationId }),
+  });
+  const bill = billQ.data;
+  // A change to the tab (a line sent, a discount) changes the bill's totals
+  // too; re-read it so the expected total sent with a payment is current.
+  const lastTabUpdate = useRef(0);
+  useEffect(() => {
+    const prev = lastTabUpdate.current;
+    lastTabUpdate.current = tabQ.dataUpdatedAt;
+    if (prev !== 0 && prev !== tabQ.dataUpdatedAt && reservationId) {
+      void queryClient.invalidateQueries({ queryKey: ['bookingBill', reservationId] });
+    }
+  }, [tabQ.dataUpdatedAt, reservationId, queryClient]);
+
+  const liveBillTab = bill?.live_tab && bill.live_tab.id === tabId ? bill.live_tab : null;
+  // null = a booking tab whose court fee has not arrived yet.
+  const court: number | null = !reservationId
+    ? 0
+    : settled
+      ? (tab?.court_iqd ?? 0)
+      : bill
+        ? (liveBillTab?.court_iqd ?? bill.court_remaining_iqd)
+        : null;
+  const courtPending = tab !== undefined && court === null;
+  const expectedTotalIqd = !settled && liveBillTab ? liveBillTab.total_iqd : undefined;
+
+  const totals = useMemo(() => computeTabTotals(tab ?? null, taxCtx, court), [tab, taxCtx, court]);
   const discounts = useMemo(() => discountBreakdown(tab?.tab_adjustments ?? []), [tab]);
   const due = totals.due;
-  const settled = tab?.status === 'settled';
 
   // F4/F5 from anywhere on the till OPEN the pane (TillScreen dispatches);
   // money is confirmed by click only. Registered before any early return.
-  const hotkeyGate = useRef({ settled: true, due: 0 });
-  hotkeyGate.current = { settled: Boolean(settled), due };
+  const hotkeyGate = useRef({ settled: true, due: 0, held: true });
+  // Held while the court fee is loading or a payment is still on the queue.
+  hotkeyGate.current = { settled: Boolean(settled), due, held: courtPending || pendingSettles.pending.size > 0 };
   useEffect(() => {
     function onHotkey(e: Event) {
-      if (hotkeyGate.current.settled || hotkeyGate.current.due <= 0) return;
+      if (hotkeyGate.current.settled || hotkeyGate.current.held || hotkeyGate.current.due <= 0) return;
       const method = (e as CustomEvent<PaymentMethod>).detail;
       setLastChange(null);
       setActionError(null);
@@ -128,7 +221,12 @@ export function TabDetailPanel({
     setDrawerNoted(false);
     setActionError(null);
     setOverlay({ kind: 'none' });
-  }, [tabId]);
+    setPromoOpen(false);
+    setOpenLineId(null);
+    clearPendingVoids();
+    clearPendingRefunds();
+    clearPendingSettles();
+  }, [tabId, clearPendingVoids, clearPendingRefunds, clearPendingSettles]);
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });
@@ -136,7 +234,12 @@ export function TabDetailPanel({
   }
   const close = () => setOverlay({ kind: 'none' });
 
-  async function settle(method: PaymentMethod, amountIqd: number | null, tenderedIqd: number | null) {
+  /**
+   * Takes one payment and says how it went; the CALLER decides what closes.
+   * The pay pane closes on any success, while a split closes only once the
+   * tab is settled, since its other shares are still to be taken.
+   */
+  async function settle(method: PaymentMethod, amountIqd: number | null, tenderedIqd: number | null): Promise<SettleResult> {
     setBusy(true);
     setActionError(null);
     try {
@@ -145,21 +248,32 @@ export function TabDetailPanel({
         method,
         ...(amountIqd != null ? { amountIqd } : {}),
         ...(tenderedIqd != null ? { tenderedIqd } : {}),
+        // Only a SERVER total is sent as the expectation. The mirror follows
+        // compute_tab_totals, but it reads a cached menu and can lag a price
+        // change; sending it could refuse a tab the server would take.
+        ...(expectedTotalIqd != null ? { expectedTotalIqd } : {}),
       });
       if (outcome.result) {
         // The change shown is the SERVER's figure.
         setLastChange(outcome.result.change_iqd ?? null);
         refresh();
-        if (outcome.result.status === 'settled') close();
-      } else {
-        // Queued offline: durably recorded, replays on reconnect. No server
-        // echo yet, so no change figure is claimed.
-        setLastChange(null);
-        close();
-        refresh();
+        return outcome.result.status === 'settled' ? 'settled' : 'partial';
       }
+      // Queued offline: durably recorded, replays on reconnect. No server
+      // echo yet, so no change figure is claimed, and the pay buttons hold.
+      setLastChange(null);
+      pendingSettles.add(outcome.localId, outcome.localId);
+      refresh();
+      return 'queued';
     } catch (e) {
+      if (e instanceof AppRpcError && e.code === 'TOTAL_CHANGED') {
+        // The bill moved under the payment (a price change, a line added
+        // elsewhere). Nothing was taken; re-read both and let them press again.
+        void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });
+        if (reservationId) void queryClient.invalidateQueries({ queryKey: ['bookingBill', reservationId] });
+      }
       setActionError(e);
+      return 'failed';
     } finally {
       setBusy(false);
     }
@@ -206,13 +320,16 @@ export function TabDetailPanel({
     setPinError(null);
     setVoidRefused(false);
     try {
-      await appRpc('void_after_send', {
-        p_order_item_id: lineId,
-        p_pin: pin,
-        p_reason_code: reasonCode,
-        p_device_id: deviceId(),
+      // Item 9 (0120): the void rides the durable queue; the PIN travels in the
+      // payload and is proved at replay. Online, VOID_REQUIRES_REFUND still
+      // throws here inside the call, exactly as the direct RPC did.
+      const outcome = await mutate<{ duplicate: boolean; order_item_id: string }>('order_item.void', {
+        orderItemId: lineId,
+        pin,
+        reasonCode,
       });
-      touch.pinObserved(pin);
+      if (!outcome.queued) touch.pinObserved(pin);
+      else pendingVoids.add(lineId, outcome.localId);
       close();
       refresh();
     } catch (e) {
@@ -246,6 +363,12 @@ export function TabDetailPanel({
         setPromoNotice({ tone: 'refused', text: tr('ws.cashier.detail.promoNone') });
       } else if (e instanceof AppRpcError && e.code === 'CODE_INVALID') {
         setPromoNotice({ tone: 'refused', text: tr('ws.cashier.detail.promoCodeInvalid') });
+      } else if (e instanceof AppRpcError && e.code === 'CODE_NOT_ELIGIBLE') {
+        // A REAL code that this tab does not qualify for (0067). It used to
+        // fall to the generic error line, which reads as the till failing
+        // rather than the offer not applying -- and left the cashier with
+        // nothing to tell the guest.
+        setPromoNotice({ tone: 'refused', text: tr('ws.cashier.detail.promoCodeNotEligible') });
       } else {
         setActionError(e);
       }
@@ -286,27 +409,49 @@ export function TabDetailPanel({
   const label = tabAnchorLabel(tab, tr('op.till.table'), tr('op.till.forReservation'));
   const liveOrders = tab.orders.filter((o) => o.status !== 'voided');
   const allLines = liveOrders.flatMap((o) => o.order_items);
-  const partiallyPaid = !settled && totals.paid > 0 && due > 0;
+  /* Voided lines are waste, not the order: they used to sit in place among the
+     lines with a "Voided" tag on each, so a long tab read as a mix of what the
+     guest is having and what was thrown away. They are collected into their
+     own section below instead, where the heading says it once. */
+  const voidedLines = allLines.filter((l) => l.voided);
+  const partiallyPaid = !settled && !courtPending && totals.paid > 0 && due > 0;
   const overrideLine = overlay.kind === 'override' ? allLines.find((l) => l.id === overlay.lineId) : undefined;
+  const web = tabHasWebOrder(tab);
 
   // Rulebook 4.3 — no dead ends. Only STATE gets a reason here: `busy` is
   // already spoken by the spinner on the control the operator just pressed.
   const nothingDue = due <= 0;
-  const payBlockedReason = nothingDue ? tr('ws.cashier.payment.nothingDue') : undefined;
+  const courtReason = courtPending
+    ? billQ.isError
+      ? tr('ws.cashier.payment.courtFailed')
+      : tr('ws.cashier.payment.courtLoading')
+    : undefined;
+  const settlePending = pendingSettles.pending.size > 0;
+  const payHeld = courtPending || nothingDue || settlePending;
+  /* An empty tab says so already — the lines list is empty and the total is
+     0 IQD — so the pay buttons are simply disabled without a line of text
+     repeating it under them. A court fee still pending IS worth stating. */
+  const payBlockedReason = courtReason ?? (settlePending ? tr('ws.cashier.detail.settleQueued') : undefined);
+  const courtName = tab.reservation?.court
+    ? pickName(locale, tab.reservation.court)
+    : bill?.reservation?.court_name_en && bill.reservation.court_name_ar
+      ? pickName(locale, { name_en: bill.reservation.court_name_en, name_ar: bill.reservation.court_name_ar })
+      : '';
+  const courtLabel = courtName ? tr('ws.cashier.detail.courtFeeRow', { court: courtName }) : tr('ws.cashier.detail.courtFee');
+  // A drinks tab after the court was paid on an earlier bill charges no court;
+  // said once, so the cashier does not go looking for a missing fee.
+  const courtPaidEarlier = Boolean(reservationId) && !settled && court === 0 && (bill?.court_paid_iqd ?? 0) > 0;
 
   return (
     /*
      * Three fixed zones (rulebook 5.1), and the outer flex column is what makes
      * them fixed: the identity header and the pay footer are siblings of the
-     * scroller, not passengers inside it. Before this the whole panel scrolled
-     * as one, so Cash and Card sat wherever the line count, the promotion box
-     * and five conditional notices happened to leave them — the pay target
-     * stood somewhere different on a part-paid tab than on a fresh one.
+     * scroller, not passengers inside it.
      */
     <section
       aria-label={tr('ws.cashier.till.regionTab')}
       aria-busy={busy || undefined}
-      style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, display: 'flex', flexDirection: 'column' }}
+      style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column' }}
     >
       {/* ---- zone 1: identity, always on screen (rulebook 5.2) ---- */}
       <header
@@ -322,35 +467,46 @@ export function TabDetailPanel({
           <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <bdi>{label}</bdi>
           </h2>
-          <TabStatusIndicator status={tab.status} size="sm" />
+          {tab.status !== 'open' && <TabStatusIndicator status={tab.status} size="sm" />}
         </div>
-        {tab.reservation_id && (
-          <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
-            <Icon name="calendar" size={13} /> {tr('ws.cashier.detail.chargedTo')}
-            {tab.reservation?.court && (
-              <>
-                {' · '}
-                <bdi>{pickName(locale, tab.reservation.court)}</bdi>
-              </>
-            )}
-          </span>
-        )}
+        <span style={{ ...muted, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+          {tab.opened_at && <span>{tr('ws.cashier.detail.openedAt', { time: formatTime(new Date(tab.opened_at), locale) })}</span>}
+          {web && <StatusBadge tone="info" icon="globe" dot={false} size="sm" label={tr('ws.cashier.tabs.sourceWeb')} />}
+          {tab.reservation_id && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+              <Icon name="calendar" size={13} /> {tr('ws.cashier.detail.chargedTo')}
+              {tab.reservation?.court && (
+                <>
+                  {' · '}
+                  <bdi>{pickName(locale, tab.reservation.court)}</bdi>
+                </>
+              )}
+            </span>
+          )}
+        </span>
       </header>
 
       {/* ---- zone 2: everything that grows ---- */}
       <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
-        {/* ---- lines (TabLineList, sent = not editable, void = waste) ---- */}
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+        {/* ---- lines (sent = not editable, void = waste) ---- */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
           {allLines.length === 0 && <p style={muted}>{tr('ws.cashier.detail.noLines')}</p>}
-          {liveOrders.map((o) => (
+          {liveOrders.map((o) => {
+            const active = o.order_items.filter((l) => !l.voided);
+            if (active.length === 0) return null;
+            return (
+            // Cards need air between them; 2px was spacing for bare text rows.
             <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-              {o.order_items.map((line) => (
+              {active.map((line) => (
                 <TabLine
                   key={line.id}
                   line={line}
                   settled={Boolean(settled)}
                   busy={busy}
+                  pending={!line.voided && pendingVoids.pending.has(line.id)}
+                  open={openLineId === line.id}
+                  onToggle={() => setOpenLineId((cur) => (cur === line.id ? null : line.id))}
                   onOverride={() => setOverlay({ kind: 'override', lineId: line.id })}
                   onVoid={() => {
                     setVoidRefused(false);
@@ -360,12 +516,35 @@ export function TabDetailPanel({
                 />
               ))}
             </ul>
-          ))}
-          {allLines.length > 0 && !settled && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.sentHint')}</p>}
+            );
+          })}
           {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
+          {pendingRefunds.pending.size > 0 && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.refundQueued')} />}
+          {settlePending && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.settleQueued')} />}
         </div>
 
-        {/* ---- totals (TabTotals + AppliedPromotionRow) ---- */}
+        {/* ---- voided (waste, kept visible: it was on the tab once) ---- */}
+        {voidedLines.length > 0 && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <h3 style={sectionTitle}>{tr('ws.cashier.detail.voidedTitle')}</h3>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              {voidedLines.map((line) => (
+                <TabLine
+                  key={line.id}
+                  line={line}
+                  settled={Boolean(settled)}
+                  busy={busy}
+                  open={false}
+                  onToggle={() => {}}
+                  onOverride={() => {}}
+                  onVoid={() => {}}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* ---- totals ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)' }}>
           <Row label={tr('common.subtotal')} amount={totals.subtotal} />
           {discounts.manager > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-discounts.manager} />}
@@ -380,39 +559,146 @@ export function TabDetailPanel({
             />
           )}
           {totals.tax > 0 && <Row label={taxCtx?.taxInclusive ? tr('op.till.taxIncluded') : tr('op.till.tax')} amount={totals.tax} />}
-          <Row label={tr('common.total')} amount={totals.total} strong />
+          {courtPending ? (
+            <Row label={courtLabel} amount={null} />
+          ) : totals.court > 0 ? (
+            <Row label={courtLabel} amount={totals.court} />
+          ) : courtPaidEarlier ? (
+            <div style={{ ...kvRow, ...muted }}>
+              <span>{courtLabel}</span>
+              <span>{tr('ws.cashier.detail.courtPaidEarlier')}</span>
+            </div>
+          ) : null}
+          {/* No total while the court fee is unknown: a figure short by the court is the defect this replaces. */}
+          <Row label={tr('common.total')} amount={courtPending ? null : totals.total} strong />
           {totals.paid > 0 && <Row label={tr('ws.cashier.detail.paid')} amount={-totals.paid} />}
-          {totals.paid > 0 && !settled && <Row label={tr('ws.cashier.detail.due')} amount={due} strong />}
           {lastChange != null && lastChange > 0 && <Row label={tr('op.till.change')} amount={lastChange} strong tone="success" />}
         </div>
 
-        {/*
-          The five conditional notices. They live inside the scroller, which the
-          pay footer is deliberately not part of, so any combination of them can
-          appear without the Cash button knowing about it.
-        */}
-        {partiallyPaid && <MessagePresenter tone="info" icon="banknote" message={tr('ws.cashier.payment.partiallyPaid', { amount: formatIQD(due, locale) })} />}
+        {courtPending && billQ.isError && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>
+            <ErrorText error={billQ.error} style={{ marginBlock: 0 }} />
+            <Button size="sm" icon="refresh" onClick={() => void billQ.refetch()}>
+              {tr('ws.kit.async.retry')}
+            </Button>
+          </div>
+        )}
         {settled && <MessagePresenter tone="success" message={tr('op.till.paidInFull')} />}
         {drawerNoted && <MessagePresenter tone="success" icon="drawer" message={tr('op.till.drawerNoted')} />}
         <ErrorText error={actionError} />
+      </div>
 
-        {/* ---- promotion (read-only result; the server chose it) ---- */}
-        {!settled && allLines.length > 0 && (
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-            <h3 style={sectionTitle}>{tr('ws.cashier.detail.promoTitle')}</h3>
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'end' }}>
-              <Field label={tr('ws.cashier.detail.promoCode')} style={{ marginBlockEnd: 0, flex: 1 }}>
+      {/* The actions sit with the pay row, not at the end of the scrolling
+          body: they used to be reachable only after scrolling past every line
+          of a long tab, while Cash and Card stayed pinned. Above the footer's
+          own rule, so the line still reads as the boundary of the pay zone. */}
+      <div style={{ flex: '0 0 auto', display: 'grid', gap: 'var(--tp-sp-1-5)', paddingBlockEnd: 'var(--tp-sp-2-5)' }}>
+        {/* ---- actions, most-used first ---- */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+          <h3 style={sectionTitle}>{tr('ws.cashier.detail.actionsTitle')}</h3>
+          {/* Three to a row, so the set reads as a block of equal choices and
+              each button lands where the cashier last saw it. A wrapping flex
+              row sized every button to its own label, so the grid reflowed and
+              the buttons moved whenever one appeared or dropped out. The count
+              varies with the tab's state; the last row simply fills from the
+              start. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 'var(--tp-sp-1-5)',
+              alignItems: 'start',
+            }}
+          >
+            <Button icon="receipt" style={actionButton} disabled={busy || courtPending} disabledReason={courtReason} onClick={() => setOverlay({ kind: 'bill' })}>
+              {tr('op.till.bill')}
+            </Button>
+            {!settled && (
+              <>
+                <Button
+                  icon="split"
+                  style={actionButton}
+                  disabled={payHeld || busy}
+                  disabledReason={courtReason}
+                  // Split takes payments too, so it meets the shift gate first
+                  // (wave5-addendum §5.1); Cash and Card meet it in the pane.
+                  onClick={() => (tillShift ? tillShift.withShift(() => setOverlay({ kind: 'split' })) : setOverlay({ kind: 'split' }))}
+                >
+                  {tr('ws.cashier.detail.split')}
+                </Button>
+                <Button icon="tag" style={actionButton} disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
+                  {tr('ws.cashier.detail.discount')}
+                </Button>
+                {/* Clearing the notice is part of the toggle, like the discount
+                    button's setPinError(null) above: a refusal describes ONE
+                    press against ONE snapshot of a tab, and this one used to
+                    outlive both -- closing the panel moved the warning OUT of
+                    it and stranded it on the tab until the cashier opened a
+                    different one. */}
+                {allLines.length > 0 && (
+                  <Button
+                    icon="spark"
+                    style={actionButton}
+                    aria-pressed={promoOpen}
+                    disabled={busy}
+                    onClick={() => {
+                      setPromoNotice(null);
+                      setPromoOpen((v) => !v);
+                    }}
+                  >
+                    {tr('ws.cashier.detail.promoTitle')}
+                  </Button>
+                )}
+                <Button icon="merge" style={actionButton} disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
+                  {tr('ws.cashier.detail.merge')}
+                </Button>
+                <Button icon="drawer" style={actionButton} disabled={busy} onClick={() => setOverlay({ kind: 'drawer' })}>
+                  {tr('op.till.openDrawer')}
+                </Button>
+              </>
+            )}
+            {!tab.reservation_id && bookingsVisible && (
+              /* Spans the last two columns: it is the widest label of the set
+                 and the one action that reaches outside this tab, so it gets
+                 the room rather than being squeezed into a third. */
+              <Button
+                icon="calendar"
+                style={{ ...actionButton, gridColumn: 'span 2' }}
+                disabled={busy}
+                onClick={() => setOverlay({ kind: 'charge' })}
+              >
+                {tr('ws.cashier.detail.chargeBooking')}
+              </Button>
+            )}
+            {tab.payments.length > 0 && (
+              // The dialog says who may refund when this role may not; the
+              // same notice under the buttons said it twice.
+              <Button kind="danger" icon="undo" style={actionButton} disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
+                {tr('op.till.refund')}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* ---- promotion (opened from the actions; the server chooses it) ---- */}
+        {promoOpen && !settled && allLines.length > 0 && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', padding: 'var(--tp-sp-2-5)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)' }}>
+            {/* Stacked: side by side in a 20rem column the label wrapped and
+                the placeholder was cut to "Leave empty for". */}
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>
+              <Field label={tr('ws.cashier.detail.promoCode')} style={{ marginBlockEnd: 0, inlineSize: '100%' }}>
                 <input
                   style={inputStyle}
                   value={promoCode}
                   maxLength={32}
                   disabled={busy}
+                  autoFocus
                   placeholder={tr('ws.cashier.detail.promoCodePlaceholder')}
                   onChange={(e) => setPromoCode(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !busy && void applyPromotion()}
                 />
               </Field>
-              <Button icon="tag" busy={busy} onClick={() => void applyPromotion()}>
+              <Button kind="primary" busy={busy} onClick={() => void applyPromotion()}>
                 {tr('ws.cashier.detail.promoApply')}
               </Button>
             </div>
@@ -420,69 +706,44 @@ export function TabDetailPanel({
             <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
           </div>
         )}
-
-        {/* ---- actions ---- */}
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-          <h3 style={sectionTitle}>{tr('ws.cashier.detail.actionsTitle')}</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-start' }}>
-            {!settled && (
-              <>
-                <Button
-                  icon="split"
-                  disabled={nothingDue || busy}
-                  disabledReason={nothingDue ? tr('ws.cashier.detail.splitNothing') : undefined}
-                  onClick={() => setOverlay({ kind: 'split' })}
-                >
-                  {tr('ws.cashier.detail.split')}
-                </Button>
-                <Button icon="tag" disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
-                  {tr('ws.cashier.detail.discount')}
-                </Button>
-                <Button icon="merge" disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
-                  {tr('ws.cashier.detail.merge')}
-                </Button>
-                {!tab.reservation_id && (
-                  <Button icon="calendar" disabled={busy} onClick={() => setOverlay({ kind: 'charge' })}>
-                    {tr('ws.cashier.detail.chargeBooking')}
-                  </Button>
-                )}
-              </>
-            )}
-            <Button icon="receipt" disabled={busy} onClick={() => setOverlay({ kind: 'bill' })}>
-              {tr('op.till.bill')}
-            </Button>
-            <Button icon="drawer" disabled={busy} onClick={() => setOverlay({ kind: 'drawer' })}>
-              {tr('op.till.openDrawer')}
-            </Button>
-            {tab.payments.length > 0 && (
-              <Button kind="danger" icon="undo" disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
-                {tr('op.till.refund')}
-              </Button>
-            )}
-          </div>
-          {tab.payments.length > 0 && !can.refund && (
-            <PermissionRefusedNotice action={tr('ws.cashier.detail.refundAction')} requiredRole={requiredRoleFor('refund')} />
-          )}
-        </div>
       </div>
 
       {/*
         ---- zone 3: the pay footer, pinned ----
-        Cash and Card land on the same two coordinates on every tab in every
-        state, because nothing above them is allowed to push them. The row also
-        reserves the height of a disabled-reason line, so stating the reason
-        cannot move the button the reason is about.
+        Cash and Card land on the same coordinates on every tab in every state:
+        anything that appears in the footer appears ABOVE them, and the footer
+        grows upward from the bottom edge. The row also reserves the height of a
+        disabled-reason line, so stating the reason cannot move the button.
       */}
-      <div style={{ flex: '0 0 auto', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+      <div style={{ flex: '0 0 auto', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-1-5)' }}>
         {!settled ? (
           <>
-            <h3 style={sectionTitle}>{tr('ws.cashier.payment.title')}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-1-5)', alignItems: 'start', minBlockSize: '5rem' }}>
+            {partiallyPaid && (
+              <div style={{ ...kvRow, fontWeight: 700 }}>
+                <span>{tr('ws.cashier.payment.stillToPay')}</span>
+                <Money amount={due} strong />
+              </div>
+            )}
+            {/* The row reserves the taller height ONLY while a reason could
+                actually appear under Cash — the buttons are 3.5rem and the
+                reservation was a flat 5rem, so every tab with nothing blocking
+                it carried 1.5rem of empty footer below the pay row. The reason
+                still cannot move the buttons: the height is already reserved by
+                the time one can be shown. */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                gap: 'var(--tp-sp-1-5)',
+                alignItems: 'start',
+                minBlockSize: (payHeld || busy) && payBlockedReason !== undefined ? '5rem' : undefined,
+              }}
+            >
               <Button
                 kind="primary"
                 size="xl"
                 icon="banknote"
-                disabled={nothingDue || busy}
+                disabled={payHeld || busy}
                 disabledReason={payBlockedReason}
                 title="F4"
                 aria-label={tr('op.till.payCash')}
@@ -498,8 +759,7 @@ export function TabDetailPanel({
               <Button
                 size="xl"
                 icon="card"
-                disabled={nothingDue || busy}
-                disabledReason={payBlockedReason}
+                disabled={payHeld || busy}
                 title="F5"
                 aria-label={tr('op.till.payCard')}
                 style={{ inlineSize: '100%' }}
@@ -522,10 +782,22 @@ export function TabDetailPanel({
 
       {/* ---- overlays ---- */}
       {overlay.kind === 'pay' && (
-        <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t)} />
+        <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t).then((r) => r !== 'failed' && close())} />
       )}
       {overlay.kind === 'split' && (
-        <SplitBillDialog tabId={tabId} lines={allLines} due={due} busy={busy} onSettleShare={(amount) => void settle('cash', amount, amount)} onClose={close} />
+        <SplitBillDialog
+          tabId={tabId}
+          lines={allLines}
+          due={due}
+          busy={busy}
+          settleError={actionError}
+          onSettleShare={async (amount, method) => {
+            const r = await settle(method, amount, method === 'cash' ? amount : null);
+            if (r === 'settled' || r === 'queued') close();
+            return r !== 'failed';
+          }}
+          onClose={close}
+        />
       )}
       {overlay.kind === 'bill' && (
         <BillView
@@ -533,6 +805,7 @@ export function TabDetailPanel({
           heading={label}
           orders={tab.orders}
           totals={totals}
+          courtLabel={courtLabel}
           payments={tab.payments}
           taxInclusive={Boolean(taxCtx?.taxInclusive)}
           onClose={close}
@@ -543,9 +816,12 @@ export function TabDetailPanel({
           payments={tab.payments}
           lines={allLines}
           canRefund={can.refund}
-          onDone={() => {
+          onDone={(outcome, paymentId) => {
             close();
             refresh();
+            // A refund moves the day's takings; the day panel reads QK.day.
+            void queryClient.invalidateQueries({ queryKey: [...QK.day] });
+            if (outcome.queued) pendingRefunds.add(paymentId, outcome.localId);
           }}
           onClose={close}
         />
@@ -575,7 +851,7 @@ export function TabDetailPanel({
         />
       )}
       {overlay.kind === 'drawer' && (
-        <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} busy={busy} error={actionError} withNote={false} onSubmit={(code) => void recordDrawerOpen(code)} onCancel={close}>
+        <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={actionError} withNote={false} onSubmit={(code) => void recordDrawerOpen(code)} onCancel={close}>
           <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
         </ReasonCodePrompt>
       )}
@@ -602,21 +878,35 @@ export function TabDetailPanel({
           }}
           onSubmit={(pin, reason) => void applyDiscount(pin, reason)}
         >
-          <Field label={tr('op.till.discount')}>
-            <select style={inputStyle} value={discountKind} onChange={(e) => setDiscountKind(e.target.value as typeof discountKind)}>
-              <option value="discount_percent">{tr('op.till.discountPercent')}</option>
-              <option value="discount_amount">{tr('op.till.discountAmount')}</option>
-            </select>
-          </Field>
-          <Field label={tr('op.till.discountValue')}>
+          <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+            <SegmentedControl<typeof discountKind>
+              value={discountKind}
+              onChange={(k) => {
+                // A value typed for one kind means nothing in the other: 10%
+                // must not quietly become 10 IQD.
+                setDiscountKind(k);
+                setDiscountValue(10);
+              }}
+              aria-label={tr('op.till.discount')}
+              options={[
+                { value: 'discount_percent', label: tr('op.till.discountPercent') },
+                { value: 'discount_amount', label: tr('op.till.discountAmount') },
+              ]}
+            />
+          </div>
+          <Field label={discountKind === 'discount_percent' ? tr('op.till.discountPercentLabel') : tr('op.till.discountAmountLabel')} hint={tr('op.till.discountPinHint')}>
             <input
-              style={{ ...inputStyle, ...numeric }}
+              style={{ ...inputStyle, ...numeric, textAlign: 'end' }}
               type="number"
               dir="ltr"
               min={1}
               max={discountKind === 'discount_percent' ? 100 : undefined}
               value={discountValue}
-              onChange={(e) => setDiscountValue(Math.max(1, Number(e.target.value) || 1))}
+              // `max` only styles the field; typing 150 still reached the payload as 15000 bp.
+              onChange={(e) => {
+                const v = Math.max(1, Math.floor(Number(e.target.value)) || 1);
+                setDiscountValue(discountKind === 'discount_percent' ? Math.min(v, 100) : v);
+              }}
             />
           </Field>
         </PinReasonModal>
@@ -640,37 +930,40 @@ export function TabDetailPanel({
   );
 }
 
+/**
+ * One sent line. Pressing it opens its own row of actions — change the price,
+ * void it — rather than every line carrying two unlabelled icons all shift.
+ */
 function TabLine({
   line,
   settled,
   busy,
+  pending = false,
+  open,
+  onToggle,
   onOverride,
   onVoid,
 }: {
   line: TabLineRow;
   settled: boolean;
   busy: boolean;
+  /** A void for this line is on the durable queue, unanswered (item 9). */
+  pending?: boolean;
+  open: boolean;
+  onToggle: () => void;
   onOverride: () => void;
   onVoid: () => void;
 }) {
   const { tr, locale } = useLocale();
   const name = `${line.qty}× ${pickName(locale, line.menu_item)}${line.variant ? ` (${pickName(locale, line.variant)})` : ''}`;
-  return (
-    <li
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        gap: '0.4rem',
-        alignItems: 'center',
-        textDecoration: line.voided ? 'line-through' : 'none',
-        color: line.voided ? 'var(--tp-muted-fg)' : 'inherit',
-      }}
-    >
-      <span style={{ minInlineSize: 0, flex: 1 }}>
-        <bdi>{name}</bdi>
-        {line.voided && (
-          <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginInlineStart: '0.4rem', textDecoration: 'none', display: 'inline-block' }}>
-            {tr('ws.cashier.detail.voided')}
+  const actionable = !line.voided && !settled && !pending;
+  const body = (
+    <>
+      <span style={{ minInlineSize: 0, flex: 1, textAlign: 'start' }}>
+        <bdi style={{ textDecoration: line.voided ? 'line-through' : 'none' }}>{name}</bdi>
+        {pending && (
+          <span style={{ marginInlineStart: '0.4rem', display: 'inline-block', verticalAlign: 'middle' }}>
+            <StatusBadge tone="info" icon="wifiOff" size="sm" label={tr('ws.cashier.detail.voidQueued')} />
           </span>
         )}
         {line.order_item_modifiers.length > 0 && (
@@ -684,28 +977,98 @@ function TabLine({
           </span>
         )}
       </span>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.15rem', flexShrink: 0 }}>
-        <Money amount={line.line_total_iqd} />
-        {!line.voided && !settled && (
-          <>
-            <Button kind="ghost" size="sm" icon="tag" disabled={busy} title={tr('op.till.override')} aria-label={`${tr('op.till.override')} — ${name}`} onClick={onOverride} />
-            <Button kind="ghost" size="sm" icon="ban" disabled={busy} title={tr('ws.cashier.detail.voidLine')} aria-label={`${tr('ws.cashier.detail.voidLine')} — ${name}`} onClick={onVoid} />
-          </>
-        )}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexShrink: 0 }}>
+        <Money amount={line.line_total_iqd} style={line.voided ? { textDecoration: 'line-through' } : undefined} />
+        {actionable && <Icon name="chevronDown" size={14} style={{ color: 'var(--tp-muted-fg)', transform: open ? 'rotate(180deg)' : undefined }} />}
       </span>
+    </>
+  );
+  /* A card per line, same as the basket's unsent lines: the two lists sit on
+     the same screen and a sent line should not read as a different kind of
+     thing from one still in the basket. The negative inline margin is gone
+     with it — a card that bled past the panel's padding looked like a
+     mistake. */
+  const rowStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 'var(--tp-sp-2)',
+    alignItems: 'center',
+    inlineSize: '100%',
+    paddingBlock: 'var(--tp-sp-1)',
+    paddingInline: 'var(--tp-sp-2)',
+    boxSizing: 'border-box',
+    background: 'var(--tp-surface)',
+    border: '1px solid var(--tp-border)',
+    borderRadius: 'var(--tp-radius-ctl)',
+    color: line.voided ? 'var(--tp-muted-fg)' : 'inherit',
+  } as const;
+  return (
+    <li>
+      {actionable ? (
+        <button
+          type="button"
+          className="tp-tile"
+          aria-expanded={open}
+          aria-label={tr('ws.cashier.detail.lineActions', { name })}
+          onClick={onToggle}
+          style={{
+            ...rowStyle,
+            background: open ? 'var(--tp-surface-2)' : rowStyle.background,
+            ...(open
+              ? { borderEndStartRadius: 0, borderEndEndRadius: 0, borderBlockEnd: 'none' }
+              : null),
+            font: 'inherit',
+          }}
+        >
+          {body}
+        </button>
+      ) : (
+        <div style={rowStyle}>{body}</div>
+      )}
+      {actionable && open && (
+        /* Continues the open row's own card rather than sitting on the bare
+           panel: same tinted surface, and the two are JOINED — the row above
+           keeps its top corners, this keeps its bottom ones, and the border
+           between them is dropped — so the buttons read as belonging to the
+           line they act on rather than floating under it. */
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-1-5)',
+            flexWrap: 'wrap',
+            paddingBlock: 'var(--tp-sp-1-5)',
+            paddingInline: 'var(--tp-sp-2)',
+            background: 'var(--tp-surface-2)',
+            border: '1px solid var(--tp-border)',
+            borderBlockStart: 'none',
+            borderEndStartRadius: 'var(--tp-radius-ctl)',
+            borderEndEndRadius: 'var(--tp-radius-ctl)',
+          }}
+        >
+          <Button size="sm" icon="tag" disabled={busy} aria-label={`${tr('op.till.override')} — ${name}`} onClick={onOverride}>
+            {tr('op.till.override')}
+          </Button>
+          <Button size="sm" kind="danger" icon="ban" disabled={busy} aria-label={`${tr('ws.cashier.detail.voidLine')} — ${name}`} onClick={onVoid}>
+            {tr('ws.cashier.detail.voidLine')}
+          </Button>
+        </div>
+      )}
     </li>
   );
 }
 
-/** One totals row: <span>label</span><span>amount</span> — the e2e change assertion anchors on this shape. */
-function Row({ label, amount, strong, tone }: { label: React.ReactNode; amount: number; strong?: boolean; tone?: 'success' }) {
+/**
+ * One totals row: <span>label</span><span>amount</span> — the e2e change assertion anchors on this shape.
+ * `amount` null is a figure the server has not sent yet: "—", never a made-up number.
+ */
+function Row({ label, amount, strong, tone }: { label: React.ReactNode; amount: number | null; strong?: boolean; tone?: 'success' }) {
   const { locale } = useLocale();
-  const negative = amount < 0;
+  const negative = amount !== null && amount < 0;
   return (
     <div style={{ ...kvRow, fontWeight: strong ? 700 : 400, color: tone === 'success' ? 'var(--tp-success-fg)' : undefined }}>
       <span>{label}</span>
-      <span dir="ltr" style={numeric}>
-        {negative ? `−${formatIQD(-amount, locale)}` : formatIQD(amount, locale)}
+      <span dir="ltr" style={{ ...numeric, color: amount === null ? 'var(--tp-muted-fg)' : undefined }}>
+        {amount === null ? '—' : negative ? `−${formatIQD(-amount, locale)}` : formatIQD(amount, locale)}
       </span>
     </div>
   );

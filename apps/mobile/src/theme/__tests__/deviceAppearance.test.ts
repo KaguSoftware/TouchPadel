@@ -26,7 +26,7 @@ let device: 'light' | 'dark' = 'light';
 /** RN's cached scheme; `undefined` = not yet read (lazy init). */
 let cached: 'light' | 'dark' | null | undefined;
 /** Every setColorScheme call, so a read that writes is a test failure. */
-let writes: Array<string | null>;
+let writes: (string | null)[];
 
 vi.mock('react-native', () => ({
   Appearance: {

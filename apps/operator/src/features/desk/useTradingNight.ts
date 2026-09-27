@@ -17,7 +17,8 @@ import { supabase } from '../../lib/supabase';
 import { cachedQuery } from '../../lib/refCache';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow, type VenueSettingsRow } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
-import { RESERVATION_COLUMNS, type ReservationRow, type TabLinkRow } from './deskTypes';
+import { RESERVATION_COLUMNS, type ReservationRow } from './deskTypes';
+import { tradingDateOf, type OpeningHours } from './calendar/monthLogic';
 
 export const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 export const SLOT_MIN = 30;
@@ -25,6 +26,48 @@ export const SLOT_MIN = 30;
 export function todayInTz(tz: string): string {
   // en-CA is the one common locale whose short date IS YYYY-MM-DD.
   return new Date().toLocaleDateString('en-CA', { timeZone: tz });
+}
+
+/**
+ * The trading night that is running now. At 00:40 the calendar date is
+ * already tomorrow, but the courts are still trading last night — and "Today"
+ * used to jump the desk to a grid that opens at 09:00, with the guests on
+ * court right now nowhere on it.
+ */
+export function tonightInTz(tz: string, hours: OpeningHours): string {
+  return tradingDateOf(new Date().toISOString(), tz, hours);
+}
+
+/**
+ * The fetch window of one trading night: its calendar date's midnight to its
+ * close, which runs past the next midnight (09:00 → 02:00). Rows in it that
+ * belong to the night BEFORE (that date's own 00:00–02:00) are dropped by the
+ * caller with tradingDateOf.
+ */
+export function nightWindow(date: string, tz: string, hours: OpeningHours): { start: Date; end: Date } {
+  const dayIndex = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const windows = hours?.[DAY_KEYS[dayIndex] as DayKey] ?? [];
+  const nextDayWindows = hours?.[DAY_KEYS[(dayIndex + 1) % 7] as DayKey] ?? [];
+  const { endMin } = tradingSpan(windows, nextDayWindows);
+  return { start: wallTimeToUtc(date, 0, tz), end: wallTimeToUtc(date, Math.max(24 * 60, endMin), tz) };
+}
+
+/**
+ * Tonight's window and a filter to its own rows, off the venue settings. For
+ * the till's court lists, which used the STATION's midnight: at 00:10 a
+ * 23:00–00:30 booking still on court was missing, and so was tonight's 00:30
+ * booking at 23:30.
+ */
+export async function tonightScope(fetchSettings: () => Promise<VenueSettingsRow>) {
+  const s = await fetchSettings();
+  const tz = s.timezone ?? VENUE_TZ;
+  const tonight = tonightInTz(tz, s.opening_hours);
+  const { start, end } = nightWindow(tonight, tz, s.opening_hours);
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+    isTonight: (startAt: string) => tradingDateOf(startAt, tz, s.opening_hours) === tonight,
+  };
 }
 
 export interface TradingNight {
@@ -90,11 +133,20 @@ export function useTradingNight(date: string): TradingNight {
     refetchInterval: 60_000,
   });
 
+  // The fetch window starts at midnight so the night's own after-midnight tail
+  // is in it — which also brings in the PREVIOUS night's 00:00–02:00 rows.
+  // Those belong to yesterday's grid; drawn here they clamped to the first row.
+  const hours = settingsQ.data?.opening_hours;
+  const nightRows = useMemo(
+    () => (reservationsQ.data ?? []).filter((r) => tradingDateOf(r.start_at, tz, hours) === date),
+    [reservationsQ.data, tz, hours, date],
+  );
+
   useBroadcast({
     topic: 'courts',
     isPrivate: true,
     events: ['slot_changed'],
-    invalidateKeys: [['reservations'], ['reservationsWeek'], ['reservation']],
+    invalidateKeys: [['reservations'], ['reservationsMonth'], ['reservation']],
   });
 
   return {
@@ -104,7 +156,7 @@ export function useTradingNight(date: string): TradingNight {
     courtsQ,
     reservationsQ,
     courts: courtsQ.data ?? [],
-    reservations: reservationsQ.data ?? [],
+    reservations: nightRows,
     openMin,
     closeMin,
     rowCount,
@@ -114,24 +166,4 @@ export function useTradingNight(date: string): TradingNight {
     closed,
     closedDates,
   };
-}
-
-/**
- * Which of these bookings a tab charges, and whether it is settled. The desk
- * may not be allowed to read `tabs` (RLS) — an error here degrades to
- * "payment unknown", never to a broken board.
- */
-export function useTabLinks(reservationIds: readonly string[]): UseQueryResult<TabLinkRow[]> {
-  const ids = useMemo(() => [...reservationIds].sort(), [reservationIds]);
-  return useQuery({
-    queryKey: ['tabLinks', ids],
-    enabled: ids.length > 0,
-    queryFn: async (): Promise<TabLinkRow[]> => {
-      const { data, error } = await supabase.from('tabs').select('reservation_id, status').in('reservation_id', ids);
-      if (error) throw error;
-      return (data ?? []) as TabLinkRow[];
-    },
-    retry: false,
-    refetchInterval: 60_000,
-  });
 }

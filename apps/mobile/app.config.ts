@@ -89,6 +89,27 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   // Welcome screen's gradient (a native splash cannot draw the gradient itself),
   // so the first frame of the app is the same colour as the last frame of the
   // splash. assets/README.md covers every brand file here.
+  //
+  // ANDROID CLIPS THE SPLASH ICON TO A CIRCLE, AND THAT IS WHY ITS WIDTH IS
+  // SMALLER THAN iOS's.
+  //
+  // Since Android 12 the launch icon is drawn by the platform's own
+  // `Theme.SplashScreen`, via `windowSplashScreenAnimatedIcon`, and the OS masks
+  // that drawable to a CIRCLE — roughly the inner two thirds of the icon window.
+  // It is the framework's mask, not a layout of ours, so nothing in JS or in the
+  // image can reach it: whatever falls outside the circle is simply not drawn.
+  //
+  // At 220 the lockup rendered 220 x 81 dp and the mask cut both ends off it —
+  // the launch screen read "ouch Pad", then snapped to the full wordmark the
+  // moment BootOverlay took over. That snap WAS the bug (owner, Android builds).
+  //
+  // A 900x332 lockup inscribed in the 160 dp safe circle may be at most
+  // 160 / sqrt(1 + (332/900)^2) = 150 dp wide, so Android gets 150 and keeps the
+  // whole word. iOS has no mask — its storyboard draws the image as given — so
+  // it stays at 220 and loses nothing.
+  //
+  // BootOverlay's LOGO_W matches this PER PLATFORM (the two must agree or the
+  // handoff jumps); bootOverlay.test.ts holds the numbers to each other.
   [
     'expo-splash-screen',
     {
@@ -96,6 +117,7 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
       imageWidth: 220,
       resizeMode: 'contain',
       backgroundColor: '#3360AB',
+      android: { imageWidth: 150 },
     },
   ],
   // Android status-bar glyph (white-on-transparent, the platform tints it) and
@@ -104,6 +126,49 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   // Sign in with Apple entitlement (com.apple.developer.applesignin). EAS Build
   // syncs the capability to the App ID on every build (EXPO_NO_CAPABILITY_SYNC opts out).
   'expo-apple-authentication',
+  /**
+   * THE GREY BAND UNDER THE TAB BAR IS `enforceNavigationBarContrast`, AND ONLY
+   * A NATIVE THEME ATTRIBUTE CAN TURN IT OFF.
+   *
+   * Android draws a translucent SCRIM over the navigation-bar region so the
+   * system buttons stay legible against app content. It is the framework's own
+   * `android:enforceNavigationBarContrast`, it defaults to TRUE, and the OS
+   * paints it above the app and below the system bar.
+   *
+   * That is why it outlived every JS fix attempted for it: zeroing the
+   * safe-area inset, trimming the bar height, letting the tab items fill the
+   * bar, stretching the bar's background over the strip. None of them could
+   * reach it — it is not the tab bar, not a layout gap and not a themed colour.
+   * It also explains the one clue that never fitted: the band VANISHES when the
+   * nav bar is swiped up, because the buttons are then drawn over the scrim.
+   *
+   * `hidden: true` matches what navigation/immersiveInsets.tsx asks for at
+   * runtime, so the bar starts hidden from the very first frame instead of
+   * being hidden a moment after launch.
+   *
+   * The app is managed (no android/ directory — styles.xml is generated at
+   * build time), so this plugin is the ONLY way to set either attribute. Until
+   * it was declared here, nothing ever wrote them and Android kept its default.
+   *
+   * NATIVE CHANGE: needs a new dev client or EAS build. An OTA update cannot
+   * carry it, and neither can a JS reload.
+   */
+  ['expo-navigation-bar', { enforceContrast: false, hidden: true }],
+  // Work photos on the staff screens (build-contracts-2026-09-23 §6.9, §6.10):
+  // camera and library only, never the microphone. These EN strings are the
+  // Info.plist base; locales/ios.{en,ar}.json carry both languages. The picker
+  // and expo-image-manipulator (no plugin; it re-encodes every photo so no GPS
+  // EXIF leaves the phone) are required by src/features/staff/photo.ts alone,
+  // lazily, so a binary built before this line fails safe on the photo button
+  // instead of crashing. NATIVE CHANGE: needs a new development dev client.
+  [
+    'expo-image-picker',
+    {
+      photosPermission: 'Touch Padel uses your photos only when you attach a work photo.',
+      cameraPermission: 'Touch Padel uses the camera only when you take a work photo.',
+      microphonePermission: false,
+    },
+  ],
 ];
 if (googleIosUrlScheme) {
   plugins.push(['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]);
@@ -114,7 +179,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'TouchPadel',
   slug: 'touchpadel',
   scheme: 'touchpadel',
-  version: '0.1.0',
+  version: '1.0.0',
   // EAS project @parsa-mansouri/touchpadel, created by `eas init` on 2026-09-01 on
   // Parsa's PERSONAL Expo account (the org question came before this line was set).
   // Handover item: transfer the project to a Kagu org in expo.dev, then change this.
@@ -130,7 +195,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // `newArchEnabled` left the schema in SDK 55: the New Architecture is the only one.
   // EAS Update (expo-updates, added eba8353 for the eas.json channels): store
   // binaries poll this URL on their profile's channel. 'appVersion' pins each
-  // store version (0.1.0) to its own update runtime, so an OTA can never land
+  // store version (1.0.0) to its own update runtime, so an OTA can never land
   // on incompatible natives. The development profile has no channel — the dev
   // client ignores this block.
   updates: {
@@ -161,12 +226,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   runtimeVersion: { policy: 'appVersion' },
   backgroundColor: '#FFFFFF',
-  // The padel ball on a Touch Blue tile — the brand deck's ball beziers, the
-  // same design as the operator desktop icon. Rendered from assets/brand/*.svg
-  // by `pnpm --filter @touch/mobile icons`; to swap in official art, drop a
-  // 1024x1024 PNG on assets/icon.png (see assets/README.md). Square and
+  // The full-colour Touch Padel lockup on white (owner, 2026-09-12) — the same
+  // mark as the web app's icon. Rendered from docs/brand/ by
+  // `pnpm --filter @touch/mobile icons` (see assets/README.md). Square and
   // full-bleed on purpose: iOS and Android apply their own corner masks.
   icon: './assets/icon.png',
+  // Per-language system prompts: the camera and photo-library permission text
+  // in EN and AR (iOS only; the files nest their keys under `ios`).
+  locales: { en: './locales/ios.en.json', ar: './locales/ios.ar.json' },
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.kagu.touchpadel',
@@ -198,16 +265,75 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // told, and App Store Connect gates AR listing metadata on it.
       CFBundleLocalizations: ['en', 'ar'],
     },
+    // Apple privacy manifest (PrivacyInfo.xcprivacy). Required for every upload
+    // since May 2024: without the required-reason API declarations App Store
+    // Connect rejects the build (ITMS-91053). Collected types mirror the App
+    // Privacy label in docs/store/app-store-submission.md §2 exactly — change
+    // both together. Nothing is used for tracking and there are no tracking
+    // domains.
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyTrackingDomains: [],
+      NSPrivacyCollectedDataTypes: [
+        'NSPrivacyCollectedDataTypeName',
+        'NSPrivacyCollectedDataTypeEmailAddress',
+        'NSPrivacyCollectedDataTypePhoneNumber',
+        'NSPrivacyCollectedDataTypeUserID',
+        'NSPrivacyCollectedDataTypeOtherDataTypes',
+        // Staff accounts only (build-contracts §6.10): work photos, and the
+        // free text of step notes, requests, item notes and marketing drafts.
+        'NSPrivacyCollectedDataTypePhotosorVideos',
+        'NSPrivacyCollectedDataTypeOtherUserContent',
+      ].map((type) => ({
+        NSPrivacyCollectedDataType: type,
+        NSPrivacyCollectedDataTypeLinked: true,
+        NSPrivacyCollectedDataTypeTracking: false,
+        NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+      })),
+      // Required-reason APIs the React Native / Expo runtime touches
+      // (docs.expo.dev/guides/apple-privacy): UserDefaults (AsyncStorage, the
+      // persisted query cache), file timestamps (image and font caches), system
+      // boot time (RN's timing) and disk space. All for the app's own use.
+      NSPrivacyAccessedAPITypes: [
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults', NSPrivacyAccessedAPITypeReasons: ['CA92.1'] },
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryFileTimestamp', NSPrivacyAccessedAPITypeReasons: ['C617.1'] },
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategorySystemBootTime', NSPrivacyAccessedAPITypeReasons: ['35F9.1'] },
+        { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryDiskSpace', NSPrivacyAccessedAPITypeReasons: ['E174.1'] },
+      ],
+    },
   },
   android: {
     package: 'com.kagu.touchpadel',
-    // Layered launcher icon: the ball (inside the 66 % safe zone) over a solid
-    // Touch Blue, plus the white silhouette Android 13+ tints for themed icons.
+    // FCM — Android push credentials. Android push IS Firebase Cloud Messaging,
+    // so without this file expo-notifications cannot mint a token at all and
+    // every Android notification silently never sends.
+    //
+    // NOT committed (.gitignore): it is a config file rather than a secret — it
+    // ships inside every APK — but it belongs to one Firebase project and does
+    // not want to be edited by hand in a repo. Locally it is read from disk;
+    // on EAS Build the env var holds the path to the uploaded file secret, so
+    // the cloud build does not need it in git. Set with:
+    //   eas env:create --name GOOGLE_SERVICES_JSON --type file ...
+    // The matching FCM V1 SERVICE ACCOUNT KEY is a real secret and lives only
+    // in EAS credentials (`eas credentials --platform android`), never here.
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+    // Layered launcher icon: the lockup (inside the 66 % safe zone) over white,
+    // plus the white silhouette Android 13+ tints for themed icons.
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       monochromeImage: './assets/adaptive-icon-monochrome.png',
-      backgroundColor: '#3360AB',
+      backgroundColor: '#FFFFFF',
     },
+    // The system photo picker needs no storage or media permission, and the
+    // app records no sound, so none of these reaches the manifest whatever a
+    // library declares (expo-image-picker asks for READ_EXTERNAL_STORAGE up to
+    // API 32). UNVERIFIED against SDK 57 on an Android 12 phone (§8.4).
+    blockedPermissions: [
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.READ_MEDIA_VIDEO',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.RECORD_AUDIO',
+    ],
   },
   plugins,
   extra: {

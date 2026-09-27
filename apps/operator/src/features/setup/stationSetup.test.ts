@@ -96,6 +96,13 @@ describe('setupReducer', () => {
     expect(setupReducer(s, { type: 'retry' })).toMatchObject({ step: 'details', code: '' });
   });
 
+  it('scan: after nothing answered, retry searches again and enterAddress opens the address field', () => {
+    const none = run([{ type: 'confirm' }, { type: 'scanResult', result: { status: 'none' } }], kdsDetails);
+    expect(setupReducer(none, { type: 'retry' })).toEqual({ step: 'scanning', details: kdsDetails });
+    expect(setupReducer(none, { type: 'enterAddress' })).toEqual({ ...kdsDetails, showAdvanced: true });
+    expect(setupReducer(none, { type: 'back' })).toBe(kdsDetails);
+  });
+
   it('scan: nothing found is none without an address, unreachable with one (and may be saved anyway)', () => {
     const none = run([{ type: 'confirm' }, { type: 'scanResult', result: { status: 'none' } }], kdsDetails);
     expect(none).toMatchObject({ step: 'notFound', reason: 'none' });
@@ -122,12 +129,16 @@ describe('setupReducer', () => {
     expect(setupReducer({ step: 'scanning', details: kdsDetails }, { type: 'back' })).toBe(kdsDetails);
   });
 
-  it('a failed save can be retried or abandoned', () => {
-    const saving: SetupState = { step: 'saving', details: kdsDetails, request: requestFor(kdsDetails, '10.0.0.2') };
+  it('a failed save is retried as the same save, or abandoned', () => {
+    const found = { ...kdsDetails, host: '10.0.0.2' };
+    const saving: SetupState = { step: 'saving', details: found, request: requestFor(found, '10.0.0.2') };
     const failed = setupReducer(saving, { type: 'saveFailed', error: 'write-failed' });
     expect(failed).toMatchObject({ step: 'failed', error: 'write-failed' });
-    expect(setupReducer(failed, { type: 'retry' })).toBe(kdsDetails);
+    expect(setupReducer(failed, { type: 'retry' })).toEqual(saving);
     expect(setupReducer(failed, { type: 'back' })).toEqual({ step: 'mode' });
+    // Already set up: retrying cannot help, the screen says to restart.
+    const configured = setupReducer(saving, { type: 'saveFailed', error: 'already-configured' });
+    expect(setupReducer(configured, { type: 'retry' })).toBe(configured);
   });
 
   it('requestFor drops the kds-only fields for a till or desk', () => {

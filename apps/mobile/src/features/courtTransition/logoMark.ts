@@ -39,8 +39,8 @@
  * export — which the parser drops rather than emitting as an empty path.
  */
 import * as THREE from 'three';
-import { LOGO_BALL_CIRCLE, LOGO_BALL_PATHS, LOGO_WORDMARK_PATHS } from './logoPaths';
-import { groupSubpaths, parseSvgPath } from './svgPath';
+import { LOGO_BALL_CIRCLE, LOGO_BALL_PATHS, LOGO_VIEWBOX, LOGO_WORDMARK_PATHS } from './logoPaths';
+import { groupSubpaths, parseSvgPath } from '@touch/court3d/svgPath';
 
 // Re-exported where they have always lived in this module's API: the parser
 // moved to `svgPath` when `smileyMark` came to need it, not away.
@@ -153,4 +153,25 @@ export const buildLogoShapes = (
     ball: build(LOGO_BALL_PATHS, f),
     ballSeam: [seam],
   };
+};
+
+/**
+ * The brand file's own ONE-LINE lockup — the header's `logo.png` artwork — as
+ * shapes `width` wide, centred on its viewBox and standing upright in three's
+ * y-up space. Wordmark (swoosh included) and ball come back separately so the
+ * caller can colour them; the ball's seams are the gaps between its arcs, as
+ * on the page (no seam disc: see LOGO_BALL_CIRCLE for when one is needed).
+ */
+export const buildLogoLineShapes = (
+  width: number,
+): { wordmark: THREE.Shape[]; ball: THREE.Shape[] } => {
+  const scale = width / LOGO_VIEWBOX.width;
+  const f = (p: THREE.Vector2): THREE.Vector2 =>
+    new THREE.Vector2(
+      (p.x - LOGO_VIEWBOX.width / 2) * scale,
+      (LOGO_VIEWBOX.height / 2 - p.y) * scale,
+    );
+  const build = (data: readonly string[]) =>
+    groupSubpaths(data.flatMap((d) => parseSvgPath(d)).map((p) => mapPath(p, f)));
+  return { wordmark: build(LOGO_WORDMARK_PATHS), ball: build(LOGO_BALL_PATHS) };
 };

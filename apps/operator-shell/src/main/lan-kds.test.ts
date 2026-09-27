@@ -102,6 +102,19 @@ describe('lan kds server', () => {
     }
   });
 
+  it('never puts a Touch Shop sale on the kitchen screen (0146)', async () => {
+    const shop = orderEnvelope();
+    server!.onEnqueued({ ...shop, payload: { ...(shop.payload as object), shop: true } });
+    server!.onEnqueued(orderEnvelope());
+    const ws = track(connect(PSK));
+    const frame = await nextMessage(ws);
+    expect(frame.type).toBe('ticket.snapshot');
+    if (frame.type === 'ticket.snapshot') {
+      expect(frame.data).toHaveLength(1);
+      expect(frame.data[0]!.ref).not.toBe(shop.idempotencyKey);
+    }
+  });
+
   it('broadcasts kitchen-bound enqueues as ticket.new', async () => {
     const ws = track(connect(PSK));
     await nextMessage(ws); // snapshot (empty)

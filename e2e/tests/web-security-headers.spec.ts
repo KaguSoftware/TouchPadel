@@ -33,14 +33,18 @@ const REQUIRED_HEADERS: Array<[string, RegExp]> = [
 ];
 
 test.describe('web security headers', () => {
-  test('every required header is served on the menu', async ({ page }) => {
-    const res = await page.goto('/en');
-    expect(res, 'no response').toBeTruthy();
-    const headers = res!.headers();
+  test('every required header is served on the landing page and the menu', async ({ page }) => {
+    // /en is the Touch Padel landing and /en/menu the café menu since
+    // 2026-09-23 (the menu was the site root before).
+    for (const path of ['/en', '/en/menu']) {
+      const res = await page.goto(path);
+      expect(res, `${path}: no response`).toBeTruthy();
+      const headers = res!.headers();
 
-    for (const [name, shape] of REQUIRED_HEADERS) {
-      expect(headers[name], `missing header: ${name}`).toBeTruthy();
-      expect(headers[name], `header ${name} has an unexpected value`).toMatch(shape);
+      for (const [name, shape] of REQUIRED_HEADERS) {
+        expect(headers[name], `${path}: missing header: ${name}`).toBeTruthy();
+        expect(headers[name], `${path}: header ${name} has an unexpected value`).toMatch(shape);
+      }
     }
   });
 
@@ -96,25 +100,28 @@ test.describe('web security headers', () => {
       // minted per request (see "the nonce is fresh on every request" below), so
       // comparing this body against the header of an earlier navigation compares
       // two different nonces and fails on a correct app.
-      const fresh = await page.request.get('/en');
-      const freshCsp = fresh.headers()['content-security-policy'] ?? '';
-      const nonce = /'nonce-([A-Za-z0-9+/=_-]{16,})'/.exec(freshCsp)?.[1];
-      expect(nonce, 'the CSP nonce should be extractable').toBeTruthy();
+      // The landing (which serves a JSON-LD <script>) and the café menu.
+      for (const path of ['/en', '/en/menu']) {
+        const fresh = await page.request.get(path);
+        const freshCsp = fresh.headers()['content-security-policy'] ?? '';
+        const nonce = /'nonce-([A-Za-z0-9+/=_-]{16,})'/.exec(freshCsp)?.[1];
+        expect(nonce, `${path}: the CSP nonce should be extractable`).toBeTruthy();
 
-      const html = await fresh.text();
-      const tags = html.match(/<script\b[^>]*>/g) ?? [];
-      expect(tags.length, 'the page should serve script tags at all').toBeGreaterThan(0);
+        const html = await fresh.text();
+        const tags = html.match(/<script\b[^>]*>/g) ?? [];
+        expect(tags.length, `${path}: the page should serve script tags at all`).toBeGreaterThan(0);
 
-      const unnonced = tags.filter((t) => !t.includes('nonce='));
-      expect(
-        unnonced,
-        'every <script> in the SERVED HTML must carry the nonce — an injected one would not',
-      ).toEqual([]);
+        const unnonced = tags.filter((t) => !t.includes('nonce='));
+        expect(
+          unnonced,
+          `${path}: every <script> in the SERVED HTML must carry the nonce — an injected one would not`,
+        ).toEqual([]);
 
-      // …and the nonce on every tag must be THIS response's nonce, so a cached
-      // page carrying yesterday's nonce cannot pass.
-      const wrongNonce = tags.filter((t) => !t.includes(`nonce="${nonce}"`));
-      expect(wrongNonce, "every script nonce must match that response's CSP header").toEqual([]);
+        // …and the nonce on every tag must be THIS response's nonce, so a cached
+        // page carrying yesterday's nonce cannot pass.
+        const wrongNonce = tags.filter((t) => !t.includes(`nonce="${nonce}"`));
+        expect(wrongNonce, `${path}: every script nonce must match that response's CSP header`).toEqual([]);
+      }
     }
   });
 
@@ -127,6 +134,116 @@ test.describe('web security headers', () => {
     expect(n(first)).not.toBe(n(second));
   });
 
+  /**
+   * M3 (security-audit-2026-09-13.md): the matcher used to skip every path
+   * beginning `api` and every path containing a dot, and `[locale]` accepted
+   * both as a locale — so `/api/t` and `/x.y/t` served the table page with
+   * the cookie's token in it and NO CSP. Measured on production. Two layers
+   * now close it and both are asserted here, separately, because either one
+   * alone can be edited away without the other noticing:
+   *
+   *   proxy    every non-file path is matched, so the hop itself carries the
+   *            policy and a bad first segment is sent to a real locale;
+   *   page     requireLocale() refuses the segment, so the landing is a 404
+   *            and never the table page — including on paths the proxy still
+   *            does not see (a dotted last segment, `_next/`).
+   */
+  test('paths that used to escape the matcher carry the CSP and never render the table page', async ({
+    request,
+  }) => {
+    for (const path of ['/api/t', '/x.y/t', '/apifoo/t']) {
+      // The proxy's own response: the redirect hop, with the policy on it.
+      const hop = await request.get(path, { maxRedirects: 0 });
+      expect(hop.status(), `${path} must be redirected, not rendered`).toBe(307);
+      expect(new URL(hop.headers()['location'] ?? '', hop.url()).pathname, path).toMatch(
+        new RegExp(`^/(en|ar)${path.replace(/[.]/g, '\\$&')}$`),
+      );
+      expect(hop.headers()['content-security-policy'], `${path}: CSP on the hop`).toMatch(/'nonce-/);
+
+      // Where the hop lands: a 404, still under the policy.
+      const landing = await request.get(path);
+      expect(landing.status(), `${path} must land on a 404`).toBe(404);
+      expect(landing.headers()['content-security-policy'], `${path}: CSP on the 404`).toMatch(/'nonce-/);
+    }
+  });
+
+  test('a bad locale is refused by the page even when the proxy never ran', async ({ request }) => {
+    /**
+     * `/.well-known/*` is proxied but passed through untouched (Apple fetches
+     * the association file at a fixed path), so `.well-known` reaches
+     * `[locale]` as a locale. A dotted last segment is skipped by the matcher
+     * altogether, so `xx` reaches `[locale]` with no proxy at all. Neither
+     * may render anything but a 404.
+     *
+     * THE MARKER IS A SERIALISED PROP, NOT A CLASS NAME (2026-09-21).
+     *
+     * This read `.not.toContain('tp-cafe__table')` and was red on the
+     * production build from the day it was written, while passing under `next
+     * dev` — so it looked like a prod-only rendering bug and was not one.
+     * Measured on the built app: `/.well-known/t` is a 404, its body is
+     * `app/[locale]/not-found.tsx`, and `app/[locale]/layout.tsx` inlines the
+     * whole cafe stylesheet into it — `.tp-cafe__table` among ~7 occurrences of
+     * CSS text. The class was in the 404's <style>, not in any element. It
+     * never appeared as an element either: the chip is rendered by
+     * `TableChip` after hydration, so `class="tp-cafe__table"` is absent even
+     * from a real /en/menu (then /en/t). `next dev` answers a 404 with a bare shell carrying
+     * none of the app's markup, which is the only reason it ever passed.
+     *
+     * `initialMenu` is the prop `<CafeApp>` is given the menu in, so it appears
+     * in the RSC flight payload exactly when the page component actually ran —
+     * in dev and in a production build alike, and never on a 404.
+     */
+    // The café menu, where the table session lives since 2026-09-23.
+    const control = await request.get('/en/menu', { maxRedirects: 0 });
+    expect(control.status(), 'the control must be the real menu page').toBe(200);
+    expect(
+      await control.text(),
+      'the marker must be present where the app DOES render, or the assertions below are vacuous',
+    ).toContain('initialMenu');
+
+    for (const path of ['/.well-known/t', '/xx/t/tok.x', '/xx.y']) {
+      const res = await request.get(path);
+      expect(res.status(), `${path} must be a 404, not Arabic`).toBe(404);
+      expect(await res.text(), `${path} must not render the app`).not.toContain('initialMenu');
+    }
+  });
+
+  test('the exchange still happens when the proxy is bypassed', async ({ request }) => {
+    // A dotted last segment is skipped by the matcher, so this request reaches
+    // app/[locale]/t/[token]/route.ts with no proxy in front of it. Until
+    // 2026-09-20 that copy of the exchange was a page setting a cookie during
+    // render, which Next 16 refuses (L1): it rendered the error boundary, no
+    // cookie, no redirect, status 200.
+    const token = 'e2e.dotted';
+    const res = await request.get(`/en/t/${token}`, { maxRedirects: 0 });
+    expect(res.status(), 'the fallback must redirect, not render').toBe(307);
+    expect(new URL(res.headers()['location'] ?? '', res.url()).pathname).toBe('/en/menu');
+    expect(res.headers()['set-cookie'], 'the fallback must set the table cookie').toMatch(
+      new RegExp(`^tp-table=${token.replace('.', '\\.')};.*HttpOnly`, 'i'),
+    );
+    expect(res.headers()['cache-control']).toMatch(/no-store/i);
+  });
+
+  test('/.well-known/apple-app-site-association is served at its fixed path, headers on', async ({
+    request,
+  }) => {
+    const res = await request.get('/.well-known/apple-app-site-association', { maxRedirects: 0 });
+    expect(res.status(), 'a 307 here is a failed iOS link verification').toBe(200);
+    expect(res.headers()['content-type']).toMatch(/application\/json/);
+    expect(res.headers()['content-security-policy'], 'proxied, not skipped').toMatch(/'nonce-/);
+    expect(res.headers()['x-content-type-options']).toMatch(/nosniff/i);
+  });
+
+  test('the CSP names no font CDN', async ({ page }) => {
+    // Lama Sans is self-hosted from /fonts/lama (@touch/ui fontFace.ts). The
+    // Google Fonts origins outlived the move by two weeks in style-src and
+    // font-src (S8); an allowed origin nothing uses is a reporting blind spot.
+    const res = await page.goto('/en');
+    const csp = res!.headers()['content-security-policy'];
+    expect(csp).not.toMatch(/fonts\.googleapis\.com|fonts\.gstatic\.com/);
+    expect(csp).toMatch(/font-src 'self'/);
+  });
+
   test('/t/{token} exchanges the token for an HttpOnly cookie and leaves the URL', async ({
     page,
     context,
@@ -137,7 +254,8 @@ test.describe('web security headers', () => {
 
     // The address bar must no longer carry it.
     expect(page.url(), 'the token must not survive in the URL').not.toContain(token);
-    expect(new URL(page.url()).pathname).toMatch(/^\/(en|ar)\/t$/);
+    // It lands on the café menu, which reads the cookie (2026-09-23; it was /{locale}/t).
+    expect(new URL(page.url()).pathname).toMatch(/^\/(en|ar)\/menu$/);
 
     const cookie = (await context.cookies()).find((c) => c.name === 'tp-table');
     expect(cookie, 'tp-table cookie must be set').toBeTruthy();
@@ -166,24 +284,49 @@ test.describe('web security headers', () => {
     );
 
     /**
-     * The landing page is a different story, measured on the wire 2026-09-07:
-     * Next stamps its OWN Cache-Control on a rendered page and it wins over both
-     * next.config.ts `headers()` and a middleware `NextResponse.next()`. The
-     * declared `no-store` in TABLE_ROUTE_HEADERS does not reach the browser
-     * here — `no-cache, must-revalidate` does.
+     * The page it lands on — the café menu at /en/menu since 2026-09-23 — is a
+     * different story. Measured on the wire 2026-09-07 (on /en/t): Next stamped
+     * `no-cache, must-revalidate` over both next.config.ts `headers()` and the
+     * proxy's `NextResponse.next()`.
      *
-     * RESIDUAL, stated rather than asserted away: a cache may STORE this page
-     * provided it revalidates before serving it. The session itself is gated by
-     * the HttpOnly cookie rather than by the cache, so this is a defence-in-depth
-     * gap, not an access-control one. Recorded against SEC-25.
+     * Re-read against the Next 16.3.4 source on 2026-09-23: that override is
+     * the DEV server's (`server/base-server.js`, `if (this.dev)` sets
+     * `no-cache, must-revalidate` unconditionally). A production server only
+     * sets Cache-Control when none is set yet (`server/send-payload.js`), so on
+     * `next start` the declared `no-store, …, private` should be what arrives.
+     * Asserted strictly under E2E_PROD_BUILD=1; under `next dev` the weaker
+     * value is all there is to check.
+     *
+     * RESIDUAL (dev, and any host that rewrites the header): a cache may STORE
+     * this page provided it revalidates before serving it. The session itself
+     * is gated by the HttpOnly cookie rather than by the cache, so this is a
+     * defence-in-depth gap, not an access-control one. Recorded against SEC-25.
      */
     await page.goto(`/t/${token}`);
-    const res = await page.goto(`/en/t`);
+    const res = await page.goto(`/en/menu`);
     const h = res!.headers();
     expect(h['referrer-policy']).toMatch(/no-referrer/i);
     expect(h['cache-control'], 'a table page must at minimum revalidate').toMatch(
       /no-store|no-cache/i,
     );
+    if (process.env.E2E_PROD_BUILD === '1') {
+      expect(h['cache-control'], 'on a production server the menu is never stored').toMatch(/no-store/i);
+      expect(h['cache-control'], '…and never in a shared cache').toMatch(/private/i);
+    }
+  });
+
+  test('the old session URL /{locale}/t is a 307 to the menu, with the CSP on the hop', async ({ request }) => {
+    for (const [path, to] of [
+      ['/en/t', '/en/menu'],
+      ['/ar/t', '/ar/menu'],
+    ] as const) {
+      const hop = await request.get(path, { maxRedirects: 0 });
+      expect(hop.status(), `${path} must redirect, never permanently`).toBe(307);
+      expect(new URL(hop.headers()['location'] ?? '', hop.url()).pathname, path).toBe(to);
+      expect(hop.headers()['content-security-policy'], `${path}: CSP on the hop`).toMatch(/'nonce-/);
+      expect(hop.headers()['cache-control'], `${path}: never stored`).toMatch(/no-store/i);
+      expect(hop.headers()['set-cookie'], `${path} must not touch the table cookie`).toBeUndefined();
+    }
   });
 
   test('no outbound request carries the table token', async ({ page, baseURL }) => {

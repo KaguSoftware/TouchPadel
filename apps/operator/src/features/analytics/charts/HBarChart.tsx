@@ -5,7 +5,7 @@
  */
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLocale } from '../../../lib/i18n';
-import { AXIS, BAR_MUTED, GRID, HIGHLIGHT } from './colors';
+import { useChartColors } from './colors';
 
 export interface HBarRow {
   label: string;
@@ -25,6 +25,7 @@ export function HBarChart({
   axisWidth?: number;
   name: string;
 }) {
+  const { AXIS, BAR_MUTED, GRID, HIGHLIGHT } = useChartColors();
   const { dir } = useLocale();
   return (
     <ResponsiveContainer width="100%" height="100%">

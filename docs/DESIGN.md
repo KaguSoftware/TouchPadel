@@ -71,6 +71,43 @@ saturation, lightness the only free variable) or one of the three functional exc
 The mobile app's dark theme is **blue mode**: its every blue is a true shade of #3360AB. See
 `apps/mobile/src/theme/tokens.ts`.
 
+### Blue mode (the operator's second appearance)
+
+The operator has no dark mode. It has **blue mode** (owner call, 2026-09-19: "instead of using
+dark colours just use the brand's blue" — and, on the first cut, "use the exact same blue, no
+change at all"). **The page is #3360AB, unmodified.** Panels step *down* from it (L38 panel, L33
+toolbar, L29 well and rail), because darker is the only direction with room for white text: it
+measures 6.17:1 on the page and a panel one step lighter would already fall under 5:1. Selection
+and the active rail pill are the one step *up* (L50), so a selected row is the brightest blue on
+the screen. Every blue is an exact HSL shade of #3360AB, the same rule the mobile app's blue mode
+follows; the ink is white and the lighter shades of the brand gray.
+
+Tokens live in `packages/ui/src/tokens/operatorBlue.ts` and are emitted under
+`:root[data-theme='operator'][data-mode='blue']`, after the operator block and at higher
+specificity. Only colour tokens are in that block; type, spacing, layout and z-index are the
+operator's own. The block also declares `color-scheme: dark` so native controls follow.
+
+What flips, and why:
+
+- `--tp-accent` is **white** and `--tp-accent-contrast` is **#3360AB** — the brand blue on
+  itself is nothing and cannot carry a button. The mobile Welcome screen makes the same move (a
+  white primary button with blue ink). The focus ring goes white too.
+- `--tp-muted-fg` is #E0E0E1, not the brand gray: #BCBDBF measures 3.28:1 on #3360AB.
+- Status **fills** (`--tp-success`, `--tp-warn`) are unchanged; **soft** grounds darken and
+  **fg** / **mark** lift: the green mark stays #A5D06F exactly, amber goes to #F0CB85 on
+  #4F380D, danger becomes a dusky rose (#F0B0B4 on #4A2A3A) with #C93B30 as the one strong
+  red, the filled destructive surface. All four families clear 5:1 on their soft ground and
+  every mark clears 3:1 on the panel.
+- The kitchen board, already dark, is re-tinted onto the brand ramp (L29 / L33 / L38).
+- Charts: Recharts reads literals, so `features/analytics/charts/colors.ts` carries a second
+  set behind `useChartColors()`. Series 1 is white, rust and magenta clear 3:1 on the L38 card,
+  and the heat ramp runs card → L50 → white.
+
+The station chooses (`lib/themeMode.tsx`, key `touch-operator-theme`, same shape as the
+locale) from the rail or the sign-in screen; `index.html` reads the same key before React
+mounts so the boot frame paints blue rather than paper. Light writes **no** `data-mode`
+attribute, so the padel and cafe documents are byte-identical to before modes existed.
+
 Each status family has four rungs and the rung decides the job: **fill** (a ground large enough
 to read colour off), **soft** (the tinted ground a label sits on), **mark** (a dot, an icon, a
 2px rule — anything small), **fg** (text on the soft ground). The fills sit at 80% lightness, so

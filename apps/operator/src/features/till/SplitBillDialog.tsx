@@ -3,16 +3,24 @@
  *   even  → app.split_evenly(p_tab_id, p_n) returns the shares (rounding
  *           remainder to the first shares) — rendered, never recomputed here.
  *   item  → SplitByItemPanel (assign lines → app.split_by_item).
- * Each share is taken as a cash payment through the tab panel's settle.
+ * Each share is taken as a payment through the tab panel's settle — by cash
+ * or by card: a group splitting a bill rarely pays it all the same way, and
+ * cash was the only choice.
+ *
+ * The even split asks the server again whenever the number of people changes,
+ * so there is no "Compute shares" press between choosing four people and
+ * seeing four amounts.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatIQD } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
-import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { Money, SegmentedControl } from '../../components/kit';
+import { Button, ErrorText, Modal } from '../../components/ui';
+import { SegmentedControl } from '../../components/kit';
+import type { PaymentMethod } from './PaymentPane';
 import { SplitByItemPanel, type SplitLine } from './SplitByItemDialog';
-import { kvRow, muted } from './tillStyles';
+import { CountStepper, ShareRow } from './SplitParts';
+import { muted } from './tillStyles';
 
 type SplitMode = 'even' | 'item';
 
@@ -21,6 +29,7 @@ export function SplitBillDialog({
   lines,
   due,
   busy,
+  settleError,
   onSettleShare,
   onClose,
 }: {
@@ -28,13 +37,16 @@ export function SplitBillDialog({
   lines: readonly SplitLine[];
   due: number;
   busy: boolean;
-  onSettleShare(amountIqd: number): void;
+  /** The last payment's refusal. The tab panel's own error line is under this dialog. */
+  settleError: unknown;
+  /** Resolves true once the share is taken (or saved on the queue); false when refused. */
+  onSettleShare(amountIqd: number, method: PaymentMethod): Promise<boolean>;
   onClose(): void;
 }) {
   const { tr } = useLocale();
   const [mode, setMode] = useState<SplitMode>('even');
   return (
-    <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('common.close')}</Button>}>
+    <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={(close) => (<Button onClick={close}>{tr('common.close')}</Button>)}>
       <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <SegmentedControl<SplitMode>
           value={mode}
@@ -46,6 +58,7 @@ export function SplitBillDialog({
           ]}
         />
       </div>
+      <ErrorText error={settleError} />
       {mode === 'even' ? (
         <SplitEvenlyPanel tabId={tabId} due={due} busy={busy} onSettleShare={onSettleShare} />
       ) : (
@@ -64,7 +77,8 @@ function SplitEvenlyPanel({
   tabId: string;
   due: number;
   busy: boolean;
-  onSettleShare(amountIqd: number): void;
+  /** Resolves true once the share is taken (or saved on the queue); false when refused. */
+  onSettleShare(amountIqd: number, method: PaymentMethod): Promise<boolean>;
 }) {
   const { tr, locale } = useLocale();
   const [n, setN] = useState(2);
@@ -72,66 +86,61 @@ function SplitEvenlyPanel({
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
 
-  async function load() {
+  const [taken, setTaken] = useState<ReadonlySet<number>>(new Set());
+  const hasDue = due > 0;
+
+  // Ask again whenever the head-count changes. NOT when the amount due
+  // changes: taking the first person's share lowers it, and re-splitting
+  // then would halve the second person's share.
+  useEffect(() => {
+    setTaken(new Set());
+    if (!hasDue) {
+      setShares(null);
+      return;
+    }
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      const res = await appRpc<number[]>('split_evenly', { p_tab_id: tabId, p_n: n });
-      setShares(res.map(Number));
-    } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
-    }
-  }
+    appRpc<number[]>('split_evenly', { p_tab_id: tabId, p_n: n })
+      .then((res) => {
+        if (!cancelled) setShares(res.map(Number));
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(e);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above: `due` is deliberately not a trigger.
+  }, [tabId, n]);
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
-      <p style={muted}>{tr('ws.cashier.split.evenHint')}</p>
-      <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'end' }}>
-        <Field label={tr('ws.cashier.split.people')} style={{ marginBlockEnd: 0 }}>
-          <input
-            style={{ ...inputStyle, inlineSize: '6rem' }}
-            type="number"
-            dir="ltr"
-            min={2}
-            max={50}
-            value={n}
-            onChange={(e) => {
-              setN(Math.max(2, Math.min(50, Number(e.target.value) || 2)));
-              setShares(null);
-            }}
-          />
-        </Field>
-        <Button
-          kind="primary"
-          busy={loading}
-          disabled={due <= 0}
-          disabledReason={due <= 0 ? tr('ws.cashier.detail.splitNothing') : undefined}
-          onClick={() => void load()}
-        >
-          {tr('ws.cashier.split.compute')}
-        </Button>
-      </div>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }} aria-busy={loading || undefined}>
+      <CountStepper label={tr('ws.cashier.split.people')} value={n} min={2} max={50} onChange={setN} />
       <ErrorText error={error} />
       {shares && (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+        <div style={{ display: 'grid' }}>
           {shares.map((s, i) => (
-            <div key={i} style={{ ...kvRow, alignItems: 'center' }}>
-              <span>
-                {tr('ws.cashier.split.share', { index: i + 1 })}: <Money amount={s} strong />
-              </span>
-              <Button
-                icon="banknote"
-                disabled={busy || due <= 0 || s > due}
-                disabledReason={!busy && s > due && due > 0 ? tr('ws.cashier.split.shareOverDue') : undefined}
-                onClick={() => onSettleShare(s)}
-              >
-                {tr('ws.cashier.split.settleShare')}
-              </Button>
-            </div>
+            <ShareRow
+              key={i}
+              index={i}
+              amount={s}
+              due={due}
+              busy={busy}
+              taken={taken.has(i)}
+              onSettle={(m) => {
+                // Taken only once the payment is: a refused share keeps its
+                // buttons, and the refusal shows above the shares.
+                void onSettleShare(s, m).then((ok) => ok && setTaken((prev) => new Set(prev).add(i)));
+              }}
+            />
           ))}
-          <p style={muted}>{tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })}</p>
+          <p style={{ ...muted, marginBlockStart: 'var(--tp-sp-2)' }}>
+            {tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })} · {tr('ws.cashier.split.evenHint')}
+          </p>
         </div>
       )}
     </div>

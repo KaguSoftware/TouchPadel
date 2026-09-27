@@ -24,7 +24,8 @@
     "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "recharts": "^3.0.0"
+    "recharts": "^3.0.0",
+    "three": "0.184.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.1.0",
@@ -33,6 +34,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "~19.2.18",
     "@types/react-dom": "~19.2.7",
+    "@types/three": "0.184.0",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9.15.0",
     "jsdom": "^25.0.1",

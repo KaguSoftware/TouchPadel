@@ -21,7 +21,13 @@ import {
 } from '../../src/features/booking/logic';
 import { useHistoryClearedAt } from '../../src/features/booking/history';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useCourtsBroadcast } from '../../src/features/availability/hooks';
+import {
+  useAllCourts,
+  useCourtsBroadcast,
+  useGuestVenue,
+  useVenueSettings,
+} from '../../src/features/availability/hooks';
+import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
@@ -116,11 +122,18 @@ export default function BookingsScreen() {
   const bookings = useMyBookings();
   const pull = usePullRefresh(bookings.refetch);
   const [tab, setTab] = useState<Tab>('upcoming');
-  const courts = useCourts();
+  // Every open branch's courts: a guest's bookings can be at any branch.
+  const courts = useAllCourts();
+  // The hero's day count is the venue's calendar, not the phone's: the date
+  // beside it is formatted in this same zone.
+  const settings = useVenueSettings();
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   const release = useReleaseHold();
   const cleared = useHistoryClearedAt();
   const toast = useToast();
-  useCourtsBroadcast(); // desk moves/cancels reflect live
+  // Desk moves/cancels reflect live, on the guest's branch's topic; a booking
+  // at another branch still refreshes on the list's own refetch.
+  useCourtsBroadcast(useGuestVenue().venueId);
 
   // The upcoming/past boundary follows the clock, not the last data change —
   // a booking that ended while the screen was open used to stay "Upcoming".
@@ -235,6 +248,7 @@ export default function BookingsScreen() {
         const start = new Date(row.start_at);
         return (
           <HeldSlotCard
+            testID={`bookings.held.${row.id}`}
             key={row.id}
             courtName={courtNames.get(row.court_id) ?? ''}
             when={`${formatDate(start, locale)} · ${formatTimeRange(start, new Date(row.end_at), locale)}`}
@@ -279,18 +293,21 @@ export default function BookingsScreen() {
       style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2, marginBottom: 4 }}
     >
       <FilterChip
+        testID="bookings.filter.upcoming"
         icon={CalendarIcon}
         label={t('booking.upcomingCount', { count: upcoming.length })}
         selected={tab === 'upcoming'}
         onPress={() => setTab('upcoming')}
       />
       <FilterChip
+        testID="bookings.filter.played"
         icon={CheckIcon}
         label={t('booking.playedCount', { count: played.length })}
         selected={tab === 'played'}
         onPress={() => setTab('played')}
       />
       <FilterChip
+        testID="bookings.filter.cancelled"
         icon={CloseIcon}
         label={t('booking.cancelledCount', { count: cancelled.length })}
         selected={tab === 'cancelled'}
@@ -335,6 +352,8 @@ export default function BookingsScreen() {
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <EmptyState
+            testID="bookings.signed-out"
+            actionTestID="bookings.sign-in"
             fill
             title={t('booking.noBookingsTitle')}
             message={t('auth.signedOutPitch')}
@@ -362,6 +381,7 @@ export default function BookingsScreen() {
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <ErrorState
+            testID="bookings.error"
             title={t('errors.loadFailedTitle')}
             message={t(mapErrorToKey(bookings.error))}
             retryLabel={t('common.retry')}
@@ -406,9 +426,10 @@ export default function BookingsScreen() {
   // The hero: the very next game, out of the list and onto the brand's navy.
   const renderHero = (item: BookingRow) => {
     const start = new Date(item.start_at);
-    const proximity = startProximity(item, now);
+    const proximity = startProximity(item, now, tz);
     return (
       <NextUpCard
+        testID="bookings.next-up"
         label={t('booking.nextUp')}
         courtName={courtNames.get(item.court_id) ?? ''}
         status={item.status}
@@ -429,6 +450,7 @@ export default function BookingsScreen() {
     const start = new Date(item.start_at);
     return (
       <UpcomingBookingRow
+        testID={`bookings.upcoming.${item.id}`}
         date={start}
         courtName={courtNames.get(item.court_id) ?? ''}
         // The date badge already carries month and day; the row adds the
@@ -489,6 +511,7 @@ export default function BookingsScreen() {
           // Indented past the rail so it starts where the cards do and the
           // timeline reads as ending above it, not through it.
           <Pressable
+            testID="bookings.history-link"
             accessibilityRole="link"
             onPress={() => router.push('/booking-history')}
             style={({ pressed }) => ({
@@ -528,6 +551,7 @@ export default function BookingsScreen() {
     const actor = cancelActorLabel(item);
     return (
       <PastBookingRow
+        testID={`bookings.past.${item.id}`}
         courtName={courtNames.get(item.court_id) ?? ''}
         when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
         price={formatPrice(item.price_iqd, locale)}
@@ -547,11 +571,13 @@ export default function BookingsScreen() {
           {header}
           <View style={[{ flex: 1 }, bottomPad]}>
             <EmptyState
+              testID="bookings.empty"
+              actionTestID="bookings.book-court"
               fill
               title={t('booking.noBookingsTitle')}
               message={t('booking.noBookingsBody')}
               actionLabel={t('booking.title')}
-              onAction={() => router.push('/availability')}
+              onAction={bookNext}
             />
           </View>
         </>
@@ -597,6 +623,7 @@ export default function BookingsScreen() {
               pastFooter(section.key === 'played')
             ) : section.data.length === 0 && section.key === 'upcoming' ? (
               <Pressable
+                testID="bookings.book-next"
                 accessibilityRole="link"
                 onPress={bookNext}
                 style={({ pressed }) => ({

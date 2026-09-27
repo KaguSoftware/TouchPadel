@@ -178,6 +178,7 @@ export default function CompleteProfileScreen() {
         <SkeletonList rows={3} height={64} />
       ) : profile.isError && !initialised ? (
         <ErrorState
+          testID="complete-profile.error"
           title={t('errors.loadFailedTitle')}
           message={t(mapErrorToKey(profile.error))}
           retryLabel={t('common.retry')}
@@ -189,6 +190,7 @@ export default function CompleteProfileScreen() {
           <Title plain>{t('auth.completeProfileTitle')}</Title>
           <Hint style={{ marginTop: 8 }}>{t('auth.completeProfileBody')}</Hint>
           <Field
+            testID="complete-profile.name"
             label={t('profile.name')}
             value={name}
             onChangeText={(v) => {
@@ -202,6 +204,7 @@ export default function CompleteProfileScreen() {
             error={nameError}
           />
           <PhoneField
+            testID="complete-profile.phone"
             label={t('auth.phoneLabel')}
             iso={iso}
             onChangeIso={setIso}
@@ -214,6 +217,7 @@ export default function CompleteProfileScreen() {
           <View style={{ marginTop: space.sm }}>
             <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
             <SegmentedControl<Locale>
+              testID="complete-profile.language"
               options={[
                 { value: 'en', label: t('settings.english') },
                 { value: 'ar', label: t('settings.arabic') },
@@ -225,6 +229,7 @@ export default function CompleteProfileScreen() {
           </View>
           <ErrorText>{error}</ErrorText>
           <Button
+            testID="complete-profile.submit"
             label={t('auth.completeProfileCta')}
             variant="cta"
             busy={update.isPending || holdBusy}

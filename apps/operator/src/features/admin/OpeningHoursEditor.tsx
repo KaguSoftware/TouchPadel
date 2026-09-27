@@ -24,7 +24,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { readOpeningHours, writeOpeningHours, type DayKey } from '@touch/core';
-import { formatDate } from '@touch/i18n';
+import { formatDate, formatWeekdayShort } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
@@ -141,11 +141,20 @@ export function OpeningHoursEditor() {
   const { upcoming, past } = splitClosedDates(closed, todayIso);
   const datesDirty = !sameClosedDates(closed, settingsQ.data?.closed_dates ?? []);
   const dirty = hoursDirty || datesDirty;
-  const showDate = (iso: string) => formatDate(new Date(`${iso}T00:00:00`), locale);
+  // Noon UTC printed in UTC: the calendar day itself, whatever timezone the
+  // station runs in. `T00:00:00` local could print the day before.
+  const showDate = (iso: string) => {
+    const noon = new Date(`${iso}T12:00:00Z`);
+    return `${formatWeekdayShort(noon, locale, 'UTC')} ${formatDate(noon, locale, 'UTC')}`;
+  };
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: '44rem' }}>
       <Panel title={tr('op.hours.title')} padded={false}>
+        {/* The one thing on this screen that looks like a mistake and is not. */}
+        <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+          {tr('op.hours.overnightHint')}
+        </p>
         <div role="group" aria-label={tr('op.hours.title')} style={{ display: 'grid' }}>
           {DAY_KEYS.map((key) => {
             const d = draft[key];
@@ -234,10 +243,7 @@ export function OpeningHoursEditor() {
           <ul style={{ listStyle: 'none', paddingInline: 0, marginBlock: 'var(--tp-sp-2-5) 0', display: 'grid' }}>
             {upcoming.map((d) => (
               <li key={d} className="tp-row" style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }}>
-                <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', minInlineSize: '7rem' }}>
-                  {d}
-                </span>
-                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginInlineEnd: 'auto' }}>{showDate(d)}</span>
+                <bdi style={{ fontVariantNumeric: 'tabular-nums', marginInlineEnd: 'auto' }}>{showDate(d)}</bdi>
                 <Button kind="ghost" size="sm" icon="x" disabled={busy} onClick={() => { setClosed(removeClosedDate(closed, d)); setSaved(false); }}>
                   {tr('op.common.remove')}
                 </Button>
@@ -256,8 +262,8 @@ export function OpeningHoursEditor() {
                 unexplainable. */}
             <ul style={{ listStyle: 'none', paddingInline: 0, display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
               {past.map((d) => (
-                <li key={d} dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                  {d}
+                <li key={d} style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                  <bdi>{showDate(d)}</bdi>
                 </li>
               ))}
             </ul>
@@ -268,10 +274,17 @@ export function OpeningHoursEditor() {
       <ErrorText error={error} style={{ marginBlock: 0 }} />
       {saved && !dirty && <MessagePresenter tone="success" message={tr('op.hours.saved')} />}
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-        <Button kind="primary" icon="check" busy={busy} onClick={() => void save()}>
+        <Button
+          kind="primary"
+          icon="check"
+          busy={busy}
+          disabled={!dirty}
+          disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined}
+          onClick={() => void save()}
+        >
           {tr('common.save')}
         </Button>
-        <Button kind="ghost" disabled={busy || !dirty} disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined} onClick={discard}>
+        <Button kind="ghost" disabled={busy || !dirty} onClick={discard}>
           {tr('ws.kit.actions.discard')}
         </Button>
         {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}

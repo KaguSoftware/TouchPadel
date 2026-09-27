@@ -5,6 +5,7 @@
  * (`aria-hidden`); pass `label` when an icon stands alone.
  */
 import type { CSSProperties } from 'react';
+import type { ThemeMode } from '@touch/ui';
 
 const PATHS = {
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
@@ -26,6 +27,11 @@ const PATHS = {
   trendUp: 'M22 7l-8.5 8.5-5-5L2 17M16 7h6v6',
   trendDown: 'M22 17l-8.5-8.5-5 5L2 7M16 17h6v-6',
   settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+  // The mobile app's settings glyph, same path (apps/mobile/src/components/
+  // icons.tsx SlidersIcon), so the one thing both apps call "settings" is the
+  // one thing both apps draw. Both sets are 24x24 Lucide-style strokes, so it
+  // ports as-is.
+  sliders: 'M4 6.5h16M4 12h16M4 17.5h16M15.5 4.5v4M8.5 10v4M13 15.5v4',
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   logOut: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
@@ -38,6 +44,12 @@ const PATHS = {
   chevronStart: 'M15 18l-6-6 6-6',
   chevronEnd: 'M9 18l6-6-6-6',
   chevronDown: 'M6 9l6 6 6-6',
+  chevronUp: 'M18 15l-6-6-6 6',
+  // A side panel with an arrow into it (close) or out of it (open): the
+  // desktop convention for folding a sidebar, so it never reads as a dropdown.
+  // Drawn for a start-side panel; RTL mirrors it (MIRRORED below).
+  panelClose: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 3v18M16 15l-3-3 3-3',
+  panelOpen: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 3v18M13 9l3 3-3 3',
   plus: 'M12 5v14M5 12h14',
   minus: 'M5 12h14',
   repeat: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
@@ -68,14 +80,46 @@ const PATHS = {
   qr: 'M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 15h2v2h-2zM15 19h2v2h-2zM19 19h2v2h-2z',
   court: 'M3 4h18v16H3zM12 4v16M3 10h4M17 10h4M3 14h4M17 14h4',
   sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+  /** The appearance switch into blue mode; `sun` is the way back. */
+  moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
   play: 'M5 3l14 9-14 9V3z',
   keyboard: 'M2 6h20a0 0 0 0 1 0 0v12a0 0 0 0 1 0 0H2a0 0 0 0 1 0 0V6a0 0 0 0 1 0 0zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8',
   eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  zoomIn: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35M11 8v6M8 11h6',
+  zoomOut: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35M8 11h6',
   eyeOff: 'M17.9 17.9A10 10 0 0 1 12 20c-7 0-11-8-11-8a18 18 0 0 1 5.1-6M9.9 4.2A9 9 0 0 1 12 4c7 0 11 8 11 8a18 18 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
   spark: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM5 19l.7 1.8L7.5 21.5l-1.8.7L5 24l-.7-1.8-1.8-.7 1.8-.7z',
+  // Diagonal pair, outward/inward — the live floor's own full-view toggle.
+  expand: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
+  collapse: 'M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7',
+  // Four arrows pointing inward — the OS convention for leaving full screen.
+  shrink: 'M8 3v5H3M21 8h-5V3M3 16h5v5M16 21v-5h5',
+  /**
+   * A square frame with its four corners drawn — the picture of the screen
+   * itself, which is what the live floor's full-view toggle means. Reads at
+   * 16px where the diagonal-arrow pair (expand/collapse) turns to mush, and
+   * it is symmetric, so it does not need mirroring under RTL.
+   */
+  frame: 'M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3',
+  /**
+   * Two columns of dots — the one shape that says "take hold of this" without
+   * a word. Drawn as zero-length segments, which strokeLinecap="round" renders
+   * as dots, so it stays one path like every other glyph here.
+   */
+  grip: 'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01',
+  /** The same frame with the corners turned in: the way back out. */
+  frameExit: 'M8 3v2a3 3 0 0 1-3 3H3M16 3v2a3 3 0 0 0 3 3h2M21 16h-2a3 3 0 0 0-3 3v2M8 21v-2a3 3 0 0 0-3-3H3',
+  /** A photograph: how many pictures a row carries (wave 5, /incidents). */
+  image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM21 15l-3.1-3.1a2 2 0 0 0-2.8 0L6 21',
 } as const;
 
 export type IconName = keyof typeof PATHS;
+
+/**
+ * Glyphs that point at a side of the layout, so they mirror under RTL wherever
+ * they are drawn — including a Button's `icon`, which cannot pass `dataChevron`.
+ */
+const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(['panelClose', 'panelOpen']);
 
 export function Icon({
   name,
@@ -108,8 +152,97 @@ export function Icon({
       role={label ? 'img' : undefined}
       aria-label={label}
       focusable="false"
-      data-chevron={dataChevron ? '' : undefined}
+      data-chevron={dataChevron || MIRRORED.has(name) ? '' : undefined}
       style={{ display: 'inline-block', flexShrink: 0, verticalAlign: 'middle', ...style }}
+    >
+      <path d={PATHS[name]} />
+    </svg>
+  );
+}
+
+/**
+ * The appearance switch's glyph, which MORPHS between the two modes rather
+ * than being replaced (owner call, 2026-09-21).
+ *
+ * Swapping `name` on <Icon> unmounts one <svg> and mounts another, so the sun
+ * simply blinked into a moon — a state change with no motion to say which way
+ * it went. Both glyphs are rendered here at once, one layer each, and only
+ * opacity and transform change: the incoming one turns in and scales up while
+ * the outgoing one turns out and shrinks. Nothing is remounted, so the
+ * transition runs on the compositor and survives being pressed mid-flight.
+ *
+ * The two turn the SAME way (sun clockwise to leave, moon clockwise to
+ * arrive), so the pair reads as one object rotating rather than two glyphs
+ * trading places. The rays are the busy half, so the sun also carries the
+ * scale — it shrinks as it leaves, which keeps the 16px box from looking
+ * crowded halfway through.
+ *
+ * The rotation is NOT mirrored in RTL: this is a thing turning, not a
+ * direction being pointed, so `data-chevron` and its scaleX(-1) stay off.
+ *
+ * --tp-dur-base and --tp-ease-settle are the rail's own accordion values, and
+ * the blanket prefers-reduced-motion rule in GlobalStyles cuts both layers to
+ * 0.01ms, which lands on the plain swap this replaced.
+ */
+export function ThemeModeIcon({ mode, size = 16 }: { mode: ThemeMode; size?: number }) {
+  const blue = mode === 'blue';
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'inline-grid',
+        flexShrink: 0,
+        inlineSize: size,
+        blockSize: size,
+        verticalAlign: 'middle',
+      }}
+    >
+      {/* Both layers occupy the one grid cell, so the row's height never
+          shifts as they cross over. Which one is SHOWN names the destination,
+          matching the label beside it: in light mode the moon stands for "go
+          to blue", and in blue mode the sun stands for "come back to light".
+          That polarity is the one this replaced — do not read it as the
+          current state. */}
+      <ThemeGlyph name="sun" size={size} shown={blue} turn={-90} scale={0.5} />
+      <ThemeGlyph name="moon" size={size} shown={!blue} turn={90} scale={0.7} />
+    </span>
+  );
+}
+
+/** One layer of ThemeModeIcon: parked at `turn`/`scale` until it is shown. */
+function ThemeGlyph({
+  name,
+  size,
+  shown,
+  turn,
+  scale,
+}: {
+  name: IconName;
+  size: number;
+  shown: boolean;
+  turn: number;
+  scale: number;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      style={{
+        gridArea: '1 / 1',
+        opacity: shown ? 1 : 0,
+        transform: shown ? 'rotate(0deg) scale(1)' : `rotate(${turn}deg) scale(${scale})`,
+        transition:
+          'opacity var(--tp-dur-base) var(--tp-ease-settle), transform var(--tp-dur-base) var(--tp-ease-settle)',
+        // The hidden layer must never eat the press meant for the row.
+        pointerEvents: 'none',
+      }}
     >
       <path d={PATHS[name]} />
     </svg>

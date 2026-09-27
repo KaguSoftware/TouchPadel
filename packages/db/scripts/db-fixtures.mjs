@@ -7,7 +7,21 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const files = ['courts.sql', 'menu.sql', 'tables.sql', 'stock.sql'].map((f) => join(root, 'fixtures', f));
+
+/**
+ * With no arguments this is unchanged: the four dev fixtures, in order.
+ *
+ * A positional list loads THOSE files instead, resolved relative to packages/db
+ * — `node scripts/db-fixtures.mjs bench/seed.sql`. The bench suite (Milestone 0
+ * item 11) needs a second body of SQL applied to the same local stack under the
+ * same isLocalTarget() guard, and a second runner would be a second copy of that
+ * guard to keep in step. Order is the caller's; nothing is sorted.
+ */
+const argv = process.argv.slice(2);
+const files =
+  argv.length > 0
+    ? argv.map((f) => join(root, f))
+    : ['courts.sql', 'menu.sql', 'tables.sql', 'stock.sql'].map((f) => join(root, 'fixtures', f));
 const DB_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 function hasPsql() {

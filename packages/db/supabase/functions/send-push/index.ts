@@ -1,35 +1,69 @@
 /**
  * send-push — outbox sender for Expo push notifications.
  *
- * Invoked by Supabase cron every minute (service-role Authorization header; see
- * packages/db/README.md "Edge functions"). Flow:
- *   1. app.claim_due_notifications(limit) — due, unsent, attempts < 5,
- *      SKIP LOCKED; claiming increments `attempts` (migration 0024).
+ * Invoked through app.push_nudge (service-role Authorization header; see
+ * packages/db/README.md "Edge functions") — the moment a booking notification
+ * is queued, and by the tp_push_sweep cron every 30 s (migration 0090). Flow:
+ *   1. app.claim_due_notifications(limit) — due, unsent, attempts < 5, not
+ *      claimed in the last 60 s, SKIP LOCKED; claiming increments `attempts`
+ *      and stamps `claimed_at` (0024, lease 0090). Overlapping invocations
+ *      therefore never send the same row twice — as long as this function
+ *      finishes inside the lease, which is what EXPO_TIMEOUT_MS guarantees.
  *   2. Resolve each row's CURRENT expo_push_token + preferred_lang from
  *      profiles (tokens rot, language is a live preference) and court names.
  *   3. Batch to https://exp.host/--/api/v2/push/send (max 100/request).
- *   4. Per-ticket: ok -> sent_at; error -> last_error (row retries on the next
- *      cron run until the attempts cap of 5); DeviceNotRegistered also clears
+ *   4. Per-ticket: ok -> sent_at; error -> last_error (row retries once its
+ *      lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears
  *      the profile's token so future bookings stop enqueueing.
+ *
+ * Two families of kind. The booking kinds (and `test`) take their copy from
+ * STRINGS below, with the court and time. The staff kinds, queued only by
+ * app.notify_staff, name their copy by payload.title_key and read it from
+ * staffStrings.ts (build-contracts-2026-09-23 §2.21); _shared/staff-push.json
+ * is the one list of their kinds, title keys and routes. This function must be
+ * deployed before the migration that lets the outbox hold a staff kind: a kind
+ * or title key it does not know is terminal.
  */
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { json } from '../_shared/http.ts';
+import staffPush from '../_shared/staff-push.json' with { type: 'json' };
+import { staffMessage } from './staffStrings.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_BATCH_SIZE = 100;
 const CLAIM_LIMIT = 100;
 const RETRY_CAP = 5; // mirrors the attempts < 5 filter in app.claim_due_notifications
+/**
+ * Upper bound on one Expo request, reply body included. Without it a stalled
+ * connection keeps this invocation alive until the platform's own limit
+ * (minutes), long past the 60 s claim lease (0090) — and the next sweep then
+ * re-claims rows this invocation may still deliver: a duplicate. 15 s is far
+ * above Expo's normal sub-second answer and keeps the worst-case invocation
+ * (cold start + reads + this + per-row stamps) near half the lease. A timed-out
+ * batch takes the transport-failure path below and is retried after the lease.
+ */
+const EXPO_TIMEOUT_MS = 15_000;
+/**
+ * Must equal ANDROID_CHANNEL in apps/mobile/src/features/profile/push.ts — the
+ * channel the app creates at boot. Named explicitly rather than left to Expo's
+ * fallback, so the importance the app configured (MAX) is the one that applies.
+ */
+const ANDROID_CHANNEL_ID = 'default';
 
 type Lang = 'en' | 'ar';
 
-// Notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
+const STAFF_KINDS: ReadonlySet<string> = new Set(staffPush.kinds);
+const STAFF_ROUTES: ReadonlySet<string> = new Set(staffPush.routes);
+
+// Booking notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
 // edge functions bundle standalone, so the few push strings are duplicated
-// here; keep in sync with the `push.*` keys there when they change.
+// here; keep in sync with the `push.*` keys there when they change. The staff
+// kinds' copy is in staffStrings.ts.
 const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string, when: string) => string }>> = {
   en: {
     booking_confirmed: {
       title: 'Booking confirmed',
-      body: (court, when) => `${court} — ${when}. See you on court!`,
+      body: (court, when) => `You're booked on ${court} at ${when}. See you there!`,
     },
     booking_reminder: {
       title: 'Your game is in 3 hours',
@@ -37,14 +71,14 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     },
     booking_cancelled: {
       title: 'Booking cancelled',
-      body: (court, when) => `${court} — ${when} was cancelled.`,
+      body: (court, when) => `Your booking on ${court} at ${when} has been cancelled.`,
     },
     // Deliberately not worded as a cancellation, and deliberately not
     // accusatory: the guest may well have been there and the desk may well
     // have got it wrong, so it says what happened and where to take it.
     booking_no_show: {
       title: 'Booking closed',
-      body: (court, when) => `${court} — ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
+      body: (court, when) => `Your booking on ${court} at ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
     },
     // Settings > "Send a test notification" (app.send_test_push, migration 0070).
     test: {
@@ -55,7 +89,7 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
   ar: {
     booking_confirmed: {
       title: 'تم تأكيد الحجز',
-      body: (court, when) => `${court} — ${when}. نراك في الملعب!`,
+      body: (court, when) => `تم حجزك في ${court} الساعة ${when}. نراك هناك!`,
     },
     booking_reminder: {
       title: 'مباراتك بعد ٣ ساعات',
@@ -63,11 +97,11 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     },
     booking_cancelled: {
       title: 'تم إلغاء الحجز',
-      body: (court, when) => `${court} — ${when} تم إلغاؤه.`,
+      body: (court, when) => `تم إلغاء حجزك في ${court} الساعة ${when}.`,
     },
     booking_no_show: {
       title: 'تم إغلاق الحجز',
-      body: (court, when) => `${court} — ${when} أُغلق لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
+      body: (court, when) => `تم إغلاق حجزك في ${court} الساعة ${when} لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
     },
     test: {
       title: 'إشعار تجريبي',
@@ -90,8 +124,20 @@ function formatWhen(iso: string, lang: Lang): string {
 interface OutboxRow {
   id: number;
   profile_id: string;
-  kind: 'booking_confirmed' | 'booking_reminder' | 'booking_cancelled' | 'booking_no_show' | 'test';
-  /** Reservation snapshot for the booking kinds; `{ source }` only for `test`. */
+  kind:
+    | 'booking_confirmed'
+    | 'booking_reminder'
+    | 'booking_cancelled'
+    | 'booking_no_show'
+    | 'test'
+    | 'staff_task'
+    | 'staff_decide'
+    | 'staff_decided'
+    | 'staff_info';
+  /**
+   * Reservation snapshot for the booking kinds; `{ source }` only for `test`;
+   * `{ route, id, title_key, params, dedupe? }` for the staff kinds.
+   */
   payload: {
     reservation_id?: string;
     court_id?: string;
@@ -99,6 +145,10 @@ interface OutboxRow {
     end_at?: string;
     price_iqd?: number | null;
     source?: string;
+    route?: unknown;
+    id?: unknown;
+    title_key?: unknown;
+    params?: unknown;
   };
   attempts: number;
 }
@@ -148,6 +198,29 @@ Deno.serve(async (req) => {
       continue;
     }
     const lang: Lang = profile.preferred_lang === 'ar' ? 'ar' : 'en';
+    if (STAFF_KINDS.has(row.kind)) {
+      const m = staffMessage(lang, row.kind, row.payload, STAFF_ROUTES);
+      if (m.ok === false) {
+        // A title key this build does not know: terminal, never retried.
+        failed++;
+        await db
+          .from('notification_outbox')
+          .update({ last_error: m.error, attempts: RETRY_CAP })
+          .eq('id', row.id);
+        continue;
+      }
+      const message: Record<string, unknown> = {
+        to: token,
+        title: m.title,
+        sound: 'default',
+        priority: 'high', // as the booking kinds below
+        channelId: ANDROID_CHANNEL_ID,
+        data: m.data,
+      };
+      if (m.body) message.body = m.body;
+      prepared.push({ row, message });
+      continue;
+    }
     const s = STRINGS[lang][row.kind];
     if (!s) {
       // A kind this build does not know: terminal, never retried.
@@ -171,6 +244,13 @@ Deno.serve(async (req) => {
         title: s.title,
         body: s.body(courtName, when),
         sound: 'default',
+        // Expo's default is `normal` on Android (iOS already gets high), and
+        // Android defers normal-priority messages while the phone dozes, then
+        // releases them together when it wakes: the "10 minutes late" and "three
+        // at once" reports of 2026-09-13. Every kind here shows a visible
+        // notification, which is the condition Android sets for high priority.
+        priority: 'high',
+        channelId: ANDROID_CHANNEL_ID,
         data,
       },
     });
@@ -184,12 +264,14 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(chunk.map((p) => p.message)),
+        signal: AbortSignal.timeout(EXPO_TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`expo push HTTP ${res.status}`);
       tickets = (await res.json()).data ?? [];
     } catch (e) {
-      // Whole-batch transport failure: rows stay unsent (attempts already
-      // bumped by the claim) and retry next minute up to the cap.
+      // Whole-batch transport failure (timeout included): rows stay unsent
+      // (attempts already bumped by the claim) and are retried by the sweep
+      // once their 60 s lease runs out, up to the cap.
       const msg = e instanceof Error ? e.message : String(e);
       failed += chunk.length;
       await db

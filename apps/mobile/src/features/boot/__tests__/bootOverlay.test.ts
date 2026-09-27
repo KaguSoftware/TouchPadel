@@ -15,20 +15,40 @@ const OVERLAY = readFileSync(join(here, '../BootOverlay.tsx'), 'utf8');
 const APP_CONFIG = readFileSync(join(here, '../../../../app.config.ts'), 'utf8');
 
 describe('the first frame is the native splash', () => {
-  it('draws the lockup at the splash image width', () => {
-    const inOverlay = /const LOGO_W = (\d+);/.exec(OVERLAY);
-    const inSplash = /imageWidth:\s*(\d+)/.exec(APP_CONFIG);
-    expect(inOverlay?.[1]).toBeDefined();
-    expect(inSplash?.[1]).toBeDefined();
-    expect(inOverlay![1]).toBe(inSplash![1]);
+  // The splash plugin block: the base `imageWidth` is iOS's, and the nested
+  // android block overrides it (Android masks the icon to a circle).
+  const splashBlock = APP_CONFIG.slice(
+    APP_CONFIG.indexOf("'expo-splash-screen'"),
+    APP_CONFIG.indexOf('],', APP_CONFIG.indexOf("'expo-splash-screen'")),
+  );
+  const overlayWidths = /const LOGO_W = Platform\.OS === 'android' \? (\d+) : (\d+);/.exec(OVERLAY);
+
+  it('draws the lockup at the splash image width, per platform', () => {
+    expect(overlayWidths).not.toBeNull();
+    const [, overlayAndroid, overlayIos] = overlayWidths!;
+
+    const baseWidth = /imageWidth:\s*(\d+)/.exec(splashBlock)?.[1];
+    const androidWidth = /android:\s*\{[^}]*imageWidth:\s*(\d+)/.exec(splashBlock)?.[1];
+    expect(baseWidth).toBeDefined();
+    expect(androidWidth).toBeDefined();
+
+    // Each side of the handoff draws the mark the same size as the OS did.
+    expect(overlayIos).toBe(baseWidth);
+    expect(overlayAndroid).toBe(androidWidth);
+  });
+
+  it('keeps the Android lockup inside the circular splash mask', () => {
+    // Android 12+ masks windowSplashScreenAnimatedIcon to the inner ~160dp
+    // safe circle. A 900x332 mark centred in it may be at most
+    // 160 / sqrt(1 + (332/900)^2) wide before its ends are clipped — which is
+    // what turned the launch screen into "ouch Pad".
+    const androidWidth = Number(overlayWidths![1]);
+    const maxWidth = 160 / Math.sqrt(1 + (332 / 900) ** 2);
+    expect(androidWidth).toBeLessThanOrEqual(maxWidth);
   });
 
   it('paints the splash background colour', () => {
     // The splash plugin block carries the colour as a literal.
-    const splashBlock = APP_CONFIG.slice(
-      APP_CONFIG.indexOf("'expo-splash-screen'"),
-      APP_CONFIG.indexOf(']', APP_CONFIG.indexOf("'expo-splash-screen'")),
-    );
     expect(splashBlock).toContain(`backgroundColor: '${brand.blue}'`);
     expect(OVERLAY).toContain('backgroundColor: brand.blue');
   });

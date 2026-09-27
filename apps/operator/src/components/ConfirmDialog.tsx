@@ -5,7 +5,8 @@
  *   const confirm = useConfirm();
  *   if (await confirm({ title: tr('op.confirm.rotateTokens'), kind: 'danger' })) { … }
  *
- * Danger dialogs autofocus Cancel; Esc / click-outside cancel (Modal).
+ * Danger dialogs autofocus Cancel; Esc / click-outside cancel (Modal), unless
+ * `requireChoice`, where a click outside shakes the dialog instead.
  */
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { useLocale } from '../lib/i18n';
@@ -18,6 +19,20 @@ export interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   kind?: 'danger' | 'primary';
+  /**
+   * Keep the confirm button beside Cancel on a `danger` dialog instead of
+   * pushing it to the far edge. For a red action that is REVERSIBLE — signing
+   * out, which you undo by signing back in — where the spread below is
+   * guarding against a mis-tap that costs nothing to correct. A destructive
+   * write (void, refund, delete) must not pass this.
+   */
+  pairActions?: boolean;
+  /**
+   * A click outside does not count as Cancel: the dialog shakes and asks for
+   * one of the two buttons (Modal `requireChoice`). For a question where
+   * neither answer is safe to assume from a stray tap.
+   */
+  requireChoice?: boolean;
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -30,6 +45,8 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   kind = 'primary',
+  pairActions,
+  requireChoice,
   busy,
   onConfirm,
   onCancel,
@@ -43,6 +60,7 @@ export function ConfirmDialog({
     <Modal
       title={title}
       onClose={close}
+      requireChoice={requireChoice}
       // This was the only dialog in the app rendering its action row inside the
       // Modal BODY while PinPromptOverlay, ReasonCodePrompt, PinReasonModal and
       // DrillThroughPanel all used the footer slot — so the one prompt every
@@ -62,7 +80,8 @@ export function ConfirmDialog({
             autoFocus={kind !== 'danger'}
             // Rulebook 7.8: a destructive confirm must not sit half a step from
             // Cancel. The auto margin eats the free space between them.
-            style={kind === 'danger' ? { marginInlineStart: 'auto' } : undefined}
+            // `pairActions` opts out for a red action that is reversible.
+            style={kind === 'danger' && !pairActions ? { marginInlineStart: 'auto' } : undefined}
           >
             {confirmLabel ?? tr('common.confirm')}
           </Button>
@@ -81,6 +100,10 @@ export interface ConfirmOptions {
   confirmLabel?: string;
   cancelLabel?: string;
   kind?: 'danger' | 'primary';
+  /** See ConfirmDialogProps.pairActions. */
+  pairActions?: boolean;
+  /** See ConfirmDialogProps.requireChoice. */
+  requireChoice?: boolean;
 }
 
 export type ConfirmFn = (options?: ConfirmOptions) => Promise<boolean>;
@@ -123,6 +146,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         confirmLabel={pending?.options.confirmLabel}
         cancelLabel={pending?.options.cancelLabel}
         kind={pending?.options.kind}
+        pairActions={pending?.options.pairActions}
+        requireChoice={pending?.options.requireChoice}
         onConfirm={() => settle(true)}
         onCancel={() => settle(false)}
       />

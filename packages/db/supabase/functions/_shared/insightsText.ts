@@ -1,6 +1,6 @@
-// COPY — keep in sync with packages/core/src/analytics/insightsText.ts
-// (parity test: packages/db/tests/insights-text-parity.test.ts)
-// Do not edit here; edit the core file and re-copy.
+// COPY — keep in sync with packages/core/src/analytics/insightsText.ts (byte-identical below this header).
+// The edge runtime cannot import @touch/core; packages/db/tests/insights-text-parity.test.ts fails on drift.
+// Edit the core file, then copy it here verbatim.
 /**
  * Post-processing for free-text AI findings — the gates that run AFTER a model answers.
  *
@@ -12,8 +12,11 @@
  * Three concerns live here, all pure:
  *  - `normalizeFinding` — the dedupe / rejection key. Has a SQL twin (`app.normalize_finding`)
  *    that must produce the same bytes; the algorithm is spelled out step by step below.
- *  - `findingImpact` / `rankFindings` — order findings by the money they cite.
- *  - the drop gates — owner rejections, thin-sample claims, excluded item mentions.
+ *  - `rankFindings` — order findings by confidence, then by the sample they rest on. Money
+ *    never ranks: a big number is not a better finding, and ranking by it taught the model
+ *    to inflate amounts.
+ *  - the drop gates — owner rejections, thin-sample claims, excluded item mentions, and
+ *    amounts the data does not contain (`findingAmounts` / `dropUncitedAmounts`).
  */
 
 /** A weekday claim needs this many occurrences of that weekday among days WITH sales data. */
@@ -98,29 +101,68 @@ const AMOUNT_RE = new RegExp(
 );
 
 /**
- * Largest IQD amount a finding cites, in dinars; 0 when it names no amount (which sorts it
- * below every finding that does). Only numbers next to a currency marker count — a bare
- * "12" in "12 units" is a quantity, not money. Arabic-Indic digits and the Arabic thousands
- * separator (U+066C) are accepted.
+ * Every IQD amount a finding cites, in dinars, in text order (duplicates kept). Only numbers
+ * next to a currency marker count — a bare "12" in "12 units" is a quantity, not money.
+ * Arabic-Indic digits and the Arabic thousands separator (U+066C) are accepted.
  */
-export function findingImpact(text: string): number {
+export function findingAmounts(text: string): number[] {
   const t = latinDigits(text).toLowerCase();
-  let max = 0;
+  const out: number[] = [];
   for (const m of t.matchAll(AMOUNT_RE)) {
     const raw = (m[1] ?? m[2] ?? '').replace(/[,٬.]/g, '');
     const n = Number(raw);
-    if (Number.isFinite(n)) max = Math.max(max, n);
+    if (Number.isFinite(n)) out.push(n);
   }
-  return max;
+  return out;
 }
 
-/** Rank by money at stake (stable for ties) and cut to `limit`. */
-export function rankFindings(findings: readonly string[], limit = MAX_FINDINGS): string[] {
+/** Largest IQD amount a finding cites; 0 when it names none. */
+export function findingImpact(text: string): number {
+  return Math.max(0, ...findingAmounts(text));
+}
+
+/**
+ * Drop findings that cite an IQD amount the data does not contain. `amountsInData` holds
+ * every number in the payload the model read; a finding passes only when EVERY amount it
+ * names is in that set, so a scaled, projected or summed figure never reaches the owner.
+ * A finding with no amount passes.
+ */
+export function dropUncitedAmounts(
+  findings: readonly string[],
+  amountsInData: ReadonlySet<number>,
+): { kept: string[]; dropped: string[] } {
+  const kept: string[] = [];
+  const dropped: string[] = [];
+  for (const text of findings) {
+    if (findingAmounts(text).every((n) => amountsInData.has(n))) kept.push(text);
+    else dropped.push(text);
+  }
+  return { kept, dropped };
+}
+
+/** What `rankFindings` reads: the confidence the model gave and the count the claim rests on. */
+export type RankableFinding = {
+  confidence: 'high' | 'medium' | 'low';
+  sample?: number | null;
+};
+
+const CONFIDENCE_RANK = { high: 2, medium: 1, low: 0 } as const;
+
+/**
+ * Rank by confidence, then by sample (larger first), then by arrival order — stable, so a
+ * pass's own ordering survives among equals — and cut to `limit`. Money is not a key.
+ */
+export function rankFindings<T extends RankableFinding>(findings: readonly T[], limit = MAX_FINDINGS): T[] {
   return findings
-    .map((text, i) => ({ text, impact: findingImpact(text), i }))
-    .sort((a, b) => b.impact - a.impact || a.i - b.i)
+    .map((f, i) => ({ f, i }))
+    .sort(
+      (a, b) =>
+        CONFIDENCE_RANK[b.f.confidence] - CONFIDENCE_RANK[a.f.confidence] ||
+        (b.f.sample ?? 0) - (a.f.sample ?? 0) ||
+        a.i - b.i,
+    )
     .slice(0, limit)
-    .map((f) => f.text);
+    .map((x) => x.f);
 }
 
 /**
@@ -160,11 +202,14 @@ export function rejectionKeys(rejectedTexts: readonly string[]): Set<string> {
 }
 
 /**
- * Words that assert a movement over time — the claims `MIN_TREND_DAYS` guards. English and
- * Arabic stems; callers may pass their own regex to `dropLowConfidenceClaims`.
+ * Words that assert a movement over time — the claims `MIN_TREND_DAYS` guards. Past and
+ * progressive forms only: "sales dropped", "rising", "fell". The bare stems ("drop",
+ * "fall", "improve", "increase") are what a recommendation uses ("drop the price",
+ * "improve the photo") and must not read as a trend. English and Arabic; callers may pass
+ * their own regex to `dropLowConfidenceClaims`.
  */
 export const TREND_WORDS =
-  /(increas|decreas|\brose\b|\brise|\brising|\bfell\b|\bfall|\bdrop|declin|\bgrew\b|growth|trend|momentum|accelerat|slow(ed|ing|down)|improv|worsen|\bup \d|\bdown \d|ارتفع|ارتفاع|انخفض|انخفاض|تراجع|زاد|زياد|نمو|اتجاه|تباط|تسارع|تحسن|تدهور|هبوط|صعود)/i;
+  /(increased|increasing|decreased|decreasing|\brose\b|\brisen\b|\brising\b|\bfell\b|\bfallen\b|\bfalling\b|\bdropped\b|\bdropping\b|declined|declining|\bdecline\b|\bgrew\b|growth|\btrend|momentum|accelerat|slow(ed|ing|down)|improved|improving|worsened|worsening|\bup \d|\bdown \d|ارتفع|ارتفاع|انخفض|انخفاض|تراجع|زاد|زياد|نمو|اتجاه|تباط|تسارع|تحسن|تدهور|هبوط|صعود)/i;
 
 /**
  * Drop findings whose sample the data cannot support — the last line of the confidence gate.

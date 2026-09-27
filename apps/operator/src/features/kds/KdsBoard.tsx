@@ -1,6 +1,7 @@
 /**
- * KDS container — live ticket queue. Initial fetch from tables; 'kds' private
- * broadcast (0022 + 0061 item_ready) invalidates. Item-level ready marks are
+ * KDS container — live ticket queue. Initial fetch through app.kitchen_board
+ * (money-free, build-contracts-2026-09-23 §2.23); 'kds' private broadcast
+ * (0022 + 0061 item_ready) invalidates. Item-level ready marks are
  * SERVER state since 0061 (app.set_order_item_ready) — they survive a reload
  * and a second prep station sees them. Ticket lifecycle goes through
  * app.set_ticket_status; both are optimistic here (transition-idempotent
@@ -11,16 +12,25 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
+import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
 import { isElectron, mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { useLocale } from '../../lib/i18n';
+import { can, canAccess, useAuth } from '../../lib/auth';
+import { QK } from '../../lib/queryKeys';
+import { useWorkspaceOrNull } from '../../routes/__root';
+import { WORKSPACES, type WorkspaceKey } from '../../lib/workspaces';
 import { asyncStatus, type AsyncStatus } from '../../components/kit';
 import { lanTicketViews, useLanTickets, useVariantNames } from './LanBoard';
 import { useKdsAlarms } from './useKdsAlarms';
 import { KitchenDisplayScreen } from './KitchenDisplayScreen';
-import { TICKET_SELECT, ticketViews, type TicketAction, type TicketRow } from './ticketView';
+import { ticketViews, type TicketAction, type TicketRow } from './ticketView';
+import { TK } from '../tasks/keys';
+import { fetchMyWork } from '../tasks/api';
+import { kitchenTaskCount } from '../tasks/tasksLogic';
+import { fetchIdeasToReview } from '../roleExtras/api';
+import { ideasWaiting } from '../roleExtras/roleExtrasLogic';
 
 const COMPLETED_LINGER_MS = 2 * 60 * 1000;
 
@@ -41,14 +51,12 @@ export function KdsBoard() {
   const ticketsQ = useQuery({
     queryKey: ['tickets'],
     queryFn: async (): Promise<TicketRow[]> => {
-      const since = new Date(Date.now() - COMPLETED_LINGER_MS).toISOString();
-      const { data, error } = await supabase
-        .from('tickets')
-        .select(TICKET_SELECT)
-        .or(`status.in.(queued,preparing,ready),and(status.eq.completed,completed_at.gte.${since})`)
-        .order('created_at');
-      if (error) throw error;
-      return data as unknown as TicketRow[];
+      // The server fixes the completed window (the same two minutes as
+      // COMPLETED_LINGER_MS) and takes no argument to widen it. p_venue_id null:
+      // the operator holds no venue of its own, so the board shows every venue
+      // the signed-in staff member works at, as the tickets select did.
+      const { tickets } = await appRpc<{ tickets: TicketRow[] }>('kitchen_board', { p_venue_id: null });
+      return tickets;
     },
     refetchInterval: 30_000, // safety net under the broadcast — no control in the UI
   });
@@ -63,7 +71,9 @@ export function KdsBoard() {
     // concurrent station) rolls back and the invalidation self-heals.
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['tickets'] });
-      const prev = queryClient.getQueryData<TicketRow[]>(['tickets']);
+      // Only THIS ticket is remembered and restored: putting back the whole
+      // list undid any other bump made while this one was in flight.
+      const prevTicket = queryClient.getQueryData<TicketRow[]>(['tickets'])?.find((t) => t.id === vars.ticketId);
       queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) =>
         rows?.map((t) =>
           t.id === vars.ticketId
@@ -76,10 +86,13 @@ export function KdsBoard() {
             : t,
         ),
       );
-      return { prev };
+      return { prevTicket };
     },
-    onError: (_e, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['tickets'], ctx.prev);
+    onError: (_e, vars, ctx) => {
+      const prevTicket = ctx?.prevTicket;
+      if (prevTicket) {
+        queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) => rows?.map((t) => (t.id === vars.ticketId ? prevTicket : t)));
+      }
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['tickets'] }),
   });
@@ -91,7 +104,10 @@ export function KdsBoard() {
       appRpc('set_order_item_ready', { p_order_item_id: vars.orderItemId, p_ready: vars.ready }),
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['tickets'] });
-      const prev = queryClient.getQueryData<TicketRow[]>(['tickets']);
+      const prevReadyAt = queryClient
+        .getQueryData<TicketRow[]>(['tickets'])
+        ?.flatMap((t) => t.order?.order_items ?? [])
+        .find((i) => i.id === vars.orderItemId)?.ready_at;
       queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) =>
         rows?.map((t) =>
           // Rebuild ONLY the ticket that holds the item — unchanged rows keep
@@ -111,10 +127,19 @@ export function KdsBoard() {
             : t,
         ),
       );
-      return { prev };
+      return { prevReadyAt };
     },
-    onError: (_e, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['tickets'], ctx.prev);
+    onError: (_e, vars, ctx) => {
+      // Put back this one item's mark only, as the status bump does.
+      if (!ctx || ctx.prevReadyAt === undefined) return;
+      const readyAt = ctx.prevReadyAt;
+      queryClient.setQueryData<TicketRow[]>(['tickets'], (rows) =>
+        rows?.map((t) =>
+          t.order && t.order.order_items.some((i) => i.id === vars.orderItemId)
+            ? { ...t, order: { ...t.order, order_items: t.order.order_items.map((i) => (i.id === vars.orderItemId ? { ...i, ready_at: readyAt } : i)) } }
+            : t,
+        ),
+      );
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['tickets'] }),
   });
@@ -167,6 +192,52 @@ export function KdsBoard() {
   );
   const retry = useCallback(() => void ticketsQ.refetch(), [ticketsQ]);
 
+  // The way off the board. The prep workspace renders no rail on purpose (a
+  // wall screen has nothing to get lost in), so anyone who holds ANOTHER
+  // workspace — a cashier covering the pass, a manager who followed a link —
+  // had no route back at all. One header button, and only for them: a
+  // prep-only account still sees a board with no navigation on it.
+  const navigate = useNavigate();
+  const workspace = useWorkspaceOrNull();
+  const exitTo = useMemo(() => {
+    // workspacesForRole lists the role's OWN workspace first, so dropping prep
+    // leaves the place this account started in at the head of the list.
+    const others: readonly WorkspaceKey[] = (workspace?.available ?? []).filter((key) => key !== 'prep');
+    return others[0] ?? null;
+  }, [workspace]);
+  const several = (workspace?.available.length ?? 0) > 2;
+
+  // "My tasks (N)" for the bar and kitchen roles (build-contracts-2026-09-23
+  // §5.1, §5.4): the board is their only screen, and /tasks holds their
+  // protocol steps and the read-only copy of their phone pages. N is what is
+  // theirs to do, plus the ideas a head has to review. Prep, the manager and
+  // the owner open no /tasks, so their board gets no button.
+  const { staff } = useAuth();
+  const hasTasks = canAccess(staff?.role, '/tasks');
+  const workQ = useQuery({ queryKey: TK.work, queryFn: fetchMyWork, enabled: hasTasks, refetchInterval: 60_000 });
+  const ideasQ = useQuery({
+    queryKey: QK.ideasToReview,
+    queryFn: fetchIdeasToReview,
+    enabled: hasTasks && can(staff?.role, 'reviewIdeas'),
+    refetchInterval: 60_000,
+  });
+  const taskCount = kitchenTaskCount(workQ.data, ideasWaiting(ideasQ.data));
+  // /tasks keeps the navless workspace, and its header leads back here.
+  const onTasks = useCallback(() => void navigate({ to: '/tasks', search: {} }), [navigate]);
+  const onExit = useCallback(() => {
+    if (!exitTo) return;
+    // Leave the WORKSPACE, not just the route. The prep workspace carries the
+    // dark board theme on [data-workspace='prep'], and /workspaces is a shared
+    // route that workspaceForRoute maps to nothing — so navigating without
+    // this left the light switcher tiles sitting on the black KDS background
+    // with their titles inheriting --tp-kds-fg, i.e. invisible.
+    workspace?.setActive(exitTo);
+    // Several to choose from and nothing here knows which they want, so the
+    // switcher asks. The active workspace is already theirs by then, so it
+    // renders in the desk palette and "You are here" points at the right tile.
+    void navigate({ to: several ? '/workspaces' : WORKSPACES[exitTo].home });
+  }, [exitTo, several, navigate, workspace]);
+
   return (
     <KitchenDisplayScreen
       status={status}
@@ -181,6 +252,9 @@ export function KdsBoard() {
       onRetry={retry}
       onStatus={onStatus}
       onItemReady={onItemReady}
+      onExit={exitTo ? onExit : undefined}
+      tasks={hasTasks ? { count: taskCount, onOpen: onTasks } : undefined}
     />
   );
 }
+

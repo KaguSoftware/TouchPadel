@@ -65,7 +65,7 @@ Explicit child routes (not `$section`) so `<Link to="/admin/qr">` is typed and e
 | `/admin/settings` | manager, owner (analytics prefs owner-only inside) | — | `op.adminNav.settings` | `features/admin/settings/CafeSettings` |
 | `/admin/staff` | owner | — | `op.adminNav.staff` | read-only list (note only, §3h) |
 | `/admin/rates`, `/admin/hours`, `/admin/day-close` | manager, owner | — | existing `op.admin.*Tab` keys | existing editors |
-| `/analytics` | **owner** | `analytics.title` | zone jump-nav (in-page) | `features/analytics/AnalyticsPage` |
+| `/analytics` | **owner** | `analytics.title` | Courts / Cafe tabs (`/analytics/courts`, `/analytics/cafe`) + zone jump-nav (in-page) | `features/analytics/{AnalyticsFrame,AnalyticsBar,courts/CourtsTab,cafe/CafeTab}` |
 
 Decision — `/analytics` is owner-only (UpperDeck parity: it exposes item costs/margins and each "recheck" bills Groq). The edge functions accept owner|manager JWT per the DB slice, so extending to managers later is a one-line `ROUTE_ROLES` change plus removing the sidebar filter.
 
@@ -271,7 +271,9 @@ Backward-compatible extension: `useBroadcast(options): { status: 'connecting'|'l
 
 ```
 features/analytics/
-  AnalyticsPage.tsx        route component; reads validated search; composes hooks; renders control deck + zones
+  AnalyticsFrame.tsx       page title + date range; AnalyticsBar.tsx the sticky bar (Courts | Cafe strip, one filter row, More disclosure, zone jump-nav)
+  cafe/CafeTab.tsx         the cafe tab (this section's five zones); courts/CourtsTab.tsx the courts tab (eight zones over app.analytics_courts_*, 2026-09-13)
+  courts/                  api.ts shape.ts derive.ts payload.ts useCourtsData.ts copy.ts zones.ts sections/*.tsx cards/*.tsx
   search.ts                AnalyticsSearch type + validateSearch (hand parser; no zod in operator)
   useAnalyticsData.ts      useQueries over SQL RPCs + edge queries → AnalyticsData (mirrors UpperDeck AnalyticsData, ids not names)
   ControlDeck.tsx          presets / custom dates / ComparePicker / BusinessDayPicker / CoversMultiplier / AutoRefresh / ExcludedItems button

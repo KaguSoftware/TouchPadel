@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bookableCount,
   cancelScopeCount,
   conflictCount,
   draftKey,
@@ -49,10 +50,33 @@ describe('draftProblem', () => {
 });
 
 describe('resolvedEndsOn / seriesRpcArgs', () => {
-  it('turns N weeks into the day before the Nth repeat', () => {
-    expect(resolvedEndsOn({ ...base, weeks: 1 })).toBe('2026-09-12');
-    expect(resolvedEndsOn({ ...base, weeks: 4 })).toBe('2026-10-03');
+  it('turns N sessions into the range holding exactly those N', () => {
+    // Weekly: the first date plus N-1 weekly steps. 2026-09-06 is a Sunday.
+    expect(resolvedEndsOn({ ...base, weeks: 1 })).toBe('2026-09-06');
+    expect(resolvedEndsOn({ ...base, weeks: 4 })).toBe('2026-09-27');
     expect(resolvedEndsOn({ ...base, endMode: 'date', endsOn: '2026-12-31' })).toBe('2026-12-31');
+  });
+
+  it('spans a fortnightly series far enough to hold every session', () => {
+    // The reported bug: "every 2 weeks" with 2 asked for a 13-day range, which
+    // the server's 14-day step cleared in one jump — one booking, not two.
+    const fortnightly = { ...base, pattern: 'fortnightly' as const };
+    expect(resolvedEndsOn({ ...fortnightly, weeks: 1 })).toBe('2026-09-06');
+    expect(resolvedEndsOn({ ...fortnightly, weeks: 2 })).toBe('2026-09-20');
+    expect(resolvedEndsOn({ ...fortnightly, weeks: 8 })).toBe('2026-12-13');
+  });
+
+  it('keeps calendar weeks for the chosen-weekdays pattern', () => {
+    // Three weekdays ticked is three sessions in one week, so the number
+    // cannot be a session count here and still name a range.
+    const weekdays = { ...base, pattern: 'weekdays' as const, weekdays: [0, 2, 4] };
+    expect(resolvedEndsOn({ ...weekdays, weeks: 1 })).toBe('2026-09-12');
+    expect(resolvedEndsOn({ ...weekdays, weeks: 4 })).toBe('2026-10-03');
+  });
+
+  it('treats a session count below one as one', () => {
+    expect(resolvedEndsOn({ ...base, weeks: 0 })).toBe('2026-09-06');
+    expect(resolvedEndsOn({ ...base, pattern: 'fortnightly', weeks: 0 })).toBe('2026-09-06');
   });
   it('sends the first date weekday for weekly/fortnightly and the chosen set, sorted and unique, for weekdays', () => {
     expect(seriesRpcArgs(base).p_weekdays).toEqual([0]);
@@ -63,7 +87,7 @@ describe('resolvedEndsOn / seriesRpcArgs', () => {
       p_start_time: '19:00',
       p_duration_min: 90,
       p_starts_on: '2026-09-06',
-      p_ends_on: '2026-10-03',
+      p_ends_on: '2026-09-27',
     });
   });
   it('changes the draft key when anything the server sees changes', () => {
@@ -95,6 +119,16 @@ describe('resolutions', () => {
       { date: '2026-09-20', action: 'skip' },
     ]);
     expect(Object.keys(pruneResolutions(occ, res)).sort()).toEqual(['2026-09-13', '2026-09-20']);
+  });
+  it('counts what would be booked: a skipped clash drops out, a moved one stays, a stale skip on a free date does not count', () => {
+    expect(bookableCount(occ, {})).toBe(occ.length);
+    expect(
+      bookableCount(occ, {
+        '2026-09-13': { date: '2026-09-13', action: 'moveCourt', courtId: 'c2' },
+        '2026-09-20': { date: '2026-09-20', action: 'skip' },
+        '2026-09-06': { date: '2026-09-06', action: 'skip' },
+      }),
+    ).toBe(occ.length - 1);
   });
 });
 

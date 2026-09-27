@@ -244,7 +244,7 @@ export const brand = {
   scrimStrong: '#00000080',
   /**
    * The smiley ball's line work — the artwork's own navy, as the racket decal
-   * paints it (`courtTransition/racket.ts` COLORS.frame). One step off
+   * paints it (`@touch/court3d/racket` COLORS.frame). One step off
    * `palettes.light.ink` and genuinely its own value: it comes out of the
    * brand PDF, not off the blue ramp.
    */

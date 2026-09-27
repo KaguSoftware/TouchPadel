@@ -1,0 +1,137 @@
+/**
+ * Query-key registry — every shared key in one place, so a collision is visible.
+ *
+ * A key is SHARED when more than one module spells it: two screens reading the
+ * same rows, or a screen reading and the durable write path (queueResults.ts)
+ * invalidating. The families the queue fans out to were registered on
+ * 2026-09-20; until then queueResults spelled them as literals next to the
+ * screens' own literals, and a rename on either side would have invalidated
+ * nothing, with no error anywhere.
+ *
+ * A family carries `all`, its invalidation ROOT: React Query matches keys by
+ * prefix, so invalidating ['tab'] refetches every mounted ['tab', id] without
+ * knowing the ids. Feature-private subtrees (stock's SK, the analytics and
+ * assistant trees, ['profilesSearch', q]) stay in their own modules, nested
+ * under a root registered here when the write path needs to reach them.
+ *
+ * This file is a LEAF on purpose — type imports only. queries.ts re-exports it
+ * next to the fetchers, but queries.ts also pulls refCache → mutate →
+ * queueResults, and queueResults reads QK at module scope; a registry that
+ * lived inside that loop would be in its temporal dead zone for whichever
+ * module the bundler happened to evaluate first.
+ */
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
+
+export const QK = {
+  /** venue_settings, the branch in scope's row: timezone + hours + closed dates. */
+  venueSettings: ['venueSettings'] as const satisfies QueryKey,
+  /** Active courts, ordered for display. */
+  courts: ['courts'] as const satisfies QueryKey,
+  /** The open (or closing) day session, or null. */
+  day: ['day'] as const satisfies QueryKey,
+  /** ACTIVE cafe tables only — the till's table picker. */
+  activeCafeTables: ['cafeTables', 'active'] as const satisfies QueryKey,
+  /** ALL cafe tables including inactive — the QR admin's editor. */
+  allCafeTables: ['cafeTables', 'all'] as const satisfies QueryKey,
+
+  /** venue_settings.tax_inclusive — half of the till's tax context (till/useTaxContext.ts). */
+  taxInclusive: ['taxInclusive'] as const satisfies QueryKey,
+  /** Every open tab on the floor: the rail and the open-tabs board (till/tillData.ts OPEN_TABS_QUERY). */
+  tabs: ['tabs'] as const satisfies QueryKey,
+  /** One tab's detail, the six-level join (till/tillData.ts tabDetailQuery). */
+  tab: {
+    all: ['tab'] as const satisfies QueryKey,
+    one: (tabId: string) => ['tab', tabId] as const satisfies QueryKey,
+  },
+  /** Live kitchen tickets (kds/KdsBoard.tsx). */
+  tickets: ['tickets'] as const satisfies QueryKey,
+  /** Waiter calls awaiting the floor (till/WaiterCallsPanel.tsx). */
+  waiterCalls: ['waiterCalls'] as const satisfies QueryKey,
+  /** Reservations on one business date, the desk grid (desk/useTradingNight.ts). */
+  reservations: {
+    all: ['reservations'] as const satisfies QueryKey,
+    day: (date: string) => ['reservations', date] as const satisfies QueryKey,
+  },
+  /** Per-day booking counts for one month, the calendar's month view (desk/calendar/useMonthCounts.ts). */
+  reservationsMonth: {
+    all: ['reservationsMonth'] as const satisfies QueryKey,
+    month: (monthStart: string) => ['reservationsMonth', monthStart] as const satisfies QueryKey,
+  },
+  /** One booking's full record (desk/BookingDetail.tsx). */
+  reservation: {
+    all: ['reservation'] as const satisfies QueryKey,
+    one: (reservationId: string) => ['reservation', reservationId] as const satisfies QueryKey,
+  },
+  /** What one booking owes — app.booking_bill (desk/payment/useBookingBill.ts). */
+  bookingBill: {
+    all: ['bookingBill'] as const satisfies QueryKey,
+    one: (reservationId: string) => ['bookingBill', reservationId] as const satisfies QueryKey,
+  },
+  /** Paid / unpaid state per booking for the board — app.booking_bill_states, ids sorted (useBookingBill.ts). */
+  bookingBillStates: {
+    all: ['bookingBillStates'] as const satisfies QueryKey,
+    of: (sortedIds: readonly string[]) => ['bookingBillStates', sortedIds] as const satisfies QueryKey,
+  },
+  /** Root of the stock tree; the keys themselves are feature-private in stock/stockKeys.ts (SK). */
+  stock: {
+    all: ['stock'] as const satisfies QueryKey,
+  },
+
+  // Protocols and the staff phone (build-contracts-2026-09-23 §5.2). Each is
+  // read by more than one screen; the protocols page's own keys (PK) sit in
+  // features/protocols/keys.ts under the same ['protocols'] root, so
+  // invalidating that root refreshes the page and the waiting count together.
+  /** What waits on the caller (app.protocols_waiting_count): Protocols, /ops, Observe home and the rail badge. */
+  protocolsWaiting: ['protocols', 'waiting'] as const satisfies QueryKey,
+  /** The driver's purchases not yet received as stock: /ops and Goods in (app.purchases_to_receive). */
+  purchasesToReceive: ['purchases', 'toReceive'] as const satisfies QueryKey,
+  /** How far each daily checklist got on one business date (app.checklist_day_state): day close and the checklists card. */
+  checklistDayState: {
+    all: ['checklists', 'dayState'] as const satisfies QueryKey,
+    date: (date: string) => ['checklists', 'dayState', date] as const satisfies QueryKey,
+  },
+
+  // The role spec (build-contracts-2026-09-23 §5.2). Each holds its RPC's
+  // payload as returned, called with no argument but the ones named here, so
+  // any screen that shares the key reads the same shape; a screen that needs
+  // another filter or page keeps its own key under the same root.
+  /** app.suggestions_page, filter 'new', first page: the rail badge (new_count) and the page's New tab. */
+  suggestionsNew: ['suggestions', 'new'] as const satisfies QueryKey,
+  /** app.recipe_changes_page, filter 'waiting': the Recipe changes card on /protocols. */
+  recipeChangesWaiting: ['recipeChanges', 'waiting'] as const satisfies QueryKey,
+  /** app.release_ideas_to_review: the New item card, /tasks and the kitchen board's My tasks count. */
+  ideasToReview: ['ideas', 'toReview'] as const satisfies QueryKey,
+
+  // Wave 5, people records (wave5-addendum-2026-09-25 §5.2). Each holds the
+  // first page of its list's waiting filter as returned: the count in it is
+  // the rail badge and the "waiting on you" rows, and the page's own tab
+  // reads the same key. Every other read of a list sits under the same root.
+  /** app.deductions_page, filter 'waiting', first page: waiting_count (MGMT). */
+  deductionsWaiting: ['deductions', 'waiting'] as const satisfies QueryKey,
+  /** app.incidents_page, filter 'open', first page: open_count (MGMT; the desk and the till never read it). */
+  incidentsOpen: ['incidents', 'open'] as const satisfies QueryKey,
+  /** app.content_page, filter 'waiting', first page: waiting_count (the owner's badge; marketing reads it too). */
+  contentWaiting: ['content', 'waiting'] as const satisfies QueryKey,
+
+  // Wave 5, till shifts (wave5-addendum-2026-09-25 §5.2). The station's shift
+  // as app.till_shift_status reads it: the rail row, the payment gate, the
+  // drawer card and the leaving guard share it. Refetched every 30 s and on
+  // focus; the shift writes invalidate ['tillShift'].
+  /** app.till_shift_status for one station (the device id every till money write carries). */
+  tillShift: {
+    all: ['tillShift'] as const satisfies QueryKey,
+    station: (station: string) => ['tillShift', station] as const satisfies QueryKey,
+  },
+} as const;
+
+/**
+ * The two reservation lists the desk keeps warm: the day grid and the month
+ * counts. Every reservation write must refresh both, and nine call sites spell
+ * the pair out by hand — one forgotten second line and the month view keeps
+ * yesterday's counts. One list, one helper; the write path uses the list.
+ */
+export const RESERVATION_LIST_KEYS = [QK.reservations.all, QK.reservationsMonth.all] as const;
+
+export function invalidateReservations(queryClient: QueryClient): void {
+  for (const queryKey of RESERVATION_LIST_KEYS) void queryClient.invalidateQueries({ queryKey });
+}

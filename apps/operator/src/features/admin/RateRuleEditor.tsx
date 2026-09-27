@@ -5,8 +5,23 @@
  *
  * Non-destructive by design (0007 "price provenance"): every booking stores
  * the rule that priced it, so editing a rule never changes a historical
- * price. The `overlap` state is a client-side WARNING; `app.price_slot`
- * resolves overlaps (court-specific beats all-courts, then priority).
+ * price. That is said ONCE, beside Save, where it answers the worry a manager
+ * has at that moment; it used to be the page lead, a banner on the form and
+ * the hint beside Save, three times.
+ *
+ * WARNINGS ARE FOR TIES ONLY. `app.price_slot` settles overlaps by court
+ * specificity, then priority, so a peak rule over a base rule is the rate card
+ * working as designed. The old screen listed every such overlap — a muted
+ * wall of "X — Overlaps Y (Sun)" lines above the rules on any real rate card —
+ * which hid the one case that needs a person: two rules that tie
+ * (rateRuleLogic.rulesTie). The rule for how overlaps resolve is one sentence
+ * under the table instead.
+ *
+ * A MANAGER PROPOSES (#57, build-contracts-2026-09-23 §5.5). Every save of a
+ * rule changes the price a slot gets, so the owner alone saves here
+ * (`editRates`). A manager reads the rules and gets "Propose a new rate" and,
+ * on an open rule, "Change this rate": each a price or promo change on
+ * /protocols, in place of a notice that names the owner.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,14 +31,13 @@ import { appRpc } from '../../lib/appRpc';
 import { QK, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../lib/auth';
-import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
   EmptyState,
   MessagePresenter,
   PageHeader,
-  ResultCount,
   Panel,
   PermissionRefusedNotice,
   StatusBadge,
@@ -31,16 +45,29 @@ import {
   asyncStatus,
   type Column,
 } from '../../components/kit';
+import { Icon } from '../../components/icons';
 import { MoneyInput } from '../../components/inputs';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/toast';
-import { DAY_KEYS, coversEveryDay, findOverlaps, overlapsFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
+import { MARK_FG, MARK_SOFT } from '../ops/OpsVisuals';
+import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from './promotions/PriceChangeStart';
+import { DAY_KEYS, coversEveryDay, dayRuns, findTies, tiesFor, type Overlap, type RateRuleLike } from './rateRuleLogic';
 
 interface RuleRow extends RateRuleLike {
   rate_rule_prices: { duration_min: number; price_iqd: number }[];
 }
 
 const RATE_RULES_KEY = ['rateRules'] as const;
+
+/**
+ * One line break allowed in a price line, after its "·": "60 min" and
+ * "25,000 IQD" each stay whole. On one line when the table has room; beside
+ * the open form (Arabic runs longer) it folds in two, where a plain nowrap
+ * pushed the Priority column off the table.
+ */
+function breakAfterDot(line: string): string {
+  return line.replace(/ /g, '\u00a0').replace(/·\u00a0/g, '· ');
+}
 const NO_RULES: RuleRow[] = [];
 const NO_COURTS: CourtRow[] = [];
 
@@ -48,7 +75,11 @@ export function RateRuleEditor() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const can = usePermissions();
+  const start = usePriceChangeStart();
+  // A manager: new rules and edits go through a price or promo change.
+  const proposes = !can.editRates && start !== null;
   const [selected, setSelected] = useState<RuleRow | 'new' | null>(null);
+  const [showOff, setShowOff] = useState(false);
 
   const rulesQ = useQuery({
     queryKey: RATE_RULES_KEY,
@@ -75,18 +106,24 @@ export function RateRuleEditor() {
   }, [courts]);
 
   const rules = rulesQ.data ?? NO_RULES;
-  const overlaps = useMemo(() => findOverlaps(rules), [rules]);
-  const overlappingRuleCount = useMemo(() => new Set(overlaps.map((o) => o.ruleId)).size, [overlaps]);
+  const ties = useMemo(() => findTies(rules), [rules]);
+  const tiedIds = useMemo(() => new Set(ties.flatMap((t) => [t.ruleId, t.otherId])), [ties]);
+  // Switched-off rules price nothing; they are kept for history and folded
+  // away so the table is the rate card that is actually in force.
+  const offCount = rules.filter((r) => !r.is_active).length;
+  const shown = showOff ? rules : rules.filter((r) => r.is_active);
   const status = asyncStatus(rulesQ, (rows) => rows.length === 0);
+  const dayName = (d: number) => tr(`op.days.${DAY_KEYS[d] ?? 'sun'}`);
 
   const columns: Column<RuleRow>[] = [
     {
       key: 'name',
       header: tr('ws.manager.rates.rule'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', fontWeight: 600, opacity: r.is_active ? 1 : 0.6 }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', fontWeight: 600, color: r.is_active ? undefined : 'var(--tp-muted-fg)' }}>
           <bdi>{r.name}</bdi>
-          {overlapsFor(overlaps, r.id).length > 0 && <StatusBadge size="sm" tone="warn" icon="alert" label={tr('ws.manager.rates.overlapBadge')} />}
+          {!r.is_active && <StatusBadge size="sm" tone="neutral" dot={false} label={tr('ws.manager.rates.off')} />}
+          {tiedIds.has(r.id) && <StatusBadge size="sm" tone="warn" icon="alert" label={tr('ws.manager.rates.tieBadge')} />}
         </span>
       ),
     },
@@ -94,56 +131,75 @@ export function RateRuleEditor() {
     {
       key: 'days',
       header: tr('ws.manager.rates.days'),
+      // "Sun–Thu", not a word per line; a range or a day never splits.
       render: (r) =>
-        coversEveryDay(r.days_of_week) ? tr('ws.manager.rates.everyDay') : r.days_of_week.map((d) => tr(`op.days.${DAY_KEYS[d] ?? 'sun'}`)).join(' '),
+        coversEveryDay(r.days_of_week) ? (
+          <span style={{ whiteSpace: 'nowrap' }}>{tr('ws.manager.rates.everyDay')}</span>
+        ) : (
+          <span style={{ display: 'inline-flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-1-5)' }}>
+            {dayRuns(r.days_of_week).map((run) =>
+              'day' in run ? (
+                <span key={run.day}>{dayName(run.day)}</span>
+              ) : (
+                <span key={run.from} style={{ whiteSpace: 'nowrap' }}>
+                  {dayName(run.from)}–{dayName(run.to)}
+                </span>
+              ),
+            )}
+          </span>
+        ),
     },
-    { key: 'window', header: tr('ws.manager.rates.window'), render: (r) => <span dir="ltr">{r.start_time.slice(0, 5)}–{r.end_time.slice(0, 5)}</span> },
+    // A window is one reading, and a price line breaks only between its
+    // duration and its price: broken at every space ("09:00–" / "23:00",
+    // "60 min ·" / "25,000 IQD" on every line) each rule row stood six lines tall.
+    {
+      key: 'window',
+      header: tr('ws.manager.rates.window'),
+      render: (r) => (
+        <span dir="ltr" style={{ whiteSpace: 'nowrap' }}>
+          {r.start_time.slice(0, 5)}–{r.end_time.slice(0, 5)}
+        </span>
+      ),
+    },
     {
       key: 'prices',
       header: tr('ws.manager.rates.prices'),
       render: (r) => (
-        <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', fontSize: 'var(--tp-fs-sm)' }}>
+        <span style={{ display: 'grid', fontVariantNumeric: 'tabular-nums', fontSize: 'var(--tp-fs-sm)' }}>
           {[...r.rate_rule_prices]
             .sort((a, b) => a.duration_min - b.duration_min)
-            .map((p) => `${p.duration_min}′ ${formatIQD(p.price_iqd, locale)}`)
-            .join(' · ')}
+            .map((p) => (
+              <bdi key={p.duration_min}>
+                {breakAfterDot(tr('ws.manager.rates.priceLine', { minutes: formatNumber(p.duration_min, locale), price: formatIQD(p.price_iqd, locale) }))}
+              </bdi>
+            ))}
         </span>
       ),
     },
     { key: 'priority', header: tr('ws.manager.rates.priority'), numeric: true, render: (r) => formatNumber(r.priority, locale) },
-    {
-      key: 'status',
-      header: tr('ws.manager.rates.status'),
-      render: (r) => <StatusBadge size="sm" tone={r.is_active ? 'success' : 'neutral'} label={r.is_active ? tr('ws.manager.rates.active') : tr('ws.manager.rates.inactive')} />,
-    },
   ];
+
+  const newRuleButton = proposes ? (
+    <PriceChangeButton kind="primary" icon="plus" target={{ change: 'rate' }} label={tr('ws.pricing.rates.propose')} />
+  ) : (
+    <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
+      {tr('ws.manager.rates.newRule')}
+    </Button>
+  );
 
   return (
     <div>
-      <PageHeader
-        title={tr('ws.manager.rates.title')}
-        subtitle={tr('ws.manager.rates.lead')}
-        actions={
-          <>
-            {overlappingRuleCount > 0 && <StatusBadge tone="warn" icon="alert" label={tr('ws.manager.rates.overlapChip', { count: overlappingRuleCount })} />}
-            <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
-              {tr('ws.manager.rates.newRule')}
-            </Button>
-          </>
-        }
-      >
-        <ResultCount shown={rules.length} total={rules.length} />
-        {!can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />}
+      <PageHeader title={tr('ws.manager.rates.title')} subtitle={tr('ws.manager.rates.lead')} actions={newRuleButton}>
+        {proposes ? (
+          <PriceLockNote message={tr('ws.pricing.rates.note')} />
+        ) : (
+          !can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />
+        )}
       </PageHeader>
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: selected ? 'minmax(0, 1.4fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
-          {overlaps.length > 0 && (
-            <Panel title={tr('ws.manager.rates.overlapTitle')} muted>
-              <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.manager.rates.overlapLead')}</p>
-              <OverlapList overlaps={overlaps} rules={rules} />
-            </Panel>
-          )}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', minInlineSize: 0 }}>
+          {ties.length > 0 && <TieList ties={ties} rules={rules} dayName={dayName} onOpen={(r) => setSelected(r)} />}
           <AsyncStateWrapper
             status={status}
             error={rulesQ.error}
@@ -154,22 +210,29 @@ export function RateRuleEditor() {
                 icon="court"
                 title={tr('ws.manager.rates.empty')}
                 body={tr('ws.manager.rates.emptyBody')}
-                action={
-                  <Button kind="primary" icon="plus" disabled={!can.editRates} onClick={() => setSelected('new')}>
-                    {tr('ws.manager.rates.newRule')}
-                  </Button>
-                }
+                action={newRuleButton}
               />
             }
           >
             <DataTable
               columns={columns}
-              rows={rules}
+              rows={shown}
               rowKey={(r) => r.id}
               selectedKey={selected && selected !== 'new' ? selected.id : null}
               onRowClick={(r) => setSelected(r)}
               aria-label={tr('ws.manager.rates.title')}
             />
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-2)' }}>
+              <p style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
+                <Icon name="info" size={14} />
+                {tr('ws.manager.rates.howChosen')}
+              </p>
+              {offCount > 0 && (
+                <Button size="sm" kind="ghost" style={{ marginInlineStart: 'auto' }} onClick={() => setShowOff((v) => !v)}>
+                  {showOff ? tr('ws.manager.rates.hideOff') : tr('ws.manager.rates.showOff', { count: formatNumber(offCount, locale) })}
+                </Button>
+              )}
+            </div>
           </AsyncStateWrapper>
         </div>
 
@@ -179,8 +242,10 @@ export function RateRuleEditor() {
             rule={selected === 'new' ? null : selected}
             courts={courts}
             durations={durations}
-            overlaps={selected === 'new' ? [] : overlapsFor(overlaps, selected.id)}
+            ties={selected === 'new' ? [] : tiesFor(ties, rules, selected.id)}
+            dayName={dayName}
             readOnly={!can.editRates}
+            proposes={proposes}
             onSaved={() => {
               setSelected(null);
               void queryClient.invalidateQueries({ queryKey: RATE_RULES_KEY });
@@ -196,26 +261,62 @@ export function RateRuleEditor() {
 /** Route alias for the spec name. */
 export const RatesEditorScreen = RateRuleEditor;
 
-function OverlapList({ overlaps, rules }: { overlaps: Overlap[]; rules: RuleRow[] }) {
-  const { tr } = useLocale();
-  // One line per unordered pair.
-  const seen = new Set<string>();
-  const pairs = overlaps.filter((o) => {
-    const key = [o.ruleId, o.otherId].sort().join('|');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  const nameOf = (id: string) => rules.find((r) => r.id === id)?.name ?? id;
+const TIES_SHOWN = 5;
+
+/** The pairs that tie, each name a way into that rule. */
+function TieList({
+  ties,
+  rules,
+  dayName,
+  onOpen,
+}: {
+  ties: readonly Overlap[];
+  rules: readonly RuleRow[];
+  dayName: (d: number) => string;
+  onOpen: (r: RuleRow) => void;
+}) {
+  const { tr, locale } = useLocale();
+  const [all, setAll] = useState(false);
+  // The first few pairs are enough to act on; the rest fold so a long list
+  // never pushes the rate card itself below the fold.
+  const listed = all ? ties : ties.slice(0, TIES_SHOWN);
+  const ruleLink = (id: string) => {
+    const r = rules.find((x) => x.id === id);
+    if (!r) return <bdi>{id}</bdi>;
+    return (
+      <button type="button" className="tp-link" onClick={() => onOpen(r)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--tp-accent)', cursor: 'pointer' }}>
+        <bdi>{r.name}</bdi>
+      </button>
+    );
+  };
   return (
-    <ul style={{ margin: 0, paddingInlineStart: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
-      {pairs.map((o) => (
-        <li key={`${o.ruleId}|${o.otherId}`}>
-          <bdi>{nameOf(o.ruleId)}</bdi> — <bdi>{tr('ws.manager.rates.overlapWith', { name: o.otherName })}</bdi>{' '}
-          <span style={{ color: 'var(--tp-muted-fg)' }}>({tr(`op.days.${DAY_KEYS[o.weekday] ?? 'sun'}`)})</span>
-        </li>
-      ))}
-    </ul>
+    <Panel
+      title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+          <span style={{ minInlineSize: '1.75rem', textAlign: 'center', paddingInline: 'var(--tp-sp-1)', borderRadius: 'var(--tp-radius-ctl)', background: MARK_SOFT.warn, color: MARK_FG.warn }}>
+            {formatNumber(ties.length, locale)}
+          </span>
+          {tr('ws.manager.rates.tieTitle')}
+        </span>
+      }
+    >
+      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.manager.rates.tieLead')}</p>
+      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)' }}>
+        {listed.map((t) => (
+          <li key={`${t.ruleId}|${t.otherId}`} style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'baseline' }}>
+            {ruleLink(t.ruleId)}
+            <Icon name="split" size={13} style={{ color: 'var(--tp-muted-fg)' }} />
+            {ruleLink(t.otherId)}
+            <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.rates.tieFrom', { day: dayName(t.weekday) })}</span>
+          </li>
+        ))}
+      </ul>
+      {ties.length > TIES_SHOWN && (
+        <Button size="sm" kind="ghost" style={{ marginBlockStart: 'var(--tp-sp-2)' }} onClick={() => setAll((v) => !v)}>
+          {all ? tr('ws.manager.rates.tiesFewer') : tr('ws.manager.rates.tiesAll', { count: formatNumber(ties.length, locale) })}
+        </Button>
+      )}
+    </Panel>
   );
 }
 
@@ -223,16 +324,21 @@ function RuleForm({
   rule,
   courts,
   durations,
-  overlaps,
+  ties,
+  dayName,
   readOnly,
+  proposes,
   onSaved,
   onCancel,
 }: {
   rule: RuleRow | null;
   courts: { id: string; name_en: string; name_ar: string }[];
   durations: number[];
-  overlaps: Overlap[];
+  ties: Overlap[];
+  dayName: (d: number) => string;
   readOnly: boolean;
+  /** A manager: the rule changes through "Change this rate", not Save. */
+  proposes: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -290,41 +396,31 @@ function RuleForm({
   return (
     <Panel
       title={rule ? tr('ws.manager.rates.editRule') : tr('ws.manager.rates.newRule')}
-      actions={rule ? <StatusBadge size="sm" tone={rule.is_active ? 'success' : 'neutral'} label={rule.is_active ? tr('ws.manager.rates.active') : tr('ws.manager.rates.inactive')} /> : undefined}
+      actions={rule && !rule.is_active ? <StatusBadge size="sm" tone="neutral" dot={false} label={tr('ws.manager.rates.off')} /> : undefined}
     >
-      <MessagePresenter tone="info" icon="shield" message={tr('ws.manager.rates.nonDestructive')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
-      {overlaps.length > 0 && (
+      {ties.map((t) => (
         <MessagePresenter
+          key={t.otherId}
           tone="refused"
           icon="alert"
           style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-          message={
-            <>
-              <strong>{tr('ws.manager.rates.overlapTitle')}</strong>
-              <ul style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', paddingInlineStart: 'var(--tp-sp-4)' }}>
-                {overlaps.map((o) => (
-                  <li key={o.otherId}>
-                    <bdi>{tr('ws.manager.rates.overlapWith', { name: o.otherName })}</bdi> ({tr(`op.days.${DAY_KEYS[o.weekday] ?? 'sun'}`)})
-                  </li>
-                ))}
-              </ul>
-            </>
-          }
+          message={tr('ws.manager.rates.tieInForm', { name: t.otherName, day: dayName(t.weekday) })}
         />
-      )}
+      ))}
 
       <Field label={tr('op.rates.ruleName')} required>
         <input style={inputStyle} value={name} disabled={readOnly} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={tr('op.rates.court')}>
-        <select style={inputStyle} value={courtId} disabled={readOnly} onChange={(e) => setCourtId(e.target.value)}>
-          <option value="">{tr('op.rates.allCourts')}</option>
-          {courts.map((c) => (
-            <option key={c.id} value={c.id}>
-              {pickName(locale, c)}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={courtId}
+          disabled={readOnly}
+          onChange={setCourtId}
+          options={[
+            { value: '', label: tr('op.rates.allCourts') },
+            ...courts.map((c) => ({ value: c.id, label: pickName(locale, c) })),
+          ]}
+        />
       </Field>
       <Field label={tr('op.rates.daysLabel')}>
         <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
@@ -349,17 +445,26 @@ function RuleForm({
           ))}
         </div>
       </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 5rem', gap: 'var(--tp-sp-2-5)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.startTime')}>
           <input style={inputStyle} dir="ltr" type="time" value={startTime} disabled={readOnly} onChange={(e) => setStartTime(e.target.value)} />
         </Field>
         <Field label={tr('op.rates.endTime')}>
           <input style={inputStyle} dir="ltr" type="time" value={endTime} disabled={readOnly} onChange={(e) => setEndTime(e.target.value)} />
         </Field>
-        <Field label={tr('op.rates.priority')}>
-          <input style={inputStyle} dir="ltr" type="number" value={priority} disabled={readOnly} onChange={(e) => setPriority(Number(e.target.value) || 0)} />
-        </Field>
       </div>
+      {/* Its own row: squeezed into a 5rem third column, the one hint that
+          explains priority wrapped to seven lines of two words. */}
+      <Field label={tr('op.rates.priority')} hint={tr('ws.manager.rates.priorityHint')}>
+        <input
+          style={{ ...inputStyle, inlineSize: '7rem' }}
+          dir="ltr"
+          type="number"
+          value={priority}
+          disabled={readOnly}
+          onChange={(e) => setPriority(Number(e.target.value) || 0)}
+        />
+      </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.validFrom')}>
           <input style={inputStyle} dir="ltr" type="date" value={validFrom} disabled={readOnly} onChange={(e) => setValidFrom(e.target.value)} />
@@ -386,28 +491,37 @@ function RuleForm({
       </div>
       <ErrorText error={error} />
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.rates.saveHint')}</span>
-        <Button onClick={onCancel} disabled={busy}>
-          {tr('common.cancel')}
-        </Button>
-        <Button
-          kind="primary"
-          icon="check"
-          busy={busy}
-          disabled={readOnly || !name || days.size === 0 || !anyPrice}
-          disabledReason={
-            !name
-              ? tr('ws.manager.disabled.namesRequired')
-              : days.size === 0
-                ? tr('ws.manager.disabled.daysRequired')
-                : !anyPrice
-                  ? tr('ws.manager.disabled.priceRequired')
-                  : undefined
-          }
-          onClick={() => void save()}
-        >
-          {tr('common.save')}
-        </Button>
+        {proposes && rule ? (
+          <>
+            <Button onClick={onCancel}>{tr('common.close')}</Button>
+            <PriceChangeButton kind="primary" target={{ change: 'rate', rule: rule.id }} label={tr('ws.pricing.rates.change')} />
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.rates.nonDestructive')}</span>
+            <Button onClick={onCancel} disabled={busy}>
+              {tr('common.cancel')}
+            </Button>
+            <Button
+              kind="primary"
+              icon="check"
+              busy={busy}
+              disabled={readOnly || !name || days.size === 0 || !anyPrice}
+              disabledReason={
+                !name
+                  ? tr('ws.manager.disabled.namesRequired')
+                  : days.size === 0
+                    ? tr('ws.manager.disabled.daysRequired')
+                    : !anyPrice
+                      ? tr('ws.manager.disabled.priceRequired')
+                      : undefined
+              }
+              onClick={() => void save()}
+            >
+              {tr('common.save')}
+            </Button>
+          </>
+        )}
       </div>
     </Panel>
   );

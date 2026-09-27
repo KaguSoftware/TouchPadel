@@ -39,7 +39,34 @@ export const touchTarget: CSSProperties = { minBlockSize: 'var(--tp-touch)', min
  * therefore claims its space before the first line exists and scrolls inside
  * it — the grid above never resizes for the length of a shift.
  */
-export const BASKET_BLOCK_SIZE = '12rem';
+export const BASKET_BLOCK_SIZE = '8.5rem';
+
+/** Lines the open basket shows before it starts scrolling. */
+export const BASKET_LIST_ROWS = 4;
+
+/**
+ * How tall the OPEN list is: exactly BASKET_LIST_ROWS lines and the gaps
+ * between them, so the fifth line is the one that starts the scroll.
+ *
+ * Measured from the line's own controls rather than a round number — a line
+ * carries ghost buttons at the 44px touch floor, plus the card's padding and
+ * its 1px border on each edge, so a hand-typed height would show four lines
+ * and a sliver of a fifth.
+ *
+ * This is the height of the list ALONE. The basket around it is pinned to the
+ * pane's bottom edge by its caller, so a longer list moves the TOP of the
+ * basket up and never the bottom — which is what keeps the estimate and Send
+ * on a fixed line.
+ */
+export const BASKET_LIST_OPEN = `calc(${BASKET_LIST_ROWS} * (var(--tp-touch) + 2 * var(--tp-sp-1) + 2px) + ${BASKET_LIST_ROWS - 1} * var(--tp-sp-1))`;
+
+/*
+ * What the two numbers buy, at the default density: the header, the reserved
+ * status line, the estimate row and the xl Send button take ~8.5rem between
+ * them. Closed, that IS the basket — no lines are drawn, and the heading's
+ * count says what is in it. Open, 20rem leaves about five lines and the list
+ * scrolls past that.
+ */
 
 /**
  * The single status line the basket keeps between its list and its Send
@@ -68,4 +95,24 @@ export const reasonedFooter: CSSProperties = {
   alignItems: 'flex-start',
   flexWrap: 'wrap',
   minBlockSize: '4rem',
+};
+
+/**
+ * One action button in the tab panel's three-across grid.
+ *
+ * The buttons carry labels of very different lengths ("Bill" beside "Charge to
+ * booking"), so left to themselves they sized to their text and the grid read
+ * as a ragged pile rather than a block of equal choices. Filling the cell also
+ * keeps each button on the coordinates the cashier last saw it on when one
+ * appears or drops out with the tab's state.
+ */
+export const actionButton: CSSProperties = {
+  inlineSize: '100%',
+  /* Set here rather than with size="lg" so the label keeps its ordinary
+     weight and only the box grows. */
+  minBlockSize: '2.5rem',
+  /* Bigger than the default control text: these are the panel's main choices,
+     pressed with a thumb mid-service. "Charge to booking" — the longest label
+     — no longer needs the small size to fit, because it spans two columns. */
+  fontSize: 'var(--tp-fs-lg)',
 };

@@ -16,6 +16,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OPERATOR_URL } from '../playwright.config';
 import {
+  choose,
   DEV_PASSWORD,
   SEED_STAFF,
   appRpc,
@@ -25,6 +26,7 @@ import {
   serviceClient,
   signedInClient,
   voidOpenTabsForTable,
+  passShiftGate,
 } from './helpers';
 
 const TILL_TABLE = fixtureTableId(8);
@@ -88,13 +90,16 @@ test.describe('operator stock (module 5)', () => {
   test('(a) create an ingredient; it appears on hand at zero', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/ingredients`);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
-    await page.getByLabel('Name (English)').fill(ING);
-    await page.getByLabel('Name (Arabic)').fill(`بن ${stamp}`);
-    await page.getByLabel('Pack size (base units)').fill('1000');
-    await page.getByLabel('Pack cost (IQD)').fill('15000');
-    await page.getByLabel('Supplier').fill('Al-Rasheed');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await page.getByRole('button', { name: 'New ingredient' }).first().click();
+    const form = page.getByRole('dialog', { name: 'New ingredient' });
+    await form.getByLabel('Name (English)').fill(ING);
+    await form.getByLabel('Name (Arabic)').fill(`بن ${stamp}`);
+    await form.getByLabel('Pack size (g)').fill('1000');
+    await form.getByLabel('Pack price (IQD)').fill('15000');
+    // By role: "Bought from a supplier" in the Type select also matches the label.
+    await form.getByRole('textbox', { name: 'Supplier' }).fill('Al-Rasheed');
+    await form.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(form).toBeHidden();
     await expect(page.getByText(ING).first()).toBeVisible();
 
     const { data } = await svc.from('ingredients').select('id').eq('name_en', ING).single();
@@ -107,20 +112,23 @@ test.describe('operator stock (module 5)', () => {
   test('(b) goods in raises on-hand and the ledger names the delivery', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/receive`);
-    await page.getByLabel('Ingredient').first().selectOption({ label: `${ING} (g)` });
-    await page.getByLabel('Expected').first().fill('500');
-    await page.getByLabel('Received').first().fill('400');
+    await choose(page.getByLabel('Ingredient').first(), { label: ING });
+    // Once an ingredient is chosen the quantity labels carry its unit.
+    await page.getByLabel('Ordered (g)').first().fill('500');
+    await page.getByLabel('Received (g)').first().fill('400');
     await expect(page.getByText('Short by 100')).toBeVisible(); // short-delivery capture
-    await page.getByLabel('Cost/unit (IQD)').first().fill('15');
+    await page.getByLabel('Cost per g (IQD)').first().fill('15');
     await page.getByRole('button', { name: 'Record delivery' }).click();
     await expect(page.getByText(/Delivery recorded/)).toBeVisible();
 
     await page.goto(`${OPERATOR_URL}/stock`);
     const row = page.locator('tr').filter({ hasText: ING });
-    await expect(row.getByText('400').first()).toBeVisible();
-    await row.getByRole('button', { name: 'Ledger' }).click();
-    await expect(page.getByText('goods_in')).toBeVisible();
-    await expect(page.getByText(/delivery /)).toBeVisible();
+    await expect(row.getByText('400 g', { exact: true })).toBeVisible();
+    await row.getByRole('button', { name: 'History' }).click();
+    // The history names the movement in words; goods_in reads "Delivery".
+    const history = page.getByRole('dialog', { name: `History: ${ING}` });
+    await expect(history.getByText('Delivery', { exact: true })).toBeVisible();
+    await expect(history.getByText('+400 g', { exact: true })).toBeVisible();
   });
 
   test('(c) a recipe makes a till sale deduct stock by itself', async ({ page }) => {
@@ -139,9 +147,8 @@ test.describe('operator stock (module 5)', () => {
 
     // Ring one Karak on the till and send it to the kitchen.
     await signIn(page, SEED_STAFF.cashier);
-    await page.getByRole('button', { name: '+', exact: true }).click();
-    const newTab = page.getByRole('dialog', { name: 'New tab' });
-    await newTab.getByLabel('Table').selectOption({ label: 'T8' });
+    await page.getByRole('button', { name: /^Table T8, Free/ }).click();
+    const newTab = page.getByRole('dialog', { name: 'Open a tab on Table T8?' });
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
     await page.getByRole('button', { name: /Hot Drinks/ }).click();
@@ -168,6 +175,8 @@ test.describe('operator stock (module 5)', () => {
 
     // Settle so the day can close and other suites find the table free.
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
+    // The cashier's first payment here asks for a shift first (wave 5).
+    await passShiftGate(page);
     const cash = page.getByRole('dialog', { name: 'Cash' });
     await cash.getByLabel('Tendered').fill('2000');
     await cash.getByRole('button', { name: 'Record payment' }).click();
@@ -177,9 +186,10 @@ test.describe('operator stock (module 5)', () => {
   test('(d) waste demands a reason and lands in the ledger', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/waste`);
-    await page.getByLabel(/^Ingredient/).first().selectOption({ label: `${ING} (g)` });
-    await page.getByLabel('Qty', { exact: true }).fill('30');
-    await page.getByLabel('Reason').fill('dropped the bag');
+    await choose(page.getByLabel(/^Ingredient/).first(), { label: ING });
+    await page.getByLabel(/^Quantity \(g\)/).fill('30');
+    await choose(page.getByLabel(/^What happened/), 'waste_spill');
+    await page.getByLabel(/^Note/).fill('dropped the bag');
     await page.getByRole('button', { name: 'Record waste' }).click();
 
     await expect
@@ -200,30 +210,32 @@ test.describe('operator stock (module 5)', () => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/counts`);
     await page.getByRole('button', { name: 'Start count' }).click();
-    await expect(page.getByText(/Counting — started/)).toBeVisible({ timeout: 20_000 });
-
     // Theoretical for our ingredient: 400 in − 50 sold − 30 waste = 320.
     // Count 300: a deliberate 20 g shortage.
-    await page.getByRole('textbox', { name: ING }).fill('300');
-    await page.getByRole('button', { name: 'Finalize count' }).click();
+    const entry = page.getByRole('textbox', { name: ING, exact: true });
+    await expect(entry).toBeVisible({ timeout: 20_000 });
+    await entry.fill('300');
+    await page.getByRole('button', { name: 'Finish count' }).click();
     await page
-      .getByRole('dialog', { name: 'Finalize the count?' })
-      .getByRole('button', { name: 'Confirm' })
+      .getByRole('dialog', { name: 'Finish the count?' })
+      .getByRole('button', { name: 'Finish count' })
       .click();
 
     await expect(page).toHaveURL(/\/stock\/variance/, { timeout: 20_000 });
     const row = page.locator('tr').filter({ hasText: ING });
     await expect(row).toBeVisible({ timeout: 20_000 });
-    await expect(row.getByText('320')).toBeVisible(); // theoretical
-    await expect(row.getByText('300', { exact: true })).toBeVisible(); // counted
-    await expect(row.getByText('-20')).toBeVisible(); // the shortage, named
-    await expect(row.getByText('50', { exact: true })).toBeVisible(); // sold
-    await expect(row.getByText('30', { exact: true })).toBeVisible(); // recorded waste
+    await expect(row.getByText('320 g', { exact: true })).toBeVisible(); // theoretical
+    await expect(row.getByText('300 g', { exact: true })).toBeVisible(); // counted
+    await expect(row.getByText('−20 g', { exact: true })).toBeVisible(); // the shortage, named
+    await expect(row.getByText('50 g', { exact: true })).toBeVisible(); // sold
+    await expect(row.getByText('30 g', { exact: true })).toBeVisible(); // recorded waste
 
-    // "Every movement traceable … one click away."
-    await row.getByRole('button', { name: 'Movements' }).click();
-    await expect(page.getByText('goods_in')).toBeVisible();
-    await expect(page.getByText('sale_consumption')).toBeVisible();
-    await expect(page.getByText('waste_spill')).toBeVisible();
+    // "Every movement traceable … one click away." The movement types read
+    // in words: goods_in, sale_consumption and waste_spill.
+    await row.getByRole('button', { name: 'History' }).click();
+    const movements = page.getByRole('dialog', { name: `History: ${ING}` });
+    await expect(movements.getByText('Delivery', { exact: true })).toBeVisible();
+    await expect(movements.getByText('Sold', { exact: true })).toBeVisible();
+    await expect(movements.getByText('Spill', { exact: true })).toBeVisible();
   });
 });

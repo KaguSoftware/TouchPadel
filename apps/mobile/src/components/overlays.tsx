@@ -26,6 +26,14 @@
  * outlives the render that raised it.
  *
  * The toast below is still ours: it is not an alert, and has no system analogue.
+ *
+ * NO testIDs ON THE THREE ALERTS. `NoticeSheet`, `ErrorAlert` and
+ * `ConfirmAlert` all `return null` — they render no React node at all, they
+ * ask the OS to present one — so there is nothing for an id to attach to and a
+ * test asserting one would be asserting a lie. A test that needs to know an
+ * alert was raised spies on `Alert.alert`; a test that needs the button that
+ * raises it presses that button's own id. (The testID lint rule lists only
+ * elements that render, so it never asks for one here.)
  */
 import {
   createContext,

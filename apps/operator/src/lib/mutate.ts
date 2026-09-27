@@ -21,7 +21,8 @@ import {
 import { touch } from '../ipc/bridge';
 import { appRpc, AppRpcError, type AppFunctionName } from './appRpc';
 import { clientRef, deviceId } from './idem';
-import { awaitResult } from './queueResults';
+import { currentBranchId } from './venueScope';
+import { awaitResult, errorStringCode, serverErrorCode } from './queueResults';
 
 export interface MutateOutcome<T = unknown> {
   /** true = durably queued with no server echo yet (offline / slow link). */
@@ -72,6 +73,18 @@ function orderItems(p: any): unknown[] {
   }));
 }
 
+/** payment.refund items -> app.refund's p_items jsonb ([{order_item_id, qty}]) or null for money only. */
+function refundItems(p: any): unknown[] | null {
+  const items = Array.isArray(p?.items) ? p.items : [];
+  if (items.length === 0) return null;
+  return items.map((it: any) => ({ order_item_id: it?.orderItemId, qty: it?.qty }));
+}
+
+/** stock.waste's store (wave 5 §2.8.6): p_location only when the payload names one. */
+function wasteLocation(p: any): Record<string, unknown> {
+  return p?.location ? { p_location: p.location } : {};
+}
+
 export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
   'order.create': (p, key, device) => ({
     fn: 'till_add_items',
@@ -89,6 +102,9 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_reservation_id: p?.reservationId ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      // 0145: sent only for a shop counter sale, so a café tab keeps the call
+      // shape every earlier server accepted.
+      ...(p?.kind === 'shop' ? { p_kind: 'shop' } : {}),
     },
   }),
   'tab.settle': (p, key, device) => ({
@@ -100,6 +116,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_amount_iqd: p?.amountIqd ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null,
     },
   }),
   'payment.record': (p, key, device) => ({
@@ -111,6 +128,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_amount_iqd: p?.amountIqd ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null,
     },
   }),
   'ticket.status': (p, _key, device) => ({
@@ -215,7 +233,35 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_reason_code: p?.reasonCode ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      ...wasteLocation(p),
     },
+  }),
+  // --- Item 9 / C3 (0120): the money corrections -------------------------------
+  'tab.cancel': (p, key, device) => ({
+    fn: 'cancel_tab',
+    args: { p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, p_idempotency_key: key, p_device_id: device },
+  }),
+  'tab.settle_zero': (p, key, device) => ({
+    fn: 'settle_zero_tab',
+    args: { p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, p_idempotency_key: key, p_device_id: device },
+  }),
+  'payment.refund': (p, key, device) => ({
+    fn: 'refund',
+    args: {
+      p_payment_id: p?.paymentId,
+      p_amount_iqd: p?.amountIqd,
+      p_pin: p?.pin,
+      p_reason_code: p?.reasonCode,
+      p_items: refundItems(p),
+      p_idempotency_key: key,
+      p_device_id: device,
+    },
+  }),
+  'order_item.void': (p, _key, device) => ({
+    // void_order_item_internal answers a repeat with {duplicate:true} (0039), so
+    // void_after_send declares NO p_idempotency_key — like set_ticket_status.
+    fn: 'void_after_send',
+    args: { p_order_item_id: p?.orderItemId, p_pin: p?.pin, p_reason_code: p?.reasonCode, p_device_id: device },
   }),
 };
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -234,14 +280,9 @@ function extractEcho(serverResult: unknown): unknown {
 
 function toError(state: 'conflict' | 'failed', serverResult: unknown, fallback?: string): AppRpcError {
   const body = (serverResult ?? {}) as Record<string, unknown>;
-  const code =
-    typeof body.error === 'string' && /^[A-Z][A-Z0-9_]*$/.test(body.error)
-      ? body.error
-      : typeof body.code === 'string'
-        ? body.code
-        : state === 'conflict'
-          ? 'SLOT_TAKEN'
-          : 'UNKNOWN';
+  // The one code reader (queueResults.ts) — the toast and the day-close list
+  // read the same refusal the same way.
+  const code = serverErrorCode(serverResult) ?? errorStringCode(fallback) ?? (state === 'conflict' ? 'SLOT_TAKEN' : 'UNKNOWN');
   const message = typeof body.message === 'string' ? body.message : (fallback ?? code);
   return new AppRpcError(code, message, undefined, typeof body.details === 'string' ? body.details : undefined);
 }
@@ -286,6 +327,7 @@ export async function mutate<T = unknown>(
     createdAt: new Date().toISOString(),
     staffId,
     deviceId: device,
+    venueScope: currentBranchId(),
   });
   const envelope = {
     localId: parsed.localId,
@@ -296,6 +338,7 @@ export async function mutate<T = unknown>(
     createdAt: parsed.createdAt,
     staffId: parsed.staffId,
     deviceId: parsed.deviceId,
+    venueScope: parsed.venueScope ?? null,
   };
 
   const enqueued = (await touch.enqueue(envelope)) as { localId?: string; error?: string };

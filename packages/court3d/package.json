@@ -1,0 +1,26 @@
+{
+  "name": "@touch/court3d",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The three.js padel court (scene, rally, rackets, camera) drawn by apps/mobile and apps/web.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "peerDependencies": {
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "@touch/config": "workspace:*",
+    "@types/three": "0.160.0",
+    "eslint": "^9.15.0",
+    "three": "0.160.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
