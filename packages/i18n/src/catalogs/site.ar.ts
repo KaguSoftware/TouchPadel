@@ -70,7 +70,6 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     pointRent: 'مضارب وكرات للإيجار في الاستقبال',
     pointLockers: 'خزائن لحفظ أغراضك',
     courtLabel: 'ملعب بادل ثلاثي الأبعاد خلف الزجاج، وأربعة مضارب تتبادل الكرة.',
-    courtPause: 'إيقاف تبادل الكرة مؤقتًا',
     courtCta: 'احجز ملعبًا',
   },
   lessons: {

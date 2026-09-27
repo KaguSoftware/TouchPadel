@@ -68,7 +68,8 @@ test.describe('site home', () => {
     await page.goto('/en');
     expect(await siteMode(page)).toBe('night');
     await page.getByRole('button', { name: 'Switch to light mode' }).click();
-    expect(await siteMode(page)).toBe('light');
+    // The mode lands once the view transition has captured the old page.
+    await expect.poll(() => siteMode(page)).toBe('light');
     const cookie = (await context.cookies()).find((c) => c.name === 'tp-site-mode');
     expect(cookie?.value).toBe('light');
     expect(cookie?.path).toBe('/');
@@ -84,7 +85,8 @@ test.describe('site home', () => {
     await page.goto('/en/privacy');
     expect(await siteMode(page)).toBe('light');
     await page.getByRole('button', { name: 'Switch to night mode' }).click();
-    expect(await siteMode(page)).toBe('night');
+    // The mode lands once the view transition has captured the old page.
+    await expect.poll(() => siteMode(page)).toBe('night');
   });
 
   test('every header and footer link resolves, fragments included', async ({ page, request }) => {

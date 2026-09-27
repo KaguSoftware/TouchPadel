@@ -90,8 +90,6 @@ export const siteEn = {
     pointRent: 'Rackets and balls to rent at the desk',
     pointLockers: 'Lockers for your things',
     courtLabel: 'A 3D padel court behind glass, four rackets keeping a rally going.',
-    // The rally's pause switch (WCAG 2.2.2): one name, its state is aria-pressed.
-    courtPause: 'Pause the rally',
     courtCta: 'Book a court',
   },
   lessons: {

@@ -1,8 +1,9 @@
-import { Outlet, createRoute } from '@tanstack/react-router';
+import { Outlet, createRoute, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
-import { rootRoute, RequireRole } from './__root';
+import { rootRoute, RequireRole, useWorkspaceOrNull } from './__root';
 import { useAuth, allowedSubRoutes } from '../lib/auth';
+import { sectionForPath, WORKSPACES } from '../lib/workspaces';
 import { useLocale } from '../lib/i18n';
 import { SubNav, type SubNavGroup } from '../components/SubNav';
 import type { IconName } from '../components/icons';
@@ -103,9 +104,16 @@ function StockShell() {
       })),
   }));
 
+  // Under the Stock section (the owner's and the manager's rail alike) the
+  // rail already lists every stock screen (lib/workspaces.ts STOCK), so the
+  // sub-nav would print it twice. It stays for a rail without that section.
+  const workspace = useWorkspaceOrNull();
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const railListsStock = workspace ? sectionForPath(WORKSPACES[workspace.active], path)?.key === 'stock' : false;
+
   return (
     <div style={{ display: 'flex', gap: 'var(--tp-sp-5)', alignItems: 'flex-start' }}>
-      <SubNav title={tr('stock.title')} groups={groups} />
+      {!railListsStock && <SubNav title={tr('stock.title')} groups={groups} />}
       <div style={{ flex: 1, minInlineSize: 0 }}>
         <Outlet />
       </div>

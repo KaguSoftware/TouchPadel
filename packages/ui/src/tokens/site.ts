@@ -51,8 +51,9 @@ export const siteLightVars = {
   '--tp-site-poster-fg': '#FFFFFF',
   '--tp-site-navy': '#172C4F', // brand navy (L20), the app's success/hold ground
   // Header once the page has scrolled under it. Solid, never glass.
-  '--tp-site-header-bg': '#FFFFFF',
-  '--tp-site-header-border': '#E2E8F2',
+  // The bar is the night's navy in both modes (owner, 2026-09-27: "always blue").
+  '--tp-site-header-bg': '#172C4F',
+  '--tp-site-header-border': '#2D5495',
   // The court-line pattern (always green bands; opacity per ground, §5.1).
   '--tp-site-pattern': '#A5D06F',
   '--tp-site-pattern-opacity': '0.9',

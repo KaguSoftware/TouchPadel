@@ -178,15 +178,30 @@ describe('removing an empty tab', () => {
     await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
     // The confirm opens the reason picker; nothing has been removed yet.
     expect(props.onRemoveTab).not.toHaveBeenCalled();
-    expect(screen.getByText('Reason required')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Remove this tab' })).toBeTruthy();
     // …and it names what is about to happen to THIS tab.
     expect(screen.getByText(/Table T8 will be closed as cancelled/)).toBeTruthy();
 
     await user.click(screen.getByRole('radio', { name: 'Duplicate entry' }));
-    await user.type(screen.getByLabelText('Note (optional)'), 'opened on the wrong table');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     expect(props.onRemoveTab).toHaveBeenCalledOnce();
-    expect(props.onRemoveTab).toHaveBeenCalledWith('a', 'duplicate: opened on the wrong table');
+    expect(props.onRemoveTab).toHaveBeenCalledWith('a', 'duplicate');
+  });
+
+  it('"Other" asks the staff member to write the reason, and holds Continue until they do', async () => {
+    const user = userEvent.setup();
+    const props = renderBoard({});
+    await user.click(remove());
+    await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
+    expect(screen.queryByLabelText('What is the reason?')).toBeNull();
+
+    await user.click(screen.getByRole('radio', { name: 'Other' }));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(props.onRemoveTab).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText('What is the reason?'), 'opened on the wrong table');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(props.onRemoveTab).toHaveBeenCalledWith('a', 'other: opened on the wrong table');
   });
 
   it('the reason is the code alone when no note is typed', async () => {
@@ -204,7 +219,7 @@ describe('removing an empty tab', () => {
     await user.click(remove());
     await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(screen.queryByText('Reason required')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Remove this tab' })).toBeNull());
     expect(props.onRemoveTab).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
   });

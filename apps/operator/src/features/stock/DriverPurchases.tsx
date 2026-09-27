@@ -53,7 +53,7 @@ import { QK } from '../../lib/queries';
 import { pickName, useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { Button, ErrorText, Field, inputStyle, Select, Skeleton } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle, Skeleton } from '../../components/ui';
 import { DescriptionList, EmptyState, MessagePresenter, Money, Panel, StatusBadge } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
@@ -63,6 +63,7 @@ import { IngredientName, StoreCountedNotice, StorePicker, useStockFormat } from 
 import { SK, fetchIngredients, fetchSuppliers, fetchUnfinishedCounts } from './stockKeys';
 import { beingCounted, type StockLocation } from './storeLogic';
 import { decimalKeystroke } from './decimalInput';
+import { SupplierField } from './SupplierField';
 import {
   deliveredWhen,
   lineDraftProblem,
@@ -520,24 +521,16 @@ export function DriverPurchaseReceive({ purchaseId, onBack }: { purchaseId: stri
               optional
               hint={supplierId === '' && supplier.trim() === '' && purchase.shop_name ? <bdi>{tr('ws.supplies.purchase.supplierBlank', { shop: isolate(purchase.shop_name) })}</bdi> : undefined}
             >
-              {suppliers.length > 0 ? (
-                <Select
-                  value={supplierId}
-                  disabled={busy}
-                  onChange={setSupplierId}
-                  options={[{ value: '', label: tr('ws.manager.stock.goodsIn.supplierOther') }, ...suppliers.map((s) => ({ value: s.id, label: s.name }))]}
-                />
-              ) : null}
-              {supplierId === '' && (
-                <input
-                  style={{ ...inputStyle, ...(suppliers.length > 0 ? { marginBlockStart: 'var(--tp-sp-1-5)' } : {}) }}
-                  value={supplier}
-                  maxLength={80}
-                  disabled={busy}
-                  placeholder={suppliers.length > 0 ? tr('ws.manager.stock.goodsIn.supplierTyped') : undefined}
-                  onChange={(e) => setSupplier(e.target.value)}
-                />
-              )}
+              <SupplierField
+                suppliers={suppliers}
+                supplierId={supplierId}
+                name={supplier}
+                disabled={busy}
+                onChange={(id, name) => {
+                  setSupplierId(id);
+                  setSupplier(name);
+                }}
+              />
             </Field>
           </div>
 

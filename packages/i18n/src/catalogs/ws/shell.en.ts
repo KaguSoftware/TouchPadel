@@ -166,10 +166,20 @@ export const shellEn = {
     // Financial section rows. The reports are one 'reports' row, with a tab
     // per report on the screen itself.
     menuPrices: 'Menu prices',
-    // Stock section rows. 'inventory' owns the whole /stock module, which
-    // keeps its own sub-nav; 'stockValue' is the /reports/stock figure;
-    // 'shop' is Touch Shop's products (/stock/products).
-    inventory: 'Inventory',
+    // Stock section rows: one per /stock screen (the same words as the
+    // manager's sub-nav, op.stockNav), then 'stockValue', the /reports/stock
+    // figure, and 'shop', the Touch Shop desk.
+    onHand: 'On hand',
+    goodsIn: 'Goods in',
+    moveStock: 'Move stock',
+    wasteProduction: 'Waste & production',
+    expiry: 'Expiry',
+    alerts: 'Alerts',
+    stockCount: 'Stock count',
+    countDifferences: 'Count differences',
+    margins: 'Margins',
+    ingredients: 'Ingredients',
+    recipes: 'Recipes',
     stockValue: 'Stock value',
     shop: 'Shop',
     // The Touch Shop desk's own rail.

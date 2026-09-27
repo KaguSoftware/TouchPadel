@@ -50,6 +50,7 @@ export function SectionHome({
   screensTitle,
   children,
   fullWidth = false,
+  toned = false,
 }: {
   sectionKey: SectionKey;
   title: string;
@@ -64,6 +65,9 @@ export function SectionHome({
   children?: ReactNode;
   /** Drop the 64rem reading measure and use the whole content area. */
   fullWidth?: boolean;
+  /** Give each card a brand-colour strip on top, by its place in the grid
+      (blue, green, black, light blue, then round again — .tp-figure-panel). */
+  toned?: boolean;
 }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
@@ -81,10 +85,11 @@ export function SectionHome({
           <Link
             key={item.to}
             to={item.to}
-            className="tp-tile"
+            className={toned ? 'tp-tile tp-figure-panel' : 'tp-tile'}
             style={{
               background: 'var(--tp-surface)',
               border: '1px solid var(--tp-border)',
+              ...(toned ? { borderBlockStart: '3px solid var(--tp-tone)' } : null),
               borderRadius: 'var(--tp-radius-panel)',
               padding: 'var(--tp-sp-4)',
               display: 'grid',

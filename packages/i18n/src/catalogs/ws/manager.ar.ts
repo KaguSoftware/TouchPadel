@@ -1050,8 +1050,8 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       newerPage: 'الأحدث',
     },
     goodsIn: {
-      supplierOther: 'غير موجود في القائمة (اكتبه أدناه)',
-      supplierTyped: 'اسم المورّد',
+      supplierPlaceholder: 'اكتب اسمًا أو اختر من القائمة',
+      supplierNew: 'غير موجود في القائمة: يُحفظ «{name}» كما كُتب.',
       groupCafe: 'مخزون الكافيه',
       groupShop: 'مخزون المتجر',
       lead: 'أدخل ما وصل. يزيد المخزون فور التسجيل.',
@@ -1084,6 +1084,14 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       recordEmpty: 'اختر مكوّنًا، ثم أدخل الكمية التي وصلت وكلفتها.',
       recorded: 'سُجّل الاستلام. تحدّث المخزون.',
       afterwards: 'يظهر الاستلام المسجّل في',
+      lineTotal: 'مجموع السطر',
+      total: 'إجمالي الاستلام',
+      lineCount: 'السطور: {count}',
+      shortCount: 'ناقص: {count}',
+      waiting: {
+        title: 'بانتظار الاستلام',
+        staff: 'أضافه الموظفون، بلا كلفة',
+      },
     },
     waste: {
       lead: 'سجّل ما رُمي من المخزون، أو دفعة من شيء حضّرته في المطبخ.',

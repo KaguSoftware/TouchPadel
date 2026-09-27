@@ -178,6 +178,12 @@ export function CashDrawerScreen() {
    * two free-text columns at the end — a reason phrase and a staff name —
    * are the ones that can use the room.
    */
+  // A stored reason is the code, or `other: <what the staff member wrote>`.
+  const reasonText = (reason: string) => {
+    const [code, ...rest] = reason.split(': ');
+    const label = tr(`op.reasons.${code}` as MessageKey);
+    return rest.length ? `${label} — ${rest.join(': ')}` : label;
+  };
   const columns: Column<DrawerEvent>[] = [
     { key: 'time', header: tr('ws.cashier.drawer.colTime'), width: '6rem', render: (r) => <span dir="ltr" style={{ whiteSpace: 'nowrap' }}>{formatTime(new Date(r.at), locale)}</span> },
     {
@@ -187,9 +193,9 @@ export function CashDrawerScreen() {
       key: 'event',
       header: tr('ws.cashier.drawer.colEvent'),
       truncate: true,
-      truncateTitle: (r) => (r.kind === 'cash' ? (r.tab ?? '') : r.reason ? tr(`op.reasons.${r.reason}` as MessageKey) : ''),
+      truncateTitle: (r) => (r.kind === 'cash' ? (r.tab ?? '') : r.reason ? reasonText(r.reason) : ''),
       render: (r) => {
-        const detail = r.kind === 'cash' ? r.tab : r.reason ? tr(`op.reasons.${r.reason}` as MessageKey) : null;
+        const detail = r.kind === 'cash' ? r.tab : r.reason ? reasonText(r.reason) : null;
         return (
           <span style={{ display: 'grid', minInlineSize: 0 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', whiteSpace: 'nowrap' }}>
@@ -223,7 +229,7 @@ export function CashDrawerScreen() {
   ];
 
   const reasonPrompt = reasonOpen && (
-    <ReasonCodePrompt action={tr('ws.cashier.drawer.openDrawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={error} withNote={false} onSubmit={(code) => void recordOpen(code)} onCancel={() => setReasonOpen(false)}>
+    <ReasonCodePrompt action={tr('ws.cashier.drawer.openDrawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={error} onSubmit={(code, note) => void recordOpen(note ? `${code}: ${note}` : code)} onCancel={() => setReasonOpen(false)}>
       <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
     </ReasonCodePrompt>
   );

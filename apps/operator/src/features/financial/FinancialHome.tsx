@@ -23,7 +23,7 @@
  *     Shown once deposits are on, or whenever a row waits.
  *  4. **The screens**, one card each, as before.
  */
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDate, formatIQD, formatTime, type Locale } from '@touch/i18n';
@@ -32,13 +32,14 @@ import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../lib/i18n';
 import { QK, fetchOpenDay } from '../../lib/queries';
 import { SectionHome } from '../../components/SectionHome';
-import { Button, Skeleton } from '../../components/ui';
+import { Button, Skeleton, card } from '../../components/ui';
 import { AsyncStateWrapper, Panel } from '../../components/kit';
 import { useReportPeriod } from '../reports/ReportParts';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { varianceMagnitude, varianceSign } from '../admin/dayCloseLogic';
 import { figuresIn, mapFigures, type FigureKey, type PanelHeadline } from '../panel/figures';
 import { DepositAttentionPanel } from '../deposits/DepositAttentionPanel';
+import { FigureGroup } from '../reports/FigureGroup';
 
 type CardKey =
   | 'reports' | 'cashDrawer'
@@ -65,6 +66,7 @@ export function FinancialHomeScreen() {
       title={tr('ws.owner.financialHome.title')}
       card={(key) => tr(`ws.owner.financialHome.cards.${key as CardKey}`)}
       screensTitle={tr('ws.owner.financialHome.screens')}
+      toned
     >
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(24rem, 1fr))', alignItems: 'start' }}>
         <MonthSoFar />
@@ -122,7 +124,11 @@ function MonthSoFar() {
         onRetry={() => void headlineQ.refetch()}
         skeleton={<Skeleton lines={3} blockSize="1.4rem" />}
       >
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+        {/* The panel's group cards, so Earned and Money taken wear the same
+            colours here as on the management panel (blue, then green). Side by
+            side: each group spans the header row and the figures row, so the
+            two rules sit level. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gridTemplateRows: 'auto auto', gap: 'var(--tp-sp-4)' }}>
           <FigureGroup title={tr('ws.owner.panel.earned')} hint={tr('ws.owner.panel.earnedHint')}>
             <Figure label={label(revenue!)} value={value(revenue!)} large />
           </FigureGroup>
@@ -136,23 +142,12 @@ function MonthSoFar() {
   );
 }
 
-function FigureGroup({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
-  return (
-    <section style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-        <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{title}</h3>
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</p>
-      </div>
-      <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9rem, 1fr))', gap: 'var(--tp-sp-3)', margin: 0 }}>{children}</dl>
-    </section>
-  );
-}
-
+/** One figure as its own white tile on the group's tint, so Cash and Card read as two cards. */
 function Figure({ label, value, large }: { label: string; value: string; large?: boolean }) {
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-      <dt style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label}</dt>
-      <dd
+    <div style={{ ...card, display: 'grid', gap: 'var(--tp-sp-0)', alignContent: 'start' }}>
+      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label}</span>
+      <span
         dir="ltr"
         style={{
           margin: 0,
@@ -164,7 +159,7 @@ function Figure({ label, value, large }: { label: string; value: string; large?:
         }}
       >
         {value}
-      </dd>
+      </span>
     </div>
   );
 }

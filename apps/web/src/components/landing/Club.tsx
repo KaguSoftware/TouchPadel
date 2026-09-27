@@ -55,7 +55,6 @@ export function Club({ locale, phone }: { locale: Locale; phone: string | null }
           <div className="tp-club__court-box">
             <CourtStage
               label={tr('site.club.courtLabel')}
-              pauseLabel={tr('site.club.courtPause')}
               scrollLinked
               className="tp-club__court"
             >

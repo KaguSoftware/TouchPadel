@@ -202,6 +202,19 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-row[role='menuitem'] { background: none; }
 .tp-row[data-clickable='true']:hover { background: var(--tp-hover); color: var(--tp-hover-fg); }
 .tp-row[data-selected='true'] { background: var(--tp-accent-soft); }
+/* A tappable choice chip (ReasonCodePrompt): a <label> around a visually
+   hidden radio, so the group stays a real radiogroup for keyboard and AT. */
+.tp-choice {
+  display: flex; align-items: center; min-block-size: 2.75rem;
+  padding-block: var(--tp-sp-2); padding-inline: var(--tp-sp-3);
+  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-ctl);
+  background: var(--tp-surface); cursor: pointer; font-weight: 500; line-height: 1.25;
+  transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-choice:hover { border-color: var(--tp-border-strong); background: var(--tp-hover); color: var(--tp-hover-fg); }
+.tp-choice[data-selected='true'] { border-color: var(--tp-accent); background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg); }
+.tp-choice:has(:focus-visible) { outline: 2px solid var(--tp-accent); outline-offset: 2px; }
+.tp-choice:has(:disabled) { cursor: default; opacity: 0.6; }
 .tp-tile {
   cursor: pointer; text-align: start;
   /* Same reason as .tp-btn: no 'transform' in the transition list. */
@@ -300,23 +313,32 @@ button.tp-nav-item { background: transparent; }
        │  Switch workspace
        │  Assistant
 
-   Scoped to OPTIONS, not to .tp-rail-group-body: the workspace's own groups
-   (Run the day, Records, Setup) hold destinations you navigate to and stay
-   flush, so the indent means "these belong to the row above", not "these are
-   nested rows". The stem is a ::before rather than a border-inline-start, so it
+   The workspace's own groups (Run the day, Records, Setup) wear the same
+   indent and stem (owner call, 2026-09-27), so every drawer on the rail opens
+   the same way. The stem is a ::before rather than a border-inline-start, so it
    stops at the last row instead of running through the padding above it, and
    inset-inline-start makes RTL mirror it for free. It is marked on the LIST and
    not on the animating body, which owns the 0fr->1fr track: padding there would
    leave the shut drawer a few pixels tall instead of nothing. */
+/* The stem hangs from the title's first letter (.tp-nav-item's 0.7rem inline
+   padding, plus a hair so it clears the glyph's side bearing), and the rows
+   step in past it, so each line reads as coming down out of its own title
+   rather than running along the rail's edge. */
 .tp-rail-options-list {
   position: relative;
-  padding-inline-start: var(--tp-sp-3);
+  padding-inline-start: 1.25rem;
 }
 .tp-rail-options-list::before {
   content: ''; position: absolute;
-  inset-block: 0.25rem; inset-inline-start: calc(var(--tp-sp-3) / 2);
+  inset-block: 0.25rem; inset-inline-start: 0.75rem;
   inline-size: 1px; background: var(--tp-rail-border);
 }
+/* Options' title leads with its gear, so there the stem drops from the gear's
+   centre (0.7rem padding + half of the 16px icon) and the rows step in until
+   their icons stand under the word "Options" (padding + icon + the 0.6rem gap,
+   less the row's own 0.7rem padding). */
+.tp-rail-options-list[data-lead='icon'] { padding-inline-start: calc(16px + 0.6rem); }
+.tp-rail-options-list[data-lead='icon']::before { inset-inline-start: calc(0.7rem + 8px - 0.5px); }
 .tp-nav-item[data-active='true'] svg { opacity: 1; color: var(--tp-rail-green); }
 /* The way out of a section rail.
    It used to be styled as the quietest thing on the rail — 11px, --tp-rail-muted,

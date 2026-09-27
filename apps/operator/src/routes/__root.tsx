@@ -50,6 +50,8 @@ import {
   type WorkspaceKey,
 } from '../lib/workspaces';
 import { QK } from '../lib/queryKeys';
+import { SK, fetchUnfinishedCounts } from '../features/stock/stockKeys';
+import { phoneCountsWaiting } from '../features/stock/storeLogic';
 import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../features/ops/protocolsWaiting';
 import { fetchSuggestionsNew } from '../features/roleExtras/api';
 import { newSuggestionCount } from '../features/roleExtras/roleExtrasLogic';
@@ -546,12 +548,21 @@ function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number 
     enabled: contentOn,
     refetchInterval: 60_000,
   });
+  // The phone counts waiting on the Stock count row: the same read the stock
+  // screens make, so the rail and the screen agree.
+  const stockCounts = useQuery({
+    queryKey: SK.unfinishedCounts,
+    queryFn: fetchUnfinishedCounts,
+    enabled: on.has('stockCountsWaiting'),
+    refetchInterval: 60_000,
+  });
   return (
     (on.has('protocolsWaiting') ? protocolsWaitingTotal(protocols.data) : 0) +
     (on.has('suggestionsNew') ? newSuggestionCount(suggestions.data) : 0) +
     (deductionsOn && deductions.isSuccess ? deductionsWaitingCount(deductions.data) : 0) +
     (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
-    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0)
+    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0) +
+    (on.has('stockCountsWaiting') && stockCounts.isSuccess ? phoneCountsWaiting(stockCounts.data).length : 0)
   );
 }
 
@@ -703,7 +714,10 @@ function RailGroup({
       </button>
       <div id={listId} className="tp-rail-group-body" data-open={open ? 'true' : undefined}>
         <div style={{ overflow: 'hidden', minBlockSize: 0 }} inert={!open}>
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}>
+          <div
+            className="tp-rail-options-list"
+            style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}
+          >
             {items.map((item) => (
               <RailLink key={item.to} item={item} active={item === current} />
             ))}
@@ -776,7 +790,8 @@ function WorkspaceNav({
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
   const section = sectionForPath(workspace, path);
-  const sections = (workspace.sections ?? []).filter((sec) => canAccess(staff?.role, sec.home));
+  // A section opened from one of the groups' rows has no button of its own.
+  const sections = (workspace.sections ?? []).filter((sec) => !sec.fromRow && canAccess(staff?.role, sec.home));
   const sectionRows = section ? sectionRailItems(section).filter((item) => canAccess(staff?.role, item.to)) : [];
   const sectionCurrent = activeNavItem(sectionRows, path);
 

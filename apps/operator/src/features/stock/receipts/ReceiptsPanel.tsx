@@ -55,8 +55,13 @@ async function readReceipt(id: string): Promise<void> {
   await requestReading({ receipt_id: id });
 }
 
-export function ReceiptsPanel() {
-  const { tr, locale } = useLocale();
+/**
+ * The Scan button and what it does: upload the photo, file the receipt, open
+ * its review and start the reading. Goods in carries it in its page header;
+ * the panel carries it wherever the panel stands alone.
+ */
+export function ScanReceiptButton() {
+  const { tr } = useLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -64,13 +69,6 @@ export function ReceiptsPanel() {
   const [busy, setBusy] = useState(false);
   const [rejected, setRejected] = useState<'type' | 'size' | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
-
-  const q = useQuery({
-    queryKey: SK.receipts,
-    queryFn: fetchReceipts,
-    refetchInterval: (query) => (readReceipts(query.state.data).some((r) => r.status === 'reading') ? 4_000 : 60_000),
-  });
-  const receipts = useMemo(() => readReceipts(q.data), [q.data]);
 
   async function scan(files: FileList | null) {
     const file = files?.[0];
@@ -102,6 +100,41 @@ export function ReceiptsPanel() {
     }
   }
 
+  return (
+    <div style={{ display: 'grid', justifyItems: 'end', gap: 'var(--tp-sp-1)' }}>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+        data-testid="receipts.input"
+        onChange={(e) => void scan(e.target.files)}
+      />
+      <Button size="sm" kind="soft" icon="receipt" busy={busy} onClick={() => input.current?.click()} data-testid="receipts.scan">
+        {busy ? tr('ws.receipts.panel.uploading') : tr('ws.receipts.panel.scan')}
+      </Button>
+      {rejected && (
+        <p role="alert" style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>
+          {tr(rejected === 'type' ? 'ws.receipts.panel.wrongType' : 'ws.receipts.panel.tooBig')}
+        </p>
+      )}
+      <ErrorText error={failure} style={{ marginBlock: 0 }} />
+    </div>
+  );
+}
+
+/** The receipts still to check. `scan={false}` where the page already carries the Scan button. */
+export function ReceiptsPanel({ scan = true }: { scan?: boolean } = {}) {
+  const { tr, locale } = useLocale();
+  const navigate = useNavigate();
+
+  const q = useQuery({
+    queryKey: SK.receipts,
+    queryFn: fetchReceipts,
+    refetchInterval: (query) => (readReceipts(query.state.data).some((r) => r.status === 'reading') ? 4_000 : 60_000),
+  });
+  const receipts = useMemo(() => readReceipts(q.data), [q.data]);
+
   const toCheck = receipts.filter((r) => r.status !== 'reading').length;
 
   return (
@@ -110,17 +143,7 @@ export function ReceiptsPanel() {
       actions={
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
           {toCheck > 0 && <StatusBadge tone="warn" label={tr('ws.receipts.panel.badge', { count: formatNumber(toCheck, locale) })} />}
-          <input
-            ref={input}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            hidden
-            data-testid="receipts.input"
-            onChange={(e) => void scan(e.target.files)}
-          />
-          <Button size="sm" kind="soft" icon="receipt" busy={busy} onClick={() => input.current?.click()} data-testid="receipts.scan">
-            {busy ? tr('ws.receipts.panel.uploading') : tr('ws.receipts.panel.scan')}
-          </Button>
+          {scan && <ScanReceiptButton />}
         </div>
       }
       data-testid="scanned-receipts"
@@ -128,12 +151,7 @@ export function ReceiptsPanel() {
       <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-2)' }}>
         {receipts.length === 0 ? tr('ws.receipts.panel.empty') : tr('ws.receipts.panel.lead')}
       </p>
-      {rejected && (
-        <p role="alert" style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>
-          {tr(rejected === 'type' ? 'ws.receipts.panel.wrongType' : 'ws.receipts.panel.tooBig')}
-        </p>
-      )}
-      <ErrorText error={failure ?? q.error} />
+      <ErrorText error={q.error} />
       {receipts.length > 0 && (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
           {receipts.map((r) => (

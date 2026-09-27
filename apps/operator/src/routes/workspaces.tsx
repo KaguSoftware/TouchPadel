@@ -69,7 +69,7 @@ function WorkspaceSwitcherScreen() {
       <div style={{ maxInlineSize: '64rem' }}>
         <PageHeader title={tr('ws.shell.switcher.title')} subtitle={tr('ws.shell.switcher.lead')} />
       </div>
-      <div style={{ maxInlineSize: '64rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
+      <div style={{ maxInlineSize: '64rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gap: 'var(--tp-sp-4)' }}>
         {available.map((key) => {
           const ws = WORKSPACES[key];
           const current = key === active;
@@ -77,25 +77,29 @@ function WorkspaceSwitcherScreen() {
             <button
               key={key}
               type="button"
-              className="tp-tile"
+              // A brand-colour strip on top by the tile's place in the grid
+              // (blue, green, black, light blue — .tp-figure-panel), as on the
+              // Financial overview's cards.
+              className="tp-tile tp-figure-panel"
               aria-current={current ? 'true' : undefined}
               onClick={() => void open(key)}
               style={{
                 background: 'var(--tp-surface)',
                 border: `1px solid ${current ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
+                borderBlockStart: '3px solid var(--tp-tone)',
                 borderRadius: 'var(--tp-radius-panel)',
-                paddingBlock: 'var(--tp-sp-4)',
-                paddingInline: 'var(--tp-sp-4)',
+                paddingBlock: 'var(--tp-sp-5)',
+                paddingInline: 'var(--tp-sp-5)',
                 display: 'grid',
-                gap: 'var(--tp-sp-2)',
+                gap: 'var(--tp-sp-3)',
                 alignContent: 'start',
-                minBlockSize: '8rem',
+                minBlockSize: '11rem',
                 textAlign: 'start',
               }}
             >
               <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-                <span style={{ display: 'inline-flex', inlineSize: '2.25rem', blockSize: '2.25rem', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'var(--tp-rail)', color: 'var(--tp-rail-green)' }}>
-                  <Icon name={ws.icon} size={18} />
+                <span style={{ display: 'inline-flex', inlineSize: '3rem', blockSize: '3rem', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'var(--tp-rail)', color: 'var(--tp-rail-green)' }}>
+                  <Icon name={ws.icon} size={24} />
                 </span>
                 {current ? (
                   <StatusBadge tone="accent" label={tr('ws.shell.switcher.current')} size="sm" />
@@ -103,8 +107,8 @@ function WorkspaceSwitcherScreen() {
                   <ChevronForward size={16} style={{ color: 'var(--tp-muted-fg)' }} />
                 )}
               </span>
-              <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-lg)' }}>{tr(`ws.shell.workspace.${key}`)}</span>
-              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr(`ws.shell.workspaceLead.${key}`)}</span>
+              <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-xl)' }}>{tr(`ws.shell.workspace.${key}`)}</span>
+              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr(`ws.shell.workspaceLead.${key}`)}</span>
             </button>
           );
         })}
