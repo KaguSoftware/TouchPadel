@@ -22,6 +22,7 @@ import { can, useAuth } from '../../../lib/auth';
 import { QK } from '../../../lib/queries';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
+import { Switch } from '../../../components/Switch';
 import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
@@ -127,6 +128,11 @@ export function VenueDetailsTab() {
                 <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
                 <Facts
                   rows={[
+                    {
+                      label: tr('ws.owner.settings.details.offlineSwitch'),
+                      value: tr(venueQ.data.offline_mode_enabled ? 'ws.owner.settings.details.offlineOn' : 'ws.owner.settings.details.offlineOff'),
+                      hint: tr(venueQ.data.offline_mode_enabled ? 'ws.owner.settings.details.offlineOnHint' : 'ws.owner.settings.details.offlineOffHint'),
+                    },
                     { label: tr('ws.owner.settings.trading.heartbeatStale'), value: span(venueQ.data.heartbeat_stale_seconds), hint: tr('ws.owner.settings.details.staleHint') },
                     { label: tr('ws.owner.settings.trading.protectedHorizon'), value: span(venueQ.data.protected_horizon_hours * 3600, 'hours'), hint: tr('ws.owner.settings.details.protectedHint') },
                   ]}
@@ -283,6 +289,7 @@ function VenueForm({ saved, afterRules }: { saved: VenueAdminRow; afterRules?: R
 
       <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
+        <OfflineModeSwitch enabled={saved.offline_mode_enabled} />
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))' }}>
           <NumberField
             label={tr('ws.owner.settings.trading.heartbeatStale')}
@@ -333,5 +340,33 @@ function VenueForm({ saved, afterRules }: { saved: VenueAdminRow; afterRules?: R
       )}
       {save.error != null && !(save.error instanceof AppRpcError && save.error.code === 'INVALID_ARGUMENT') && <ErrorText error={save.error} />}
     </>
+  );
+}
+
+/**
+ * 0248: offline mode on or off for this branch. Its own write, saved on the
+ * flip rather than with the form: the owner turning it off wants the banner
+ * gone now, not after finding the Save bar.
+ */
+function OfflineModeSwitch({ enabled }: { enabled: boolean }) {
+  const { tr } = useLocale();
+  const toast = useToast();
+  const qc = useQueryClient();
+
+  async function change(next: boolean) {
+    await appRpc('set_venue_details', { p_patch: { offline_mode_enabled: next } });
+    toast.ok(tr(next ? 'ws.owner.settings.details.offlineTurnedOn' : 'ws.owner.settings.details.offlineTurnedOff'));
+    void qc.invalidateQueries({ queryKey: VENUE_ADMIN_KEY });
+    // The banner reads the degraded flag every screen polls.
+    void qc.invalidateQueries({ queryKey: QK.venueSettings });
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockEnd: 'var(--tp-sp-3)' }}>
+      <Switch checked={enabled} onChange={change} label={tr('ws.owner.settings.details.offlineSwitch')} />
+      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
+        {tr(enabled ? 'ws.owner.settings.details.offlineOnHint' : 'ws.owner.settings.details.offlineOffHint')}
+      </p>
+    </div>
   );
 }
