@@ -988,6 +988,7 @@
     "packages/db/README.md": "index:doc",
     "PHASE-2-CHECKLIST.md": "excluded: the build team's Milestone 0 tick list (what is done, what is left, owner steps); not venue knowledge the owner asks the assistant about",
     "PHASE-2-PLAN.md": "index:doc",
-    "README.md": "index:doc"
+    "README.md": "index:doc",
+    "SECURITY.md": "excluded: the repository's vulnerability-reporting and disclosure policy for researchers; not venue knowledge the owner asks the assistant about"
   }
 }
