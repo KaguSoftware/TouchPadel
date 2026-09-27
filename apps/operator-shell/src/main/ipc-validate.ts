@@ -310,7 +310,7 @@ export function validateResolveQueueRow(value: unknown): ResolveQueueRowRequest 
 
 /** Mirror of @touch/core/pairing/pairingCode — drift-tested in pairing-code.test.ts. */
 export const pairingCodeRegex = /^[0-9A-HJKMNP-TV-Z]{10}$/;
-const STATION_MODES = ['till', 'desk', 'kds'] as const;
+const STATION_MODES = ['till', 'desk', 'kds', 'shop'] as const;
 
 /**
  * The pairing code IS the LAN secret, so like the PIN it is never echoed in

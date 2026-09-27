@@ -29,11 +29,12 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { mutate } from '../../lib/mutate';
 import { WasteAndProduction } from './WasteAndProduction';
+import { StockScopeProvider } from './stockScope';
 
 const rpc = vi.mocked(appRpc);
 const queued = vi.mocked(mutate);
 
-function renderScreen(payload: unknown) {
+function renderScreen(payload: unknown, scope: 'venue' | 'shop' = 'venue') {
   rpc.mockImplementation(async (fn: string) => {
     if (fn === 'production_log_today') return payload;
     throw new Error(`unexpected ${fn}`);
@@ -42,7 +43,9 @@ function renderScreen(payload: unknown) {
   return render(
     <QueryClientProvider client={client}>
       <LocaleProvider>
-        <WasteAndProduction />
+        <StockScopeProvider scope={scope}>
+          <WasteAndProduction />
+        </StockScopeProvider>
       </LocaleProvider>
     </QueryClientProvider>,
   );
@@ -140,12 +143,19 @@ describe('the stores (wave5-addendum-2026-09-25 §2.8.2 D3, §5.2)', () => {
     expect(queued.mock.calls[0]![1]).toMatchObject({ ingredientId: 'milk', qty: 50, location: 'bakery' });
   });
 
-  it('keeps shop stock in the cafe store: the bakery store is off for it', async () => {
+  it('keeps shop stock off the café’s waste, and writes it off at the shop desk from the shop store (0245)', async () => {
     renderScreen({ rows: [] });
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Ingredient' }));
+    expect(within(screen.getByRole('listbox')).queryByRole('option', { name: 'Water bottle' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+  });
+
+  it('on the shop desk: shop stock only, no store to pick, and no production', async () => {
+    queued.mockResolvedValue({ queued: false } as never);
+    renderScreen({ rows: [] }, 'shop');
     await choose('Ingredient', 'Water bottle');
-    const bakery = within(screen.getByTestId('waste-store')).getByRole('button', { name: 'Bakery store' }) as HTMLButtonElement;
-    expect(bakery.disabled).toBe(true);
-    expect(screen.getByText(/Shop stock stays in the cafe store/)).toBeTruthy();
+    expect(screen.queryByTestId('waste-store')).toBeNull();
+    expect(screen.queryByTestId('production-store')).toBeNull();
   });
 
   it('makes production in the bakery store by default', async () => {

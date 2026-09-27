@@ -116,6 +116,8 @@ const TODAY: StockToday = {
 const LOG_CAFE = list('log', 'cafe', [BUNS, FLOUR, GRIP]);
 const LOG_CAFE_HEAD = list('log', 'cafe', [BUNS, FLOUR]);
 const LOG_BAKERY = list('log', 'bakery', [BUNS, FLOUR]);
+// 0245: shop stock is logged into the shop store, and only there.
+const LOG_SHOP = list('log', 'shop', [GRIP]);
 const MOVE_CAFE = list('move', 'cafe', [
   { ...BUNS, on_hand: 40 },
   { ...FLOUR, on_hand: 9000 },
@@ -194,19 +196,19 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     }
   });
 
-  it('gives the desk no store to pick: shop stock goes into the cafe', () => {
+  it('gives the shop assistant no store to pick: shop stock goes into the shop store (0245)', () => {
     const screen = renderRoute(StaffStockLog, {
       locale,
-      staff: { role: 'court_desk' },
+      staff: { role: 'shop_staff' },
       queryData: [
-        [staffKeys.stockPick(V, 'log', 'cafe'), list('log', 'cafe', [GRIP])],
+        [staffKeys.stockPick(V, 'log', 'shop'), LOG_SHOP],
         [staffKeys.stockToday(V), TODAY],
       ],
     });
     try {
       expect(screen.queryByTestId('staff-stock-log.store')).toBeNull();
       expect(screen.getByText(t('staff.stores.log.leadShop'))).toBeTruthy();
-      expect(screen.getByText(t('staff.stores.log.save.cafe'))).toBeTruthy();
+      expect(screen.getByText(t('staff.stores.log.save.shop'))).toBeTruthy();
     } finally {
       screen.unmount();
     }
@@ -245,17 +247,19 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     }
   });
 
-  it('refuses a shop line at the bakery before it is sent (V14)', () => {
+  it('refuses a shop line outside the shop store before it is sent (0245)', () => {
     const screen = renderRoute(StaffStockLog, {
       locale,
-      staff: { role: 'cashier' },
+      staff: { role: 'manager' },
       queryData: [
         [staffKeys.stockPick(V, 'log', 'cafe'), LOG_CAFE],
         [staffKeys.stockPick(V, 'log', 'bakery'), LOG_BAKERY],
+        [staffKeys.stockPick(V, 'log', 'shop'), LOG_SHOP],
         [staffKeys.stockToday(V), TODAY],
       ],
     });
     try {
+      fireEvent.press(screen.getByTestId('staff-stock-log.store.shop'));
       fireEvent.press(screen.getByTestId('staff-stock-log.item.grip'));
       expect(screen.queryByText(t('staff.stores.errors.cafeOnly'))).toBeNull();
       fireEvent.press(screen.getByTestId('staff-stock-log.store.bakery'));
@@ -393,7 +397,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
           below_par: false,
           next_expiry: null,
           product: null,
-          by_location: { cafe: 9000, bakery: 2000 },
+          by_location: { cafe: 9000, bakery: 2000, shop: 0 },
         },
         {
           ingredient_id: 'buns',
@@ -409,7 +413,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
           below_par: false,
           next_expiry: null,
           product: null,
-          by_location: { cafe: 40, bakery: 0 },
+          by_location: { cafe: 40, bakery: 0, shop: 0 },
         },
       ],
     };
@@ -428,7 +432,7 @@ describe.each(LOCALES)('who sees what on the store pages in %s', (locale) => {
     }
     const desk = renderRoute(StaffStock, {
       locale,
-      staff: { role: 'court_desk' },
+      staff: { role: 'shop_staff' },
       queryData: [[staffKeys.stock(V, 'all'), { ...view, items: [] }]],
     });
     try {

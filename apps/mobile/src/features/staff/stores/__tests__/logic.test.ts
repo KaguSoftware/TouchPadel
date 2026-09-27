@@ -66,13 +66,13 @@ describe('who may add, move and count, as the guards say', () => {
     expect([...MOVE_ROLES].sort()).toEqual(['manager', 'owner', 'waiter']);
     expect([...LOG_ROLES].sort()).toEqual([
       'cashier',
-      'court_desk',
       'head_barista',
       'head_chef',
       'manager',
       'owner',
+      'shop_staff',
     ]);
-    expect([...COUNT_ROLES].sort()).toEqual(['chef', 'head_chef', 'manager', 'owner']);
+    expect([...COUNT_ROLES].sort()).toEqual(['chef', 'head_chef', 'manager', 'owner', 'shop_staff']);
   });
 
   it('gives neither new role anything but the waiter’s moves (§2.0)', () => {
@@ -82,14 +82,15 @@ describe('who may add, move and count, as the guards say', () => {
       expect(list).not.toContain('assistant_barista');
   });
 
-  it('logs each role’s kinds into each role’s stores, home first; shop stock into the cafe only (V14)', () => {
+  it('logs each role’s kinds into each role’s stores, home first; shop stock into the shop store only (0245)', () => {
     expect(logKindsFor('head_barista')).toEqual(['purchased']);
-    expect(logKindsFor('court_desk')).toEqual(['retail']);
-    expect(logKindsFor('cashier')).toEqual(['purchased', 'retail']);
+    expect(logKindsFor('shop_staff')).toEqual(['retail']);
+    expect(logKindsFor('cashier')).toEqual(['purchased']);
     expect(logStoresFor('head_barista')).toEqual(['cafe', 'bakery']);
     expect(logStoresFor('head_chef')).toEqual(['bakery', 'cafe']);
-    expect(logStoresFor('court_desk')).toEqual(['cafe']);
-    expect(logStoresFor('cashier', 'retail')).toEqual(['cafe']);
+    expect(logStoresFor('shop_staff')).toEqual(['shop']);
+    expect(logStoresFor('cashier', 'retail')).toEqual([]);
+    expect(logStoresFor('manager', 'retail')).toEqual(['shop']);
     expect(logStoresFor('manager', 'purchased')).toEqual(['cafe', 'bakery']);
     for (const role of STAFF_ROLES) {
       expect(logStoresFor(role).length > 0, role).toBe(LOG_ROLES.includes(role));
@@ -169,12 +170,15 @@ describe('Add to stock before it is sent', () => {
     ).toEqual([]);
   });
 
-  it('refuses shop stock at the bakery, and more than 50 lines', () => {
+  it('refuses shop stock outside the shop store, and more than 50 lines', () => {
     const grip = line({ qty: '4' }, { ingredient_id: 'grip', kind: 'retail', pack_size: null });
-    expect(validateLog([grip], 'cafe', 'cashier', today)).toEqual([]);
-    expect(validateLog([grip], 'bakery', 'cashier', today)).toEqual([
-      { line: 'grip', field: 'kind', code: 'cafeOnly' },
-    ]);
+    expect(validateLog([grip], 'shop', 'shop_staff', today)).toEqual([]);
+    expect(validateLog([grip], 'shop', 'manager', today)).toEqual([]);
+    for (const store of ['cafe', 'bakery'] as const) {
+      expect(validateLog([grip], store, 'manager', today), store).toEqual([
+        { line: 'grip', field: 'kind', code: 'cafeOnly' },
+      ]);
+    }
     const lots = Array.from({ length: 51 }, (_, i) =>
       line({ qty: '1' }, { ingredient_id: `i${i}` }),
     );

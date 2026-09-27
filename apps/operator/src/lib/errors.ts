@@ -203,6 +203,11 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'LABEL_REQUIRED',
   'MIXED_BASKET',
   'SHOP_ITEM_NOT_ORDERABLE',
+  // 0244/0246: Touch Shop is its own desk (tab kind decides who works it).
+  'TAB_KIND_FORBIDDEN',
+  'TAB_KIND_MISMATCH',
+  'SHOP_TAB_NO_ANCHOR',
+  'DAY_NOT_FOUND',
   // Protocols and the staff phone (build-contracts-2026-09-23).
   // Strings in catalogs/opErrors.protocols.*.ts; the phone maps the same codes
   // (CODE_TO_KEY in apps/mobile) except the four menu and price writer codes.

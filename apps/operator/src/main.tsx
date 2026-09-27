@@ -14,6 +14,8 @@ import { deskChildren } from './routes/desk/_children';
 import { kdsRoute } from './routes/kds';
 import { stockRoute } from './routes/stock';
 import { stockChildren } from './routes/stock/_children';
+import { shopRoute } from './routes/shop';
+import { shopChildren } from './routes/shop/_children';
 import { adminRoute } from './routes/admin';
 import { adminChildren } from './routes/admin/_children';
 import { analyticsRoute } from './routes/analytics';
@@ -63,6 +65,7 @@ const routeTree = rootRoute.addChildren([
   assistantRoute.addChildren([...assistantChildren]),
   reportsRoute.addChildren([...reportsChildren]),
   stockRoute.addChildren([...stockChildren]),
+  shopRoute.addChildren([...shopChildren]),
   adminRoute.addChildren([...adminChildren]),
   analyticsRoute.addChildren([...analyticsChildren]),
   tasksRoute,

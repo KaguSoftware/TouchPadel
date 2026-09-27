@@ -53,19 +53,19 @@ describe('stores', () => {
       { ingredient_id: 'milk', location: 'bakery', on_hand: 0 },
       { ingredient_id: 'odd', location: 'garage', on_hand: 5 },
     ]);
-    expect(splits.get('flour')).toEqual({ cafe: 12000, bakery: 3000 });
-    expect(splits.get('milk')).toEqual({ cafe: 800, bakery: 0 });
+    expect(splits.get('flour')).toEqual({ cafe: 12000, bakery: 3000, shop: 0 });
+    expect(splits.get('milk')).toEqual({ cafe: 800, bakery: 0, shop: 0 });
     expect(splits.has('odd')).toBe(false);
     expect(heldAt(splits.get('flour'), 'bakery')).toBe(3000);
     expect(heldAt(undefined, 'cafe')).toBe(0);
   });
 
   it('prints the split under the total only once the bakery store holds some', () => {
-    expect(splitWorthShowing({ cafe: 800, bakery: 0 })).toBe(false);
-    expect(splitWorthShowing({ cafe: 0, bakery: 5 })).toBe(true);
+    expect(splitWorthShowing({ cafe: 800, bakery: 0, shop: 0 })).toBe(false);
+    expect(splitWorthShowing({ cafe: 0, bakery: 5, shop: 0 })).toBe(true);
     expect(splitWorthShowing(undefined)).toBe(false);
-    expect(anyInBakery(new Map([['m', { cafe: 1, bakery: 0 }]]))).toBe(false);
-    expect(anyInBakery(new Map([['m', { cafe: 1, bakery: 0 }], ['f', { cafe: 0, bakery: 2 }]]))).toBe(true);
+    expect(anyInBakery(new Map([['m', { cafe: 1, bakery: 0, shop: 0 }]]))).toBe(false);
+    expect(anyInBakery(new Map([['m', { cafe: 1, bakery: 0, shop: 0 }], ['f', { cafe: 0, bakery: 2, shop: 0 }]]))).toBe(true);
   });
 });
 

@@ -29,7 +29,7 @@ import {
   type SetupState,
 } from './stationSetup';
 
-const MODE_ICON: Record<StationMode, IconName> = { till: 'receipt', desk: 'calendar', kds: 'flame' };
+const MODE_ICON: Record<StationMode, IconName> = { till: 'receipt', desk: 'calendar', kds: 'flame', shop: 'tag' };
 
 /** The PIN-field treatment (kit.tsx PinPromptOverlay), minus the masking. */
 const codeInputStyle = {

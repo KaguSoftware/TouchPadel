@@ -1,13 +1,16 @@
 /**
- * 0143–0146 — Touch Shop (Phase 2 item 5).
+ * 0143–0146 — Touch Shop (Phase 2 item 5), and since 0243–0246 its own desk.
  *
  * A retail product is a menu item in a kind = 'shop' section; each size owns
  * one `retail` ingredient (unit pc) and a qty-1 recipe line. These cases pin
  * the rules that model depends on: the one-ingredient-per-variant invariant,
- * per-venue barcode / SKU uniqueness, idempotent goods-in with a supplier,
- * the counter sale with no table, the no-kitchen-ticket sale path, the
- * mixed-basket and guest refusals, restock on void and on return, the
- * any-size-in-stock availability rule and the "of which shop" revenue line.
+ * per-venue barcode / SKU uniqueness, idempotent goods-in with a supplier
+ * (into the shop store, 0245), the sale with no table (opened and rung up by
+ * the shop assistant, 0244), the no-kitchen-ticket sale path, the tab-kind
+ * and guest refusals, restock on void and on return, the any-size-in-stock
+ * availability rule and the "of which shop" revenue line. The desk's own
+ * rules (who works which tab, the shop store, the drawer, the day close) are
+ * shop-desk.test.ts.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -24,6 +27,7 @@ import {
   VENUE_A_ID,
   createTestMenuItem,
   createTestCafeTable,
+  createStaffOfRole,
   openGuestSession,
   ensureOpenDay,
 } from './helpers';
@@ -35,6 +39,9 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
   let owner: SupabaseClient;
   let manager: SupabaseClient;
   let cashier: SupabaseClient;
+  // 0244: the shop's sales are the shop assistant's; the café cashier is refused.
+  let shop: SupabaseClient;
+  let shopId: string;
   const categories: string[] = [];
   const suppliers: string[] = [];
   let n = 0;
@@ -98,6 +105,7 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     return appRpc(manager, 'receive_delivery', {
       p_lines: [{ ingredient_id: ingredientId, qty_received: qty, unit_cost_iqd: 30_000 }],
       p_idempotency_key: key,
+      p_location: 'shop',
     }).then(outcome);
   }
 
@@ -110,7 +118,7 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
   }
 
   async function counterTab(label = `Walk-in ${n++}`): Promise<string> {
-    const res = await appRpc(cashier, 'open_tab', {
+    const res = await appRpc(shop, 'open_tab', {
       p_label: label,
       p_kind: 'shop',
       p_idempotency_key: testIdemKey('tab.open'),
@@ -124,6 +132,9 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     owner = await signedInClient(SEED_STAFF.owner);
     manager = await signedInClient(SEED_STAFF.manager);
     cashier = await signedInClient(SEED_STAFF.cashier);
+    const made = await createStaffOfRole(svc, 'shop_staff', 'shoptest');
+    shop = made.client;
+    shopId = made.id;
     await ensureOpenDay(manager, svc);
   });
 
@@ -138,6 +149,8 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     await owner.auth.signOut();
     await manager.auth.signOut();
     await cashier.auth.signOut();
+    await shop.auth.signOut();
+    await svc.from('staff').update({ is_active: false }).eq('id', shopId);
   });
 
   it('switches a section to shop only while it is empty, manager+ only', async () => {
@@ -245,6 +258,7 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
       p_lines: [{ ingredient_id: v.ingredientId, qty_received: 6, unit_cost_iqd: 30_000 }],
       p_supplier_id: sup.data,
       p_idempotency_key: key,
+      p_location: 'shop',
     };
     const one = await appRpc(manager, 'receive_delivery', args).then(outcome);
     expect(one.ok, one.errorMessage).toBe(true);
@@ -265,11 +279,14 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     expect((del as { supplier_name: string }).supplier_name).toMatch(/^Goods-in /);
   });
 
-  it('opens a counter sale without a table only for a labelled shop tab', async () => {
-    const noLabel = await appRpc(cashier, 'open_tab', { p_kind: 'shop' }).then(outcome);
+  it('opens a shop sale without a table only for a labelled shop tab, and only at the shop desk', async () => {
+    const noLabel = await appRpc(shop, 'open_tab', { p_kind: 'shop' }).then(outcome);
     expect(noLabel.errorMessage).toContain('LABEL_REQUIRED');
     const cafeTab = await appRpc(cashier, 'open_tab', { p_label: 'Ali' }).then(outcome);
     expect(cafeTab.errorMessage).toContain('TAB_ANCHOR_REQUIRED');
+    // 0244: the café cashier no longer rings up the shop.
+    const cashierShop = await appRpc(cashier, 'open_tab', { p_kind: 'shop', p_label: 'Ali' }).then(outcome);
+    expect(cashierShop.errorMessage).toContain('TAB_KIND_FORBIDDEN');
     const tabId = await counterTab();
     const { data } = await svc.from('tabs').select('kind, table_id, reservation_id').eq('id', tabId).single();
     expect(data).toMatchObject({ kind: 'shop', table_id: null, reservation_id: null });
@@ -281,7 +298,7 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     expect((await receive(v.ingredientId, 5)).ok).toBe(true);
 
     const tabId = await counterTab();
-    const sold = await appRpc(cashier, 'till_add_items', {
+    const sold = await appRpc(shop, 'till_add_items', {
       p_tab_id: tabId,
       p_items: [{ variant_id: v.variantId, qty: 2 }],
       p_idempotency_key: testIdemKey('order.add_items'),
@@ -298,14 +315,14 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     expect(await onHand(v.ingredientId)).toBe(3);
   });
 
-  it('refuses a basket that mixes café and shop lines, writing nothing', async () => {
+  it('refuses a café line on a shop sale, writing nothing', async () => {
     const item = await shopItem(await shopSection('M'), 'M');
     const v = await retailVariant(item);
     const cafe = await createTestMenuItem(svc, 'SHOPM', 2_000);
     categories.push(cafe.categoryId);
     const tabId = await counterTab();
 
-    const mixed = await appRpc(cashier, 'till_add_items', {
+    const mixed = await appRpc(shop, 'till_add_items', {
       p_tab_id: tabId,
       p_items: [
         { variant_id: cafe.variantId, qty: 1 },
@@ -313,7 +330,8 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
       ],
       p_idempotency_key: testIdemKey('order.add_items'),
     }).then(outcome);
-    expect(mixed.errorMessage).toContain('MIXED_BASKET');
+    // 0244: the café line meets the tab-kind rule before the mixed-basket one.
+    expect(mixed.errorMessage).toContain('TAB_KIND_MISMATCH');
     const { data: orders } = await svc.from('orders').select('id').eq('tab_id', tabId);
     expect(orders).toEqual([]);
   });
@@ -335,7 +353,7 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     const v = await retailVariant(item);
     expect((await receive(v.ingredientId, 4)).ok).toBe(true);
     const tabId = await counterTab();
-    const sold = await appRpc(cashier, 'till_add_items', {
+    const sold = await appRpc(shop, 'till_add_items', {
       p_tab_id: tabId,
       p_items: [{ variant_id: v.variantId, qty: 1 }, { variant_id: v.variantId, qty: 1 }],
       p_idempotency_key: testIdemKey('order.add_items'),
@@ -363,7 +381,7 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
       .eq('movement_type', 'void_after_send');
     expect(waste).toEqual([]);
 
-    const settled = await appRpc(cashier, 'settle_tab', {
+    const settled = await appRpc(shop, 'settle_tab', {
       p_tab_id: tabId,
       p_method: 'cash',
       p_tendered_iqd: 100_000,
@@ -432,14 +450,14 @@ describe.skipIf(!up)('0143–0146 Touch Shop', () => {
     const tabId = await counterTab();
     expect(
       (
-        await appRpc(cashier, 'till_add_items', {
+        await appRpc(shop, 'till_add_items', {
           p_tab_id: tabId,
           p_items: [{ variant_id: v.variantId, qty: 1 }],
           p_idempotency_key: testIdemKey('order.add_items'),
         }).then(outcome)
       ).ok,
     ).toBe(true);
-    const settled = await appRpc(cashier, 'settle_tab', {
+    const settled = await appRpc(shop, 'settle_tab', {
       p_tab_id: tabId,
       p_method: 'card',
       p_idempotency_key: testIdemKey('settle'),

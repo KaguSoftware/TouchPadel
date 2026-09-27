@@ -74,7 +74,7 @@ describe('resolveStaffRow — an error is never an answer', () => {
   it('admits the six roles 0155 added, the two of wave 5, and prep while accounts still hold it', () => {
     // A role missing here reads as 'revoked', so a new barista would sign in
     // to "you are not staff" rather than to the kitchen display.
-    for (const role of ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing', 'assistant_barista', 'waiter', 'prep']) {
+    for (const role of ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'marketing', 'assistant_barista', 'waiter', 'shop_staff', 'prep']) {
       const r = resolveStaffRow({ ...ACTIVE, role }, null);
       expect(r, role).toEqual({ kind: 'active', info: { ...PREV, role } });
     }
@@ -97,6 +97,7 @@ describe('STAFF_ROLES', () => {
       'marketing',
       'assistant_barista',
       'waiter',
+      'shop_staff',
     ]);
   });
 });

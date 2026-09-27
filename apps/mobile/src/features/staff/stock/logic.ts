@@ -20,11 +20,14 @@ export const STOCK_KINDS = ['purchased', 'prepared', 'retail'] as const;
 export type StockKind = (typeof STOCK_KINDS)[number];
 export type StockFilter = 'all' | StockKind;
 
-/** Who reads stock (the server's guard, §2.24.5; the waiter joins in wave 5, STOCK_VIEW). */
+/**
+ * Who reads stock (the server's guard, §2.24.5; the waiter joins in wave 5,
+ * STOCK_VIEW; the shop assistant takes the court desk's shop view in 0245).
+ */
 export const STOCK_ROLES: readonly StaffRole[] = [
   'head_barista',
   'head_chef',
-  'court_desk',
+  'shop_staff',
   'waiter',
   'manager',
   'owner',
@@ -40,7 +43,7 @@ export function stockKindsFor(role: StaffRole): readonly StockKind[] {
     case 'head_chef':
     case 'waiter':
       return ['purchased', 'prepared'];
-    case 'court_desk':
+    case 'shop_staff':
       return ['retail'];
     default:
       return [];
@@ -144,11 +147,12 @@ export function byStore(
   store: StockLocation,
 ): { here: StoreRow[]; notHere: StoreRow[] } | null {
   if (items.length > 0 && items.some((i) => !i.by_location)) return null;
-  const other: StockLocation = store === 'cafe' ? 'bakery' : 'cafe';
+  // The shop store (0245) has no other: nothing moves in or out of it.
+  const other: StockLocation | null = store === 'shop' ? null : store === 'cafe' ? 'bakery' : 'cafe';
   const rows = items.map((item) => ({
     item,
     here: item.by_location?.[store] ?? 0,
-    other: item.by_location?.[other] ?? 0,
+    other: other ? (item.by_location?.[other] ?? 0) : 0,
   }));
   return { here: rows.filter((r) => r.here > 0), notHere: rows.filter((r) => r.here <= 0) };
 }

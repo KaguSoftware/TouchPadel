@@ -499,7 +499,7 @@ Tooling: `packages/db/bench/` with SQL scripts and a Node runner writing p50/p95
 | Coaches | Surface undecided; model neutral; decide at milestone 5 start |
 | Player levels | None in v1 |
 | Tournaments | All formats; Americano/Mexicano first |
-| Shop | Operator-side stock management and till sales only; no guest front |
+| Shop | **Its own desk (Parsa, 2026-09-27):** a shop assistant role, its own PC, till, drawer, stock store and products; paid on the spot, never on a booking or café bill; no guest front. Supersedes the 09-22 café-hybrid and the products/product_variants sketch above. `docs/design/shop/shop-desk-2026-09-27.md`, migrations 0243–0246 |
 | Loyalty | Earn on spend across all domains including the cafe with sign-in at checkout |
 
 | Where this document lives | Repo root as `PHASE-2-PLAN.md` (copied 2026-09-20); working copy also in ~/.claude/plans |

@@ -97,11 +97,13 @@ const EXPECTED: Record<StaffRole, string[]> = {
   ],
   driver: ['protocols', 'run', 'purchases', 'requests', 'notes', 'suggestions', 'ask-marketing'],
   marketing: ['protocols', 'start', 'marketing', 'requests', 'notes', 'suggestions', 'marketing-inbox'],
-  court_desk: ['protocols', 'start', 'requests', 'notes', 'stock', 'stock-log', 'suggestions', 'ask-marketing'],
+  // 0245: the court desk keeps no stock; the shop assistant keeps the shop's.
+  court_desk: ['protocols', 'start', 'requests', 'notes', 'suggestions', 'ask-marketing'],
   cashier: ['protocols', 'requests', 'notes', 'stock-log', 'suggestions', 'ask-marketing'],
   prep: ['protocols', 'requests', 'notes', 'suggestions', 'ask-marketing'],
   assistant_barista: ['protocols', 'requests', 'notes', 'teachings', 'recipes', 'suggestions', 'ask-marketing'],
   waiter: ['protocols', 'requests', 'notes', 'stock', 'stock-move', 'suggestions', 'ask-marketing', 'calls'],
+  shop_staff: ['protocols', 'requests', 'notes', 'stock', 'stock-log', 'stock-count', 'suggestions', 'ask-marketing'],
 };
 
 /**
@@ -125,6 +127,7 @@ const PEOPLE: Record<StaffRole, string[]> = {
   prep: ['incidents'],
   assistant_barista: ['incidents'],
   waiter: ['incidents'],
+  shop_staff: ['incidents'],
 };
 
 /**
@@ -146,6 +149,7 @@ const SCAN: Record<StaffRole, string[]> = {
   prep: [],
   assistant_barista: [],
   waiter: ['order-slip'],
+  shop_staff: [],
 };
 
 describe('Today rows by role', () => {

@@ -38,6 +38,7 @@ export const staffStoresEn = {
   holds: {
     cafe: '{qty} in the cafe store',
     bakery: '{qty} in the bakery store',
+    shop: '{qty} in the shop store',
   },
 
   errors: {
@@ -47,13 +48,15 @@ export const staffStoresEn = {
     expiry: 'Enter a date like {example}.',
     expiryPast: 'The use-by date cannot be before today.',
     // Shop stock is kept in the cafe only (V14): log_stock's INVALID_ARGUMENT hint kind.
-    cafeOnly: 'Shop stock goes into the cafe store only.',
+    // The key predates 0245; the rule is now the shop store's.
+    cafeOnly: 'Shop stock stays in the shop store: it is added there and never moved.',
     // INGREDIENT_NOT_FOUND: switched off, or gone since the list was read.
     gone: 'This item is no longer in the venue’s stock. Remove it.',
     // Before the move is sent, and from TRANSFER_SHORT's detail after.
     short: {
       cafe: 'The cafe store shows {qty}.',
       bakery: 'The bakery store shows {qty}.',
+      shop: 'The shop store shows {qty}.',
     },
     countNone: 'Type at least one amount.',
     countQty: 'Enter 0 or more, like 12 or 2.5.',
@@ -63,7 +66,7 @@ export const staffStoresEn = {
     title: 'Add to stock',
     lead: 'Add what arrived and where you put it. A manager sets the cost.',
     // The court desk logs shop stock, which is kept in the cafe only.
-    leadShop: 'Add the shop stock that arrived. It goes into the cafe store.',
+    leadShop: 'Add the shop stock that arrived. It goes into the shop store.',
     driverWaiting: 'Driver purchases waiting for a manager: {count}. Do not add those here.',
     store: 'Put it in',
     linesTitle: 'Adding ({count})',
@@ -74,10 +77,12 @@ export const staffStoresEn = {
     save: {
       cafe: 'Add to the cafe store',
       bakery: 'Add to the bakery store',
+      shop: 'Add to the shop store',
     },
     done: {
       cafe: 'Added to the cafe store',
       bakery: 'Added to the bakery store',
+      shop: 'Added to the shop store',
     },
     todayTitle: 'Added today',
     todayEmpty: 'Nothing added today yet.',
@@ -99,10 +104,12 @@ export const staffStoresEn = {
     save: {
       cafe: 'Move to the cafe store',
       bakery: 'Move to the bakery store',
+      shop: 'Move to the shop store',
     },
     done: {
       cafe: 'Moved to the cafe store',
       bakery: 'Moved to the bakery store',
+      shop: 'Moved to the shop store',
     },
     todayTitle: 'Moved today',
     todayEmpty: 'Nothing moved today yet.',
@@ -110,10 +117,12 @@ export const staffStoresEn = {
     route: {
       cafe: 'Cafe store to bakery store',
       bakery: 'Bakery store to cafe store',
+      shop: 'Shop store',
     },
     emptyTitle: {
       cafe: 'Nothing to move from the cafe store',
       bakery: 'Nothing to move from the bakery store',
+      shop: 'Nothing to move from the shop store',
     },
     emptyBody:
       'Bought-in and made-here stock moves between the stores. Shop stock stays in the cafe.',
@@ -123,6 +132,7 @@ export const staffStoresEn = {
     title: {
       cafe: 'Count the cafe',
       bakery: 'Count the bakery',
+      shop: 'Count the shop',
     },
     lead: 'Type what you count on the shelf. Leave an item empty if you did not count it. A manager applies the count.',
     store: 'Store',
@@ -157,6 +167,7 @@ export const staffStoresEn = {
     notHere: {
       cafe: 'Not in the cafe store ({count})',
       bakery: 'Not in the bakery store ({count})',
+      shop: 'Not in the shop store ({count})',
     },
   },
 } as const;

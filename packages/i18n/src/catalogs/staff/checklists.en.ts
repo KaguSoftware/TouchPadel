@@ -71,7 +71,7 @@ export const staffChecklistsEn = {
   stock: {
     title: 'Stock',
     lead: 'What is on hand now. Counts and corrections are done by the managers.',
-    leadShop: 'How much of each shop product is on hand now. Counts and corrections are done by the managers.',
+    leadShop: 'How much of each shop product is on hand now in the shop store.',
     filter: {
       all: 'All',
       purchased: 'Bought in',

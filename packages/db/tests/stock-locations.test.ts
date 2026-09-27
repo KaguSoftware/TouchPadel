@@ -368,9 +368,11 @@ end $g$;`;
         T(`view_${who}`, who, `select to_jsonb(count(*)) from v_stock_by_location`)),
     ]);
     for (const who of ['manager', 'owner']) {
+      // One row per store in enum order; the shop store (0245) holds no beans.
       expect(ok(r, `view_${who}`), who).toEqual([
         { location: 'cafe', on_hand: 0, theoretical: -80 },
         { location: 'bakery', on_hand: 0, theoretical: 0 },
+        { location: 'shop', on_hand: 0, theoretical: 0 },
       ]);
     }
     const rows = ok<Array<{ on_hand: number; theoretical: number }>>(r, 'view_manager');

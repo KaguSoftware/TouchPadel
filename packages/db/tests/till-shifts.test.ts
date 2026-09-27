@@ -1494,7 +1494,20 @@ commit;`);
     );
     const settle0217 = /\$settle_tab_0217\$([\s\S]*?)\$settle_tab_0217\$/.exec(m0217)?.[1];
     expect(settle0217).toBeTruthy();
-    expect(settleLive).toBe(settle0217!.trim());
+    // Touch Shop own desk (0244) re-issued it again with the shop assistant in
+    // both role lists and one tab-kind line, and nothing else: the live body is
+    // 0244's, and 0244's without those is 0217's.
+    const m0244 = readFileSync(
+      fileURLToPath(new URL('../supabase/migrations/20260927000244_shop_desk_access.sql', import.meta.url)),
+      'utf8',
+    );
+    const settle0244 = /\$settle_tab_0244\$([\s\S]*?)\$settle_tab_0244\$/.exec(m0244)?.[1];
+    expect(settle0244).toBeTruthy();
+    expect(settleLive).toBe(settle0244!.trim());
+    const unshop = settle0244!
+      .replaceAll(",'shop_staff')", ')')
+      .replace('  perform app.assert_tab_kind_role(v_tab.kind);   -- 0244\n', '');
+    expect(unshop.trim()).toBe(settle0217!.trim());
     const unguarded = settle0217!
       .replace('  v_venue uuid;\n', '')
       .replace(/ {2}-- 0217:[^\n]*\n {2}v_venue := [^\n]*\n {2}if v_venue is not null then\n[\s\S]*?\n {2}end if;\n/, '');

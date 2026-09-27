@@ -84,6 +84,26 @@ export async function signedInClient(email: string, password: string = DEV_PASSW
   return c;
 }
 
+/**
+ * A signed-in staff member of a role the seed has no account for (the shop
+ * assistant, 0243): an auth user plus an active staff row at venue A (the 0123
+ * trigger files the membership). The caller deactivates it in afterAll.
+ */
+export async function createStaffOfRole(
+  svc: SupabaseClient,
+  role: string,
+  tag: string,
+): Promise<{ id: string; email: string; client: SupabaseClient }> {
+  const email = `${tag}-${role}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.touch.local`;
+  const { data, error } = await svc.auth.admin.createUser({ email, password: DEV_PASSWORD, email_confirm: true });
+  if (error || !data.user) throw new Error(`createUser failed: ${error?.message}`);
+  const ins = await svc
+    .from('staff')
+    .insert({ id: data.user.id, display_name: `${tag} ${role}`, role, is_active: true });
+  if (ins.error) throw new Error(ins.error.message);
+  return { id: data.user.id, email, client: await signedInClient(email) };
+}
+
 export async function anonymousSessionClient() {
   const c = anonClient();
   const { error } = await c.auth.signInAnonymously();

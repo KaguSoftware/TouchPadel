@@ -39,14 +39,6 @@ const AlertsPanel = lazyRouteComponent(
 const Expiry = lazyRouteComponent(() => import('../../features/stock/Expiry'), 'Expiry');
 // Wave 5 (wave5-addendum-2026-09-25 §5.2): moving stock between the cafe and bakery stores.
 const MoveStock = lazyRouteComponent(() => import('../../features/stock/MoveStock'), 'MoveStock');
-const ProductsAdmin = lazyRouteComponent(
-  () => import('../../features/stock/products/ProductsAdmin'),
-  'ProductsAdmin',
-);
-const SuppliersAdmin = lazyRouteComponent(
-  () => import('../../features/stock/products/SuppliersAdmin'),
-  'SuppliersAdmin',
-);
 
 const child = <P extends string>(path: P, Component: Parameters<typeof guarded>[1]) =>
   createRoute({
@@ -99,6 +91,4 @@ export const stockChildren = [
   child('margins', Margins),
   child('alerts', AlertsPanel),
   child('expiry', Expiry),
-  child('products', ProductsAdmin),
-  child('suppliers', SuppliersAdmin),
 ] as const;

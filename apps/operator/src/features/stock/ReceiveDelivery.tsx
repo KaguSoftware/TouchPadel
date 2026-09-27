@@ -55,7 +55,8 @@ import { DriverPurchaseReceive, DriverPurchasesPanel } from './DriverPurchases';
 import { ReceiptsPanel } from './receipts/ReceiptsPanel';
 import { ReceiptReview } from './receipts/ReceiptReview';
 import { StaffLogs } from './StaffLogs';
-import { bakeryRefused, beingCounted, type StockLocation } from './storeLogic';
+import { beingCounted, storesForScope, type StockLocation } from './storeLogic';
+import { useStockScope } from './stockScope';
 import { decimalKeystroke } from './decimalInput';
 
 export { isShort } from './stockLogic';
@@ -123,8 +124,12 @@ function DeliveryForm() {
   const [idemKey, setIdemKey] = useState(() => `receive:${crypto.randomUUID()}`);
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
-  /** The store the delivery goes into (wave 5): the cafe store unless the manager says otherwise. */
-  const [location, setLocation] = useState<StockLocation>('cafe');
+  // 0245: the café's Goods in takes café and bakery stock; the shop desk's
+  // takes shop stock into the shop store and nowhere else.
+  const scope = useStockScope();
+  const stores = storesForScope(scope);
+  /** The store the delivery goes into (wave 5): the scope's first unless the manager says otherwise. */
+  const [location, setLocation] = useState<StockLocation>(() => stores[0]!);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -133,11 +138,13 @@ function DeliveryForm() {
   const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
   const suppliers = (suppliersQ.data ?? []).filter((s) => s.is_active);
   // Prepared items are made in the kitchen, not delivered — they have their
-  // own form under Waste & production. Shop stock (retail) is delivered, into
-  // the cafe store only (V14).
-  const deliverable = (ingredientsQ.data ?? []).filter((i) => i.is_active && (i.kind === 'purchased' || i.kind === 'retail'));
+  // own form under Waste & production. Shop stock (retail) is delivered at the
+  // shop desk, into the shop store only (0245).
+  const deliverable = (ingredientsQ.data ?? []).filter(
+    (i) => i.is_active && (scope === 'shop' ? i.kind === 'retail' : i.kind === 'purchased'),
+  );
   const byId = new Map(deliverable.map((i) => [i.id, i]));
-  const ingredients = location === 'bakery' ? deliverable.filter((i) => i.kind !== 'retail') : deliverable;
+  const ingredients = deliverable;
 
   function patch(key: string, part: Partial<DraftLine>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...part } : l)));
@@ -163,9 +170,8 @@ function DeliveryForm() {
   const started = lines.filter((l) => !isBlankLine(l));
   const problems = started.filter((l) => lineProblem(l, today) !== null);
   const shortCount = lines.filter(isShort).length;
-  const shopOnForm = bakeryRefused(started.map((l) => byId.get(l.ingredientId)?.kind));
   const counted = beingCounted(countsQ.data, location);
-  const canRecord = started.length > 0 && problems.length === 0 && !counted && !(location === 'bakery' && shopOnForm);
+  const canRecord = started.length > 0 && problems.length === 0 && !counted;
 
   async function submit() {
     setBusy(true);
@@ -210,20 +216,28 @@ function DeliveryForm() {
           the Record button closes the form rather than sharing a row with
           "Add another ingredient" above a supplier still to check. */}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-        <ReceiptsPanel />
-        <DriverPurchasesPanel />
-        <StaffLogs />
+        {/* Scanned receipts, the driver's purchases and staff additions are the
+            café's; the shop desk types its deliveries in. */}
+        {scope === 'venue' && (
+          <>
+            <ReceiptsPanel />
+            <DriverPurchasesPanel />
+            <StaffLogs />
+          </>
+        )}
 
         <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
           <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-4)' }}>
-            <StorePicker
-              label={tr('ws.stores.picker.putIn')}
-              value={location}
-              onChange={setLocation}
-              disabled={busy}
-              bakeryOff={shopOnForm ? tr('ws.stores.picker.shopCafeOnly') : undefined}
-              data-testid="goods-in-store"
-            />
+            {stores.length > 1 && (
+              <StorePicker
+                label={tr('ws.stores.picker.putIn')}
+                value={location}
+                onChange={setLocation}
+                disabled={busy}
+                stores={stores}
+                data-testid="goods-in-store"
+              />
+            )}
             {counted && <StoreCountedNotice store={location} />}
           </div>
           {/* The order of the work, said once at the top rather than hidden in

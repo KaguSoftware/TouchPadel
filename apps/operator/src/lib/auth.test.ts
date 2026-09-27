@@ -238,10 +238,14 @@ describe('capability matrix', () => {
     readShoppingList: ['head_barista', 'barista', 'head_chef', 'chef', 'driver', 'manager', 'owner'],
     readPurchases: ['driver', 'manager', 'owner'],
     readTeachings: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
-    readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'waiter', 'manager', 'owner'],
+    readStaffStock: ['head_barista', 'head_chef', 'shop_staff', 'waiter', 'manager', 'owner'],
     readRecipes: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
     // Wave 5 (M2): app.stock_today's guard, MOVE ∪ LOG ∪ COUNT.
-    readStoreToday: ['head_barista', 'head_chef', 'chef', 'cashier', 'court_desk', 'waiter', 'manager', 'owner'],
+    readStoreToday: ['head_barista', 'head_chef', 'chef', 'cashier', 'shop_staff', 'waiter', 'manager', 'owner'],
+    // Touch Shop own desk (0246): the shop assistant prices and launches shop
+    // products directly; the server keeps it to shop items.
+    editLaunchedPrices: ['shop_staff', 'owner'],
+    launchDirectly: ['shop_staff', 'owner'],
     // Wave 5, people records (§5.2): each the guard of the RPC behind it.
     proposeDeductions: ['head_barista', 'head_chef', 'manager', 'owner'],
     decideDeductions: ['manager', 'owner'],
@@ -377,6 +381,7 @@ describe('capability matrix', () => {
   });
 
   it('keeps launched prices and launching itself with the owner, never the manager (#51-#53)', () => {
+    // (and the shop assistant for shop products only, 0246)
     expect(can('manager', 'editLaunchedPrices')).toBe(false);
     expect(can('manager', 'launchDirectly')).toBe(false);
     expect(can('manager', 'editProtocols')).toBe(false);

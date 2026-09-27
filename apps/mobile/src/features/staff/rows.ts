@@ -149,8 +149,8 @@ export const STAFF_ROW_DEFS: readonly StaffRowDef[] = [
     roles: RECIPE_CHANGE_ROLES,
   },
   // Quantities only (#68): the heads and the waiter read bought-in and
-  // made-here stock store by store (wave 5), the desk the shop, management
-  // everything.
+  // made-here stock store by store (wave 5), the shop assistant the shop's
+  // (the desk until 0245), management everything.
   {
     id: 'stock',
     testID: 'staff.row.stock',
