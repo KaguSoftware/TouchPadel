@@ -141,6 +141,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     menuPrices: 'أسعار القائمة',
     inventory: 'إدارة المخزون',
     stockValue: 'قيمة المخزون',
+    shop: 'المتجر',
     floorNow: 'الصالة الآن',
     staffActivity: 'نشاط الموظفين',
     requests: 'الطلبات',

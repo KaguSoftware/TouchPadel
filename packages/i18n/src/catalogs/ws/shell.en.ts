@@ -164,9 +164,11 @@ export const shellEn = {
     // per report on the screen itself.
     menuPrices: 'Menu prices',
     // Stock section rows. 'inventory' owns the whole /stock module, which
-    // keeps its own sub-nav; 'stockValue' is the /reports/stock figure.
+    // keeps its own sub-nav; 'stockValue' is the /reports/stock figure;
+    // 'shop' is Touch Shop's products (/stock/products).
     inventory: 'Inventory',
     stockValue: 'Stock value',
+    shop: 'Shop',
     // Observation section rows.
     floorNow: 'Floor now',
     staffActivity: 'Staff activity',

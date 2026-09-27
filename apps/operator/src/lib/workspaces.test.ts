@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
   WORKSPACES,
+  activeNavItem,
   defaultWorkspace,
   isNavActive,
   loadWorkspace,
@@ -222,6 +223,7 @@ describe('sections', () => {
 
     expect(sectionForPath(owner, '/stock')?.key).toBe('stock');
     expect(sectionForPath(owner, '/stock/variance')?.key).toBe('stock');
+    expect(sectionForPath(owner, '/stock/products')?.key).toBe('stock');
     expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
 
     expect(sectionForPath(owner, '/setup')?.key).toBe('setup');
@@ -333,7 +335,7 @@ describe('the manager rail', () => {
   it('groups its rows as Today, Run the day, Records and Setup', () => {
     expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
       [null, ['today']],
-      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions', 'deductions', 'incidents']],
+      ['groupRun', ['bookings', 'openTabs', 'stock', 'shop', 'dayClose', 'protocols', 'suggestions', 'deductions', 'incidents']],
       ['groupRecords', ['reports', 'audit']],
       ['groupSetup', ['menu', 'rates', 'promotions']],
     ]);
@@ -355,5 +357,31 @@ describe('menu editor tabs', () => {
       expect(isNavActive(menuRow, path), path).toBe(true);
     }
     expect(isNavActive(menuRow, '/admin/rates')).toBe(false);
+  });
+});
+
+describe('Touch Shop rail row', () => {
+  const ownerStock = WORKSPACES.owner.sections!.find((s) => s.key === 'stock')!;
+  const managerRows = WORKSPACES.manager.groups.flatMap((g) => g.items);
+
+  it('gives owner and manager a Shop row that opens Shop products', () => {
+    expect(ownerStock.items.find((i) => i.labelKey === 'shop')?.to).toBe('/stock/products');
+    expect(managerRows.find((i) => i.labelKey === 'shop')?.to).toBe('/stock/products');
+  });
+
+  it('lights only the Shop row on the shop, and Inventory everywhere else in /stock', () => {
+    const rows = sectionRailItems(ownerStock);
+    expect(activeNavItem(rows, '/stock/products')?.labelKey).toBe('shop');
+    expect(activeNavItem(rows, '/stock/products?x=1')?.labelKey).toBe('shop');
+    expect(activeNavItem(rows, '/stock/suppliers')?.labelKey).toBe('inventory');
+    expect(activeNavItem(rows, '/stock')?.labelKey).toBe('inventory');
+    expect(activeNavItem(rows, '/reports/stock')?.labelKey).toBe('stockValue');
+    expect(activeNavItem(rows, '/panel')).toBeNull();
+  });
+
+  it("does the same on the manager's rail", () => {
+    const run = WORKSPACES.manager.groups.find((g) => g.items.some((i) => i.labelKey === 'shop'))!.items;
+    expect(activeNavItem(run, '/stock/products')?.labelKey).toBe('shop');
+    expect(activeNavItem(run, '/stock/receive')?.labelKey).toBe('stock');
   });
 });

@@ -50,7 +50,7 @@ export interface NavItem {
     | 'menuPrices'
     | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
     // Management's Stock section.
-    | 'inventory' | 'stockValue'
+    | 'inventory' | 'stockValue' | 'shop'
     // The owner assistant (docs/design/assistant §5.1).
     | 'assistant'
     // The team workspace (driver, marketing), and the till's and the desk's row.
@@ -191,6 +191,9 @@ const MANAGER_RUN: readonly NavItem[] = [
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till' },
   { to: '/stock', labelKey: 'stock', icon: 'package' },
+  // Touch Shop's products, a sub-page of /stock, get a row of their own so the
+  // shop is findable without knowing it sits under Stock › Setup.
+  { to: '/stock/products', labelKey: 'shop', icon: 'tag' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   PROTOCOLS,
   SUGGESTIONS,
@@ -304,12 +307,15 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
  * STOCK — the shelves. The /stock module already carries its own grouped
  * sub-nav (daily, setup, review) beside the screen, so the rail does not
  * repeat those ten rows: one row owns the whole /stock subtree and lands on
- * on-hand, and the second is the stock value report, which lives under
- * /reports but answers a stock question.
+ * on-hand, the second is the stock value report, which lives under /reports
+ * but answers a stock question, and the third is Touch Shop's products, the
+ * one /stock screen people went looking for on the rail and could not find.
+ * On /stock/products only the Shop row lights (activeNavItem).
  */
 const OWNER_STOCK: readonly NavItem[] = [
   { to: '/stock', labelKey: 'inventory', icon: 'package', activePrefix: '/stock' },
   { to: '/reports/stock', labelKey: 'stockValue', icon: 'chart' },
+  { to: '/stock/products', labelKey: 'shop', icon: 'tag' },
 ];
 
 const OWNER_SETUP: readonly NavItem[] = [
@@ -487,9 +493,37 @@ export function sectionForPath(ws: Workspace, path: string): NavSection | null {
   for (const section of ws.sections ?? []) {
     const matches = section.items.filter((item) => isNavActive(item, path));
     if (matches.length === 0) continue;
-    const score = Math.max(...matches.map((item) => (item.to === bare ? Number.MAX_SAFE_INTEGER : (item.activePrefix ?? item.to).length)));
+    const score = Math.max(...matches.map((item) => navMatchScore(item, bare)));
     if (score > bestScore) {
       best = section;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** How specifically an active row matches: its own path beats any prefix, a longer prefix a shorter one. */
+function navMatchScore(item: NavItem, bare: string): number {
+  return item.to === bare ? Number.MAX_SAFE_INTEGER : (item.activePrefix ?? item.to).length;
+}
+
+/**
+ * The one row of a printed list that lights for `path`, or null. Same rule as
+ * sectionForPath, one level down: Inventory claims all of /stock, but on
+ * /stock/products the Shop row is the more specific match and Inventory stays
+ * dark, so the rail never shows two current pages. Pass the rows as printed
+ * (hidden and role-filtered rows removed), so a row nobody can see never takes
+ * the light from its visible parent.
+ */
+export function activeNavItem(items: readonly NavItem[], path: string): NavItem | null {
+  const bare = path.replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
+  let best: NavItem | null = null;
+  let bestScore = -1;
+  for (const item of items) {
+    if (!isNavActive(item, path)) continue;
+    const score = navMatchScore(item, bare);
+    if (score > bestScore) {
+      best = item;
       bestScore = score;
     }
   }
