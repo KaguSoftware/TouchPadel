@@ -36,7 +36,7 @@
 import type { IconName } from '../components/icons';
 import type { StaffRole } from './auth';
 
-export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner' | 'team';
+export type WorkspaceKey = 'courtDesk' | 'cashier' | 'prep' | 'manager' | 'owner' | 'team' | 'shop';
 
 export interface NavItem {
   to: string;
@@ -51,6 +51,8 @@ export interface NavItem {
     | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
     // Management's Stock section.
     | 'inventory' | 'stockValue' | 'shop'
+    // The Touch Shop desk's own rail (0243–0246).
+    | 'shopTill' | 'shopStock' | 'shopReceive' | 'shopCounts' | 'shopWaste' | 'shopProducts' | 'shopSuppliers'
     // The owner assistant (docs/design/assistant §5.1).
     | 'assistant'
     // The team workspace (driver, marketing), and the till's and the desk's row.
@@ -191,9 +193,8 @@ const MANAGER_RUN: readonly NavItem[] = [
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till' },
   { to: '/stock', labelKey: 'stock', icon: 'package' },
-  // Touch Shop's products, a sub-page of /stock, get a row of their own so the
-  // shop is findable without knowing it sits under Stock › Setup.
-  { to: '/stock/products', labelKey: 'shop', icon: 'tag' },
+  // The Touch Shop desk (0243–0246): opens the shop workspace.
+  { to: '/shop', labelKey: 'shop', icon: 'tag' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   PROTOCOLS,
   SUGGESTIONS,
@@ -308,14 +309,13 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
  * sub-nav (daily, setup, review) beside the screen, so the rail does not
  * repeat those ten rows: one row owns the whole /stock subtree and lands on
  * on-hand, the second is the stock value report, which lives under /reports
- * but answers a stock question, and the third is Touch Shop's products, the
- * one /stock screen people went looking for on the rail and could not find.
- * On /stock/products only the Shop row lights (activeNavItem).
+ * but answers a stock question, and the third opens the Touch Shop desk's own
+ * workspace (0243–0246), whose stock is its own.
  */
 const OWNER_STOCK: readonly NavItem[] = [
   { to: '/stock', labelKey: 'inventory', icon: 'package', activePrefix: '/stock' },
   { to: '/reports/stock', labelKey: 'stockValue', icon: 'chart' },
-  { to: '/stock/products', labelKey: 'shop', icon: 'tag' },
+  { to: '/shop', labelKey: 'shop', icon: 'tag' },
 ];
 
 const OWNER_SETUP: readonly NavItem[] = [
@@ -326,6 +326,23 @@ const OWNER_SETUP: readonly NavItem[] = [
   { to: '/admin/qr', labelKey: 'tables', icon: 'qr' },
   { to: '/admin/settings', labelKey: 'settings', icon: 'settings', activePrefix: '/admin/settings' },
   { to: '/admin/hero', labelKey: 'guestSite', icon: 'globe', activePrefix: '/admin/hero' },
+];
+
+/**
+ * SHOP — the Touch Shop's own desk (docs/design/shop/shop-desk-2026-09-27.md):
+ * its own PC, till, drawer, stock store, products and suppliers, and nothing
+ * of the café. The shop assistant holds only this; management opens it from
+ * the Shop row on its own rail.
+ */
+const SHOP: readonly NavItem[] = [
+  { to: '/shop', labelKey: 'shopTill', icon: 'grid', exact: true },
+  { to: '/shop/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
+  { to: '/shop/stock', labelKey: 'shopStock', icon: 'package' },
+  { to: '/shop/receive', labelKey: 'shopReceive', icon: 'box' },
+  { to: '/shop/counts', labelKey: 'shopCounts', icon: 'scale' },
+  { to: '/shop/waste', labelKey: 'shopWaste', icon: 'ban' },
+  { to: '/shop/products', labelKey: 'shopProducts', icon: 'tag' },
+  { to: '/shop/suppliers', labelKey: 'shopSuppliers', icon: 'users' },
 ];
 
 /**
@@ -372,6 +389,7 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
     sections: OWNER_SECTIONS,
   },
   team: { key: 'team', home: '/tasks', icon: 'checkCircle', groups: [{ labelKey: null, items: TEAM }] },
+  shop: { key: 'shop', home: '/shop', icon: 'tag', groups: [{ labelKey: null, items: SHOP }] },
 };
 
 /** The workspaces a role may enter, own one first. */
@@ -394,10 +412,12 @@ export function workspacesForRole(role: StaffRole): readonly WorkspaceKey[] {
     case 'marketing':
     case 'waiter':
       return ['team'];
+    case 'shop_staff':
+      return ['shop'];
     case 'manager':
-      return ['manager', 'courtDesk', 'cashier', 'prep'];
+      return ['manager', 'courtDesk', 'cashier', 'prep', 'shop'];
     case 'owner':
-      return ['owner', 'manager', 'courtDesk', 'cashier', 'prep'];
+      return ['owner', 'manager', 'courtDesk', 'cashier', 'prep', 'shop'];
   }
 }
 
@@ -452,6 +472,7 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
   if (path === '/ops') return 'manager';
+  if (path === '/shop' || path.startsWith('/shop/')) return 'shop';
   // /tasks is not pinned: eight roles open it in their own workspace (the
   // desk's and the till's rail row, the kitchen board's My tasks), and only
   // driver and marketing hold the team workspace.

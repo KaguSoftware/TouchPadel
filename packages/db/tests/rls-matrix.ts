@@ -3488,10 +3488,8 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'staff_stock_view',
     args: { p_venue_id: VENUE_A, p_kind: 'matrix-never' },
-    expect: ex<RpcExpectation>('guarded', {
-      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
-    }),
-    note: 'the head barista and the head chef (not in this matrix), the court desk and MGMT at the venue: quantities only, no cost; an unknown kind fails INVALID_ARGUMENT past the guard',
+    expect: MANAGER_UP,
+    note: 'the head barista, the head chef, the waiter and the shop assistant (not in this matrix) and MGMT at the venue: quantities only, no cost; the court desk lost its shop-stock view in 0245; an unknown kind fails INVALID_ARGUMENT past the guard',
     drop: 17,
   },
   // recipe_view (§2.24.6)
@@ -3896,8 +3894,8 @@ export const matrix: MatrixRule[] = [
   // stock_logs.
   {
     kind: 'rpc', schema: 'app', name: 'log_stock',
-    args: { p_location: 'matrix-never', p_lines: [], p_venue_id: VENUE_A }, expect: CASHIER_DESK_UP,
-    note: 'the heads (not in this matrix), the cashier, the desk and MGMT at the venue; an unknown store fails INVALID_ARGUMENT (hint location) past the guard',
+    args: { p_location: 'matrix-never', p_lines: [], p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    note: 'the heads and the shop assistant (not in this matrix), the cashier and MGMT at the venue (the desk until 0245); an unknown store fails INVALID_ARGUMENT (hint location) past the guard',
     drop: 18,
   },
   {
@@ -3909,14 +3907,14 @@ export const matrix: MatrixRule[] = [
   // stock_store_reads.
   {
     kind: 'rpc', schema: 'app', name: 'stock_pick_list',
-    args: { p_purpose: 'matrix-never', p_venue_id: VENUE_A }, expect: CASHIER_DESK_UP,
-    note: 'LOG, MOVE or COUNT at the venue (of these principals the cashier, the desk and MGMT); an unknown purpose fails INVALID_ARGUMENT (hint purpose) past the guard',
+    args: { p_purpose: 'matrix-never', p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    note: 'LOG, MOVE or COUNT at the venue (of these principals the cashier and MGMT; the desk until 0245); an unknown purpose fails INVALID_ARGUMENT (hint purpose) past the guard',
     drop: 18,
   },
   {
     kind: 'rpc', schema: 'app', name: 'stock_today',
-    args: { p_venue_id: VENUE_A }, expect: CASHIER_DESK_UP,
-    note: 'LOG, MOVE or COUNT at the venue: a read, each section only for its roles, no cost',
+    args: { p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    note: 'LOG, MOVE or COUNT at the venue: a read, each section only for its roles, no cost (the desk until 0245)',
     drop: 18,
   },
 
@@ -4258,5 +4256,17 @@ export const matrix: MatrixRule[] = [
     args: { p_payment_id: NIL_UUID, p_pin: MANAGER_PIN, p_note: 'matrix' }, expect: MANAGER_UP,
     note: 'the helper proves the PIN first (0115), then the role guard; an unknown payment is PAYMENT_NOT_FOUND before any grant is spent',
     drop: 21,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'upsert_shop_category',
+    args: { p_name_en: '', p_name_ar: '', p_tax_group_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0246: the shop assistant, manager or owner make or edit a shop section (shop_staff is not a matrix principal); a blank name fails INVALID_ARGUMENT past the guard',
+    drop: 22,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'day_close_shop',
+    args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0246: the day close Shop block for the shop assistant and MGMT; an unknown day fails DAY_NOT_FOUND past the guard',
+    drop: 22,
   },
 ];

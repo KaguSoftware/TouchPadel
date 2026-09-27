@@ -280,14 +280,14 @@ export function readShiftList(raw: unknown): ShiftList {
 // Who, where
 // ---------------------------------------------------------------------------
 
-export type StationMode = 'till' | 'desk' | 'kds';
+export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
 
 /**
- * A drawer exists at a till and at the court desk (Q28: the desk counts its own
- * cash box). The kitchen screen has none.
+ * A drawer exists at a till, at the court desk (Q28: the desk counts its own
+ * cash box) and at the shop desk (0244). The kitchen screen has none.
  */
 export function stationHasDrawer(mode: StationMode): boolean {
-  return mode === 'till' || mode === 'desk';
+  return mode === 'till' || mode === 'desk' || mode === 'shop';
 }
 
 export interface Holder {

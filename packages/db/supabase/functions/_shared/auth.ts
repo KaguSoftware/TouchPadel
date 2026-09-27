@@ -28,7 +28,9 @@ export type StaffRole =
   | 'marketing'
   // Wave 5 (wave5-addendum-2026-09-25 §2.1): the assistant barista and the waiter.
   | 'assistant_barista'
-  | 'waiter';
+  | 'waiter'
+  // Touch Shop own desk (0243).
+  | 'shop_staff';
 
 export interface StaffCaller {
   userId: string;

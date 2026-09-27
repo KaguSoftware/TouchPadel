@@ -29,9 +29,7 @@ type StockNavKey =
   | 'variance'
   | 'margins'
   | 'alerts'
-  | 'expiry'
-  | 'products'
-  | 'suppliers';
+  | 'expiry';
 
 /**
  * Grouped by how often staff come here, most often first. Alerts sat under
@@ -70,9 +68,7 @@ const STOCK_GROUPS: readonly {
     items: [
       { to: '/stock/ingredients', key: 'ingredients', icon: 'layers' },
       { to: '/stock/recipes', key: 'recipes', icon: 'fileText' },
-      // Touch Shop (0144/0145).
-      { to: '/stock/products', key: 'products', icon: 'tag' },
-      { to: '/stock/suppliers', key: 'suppliers', icon: 'users' },
+      // Touch Shop's products and suppliers moved to its own desk, /shop (0243–0246).
     ],
   },
 ];

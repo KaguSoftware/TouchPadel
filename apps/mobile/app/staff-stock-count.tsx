@@ -109,6 +109,7 @@ function CountScreen() {
   const [entries, setEntries] = useState<Record<StockLocation, Record<string, CountEntry>>>({
     cafe: {},
     bakery: {},
+    shop: {},
   });
   const [search, setSearch] = useState('');
   const [issues, setIssues] = useState<LineIssue[]>([]);

@@ -31,17 +31,22 @@ describe('workspacesForRole', () => {
     expect(workspacesForRole('marketing')).toEqual(['team']);
     expect(workspacesForRole('waiter')).toEqual(['team']);
   });
+  it('gives the shop assistant the Touch Shop desk and nothing of the café (0243)', () => {
+    expect(workspacesForRole('shop_staff')).toEqual(['shop']);
+    expect(defaultWorkspace('shop_staff')).toBe('shop');
+  });
   it('lets managers and owners enter every floor workspace, own one first', () => {
     expect(workspacesForRole('manager')[0]).toBe('manager');
     expect(workspacesForRole('owner')[0]).toBe('owner');
     expect(workspacesForRole('owner')).toContain('prep');
     expect(defaultWorkspace('owner')).toBe('owner');
   });
-  it('leaves the manager and owner lists as they were', () => {
+  it('leaves the manager and owner lists as they were, plus the shop desk last', () => {
     // The team workspace is not a floor workspace: its one screen is refused
-    // to both jokers (ROUTE_ROLES), so neither may switch into it.
-    expect(workspacesForRole('manager')).toEqual(['manager', 'courtDesk', 'cashier', 'prep']);
-    expect(workspacesForRole('owner')).toEqual(['owner', 'manager', 'courtDesk', 'cashier', 'prep']);
+    // to both jokers (ROUTE_ROLES), so neither may switch into it. The Touch
+    // Shop desk (0243) is one they open.
+    expect(workspacesForRole('manager')).toEqual(['manager', 'courtDesk', 'cashier', 'prep', 'shop']);
+    expect(workspacesForRole('owner')).toEqual(['owner', 'manager', 'courtDesk', 'cashier', 'prep', 'shop']);
   });
 });
 
@@ -63,6 +68,7 @@ describe('navigation sets', () => {
       manager: 'manager',
       owner: 'owner',
       team: 'driver',
+      shop: 'shop_staff',
     };
     for (const ws of Object.values(WORKSPACES)) {
       for (const item of workspaceItems(ws)) {
@@ -360,28 +366,45 @@ describe('menu editor tabs', () => {
   });
 });
 
-describe('Touch Shop rail row', () => {
+describe('Touch Shop desk (0243–0246)', () => {
   const ownerStock = WORKSPACES.owner.sections!.find((s) => s.key === 'stock')!;
   const managerRows = WORKSPACES.manager.groups.flatMap((g) => g.items);
 
-  it('gives owner and manager a Shop row that opens Shop products', () => {
-    expect(ownerStock.items.find((i) => i.labelKey === 'shop')?.to).toBe('/stock/products');
-    expect(managerRows.find((i) => i.labelKey === 'shop')?.to).toBe('/stock/products');
+  it('gives owner and manager a Shop row that opens the shop desk', () => {
+    expect(ownerStock.items.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
+    expect(managerRows.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
+    expect(workspaceForRoute('/shop')).toBe('shop');
+    expect(workspaceForRoute('/shop/products')).toBe('shop');
   });
 
-  it('lights only the Shop row on the shop, and Inventory everywhere else in /stock', () => {
-    const rows = sectionRailItems(ownerStock);
-    expect(activeNavItem(rows, '/stock/products')?.labelKey).toBe('shop');
-    expect(activeNavItem(rows, '/stock/products?x=1')?.labelKey).toBe('shop');
-    expect(activeNavItem(rows, '/stock/suppliers')?.labelKey).toBe('inventory');
-    expect(activeNavItem(rows, '/stock')?.labelKey).toBe('inventory');
-    expect(activeNavItem(rows, '/reports/stock')?.labelKey).toBe('stockValue');
-    expect(activeNavItem(rows, '/panel')).toBeNull();
+  it('is its own rail: sell, the drawer, the shop store and the products', () => {
+    expect(WORKSPACES.shop.home).toBe('/shop');
+    expect(WORKSPACES.shop.groups.flatMap((g) => g.items.map((i) => i.to))).toEqual([
+      '/shop', '/shop/drawer', '/shop/stock', '/shop/receive', '/shop/counts', '/shop/waste',
+      '/shop/products', '/shop/suppliers',
+    ]);
+    // Nothing of the café's till or stock.
+    for (const item of workspaceItems(WORKSPACES.shop)) {
+      expect(item.to.startsWith('/till') || item.to.startsWith('/stock'), item.to).toBe(false);
+    }
   });
 
-  it("does the same on the manager's rail", () => {
-    const run = WORKSPACES.manager.groups.find((g) => g.items.some((i) => i.labelKey === 'shop'))!.items;
-    expect(activeNavItem(run, '/stock/products')?.labelKey).toBe('shop');
-    expect(activeNavItem(run, '/stock/receive')?.labelKey).toBe('stock');
+  it('keeps the café cashier and the court desk out, and lets management in', () => {
+    for (const role of ['cashier', 'court_desk', 'prep', 'waiter'] as const) {
+      expect(canAccess(role, '/shop'), role).toBe(false);
+    }
+    for (const role of ['shop_staff', 'manager', 'owner'] as const) {
+      expect(canAccess(role, '/shop'), role).toBe(true);
+      expect(canAccess(role, '/shop/products'), role).toBe(true);
+    }
+    expect(canAccess('shop_staff', '/till')).toBe(false);
+    expect(canAccess('shop_staff', '/stock')).toBe(false);
+  });
+
+  it('lights one row at a time on the shop rail', () => {
+    const rows = WORKSPACES.shop.groups.flatMap((g) => g.items);
+    expect(activeNavItem(rows, '/shop')?.labelKey).toBe('shopTill');
+    expect(activeNavItem(rows, '/shop/products')?.labelKey).toBe('shopProducts');
+    expect(activeNavItem(rows, '/shop/drawer')?.labelKey).toBe('cashDrawer');
   });
 });

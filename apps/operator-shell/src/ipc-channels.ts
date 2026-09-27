@@ -210,9 +210,10 @@ export type Role =
   | 'driver'
   | 'marketing'
   | 'assistant_barista'
-  | 'waiter';
+  | 'waiter'
+  | 'shop_staff';
 
-export type StationMode = 'till' | 'desk' | 'kds';
+export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
 
 export interface StationInfo {
   stationId: string;

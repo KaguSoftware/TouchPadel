@@ -1,6 +1,8 @@
 /**
- * The venue's two stores, the cafe and the bakery, and who may do what with
- * them (docs/design/protocols/wave5-addendum-2026-09-25.md §2.8).
+ * The venue's stores, the cafe, the bakery and (0245) the Touch Shop's own
+ * store, and who may do what with them
+ * (docs/design/protocols/wave5-addendum-2026-09-25.md §2.8;
+ * docs/design/shop/shop-desk-2026-09-27.md).
  *
  * The rules live in the database (the stock_locations … stock_store_reads
  * migrations). This file mirrors them so the operator's Stock pages and the
@@ -14,7 +16,7 @@
 import type { StaffRole } from './roles';
 
 /** Every value of the `stock_location` enum, in the enum's own order. */
-export const STOCK_LOCATIONS = ['cafe', 'bakery'] as const;
+export const STOCK_LOCATIONS = ['cafe', 'bakery', 'shop'] as const;
 
 export type StockLocation = (typeof STOCK_LOCATIONS)[number];
 
@@ -28,8 +30,15 @@ export function isStockLocation(value: unknown): value is StockLocation {
   return typeof value === 'string' && LOCATIONS.includes(value);
 }
 
-/** The store that is not this one. */
+/**
+ * The stores stock moves between (app.transfer_stock): the cafe and the
+ * bakery. Nothing moves in or out of the shop store (0245).
+ */
+export const MOVABLE_STORES: readonly StockLocation[] = ['cafe', 'bakery'];
+
+/** The other movable store: cafe and bakery swap; the shop store has no other. */
 export function otherStore(location: StockLocation): StockLocation {
+  if (location === 'shop') return 'shop';
   return location === 'cafe' ? 'bakery' : 'cafe';
 }
 
@@ -37,15 +46,15 @@ export function otherStore(location: StockLocation): StockLocation {
 export const MOVE_ROLES: readonly StaffRole[] = ['waiter', 'manager', 'owner'];
 
 /** Add stock to a store: app.log_stock's guard (LOG). */
-export const LOG_ROLES: readonly StaffRole[] = ['head_barista', 'head_chef', 'cashier', 'court_desk', 'manager', 'owner'];
+export const LOG_ROLES: readonly StaffRole[] = ['head_barista', 'head_chef', 'cashier', 'shop_staff', 'manager', 'owner'];
 
 /** Count a store on the phone: app.submit_stock_count's guard (COUNT). */
-export const COUNT_ROLES: readonly StaffRole[] = ['head_chef', 'chef', 'manager', 'owner'];
+export const COUNT_ROLES: readonly StaffRole[] = ['head_chef', 'chef', 'shop_staff', 'manager', 'owner'];
 
 /** Read stock by quantity: app.staff_stock_view's guard (STOCK_VIEW). */
-export const STOCK_VIEW_ROLES: readonly StaffRole[] = ['head_barista', 'head_chef', 'court_desk', 'waiter', 'manager', 'owner'];
+export const STOCK_VIEW_ROLES: readonly StaffRole[] = ['head_barista', 'head_chef', 'shop_staff', 'waiter', 'manager', 'owner'];
 
-/** What moves between the stores. Shop stock lives in the cafe only, so it never moves. */
+/** What moves between the stores. Shop stock lives in the shop store only, so it never moves. */
 export const MOVE_KINDS: readonly StockKind[] = ['purchased', 'prepared'];
 
 const has = (list: readonly StaffRole[], role: StaffRole | null | undefined): boolean =>
@@ -53,55 +62,65 @@ const has = (list: readonly StaffRole[], role: StaffRole | null | undefined): bo
 
 /**
  * A role's home store (app.staff_home_location): the bakery for the kitchen,
- * the cafe for everyone else. The default store for a log, a count, waste and
- * a product test.
+ * the shop store for the shop assistant, the cafe for everyone else. The
+ * default store for a log, a count, waste and a product test.
  */
 export function homeStore(role: StaffRole | null | undefined): StockLocation {
-  return role === 'head_chef' || role === 'chef' ? 'bakery' : 'cafe';
+  if (role === 'head_chef' || role === 'chef') return 'bakery';
+  if (role === 'shop_staff') return 'shop';
+  return 'cafe';
 }
 
 /**
- * What a role may log (app.log_stock). The heads log what they buy, the desk
- * the shop's stock, the cashier and MGMT both. Prepared stock is never logged:
- * it comes from production.
+ * What a role may log (app.log_stock). The heads and the cashier log what they
+ * buy, the shop assistant the shop's stock, MGMT both. Prepared stock is never
+ * logged: it comes from production.
  */
 export function logKindsFor(role: StaffRole | null | undefined): readonly StockKind[] {
   if (!has(LOG_ROLES, role)) return [];
-  if (role === 'head_barista' || role === 'head_chef') return ['purchased'];
-  if (role === 'court_desk') return ['retail'];
+  if (role === 'head_barista' || role === 'head_chef' || role === 'cashier') return ['purchased'];
+  if (role === 'shop_staff') return ['retail'];
   return ['purchased', 'retail'];
 }
 
 /**
  * The stores a role may log into, the default first. Shop stock goes to the
- * cafe only, for everyone (V14), and the desk logs nothing else. Pass the kind
- * of the line being logged; without it, the stores the role may use at all.
+ * shop store only and nothing else goes there (0245); the shop assistant logs
+ * nothing else. Pass the kind of the line being logged; without it, the stores
+ * the role may use at all.
  */
 export function logStoresFor(role: StaffRole | null | undefined, kind?: StockKind): readonly StockLocation[] {
   const kinds = logKindsFor(role);
   if (kinds.length === 0) return [];
   if (kind !== undefined && !kinds.includes(kind)) return [];
-  if (kind === 'retail' || role === 'court_desk') return ['cafe'];
+  if (kind === 'retail' || role === 'shop_staff') return ['shop'];
   const home = homeStore(role);
-  return [home, otherStore(home)];
+  const stores: StockLocation[] = [home, otherStore(home)];
+  if (kind === undefined && kinds.includes('retail')) stores.push('shop');
+  return stores;
 }
 
-/** The stores a role may count (app.submit_stock_count): the kitchen the bakery only. */
+/**
+ * The stores a role may count (app.submit_stock_count): the kitchen the
+ * bakery only, the shop assistant the shop store only, MGMT all three.
+ */
 export function countStoresFor(role: StaffRole | null | undefined): readonly StockLocation[] {
   if (!has(COUNT_ROLES, role)) return [];
-  return role === 'head_chef' || role === 'chef' ? ['bakery'] : ['cafe', 'bakery'];
+  if (role === 'head_chef' || role === 'chef') return ['bakery'];
+  if (role === 'shop_staff') return ['shop'];
+  return ['cafe', 'bakery', 'shop'];
 }
 
-/** The kinds a store's count lists: shop stock is counted in the cafe only. */
+/** The kinds a store's count lists: the shop store holds shop stock only, and only it does (0245). */
 export function countKindsFor(location: StockLocation): readonly StockKind[] {
-  return location === 'cafe' ? ['purchased', 'prepared', 'retail'] : ['purchased', 'prepared'];
+  return location === 'shop' ? ['retail'] : ['purchased', 'prepared'];
 }
 
 /** The kinds a role sees on the stock page (app.staff_stock_view). */
 export function stockViewKindsFor(role: StaffRole | null | undefined): readonly StockKind[] {
   if (!has(STOCK_VIEW_ROLES, role)) return [];
   if (role === 'manager' || role === 'owner') return ['purchased', 'prepared', 'retail'];
-  if (role === 'court_desk') return ['retail'];
+  if (role === 'shop_staff') return ['retail'];
   return ['purchased', 'prepared'];
 }
 

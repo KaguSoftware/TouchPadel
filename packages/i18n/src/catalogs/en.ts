@@ -1152,6 +1152,8 @@ export const en = {
       // Wave 5 (wave5-addendum-2026-09-25 §4.2).
       assistant_barista: 'Assistant barista',
       waiter: 'Waiter',
+      // Touch Shop own desk (0243).
+      shop_staff: 'Shop assistant',
     },
     days: {
       sun: 'Sun',
@@ -1962,6 +1964,10 @@ export const en = {
       LABEL_REQUIRED: 'A counter sale needs a name or a number.',
       MIXED_BASKET: 'Café items and shop items go out as two orders. Send again.',
       SHOP_ITEM_NOT_ORDERABLE: 'Shop items are sold at the counter, not from the table.',
+      TAB_KIND_FORBIDDEN: 'This sale belongs to the other till: shop sales are rung up at the shop desk, café bills at the café till.',
+      TAB_KIND_MISMATCH: 'Shop items and café items never go on the same bill.',
+      SHOP_TAB_NO_ANCHOR: 'A shop sale is paid at the shop desk; it never goes on a table or a booking.',
+      DAY_NOT_FOUND: 'That day could not be found at this branch.',
       NOT_MOVABLE: 'This reservation can no longer be moved.',
       RESERVATION_IN_PAST: 'A booking cannot be moved to a time that has already passed.',
       NOT_EXTENDABLE: 'This reservation can no longer be extended.',

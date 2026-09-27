@@ -114,7 +114,7 @@ export function shouldShowTrafficLights(chrome: {
   platform: NodeJS.Platform;
   isDev: boolean;
   configured: boolean;
-  mode: 'till' | 'desk' | 'kds';
+  mode: 'till' | 'desk' | 'kds' | 'shop';
 }): boolean {
   return chrome.platform === 'darwin';
 }

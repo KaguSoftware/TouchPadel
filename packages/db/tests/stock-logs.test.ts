@@ -16,8 +16,11 @@
  *   * I13 price_logged_stock revalues the line, its batch and its moved
  *         copies, not the movements already booked, and never touches a
  *         Goods in delivery (REF_NOT_FOUND hint delivery);
- *   * I16 shop stock never enters the bakery: a log, Goods in and a driver
- *         receipt all refuse it and write nothing;
+ *   * I16 shop stock enters the shop store only (0245): a log, Goods in and a
+ *         driver receipt into the bakery or the cafe all refuse it and write
+ *         nothing; the shop assistant logs shop stock into the shop store and
+ *         nothing else, the cashier logs purchased stock only, and the court
+ *         desk logs nothing any more;
  *   * V19 a log or a Goods in receipt into a store a manager is counting is
  *         STORE_BEING_COUNTED;
  *   * the audit carries counts only; barista, chef, waiter, assistant
@@ -81,7 +84,7 @@ interface Logged {
 describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
   it('each role logs its kinds into its stores, costed by estimate, and sees no cost (I11, I12, I15)', () => {
     const r = run([
-      MK('hb', 'head_barista'), MK('hc', 'head_chef'),
+      MK('hb', 'head_barista'), MK('hc', 'head_chef'), MK('shop', 'shop_staff'),
       ING('beans', 'purchased', 'g', { packSize: 1000, packCost: 25000 }),
       ING('milk', 'purchased', 'ml'),
       ING('sugar', 'purchased', 'g', { packSize: 1000, packCost: 9000 }),
@@ -118,16 +121,23 @@ describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
                    where action = 'stock.log' and entity_id = {{d_hb}}`),
       T('hc', 'hc', log(null, ONE('milk', 100))),
       T('hc_cafe', 'hc', log(`cafe`, ONE('milk', 10))),
-      T('cashier', 'cashier', log(null, ONE('ball', 6))),
+      T('cashier', 'cashier', log(null, ONE('milk', 6))),
       T('cashier_bak', 'cashier', log('bakery', ONE('beans', 1))),
-      T('desk', 'desk', log(null, ONE('ball', 3))),
-      T('mgr', 'manager', log(null, `jsonb_build_array(jsonb_build_object('ingredient_id', {{ball}}, 'qty', 1),
+      // 0245: the shop assistant takes the court desk's place, at the shop store.
+      T('shop', 'shop', log(null, ONE('ball', 3))),
+      T('mgr', 'manager', log(null, `jsonb_build_array(jsonb_build_object('ingredient_id', {{milk}}, 'qty', 1),
                                                        jsonb_build_object('ingredient_id', {{beans}}, 'qty', 1))`)),
-      T('desk_bak', 'desk', log('bakery', ONE('ball', 3))),
-      T('desk_beans', 'desk', log(null, ONE('beans', 1))),
+      T('mgr_shop', 'manager', log('shop', ONE('ball', 1))),
+      T('shop_bak', 'shop', log('bakery', ONE('ball', 3))),
+      T('shop_cafe', 'shop', log('cafe', ONE('ball', 3))),
+      T('shop_beans', 'shop', log(null, ONE('beans', 1))),
+      T('desk', 'desk', log(null, ONE('ball', 3))),
       T('hb_ball', 'hb', log(null, ONE('ball', 1))),
+      T('cashier_ball', 'cashier', log(null, ONE('ball', 6))),
       T('cashier_ball_bak', 'cashier', log('bakery', ONE('ball', 6))),
       T('mgr_ball_bak', 'manager', log('bakery', ONE('ball', 1))),
+      T('mgr_ball_cafe', 'manager', log('cafe', ONE('ball', 1))),
+      T('mgr_beans_shop', 'manager', log('shop', ONE('beans', 1))),
       T('prepared', 'manager', log(null, ONE('dough', 1))),
     ]);
     const hb = ok<Logged>(r, 'hb');
@@ -152,13 +162,17 @@ describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
     expect(ok<Logged>(r, 'hc_cafe').location).toBe('cafe');
     expect(ok<Logged>(r, 'cashier').location).toBe('cafe');
     expect(ok<Logged>(r, 'cashier_bak').location).toBe('bakery');
-    expect(ok<Logged>(r, 'desk').location).toBe('cafe');
+    expect(ok<Logged>(r, 'shop').location).toBe('shop');
     expect(ok<Logged>(r, 'mgr').lines).toHaveLength(2);
-    for (const label of ['hb', 'hc', 'hc_cafe', 'cashier', 'cashier_bak', 'desk', 'mgr']) {
+    expect(ok<Logged>(r, 'mgr_shop').location).toBe('shop');
+    for (const label of ['hb', 'hc', 'hc_cafe', 'cashier', 'cashier_bak', 'shop', 'mgr', 'mgr_shop']) {
       expect(moneyKeys(ok(r, label)), label).toEqual([]);
     }
-    expect(refused(r, 'desk_bak')).toBe('FORBIDDEN:location');
-    for (const label of ['desk_beans', 'hb_ball', 'cashier_ball_bak', 'mgr_ball_bak', 'prepared']) {
+    expect(refused(r, 'shop_bak')).toBe('FORBIDDEN:location');
+    expect(refused(r, 'shop_cafe')).toBe('FORBIDDEN:location');
+    expect(refused(r, 'desk')).toBe('FORBIDDEN');
+    for (const label of ['shop_beans', 'hb_ball', 'cashier_ball', 'cashier_ball_bak', 'mgr_ball_bak',
+                         'mgr_ball_cafe', 'mgr_beans_shop', 'prepared']) {
       expect(refused(r, label), label).toBe('INVALID_ARGUMENT:kind');
     }
   });
@@ -286,7 +300,7 @@ describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
     for (const who of ['hb', 'wtr', 'cashier', 'desk']) expect(refused(r, `deny_${who}`), who).toBe('FORBIDDEN');
   });
 
-  it('shop stock never enters the bakery: a log, Goods in and a driver receipt refuse it and write nothing (I16)', () => {
+  it('shop stock enters the shop store only: a log, Goods in and a driver receipt elsewhere refuse it and write nothing (I16)', () => {
     const r = run([
       MK('drv', 'driver'),
       ING('ball', 'retail', 'pc'),
@@ -306,14 +320,17 @@ describe.skipIf(!docker)('stores: logs (rolled-back transactions)', () => {
       T('driver_cafe', 'manager', `select app.receive_purchase({{purchase}}::uuid,
                                      jsonb_build_array(jsonb_build_object('purchase_line_id', {{pline}}, 'qty_received', 3)),
                                      null, null, null, 'cafe')`),
+      T('driver_shop', 'manager', `select app.receive_purchase({{purchase}}::uuid,
+                                     jsonb_build_array(jsonb_build_object('purchase_line_id', {{pline}}, 'qty_received', 3)),
+                                     null, null, null, 'shop')`),
       Q('received', `select jsonb_build_array((select location from stock_batches where ingredient_id = {{ball}}::uuid),
                                               (select after->>'location' from audit_log where action = 'purchase.receive'
                                                   and entity_id = {{purchase}}))`),
     ]);
-    for (const label of ['log', 'gi', 'driver']) expect(refused(r, label), label).toBe('INVALID_ARGUMENT:kind');
+    for (const label of ['log', 'gi', 'driver', 'driver_cafe']) expect(refused(r, label), label).toBe('INVALID_ARGUMENT:kind');
     expect(ok(r, 'written')).toEqual([0, 0, 'to_receive']);
-    ok(r, 'driver_cafe');
-    expect(ok(r, 'received')).toEqual(['cafe', 'cafe']);
+    ok(r, 'driver_shop');
+    expect(ok(r, 'received')).toEqual(['shop', 'shop']);
   });
 
   it('a log or a Goods in receipt into a store a manager is counting is refused (V19)', () => {

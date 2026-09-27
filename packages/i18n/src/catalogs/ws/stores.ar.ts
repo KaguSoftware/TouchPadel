@@ -7,6 +7,7 @@ export const storesAr: DeepMessages<typeof storesEn> = {
   inSentence: {
     cafe: 'مخزن المقهى',
     bakery: 'مخزن المخبز',
+    shop: 'مخزن المتجر',
   },
   picker: {
     putIn: 'أدخِله إلى',
@@ -41,10 +42,12 @@ export const storesAr: DeepMessages<typeof storesEn> = {
     moved: {
       cafe: 'نُقل إلى مخزن المقهى.',
       bakery: 'نُقل إلى مخزن المخبز.',
+      shop: 'نُقل إلى مخزن المتجر.',
     },
     nothingAt: {
       cafe: 'لا شيء مسجّل في مخزن المقهى',
       bakery: 'لا شيء مسجّل في مخزن المخبز',
+      shop: 'لا شيء مسجّل في مخزن المتجر',
     },
     nothingAtBody: 'يدخل المخزون عبر استلام البضائع والإنتاج وما يضيفه الموظفون من الهاتف. سجّله هناك أولًا.',
     openGoodsIn: 'افتح استلام البضائع',
@@ -127,6 +130,7 @@ export const storesAr: DeepMessages<typeof storesEn> = {
     split: {
       cafe: 'مخزن المقهى {qty}',
       bakery: 'مخزن المخبز {qty}',
+      shop: 'مخزن المتجر {qty}',
     },
     storeFilter: 'المخزن',
     bothStores: 'المخزنان',
@@ -143,6 +147,7 @@ export const storesAr: DeepMessages<typeof storesEn> = {
     onHandAt: {
       cafe: 'في مخزن المقهى: {qty}',
       bakery: 'في مخزن المخبز: {qty}',
+      shop: 'في مخزن المتجر: {qty}',
     },
     productionHint: 'تُؤخذ مكوّناته من هذا المخزن أولًا ثم من الآخر، وتدخل الدفعة إلى هذا المخزن.',
   },
@@ -151,10 +156,12 @@ export const storesAr: DeepMessages<typeof storesEn> = {
     to: {
       cafe: 'إلى مخزن المقهى',
       bakery: 'إلى مخزن المخبز',
+      shop: 'إلى مخزن المتجر',
     },
     from: {
       cafe: 'من مخزن المقهى',
       bakery: 'من مخزن المخبز',
+      shop: 'من مخزن المتجر',
     },
   },
   variance: {
@@ -168,6 +175,7 @@ export const storesAr: DeepMessages<typeof storesEn> = {
     negativeAt: {
       cafe: 'بيع {qty} أكثر من المسجّل، في مخزن المقهى',
       bakery: 'بيع {qty} أكثر من المسجّل، في مخزن المخبز',
+      shop: 'بيع {qty} أكثر من المسجّل، في مخزن المتجر',
     },
   },
   store: 'المخزن',
@@ -186,12 +194,14 @@ export const storesAr: DeepMessages<typeof storesEn> = {
     added: {
       cafe: 'أُضيف إلى مخزن المقهى',
       bakery: 'أُضيف إلى مخزن المخبز',
+      shop: 'أُضيف إلى مخزن المتجر',
     },
     goodsIn: 'استلام البضائع',
     driverWaiting: 'شحنات السائق بانتظار مدير: {count}. لا تُضِفها من الهاتف.',
     counted: {
       cafe: 'جرد مخزن المقهى',
       bakery: 'جرد مخزن المخبز',
+      shop: 'جرد مخزن المتجر',
     },
     countStatus: {
       waiting: 'بانتظار مدير',

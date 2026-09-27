@@ -28,7 +28,6 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { can, useAuth } from '../../../lib/auth';
@@ -54,6 +53,7 @@ import { Icon } from '../../../components/icons';
 import { PriceChangeButton, PriceLockNote, usePriceChangeStart } from '../../admin/promotions/PriceChangeStart';
 import { isRenameRefusal } from '../../admin/addons/addonsLogic';
 import { useStockFormat } from '../stockUi';
+import { ShopSectionDialog } from '../../shop/ShopSectionDialog';
 import {
   SK,
   fetchIngredients,
@@ -83,12 +83,13 @@ type Editing =
 export function ProductsAdmin() {
   const { tr, locale } = useLocale();
   const fmt = useStockFormat();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { staff } = useAuth();
   const caps: Caps = { editLaunchedPrices: can(staff?.role, 'editLaunchedPrices'), launchDirectly: can(staff?.role, 'launchDirectly') };
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
+  // 0246: the shop's sections are made here, never in the café's menu editor.
+  const [newSection, setNewSection] = useState(false);
 
   const catalogueQ = useQuery({ queryKey: SK.products, queryFn: fetchShopCatalogue });
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
@@ -186,9 +187,14 @@ export function ProductsAdmin() {
         title={tr('op.stockNav.products')}
         subtitle={tr('ws.manager.stock.products.lead')}
         actions={
-          <Button kind="primary" icon="plus" disabled={sections.length === 0} disabledReason={tr('ws.manager.stock.products.needSection')} onClick={() => setEditing({ mode: 'newProduct' })}>
-            {tr('ws.manager.stock.products.add')}
-          </Button>
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+            <Button icon="plus" onClick={() => setNewSection(true)} data-testid="shop-section-add">
+              {tr('ws.shop.sections.add')}
+            </Button>
+            <Button kind="primary" icon="plus" disabled={sections.length === 0} disabledReason={tr('ws.manager.stock.products.needSection')} onClick={() => setEditing({ mode: 'newProduct' })}>
+              {tr('ws.manager.stock.products.add')}
+            </Button>
+          </span>
         }
       >
         {!caps.launchDirectly && <PriceLockNote message={tr('ws.pricing.products.note')} />}
@@ -202,11 +208,11 @@ export function ProductsAdmin() {
           noSections ? (
             <EmptyState
               icon="tag"
-              title={tr('ws.manager.stock.products.noSections')}
-              body={tr('ws.manager.stock.products.noSectionsBody')}
+              title={tr('ws.shop.sections.empty')}
+              body={tr('ws.shop.sections.emptyBody')}
               action={
-                <Button kind="primary" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/admin/categories' })}>
-                  {tr('ws.manager.stock.products.openSections')}
+                <Button kind="primary" icon="plus" onClick={() => setNewSection(true)}>
+                  {tr('ws.shop.sections.add')}
                 </Button>
               }
             />
@@ -259,6 +265,7 @@ export function ProductsAdmin() {
           onCancel={() => setEditing(null)}
         />
       )}
+      {newSection && <ShopSectionDialog onClose={() => setNewSection(false)} />}
     </div>
   );
 }

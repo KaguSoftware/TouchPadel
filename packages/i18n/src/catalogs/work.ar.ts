@@ -134,6 +134,7 @@ export const workAr: DeepMessages<typeof workEn> = {
   store: {
     cafe: 'مخزن المقهى',
     bakery: 'مخزن المخبز',
+    shop: 'مخزن المتجر',
   },
   deduction: {
     status: {

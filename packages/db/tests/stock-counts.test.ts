@@ -63,7 +63,8 @@ describe.skipIf(!docker)('stores: counts (rolled-back transactions)', () => {
       ING('far', 'purchased', 'g', { venue: OTHER_VENUE }),
       BATCH('b_cafe', 'beans', 'cafe', 1000, 20, null, 4 * DAY),
       BATCH('b_bak', 'beans', 'bakery', 500, 20, null, 3 * DAY),
-      BATCH('ball_cafe', 'ball', 'cafe', 12, 9000, null, 3 * DAY),
+      // 0245: shop stock lives in the shop store, so neither the bakery nor the cafe count lists it.
+      BATCH('ball_shop', 'ball', 'shop', 12, 9000, null, 3 * DAY),
       // Waste before the last bakery count, which was two days ago.
       X(`update stock_batches set qty_remaining = qty_remaining - 5 where id = {{b_bak}}::uuid`),
       X(`insert into stock_movements (ingredient_id, batch_id, movement_type, qty_delta, unit_cost_iqd, reason_code, venue_id, at)
@@ -130,7 +131,7 @@ describe.skipIf(!docker)('stores: counts (rolled-back transactions)', () => {
     expect(refused(r, 'bad_loc')).toBe('INVALID_ARGUMENT:location');
     expect(refused(r, 'far_venue')).toBe('FORBIDDEN');
     // The bakery's ledger: 500 in, 5 and 20 wasted, 50 moved in.
-    expect(ok(r, 'lines')).toEqual({ beans: 525, ball: 0, far: 0, cafe_beans: 850, cafe_ball: 12, venues: 1 });
+    expect(ok(r, 'lines')).toEqual({ beans: 525, ball: 0, far: 0, cafe_beans: 850, cafe_ball: null, venues: 1 });
 
     expect(ok<{ adjusted_lines: number; location: string }>(r, 'fin')).toMatchObject({ adjusted_lines: 1, location: 'bakery' });
     // The shortage is drawn from the bakery only, oldest first: the moved-in

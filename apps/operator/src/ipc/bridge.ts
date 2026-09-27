@@ -133,9 +133,10 @@ export type Role =
   | 'driver'
   | 'marketing'
   | 'assistant_barista'
-  | 'waiter';
+  | 'waiter'
+  | 'shop_staff';
 
-export type StationMode = 'till' | 'desk' | 'kds';
+export type StationMode = 'till' | 'desk' | 'kds' | 'shop';
 
 /** What quitApp / exitFullscreen answer (ipc-channels.ts LeaveResult). */
 export type LeaveResult = { ok: true } | { ok: false; error: string };

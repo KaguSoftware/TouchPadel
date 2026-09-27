@@ -19,6 +19,7 @@
  * total, so "one payment for court and cafe" reads as what it is. The receipt
  * document is built from this markup, so the line prints on paper as well.
  */
+import { useEffect, useRef } from 'react';
 import { formatIQD, formatTime } from '@touch/i18n';
 import { BRAND_FAMILY, fontFaceCssFrom } from '@touch/ui';
 // The two faces the receipt sets, carried as base64 rather than as a path — see
@@ -113,6 +114,7 @@ export function BillView({
   payments,
   taxInclusive,
   onClose,
+  autoPrint = false,
 }: {
   venueName: string;
   /** Table number, guest name or tab label — whatever identifies this bill. */
@@ -124,6 +126,8 @@ export function BillView({
   payments: readonly { id: string; method: string; amount_iqd: number }[];
   taxInclusive: boolean;
   onClose(): void;
+  /** Print once as it opens: the shop desk prints a receipt after every sale (0244). */
+  autoPrint?: boolean;
 }) {
   const { tr, locale, dir } = useLocale();
   const lines = orders
@@ -149,6 +153,15 @@ export function BillView({
     }
     window.print();
   }
+
+  // Once per bill: the ref keeps a re-render (a query refresh) from printing twice.
+  const printed = useRef(false);
+  useEffect(() => {
+    if (!autoPrint || printed.current) return;
+    printed.current = true;
+    void printBill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- printBill reads the rendered bill, once
+  }, [autoPrint]);
 
   return (
     <Modal title={tr('op.till.bill')} onClose={onClose}>

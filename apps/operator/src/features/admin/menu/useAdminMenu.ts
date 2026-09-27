@@ -121,9 +121,13 @@ export async function fetchAdminMenu(): Promise<AdminMenuData> {
     supabase.from('menu_item_costs').select('item_id, cost_iqd'),
   ]);
   for (const r of [cats, items, groups, mods, taxes, costs]) if (r.error) throw r.error;
+  // The café's menu only: Touch Shop's sections and products are kept at its
+  // own desk (/shop/products, 0243–0246), never in this editor.
+  const categories = ((cats.data ?? []) as unknown as CategoryRow[]).filter((c) => c.kind !== 'shop');
+  const cafeIds = new Set(categories.map((c) => c.id));
   return {
-    categories: (cats.data ?? []) as unknown as CategoryRow[],
-    items: (items.data ?? []) as unknown as ItemRow[],
+    categories,
+    items: ((items.data ?? []) as unknown as ItemRow[]).filter((i) => cafeIds.has(i.category_id)),
     groups: (groups.data ?? []) as unknown as GroupRow[],
     modifiers: (mods.data ?? []) as unknown as ModifierRow[],
     taxGroups: (taxes.data ?? []) as unknown as TaxGroupRow[],

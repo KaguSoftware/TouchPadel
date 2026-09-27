@@ -238,7 +238,7 @@ export const ING = (name: string, kind: 'purchased' | 'prepared' | 'retail', uni
   `${o.packCost ?? 'null'}, ${o.threshold ?? 'null'});`;
 
 /** A live batch at a store, received `ageMinutes` ago, expiring in `expiryDays` (null: no expiry). */
-export const BATCH = (label: string, ing: string, location: 'cafe' | 'bakery', qty: number, cost: number,
+export const BATCH = (label: string, ing: string, location: 'cafe' | 'bakery' | 'shop', qty: number, cost: number,
                       expiryDays: number | null = null, ageMinutes = 60) =>
   `select pg_temp.batch('${label}', '${ing}', '${location}', ${qty}, ${cost}, ${expiryDays ?? 'null'}, ${ageMinutes});`;
 

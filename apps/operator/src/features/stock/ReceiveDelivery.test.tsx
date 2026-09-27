@@ -6,9 +6,10 @@ import { LocaleProvider } from '../../lib/i18n';
 import type * as StockKeysModule from './stockKeys';
 
 // Goods in ▸ "Put it in: Cafe store / Bakery store" (wave5-addendum-2026-09-25
-// §2.8.2 D4, §5.2, V14, M5): every delivery names its store, the cafe store by
-// default; shop stock never goes into the bakery store; and a store a manager
-// is counting takes no delivery, said before the delivery is typed.
+// §2.8.2 D4, §5.2, M5): every delivery names its store, the cafe store by
+// default; a store a manager is counting takes no delivery, said before the
+// delivery is typed. Since 0245 shop stock is received at the shop desk, into
+// the shop store only: the café's Goods in never lists it.
 
 const data = vi.hoisted(() => ({ counts: [] as unknown[] }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn(), useSearch: () => ({}) }));
@@ -47,15 +48,18 @@ vi.mock('./stockKeys', async (importOriginal) => {
 
 import { appRpc } from '../../lib/appRpc';
 import { ReceiveDelivery } from './ReceiveDelivery';
+import { StockScopeProvider } from './stockScope';
 
 const rpc = vi.mocked(appRpc);
 
-function mount() {
+function mount(scope: 'venue' | 'shop' = 'venue') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <LocaleProvider>
-        <ReceiveDelivery />
+        <StockScopeProvider scope={scope}>
+          <ReceiveDelivery />
+        </StockScopeProvider>
       </LocaleProvider>
     </QueryClientProvider>,
   );
@@ -89,23 +93,37 @@ describe('Goods in ▸ the store', () => {
     expect(rpc.mock.calls.find(([fn]) => fn === 'receive_delivery')![1]).toMatchObject({ p_location: 'bakery' });
   });
 
-  it('keeps the bakery store off while a shop product is on the delivery, and says why', async () => {
-    const user = userEvent.setup();
-    mount();
-    await chooseIngredient(user, /Water bottle$/);
-    expect(storeButton('Bakery store').disabled).toBe(true);
-    expect(within(screen.getByTestId('goods-in-store')).getByText(/Shop stock stays in the cafe store/)).toBeTruthy();
-  });
-
-  it('leaves the shop’s products out of the list while the bakery store is picked', async () => {
+  it('never lists the shop’s products on the café’s Goods in, in either store (0245)', async () => {
     const user = userEvent.setup();
     mount();
     await screen.findByTestId('goods-in-store');
-    await user.click(storeButton('Bakery store'));
+    expect(within(screen.getByTestId('goods-in-store')).queryByRole('button', { name: 'Shop store' })).toBeNull();
+    for (const store of ['Cafe store', 'Bakery store']) {
+      await user.click(storeButton(store));
+      await user.click(await screen.findByRole('combobox', { name: 'Ingredient' }));
+      const list = within(screen.getByRole('listbox'));
+      expect(list.getByRole('option', { name: /Flour$/ })).toBeTruthy();
+      expect(list.queryByRole('option', { name: /Water bottle$/ })).toBeNull();
+      await user.keyboard('{Escape}');
+    }
+  });
+
+  it('receives the shop desk’s deliveries into the shop store, shop stock only, with no store to pick', async () => {
+    const user = userEvent.setup();
+    mount('shop');
     await user.click(await screen.findByRole('combobox', { name: 'Ingredient' }));
     const list = within(screen.getByRole('listbox'));
-    expect(list.getByRole('option', { name: /Flour$/ })).toBeTruthy();
-    expect(list.queryByRole('option', { name: /Water bottle$/ })).toBeNull();
+    expect(list.getByRole('option', { name: /Water bottle$/ })).toBeTruthy();
+    expect(list.queryByRole('option', { name: /Flour$/ })).toBeNull();
+    await user.click(list.getByRole('option', { name: /Water bottle$/ }));
+    expect(screen.queryByTestId('goods-in-store')).toBeNull();
+    await user.type(screen.getByRole('textbox', { name: /^Received/ }), '12');
+    await user.type(screen.getByRole('textbox', { name: /^Cost per/ }), '500');
+    await user.click(screen.getByRole('button', { name: 'Record delivery' }));
+    await waitFor(() => expect(rpc.mock.calls.some(([fn]) => fn === 'receive_delivery')).toBe(true));
+    expect(rpc.mock.calls.find(([fn]) => fn === 'receive_delivery')![1]).toMatchObject({ p_location: 'shop' });
+    // The café's receipts, driver purchases and staff additions are not the shop desk's.
+    expect(rpc.mock.calls.some(([fn]) => fn === 'purchases_to_receive')).toBe(false);
   });
 
   it('holds Record while a manager counts the store, before the delivery is typed', async () => {

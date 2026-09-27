@@ -57,7 +57,7 @@ export const UNCONFIGURED_STATION_ID = 'UNCONFIGURED';
 const DEV_DEFAULTS = { stationId: UNCONFIGURED_STATION_ID, mode: 'till' as StationMode };
 
 /** Modes a station.json may declare. Anything else is a broken install. */
-const MODES: readonly StationMode[] = ['till', 'desk', 'kds'];
+const MODES: readonly StationMode[] = ['till', 'desk', 'kds', 'shop'];
 
 let cached: StationConfig | null = null;
 

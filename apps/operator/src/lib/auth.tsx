@@ -232,6 +232,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // assistant barista (wave 5 §2.1) works the bar's tickets here too.
   '/kds': ['prep', 'head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
+  // Touch Shop's own desk (0243–0246): the shop assistant works here and
+  // nowhere else; management opens it too.
+  '/shop': ['shop_staff', 'manager', 'owner'],
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
   '/admin/staff': ['owner'],
@@ -307,6 +310,16 @@ export const SUB_ROUTES = {
     '/admin/branches',
     '/admin/audit',
   ],
+  // The shop desk's pages (0243–0246), in rail order.
+  '/shop': [
+    '/shop/drawer',
+    '/shop/stock',
+    '/shop/receive',
+    '/shop/counts',
+    '/shop/waste',
+    '/shop/products',
+    '/shop/suppliers',
+  ],
   '/stock': [
     '/stock/ingredients',
     '/stock/receive',
@@ -319,8 +332,6 @@ export const SUB_ROUTES = {
     '/stock/margins',
     '/stock/alerts',
     '/stock/expiry',
-    '/stock/products',
-    '/stock/suppliers',
   ],
 } as const satisfies Record<string, readonly string[]>;
 export type SubRoutePrefix = keyof typeof SUB_ROUTES;
@@ -398,16 +409,18 @@ export const CAPABILITY_ROLES = {
   startProtocolPriceChange: ['marketing', 'manager', 'owner'],
   /**
    * Edit a price already on sale directly: menu sizes, shop products, add-ons,
+   * (the shop assistant: shop products only, 0246 — the server scopes it and
+   * no café price screen is theirs),
    * and the hero's featured discount and Featured tile. Anyone else changes it
    * through a price or promo change (PRICE_VIA_PROTOCOL).
    */
-  editLaunchedPrices: ['owner'],
+  editLaunchedPrices: ['owner', 'shop_staff'],
   /**
    * Put something on sale without a protocol: a new cafe item, switching on a
    * never-launched item, a new shop product or paid add-on saved switched on
    * (ITEM_VIA_RELEASE, LAUNCH_VIA_PROTOCOL).
    */
-  launchDirectly: ['owner'],
+  launchDirectly: ['owner', 'shop_staff'],
 
   // The role spec (build-contracts-2026-09-23 §5.1, plan #61–#74).
   /** "Start a tournament" on /tasks: the court desk's plan waits for a manager (#67). */
@@ -439,15 +452,15 @@ export const CAPABILITY_ROLES = {
   readPurchases: ['driver', 'manager', 'owner'],
   /** A team's teachings (app.teachings_for_me, #64; the assistant barista's since wave 5). */
   readTeachings: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
-  /** Stock by quantity (app.staff_stock_view, #68): the heads' cafe, the desk's shop; the waiter's by store since wave 5. */
-  readStaffStock: ['head_barista', 'head_chef', 'court_desk', 'waiter', 'manager', 'owner'],
+  /** Stock by quantity (app.staff_stock_view, #68): the heads' cafe, the shop assistant's shop (the desk's until 0245); the waiter's by store since wave 5. */
+  readStaffStock: ['head_barista', 'head_chef', 'shop_staff', 'waiter', 'manager', 'owner'],
   /** Recipes by ingredient name (app.recipe_view, #72; the assistant barista's since wave 5). */
   readRecipes: ['head_barista', 'barista', 'assistant_barista', 'head_chef', 'chef', 'manager', 'owner'],
   /**
    * Today in the stores (app.stock_today, wave 5 M2): the day's moves, what was
    * added and the phone counts. Its guard is MOVE ∪ LOG ∪ COUNT.
    */
-  readStoreToday: ['head_barista', 'head_chef', 'chef', 'cashier', 'court_desk', 'waiter', 'manager', 'owner'],
+  readStoreToday: ['head_barista', 'head_chef', 'chef', 'cashier', 'shop_staff', 'waiter', 'manager', 'owner'],
   // A role's own work, which the owner does not do: its RPC refuses the owner.
   /** Marketing's own pages: its take, campaign drafts, results and the requests inbox (#73). */
   marketingWork: ['marketing'],
@@ -514,6 +527,8 @@ export function homeRoute(role: StaffRole): string {
     case 'marketing':
     case 'waiter':
       return '/tasks';
+    case 'shop_staff':
+      return '/shop';
   }
 }
 
@@ -551,19 +566,26 @@ export interface Permissions {
 }
 
 const MANAGEMENT: readonly StaffRole[] = ['manager', 'owner'];
-const CASHIER_UP: readonly StaffRole[] = ['cashier', 'manager', 'owner'];
+/**
+ * The till surface wherever a sale is rung up: the café cashier and the shop
+ * assistant (0244; each on their own kind of tab, which the server enforces).
+ */
+const SELLER_UP: readonly StaffRole[] = ['cashier', 'shop_staff', 'manager', 'owner'];
 
 export function permissionsFor(role: StaffRole | undefined): Permissions {
   const is = (roles: readonly StaffRole[]) => role !== undefined && roles.includes(role);
   return {
-    takePayment: is(CASHIER_UP),
-    takeCourtPayment: is(['cashier', 'court_desk', 'manager', 'owner']),
+    takePayment: is(SELLER_UP),
+    // Also the SHIFT list (who holds a drawer): the shop assistant holds the
+    // shop PC's (0244). No court booking is theirs: /desk is not.
+    takeCourtPayment: is(['cashier', 'court_desk', 'shop_staff', 'manager', 'owner']),
     // A cashier may START a discount; the manager PIN prompt authorises it.
-    discount: is(CASHIER_UP),
-    override: is(CASHIER_UP),
-    void: is(CASHIER_UP),
+    discount: is(SELLER_UP),
+    override: is(SELLER_UP),
+    void: is(SELLER_UP),
     refund: is(MANAGEMENT),
-    adjustStock: is(MANAGEMENT),
+    // The shop assistant adjusts the shop store only (0245); the café's Stock is not theirs.
+    adjustStock: is([...MANAGEMENT, 'shop_staff']),
     closeDay: is(MANAGEMENT),
     editMenu: is(MANAGEMENT),
     // The owner's since price_promo (#57): a manager proposes a rate or a

@@ -221,7 +221,7 @@ runSmokeCases('staff daily work', [
     route: 'staff-stock',
     Component: StaffStock,
     labelKey: 'staff.checklists.stock.listTitle',
-    options: { staff: { role: 'court_desk' }, queryData: [[staffKeys.stock(V, 'all'), STOCK]] },
+    options: { staff: { role: 'shop_staff' }, queryData: [[staffKeys.stock(V, 'all'), STOCK]] },
   },
   {
     route: 'staff-teachings',
@@ -406,10 +406,10 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
     }
   });
 
-  it('offers the owner every stock kind and the desk only the shop', () => {
+  it('offers the owner every stock kind and the shop assistant only the shop (0245)', () => {
     const desk = renderRoute(StaffStock, {
       locale,
-      staff: { role: 'court_desk' },
+      staff: { role: 'shop_staff' },
       queryData: [[staffKeys.stock(V, 'all'), STOCK]],
     });
     try {

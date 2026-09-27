@@ -1,18 +1,19 @@
 /**
- * Touch Shop (Phase 2 item 5; migrations 0143–0146), driven the way the venue
+ * Touch Shop as its own desk (0243–0246; Parsa, 2026-09-27: "the touch shop
+ * has its own desk, its own stock, its own items"), driven the way the shop
  * will drive it:
  *
- *  (a) products  — a manager adds a product with a barcode under Stock → Shop
- *                  products; it starts tracked, at zero on hand, and hidden:
- *                  a manager's new product waits for the owner (0172,
- *                  LAUNCH_VIA_PROTOCOL).
- *  (a2) launch   — the owner puts it on sale, which the owner may do directly.
- *  (b) goods in  — the product's own stock is received on the usual screen,
- *                  with a supplier picked from the list.
- *  (c) till      — a cashier opens a counter sale (no table), SCANS the barcode
- *                  (a USB wedge types it fast and presses Enter), and sends:
- *                  no kitchen ticket is made and the shelf goes down by one.
- *  (d) return    — a refund of that line puts it back on the shelf.
+ *  (a) sections  — the shop assistant signs in, lands on the shop till, and
+ *                  makes a shop section from Products (never the café menu).
+ *  (b) products  — they add a product with a barcode; the shop assistant's
+ *                  product goes on sale directly (no price protocol).
+ *  (c) goods in  — its stock is received at the shop desk, into the shop
+ *                  store, with no store to pick.
+ *  (d) sell      — the till: the scanner types the barcode and presses Enter,
+ *                  Cash takes the payment on the spot (the shop PC's drawer),
+ *                  and the receipt opens; no kitchen ticket, the shop store
+ *                  goes down by one.
+ *  (e) café      — the café's till no longer offers the shop's product.
  */
 import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -24,13 +25,36 @@ import {
   appRpc,
   ensureOpenDay,
   ensureTillFresh,
+  passShiftGate,
   serviceClient,
   signedInClient,
   startTillHeartbeat,
 } from './helpers';
 
-const TAX_STANDARD = 'b0000000-0000-4000-8000-000000000001';
-const VENUE_A = 'c0000000-0000-4000-8000-000000000001';
+// The browser operator beats as DEV1 (the till-shift spec's station): one
+// open shift there at a time, so each block starts and ends with none open.
+const STATION = 'DEV1';
+const MANAGER_PIN = '380517';
+
+/** Close whatever shift is open at the station, the way a manager does (operator-till-shift.spec.ts). */
+async function closeOpenShift(): Promise<void> {
+  const manager = await signedInClient(SEED_STAFF.manager);
+  try {
+    await appRpc(manager, 'heartbeat', { p_device_id: STATION, p_queue_depth: 0, p_app_version: 'e2e', p_is_till: false });
+    const status = await appRpc<{ shift: { id: string; cash_expected_iqd?: number } | null }>(manager, 'till_shift_status', {
+      p_device_id: STATION,
+    });
+    if (!status.shift) return;
+    await appRpc(manager, 'verify_manager_pin', { p_pin: MANAGER_PIN, p_device_id: STATION });
+    await appRpc(manager, 'close_till_shift_for', {
+      p_till_shift_id: status.shift.id,
+      p_counted_iqd: Math.max(0, status.shift.cash_expected_iqd ?? 0),
+      p_device_id: STATION,
+    });
+  } finally {
+    await manager.auth.signOut();
+  }
+}
 
 async function signIn(page: Page, email: string) {
   await page.goto(`${OPERATOR_URL}/`);
@@ -42,25 +66,29 @@ async function signIn(page: Page, email: string) {
   await expect(page.getByRole('heading', { name: 'Staff sign-in' })).toHaveCount(0, { timeout: 30_000 });
 }
 
-test.describe('operator Touch Shop', () => {
+test.describe('operator Touch Shop desk', () => {
   test.describe.configure({ mode: 'serial' });
 
   let svc: SupabaseClient;
   let stopHeartbeat: () => void;
   const stamp = Date.now() % 1_000_000;
+  const SHOP_EMAIL = `e2e-shop-${stamp}@test.touch.local`;
   const SECTION = `E2E Rackets ${stamp}`;
   const PRODUCT = `E2E Racket ${stamp}`;
   const SUPPLIER = `E2E Sports ${stamp}`;
   const BARCODE = `629${String(stamp).padStart(10, '0')}`;
-  const COUNTER = `Walk-in ${stamp}`;
+  let shopStaffId: string;
   let sectionId: string;
   let itemId: string;
   let ingredientId: string;
-  let orderId: string;
 
-  const onHand = async () => {
-    const { data } = await svc.from('stock_batches').select('qty_remaining').eq('ingredient_id', ingredientId);
-    return (data as { qty_remaining: number }[]).reduce((s, r) => s + Number(r.qty_remaining), 0);
+  const onHandAt = async (): Promise<Record<string, number>> => {
+    const { data } = await svc.from('stock_batches').select('location, qty_remaining').eq('ingredient_id', ingredientId);
+    const out: Record<string, number> = {};
+    for (const r of (data ?? []) as { location: string; qty_remaining: number }[]) {
+      out[r.location] = (out[r.location] ?? 0) + Number(r.qty_remaining);
+    }
+    return out;
   };
 
   test.beforeAll(async () => {
@@ -68,19 +96,18 @@ test.describe('operator Touch Shop', () => {
     await ensureTillFresh(svc);
     await ensureOpenDay(svc);
     stopHeartbeat = startTillHeartbeat(svc);
+    await closeOpenShift();
 
-    // The section and the supplier are setup, not the subject: made directly,
-    // then switched to shop through the RPC the section editor uses.
-    const { data, error } = await svc
-      .from('menu_categories')
-      .insert({ name_en: SECTION, name_ar: `مضارب ${stamp}`, tax_group_id: TAX_STANDARD, is_active: true, venue_id: VENUE_A, sort_order: 999 })
-      .select('id')
-      .single();
-    if (error) throw new Error(error.message);
-    sectionId = (data as { id: string }).id;
+    // The shop assistant (0243) has no seeded account: one for this run.
+    const { data, error } = await svc.auth.admin.createUser({ email: SHOP_EMAIL, password: DEV_PASSWORD, email_confirm: true });
+    if (error || !data.user) throw new Error(`createUser failed: ${error?.message}`);
+    shopStaffId = data.user.id;
+    const ins = await svc.from('staff').insert({ id: shopStaffId, display_name: `E2E Shop ${stamp}`, role: 'shop_staff', is_active: true });
+    if (ins.error) throw new Error(ins.error.message);
+
+    // The supplier is setup, not the subject.
     const manager = await signedInClient(SEED_STAFF.manager);
     try {
-      await appRpc(manager, 'set_category_kind', { p_id: sectionId, p_kind: 'shop' });
       await appRpc(manager, 'upsert_supplier', { p_name: SUPPLIER });
     } finally {
       await manager.auth.signOut();
@@ -88,18 +115,36 @@ test.describe('operator Touch Shop', () => {
   });
 
   test.afterAll(async () => {
+    await closeOpenShift().catch(() => undefined);
     stopHeartbeat?.();
-    // Hide what this run made so the till and other suites never see it again.
+    // Hide what this run made so the tills and other suites never see it again.
     if (sectionId) {
       await svc.from('menu_items').update({ is_active: false }).eq('category_id', sectionId);
       await svc.from('menu_categories').update({ is_active: false }).eq('id', sectionId);
     }
     await svc.from('suppliers').update({ is_active: false }).eq('name', SUPPLIER);
+    if (shopStaffId) await svc.from('staff').update({ is_active: false }).eq('id', shopStaffId);
   });
 
-  test('(a) a manager adds a product with a barcode; it is tracked at zero', async ({ page }) => {
-    await signIn(page, SEED_STAFF.manager);
-    await page.goto(`${OPERATOR_URL}/stock/products`);
+  test('(a) the shop assistant lands on the shop till and makes a shop section from Products', async ({ page }) => {
+    await signIn(page, SHOP_EMAIL);
+    await expect(page.getByRole('heading', { name: 'Sell', exact: true })).toBeVisible({ timeout: 30_000 });
+    await page.goto(`${OPERATOR_URL}/shop/products`);
+    await page.getByTestId('shop-section-add').click();
+    const dialog = page.getByRole('dialog', { name: 'New section' });
+    await dialog.getByTestId('shop-section-name-en').fill(SECTION);
+    await dialog.getByTestId('shop-section-name-ar').fill(`مضارب ${stamp}`);
+    await dialog.getByTestId('shop-section-save').click();
+    await expect(dialog).toBeHidden();
+
+    const { data } = await svc.from('menu_categories').select('id, kind').eq('name_en', SECTION).single();
+    expect((data as { kind: string }).kind).toBe('shop');
+    sectionId = (data as { id: string }).id;
+  });
+
+  test('(b) the shop assistant adds a product with a barcode; it goes on sale directly', async ({ page }) => {
+    await signIn(page, SHOP_EMAIL);
+    await page.goto(`${OPERATOR_URL}/shop/products`);
     await page.getByRole('button', { name: 'New product' }).first().click();
     const form = page.getByRole('dialog', { name: 'New product' });
     await choose(form.getByLabel('Shop section'), { label: SECTION });
@@ -113,109 +158,172 @@ test.describe('operator Touch Shop', () => {
     await expect(page.getByText(BARCODE)).toBeVisible();
 
     const { data: variant } = await svc.from('menu_item_variants').select('id, item_id').eq('barcode', BARCODE).single();
-    const { data } = await svc
-      .from('ingredients')
-      .select('id, kind, unit')
-      .eq('variant_id', (variant as { id: string }).id)
-      .single();
-    const ing = data as { id: string; kind: string; unit: string };
-    expect(ing).toMatchObject({ kind: 'retail', unit: 'pc' });
-    ingredientId = ing.id;
-    expect(await onHand()).toBe(0);
-
+    const { data: ing } = await svc.from('ingredients').select('id, kind').eq('variant_id', (variant as { id: string }).id).single();
+    expect((ing as { kind: string }).kind).toBe('retail');
+    ingredientId = (ing as { id: string }).id;
     itemId = (variant as { item_id: string }).item_id;
-    const { data: item } = await svc.from('menu_items').select('is_active, launched_at').eq('id', itemId).single();
-    expect(item).toMatchObject({ is_active: false, launched_at: null });
-  });
-
-  test('(a2) the owner puts the hidden product on sale', async () => {
-    const owner = await signedInClient(SEED_STAFF.owner);
-    try {
-      await appRpc(owner, 'upsert_menu_item', {
-        p_id: itemId,
-        p_category_id: sectionId,
-        p_name_en: PRODUCT,
-        p_name_ar: `مضرب ${stamp}`,
-        p_is_active: true,
-      });
-    } finally {
-      await owner.auth.signOut();
-    }
-    const { data: item } = await svc.from('menu_items').select('is_active, launched_at').eq('id', itemId).single();
+    const { data: item } = await svc.from('menu_items').select('is_active').eq('id', itemId).single();
     expect((item as { is_active: boolean }).is_active).toBe(true);
-    expect((item as { launched_at: string | null }).launched_at).not.toBeNull();
   });
 
-  test('(b) goods in receives the product like any stock', async ({ page }) => {
-    await signIn(page, SEED_STAFF.manager);
-    await page.goto(`${OPERATOR_URL}/stock/receive`);
+  test('(c) goods in at the shop desk receives into the shop store, with no store to pick', async ({ page }) => {
+    await signIn(page, SHOP_EMAIL);
+    await page.goto(`${OPERATOR_URL}/shop/receive`);
+    await expect(page.getByTestId('goods-in-store')).toHaveCount(0);
     await choose(page.getByLabel('Ingredient').first(), { label: `${PRODUCT} One size` });
     await page.getByLabel(/^Received/).first().fill('3');
     await page.getByLabel(/^Cost per/).first().fill('180000');
     await page.getByRole('button', { name: 'Record delivery' }).click();
     await expect(page.getByText(/Delivery recorded/)).toBeVisible();
-    await expect.poll(onHand).toBe(3);
+    await expect.poll(onHandAt).toEqual({ shop: 3 });
   });
 
-  test('(c) a counter sale scans the barcode and sends with no kitchen ticket', async ({ page }) => {
-    await signIn(page, SEED_STAFF.cashier);
-    // The till lands on the floor plan; a counter sale has no table to tap.
-    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({ timeout: 30_000 });
-
-    await page.getByRole('button', { name: 'New tab', exact: true }).click();
-    const newTab = page.getByRole('dialog', { name: 'New tab' });
-    await newTab.getByRole('switch', { name: 'Shop counter sale' }).click();
-    await newTab.getByLabel('Name on the tab').fill(COUNTER);
-    await newTab.getByRole('button', { name: 'Open tab' }).click();
-    await expect(newTab).toBeHidden();
-    // The basket starts with its lines folded away; open it to read them.
-    await page.getByRole('button', { name: 'Show the basket lines' }).click();
+  test('(d) the shop till: scan, Cash, receipt; no kitchen ticket, the shop store down by one', async ({ page }) => {
+    await signIn(page, SHOP_EMAIL);
+    await expect(page.getByRole('heading', { name: 'Sell', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('shop-till-products').getByText(PRODUCT)).toBeVisible();
 
     // A wedge scanner: fast keys into the page (not a field), then Enter.
-    // The tab's own header takes the focus off every input.
-    await page.getByRole('heading', { name: COUNTER, exact: true }).click();
+    await page.getByRole('heading', { name: 'Sell', exact: true }).click();
     await page.keyboard.type(BARCODE, { delay: 5 });
     await page.keyboard.press('Enter');
-    await expect(page.getByText(`1× ${PRODUCT} (One size)`)).toBeVisible();
+    await expect(page.getByTestId('shop-till-basket').getByText(PRODUCT)).toBeVisible();
 
-    await page.getByRole('button', { name: 'Send to kitchen' }).click();
-    await expect(page.getByText('Basket is empty — pick items from the grid.')).toBeVisible();
+    await page.getByTestId('shop-till-cash').click();
+    await passShiftGate(page);
+    const cash = page.getByRole('dialog', { name: 'Cash' });
+    // Above the price, whatever tax the server adds: the change is the server's.
+    await cash.getByLabel('Tendered').fill('400000');
+    await cash.getByRole('button', { name: 'Record payment' }).click();
+    // The receipt opens (and prints on the shop printer; the browser's dialog here).
+    await expect(page.getByRole('dialog', { name: 'Bill' })).toBeVisible({ timeout: 15_000 });
 
-    const { data: tab } = await svc.from('tabs').select('id, kind, table_id').eq('label', COUNTER).single();
-    expect(tab).toMatchObject({ kind: 'shop', table_id: null });
-    const { data: orders } = await svc.from('orders').select('id, status').eq('tab_id', (tab as { id: string }).id);
+    const { data: tabs } = await svc
+      .from('tabs')
+      .select('id, kind, table_id, reservation_id, status')
+      .eq('opened_by_staff_id', shopStaffId)
+      .order('opened_at', { ascending: false })
+      .limit(1);
+    const tab = (tabs as { id: string; kind: string; table_id: string | null; reservation_id: string | null; status: string }[])[0]!;
+    expect(tab).toMatchObject({ kind: 'shop', table_id: null, reservation_id: null, status: 'settled' });
+    const { data: orders } = await svc.from('orders').select('id, status').eq('tab_id', tab.id);
     expect(orders).toHaveLength(1);
-    orderId = (orders as { id: string }[])[0]!.id;
     expect((orders as { status: string }[])[0]!.status).toBe('served');
-    const { data: tickets } = await svc.from('tickets').select('id').eq('order_id', orderId);
+    const { data: tickets } = await svc.from('tickets').select('id').eq('order_id', (orders as { id: string }[])[0]!.id);
     expect(tickets).toEqual([]);
-    await expect.poll(onHand).toBe(2);
+    await expect.poll(onHandAt).toEqual({ shop: 2 });
   });
 
-  test('(d) a return of the sold piece puts it back on the shelf', async () => {
-    const { data: tab } = await svc.from('tabs').select('id').eq('label', COUNTER).single();
-    const tabId = (tab as { id: string }).id;
+  test('(e) the café till no longer offers the shop’s product', async ({ page }) => {
+    await signIn(page, SEED_STAFF.cashier);
+    await expect(page.getByRole('heading', { name: 'Floor', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(SECTION)).toHaveCount(0);
+    await expect(page.getByText(PRODUCT)).toHaveCount(0);
+    // And the café cashier cannot open a shop sale at all.
     const cashier = await signedInClient(SEED_STAFF.cashier);
-    const manager = await signedInClient(SEED_STAFF.manager);
     try {
-      const settled = await appRpc<{ payment_id: string }>(cashier, 'settle_tab', {
-        p_tab_id: tabId,
-        p_method: 'card',
-        p_idempotency_key: `TILL1:tab.settle:${crypto.randomUUID().replaceAll('-', '').toUpperCase().slice(0, 26)}`,
-      });
-      const { data: line } = await svc.from('order_items').select('id').eq('order_id', orderId).single();
-      await appRpc(manager, 'verify_manager_pin', { p_pin: '380517', p_device_id: null });
-      await appRpc(manager, 'refund', {
-        p_payment_id: settled.payment_id,
-        p_amount_iqd: 250_000,
-        p_pin: '380517',
-        p_reason_code: 'retail_return',
-        p_items: [{ order_item_id: (line as { id: string }).id, qty: 1 }],
-      });
+      await expect(appRpc(cashier, 'open_tab', { p_kind: 'shop', p_label: 'x' })).rejects.toThrow(/TAB_KIND_FORBIDDEN/);
     } finally {
       await cashier.auth.signOut();
-      await manager.auth.signOut();
     }
-    await expect.poll(onHand).toBe(3);
+  });
+});
+
+// The Arabic desk: its own run (the AR project greps `@ar`), so it makes what
+// it sells itself, through the shop assistant's own RPCs.
+test.describe('operator Touch Shop desk (Arabic)', () => {
+  let svc: SupabaseClient;
+  let stopHeartbeat: () => void;
+  const stamp = (Date.now() + 7) % 1_000_000;
+  const SHOP_EMAIL = `e2e-shop-ar-${stamp}@test.touch.local`;
+  const PRODUCT_AR = `كرات بادل ${stamp}`;
+  const BARCODE = `628${String(stamp).padStart(10, '0')}`;
+  let shopStaffId: string;
+  let sectionId: string;
+
+  test.beforeAll(async () => {
+    svc = serviceClient();
+    await ensureTillFresh(svc);
+    await ensureOpenDay(svc);
+    stopHeartbeat = startTillHeartbeat(svc);
+    await closeOpenShift();
+    const { data, error } = await svc.auth.admin.createUser({ email: SHOP_EMAIL, password: DEV_PASSWORD, email_confirm: true });
+    if (error || !data.user) throw new Error(`createUser failed: ${error?.message}`);
+    shopStaffId = data.user.id;
+    const ins = await svc.from('staff').insert({ id: shopStaffId, display_name: `متجر ${stamp}`, role: 'shop_staff', is_active: true });
+    if (ins.error) throw new Error(ins.error.message);
+    const shop = await signedInClient(SHOP_EMAIL);
+    try {
+      const { data: tax } = await svc.from('tax_groups').select('id').limit(1).single();
+      sectionId = await appRpc<string>(shop, 'upsert_shop_category', {
+        p_name_en: `E2E Balls ${stamp}`,
+        p_name_ar: `كرات ${stamp}`,
+        p_tax_group_id: (tax as { id: string }).id,
+      });
+      const itemId = await appRpc<string>(shop, 'upsert_menu_item', {
+        p_category_id: sectionId,
+        p_name_en: `E2E Balls ${stamp}`,
+        p_name_ar: PRODUCT_AR,
+        p_is_active: true,
+      });
+      const size = await appRpc<{ ingredient_id: string }>(shop, 'upsert_retail_variant', {
+        p_item_id: itemId,
+        p_name_en: 'Tube of 3',
+        p_name_ar: 'علبة ٣',
+        p_price_iqd: 15_000,
+        p_barcode: BARCODE,
+      });
+      await appRpc(shop, 'receive_delivery', {
+        p_lines: [{ ingredient_id: size.ingredient_id, qty_received: 5, unit_cost_iqd: 10_000 }],
+      });
+    } finally {
+      await shop.auth.signOut();
+    }
+  });
+
+  test.afterAll(async () => {
+    await closeOpenShift().catch(() => undefined);
+    stopHeartbeat?.();
+    if (sectionId) {
+      await svc.from('menu_items').update({ is_active: false }).eq('category_id', sectionId);
+      await svc.from('menu_categories').update({ is_active: false }).eq('id', sectionId);
+    }
+    if (shopStaffId) await svc.from('staff').update({ is_active: false }).eq('id', shopStaffId);
+  });
+
+  test('@ar the shop assistant sells in Arabic: the shop till, a scan, card, the receipt', async ({ browser }) => {
+    const context = await browser.newContext({ locale: 'ar-IQ' });
+    await context.addInitScript(() => {
+      try {
+        localStorage.setItem('touch-operator-locale', 'ar');
+      } catch {
+        /* no storage */
+      }
+    });
+    const page = await context.newPage();
+    await page.goto(`${OPERATOR_URL}/`);
+    await page.getByLabel(/البريد|Email/).waitFor({ timeout: 30_000 });
+    await page.getByLabel(/البريد|Email/).fill(SHOP_EMAIL);
+    await page.getByLabel(/كلمة المرور|Password/).fill(DEV_PASSWORD);
+    await page.getByRole('button', { name: /تسجيل الدخول|Sign in/ }).click();
+    await expect(page.getByRole('heading', { name: 'البيع', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.getByTestId('shop-till-products').getByText(PRODUCT_AR)).toBeVisible();
+
+    await page.getByRole('heading', { name: 'البيع', exact: true }).click();
+    await page.keyboard.type(BARCODE, { delay: 5 });
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('shop-till-basket').getByText(PRODUCT_AR)).toBeVisible();
+    await page.getByTestId('shop-till-card').click();
+    const start = page.getByRole('dialog', { name: 'بدء ورديتي' });
+    const card = page.getByRole('dialog', { name: /بطاقة|Card/ });
+    await expect(start.or(card)).toBeVisible();
+    if (await start.isVisible()) {
+      await start.getByRole('button').filter({ hasText: /صحيح/ }).first().click();
+    }
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: /تسجيل|Record/ }).last().click();
+    await expect(page.getByRole('dialog', { name: /الفاتورة|Bill/ })).toBeVisible({ timeout: 15_000 });
+    await context.close();
   });
 });

@@ -46,6 +46,7 @@ describe('STAFF_ROLES', () => {
       'marketing',
       'assistant_barista',
       'waiter',
+      'shop_staff',
     ]);
   });
 
@@ -61,11 +62,13 @@ describe('STAFF_ROLES', () => {
 
   it('lists the hireable roles with each wave-5 role beside its nearest (wave 5 §2.1.6)', () => {
     // The order app.protocol_engine_roles and the hiring position's check
-    // spell out, and the checklist and step pickers show.
+    // spell out, and the checklist and step pickers show. The shop assistant
+    // (0243) sits beside the court desk, the other front desk.
     expect(HIREABLE_ROLES).toEqual([
       'cashier',
       'waiter',
       'court_desk',
+      'shop_staff',
       'manager',
       'head_barista',
       'barista',
@@ -192,6 +195,7 @@ describe('teams, the twins of app.staff_team and app.staff_team_head (0170)', ()
       driver: null,
       marketing: null,
       assistant_barista: 'bar',
+      shop_staff: null,
       waiter: null,
     });
   });

@@ -23,6 +23,7 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
   holds: {
     cafe: '{qty} في مخزن المقهى',
     bakery: '{qty} في مخزن المخبز',
+    shop: '{qty} في مخزن المتجر',
   },
 
   errors: {
@@ -31,11 +32,12 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
     qty: 'اكتب كمية أكبر من صفر، مثل 250 أو 1.5.',
     expiry: 'اكتب تاريخاً مثل {example}.',
     expiryPast: 'لا يمكن أن يسبق تاريخ الاستخدام اليوم.',
-    cafeOnly: 'بضاعة المتجر تدخل مخزن المقهى فقط.',
+    cafeOnly: 'بضاعة المتجر تبقى في مخزن المتجر: تُضاف إليه ولا تُنقل.',
     gone: 'لم يعد هذا الصنف في مخزون المكان. أزِله.',
     short: {
       cafe: 'يُظهر مخزن المقهى {qty}.',
       bakery: 'يُظهر مخزن المخبز {qty}.',
+      shop: 'يُظهر مخزن المتجر {qty}.',
     },
     countNone: 'اكتب كمية واحدة على الأقل.',
     countQty: 'اكتب صفراً أو أكثر، مثل 12 أو 2.5.',
@@ -44,7 +46,7 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
   log: {
     title: 'إضافة إلى المخزون',
     lead: 'أضف ما وصل والمكان الذي وضعته فيه. يحدد المدير التكلفة.',
-    leadShop: 'أضف بضاعة المتجر التي وصلت. تدخل مخزن المقهى.',
+    leadShop: 'أضف بضاعة المتجر التي وصلت. تدخل مخزن المتجر.',
     driverWaiting: 'مشتريات السائق بانتظار المدير: {count}. لا تضفها هنا.',
     store: 'ضعها في',
     linesTitle: 'قيد الإضافة ({count})',
@@ -55,10 +57,12 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
     save: {
       cafe: 'أضف إلى مخزن المقهى',
       bakery: 'أضف إلى مخزن المخبز',
+      shop: 'أضف إلى مخزن المتجر',
     },
     done: {
       cafe: 'أُضيفت إلى مخزن المقهى',
       bakery: 'أُضيفت إلى مخزن المخبز',
+      shop: 'أُضيفت إلى مخزن المتجر',
     },
     todayTitle: 'ما أُضيف اليوم',
     todayEmpty: 'لم يُضف شيء اليوم بعد.',
@@ -78,20 +82,24 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
     save: {
       cafe: 'انقل إلى مخزن المقهى',
       bakery: 'انقل إلى مخزن المخبز',
+      shop: 'انقل إلى مخزن المتجر',
     },
     done: {
       cafe: 'نُقلت إلى مخزن المقهى',
       bakery: 'نُقلت إلى مخزن المخبز',
+      shop: 'نُقلت إلى مخزن المتجر',
     },
     todayTitle: 'ما نُقل اليوم',
     todayEmpty: 'لم يُنقل شيء اليوم بعد.',
     route: {
       cafe: 'من مخزن المقهى إلى مخزن المخبز',
       bakery: 'من مخزن المخبز إلى مخزن المقهى',
+      shop: 'مخزن المتجر',
     },
     emptyTitle: {
       cafe: 'لا شيء لنقله من مخزن المقهى',
       bakery: 'لا شيء لنقله من مخزن المخبز',
+      shop: 'لا شيء لنقله من مخزن المتجر',
     },
     emptyBody: 'يُنقل بين المخزنين ما يُشترى وما يُحضَّر هنا. تبقى بضاعة المتجر في المقهى.',
   },
@@ -100,6 +108,7 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
     title: {
       cafe: 'جرد المقهى',
       bakery: 'جرد المخبز',
+      shop: 'جرد المتجر',
     },
     lead: 'اكتب ما تعدّه على الرف. اترك الصنف فارغاً إن لم تعدّه. يعتمد المدير الجرد.',
     store: 'المخزن',
@@ -131,6 +140,7 @@ export const staffStoresAr: DeepMessages<typeof staffStoresEn> = {
     notHere: {
       cafe: 'ليس في مخزن المقهى ({count})',
       bakery: 'ليس في مخزن المخبز ({count})',
+      shop: 'ليس في مخزن المتجر ({count})',
     },
   },
 };

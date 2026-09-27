@@ -46,19 +46,26 @@ import { DataTable, EmptyState, PageHeader, Panel, type Column } from '../../com
 import { CardTitle } from '../ops/OpsVisuals';
 import { Footnote, IngredientName, StorePicker, useStockFormat } from './stockUi';
 import { SK, fetchByStore, fetchIngredients } from './stockKeys';
-import { heldAt, splitByStore, type StockLocation } from './storeLogic';
+import { heldAt, inScope, splitByStore, storesForScope, type StockLocation } from './storeLogic';
+import { useStockScope } from './stockScope';
 import { readMade, type MadeRow } from './madeTodayLogic';
 import { decimalKeystroke } from './decimalInput';
 
 export function WasteAndProduction() {
   const { tr } = useLocale();
+  // 0245: the shop desk writes off shop stock and makes nothing.
+  const scope = useStockScope();
   return (
     <div style={{ maxInlineSize: '60rem' }}>
       <PageHeader title={tr('op.stockNav.waste')} subtitle={tr('ws.manager.stock.waste.lead')} />
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(19rem, 1fr))', alignItems: 'start' }}>
         <WasteForm />
-        <ProductionForm />
-        <MadeToday />
+        {scope === 'venue' && (
+          <>
+            <ProductionForm />
+            <MadeToday />
+          </>
+        )}
       </div>
     </div>
   );
@@ -101,18 +108,20 @@ function WasteForm() {
   const [qty, setQty] = useState('');
   const [movementType, setMovementType] = useState<'waste_spill' | 'waste_spoilage'>('waste_spill');
   const [reason, setReason] = useState('');
-  /** The store the waste comes out of (wave 5): the cafe store unless the manager says otherwise. */
-  const [location, setLocation] = useState<StockLocation>('cafe');
+  // 0245: the café writes off café and bakery stock, the shop desk shop stock
+  // from the shop store.
+  const scope = useStockScope();
+  const stores = storesForScope(scope);
+  /** The store the waste comes out of (wave 5): the scope's first unless the manager says otherwise. */
+  const [location, setLocation] = useState<StockLocation>(() => stores[0]!);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
   const splits = useStoreSplits();
-  const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active);
+  const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active && inScope(i.kind, scope));
   const chosen = ingredients.find((i) => i.id === ingredientId);
-  const shop = chosen?.kind === 'retail';
-  // A shop product is only ever in the cafe store (V14).
-  const store: StockLocation = shop ? 'cafe' : location;
+  const store: StockLocation = location;
   const onHand = chosen && splits ? heldAt(splits.get(chosen.id), store) : undefined;
   const qtyInvalid = qty.trim() !== '' && !(Number(qty) > 0);
   const ready = !!ingredientId && Number(qty) > 0 && reason.trim() !== '';
@@ -146,14 +155,16 @@ function WasteForm() {
     <Panel title={<CardTitle icon="ban">{tr('ws.manager.stock.waste.wasteTitle')}</CardTitle>}>
       <ReadFailed q={ingredientsQ} />
       <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
-        <StorePicker
-          label={tr('ws.stores.picker.takeFrom')}
-          value={store}
-          onChange={setLocation}
-          disabled={busy}
-          bakeryOff={shop ? tr('ws.stores.picker.shopCafeOnly') : undefined}
-          data-testid="waste-store"
-        />
+        {stores.length > 1 && (
+          <StorePicker
+            label={tr('ws.stores.picker.takeFrom')}
+            value={store}
+            onChange={setLocation}
+            disabled={busy}
+            stores={stores}
+            data-testid="waste-store"
+          />
+        )}
       </div>
       <Field label={tr('ws.manager.stock.waste.ingredient')} required hint={chosen && onHand !== undefined ? <bdi>{tr(`ws.stores.waste.onHandAt.${store}`, { qty: fmt.qty(onHand, chosen.unit) })}</bdi> : undefined}>
         <Select
@@ -192,10 +203,14 @@ function WasteForm() {
         {tr('ws.manager.stock.waste.record')}
       </Button>
       <Footnote style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-        {tr('ws.manager.stock.waste.elsewhere')}{' '}
-        <Button kind="ghost" size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/stock/expiry' })}>
-          {tr('op.stockNav.expiry')}
-        </Button>
+        {scope === 'venue' && (
+          <>
+            {tr('ws.manager.stock.waste.elsewhere')}{' '}
+            <Button kind="ghost" size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/stock/expiry' })}>
+              {tr('op.stockNav.expiry')}
+            </Button>
+          </>
+        )}
       </Footnote>
     </Panel>
   );

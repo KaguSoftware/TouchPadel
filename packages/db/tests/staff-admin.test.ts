@@ -43,8 +43,8 @@ describe('staff-admin checkCreateRole (pure)', () => {
     expect(r.message).toMatch(/barista or chef/);
   });
 
-  it('accepts each of the twelve assignable roles as itself', () => {
-    expect(ROLES).toHaveLength(12);
+  it('accepts each of the thirteen assignable roles (0243: + shop_staff) as itself', () => {
+    expect(ROLES).toHaveLength(13);
     for (const role of ROLES) expect(checkCreateRole(role)).toEqual({ ok: true, role });
   });
 
