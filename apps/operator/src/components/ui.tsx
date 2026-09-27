@@ -431,8 +431,15 @@ export function Modal({
   dismissible = true,
   canClose,
   requireChoice,
+  closeButton = true,
 }: {
   title: string;
+  /**
+   * False drops the X beside the title. For a yes/no alert, whose footer
+   * already holds the way out: an X there was a third answer to a two-answer
+   * question. Esc and the backdrop still close.
+   */
+  closeButton?: boolean;
   onClose: () => void;
   /**
    * Asked BEFORE the exit plays; resolving false keeps the dialog open. A form
@@ -680,7 +687,7 @@ export function Modal({
               </p>
             )}
           </div>
-          <Button kind="ghost" size="sm" icon="x" onClick={() => void requestClose()} aria-label={tr('common.close')} />
+          {closeButton && <Button kind="ghost" size="sm" icon="x" onClick={() => void requestClose()} aria-label={tr('common.close')} />}
         </div>
         <div
           style={{

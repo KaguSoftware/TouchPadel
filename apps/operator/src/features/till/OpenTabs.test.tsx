@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../lib/i18n';
 import { AppRpcError } from '../../lib/appRpc';
@@ -198,25 +198,26 @@ describe('removing an empty tab', () => {
     expect(props.onRemoveTab).toHaveBeenCalledWith('a', 'staff_error');
   });
 
-  it('backing out of the reason keeps the tab and the confirm', async () => {
+  it('backing out of the reason keeps the tab and closes the flow', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
     await user.click(remove());
     await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByText('Reason required')).toBeNull();
+    await waitFor(() => expect(screen.queryByText('Reason required')).toBeNull());
     expect(props.onRemoveTab).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Yes, remove' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
   });
 
-  it('does not remove anything until the confirm is pressed, and Keep backs out', async () => {
+  it('asks "Are you sure?" naming the tab, and Keep backs out', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
     await user.click(remove());
-    expect(screen.getByText('Remove?')).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Are you sure?' })).toBeTruthy();
+    expect(screen.getByText('You are about to delete the Table T8 tab.')).toBeTruthy();
     expect(props.onRemoveTab).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Keep' }));
-    expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull());
     expect(props.onRemoveTab).not.toHaveBeenCalled();
   });
 
@@ -240,17 +241,13 @@ describe('removing an empty tab', () => {
     expect(screen.queryByText('Nothing on it yet')).toBeNull();
   });
 
-  it('arming a second row disarms the first', async () => {
+  it('the dialog names the row that was pressed', async () => {
     const user = userEvent.setup();
     const two: BoardRow[] = [rows[0]!, { ...rows[0]!, id: 'c', label: 'Table T9', table: 'T9' }];
     renderBoard({ rows: two });
-    const [first, second] = screen.getAllByRole('button', { name: 'Remove' });
-    await user.click(first!);
-    expect(screen.getAllByText('Remove?')).toHaveLength(1);
+    const [, second] = screen.getAllByRole('button', { name: 'Remove' });
     await user.click(second!);
-    expect(screen.getAllByText('Remove?')).toHaveLength(1);
-    // The first row is back to its resting controls.
-    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1);
+    expect(screen.getByText('You are about to delete the Table T9 tab.')).toBeTruthy();
   });
 
   it('a server refusal lands on the row it belongs to, naming what holds it', () => {
@@ -282,15 +279,6 @@ describe('removing an empty tab', () => {
     expect(props.onDismissRemoveError).toHaveBeenCalled();
   });
 
-  it('a refusal is still visible on the row that is mid-confirm', async () => {
-    // A refused removal leaves the row armed and removable, so the confirm
-    // branch is what re-renders — it must carry the message too.
-    const user = userEvent.setup();
-    renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_DAY_MISMATCH', 'TAB_DAY_MISMATCH') } });
-    await user.click(remove());
-    expect(screen.getByRole('button', { name: 'Yes, remove' })).toBeTruthy();
-    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
-  });
 });
 
 describe('filterBoardRows', () => {

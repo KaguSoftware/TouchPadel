@@ -61,6 +61,7 @@ export function ConfirmDialog({
       title={title}
       onClose={close}
       requireChoice={requireChoice}
+      closeButton={false}
       // This was the only dialog in the app rendering its action row inside the
       // Modal BODY while PinPromptOverlay, ReasonCodePrompt, PinReasonModal and
       // DrillThroughPanel all used the footer slot — so the one prompt every
