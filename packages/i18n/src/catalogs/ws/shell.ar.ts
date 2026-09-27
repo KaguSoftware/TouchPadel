@@ -182,6 +182,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     quitInstallsUpdate: 'التحديث جاهز. يُثبَّت عند الخروج، ثم يُفتح التطبيق من جديد تلقائيًا.',
     leavePin: 'الرمز السري للمدير',
     leavePinHint: 'يجب أن يُدخل مدير غيرك رمزه السري.',
+    leaveOwnerUnconfirmed: 'تعذّر التحقق من أنك المالك الآن، لذا يلزم الرمز السري لمدير.',
     kitchenNoNav: 'شاشة المطبخ',
     version: 'الإصدار {version}',
     updateReady: 'التحديث جاهز',

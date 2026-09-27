@@ -35,12 +35,25 @@ const TAB_BAR_BASE = 56;
 const RIPPLE = (color: string) => ({ color, borderless: false });
 const TAB_BUTTON = { borderRadius: radius.pill, overflow: 'hidden' } as const;
 
-/** Display-face label + the 14×3 green active dot, per the design. */
+/**
+ * Display-face label + the 14×3 green active dot, per the design.
+ *
+ * ONE LINE, SHRUNK TO FIT, SCALE CAPPED — because the bar has a fixed height.
+ * A label that wraps (a narrow phone, a long translation, a large system font)
+ * becomes two lines the bar has no room for, and Android clips the second one
+ * and the dot with it. So it stays on one line and shrinks to its item's width
+ * instead, and the system font scale is capped at 1.3×, which the bar's slack
+ * still holds (the ~13 pt line box grows to ~17).
+ */
 function TabLabel({ text, focused }: { text: string; focused: boolean }) {
   const { colors, fonts, tracking } = useTheme();
   return (
-    <View style={{ alignItems: 'center', gap: 2 }}>
+    <View style={{ alignItems: 'center', gap: 2, maxWidth: '100%' }}>
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        maxFontSizeMultiplier={1.3}
         style={{
           fontFamily: focused ? fonts.display800 : fonts.display600,
           fontSize: 9.5,

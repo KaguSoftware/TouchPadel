@@ -476,9 +476,9 @@ export default function BookingsScreen() {
         {empty ? (
           // A tab you can land on has to say why it is empty rather than end
           // the screen on a heading with nothing under it.
+          // No rows means no rail to clear, so it spans the full width.
           <View
             style={{
-              marginStart: 22,
               backgroundColor: colors.card,
               borderWidth: 1,
               borderColor: colors.line,
@@ -509,13 +509,14 @@ export default function BookingsScreen() {
           // The whole past — no-shows and lapsed holds included — which is a
           // wider list than either tab, and why the link carries its own count.
           // Indented past the rail so it starts where the cards do and the
-          // timeline reads as ending above it, not through it.
+          // timeline reads as ending above it, not through it. An empty tab
+          // has no rail, so it spans the full width like the card above it.
           <Pressable
             testID="bookings.history-link"
             accessibilityRole="link"
             onPress={() => router.push('/booking-history')}
             style={({ pressed }) => ({
-              marginStart: 22,
+              marginStart: empty ? 0 : 22,
               marginTop: empty ? 9 : 2,
               backgroundColor: pressed ? colors.sub : colors.card,
               borderWidth: 1,

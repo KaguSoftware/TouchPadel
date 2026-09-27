@@ -247,6 +247,9 @@ export const shellEn = {
     // else's manager PIN.
     leavePin: 'Manager PIN',
     leavePinHint: 'A manager other than you has to enter their PIN.',
+    // The owner leaves without a PIN, but the shell checks the role with the
+    // server first; offline and never checked, it falls back to the PIN.
+    leaveOwnerUnconfirmed: "Couldn't confirm you're the owner right now, so a manager's PIN is needed.",
     kitchenNoNav: 'Kitchen display',
     version: 'Version {version}',
     updateReady: 'Update ready',

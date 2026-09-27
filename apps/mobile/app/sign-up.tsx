@@ -49,7 +49,7 @@ type FieldErrors = {
 };
 
 /**
- * Create account: first name · surname · (email) · phone · password ·
+ * Create account: name · surname · (email) · phone · password ·
  * preferred language, with a password proved by the phone number (default
  * segment, owner decision 2026-09-15) or by an email address (restored beside
  * phone 2026-09-20, Phase 2 plan O2). Validation renders on the field it
