@@ -86,18 +86,30 @@ const AMBER = 0xd9a64b;
 
 const CZ = -2; // court-hall centre on z
 const COURT_X = [-15, 15] as const;
-// [x, z, seats]: outer columns seat four, the centre column two.
+// [x, z, seats]: outer columns seat four, the centre column two. Spaced so
+// every table's stools stand clear of the next table's.
 const TABLE_DEF: readonly (readonly [number, number, 2 | 4])[] = [
-  [-2.1, 1.2, 4],
-  [2.1, 1.2, 4],
-  [0, 2.3, 2],
-  [-2.1, 2.5, 4],
-  [2.1, 2.9, 4],
+  [-2.9, 1.3, 4],
+  [2.9, 1.3, 4],
+  [0, 2.0, 2],
+  [-2.9, 3.4, 4],
+  [2.9, 3.4, 4],
   [0, 3.6, 2],
-  [-2.1, 3.8, 4],
-  [2.1, 4.25, 4],
-  [0, 4.8, 2],
+  [-2.9, 5.5, 4],
+  [2.9, 5.5, 4],
+  [0, 5.2, 2],
 ];
+const STOOL_H = 0.44;
+/**
+ * Where stool k of table i stands; the stools and the seated figures both read
+ * it. Four-seat tables go by row (three tables a row): x, then +, then x.
+ */
+const seatAt = (i: number, k: number): [number, number] => {
+  const [x, z, seats] = TABLE_DEF[i]!;
+  const a = seats === 2 ? k * Math.PI : (k * Math.PI) / 2 + (Math.floor(i / 3) % 2 ? 0 : Math.PI / 4);
+  const rr = seats === 2 ? 0.7 : 0.8;
+  return [x + Math.cos(a) * rr, z + Math.sin(a) * rr];
+};
 interface Station {
   x: number;
   z: number;
@@ -478,20 +490,19 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     s.absarc(-w / 2 + r, -d / 2 + r, r, Math.PI, Math.PI * 1.5, false);
     return s;
   };
-  const pad = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(rrect(6.2, 6.0, 0.9), { depth: 0.02, bevelEnabled: false })), M.acrylic);
+  const pad = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(rrect(8.0, 6.4, 0.9), { depth: 0.02, bevelEnabled: false })), M.acrylic);
   pad.rotation.x = Math.PI / 2;
-  pad.position.set(0, 0.02, 3.1);
+  pad.position.set(0, 0.02, 3.4);
   pad.receiveShadow = true;
   arch.add(pad);
   const tableTops: THREE.Mesh[] = [];
-  TABLE_DEF.forEach(([x, z, seats]) => {
+  TABLE_DEF.forEach(([x, z, seats], i) => {
     cyl(0.26, 0.03, M.ink, x, 0.015, z, 20);
     cyl(0.04, 0.72, M.ink, x, 0.37, z, 10);
     tableTops.push(cyl(seats === 2 ? 0.38 : 0.45, 0.05, M.gray, x, 0.75, z, 32));
     for (let k = 0; k < seats; k++) {
-      const a = seats === 2 ? k * Math.PI : (k * Math.PI) / 2 + Math.PI / 4;
-      const rr = seats === 2 ? 0.7 : 0.8;
-      cyl(0.17, 0.44, M.ink, x + Math.cos(a) * rr, 0.22, z + Math.sin(a) * rr, 14);
+      const [sx, sz] = seatAt(i, k);
+      cyl(0.17, STOOL_H, M.ink, sx, STOOL_H / 2, sz, 14);
     }
   });
   // plants
@@ -518,8 +529,8 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   };
   const planter = (x: number, z: number, w = 0.7, d = 0.7) => box(w, 0.42, d, M.concrete, x, 0.21, z);
   for (const s of [-1, 1]) {
-    planter(s * 2.1, 5.35, 1.3, 0.6);
-    tree(s * 2.1, 5.35, 0.6);
+    planter(s * 4.55, 6.2, 0.7, 0.6);
+    tree(s * 4.55, 6.2, 0.5);
     for (let i = 0; i < 9; i++) {
       const z = -4.75 + i * 1.25;
       planter(s * 4.55, z);
@@ -573,7 +584,7 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   };
   // Court and table zones are (re)bound to ids on apply(); rooms are fixed.
   const courtZones = COURT_X.map((cx, i) => addZone({ kind: 'court', id: `slot-${i}` }, cx, 1.5, CZ, 11, 3.2, 21));
-  const tableZones = TABLE_DEF.map(([x, z], i) => addZone({ kind: 'table', id: `slot-${i}` }, x, 0.5, z, 2.2, 1.1, 2.2));
+  const tableZones = TABLE_DEF.map(([x, z], i) => addZone({ kind: 'table', id: `slot-${i}` }, x, 0.5, z, 2.2, 1.1, 2.0));
   for (const [room, s] of Object.entries(ROOMS) as [Room, Station][]) addZone({ kind: 'room', room }, s.x, 0.7, s.z, s.w, 1.5, s.d);
   const zoneOf = (mesh: THREE.Object3D) => zones.find((z) => z.mesh === mesh) ?? null;
 
@@ -595,7 +606,8 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   };
   const person = (m: THREE.Material, x: number, z: number, seated = false) => {
     const p = new THREE.Mesh(seated ? capSitGeo : capGeo, m);
-    p.position.set(x, seated ? 0.6 : 0.53, z);
+    // Seated: the capsule's base rests on the stool top (half-height 0.39).
+    p.position.set(x, seated ? STOOL_H + 0.39 : 0.53, z);
     p.castShadow = true;
     p.receiveShadow = true;
     return spawn(p);
@@ -743,12 +755,10 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
       zoneOf(tableZones[t.slot]!)!.target = { kind: 'table', id: t.id };
       tableTops[t.slot]!.material = t.status === 'occupied' ? M.green : M.gray;
       if (t.tab) {
-        // One figure per open tab, at the seat nearest the entrance. Nothing
-        // records how many guests sit there, so nothing more is drawn.
-        const [x, z, seats] = TABLE_DEF[t.slot]!;
-        const a = seats === 2 ? Math.PI / 2 : Math.PI / 4;
-        const rr = seats === 2 ? 0.7 : 0.8;
-        person(t.tab.state === 'awaiting_payment' ? M.amber : M.guest, x + Math.cos(a) * rr, z + Math.sin(a) * rr, true);
+        // One figure per open tab, on the table's first stool. Nothing records
+        // how many guests sit there, so nothing more is drawn.
+        const [sx, sz] = seatAt(t.slot, 0);
+        person(t.tab.state === 'awaiting_payment' ? M.amber : M.guest, sx, sz, true);
       }
     }
 

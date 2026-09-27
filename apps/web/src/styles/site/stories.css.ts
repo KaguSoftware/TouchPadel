@@ -29,8 +29,8 @@ export const siteStoriesCss = `
   padding-block: var(--tp-site-section-pad) clamp(2.75rem, 8vw, 4.5rem);
   padding-inline: var(--tp-site-gutter);
 }
-.tp-lessons__head { --tp-fit: 12.8; --tp-cap: 6.25rem; }
-[dir='rtl'] .tp-lessons__head { --tp-fit: 13; }
+.tp-lessons__head { --tp-fit: 9.8; --tp-cap: 6.25rem; }
+[dir='rtl'] .tp-lessons__head { --tp-fit: 14.2; }
 .tp-lessons__act { display: grid; gap: 1.75rem; justify-items: start; }
 .tp-lessons__body, .tp-cafe-handoff__body {
   max-inline-size: 40ch;

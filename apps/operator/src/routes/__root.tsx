@@ -50,6 +50,8 @@ import {
   type WorkspaceKey,
 } from '../lib/workspaces';
 import { QK } from '../lib/queryKeys';
+import { SK, fetchUnfinishedCounts } from '../features/stock/stockKeys';
+import { phoneCountsWaiting } from '../features/stock/storeLogic';
 import { fetchProtocolsWaiting, protocolsWaitingTotal } from '../features/ops/protocolsWaiting';
 import { fetchSuggestionsNew } from '../features/roleExtras/api';
 import { newSuggestionCount } from '../features/roleExtras/roleExtrasLogic';
@@ -546,12 +548,21 @@ function useBadgeSum(badges: readonly (NavItem['badge'] | undefined)[]): number 
     enabled: contentOn,
     refetchInterval: 60_000,
   });
+  // The phone counts waiting on the Stock count row: the same read the stock
+  // screens make, so the rail and the screen agree.
+  const stockCounts = useQuery({
+    queryKey: SK.unfinishedCounts,
+    queryFn: fetchUnfinishedCounts,
+    enabled: on.has('stockCountsWaiting'),
+    refetchInterval: 60_000,
+  });
   return (
     (on.has('protocolsWaiting') ? protocolsWaitingTotal(protocols.data) : 0) +
     (on.has('suggestionsNew') ? newSuggestionCount(suggestions.data) : 0) +
     (deductionsOn && deductions.isSuccess ? deductionsWaitingCount(deductions.data) : 0) +
     (incidentsOn && incidents.isSuccess ? incidentsOpenCount(incidents.data) : 0) +
-    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0)
+    (contentOn && content.isSuccess ? contentWaitingCount(content.data) : 0) +
+    (on.has('stockCountsWaiting') && stockCounts.isSuccess ? phoneCountsWaiting(stockCounts.data).length : 0)
   );
 }
 
@@ -703,7 +714,10 @@ function RailGroup({
       </button>
       <div id={listId} className="tp-rail-group-body" data-open={open ? 'true' : undefined}>
         <div style={{ overflow: 'hidden', minBlockSize: 0 }} inert={!open}>
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}>
+          <div
+            className="tp-rail-options-list"
+            style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}
+          >
             {items.map((item) => (
               <RailLink key={item.to} item={item} active={item === current} />
             ))}
@@ -776,7 +790,8 @@ function WorkspaceNav({
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
   const section = sectionForPath(workspace, path);
-  const sections = (workspace.sections ?? []).filter((sec) => canAccess(staff?.role, sec.home));
+  // A section opened from one of the groups' rows has no button of its own.
+  const sections = (workspace.sections ?? []).filter((sec) => !sec.fromRow && canAccess(staff?.role, sec.home));
   const sectionRows = section ? sectionRailItems(section).filter((item) => canAccess(staff?.role, item.to)) : [];
   const sectionCurrent = activeNavItem(sectionRows, path);
 
@@ -1559,7 +1574,8 @@ function IdleLock() {
  * the station keeps trading, but it is still leaving: on a locked station it
  * takes a manager's PIN that is not the signed-in person's own (owner call,
  * 2026-09-23 — staff are kept inside the app), and main locks the window
- * again at the next sign-in or sign-out. It stays quieter than Quit — same
+ * again at the next sign-in or sign-out. The owner is let out without one
+ * (2026-09-27, see QuitToDesktop). It stays quieter than Quit — same
  * muted rail weight, no danger colour — because it is the reversible one.
  *
  * Electron fixes `frame` at window creation, so a production window cannot
@@ -1585,22 +1601,34 @@ function ExitFullscreen() {
     return touch.onFullscreenState(setFullscreen);
   }, []);
 
+  // The owner goes straight out, no PIN (leaveStationWithoutPin); askPin is
+  // main saying it could not confirm the role, and the PIN dialog after all.
+  const [askPin, setAskPin] = useState(false);
+
   if (typeof window === 'undefined' || !window.touch) return null;
   if (!fullscreen) return null;
   const locked = touch.getStation().locked === true;
+  const needsPin = locked && (askPin || !can(staff?.role, 'leaveStationWithoutPin'));
 
   function close() {
     setOpen(false);
     setPin('');
     setError(null);
+    setAskPin(false);
   }
 
   async function exit() {
     setBusy(true);
     setError(null);
     try {
-      if (locked) await proveLeavePin(pin, staff?.id ?? null);
-      const refusal = leaveRefusal(await touch.exitFullscreen(pin));
+      if (needsPin) await proveLeavePin(pin, staff?.id ?? null);
+      const res = await touch.exitFullscreen(needsPin ? pin : '');
+      if (!res.ok && res.error === 'pin required') {
+        setAskPin(true);
+        setOpen(true);
+        return;
+      }
+      const refusal = leaveRefusal(res);
       if (refusal) throw refusal;
       // No success line: the window visibly leaving full screen IS the
       // feedback, and a rail that keeps a sentence around after the fact only
@@ -1619,14 +1647,14 @@ function ExitFullscreen() {
       <button
         type="button"
         className="tp-nav-item"
-        onClick={() => (locked ? setOpen(true) : void exit())}
+        onClick={() => (needsPin ? setOpen(true) : void exit())}
         disabled={busy}
         style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)' }}
       >
         <Icon name="shrink" size={16} />
         <span>{tr('ws.shell.nav.exitFullscreen')}</span>
       </button>
-      {!locked && error != null && (
+      {!open && error != null && (
         <div style={{ paddingInline: RAIL_ITEM_PAD }}>
           <ErrorText error={error} />
         </div>
@@ -1645,6 +1673,7 @@ function ExitFullscreen() {
             </>
           }
         >
+          {askPin && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.leaveOwnerUnconfirmed')}</p>}
           <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void exit()} />
           <ErrorText error={error} />
         </Modal>
@@ -1732,7 +1761,10 @@ function LeavePinField({
  * is back (owner call, 2026-09-23): staff are kept inside the app, so on a
  * locked station the dialog names the cost AND takes a manager's PIN that is
  * not the signed-in person's (proveLeavePin; main re-checks it). In dev and
- * on first run it is the plain confirmation it was.
+ * on first run it is the plain confirmation it was. The OWNER gets the plain
+ * confirmation too (owner call, 2026-09-27): alone at the venue there is no
+ * second manager to ask, so the PIN kept the owner in with a force quit as
+ * the only way out. Main confirms the role itself (main/owner-exit.ts).
  *
  * Rulebook 7.8: it carries its own separator and its own muted weight because
  * it ENDS SERVICE on this till, and it used to sit directly beneath "Sign out"
@@ -1750,7 +1782,7 @@ function LeavePinField({
  * than an empty corner box.
  */
 function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'windowClose' }) {
-  const { tr } = useLocale();
+  const { tr, dir } = useLocale();
   const { staff } = useAuth();
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState('');
@@ -1764,6 +1796,9 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   // the window-drag strip covers. It has to out-rank that strip and opt out
   // of the drag, or the corner it lives in belongs to the window, not to it.
   const inset = useTitleBarInset();
+  // The owner quits with the confirmation alone (leaveStationWithoutPin);
+  // askPin is main saying it could not confirm the role, and the PIN after all.
+  const [askPin, setAskPin] = useState(false);
 
   // 'windowClose' renders no control of its own: it is the macOS red traffic
   // light's dialog. Main prevents the close and pushes touch:close-requested,
@@ -1775,26 +1810,35 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
   }, [variant]);
 
   if (typeof window === 'undefined' || !window.touch) return null;
-  // The sign-in control stands down where the red traffic light already asks
-  // this question. It stays on a till or a KDS: those kiosks have no traffic
-  // lights, and with the rail behind a sign-in it is their only way out.
-  if (variant === 'signIn' && inset) return null;
+  // The sign-in control shows on every platform, macOS included. It used to
+  // stand down wherever the traffic lights are drawn (titleBarInset > 0), on
+  // the idea that the red light already asks this question — but since every
+  // configured station opens in kiosk (lockWindow, 2026-09-23) the lights are
+  // hidden there, so a signed-out Mac till had no way out at all.
   const locked = touch.getStation().locked === true;
+  const needsPin = locked && (askPin || !can(staff?.role, 'leaveStationWithoutPin'));
 
   function close() {
     setOpen(false);
     setPin('');
     setError(null);
+    setAskPin(false);
   }
 
   async function quit() {
     setBusy(true);
     setError(null);
     try {
-      if (locked) await proveLeavePin(pin, staff?.id ?? null);
+      if (needsPin) await proveLeavePin(pin, staff?.id ?? null);
       // Main exits ~50 ms after replying, so `busy` is the last thing the
       // screen shows on success.
-      const refusal = leaveRefusal(await touch.quitApp(pin));
+      const res = await touch.quitApp(needsPin ? pin : '');
+      if (!res.ok && res.error === 'pin required') {
+        setAskPin(true);
+        setBusy(false);
+        return;
+      }
+      const refusal = leaveRefusal(res);
       if (refusal) throw refusal;
     } catch (e) {
       setError(e);
@@ -1830,7 +1874,9 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
           style={
             {
               position: 'absolute',
-              insetBlockStart: 'var(--tp-sp-3)',
+              // In Arabic the inline-end corner is the top LEFT, where a
+              // windowed Mac draws its traffic lights: clear them there.
+              insetBlockStart: inset && dir === 'rtl' ? `${inset}px` : 'var(--tp-sp-3)',
               insetInlineEnd: 'var(--tp-sp-3)',
               color: 'var(--tp-muted-fg)',
               // Above the drag strip, and not draggable itself: this corner is
@@ -1860,7 +1906,7 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
           footer={
             <>
               <Button onClick={close}>{tr('common.back')}</Button>
-              <Button kind="danger" busy={busy} disabled={locked && pin.length < 4} onClick={() => void quit()}>
+              <Button kind="danger" busy={busy} disabled={needsPin && pin.length < 4} onClick={() => void quit()}>
                 {tr('ws.shell.nav.quit')}
               </Button>
             </>
@@ -1868,7 +1914,8 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'wi
         >
           <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitConfirm')}</p>
           {update && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.quitInstallsUpdate')}</p>}
-          {locked && <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void quit()} />}
+          {askPin && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.nav.leaveOwnerUnconfirmed')}</p>}
+          {needsPin && <LeavePinField pin={pin} setPin={setPin} busy={busy} onEnter={() => void quit()} />}
           <ErrorText error={error} />
         </Modal>
       )}

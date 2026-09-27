@@ -23,15 +23,8 @@
  * visual layer is one `role="img"` with the caller's label; the overlay with
  * the children is a sibling, so they stay interactive and in tab order.
  *
- * THE RALLY CAN BE PAUSED (WCAG 2.2.2, fix pass 2026-09-24). It starts on its own
- * and runs for as long as it is on screen beside the club's words, so with a
- * `pauseLabel` the stage carries a small switch at its inline-end foot (a button,
- * `aria-pressed`): pressed, the canvas holds its frame and the flat court's
- * keyframes stop; the choice is remembered for this visitor (localStorage, best
- * effort). It is drawn once JS runs, because only JS can honour it; without JS the
- * flat court plays under five seconds (three quarters of its 6.6 s loop) and then
- * holds, which needs no control. Under reduced motion nothing moves and the switch
- * is hidden.
+ * The rally loops for as long as it is on screen, with or without JS; there is no
+ * pause switch. Under reduced motion nothing moves.
  * Positions of the net are written straight to CSS variables on the overlay,
  * not through React state, because they change every frame while scrolling.
  */
@@ -48,8 +41,6 @@ export interface CourtStageProps {
   scrollLinked?: boolean;
   /** Rendered centred on the net tape, above the court. */
   children?: ReactNode;
-  /** The pause switch's name (from the catalogs); without it no switch is drawn. */
-  pauseLabel?: string;
 }
 
 type CourtState = 'flat' | 'live';
@@ -60,60 +51,16 @@ const SETTLE_MS = 320;
 /** How long after mount an idle-less browser waits before fetching three.js. */
 const PREFETCH_FALLBACK_MS = 1500;
 
-/** Where this visitor's pause choice is kept (per browser; never shared, never read back). */
-export const COURT_PAUSED_KEY = 'tp-court-paused';
-
-function readPaused(): boolean {
-  try {
-    return window.localStorage.getItem(COURT_PAUSED_KEY) === '1';
-  } catch {
-    return false; // storage blocked: the rally plays, and the switch still works
-  }
-}
-
-function writePaused(paused: boolean): void {
-  try {
-    if (paused) window.localStorage.setItem(COURT_PAUSED_KEY, '1');
-    else window.localStorage.removeItem(COURT_PAUSED_KEY);
-  } catch {
-    /* storage blocked: the choice lasts for this page only */
-  }
-}
-
 export function CourtStage({
   label,
   className,
   scrollLinked = false,
   children,
-  pauseLabel,
 }: CourtStageProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const netRef = useRef<HTMLDivElement>(null);
-  const instanceRef = useRef<CourtCanvas | null>(null);
-  const pausedRef = useRef(false);
   const [court, setCourt] = useState<CourtState>('flat');
   const [settling, setSettling] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [paused, setPaused] = useState(false);
-
-  // Mounted: the switch can work now, and the visitor's earlier choice applies.
-  useEffect(() => {
-    const saved = readPaused();
-    pausedRef.current = saved;
-    setPaused(saved);
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    pausedRef.current = paused;
-    instanceRef.current?.setPaused(paused);
-  }, [paused]);
-
-  const togglePaused = () => {
-    const next = !paused;
-    writePaused(next);
-    setPaused(next);
-  };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -144,7 +91,6 @@ export function CourtStage({
             // The section drives the move: on a desktop the court's box is sticky,
             // and a sticky box's own rect hardly moves while the page scrolls.
             scrollRoot: host.closest('section') ?? host,
-            paused: pausedRef.current,
             canvasClassName: 'tp-court-stage__canvas',
             onNet: placeNet,
             onFirstFrame: () => {
@@ -154,9 +100,6 @@ export function CourtStage({
               settleTimer = setTimeout(() => setSettling(false), SETTLE_MS);
             },
           });
-        })
-        .then(() => {
-          instanceRef.current = instance;
         })
         .catch(() => {
           // The flat court stays. A failed chunk or a renderer that cannot start
@@ -204,7 +147,6 @@ export function CourtStage({
       if (idleId !== null) window.cancelIdleCallback?.(idleId);
       if (idleTimer !== null) clearTimeout(idleTimer);
       near?.disconnect();
-      instanceRef.current = null;
       if (settleTimer !== null) clearTimeout(settleTimer);
       instance?.dispose();
       instance = null;
@@ -221,8 +163,6 @@ export function CourtStage({
       className={['tp-court-stage', className].filter(Boolean).join(' ')}
       data-court={court}
       data-net={settling ? 'settling' : undefined}
-      data-js={ready ? '' : undefined}
-      data-paused={paused ? '' : undefined}
     >
       <div className="tp-court-stage__visual" role="img" aria-label={label}>
         <CourtIllustration className="tp-court-stage__flat" />
@@ -234,23 +174,6 @@ export function CourtStage({
             {children}
           </div>
         </div>
-      ) : null}
-      {pauseLabel && ready ? (
-        <button
-          type="button"
-          className="tp-court-stage__pause"
-          aria-label={pauseLabel}
-          aria-pressed={paused}
-          onClick={togglePaused}
-        >
-          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-            {paused ? (
-              <path d="M4.5 2.8v10.4L13 8z" />
-            ) : (
-              <path d="M4 2.5h2.8v11H4zM9.2 2.5H12v11H9.2z" />
-            )}
-          </svg>
-        </button>
       ) : null}
     </div>
   );

@@ -24,6 +24,7 @@ import { formatElapsed } from './elapsed';
 import {
   CAFE_SPOTS,
   CAFE_VIEW,
+  cafeSeats,
   spotPosition,
   type BoardBooking,
   type CafeSpot,
@@ -269,16 +270,19 @@ function RoomDrawing() {
         <circle key={x} cx={x} cy={0.2} r={0.17} fill="var(--tp-surface-3)" stroke="var(--tp-border)" strokeWidth={0.02} />
       ))}
       {/* chairs */}
-      {CAFE_SPOTS.map((s, i) => (
+      {CAFE_SPOTS.map((_, i) => (
         <g key={i} fill="var(--tp-surface-3)" stroke="var(--tp-border)" strokeWidth={0.02}>
-          <rect x={s.x - 0.83} y={s.z - 0.2} width={0.26} height={0.4} rx={0.07} />
-          <rect x={s.x + 0.57} y={s.z - 0.2} width={0.26} height={0.4} rx={0.07} />
-          {s.seats === 4 && (
-            <>
-              <rect x={s.x - 0.2} y={s.z - 0.83} width={0.4} height={0.26} rx={0.07} />
-              <rect x={s.x - 0.2} y={s.z + 0.57} width={0.4} height={0.26} rx={0.07} />
-            </>
-          )}
+          {cafeSeats(i).map((c, k) => (
+            <rect
+              key={k}
+              x={c.x - 0.13}
+              y={c.z - 0.2}
+              width={0.26}
+              height={0.4}
+              rx={0.07}
+              transform={`rotate(${(c.angle * 180) / Math.PI} ${c.x} ${c.z})`}
+            />
+          ))}
         </g>
       ))}
       {/* walls, and the way in */}
@@ -317,7 +321,7 @@ function CafePlan({ spots, onTable }: { spots: readonly CafeSpot[]; onTable: (s:
         {spots.map((s) => {
           const def = CAFE_SPOTS[s.slot!]!;
           const p = spotPosition(def);
-          const size = def.seats === 4 ? 10 : 8.6;
+          const size = def.seats === 4 ? 9.4 : 8.6;
           return (
             <TableButton
               key={s.table.id}

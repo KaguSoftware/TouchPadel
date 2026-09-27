@@ -851,7 +851,7 @@ export function TabDetailPanel({
         />
       )}
       {overlay.kind === 'drawer' && (
-        <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={actionError} withNote={false} onSubmit={(code) => void recordDrawerOpen(code)} onCancel={close}>
+        <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={actionError} onSubmit={(code, note) => void recordDrawerOpen(note ? `${code}: ${note}` : code)} onCancel={close}>
           <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
         </ReasonCodePrompt>
       )}

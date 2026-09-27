@@ -272,10 +272,16 @@ export type DiscoverResult =
   | { status: 'none' }
   | { status: 'no-lan' };
 
-/** What quitApp / exitFullscreen answer. `own pin`: a manager PIN, but the signed-in person's. */
-export type LeaveResult =
-  | { ok: true }
-  | { ok: false; error: 'pin not recognised' | 'own pin' | 'no-window' };
+/**
+ * Why quitApp / exitFullscreen refused to let the station out. `own pin`: a
+ * manager PIN, but the signed-in person's. `pin required`: no PIN was sent
+ * (the owner's way out, main/owner-exit.ts) and main could not confirm the
+ * signed-in person is the owner.
+ */
+export type LeaveRefusal = 'pin not recognised' | 'own pin' | 'pin required';
+
+/** What quitApp / exitFullscreen answer. */
+export type LeaveResult = { ok: true } | { ok: false; error: LeaveRefusal | 'no-window' };
 
 export interface UpdateReadyInfo {
   version: string;

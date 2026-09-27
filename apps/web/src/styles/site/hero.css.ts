@@ -1,6 +1,6 @@
 /**
  * The hero: a full-bleed photo in the grade's `night` exposure (photo.css.ts), and the
- * words on it on the reading-start side: the open pill, "TOUCH IS / A LIFESTYLE" sized to
+ * words on it on the reading-start side: the open pill, "IT’S ALL IN / ONE TOUCH" sized to
  * its column, the lead, and the two ways to book. The section is a dark ground in both
  * modes (`tp-on-dark`), and the header floats over it transparent until the page scrolls.
  *
@@ -60,10 +60,10 @@ export const siteHeroCss = `
   gap: clamp(1rem, 2.4vw, 1.5rem);
   justify-items: start;
   max-inline-size: 48rem;
-  --tp-fit: 16.8;
+  --tp-fit: 16.9;
   --tp-cap: 8.75rem;
 }
-[dir='rtl'] .tp-front__copy { --tp-fit: 19.2; }
+[dir='rtl'] .tp-front__copy { --tp-fit: 18.2; }
 .tp-front__title { justify-self: stretch; }
 .tp-front__lead {
   max-inline-size: 36ch;

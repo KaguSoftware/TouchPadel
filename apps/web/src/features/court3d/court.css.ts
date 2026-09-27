@@ -176,50 +176,7 @@ ${[0, 1, 2, 3].map(sway).join('\n')}
 .tp-court-illustration__a3 { animation: tp-court-sway-3 6.6s ease-in-out infinite; }
 .tp-court-illustration__a4 { animation: tp-court-sway-4 6.6s ease-in-out infinite; }
 
-/* WCAG 2.2.2. Without JS nothing can pause the flat court, so it plays three quarters of
-   its 6.6 s loop (4.95 s, under the five seconds that need no control) and holds that
-   frame; once JS runs (data-js) it loops, and the stage's switch can stop it. */
-.tp-court-stage:not([data-js]) .tp-court-illustration__ball,
-.tp-court-stage:not([data-js]) .tp-court-illustration__halo,
-.tp-court-stage:not([data-js]) .tp-court-illustration__shadow,
-.tp-court-stage:not([data-js]) .tp-court-illustration__racket {
-  animation-iteration-count: 0.75;
-  animation-fill-mode: forwards;
-}
-.tp-court-stage[data-paused] .tp-court-illustration * { animation-play-state: paused; }
-
-/* The pause switch: a 48px target at the stage's inline-end foot, a navy disc with a
-   white glyph, solid (never glass). Hidden under reduced motion, where nothing moves. */
-.tp-court-stage__pause {
-  position: absolute;
-  inset-block-end: 0;
-  inset-inline-end: 0;
-  z-index: var(--tp-site-z-raised);
-  isolation: isolate;
-  display: grid;
-  place-items: center;
-  inline-size: var(--tp-site-touch);
-  block-size: var(--tp-site-touch);
-  padding: 0;
-  border: 0;
-  border-radius: var(--tp-site-radius-pill);
-  background: transparent;
-  color: var(--tp-brand-white);
-  cursor: pointer;
-}
-.tp-court-stage__pause::before {
-  content: '';
-  position: absolute;
-  inset: 6px;
-  z-index: var(--tp-site-z-below);
-  border: 1.5px solid var(--tp-site-block-muted);
-  border-radius: inherit;
-  background: var(--tp-site-navy);
-}
-.tp-court-stage__pause svg { position: relative; inline-size: 0.875rem; block-size: 0.875rem; fill: currentColor; }
-
 @media (prefers-reduced-motion: reduce) {
-  .tp-court-stage__pause { display: none; }
   .tp-court-illustration__ball,
   .tp-court-illustration__halo,
   .tp-court-illustration__shadow,

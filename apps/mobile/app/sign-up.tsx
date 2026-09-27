@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Linking, Pressable, Switch, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
@@ -20,8 +20,9 @@ import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { space, useTheme } from '../src/theme';
+import { brand, space, useTheme } from '../src/theme';
 import { legalUrl, type LegalPage } from '../src/lib/legal';
+import { CheckIcon } from '../src/components/icons';
 import {
   Button,
   ErrorText,
@@ -29,7 +30,6 @@ import {
   FooterLink,
   FormScreen,
   LabeledDivider,
-  LinkText,
   MicroLabel,
   Screen,
   SegmentedControl,
@@ -49,7 +49,7 @@ type FieldErrors = {
 };
 
 /**
- * Create account: first name · surname · (email) · phone · password ·
+ * Create account: name · surname · (email) · phone · password ·
  * preferred language, with a password proved by the phone number (default
  * segment, owner decision 2026-09-15) or by an email address (restored beside
  * phone 2026-09-20, Phase 2 plan O2). Validation renders on the field it
@@ -290,30 +290,32 @@ function SignUpScreen() {
         {/* 0153: the whole row toggles, so the sentence is a real target too. */}
         <Pressable
           testID="sign-up.terms-row"
-          accessibilityRole="switch"
+          accessibilityRole="checkbox"
           accessibilityState={{ checked: agreed }}
+          accessibilityLabel={t('auth.termsAgree')}
           onPress={() => setAgreed((v) => !v)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.l }}
         >
-          <Switch
+          <View
             testID="sign-up.terms"
-            value={agreed}
-            onValueChange={setAgreed}
-            trackColor={{ true: colors.blue, false: colors.line }}
-            accessibilityLabel={t('auth.termsAgree')}
-          />
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              borderWidth: 1.5,
+              // An empty box is still a control: fnt clears 3:1 on the card.
+              borderColor: agreed ? brand.green : colors.fnt,
+              backgroundColor: agreed ? brand.green : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {agreed ? <CheckIcon size={13} color={brand.greenInk} strokeWidth={3} /> : null}
+          </View>
           <Text style={{ flex: 1, fontFamily: fonts.body600, fontSize: 13, lineHeight: 19, color: colors.ink }}>
             {t('auth.termsAgree')}
           </Text>
         </Pressable>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.l, marginTop: space.s }}>
-          <LinkText testID="sign-up.read-terms" label={t('auth.readTerms')} onPress={() => openLegal('terms')} />
-          <LinkText
-            testID="sign-up.read-privacy"
-            label={t('settings.privacyPolicy')}
-            onPress={() => openLegal('privacy')}
-          />
-        </View>
         <ErrorText>{error ?? social.errorText}</ErrorText>
         <Button
           testID="sign-up.submit"
@@ -333,6 +335,27 @@ function SignUpScreen() {
           onPress={() => router.replace({ pathname: '/sign-in', params: { method } })}
           style={{ marginTop: 18 }}
         />
+        {/* Same pair as Profile → About; flex: 1 pins it to the foot of the screen. */}
+        <View style={{ flex: 1, justifyContent: 'flex-end', marginTop: space.xl }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <Button
+              testID="sign-up.read-privacy"
+              label={t('settings.privacyPolicy')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('privacy')}
+              style={{ flexGrow: 1 }}
+            />
+            <Button
+              testID="sign-up.read-terms"
+              label={t('settings.terms')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('terms')}
+              style={{ flexGrow: 1 }}
+            />
+          </View>
+        </View>
       </FormScreen>
     </Screen>
   );

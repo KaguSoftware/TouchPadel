@@ -139,7 +139,8 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     guest: 'الضيف',
     court: 'الملعب',
     removeArm: 'حذف هذا الحساب',
-    removeAsk: 'حذف؟',
+    removeAsk: 'هل أنت متأكد؟',
+    removeBody: 'أنت على وشك حذف حساب {name}.',
     removeConfirm: 'نعم، احذف',
     removeKeep: 'إبقاء',
     removeBlocked: {

@@ -38,26 +38,38 @@
  * manager's count open takes no delivery (STORE_BEING_COUNTED, M5), and the
  * form says so before the whole delivery is typed. What staff added on the
  * phone waits above the form for its cost (StaffLogs.tsx).
+ *
+ * Invoice layout (owner's pick, 2026-09-27): the typed delivery is a table in
+ * the invoice's own column order with a line total per row and the delivery's
+ * total beside Record, to tick against the paper. What waits to be received
+ * (scanned receipts, the driver's purchases, staff additions) folds into one
+ * row of counts that opens each list in place, and Scan sits in the header.
  */
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
+import { formatNumber } from '@touch/i18n';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle, Select } from '../../components/ui';
-import { MessagePresenter, Money, PageHeader, Panel } from '../../components/kit';
+import { Money, PageHeader, Panel, StatusBadge } from '../../components/kit';
+import { Icon } from '../../components/icons';
+import { QK } from '../../lib/queries';
 import { StoreCountedNotice, StorePicker, useStockFormat } from './stockUi';
 import { todayIso } from '../admin/menu/availability';
 import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
-import { SK, fetchIngredients, fetchSuppliers, fetchUnfinishedCounts, type IngredientRow } from './stockKeys';
-import { DriverPurchaseReceive, DriverPurchasesPanel } from './DriverPurchases';
-import { ReceiptsPanel } from './receipts/ReceiptsPanel';
+import { SK, fetchIngredients, fetchStaffLogs, fetchSuppliers, fetchUnfinishedCounts, type IngredientRow } from './stockKeys';
+import { DriverPurchaseReceive, DriverPurchasesPanel, fetchPurchasesToReceive } from './DriverPurchases';
+import { readPurchases } from './driverPurchasesLogic';
+import { ReceiptsPanel, ScanReceiptButton, fetchReceipts } from './receipts/ReceiptsPanel';
+import { readReceipts } from './receipts/receiptLogic';
 import { ReceiptReview } from './receipts/ReceiptReview';
 import { StaffLogs } from './StaffLogs';
-import { beingCounted, storesForScope, type StockLocation } from './storeLogic';
+import { beingCounted, linesNeedingCost, readStaffLogs, storesForScope, type StockLocation } from './storeLogic';
 import { useStockScope } from './stockScope';
 import { decimalKeystroke } from './decimalInput';
+import { SupplierField } from './SupplierField';
 
 export { isShort } from './stockLogic';
 
@@ -111,9 +123,101 @@ export function ReceiveDelivery() {
   return <DeliveryForm />;
 }
 
-/** One delivery typed in by hand, with the driver's purchases above it. */
+/** Something waiting to be received that is not typed in here. */
+type Waiting = 'receipts' | 'driver' | 'staff';
+
+/**
+ * What is waiting to be received, as one row of counts above the form: the
+ * scanned receipts, the driver's purchases and what staff added on the phone
+ * without a cost. Each opens its own panel beneath the row, one at a time, so
+ * the delivery form is no longer pushed down by three lists. The queries are
+ * the panels' own keys, so opening one reads nothing twice.
+ */
+function WaitingWork() {
+  const { tr, locale } = useLocale();
+  const [open, setOpen] = useState<Waiting | null>(null);
+  const receiptsQ = useQuery({ queryKey: SK.receipts, queryFn: fetchReceipts, refetchInterval: 60_000 });
+  const driverQ = useQuery({ queryKey: QK.purchasesToReceive, queryFn: fetchPurchasesToReceive, refetchInterval: 60_000 });
+  const staffQ = useQuery({ queryKey: SK.staffLogs, queryFn: fetchStaffLogs, refetchInterval: 60_000 });
+  const staffLogs = readStaffLogs(staffQ.data ?? []);
+
+  const items: { key: Waiting; label: string; count: number; show: boolean; tone: string }[] = [
+    { key: 'receipts', label: tr('ws.receipts.panel.title'), count: readReceipts(receiptsQ.data).length, show: false, tone: 'var(--tp-info-fg)' },
+    { key: 'driver', label: tr('ws.supplies.driver.title'), count: readPurchases(driverQ.data).length, show: driverQ.isError, tone: 'var(--tp-success-mark)' },
+    // Staff logs stay reachable while any exist, costed or not: the panel is
+    // also where a cost already set gets corrected.
+    { key: 'staff', label: tr('ws.manager.stock.goodsIn.waiting.staff'), count: linesNeedingCost(staffLogs), show: staffLogs.length > 0 || staffQ.isError, tone: 'var(--tp-warn-mark)' },
+  ];
+  items[0]!.show = items[0]!.count > 0 || receiptsQ.isError;
+  items[1]!.show = items[1]!.show || items[1]!.count > 0;
+  const shown = items.filter((i) => i.show);
+  if (shown.length === 0) return null;
+
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      <div role="group" aria-label={tr('ws.manager.stock.goodsIn.waiting.title')} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
+        {shown.map((item) => {
+          const expanded = open === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              aria-expanded={expanded}
+              aria-controls={`goods-in-waiting-${item.key}`}
+              data-testid={`goods-in-waiting-${item.key}`}
+              onClick={() => setOpen(expanded ? null : item.key)}
+              className="tp-hoverable"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--tp-sp-2)',
+                paddingBlock: 'var(--tp-sp-1-5)',
+                paddingInline: 'var(--tp-sp-3)',
+                borderRadius: 'var(--tp-radius-ctl)',
+                border: `1px solid ${expanded ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
+                background: expanded ? 'var(--tp-accent-soft)' : 'var(--tp-surface)',
+                color: expanded ? 'var(--tp-accent-soft-fg)' : 'var(--tp-fg)',
+                font: 'inherit',
+                fontSize: 'var(--tp-fs-sm)',
+                cursor: 'pointer',
+              }}
+            >
+              <span aria-hidden="true" style={{ inlineSize: 8, blockSize: 8, borderRadius: '50%', background: item.tone, flex: 'none' }} />
+              <span>{item.label}</span>
+              {item.count > 0 && <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(item.count, locale)}</strong>}
+              <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={14} />
+            </button>
+          );
+        })}
+      </div>
+      {open && (
+        <div id={`goods-in-waiting-${open}`}>
+          {open === 'receipts' && <ReceiptsPanel scan={false} />}
+          {open === 'driver' && <DriverPurchasesPanel />}
+          {open === 'staff' && <StaffLogs />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A line's value in IQD, received × cost, once both are numbers; null until then. */
+function lineTotal(line: DeliveryLineDraft): number | null {
+  const received = Number(line.qtyReceived);
+  const cost = Number(line.unitCostIqd);
+  if (line.qtyReceived.trim() === '' || line.unitCostIqd.trim() === '' || !Number.isFinite(received) || !Number.isFinite(cost)) return null;
+  return Math.round(received * cost);
+}
+
+/**
+ * One delivery typed in by hand, laid out like the supplier's invoice (owner's
+ * pick of four, 2026-09-27): who it came from and where it goes at the top, a
+ * row per line in the invoice's own column order, each line's value and the
+ * delivery's total at the foot so the sum can be ticked against the paper
+ * before it is recorded.
+ */
 function DeliveryForm() {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
@@ -172,6 +276,8 @@ function DeliveryForm() {
   const shortCount = lines.filter(isShort).length;
   const counted = beingCounted(countsQ.data, location);
   const canRecord = started.length > 0 && problems.length === 0 && !counted;
+  const totals = started.map(lineTotal);
+  const total = totals.some((t) => t !== null) ? totals.reduce<number>((sum, t) => sum + (t ?? 0), 0) : null;
 
   async function submit() {
     setBusy(true);
@@ -206,133 +312,195 @@ function DeliveryForm() {
     }
   }
 
+  const th = (label: string, opts: { end?: boolean; required?: boolean; width?: string } = {}) => (
+    <th
+      scope="col"
+      style={{
+        textAlign: opts.end ? 'end' : 'start',
+        inlineSize: opts.width,
+        paddingBlock: 'var(--tp-sp-2)',
+        paddingInline: 'var(--tp-sp-1-5)',
+        fontSize: 'var(--tp-fs-sm)',
+        fontWeight: 600,
+        color: 'var(--tp-muted-fg)',
+        borderBlockEnd: '1px solid var(--tp-border-strong)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span className={opts.required ? 'tp-req' : undefined}>{label}</span>
+    </th>
+  );
+
   return (
-    <div style={{ maxInlineSize: '64rem' }}>
-      <PageHeader title={tr('op.stockNav.receive')} subtitle={tr('ws.manager.stock.goodsIn.lead')} />
+    // Full width, like On hand: on the shop desk there is no sub-nav beside
+    // it, and a cap left a band of bare page at the end of the table.
+    <div>
+      <PageHeader
+        title={tr('op.stockNav.receive')}
+        subtitle={tr('ws.manager.stock.goodsIn.lead')}
+        // The café photographs its suppliers' receipts; the shop desk types its deliveries in.
+        actions={scope === 'venue' ? <ScanReceiptButton /> : undefined}
+      />
 
-      {/* The driver's purchases, then one delivery typed in by hand: the lines
-          first, then who it came from. The supplier fills itself from the first
-          ingredient chosen, so it sits under the lines, where that shows, and
-          the Record button closes the form rather than sharing a row with
-          "Add another ingredient" above a supplier still to check. */}
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-        {/* Scanned receipts, the driver's purchases and staff additions are the
-            café's; the shop desk types its deliveries in. */}
-        {scope === 'venue' && (
-          <>
-            <ReceiptsPanel />
-            <DriverPurchasesPanel />
-            <StaffLogs />
-          </>
-        )}
+        {scope === 'venue' && <WaitingWork />}
 
-        <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-4)' }}>
-            {stores.length > 1 && (
-              <StorePicker
-                label={tr('ws.stores.picker.putIn')}
-                value={location}
-                onChange={setLocation}
+        <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')} padded={false}>
+          {/* The invoice's head: who it came from, where it goes, its number. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))',
+              columnGap: 'var(--tp-sp-4)',
+              alignItems: 'start',
+              padding: 'var(--tp-sp-4)',
+              paddingBlockEnd: 0,
+            }}
+          >
+            <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
+              <SupplierField
+                suppliers={suppliers}
+                supplierId={supplierId}
+                name={supplier}
                 disabled={busy}
-                stores={stores}
-                data-testid="goods-in-store"
+                onChange={(id, name) => {
+                  setSupplierId(id);
+                  setSupplier(name);
+                }}
               />
+            </Field>
+            {stores.length > 1 && (
+              <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+                <StorePicker
+                  label={tr('ws.stores.picker.putIn')}
+                  value={location}
+                  onChange={setLocation}
+                  disabled={busy}
+                  stores={stores}
+                  data-testid="goods-in-store"
+                />
+              </div>
             )}
-            {counted && <StoreCountedNotice store={location} />}
+            <Field label={tr('ws.manager.stock.goodsIn.notes')} optional>
+              <input style={inputStyle} value={notes} disabled={busy} placeholder={tr('ws.manager.stock.goodsIn.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
+            </Field>
           </div>
-          {/* The order of the work, said once at the top rather than hidden in
-              the Record button's tooltip, where it only showed up too late. */}
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
-            {tr('ws.manager.stock.goodsIn.recordEmpty')}
-          </p>
+          {counted && (
+            <div style={{ paddingInline: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-3)' }}>
+              <StoreCountedNotice store={location} />
+            </div>
+          )}
+
           {/* A failed ingredient read left an empty "Choose…" list with no word
               about why: say so, with the way to read it again. */}
           {ingredientsQ.isError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', paddingInline: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-3)' }}>
               <ErrorText error={ingredientsQ.error} style={{ marginBlock: 0 }} />
               <Button size="sm" icon="refresh" busy={ingredientsQ.isFetching} onClick={() => void ingredientsQ.refetch()}>
                 {tr('ws.kit.async.retry')}
               </Button>
             </div>
           )}
-          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-            {lines.map((l, i) => (
-              <LineEditor
-                key={l.key}
-                index={i}
-                line={l}
-                today={today}
-                ingredients={ingredients}
-                ingredient={byId.get(l.ingredientId) ?? null}
-                busy={busy}
-                removable={lines.length > 1}
-                onChoose={(id) => chooseIngredient(l, id)}
-                onPatch={(part) => patch(l.key, part)}
-                onRemove={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-              />
-            ))}
-          </ol>
 
-          {shortCount > 0 && (
-            <MessagePresenter tone="info" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
-          )}
+          {/* The lines, one row each. Wider than a narrow window, so the table
+              scrolls inside its own box and the page never does. */}
+          <div style={{ overflowX: 'auto', paddingInline: 'var(--tp-sp-2-5)', borderBlockStart: '1px solid var(--tp-border)' }}>
+            <table style={{ inlineSize: '100%', minInlineSize: '54rem', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {th('#', { width: '2rem' })}
+                  {th(tr('ws.manager.stock.goodsIn.ingredient'), { required: true, width: '24%' })}
+                  {th(tr('ws.manager.stock.goodsIn.received'), { required: true })}
+                  {th(tr('ws.manager.stock.goodsIn.ordered'))}
+                  {th(tr('ws.manager.stock.goodsIn.cost'), { required: true })}
+                  {th(tr('ws.manager.stock.goodsIn.expiry'))}
+                  {th(tr('ws.manager.stock.goodsIn.lineTotal'), { end: true })}
+                  <th aria-hidden="true" style={{ inlineSize: '2.5rem', borderBlockEnd: '1px solid var(--tp-border-strong)' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l, i) => (
+                  <DeliveryRow
+                    key={l.key}
+                    index={i}
+                    line={l}
+                    today={today}
+                    ingredients={ingredients}
+                    ingredient={byId.get(l.ingredientId) ?? null}
+                    busy={busy}
+                    removable={lines.length > 1}
+                    onChoose={(id) => chooseIngredient(l, id)}
+                    onPatch={(part) => patch(l.key, part)}
+                    onRemove={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
+          <div style={{ padding: 'var(--tp-sp-3) var(--tp-sp-4)' }}>
             <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
               {tr('ws.manager.stock.goodsIn.addLine')}
             </Button>
           </div>
 
+          {/* The foot: how many lines, which arrived short, the delivery's
+              total, and Record. Sticks to the bottom of the window on a long
+              invoice so the total and the button never scroll away. */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))',
-              columnGap: 'var(--tp-sp-2-5)',
-              marginBlockStart: 'var(--tp-sp-5)',
-              paddingBlockStart: 'var(--tp-sp-4)',
+              position: 'sticky',
+              insetBlockEnd: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 'var(--tp-sp-3)',
+              flexWrap: 'wrap',
+              padding: 'var(--tp-sp-3) var(--tp-sp-4)',
               borderBlockStart: '1px solid var(--tp-border)',
+              background: 'var(--tp-surface)',
+              borderEndStartRadius: 'var(--tp-radius-panel)',
+              borderEndEndRadius: 'var(--tp-radius-panel)',
             }}
           >
-            <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
-              {suppliers.length > 0 ? (
-                <Select
-                  value={supplierId}
-                  disabled={busy}
-                  onChange={setSupplierId}
-                  options={[
-                    { value: '', label: tr('ws.manager.stock.goodsIn.supplierOther') },
-                    ...suppliers.map((s) => ({ value: s.id, label: s.name })),
-                  ]}
-                />
-              ) : null}
-              {supplierId === '' && (
-                <input
-                  style={{ ...inputStyle, ...(suppliers.length > 0 ? { marginBlockStart: 'var(--tp-sp-1-5)' } : {}) }}
-                  value={supplier}
-                  disabled={busy}
-                  placeholder={suppliers.length > 0 ? tr('ws.manager.stock.goodsIn.supplierTyped') : undefined}
-                  onChange={(e) => setSupplier(e.target.value)}
-                />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', minInlineSize: 0 }}>
+              {started.length === 0 ? (
+                // The order of the work, said where the button waits for it.
+                <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.goodsIn.recordEmpty')}</span>
+              ) : (
+                <>
+                  <strong>{tr('ws.manager.stock.goodsIn.lineCount', { count: formatNumber(started.length, locale) })}</strong>
+                  {shortCount > 0 && (
+                    <>
+                      <StatusBadge tone="warn" label={tr('ws.manager.stock.goodsIn.shortCount', { count: formatNumber(shortCount, locale) })} />
+                      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.goodsIn.shortLead')}</span>
+                    </>
+                  )}
+                </>
               )}
-            </Field>
-            <Field label={tr('ws.manager.stock.goodsIn.notes')} optional>
-              <input style={inputStyle} value={notes} disabled={busy} placeholder={tr('ws.manager.stock.goodsIn.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
-            </Field>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+              <span style={{ display: 'grid', justifyItems: 'end' }}>
+                <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.manager.stock.goodsIn.total')}</span>
+                <Money amount={total} strong style={{ fontSize: 'var(--tp-fs-lg)' }} />
+              </span>
+              <Button
+                kind="primary"
+                icon="box"
+                busy={busy}
+                disabled={!canRecord}
+                disabledReason={counted ? tr('ws.stores.picker.held') : undefined}
+                onClick={() => void submit()}
+              >
+                {tr('ws.manager.stock.goodsIn.record')}
+              </Button>
+            </div>
           </div>
-
-          <ErrorText error={error} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              kind="primary"
-              icon="box"
-              busy={busy}
-              disabled={!canRecord}
-              disabledReason={counted ? tr('ws.stores.picker.held') : undefined}
-              onClick={() => void submit()}
-            >
-              {tr('ws.manager.stock.goodsIn.record')}
-            </Button>
-          </div>
+          {error !== null && (
+            <div style={{ paddingInline: 'var(--tp-sp-4)', paddingBlockEnd: 'var(--tp-sp-3)' }}>
+              <ErrorText error={error} style={{ marginBlock: 0 }} />
+            </div>
+          )}
         </Panel>
 
         <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
@@ -343,6 +511,217 @@ function DeliveryForm() {
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * The ingredient list a line picks from. The cafe/shop <optgroup> pair became
+ * a prefixed flat list: SelectMenu draws its own panel and has no group row,
+ * and a silent flattening would have lost which list an item came from —
+ * retail and cafe ingredients can share a name.
+ */
+function useIngredientOptions(ingredients: IngredientRow[]) {
+  const { tr, locale } = useLocale();
+  return [
+    { value: '', label: tr('ws.manager.stock.goodsIn.choose') },
+    ...(ingredients.some((i2) => i2.kind === 'retail')
+      ? [
+          ...ingredients
+            .filter((i2) => i2.kind !== 'retail')
+            .map((i2) => ({ value: i2.id, label: `${tr('ws.manager.stock.goodsIn.groupCafe')} · ${pickName(locale, i2)}` })),
+          ...ingredients
+            .filter((i2) => i2.kind === 'retail')
+            .map((i2) => ({ value: i2.id, label: `${tr('ws.manager.stock.goodsIn.groupShop')} · ${pickName(locale, i2)}` })),
+        ]
+      : ingredients.map((i2) => ({ value: i2.id, label: pickName(locale, i2) }))),
+  ];
+}
+
+interface LineProps {
+  index: number;
+  line: DraftLine;
+  today: string;
+  ingredients: IngredientRow[];
+  ingredient: IngredientRow | null;
+  busy: boolean;
+  removable: boolean;
+  onChoose: (id: string) => void;
+  onPatch: (part: Partial<DraftLine>) => void;
+  onRemove: () => void;
+}
+
+/**
+ * One table cell: the control, then either what is wrong with it or a hint.
+ * The column header is the visible label; the control carries its own name
+ * (with the unit) for a screen reader, since a row repeats every column.
+ */
+function Cell({ children, error, hint, end }: { children: (describedBy: string | undefined) => ReactNode; error?: string; hint?: ReactNode; end?: boolean }) {
+  const id = useId();
+  const describedBy = error ? `${id}-e` : hint ? `${id}-h` : undefined;
+  return (
+    <td style={{ paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-1-5)', verticalAlign: 'top', textAlign: end ? 'end' : undefined }}>
+      {children(describedBy)}
+      {error ? (
+        <span id={`${id}-e`} role="alert" style={{ display: 'block', marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-danger-fg)', fontWeight: 600 }}>
+          {error}
+        </span>
+      ) : hint ? (
+        <span id={`${id}-h`} style={{ display: 'block', marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+          {hint}
+        </span>
+      ) : null}
+    </td>
+  );
+}
+
+/** A number box with the ingredient's unit after it, so "24" is never read as the wrong unit. */
+function UnitInput({ value, unit, label, describedBy, invalid, disabled, onChange }: { value: string; unit: string | null; label: string; describedBy?: string; invalid: boolean; disabled: boolean; onChange: (v: string) => void }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
+      <input
+        style={{ ...inputStyle, minInlineSize: 0 }}
+        dir="ltr"
+        inputMode="decimal"
+        aria-label={label}
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(decimalKeystroke(e.target.value))}
+      />
+      {unit && (
+        <span aria-hidden="true" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', flex: 'none' }}>
+          {unit}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** One row of the delivery table. */
+function DeliveryRow({ index, line, today, ingredients, ingredient, busy, removable, onChoose, onPatch, onRemove }: LineProps) {
+  const { tr } = useLocale();
+  const fmt = useStockFormat();
+  const options = useIngredientOptions(ingredients);
+  const problem = lineProblem(line, today);
+  const short = isShort(line);
+  const unit = ingredient ? fmt.unit(ingredient.unit) : null;
+  const withUnit = (label: string) => (unit ? `${label} (${unit})` : label);
+  const total = lineTotal(line);
+  const expiryHint = !ingredient
+    ? undefined
+    : ingredient.shelf_life_days !== null
+      ? tr('ws.manager.stock.goodsIn.expiryAuto', { days: fmt.num(ingredient.shelf_life_days) })
+      : tr('ws.manager.stock.goodsIn.expiryNone');
+
+  return (
+    <tr
+      data-testid="goods-in-line"
+      style={{
+        borderBlockEnd: '1px solid var(--tp-border)',
+        // A line that arrived short is tinted, so it is found at a glance on a long invoice.
+        background: short ? 'color-mix(in oklab, var(--tp-warn-soft) 55%, transparent)' : undefined,
+      }}
+    >
+      <td style={{ paddingBlockStart: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-1-5)', verticalAlign: 'top', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
+        {fmt.num(index + 1)}
+      </td>
+      <Cell error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
+        {(describedBy) => (
+          <Select
+            value={line.ingredientId}
+            disabled={busy}
+            onChange={onChoose}
+            aria-label={tr('ws.manager.stock.goodsIn.ingredient')}
+            aria-describedby={describedBy}
+            aria-invalid={problem === 'ingredient' || undefined}
+            options={options}
+          />
+        )}
+      </Cell>
+      <Cell error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
+        {(describedBy) => (
+          <UnitInput
+            value={line.qtyReceived}
+            unit={unit}
+            label={withUnit(tr('ws.manager.stock.goodsIn.received'))}
+            describedBy={describedBy}
+            invalid={problem === 'received'}
+            disabled={busy}
+            onChange={(v) => onPatch({ qtyReceived: v })}
+          />
+        )}
+      </Cell>
+      <Cell
+        error={problem === 'ordered' ? tr('ws.manager.stock.goodsIn.problem.ordered') : undefined}
+        hint={short ? <span style={{ color: 'var(--tp-warn-fg)', fontWeight: 600 }}>{tr('ws.manager.stock.goodsIn.short', { qty: fmt.num(Number(line.qtyExpected) - Number(line.qtyReceived)) })}</span> : undefined}
+      >
+        {(describedBy) => (
+          <UnitInput
+            value={line.qtyExpected}
+            unit={unit}
+            label={withUnit(tr('ws.manager.stock.goodsIn.ordered'))}
+            describedBy={describedBy}
+            invalid={problem === 'ordered'}
+            disabled={busy}
+            onChange={(v) => onPatch({ qtyExpected: v })}
+          />
+        )}
+      </Cell>
+      <Cell
+        error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}
+        hint={
+          ingredient && ingredient.pack_size !== null && ingredient.pack_cost_iqd !== null ? (
+            <bdi>
+              {tr('ws.manager.stock.goodsIn.packPrice', { size: fmt.qty(ingredient.pack_size, ingredient.unit) })} <Money amount={ingredient.pack_cost_iqd} />
+            </bdi>
+          ) : undefined
+        }
+      >
+        {(describedBy) => (
+          <UnitInput
+            value={line.unitCostIqd}
+            unit={ingredient ? `/ ${fmt.one(ingredient.unit)}` : null}
+            label={ingredient ? tr('ws.manager.stock.goodsIn.costPer', { unit: fmt.one(ingredient.unit) }) : tr('ws.manager.stock.goodsIn.cost')}
+            describedBy={describedBy}
+            invalid={problem === 'cost'}
+            disabled={busy}
+            onChange={(v) => onPatch({ unitCostIqd: v })}
+          />
+        )}
+      </Cell>
+      <Cell error={problem === 'expiry' ? tr('ws.manager.stock.goodsIn.problem.expiry') : undefined} hint={expiryHint}>
+        {(describedBy) => (
+          // `min` greys out the past in the picker; lineProblem catches a typed one and holds Record.
+          <input
+            style={inputStyle}
+            type="date"
+            dir="ltr"
+            min={today}
+            aria-label={tr('ws.manager.stock.goodsIn.expiry')}
+            aria-describedby={describedBy}
+            aria-invalid={problem === 'expiry' || undefined}
+            value={line.expiryDate}
+            disabled={busy}
+            onChange={(e) => onPatch({ expiryDate: e.target.value })}
+          />
+        )}
+      </Cell>
+      <td style={{ paddingBlockStart: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-1-5)', verticalAlign: 'top', textAlign: 'end', whiteSpace: 'nowrap', fontWeight: 600 }}>
+        <Money amount={total} unit={false} />
+      </td>
+      <td style={{ paddingBlockStart: 'var(--tp-sp-1-5)', verticalAlign: 'top', textAlign: 'end' }}>
+        <Button
+          kind="ghost"
+          size="sm"
+          icon="x"
+          disabled={busy || !removable}
+          aria-label={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
+          title={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
+          onClick={onRemove}
+        />
+      </td>
+    </tr>
   );
 }
 
@@ -359,22 +738,13 @@ export function LineEditor({
   onPatch,
   onRemove,
   header,
-}: {
-  index: number;
-  line: DraftLine;
-  today: string;
-  ingredients: IngredientRow[];
-  ingredient: IngredientRow | null;
-  busy: boolean;
-  removable: boolean;
-  onChoose: (id: string) => void;
-  onPatch: (part: Partial<DraftLine>) => void;
-  onRemove: () => void;
+}: LineProps & {
   /** Above the ingredient: what the receipt said for this line. */
   header?: ReactNode;
 }) {
-  const { tr, locale } = useLocale();
+  const { tr } = useLocale();
   const fmt = useStockFormat();
+  const options = useIngredientOptions(ingredients);
   const problem = lineProblem(line, today);
   const short = isShort(line);
   const unit = ingredient ? fmt.unit(ingredient.unit) : null;
@@ -405,28 +775,7 @@ export function LineEditor({
       {header}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--tp-sp-2)' }}>
         <Field label={tr('ws.manager.stock.goodsIn.ingredient')} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: 0 }} error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
-          <Select
-            value={line.ingredientId}
-            disabled={busy}
-            onChange={onChoose}
-            options={[
-              { value: '', label: tr('ws.manager.stock.goodsIn.choose') },
-              // The cafe/shop <optgroup> pair became a prefixed flat list:
-              // SelectMenu draws its own panel and has no group row, and a
-              // silent flattening would have lost which list an item came
-              // from — retail and cafe ingredients can share a name.
-              ...(ingredients.some((i2) => i2.kind === 'retail')
-                ? [
-                    ...ingredients
-                      .filter((i2) => i2.kind !== 'retail')
-                      .map((i2) => ({ value: i2.id, label: `${tr('ws.manager.stock.goodsIn.groupCafe')} · ${pickName(locale, i2)}` })),
-                    ...ingredients
-                      .filter((i2) => i2.kind === 'retail')
-                      .map((i2) => ({ value: i2.id, label: `${tr('ws.manager.stock.goodsIn.groupShop')} · ${pickName(locale, i2)}` })),
-                  ]
-                : ingredients.map((i2) => ({ value: i2.id, label: pickName(locale, i2) }))),
-            ]}
-          />
+          <Select value={line.ingredientId} disabled={busy} onChange={onChoose} options={options} />
         </Field>
         <Button
           kind="ghost"

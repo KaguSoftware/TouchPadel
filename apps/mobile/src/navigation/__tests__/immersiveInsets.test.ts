@@ -97,6 +97,19 @@ describe('immersive bottom inset', () => {
   });
 
   /**
+   * The bar has a fixed height, so a label that wraps (a narrow phone, a long
+   * translation, a large system font) becomes a second line the bar cannot
+   * show, and the active dot is clipped with it. It stays on one line and
+   * shrinks to fit instead, with the system font scale capped.
+   */
+  it('keeps each tab label on one line that fits the bar', () => {
+    const bar = stripComments(read('src/navigation/TabsLayout.android.tsx'));
+    expect(bar).toMatch(/numberOfLines=\{1\}/);
+    expect(bar).toMatch(/adjustsFontSizeToFit/);
+    expect(bar).toMatch(/maxFontSizeMultiplier=/);
+  });
+
+  /**
    * Order matters: it must be INSIDE SafeAreaProvider (there is an inset to
    * override) and OUTSIDE everything that lays out against one.
    */

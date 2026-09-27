@@ -293,6 +293,7 @@ describe('capability matrix', () => {
         'editProtocols',
         'editVenueDetails',
         'launchDirectly',
+        'leaveStationWithoutPin',
         'marketingWork',
         'readProduction',
         'readPurchases',
@@ -369,6 +370,13 @@ describe('capability matrix', () => {
     for (const role of ['barista', 'chef', 'prep', 'cashier', 'court_desk', 'driver'] as const) {
       expect(can(role, 'startProtocolRelease'), role).toBe(false);
       expect(can(role, 'startProtocolPriceChange'), role).toBe(false);
+    }
+  });
+
+  it('lets only the owner leave a locked station without a manager PIN', () => {
+    expect(can('owner', 'leaveStationWithoutPin')).toBe(true);
+    for (const role of ['manager', 'cashier', 'court_desk', 'barista', 'chef'] as const) {
+      expect(can(role, 'leaveStationWithoutPin'), role).toBe(false);
     }
   });
 

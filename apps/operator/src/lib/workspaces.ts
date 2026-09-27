@@ -49,8 +49,10 @@ export interface NavItem {
     // Management's Financial / Observation sections (see the header note).
     | 'menuPrices'
     | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
-    // Management's Stock section.
-    | 'inventory' | 'stockValue' | 'shop'
+    // Management's Stock section: the /stock screens, then the stock value report and the shop.
+    | 'onHand' | 'goodsIn' | 'moveStock' | 'wasteProduction' | 'expiry' | 'alerts'
+    | 'stockCount' | 'countDifferences' | 'margins' | 'ingredients' | 'recipes'
+    | 'stockValue' | 'shop'
     // The Touch Shop desk's own rail (0243–0246).
     | 'shopTill' | 'shopStock' | 'shopReceive' | 'shopCounts' | 'shopWaste' | 'shopProducts' | 'shopSuppliers'
     // The owner assistant (docs/design/assistant §5.1).
@@ -72,7 +74,7 @@ export interface NavItem {
    * management only; the desk's and the till's row carries no count), and
    * Marketing the owner's posts to approve.
    */
-  badge?: 'protocolsWaiting' | 'suggestionsNew' | 'deductionsWaiting' | 'incidentsOpen' | 'contentWaiting';
+  badge?: 'protocolsWaiting' | 'suggestionsNew' | 'deductionsWaiting' | 'incidentsOpen' | 'contentWaiting' | 'stockCountsWaiting';
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
   /**
@@ -115,6 +117,11 @@ export interface NavSection {
   home: string;
   icon: IconName;
   items: readonly NavItem[];
+  /**
+   * Opened from a row in the workspace's own groups, so the rail prints no
+   * separate section button for it (the manager's Stock, in Run the day).
+   */
+  fromRow?: boolean;
 }
 
 export interface Workspace {
@@ -192,9 +199,10 @@ const SUGGESTIONS: NavItem = { to: '/suggestions', labelKey: 'suggestions', icon
 const MANAGER_RUN: readonly NavItem[] = [
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
   { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till' },
-  { to: '/stock', labelKey: 'stock', icon: 'package' },
-  // The Touch Shop desk (0243–0246): opens the shop workspace.
-  { to: '/shop', labelKey: 'shop', icon: 'tag' },
+  // Stock, where the Shop row was (owner call, 2026-09-27): it opens the Stock
+  // section's own rail (STOCK_SECTION below). The Touch Shop desk is the last
+  // row of that rail, and on the workspace switcher.
+  { to: '/stock', labelKey: 'stock', icon: 'package', activePrefix: '/stock' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   PROTOCOLS,
   SUGGESTIONS,
@@ -305,15 +313,31 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
 ];
 
 /**
- * STOCK — the shelves. The /stock module already carries its own grouped
- * sub-nav (daily, setup, review) beside the screen, so the rail does not
- * repeat those ten rows: one row owns the whole /stock subtree and lands on
- * on-hand, the second is the stock value report, which lives under /reports
- * but answers a stock question, and the third opens the Touch Shop desk's own
- * workspace (0243–0246), whose stock is its own.
+ * STOCK — the shelves. Every /stock screen is a row of its own, like
+ * Financial's (owner call, 2026-09-27), in the order the in-page sub-nav used
+ * to group them: the daily work, then counting and checking, then setup. The
+ * screen drops that sub-nav under this rail (routes/stock.tsx), so the list is
+ * printed once. Then the stock value report, which lives under /reports but
+ * answers a stock question, and the Touch Shop desk's own workspace
+ * (0243–0246), whose stock is its own. The manager's rail opens the same
+ * section, so both see one list in one place.
  */
-const OWNER_STOCK: readonly NavItem[] = [
-  { to: '/stock', labelKey: 'inventory', icon: 'package', activePrefix: '/stock' },
+const STOCK: readonly NavItem[] = [
+  // Claims the whole /stock subtree, so an old link to a /stock path with no
+  // row of its own still keeps this rail; every other row is a more specific
+  // match and wins the highlight on its own screen (activeNavItem).
+  { to: '/stock', labelKey: 'onHand', icon: 'package', activePrefix: '/stock' },
+  { to: '/stock/receive', labelKey: 'goodsIn', icon: 'box' },
+  { to: '/stock/moves', labelKey: 'moveStock', icon: 'repeat' },
+  { to: '/stock/waste', labelKey: 'wasteProduction', icon: 'ban' },
+  { to: '/stock/expiry', labelKey: 'expiry', icon: 'hourglass' },
+  { to: '/stock/alerts', labelKey: 'alerts', icon: 'bell' },
+  // Counts taken on the phone and waiting for a manager (wave5-addendum §2.8.5).
+  { to: '/stock/counts', labelKey: 'stockCount', icon: 'scale', badge: 'stockCountsWaiting' },
+  { to: '/stock/variance', labelKey: 'countDifferences', icon: 'chart' },
+  { to: '/stock/margins', labelKey: 'margins', icon: 'trendUp' },
+  { to: '/stock/ingredients', labelKey: 'ingredients', icon: 'layers' },
+  { to: '/stock/recipes', labelKey: 'recipes', icon: 'fileText' },
   { to: '/reports/stock', labelKey: 'stockValue', icon: 'chart' },
   { to: '/shop', labelKey: 'shop', icon: 'tag' },
 ];
@@ -354,10 +378,13 @@ const SHOP: readonly NavItem[] = [
  */
 const TEAM: readonly NavItem[] = [MY_TASKS];
 
+/** Stock as a section, on the owner's rail and the manager's alike. */
+const STOCK_SECTION: NavSection = { key: 'stock', home: '/stock', icon: 'package', items: STOCK };
+
 const OWNER_SECTIONS: readonly NavSection[] = [
   { key: 'financial', home: '/financial', icon: 'banknote', items: OWNER_FINANCIAL },
   { key: 'observation', home: '/observation', icon: 'eye', items: OWNER_OBSERVATION },
-  { key: 'stock', home: '/stock', icon: 'package', items: OWNER_STOCK },
+  STOCK_SECTION,
   // Sliders, not the gear: /admin/settings is ONE row inside this section
   // (OWNER_SETUP), and when the section and one of its own rows wore the same
   // gear, the row you wanted was the one that looked like the section holding
@@ -380,6 +407,9 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
       { labelKey: 'groupRecords', items: MANAGER_RECORDS },
       { labelKey: 'groupSetup', items: MANAGER_SETUP },
     ],
+    // Stock opens its own rail, as it does for the owner (owner call,
+    // 2026-09-27), from its row in Run the day rather than a section button.
+    sections: [{ ...STOCK_SECTION, fromRow: true }],
   },
   owner: {
     key: 'owner',

@@ -53,6 +53,13 @@ describe('the dirty-leave confirm', () => {
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
   });
 
+  it('has no X beside the title: the two buttons are the only answers', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByRole('button', { name: 'leave' }));
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+  });
+
   it('keeps the two buttons paired instead of spreading the red one to the far edge', async () => {
     const user = userEvent.setup();
     renderHarness();

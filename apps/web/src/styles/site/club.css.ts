@@ -25,8 +25,8 @@ export const siteClubCss = `
   padding-inline: var(--tp-site-gutter);
 }
 .tp-club__copy { grid-area: copy; display: grid; gap: clamp(1.25rem, 3vw, 2rem); align-content: start; }
-.tp-club__head { --tp-fit: 12; --tp-cap: 6.75rem; }
-[dir='rtl'] .tp-club__head { --tp-fit: 17.4; }
+.tp-club__head { --tp-fit: 15; --tp-cap: 6.75rem; }
+[dir='rtl'] .tp-club__head { --tp-fit: 15; }
 .tp-club__body {
   max-inline-size: 44ch;
   font-size: var(--tp-site-fs-lg);

@@ -3,7 +3,7 @@ import { WhatsAppButton } from '@/components/site/ContactButton';
 import { Photo } from './Photo';
 
 /**
- * `#lessons`: "NEW TO PADEL? / START HERE." The club offers lessons today and promises
+ * `#lessons`: "YOUR FIRST TOUCH? / START HERE." The club offers lessons today and promises
  * nothing more specific (no levels, formats or coach names are confirmed), so the page
  * says exactly that and hands over to the desk: "Ask about lessons" opens WhatsApp with
  * the lesson message pre-filled. On a wide screen the photo runs to the edge of the

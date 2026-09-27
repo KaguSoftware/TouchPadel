@@ -7,7 +7,7 @@ import { WhatsAppButton } from '@/components/site/ContactButton';
 import { Photo } from './Photo';
 
 /**
- * `#club`, "PURE GAME, / PERFECT TOUCH." (the deck's roll-ups, full-brand2.pdf p18): what
+ * `#club`, "EVERY POINT, / ONE TOUCH." (the one-touch idea on the deck's roll-ups, p18): what
  * playing here is. The words and the club's confirmed facts (indoor, rackets and balls to
  * rent, lockers; the hours are the hero's pill) on one side, each marked with the brand's
  * own ball; on the other, the app's live court, rallying on a full-bleed Touch Blue field with the
@@ -55,7 +55,6 @@ export function Club({ locale, phone }: { locale: Locale; phone: string | null }
           <div className="tp-club__court-box">
             <CourtStage
               label={tr('site.club.courtLabel')}
-              pauseLabel={tr('site.club.courtPause')}
               scrollLinked
               className="tp-club__court"
             >

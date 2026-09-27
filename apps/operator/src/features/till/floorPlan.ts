@@ -38,19 +38,33 @@ import { tabHasWebOrder, type TabListRow } from './tillData';
  * count against the live floor's TABLE_SLOTS.
  */
 export const CAFE_SPOTS: readonly { x: number; z: number; seats: 2 | 4 }[] = [
-  { x: -2.1, z: 1.2, seats: 4 },
-  { x: 2.1, z: 1.2, seats: 4 },
-  { x: 0, z: 2.3, seats: 2 },
-  { x: -2.1, z: 2.5, seats: 4 },
-  { x: 2.1, z: 2.9, seats: 4 },
+  { x: -2.9, z: 1.3, seats: 4 },
+  { x: 2.9, z: 1.3, seats: 4 },
+  { x: 0, z: 2.0, seats: 2 },
+  { x: -2.9, z: 3.4, seats: 4 },
+  { x: 2.9, z: 3.4, seats: 4 },
   { x: 0, z: 3.6, seats: 2 },
-  { x: -2.1, z: 3.8, seats: 4 },
-  { x: 2.1, z: 4.25, seats: 4 },
-  { x: 0, z: 4.8, seats: 2 },
+  { x: -2.9, z: 5.5, seats: 4 },
+  { x: 2.9, z: 5.5, seats: 4 },
+  { x: 0, z: 5.2, seats: 2 },
 ];
 
+/**
+ * The stools of spot i, in metres, with the angle each faces the table from.
+ * A copy of seatAt in floorScene.ts: four-seat tables go by row (three spots
+ * a row), an x of stools, then a +, then an x.
+ */
+export function cafeSeats(i: number): { x: number; z: number; angle: number }[] {
+  const { x, z, seats } = CAFE_SPOTS[i]!;
+  const rr = seats === 2 ? 0.7 : 0.8;
+  return Array.from({ length: seats }, (_, k) => {
+    const angle = seats === 2 ? k * Math.PI : (k * Math.PI) / 2 + (Math.floor(i / 3) % 2 ? 0 : Math.PI / 4);
+    return { x: x + Math.cos(angle) * rr, z: z + Math.sin(angle) * rr, angle };
+  });
+}
+
 /** The part of the room the till draws: side wall to side wall, the kitchen pass to the door. */
-export const CAFE_VIEW = { x: -5, z: -3.6, w: 10, d: 9.9 } as const;
+export const CAFE_VIEW = { x: -5, z: -3.6, w: 10, d: 10.3 } as const;
 
 /** A spot as a fraction of the drawn room, for placing a button over the drawing. */
 export function spotPosition(spot: { x: number; z: number }): { inline: number; block: number } {

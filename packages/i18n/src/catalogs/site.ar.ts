@@ -16,9 +16,11 @@ import type { siteEn } from './site.en';
  * punctuation, «» for quoted screen names, tanwin on the letter before the alif (ملعبًا).
  * Fixed words: the venue is النادي, the front desk الاستقبال, the café's menu المنيو (so
  * it never collides with قائمة الموقع, the site's own menu button), booking goes عبر
- * واتساب. «سماش» stays: it is the word padel players use. The app band's live/hold lines
- * now read better than their store captions (framesAr in apps/mobile/store/frames.mjs);
- * bring those in line at the next store render.
+ * واتساب. The slogan is «اللعبة لمسة واحدة.» (English "It’s all in one touch."): the name
+ * says the game comes down to one touch of the ball (site.en.ts). «سماش» stays: it is the
+ * word padel players use. The app band's live/hold lines now read better than their store
+ * captions (framesAr in apps/mobile/store/frames.mjs); bring those in line at the next
+ * store render.
  */
 export const siteAr: DeepMessages<typeof siteEn> = {
   skipToContent: 'انتقل إلى المحتوى',
@@ -65,26 +67,25 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     general: 'مرحبًا تتش بادل،',
   },
   hero: {
-    lineOne: 'تتش',
-    lineTwo: 'أسلوب حياة',
+    lineOne: 'اللعبة',
+    lineTwo: 'لمسة واحدة',
     lead: 'نادي بادل وكافيه في درّة كربلاء، يضمّ ملعبين داخليين.',
     ctaWhatsApp: 'احجز عبر واتساب',
     ctaCall: 'اتصل بالاستقبال',
     ctaVisit: 'خطّط لزيارتك',
   },
   club: {
-    titleOne: 'لعبٌ خالص،',
-    titleTwo: 'ولمسةٌ مثالية.',
-    body: 'احجز موعدك والعب.',
+    titleOne: 'كل نقطة',
+    titleTwo: 'تحسمها لمسة.',
+    body: 'احجز موعدك، واجعل لكل لمسة وزنها.',
     pointIndoor: 'ملعبان داخليان',
     pointRent: 'مضارب وكرات للإيجار في الاستقبال',
     pointLockers: 'خزائن لحفظ أغراضك',
     courtLabel: 'مجسّم ثلاثي الأبعاد لملعب بادل خلف الزجاج، تتبادل فيه أربعة مضارب الكرة.',
-    courtPause: 'إيقاف تبادل الكرة مؤقتًا',
     courtCta: 'احجز ملعبًا',
   },
   lessons: {
-    titleOne: 'مبتدئ في البادل؟',
+    titleOne: 'لمستك الأولى؟',
     titleTwo: 'ابدأ من هنا.',
     body: 'نقدّم دروسًا في تتش. راسلنا عبر واتساب بالأوقات التي تناسبك، وسنخبرك بالمتاح منها.',
     cta: 'اسأل عن الدروس',
@@ -96,7 +97,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     win: 'اربح',
     eyebrow: 'انطلقت البطولات في تتش',
     title: 'اختر شريكك. خذ تذكرتك.',
-    body: 'تُقام البطولات والفعاليات الآن في تتش. راسلنا عبر واتساب لتشارك في البطولة القادمة.',
+    body: 'تُقام البطولات والفعاليات الآن في تتش، وقد تحسم لمسةٌ واحدة المباراة النهائية. راسلنا عبر واتساب لتشارك في البطولة القادمة.',
     cta: 'شارك في بطولة',
     ticket: {
       brand: 'تتش بادل',
@@ -127,7 +128,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     step1Body: 'بجانب الملعب أو في الداخل، قبل مباراتك أو بعدها.',
     step2Title: 'امسح الرمز الذي عليها',
     step2Body: 'تفتح كاميرا هاتفك منيو طاولتك، دون الحاجة إلى تثبيت أي تطبيق.',
-    step3Title: 'اطلب من هاتفك',
+    step3Title: 'أرسل طلبك بلمسة واحدة',
     step3Body: 'اختر وأرسل ثم عُد إلى مباراتك، فالكافيه يعرف طاولتك.',
     artTable: 'طاولة 4',
     artScan: 'امسح الرمز',
@@ -135,7 +136,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     cta: 'افتح المنيو',
   },
   app: {
-    titleOne: 'الحجز عبر التطبيق.',
+    titleOne: 'ملعبك على بُعد لمسة.',
     titleTwo: 'قريبًا.',
     liveEyebrow: 'كل الأوقات، كل يوم',
     liveTitle: 'اعرف الأوقات المتاحة قبل أن تنطلق.',
@@ -167,7 +168,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     lockersQ: 'هل يوجد مكان أحفظ فيه أغراضي؟',
     lockersA: 'نعم، في النادي خزائن لحفظ الأغراض.',
     beginnerQ: 'لم ألعب البادل من قبل، فهل في ذلك مشكلة؟',
-    beginnerA: 'أبدًا، فنحن نقدّم دروسًا. اسألنا عنها عبر واتساب.',
+    beginnerA: 'أبدًا، فكل لاعب بدأ بلمسته الأولى، ونحن نقدّم دروسًا. اسألنا عنها عبر واتساب.',
     cancelQ: 'ماذا أفعل إن احتجت إلى الإلغاء؟',
     cancelA: 'راسل الاستقبال أو اتصل به في أقرب وقت ممكن.',
     hoursQ: 'ما ساعات العمل؟',
@@ -194,7 +195,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     eventsAlt: 'لاعبا بادل يتصافحان على ملعب أزرق ليلًا.',
   },
   footer: {
-    tagline: 'تتش أسلوب حياة.',
+    tagline: 'اللعبة لمسة واحدة.',
     hoursTitle: 'ساعات العمل',
     phoneTitle: 'الاستقبال',
     whatsapp: 'واتساب',
@@ -212,7 +213,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
   },
   notFound: {
     title: 'خارج الملعب',
-    body: 'هذه الصفحة خارج حدود الملعب. عُد إلى البداية أو افتح منيو الكافيه.',
+    body: 'خرجت هذه اللمسة عن الملعب، فالصفحة التي تبحث عنها ليست هنا. عُد إلى البداية أو افتح منيو الكافيه.',
     home: 'العودة إلى تتش بادل',
     menu: 'منيو الكافيه',
   },
@@ -234,7 +235,7 @@ export const siteAr: DeepMessages<typeof siteEn> = {
     title: 'تتش بادل · نادي بادل وكافيه في كربلاء',
     description:
       'نادي بادل وكافيه في درّة كربلاء، يضمّ ملعبين داخليين وتتش كافيه، ويقدّم دروسًا. احجز عبر واتساب أو اتصل بالاستقبال أو زُرنا مباشرة.',
-    ogAlt: 'تتش بادل. تتش أسلوب حياة.',
+    ogAlt: 'تتش بادل. اللعبة لمسة واحدة.',
     menuTitle: 'المنيو · تتش كافيه',
   },
 };

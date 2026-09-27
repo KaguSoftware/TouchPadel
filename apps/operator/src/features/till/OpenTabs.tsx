@@ -49,6 +49,7 @@ import { chime, StartShiftBanner } from '../../lib/audio';
 import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, type ReasonCode } from '../../components/ui';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import {
   AsyncStateWrapper,
   DataTable,
@@ -189,31 +190,24 @@ function sameLocalDay(a: Date, b: Date): boolean {
 /**
  * The remove control (0085), for a tab with nothing on it.
  *
- * Press once to arm, confirm, then say why — the same reason picker a
- * cancelled booking goes through, because a tab that vanishes from the board
- * with no recorded reason is the one act the audit log could not explain the
- * next morning. No dialog before the reason: this is the screen a cashier uses
- * standing up.
+ * Press once to open the "Are you sure?" dialog (on the board), confirm, then
+ * say why — the same reason picker a cancelled booking goes through, because a
+ * tab that vanishes from the board with no recorded reason is the one act the
+ * audit log could not explain the next morning.
  *
- * A refusal is rendered in BOTH branches. The board's rows are a cached read,
- * so a waiter's order can land between the render and the press; the server
- * then refuses, the row stays armed and removable, and the message the server
- * sent must still be visible in the branch that re-renders.
+ * A refusal is rendered on the row whether or not it still offers Remove. The
+ * board's rows are a cached read, so a waiter's order can land between the
+ * render and the press; the server then refuses, and the message it sent must
+ * stay visible where the press was.
  */
 function RemoveTabControl({
   row,
-  armed,
-  busy,
   error,
   onArm,
-  onConfirm,
 }: {
   row: BoardRow;
-  armed: boolean;
-  busy: boolean;
   error: unknown;
-  onArm: (next: boolean) => void;
-  onConfirm: () => void;
+  onArm: () => void;
 }) {
   const { tr } = useLocale();
   const warn: CSSProperties = {
@@ -235,27 +229,10 @@ function RemoveTabControl({
     </span>
   );
 
-  if (armed && row.blocker === null) {
-    return (
-      <span style={{ display: 'grid', justifyItems: 'end', gap: '0.3rem' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-danger-fg)' }}>{tr('ws.cashier.tabs.removeAsk')}</span>
-          <Button size="sm" kind="danger" busy={busy} onClick={onConfirm}>
-            {tr('ws.cashier.tabs.removeConfirm')}
-          </Button>
-          <Button size="sm" disabled={busy} onClick={() => onArm(false)}>
-            {tr('ws.cashier.tabs.removeKeep')}
-          </Button>
-        </span>
-        {refusal}
-      </span>
-    );
-  }
-
   return (
     <span style={{ display: 'grid', justifyItems: 'end', gap: '0.3rem' }}>
       {row.blocker === null && (
-        <Button size="sm" kind="ghost" icon="trash" onClick={() => onArm(!armed)}>
+        <Button size="sm" kind="ghost" icon="trash" onClick={onArm} style={{ color: 'var(--tp-danger-fg)' }}>
           {tr('ws.cashier.tabs.remove')}
         </Button>
       )}
@@ -336,14 +313,6 @@ export function OpenTabsBoard({
   const [armedId, setArmedId] = useState<string | null>(null);
   /* The tab whose reason is being asked for. */
   const [reasonFor, setReasonFor] = useState<string | null>(null);
-  // Escape backs out of the confirm, the way it backs out of every dialog
-  // here. Not while the reason prompt is up: that dialog owns its own Escape.
-  useEffect(() => {
-    if (armedId === null || reasonFor !== null) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setArmedId(null);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [armedId, reasonFor]);
   /*
    * The tab leaving the board IS the acknowledgement — the query refetches
    * after the RPC and a voided tab is not in the open-tabs select. Closing on
@@ -428,27 +397,20 @@ export function OpenTabsBoard({
           ) : (
             <RemoveTabControl
               row={r}
-              armed={armedId === r.id}
-              busy={removingId === r.id}
               error={removeError?.id === r.id ? removeError.error : null}
-              onArm={(next) => {
-                setArmedId(next ? r.id : null);
+              onArm={() => {
+                setArmedId(r.id);
                 setReasonFor(null);
                 onDismissRemoveError();
               }}
-              onConfirm={() => setReasonFor(r.id)}
             />
           )}
-          {armedId !== r.id && (
-            <>
-              <Button kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
-                {tr('ws.cashier.tabs.merge')}
-              </Button>
-              <Button iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
-                {tr('ws.cashier.tabs.select')}
-              </Button>
-            </>
-          )}
+          <Button kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
+            {tr('ws.cashier.tabs.merge')}
+          </Button>
+          <Button iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
+            {tr('ws.cashier.tabs.select')}
+          </Button>
         </span>
       ),
     },
@@ -530,6 +492,17 @@ export function OpenTabsBoard({
         {hasBookingTabs && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.courtFeeNote')}</p>}
       </AsyncStateWrapper>
 
+      <ConfirmDialog
+        open={armedId !== null && reasonFor === null}
+        kind="danger"
+        title={tr('ws.cashier.tabs.removeAsk')}
+        body={tr('ws.cashier.tabs.removeBody', { name: rows.find((r) => r.id === armedId)?.label ?? '' })}
+        confirmLabel={tr('ws.cashier.tabs.removeConfirm')}
+        cancelLabel={tr('ws.cashier.tabs.removeKeep')}
+        onConfirm={() => setReasonFor(armedId)}
+        onCancel={() => setArmedId(null)}
+      />
+
       {reasonFor !== null && (
         <ReasonCodePrompt
           action={tr('ws.cashier.tabs.removeAction')}
@@ -537,7 +510,10 @@ export function OpenTabsBoard({
           busy={removingId === reasonFor}
           error={removeError?.id === reasonFor ? removeError.error : undefined}
           onSubmit={(code, note) => onRemoveTab(reasonFor, note ? `${code}: ${note}` : code)}
-          onCancel={() => setReasonFor(null)}
+          onCancel={() => {
+            setReasonFor(null);
+            setArmedId(null);
+          }}
         >
           {/* Rulebook: the consequence is stated BEFORE the act, not after. */}
           <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
