@@ -146,6 +146,8 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   let live: Record<string, string[]>;
   /** Stations registered by case 10; removed in afterAll. */
   const registeredStations: string[] = [];
+  /** B's open day: degraded mode only exists while a branch trades (0247). */
+  let bDayId: string | null = null;
 
   beforeAll(async () => {
     svc = serviceClient();
@@ -156,6 +158,12 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
     // suite left stale at A would make that read as a bug in the overload.
     await ensureTillFresh(svc);
     venueB = await ensureVenueBProbeData(svc);
+    const bDay = await svc.from('day_sessions').insert({
+      venue_id: VENUE_B_ID, business_date: farFutureDate(), status: 'open',
+      opened_by: SEED_STAFF_IDS.manager_b, opening_float_iqd: 0,
+    }).select('id').single();
+    if (bDay.error) throw new Error(`venue B open day failed: ${bDay.error.message}`);
+    bDayId = (bDay.data as { id: string }).id;
 
     anon = anonClient();
     owner = await signedInClient(SEED_STAFF.owner);
@@ -167,6 +175,9 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   });
 
   afterAll(async () => {
+    if (bDayId) {
+      await svc.from('day_sessions').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', bDayId);
+    }
     await deactivateVenueBProbeData(svc);
     if (registeredStations.length > 0) {
       // Heartbeats first: device_heartbeats.device_id is an FK to stations (0131).
@@ -356,7 +367,7 @@ describe.skipIf(!up)('multi-venue schema foundation (0122-0138)', () => {
   it('8. degraded mode is per venue: B is stale, A is not', async () => {
     const atB = await appRpc(anon, 'is_degraded', { p_venue: VENUE_B_ID });
     expect(atB.error).toBeNull();
-    expect(atB.data, "venue B's only till last beat a day ago").toBe(true);
+    expect(atB.data, "venue B trades and its only till last beat a day ago").toBe(true);
 
     const atA = await appRpc(anon, 'is_degraded', { p_venue: VENUE_A_ID });
     expect(atA.error).toBeNull();

@@ -26,6 +26,7 @@ import {
   anonymousSessionClient,
   appRpc,
   ensureTillFresh,
+  ensureOpenDay,
   SEED_STAFF,
   VENUE_A_ID,
   registerTestStation,
@@ -52,6 +53,8 @@ describe.skipIf(!up)('venue heartbeat liveness', () => {
   beforeAll(async () => {
     svc = serviceClient();
     cashier = await signedInClient(SEED_STAFF.cashier);
+    // 0247: a branch is only degraded while it trades.
+    await ensureOpenDay(await signedInClient(SEED_STAFF.manager), svc);
     const { data: settings } = await svc
       .from('venue_settings')
       .select('heartbeat_stale_seconds').eq('venue_id', VENUE_A_ID)
