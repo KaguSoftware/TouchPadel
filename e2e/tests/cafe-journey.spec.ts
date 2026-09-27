@@ -226,9 +226,9 @@ test.describe('guest cafe journey (AR) @ar', () => {
       .getByRole('radio', { name: /كولا/ })
       .click();
     await burger.getByRole('button', { name: /أضف إلى الطلب/ }).click();
-    await expect(page.getByText('تمت الإضافة إلى سلّتك.')).toBeVisible();
+    await expect(page.getByText('أُضيف إلى سلّتك.')).toBeVisible();
 
-    await page.getByRole('button', { name: /السلة · 1/ }).click();
+    await page.getByRole('button', { name: /السلّة · 1/ }).click();
     const basket = page.getByRole('dialog', { name: 'سلّتك' });
     await expect(basket).toContainText('برغر لحم');
     // "Ordering here is not payment" — SOW L345-352 calls this the single most
@@ -240,9 +240,9 @@ test.describe('guest cafe journey (AR) @ar', () => {
     // basket sheet and the footer. The English journey already asserts the
     // basket copy; this brings Arabic in line rather than testing a placement
     // the product no longer has.
-    await expect(basket).toContainText('الطلب هنا لا يعني الدفع');
+    await expect(basket).toContainText('الطلب من هنا لا يعني الدفع');
     await basket.getByRole('button', { name: 'أرسل إلى النادل' }).click();
-    await expect(page.getByText('تم الإرسال — النادل استلم طلبك.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('أُرسل طلبك، وهو الآن لدى النادل.')).toBeVisible({ timeout: 30_000 });
 
     // Arabic live status over the same broadcast channel.
     const { ticketId } = await latestOrderForTable(svc, AR_TABLE);

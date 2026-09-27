@@ -329,7 +329,7 @@ test.describe('site home @ar', () => {
     const book = await whatsapp(
       page.locator('.tp-front').getByRole('link', { name: 'احجز عبر واتساب' }),
     );
-    expect(book.text).toBe('مرحبًا تتش بادل، أرغب بحجز ملعب.');
+    expect(book.text).toBe('مرحبًا تتش بادل، أودّ حجز ملعب.');
     // The printed desk number keeps its digit groups in order inside Arabic text.
     const number = page.locator('#visit .tp-visit__number');
     await expect(number).toHaveAttribute('dir', 'ltr');
