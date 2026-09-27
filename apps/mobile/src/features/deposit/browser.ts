@@ -36,7 +36,7 @@ export async function openPaymentPage(url: string): Promise<void> {
   } catch (error) {
     // "Another WebBrowser is already being presented" (a double tap) is not a
     // failure worth a second window.
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error); // QUIET-ERROR-OK: only matched against a regex to skip a double tap, never rendered
     if (/already being presented/i.test(message)) return;
     captureException(error, { scope: 'deposit.openBrowser' });
     try {
