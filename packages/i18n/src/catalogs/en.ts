@@ -466,7 +466,9 @@ export const en = {
     confirmBooking: 'Confirm booking',
     confirmed: 'Booking confirmed — see you on court!',
     cancelled: 'Booking cancelled.',
-    payAtDesk: 'Payment is taken at the front desk.',
+    // True whether or not the venue takes an online deposit
+    // (build-contracts-2026-09-27): the desk takes whatever is still owed.
+    payAtDesk: 'Anything still owed is paid at the front desk.',
     slotTaken: 'Sorry, that slot has just been taken. Please pick another time.',
     closedDate: 'The venue is closed on this date.',
     outsideHours: 'That time is outside the venue’s opening hours.',
@@ -535,7 +537,7 @@ export const en = {
     paidTitle: 'Payment received',
     paidDay: 'The court fee on this booking is settled — nothing to pay at reception. Have a good day.',
     paidEvening: 'The court fee on this booking is settled — nothing to pay at reception. Have a good evening.',
-    payAtDeskBody: 'Your court is reserved now. You pay at reception when you arrive — there is no online payment in this app.',
+    payAtDeskBody: 'Your court is reserved now. Anything left to pay is settled at reception when you arrive.',
     policyLine: 'Free cancellation until {hours} hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
     reserveCta: 'Reserve court',
     reserveDialogTitle: 'Reserve this court?',
@@ -549,7 +551,7 @@ export const en = {
     slotTakenBody: 'Someone at the desk got there first. The grid has been refreshed — pick another slot.',
     successTitle: 'Court reserved',
     refLabel: 'REF {ref}',
-    successPayBody: "Show up, check in at reception and pay there. We'll send a reminder before your slot.",
+    successPayBody: "Show up, check in at reception and settle anything still owed there. We'll send a reminder before your slot.",
     viewBooking: 'View booking',
     noBookingsTitle: 'No bookings yet',
     noBookingsBody: 'Your court reservations will show up here.',
@@ -612,7 +614,7 @@ export const en = {
     noShowNotice:
       'The venue closed this booking as a no-show, and the slot went back on the grid. Speak to the desk if that is wrong.',
     expiredNotice: 'This booking expired before it was confirmed. The slot went back on the grid.',
-    payAtDeskShort: 'Pay at the desk. No online payment — settle at reception on arrival.',
+    payAtDeskShort: 'Settle what you owe at reception when you arrive.',
     cancelDialogTitle: 'Cancel this booking?',
     cancelDialogBody: "Your slot on {when} goes back on the grid. This can't be undone in the app.",
     // The confirm button INSIDE the alert, deliberately shorter than the
@@ -635,6 +637,105 @@ export const en = {
     notAHold: 'That slot is already booked. Cancel it from the booking itself.',
     beyondHorizon: 'That date is further ahead than the venue takes bookings.',
     accountRequired: 'Booking a court needs a signed-in account.',
+  },
+  // The online deposit (build-contracts-2026-09-27 §4): Review's pay button,
+  // the payment screen (app/pay/status.tsx, one state per server answer), and
+  // the lines My reservations, booking detail and the success screen add.
+  // Amounts arrive formatted and bidi-isolated; none is computed in the app.
+  deposit: {
+    title: 'Payment',
+    // Review
+    payNowCta: 'Pay {amount} now',
+    continuePaymentCta: 'Continue payment',
+    confirmPayAtDeskCta: 'Confirm, pay at the desk',
+    deskRestBody:
+      'Pay {deposit} now to confirm your court, and the remaining {rest} at reception when you arrive.',
+    deskOptionalBody:
+      'Pay {deposit} now and the rest ({rest}) at reception, or confirm without paying and settle the full {price} at the desk.',
+    providerUnavailableDesk:
+      'Online payment is not available right now. You can still confirm and pay at the desk.',
+    // The payment screen
+    checkingTitle: 'Checking your payment',
+    checkingBody:
+      'Finish paying on the bank page. This screen updates by itself the moment your bank answers.',
+    timeLeft: 'Time left to pay',
+    openAgain: 'Open payment page again',
+    leave: 'Leave',
+    leaveTitle: 'Leave this screen?',
+    leaveBody:
+      "If you already paid, we'll still confirm your booking. You'll find it under My reservations.",
+    stay: 'Stay',
+    stillCheckingTitle: 'Still checking',
+    stillCheckingBody:
+      "This is taking longer than usual. We'll let you know as soon as your bank answers. If you paid, your booking is safe.",
+    checkAgain: 'Check again',
+    failedTitle: "Payment didn't go through",
+    failedDeclined: 'Your bank declined the payment.',
+    failedAuth: "The check with your bank (the code or password step) didn't pass.",
+    failedBank: 'Your bank had a problem processing the payment.',
+    failedCancelled: 'The payment was cancelled before it finished.',
+    failedUnknown: "The payment didn't complete.",
+    failedHoldLive: 'Your slot is still held for you.',
+    failedHoldGone: 'The hold on your slot has ended.',
+    failedNoAttempts: 'You have used every payment attempt for this slot.',
+    tryAgain: 'Try again',
+    payAtDeskInstead: 'Pay at the desk instead',
+    chooseAnotherTime: 'Choose another time',
+    expiredTitle: 'Payment window ended',
+    expiredBody: 'The time to pay ran out, so the slot went back on the grid.',
+    bookAgain: 'Book again',
+    slotLostTitle: "We couldn't keep that slot",
+    slotLostBody:
+      'Your payment of {amount} is on its way back to your card. How soon it shows depends on your bank.',
+    refundPendingTitle: 'Refund on the way',
+    refundPendingBody:
+      'Your payment of {amount} is being refunded to your card. How soon it shows depends on your bank.',
+    refundedTitle: 'Refunded',
+    refundedBody: '{amount} was refunded to your card on {date}.',
+    refundedBodyNoDate: '{amount} was refunded to your card.',
+    refundFailedTitle: "We're sorting out your refund",
+    refundFailedBody:
+      "Sending {amount} back to your card didn't work. The venue will contact you to settle it.",
+    paidTitle: 'Payment received',
+    paidBody: '{amount} was paid online for this booking.',
+    notFoundTitle: 'Nothing to show here',
+    notFoundBody: "We couldn't find this payment on your account.",
+    offlineHint:
+      "Can't reach the server. Your payment is safe, and this screen updates once you're back online.",
+    payingNow: 'Paying now',
+    paidOnline: 'Paid online',
+    atDesk: 'At the desk',
+    refund: 'Refund',
+    sandbox: 'Test payment',
+    // The success screen
+    successPaidBody: '{paid} paid now · {rest} to pay at the desk.',
+    successPaidFullBody: '{paid} paid now. Nothing left to pay at the desk.',
+    // My reservations and booking detail
+    paymentInProgress: 'Payment in progress',
+    paymentInProgressBody:
+      'Finish paying to confirm this court. The slot stays held until the payment window ends.',
+    finishPayment: 'Finish payment',
+    paidOnlineRow: '{paid} paid online · {rest} at the desk',
+    paidOnlineRowFull: '{paid} paid online',
+    detailPaidOnlineBody:
+      '{paid} paid online. Pay the remaining {rest} at reception when you arrive.',
+    refundPendingNote: 'Deposit refund on the way',
+    refundedNote: 'Deposit refunded',
+    refundFailedNote: 'Deposit refund delayed',
+    refundPendingDetail:
+      'Your deposit is being refunded to your card. How soon it shows depends on your bank.',
+    refundedDetail: 'Your deposit was refunded to your card.',
+    refundFailedDetail:
+      "Your deposit refund hasn't gone through yet. The venue will contact you to settle it.",
+    cancelRefundLine: 'Your deposit of {amount} will be refunded to your card.',
+    // CODE_TO_KEY (apps/mobile/src/features/booking/errors.ts), contract §2.5.
+    errors: {
+      depositsOff: 'Online payment was just turned off here. You can confirm and pay at the desk.',
+      depositRequired: 'This court now needs a deposit to confirm. Pay it online to keep the slot.',
+      tooManyAttempts: 'Too many payment attempts for this slot. Choose another time.',
+      paymentNotFound: "We couldn't find this payment on your account.",
+      providerUnavailable: 'Online payment is not available right now. Try again in a moment.',
+    },
   },
   tabs: {
     book: 'Book',
@@ -918,6 +1019,9 @@ export const en = {
     loadFailedTitle: 'Could not load',
     validation: 'Please check the highlighted fields and try again.',
     callFailed: "This device can't place calls. The number is {phone}.",
+    // app/+not-found.tsx: any link into the app that names no screen.
+    pageMissingTitle: "That page isn't here",
+    pageMissingBody: 'The link may be old or mistyped.',
   },
   degraded: {
     // Contractual degraded-mode UX (SOW "Degraded mode" acceptance):
@@ -1908,6 +2012,9 @@ export const en = {
       // 0120 — refunds and queued money corrections.
       REFUND_EXCEEDS_PAYMENT: 'The refund is more than what is left on this payment.',
       PAYMENT_NOT_FOUND: 'That payment could not be found.',
+      // Online deposits (build-contracts-2026-09-27 §2.5).
+      PAYMENT_STATE: 'This payment has changed since you opened it. The list now shows where it is.',
+      REFUND_TOO_LARGE: 'The refund is more than the guest paid online.',
       ITEM_NOT_ON_TAB: 'That line is not on this tab.',
       IDEMPOTENCY_CONFLICT: 'This was already saved from another session. Refresh to see the latest.',
       // Protocols and the staff phone (build-contracts-2026-09-23 §3), one file pair:

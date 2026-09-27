@@ -3,7 +3,14 @@ import { Pressable, RefreshControl, SectionList, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
-import { formatDate, formatTime, formatTimeRange, formatWeekdayShort } from '@touch/i18n';
+import {
+  formatDate,
+  formatIQD,
+  formatTime,
+  formatTimeRange,
+  formatWeekdayShort,
+  isolate,
+} from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks';
@@ -20,6 +27,7 @@ import {
   type StartProximity,
 } from '../../src/features/booking/logic';
 import { useHistoryClearedAt } from '../../src/features/booking/history';
+import { onlinePaymentOf, openPaymentRef, refundNoteKey } from '../../src/features/deposit/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
   useAllCourts,
@@ -219,7 +227,10 @@ export default function BookingsScreen() {
         holdId: row.id,
         expiresAt: row.hold_expires_at ?? '',
         priceIqd: row.price_iqd == null ? '' : String(row.price_iqd),
-        courtName: courtNames.get(row.court_id) ?? '',
+        // Review reads BOTH names and picks at render; a lone `courtName`
+        // param was never read there, so a resumed hold showed no court.
+        courtNameEn: courts.data?.find((c) => c.id === row.court_id)?.name_en ?? '',
+        courtNameAr: courts.data?.find((c) => c.id === row.court_id)?.name_ar ?? '',
         startAt: row.start_at,
         durationMin: String(
           Math.round(
@@ -228,6 +239,23 @@ export default function BookingsScreen() {
         ),
       },
     });
+
+  // A hold with an online deposit still open goes back to ITS payment screen
+  // (build-contracts-2026-09-27 §4), never to Review: the attempt, not a new
+  // one, is what the guest has to finish.
+  const finishPayment = (ref: string) =>
+    router.push({ pathname: '/pay/status', params: { ref } });
+
+  // "20,000 IQD paid online · 20,000 IQD at the desk" on a booking with a
+  // deposit; the figures are the server's (my_reservations), none computed here.
+  const paymentNote = (row: BookingRow): string | null => {
+    const online = onlinePaymentOf(row);
+    if (!online) return null;
+    const paid = isolate(formatIQD(online.paid, locale));
+    return online.rest > 0
+      ? t('deposit.paidOnlineRow', { paid, rest: isolate(formatIQD(online.rest, locale)) })
+      : t('deposit.paidOnlineRowFull', { paid });
+  };
 
   const releaseHold = (row: BookingRow) =>
     release.mutate(row.id, {
@@ -246,10 +274,13 @@ export default function BookingsScreen() {
       {holds.map((row) => {
         const left = secondsUntil(row.hold_expires_at ?? null, holdNow) ?? 0;
         const start = new Date(row.start_at);
+        const paymentRef = openPaymentRef(row);
         return (
           <HeldSlotCard
             testID={`bookings.held.${row.id}`}
             key={row.id}
+            paymentInProgress={paymentRef !== null}
+            onFinishPayment={paymentRef ? () => finishPayment(paymentRef) : undefined}
             courtName={courtNames.get(row.court_id) ?? ''}
             when={`${formatDate(start, locale)} · ${formatTimeRange(start, new Date(row.end_at), locale)}`}
             price={formatPrice(row.price_iqd, locale)}
@@ -442,6 +473,7 @@ export default function BookingsScreen() {
         imminent={proximity.unit !== 'hours' && proximity.unit !== 'days'}
         ctaLabel={t('booking.viewBooking')}
         onPress={() => openBooking(item.id)}
+        note={paymentNote(item)}
       />
     );
   };
@@ -460,6 +492,7 @@ export default function BookingsScreen() {
         price={formatPrice(item.price_iqd, locale)}
         status={item.status}
         onPress={() => openBooking(item.id)}
+        note={paymentNote(item)}
       />
     );
   };
@@ -550,6 +583,10 @@ export default function BookingsScreen() {
     // who cancelled their own booking apart from one whose court the venue
     // took back — and the second of those is the one worth a trip to the desk.
     const actor = cancelActorLabel(item);
+    // …and what happened to its deposit, when it had one: "Cancelled by you ·
+    // Deposit refunded". Both are facts the badge cannot carry.
+    const refund = refundNoteKey(item);
+    const note = [actor ? t(actor) : null, refund ? t(refund) : null].filter(Boolean).join(' · ');
     return (
       <PastBookingRow
         testID={`bookings.past.${item.id}`}
@@ -557,7 +594,7 @@ export default function BookingsScreen() {
         when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
         price={formatPrice(item.price_iqd, locale)}
         status={item.status}
-        note={actor ? t(actor) : null}
+        note={note || null}
         first={index === 0}
         last={index === total - 1}
         onPress={() => openBooking(item.id)}

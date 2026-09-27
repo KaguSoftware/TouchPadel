@@ -109,6 +109,9 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     // nobody; kept on the tombstone as proof the terms applied.
     terms_version: n,
     terms_accepted_at: n,
+    // 0241: set by hand on the store review account only (its deposits go to
+    // Qi's sandbox). A switch, identifies nobody.
+    payment_sandbox: n,
   },
   reservations: {
     id: n, court_id: n, kind: n, status: n, start_at: n, end_at: n, period: n, guest_id: n,
@@ -147,6 +150,22 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     id: n, customer_id: n,
     body: { category: 'User content', why: 'what the desk wrote about this customer', onDelete: 'row' },
     author_id: n, created_at: n, edited_at: n, edited_by: n,
+  },
+  // 0241: an online deposit on a booking (Qi Card). No card data is ever
+  // stored: the card is typed on Qi's page. The money trail outlives the
+  // account, as reservations.price_iqd does; guest_id goes null on a hard
+  // delete (the FK), and 0077's tombstone keeps it pointing at nobody.
+  booking_payments: {
+    id: n, venue_id: n, reservation_id: n, hold_id: n, guest_id: n, purpose: n, provider: n, sandbox: n,
+    request_id: n, provider_payment_id: n, locale: n, status: n, provider_status: n, form_url: n,
+    deadline_at: n, last_checked_at: n, succeeded_at: n, failed_at: n, expired_at: n, forfeited_at: n,
+    failure_code: n, refund_reason: n, refund_request_id: n, refund_provider_id: n,
+    refund_requested_at: n, refunded_at: n, refund_attempts: n, cancel_attempts: n, claimed_at: n,
+    created_at: n, updated_at: n,
+    amount_iqd: { category: 'Purchase history', why: 'the deposit paid online for a court booking; the venue reconciles it with Qi Card', onDelete: 'keep' },
+    quoted_price_iqd: { category: 'Purchase history', why: 'the court price the deposit was taken against', onDelete: 'keep' },
+    refund_amount_iqd: { category: 'Purchase history', why: 'what went back to the card', onDelete: 'keep' },
+    refund_note: { category: 'Purchase history', why: 'how a manager settled a refund by hand (cash at the desk…); part of the money trail', onDelete: 'keep' },
   },
   customer_flags: {
     customer_id: n,

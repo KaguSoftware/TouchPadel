@@ -69,6 +69,17 @@ export interface BookingRow {
   /** The booking's own branch (app.my_reservations, 0235). Optional: an older cached row has none. */
   venue_id?: string | null;
   /**
+   * The online deposit (app.my_reservations, 0242; build-contracts-2026-09-27
+   * §2.2). `online_paid_iqd` is succeeded deposits net of refunds, 0 when none;
+   * it is ALREADY inside `court_paid_iqd` for a live booking, so
+   * `court_remaining_iqd` is what the desk still takes. `payment_status` and
+   * `payment_ref` are the latest attempt's, or null. Optional, like the payment
+   * figures above: a row from an older server or cache has none of them.
+   */
+  online_paid_iqd?: number | null;
+  payment_status?: string | null;
+  payment_ref?: string | null;
+  /**
    * When the booking stopped being live — cancelled, marked no-show, or
    * closed as played (0075 sets it for all three). This is the moment it
    * BECAME history, which is a different question from when its slot ends.

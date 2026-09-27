@@ -1131,6 +1131,123 @@ export type Database = {
       delete_court: { Args: { p_id: string }; Returns: Json }
       delete_hiring_candidate: { Args: { p_id: string }; Returns: undefined }
       delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
+      deposit_amount: {
+        Args: { p_price_iqd: number; p_venue_id: string }
+        Returns: number
+      }
+      deposit_apply: {
+        Args: {
+          p_amount: number
+          p_canceled: boolean
+          p_currency: string
+          p_provider_payment_id: string
+          p_provider_status: string
+          p_raw?: Json
+          p_request_id: string
+          p_signature_ok?: boolean
+          p_source: string
+        }
+        Returns: Json
+      }
+      deposit_attention: { Args: { p_venue_id?: string }; Returns: Json }
+      deposit_begin_refund: {
+        Args: {
+          p_amount_iqd?: number
+          p_note?: string
+          p_payment_id: string
+          p_reason: string
+        }
+        Returns: Database["public"]["Tables"]["booking_payments"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "booking_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      deposit_event: {
+        Args: {
+          p_note?: string
+          p_payment_id: string
+          p_provider_status?: string
+          p_raw?: Json
+          p_signature_ok?: boolean
+          p_source: string
+        }
+        Returns: undefined
+      }
+      deposit_log_event: {
+        Args: {
+          p_note: string
+          p_provider_status: string
+          p_raw: Json
+          p_request_id: string
+          p_signature_ok: boolean
+          p_source: string
+        }
+        Returns: undefined
+      }
+      deposit_mark_created: {
+        Args: {
+          p_form_url: string
+          p_provider_payment_id: string
+          p_provider_status: string
+          p_raw?: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      deposit_mode_for: {
+        Args: { p_guest_id: string; p_venue_id: string }
+        Returns: string
+      }
+      deposit_net_paid: { Args: { p_reservation_id: string }; Returns: number }
+      deposit_note_cancel_attempt: {
+        Args: { p_payment_id: string }
+        Returns: number
+      }
+      deposit_nudge: { Args: never; Returns: undefined }
+      deposit_prepare: {
+        Args: {
+          p_guest_id: string
+          p_hold_id: string
+          p_locale: string
+          p_provider: string
+        }
+        Returns: Json
+      }
+      deposit_quote: { Args: { p_hold_id: string }; Returns: Json }
+      deposit_refund_apply: {
+        Args: {
+          p_outcome: string
+          p_payment_id: string
+          p_provider_status: string
+          p_raw?: Json
+          p_refund_provider_id: string
+        }
+        Returns: Json
+      }
+      deposit_refund_manual: {
+        Args: {
+          p_device_id?: string
+          p_note: string
+          p_payment_id: string
+          p_pin: string
+        }
+        Returns: Json
+      }
+      deposit_refund_request: {
+        Args: { p_amount_iqd?: number; p_payment_id: string }
+        Returns: Json
+      }
+      deposit_refund_retry: { Args: { p_payment_id: string }; Returns: Json }
+      deposit_settings: { Args: { p_venue_id?: string }; Returns: Json }
+      deposit_settle_success: {
+        Args: { p_payment_id: string }
+        Returns: string
+      }
+      deposit_status: { Args: { p_request_id: string }; Returns: Json }
+      deposits_due_for_reconcile: { Args: { p_limit?: number }; Returns: Json }
       desk_register_customer: {
         Args: {
           p_actor_id: string
@@ -1460,6 +1577,9 @@ export type Database = {
           hold_expires_at: string
           id: string
           kind: string
+          online_paid_iqd: number
+          payment_ref: string
+          payment_status: string
           price_iqd: number
           start_at: string
           status: string
@@ -2532,6 +2652,10 @@ export type Database = {
       }
       set_customer_flags: {
         Args: { p_customer_id: string; p_flags: Json }
+        Returns: Json
+      }
+      set_deposit_settings: {
+        Args: { p_patch: Json; p_venue_id?: string }
         Returns: Json
       }
       set_item_availability: {
@@ -4091,6 +4215,190 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "audit_log_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_payment_events: {
+        Row: {
+          at: string
+          id: number
+          note: string | null
+          payment_id: string | null
+          provider_status: string | null
+          raw: Json
+          signature_ok: boolean | null
+          source: string
+        }
+        Insert: {
+          at?: string
+          id?: never
+          note?: string | null
+          payment_id?: string | null
+          provider_status?: string | null
+          raw?: Json
+          signature_ok?: boolean | null
+          source: string
+        }
+        Update: {
+          at?: string
+          id?: never
+          note?: string | null
+          payment_id?: string | null
+          provider_status?: string | null
+          raw?: Json
+          signature_ok?: boolean | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_payment_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_payments: {
+        Row: {
+          amount_iqd: number
+          cancel_attempts: number
+          claimed_at: string | null
+          created_at: string
+          deadline_at: string
+          expired_at: string | null
+          failed_at: string | null
+          failure_code: string | null
+          forfeited_at: string | null
+          form_url: string | null
+          guest_id: string | null
+          hold_id: string
+          id: string
+          last_checked_at: string | null
+          locale: string
+          provider: string
+          provider_payment_id: string | null
+          provider_status: string | null
+          purpose: string
+          quoted_price_iqd: number
+          refund_amount_iqd: number | null
+          refund_attempts: number
+          refund_note: string | null
+          refund_provider_id: string | null
+          refund_reason: string | null
+          refund_request_id: string | null
+          refund_requested_at: string | null
+          refunded_at: string | null
+          request_id: string
+          reservation_id: string
+          sandbox: boolean
+          status: string
+          succeeded_at: string | null
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          amount_iqd: number
+          cancel_attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          deadline_at: string
+          expired_at?: string | null
+          failed_at?: string | null
+          failure_code?: string | null
+          forfeited_at?: string | null
+          form_url?: string | null
+          guest_id?: string | null
+          hold_id: string
+          id?: string
+          last_checked_at?: string | null
+          locale?: string
+          provider: string
+          provider_payment_id?: string | null
+          provider_status?: string | null
+          purpose?: string
+          quoted_price_iqd: number
+          refund_amount_iqd?: number | null
+          refund_attempts?: number
+          refund_note?: string | null
+          refund_provider_id?: string | null
+          refund_reason?: string | null
+          refund_request_id?: string | null
+          refund_requested_at?: string | null
+          refunded_at?: string | null
+          request_id: string
+          reservation_id: string
+          sandbox?: boolean
+          status?: string
+          succeeded_at?: string | null
+          updated_at?: string
+          venue_id?: string
+        }
+        Update: {
+          amount_iqd?: number
+          cancel_attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          deadline_at?: string
+          expired_at?: string | null
+          failed_at?: string | null
+          failure_code?: string | null
+          forfeited_at?: string | null
+          form_url?: string | null
+          guest_id?: string | null
+          hold_id?: string
+          id?: string
+          last_checked_at?: string | null
+          locale?: string
+          provider?: string
+          provider_payment_id?: string | null
+          provider_status?: string | null
+          purpose?: string
+          quoted_price_iqd?: number
+          refund_amount_iqd?: number | null
+          refund_attempts?: number
+          refund_note?: string | null
+          refund_provider_id?: string | null
+          refund_reason?: string | null
+          refund_request_id?: string | null
+          refund_requested_at?: string | null
+          refunded_at?: string | null
+          request_id?: string
+          reservation_id?: string
+          sandbox?: boolean
+          status?: string
+          succeeded_at?: string | null
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_payments_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_hold_id_fkey"
+            columns: ["hold_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -6820,6 +7128,7 @@ export type Database = {
           expo_push_token: string | null
           full_name: string
           id: string
+          payment_sandbox: boolean
           phone: string | null
           preferred_lang: string
           terms_accepted_at: string | null
@@ -6831,6 +7140,7 @@ export type Database = {
           expo_push_token?: string | null
           full_name: string
           id: string
+          payment_sandbox?: boolean
           phone?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
@@ -6842,6 +7152,7 @@ export type Database = {
           expo_push_token?: string | null
           full_name?: string
           id?: string
+          payment_sandbox?: boolean
           phone?: string | null
           preferred_lang?: string
           terms_accepted_at?: string | null
@@ -10490,6 +10801,12 @@ export type Database = {
           cash_rounding_iqd: number
           closed_dates: string[]
           currency: string
+          deposit_forfeit_no_show: boolean
+          deposit_max_iqd: number | null
+          deposit_min_iqd: number
+          deposit_mode: string
+          deposit_percent_bp: number
+          deposit_window_seconds: number
           expiring_soon_days: number
           guest_items_per_order: number
           guest_orders_per_minute: number
@@ -10519,6 +10836,12 @@ export type Database = {
           cash_rounding_iqd?: number
           closed_dates?: string[]
           currency?: string
+          deposit_forfeit_no_show?: boolean
+          deposit_max_iqd?: number | null
+          deposit_min_iqd?: number
+          deposit_mode?: string
+          deposit_percent_bp?: number
+          deposit_window_seconds?: number
           expiring_soon_days?: number
           guest_items_per_order?: number
           guest_orders_per_minute?: number
@@ -10548,6 +10871,12 @@ export type Database = {
           cash_rounding_iqd?: number
           closed_dates?: string[]
           currency?: string
+          deposit_forfeit_no_show?: boolean
+          deposit_max_iqd?: number | null
+          deposit_min_iqd?: number
+          deposit_mode?: string
+          deposit_percent_bp?: number
+          deposit_window_seconds?: number
           expiring_soon_days?: number
           guest_items_per_order?: number
           guest_orders_per_minute?: number

@@ -10,6 +10,8 @@ import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useBack } from '../src/navigation/back';
 import { useConfirmBooking, useReleaseHold } from '../src/features/booking/hooks';
+import { useDepositQuote, useStartPayment } from '../src/features/deposit/hooks';
+import { reviewPayment } from '../src/features/deposit/logic';
 import { secondsUntil } from '../src/features/booking/logic';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
 import { useVenueSettings } from '../src/features/availability/hooks';
@@ -29,6 +31,11 @@ import { requestBookingSheet } from '../src/features/courtTransition/openIntent'
  * progress bar, summary grid, the pay-at-desk card (spec: never optional), the
  * cancellation policy line, and a native confirmation alert before the write (R7).
  * Distinct full-screen states for hold-expired and slot-taken.
+ *
+ * With an online deposit (build-contracts-2026-09-27 §4) the footer follows the
+ * venue's mode from app.deposit_quote: "Pay X now" (to the payment screen and
+ * the bank's page) and/or the Confirm it always had, and the pay-at-desk card
+ * says what is left for the desk.
  *
  * Back is a plain pop: there is no app.release_hold() yet (HANDOFF gotcha —
  * cancel_reservation refuses a same-day hold), so the countdown is what
@@ -69,6 +76,13 @@ function ReviewScreen() {
   const settings = useVenueSettings();
   const confirm = useConfirmBooking();
   const release = useReleaseHold();
+  // The online deposit (build-contracts-2026-09-27 §4): off keeps today's
+  // Confirm; optional offers Pay now first and Confirm-and-pay-at-the-desk
+  // second; required offers only Pay. A quote that cannot be read is off —
+  // confirm_booking's DEPOSIT_REQUIRED is the backstop, and refetches it.
+  const quote = useDepositQuote(holdId);
+  const pay = reviewPayment(quote.data, quote.isError);
+  const payment = useStartPayment();
   // D3: no phone, no booking. The hold keeps ticking while the guest adds one;
   // useUpdateProfile's invalidation re-enables Reserve on return.
   const { session } = useAuth();
@@ -196,12 +210,69 @@ function ReviewScreen() {
         } else if (code === 'PHONE_REQUIRED') {
           // 0059's backstop fired (the gate above was 'unknown'): collect it now.
           addPhone();
+        } else if (code === 'DEPOSIT_REQUIRED') {
+          // The venue (or this guest's exemption) changed while they were
+          // here: the fresh quote swaps the Confirm for the pay button.
+          void quote.refetch();
+          setError(t(mapErrorToKey(err)));
         } else {
           setError(t(mapErrorToKey(err)));
         }
       },
     });
   };
+
+  /**
+   * Pay the deposit (plan §5.2): deposit-begin, then the payment screen, then
+   * the bank's page. The payment window owns the hold from here, so leaving
+   * Review must not hand it back (keepHoldRef, set before the navigation).
+   */
+  const onPay = () => {
+    setError(null);
+    payment.start(holdId, {
+      beforeNavigate: () => {
+        keepHoldRef.current = true;
+      },
+      onError: (err) => {
+        const message = err.message;
+        const code = rpcErrorCode(message);
+        if (isDegradedRefusal(message)) {
+          const phone = venuePhoneOf(settings.data);
+          setError(
+            phone
+              ? t('degraded.bookingRefused', { phone: isolate(phone) })
+              : t('degraded.bookingRefusedShort'),
+          );
+        } else if (code === 'HOLD_EXPIRED') {
+          setSecondsLeft(0);
+        } else if (code === 'PHONE_REQUIRED') {
+          addPhone();
+        } else if (code === 'DEPOSITS_OFF') {
+          // Switched off mid-checkout (plan §10 row 31): the refetched quote
+          // puts today's Confirm back, and this says why it moved.
+          void quote.refetch();
+          setError(t(mapErrorToKey(err)));
+        } else if (code === 'PROVIDER_UNAVAILABLE') {
+          // Qi is down or not configured (rows 39, 41). Optional mode keeps
+          // "Confirm, pay at the desk" on screen, so the guest is told it is there.
+          setError(
+            t(pay.kind === 'optional' ? 'deposit.providerUnavailableDesk' : mapErrorToKey(err)),
+          );
+        } else {
+          setError(t(mapErrorToKey(err)));
+        }
+      },
+    });
+  };
+
+  const depositApplies = pay.kind === 'optional' || pay.kind === 'required';
+  const payLabel =
+    depositApplies && pay.activeRef
+      ? t('deposit.continuePaymentCta')
+      : depositApplies
+        ? t('deposit.payNowCta', { amount: isolate(formatIQD(pay.depositIqd, locale)) })
+        : '';
+  const blocked = !holdId || profileGate === 'incomplete';
 
   // From the sheet, the grid the guest left is still open underneath — pop back
   // to it (the settled hold invalidated availability, so it is fresh). Any other
@@ -433,7 +504,23 @@ function ReviewScreen() {
         </Card>
 
         <View style={{ marginTop: space.sm }}>
-          <PayAtDeskCard title={t('booking.payAtDeskTitle')} body={t('booking.payAtDeskBody')} />
+          <PayAtDeskCard
+            title={t('booking.payAtDeskTitle')}
+            body={
+              pay.kind === 'required'
+                ? t('deposit.deskRestBody', {
+                  deposit: isolate(formatIQD(pay.depositIqd, locale)),
+                  rest: isolate(formatIQD(pay.restIqd, locale)),
+                })
+                : pay.kind === 'optional'
+                  ? t('deposit.deskOptionalBody', {
+                    deposit: isolate(formatIQD(pay.depositIqd, locale)),
+                    rest: isolate(formatIQD(pay.restIqd, locale)),
+                    price: isolate(formatIQD(pay.priceIqd, locale)),
+                  })
+                  : t('booking.payAtDeskBody')
+            }
+          />
         </View>
 
         {windowHours != null ? (
@@ -505,18 +592,38 @@ function ReviewScreen() {
           paddingBottom: 20 + insets.bottom,
         }}
       >
-        <Button
-          testID="review.reserve"
-          label={t('booking.reserveCta')}
-          onPress={() => setDialogOpen(true)}
-          variant="cta"
-          // Carries the write's spinner now that the confirmation is a system
-          // alert: the alert is gone the instant it is answered, so it can no
-          // longer show "Reserving…" itself.
-          busy={confirm.isPending}
-          disabled={!holdId || profileGate === 'incomplete'}
-          style={{ paddingTop: 16, paddingBottom: 16 }}
-        />
+        {depositApplies ? (
+          <Button
+            testID="review.pay"
+            label={payLabel}
+            onPress={onPay}
+            variant="cta"
+            busy={payment.busy}
+            disabled={blocked || confirm.isPending}
+            style={{ paddingTop: 16, paddingBottom: 16 }}
+          />
+        ) : null}
+        {pay.kind !== 'required' ? (
+          <Button
+            testID="review.reserve"
+            label={t(pay.kind === 'optional' ? 'deposit.confirmPayAtDeskCta' : 'booking.reserveCta')}
+            onPress={() => setDialogOpen(true)}
+            variant={pay.kind === 'optional' ? 'secondary' : 'cta'}
+            size={pay.kind === 'optional' ? 'medium' : 'regular'}
+            // Carries the write's spinner now that the confirmation is a system
+            // alert: the alert is gone the instant it is answered, so it can no
+            // longer show "Reserving…" itself. While the deposit terms are
+            // still loading it waits too, so it never offers Confirm to a guest
+            // the venue is about to ask for a deposit.
+            busy={confirm.isPending || pay.kind === 'loading'}
+            disabled={blocked || payment.busy}
+            style={
+              pay.kind === 'optional'
+                ? { marginTop: 9 }
+                : { paddingTop: 16, paddingBottom: 16 }
+            }
+          />
+        ) : null}
       </LinearGradient>
 
       <ConfirmAlert

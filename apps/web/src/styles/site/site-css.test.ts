@@ -3,6 +3,7 @@ import { courtCss } from '@/features/court3d/court.css';
 import { PHOTO_GRADE_ID } from '@/lib/site/photoGrade';
 import { siteCssModules } from './index';
 import { siteLostCss, siteLostFrameCss } from './lost.css';
+import { sitePayReturnCss } from './payReturn.css';
 
 /**
  * Style guard for the site family, run over every site module AND over the court's
@@ -19,6 +20,8 @@ const ALL: [string, string][] = [
   ['court3d', courtCss],
   // The fallback 404's own frame, which ships without the site sheet (not-found.tsx).
   ['lost-frame', siteLostFrameCss],
+  // The payment return page's whole sheet, which also ships without it (pay/return/page.tsx).
+  ['pay-return', sitePayReturnCss],
 ];
 
 describe('site css guard', () => {

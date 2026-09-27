@@ -178,7 +178,7 @@ export const siteEn = {
     bookQ: 'How do I book a court?',
     bookA: 'Message us on WhatsApp, call the front desk, or walk in while we are open.',
     payQ: 'How do I pay?',
-    payA: 'At the front desk when you arrive. There is no online payment.',
+    payA: 'At the front desk when you arrive. If you book in the app, you may be able to pay a deposit first with Qi Card.',
     racketQ: 'I do not have a racket. Can I still play?',
     racketA: 'Yes. Rackets and balls are available to rent at the desk.',
     lockersQ: 'Is there somewhere to leave my things?',
@@ -245,6 +245,17 @@ export const siteEn = {
     body: 'Something went wrong on our side. Try again, or go back to the home page.',
     retry: 'Try again',
     home: 'Back to Touch Padel',
+  },
+  // /{locale}/pay/return, where Qi's payment page sends the guest's browser back
+  // (docs/design/payments/qi-deposit-plan-2026-09-20.md §6). The page cannot know how
+  // the payment went, so no string here may state or hint at a result: never "paid",
+  // "success" or the like (page.test.tsx checks both catalogs). The app says it.
+  payReturn: {
+    metaTitle: 'Back to the app',
+    title: 'Return to the Touch Padel app to see your booking',
+    body: 'The app has the latest on your booking. If it did not open by itself, use the button below.',
+    open: 'Open the app',
+    noApp: 'Don’t have the app?',
   },
   seo: {
     title: 'Touch Padel · Padel club and café in Karbala',

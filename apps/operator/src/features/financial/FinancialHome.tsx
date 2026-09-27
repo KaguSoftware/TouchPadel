@@ -18,7 +18,10 @@
  *     counted, and the variance in words (short / over / matches). It was only
  *     visible inside the day-close screen at the moment of closing; afterwards
  *     no screen showed it at all. Tone only on a non-zero variance.
- *  3. **The screens**, one card each, as before.
+ *  3. **Online refunds needing attention** — online deposits whose refund
+ *     failed or stalled, with Retry and "Settled another way" (contract §6).
+ *     Shown once deposits are on, or whenever a row waits.
+ *  4. **The screens**, one card each, as before.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -35,6 +38,7 @@ import { useReportPeriod } from '../reports/ReportParts';
 import { CardTitle, MARK_FG } from '../ops/OpsVisuals';
 import { varianceMagnitude, varianceSign } from '../admin/dayCloseLogic';
 import { figuresIn, mapFigures, type FigureKey, type PanelHeadline } from '../panel/figures';
+import { DepositAttentionPanel } from '../deposits/DepositAttentionPanel';
 
 type CardKey =
   | 'reports' | 'cashDrawer'
@@ -65,6 +69,10 @@ export function FinancialHomeScreen() {
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(24rem, 1fr))', alignItems: 'start' }}>
         <MonthSoFar />
         <RecentCloses />
+      </div>
+      {/* Online deposits (build-contracts-2026-09-27 §6): refunds a person must see to. */}
+      <div style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
+        <DepositAttentionPanel />
       </div>
       <div style={{ blockSize: 'var(--tp-sp-4)' }} />
     </SectionHome>

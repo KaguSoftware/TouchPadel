@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { RequireSession } from '../../src/features/auth/RequireSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDate, formatDateTime, formatTimeRange, isolate } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, formatTimeRange, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
 import { canCancel, dayPart, displayRef, endedNotice, isCourtFeePaid } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
+import { onlinePaymentOf, openPaymentRef, refundDetailKey } from '../../src/features/deposit/logic';
 import {
   useAllCourts,
   useCourtsBroadcast,
@@ -48,6 +49,7 @@ function BookingDetailScreen() {
   const { colors, fonts, tracking } = useTheme();
   const insets = useSafeAreaInsets();
   const back = useBack();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   // Fetched by id (RLS-scoped) — finding it in the 100-row list made any older
   // booking opened from a push tap render "not found".
@@ -130,6 +132,12 @@ function BookingDetailScreen() {
   };
 
   const price = booking ? formatPrice(booking.price_iqd, locale) : null;
+  // The online deposit (build-contracts-2026-09-27 §2.2): what was paid in the
+  // app, a payment still open on a hold, and a deposit on its way back.
+  const online = booking ? onlinePaymentOf(booking) : null;
+  const paymentRef = booking ? openPaymentRef(booking) : null;
+  const refundKey = booking ? refundDetailKey(booking) : null;
+  const money = (n: number) => isolate(formatIQD(n, locale));
   const cardPad = { paddingTop: 13, paddingBottom: 13, paddingStart: space.m, paddingEnd: space.m };
 
   return (
@@ -220,7 +228,8 @@ function BookingDetailScreen() {
                   ? [
                       {
                         icon: TagIcon,
-                        label: t('booking.priceAtDesk'),
+                        // Not all of it is "at desk" once part was paid online.
+                        label: t(online ? 'booking.price' : 'booking.priceAtDesk'),
                         value: price,
                         valueColor: colors.gtext,
                         emphasis: true,
@@ -254,7 +263,55 @@ function BookingDetailScreen() {
             </View>
           ) : null}
 
-          {upcomingActive && policyKnown && eligible ? (
+          {paymentRef ? (
+            // A hold whose online deposit is still open: back to that
+            // payment's screen, the only place it can be finished.
+            <View
+              style={{
+                marginTop: 10,
+                backgroundColor: colors.amb,
+                borderWidth: 1,
+                borderColor: colors.ambline,
+                borderRadius: radius.button,
+                ...cardPad,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.display800,
+                  fontSize: 12,
+                  letterSpacing: tracking(0.48),
+                  textTransform: 'uppercase',
+                  color: colors.ambtext,
+                }}
+              >
+                {t('deposit.paymentInProgress')}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.body400,
+                  fontSize: 12.5,
+                  lineHeight: 19,
+                  color: colors.ambtext,
+                  marginTop: 4,
+                  marginBottom: 10,
+                }}
+              >
+                {t('deposit.paymentInProgressBody')}
+              </Text>
+              <Button
+                testID="booking-detail.finish-payment"
+                label={t('deposit.finishPayment')}
+                variant="cta"
+                size="compact"
+                onPress={() => router.push({ pathname: '/pay/status', params: { ref: paymentRef } })}
+              />
+            </View>
+          ) : null}
+
+          {/* Not while a payment is open on the hold: the payment window owns
+              it, and the card above is the one thing to do with it. */}
+          {upcomingActive && policyKnown && eligible && !paymentRef ? (
             <View
               style={{
                 marginTop: 10,
@@ -292,7 +349,7 @@ function BookingDetailScreen() {
             </View>
           ) : null}
 
-          {upcomingActive && policyKnown && !eligible ? (
+          {upcomingActive && policyKnown && !eligible && !paymentRef ? (
             <View
               style={{
                 marginTop: 10,
@@ -369,6 +426,21 @@ function BookingDetailScreen() {
               >
                 {t(endedNoticeKey)}
               </Text>
+              {refundKey ? (
+                // What happened to the deposit: the notice above says what
+                // happened to the booking.
+                <Text
+                  style={{
+                    fontFamily: fonts.body600,
+                    fontSize: 12.5,
+                    lineHeight: 19,
+                    color: colors.mut2,
+                    marginTop: 6,
+                  }}
+                >
+                  {t(refundKey)}
+                </Text>
+              ) : null}
             </View>
           ) : null}
 
@@ -382,7 +454,18 @@ function BookingDetailScreen() {
                 lead={`${t('booking.paidTitle')}.`}
                 body={t(dayPart(now, tz) === 'evening' ? 'booking.paidEvening' : 'booking.paidDay')}
               />
-            ) : (
+            ) : online ? (
+              // Part paid in the app: "Paid online X · Pay Y at the desk". A
+              // refunded deposit is not in `online_paid_iqd` (net of refunds),
+              // so a cancelled booking never reaches this branch.
+              <PayAtDeskCard
+                lead={`${t('deposit.paidOnline')}.`}
+                body={t('deposit.detailPaidOnlineBody', {
+                  paid: money(online.paid),
+                  rest: money(online.rest),
+                })}
+              />
+            ) : paymentRef ? null : (
               <PayAtDeskCard lead={`${t('booking.payAtDeskTitle')}.`} body={t('booking.payAtDeskShort')} />
             )}
           </View>
@@ -394,9 +477,14 @@ function BookingDetailScreen() {
       <ConfirmAlert
         visible={dialogOpen}
         title={t('booking.cancelDialogTitle')}
-        body={t('booking.cancelDialogBody', {
-          when: start ? formatDateTime(start, locale) : '',
-        })}
+        body={[
+          t('booking.cancelDialogBody', { when: start ? formatDateTime(start, locale) : '' }),
+          // The money outcome, before the guest taps (plan §5.4): a cancelled
+          // booking's deposit is always refunded (contract §1).
+          online ? t('deposit.cancelRefundLine', { amount: money(online.paid) }) : null,
+        ]
+          .filter(Boolean)
+          .join(' ')}
         // Short labels on purpose: iOS puts two alert buttons side by side only
         // when both fit one row, and stacks them otherwise — "Cancel booking"
         // was long enough to force the stack. The title carries the noun.

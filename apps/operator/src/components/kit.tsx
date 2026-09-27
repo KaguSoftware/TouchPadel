@@ -512,12 +512,15 @@ export function TabStatusIndicator({ status, size }: { status: TabStatus | strin
   return <StatusBadge tone={TAB_TONE[s]} label={known ? tr(`ws.kit.tabStatus.${s}`) : status} size={size} />;
 }
 
-export type CustomerFlagType = 'vip' | 'birthday' | 'payment_note' | 'special_request';
+// deposit_exempt (0241): this guest books in the app without paying an online
+// deposit first, even when the branch asks for one (app.deposit_mode_for).
+export type CustomerFlagType = 'vip' | 'birthday' | 'payment_note' | 'special_request' | 'deposit_exempt';
 const FLAG_META: Record<CustomerFlagType, { tone: Tone; icon: IconName }> = {
   vip: { tone: 'accent', icon: 'star' },
   birthday: { tone: 'success', icon: 'cake' },
   payment_note: { tone: 'warn', icon: 'banknote' },
   special_request: { tone: 'info', icon: 'note' },
+  deposit_exempt: { tone: 'neutral', icon: 'card' },
 };
 /** Surfaces wherever a customer appears (spec 06.9). */
 export function CustomerFlagBadge({ flag, size = 'sm' }: { flag: { type: CustomerFlagType | string; label?: string | null }; size?: 'sm' | 'md' }) {

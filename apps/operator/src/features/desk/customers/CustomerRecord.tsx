@@ -21,7 +21,7 @@ import { Icon } from '../../../components/icons';
 import type { CustomerFlag, CustomerNote, CustomerRecord, CustomerReservationRow } from '../deskTypes';
 import type { CustomerSearchParams } from './CustomerSearch';
 
-const FLAG_TYPES: readonly CustomerFlagType[] = ['vip', 'birthday', 'payment_note', 'special_request'];
+const FLAG_TYPES: readonly CustomerFlagType[] = ['vip', 'birthday', 'payment_note', 'special_request', 'deposit_exempt'];
 
 export function CustomerRecordScreen() {
   const { tr, locale } = useLocale();
@@ -422,6 +422,10 @@ function FlagsEditor({ customerId, flags, onClose, onSaved }: { customerId: stri
               maxLength={80}
               onChange={(e) => setState({ ...state, [t]: { ...state[t], label: e.target.value } })}
             />
+            {/* The one flag that changes what the guest can do, so it says what. */}
+            {t === 'deposit_exempt' && (
+              <p style={{ gridColumn: '1 / -1', margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.record.depositExemptHint')}</p>
+            )}
           </div>
         ))}
       </div>

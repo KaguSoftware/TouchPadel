@@ -56,6 +56,13 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'booking-history.tsx', route: 'booking-history', primary: 'booking-history.clear' },
   { file: 'review.tsx', route: 'review', primary: 'review.reserve' },
   { file: 'success.tsx', route: 'success', primary: 'success.done' },
+  // ── online deposit (build-contracts-2026-09-27 §4), cased by
+  // deposit.smoke.test.tsx. The return link's landing has no action of its
+  // own (it hands the ref on in an effect), so its primary is the waiting
+  // state it shows; the payment screen's is the "checking" state's own.
+  { file: 'pay/return.tsx', route: 'pay-return', primary: 'pay-return.waiting' },
+  { file: 'pay/status.tsx', route: 'pay-status', primary: 'pay-status.open-again' },
+  { file: '+not-found.tsx', route: 'not-found', primary: 'not-found.bookings' },
   // ── profile ───────────────────────────────────────────────────────────────
   { file: 'settings.tsx', route: 'settings', primary: 'settings.language' },
   { file: 'profile-edit.tsx', route: 'profile-edit', primary: 'profile-edit.save' },

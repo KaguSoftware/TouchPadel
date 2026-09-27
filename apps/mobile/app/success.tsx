@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, formatTimeRange, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../src/theme';
@@ -35,6 +35,13 @@ function SuccessScreen() {
     startAt?: string;
     durationMin?: string;
     priceIqd?: string;
+    /**
+     * The online deposit just paid, and what is left for the desk
+     * (build-contracts-2026-09-27 §4). Absent on a booking confirmed without
+     * one, which keeps today's pay-at-the-desk statement.
+     */
+    paidOnlineIqd?: string;
+    deskIqd?: string;
   }>();
 
   const reservationId = typeof params.reservationId === 'string' ? params.reservationId : '';
@@ -52,6 +59,9 @@ function SuccessScreen() {
   const durationMin = params.durationMin ? Number(params.durationMin) : null;
   const price = params.priceIqd ? Number(params.priceIqd) : NaN;
   const endAt = startAt && durationMin ? new Date(startAt.getTime() + durationMin * 60_000) : null;
+  const paidOnline = params.paidOnlineIqd ? Number(params.paidOnlineIqd) : NaN;
+  const desk = params.deskIqd ? Number(params.deskIqd) : NaN;
+  const deposit = Number.isInteger(paidOnline) && paidOnline > 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: brand.navy, paddingTop: insets.top }}>
@@ -190,9 +200,19 @@ function SuccessScreen() {
             }}
           >
             <Text style={{ fontFamily: fonts.body800, color: brand.white }}>
-              {t('booking.payAtDeskTitle')}.{' '}
+              {t(deposit ? 'deposit.paidOnline' : 'booking.payAtDeskTitle')}.{' '}
             </Text>
-            {t('booking.successPayBody')}
+            {/* "Paid now X · Y at the desk": the server's two figures, as the
+                payment screen received them. Nothing is subtracted here. */}
+            {deposit && Number.isInteger(desk) && desk > 0
+              ? t('deposit.successPaidBody', {
+                paid: isolate(formatIQD(paidOnline, locale)),
+                rest: isolate(formatIQD(desk, locale)),
+              })
+              : deposit && desk === 0
+                ? t('deposit.successPaidFullBody', { paid: isolate(formatIQD(paidOnline, locale)) })
+                : // No deposit, or a rest nobody sent: the sentence true of both.
+                  t('booking.successPayBody')}
           </Text>
         </View>
       </ScrollView>

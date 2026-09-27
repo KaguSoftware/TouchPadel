@@ -1,6 +1,9 @@
 # Online deposit for reservations — Qi Card, iOS + Android
 
-Date: 2026-09-20. Status: plan, nothing built. Owner decisions are marked **DECIDE**.
+Date: 2026-09-20. Status: **built 2026-09-27** (migrations 0241–0242, the deposit edge functions, the
+mobile, web and operator screens), dormant until the Qi secrets are set and the owner switches it on:
+`docs/client/qi-card-activation.md`. What was built differs from this plan where
+`build-contracts-2026-09-27.md` says so. Owner decisions are marked **DECIDE**.
 Facts about Qi come from `developers-gate.qi.iq` and its OpenAPI spec (fetched 2026-09-20);
 facts about this repo come from the code as of `3d70643`. Anything not verified is marked
 **ASK QI** or **UNVERIFIED**, never assumed.

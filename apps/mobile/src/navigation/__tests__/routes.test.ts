@@ -45,6 +45,18 @@ describe('route layout', () => {
     for (const g of groups) expect(ALLOWED_GROUPS.has(g), `unexpected route group ${g}`).toBe(true);
   });
 
+  it('has the online deposit routes and the not-found screen on the root stack', () => {
+    // build-contracts-2026-09-27 §4: the return link lands on pay/return, which
+    // hands the ref to pay/status; any unknown link renders +not-found. `pay/`
+    // is a plain directory, not a group and not a nested stack (no _layout),
+    // so both payment screens are root-stack pushes with the native back item.
+    const files = routeFiles.map(rel);
+    expect(files).toContain('pay/return.tsx');
+    expect(files).toContain('pay/status.tsx');
+    expect(files).toContain('+not-found.tsx');
+    expect(files.filter((f) => f.startsWith('pay/') && f.endsWith('_layout.tsx'))).toEqual([]);
+  });
+
   it('has no layout that hides a pushed screen behind a nested stack', () => {
     // A `_layout` outside (tabs) would reintroduce a nested navigator, and with
     // it the screens whose back item UIKit refuses to draw.
@@ -60,7 +72,7 @@ describe('navigation targets', () => {
   const targets = new Set<string>();
   for (const f of sources) {
     const text = readFileSync(f, 'utf8');
-    for (const m of text.matchAll(/router\.(?:push|replace|navigate)\(\s*\{?\s*(?:pathname:\s*)?'([^']+)'/g)) {
+    for (const m of text.matchAll(/router\.(?:push|replace|navigate|dismissTo)\(\s*\{?\s*(?:pathname:\s*)?'([^']+)'/g)) {
       const path = m[1];
       if (path && path.startsWith('/')) targets.add(path);
     }
@@ -69,6 +81,12 @@ describe('navigation targets', () => {
   it('finds the navigation calls it means to check', () => {
     // Guards the regex itself: a silent zero would make every assertion vacuous.
     expect(targets.size).toBeGreaterThan(8);
+  });
+
+  it('checks the payment screen as a navigation target', () => {
+    // Review and "Try again" replace to it, the resume hooks and My
+    // reservations push it, and the return link dismisses to it.
+    expect(targets.has('/pay/status')).toBe(true);
   });
 
   it('points every push at a route that exists', () => {

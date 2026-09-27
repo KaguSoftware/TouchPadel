@@ -30,6 +30,28 @@ export interface BookingBill {
   court_remaining_iqd: number;
   court_refund_due_iqd: number;
   settled_tabs: SettledTab[];
+  /**
+   * Online deposits (build-contracts-2026-09-27 §2.3): succeeded deposits net
+   * of refunds. `court_paid_iqd` already includes them for a live booking, so
+   * `court_remaining_iqd` and the open bill's court line are the rest. Optional
+   * so a server without migration 0242 still reads as "none".
+   */
+  online_paid_iqd?: number;
+  online_payments?: OnlinePayment[];
+}
+
+/** One online deposit on the booking (app.booking_bill.online_payments). Not a till payment. */
+export interface OnlinePayment {
+  id: string;
+  status: string;
+  amount_iqd: number;
+  refund_amount_iqd: number | null;
+  succeeded_at: string | null;
+  refunded_at: string | null;
+  /** Qi's sandbox (the app-review account): no real money moved, and not in online_paid_iqd. */
+  sandbox: boolean;
+  /** Kept for a no-show (deposit_forfeit_no_show). */
+  forfeited?: boolean;
 }
 
 export interface LiveTab {
@@ -90,6 +112,7 @@ export type PanelState =
   | 'closeBill' // an open bill that owes nothing — close it
   | 'billOpen' // an open bill with money due
   | 'owedAgain' // court was paid, the price went up
+  | 'depositRest' // a deposit was paid online; the rest of the court fee is owed
   | 'notCharged' // court fee owed, no bill yet
   | 'paid' // court fee fully paid
   | 'noFee' // a live booking with no court price
@@ -99,14 +122,59 @@ export function panelStateOf(bill: BookingBill): PanelState {
   if (bill.court_refund_due_iqd > 0 || (bill.live_tab?.over_paid_iqd ?? 0) > 0) return 'refundDue';
   if (bill.live_tab) return bill.live_tab.due_iqd > 0 ? 'billOpen' : 'closeBill';
   if (!bill.live) return 'ended';
-  if (bill.court_remaining_iqd > 0) return bill.court_paid_iqd > 0 ? 'owedAgain' : 'notCharged';
+  if (bill.court_remaining_iqd > 0) {
+    if (bill.court_paid_iqd <= 0) return 'notCharged';
+    // Everything paid so far came in online: the rest is simply owed, the
+    // price did not go up. "Owed again" is for money taken at the desk before.
+    return paidOnlineOnly(bill) ? 'depositRest' : 'owedAgain';
+  }
   if (bill.court_paid_iqd > 0) return 'paid';
   return 'noFee';
 }
 
 /** Whether Cash / Card can be offered in this state (the day must also be open). */
 export function canTakePayment(state: PanelState): boolean {
-  return state === 'billOpen' || state === 'owedAgain' || state === 'notCharged';
+  return state === 'billOpen' || state === 'owedAgain' || state === 'depositRest' || state === 'notCharged';
+}
+
+/** Whether every IQD paid on the court so far is an online deposit. */
+export function paidOnlineOnly(bill: Pick<BookingBill, 'court_paid_iqd' | 'online_paid_iqd'>): boolean {
+  const online = bill.online_paid_iqd ?? 0;
+  return online > 0 && bill.court_paid_iqd <= online;
+}
+
+/**
+ * The payments list's word for how a payment was taken. The till only takes
+ * cash and card (mutations.ts keeps z.enum(['cash','card']); a deposit is never
+ * a till method), so anything else on a bill is the online deposit.
+ */
+export function paymentMethodKey(method: string): 'cash' | 'card' | 'online' {
+  return method === 'cash' || method === 'card' ? method : 'online';
+}
+
+/** Online deposits that took money (a failed or expired attempt never did), earliest first. */
+export function onlinePaymentsTaken(bill: Pick<BookingBill, 'online_payments'>): OnlinePayment[] {
+  return (bill.online_payments ?? [])
+    .filter((p) => p.succeeded_at != null)
+    .sort((a, b) => (a.succeeded_at ?? '').localeCompare(b.succeeded_at ?? ''));
+}
+
+/** What became of an online deposit's refund, for its line in the payments list. */
+export type OnlineRefundState = 'none' | 'kept' | 'pending' | 'failed' | 'refunded' | 'refundedPart';
+
+export function onlineRefundState(p: Pick<OnlinePayment, 'status' | 'amount_iqd' | 'refund_amount_iqd' | 'forfeited'>): OnlineRefundState {
+  switch (p.status) {
+    case 'succeeded':
+      return p.forfeited ? 'kept' : 'none';
+    case 'refund_pending':
+      return 'pending';
+    case 'refund_failed':
+      return 'failed';
+    case 'refunded':
+      return p.refund_amount_iqd != null && p.refund_amount_iqd < p.amount_iqd ? 'refundedPart' : 'refunded';
+    default:
+      return 'none';
+  }
 }
 
 /** Whether a cafe bill can be pulled onto this booking now. */
