@@ -13,6 +13,7 @@ export const storesEn = {
   inSentence: {
     cafe: 'the cafe store',
     bakery: 'the bakery store',
+    shop: 'the shop store',
   },
   picker: {
     putIn: 'Put it in',
@@ -48,10 +49,12 @@ export const storesEn = {
     moved: {
       cafe: 'Moved into the cafe store.',
       bakery: 'Moved into the bakery store.',
+      shop: 'Moved into the shop store.',
     },
     nothingAt: {
       cafe: 'Nothing is on record in the cafe store',
       bakery: 'Nothing is on record in the bakery store',
+      shop: 'Nothing is on record in the shop store',
     },
     nothingAtBody: 'Stock arrives through Goods in, production and staff on the phone. Record it there first.',
     openGoodsIn: 'Open Goods in',
@@ -135,6 +138,7 @@ export const storesEn = {
     split: {
       cafe: 'Cafe store {qty}',
       bakery: 'Bakery store {qty}',
+      shop: 'Shop store {qty}',
     },
     storeFilter: 'Store',
     bothStores: 'Both stores',
@@ -151,6 +155,7 @@ export const storesEn = {
     onHandAt: {
       cafe: 'In the cafe store: {qty}',
       bakery: 'In the bakery store: {qty}',
+      shop: 'In the shop store: {qty}',
     },
     productionHint: 'Its ingredients come out of this store first, then the other one. The batch goes into this store.',
   },
@@ -159,10 +164,12 @@ export const storesEn = {
     to: {
       cafe: 'To the cafe store',
       bakery: 'To the bakery store',
+      shop: 'To the shop store',
     },
     from: {
       cafe: 'From the cafe store',
       bakery: 'From the bakery store',
+      shop: 'From the shop store',
     },
   },
   variance: {
@@ -176,6 +183,7 @@ export const storesEn = {
     negativeAt: {
       cafe: '{qty} sold beyond the record, at the cafe store',
       bakery: '{qty} sold beyond the record, at the bakery store',
+      shop: '{qty} sold beyond the record, at the shop store',
     },
   },
   store: 'Store',
@@ -195,12 +203,14 @@ export const storesEn = {
     added: {
       cafe: 'Added to the cafe store',
       bakery: 'Added to the bakery store',
+      shop: 'Added to the shop store',
     },
     goodsIn: 'Goods in',
     driverWaiting: 'Driver deliveries waiting for a manager: {count}. Do not add those on the phone.',
     counted: {
       cafe: 'Count of the cafe store',
       bakery: 'Count of the bakery store',
+      shop: 'Count of the shop store',
     },
     countStatus: {
       waiting: 'Waiting for a manager',

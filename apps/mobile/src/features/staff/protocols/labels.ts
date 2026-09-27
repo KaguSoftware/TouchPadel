@@ -188,6 +188,7 @@ const OPTIONS = {
     marketing: 'op.roles.marketing',
     assistant_barista: 'op.roles.assistant_barista',
     waiter: 'op.roles.waiter',
+    shop_staff: 'op.roles.shop_staff',
   },
   recommendation: {
     go: 'staff.protocols.option.recommendation.go',

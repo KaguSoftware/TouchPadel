@@ -42,6 +42,7 @@
  * uncounted, and nothing about shifts reaches deriveDayCloseState or
  * closeBlock. The CSV gains a row per shift.
  */
+import { DayCloseShop } from '../shop/DayCloseShop';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -719,6 +720,8 @@ export function DayClose() {
           {!closeResult && (
             <ChecklistsOpen lists={unfinishedChecklists(checklistsQ.data)} error={checklistsQ.error} onRetry={() => void checklistsQ.refetch()} />
           )}
+          {/* Touch Shop's own money and drawer (0246). */}
+          {!closeResult && <DayCloseShop />}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
           <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>}>
             <ErrorText error={adjustmentsQ.error} />

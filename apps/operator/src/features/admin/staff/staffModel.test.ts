@@ -49,6 +49,7 @@ describe('assignable and retired roles (0155)', () => {
       'cashier',
       'waiter',
       'court_desk',
+      'shop_staff',
       'head_barista',
       'barista',
       'assistant_barista',

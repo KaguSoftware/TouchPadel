@@ -44,6 +44,7 @@ import {
   splitByStore,
   type Direction,
   type MoveLineDraft,
+  type StockLocation,
 } from './storeLogic';
 import {
   RECENT_MOVE_DAYS,
@@ -275,7 +276,7 @@ function MoveLine({
   options: IngredientRow[];
   ingredient: IngredientRow | undefined;
   onHandAtSource: number;
-  from: 'cafe' | 'bakery';
+  from: StockLocation;
   problem: ReturnType<typeof moveLineProblem>;
   /** What the store showed when the server refused this line (TRANSFER_SHORT). */
   refusedShows: number | null;

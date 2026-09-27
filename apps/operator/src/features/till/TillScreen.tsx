@@ -32,7 +32,6 @@ import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
 import { TillShiftPanel } from '../tillShift/TillShiftPanel';
 import { useConfirm } from '../../components/ConfirmDialog';
-import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
 import { formatTime } from '@touch/i18n';
 import { Button, Skeleton, inputStyle } from '../../components/ui';
@@ -51,8 +50,6 @@ import { OfflineTabPanel } from './OfflineTabPanel';
 import { KeymapHelp } from './KeymapHelp';
 import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey, type TillAction } from './keymap';
-import { BarcodeWedge } from './barcodeWedge';
-import { findByBarcode, orderSections, shopVariantIds, splitBasket } from './basketSplit';
 import { localIsoDate, deriveTileState, tileInteractive } from './tileState';
 import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, tabAnchorLabel, type BasketLine, type ItemRow } from './tillData';
 import type { TillSearch } from './tillSearch';
@@ -64,7 +61,6 @@ export function TillScreen() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
-  const toast = useToast();
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as TillSearch;
 
@@ -85,7 +81,6 @@ export function TillScreen() {
   const [floorMode, setFloorMode] = useState<FloorMode>('cafe');
   const [spotTarget, setSpotTarget] = useState<SpotTarget | null>(null);
   const filterRef = useRef<HTMLInputElement>(null);
-  const wedgeRef = useRef(new BarcodeWedge());
   const today = useMemo(() => localIsoDate(), []);
 
   // Tabs opened while disconnected — durable in the queue, shown on the plan.
@@ -138,17 +133,21 @@ export function TillScreen() {
     },
   });
 
-  // Touch Shop sections (0144) follow the café ones, so keys 1–9 keep their places.
-  const categories = useMemo(() => orderSections((menuQ.data?.categories ?? []).filter((c) => c.is_active)), [menuQ.data]);
-  const shopVariants = useMemo(() => shopVariantIds(menuQ.data), [menuQ.data]);
+  // The café's sections only: Touch Shop sells at its own desk (0244), so its
+  // sections and products never reach this till.
+  const categories = useMemo(
+    () => (menuQ.data?.categories ?? []).filter((c) => c.is_active && c.kind !== 'shop'),
+    [menuQ.data],
+  );
+  const cafeCategoryIds = useMemo(() => new Set(categories.map((c) => c.id)), [categories]);
   const activeCategory = categoryId ?? categories[0]?.id ?? null;
 
   const visibleItems = useMemo(() => {
-    const items = (menuQ.data?.items ?? []).filter((i) => i.is_active);
+    const items = (menuQ.data?.items ?? []).filter((i) => i.is_active && cafeCategoryIds.has(i.category_id));
     const q = filter.trim().toLowerCase();
     if (q) return items.filter((i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(filter.trim()));
     return items.filter((i) => i.category_id === activeCategory);
-  }, [menuQ.data, filter, activeCategory]);
+  }, [menuQ.data, filter, activeCategory, cafeCategoryIds]);
 
   const prefetchTab = useCallback(
     (id: string) => {
@@ -196,42 +195,6 @@ export function TillScreen() {
         qty: 1,
         notes: '',
         unitPriceIqd: v.price_iqd,
-        modifiers: [],
-      }),
-    );
-  }
-
-  /** A barcode scan (USB wedge): the exact size, straight into the basket. */
-  function addScanned(code: string) {
-    const hit = findByBarcode(menuQ.data?.items ?? [], code);
-    if (!hit) {
-      toast.info(tr('ws.cashier.shop.scanUnknown', { code }));
-      return;
-    }
-    if (!hasActiveTab) {
-      toast.info(tr('ws.cashier.shop.scanNoTab'));
-      return;
-    }
-    const state = deriveTileState({
-      orderable: menuQ.data?.availability[hit.item.id],
-      soldOut: hit.item.sold_out,
-      unavailableOn: hit.item.unavailable_on,
-      hasActiveTab,
-      today,
-    });
-    if (!tileInteractive(state)) {
-      toast.info(tr('ws.cashier.shop.scanUnavailable', { name: pickName(locale, hit.item) }));
-      return;
-    }
-    setBasket((b) =>
-      mergeQuickLine(b, {
-        key: crypto.randomUUID(),
-        variantId: hit.variant.id,
-        itemName: pickName(locale, hit.item),
-        variantName: pickName(locale, hit.variant),
-        qty: 1,
-        notes: '',
-        unitPriceIqd: hit.variant.price_iqd,
         modifiers: [],
       }),
     );
@@ -328,34 +291,26 @@ export function TillScreen() {
     setSending(true);
     setSendError(null);
     try {
-      // 0146: café lines are kitchen work, shop lines come off the shelf, and
-      // the server takes them as separate orders (MIXED_BASKET otherwise). Each
-      // part leaves the basket as soon as it is sent, so a failure on the second
-      // retries only what is still there.
-      const { cafe, shop } = splitBasket(basket, shopVariants);
-      for (const part of [cafe, shop]) {
-        if (part.length === 0) continue;
-        const items = part.map((l) => ({
-          variantId: l.variantId,
-          qty: l.qty,
-          ...(l.notes ? { notes: l.notes } : {}),
-          modifiers: l.modifiers.map((m) => ({ modifierId: m.modifierId, qty: m.qty })),
-        }));
-        const shopFlag = part === shop ? { shop: true as const } : {};
-        // Single write path: queued durably in Electron, direct RPC in browser mode.
-        if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
-          const idemKey = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
-          await mutate('order.add_items', { tabIdemKey: idemKey, items, ...shopFlag });
-          appendOfflineLines(
-            idemKey,
-            part.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty })),
-          );
-        } else {
-          await mutate('order.add_items', { tabId: selectedTabId, items, ...shopFlag });
-        }
-        const sent = new Set(part.map((l) => l.key));
-        setBasket((b) => b.filter((l) => !sent.has(l.key)));
+      const part = basket;
+      const items = part.map((l) => ({
+        variantId: l.variantId,
+        qty: l.qty,
+        ...(l.notes ? { notes: l.notes } : {}),
+        modifiers: l.modifiers.map((m) => ({ modifierId: m.modifierId, qty: m.qty })),
+      }));
+      // Single write path: queued durably in Electron, direct RPC in browser mode.
+      if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
+        const idemKey = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
+        await mutate('order.add_items', { tabIdemKey: idemKey, items });
+        appendOfflineLines(
+          idemKey,
+          part.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty })),
+        );
+      } else {
+        await mutate('order.add_items', { tabId: selectedTabId, items });
       }
+      const sent = new Set(part.map((l) => l.key));
+      setBasket((b) => b.filter((l) => !sent.has(l.key)));
       void queryClient.invalidateQueries({ queryKey: ['tab', selectedTabId] });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
     } catch (e) {
@@ -366,8 +321,8 @@ export function TillScreen() {
   }
 
   // ---- keyboard (spec R11) ----------------------------------------------------
-  const latest = useRef({ visibleItems, categories, sendBasket, addOrOpen, addScanned });
-  latest.current = { visibleItems, categories, sendBasket, addOrOpen, addScanned };
+  const latest = useRef({ visibleItems, categories, sendBasket, addOrOpen });
+  latest.current = { visibleItems, categories, sendBasket, addOrOpen };
 
   useEffect(() => {
     let flushTimer: number | undefined;
@@ -429,38 +384,6 @@ export function TillScreen() {
       const overlayOpen = Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
       const modifier = e.ctrlKey || e.metaKey || e.altKey;
 
-      // Barcode wedge (Touch Shop, barcodeWedge.ts): only where a stray key
-      // would otherwise switch a category or type into the filter.
-      const mode = modifier || overlayOpen ? null : inFilter ? 'filter' : inField ? null : 'idle';
-      if (mode === null) {
-        wedgeRef.current.reset();
-      } else {
-        const w = wedgeRef.current.feed(e.key, e.timeStamp, mode);
-        if (w.kind === 'scan') {
-          e.preventDefault();
-          if (mode === 'filter') setFilter('');
-          latest.current.addScanned(w.code);
-          return;
-        }
-        if (w.kind === 'swallow') {
-          e.preventDefault();
-          window.clearTimeout(flushTimer);
-          flushTimer = window.setTimeout(() => {
-            const held = wedgeRef.current.flush(performance.now());
-            if (held === null) return;
-            if (held.length === 1) {
-              // A lone digit: the category key the person pressed.
-              const a = resolveTillKey({ key: held, inField: false, inFilter: false, overlayOpen: false, modifier: false });
-              if (a !== null) run(a, null);
-            } else {
-              // A short burst that never ended in Enter: typing, not a scan.
-              setFilter(held);
-              filterRef.current?.focus();
-            }
-          }, wedgeRef.current.maxGapMs + 20);
-          return;
-        }
-      }
 
       const action = resolveTillKey({ key: e.key, inField, inFilter, overlayOpen, modifier });
       if (action === null) return;
@@ -550,7 +473,6 @@ export function TillScreen() {
       {newTab && (
         <NewTabDialog
           initialReservationId={newTab.reservationId}
-          shopEnabled={shopVariants.size > 0}
           openTabs={tabsQ.data ?? []}
           onPickExisting={(tabId) => {
             setNewTab(null);

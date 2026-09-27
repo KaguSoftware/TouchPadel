@@ -420,6 +420,7 @@ export const ownerEn = {
       // joined with Move stock (lane S, V8): the moves are made on the phone.
       assistant_barista: 'The kitchen screen, and My tasks from its header: their checklists, the bar team’s teachings, recipe ingredients and their phone pages.',
       waiter: 'A task list (My tasks): their checklists, cleaning photos included, and their phone pages, where they move stock between the cafe and the bakery. No till, desk or kitchen.',
+      shop_staff: 'The Touch Shop desk on its own PC: the shop till, its own drawer, the shop store (goods in, counts, waste), shop products, prices and suppliers. Nothing of the café, the courts or the reports.',
     },
     // Beside a role that still works but is no longer given (prep, 0155).
     retired: 'Retired',

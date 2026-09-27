@@ -1967,6 +1967,27 @@ Built locally; **not committed, not pushed.**
   - commit and push when Parsa says so;
   - a 90-day photo purge is a follow-up.
 
+## Day 38 (2026-09-27) — Touch Shop as its own desk
+
+Parsa, looking at the shop in the operator: "the touch shop has its own desk, its own stock, its
+own items". The 09-22 build sold shop products from the café till. Rebuilt as a separate desk,
+decisions and design in `docs/design/shop/shop-desk-2026-09-27.md`:
+
+- **Database 0243–0246.** `shop_staff` role and `shop` stock store (0243); the tab-kind rule in
+  every till RPC, no cross-sell, station mode `shop`, till shifts and shop-row reads (0244); the
+  shop store in every stock RPC, sale and refund stores, phone stock views, shop-store reads and a
+  guarded move of any retail stock (0245); the shop assistant on products, prices and suppliers,
+  `upsert_shop_category` and `day_close_shop` (0246). Next ordinal 0247.
+- **Operator.** `shop` workspace: `/shop` till (scanner, Cash / Card through the till's payment
+  pane and shift gate, receipt printed after every sale, unfinished sales), `/shop/drawer`, shop
+  stock / goods in / counts / waste (the café's screens in the shop scope, `StockScopeProvider`),
+  `/shop/products` (with "New section") and `/shop/suppliers`. The café till, New tab, menu
+  editor and café stock pages lost the shop; day close gained the Shop block.
+- **Phone.** Shop assistant: shop stock, log and count at the shop store. Court desk: no stock.
+- **Rollout.** Migrations with the next operator tag; register the shop PC as `shop`; then create
+  shop assistant accounts. Also on this day: main was red on Majed's deposit push (quiet-error
+  gate), fixed in `daad2256`.
+
 ## File map (key files)
 - **`PHASE-2-PLAN.md`** (repo root) — the 2026-09-19 audit and the Phase 2 scope: Part A the repo as
   it is, Part B the criticals pass, Part C the scope items and the milestone plan, Part C+ the

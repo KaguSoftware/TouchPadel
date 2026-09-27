@@ -31,6 +31,10 @@
  * §2.1): the assistant barista, who works the bar's tickets on the kitchen
  * display and reads the bar's teachings and recipe names, and the waiter, who
  * holds the any-staff baseline and lands on My tasks.
+ *
+ * 0243 appended the shop assistant (docs/design/shop/shop-desk-2026-09-27.md):
+ * the Touch Shop's own desk, with its own till, stock and products, and
+ * nothing of the cafe.
  */
 export const STAFF_ROLES = [
   'cashier',
@@ -46,6 +50,7 @@ export const STAFF_ROLES = [
   'marketing',
   'assistant_barista',
   'waiter',
+  'shop_staff',
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -64,6 +69,7 @@ export const HIREABLE_ROLES: readonly StaffRole[] = [
   'cashier',
   'waiter',
   'court_desk',
+  'shop_staff',
   'manager',
   'head_barista',
   'barista',

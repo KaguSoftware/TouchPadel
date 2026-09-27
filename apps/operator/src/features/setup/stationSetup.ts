@@ -14,10 +14,10 @@ import type { DiscoverResult, StationMode, StationSetupRequest } from '../../ipc
 export const STATION_ID_RE = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*$/;
 export const IPV4_RE = /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/;
 
-export const STATION_MODES: readonly StationMode[] = ['till', 'desk', 'kds'];
+export const STATION_MODES: readonly StationMode[] = ['till', 'desk', 'kds', 'shop'];
 
 export function suggestStationId(mode: StationMode): string {
-  return { till: 'TILL-01', desk: 'DESK-01', kds: 'KDS-01' }[mode];
+  return { till: 'TILL-01', desk: 'DESK-01', kds: 'KDS-01', shop: 'SHOP-01' }[mode];
 }
 
 /** Uppercase; spaces and underscores become dashes; anything else is dropped. */

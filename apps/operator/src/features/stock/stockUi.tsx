@@ -25,7 +25,7 @@ import { Button, Field } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
 import { MessagePresenter, SegmentedControl } from '../../components/kit';
 import { MARK, MARK_FG, MARK_SOFT, type MarkTone } from '../ops/OpsVisuals';
-import { STOCK_LOCATIONS, storeOf, type StockLocation } from './storeLogic';
+import { MOVABLE_STORES, storeOf, type StockLocation } from './storeLogic';
 
 const UNITS = ['g', 'ml', 'pc'] as const;
 type Unit = (typeof UNITS)[number];
@@ -191,9 +191,8 @@ export function useStoreName() {
 /**
  * Which store a write goes into or comes out of: "Cafe store / Bakery store"
  * as one segmented control under a label. A store that cannot take the write
- * stays visible, disabled, with the reason under it: shop stock lives in the
- * cafe store only (V14), so the bakery store is off while a shop line is on
- * the form.
+ * stays visible, disabled, with the reason under it. The shop store (0245) is
+ * never offered here: the shop desk's pages have one store and no picker.
  */
 export function StorePicker({
   label,
@@ -202,6 +201,7 @@ export function StorePicker({
   bakeryOff,
   disabled,
   hint,
+  stores = MOVABLE_STORES,
   'data-testid': testId,
 }: {
   label: string;
@@ -211,6 +211,8 @@ export function StorePicker({
   bakeryOff?: string;
   disabled?: boolean;
   hint?: ReactNode;
+  /** The stores offered, the café's two by default. */
+  stores?: readonly StockLocation[];
   'data-testid'?: string;
 }) {
   const { tr } = useLocale();
@@ -221,7 +223,7 @@ export function StorePicker({
           value={value}
           onChange={onChange}
           aria-label={label}
-          options={STOCK_LOCATIONS.map((s) => ({
+          options={stores.map((s) => ({
             value: s,
             label: tr(`work.store.${s}`),
             disabled: disabled || (s === 'bakery' && bakeryOff !== undefined),
@@ -240,13 +242,14 @@ export function StorePicker({
 export function StoreCountedNotice({ store }: { store: StockLocation }) {
   const { tr } = useLocale();
   const navigate = useNavigate();
+  const countsTo = store === 'shop' ? '/shop/counts' : '/stock/counts';
   return (
     <MessagePresenter
       tone="refused"
       message={
         <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
           <span>{tr('ws.stores.picker.beingCounted', { store: tr(`ws.stores.inSentence.${store}`) })}</span>
-          <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/stock/counts' })}>
+          <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => void navigate({ to: countsTo })}>
             {tr('ws.stores.picker.openCounts')}
           </Button>
         </span>

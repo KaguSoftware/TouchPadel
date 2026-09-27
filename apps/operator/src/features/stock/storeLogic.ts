@@ -1,17 +1,52 @@
 /**
  * The cafe store and the bakery store on the operator's Stock pages
- * (docs/design/protocols/wave5-addendum-2026-09-25.md §2.8, §5.2): pure rules,
- * no React and no network, so the node test beside this file pins what a
- * manager sees.
+ * (docs/design/protocols/wave5-addendum-2026-09-25.md §2.8, §5.2), and since
+ * 0245 the Touch Shop's own store on the shop desk's pages
+ * (docs/design/shop/shop-desk-2026-09-27.md): pure rules, no React and no
+ * network, so the node test beside this file pins what a manager sees.
  *
  * The server is the wall for every rule here (transfer_stock, log_stock,
  * receive_delivery, receive_purchase, start_count, submit_stock_count). These
  * mirror them so a form offers only what will be accepted and says why the
  * rest is held, before the manager types a whole delivery or move.
  */
-import { STOCK_LOCATIONS, isStockLocation, otherStore, toBaseQty, type StockLocation } from '@touch/core/staff/stores';
+import {
+  MOVABLE_STORES,
+  STOCK_LOCATIONS,
+  isStockLocation,
+  otherStore,
+  toBaseQty,
+  type StockKind,
+  type StockLocation,
+} from '@touch/core/staff/stores';
 
-export { STOCK_LOCATIONS, otherStore, type StockLocation };
+export { MOVABLE_STORES, STOCK_LOCATIONS, otherStore, type StockLocation };
+
+// ---------------------------------------------------------------------------
+// Scope: which stock a page keeps (0245)
+// ---------------------------------------------------------------------------
+
+/**
+ * The café's Stock module keeps the cafe and bakery stores and never shop
+ * stock; the shop desk's pages keep the shop store and only shop stock. The
+ * same screens serve both, told which by StockScopeProvider (stockUi.tsx).
+ */
+export type StockScope = 'venue' | 'shop';
+
+/** The stores a scope's pages offer, the default first. */
+export function storesForScope(scope: StockScope): readonly StockLocation[] {
+  return scope === 'shop' ? ['shop'] : MOVABLE_STORES;
+}
+
+/** The ingredient kinds a scope's pages list. */
+export function kindsForScope(scope: StockScope): readonly StockKind[] {
+  return scope === 'shop' ? ['retail'] : ['purchased', 'prepared'];
+}
+
+/** Whether an ingredient of this kind belongs on a scope's pages. */
+export function inScope(kind: string | null | undefined, scope: StockScope): boolean {
+  return (kindsForScope(scope) as readonly string[]).includes(kind ?? '');
+}
 
 /** A store off the wire, or null for anything this build does not know. */
 export function storeOf(value: unknown): StockLocation | null {
@@ -31,6 +66,7 @@ export interface StoreRow {
 export interface StoreSplit {
   cafe: number;
   bakery: number;
+  shop: number;
 }
 
 /** One split per ingredient from the view's one-row-per-store shape. */
@@ -39,7 +75,7 @@ export function splitByStore(rows: readonly StoreRow[]): Map<string, StoreSplit>
   for (const r of rows) {
     const store = storeOf(r.location);
     if (!store) continue;
-    const split = out.get(r.ingredient_id) ?? { cafe: 0, bakery: 0 };
+    const split = out.get(r.ingredient_id) ?? { cafe: 0, bakery: 0, shop: 0 };
     split[store] = Number(r.on_hand ?? 0) || 0;
     out.set(r.ingredient_id, split);
   }
@@ -158,7 +194,12 @@ export function isFirstMoveDay(transferCount: number | undefined): boolean {
 // Adding stock: Goods in, the driver's purchases (V14, M5)
 // ---------------------------------------------------------------------------
 
-/** Shop (retail) stock lives in the cafe store only, so the bakery store is off while one is on the form. */
+/**
+ * Shop (retail) stock lives in the shop store only (0245), so a cafe or bakery
+ * form holding a retail line would be refused. The café's forms no longer list
+ * shop stock at all; this stays as the guard for a line that came in another
+ * way (a driver's purchase, a scanned receipt).
+ */
 export function bakeryRefused(kinds: readonly (string | null | undefined)[]): boolean {
   return kinds.includes('retail');
 }

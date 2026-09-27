@@ -1,10 +1,12 @@
 /**
  * staff_stock_view (build-contracts-2026-09-23 §2.24.5, §8.2): stock by
- * quantity, never by money, for the head roles and the court desk.
+ * quantity, never by money, for the head roles and the shop assistant (the
+ * court desk until 0245).
  *
  *   * the head barista and the head chef see purchased and prepared stock,
- *     the court desk retail stock with the shop product each row backs, MGMT
- *     all three; a head asking for retail, or the desk for purchased, is
+ *     the shop assistant retail stock with the shop product each row backs,
+ *     MGMT all three; a head asking for retail, or the shop assistant for
+ *     purchased, is
  *     FORBIDDEN; an unknown kind is INVALID_ARGUMENT;
  *   * no key at any depth ends in _iqd or starts with cost, supplier, revenue
  *     or discount;
@@ -194,7 +196,7 @@ describe.skipIf(!docker)('staff_stock_view (rolled-back transactions)', () => {
     const r = scenario([
       `insert into venues (id, slug, name_en, name_ar, is_active)
        values ('${OTHER_VENUE}', 'ssv-other-venue', 'SSV other', 'مكان آخر', false);`,
-      MK('hb', 'head_barista'), MK('hc', 'head_chef'),
+      MK('hb', 'head_barista'), MK('hc', 'head_chef'), MK('shop', 'shop_staff'),
       ...(['bar', 'chef', 'drv', 'mkt'] as const).map((w) =>
         MK(w, { bar: 'barista', chef: 'chef', drv: 'driver', mkt: 'marketing' }[w])),
       ING('beans', 'purchased', 'g', 'par_level=5000'),
@@ -211,39 +213,43 @@ describe.skipIf(!docker)('staff_stock_view (rolled-back transactions)', () => {
                          values ({{ball_item}}::uuid, 'Tube of 3', 'علبة 3', 12000, true) returning id::text`),
       `insert into recipe_lines (variant_id, ingredient_id, qty)
        select s.val::uuid, b.val::uuid, 1 from pg_temp.vars s, pg_temp.vars b where s.name = 'ball_size' and b.name = 'ball';`,
-      // A delivery (two batches of beans, one of milk, balls), then a sale of beans.
+      // A cafe delivery (two batches of beans, one of milk), the balls into the
+      // shop store (0245: shop stock lives there only), then a sale of beans.
       T('delivery', 'manager', `select app.receive_delivery(jsonb_build_array(
           jsonb_build_object('ingredient_id', {{beans}}, 'qty_expected', 3000, 'qty_received', 3000, 'unit_cost_iqd', 20, 'expiry_date', '2031-01-10'),
           jsonb_build_object('ingredient_id', {{beans}}, 'qty_expected', 2000, 'qty_received', 2000, 'unit_cost_iqd', 21, 'expiry_date', '2031-02-10'),
-          jsonb_build_object('ingredient_id', {{milk}}, 'qty_expected', 1500, 'qty_received', 1500, 'unit_cost_iqd', 2),
-          jsonb_build_object('ingredient_id', {{ball}}, 'qty_expected', 5, 'qty_received', 5, 'unit_cost_iqd', 9000)),
+          jsonb_build_object('ingredient_id', {{milk}}, 'qty_expected', 1500, 'qty_received', 1500, 'unit_cost_iqd', 2)),
           'SSV Mill', null, null, null, null)`),
+      T('delivery_shop', 'manager', `select app.receive_delivery(jsonb_build_array(
+          jsonb_build_object('ingredient_id', {{ball}}, 'qty_expected', 5, 'qty_received', 5, 'unit_cost_iqd', 9000)),
+          'SSV Mill', null, null, null, null, 'shop')`),
       `select app.consume_fefo((select val::uuid from pg_temp.vars where name = 'beans'), 250, 'sale_consumption');`,
       Q('batch_sum', `select to_jsonb(sum(qty_remaining)) from stock_batches
                        where ingredient_id = (select val::uuid from pg_temp.vars where name = 'beans')`),
-      ...(['hb', 'hc', 'desk', 'manager', 'owner'] as const).map((who) =>
+      ...(['hb', 'hc', 'shop', 'manager', 'owner'] as const).map((who) =>
         T(`view_${who}`, who, `select app.staff_stock_view({{venue}})`)),
       T('hb_retail', 'hb', `select app.staff_stock_view({{venue}}, 'retail')`),
-      T('desk_purchased', 'desk', `select app.staff_stock_view({{venue}}, 'purchased')`),
+      T('shop_purchased', 'shop', `select app.staff_stock_view({{venue}}, 'purchased')`),
       T('hc_prepared', 'hc', `select app.staff_stock_view(null, 'prepared')`),
       T('mgr_retail', 'manager', `select app.staff_stock_view({{venue}}, 'retail')`),
       T('bad_kind', 'manager', `select app.staff_stock_view({{venue}}, 'frozen')`),
       T('far', 'owner', `select app.staff_stock_view('${OTHER_VENUE}')`),
       T('far_mgr', 'manager', `select app.staff_stock_view('${OTHER_VENUE}')`),
-      ...(['bar', 'chef', 'cashier', 'drv', 'mkt', 'prep'] as const).map((who) =>
+      ...(['bar', 'chef', 'cashier', 'desk', 'drv', 'mkt', 'prep'] as const).map((who) =>
         T(`view_${who}`, who, `select app.staff_stock_view({{venue}})`)),
     ]);
     ok(r, 'delivery');
+    ok(r, 'delivery_shop');
     for (const who of ['hb', 'hc']) {
       expect(names(r, `view_${who}`).sort(), who).toEqual(['SSV beans', 'SSV milk', 'SSV syrup']);
       expect(ok<View>(r, `view_${who}`).items.every((i) => i.kind !== 'retail'), who).toBe(true);
     }
-    expect(names(r, 'view_desk')).toEqual(['SSV ball']);
-    expect(ok<View>(r, 'view_desk').items.every((i) => i.kind === 'retail')).toBe(true);
+    expect(names(r, 'view_shop')).toEqual(['SSV ball']);
+    expect(ok<View>(r, 'view_shop').items.every((i) => i.kind === 'retail')).toBe(true);
     for (const who of ['manager', 'owner']) {
       expect(names(r, `view_${who}`).sort(), who).toEqual(['SSV ball', 'SSV beans', 'SSV milk', 'SSV syrup']);
     }
-    for (const who of ['hb', 'hc', 'desk', 'manager', 'owner']) {
+    for (const who of ['hb', 'hc', 'shop', 'manager', 'owner']) {
       expect(moneyKeys(ok(r, `view_${who}`)), who).toEqual([]);
       const ours = ok<View>(r, `view_${who}`).items.filter((i) => i.name_en.startsWith('SSV '));
       expect(JSON.stringify(ours), who).not.toMatch(/SSV Mill|25000/);
@@ -263,13 +269,14 @@ describe.skipIf(!docker)('staff_stock_view (rolled-back transactions)', () => {
     const mine = ok<View>(r, 'view_manager').items.filter((i) => i.name_en.startsWith('SSV '));
     expect(mine[0]!.name_en).toBe('SSV milk');
     expect(refused(r, 'hb_retail')).toBe('FORBIDDEN:kind');
-    expect(refused(r, 'desk_purchased')).toBe('FORBIDDEN:kind');
+    expect(refused(r, 'shop_purchased')).toBe('FORBIDDEN:kind');
     expect(names(r, 'hc_prepared')).toEqual(['SSV syrup']);
     expect(names(r, 'mgr_retail')).toEqual(['SSV ball']);
     expect(refused(r, 'bad_kind')).toBe('INVALID_ARGUMENT:kind');
     expect(refused(r, 'far')).toBe('FORBIDDEN');
     expect(refused(r, 'far_mgr')).toBe('FORBIDDEN');
-    for (const who of ['bar', 'chef', 'cashier', 'drv', 'mkt', 'prep']) {
+    // The court desk keeps no stock view since 0245 (Parsa, 2026-09-27).
+    for (const who of ['bar', 'chef', 'cashier', 'desk', 'drv', 'mkt', 'prep']) {
       expect(refused(r, `view_${who}`), who).toBe('FORBIDDEN');
     }
   });
@@ -305,24 +312,24 @@ describe.skipIf(!docker)('staff_stock_view (rolled-back transactions)', () => {
       `insert into stock_batches (ingredient_id, qty_received, qty_remaining, unit_cost_iqd, venue_id, location)
        select v.val::uuid, q, q, 2, '${VENUE_A_ID}', l::stock_location
          from pg_temp.vars v
-         join (values ('flour', 700, 'cafe'), ('flour', 300, 'bakery'), ('cake', 12, 'bakery'), ('cap', 4, 'cafe')) x(n, q, l)
+         join (values ('flour', 700, 'cafe'), ('flour', 300, 'bakery'), ('cake', 12, 'bakery'), ('cap', 4, 'shop')) x(n, q, l)
            on x.n = v.name;`,
       MK('hc', 'head_chef'),
       ...(['wtr', 'hc', 'manager'] as const).map((who) => T(`view_${who}`, who, `select app.staff_stock_view({{venue}})`)),
       T('wtr_retail', 'wtr', `select app.staff_stock_view({{venue}}, 'retail')`),
       T('wtr_prepared', 'wtr', `select app.staff_stock_view({{venue}}, 'prepared')`),
     ]);
-    type Split = Row & { by_location: { cafe: number; bakery: number } };
+    type Split = Row & { by_location: { cafe: number; bakery: number; shop: number } };
     const byName = (label: string) =>
       Object.fromEntries(ok<{ items: Split[] }>(r, label).items.filter((i) => i.name_en.startsWith('SSV ')).map((i) => [i.name_en, i]));
     const wtr = byName('view_wtr');
     expect(Object.keys(wtr).sort()).toEqual(['SSV cake', 'SSV flour']);
-    expect(wtr['SSV flour']).toMatchObject({ on_hand: 1000, by_location: { cafe: 700, bakery: 300 } });
-    expect(wtr['SSV cake']).toMatchObject({ on_hand: 12, by_location: { cafe: 0, bakery: 12 } });
+    expect(wtr['SSV flour']).toMatchObject({ on_hand: 1000, by_location: { cafe: 700, bakery: 300, shop: 0 } });
+    expect(wtr['SSV cake']).toMatchObject({ on_hand: 12, by_location: { cafe: 0, bakery: 12, shop: 0 } });
     const mgr = byName('view_manager');
-    expect(mgr['SSV cap']).toMatchObject({ on_hand: 4, by_location: { cafe: 4, bakery: 0 } });
+    expect(mgr['SSV cap']).toMatchObject({ on_hand: 4, by_location: { cafe: 0, bakery: 0, shop: 4 } });
     for (const row of Object.values(mgr)) {
-      expect(row.by_location.cafe + row.by_location.bakery, row.name_en).toBe(row.on_hand);
+      expect(row.by_location.cafe + row.by_location.bakery + row.by_location.shop, row.name_en).toBe(row.on_hand);
     }
     expect(Object.keys(byName('view_hc')).sort()).toEqual(['SSV cake', 'SSV flour']);
     expect(refused(r, 'wtr_retail')).toBe('FORBIDDEN:kind');

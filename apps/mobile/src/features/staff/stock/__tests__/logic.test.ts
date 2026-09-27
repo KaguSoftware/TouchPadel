@@ -31,11 +31,12 @@ const row = (over: Partial<StockItem> = {}): StockItem => ({
 });
 
 describe('who sees which stock (#68, the server’s kinds)', () => {
-  it('gives the heads the cafe, the desk the shop and management all of it', () => {
+  it('gives the heads the cafe, the shop assistant the shop (the desk until 0245) and management all of it', () => {
     expect(stockKindsFor('head_barista')).toEqual(['purchased', 'prepared']);
     expect(stockKindsFor('head_chef')).toEqual(['purchased', 'prepared']);
     expect(stockKindsFor('waiter')).toEqual(['purchased', 'prepared']);
-    expect(stockKindsFor('court_desk')).toEqual(['retail']);
+    expect(stockKindsFor('shop_staff')).toEqual(['retail']);
+    expect(stockKindsFor('court_desk')).toEqual([]);
     expect(stockKindsFor('manager')).toEqual(['purchased', 'prepared', 'retail']);
     expect(stockKindsFor('owner')).toEqual(['purchased', 'prepared', 'retail']);
   });
@@ -52,7 +53,7 @@ describe('who sees which stock (#68, the server’s kinds)', () => {
   });
 
   it('offers filters only when there is more than one kind to choose', () => {
-    expect(stockFilters('court_desk')).toEqual([]);
+    expect(stockFilters('shop_staff')).toEqual([]);
     expect(stockFilters('head_chef')).toEqual(['all', 'purchased', 'prepared']);
     expect(stockFilters('owner')).toEqual(['all', 'purchased', 'prepared', 'retail']);
     expect(stockKindArg('all')).toBeNull();
@@ -94,13 +95,13 @@ describe('search', () => {
 
 describe('one store at a time (wave 5)', () => {
   const split = (cafe: number, bakery: number, id = 'i1') =>
-    row({ ingredient_id: id, on_hand: cafe + bakery, by_location: { cafe, bakery } });
+    row({ ingredient_id: id, on_hand: cafe + bakery, by_location: { cafe, bakery, shop: 0 } });
 
-  it('splits for every reader of bought-in or made-here stock, never for the desk’s shop list', () => {
+  it('splits for every reader of bought-in or made-here stock, never for the shop assistant’s shop list', () => {
     expect(showsStores('waiter')).toBe(true);
     expect(showsStores('head_chef')).toBe(true);
     expect(showsStores('owner')).toBe(true);
-    expect(showsStores('court_desk')).toBe(false);
+    expect(showsStores('shop_staff')).toBe(false);
   });
 
   it('puts what is in the store first, keeping the server’s order, then what it has none of', () => {

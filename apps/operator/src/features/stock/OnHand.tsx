@@ -58,8 +58,9 @@ import {
 } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { LedgerDrawer } from './LedgerDrawer';
-import { AttentionList, Footnote, IngredientName, KindFilter, matchesKind, useStockFormat, type AttentionItem, type StockKindFilter } from './stockUi';
-import { anyInBakery, heldAt, phoneCountsWaiting, splitByStore, splitWorthShowing, type StockLocation, type StoreSplit } from './storeLogic';
+import { AttentionList, Footnote, IngredientName, useStockFormat, type AttentionItem } from './stockUi';
+import { anyInBakery, heldAt, inScope, phoneCountsWaiting, splitByStore, splitWorthShowing, type StockLocation, type StoreSplit } from './storeLogic';
+import { useStockScope } from './stockScope';
 import {
   matchesName,
   matchesOnHandFilter,
@@ -81,27 +82,29 @@ export function OnHand() {
   const search = useSearch({ strict: false }) as { filter?: unknown };
   const [filter, setFilter] = useState<OnHandFilter>(() => parseOnHandFilter(search.filter));
   const [query, setQuery] = useState('');
-  const [kind, setKind] = useState<StockKindFilter>('all');
   const [store, setStore] = useState<StockLocation | 'all'>('all');
+  // 0245: the café's page keeps café and bakery stock, the shop desk's the shop's.
+  // The stock value, alerts and costing are management's reads, not the shop desk's.
+  const scope = useStockScope();
+  const venue = scope === 'venue';
   const [open, setOpen] = useState<OnHandRow | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand, refetchInterval: 60_000 });
-  const summaryQ = useQuery({ queryKey: SK.summary, queryFn: fetchSummary, refetchInterval: 60_000 });
-  const alertCountQ = useQuery({ queryKey: SK.alertCount, queryFn: fetchAlertCount, refetchInterval: 60_000 });
+  const summaryQ = useQuery({ queryKey: SK.summary, queryFn: fetchSummary, refetchInterval: 60_000, enabled: venue });
+  const alertCountQ = useQuery({ queryKey: SK.alertCount, queryFn: fetchAlertCount, refetchInterval: 60_000, enabled: venue });
   const lastCountQ = useQuery({ queryKey: SK.lastCount, queryFn: () => fetchLastCount() });
   const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
   const byStoreQ = useQuery({ queryKey: SK.byStore, queryFn: fetchByStore, refetchInterval: 60_000 });
-  const needsCostQ = useQuery({ queryKey: SK.needsCost, queryFn: fetchNeedsCostCount, refetchInterval: 60_000 });
+  const needsCostQ = useQuery({ queryKey: SK.needsCost, queryFn: fetchNeedsCostCount, refetchInterval: 60_000, enabled: venue });
   const splits = useMemo(() => splitByStore(byStoreQ.data ?? []), [byStoreQ.data]);
-  const twoStores = anyInBakery(splits);
+  const twoStores = scope === 'venue' && anyInBakery(splits);
 
   const go = (href: string) => void navigate({ href });
-  const active = (onHandQ.data ?? []).filter((r) => r.is_active);
-  const hasShopStock = active.some((r) => r.kind === 'retail');
+  const active = (onHandQ.data ?? []).filter((r) => r.is_active && inScope(r.kind, scope));
   const inStore = (r: OnHandRow) => store === 'all' || !twoStores || heldAt(splits.get(r.ingredient_id), store) > 0;
-  const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query) && matchesKind(r.kind, kind) && inStore(r));
-  const status = asyncStatus(onHandQ, (d) => d.filter((r) => r.is_active).length === 0);
+  const rows = active.filter((r) => matchesOnHandFilter(r, filter) && matchesName(r, query) && inStore(r));
+  const status = asyncStatus(onHandQ, (d) => d.filter((r) => r.is_active && inScope(r.kind, scope)).length === 0);
 
   /** Narrow the table and bring it into view — the button's promise is "show which". */
   function showWhich(next: OnHandFilter) {
@@ -325,7 +328,6 @@ export function OnHand() {
               <span style={{ inlineSize: '16rem', maxInlineSize: '100%' }}>
                 <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
               </span>
-              {hasShopStock && <KindFilter value={kind} onChange={setKind} />}
               {twoStores && (
                 // A visible name, so the stores never read as the item-kind
                 // control beside it (Café / Shop is what an item is; this is where it sits).

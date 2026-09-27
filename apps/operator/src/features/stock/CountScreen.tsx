@@ -47,9 +47,10 @@ import { useToast } from '../../components/toast';
 import { Button, ErrorText, inputStyle, Tabs, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, SearchField, SegmentedControl, StatusBadge, Toolbar, asyncStatus, type Column } from '../../components/kit';
 import { CardTitle, Step } from '../ops/OpsVisuals';
-import { Footnote, KindFilter, matchesKind, useStockFormat, useStoreName, type StockKindFilter } from './stockUi';
+import { Footnote, useStockFormat, useStoreName } from './stockUi';
 import { countEntryState, matchesName } from './stockLogic';
-import { STOCK_LOCATIONS, countDifference, phoneCountWaitingAt, phoneCountsWaiting, type StockLocation, type UnfinishedCount } from './storeLogic';
+import { countDifference, phoneCountWaitingAt, phoneCountsWaiting, storeOf, storesForScope, type StockLocation, type UnfinishedCount } from './storeLogic';
+import { useStockScope } from './stockScope';
 import {
   SK,
   fetchCountLines,
@@ -75,9 +76,12 @@ function loadDraft(countId: string): Record<string, string> {
 
 export function CountScreen() {
   const { tr } = useLocale();
-  const [store, setStore] = useState<StockLocation>('cafe');
+  // 0245: the café counts the cafe and bakery stores, the shop desk its own.
+  const scope = useStockScope();
+  const stores = storesForScope(scope);
+  const [store, setStore] = useState<StockLocation>(() => stores[0]!);
   const countsQ = useQuery({ queryKey: SK.unfinishedCounts, queryFn: fetchUnfinishedCounts, refetchInterval: 60_000 });
-  const waiting = phoneCountsWaiting(countsQ.data);
+  const waiting = phoneCountsWaiting(countsQ.data).filter((c) => (stores as readonly string[]).includes(c.location));
   const openAt = (s: StockLocation) => (countsQ.data ?? []).some((c) => c.source === 'operator' && c.location === s);
 
   return (
@@ -88,14 +92,16 @@ export function CountScreen() {
         {waiting.length > 0 && <PhoneCounts counts={waiting} />}
 
         <section aria-label={tr('ws.stores.counts.storeTabs')}>
-          <Tabs<StockLocation>
-            value={store}
-            onChange={setStore}
-            items={STOCK_LOCATIONS.map((s) => ({
-              id: s,
-              label: openAt(s) ? `${tr(`work.store.${s}`)} · ${tr('ws.stores.counts.counting')}` : tr(`work.store.${s}`),
-            }))}
-          />
+          {stores.length > 1 && (
+            <Tabs<StockLocation>
+              value={store}
+              onChange={setStore}
+              items={stores.map((s) => ({
+                id: s,
+                label: openAt(s) ? `${tr(`work.store.${s}`)} · ${tr('ws.stores.counts.counting')}` : tr(`work.store.${s}`),
+              }))}
+            />
+          )}
           <StoreCount key={store} store={store} phoneWaiting={phoneCountWaitingAt(countsQ.data, store)} />
         </section>
       </div>
@@ -116,7 +122,6 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
   const [counted, setCounted] = useState<Record<string, string> | null>(null);
   const [query, setQuery] = useState('');
   const [lineFilter, setLineFilter] = useState<LineFilter>('all');
-  const [kind, setKind] = useState<StockKindFilter>('all');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -234,7 +239,6 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
   const visible = lines.filter((l) => {
     const ing = ingredientOf.get(l.ingredient_id);
     if (ing && !matchesName(ing, query)) return false;
-    if (!matchesKind(ing?.kind, kind)) return false;
     const state = countEntryState(entries[l.ingredient_id]);
     if (lineFilter === 'left') return state !== 'ok';
     if (lineFilter === 'entered') return state === 'ok';
@@ -365,7 +369,6 @@ function StoreCount({ store, phoneWaiting }: { store: StockLocation; phoneWaitin
             <span style={{ inlineSize: '14rem', maxInlineSize: '100%' }}>
               <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.stock.onHand.table.search')} />
             </span>
-            {lines.some((l) => ingredientOf.get(l.ingredient_id)?.kind === 'retail') && <KindFilter value={kind} onChange={setKind} />}
           </Toolbar>
           <ErrorText error={linesQ.error} />
           {visible.length === 0 && lines.length > 0 ? (
@@ -467,7 +470,7 @@ function PhoneCountReview({ count, onDone }: { count: UnfinishedCount; onDone: (
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const store = (count.location === 'bakery' ? 'bakery' : 'cafe') as StockLocation;
+  const store: StockLocation = storeOf(count.location) ?? 'cafe';
   const storeWord = tr(`ws.stores.inSentence.${store}`);
 
   const lines = [...(linesQ.data ?? [])].sort((a, b) =>

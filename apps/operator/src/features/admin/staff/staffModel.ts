@@ -15,6 +15,7 @@ export const ASSIGNABLE_ROLES: readonly StaffRole[] = [
   'cashier',
   'waiter',
   'court_desk',
+  'shop_staff',
   'head_barista',
   'barista',
   'assistant_barista',

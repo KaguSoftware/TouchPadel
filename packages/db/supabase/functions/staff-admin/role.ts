@@ -13,7 +13,8 @@
 /**
  * Every role a new account can start on; 0155 added the six after court_desk,
  * wave 5 the assistant barista and the waiter (the owner creates Hussein's and
- * Hasan's accounts, wave5-addendum-2026-09-25 §2.1.6).
+ * Hasan's accounts, wave5-addendum-2026-09-25 §2.1.6), and 0243 the shop
+ * assistant (the Touch Shop's own desk, docs/design/shop/shop-desk-2026-09-27.md).
  */
 export const ROLES = [
   'cashier',
@@ -26,6 +27,7 @@ export const ROLES = [
   'marketing',
   'assistant_barista',
   'waiter',
+  'shop_staff',
   'manager',
   'owner',
 ] as const;

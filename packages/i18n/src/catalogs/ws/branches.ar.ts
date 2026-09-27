@@ -67,7 +67,7 @@ export const branchesAr: DeepMessages<typeof branchesEn> = {
     name: 'اسم المحطة',
     nameHint: 'حروف إنجليزية كبيرة وأرقام وشرطات، مثل TILL-2.',
     mode: 'نوعها',
-    modes: { till: 'كاشير', desk: 'مكتب الملاعب', kds: 'شاشة المطبخ' },
+    modes: { till: 'كاشير', desk: 'مكتب الملاعب', kds: 'شاشة المطبخ', shop: 'مكتب متجر Touch' },
     branch: 'الفرع',
     retire: 'إيقاف',
     retireConfirm: 'إيقاف {name}؟ لن تُحتسب لوضع عدم الاتصال ولا لإغلاق اليوم. يمكن تسجيل الاسم لاحقًا.',

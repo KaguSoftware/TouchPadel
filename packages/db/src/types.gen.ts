@@ -444,6 +444,14 @@ export type Database = {
         Args: { p_start_at: string; p_venue?: string }
         Returns: undefined
       }
+      assert_store_for_kind: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["ingredient_kind"]
+          p_location: Database["public"]["Enums"]["stock_location"]
+        }
+        Returns: undefined
+      }
+      assert_tab_kind_role: { Args: { p_kind: string }; Returns: undefined }
       assistant_archive_component: {
         Args: { p_key: string }
         Returns: Database["public"]["Tables"]["assistant_components"]["Row"]
@@ -1074,6 +1082,7 @@ export type Database = {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
       }
+      day_close_shop: { Args: { p_day_session_id?: string }; Returns: Json }
       decide_content: {
         Args: {
           p_decision: string
@@ -3410,6 +3419,17 @@ export type Database = {
           p_supplier_id?: string
         }
         Returns: Json
+      }
+      upsert_shop_category: {
+        Args: {
+          p_id?: string
+          p_is_active?: boolean
+          p_name_ar: string
+          p_name_en: string
+          p_sort_order?: number
+          p_tax_group_id: string
+        }
+        Returns: string
       }
       upsert_supplier: {
         Args: {
@@ -11455,7 +11475,8 @@ export type Database = {
         | "marketing"
         | "assistant_barista"
         | "waiter"
-      stock_location: "cafe" | "bakery"
+        | "shop_staff"
+      stock_location: "cafe" | "bakery" | "shop"
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
       ticket_status: "queued" | "preparing" | "ready" | "completed" | "voided"
@@ -11652,8 +11673,9 @@ export const Constants = {
         "marketing",
         "assistant_barista",
         "waiter",
+        "shop_staff",
       ],
-      stock_location: ["cafe", "bakery"],
+      stock_location: ["cafe", "bakery", "shop"],
       stock_unit: ["g", "ml", "pc"],
       tab_status: ["open", "awaiting_payment", "settled", "void"],
       ticket_status: ["queued", "preparing", "ready", "completed", "voided"],

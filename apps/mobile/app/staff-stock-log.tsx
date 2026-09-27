@@ -284,7 +284,7 @@ function LogScreen() {
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
         <Lead>
-          {t(role === 'court_desk' ? 'staff.stores.log.leadShop' : 'staff.stores.log.lead')}
+          {t(role === 'shop_staff' ? 'staff.stores.log.leadShop' : 'staff.stores.log.lead')}
         </Lead>
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
         {waiting > 0 ? (

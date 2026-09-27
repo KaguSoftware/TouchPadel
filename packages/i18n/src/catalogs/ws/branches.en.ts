@@ -73,7 +73,7 @@ export const branchesEn = {
     name: 'Station name',
     nameHint: 'Capital letters, digits and dashes, for example TILL-2.',
     mode: 'What it is',
-    modes: { till: 'Till', desk: 'Court desk', kds: 'Kitchen screen' },
+    modes: { till: 'Till', desk: 'Court desk', kds: 'Kitchen screen', shop: 'Touch Shop desk' },
     branch: 'Branch',
     retire: 'Retire',
     retireConfirm: 'Retire {name}? It stops counting for offline mode and the day close. The name can be registered again later.',

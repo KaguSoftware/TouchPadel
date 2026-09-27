@@ -109,6 +109,8 @@ export const shellEn = {
     owner: 'Management',
     // Driver and marketing (0155): one rail row, My tasks, for now.
     team: 'Team',
+    // The Touch Shop desk (0243–0246).
+    shop: 'Touch Shop',
   },
   // A section of a workspace with its own landing screen and its own rail
   // (lib/workspaces.ts). Management shows one button per section instead of
@@ -132,6 +134,7 @@ export const shellEn = {
     manager: 'Floor, stock, day close and reports',
     owner: 'The whole business in one place',
     team: 'Tasks and checklists given to you',
+    shop: 'The shop till, its drawer, stock and products',
   },
   nav: {
     today: 'Today',
@@ -169,6 +172,14 @@ export const shellEn = {
     inventory: 'Inventory',
     stockValue: 'Stock value',
     shop: 'Shop',
+    // The Touch Shop desk's own rail.
+    shopTill: 'Sell',
+    shopStock: 'Shop stock',
+    shopReceive: 'Goods in',
+    shopCounts: 'Stock count',
+    shopWaste: 'Waste',
+    shopProducts: 'Products',
+    shopSuppliers: 'Suppliers',
     // Observation section rows.
     floorNow: 'Floor now',
     staffActivity: 'Staff activity',
@@ -267,11 +278,13 @@ export const shellEn = {
       till: 'Till',
       desk: 'Desk',
       kds: 'Kitchen screen',
+      shop: 'Touch Shop desk',
     },
     modeLead: {
       till: 'Orders, tabs, payment and the receipt printer. Kitchen screens connect to it.',
       desk: 'Bookings, arrivals, customers and the office.',
       kds: 'The wall-mounted ticket board. Connects to the till with a code.',
+      shop: 'The shop’s own PC: the shop till, its own drawer and receipts, the shop’s stock and products.',
     },
     stationId: 'Station name',
     stationIdHint: 'How this machine is named in the app and in reports. Capitals, digits and dashes, e.g. TILL-01',

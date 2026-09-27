@@ -49,11 +49,12 @@ describe('phone copies', () => {
 
   it('offers each copy only to the roles its read admits (§2.14–§2.24)', () => {
     const has = (role: StaffRole, s: string) => (phoneSectionsFor(role) as string[]).includes(s);
-    // Stock: the heads read the cafe, the desk the shop, and since wave 5 the
-    // waiter what he moves between the stores (STOCK_VIEW).
-    expect(TASK_ROLES.filter((r) => has(r, 'stock')).sort()).toEqual(['court_desk', 'head_barista', 'head_chef', 'waiter']);
+    // Stock: the heads read the cafe, and since wave 5 the waiter what he moves
+    // between the stores (STOCK_VIEW). The court desk lost the shop's in 0245:
+    // the shop assistant reads it at the shop desk.
+    expect(TASK_ROLES.filter((r) => has(r, 'stock')).sort()).toEqual(['head_barista', 'head_chef', 'waiter']);
     // Today in the stores (M2): app.stock_today's MOVE ∪ LOG ∪ COUNT, as /tasks opens it.
-    expect(TASK_ROLES.filter((r) => has(r, 'storeToday')).sort()).toEqual(['cashier', 'chef', 'court_desk', 'head_barista', 'head_chef', 'waiter']);
+    expect(TASK_ROLES.filter((r) => has(r, 'storeToday')).sort()).toEqual(['cashier', 'chef', 'head_barista', 'head_chef', 'waiter']);
     // Teachings and recipes: the bar (the assistant barista since wave 5) and the kitchen.
     expect(TASK_ROLES.filter((r) => has(r, 'teachings')).sort()).toEqual(['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef']);
     expect(TASK_ROLES.filter((r) => has(r, 'recipes')).sort()).toEqual(['assistant_barista', 'barista', 'chef', 'head_barista', 'head_chef']);

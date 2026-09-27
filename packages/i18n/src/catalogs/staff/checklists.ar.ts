@@ -59,7 +59,7 @@ export const staffChecklistsAr: DeepMessages<typeof staffChecklistsEn> = {
   stock: {
     title: 'المخزون',
     lead: 'ما هو متوفر الآن. الجرد والتصحيحات يقوم بها المدراء.',
-    leadShop: 'الكمية المتوفرة الآن من كل منتج في المتجر. الجرد والتصحيحات يقوم بها المدراء.',
+    leadShop: 'الكمية المتوفرة الآن من كل منتج في مخزن المتجر.',
     filter: {
       all: 'الكل',
       purchased: 'مشترى',

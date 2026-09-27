@@ -151,6 +151,7 @@ export const workEn = {
   store: {
     cafe: 'Cafe store',
     bakery: 'Bakery store',
+    shop: 'Shop store',
   },
   // salary_deductions.status (0197).
   deduction: {

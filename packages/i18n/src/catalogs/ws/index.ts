@@ -58,6 +58,9 @@ import { receiptsEn } from './receipts.en';
 import { receiptsAr } from './receipts.ar';
 import { slipsEn } from './slips.en';
 import { slipsAr } from './slips.ar';
+// Touch Shop own desk (0243–0246).
+import { shopEn } from './shop.en';
+import { shopAr } from './shop.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -84,6 +87,7 @@ export const wsEn = {
   branches: branchesEn,
   receipts: receiptsEn,
   slips: slipsEn,
+  shop: shopEn,
 } as const;
 
 export const wsAr = {
@@ -111,4 +115,5 @@ export const wsAr = {
   branches: branchesAr,
   receipts: receiptsAr,
   slips: slipsAr,
+  shop: shopAr,
 } as const;

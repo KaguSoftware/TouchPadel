@@ -197,7 +197,7 @@ function StockScreen() {
       >
         <Lead>
           {t(
-            role === 'court_desk'
+            role === 'shop_staff'
               ? 'staff.checklists.stock.leadShop'
               : split
                 ? 'staff.stores.stock.lead'
