@@ -85,6 +85,7 @@ const PRODUCTION: ProductionItem[] = [
     below_par: true,
     made_today: 0,
     shelf_life_days: 3,
+    batch_yield: 12,
   },
 ];
 const PRODUCTION_LOG: ProductionLogRow[] = [];
@@ -265,6 +266,27 @@ describe.each(LOCALES)('who sees what on the daily-work pages in %s', (locale) =
       expect(screen.getByText(t('staff.checklists.needsPhoto'))).toBeTruthy();
       expect(screen.queryByTestId('staff-checklist.photo.line-1.add')).toBeNull();
       expect(screen.getByTestId('staff-checklist.item.line-1').props.accessibilityState.checked).toBe(true);
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  // 0250 (owner, 2026-09-28): picking an item fills the amount in from its batch size.
+  it('fills the amount in from the batch size and multiplies it by the batches', () => {
+    const screen = renderRoute(StaffProduction, {
+      locale,
+      staff: { role: 'chef' },
+      queryData: [
+        [staffKeys.production(V), PRODUCTION],
+        [staffKeys.productionLog(V), PRODUCTION_LOG],
+      ],
+    });
+    try {
+      expect(screen.queryByTestId('staff-production.batches.more')).toBeNull();
+      fireEvent.press(screen.getByTestId('staff-production.item.cake'));
+      expect(screen.getByTestId('staff-production.qty').props.value).toBe('12');
+      fireEvent.press(screen.getByTestId('staff-production.batches.more'));
+      expect(screen.getByTestId('staff-production.qty').props.value).toBe('24');
     } finally {
       screen.unmount();
     }

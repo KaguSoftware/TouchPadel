@@ -35,6 +35,9 @@ import { staffCallsAr } from './calls.ar';
 // Phase 2 Milestone 4b: the camera pages (order slips, supplier receipts).
 import { staffScanEn } from './scan.en';
 import { staffScanAr } from './scan.ar';
+// Place an order (0251): the waiter's tables, menu and review.
+import { staffFloorEn } from './floor.en';
+import { staffFloorAr } from './floor.ar';
 
 export const staffEn = {
   shell: staffShellEn,
@@ -50,6 +53,7 @@ export const staffEn = {
   stores: staffStoresEn,
   calls: staffCallsEn,
   scan: staffScanEn,
+  floor: staffFloorEn,
 } as const;
 
 export const staffAr = {
@@ -66,4 +70,5 @@ export const staffAr = {
   stores: staffStoresAr,
   calls: staffCallsAr,
   scan: staffScanAr,
+  floor: staffFloorAr,
 } as const;

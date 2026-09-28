@@ -1368,6 +1368,9 @@ export const managerEn = {
       incompleteLine: 'Every line needs an ingredient and an amount above zero. Fill it in or remove it.',
       save: 'Save recipe',
       saved: 'Recipe saved.',
+      batch: 'One batch makes ({unit})',
+      batchHint: 'When a chef records a batch on the phone, this amount is filled in. Leave it empty if there is no usual batch size.',
+      batchInvalid: 'Enter an amount above zero, or leave it empty.',
     },
   },
   // Online deposits (build-contracts-2026-09-27 §6): refunds a person must

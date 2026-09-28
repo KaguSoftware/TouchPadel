@@ -1312,6 +1312,12 @@ export type Database = {
         Returns: undefined
       }
       flag_expired_batches: { Args: never; Returns: undefined }
+      floor_menu: { Args: { p_venue_id?: string }; Returns: Json }
+      floor_menu_group: {
+        Args: { p_group_id: string; p_revealed: boolean }
+        Returns: Json
+      }
+      floor_tables: { Args: { p_venue_id?: string }; Returns: Json }
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
       has_own_pin: { Args: never; Returns: boolean }
@@ -1689,6 +1695,16 @@ export type Database = {
       pin_grant_ttl: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
       pin_pad_to_floor: { Args: { p_started: string }; Returns: undefined }
+      place_floor_order: {
+        Args: {
+          p_idempotency_key?: string
+          p_items?: Json
+          p_label?: string
+          p_tab_id?: string
+          p_table_id: string
+        }
+        Returns: Json
+      }
       preview_series: {
         Args: {
           p_court_id: string
@@ -2630,6 +2646,10 @@ export type Database = {
       set_addon_suggestions: {
         Args: { p_item_id: string; p_suggested_item_ids: string[] }
         Returns: undefined
+      }
+      set_batch_yield: {
+        Args: { p_batch_yield?: number; p_ingredient_id: string }
+        Returns: Json
       }
       set_cafe_setting: {
         Args: { p_key: string; p_value: Json; p_venue_id?: string }
@@ -5439,6 +5459,7 @@ export type Database = {
       }
       ingredients: {
         Row: {
+          batch_yield: number | null
           id: string
           is_active: boolean
           kind: Database["public"]["Enums"]["ingredient_kind"]
@@ -5458,6 +5479,7 @@ export type Database = {
           yield_percent: number
         }
         Insert: {
+          batch_yield?: number | null
           id?: string
           is_active?: boolean
           kind?: Database["public"]["Enums"]["ingredient_kind"]
@@ -5477,6 +5499,7 @@ export type Database = {
           yield_percent?: number
         }
         Update: {
+          batch_yield?: number | null
           id?: string
           is_active?: boolean
           kind?: Database["public"]["Enums"]["ingredient_kind"]

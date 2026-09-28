@@ -469,7 +469,8 @@ describe.skipIf(!docker)('product_release (rolled-back transactions)', () => {
       ['ingredient_id', 'name_ar', 'name_en', 'qty', 'unit'],
       ['ingredient_id', 'name_ar', 'name_en', 'qty', 'unit'],
     ]);
-    expect(refused(r, 'ctx_hb')).toBe('NOT_STEP_ACTOR');
+    // The other head stopped following the release once it was proposed (0249).
+    expect(refused(r, 'ctx_hb')).toBe('PROTOCOL_NOT_FOUND');
     expect(refused(r, 'ctx_chef')).toBe('PROTOCOL_NOT_FOUND');
 
     ok(r, 'test1');

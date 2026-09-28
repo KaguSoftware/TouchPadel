@@ -93,6 +93,8 @@ export interface IngredientRow {
   supplier_id?: string | null;
   /** 0144: the Touch Shop size this stock row belongs to (retail only). */
   variant_id?: string | null;
+  /** 0250: how much one batch of a prepared item makes, in `unit`. */
+  batch_yield?: number | null;
 }
 
 export async function fetchIngredients(): Promise<IngredientRow[]> {

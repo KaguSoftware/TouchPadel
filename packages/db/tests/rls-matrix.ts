@@ -3569,8 +3569,8 @@ export const matrix: MatrixRule[] = [
   },
   {
     kind: 'rpc', schema: 'app', name: 'add_marketing_request',
-    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: STAFF_ANY,
-    note: 'any active staff member at the venue except marketing; an empty title stops at TEXT_REQUIRED, so nothing is written',
+    args: { p_title: '', p_body: '', p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: 'the manager and the owner at the venue (0249; was any staff but marketing); an empty title stops at TEXT_REQUIRED, so nothing is written',
     drop: 17,
   },
   {
@@ -4268,5 +4268,31 @@ export const matrix: MatrixRule[] = [
     args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP,
     note: '0246: the day close Shop block for the shop assistant and MGMT; an unknown day fails DAY_NOT_FOUND past the guard',
     drop: 22,
+  },
+  // 0250: batch sizes for prepared items; 0251: placing an order from the
+  // staff phone (tests/staff-production.test.ts, tests/floor-orders.test.ts).
+  {
+    kind: 'rpc', schema: 'app', name: 'set_batch_yield',
+    args: { p_ingredient_id: NIL_UUID, p_batch_yield: 1 }, expect: MANAGER_UP,
+    note: '0250: the manager or the owner set how much one batch makes; an unknown ingredient fails INGREDIENT_NOT_FOUND past the guard',
+    drop: 23,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'floor_tables',
+    args: { p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    note: '0251: the waiter, the cashier and MGMT read the tables and their open tabs, no money (the waiter is not a matrix principal)',
+    drop: 23,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'floor_menu',
+    args: { p_venue_id: VENUE_A }, expect: CASHIER_UP,
+    note: '0251: the waiter, the cashier and MGMT read the café menu the phone orders from',
+    drop: 23,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'place_floor_order',
+    args: { p_table_id: NIL_UUID }, expect: CASHIER_UP,
+    note: '0251: the waiter, the cashier and MGMT open a tab or add to one from the phone; an unknown table fails TABLE_NOT_FOUND past the guard, so nothing is written',
+    drop: 23,
   },
 ];

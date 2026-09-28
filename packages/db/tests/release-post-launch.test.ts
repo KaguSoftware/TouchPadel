@@ -396,6 +396,12 @@ describe.skipIf(!docker)('release_post_launch (rolled-back transactions)', () =>
       T('tbl_notes_drv', 'drv', `select to_jsonb(count(*)) from release_notes`),
       T('tbl_notes_mkt', 'mkt', `select to_jsonb(count(*)) from release_notes`),
       T('tbl_notes_mgr', 'manager', `select to_jsonb(count(*)) from release_notes where menu_item_id = {{a_item}}::uuid`),
+      // 0249: listed only while the release is at its feedback stage (live):
+      // back inside the window, but the day-30 review has finished the run.
+      X(`update menu_items set launched_at = now() - interval '2 days' where id = {{a_item}}::uuid`),
+      T('for_me_live', 'cashier', `select app.release_notes_for_me({{venue}}::uuid)`),
+      X(`update protocol_runs set status = 'done', finished_at = now() where id = {{a_run}}::uuid`),
+      T('for_me_done', 'cashier', `select app.release_notes_for_me({{venue}}::uuid)`),
     ]);
     const item = varOf(r, 'a_item');
 
@@ -424,6 +430,10 @@ describe.skipIf(!docker)('release_post_launch (rolled-back transactions)', () =>
     expect(ok(r, 'tbl_notes_drv')).toBe(0);
     expect(ok(r, 'tbl_notes_mkt')).toBe(0);
     expect(ok(r, 'tbl_notes_mgr')).toBe(4);
+    const listed = (label: string) =>
+      ok<{ items: Array<{ menu_item_id: string }> }>(r, label).items.map((i) => i.menu_item_id);
+    expect(listed('for_me_live')).toContain(item);
+    expect(listed('for_me_done')).not.toContain(item);
   });
 
   it('writes the day-30 review for managers and owners only, and tells them alone', () => {

@@ -278,6 +278,11 @@ function RootStack() {
           screen carries its own RequireSession, like the screens above. */}
           <Stack.Screen name="pay/return" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pay/status" />
+          {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
+          <Stack.Screen
+            name="staff-order-item"
+            options={{ presentation: 'formSheet', sheetAllowedDetents: [0.75, 1], sheetGrabberVisible: true }}
+          />
           <Stack.Screen name="+not-found" />
           <Stack.Screen name="reset-password" />
         </Stack>

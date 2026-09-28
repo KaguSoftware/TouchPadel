@@ -15,7 +15,6 @@ import {
   CardIcon,
   CheckIcon,
   ChevronIcon,
-  CameraIcon,
   ClipboardIcon,
   ClockIcon,
   DeductionIcon,
@@ -33,6 +32,7 @@ import {
   StopwatchIcon,
   SunIcon,
   SwapIcon,
+  TableIcon,
   TagIcon,
   WarningIcon,
   type IconProps,
@@ -46,10 +46,12 @@ import {
 import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaff';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../src/features/staff/keys';
-import { staffRows, type StaffRowDef } from '../src/features/staff/rows';
+import { todayRows, type StaffRowDef } from '../src/features/staff/rows';
 import { showsVenuePicker } from '../src/features/staff/venue';
 import { mapStaffError } from '../src/features/staff/edge';
 import { fetchChecklistsToday } from '../src/features/staff/checklists/api';
+import { fetchRuns } from '../src/features/staff/protocols/api';
+import { fetchNoteItems } from '../src/features/staff/notes/api';
 import { checklistTodos, localName } from '../src/features/staff/checklists/logic';
 import { WorkList } from '../src/features/staff/protocols/WorkList';
 import { ListCard } from '../src/features/staff/protocols/parts';
@@ -104,8 +106,8 @@ const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
   'stock-log': PlusSquareIcon,
   'stock-move': SwapIcon,
   'stock-count': ClipboardIcon,
-  // Phase 2 Milestone 4b: the camera pages.
-  'order-slip': CameraIcon,
+  // Place an order (0251); Phase 2 Milestone 4b: the receipt camera page.
+  order: TableIcon,
   receipt: ReceiptIcon,
 };
 
@@ -118,8 +120,8 @@ const ROW_ICONS: Record<string, ComponentType<IconProps>> = {
 const ROW_GROUPS = [
   // Wave 5, lane R (§2.1.8): a waiter's guest calls come first, above the
   // protocols: the `waiter_call_new` push lands on Today.
-  // Phase 2 Milestone 4b: scanning a waiter's order slip is floor work too.
-  { key: 'floor', titleKey: 'staff.calls.group', ids: ['calls', 'order-slip'] },
+  // Placing an order (0251) is floor work too.
+  { key: 'floor', titleKey: 'staff.calls.group', ids: ['calls', 'order'] },
   { key: 'protocols', titleKey: 'staff.shell.today.groups.protocols', ids: ['protocols', 'start', 'ideas', 'notes'] },
   { key: 'daily', titleKey: 'staff.shell.today.groups.daily', ids: null },
   // Wave 5, lane P: a deduction is proposed about someone, like a request (§5.3).
@@ -274,6 +276,21 @@ function TodayScreen() {
     status.kind === 'staff' && reviewsIncidents(status.staff.role),
   );
   const content = useContentRowCount(venueId, status.kind === 'staff' ? status.staff.role : null);
+  // Two rows depend on the day, not the role (rows.ts todayRows): Protocols
+  // while a run in progress involves the person (management always), and
+  // Notes on new items while one is at its feedback stage. The same cache
+  // entries as the runs page's "In progress" and the notes page.
+  const staffRole = status.kind === 'staff' ? status.staff.role : null;
+  const involvedRuns = useQuery({
+    queryKey: staffKeys.runs(venueId ?? '', 'active'),
+    queryFn: () => fetchRuns(venueId ?? '', 'active'),
+    enabled: !!venueId && staffRole !== null && staffRole !== 'manager' && staffRole !== 'owner',
+  });
+  const noteItems = useQuery({
+    queryKey: staffKeys.notes(venueId ?? ''),
+    queryFn: () => fetchNoteItems(venueId ?? ''),
+    enabled: !!venueId && staffRole !== null,
+  });
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: staffKeys.all }), [queryClient]);
   const pull = usePullRefresh(refresh);
 
@@ -296,7 +313,10 @@ function TodayScreen() {
     ]);
   };
 
-  const rows = staffRows(staff.role);
+  const rows = todayRows(staff.role, {
+    runs: involvedRuns.data ? involvedRuns.data.total : null,
+    notes: noteItems.data ? noteItems.data.length : null,
+  });
   const bodyText = { fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 };
 
   return (

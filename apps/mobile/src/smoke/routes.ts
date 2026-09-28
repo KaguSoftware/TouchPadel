@@ -89,6 +89,12 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'staff-purchase.tsx', route: 'staff-purchase', primary: 'staff-purchase.save' },
   // Phase 2 Milestone 4b: the camera pages.
   { file: 'staff-order-slip.tsx', route: 'staff-order-slip', primary: 'staff-order-slip.send' },
+  // Place an order (0251): the tables, a table's menu, an item's sheet and the
+  // review, cased by staffOrder.smoke.test.tsx.
+  { file: 'staff-order.tsx', route: 'staff-order', primary: 'staff-order.tables' },
+  { file: 'staff-order-menu.tsx', route: 'staff-order-menu', primary: 'staff-order-menu.review' },
+  { file: 'staff-order-item.tsx', route: 'staff-order-item', primary: 'staff-order-item.add' },
+  { file: 'staff-order-review.tsx', route: 'staff-order-review', primary: 'staff-order-review.send' },
   { file: 'staff-receipt.tsx', route: 'staff-receipt', primary: 'staff-receipt.send' },
   { file: 'staff-marketing.tsx', route: 'staff-marketing', primary: 'staff-marketing.tab.take' },
   { file: 'staff-notes.tsx', route: 'staff-notes', primary: 'staff-notes.add' },

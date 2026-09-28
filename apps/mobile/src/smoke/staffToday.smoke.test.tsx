@@ -132,11 +132,12 @@ describe.each(LOCALES)('Today in %s', (locale) => {
         ['staff.row.production', 'staff.checklists.production.title'],
         ['staff.row.ideas', 'staff.protocols.ideas.title'],
         ['staff.row.recipe-changes', 'staff.checklists.recipeChange.title'],
-        ['staff.row.ask-marketing', 'staff.marketing.rows.ask'],
         ['staff.requests', 'staff.checklists.vacation.row'],
       ] as const) {
         expect(within(screen.getByTestId(id)).getByText(t(key))).toBeTruthy();
       }
+      // Asking marketing is the manager's and the owner's (2026-09-28).
+      expect(screen.queryByTestId('staff.row.ask-marketing')).toBeNull();
       expect(screen.queryByTestId('staff.row.run')).toBeNull();
       expect(screen.queryByTestId('staff.row.marketing-inbox')).toBeNull();
     } finally {
@@ -218,6 +219,61 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       expect(screen.queryByTestId('staff.row.production')).toBeNull();
       fireEvent.press(screen.getByTestId('staff.row.run'));
       expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-shopping' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  // Owner, 2026-09-28: Place an order replaces Scan an order on the floor
+  // group; Protocols shows only to management or with a run that involves the
+  // person; Notes on new items only while one is at its feedback stage.
+  it('gives the waiter Place an order, and no Protocols or Notes with nothing in them', () => {
+    const screen = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'waiter' },
+      queryData: [
+        [staffKeys.runs(V, 'active'), { runs: [], total: 0 }],
+        [staffKeys.notes(V), []],
+      ],
+    });
+    try {
+      expect(within(screen.getByTestId('staff.row.order')).getByText(t('staff.floor.row'))).toBeTruthy();
+      expect(screen.queryByTestId('staff.row.order-slip')).toBeNull();
+      expect(screen.queryByTestId('staff.row.protocols')).toBeNull();
+      expect(screen.queryByTestId('staff.row.notes')).toBeNull();
+      fireEvent.press(screen.getByTestId('staff.row.order'));
+      expect(routerState.calls).toContainEqual({ method: 'push', arg: '/staff-order' });
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('shows Protocols with a run that involves them, and Notes with an item at its feedback stage', () => {
+    const screen = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'waiter' },
+      queryData: [
+        [staffKeys.runs(V, 'active'), { runs: [], total: 1 }],
+        [
+          staffKeys.notes(V),
+          [{ menu_item_id: 'i', name_en: 'Rose latte', name_ar: 'لاتيه الورد', launched_at: '2026-09-27T09:00:00Z',
+             window_ends_at: '2026-10-27T09:00:00Z', run_id: 'r', notes: 0, my_notes: 0 }],
+        ],
+      ],
+    });
+    try {
+      expect(screen.getByTestId('staff.row.protocols')).toBeTruthy();
+      expect(screen.getByTestId('staff.row.notes')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('always shows management the Protocols row', () => {
+    const screen = renderRoute(StaffToday, { locale, staff: { role: 'manager' }, queryData: [[staffKeys.notes(V), []]] });
+    try {
+      expect(screen.getByTestId('staff.row.protocols')).toBeTruthy();
+      expect(screen.queryByTestId('staff.row.notes')).toBeNull();
     } finally {
       screen.unmount();
     }

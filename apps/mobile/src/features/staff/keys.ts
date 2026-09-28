@@ -143,6 +143,9 @@ export const staffKeys = {
   slipsRoot: ['staff', 'orderSlips'] as const,
   myOrderSlips: (venue: string) => ['staff', 'orderSlips', venue] as const,
   myReceipts: (venue: string) => ['staff', 'receipts', venue] as const,
+  // Place an order (0251): the tables with their open tabs, and the café menu.
+  floor: (venue: string) => ['staff', 'floor', venue] as const,
+  floorMenu: (venue: string) => ['staff', 'floorMenu', venue] as const,
   /** The prefix src/lib/queryClient.ts sets the staff write defaults on. */
   mutationRoot: ['staff', 'mutation'] as const,
   mutation: (name: StaffMutationName) => ['staff', 'mutation', name] as const,

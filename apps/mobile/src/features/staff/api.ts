@@ -77,6 +77,10 @@ export const STAFF_RPCS = [
   'my_receipts',
   'create_order_slip',
   'my_order_slips',
+  // place an order (0251): the floor, the menu, and opening or adding to a tab
+  'floor_tables',
+  'floor_menu',
+  'place_floor_order',
   // marketing
   'suggest_campaign',
   'my_campaign_drafts',

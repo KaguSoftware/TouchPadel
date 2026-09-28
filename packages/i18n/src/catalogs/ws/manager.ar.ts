@@ -1348,6 +1348,9 @@ export const managerAr: DeepMessages<typeof managerEn> = {
       incompleteLine: 'كل سطر يحتاج مكوّنًا وكمية أكبر من صفر. أكمله أو احذفه.',
       save: 'احفظ الوصفة',
       saved: 'حُفظت الوصفة.',
+      batch: 'الدفعة الواحدة تُنتج ({unit})',
+      batchHint: 'حين يسجّل الطاهي دفعة من الهاتف تُملأ هذه الكمية تلقائياً. اتركها فارغة إن لم يكن للدفعة حجم معتاد.',
+      batchInvalid: 'اكتب كمية أكبر من صفر، أو اتركها فارغة.',
     },
   },
   onlineRefunds: {

@@ -94,7 +94,9 @@ export type StaffMutation =
   | 'stock_count'
   // Phase 2 Milestone 4b: create_receipt, create_order_slip.
   | 'receipt'
-  | 'order_slip';
+  | 'order_slip'
+  // Place an order (0251): place_floor_order.
+  | 'floor_order';
 
 /** Fresh staff key, `MOBILE:staff.<mutation>:<ulid>`. Only for a genuinely new intent. */
 export function staffIdemKey(mutation: StaffMutation): string {

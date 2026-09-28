@@ -41,6 +41,7 @@ import {
   localName,
   namedFirst,
   requestArgs,
+  MARKETING_REQUEST_ROLES,
   requestsView,
   validateAnswer,
   validateRequest,
@@ -514,7 +515,7 @@ function RequestsScreen() {
 
 export default function StaffMarketingRequestsRoute() {
   return (
-    <RequireStaff>
+    <RequireStaff roles={MARKETING_REQUEST_ROLES}>
       <RequestsScreen />
     </RequireStaff>
   );

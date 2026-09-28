@@ -3,6 +3,7 @@ import {
   PRODUCTION_ROLES,
   batchArgs,
   batchIntent,
+  batchQtyText,
   parseQty,
   sortProduction,
   validateBatch,
@@ -83,6 +84,7 @@ describe('what to make today', () => {
     below_par: below,
     made_today: 0,
     shelf_life_days: 2,
+    batch_yield: null,
   });
 
   it('lists below-par items first and keeps the server’s order within each group', () => {
@@ -92,5 +94,21 @@ describe('what to make today', () => {
 
   it('is for the chef tiers and management only', () => {
     expect([...PRODUCTION_ROLES].sort()).toEqual(['chef', 'head_chef', 'manager', 'owner']);
+  });
+});
+
+describe('a batch filled in from its size (0250)', () => {
+  it('multiplies one batch by the count, to the three places stock keeps', () => {
+    expect(batchQtyText(24, 1)).toBe('24');
+    expect(batchQtyText(24, 3)).toBe('72');
+    expect(batchQtyText(2500.5, 2)).toBe('5001');
+    expect(batchQtyText(0.3333, 3)).toBe('1');
+    expect(batchQtyText(1.2345, 1)).toBe('1.235');
+  });
+
+  it('fills in text the amount field reads back as the same number', () => {
+    for (const [y, n] of [[24, 5], [0.125, 3], [1500, 99]] as const) {
+      expect(parseQty(batchQtyText(y, n))).toBe(Math.round(y * n * 1000) / 1000);
+    }
   });
 });

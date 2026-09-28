@@ -3326,6 +3326,12 @@ The context default is `guest`.
 
 ### 6.7 The no-station-RPC guard
 
+*2026-09-28 (owner): the phone places café orders* (migration 0251, `app/staff-order*.tsx`):
+the waiter, the cashier and management pick a table, add to one of its open tabs or open a new
+one, and send to the kitchen through `floor_tables`, `floor_menu` and `place_floor_order`, the
+phone's own RPCs. This reverses wave5-addendum Q3 ("no till on the waiter's phone") for ordering
+only; every name below stays off the phone, the till's `open_tab` and `till_add_items` included.
+
 `mob/src/features/staff/__tests__/noStationRpc.test.ts` (B, vitest) reads every file under
 `src/features/staff/**` and `app/staff*.tsx` and fails on a string literal naming any of:
 - station: `heartbeat`, `break_status`, `start_break`, `end_break`, `cover_station`,

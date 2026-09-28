@@ -173,6 +173,13 @@ export const ReceiptIcon = (p: IconProps) => (
 export const PlusSquareIcon = (p: IconProps) => (
   <StrokeIcon d={['M4.5 4.5h15v15h-15v-15zM12 8.5v7M8.5 12h7']} {...p} />
 );
+/** Place an order (0251): one more, one less, on an order line. */
+export const PlusIcon = (p: IconProps) => <StrokeIcon d={['M12 5v14M5 12h14']} {...p} />;
+export const MinusIcon = (p: IconProps) => <StrokeIcon d={['M5 12h14']} {...p} />;
+/** Place an order: a café table seen from the side. */
+export const TableIcon = (p: IconProps) => (
+  <StrokeIcon d={['M3.5 8.5h17M6 8.5l-1.5 11M18 8.5l1.5 11M8.5 8.5v5h7v-5']} {...p} />
+);
 /** Move stock: two arrows passing, from one store to the other; directional, so it mirrors under RTL. */
 export const SwapIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 8h14l-3.5-3.5M20 16H6l3.5 3.5']} flip {...p} />

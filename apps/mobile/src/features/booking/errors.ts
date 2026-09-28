@@ -155,6 +155,20 @@ const CODE_TO_KEY = {
   TOO_MANY_ATTEMPTS: 'deposit.errors.tooManyAttempts',
   PAYMENT_NOT_FOUND: 'deposit.errors.paymentNotFound',
   PROVIDER_UNAVAILABLE: 'deposit.errors.providerUnavailable',
+  // Place an order (0251): place_floor_order and the till's own line checks it
+  // runs. A tab the till closed, merged or never had reads as "pick another",
+  // and no open day as "once the till opens the day": what the waiter can do.
+  NO_OPEN_DAY: 'staff.floor.tables.dayClosed',
+  DAY_CLOSED: 'staff.floor.menu.tabGone',
+  TAB_NOT_OPEN: 'staff.floor.menu.tabGone',
+  TAB_NOT_FOUND: 'staff.floor.menu.tabGone',
+  TAB_MERGED: 'staff.floor.menu.tabGone',
+  TABLE_NOT_FOUND: 'op.errors.TABLE_NOT_FOUND',
+  EMPTY_ORDER: 'staff.floor.review.issues.empty',
+  ITEM_UNAVAILABLE: 'op.errors.ITEM_UNAVAILABLE',
+  MODIFIER_SELECTION: 'op.errors.MODIFIER_SELECTION',
+  MODIFIER_INVALID: 'op.errors.MODIFIER_INVALID',
+  TAB_KIND_MISMATCH: 'op.errors.TAB_KIND_MISMATCH',
 } as const satisfies Record<string, MessageKey>;
 
 export type RpcErrorCode = keyof typeof CODE_TO_KEY;
