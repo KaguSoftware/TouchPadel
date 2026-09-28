@@ -251,6 +251,7 @@ export const siteHeaderCss = `
   .tp-site-header[data-js] .tp-site-tools .tp-site-iconbtn::before { inset: 0; }
   .tp-site-header[data-js] .tp-site-tools .tp-icon { display: block; flex: none; inline-size: 1.25rem; block-size: 1.25rem; }
   .tp-site-header[data-js] .tp-theme-toggle__text { display: inline; font-family: var(--tp-font-body); }
+  .tp-site-header[data-js] .tp-theme-toggle__icon { flex: none; }
 }
 
 @keyframes tp-site-sheet-in { from { opacity: 0; } to { opacity: 1; } }

@@ -164,6 +164,7 @@ export function RailMoreMenu({
             role="group"
             aria-label={tr('ws.shell.nav.moreMenu')}
             className="tp-rail-options-list"
+            data-lead="icon"
             style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}
           >
             {items.map((item) => (

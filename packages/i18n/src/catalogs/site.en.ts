@@ -9,7 +9,14 @@
  *
  * Voice (docs/brand/touch-padel-style-reference.md §11): confident, athletic, direct;
  * verbs first; the deck's two-weight headlines where the page is loud, plain sentences
- * where it informs. No em dashes in this file. Latin display lines are written in
+ * where it informs. No em dashes in this file.
+ *
+ * The name is the idea (Majed, 2026-09-27): padel, like one-touch football, comes down to
+ * one touch of the ball. The slogan is "It’s all in one touch." (Arabic «اللعبة لمسة
+ * واحدة.»), and the loud lines play on touch here and there: the hero, the club, lessons,
+ * the app band, the footer, the 404. Lines that inform stay plain; so does "Play. Smash.
+ * Win.", the deck's own. A changed headline means re-measuring its block's --tp-fit
+ * (styles/site/*.css.ts). Latin display lines are written in
  * sentence case and set in capitals by CSS, so Arabic (which has no case) never inherits
  * an uppercase transform.
  *
@@ -74,8 +81,8 @@ export const siteEn = {
     general: 'Hi Touch Padel,',
   },
   hero: {
-    lineOne: 'Touch is',
-    lineTwo: 'a lifestyle',
+    lineOne: 'It’s all in',
+    lineTwo: 'one touch',
     // No hours here: the open-now pill right above it carries them.
     lead: 'A padel club and café in Durrat Karbala, with two indoor courts.',
     ctaWhatsApp: 'Book on WhatsApp',
@@ -83,19 +90,17 @@ export const siteEn = {
     ctaVisit: 'Plan your visit',
   },
   club: {
-    titleOne: 'Pure game,',
-    titleTwo: 'perfect touch.',
-    body: 'Book a slot and play.',
+    titleOne: 'Every point,',
+    titleTwo: 'one touch.',
+    body: 'Book a slot and make every touch count.',
     pointIndoor: 'Two indoor courts',
     pointRent: 'Rackets and balls to rent at the desk',
     pointLockers: 'Lockers for your things',
     courtLabel: 'A 3D padel court behind glass, four rackets keeping a rally going.',
-    // The rally's pause switch (WCAG 2.2.2): one name, its state is aria-pressed.
-    courtPause: 'Pause the rally',
     courtCta: 'Book a court',
   },
   lessons: {
-    titleOne: 'New to padel?',
+    titleOne: 'Your first touch?',
     titleTwo: 'Start here.',
     body: 'We run lessons at Touch. Message us on WhatsApp with when you can play, and we will tell you what is available.',
     cta: 'Ask about lessons',
@@ -107,7 +112,7 @@ export const siteEn = {
     win: 'Win',
     eyebrow: 'Tournaments are on at Touch',
     title: 'Grab a partner. Grab a pass.',
-    body: 'Tournaments and events are running at Touch. Message us on WhatsApp to get into the next one.',
+    body: 'Tournaments and events are running at Touch, where one touch can decide a final. Message us on WhatsApp to get into the next one.',
     cta: 'Join a tournament',
     // The entry pass (components/landing/EventsTicket.tsx). What the visitor "writes" on it
     // (you, your rival, your level, and their name) is set in the handwriting face.
@@ -140,7 +145,7 @@ export const siteEn = {
     step1Body: 'Courtside or inside, before your game or after it.',
     step2Title: 'Scan the code on it',
     step2Body: 'Your phone’s camera opens the menu for your table. No app to install.',
-    step3Title: 'Order from your phone',
+    step3Title: 'Send your order with one touch',
     step3Body: 'Pick, send, and get back to your game. The café knows which table it’s for.',
     // The drawings' own labels (hidden from screen readers; the steps say it in words).
     artTable: 'Table 4',
@@ -149,7 +154,7 @@ export const siteEn = {
     cta: 'Open the menu',
   },
   app: {
-    titleOne: 'Booking in the app.',
+    titleOne: 'Your court, a touch away.',
     titleTwo: 'Soon.',
     // The three things the app will do, each shown on its own real screen. The eyebrows
     // and lines are the app's own store captions (apps/mobile/store/frames.mjs).
@@ -184,7 +189,7 @@ export const siteEn = {
     lockersQ: 'Is there somewhere to leave my things?',
     lockersA: 'Yes, there are lockers at the club.',
     beginnerQ: 'I have never played padel. Is that a problem?',
-    beginnerA: 'Not at all. We run lessons. Ask us on WhatsApp.',
+    beginnerA: 'Not at all. Every player starts with a first touch, and we run lessons. Ask us on WhatsApp.',
     cancelQ: 'What if I need to cancel?',
     cancelA: 'Message or call the front desk as early as you can.',
     hoursQ: 'When are you open?',
@@ -218,7 +223,7 @@ export const siteEn = {
     eventsAlt: 'Two padel players shake hands on a blue court at night.',
   },
   footer: {
-    tagline: 'Touch is a lifestyle.',
+    tagline: 'It’s all in one touch.',
     hoursTitle: 'Hours',
     phoneTitle: 'Front desk',
     whatsapp: 'WhatsApp',
@@ -236,7 +241,7 @@ export const siteEn = {
   },
   notFound: {
     title: 'Out of bounds',
-    body: 'This page is not on the court. Head back to the start, or open the café menu.',
+    body: 'That touch went wide: this page is not on the court. Head back to the start, or open the café menu.',
     home: 'Back to Touch Padel',
     menu: 'Café menu',
   },
@@ -262,7 +267,7 @@ export const siteEn = {
     // The one description: the page, the layout default, the manifest and the JSON-LD.
     description:
       'A padel club and café in Durrat Karbala, Karbala. Two indoor courts, lessons and Touch Cafe. Book on WhatsApp, call the desk or walk in.',
-    ogAlt: 'Touch Padel. Touch is a lifestyle.',
+    ogAlt: 'Touch Padel. It’s all in one touch.',
     menuTitle: 'Menu · Touch Cafe',
   },
 };

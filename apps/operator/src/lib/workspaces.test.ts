@@ -108,7 +108,7 @@ describe('navigation sets', () => {
     expect(WORKSPACES.prep.groups).toHaveLength(0);
   });
 
-  it('badges the Protocols and Suggestions rows, the wave-5 Deductions, Incidents and Marketing rows, and no other', () => {
+  it('badges the Protocols and Suggestions rows, the wave-5 Deductions, Incidents and Marketing rows, Stock count, and no other', () => {
     const badged = Object.values(WORKSPACES)
       .flatMap((ws) => workspaceItems(ws))
       .filter((i) => i.badge)
@@ -120,6 +120,8 @@ describe('navigation sets', () => {
         '/deductions deductionsWaiting',
         '/incidents incidentsOpen',
         '/marketing contentWaiting',
+        // The phone counts waiting, on the owner's Stock section (2026-09-27).
+        '/stock/counts stockCountsWaiting',
       ]),
     );
   });
@@ -229,6 +231,11 @@ describe('sections', () => {
 
     expect(sectionForPath(owner, '/stock')?.key).toBe('stock');
     expect(sectionForPath(owner, '/stock/variance')?.key).toBe('stock');
+    expect(sectionForPath(owner, '/stock/receive')?.key).toBe('stock');
+    // One lit row: Goods in on its own screen, On hand only on /stock itself.
+    const stockRows = (owner.sections ?? []).find((s) => s.key === 'stock')!.items;
+    expect(activeNavItem(stockRows, '/stock/receive')?.to).toBe('/stock/receive');
+    expect(activeNavItem(stockRows, '/stock')?.to).toBe('/stock');
     expect(sectionForPath(owner, '/stock/products')?.key).toBe('stock');
     expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
 
@@ -341,10 +348,18 @@ describe('the manager rail', () => {
   it('groups its rows as Today, Run the day, Records and Setup', () => {
     expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
       [null, ['today']],
-      ['groupRun', ['bookings', 'openTabs', 'stock', 'shop', 'dayClose', 'protocols', 'suggestions', 'deductions', 'incidents']],
+      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions', 'deductions', 'incidents']],
       ['groupRecords', ['reports', 'audit']],
       ['groupSetup', ['menu', 'rates', 'promotions']],
     ]);
+  });
+
+  it('opens Stock as a section, the same list as the owner’s', () => {
+    expect(WORKSPACES.manager.sections?.map((s) => s.key)).toEqual(['stock']);
+    expect(sectionForPath(WORKSPACES.manager, '/stock/receive')?.key).toBe('stock');
+    expect(WORKSPACES.manager.sections?.[0]?.items).toBe(WORKSPACES.owner.sections?.find((s) => s.key === 'stock')?.items);
+    // Opened from its row in Run the day, so no second Stock button.
+    expect(WORKSPACES.manager.sections?.[0]?.fromRow).toBe(true);
   });
 
   it('only links screens a manager may open', () => {
@@ -368,11 +383,11 @@ describe('menu editor tabs', () => {
 
 describe('Touch Shop desk (0243–0246)', () => {
   const ownerStock = WORKSPACES.owner.sections!.find((s) => s.key === 'stock')!;
-  const managerRows = WORKSPACES.manager.groups.flatMap((g) => g.items);
+  const managerStock = WORKSPACES.manager.sections!.find((s) => s.key === 'stock')!;
 
-  it('gives owner and manager a Shop row that opens the shop desk', () => {
+  it('gives owner and manager a Shop row, on the Stock rail, that opens the shop desk', () => {
     expect(ownerStock.items.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
-    expect(managerRows.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
+    expect(managerStock.items.find((i) => i.labelKey === 'shop')?.to).toBe('/shop');
     expect(workspaceForRoute('/shop')).toBe('shop');
     expect(workspaceForRoute('/shop/products')).toBe('shop');
   });

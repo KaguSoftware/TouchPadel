@@ -138,3 +138,27 @@ describe('Goods in ▸ the store', () => {
     expect(screen.getByTitle('Held until that count is finished or discarded.')).toBeTruthy();
   });
 });
+
+// The invoice layout (2026-09-27): each line shows its value, and the foot the
+// delivery's total and how many lines arrived short, to tick against the paper.
+describe('Goods in ▸ the invoice table', () => {
+  it('totals each line and the delivery, and counts the short lines', async () => {
+    const user = userEvent.setup();
+    mount();
+    await chooseIngredient(user, /Flour$/);
+    await user.type(screen.getByRole('textbox', { name: /^Received/ }), '5000');
+    await user.type(screen.getByRole('textbox', { name: /^Ordered/ }), '6000');
+    await user.type(screen.getByRole('textbox', { name: /^Cost per/ }), '1.5');
+    const line = screen.getByTestId('goods-in-line');
+    expect(within(line).getByText('7,500')).toBeTruthy();
+    expect(screen.getByText(/7,500\s*IQD|IQD\s*7,500/)).toBeTruthy();
+    expect(screen.getByText('Lines: 1')).toBeTruthy();
+    expect(screen.getByText('Short: 1')).toBeTruthy();
+  });
+
+  it('shows no waiting row when nothing waits to be received', async () => {
+    mount();
+    await screen.findByTestId('goods-in-store');
+    expect(screen.queryByRole('group', { name: 'Waiting to receive' })).toBeNull();
+  });
+});

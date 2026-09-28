@@ -142,7 +142,8 @@ export const cashierEn = {
     court: 'Court',
     // Remove-an-empty-tab (0085), driven from the status badge itself.
     removeArm: 'Remove this tab',
-    removeAsk: 'Remove?',
+    removeAsk: 'Are you sure?',
+    removeBody: 'You are about to delete the {name} tab.',
     removeConfirm: 'Yes, remove',
     removeKeep: 'Keep',
     /*

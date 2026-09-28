@@ -8,6 +8,9 @@
 two changes of 2026-09-22 — Customer 360 removed at Touch's request, AI receipt scanning deferred —
 and to record that the Touch Shop is built and awaiting acceptance. Nothing else changed; the fees
 and the signatures are still blank.
+**Revised 2026-09-27:** open matches are split out of milestone 6 into a milestone of their own,
+built next (before coaching), and redesigned around a reusable open-match ticket; tournaments
+become milestone 7 (sections 3, 4 and 6). The fees and the signatures are still blank.
 
 ---
 
@@ -59,7 +62,8 @@ therefore the Customer 360 half only.
 
 ## 3. Milestones
 
-Work is delivered as seven milestones, in this order. Each one is a complete, usable piece of the
+Work is delivered as eight milestones, in this order, except that milestone 6 (open matches) is
+built next, before milestone 5 (coaching), as decided on 2026-09-27. Each one is a complete, usable piece of the
 system. Each one is accepted and paid on its own. Sizes are in **agent-weeks**, the effort, not the
 calendar, and are an order of magnitude, not a quotation; the fee and the dates are section 6.
 
@@ -71,13 +75,14 @@ calendar, and are an order of magnitude, not a quotation; the fee and the dates 
 | **3** | **Loyalty and web sign-in** | Points earned on spend in every part of the business, three tiers over a rolling twelve months, and a rewards catalogue. Includes sign-in at checkout on the cafe website, which is what lets a cafe order earn points. Customer 360 (one customer record with lifetime value and a timeline) was removed from this milestone at Touch's request on 2026-09-22. | 1 | 6 to 7 weeks |
 | **4** | **Touch Shop (AI receipts deferred)** | Retail products and variants, sold at the shop's own desk (its own staff role, PC, till, drawer and stock store; rebuilt 2026-09-27 at the owner's request) and counted in stock, with suppliers. Built 2026-09-22, rebuilt 2026-09-27, awaiting acceptance. AI receipt scanning (a supplier receipt photographed, read, matched to items and confirmed by a human) is deferred and is not part of this milestone. | 1 | 5 to 6 weeks |
 | **5** | **Coaching** | Coaches, availability, lesson types, courses, enrolment, and commission settlement. Coaches are guests with a coach record and use a coach mode in the phone app; they are not staff accounts. | 1, 2 | 4 to 5 weeks |
-| **6** | **Open matches, then tournaments** | Open matches with four seats and seat splitting, then tournaments and leagues: Americano and Mexicano first, then knockout, then leagues, with entries, scoring and standings. | 1, 2, 5 | 8 to 9 weeks |
+| **6** | **Open matches** | Players fill a court four at a time, without one person booking the whole court. A player starts a match on a free time; others join in the app or from a shared link; the court is booked the moment the fourth player joins. While a match is still filling, a normal booking of the last free court takes priority. Each player holds a reusable open-match ticket, bought once online: it comes back after every game and is lost only by not turning up. Everyone who plays pays their share at the desk. Includes women-only and men-only matches, reporting and blocking of players, and share links that open the app. Designed 2026-09-27 (`docs/design/open-matches/build-contracts-2026-09-27.md`). | 1, 2 | 5 to 7 weeks |
+| **7** | **Tournaments** | Tournaments and leagues: Americano and Mexicano first, then knockout, then leagues, with entries, scoring and standings. | 1, 2, 5, 6 | 5 to 6 weeks |
 
 **Why multi-venue is first.** There is no notion of a branch anywhere in the system today. Every
 other item has to know which branch a row belongs to. Building them first and adding branches
 afterwards would mean building each of them twice.
 
-Sequential total: roughly **35 to 41 agent-weeks**.
+Sequential total: roughly **37 to 45 agent-weeks**.
 
 ## 4. What each milestone needs from Touch
 
@@ -92,7 +97,8 @@ they are asked for once.
 | **3** | Loyalty: what one point is worth in IQD, the tier names in English and Arabic, the thresholds, and the discount percentage at each tier. |
 | **4** | Twenty to thirty real supplier receipts (photographs are fine), the ingredient and supplier list, and an Anthropic API key in Touch's own name. Which tax group applies to retail. |
 | **5** | The coach list, the lesson types and their prices, and written confirmation of the 60 % coach share net of the court. Which tax group applies to lessons. |
-| **6** | Entry fees and the prize policy per event; which tax group applies to seats and entries. These are **open**. Touch decides them at the start of milestone 6. |
+| **6** | The price of one open-match ticket. The Arabic word the app uses for the ticket. Confirmation that tickets which never expire, and are refunded at the desk on request, suit the rules Touch trades under. Which tax group applies to seat shares and to forfeited tickets. |
+| **7** | Entry fees and the prize policy per event; which tax group applies to entries. These are **open**. Touch decides them at the start of milestone 7. |
 
 ## 5. Acceptance
 
@@ -122,7 +128,8 @@ Phase 1 commercial terms.
 | 3 | Loyalty and web sign-in | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | 4 | Touch Shop | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | 5 | Coaching | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
-| 6 | Open matches and tournaments | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| 6 | Open matches | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| 7 | Tournaments | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | | **Total** | `[            ]` | | | |
 
 Running costs that Touch pays directly and that are not part of any fee above: the Supabase plan
@@ -186,6 +193,9 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 السادس) لتعكسا تغييرين في ٢٠٢٦-٠٩-٢٢: إزالة ملف العميل الشامل بطلب من تاتش، وتأجيل قراءة الفواتير
 بالذكاء الاصطناعي، ولتسجيل أن متجر تاتش قد بُني وينتظر الاعتماد. لم يتغيّر شيء آخر، وما زالت
 الأتعاب والتواقيع فارغة.
+**مراجعة ٢٠٢٦-٠٩-٢٧:** فُصلت المباريات المفتوحة عن المرحلة السادسة لتصبح مرحلة مستقلة تُبنى تالياً
+(قبل التدريب)، وأُعيد تصميمها حول تذكرة مباراة مفتوحة قابلة لإعادة الاستخدام، وأصبحت البطولات
+المرحلة السابعة (الأقسام الثالث والرابع والسادس). وما زالت الأتعاب والتواقيع فارغة.
 
 ---
 
@@ -235,7 +245,8 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 
 ## ٣. المراحل
 
-يُسلَّم العمل على سبع مراحل، بهذا الترتيب. كل مرحلة قطعة كاملة وقابلة للاستخدام من النظام، وتُعتمد
+يُسلَّم العمل على ثماني مراحل، بهذا الترتيب، إلا أن المرحلة السادسة (المباريات المفتوحة) تُبنى تالياً،
+قبل المرحلة الخامسة (التدريب)، بقرار اتُّخذ في ٢٠٢٦-٠٩-٢٧. كل مرحلة قطعة كاملة وقابلة للاستخدام من النظام، وتُعتمد
 وتُدفَع على حدة. والأحجام بوحدة **أسابيع عمل**، أي الجهد لا التقويم، وهي تقدير لرتبة الحجم لا عرض
 سعر؛ أما الأتعاب والمواعيد فهي في القسم السادس.
 
@@ -247,12 +258,13 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 | **٣** | **الولاء وتسجيل الدخول عبر الموقع** | نقاط تُكتسب على الإنفاق في كل أقسام العمل، وثلاث فئات على مدى اثني عشر شهراً متحركة، وكتالوج مكافآت. ويشمل تسجيل الدخول عند الدفع في موقع الكافيه، وهو ما يتيح لطلب الكافيه أن يكسب نقاطاً. أما ملف العميل الشامل (سجل واحد للعميل مع قيمته الإجمالية وخط زمني لتعاملاته) فقد أُزيل من هذه المرحلة بطلب من تاتش في ٢٠٢٦-٠٩-٢٢. | ١ | ٦ إلى ٧ أسابيع |
 | **٤** | **متجر تاتش (قراءة الفواتير مؤجَّلة)** | منتجات التجزئة وأصنافها تُباع على الكاشير وتُحتسب في المخزون، مع المورّدين. بُني في ٢٠٢٦-٠٩-٢٢ وينتظر الاعتماد. أما قراءة فواتير المورّدين بالذكاء الاصطناعي (تصوير الفاتورة وقراءة سطورها ومطابقتها بالأصناف وتأكيدها من إنسان) فمؤجَّلة، وليست جزءاً من هذه المرحلة. | ١ | ٥ إلى ٦ أسابيع |
 | **٥** | **التدريب** | المدربون وأوقات توفرهم وأنواع الدروس والدورات والتسجيل وتسوية العمولات. والمدربون ضيوف لهم سجل مدرب ويستخدمون وضع المدرب في تطبيق الهاتف، وليسوا حسابات موظفين. | ١، ٢ | ٤ إلى ٥ أسابيع |
-| **٦** | **المباريات المفتوحة ثم البطولات** | مباريات مفتوحة بأربعة مقاعد مع تقسيم المقاعد، ثم البطولات والدوريات: أمريكانو وميكسيكانو أولاً، ثم خروج المغلوب، ثم الدوريات، مع التسجيل واحتساب النتائج والترتيب. | ١، ٢، ٥ | ٨ إلى ٩ أسابيع |
+| **٦** | **المباريات المفتوحة** | يجتمع أربعة لاعبين على ملعب واحد دون أن يحجز شخص واحد الملعب كله. يبدأ لاعبٌ مباراةً في وقت متاح، وينضم إليها الآخرون من التطبيق أو من رابط يُرسَل إليهم، ويُحجز الملعب لحظة انضمام اللاعب الرابع. وما دامت المباراة لم تكتمل، فالأولوية لأي حجز عادي يأخذ آخر ملعب متاح في ذلك الوقت. ولكل لاعب تذكرة مباراة مفتوحة قابلة لإعادة الاستخدام، يشتريها مرة واحدة إلكترونياً: تعود إليه بعد كل مباراة، ولا يخسرها إلا إذا لم يحضر. ويدفع كل من يلعب حصته عند الكاشير. وتشمل مباريات للنساء فقط وأخرى للرجال فقط، والإبلاغ عن اللاعبين وحظرهم، وروابط مشاركة تفتح التطبيق. صُمِّمت في ٢٠٢٦-٠٩-٢٧ (`docs/design/open-matches/build-contracts-2026-09-27.md`). | ١، ٢ | ٥ إلى ٧ أسابيع |
+| **٧** | **البطولات** | البطولات والدوريات: أمريكانو وميكسيكانو أولاً، ثم خروج المغلوب، ثم الدوريات، مع التسجيل واحتساب النتائج والترتيب. | ١، ٢، ٥، ٦ | ٥ إلى ٦ أسابيع |
 
 **لماذا تعدد الفروع أولاً.** لا يوجد اليوم في النظام أي مفهوم للفرع. وكل بند آخر يحتاج أن يعرف إلى
 أي فرع ينتمي كل سجل. وبناء تلك البنود أولاً ثم إضافة الفروع بعدها يعني بناء كل واحد منها مرتين.
 
-المجموع التتابعي: نحو **٣٥ إلى ٤١ أسبوع عمل**.
+المجموع التتابعي: نحو **٣٧ إلى ٤٥ أسبوع عمل**.
 
 ## ٤. ما تحتاجه كل مرحلة من تاتش
 
@@ -266,7 +278,8 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 | **٣** | الولاء: قيمة النقطة الواحدة بالدينار العراقي، وأسماء الفئات بالعربية والإنجليزية، وحدود كل فئة، ونسبة الخصم عند كل فئة. |
 | **٤** | من عشرين إلى ثلاثين فاتورة مورّد حقيقية (تكفي صور)، وقائمة المكوّنات والمورّدين، ومفتاح واجهة Anthropic باسم تاتش. وتحديد المجموعة الضريبية المطبَّقة على التجزئة. |
 | **٥** | قائمة المدربين، وأنواع الدروس وأسعارها، وتأكيد كتابي لحصة المدرب البالغة ٦٠٪ بعد خصم حصة الملعب. وتحديد المجموعة الضريبية المطبَّقة على الدروس. |
-| **٦** | رسوم الاشتراك وسياسة الجوائز لكل فعالية؛ وتحديد المجموعة الضريبية المطبَّقة على المقاعد والاشتراكات. وهذه البنود **مفتوحة**. تقرّرها تاتش عند بدء المرحلة السادسة. |
+| **٦** | سعر تذكرة المباراة المفتوحة الواحدة. والكلمة العربية التي يستخدمها التطبيق للتذكرة. وتأكيد أن التذاكر التي لا تنتهي صلاحيتها، وتُستردّ قيمتها عند الكاشير عند الطلب، تتوافق مع القواعد التي تعمل تاتش بموجبها. وتحديد المجموعة الضريبية المطبَّقة على حصص المقاعد وعلى التذاكر التي يخسرها أصحابها لعدم الحضور. |
+| **٧** | رسوم الاشتراك وسياسة الجوائز لكل فعالية؛ وتحديد المجموعة الضريبية المطبَّقة على الاشتراكات. وهذه البنود **مفتوحة**. تقرّرها تاتش عند بدء المرحلة السابعة. |
 
 ## ٥. الاعتماد
 
@@ -298,7 +311,8 @@ in section 6, and agrees that work on each milestone begins when that milestone'
 | ٣ | الولاء وتسجيل الدخول عبر الموقع | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | ٤ | متجر تاتش | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | ٥ | التدريب | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
-| ٦ | المباريات المفتوحة والبطولات | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| ٦ | المباريات المفتوحة | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
+| ٧ | البطولات | `[            ]` | `[            ]` | `[            ]` | `[            ]` |
 | | **المجموع** | `[            ]` | | | |
 
 تكاليف تشغيلية تدفعها تاتش مباشرة وليست جزءاً من أي أتعاب أعلاه: اشتراك Supabase بما فيه مستوى

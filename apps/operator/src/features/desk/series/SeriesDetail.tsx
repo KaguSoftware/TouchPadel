@@ -82,7 +82,7 @@ export function SeriesDetailScreen() {
       if (pending.kind === 'occurrence') {
         await mutate('reservation.update', { action: 'cancel', reservationId: pending.occurrence.id, reason });
       } else {
-        await appRpc('cancel_series', { p_series_id: id, p_scope: pending.scope, p_reason_code: code });
+        await appRpc('cancel_series', { p_series_id: id, p_scope: pending.scope, p_reason_code: reason });
         toast.ok(tr('ws.courtDesk.seriesDetail.cancelled'));
       }
       setPending(null);
@@ -287,7 +287,6 @@ export function SeriesDetailScreen() {
           reasonCodes={CANCEL_REASONS}
           busy={busy}
           error={error}
-          withNote={pending.kind === 'occurrence'}
           onSubmit={(code, note) => void confirm(code, note)}
           onCancel={() => {
             setPending(null);

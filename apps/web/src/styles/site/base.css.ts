@@ -60,10 +60,9 @@ export const siteBaseCss = `
 .tp-site-skip:focus-visible { transform: none; }
 
 /* A section standing on the poster black, the brand navy, Touch Blue or a photo (and the
-   home page's header while it floats over the hero photo): every token that names ink,
-   accent, status or ring turns to the dark-ground version, whatever the page's mode. */
-.tp-on-dark, .tp-on-blue,
-.tp-site[data-page='home'] .tp-site-header[data-scrolled='false']:not([data-menu='open']) {
+   site header, navy in both modes): every token that names ink, accent, status or
+   ring turns to the dark-ground version, whatever the page's mode. */
+.tp-on-dark, .tp-on-blue, .tp-site-header {
   --tp-fg: var(--tp-brand-white);
   --tp-muted-fg: var(--tp-brand-gray);
   --tp-site-green-text: var(--tp-brand-green);
@@ -79,7 +78,7 @@ export const siteBaseCss = `
   --tp-site-tint: var(--tp-site-navy-card);
   color: var(--tp-fg);
 }
-.tp-on-dark { --tp-accent-contrast: var(--tp-site-navy); }
+.tp-on-dark, .tp-site-header { --tp-accent-contrast: var(--tp-site-navy); }
 /* On Touch Blue the brand gray is only 3.28:1, so secondary ink is the light gray step. */
 .tp-on-blue { --tp-muted-fg: var(--tp-site-block-muted); --tp-accent-contrast: var(--tp-brand-blue); --tp-site-tint: var(--tp-site-block-deep); }
 
@@ -100,8 +99,9 @@ export const siteBaseCss = `
 .tp-display__l2 { font-weight: var(--tp-site-fw-display); color: var(--tp-site-display-2); }
 [dir='rtl'] .tp-display { text-transform: none; letter-spacing: 0; line-height: var(--tp-site-lh-display-ar); }
 /* Every display block is sized to its own column (container units): --tp-fit is
-   100 / the longest line's width in em, measured in Lama Sans Black, so the longest
-   line fills the column and the rest follow. --tp-cap keeps a wide screen from shouting. */
+   100 / the longest line's width in em, so the longest line fills the column and the
+   rest follow. Measure line one in Lama Sans Regular and line two in Black, as each
+   renders (Regular sets some Latin lines wider than Black), and keep ~2.5% spare. --tp-cap keeps a wide screen from shouting. */
 .tp-fit { container-type: inline-size; }
 .tp-fit .tp-display { font-size: min(calc(var(--tp-fit, 11) * 1cqi), var(--tp-cap, 8rem)); }
 
@@ -188,6 +188,31 @@ export const siteBaseCss = `
 @media (hover: hover) { .tp-site-iconbtn:hover::before { opacity: 1; } }
 .tp-site-iconbtn .tp-icon { inline-size: 1.375rem; block-size: 1.375rem; }
 
+/* Night <-> light (ThemeToggle). With view transitions the page cross-fades from the
+   old mode's picture to the new; without, grounds, inks and borders ease across while
+   .tp-mode-fade is on (420 ms, the toggle takes it off). The button is its own layer
+   in the transition and does not fade: its icon turns in as it swaps. */
+.tp-mode-shift::view-transition-old(root),
+.tp-mode-shift::view-transition-new(root) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--tp-site-ease-out);
+}
+.tp-mode-shift .tp-theme-toggle { view-transition-name: tp-theme-toggle; }
+.tp-mode-shift::view-transition-group(tp-theme-toggle),
+.tp-mode-shift::view-transition-new(tp-theme-toggle) { animation: none; }
+.tp-mode-shift::view-transition-old(tp-theme-toggle) { display: none; }
+.tp-mode-fade, .tp-mode-fade body, .tp-mode-fade *, .tp-mode-fade *::before, .tp-mode-fade *::after {
+  transition: background-color 420ms var(--tp-site-ease-out), color 420ms var(--tp-site-ease-out),
+    border-color 420ms var(--tp-site-ease-out), fill 420ms var(--tp-site-ease-out),
+    stroke 420ms var(--tp-site-ease-out) !important;
+}
+.tp-theme-toggle__icon { display: grid; place-items: center; }
+.tp-theme-toggle__icon[data-turn] { animation: tp-theme-icon-in 420ms var(--tp-site-ease-out); }
+@keyframes tp-theme-icon-in {
+  from { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Icons: 24 grid, stroke 2, round. Directional ones mirror in RTL; objects never. */
 .tp-icon { display: block; inline-size: 1.25em; block-size: 1.25em; }
 [dir='rtl'] .tp-icon--dir { transform: scaleX(-1); }
@@ -250,5 +275,6 @@ export const siteBaseCss = `
 @media (prefers-reduced-motion: reduce) {
   .tp-site-btn, .tp-site-btn.tp-site-btn--ghost, .tp-site-btn::before, .tp-site-iconbtn::before { transition: none; }
   .tp-site-btn:active { transform: none; }
+  .tp-theme-toggle__icon[data-turn] { animation: none; }
 }
 `;

@@ -1067,8 +1067,9 @@ export const managerEn = {
       newerPage: 'Newer',
     },
     goodsIn: {
-      supplierOther: 'Not on the list (type it below)',
-      supplierTyped: 'Supplier name',
+      // The one supplier box (SupplierField.tsx): type a name or pick one.
+      supplierPlaceholder: 'Type a name or pick from the list',
+      supplierNew: 'Not on the list: “{name}” is saved as typed.',
       groupCafe: 'Café stock',
       groupShop: 'Shop stock',
       lead: 'Enter what arrived. Stock goes up as soon as you record it.',
@@ -1101,6 +1102,16 @@ export const managerEn = {
       recordEmpty: 'Choose an ingredient, then enter how much arrived and what it cost.',
       recorded: 'Delivery recorded. Stock is updated.',
       afterwards: 'Recorded deliveries show on',
+      // Invoice layout (2026-09-27): the line's value, the delivery's total and the foot's counts.
+      lineTotal: 'Line total',
+      total: 'Delivery total',
+      lineCount: 'Lines: {count}',
+      shortCount: 'Short: {count}',
+      // The row of counts above the form: what is waiting to be received.
+      waiting: {
+        title: 'Waiting to receive',
+        staff: 'Added by staff, no cost',
+      },
     },
     waste: {
       lead: 'Record stock that was thrown away, or a batch of something you made in the kitchen.',

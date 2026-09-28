@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TABLE_SLOTS } from '../floor/floorModel';
 import { LOCAL_TAB_PREFIX, type OfflineTab } from '../../lib/offlineTabs';
-import { CAFE_SPOTS, CAFE_VIEW, courtBoards, courtTabCount, otherOpenTabs, placeCafe, spotPosition, type CourtBookingRow } from './floorPlan';
+import { CAFE_SPOTS, CAFE_VIEW, cafeSeats, courtBoards, courtTabCount, otherOpenTabs, placeCafe, spotPosition, type CourtBookingRow } from './floorPlan';
 import type { TabListRow } from './tillData';
 
 const tab = (id: string, table: string | null, over: Partial<TabListRow> = {}): TabListRow => ({
@@ -45,6 +45,17 @@ describe('the room', () => {
       expect(p.block).toBeLessThan(1);
     }
     expect(spotPosition({ x: CAFE_VIEW.x, z: CAFE_VIEW.z })).toEqual({ inline: 0, block: 0 });
+  });
+
+  it('every stool stands clearly nearer its own table than any other', () => {
+    CAFE_SPOTS.forEach((own, i) => {
+      for (const c of cafeSeats(i)) {
+        const mine = Math.hypot(c.x - own.x, c.z - own.z);
+        CAFE_SPOTS.forEach((other, j) => {
+          if (j !== i) expect(Math.hypot(c.x - other.x, c.z - other.z)).toBeGreaterThan(mine + 0.4);
+        });
+      }
+    });
   });
 });
 

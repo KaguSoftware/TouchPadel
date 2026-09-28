@@ -1657,7 +1657,6 @@ export function ReasonCodePrompt({
   reasonCodes = REASON_CODES,
   busy,
   error,
-  withNote = true,
   onSubmit,
   onCancel,
   children,
@@ -1666,7 +1665,6 @@ export function ReasonCodePrompt({
   reasonCodes?: readonly ReasonCode[];
   busy?: boolean;
   error?: unknown;
-  withNote?: boolean;
   onSubmit: (code: ReasonCode, note: string) => void;
   onCancel: () => void;
   /** Consequence copy rendered above the reason picker (e.g. "recorded as waste"). */
@@ -1676,11 +1674,18 @@ export function ReasonCodePrompt({
   const [code, setCode] = useState<ReasonCode>(reasonCodes[0] ?? 'other');
   const [note, setNote] = useState('');
   const id = useId();
+  // Only "Other" asks for words, and then it needs them: a bare "other" in the
+  // audit log says nothing. Every caller stores the text as `other: <text>`.
+  const needsText = code === 'other';
+  const missingText = needsText && note.trim() === '';
   return (
     <Modal
-      title={tr('ws.kit.reason.title')}
-      subtitle={tr('ws.kit.reason.lead', { action })}
+      // The title names the act ("Remove this tab"), not the form's rule: a
+      // generic "Reason required" left the cashier reading the lead to learn
+      // what they were about to do.
+      title={action.charAt(0).toLocaleUpperCase() + action.slice(1)}
       dismissible={!busy}
+      closeButton={false}
       onClose={onCancel}
       size="sm"
       footer={
@@ -1688,33 +1693,42 @@ export function ReasonCodePrompt({
           <Button onClick={onCancel} disabled={busy}>
             {tr('ws.kit.reason.cancel')}
           </Button>
-          <Button kind="primary" busy={busy} onClick={() => onSubmit(code, note.trim())}>
+          <Button
+            kind="primary"
+            busy={busy}
+            disabled={missingText}
+            disabledReason={tr('ws.kit.reason.otherRequired')}
+            onClick={() => onSubmit(code, needsText ? note.trim() : '')}
+          >
             {tr('ws.kit.reason.confirm')}
           </Button>
         </>
       }
     >
       {children}
-      <div role="radiogroup" aria-labelledby={`${id}-label`} style={{ display: 'grid', gap: '0.3rem', marginBlockEnd: '0.85rem' }}>
-        <span id={`${id}-label`} style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
-          {tr('ws.kit.reason.code')}
-        </span>
+      <span id={`${id}-label`} style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-2)' }}>
+        {tr('ws.kit.reason.code')}
+      </span>
+      <div role="radiogroup" aria-labelledby={`${id}-label`} style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-4)' }}>
         {reasonCodes.map((r) => (
-          <label
-            key={r}
-            className="tp-row"
-            data-clickable="true"
-            data-selected={code === r ? 'true' : undefined}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBlock: '0.35rem', paddingInline: '0.5rem', borderRadius: 'var(--tp-radius-ctl)', cursor: 'pointer' }}
-          >
-            <input type="radio" name={`${id}-reason`} value={r} checked={code === r} disabled={busy} onChange={() => setCode(r)} />
-            {tr(`op.reasons.${r}`)}
+          <label key={r} className="tp-choice" data-selected={code === r ? 'true' : undefined}>
+            <input className="tp-sr-only" type="radio" name={`${id}-reason`} value={r} checked={code === r} disabled={busy} onChange={() => setCode(r)} />
+            <span style={{ flex: 1 }}>{tr(`op.reasons.${r}`)}</span>
+            {code === r && <Icon name="check" size={16} />}
           </label>
         ))}
       </div>
-      {withNote && (
-        <Field label={tr('ws.kit.reason.note')}>
-          <input style={inputStyle} value={note} disabled={busy} maxLength={200} onChange={(e) => setNote(e.target.value)} />
+      {needsText && (
+        <Field label={tr('ws.kit.reason.otherLabel')}>
+          <input
+            style={inputStyle}
+            autoFocus
+            value={note}
+            disabled={busy}
+            maxLength={200}
+            placeholder={tr('ws.kit.reason.otherPlaceholder')}
+            onChange={(e) => setNote(e.target.value)}
+          />
         </Field>
       )}
       <ErrorText error={error} />

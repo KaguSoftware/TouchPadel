@@ -1,5 +1,4 @@
 import { act, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CourtCanvasOptions } from './courtCanvas';
@@ -19,7 +18,7 @@ const createCourtCanvas = vi.fn((opts: CourtCanvasOptions) => {
 });
 vi.mock('./courtCanvas', () => ({ createCourtCanvas }));
 
-import { COURT_PAUSED_KEY, CourtStage } from './CourtStage';
+import { CourtStage } from './CourtStage';
 import { courtCss } from './court.css';
 
 const LABEL = 'A padel court seen from above, a rally in play';
@@ -71,7 +70,6 @@ beforeEach(() => {
   createCourtCanvas.mockClear();
   vi.stubGlobal('IntersectionObserver', FakeIO);
   try {
-    window.localStorage.removeItem(COURT_PAUSED_KEY);
   } catch {
     /* no storage in this environment */
   }
@@ -176,59 +174,13 @@ describe('CourtStage — in the browser', () => {
   });
 });
 
-describe('the rally can be paused (WCAG 2.2.2)', () => {
-  it('draws no switch without a label, and none on the server', () => {
+describe('the rally never stops', () => {
+  it('draws no pause switch, and the flat court loops without JS', () => {
     withWebGL(false);
     render(<CourtStage label={LABEL} />);
     expect(screen.queryByRole('button')).toBeNull();
-    expect(renderToString(<CourtStage label={LABEL} pauseLabel="Pause the rally" />)).not.toContain(
-      'tp-court-stage__pause',
-    );
-  });
-
-  it('pauses and resumes the flat court and the canvas, and remembers the choice', async () => {
-    withWebGL(true);
-    const { container } = render(<CourtStage label={LABEL} pauseLabel="Pause the rally" />);
-    await nearView();
-    const stage = container.querySelector('.tp-court-stage')!;
-    expect(stage.hasAttribute('data-js')).toBe(true);
-    const button = screen.getByRole('button', { name: 'Pause the rally' });
-    expect(button.getAttribute('aria-pressed')).toBe('false');
-
-    await userEvent.click(button);
-    expect(button.getAttribute('aria-pressed')).toBe('true');
-    expect(stage.hasAttribute('data-paused')).toBe(true);
-    expect(setPaused).toHaveBeenLastCalledWith(true);
-    expect(window.localStorage.getItem(COURT_PAUSED_KEY)).toBe('1');
-
-    await userEvent.click(button);
-    expect(button.getAttribute('aria-pressed')).toBe('false');
-    expect(stage.hasAttribute('data-paused')).toBe(false);
-    expect(setPaused).toHaveBeenLastCalledWith(false);
-    expect(window.localStorage.getItem(COURT_PAUSED_KEY)).toBeNull();
-  });
-
-  it('starts paused for a visitor who paused it before', async () => {
-    withWebGL(true);
-    window.localStorage.setItem(COURT_PAUSED_KEY, '1');
-    render(<CourtStage label={LABEL} pauseLabel="Pause the rally" />);
-    await nearView();
-    expect(screen.getByRole('button', { name: 'Pause the rally' }).getAttribute('aria-pressed')).toBe(
-      'true',
-    );
-    expect(created[0]?.paused).toBe(true);
-  });
-
-  it('stops the flat court’s keyframes while paused, and plays under 5 s without JS', () => {
-    expect(courtCss).toContain(
-      ".tp-court-stage[data-paused] .tp-court-illustration * { animation-play-state: paused; }",
-    );
-    // 0.75 of the 6.6 s loop is 4.95 s, then it holds.
-    expect(courtCss).toMatch(
-      /\.tp-court-stage:not\(\[data-js\]\) \.tp-court-illustration__racket \{\s*animation-iteration-count: 0\.75;\s*animation-fill-mode: forwards;/,
-    );
-    const block = courtCss.slice(courtCss.indexOf('@media (prefers-reduced-motion: reduce)'));
-    expect(block).toContain('.tp-court-stage__pause { display: none; }');
+    expect(courtCss).not.toContain('tp-court-stage__pause');
+    expect(courtCss).not.toContain('animation-iteration-count');
   });
 });
 

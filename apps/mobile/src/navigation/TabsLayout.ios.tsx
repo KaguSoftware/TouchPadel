@@ -14,11 +14,10 @@ const { Icon, Label } = NativeTabs.Trigger;
  *
  * The system draws the bar, so it picks up the native material (Liquid Glass on
  * iOS 26), scroll-edge behavior, RTL mirroring and iPad layout. Labels still
- * take the design's display face, and the selected tab tints its icon with the
- * design's green. The selected LABEL takes that same `brand.green` rather than
- * `colors.blue`, which is #3360AB in light but #FFFFFF in blue mode — the
- * selected tab has to read as one colour in both themes, and light's is the
- * one that is right. The 14x3 green active dot has no UIKit equivalent and is
+ * take the design's display face, and the selected tab tints its icon and
+ * label with `brand.blue` in light and `brand.green` in dark (owner,
+ * 2026-09-27). Not `colors.blue`, which is #FFFFFF in blue mode and would not
+ * read as selected. The 14x3 green active dot has no UIKit equivalent and is
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  *
@@ -32,7 +31,8 @@ const { Icon, Label } = NativeTabs.Trigger;
  */
 export default function TabsLayoutIOS() {
   const { t } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { appearance, colors, fonts } = useTheme();
+  const selected = appearance === 'dark' ? brand.green : brand.blue;
 
   return (
     <NativeTabs
@@ -40,9 +40,9 @@ export default function TabsLayoutIOS() {
       minimizeBehavior="onScrollDown"
       labelStyle={{
         default: { fontFamily: fonts.display600, fontSize: 10, color: colors.fnt2 },
-        selected: { fontFamily: fonts.display800, fontSize: 10, color: brand.green },
+        selected: { fontFamily: fonts.display800, fontSize: 10, color: selected },
       }}
-      iconColor={{ default: colors.fnt2, selected: brand.green }}
+      iconColor={{ default: colors.fnt2, selected }}
     >
       <NativeTabs.Trigger name="bookings">
         <Icon sf="calendar" />

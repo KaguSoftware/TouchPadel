@@ -11,7 +11,7 @@ const stagger = (i: number) => ({ '--tp-i': i }) as CSSProperties;
 /**
  * The first screen: the club at night. A full-bleed padel photo in the grade's `night`
  * exposure (never brighter than Touch Blue, the ball kept green), and on it, start-aligned:
- * "● Open now" with the live hours, "TOUCH IS / A LIFESTYLE", where the club is, and the
+ * "● Open now" with the live hours, "IT’S ALL IN / ONE TOUCH", where the club is, and the
  * two ways to get a court: Book on WhatsApp (green, the pre-filled court message) and
  * Call the desk. With no usable venue phone the green button becomes "Plan
  * your visit" and the call button is not drawn.
