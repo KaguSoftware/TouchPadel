@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   SocialAuthError,
   appleDisplayName,
+  bookingGateState,
   buildProfilePatch,
   firstGoogleAttempt,
+  hasVerifiedPhone,
   isGoogleClientId,
   makeNonce,
   mapSocialError,
@@ -177,6 +179,42 @@ describe('profileGateState', () => {
     expect(profileGateState({ status: 'success', data: { phone: '077' } })).toBe('complete');
     // No row = an anonymous session; never gated.
     expect(profileGateState({ status: 'success', data: null })).toBe('complete');
+  });
+});
+
+describe('hasVerifiedPhone', () => {
+  const confirmed = { phone: '9647701234567', phone_confirmed_at: '2026-09-27T10:00:00Z' };
+
+  it('needs a confirmed auth phone that is the profile phone', () => {
+    expect(hasVerifiedPhone(confirmed, '+9647701234567')).toBe(true);
+    // A different number in the profile (changed without a code) is not verified.
+    expect(hasVerifiedPhone(confirmed, '+9647709999999')).toBe(false);
+    expect(hasVerifiedPhone(confirmed, null)).toBe(false);
+  });
+
+  it('refuses an unconfirmed or missing auth phone', () => {
+    expect(hasVerifiedPhone({ phone: '9647701234567', phone_confirmed_at: null }, '+9647701234567')).toBe(false);
+    expect(hasVerifiedPhone({ phone: '', phone_confirmed_at: '2026-09-27T10:00:00Z' }, '')).toBe(false);
+    expect(hasVerifiedPhone(null, '+9647701234567')).toBe(false);
+  });
+});
+
+describe('bookingGateState', () => {
+  const confirmed = { phone: '9647701234567', phone_confirmed_at: '2026-09-27T10:00:00Z' };
+
+  it('keeps the profile gate first', () => {
+    expect(bookingGateState({ status: 'pending', data: undefined }, null)).toBe('unknown');
+    expect(bookingGateState({ status: 'success', data: { phone: null } }, confirmed)).toBe('incomplete');
+    expect(bookingGateState({ status: 'success', data: null }, null)).toBe('complete');
+  });
+
+  it('asks for a verified phone once the profile is complete', () => {
+    expect(bookingGateState({ status: 'success', data: { phone: '+9647701234567' } }, confirmed)).toBe(
+      'complete',
+    );
+    expect(
+      bookingGateState({ status: 'success', data: { phone: '+9647701234567' } }, { phone: '', phone_confirmed_at: null }),
+    ).toBe('unverified');
   });
 });
 

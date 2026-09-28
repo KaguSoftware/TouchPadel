@@ -40,6 +40,19 @@ export function phoneOtpEnabled(): boolean {
   return parsePhoneOtpFlag(process.env.EXPO_PUBLIC_PHONE_OTP);
 }
 
+/**
+ * Why a guest is linking a number (app/phone-sign-in.tsx → app/verify-otp.tsx).
+ * `continue`: a booking is waiting on it, with the slot pending; `back`: Review
+ * sent them and gets them back; null: the optional Profile row. The two
+ * booking modes are reachable whatever EXPO_PUBLIC_PHONE_OTP says — reserving
+ * needs a verified phone (owner, 2026-09-27).
+ */
+export type LinkReturnTo = 'continue' | 'back' | null;
+
+export function parseLinkReturnTo(value: unknown): LinkReturnTo {
+  return value === 'continue' || value === 'back' ? value : null;
+}
+
 export type PhoneValidation = 'PHONE_INVALID' | null;
 
 /**

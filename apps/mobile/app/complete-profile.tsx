@@ -85,19 +85,6 @@ export default function CompleteProfileScreen() {
     if (!nameTouched.current) setName(prefillDisplayName(profile.data.full_name, email));
   }, [profile.data, initialised, email, locale]);
 
-  // Safety net with ONE legitimate trigger: the (auth) layout can route here from
-  // a STALE persisted cache row (phone null) that the mount refetch then corrects
-  // — this lets that guest through without re-saving. Every other route in
-  // 'continue' mode comes from a known-incomplete row, and onSave marks `skipped`
-  // before saving so the save's own refetch can never re-fire it.
-  useEffect(() => {
-    if (returnTo !== 'continue' || skipped.current || !profile.data) return;
-    if (!needsProfileCompletion(profile.data)) {
-      skipped.current = true;
-      continueAfterAuth();
-    }
-  }, [returnTo, profile.data, continueAfterAuth]);
-
   const back = useBack();
 
   /**
@@ -107,8 +94,12 @@ export default function CompleteProfileScreen() {
    * open, and the gate reappears at the next booking attempt (availability /
    * Review). 'back' mode needs no guard; the native back item already does the
    * right thing.
+   *
+   * The continuation lifts it (`leave(continueAfterAuth)`): its replace — to
+   * Review, or to the phone verification a booking now needs — is a departure
+   * too, and the guard would otherwise turn it into a trip to the tabs.
    */
-  useBackGuard({
+  const leave = useBackGuard({
     when: returnTo === 'continue',
     onBlocked: (leave) =>
       leave(() => {
@@ -116,6 +107,19 @@ export default function CompleteProfileScreen() {
         router.replace('/(tabs)');
       }),
   });
+
+  // Safety net with ONE legitimate trigger: the (auth) layout can route here from
+  // a STALE persisted cache row (phone null) that the mount refetch then corrects
+  // — this lets that guest through without re-saving. Every other route in
+  // 'continue' mode comes from a known-incomplete row, and onSave marks `skipped`
+  // before saving so the save's own refetch can never re-fire it.
+  useEffect(() => {
+    if (returnTo !== 'continue' || skipped.current || !profile.data) return;
+    if (!needsProfileCompletion(profile.data)) {
+      skipped.current = true;
+      leave(continueAfterAuth);
+    }
+  }, [returnTo, profile.data, continueAfterAuth, leave]);
 
   // What follows a save — the toast, and continueAfterAuth — must speak the
   // language just chosen. setLocale resolves once that language has
@@ -135,9 +139,9 @@ export default function CompleteProfileScreen() {
       back();
     } else {
       toast(t('auth.welcomeToApp'));
-      continueAfterAuth();
+      leave(continueAfterAuth);
     }
-  }, [continuation, locale, t, toast, back, continueAfterAuth]);
+  }, [continuation, locale, t, toast, back, continueAfterAuth, leave]);
 
   if (!initializing && !session) return <Redirect href="/welcome" />;
 

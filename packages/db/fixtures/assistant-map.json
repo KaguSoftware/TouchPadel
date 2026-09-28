@@ -1,5 +1,5 @@
 {
-  "generated_from": "4c6c990b00f0623d50089aaa5c19886ff5bc7ec5",
+  "generated_from": "2fa78209db6f2d2721ba1848572f183c362b7113",
   "chunks": [
     {
       "kind": "page",
@@ -2814,7 +2814,7 @@
       "ref": "action:app.expire_stale_holds",
       "lang": "en",
       "title": "app.expire_stale_holds",
-      "body": "0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL. 0242: skips a hold whose online payment is still open, until ten minutes after that payment's deadline.\nSignature: app.expire_stale_holds(p_court_id uuid default null, p_period tstzrange default null) returns int.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0071: expires holds past their TTL AND orphan holds (guest_id is null), which no caller can release through app.release_hold and which would otherwise occupy the court until TTL. 0242: skips a hold whose online payment is still open, until ten minutes after that payment's deadline. 0249: with no arguments (the cron sweep) it also settles lapsed holds into hold-ladder strikes.\nSignature: app.expire_stale_holds(p_court_id uuid default null, p_period tstzrange default null) returns int.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0249 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2851,6 +2851,14 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.guest_hold_standing",
+      "lang": "en",
+      "title": "app.guest_hold_standing",
+      "body": "0249. The customer record's staff (court desk, cashier, manager, owner). The customer's hold-ladder standing (app.hold_standing_json), or null when they never struck.\nSignature: app.guest_hold_standing(p_customer_id uuid) returns jsonb.\nGranted to: authenticated. Guard: staff role in (court_desk, cashier, manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0249 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.has_own_pin",
       "lang": "en",
       "title": "app.has_own_pin",
@@ -2875,10 +2883,26 @@
     },
     {
       "kind": "action",
+      "ref": "action:app.hold_reviews",
+      "lang": "en",
+      "title": "app.hold_reviews",
+      "body": "0249. Manager, owner, at the branch. The guests the hold ladder suspended at this branch that no one has decided on yet (day close). Rows are app.hold_standing_json.\nSignature: app.hold_reviews(p_venue_id uuid default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nWrites no audit row of its own (or via a helper).\nError codes: FORBIDDEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0249 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
       "ref": "action:app.hold_slot",
       "lang": "en",
       "title": "app.hold_slot",
-      "body": "Signature: app.hold_slot(p_court_id uuid, p_start_at timestamptz, p_duration_min int, p_idempotency_key text default null, p_client_ref text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.hold.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, IDEMPOTENCY_CONFLICT, COURT_NOT_FOUND, INVALID_DURATION, BEYOND_HORIZON, SLOT_IN_PAST, HOLD_QUOTA_EXCEEDED, NO_RATE, SLOT_TAKEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0225 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "Signature: app.hold_slot(p_court_id uuid, p_start_at timestamptz, p_duration_min int, p_idempotency_key text default null, p_client_ref text default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.hold.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, IDEMPOTENCY_CONFLICT, BOOKING_SUSPENDED, HOLD_COOLDOWN, COURT_NOT_FOUND, INVALID_DURATION, BEYOND_HORIZON, SLOT_IN_PAST, HOLD_QUOTA_EXCEEDED, NO_RATE, SLOT_TAKEN.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0249 (last definition). The assistant cannot call this; it only explains it.",
+      "route": null
+    },
+    {
+      "kind": "action",
+      "ref": "action:app.hold_standing_decide",
+      "lang": "en",
+      "title": "app.hold_standing_decide",
+      "body": "0249. Manager, owner. lift: the guest may hold again at once (strikes, wait and ban cleared); ban: no hold ever again until lifted. Either takes the guest off the day close list. A manager decides at the branch the suspension was raised at. INVALID_ARGUMENT (detail p_decision), HOLD_STANDING_NOT_FOUND. Audited guest.hold_standing with the decision as reason.\nSignature: app.hold_standing_decide(p_standing_id uuid, p_decision text) returns jsonb.\nGranted to: authenticated. Guard: staff role in (manager, owner).\nAudit actions written: guest.hold_standing.\nError codes: FORBIDDEN, INVALID_ARGUMENT, HOLD_STANDING_NOT_FOUND.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0249 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -3550,7 +3574,7 @@
       "ref": "action:app.release_hold",
       "lang": "en",
       "title": "app.release_hold",
-      "body": "0058: guest hands back an OWN unconfirmed hold (kind=hold, status=pending) -> expired. Idempotent. Not a path around cancellation_window_hours: confirmed bookings still go through app.cancel_reservation.\nSignature: app.release_hold(p_reservation_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.release.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, NOT_A_HOLD.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0242 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0058: guest hands back an OWN unconfirmed hold (kind=hold, status=pending) -> expired. Idempotent. Not a path around cancellation_window_hours: confirmed bookings still go through app.cancel_reservation.\nSignature: app.release_hold(p_reservation_id uuid) returns jsonb.\nGranted to: authenticated. Guard: not detected by pattern — read the migration.\nAudit actions written: reservation.release.\nError codes: AUTH_REQUIRED, ACCOUNT_REQUIRED, HOLD_NOT_FOUND, FORBIDDEN, NOT_A_HOLD.\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0249 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -4931,6 +4955,22 @@
     },
     {
       "kind": "table",
+      "ref": "table:hold_standing",
+      "lang": "en",
+      "title": "table hold_standing",
+      "body": "0249. One row per guest identity that ever struck the hold ladder. key is p:<sha256 of the verified phone's digits> or u:<profile id> (app.hold_standing_key). guest_id is the account last struck, for the desk to see a name. Written only by the 0249 functions.\nCreated in migration 0249.\nColumns:\n  id uuid not null default gen_random_uuid() unique\n  key text primary key check (key ~ '^(p:[0-9a-f]{64}|u:[0-9a-f-]{36})$')\n  guest_id uuid references profiles(id) on delete set null\n  strikes int not null default 0 check (strikes >= 0)\n  last_strike_at timestamptz\n  blocked_until timestamptz\n  suspended_at timestamptz\n  needs_review boolean not null default false\n  review_venue_id uuid references venues(id)\n  banned_at timestamptz\n  banned_by uuid references staff(id)\n  reviewed_at timestamptz\n  reviewed_by uuid references staff(id)\n  updated_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
+      "ref": "table:hold_strikes",
+      "lang": "en",
+      "title": "table hold_strikes",
+      "body": "0249. The ledger: one row per hold the ladder has looked at, counted or not (a release inside 90 seconds, or a hold with a payment attempt, is recorded uncounted), so no hold is judged twice.\nCreated in migration 0249.\nColumns:\n  reservation_id uuid primary key references reservations(id) on delete cascade\n  standing_key text not null\n  counted boolean not null\n  struck_at timestamptz not null\n  created_at timestamptz not null default now()",
+      "route": null
+    },
+    {
+      "kind": "table",
       "ref": "table:incident_reports",
       "lang": "en",
       "title": "table incident_reports",
@@ -5166,7 +5206,7 @@
       "ref": "table:platform_settings",
       "lang": "en",
       "title": "table platform_settings",
-      "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the per-guest hold cap, and every LLM budget and price-list knob. Exactly one row. Written only by owner RPCs (assistant_set_default_model, assistant_set_monthly_cap) and migrations.\nCreated in migration 0207.\nColumns:\n  id boolean primary key default true check (id)\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad' — 0207. The chain's day for the global LLM budget (llm_usage is keyed by date). A branch's own trading day uses venues.timezone.\n  max_live_holds_per_guest int not null default 3 — 0207 (from venue_settings, 0048/C1). How many live holds one guest may have across every branch. Global because the guest is.\n  llm_daily_request_limit int not null default 200 — 0207 (from venue_settings, 0079). Requests per chain day; 0 turns every LLM surface off.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — 0207 (from venue_settings, 0079). USD micros per calendar month (chain timezone).\n  llm_cost_micros_per_mtok bigint not null default 500000 — 0207 (from venue_settings, 0079). Blended fallback rate for a model absent from llm_pricing.\n  llm_pricing jsonb not null default '{}'::jsonb — 0207 (from venue_settings, 0111). Model -> four rates in USD micros per 1,000,000 tokens.\n  llm_default_model text not null default 'claude-opus-5' — 0207 (from venue_settings, 0140). The model a new assistant chat uses. Must be a key of llm_pricing.\n  updated_at timestamptz not null default now()",
+      "body": "0207 (multi-venue slice 2, MV5). The settings that belong to the whole chain, not one branch: currency, the chain's accounting timezone for the LLM budget, the per-guest hold cap, and every LLM budget and price-list knob. Exactly one row. Written only by owner RPCs (assistant_set_default_model, assistant_set_monthly_cap) and migrations.\nCreated in migration 0207.\nColumns:\n  id boolean primary key default true check (id)\n  currency char(3) not null default 'IQD'\n  timezone text not null default 'Asia/Baghdad' — 0207. The chain's day for the global LLM budget (llm_usage is keyed by date). A branch's own trading day uses venues.timezone.\n  max_live_holds_per_guest int not null default 3 — 0207 (from venue_settings, 0048/C1). How many live holds one guest may have across every branch. Global because the guest is.\n  llm_daily_request_limit int not null default 200 — 0207 (from venue_settings, 0079). Requests per chain day; 0 turns every LLM surface off.\n  llm_monthly_cost_cap_micros bigint not null default 20000000 — 0207 (from venue_settings, 0079). USD micros per calendar month (chain timezone).\n  llm_cost_micros_per_mtok bigint not null default 500000 — 0207 (from venue_settings, 0079). Blended fallback rate for a model absent from llm_pricing.\n  llm_pricing jsonb not null default '{}'::jsonb — 0207 (from venue_settings, 0111). Model -> four rates in USD micros per 1,000,000 tokens.\n  llm_default_model text not null default 'claude-opus-5' — 0207 (from venue_settings, 0140). The model a new assistant chat uses. Must be a key of llm_pricing.\n  updated_at timestamptz not null default now()\n  hold_strikes_since timestamptz — 0249: holds taken from this moment on count toward the hold ladder (app.hold_strike_apply). NULL switches the ladder off. Set to the migration time so no hold taken before the rule counts.",
       "route": null
     },
     {
@@ -8127,6 +8167,14 @@
       "lang": "en",
       "title": "payments.till_shift_id",
       "body": "uuid\nThe till shift open at device_id when the payment was recorded (app.stamp_till_shift); null outside a shift. Never supplied by a client.",
+      "route": null
+    },
+    {
+      "kind": "column",
+      "ref": "column:platform_settings.hold_strikes_since",
+      "lang": "en",
+      "title": "platform_settings.hold_strikes_since",
+      "body": "timestamptz\n0249: holds taken from this moment on count toward the hold ladder (app.hold_strike_apply). NULL switches the ladder off. Set to the migration time so no hold taken before the rule counts.",
       "route": null
     },
     {
@@ -12006,7 +12054,7 @@
       "ref": "label:op.errors#5",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts)",
-      "body": "PHOTO_BLUR_TOO_LONG: الصورة المصغّرة المؤقتة طويلة جدًا — أعد رفع الصورة.\nINVALID_SOLD_OUT: قيمة النفاد غير صالحة.\nINVALID_PHOTO_PATH: مسار الصورة هذا غير مسموح.\nINVALID_COST: الكلفة يجب أن تكون مبلغًا صحيحًا بالدينار (0 أو أكثر) أو تُترك فارغة.\nCATEGORY_NOT_FOUND: الفئة غير موجودة.\nVARIANT_NOT_FOUND: الحجم غير موجود.\nMODIFIER_INVALID: إحدى الإضافات المختارة لا تنتمي إلى هذا الصنف.\nMODIFIER_NOT_FOUND: الإضافة غير موجودة.\nGROUP_NOT_FOUND: مجموعة الإضافات غير موجودة.\nREVEAL_SELF: لا يمكن للخيار أن يكشف مجموعته نفسها.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.\nINVALID_SETTING_VALUE: هذه القيمة غير صالحة لهذا الإعداد.\nINVALID_PCT: النسبة المئوية يجب أن تكون بين 0 و99.\nTABLE_NUMBER_TAKEN: رقم الطاولة هذا مستخدم بالفعل.\nINVALID_TABLE_NUMBER: رقم طاولة غير صالح.\nINVALID_COOLDOWN: فترة الانتظار يجب أن تكون بين 30 و600 ثانية.\nBELL_DISABLED: جرس النادل معطّل لهذه الطاولة.\nCALL_COOLDOWN: نادت هذه الطاولة قبل لحظات — انتظر انتهاء فترة الانتظار.\nCALL_NOT_FOUND: نداء النادل غير موجود.\nTOKEN_INVALID: رمز الطاولة هذا لم يعد صالحًا.\nTELEGRAM_NOT_CONFIGURED: تيليغرام غير مُعدّ — أضف معرّف مجموعة الدردشة أولًا.\nOUTBOX_NOT_FOUND: رسالة الصادر غير موجودة.\nINVALID_KIND: نوع رسالة غير معروف.\nREF_NOT_FOUND: السجل المُشار إليه لم يعد موجودًا.\nREF_REQUIRED: هذه الرسالة تحتاج إلى مرجع.\nACTOR_REQUIRED: هذا الإجراء يتطلب موظفًا مسجّل الدخول.\nINVALID_ACTION: إجراء غير معروف.\nVOID_REQUIRES_REFUND: هذا الحساب يحتوي على دفعات — أعد المبلغ قبل الإلغاء.\nINVALID_ARGUMENT: إدخال غير صالح — تحقق من القيم وحاول مجددًا.\nREJECTION_NOT_FOUND: الاستنتاج المرفوض لم يعد موجودًا.\nREFUND_EXCEEDS_PAYMENT: المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.\nPAYMENT_NOT_FOUND: لم يتم العثور على هذه الدفعة.\nPAYMENT_STATE: تغيّرت هذه الدفعة منذ أن فتحتها. تعرض القائمة الآن حالتها الحالية.\nREFUND_TOO_LARGE: مبلغ الاسترجاع أكبر مما دفعه الضيف إلكترونيًا.\nITEM_NOT_ON_TAB: هذا السطر ليس على هذا الحساب.",
+      "body": "PHOTO_BLUR_TOO_LONG: الصورة المصغّرة المؤقتة طويلة جدًا — أعد رفع الصورة.\nINVALID_SOLD_OUT: قيمة النفاد غير صالحة.\nINVALID_PHOTO_PATH: مسار الصورة هذا غير مسموح.\nINVALID_COST: الكلفة يجب أن تكون مبلغًا صحيحًا بالدينار (0 أو أكثر) أو تُترك فارغة.\nCATEGORY_NOT_FOUND: الفئة غير موجودة.\nVARIANT_NOT_FOUND: الحجم غير موجود.\nMODIFIER_INVALID: إحدى الإضافات المختارة لا تنتمي إلى هذا الصنف.\nMODIFIER_NOT_FOUND: الإضافة غير موجودة.\nGROUP_NOT_FOUND: مجموعة الإضافات غير موجودة.\nREVEAL_SELF: لا يمكن للخيار أن يكشف مجموعته نفسها.\nREVEAL_DEPTH: المجموعات الفرعية تتداخل بمستوى واحد فقط.\nSELF_SUGGESTION: لا يمكن للصنف أن يقترح نفسه.\nUNKNOWN_SETTING: إعداد غير معروف.\nINVALID_SETTING_VALUE: هذه القيمة غير صالحة لهذا الإعداد.\nINVALID_PCT: النسبة المئوية يجب أن تكون بين 0 و99.\nTABLE_NUMBER_TAKEN: رقم الطاولة هذا مستخدم بالفعل.\nINVALID_TABLE_NUMBER: رقم طاولة غير صالح.\nINVALID_COOLDOWN: فترة الانتظار يجب أن تكون بين 30 و600 ثانية.\nBELL_DISABLED: جرس النادل معطّل لهذه الطاولة.\nCALL_COOLDOWN: نادت هذه الطاولة قبل لحظات — انتظر انتهاء فترة الانتظار.\nCALL_NOT_FOUND: نداء النادل غير موجود.\nTOKEN_INVALID: رمز الطاولة هذا لم يعد صالحًا.\nTELEGRAM_NOT_CONFIGURED: تيليغرام غير مُعدّ — أضف معرّف مجموعة الدردشة أولًا.\nOUTBOX_NOT_FOUND: رسالة الصادر غير موجودة.\nINVALID_KIND: نوع رسالة غير معروف.\nREF_NOT_FOUND: السجل المُشار إليه لم يعد موجودًا.\nREF_REQUIRED: هذه الرسالة تحتاج إلى مرجع.\nACTOR_REQUIRED: هذا الإجراء يتطلب موظفًا مسجّل الدخول.\nINVALID_ACTION: إجراء غير معروف.\nVOID_REQUIRES_REFUND: هذا الحساب يحتوي على دفعات — أعد المبلغ قبل الإلغاء.\nINVALID_ARGUMENT: إدخال غير صالح — تحقق من القيم وحاول مجددًا.\nREJECTION_NOT_FOUND: الاستنتاج المرفوض لم يعد موجودًا.\nREFUND_EXCEEDS_PAYMENT: المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.\nPAYMENT_NOT_FOUND: لم يتم العثور على هذه الدفعة.\nPAYMENT_STATE: تغيّرت هذه الدفعة منذ أن فتحتها. تعرض القائمة الآن حالتها الحالية.\nREFUND_TOO_LARGE: مبلغ الاسترجاع أكبر مما دفعه الضيف إلكترونيًا.\nHOLD_STANDING_NOT_FOUND: تغيّر سجل هذا الضيف أو لم يعد موجودًا. حدّث القائمة.",
       "route": null
     },
     {
@@ -12022,7 +12070,7 @@
       "ref": "label:op.errors#6",
       "lang": "ar",
       "title": "op.errors (packages/i18n/src/catalogs/ar.ts)",
-      "body": "IDEMPOTENCY_CONFLICT: حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.",
+      "body": "ITEM_NOT_ON_TAB: هذا السطر ليس على هذا الحساب.\nIDEMPOTENCY_CONFLICT: حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.",
       "route": null
     },
     {
@@ -12030,7 +12078,7 @@
       "ref": "label:op.errors#6",
       "lang": "en",
       "title": "op.errors (packages/i18n/src/catalogs/en.ts)",
-      "body": "TABLE_NUMBER_TAKEN: That table number is already in use.\nINVALID_TABLE_NUMBER: Invalid table number.\nINVALID_COOLDOWN: Cooldown must be between 30 and 600 seconds.\nBELL_DISABLED: The waiter bell is switched off for this table.\nCALL_COOLDOWN: This table called a moment ago — wait for the cooldown.\nCALL_NOT_FOUND: Waiter call not found.\nTOKEN_INVALID: That table code is no longer valid.\nTELEGRAM_NOT_CONFIGURED: Telegram is not configured — add the group chat ID first.\nOUTBOX_NOT_FOUND: Outbox message not found.\nINVALID_KIND: Unknown message kind.\nREF_NOT_FOUND: The referenced record no longer exists.\nREF_REQUIRED: A reference is required for this message.\nACTOR_REQUIRED: A signed-in staff member is required for this action.\nINVALID_ACTION: Unknown action.\nVOID_REQUIRES_REFUND: This tab has payments — refund before voiding.\nINVALID_ARGUMENT: Invalid input — check the values and try again.\nREJECTION_NOT_FOUND: That rejected finding no longer exists.\nREFUND_EXCEEDS_PAYMENT: The refund is more than what is left on this payment.\nPAYMENT_NOT_FOUND: That payment could not be found.\nPAYMENT_STATE: This payment has changed since you opened it. The list now shows where it is.\nREFUND_TOO_LARGE: The refund is more than the guest paid online.\nITEM_NOT_ON_TAB: That line is not on this tab.\nIDEMPOTENCY_CONFLICT: This was already saved from another session. Refresh to see the latest.",
+      "body": "TABLE_NUMBER_TAKEN: That table number is already in use.\nINVALID_TABLE_NUMBER: Invalid table number.\nINVALID_COOLDOWN: Cooldown must be between 30 and 600 seconds.\nBELL_DISABLED: The waiter bell is switched off for this table.\nCALL_COOLDOWN: This table called a moment ago — wait for the cooldown.\nCALL_NOT_FOUND: Waiter call not found.\nTOKEN_INVALID: That table code is no longer valid.\nTELEGRAM_NOT_CONFIGURED: Telegram is not configured — add the group chat ID first.\nOUTBOX_NOT_FOUND: Outbox message not found.\nINVALID_KIND: Unknown message kind.\nREF_NOT_FOUND: The referenced record no longer exists.\nREF_REQUIRED: A reference is required for this message.\nACTOR_REQUIRED: A signed-in staff member is required for this action.\nINVALID_ACTION: Unknown action.\nVOID_REQUIRES_REFUND: This tab has payments — refund before voiding.\nINVALID_ARGUMENT: Invalid input — check the values and try again.\nREJECTION_NOT_FOUND: That rejected finding no longer exists.\nREFUND_EXCEEDS_PAYMENT: The refund is more than what is left on this payment.\nPAYMENT_NOT_FOUND: That payment could not be found.\nPAYMENT_STATE: This payment has changed since you opened it. The list now shows where it is.\nREFUND_TOO_LARGE: The refund is more than the guest paid online.\nHOLD_STANDING_NOT_FOUND: This guest’s record has changed or is gone. Refresh the list.\nITEM_NOT_ON_TAB: That line is not on this tab.\nIDEMPOTENCY_CONFLICT: This was already saved from another session. Refresh to see the latest.",
       "route": null
     },
     {
@@ -14479,6 +14527,22 @@
       "lang": "en",
       "title": "ws.manager.filters (packages/i18n/src/catalogs/ws/manager.en.ts)",
       "body": "search: Search: {value}\narea: Area: {value}\nperson: Person: {value}\nmissingReason: Missing reason only\nincludeInactive: Including inactive\nlowStock: Low stock only\nbelowPar: Below par only",
+      "route": "/ops"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.holds",
+      "lang": "ar",
+      "title": "ws.manager.holds (packages/i18n/src/catalogs/ws/manager.ar.ts)",
+      "body": "reviewTitle: حسابات موقوفة بسبب الحجوزات المؤقتة المنتهية\nreviewBadge: بانتظار القرار: {count}\nrecordTitle: الحجوزات المؤقتة عبر التطبيق\nnoName: ضيف بلا اسم\nstatus.clear: لا توجد مشكلة\nstatus.warned: تنبيه: انتهى حجز مؤقت مؤخرًا دون تأكيد\nstatus.cooldown: ممنوع من الحجز حتى {time}\nstatus.suspended: موقوف حتى {time}\nstatus.banned: محظور من حجز الملاعب عبر التطبيق\nstrikes: حجوزات مؤقتة انتهت مؤخرًا: {count}\nlift: رفع القيود\nliftBan: رفع الحظر\nban: حظر نهائي\nbanTitle: حظر {name} من حجز الملاعب عبر التطبيق؟\nbanConfirm: حظر\nlifted: رُفعت القيود، ويمكن للضيف حجز الملاعب مجددًا.\nbanned: حُظر الضيف من حجز الملاعب عبر التطبيق.",
+      "route": "/ops"
+    },
+    {
+      "kind": "label",
+      "ref": "label:ws.manager.holds",
+      "lang": "en",
+      "title": "ws.manager.holds (packages/i18n/src/catalogs/ws/manager.en.ts)",
+      "body": "reviewTitle: Suspended for letting court holds run out\nreviewBadge: {count} to decide\nrecordTitle: Court holds in the app\nnoName: Guest without a name\nstatus.clear: No problem\nstatus.warned: Warned: a hold ran out recently\nstatus.cooldown: Waiting until {time}\nstatus.suspended: Suspended until {time}\nstatus.banned: Banned from holding courts in the app\nstrikes: Holds run out lately: {count}\nlift: Lift\nliftBan: Lift the ban\nban: Ban for good\nbanTitle: Ban {name} from holding courts in the app?\nbanConfirm: Ban\nlifted: Lifted. The guest can hold courts again.\nbanned: Guest banned from holding courts in the app.",
       "route": "/ops"
     },
     {

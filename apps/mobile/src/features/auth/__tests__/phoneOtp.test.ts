@@ -7,6 +7,7 @@ import {
   isNoAccountForPhone,
   isPhoneTaken,
   mapOtpError,
+  parseLinkReturnTo,
   parsePhoneOtpFlag,
   sanitizeOtpInput,
   validatePhoneInput,
@@ -138,5 +139,15 @@ describe('phone + password failures', () => {
     expect(isNoAccountForPhone({ code: 'otp_disabled', message: 'Signups not allowed for otp' })).toBe(true);
     expect(isNoAccountForPhone({ code: 'otp_disabled', message: 'OTP is disabled' })).toBe(false);
     expect(isNoAccountForPhone(new Error('SMS_DISABLED'))).toBe(false);
+  });
+});
+
+describe('parseLinkReturnTo', () => {
+  it('knows the two booking modes and nothing else', () => {
+    expect(parseLinkReturnTo('continue')).toBe('continue');
+    expect(parseLinkReturnTo('back')).toBe('back');
+    expect(parseLinkReturnTo('')).toBeNull();
+    expect(parseLinkReturnTo(undefined)).toBeNull();
+    expect(parseLinkReturnTo(['continue'])).toBeNull();
   });
 });

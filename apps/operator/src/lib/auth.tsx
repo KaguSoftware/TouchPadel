@@ -501,6 +501,12 @@ export const CAPABILITY_ROLES = {
    * (operator-shell main/owner-exit.ts) and asks for the PIN when it cannot.
    */
   leaveStationWithoutPin: ['owner'],
+  /**
+   * The hold ladder (0249): lift a guest's wait, suspension or ban, or ban them
+   * from holding courts in the app. The day close and the customer record both
+   * show the standing; only MGMT decides (app.hold_standing_decide).
+   */
+  decideHoldStanding: ['manager', 'owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;

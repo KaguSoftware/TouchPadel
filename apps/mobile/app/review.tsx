@@ -17,7 +17,7 @@ import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../src/features/
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
 import { useAuth } from '../src/features/auth/context';
-import { profileGateState } from '../src/features/auth/social';
+import { bookingGateState } from '../src/features/auth/social';
 import { useOwnProfile } from '../src/features/profile/hooks';
 import { brand, radius, space, useTheme } from '../src/theme';
 import { Button, Card, DashedDivider, ErrorText, LinkText, Screen } from '../src/components/ui';
@@ -56,6 +56,8 @@ function ReviewScreen() {
     durationMin?: string;
     /** 'sheet' when the hold came from the Book tab's booking sheet (still mounted beneath). */
     origin?: string;
+    /** '1' when app.hold_slot said a hold of this guest's lapsed lately (0249). */
+    holdWarning?: string;
   }>();
   const holdId = typeof params.holdId === 'string' ? params.holdId : '';
   // '' means "no deadline" — the duplicate-replay path of app.hold_slot, when
@@ -87,9 +89,16 @@ function ReviewScreen() {
   // useUpdateProfile's invalidation re-enables Reserve on return.
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
-  const profileGate = profileGateState(profile);
+  // And no booking on a phone nobody verified (owner, 2026-09-27): the code
+  // step pops back here, and the session it refreshes re-enables Reserve.
+  const profileGate = bookingGateState(profile, session?.user);
   const addPhone = () =>
     router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } });
+  const verifyPhone = () =>
+    router.push({
+      pathname: '/phone-sign-in',
+      params: { returnTo: 'back', phone: profile.data?.phone ?? '' },
+    });
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() =>
     secondsUntil(expiresAt, new Date()),
   );
@@ -272,7 +281,7 @@ function ReviewScreen() {
       : depositApplies
         ? t('deposit.payNowCta', { amount: isolate(formatIQD(pay.depositIqd, locale)) })
         : '';
-  const blocked = !holdId || profileGate === 'incomplete';
+  const blocked = !holdId || profileGate === 'incomplete' || profileGate === 'unverified';
 
   // From the sheet, the grid the guest left is still open underneath — pop back
   // to it (the settled hold invalidated availability, so it is fresh). Any other
@@ -523,6 +532,35 @@ function ReviewScreen() {
           />
         </View>
 
+        {/* 0249: a hold of theirs lapsed lately. A kind word, nothing refused yet. */}
+        {params.holdWarning === '1' ? (
+          <View
+            testID="review.hold-warning"
+            style={{
+              marginTop: space.sm,
+              backgroundColor: colors.amb,
+              borderWidth: 1,
+              borderColor: colors.ambline,
+              borderRadius: radius.cell,
+              paddingStart: 13,
+              paddingEnd: 13,
+              paddingTop: 10,
+              paddingBottom: 10,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.body600,
+                fontSize: 12.5,
+                lineHeight: 19,
+                color: colors.ambtext,
+              }}
+            >
+              {t('booking.holdCareNotice')}
+            </Text>
+          </View>
+        ) : null}
+
         {windowHours != null ? (
           <Text
             style={{
@@ -539,7 +577,7 @@ function ReviewScreen() {
           </Text>
         ) : null}
 
-        {profileGate === 'incomplete' ? (
+        {profileGate === 'incomplete' || profileGate === 'unverified' ? (
           <View
             style={{
               marginTop: space.sm,
@@ -561,15 +599,29 @@ function ReviewScreen() {
                 color: colors.ambtext,
               }}
             >
-              {t('auth.profileIncompleteNotice')}
+              {t(
+                profileGate === 'unverified'
+                  ? 'auth.phoneUnverifiedNotice'
+                  : 'auth.profileIncompleteNotice',
+              )}
             </Text>
-            <LinkText
-              testID="review.add-phone"
-              label={t('auth.addPhoneLink')}
-              color={colors.ambstrong}
-              onPress={addPhone}
-              style={{ marginTop: 6 }}
-            />
+            {profileGate === 'unverified' ? (
+              <LinkText
+                testID="review.verify-phone"
+                label={t('auth.verifyPhoneRow')}
+                color={colors.ambstrong}
+                onPress={verifyPhone}
+                style={{ marginTop: 6 }}
+              />
+            ) : (
+              <LinkText
+                testID="review.add-phone"
+                label={t('auth.addPhoneLink')}
+                color={colors.ambstrong}
+                onPress={addPhone}
+                style={{ marginTop: 6 }}
+              />
+            )}
           </View>
         ) : null}
 

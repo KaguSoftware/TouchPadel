@@ -15,8 +15,10 @@ import {
   OTP_LENGTH,
   RESEND_COOLDOWN_S,
   mapOtpError,
+  parseLinkReturnTo,
   phoneOtpEnabled,
   sanitizeOtpInput,
+  type LinkReturnTo,
 } from '../src/features/auth/phoneOtp';
 import { useAuth } from '../src/features/auth/context';
 import { markRecoverySession } from '../src/features/auth/recovery';
@@ -24,8 +26,9 @@ import { RequireSession } from '../src/features/auth/RequireSession';
 import { updateOwnProfile } from '../src/features/profile/api';
 import { profileKeys } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
+import { clearPendingSlot } from '../src/features/booking/pendingSlot';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { useBack } from '../src/navigation/back';
+import { useBack, useBackGuard } from '../src/navigation/back';
 import { space, useTheme } from '../src/theme';
 import { Button, ErrorText, FormScreen, Hint, LinkText, Screen, Title } from '../src/components/ui';
 import { CodeInput } from '../src/components/CodeInput';
@@ -53,6 +56,11 @@ type Mode = 'signup' | 'reset' | 'link';
  *           number") and, with `from=edit`, from Edit profile's Save when the
  *           guest CHANGED their number — that save is not committed until the
  *           code lands here, so this write is what completes it.
+ *           With `returnTo` it serves a booking (owner, 2026-09-27: no
+ *           reservation without a verified phone; app/phone-sign-in.tsx):
+ *           `continue` holds the pending slot through the post-auth
+ *           continuation, `back` pops to Review. phone-sign-in REPLACED itself
+ *           with this screen there, so "Use a different number" swaps it back.
  *
  * signup / reset carry no RequireNoSession on purpose: the session lands
  * mid-screen and the redirect would race the continuation (the verify-email
@@ -62,7 +70,17 @@ type Mode = 'signup' | 'reset' | 'link';
  * needs the SMS Retriever hash in the message body for auto-read, which would
  * push the template past one segment — manual entry / paste there.
  */
-function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?: string }) {
+function VerifyOtpForm({
+  mode,
+  phone,
+  from,
+  returnTo = null,
+}: {
+  mode: Mode;
+  phone: string;
+  from?: string;
+  returnTo?: LinkReturnTo;
+}) {
   const { t } = useLocale();
   const router = useRouter();
   const back = useBack();
@@ -77,6 +95,20 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
   const [cooldownEnd, setCooldownEnd] = useState(() => Date.now() + RESEND_COOLDOWN_S * 1000);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_S);
   const submitted = useRef(false);
+
+  // A booking's pending slot rides on this screen (continue mode): leaving
+  // without a code drops it. The two ways forward lift the guard themselves.
+  const leave = useBackGuard({
+    when: returnTo === 'continue',
+    onBlocked: (go) => {
+      clearPendingSlot();
+      go();
+    },
+  });
+  const changeNumber = () => {
+    if (!returnTo) return back();
+    leave(() => router.replace({ pathname: '/phone-sign-in', params: { returnTo, phone } }));
+  };
 
   // Tick only while a cooldown is running (verify-email's pattern).
   useEffect(() => {
@@ -107,6 +139,16 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
           void queryClient.invalidateQueries({ queryKey: profileKeys.own });
         }
         toast(t(from === 'edit' ? 'profile.phoneUpdated' : 'auth.phoneVerified'), 'info');
+        if (returnTo === 'continue') {
+          // The continuation re-reads the account, finds the number verified,
+          // and holds the slot (or explains that it went).
+          leave(continueAfterAuth);
+          return;
+        }
+        if (returnTo === 'back') {
+          back();
+          return;
+        }
         // From Edit profile the guest came THROUGH that form, so land back on
         // the Profile tab rather than leaving the half-finished editor on the
         // stack for a back-swipe to return to.
@@ -202,7 +244,7 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
         <LinkText
           testID="verify-otp.change-number"
           label={t('auth.changeNumber')}
-          onPress={back}
+          onPress={changeNumber}
           style={{ marginTop: 14, paddingStart: 4 }}
         />
       </FormScreen>
@@ -211,15 +253,17 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
 }
 
 export default function VerifyOtpScreen() {
-  const params = useLocalSearchParams<{ phone?: string; mode?: string; from?: string }>();
+  const params = useLocalSearchParams<{ phone?: string; mode?: string; from?: string; returnTo?: string }>();
   const { session, initializing } = useAuth();
   const mode: Mode = params.mode === 'link' ? 'link' : params.mode === 'reset' ? 'reset' : 'signup';
   const phone = typeof params.phone === 'string' ? params.phone : '';
   if (mode === 'link') {
-    if (!phoneOtpEnabled() || !phone) return <Redirect href="/(tabs)" />;
+    // The booking modes work whatever the flag says (app/phone-sign-in.tsx).
+    const returnTo = parseLinkReturnTo(params.returnTo);
+    if ((!returnTo && !phoneOtpEnabled()) || !phone) return <Redirect href="/(tabs)" />;
     return (
       <RequireSession>
-        <VerifyOtpForm mode="link" phone={phone} from={params.from} />
+        <VerifyOtpForm mode="link" phone={phone} from={params.from} returnTo={returnTo} />
       </RequireSession>
     );
   }
