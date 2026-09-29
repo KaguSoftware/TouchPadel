@@ -37,6 +37,11 @@ export const staffShellEn = {
     passwordNote: 'Forgot your password? The owner resets it on the Staff page.',
     signOutConfirm: 'You will need your email and password to sign back in.',
   },
+  guestView: {
+    row: 'Show guest view',
+    back: 'Back to staff view',
+    note: 'This is the app as guests see it. Anything you book or order here is real.',
+  },
   pending: {
     slow: 'Checking your account is taking longer than usual. Check your connection and try again.',
   },

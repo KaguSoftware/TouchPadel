@@ -24,7 +24,7 @@
  *    rendered by this suite.
  */
 import { describe, expect, it } from '@jest/globals';
-import { within } from '@testing-library/react-native';
+import { fireEvent, within } from '@testing-library/react-native';
 import { makeT, type Locale } from '@touch/i18n';
 import { runSmokeCases, type SmokeCase } from '../test/smokeCase';
 import { renderRoute } from '../test/smoke';
@@ -40,6 +40,7 @@ import { bookingKeys } from '../features/booking/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
 import { profileKeys } from '../features/profile/hooks';
 import TabsLayout from '../../app/(tabs)/_layout';
+import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
 // The `.android` file BY NAME, past the preset's platform resolution: this is
 // the navigator whose tab buttons are the app's own Pressables, and the only
 // place `tabs.book` / `tabs.bookings` / `tabs.profile` are minted by app code.
@@ -164,6 +165,37 @@ describe.each(LOCALES)('book branch picker in %s', (locale) => {
     try {
       expect(screen.queryByTestId('book.branch')).toBeNull();
       expect(screen.getByTestId('book.view-availability')).toBeTruthy();
+    } finally {
+      screen.unmount();
+    }
+  });
+});
+
+// "Show guest view" (owner, 2026-09-28): a staff session that asked for it
+// gets the guest tabs with a way back; without asking, it never does.
+describe.each<Locale>(['en', 'ar'])('the guest view for staff in %s', (locale) => {
+  const t = makeT(locale);
+
+  it('shows the tabs and a Back to staff view pill that ends the preview', () => {
+    setGuestPreview(true);
+    const screen = renderRoute(TabsLayout, { locale, staff: { role: 'manager' } });
+    try {
+      expect(screen.getByText(t('tabs.book'))).toBeTruthy();
+      const back = screen.getByTestId('tabs.back-to-staff');
+      expect(within(back).getByText(t('staff.shell.guestView.back'))).toBeTruthy();
+      fireEvent.press(back);
+      expect(isGuestPreview()).toBe(false);
+    } finally {
+      screen.unmount();
+      setGuestPreview(false);
+    }
+  });
+
+  it('keeps a staff session out of the tabs when it did not ask', () => {
+    const screen = renderRoute(TabsLayout, { locale, staff: { role: 'manager' } });
+    try {
+      expect(screen.queryByTestId('tabs.back-to-staff')).toBeNull();
+      expect(screen.queryByText(t('tabs.book'))).toBeNull();
     } finally {
       screen.unmount();
     }

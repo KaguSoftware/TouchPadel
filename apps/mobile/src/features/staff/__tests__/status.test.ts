@@ -190,6 +190,14 @@ describe('guestTabsGate', () => {
     expect(guestTabsGate(REVOKED)).toBe('redirect-staff');
     expect(guestTabsGate({ kind: 'unsupported', role: 'x' })).toBe('redirect-staff');
   });
+
+  it('lets an active staff account look at the guest view, and nothing else past (2026-09-28)', () => {
+    expect(guestTabsGate(STAFF, true)).toBe('tabs');
+    expect(guestTabsGate(REVOKED, true)).toBe('redirect-staff');
+    expect(guestTabsGate({ kind: 'unsupported', role: 'x' }, true)).toBe('redirect-staff');
+    expect(guestTabsGate(PENDING, true)).toBe('loading');
+    expect(guestTabsGate(GUEST_STATUS, true)).toBe('tabs');
+  });
 });
 
 describe('the venue', () => {

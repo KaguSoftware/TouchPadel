@@ -173,6 +173,10 @@ export const ReceiptIcon = (p: IconProps) => (
 export const PlusSquareIcon = (p: IconProps) => (
   <StrokeIcon d={['M4.5 4.5h15v15h-15v-15zM12 8.5v7M8.5 12h7']} {...p} />
 );
+/** Show guest view: an eye. Not directional. */
+export const EyeIcon = (p: IconProps) => (
+  <StrokeIcon d={['M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z', 'M12 9.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z']} {...p} />
+);
 /** Place an order (0251): one more, one less, on an order line. */
 export const PlusIcon = (p: IconProps) => <StrokeIcon d={['M12 5v14M5 12h14']} {...p} />;
 export const MinusIcon = (p: IconProps) => <StrokeIcon d={['M5 12h14']} {...p} />;

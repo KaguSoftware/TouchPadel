@@ -14,6 +14,7 @@ import { routerState } from '../test/routerState';
 import { staffKeys } from '../features/staff/keys';
 import type { ChecklistsToday } from '../features/staff/checklists/logic';
 import StaffToday from '../../app/staff';
+import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
 
 const V = TEST_VENUE_ID;
 const OPEN_RUN = 'c1a00000-0000-4000-8000-000000000001';
@@ -276,6 +277,20 @@ describe.each(LOCALES)('Today in %s', (locale) => {
       expect(screen.queryByTestId('staff.row.notes')).toBeNull();
     } finally {
       screen.unmount();
+    }
+  });
+
+  it('opens the guest view from the account group', () => {
+    const screen = renderRoute(StaffToday, { locale, staff: { role: 'waiter' } });
+    try {
+      const row = screen.getByTestId('staff.guest-view');
+      expect(within(row).getByText(t('staff.shell.guestView.row'))).toBeTruthy();
+      fireEvent.press(row);
+      expect(isGuestPreview()).toBe(true);
+      expect(routerState.calls).toContainEqual({ method: 'replace', arg: '/(tabs)' });
+    } finally {
+      screen.unmount();
+      setGuestPreview(false);
     }
   });
 

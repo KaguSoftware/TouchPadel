@@ -18,6 +18,7 @@ import {
   ClipboardIcon,
   ClockIcon,
   DeductionIcon,
+  EyeIcon,
   EnvelopeIcon,
   GlobeIcon,
   ImageIcon,
@@ -44,6 +45,7 @@ import {
   type PushPermissionState,
 } from '../src/features/profile/push';
 import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaff';
+import { setGuestPreview } from '../src/features/staff/guestPreview';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
 import { staffKeys } from '../src/features/staff/keys';
 import { todayRows, type StaffRowDef } from '../src/features/staff/rows';
@@ -263,6 +265,7 @@ function TodayScreen() {
   const queryClient = useQueryClient();
   const { status, venueId, venues, setVenueId } = useStaffStatus();
   const alerts = useWorkAlerts();
+  const toast = useToast();
   const out = useStaffSignOut();
   // Wave 5, lane R (§2.1.8): the open-call count on the waiter's calls row.
   const openCalls = useOpenCallCount(
@@ -436,6 +439,18 @@ function TodayScreen() {
               <Text style={bodyText}>{t('staff.shell.account.onePhone')}</Text>
               <Text style={bodyText}>{t('staff.shell.account.passwordNote')}</Text>
             </View>
+            {/* The guest app as a guest sees it (guestPreview.ts); a pill over the
+                tabs comes back here. The toast says it is live, not a demo. */}
+            <MenuRow
+              testID="staff.guest-view"
+              icon={<EyeIcon size={15} color={colors.gstrong} />}
+              label={t('staff.shell.guestView.row')}
+              onPress={() => {
+                setGuestPreview(true);
+                toast(t('staff.shell.guestView.note'), 'info');
+                router.replace('/(tabs)');
+              }}
+            />
             <MenuRow
               testID="staff.settings"
               icon={<SlidersIcon size={15} color={colors.gstrong} />}
