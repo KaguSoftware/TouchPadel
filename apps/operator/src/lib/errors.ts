@@ -295,6 +295,8 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   // mapped above with the till refunds and says the same thing here.
   'PAYMENT_STATE',
   'REFUND_TOO_LARGE',
+  // The hold ladder (0252): a standing decided or gone while the list was open.
+  'HOLD_STANDING_NOT_FOUND',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',

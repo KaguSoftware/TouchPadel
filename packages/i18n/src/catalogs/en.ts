@@ -178,6 +178,10 @@ export const en = {
     changeNumber: 'Use a different number',
     verifyPhoneRow: 'Verify phone number',
     phoneVerified: 'Phone number verified',
+    phoneVerifyToBookBody:
+      "Verify your phone number to reserve. We'll send a 6-digit code — on WhatsApp, or by SMS — and the desk will call this number about your booking.",
+    phoneUnverifiedNotice: 'Verify your phone number to reserve — the desk needs a number confirmed to be yours.',
+    phoneLinkTaken: 'This number belongs to another account. Use a different number.',
     addNameLink: 'Add your name',
   },
   courts: {
@@ -637,6 +641,9 @@ export const en = {
     notAHold: 'That slot is already booked. Cancel it from the booking itself.',
     beyondHorizon: 'That date is further ahead than the venue takes bookings.',
     accountRequired: 'Booking a court needs a signed-in account.',
+    // 0252: Review, after a hold of this guest's ran out lately.
+    holdCareNotice:
+      'A friendly reminder: please hold a court only when you plan to book it. A hold that runs out keeps the court from other players, and if it keeps happening, booking in the app will pause for a while.',
   },
   // The online deposit (build-contracts-2026-09-27 §4): Review's pay button,
   // the payment screen (app/pay/status.tsx, one state per server answer), and
@@ -2021,6 +2028,7 @@ export const en = {
       // Online deposits (build-contracts-2026-09-27 §2.5).
       PAYMENT_STATE: 'This payment has changed since you opened it. The list now shows where it is.',
       REFUND_TOO_LARGE: 'The refund is more than the guest paid online.',
+      HOLD_STANDING_NOT_FOUND: 'This guest’s record has changed or is gone. Refresh the list.',
       ITEM_NOT_ON_TAB: 'That line is not on this tab.',
       IDEMPOTENCY_CONFLICT: 'This was already saved from another session. Refresh to see the latest.',
       // Protocols and the staff phone (build-contracts-2026-09-23 §3), one file pair:

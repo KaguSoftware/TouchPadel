@@ -4295,4 +4295,38 @@ export const matrix: MatrixRule[] = [
     note: '0251: the waiter, the cashier and MGMT open a tab or add to one from the phone; an unknown table fails TABLE_NOT_FOUND past the guard, so nothing is written',
     drop: 23,
   },
+
+  // ── 0252: the hold ladder ─────────────────────────────────────────────────
+  {
+    kind: 'select',
+    name: 'hold_standing',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0252: no client grant; staff read it through app.hold_reviews and app.guest_hold_standing',
+    drop: 23,
+  },
+  {
+    kind: 'select',
+    name: 'hold_strikes',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0252: the ledger has no client grant',
+    drop: 23,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'hold_reviews',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: '0252: the day close list of guests the hold ladder suspended at the branch',
+    drop: 23,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'hold_standing_decide',
+    args: { p_standing_id: NIL_UUID, p_decision: 'lift' }, expect: MANAGER_UP,
+    note: '0252: lift or ban; an unknown standing fails HOLD_STANDING_NOT_FOUND past the guard',
+    drop: 23,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'guest_hold_standing',
+    args: { p_customer_id: NIL_UUID }, expect: CASHIER_DESK_UP,
+    note: '0252: the customer record staff read a guest\'s hold-ladder standing (null when none)',
+    drop: 23,
+  },
 ];

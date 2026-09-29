@@ -12,6 +12,12 @@
  * tapped slot is dropped. `findPaymentToResume` claims the ref, so the root
  * resume hook cannot open the same screen a second time.
  *
+ * A PHONE NOBODY HAS VERIFIED STOPS THE HOLD (owner, 2026-09-27). With a slot
+ * pending, the account's confirmed auth phone must be its profile phone
+ * (bookingGateState); otherwise the guest goes to /phone-sign-in in continue
+ * mode with the slot still pending, and verify-otp comes back here once the
+ * code lands. A read that fails proceeds — Review re-checks before Reserve.
+ *
  * The pending intent is PEEKED here and cleared only once the hold settles.
  * Taking it up front emptied the store while the RPC was in flight, so
  * (auth)/_layout saw `session && !pending`, redirected to the tabs, and the
@@ -22,9 +28,25 @@ import { useRouter } from 'expo-router';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
 import { useHoldSlot } from './hooks';
-import { clearPendingSlot, getPendingSlot } from './pendingSlot';
+import { clearPendingSlot, getPendingSlot, type PendingSlot } from './pendingSlot';
 import { requestBookingSheet } from '../courtTransition/openIntent';
 import { findPaymentToResume } from '../deposit/hooks';
+import { supabase } from '../../lib/supabase';
+import { fetchOwnProfile } from '../profile/api';
+import { bookingGateState, type BookingGate } from '../auth/social';
+
+/** Read fresh, not from a cache: this runs straight after a sign-in or a profile save. */
+async function readBookingGate(): Promise<{ gate: BookingGate; phone: string }> {
+  try {
+    const [{ data }, profile] = await Promise.all([supabase.auth.getUser(), fetchOwnProfile(supabase)]);
+    return {
+      gate: bookingGateState({ status: 'success', data: profile }, data.user),
+      phone: profile?.phone ?? '',
+    };
+  } catch {
+    return { gate: 'unknown', phone: '' };
+  }
+}
 
 export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy: boolean } {
   const router = useRouter();
@@ -33,12 +55,7 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
   const hold = useHoldSlot();
   const { mutate, isPending } = hold;
 
-  const continueWithSlot = useCallback(() => {
-    const pending = getPendingSlot();
-    if (!pending) {
-      router.replace('/(tabs)');
-      return;
-    }
+  const holdPending = useCallback((pending: PendingSlot) => {
     const startAt = new Date(pending.startAt);
     mutate(
       { courtId: pending.courtId, startAt, durationMin: pending.durationMin },
@@ -56,6 +73,8 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
               courtNameAr: pending.courtNameAr,
               startAt: pending.startAt,
               durationMin: String(pending.durationMin),
+              // 0252: Review shows the kind hold warning.
+              holdWarning: result.holdWarning ? '1' : '',
             },
           });
         },
@@ -74,6 +93,25 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
       },
     );
   }, [mutate, router, t, toast]);
+
+  const continueWithSlot = useCallback(() => {
+    const pending = getPendingSlot();
+    if (!pending) {
+      router.replace('/(tabs)');
+      return;
+    }
+    void readBookingGate().then(({ gate, phone }) => {
+      if (gate === 'incomplete') {
+        router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
+        return;
+      }
+      if (gate === 'unverified') {
+        router.replace({ pathname: '/phone-sign-in', params: { returnTo: 'continue', phone } });
+        return;
+      }
+      holdPending(pending);
+    });
+  }, [holdPending, router]);
 
   const continueAfterAuth = useCallback(() => {
     void findPaymentToResume().then((resume) => {

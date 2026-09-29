@@ -177,6 +177,48 @@ export function profileGateState(query: {
   return needsProfileCompletion(query.data) ? 'incomplete' : 'complete';
 }
 
+/** GoTrue stores `9647701234567`, profiles store `+9647701234567`: compare digits. */
+function phoneDigits(value: string | null | undefined): string {
+  return (value ?? '').replace(/\D/g, '');
+}
+
+/**
+ * A signed-in guest books only with a phone they have PROVED they hold (owner,
+ * 2026-09-27): GoTrue confirmed it by a code (phone sign-up, or the link flow's
+ * phone_change), and it is the number the desk will dial — `profiles.phone`.
+ * A number typed on complete-profile, carried by an email sign-up, or changed
+ * in Edit profile without a code is not verified until the link flow runs.
+ */
+export function hasVerifiedPhone(
+  user: { phone?: string | null; phone_confirmed_at?: string | null } | null | undefined,
+  profilePhone: string | null | undefined,
+): boolean {
+  if (!user?.phone_confirmed_at) return false;
+  const verified = phoneDigits(user.phone);
+  return verified.length > 0 && verified === phoneDigits(profilePhone);
+}
+
+/**
+ * The booking gate: the profile gate, then the verified phone. `unverified`
+ * sends the guest through /phone-sign-in (prefilled with the profile's number)
+ * and /verify-otp before any hold. `unknown` still proceeds — Review re-checks.
+ */
+export type BookingGate = ProfileGate | 'unverified';
+
+export function bookingGateState(
+  query: {
+    status: 'pending' | 'error' | 'success';
+    data: { phone: string | null; full_name?: string | null } | null | undefined;
+  },
+  user: { phone?: string | null; phone_confirmed_at?: string | null } | null | undefined,
+): BookingGate {
+  const gate = profileGateState(query);
+  if (gate !== 'complete') return gate;
+  // No row (an anonymous session) has nothing to verify against; fail open as above.
+  if (!query.data) return 'complete';
+  return hasVerifiedPhone(user, query.data.phone) ? 'complete' : 'unverified';
+}
+
 export type PostSignInStep = 'staff' | 'complete-profile' | 'await-gate' | 'continue';
 
 /**

@@ -10,6 +10,8 @@ export interface HoldResult {
   holdExpiresAt: string | null;
   rateRuleId: string | null;
   priceIqd: number | null;
+  /** 0252: a hold of this guest's lapsed lately; Review asks them kindly to take care. */
+  holdWarning: boolean;
 }
 
 /** Parse app.hold_slot's jsonb payload. Throws on malformed payloads. */
@@ -23,6 +25,7 @@ export function parseHoldResult(json: unknown): HoldResult {
     holdExpiresAt: typeof o.hold_expires_at === 'string' ? o.hold_expires_at : null,
     rateRuleId: typeof o.rate_rule_id === 'string' ? o.rate_rule_id : null,
     priceIqd: typeof o.price_iqd === 'number' ? o.price_iqd : null,
+    holdWarning: o.hold_warning === true,
   };
 }
 

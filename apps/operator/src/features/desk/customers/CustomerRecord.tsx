@@ -20,6 +20,7 @@ import { AsyncStateWrapper, BookingStatusIndicator, CustomerFlagBadge, Descripti
 import { Icon } from '../../../components/icons';
 import type { CustomerFlag, CustomerNote, CustomerRecord, CustomerReservationRow } from '../deskTypes';
 import type { CustomerSearchParams } from './CustomerSearch';
+import { CustomerHoldStanding } from '../../holds/HoldStandingPanels';
 
 const FLAG_TYPES: readonly CustomerFlagType[] = ['vip', 'birthday', 'payment_note', 'special_request', 'deposit_exempt'];
 
@@ -117,6 +118,7 @@ export function CustomerRecordScreen() {
                   ]}
                 />
               </Panel>
+              <CustomerHoldStanding customerId={id} />
               <BookingsPanel title={tr('ws.courtDesk.record.upcoming')} empty={tr('ws.courtDesk.record.upcomingEmpty')} rows={rec.upcoming} tz={tz} courtName={courtName} />
               {/* Sections with nothing in them are left out rather than drawn
                   as a titled box saying "none": the counts above already say

@@ -167,6 +167,17 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     refund_amount_iqd: { category: 'Purchase history', why: 'what went back to the card', onDelete: 'keep' },
     refund_note: { category: 'Purchase history', why: 'how a manager settled a refund by hand (cash at the desk…); part of the money trail', onDelete: 'keep' },
   },
+  // 0252: the hold ladder. The key is a SHA-256 of a VERIFIED phone number's
+  // digits (never the number), kept on purpose after the account is deleted:
+  // a guest suspended or banned for holding courts and letting them lapse must
+  // not come back on the same number by deleting the account. guest_id keeps
+  // pointing at 0077's tombstone.
+  hold_standing: {
+    id: n, guest_id: n, strikes: n, last_strike_at: n, blocked_until: n, suspended_at: n,
+    needs_review: n, review_venue_id: n, banned_at: n, banned_by: n, reviewed_at: n,
+    reviewed_by: n, updated_at: n,
+    key: { category: 'Phone number', why: 'abuse prevention: a hash of the verified phone, so a suspension or ban for letting court holds lapse follows the number and outlives a deleted account', onDelete: 'keep' },
+  },
   customer_flags: {
     customer_id: n,
     type: { category: 'App activity', why: 'desk labels such as VIP', onDelete: 'row' },

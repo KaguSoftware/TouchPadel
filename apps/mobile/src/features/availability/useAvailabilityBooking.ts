@@ -44,7 +44,7 @@ import { useHoldSlot } from '../booking/hooks';
 import { setPendingSlot, type SlotOrigin } from '../booking/pendingSlot';
 import { isDegradedRefusal, mapErrorToKey } from '../booking/errors';
 import { useAuth } from '../auth/context';
-import { profileGateState } from '../auth/social';
+import { bookingGateState } from '../auth/social';
 import { useOwnProfile } from '../profile/hooks';
 import { callPhone } from '../../lib/phone';
 import { formatPrice } from '../../lib/price';
@@ -121,9 +121,12 @@ export function useAvailabilityBooking(
   const toast = useToast();
   const { session } = useAuth();
   // D3: a profile without a phone cannot book; the gate reuses the guest flow
-  // (pending slot -> complete-profile -> hold). 'unknown' proceeds — Review re-checks.
+  // (pending slot -> complete-profile -> hold). Neither can one whose phone was
+  // never verified by a code (pending slot -> phone-sign-in -> verify-otp ->
+  // hold). 'unknown' proceeds — Review re-checks.
   const profile = useOwnProfile(!!session);
-  const profileGate = profileGateState(profile);
+  const profileGate = bookingGateState(profile, session?.user);
+  const profilePhone = profile.data?.phone ?? '';
   // The branch the guest books at (multi-venue slice 4): its courts, its
   // settings, its degraded flag and its phone. hold_slot needs no branch — the
   // server takes it from the court.
@@ -323,7 +326,7 @@ export function useAvailabilityBooking(
       router.push('/welcome');
       return;
     }
-    if (profileGate === 'incomplete') {
+    if (profileGate === 'incomplete' || profileGate === 'unverified') {
       setPendingSlot({
         courtId: cell.courtId,
         startAt: cell.startAt.toISOString(),
@@ -333,7 +336,11 @@ export function useAvailabilityBooking(
         courtNameAr: court?.name_ar ?? '',
         origin,
       });
-      router.push({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
+      router.push(
+        profileGate === 'incomplete'
+          ? { pathname: '/complete-profile', params: { returnTo: 'continue' } }
+          : { pathname: '/phone-sign-in', params: { returnTo: 'continue', phone: profilePhone } },
+      );
       return;
     }
 
@@ -355,6 +362,8 @@ export function useAvailabilityBooking(
               startAt: cell.startAt.toISOString(),
               durationMin: String(durationMin),
               origin,
+              // 0252: Review shows the kind hold warning.
+              holdWarning: result.holdWarning ? '1' : '',
             },
           });
         },
@@ -381,6 +390,7 @@ export function useAvailabilityBooking(
     courts.data,
     session,
     profileGate,
+    profilePhone,
     origin,
     phone,
     refetchDay,

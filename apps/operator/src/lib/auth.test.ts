@@ -253,6 +253,8 @@ describe('capability matrix', () => {
     reviewIncidents: ['manager', 'owner'],
     // Wave 5, till shifts (§5.2, §8 Q30): management works anyone's drawer.
     payOnOthersShift: ['manager', 'owner'],
+    // 0252: lift or ban a guest on the hold ladder.
+    decideHoldStanding: ['manager', 'owner'],
   };
   /** A role's own work, which the owner does not do: the RPC refuses the owner too. */
   const OWN_WORK: Partial<Record<Capability, readonly StaffRole[]>> = {
@@ -317,6 +319,7 @@ describe('capability matrix', () => {
         // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
         'proposeDeductions',
         'decideDeductions',
+        'decideHoldStanding',
         'cancelDeductions',
         'reportIncidents',
         'reviewIncidents',

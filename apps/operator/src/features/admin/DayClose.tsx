@@ -43,6 +43,7 @@
  * closeBlock. The CSV gains a row per shift.
  */
 import { DayCloseShop } from '../shop/DayCloseShop';
+import { HoldReviewsPanel } from '../holds/HoldStandingPanels';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -320,6 +321,7 @@ export function DayClose() {
     void queryClient.invalidateQueries({ queryKey: ['dayCloseSummary'] });
     void queryClient.invalidateQueries({ queryKey: ['dayCloseAdjustments'] });
     void queryClient.invalidateQueries({ queryKey: ['unpaidPlayedBookings'] });
+    void queryClient.invalidateQueries({ queryKey: ['holdReviews'] });
     void queryClient.invalidateQueries({ queryKey: QK.checklistDayState.all });
     void queryClient.invalidateQueries({ queryKey: ['dayLastClose'] });
     void queryClient.invalidateQueries({ queryKey: ['tabs'] });
@@ -722,6 +724,8 @@ export function DayClose() {
           )}
           {/* Touch Shop's own money and drawer (0246). */}
           {!closeResult && <DayCloseShop />}
+          {/* Guests the hold ladder suspended here (0252); never blocks the close. */}
+          {!closeResult && <HoldReviewsPanel />}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
           <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>}>
             <ErrorText error={adjustmentsQ.error} />

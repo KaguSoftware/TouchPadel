@@ -28,6 +28,11 @@ const CODE_TO_KEY = {
   BEYOND_HORIZON: 'booking.beyondHorizon',
   ACCOUNT_REQUIRED: 'booking.accountRequired',
   NOT_A_HOLD: 'booking.notAHold',
+  // 0252, the hold ladder: a guest whose holds keep lapsing waits, then is
+  // suspended. The owner chose no message of its own for either (2026-09-27),
+  // so both read as the generic line.
+  HOLD_COOLDOWN: 'errors.generic',
+  BOOKING_SUSPENDED: 'errors.generic',
   RESERVATION_NOT_FOUND: 'errors.notFound',
   COURT_NOT_FOUND: 'errors.notFound',
   DEGRADED_LOCKOUT: 'degraded.bookingRefusedShort',

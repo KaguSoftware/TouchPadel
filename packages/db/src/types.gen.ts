@@ -1320,6 +1320,7 @@ export type Database = {
       floor_tables: { Args: { p_venue_id?: string }; Returns: Json }
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
+      guest_hold_standing: { Args: { p_customer_id: string }; Returns: Json }
       has_own_pin: { Args: never; Returns: boolean }
       header_station_venue: { Args: never; Returns: string }
       heartbeat: {
@@ -1348,6 +1349,8 @@ export type Database = {
         }
         Returns: string
       }
+      hold_key_guests: { Args: { p_key: string }; Returns: string[] }
+      hold_reviews: { Args: { p_venue_id?: string }; Returns: Json }
       hold_slot: {
         Args: {
           p_client_ref?: string
@@ -1359,6 +1362,25 @@ export type Database = {
         }
         Returns: Json
       }
+      hold_standing_decide: {
+        Args: { p_decision: string; p_standing_id: string }
+        Returns: Json
+      }
+      hold_standing_json: {
+        Args: { s: Database["public"]["Tables"]["hold_standing"]["Row"] }
+        Returns: Json
+      }
+      hold_standing_key: { Args: { p_guest_id: string }; Returns: string }
+      hold_strike_apply: {
+        Args: {
+          p_at: string
+          p_guest_id: string
+          p_key: string
+          p_venue_id: string
+        }
+        Returns: undefined
+      }
+      hold_strikes_settle: { Args: { p_guests?: string[] }; Returns: number }
       incident_kind_label: { Args: { p_kind: string }; Returns: Json }
       incident_photo_purge_due: { Args: { p_limit?: number }; Returns: Json }
       incident_photos_purged: { Args: { p_id: string }; Returns: undefined }
@@ -5283,6 +5305,118 @@ export type Database = {
           },
         ]
       }
+      hold_standing: {
+        Row: {
+          banned_at: string | null
+          banned_by: string | null
+          blocked_until: string | null
+          guest_id: string | null
+          id: string
+          key: string
+          last_strike_at: string | null
+          needs_review: boolean
+          review_venue_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          strikes: number
+          suspended_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          banned_at?: string | null
+          banned_by?: string | null
+          blocked_until?: string | null
+          guest_id?: string | null
+          id?: string
+          key: string
+          last_strike_at?: string | null
+          needs_review?: boolean
+          review_venue_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          strikes?: number
+          suspended_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          banned_at?: string | null
+          banned_by?: string | null
+          blocked_until?: string | null
+          guest_id?: string | null
+          id?: string
+          key?: string
+          last_strike_at?: string | null
+          needs_review?: boolean
+          review_venue_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          strikes?: number
+          suspended_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hold_standing_banned_by_fkey"
+            columns: ["banned_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hold_standing_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hold_standing_review_venue_id_fkey"
+            columns: ["review_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hold_standing_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hold_strikes: {
+        Row: {
+          counted: boolean
+          created_at: string
+          reservation_id: string
+          standing_key: string
+          struck_at: string
+        }
+        Insert: {
+          counted: boolean
+          created_at?: string
+          reservation_id: string
+          standing_key: string
+          struck_at: string
+        }
+        Update: {
+          counted?: boolean
+          created_at?: string
+          reservation_id?: string
+          standing_key?: string
+          struck_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hold_strikes_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: true
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incident_reports: {
         Row: {
           court_id: string | null
@@ -7128,6 +7262,7 @@ export type Database = {
       platform_settings: {
         Row: {
           currency: string
+          hold_strikes_since: string | null
           id: boolean
           llm_cost_micros_per_mtok: number
           llm_daily_request_limit: number
@@ -7140,6 +7275,7 @@ export type Database = {
         }
         Insert: {
           currency?: string
+          hold_strikes_since?: string | null
           id?: boolean
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
@@ -7152,6 +7288,7 @@ export type Database = {
         }
         Update: {
           currency?: string
+          hold_strikes_since?: string | null
           id?: boolean
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number

@@ -1375,6 +1375,32 @@ export const managerEn = {
   },
   // Online deposits (build-contracts-2026-09-27 §6): refunds a person must
   // see to. On the owner's Financial home and, when one waits, the manager's Today.
+  /** The hold ladder (0252): day close and customer record. */
+  holds: {
+    reviewTitle: 'Suspended for letting court holds run out',
+    reviewBadge: '{count} to decide',
+    reviewLead:
+      'These guests kept holding courts in the app and letting the holds run out, so the app has stopped them holding courts for 7 days. Lift it if it was a mistake, or ban them for good. You can still close the day.',
+    recordTitle: 'Court holds in the app',
+    noName: 'Guest without a name',
+    status: {
+      clear: 'No problem',
+      warned: 'Warned: a hold ran out recently',
+      cooldown: 'Waiting until {time}',
+      suspended: 'Suspended until {time}',
+      banned: 'Banned from holding courts in the app',
+    },
+    strikes: 'Holds run out lately: {count}',
+    lift: 'Lift',
+    liftBan: 'Lift the ban',
+    ban: 'Ban for good',
+    banTitle: 'Ban {name} from holding courts in the app?',
+    banBody:
+      'They will not be able to hold a court in the app again, on this account or on any account that verifies the same phone number. A manager or the owner can lift the ban later from the customer record.',
+    banConfirm: 'Ban',
+    lifted: 'Lifted. The guest can hold courts again.',
+    banned: 'Guest banned from holding courts in the app.',
+  },
   onlineRefunds: {
     title: 'Online refunds needing attention',
     lead: 'Deposits guests paid online that could not be refunded on their own. Try again, or record it once the guest has been paid back another way.',

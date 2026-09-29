@@ -37,6 +37,9 @@ describe('error mapping', () => {
     expect(mapErrorToKey(new Error('BEYOND_HORIZON'))).toBe('booking.beyondHorizon');
     expect(mapErrorToKey(new Error('ACCOUNT_REQUIRED'))).toBe('booking.accountRequired');
     expect(mapErrorToKey(new Error('NOT_A_HOLD'))).toBe('booking.notAHold');
+    // 0252, the hold ladder: no message of their own, by the owner's choice.
+    expect(mapErrorToKey(new Error('HOLD_COOLDOWN'))).toBe('errors.generic');
+    expect(mapErrorToKey(new Error('BOOKING_SUSPENDED'))).toBe('errors.generic');
     // The online deposit (build-contracts-2026-09-27 §2.5), SQL and edge alike.
     expect(mapErrorToKey(new Error('DEPOSITS_OFF'))).toBe('deposit.errors.depositsOff');
     expect(mapErrorToKey(new Error('DEPOSIT_REQUIRED'))).toBe('deposit.errors.depositRequired');
@@ -75,6 +78,7 @@ describe('parseHoldResult', () => {
       hold_expires_at: '2026-09-01T10:05:00Z',
       rate_rule_id: 'rule-1',
       price_iqd: 40000,
+      hold_warning: true,
     });
     expect(parsed).toEqual({
       duplicate: false,
@@ -82,6 +86,7 @@ describe('parseHoldResult', () => {
       holdExpiresAt: '2026-09-01T10:05:00Z',
       rateRuleId: 'rule-1',
       priceIqd: 40000,
+      holdWarning: true,
     });
   });
 
@@ -94,6 +99,8 @@ describe('parseHoldResult', () => {
     });
     expect(parsed.duplicate).toBe(true);
     expect(parsed.priceIqd).toBeNull();
+    // A replay (or a server before 0252) says nothing: no warning.
+    expect(parsed.holdWarning).toBe(false);
   });
 
   it('throws on malformed payloads', () => {
