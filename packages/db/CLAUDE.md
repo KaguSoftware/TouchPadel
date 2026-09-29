@@ -48,6 +48,16 @@ is a line in that file.
   holds `heartbeat`, `verify_manager_pin`, `verify_own_pin`, `consume_pin_grant`, `break_status`,
   `start_break`, `end_break`, `cover_station`, `set_ticket_status` and `set_order_item_ready`
   (copying an older body back brings a five-role guard with it and locks the 0155 roles out).
+  0257 (match settings) holds `accept_terms` (0153 is no longer the latest; an older version never
+  replaces a newer one on record). 0262 (open matches at the desk) holds `court_fee_remaining`, `compute_tab_totals`,
+  `booking_bill`, `booking_bill_states`, `mark_reservation`, `set_customer_flags`,
+  `customer_counts`, `customer_record`, `customer_search` and `customer_directory`.
+  0263 (the reservation trigger and the match sweep) holds `hold_slot` (0252's hold-ladder body
+  plus R22) and `staff_create_reservation`; `release_hold` and `expire_stale_holds` stay 0252's
+  (0260's `match_expire_holds` twin settles no strike: the guest's next hold or `tp_hold_sweep` does). 0264 holds `delete_my_account` (0077 is no longer the latest; the
+  body scrubs the open-match rows and calls `ticket_refund_deleted` before the audit row, with no
+  match lock, R25). 0265 (open-match reports) holds `reports_figures` and `report_courts` (0219 is
+  no longer the latest), `panel_headline` (0096) and `unpaid_played_bookings` (0231).
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
@@ -62,8 +72,14 @@ is a line in that file.
   file that uses the value. Precedents: 0143 (`ingredient_kind` `retail`, first used by 0144) and
   0155 (six `staff_role` values, first used by 0156).
 - New push kind: `notification_outbox.kind` is a closed CHECK (`0024:22`, re-issued by
-  `0075:36-58`); widen it by migration and add EN/AR copy to `STRINGS` in
-  `supabase/functions/send-push/index.ts:48`.
+  `0075:36-58`, latest `0255`); widen it by migration and add EN/AR copy: a booking kind to
+  `STRINGS` in `supabase/functions/send-push/index.ts:48`; a staff kind to `staffStrings.ts` and
+  `_shared/staff-push.json`; the guest kinds of open matches take their copy from
+  `send-push/guestStrings.ts` and `_shared/guest-push.json`, not `STRINGS`.
+  `tests/outbox-kinds.test.ts` holds the CHECK to the three lists. A new staff title key also
+  joins `app.notify_staff`'s `c_title_keys` (latest `0261`, which appended `match_report_new`) in
+  the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`); the stack tests
+  (`staff-push.test.ts`, `guest-push.test.ts`) compare each with its JSON.
 - Deploy `send-push` first (`.github/workflows/functions-deploy.yml`, on push to `main` or
   `workflow_dispatch`), then land the migration: an unknown kind is terminal there
   (`send-push/index.ts:173`).
@@ -160,10 +176,30 @@ is a line in that file.
   (`apps/mobile/src/features/booking/errors.ts:12`), with both catalogs.
 - No WHERE-less write (`scripts/check-safe-update.mjs`). `app.lock_court` (0042) before any
   reservation write. Lock order
-  `day_sessions → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → reservations`
-  (`scripts/check-lock-order.mjs`; `till_shifts` since wave 5, whose stamp trigger takes the open
-  shift FOR SHARE on every payment and refund insert).
+  `day_sessions → match_money_advisory → tabs → orders → order_items → tickets → payments → till_shifts → refunds → stock_batches → court_advisory → reservations → match_venue_advisory → match_tickets`
+  (`scripts/check-lock-order.mjs`, walker in `scripts/lib/lock-order.mjs`; `till_shifts` since
+  wave 5, whose stamp trigger takes the open shift FOR SHARE on every payment and refund insert;
+  the three open-match ranks since 0260: `app.lock_match_money`, the branch mutex
+  `app.lock_match_venue`, and `match_tickets` rows in id order, each advisory key counted once per
+  sequence, and the service-role paths of `docs/design/open-matches/db.md` §2.6 walked too).
+- Every insert or kind/status/court/time update of a booking or maintenance row fires
+  `reservations_match` (0263): a match's own booking cascades to the match (cancel, complete,
+  move; a booking-level no-show is `MATCH_MARK_SEATS`, so a body that ends a match with its
+  booking ends the match first), and a newly firm row bumps the branch's filling and waiting
+  matches it leaves with no firm-free court (try-lock only; the sweep `tp_match_sweep`, every
+  30 s, is the backstop). The walker expands it under every reservations writer. A hold or desk
+  create on a court a waiting match still needs is `SLOT_TAKEN` detail `match_waiting` (R22),
+  except while the branch is degraded inside the protected horizon (the sweep does not book the
+  match there, so the desk may take the court and the new row bumps it).
 - A non-idempotent money write takes `p_idempotency_key` and calls `app.claim_replay` (0049).
+- Open-match seat money (0262) is derived by `app.match_money`, never stored; every writer that
+  changes what a seat owes takes `app.lock_match_money` first. A match booking's tab carries court
+  money only: `orders` and `tab_adjustments` refuse a row on it (`MATCH_BOOKING_NO_CAFE`, R20). The
+  desk's open-match RPCs treat a sandbox match, or one outside `app.visible_venue_ids()`, as not
+  found, and take `p_reason` as `<code>` or `<code>: <note>` (R42).
+- Ticket money reaches a report only through `app.ticket_money_figures` (0265, MD-16: sales,
+  refunds and the liability chain-wide, forfeits, restores and cash-outs by branch); ticket and
+  deposit money never enters `revenue`, `cash` or `card`, and a sandbox row adds 0 to every figure.
 - Registry: every granted function is covered in `tests/rls-matrix.ts` or listed `publicByDesign` in
   `fixtures/rpc-allowlist.json` with a reason of at least 10 characters
   (`check-rpc-registry.mjs:94-95`). The floor in `fixtures/rpc-coverage-floor.json` (164/167 on
@@ -190,6 +226,9 @@ is a line in that file.
   by decision (scope ledger row in `HANDOFF.md`). A state-idempotent RPC (`set_ticket_status`,
   `void_after_send`) takes no key; every other money write takes `p_idempotency_key` +
   `app.claim_replay`.
+- `PIN_GATED_RPCS` (three copies: `packages/core/src/schemas/mutations.ts`,
+  `_shared/mutation-types.json` `pinGatedRpcs`, `tests/helpers.ts`) gained `match_seat_write_off`
+  in 0262 (online only, never queued).
 - Payloads never carry a price (`mutations.ts:13-14`). Secrets that must not persist (a manager
   `pin`) are stripped by `redactSecrets` (`_shared/redact.ts`) before any record or echo; a new
   secret field is added there, not handled ad hoc.
@@ -249,5 +288,5 @@ is a line in that file.
   first (better-sqlite3 ABI) and `native:electron` after, before any `dist`.
   `tests/sms-provider.test.ts` path failures are local noise.
 - After a hosted push: `npx supabase migration list --linked` shows 0 pending; assert `cron.job`
-  rows and `storage.objects` policies exist, because schedules and storage policies are best-effort
+  rows (`tp_match_sweep` since 0263) and `storage.objects` policies exist, because schedules and storage policies are best-effort
   DO blocks (0021, 0031).

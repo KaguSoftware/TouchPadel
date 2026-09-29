@@ -268,6 +268,9 @@ export const OVERRIDE_REFUSAL_CODES: ReadonlySet<string> = new Set([
   // 0150: the start would land before now. A rule, not a failure — the booking
   // stays where it is and the control stays on screen.
   'RESERVATION_IN_PAST',
+  // Open matches (0262): a match booking is marked player by player, never
+  // no-show as a whole. The booking stays; the Players panel is the way.
+  'MATCH_MARK_SEATS',
 ]);
 
 export function isOverrideRefusal(code: string | undefined): boolean {

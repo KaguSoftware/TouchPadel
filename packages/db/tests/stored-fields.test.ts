@@ -21,7 +21,7 @@
  *   3. COMPLETENESS — a column declared personal must carry a purpose and an
  *      erasure route.
  *   4. DELETION — every column declared personal is PROVED emptied by
- *      app.delete_my_account (0077), by populating it and deleting for real.
+ *      app.delete_my_account (0077, 0264), by populating it and deleting for real.
  *      Declaring a field and forgetting to erase it is precisely the gap the
  *      store deletion requirement exists to close.
  *
@@ -63,6 +63,8 @@ type Category =
   | 'Device or other IDs'
   | 'User content'
   | 'Photos'
+  // 0256 (open matches): gender, the stores' "other personal info" (G5f).
+  | 'Other personal info'
   | null;
 
 interface Field {
@@ -89,8 +91,15 @@ const n: Field = { category: null };
 /** What 0077 writes over a NOT NULL identifying column. */
 const TOMBSTONE_NAME = 'Deleted account';
 
-/** The guest link that puts a table on this surface. */
-const LINK_COLUMNS = ['guest_id', 'profile_id', 'customer_id', 'linked_profile_id', 'auth_user_id'];
+/**
+ * The guest link that puts a table on this surface. 0258 (open matches, R29)
+ * adds the six ways a match row names a player other than guest_id: the
+ * organiser, a block's two sides, a report's two sides and an event's actor.
+ */
+const LINK_COLUMNS = [
+  'guest_id', 'profile_id', 'customer_id', 'linked_profile_id', 'auth_user_id',
+  'organiser_id', 'blocker_id', 'blocked_id', 'reporter_id', 'reported_id', 'actor_guest_id',
+];
 
 /**
  * THE DECLARATION — every column of every table carrying a guest link.
@@ -99,7 +108,30 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
   profiles: {
     id: n,
     // profiles.full_name is NOT NULL, so deletion overwrites rather than empties.
-    full_name: { category: 'Name', why: 'shown to the guest, and to the desk when they arrive', onDelete: 'anonymise' },
+    full_name: {
+      category: 'Name',
+      why: 'shown to the guest and the desk; other players see only the first name and an initial',
+      onDelete: 'anonymise',
+    },
+    // 0256 (open matches): the two name parts and gender. The 0077 tombstone
+    // UPDATE empties all five (profiles_sync_names), proved below.
+    given_name: {
+      category: 'Name',
+      why: 'shown to the guest and the desk; other open-match players see it',
+      onDelete: 'scrub',
+    },
+    family_name: {
+      category: 'Name',
+      why: 'other open-match players see only its first letter',
+      onDelete: 'scrub',
+    },
+    gender: {
+      category: 'Other personal info',
+      why: 'offering women-only and men-only open matches',
+      onDelete: 'scrub',
+    },
+    gender_set_at: n,
+    gender_set_by: n,
     phone: { category: 'Phone number', why: 'booking confirmation, and the desk calling about a court', onDelete: 'scrub' },
     preferred_lang: n,
     expo_push_token: { category: 'Device or other IDs', why: 'booking reminders and order-ready pushes', onDelete: 'scrub' },
@@ -155,16 +187,18 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
   // stored: the card is typed on Qi's page. The money trail outlives the
   // account, as reservations.price_iqd does; guest_id goes null on a hard
   // delete (the FK), and 0077's tombstone keeps it pointing at nobody.
+  // 0258: also a purchase of open-match tickets (purpose 'ticket', a chain
+  // row with no booking); ticket_count is a count (C19).
   booking_payments: {
     id: n, venue_id: n, reservation_id: n, hold_id: n, guest_id: n, purpose: n, provider: n, sandbox: n,
     request_id: n, provider_payment_id: n, locale: n, status: n, provider_status: n, form_url: n,
     deadline_at: n, last_checked_at: n, succeeded_at: n, failed_at: n, expired_at: n, forfeited_at: n,
     failure_code: n, refund_reason: n, refund_request_id: n, refund_provider_id: n,
     refund_requested_at: n, refunded_at: n, refund_attempts: n, cancel_attempts: n, claimed_at: n,
-    created_at: n, updated_at: n,
-    amount_iqd: { category: 'Purchase history', why: 'the deposit paid online for a court booking; the venue reconciles it with Qi Card', onDelete: 'keep' },
-    quoted_price_iqd: { category: 'Purchase history', why: 'the court price the deposit was taken against', onDelete: 'keep' },
-    refund_amount_iqd: { category: 'Purchase history', why: 'what went back to the card', onDelete: 'keep' },
+    created_at: n, updated_at: n, ticket_count: n,
+    amount_iqd: { category: 'Purchase history', why: 'a deposit or open-match tickets paid online; the venue reconciles it with Qi Card', onDelete: 'keep' },
+    quoted_price_iqd: { category: 'Purchase history', why: 'the court price a deposit was taken against, or the price of one open-match ticket', onDelete: 'keep' },
+    refund_amount_iqd: { category: 'Purchase history', why: 'what went back to the card for a deposit or open-match tickets paid online', onDelete: 'keep' },
     refund_note: { category: 'Purchase history', why: 'how a manager settled a refund by hand (cash at the desk…); part of the money trail', onDelete: 'keep' },
   },
   // 0252: the hold ladder. The key is a SHA-256 of a VERIFIED phone number's
@@ -196,6 +230,73 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     amount_iqd: { category: 'Purchase history', why: 'the discount given — part of the venue’s takings', onDelete: 'keep' },
     code_used: n, idempotency_key: n, redeemed_at: n, redeemed_by: n,
   },
+  // ── 0258: open matches (docs/design/open-matches/db.md §4.4.9, R29) ──────
+  // 0264 writes the two scrubs below (match_seats.gender,
+  // match_requests.friend_genders) and deletes match_blocks with either
+  // account; the deletion proof further down exercises all three.
+  matches: {
+    id: n, venue_id: n, status: n, start_at: n, end_at: n, period: n, duration_min: n, visibility: n,
+    join_policy: n, category: n,
+    price_iqd: { category: 'Purchase history', why: 'what the court sold for in an open match', onDelete: 'keep' },
+    shares_iqd: { category: 'Purchase history', why: 'the open match’s court price split in four, one share per seat', onDelete: 'keep' },
+    rate_rule_id: n, price_court_id: n, fill_deadline_at: n, share_token: n, organiser_id: n, organised_by: n,
+    created_by_staff_id: n, reservation_id: n, sandbox: n, deadline_warned_at: n, ended_at: n, ended_reason: n,
+    idempotency_key: n, created_at: n, updated_at: n,
+  },
+  match_seats: {
+    id: n, venue_id: n, match_id: n, seat_no: n, kind: n, guest_id: n,
+    guest_name: {
+      category: 'Name',
+      why: 'a walk-in the desk seated in an open match; such a seat has no account, so no account deletion reaches it',
+      onDelete: 'keep',
+    },
+    guest_phone: {
+      category: 'Phone number',
+      why: 'a walk-in the desk seated in an open match; such a seat has no account, so no account deletion reaches it',
+      onDelete: 'keep',
+    },
+    gender: { category: 'Other personal info', why: 'the seat in a women-only or men-only open match', onDelete: 'scrub' },
+    status: n, ticket_id: n,
+    share_iqd: { category: 'Purchase history', why: 'the player’s share of the court in an open match', onDelete: 'keep' },
+    request_id: n, replaces_seat_id: n, created_by_staff_id: n, vouched: n, joined_at: n, ended_at: n,
+    end_reason: n, marked_by_staff_id: n, marked_at: n, written_off_by_staff_id: n, written_off_at: n,
+    write_off_reason: n,
+  },
+  match_requests: {
+    id: n, venue_id: n, match_id: n, guest_id: n, seats_requested: n,
+    friend_genders: {
+      category: 'Other personal info',
+      why: 'genders a player declared for friends in a women-only or men-only open match',
+      onDelete: 'scrub',
+    },
+    status: n, decided_at: n, created_at: n,
+  },
+  match_tickets: {
+    id: n, guest_id: n, status: n,
+    price_iqd: { category: 'Purchase history', why: 'the price paid for an open-match ticket', onDelete: 'keep' },
+    purchase_payment_id: n, sandbox: n, request_id: n, seat_id: n, forfeited_venue_id: n, forfeited_seat_id: n,
+    forfeited_at: n, cashed_out_at: n, cashout_payment_id: n, created_at: n, updated_at: n,
+  },
+  match_reports: {
+    id: n, venue_id: n, match_id: n, reporter_id: n, reported_id: n, seat_id: n, request_id: n,
+    reason: {
+      category: 'App activity',
+      why: 'a report one player made about another; a moderation record, deleted after 12 months (R36)',
+      onDelete: 'keep',
+    },
+    status: n, reviewed_by: n, reviewed_at: n, created_at: n,
+  },
+  // ids, codes and times only.
+  match_events: {
+    id: n, venue_id: n, match_id: n, type: n, actor: n, actor_guest_id: n, actor_staff_id: n, seat_id: n,
+    request_id: n, code: n, data: n, at: n,
+  },
+  match_ticket_events: {
+    id: n, ticket_id: n, guest_id: n, type: n, venue_id: n, match_id: n, seat_id: n, request_id: n,
+    payment_id: n, actor_staff_id: n, code: n, at: n,
+  },
+  match_blocks: { id: n, blocker_id: n, blocked_id: n, created_at: n },
+  match_exclusions: { match_id: n, guest_id: n, venue_id: n, reason: n, created_at: n },
 };
 
 /**
@@ -339,8 +440,24 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     const confirmed = await appRpc(guest, 'confirm_booking', { p_hold_id: reservationId });
     if (confirmed.error) throw new Error(`confirm_booking: ${confirmed.error.message}`);
 
-    // Fill in every 'scrub' column on the two tables whose rows survive.
-    await svc.from('profiles').update({ expo_push_token: 'ExponentPushToken[sec20]' }).eq('id', uid);
+    // Fill in every 'scrub' column on the two tables whose rows survive. The
+    // 0256 columns too: both name parts, and the three gender columns together
+    // (profiles_gender_stamp).
+    const filled = await svc
+      .from('profiles')
+      .update({
+        expo_push_token: 'ExponentPushToken[sec20]',
+        given_name: 'Sec',
+        family_name: 'Twenty',
+        gender: 'female',
+        gender_set_at: new Date().toISOString(),
+        gender_set_by: 'guest',
+      })
+      .eq('id', uid)
+      .select('given_name, family_name, gender')
+      .single();
+    if (filled.error) throw new Error(`profiles fill: ${filled.error.message}`);
+    expect(filled.data).toEqual({ given_name: 'Sec', family_name: 'Twenty', gender: 'female' });
     await svc
       .from('reservations')
       .update({
@@ -364,6 +481,70 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       scheduled_for: new Date().toISOString(),
     });
 
+    // 0264 (R29, G5e): a linked match seat with a gender, a pending request
+    // with friend_genders, and a block each way. The match (another guest's
+    // approve-mode women's match, where the desk seated this guest as a linked
+    // walk-in) is cancelled, so no list and no other suite ever reads it (the
+    // cron's sweep may expire the request first: the scrub has no status
+    // filter, so either proves it).
+    const other = await guestClient(svc, 'sec20-other');
+    const otherId = (await other.auth.getUser()).data.user!.id;
+    const mStart = new Date(slot.start.getTime() + 2 * 3_600_000);
+    const { data: match, error: mErr } = await svc
+      .from('matches')
+      .insert({
+        venue_id: VENUE_A_ID,
+        status: 'cancelled',
+        start_at: mStart.toISOString(),
+        end_at: new Date(mStart.getTime() + 3_600_000).toISOString(),
+        duration_min: 60,
+        visibility: 'link',
+        join_policy: 'approve',
+        category: 'women',
+        price_iqd: 40_000,
+        shares_iqd: [10_000, 10_000, 10_000, 10_000],
+        price_court_id: courtId,
+        fill_deadline_at: new Date(mStart.getTime() - 2 * 3_600_000).toISOString(),
+        share_token: crypto.randomUUID().replace(/-/g, '').slice(0, 22),
+        organiser_id: otherId,
+        organised_by: 'guest',
+        ended_at: new Date().toISOString(),
+        ended_reason: 'staff_cancelled',
+      })
+      .select('id')
+      .single();
+    if (mErr) throw new Error(`matches: ${mErr.message}`);
+    const matchId = (match as { id: string }).id;
+    const { data: seat, error: sErr } = await svc
+      .from('match_seats')
+      .insert({
+        venue_id: VENUE_A_ID,
+        match_id: matchId,
+        seat_no: 1,
+        kind: 'desk',
+        guest_id: uid,
+        gender: 'female',
+        status: 'cancelled',
+        share_iqd: 10_000,
+        created_by_staff_id: SEED_STAFF_IDS.court_desk,
+        ended_at: new Date().toISOString(),
+        end_reason: 'match_ended',
+      })
+      .select('id')
+      .single();
+    if (sErr) throw new Error(`match_seats: ${sErr.message}`);
+    const { data: request, error: qErr } = await svc
+      .from('match_requests')
+      .insert({ venue_id: VENUE_A_ID, match_id: matchId, guest_id: uid, seats_requested: 2, friend_genders: ['female'] })
+      .select('id')
+      .single();
+    if (qErr) throw new Error(`match_requests: ${qErr.message}`);
+    const blocks = await svc.from('match_blocks').insert([
+      { blocker_id: uid, blocked_id: otherId },
+      { blocker_id: otherId, blocked_id: uid },
+    ]);
+    if (blocks.error) throw new Error(`match_blocks: ${blocks.error.message}`);
+
     const del = await appRpc(guest, 'delete_my_account', { p_confirm: 'DELETE' });
     expect(del.error).toBeNull();
 
@@ -374,6 +555,8 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     for (const [table, idColumn, idValue] of [
       ['profiles', 'id', uid],
       ['reservations', 'id', reservationId],
+      ['match_seats', 'id', (seat as { id: string }).id],
+      ['match_requests', 'id', (request as { id: string }).id],
     ] as const) {
       const erasable = Object.entries(GUEST_DATA[table] ?? {}).filter(
         ([, f]) => f.category && (f.onDelete === 'scrub' || f.onDelete === 'anonymise'),
@@ -402,12 +585,23 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       ['customer_notes', 'customer_id'],
       ['customer_flags', 'customer_id'],
       ['notification_outbox', 'profile_id'],
+      ['match_blocks', 'blocker_id'],
+      ['match_blocks', 'blocked_id'],
     ] as const) {
       const { data } = await svc.from(table).select('*').eq(col, uid);
       if ((data ?? []).length > 0) leaks.push(`${table} still has ${(data ?? []).length} row(s)`);
     }
 
     expect(leaks).toEqual([]);
+
+    // The two gender stamps are declared n (they identify nobody alone), but
+    // they go with gender: the tombstone has no trace of it.
+    const { data: stamps } = await svc
+      .from('profiles')
+      .select('gender_set_at, gender_set_by')
+      .eq('id', uid)
+      .single();
+    expect(stamps).toEqual({ gender_set_at: null, gender_set_by: null });
 
     // And the 'keep' columns really are kept — the venue's books are intact.
     const { data: kept } = await svc
@@ -495,7 +689,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       for (const e of entries) lines.push(`      ${e.where.padEnd(32)} ${e.fate.padEnd(6)} ${e.why}`);
       lines.push('');
     }
-    lines.push('  Deletion: in-app, app.delete_my_account (migration 0077).');
+    lines.push('  Deletion: in-app, app.delete_my_account (migrations 0077, 0264).');
     lines.push('            on the web: https://www.touch-padel.com/en/delete-account (same RPC; the Play deletion URL).');
     lines.push('  Every "scrub"/"row" field above is proved erased by the test above this one.');
     lines.push('  "keep" is deliberate retention — the venue’s takings, not the guest’s identity.');

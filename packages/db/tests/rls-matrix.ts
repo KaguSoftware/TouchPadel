@@ -4296,6 +4296,517 @@ export const matrix: MatrixRule[] = [
     drop: 23,
   },
 
+  // ── 0253–0265: open matches (docs/design/open-matches) ──────────────────
+  // 0256: a guest says once whether they are a woman or a man. 'x' fails
+  // INVALID_ARGUMENT past the guard, so no principal writes anything; the
+  // anonymous café session has no profile (ACCOUNT_REQUIRED).
+  {
+    kind: 'rpc', schema: 'app', name: 'set_my_gender',
+    args: { p_gender: 'x' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0256: the caller\'s own profile only; an invalid value is INVALID_ARGUMENT, so nothing is written',
+    drop: 24,
+  },
+  // 0257: the open-match rules. The role is checked before the branch (R33).
+  {
+    kind: 'rpc', schema: 'app', name: 'match_settings',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: '0257: manager and owner read the branch\'s and the chain\'s open-match rules',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_match_settings',
+    args: { p_patch: {}, p_venue_id: VENUE_A }, expect: OWNER_ONLY,
+    note: '0257: owner only; an empty patch is INVALID_ARGUMENT, so nothing changes',
+    drop: 24,
+  },
+  // 0259: open-match tickets. The wallet is the caller's own (the anonymous
+  // café session has no profile); the desk's Tickets panel is court desk,
+  // manager and owner at any branch (a nil customer is CUSTOMER_NOT_FOUND past
+  // the guard); cash-out is manager and owner (a nil purchase is
+  // PAYMENT_NOT_FOUND past the guard, so nothing is refunded).
+  {
+    kind: 'rpc', schema: 'app', name: 'my_tickets',
+    args: {},
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0259: the caller's own tickets only",
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'guest_tickets',
+    args: { p_customer_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0259: chain data, like customer_flags; money.md owns the shape',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'ticket_cashout',
+    args: { p_customer_id: NIL_UUID, p_purchase_payment_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0259: any branch (chain money); not PIN-gated, the refund goes back to the card it came from',
+    drop: 24,
+  },
+  // 0258: the open-match tables and Money's payment_match_seats. No client
+  // grant on any of them: every read and write is a definer RPC (0260 on).
+  {
+    kind: 'select',
+    name: 'matches',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'matches',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_requests',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_requests',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_seats',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_seats',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_tickets',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_tickets',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_ticket_events',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_ticket_events',
+    op: 'insert',
+    payload: { ticket_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_events',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_events',
+    op: 'insert',
+    payload: { match_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_blocks',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_blocks',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_reports',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_reports',
+    op: 'insert',
+    payload: { id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'match_exclusions',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'match_exclusions',
+    op: 'insert',
+    payload: { match_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  {
+    kind: 'select',
+    name: 'payment_match_seats',
+    expect: ex<SelectExpectation>('denied'),
+    note: '0258: no client grant; guests and staff read open matches only through definer RPCs',
+    drop: 24,
+  },
+  {
+    kind: 'write',
+    name: 'payment_match_seats',
+    op: 'insert',
+    payload: { payment_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: '0258: no client write grant; every write is a definer RPC',
+    drop: 24,
+  },
+  // 0261: the guest's open-match RPCs. Every one is the caller's own (a
+  // profile is required: the anonymous café session is ACCOUNT_REQUIRED at the
+  // guard); nil ids answer their own not-found past the guard, and a guest or a
+  // staff member without a phone, the terms or a gender fails eligibility
+  // there, so nothing is written (the hold_slot row form).
+  {
+    kind: 'rpc', schema: 'app', name: 'match_quote',
+    args: { p_venue_id: VENUE_A, p_court_id: NIL_UUID, p_start_at: FUTURE, p_duration_min: 60 },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: a read about the caller; an unknown court is COURT_NOT_FOUND',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'open_matches',
+    args: { p_venue_id: NIL_UUID, p_from: FUTURE, p_to: new Date(Date.now() + 15 * 24 * 3600_000).toISOString() },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: the branch list, no names; an unknown branch lists nothing',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_detail',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: a nil match is MATCH_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_matches',
+    args: {},
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0261: the caller's own matches only",
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'my_match_blocks',
+    args: {},
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0261: the caller's own blocks only",
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_start',
+    args: {
+      p_venue_id: VENUE_A, p_court_id: NIL_UUID, p_start_at: FUTURE, p_duration_min: 60,
+      p_category: 'open', p_visibility: 'public', p_join_policy: 'open',
+    },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: eligibility (phone, terms, gender) then a required idempotency key and an unknown court refuse it past the guard; nothing is written',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_join',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: eligibility, then a nil match is MATCH_NOT_FOUND; nothing is written',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_request',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: eligibility, then a nil match is MATCH_NOT_FOUND; nothing is written',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_withdraw',
+    args: { p_request_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0261: only the caller's own request; a nil one is REQUEST_NOT_FOUND",
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_decide',
+    args: { p_request_id: NIL_UUID, p_approve: false },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0261: the organiser only; a nil request is REQUEST_NOT_FOUND before NOT_ORGANISER",
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_leave',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0261: the caller's own seats only; a nil match is MATCH_NOT_FOUND",
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_remove_player',
+    args: { p_match_id: NIL_UUID, p_seat_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: the organiser only; a nil match is MATCH_NOT_FOUND before NOT_ORGANISER',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_cancel',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: the organiser only; a nil match is MATCH_NOT_FOUND before NOT_ORGANISER',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_post_message',
+    args: { p_match_id: NIL_UUID, p_code: 'on_my_way' },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: participants only; a nil match is MATCH_NOT_FOUND before FORBIDDEN',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_report',
+    args: { p_match_id: NIL_UUID, p_reason: 'other', p_seat_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: a player of a match the caller is in; a nil target is REPORT_TARGET_INVALID',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_block',
+    args: { p_match_id: NIL_UUID, p_seat_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: '0261: a player of a match the caller is in; a nil target is BLOCK_TARGET_INVALID',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_unblock',
+    args: { p_block_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note: "0261: only the caller's own block; a nil one unblocks nothing",
+    drop: 24,
+  },
+  // 0261, public by design (fixtures/rpc-allowlist.json): the Book tab's chips
+  // and the web invite carry no ids, names or money; anon reads them.
+  {
+    kind: 'rpc', schema: 'app', name: 'match_slots',
+    args: { p_venue_id: VENUE_A, p_from: FUTURE, p_to: new Date(Date.now() + 15 * 24 * 3600_000).toISOString() },
+    expect: SELF_ANON_OK,
+    note: '0261: counts of public listable matches at an open branch, no ids, names or money (DF-9)',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_invite',
+    args: { p_token: 'AAAAAAAAAAAAAAAAAAAAAA' },
+    expect: SELF_ANON_OK,
+    note: '0261: an unknown token answers {status: closed} and nothing else (no oracle, DF-9)',
+    drop: 24,
+  },
+  // 0262 (lane DB, db.md §4.7): the desk's open-match RPCs. The role is checked
+  // first; every args set fails past the guard, so no principal writes
+  // anything. Staff reads and writes treat a sandbox match as not found (D-10).
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_open_matches',
+    args: { p_from: TS_FROM, p_to: TS_TO },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: "0262: the desk's open matches; a window over 3 days is INVALID_ARGUMENT past the guard",
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_match_states',
+    args: { p_reservation_ids: [NIL_UUID] },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: match facts by booking; an unknown booking answers {}',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_match_detail',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: one match with names and phones; MATCH_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_start_match',
+    args: { p_start_at: FUTURE, p_duration_min: 90, p_category: 'open', p_visibility: 'public', p_join_policy: 'open',
+            p_venue_id: VENUE_A },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: no key is INVALID_ARGUMENT p_idempotency_key, so nothing is written',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_add_seat',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: MATCH_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_remove_seat',
+    args: { p_seat_id: NIL_UUID, p_reason: 'other' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: SEAT_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_cancel_match',
+    args: { p_match_id: NIL_UUID, p_reason: 'other' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: MATCH_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'mark_match_seats',
+    args: { p_seat_ids: [NIL_UUID], p_attendance: 'attended' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: SEAT_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'desk_call_off_short',
+    args: { p_match_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: MATCH_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'staff_set_customer_gender',
+    args: { p_customer_id: NIL_UUID, p_gender: 'x' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: INVALID_ARGUMENT past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_match_ban',
+    args: { p_customer_id: NIL_UUID, p_banned: true, p_reason: 'conduct' }, expect: MANAGER_UP,
+    note: '0262: chain-wide (R40); CUSTOMER_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_reports_open',
+    args: { p_venue_id: VENUE_A }, expect: MANAGER_UP,
+    note: '0262: the role, then the branch (R33)',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'resolve_match_report',
+    args: { p_report_id: NIL_UUID, p_outcome: 'dismissed' }, expect: MANAGER_UP,
+    note: '0262: REPORT_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  // 0262 (lane Money, money.md §6.4–§6.6): Take share, Assign, the manager write-off.
+  {
+    kind: 'rpc', schema: 'app', name: 'match_seat_settle',
+    args: { p_seat_ids: [NIL_UUID], p_method: 'cash', p_expected_owed_iqd: 10000, p_tendered_iqd: 10000,
+            p_idempotency_key: 'matrix-match-seat-settle' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: the till and the court desk (not shop_staff); a nil seat is SEAT_NOT_FOUND before the key is claimed',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_link_payment',
+    args: { p_payment_id: NIL_UUID, p_allocations: [], p_idempotency_key: 'matrix-match-link-payment' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262: the till and the court desk (not shop_staff); a nil payment is PAYMENT_NOT_FOUND before the key is claimed',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'match_seat_write_off',
+    args: { p_seat_id: NIL_UUID, p_reason: 'other', p_pin: MANAGER_PIN },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied', court_desk: 'execute', manager: 'execute', owner: 'execute',
+    }),
+    note: '0262 (R1): the helper proves the PIN first (0115), then the role guard; a nil seat is SEAT_NOT_FOUND before any grant is spent',
+    drop: 24,
+  },
+  // 0265: the money outside the drawer at day close and the Courts report's
+  // Matches view (tests/matches-reports.test.ts). Both only read.
+  {
+    kind: 'rpc', schema: 'app', name: 'day_close_online',
+    args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP,
+    note: '0265: the day close\'s money outside the drawer (deposits, tickets, open matches); an unknown day fails DAY_NOT_FOUND past the guard',
+    drop: 24,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'report_matches',
+    args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP,
+    note: '0265: the Courts report\'s Matches view, behind the reports guard as report_courts',
+    drop: 24,
+  },
   // ── 0252: the hold ladder ─────────────────────────────────────────────────
   {
     kind: 'select',

@@ -65,7 +65,7 @@ import {
 } from '@touch/court3d/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import { CourtLaneRow, DayChip } from './booking';
+import { CourtLaneRow, DayChip, MatchEntryRow } from './booking';
 import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
@@ -79,6 +79,12 @@ const CARD_RADIUS = 22;
  * phone the card caps itself and this block shrinks (min 96 pt) and scrolls.
  */
 const GRID_H = 240;
+/**
+ * The open matches entry row under the court cards (guest.md §4.11): its 40 pt
+ * and the gap above it. Added to the block only while the branch has open
+ * matches on, so with the switch off the card is exactly as before.
+ */
+const ENTRY_H = 46;
 const PAD = 10;
 interface Entrance {
   opacity: Animated.AnimatedInterpolation<number>;
@@ -110,7 +116,7 @@ export interface BookingSheetProps {
   /**
    * `book.sheet`. Everything inside hangs off it — `book.sheet.retry`,
    * `book.sheet.duration`, `book.sheet.day.<date>`, `book.sheet.slot.<id>`,
-   * `book.sheet.call-venue` — so the Book tab's own ids and the sheet's never
+   * `book.sheet.call-venue`, `book.sheet.open-matches` (open matches on) — so the Book tab's own ids and the sheet's never
    * collide even though they live on the same route. REQUIRED for that reason.
    */
   testID: string;
@@ -127,7 +133,8 @@ export function BookingSheet({
   const { t, locale, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const dark = appearance === 'dark';
-  const a = useAvailabilityBooking({ origin: 'sheet' });
+  // `open` gates the open-match chips' query: a prewarmed, closed card reads none.
+  const a = useAvailabilityBooking({ origin: 'sheet', open: isOpen });
   // Seeded from the window rather than starting at zero. This box spans the
   // stage's full width, so `width` is already exact; `height` is an
   // over-estimate that only ever relaxes the card's cap, and onLayout corrects
@@ -311,10 +318,13 @@ export function BookingSheet({
       // a ScrollView with scrolling OFF, not swapped for a View: the date
       // chips' glass stopped rendering when this block's structure changed, so
       // the committed layout is left exactly as it was. The spacing below is
-      // trimmed so two courts fit GRID_H.
+      // trimmed so two courts fit GRID_H. With open matches on, the entry row
+      // is the last child and the block grows by ENTRY_H to hold it; scrolling
+      // comes on then only so that a short phone, where the block gives way,
+      // can still reach the row.
       <ScrollView
         ref={gridRef}
-        scrollEnabled={false}
+        scrollEnabled={a.matchEntry !== null}
         bounces={false}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD }}
@@ -343,12 +353,32 @@ export function BookingSheet({
                 cellWidth={92}
                 timeFor={(cell) => formatTime(cell.startAt, locale, a.tz)}
                 subFor={a.subFor}
+                matchLineFor={a.matchLineFor}
                 onPress={a.onTapCell}
                 resetKey={a.gridKey}
               />
             </Animated.View>
           );
         })}
+        {/* Enters with the last shared row, so it adds no interpolation of its own. */}
+        {a.matchEntry ? (
+          <Animated.View
+            style={{
+              marginTop: 6,
+              opacity: rows[SPEC.grid.sharedFromRow]!.opacity,
+              transform: [
+                { translateY: rows[SPEC.grid.sharedFromRow]!.translateY },
+                { scale: rows[SPEC.grid.sharedFromRow]!.scale },
+              ],
+            }}
+          >
+            <MatchEntryRow
+              testID={`${testID}.open-matches`}
+              label={a.matchEntry.label}
+              onPress={a.matchEntry.onPress}
+            />
+          </Animated.View>
+        ) : null}
       </ScrollView>
     );
   }
@@ -607,7 +637,14 @@ export function BookingSheet({
 
               {/* Time grid: two court cards, not scrolled. The one block that
                   gives way on a short stage */}
-              <View style={{ height: GRID_H, minHeight: 96, flexShrink: 1, marginTop: 6 }}>
+              <View
+                style={{
+                  height: a.matchEntry ? GRID_H + ENTRY_H : GRID_H,
+                  minHeight: 96,
+                  flexShrink: 1,
+                  marginTop: 6,
+                }}
+              >
                 {grid}
               </View>
             </Animated.View>

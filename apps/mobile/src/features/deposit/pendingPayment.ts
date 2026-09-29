@@ -16,15 +16,25 @@
  * PURE: the store is injected (`KeyValueStore`), so vitest drives it with a
  * Map; hooks.ts binds AsyncStorage. The key has to be buildable from a pure
  * module anyway, because the deletion purge list is one.
+ *
+ * An open-match ticket purchase uses the same pointer (guest.md §4.10.2):
+ * `purpose: 'ticket'`, an empty `reservationId` (a ticket holds no slot), and
+ * the action the tickets were bought for as `after`, so a purchase killed on
+ * Qi's page still continues into the join once the payment lands (§4.10.3).
  */
+import { parseTicketContinuation, type TicketContinuation } from '../matches/continuation';
 
 export interface PendingPayment {
   /** The attempt's request_id — what deposit-status is asked about. */
   ref: string;
-  /** The hold the payment began on. */
+  /** The hold the payment began on; '' for a ticket purchase. */
   reservationId: string;
   /** The payment window's end (ISO). */
   deadlineAt: string;
+  /** Absent on every pointer written before open matches: a deposit. */
+  purpose?: 'deposit' | 'ticket';
+  /** A ticket purchase's continuation (§4.10.3), when it was bought for one. */
+  after?: TicketContinuation;
 }
 
 /** The three calls the pointer needs; AsyncStorage satisfies it. */
@@ -45,17 +55,31 @@ export const pendingPaymentKey = (userId: string) => `tp.pendingPayment.${userId
 export const RESUME_GRACE_MS = 10 * 60_000;
 
 export function serializePendingPayment(p: PendingPayment): string {
-  return JSON.stringify({ ref: p.ref, reservationId: p.reservationId, deadlineAt: p.deadlineAt });
+  return JSON.stringify({
+    ref: p.ref,
+    reservationId: p.reservationId,
+    deadlineAt: p.deadlineAt,
+    ...(p.purpose === 'ticket' ? { purpose: 'ticket' } : {}),
+    ...(p.purpose === 'ticket' && p.after ? { after: p.after } : {}),
+  });
 }
 
-/** A stored pointer, or null when there is none or it is not one of ours. */
+/**
+ * A stored pointer, or null when there is none or it is not one of ours. An
+ * old pointer (no `purpose`) is a deposit; a malformed `after` is dropped and
+ * the pointer kept, because the payment still has to be looked at and only
+ * the continuation is lost.
+ */
 export function parsePendingPayment(raw: string | null): PendingPayment | null {
   if (!raw) return null;
   try {
     const o = JSON.parse(raw) as Record<string, unknown>;
     if (typeof o.ref !== 'string' || !o.ref) return null;
     if (typeof o.reservationId !== 'string' || typeof o.deadlineAt !== 'string') return null;
-    return { ref: o.ref, reservationId: o.reservationId, deadlineAt: o.deadlineAt };
+    const base = { ref: o.ref, reservationId: o.reservationId, deadlineAt: o.deadlineAt };
+    if (o.purpose !== 'ticket') return base;
+    const after = o.after === undefined ? null : parseTicketContinuation(o.after);
+    return after ? { ...base, purpose: 'ticket', after } : { ...base, purpose: 'ticket' };
   } catch {
     return null;
   }
@@ -133,12 +157,19 @@ const NOT_RESTING = new Set([
   '/delete-account',
   '/review',
   '/success',
+  // Open matches (guest.md §4.10.2): the wallet is mid-purchase, and a new
+  // match or a report is a form the guest is filling in.
+  '/tickets',
+  '/match-new',
+  '/match-report',
 ]);
 
 export function isResumeSafePath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   if (NOT_RESTING.has(pathname)) return false;
   if (pathname.startsWith('/pay/') || pathname === '/pay') return false;
+  // A match link is mid-flow: it is continuing into a join (§4.18).
+  if (pathname.startsWith('/m/')) return false;
   if (pathname === '/staff' || pathname.startsWith('/staff-') || pathname.startsWith('/staff/')) {
     return false;
   }

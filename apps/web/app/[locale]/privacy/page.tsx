@@ -77,6 +77,7 @@ const SECTIONS: LegalSection[] = [
           { lead: 'legal.privacy.collect.accountLead', text: 'legal.privacy.collect.account' },
           { lead: 'legal.privacy.collect.codesLead', text: 'legal.privacy.collect.codes' },
           { lead: 'legal.privacy.collect.bookingsLead', text: 'legal.privacy.collect.bookings' },
+          { lead: 'legal.privacy.collect.matchesLead', text: 'legal.privacy.collect.matches' },
           { lead: 'legal.privacy.collect.cafeLead', text: 'legal.privacy.collect.cafe' },
           { lead: 'legal.privacy.collect.pushLead', text: 'legal.privacy.collect.push' },
           { lead: 'legal.privacy.collect.providersLead', text: 'legal.privacy.collect.providers' },
@@ -99,6 +100,7 @@ const SECTIONS: LegalSection[] = [
         items: [
           'legal.privacy.use.account',
           'legal.privacy.use.bookings',
+          'legal.privacy.use.matches',
           'legal.privacy.use.notify',
           'legal.privacy.use.rules',
           'legal.privacy.use.security',
@@ -113,6 +115,7 @@ const SECTIONS: LegalSection[] = [
     title: 'legal.privacy.share.title',
     blocks: [
       { kind: 'p', key: 'legal.privacy.share.staff' },
+      { kind: 'p', key: 'legal.privacy.share.players' },
       { kind: 'p', key: 'legal.privacy.share.processorsLead' },
       {
         kind: 'list',
@@ -120,6 +123,7 @@ const SECTIONS: LegalSection[] = [
           'legal.privacy.share.supabase',
           'legal.privacy.share.push',
           'legal.privacy.share.signIn',
+          'legal.privacy.share.qi',
           'legal.privacy.share.whatsapp',
           'legal.privacy.share.telegram',
           'legal.privacy.share.ai',
@@ -140,6 +144,7 @@ const SECTIONS: LegalSection[] = [
       { kind: 'p', key: 'legal.privacy.retention.active' },
       { kind: 'p', key: 'legal.privacy.retention.deleted' },
       { kind: 'p', key: 'legal.privacy.retention.bookings' },
+      { kind: 'p', key: 'legal.privacy.retention.matches' },
       { kind: 'p', key: 'legal.privacy.retention.cafe' },
       { kind: 'p', key: 'legal.privacy.retention.logs' },
       { kind: 'p', key: 'legal.privacy.retention.apple' },

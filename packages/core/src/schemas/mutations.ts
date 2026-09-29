@@ -54,6 +54,8 @@ export const PIN_GATED_RPCS = [
   'write_off_expired',
   // 0242: "settled another way" on an online deposit refund.
   'deposit_refund_manual',
+  // 0262 (R1): the manager write-off of an open-match share.
+  'match_seat_write_off',
 ] as const;
 export const PIN_GATED_RPC_SET: ReadonlySet<string> = new Set(PIN_GATED_RPCS);
 

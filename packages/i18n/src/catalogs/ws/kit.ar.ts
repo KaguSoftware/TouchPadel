@@ -65,6 +65,14 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     payment_note: 'ملاحظة دفع',
     special_request: 'طلب خاص',
     deposit_exempt: 'بلا عربون',
+    // Open matches (operator.md §5.15). DRAFT-AR: on the client's review list.
+    match_ban: 'ممنوع من المباريات المفتوحة',
+    matchBanReason: {
+      conduct: 'سوء السلوك',
+      no_shows: 'تكرار الغياب',
+      reported: 'بلاغات من لاعبين',
+      other: 'أخرى',
+    },
   },
   pin: {
     title: 'تفويض المدير',
@@ -78,6 +86,9 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     otherLabel: 'ما السبب؟',
     otherPlaceholder: 'اكتب السبب',
     otherRequired: 'اكتب السبب للمتابعة',
+    // DRAFT-AR (open matches, operator.md §5.15.2).
+    noteLabel: 'ملاحظة (اختيارية)',
+    notePlaceholder: 'إضافة ملاحظة',
     confirm: 'متابعة',
     cancel: 'إلغاء',
   },

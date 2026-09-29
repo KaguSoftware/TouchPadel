@@ -5,21 +5,51 @@
  * nothing here is passed to any printable or guest-facing surface, and each
  * note shows its author, time and whether it was edited.
  * States: loading · ready · error.
+ *
+ * Open matches (docs/design/open-matches/operator.md §5.15): the counts
+ * include seat no-shows (DF-12, DF-15); an "Open matches" panel carries what
+ * the customer plays as (with Change, GenderDialog), the ban (R35, chain-wide,
+ * banFromMatches) and their recent and coming matches; the Tickets panel
+ * (TicketsPanel) holds the wallet and the cash-out. A server before 0262
+ * sends no gender and no matches, and the record shows none of it. Every
+ * match write is online only (DF-11).
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { formatDate, formatDateTime, formatNumber, formatTimeRange, VENUE_TZ } from '@touch/i18n';
+import { formatDate, formatDateTime, formatNumber, formatTimeRange, isolate, VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { QK, fetchActiveCourts, fetchVenueSettings } from '../../../lib/queries';
 import { useToast } from '../../../components/toast';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { canAccess, useAuth } from '../../../lib/auth';
+import { useStationReach } from '../../../lib/stationReach';
+import { useVenue } from '../../../lib/venue';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
-import { AsyncStateWrapper, BookingStatusIndicator, CustomerFlagBadge, DescriptionList, EmptyState, MessagePresenter, Money, PageHeader, Panel, TabStatusIndicator, type CustomerFlagType } from '../../../components/kit';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import {
+  AsyncStateWrapper,
+  BookingStatusIndicator,
+  CustomerFlagBadge,
+  DescriptionList,
+  EmptyState,
+  MessagePresenter,
+  Money,
+  PageHeader,
+  Panel,
+  ReasonCodePrompt,
+  StatusBadge,
+  TabStatusIndicator,
+  type CustomerFlagType,
+} from '../../../components/kit';
 import { Icon } from '../../../components/icons';
-import type { CustomerFlag, CustomerNote, CustomerRecord, CustomerReservationRow } from '../deskTypes';
+import { matchStatusKey } from '../../matches/matchLogic';
+import { invalidateMatchCustomer, useMatchCaps } from '../../matches/useMatches';
+import type { CustomerFlag, CustomerMatchRow, CustomerNote, CustomerRecord, CustomerReservationRow } from '../deskTypes';
 import type { CustomerSearchParams } from './CustomerSearch';
+import { GenderDialog } from './GenderDialog';
+import { TicketsPanel } from './TicketsPanel';
+import { editableFlags, isHereMatch, isMatchBanned, playsAsLine, playsAsOf, recordMatches, seatKindKey, seatStatusKey } from './ticketsLogic';
 import { CustomerHoldStanding } from '../../holds/HoldStandingPanels';
 
 const FLAG_TYPES: readonly CustomerFlagType[] = ['vip', 'birthday', 'payment_note', 'special_request', 'deposit_exempt'];
@@ -57,12 +87,25 @@ export function CustomerRecordScreen() {
       void navigate({ to: '/desk/bookings/$id', params: { id: params.reservation }, search: { customer: id } as never });
     } else if (params.attach === 'tab') {
       void navigate({ to: '/till', search: { tab: params.tab, customer: id } as never });
+    } else if (params.attach === 'match' && params.match) {
+      // Open matches §5.3: the match screen opens Add player with this customer picked.
+      void navigate({ to: '/desk/matches/$id', params: { id: params.match }, search: { customer: id } as never });
     }
   }
 
   const counts = rec?.counts ?? { bookings: 0, cancellations: 0, noShows: 0, cafeOrders: 0 };
   const { staff } = useAuth();
   const canBook = canAccess(staff?.role, '/desk');
+  const caps = useMatchCaps();
+  // A server before 0262 sends no gender key and no matches: no open-match block on the record.
+  const matchesKnown = rec ? playsAsOf(rec.customer).known || rec.matches !== undefined : false;
+  const flagCount = rec ? editableFlags(rec.flags).length : 0;
+  const attachLabel =
+    params.attach === 'booking'
+      ? tr('ws.courtDesk.customers.attachBooking')
+      : params.attach === 'match'
+        ? tr('ws.matches.customers.attachMatch')
+        : tr('ws.courtDesk.customers.attachTab');
 
   return (
     <div>
@@ -76,7 +119,7 @@ export function CustomerRecordScreen() {
                 <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
               ))}
               <Button size="sm" kind="ghost" icon="tag" onClick={() => setFlagsOpen(true)}>
-                {rec.flags.length === 0 ? tr('ws.courtDesk.record.addFlags') : tr('ws.courtDesk.record.editFlags')}
+                {flagCount === 0 ? tr('ws.courtDesk.record.addFlags') : tr('ws.courtDesk.record.editFlags')}
               </Button>
             </span>
           ) : undefined
@@ -88,7 +131,12 @@ export function CustomerRecordScreen() {
             </Button>
             {params.attach && (
               <Button kind="primary" icon="userPlus" onClick={attach}>
-                {params.attach === 'booking' ? tr('ws.courtDesk.customers.attachBooking') : tr('ws.courtDesk.customers.attachTab')}
+                {attachLabel}
+              </Button>
+            )}
+            {canBook && matchesKnown && caps.runMatches && !params.attach && (
+              <Button icon="users" onClick={() => void navigate({ to: '/desk', search: { customer: id, kind: 'match' } as never })}>
+                {tr('ws.matches.customers.startMatch')}
               </Button>
             )}
             {canBook && (
@@ -112,12 +160,25 @@ export function CustomerRecordScreen() {
                     { label: tr('ws.courtDesk.record.language'), value: rec.customer.preferred_lang === 'ar' ? tr('ws.courtDesk.customers.lang.ar') : rec.customer.preferred_lang === 'en' ? tr('ws.courtDesk.customers.lang.en') : '—' },
                     { label: tr('ws.courtDesk.record.bookings'), value: formatNumber(counts.bookings, locale), numeric: true },
                     { label: tr('ws.courtDesk.record.cancellations'), value: formatNumber(counts.cancellations, locale), numeric: true },
-                    { label: tr('ws.courtDesk.record.noShows'), value: formatNumber(counts.noShows, locale), numeric: true },
+                    {
+                      label: tr('ws.courtDesk.record.noShows'),
+                      // DF-12, DF-15: the count includes open-match seat no-shows, and says how many.
+                      value: counts.matchNoShows
+                        ? tr('ws.matches.customers.noShowsWithMatches', { count: formatNumber(counts.noShows, locale), matches: formatNumber(counts.matchNoShows, locale) })
+                        : formatNumber(counts.noShows, locale),
+                      numeric: true,
+                    },
                     { label: tr('ws.courtDesk.record.cafeOrders'), value: formatNumber(counts.cafeOrders ?? rec.cafeOrders.length, locale), numeric: true },
+                    ...(counts.matchesPlayed !== undefined
+                      ? [{ label: tr('ws.matches.customers.matchesPlayed'), value: formatNumber(counts.matchesPlayed, locale), numeric: true }]
+                      : []),
+                    ...(counts.lateLeaves !== undefined ? [{ label: tr('ws.matches.customers.lateLeaves'), value: formatNumber(counts.lateLeaves, locale), numeric: true }] : []),
                     ...(rec.customer.created_at ? [{ label: tr('ws.courtDesk.record.since'), value: <bdi>{formatDate(new Date(rec.customer.created_at), locale, tz)}</bdi> }] : []),
                   ]}
                 />
               </Panel>
+              {matchesKnown && caps.runMatches && <MatchesPanel record={rec} tz={tz} onChanged={invalidate} />}
+              <TicketsPanel customerId={id} />
               <CustomerHoldStanding customerId={id} />
               <BookingsPanel title={tr('ws.courtDesk.record.upcoming')} empty={tr('ws.courtDesk.record.upcomingEmpty')} rows={rec.upcoming} tz={tz} courtName={courtName} />
               {/* Sections with nothing in them are left out rather than drawn
@@ -198,6 +259,207 @@ export function CustomerRecordScreen() {
         />
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Open matches (operator.md §5.15): plays as, the ban, their matches.
+// ---------------------------------------------------------------------------
+function MatchesPanel({ record: rec, tz, onChanged }: { record: CustomerRecord; tz: string; onChanged: () => void }) {
+  const { tr, locale } = useLocale();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const caps = useMatchCaps();
+  const { reachable } = useStationReach();
+  const { branchId, venues } = useVenue();
+  const [genderOpen, setGenderOpen] = useState(false);
+  const [banOpen, setBanOpen] = useState<'ban' | 'lift' | null>(null);
+  const [banBusy, setBanBusy] = useState(false);
+  const [banError, setBanError] = useState<unknown>(null);
+  const customerId = rec.customer.id;
+  const playsAs = playsAsOf(rec.customer);
+  const banned = isMatchBanned(rec.flags);
+  const offline = tr('ws.matches.offline.needsConnection');
+  const { upcoming, recent } = recordMatches(rec.matches, Date.now());
+
+  function changed() {
+    invalidateMatchCustomer(queryClient, customerId);
+    onChanged();
+  }
+
+  /** R35: `<code>` or `<code>: <note>` to ban (R42), null to lift. */
+  async function setBan(ban: boolean, reason: string | null) {
+    setBanBusy(true);
+    setBanError(null);
+    try {
+      await appRpc('set_match_ban', { p_customer_id: customerId, p_banned: ban, p_reason: reason });
+      setBanOpen(null);
+      toast.ok(tr(ban ? 'ws.matches.customers.ban.banned' : 'ws.matches.customers.ban.lifted'));
+      changed();
+    } catch (e) {
+      setBanError(e);
+    } finally {
+      setBanBusy(false);
+    }
+  }
+
+  const branchName = (venueId: string | null) => {
+    const v = venues.find((b) => b.id === venueId);
+    return v ? pickName(locale, v) : tr('ws.matches.customers.matches.anotherBranch');
+  };
+
+  return (
+    <Panel
+      title={tr('ws.matches.customers.title')}
+      data-testid="customer-matches"
+      actions={
+        caps.banFromMatches ? (
+          banned ? (
+            <Button
+              size="sm"
+              icon="ban"
+              disabled={!reachable}
+              disabledReason={offline}
+              onClick={() => {
+                setBanError(null);
+                setBanOpen('lift');
+              }}
+            >
+              {tr('ws.matches.customers.ban.lift')}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              kind="danger"
+              icon="ban"
+              disabled={!reachable}
+              disabledReason={offline}
+              onClick={() => {
+                setBanError(null);
+                setBanOpen('ban');
+              }}
+            >
+              {tr('ws.matches.customers.ban.ban')}
+            </Button>
+          )
+        ) : undefined
+      }
+    >
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 16rem', minInlineSize: 0 }}>
+            <span style={{ fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.matches.customers.playsAs.label')}</span>
+            <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.matches.customers.playsAs.lead')}</span>
+          </div>
+          <strong data-testid="plays-as">{playsAsLine(playsAs, tr)}</strong>
+          <Button size="sm" kind="ghost" disabled={!reachable} disabledReason={offline} onClick={() => setGenderOpen(true)}>
+            {tr('ws.matches.customers.playsAs.change')}
+          </Button>
+        </div>
+        {upcoming.length > 0 && <MatchRows title={tr('ws.matches.customers.matches.upcoming')} rows={upcoming} tz={tz} branchId={branchId} branchName={branchName} />}
+        {recent.length > 0 && <MatchRows title={tr('ws.matches.customers.matches.recent')} rows={recent} tz={tz} branchId={branchId} branchName={branchName} />}
+      </div>
+
+      {genderOpen && (
+        <GenderDialog
+          customerId={customerId}
+          current={playsAs.gender}
+          onClose={() => setGenderOpen(false)}
+          onSaved={() => {
+            setGenderOpen(false);
+            toast.ok(tr('ws.matches.customers.gender.saved'));
+            changed();
+          }}
+        />
+      )}
+      {banOpen === 'ban' && (
+        <ReasonCodePrompt
+          action={tr('ws.matches.customers.ban.ban')}
+          reasonCodes={['conduct', 'no_shows', 'reported', 'other']}
+          noteMode="optional"
+          busy={banBusy}
+          error={banError}
+          onSubmit={(code, note) => void setBan(true, note ? `${code}: ${note}` : code)}
+          onCancel={() => setBanOpen(null)}
+        >
+          <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.matches.customers.ban.body')}</p>
+        </ReasonCodePrompt>
+      )}
+      <ConfirmDialog
+        open={banOpen === 'lift'}
+        title={tr('ws.matches.customers.ban.liftTitle')}
+        body={
+          <>
+            <p>{tr('ws.matches.customers.ban.liftBody')}</p>
+            <ErrorText error={banError} />
+          </>
+        }
+        confirmLabel={tr('ws.matches.customers.ban.liftConfirm')}
+        busy={banBusy}
+        onConfirm={() => void setBan(false, null)}
+        onCancel={() => setBanOpen(null)}
+      />
+    </Panel>
+  );
+}
+
+/** One group of the record's matches: when, category, status, their seat; a row here opens the match screen. */
+function MatchRows({
+  title,
+  rows,
+  tz,
+  branchId,
+  branchName,
+}: {
+  title: string;
+  rows: readonly CustomerMatchRow[];
+  tz: string;
+  branchId: string | null;
+  branchName: (venueId: string | null) => string;
+}) {
+  const { tr, locale } = useLocale();
+  const category = (c: string) => (c === 'open' || c === 'women' || c === 'men' ? tr(`ws.matches.common.category.${c}`) : c);
+  const words = (key: MessageKey | null, raw: string | null) => (key ? tr(key) : (raw ?? '—'));
+  return (
+    <section aria-label={title} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+      <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>{title}</h3>
+      <table className="tp-table" data-dense="true">
+        <tbody>
+          {rows.map((r) => {
+            const kind = seatKindKey(r.kind);
+            return (
+              <tr key={r.match_id}>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi>
+                </td>
+                <td style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                  <bdi>{r.end_at ? formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz) : formatDateTime(new Date(r.start_at), locale, tz)}</bdi>
+                </td>
+                <td>{category(r.category)}</td>
+                <td>
+                  <StatusBadge size="sm" tone="neutral" label={words(matchStatusKey(r.status), r.status)} />
+                </td>
+                <td>
+                  {words(seatStatusKey(r.seat_status), r.seat_status)}
+                  {kind && <span style={{ color: 'var(--tp-muted-fg)' }}> · {tr(kind)}</span>}
+                </td>
+                <td data-align="end">
+                  {isHereMatch(r, branchId) ? (
+                    <Link to="/desk/matches/$id" params={{ id: r.match_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
+                      {tr('ws.matches.customers.matches.open')}
+                    </Link>
+                  ) : (
+                    <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                      {tr('ws.matches.customers.matches.otherBranch', { branch: isolate(branchName(r.venue_id)) })}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }
 

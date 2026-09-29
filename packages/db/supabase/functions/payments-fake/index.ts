@@ -68,7 +68,9 @@ Deno.serve(async (req) => {
     return page(
       'Fake payment',
       `<h1>Fake Qi Card payment</h1>
-<div class="box"><p><strong>${Number(row.amount_iqd).toLocaleString('en-US')} IQD</strong></p>
+<div class="box"><p><strong>${Number(row.amount_iqd).toLocaleString('en-US')} IQD</strong></p>${
+        row.purpose === 'ticket' ? `<p>Open-match tickets × ${Number(row.ticket_count)}</p>` : ''
+      }
 <p class="small">Status now: ${esc(row.status)} · local stack only · no money moves</p></div>${buttons}`,
     );
   }

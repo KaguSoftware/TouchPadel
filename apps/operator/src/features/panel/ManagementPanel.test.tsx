@@ -105,6 +105,40 @@ describe('ManagementPanelScreen — four states', () => {
   });
 });
 
+// Open matches (operator.md §5.19): panel_headline's seven online keys (0265).
+describe('ManagementPanelScreen — Online money and open matches', () => {
+  it('draws the group when the server sends its figures; a row opens its report, never a drill', async () => {
+    rpc.mockResolvedValue({
+      figures: [
+        { key: 'revenue', value: 15000 },
+        { key: 'onlineDeposits', value: 45000, previous: 30000, changeAbs: 15000, changePct: 50 },
+        { key: 'ticketSales', value: 80000 },
+        { key: 'ticketLiability', value: 60000 },
+        { key: 'matchWrittenOff', value: 20000 },
+      ],
+    });
+    renderPanel();
+    const group = await screen.findByTestId('panel-online');
+    expect(screen.getByRole('heading', { name: 'Online money and open matches' })).toBeTruthy();
+    expect(screen.getByText('Online deposits')).toBeTruthy();
+    expect(screen.getByText('80,000 IQD')).toBeTruthy();
+    // Ticket sales and liability are counted at every branch, and say so.
+    expect(group.textContent?.match(/All branches/g)).toHaveLength(3);
+    fireEvent.click(screen.getByText('Match ticket sales'));
+    expect(navigate).toHaveBeenCalledWith({ to: '/reports/courts' });
+    fireEvent.click(screen.getByText('Online deposits'));
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/reports/revenue' });
+    expect(rpc.mock.calls.some(([fn]) => fn === 'report_drill')).toBe(false);
+  });
+
+  it('is left out when none of its figures came back (a server before 0265)', async () => {
+    rpc.mockResolvedValue({ figures: [{ key: 'revenue', value: 15000 }] });
+    renderPanel();
+    expect(await screen.findByText('15,000 IQD')).toBeTruthy();
+    expect(screen.queryByTestId('panel-online')).toBeNull();
+  });
+});
+
 describe('ManagementPanelScreen — Export', () => {
   it('pulls the transactions behind every figure into the file, not the totals alone', async () => {
     rpc.mockImplementation(async (fn: string, args: unknown) => {

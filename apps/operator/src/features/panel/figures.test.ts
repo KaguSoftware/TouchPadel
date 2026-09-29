@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIGURE_KEYS, FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsEmpty } from './figures';
+import { ALL_FIGURE_KEYS, FIGURE_KEYS, FIGURES, ONLINE_FIGURE_KEYS, figuresIn, figuresToCsvRows, hasOnlineFigures, mapFigures, panelIsEmpty } from './figures';
 
 describe('figure metadata', () => {
   it('covers the twelve panel figures, each in exactly one group', () => {
@@ -64,5 +64,38 @@ describe('figuresToCsvRows', () => {
   it('lets the screen word the group and the kind', () => {
     const m = mapFigures({ figures: [{ key: 'waste', value: 7 }] });
     expect(figuresToCsvRows(m, (k) => k, (g) => `G:${g}`, (k) => `K:${k}`)).toEqual([['waste', 'G:losses', 'K:money', 7, null, null, null, 'waste']]);
+  });
+});
+
+// Open matches (operator.md §5.19): panel_headline's seven online keys (0265).
+describe('the online group', () => {
+  it('holds the seven keys in panel order, after the thirteen, each in the online group', () => {
+    expect(ONLINE_FIGURE_KEYS).toEqual(['onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits', 'ticketLiability', 'matchWrittenOff']);
+    expect(figuresIn('online').map((f) => f.key)).toEqual([...ONLINE_FIGURE_KEYS]);
+    expect(ALL_FIGURE_KEYS).toEqual([...FIGURE_KEYS, ...ONLINE_FIGURE_KEYS]);
+    // The thirteen stay the thirteen: the export drills only those.
+    expect(FIGURE_KEYS).toHaveLength(13);
+  });
+  it('inverts refunds and written-off shares only, and marks the chain-wide figures', () => {
+    expect(ONLINE_FIGURE_KEYS.filter((k) => FIGURES[k].invert)).toEqual(['ticketRefunds', 'matchWrittenOff']);
+    expect(ONLINE_FIGURE_KEYS.filter((k) => FIGURES[k].chainWide)).toEqual(['ticketSales', 'ticketRefunds', 'ticketLiability']);
+  });
+  it('opens the courts report for tickets and match shares, revenue for deposits', () => {
+    expect(ONLINE_FIGURE_KEYS.map((k) => FIGURES[k].report)).toEqual([
+      '/reports/revenue',
+      '/reports/revenue',
+      '/reports/courts',
+      '/reports/courts',
+      '/reports/courts',
+      '/reports/courts',
+      '/reports/courts',
+    ]);
+  });
+  it('is mapped, exported and detected like any other figure', () => {
+    const m = mapFigures({ figures: [{ key: 'ticketSales', value: 80000 }, { key: 'revenue', value: 100 }] });
+    expect([...m.keys()]).toEqual(['ticketSales', 'revenue']);
+    expect(hasOnlineFigures(m)).toBe(true);
+    expect(hasOnlineFigures(mapFigures({ figures: [{ key: 'revenue', value: 100 }] }))).toBe(false);
+    expect(figuresToCsvRows(m, (k) => k).map((r) => r[0])).toEqual(['revenue', 'ticketSales']);
   });
 });

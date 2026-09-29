@@ -98,6 +98,25 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
+    id: 'open-matches',
+    title: 'legal.terms.openMatches.title',
+    blocks: [
+      {
+        kind: 'list',
+        items: [
+          { lead: 'legal.terms.openMatches.startLead', text: 'legal.terms.openMatches.start' },
+          { lead: 'legal.terms.openMatches.ticketsLead', text: 'legal.terms.openMatches.tickets' },
+          { lead: 'legal.terms.openMatches.refundLead', text: 'legal.terms.openMatches.refund' },
+          { lead: 'legal.terms.openMatches.shareLead', text: 'legal.terms.openMatches.share' },
+          { lead: 'legal.terms.openMatches.venueLead', text: 'legal.terms.openMatches.venue' },
+          { lead: 'legal.terms.openMatches.genderLead', text: 'legal.terms.openMatches.gender' },
+          { lead: 'legal.terms.openMatches.conductLead', text: 'legal.terms.openMatches.conduct' },
+          { lead: 'legal.terms.openMatches.deleteLead', text: 'legal.terms.openMatches.delete' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'cafe',
     title: 'legal.terms.cafe.title',
     blocks: [{ kind: 'list', items: ['legal.terms.cafe.order', 'legal.terms.cafe.allergens', 'legal.terms.cafe.pay'] }],

@@ -13,6 +13,7 @@ import type { Locale } from '@touch/i18n';
 import {
   DepositEdgeError,
   bodyErrorCode,
+  bodyErrorDetail,
   parseDepositBegin,
   parseDepositQuote,
   parseDepositStatus,
@@ -30,18 +31,21 @@ export async function depositQuote(client: Client, holdId: string): Promise<Depo
   return parseDepositQuote(data);
 }
 
-export type DepositEdgeFunction = 'deposit-begin' | 'deposit-status';
+export type DepositEdgeFunction = 'deposit-begin' | 'deposit-status' | 'ticket-begin';
 
 /**
  * Call a deposit edge function as the signed-in guest.
  *
- * A refusal (`{error: 'CODE'}` with a 4xx/5xx) becomes a DepositEdgeError whose
- * message is the code, so it maps through CODE_TO_KEY like an RPC refusal and
- * the query client never retries a decision. A request that never came back
+ * A refusal (`{error: 'CODE', detail?}` with a 4xx/5xx) becomes a
+ * DepositEdgeError whose message is the code, so it maps through CODE_TO_KEY
+ * like an RPC refusal and the query client never retries a decision. The
+ * open-match `ticket-begin` (features/matches/api.ts `ticketBegin`) is called
+ * through here too, so its `detail` (`TICKET_COUNT_INVALID` `wallet_limit`)
+ * rides on the same error. A request that never came back
  * rethrows the fetch's own error, so lib/network.ts classifies it as a
  * connection problem (the same split staff/api.ts callStaffEdge makes).
  */
-async function invokeDepositEdge(
+export async function invokeDepositEdge(
   client: Client,
   name: DepositEdgeFunction,
   body: Record<string, unknown>,
@@ -62,6 +66,7 @@ async function invokeDepositEdge(
     throw new DepositEdgeError(
       bodyErrorCode(payload),
       typeof response?.status === 'number' ? response.status : null,
+      bodyErrorDetail(payload),
     );
   }
   if (failure.name === 'FunctionsFetchError' && failure.context) throw failure.context;

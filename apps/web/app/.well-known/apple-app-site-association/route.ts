@@ -27,9 +27,10 @@ export function GET() {
         details: [
           {
             appID: APPLE_APP_ID,
-            // Only the auth paths. Scoping this narrowly means the app cannot
-            // be handed arbitrary links to the guest site — notably NOT /t/*,
-            // the table-session route, which must stay in the browser.
+            // Only the auth paths and the open-match invite /m/* (each bare
+            // and under /en and /ar). Scoping this narrowly means the app
+            // cannot be handed arbitrary links to the guest site — notably NOT
+            // /t/*, the table-session route, which must stay in the browser.
             paths: LINK_PATHS,
           },
         ],

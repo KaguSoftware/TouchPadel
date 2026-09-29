@@ -177,6 +177,8 @@ export interface CourtBookingRow {
   start_at: string;
   end_at: string;
   status: string;
+  /** With `guest_name`, tells an open match's booking (its name is the DB literal). Absent on an older row. */
+  guest_id?: string | null;
   guest_name: string | null;
   tabs: { id: string; status: string }[] | null;
 }

@@ -744,7 +744,20 @@ export function Modal({
 }
 
 /** Localized error line for a caught RPC/network error; renders nothing when error is null. */
-export function ErrorText({ error, style }: { error: unknown; style?: CSSProperties }) {
+export function ErrorText({
+  error,
+  message,
+  style,
+}: {
+  error: unknown;
+  /**
+   * The words to show instead of the code's generic line, when the caller
+   * knows more (an open-match refusal read from its detail, matchLogic.ts
+   * matchErrorText). Shown only while `error` is set.
+   */
+  message?: string | null;
+  style?: CSSProperties;
+}) {
   const { tr } = useLocale();
   if (error == null) return null;
   return (
@@ -765,7 +778,7 @@ export function ErrorText({ error, style }: { error: unknown; style?: CSSPropert
       }}
     >
       <Icon name="alert" size={16} style={{ marginBlockStart: '0.1rem' }} />
-      <span>{tr(errorToMessageKey(error))}</span>
+      <span>{message ?? tr(errorToMessageKey(error))}</span>
     </p>
   );
 }
@@ -858,7 +871,16 @@ export const REASON_CODES = [
   'expired',
   'other',
 ] as const;
-export type ReasonCode = (typeof REASON_CODES)[number];
+/**
+ * The open-match codes (docs/design/open-matches/operator.md §5.21), worded in
+ * op.reasons: a desk seat removal (conduct), a desk match cancel
+ * (court_needed), a seat write-off (walked_out) and a ban (no_shows,
+ * reported). Kept out of REASON_CODES on purpose: that list is the default of
+ * every prompt that passes none (ManagerActions), and these are offered only
+ * where a match asks for them.
+ */
+export const MATCH_REASON_CODES = ['conduct', 'court_needed', 'walked_out', 'no_shows', 'reported'] as const;
+export type ReasonCode = (typeof REASON_CODES)[number] | (typeof MATCH_REASON_CODES)[number];
 
 /**
  * PIN + reason modal shared by discount / void / refund flows.

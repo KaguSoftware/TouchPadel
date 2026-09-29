@@ -12,11 +12,22 @@
  * tapped slot is dropped. `findPaymentToResume` claims the ref, so the root
  * resume hook cannot open the same screen a second time.
  *
+ * THEN AN OPEN-MATCH INTENT (docs/design/open-matches/guest.md §4.18): a link
+ * opened signed out goes to its invite, a chip to the list at that time, a
+ * start to the new-match form, the entry row to the list on that night.
+ * Signing in never joins by itself (GD-2): the guest sees the match, with its
+ * gender ask, tickets and refusals, and taps once. A pending slot outranks it
+ * (both cannot normally be set; the later tap wins its own store only).
+ *
  * A PHONE NOBODY HAS VERIFIED STOPS THE HOLD (owner, 2026-09-27). With a slot
  * pending, the account's confirmed auth phone must be its profile phone
  * (bookingGateState); otherwise the guest goes to /phone-sign-in in continue
  * mode with the slot still pending, and verify-otp comes back here once the
  * code lands. A read that fails proceeds — Review re-checks before Reserve.
+ * The same gate stands before an open-match intent that ends in a court
+ * booking (owner, 2026-09-29: a start, a chip's or an invite's join;
+ * `intentBooksCourt`), with the intent still pending through it — the match
+ * screen re-checks before Start or Join. The list is browsing and opens as it is.
  *
  * The pending intent is PEEKED here and cleared only once the hold settles.
  * Taking it up front emptied the store while the RPC was in flight, so
@@ -29,11 +40,19 @@ import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
 import { useHoldSlot } from './hooks';
 import { clearPendingSlot, getPendingSlot, type PendingSlot } from './pendingSlot';
+import { clearPendingIntents } from './pendingIntent';
+import {
+  clearPendingJoin,
+  getPendingJoin,
+  intentBooksCourt,
+  pendingJoinHref,
+  type PendingJoin,
+} from '../matches/pendingJoin';
 import { requestBookingSheet } from '../courtTransition/openIntent';
 import { findPaymentToResume } from '../deposit/hooks';
 import { supabase } from '../../lib/supabase';
 import { fetchOwnProfile } from '../profile/api';
-import { bookingGateState, type BookingGate } from '../auth/social';
+import { bookingGateHref, bookingGateState, type BookingGate } from '../auth/social';
 
 /** Read fresh, not from a cache: this runs straight after a sign-in or a profile save. */
 async function readBookingGate(): Promise<{ gate: BookingGate; phone: string }> {
@@ -94,24 +113,31 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
     );
   }, [mutate, router, t, toast]);
 
+  const openJoin = useCallback((join: PendingJoin) => {
+    router.replace(pendingJoinHref(join));
+    // After navigation, so the signed-out gate's exemption holds until we are gone.
+    clearPendingJoin();
+  }, [router]);
+
   const continueWithSlot = useCallback(() => {
     const pending = getPendingSlot();
-    if (!pending) {
+    const join = pending ? null : getPendingJoin();
+    if (!pending && !join) {
       router.replace('/(tabs)');
       return;
     }
+    // The list is browsing: nothing to gate.
+    if (join && !intentBooksCourt(join)) {
+      openJoin(join);
+      return;
+    }
     void readBookingGate().then(({ gate, phone }) => {
-      if (gate === 'incomplete') {
-        router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
-        return;
-      }
-      if (gate === 'unverified') {
-        router.replace({ pathname: '/phone-sign-in', params: { returnTo: 'continue', phone } });
-        return;
-      }
-      holdPending(pending);
+      const stop = bookingGateHref(gate, phone);
+      if (stop) router.replace(stop);
+      else if (pending) holdPending(pending);
+      else if (join) openJoin(join);
     });
-  }, [holdPending, router]);
+  }, [holdPending, openJoin, router]);
 
   const continueAfterAuth = useCallback(() => {
     void findPaymentToResume().then((resume) => {
@@ -122,7 +148,7 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
         // screen then has the tabs beneath it, and its "Leave" goes to My
         // reservations either way.
         router.push({ pathname: '/pay/status', params: { ref: resume } });
-        clearPendingSlot();
+        clearPendingIntents();
         return;
       }
       continueWithSlot();

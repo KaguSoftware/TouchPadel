@@ -1273,13 +1273,15 @@ export function slotTestID(prefix: string, cell: MergedCell): string {
  * handler is `(cell) => void` and not `() => void`: an `onPress={() => tap(cell)}`
  * at the call site is a new function on every render and would defeat it on its
  * own. The other props are the cell (a stable object off the memoised grid) and
- * three strings, which compare by value.
+ * strings, which compare by value — `matchLine` included, so a chip that did
+ * not change skips its cell when the open-match answer is polled.
  */
 export const SlotCell = memo(function SlotCell({
   cell,
   time,
   sub,
   capacityLine,
+  matchLine,
   onPress,
   compact = false,
   width,
@@ -1292,6 +1294,13 @@ export const SlotCell = memo(function SlotCell({
   sub: string;
   /** "2 courts free" / "1 court left" — empty when not free. */
   capacityLine: string;
+  /**
+   * An open match at this time ("1 seat left · Join", "Your match · 3/4";
+   * docs/design/open-matches/guest.md §4.11 rule 4), in the third line a lane
+   * cell leaves empty, and read out after the time and price. Empty or absent:
+   * nothing is drawn and the cell is exactly as before.
+   */
+  matchLine?: string;
   /** Handed the cell it was pressed on — see the note above on why. */
   onPress?: (cell: MergedCell) => void;
   /**
@@ -1313,20 +1322,24 @@ export const SlotCell = memo(function SlotCell({
   const { colors, fonts, tracking } = useTheme();
   const visual = slotStateStyles(colors)[cell.state === 'free' ? 'available' : cell.state];
   const tappable = cell.state === 'free' || cell.state === 'blocked' || cell.state === 'horizon';
+  // A third line has to fit the lane's 60 pt row, so the padding gives way to
+  // it rather than the cell (and with it the court card) growing taller.
+  const pad = compact ? (matchLine ? 3 : 9) : 11;
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={matchLine ? `${time}, ${sub}, ${matchLine}` : undefined}
       accessibilityState={{ disabled: !tappable }}
       disabled={!tappable}
       onPress={onPress ? () => onPress(cell) : undefined}
       style={({ pressed }) => ({
         ...(width === undefined ? { flex: 1 } : { width }),
         alignItems: 'center',
-        gap: 2,
+        gap: matchLine ? 1 : 2,
         justifyContent: 'center',
-        paddingTop: compact ? 9 : 11,
-        paddingBottom: compact ? 9 : 11,
+        paddingTop: pad,
+        paddingBottom: pad,
         paddingStart: 4,
         paddingEnd: 4,
         minHeight: compact ? 60 : 58,
@@ -1379,6 +1392,21 @@ export const SlotCell = memo(function SlotCell({
           }}
         >
           {capacityLine}
+        </Text>
+      ) : null}
+      {matchLine ? (
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          style={{
+            fontFamily: fonts.body800,
+            fontSize: 9.5,
+            letterSpacing: tracking(0.2),
+            color: colors.blue,
+          }}
+        >
+          {matchLine}
         </Text>
       ) : null}
     </Pressable>
@@ -1493,6 +1521,7 @@ export function CourtLaneRow({
   cellWidth,
   timeFor,
   subFor,
+  matchLineFor,
   onPress,
   resetKey,
   testID,
@@ -1507,6 +1536,13 @@ export function CourtLaneRow({
   cellWidth: number;
   timeFor: (cell: MergedCell) => string;
   subFor: (cell: MergedCell) => string;
+  /**
+   * The open-match chip for a cell, '' for none (guest.md §4.11 rule 4). Its
+   * identity follows the chips' answer, and each cell gets a plain string, so
+   * a poll re-renders only the cells whose chip changed. Absent while the
+   * branch has open matches off: no chip, no work.
+   */
+  matchLineFor?: (cell: MergedCell) => string;
   onPress: (cell: MergedCell) => void;
   /** Prefix for the cells: each is `${testID}.<courtId>-<startMin>` (slotTestID). */
   testID: string;
@@ -1651,6 +1687,7 @@ export function CourtLaneRow({
                 time={timeFor(cell)}
                 sub={subFor(cell)}
                 capacityLine=""
+                matchLine={matchLineFor?.(cell)}
                 onPress={onCellPress}
               />
             </Animated.View>
@@ -1658,6 +1695,58 @@ export function CourtLaneRow({
         })}
       </Animated.ScrollView>
     </View>
+  );
+}
+
+/**
+ * The booking sheet's way into the open matches list (docs/design/open-matches/
+ * guest.md §4.11): one row under the court cards, in the same glass wash, with
+ * the words the caller built ("3 open matches coming up · Join", "Open
+ * matches", "Open matches · Sign in"). `book.sheet.open-matches` on the Book
+ * tab. The caller mounts it only while the branch has open matches on.
+ */
+export function MatchEntryRow({
+  label,
+  onPress,
+  testID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  const { colors, fonts, appearance } = useTheme();
+  const dark = appearance === 'dark';
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        minHeight: 40,
+        paddingStart: 10,
+        paddingEnd: 10,
+        borderRadius: 14,
+        backgroundColor: withAlpha(colors.card, dark ? 0.35 : 0.6),
+        borderWidth: 1,
+        borderColor: withAlpha(colors.line, dark ? 0.5 : 0.9),
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
+    >
+      <PadelBallIcon size={16} />
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        style={{ flex: 1, fontFamily: fonts.body800, fontSize: 12, color: colors.blue }}
+      >
+        {label}
+      </Text>
+      <ChevronIcon size={13} color={colors.fnt2} strokeWidth={2.4} />
+    </Pressable>
   );
 }
 

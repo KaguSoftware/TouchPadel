@@ -41,6 +41,27 @@ describe('RESULT_INVALIDATIONS', () => {
       for (const key of RESERVATION_LIST_KEYS) expect(keys, type).toContain(serialize(key));
     }
   });
+
+  it('booking and bill writes refresh every open-match read through the family root (operator.md §5.4)', () => {
+    // A booking can bump a filling match, a cancel or move cascades to one, and
+    // the booking-level bill moves a match's unassigned money and seat owed.
+    const touching = [
+      'reservation.create',
+      'reservation.update',
+      'tab.open',
+      'tab.settle',
+      'payment.record',
+      'tab.cancel',
+      'tab.settle_zero',
+      'payment.refund',
+    ];
+    for (const type of MUTATION_TYPES) {
+      const keys = RESULT_INVALIDATIONS[type]!.map(serialize);
+      expect(keys.includes(serialize(QK.deskMatches.all)), type).toBe(touching.includes(type));
+    }
+    // The family root is a registry root, so the "registry keys only" rule holds.
+    expect(registryRoots()).toContain(serialize(QK.deskMatches.all));
+  });
 });
 
 describe('awaitResult', () => {

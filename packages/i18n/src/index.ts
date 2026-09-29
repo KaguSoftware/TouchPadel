@@ -18,5 +18,7 @@ export {
   VENUE_TZ,
 } from './formatting';
 export { isolate, isolateLtr, dirAttr, FSI, PDI, LRI } from './bidi';
+export { pluralForm, countPhrase, PLURAL_FORMS } from './plural';
+export type { PluralForm, CountKey } from './plural';
 export { isRtl, dir, oppositeDir, logicalSign } from './rtl';
 export type { Direction } from './rtl';

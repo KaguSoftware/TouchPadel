@@ -27,6 +27,14 @@
  * window, the figures, and every transaction behind every figure (the drill
  * rows, read in full — see exportAll.ts). It used to write the thirteen
  * totals and nothing else.
+ *
+ * Open matches (docs/design/open-matches/operator.md §5.19): a fourth panel,
+ * "Online money and open matches", holds panel_headline's seven online keys
+ * (deposits, ticket sales, refunds, forfeits and liability, written-off match
+ * shares) and is left out when the server sent none (before 0265). The ticket
+ * sales, refunds and liability are counted at every branch whatever the scope,
+ * and say so. A row opens its report: report_drill has no transactions for
+ * these, so they are never drilled.
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -59,7 +67,7 @@ import { DrillDialog } from '../reports/DrillDialog';
 import { FigureGroup } from '../reports/FigureGroup';
 import { readDrill } from '../reports/reportPayloads';
 import { LiveFloor } from '../floor/LiveFloor';
-import { FIGURES, figuresIn, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
+import { FIGURES, figuresIn, hasOnlineFigures, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
@@ -228,6 +236,22 @@ export function ManagementPanelScreen() {
           <Panel title={tr('ws.owner.panel.losses')} padded={false} className="tp-figure-panel" style={FIGURE_PANEL_STRIP}>
             <FigureRows metas={figuresIn('losses')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
           </Panel>
+          {hasOnlineFigures(figures) && (
+            <Panel title={tr('ws.owner.panel.online')} padded={false} className="tp-figure-panel" style={FIGURE_PANEL_STRIP} data-testid="panel-online">
+              <FigureRows
+                metas={figuresIn('online')}
+                figures={figures}
+                compare={compare}
+                label={label}
+                valueOf={valueOf}
+                money={money}
+                count={count}
+                onDrill={setDrill}
+                onOpen={(meta) => go(meta.report)}
+                hintOf={(meta) => (meta.chainWide ? tr('ws.matches.reports.allBranches') : undefined)}
+              />
+            </Panel>
+          )}
         </div>
 
         <nav aria-label={tr('ws.owner.panel.otherReports')} style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center', marginBlockStart: 'var(--tp-sp-4)' }}>
@@ -260,6 +284,8 @@ function FigureRows({
   money,
   count,
   onDrill,
+  onOpen,
+  hintOf,
 }: {
   metas: readonly FigureMeta[];
   figures: ReadonlyMap<FigureKey, HeadlineFigureRow>;
@@ -269,6 +295,10 @@ function FigureRows({
   money: (n: number) => string;
   count: (n: number) => string;
   onDrill: (key: FigureKey) => void;
+  /** Open the figure's report instead of a drill window (the online group, which report_drill cannot list). */
+  onOpen?: (meta: FigureMeta) => void;
+  /** A second muted line under the label ("All branches"). */
+  hintOf?: (meta: FigureMeta) => string | undefined;
 }) {
   const { tr } = useLocale();
   const row: CSSProperties = {
@@ -290,10 +320,12 @@ function FigureRows({
       {metas.map((meta) => {
         const f = figures.get(meta.key);
         const drillable = Boolean(f);
+        const hint = hintOf?.(meta);
         const body = (
           <>
             <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
               <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label(meta.key)}</span>
+              {hint && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>}
               {compare !== 'none' && f && (
                 <ComparisonDelta changeAbs={f.changeAbs} changePct={f.changePct} format={meta.kind === 'money' ? money : count} invert={meta.invert} />
               )}
@@ -316,7 +348,14 @@ function FigureRows({
               on something that cannot answer.
             */}
             {drillable ? (
-              <button type="button" className="tp-row" data-clickable="true" onClick={() => onDrill(meta.key)} title={tr('ws.kit.drill.title')} style={{ ...row, cursor: 'pointer' }}>
+              <button
+                type="button"
+                className="tp-row"
+                data-clickable="true"
+                onClick={() => (onOpen ? onOpen(meta) : onDrill(meta.key))}
+                title={onOpen ? undefined : tr('ws.kit.drill.title')}
+                style={{ ...row, cursor: 'pointer' }}
+              >
                 {body}
               </button>
             ) : (

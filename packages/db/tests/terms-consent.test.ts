@@ -63,6 +63,29 @@ describe.skipIf(!up)('0153 accept_terms', () => {
     expect((await ownConsent(guest)).terms_version).toBe(`${VERSION}.2`);
   });
 
+  it('0257: an older version never replaces a newer one on record (an old build on a second device)', async () => {
+    const guest = await guestClient(svc, 'terms-back');
+    expect(outcome(await appRpc(guest, 'accept_terms', { p_version: '2026-09-29' })).ok).toBe(true);
+    const newer = await ownConsent(guest);
+    const back = await appRpc(guest, 'accept_terms', { p_version: VERSION });
+    expect(back.error).toBeNull();
+    // It answers what is on record, and moves neither column.
+    expect(back.data).toEqual(newer);
+    expect(await ownConsent(guest)).toEqual(newer);
+    // The same version again, or a newer one, still records (and re-stamps).
+    expect(outcome(await appRpc(guest, 'accept_terms', { p_version: '2026-09-29.1' })).ok).toBe(true);
+    expect((await ownConsent(guest)).terms_version).toBe('2026-09-29.1');
+  });
+
+  it('0257: revisions compare as numbers, as match_terms_ok does (.10 outranks .9)', async () => {
+    const guest = await guestClient(svc, 'terms-rev-order');
+    expect(outcome(await appRpc(guest, 'accept_terms', { p_version: '2026-09-29.10' })).ok).toBe(true);
+    expect(outcome(await appRpc(guest, 'accept_terms', { p_version: '2026-09-29.9' })).ok).toBe(true);
+    expect((await ownConsent(guest)).terms_version).toBe('2026-09-29.10');
+    expect(outcome(await appRpc(guest, 'accept_terms', { p_version: '2026-09-30' })).ok).toBe(true);
+    expect((await ownConsent(guest)).terms_version).toBe('2026-09-30');
+  });
+
   it('refuses a missing or free-text version with VERSION_INVALID', async () => {
     const guest = await guestClient(svc, 'terms-bad');
     for (const p_version of [null, '', 'yes', '2026-9-23', "2026-09-23'; drop table profiles; --"]) {

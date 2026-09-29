@@ -213,7 +213,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     scope: 'money',
     kind: 'aggregate',
     description:
-      'The management panel headline figures for a date range: revenue, padel revenue, cafe revenue and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows; optionally against a comparison period. Prefer this for any "how much did we make" question.',
+      'The management panel headline figures for a date range: revenue, padel revenue, cafe revenue and net, cash, card, bookings, orders, average order value, discounts, refunds, waste, no-shows, ticket sales, refunds, forfeits and liability, online deposits, written-off match shares; optionally against a comparison period. Prefer this for any "how much did we make" question.',
     route: '/panel',
     rpc: 'panel_headline',
     args: {
@@ -431,7 +431,7 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     name: 'report_courts',
     scope: 'courts',
     kind: 'aggregate',
-    description: 'The courts report for a range: bookings, hours booked, revenue per court, occupancy, cancellations, no-shows.',
+    description: 'The courts report for a range: bookings, hours booked, revenue per court, occupancy, cancellations, no-shows, and an open matches block (match bookings, their court money paid at the desk and written off, no-show seats, call-offs, tickets lost at the branch).',
     route: '/reports/courts',
     rpc: 'report_courts',
     args: { ...RANGE, filters: FILTERS },
@@ -530,7 +530,11 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     route: '/desk',
     rpc: 'booking_bill',
     args: { id: { type: 'id', description: 'Booking id or handle.', required: true, param: 'p_reservation_id' } },
-    result: { rows_path: null, id_keys: ['id', 'reservation_id', 'tab_id', 'court_id', 'guest_id'] },
+    result: {
+      rows_path: null,
+      // 0262: the open-match block, its seat rows and the unassigned payments.
+      id_keys: ['id', 'reservation_id', 'tab_id', 'court_id', 'guest_id', 'match_id', 'seat_id', 'payment_id'],
+    },
     core: false,
     tokens_per_row: null,
   },

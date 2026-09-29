@@ -122,3 +122,45 @@ export function staffIntentKey(intent: string, mutation: StaffMutation): string 
 export function clearStaffIntentKey(intent: string): void {
   staffIntentKeys.delete(intent);
 }
+
+/**
+ * Open matches (docs/design/open-matches/guest.md §4.23). `match_start` is the
+ * only guest match call that takes `p_idempotency_key`; every other match
+ * write is state-idempotent on the server and takes no key.
+ *
+ * The one intent is `start:<venueId>|<courtId>|<startAt>|<durationMin>`
+ * (`matchStartIntent`, features/matches/logic.ts). Its key survives the
+ * refusals the guest fixes and retries (NEED_TICKETS, GENDER_REQUIRED,
+ * PHONE_REQUIRED, TERMS_REQUIRED, PRICE_CHANGED) and the ticket continuation,
+ * which replays the same start after a purchase: a refused start created no
+ * match with that key, so the key is unspent. It is cleared on success and on
+ * any other refusal.
+ */
+export function matchIdemKey(): string {
+  return `MOBILE:match.start:${ulid()}`;
+}
+
+const matchIntentKeys = new Map<string, string>();
+
+/** Stable key for one start intent, the `idemKeyFor` rule. */
+export function matchIntentKey(intent: string): string {
+  const existing = matchIntentKeys.get(intent);
+  if (existing) return existing;
+  const key = matchIdemKey();
+  matchIntentKeys.set(intent, key);
+  return key;
+}
+
+/** Drop the start intent's key once the start has succeeded or been refused for good. */
+export function clearMatchIntentKey(intent: string): void {
+  matchIntentKeys.delete(intent);
+}
+
+/**
+ * Forget every start key on sign-out: the next account on this phone would
+ * otherwise send the last one's key for the same slot and meet
+ * IDEMPOTENCY_CONFLICT.
+ */
+export function clearAllMatchIntentKeys(): void {
+  matchIntentKeys.clear();
+}

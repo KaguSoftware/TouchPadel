@@ -26,6 +26,7 @@ import { Switch } from '../../../components/Switch';
 import { Button, ErrorText, Field, Skeleton, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { DepositSettingsPanel } from '../../deposits/DepositSettingsPanel';
+import { MatchSettingsPanel } from './MatchSettingsPanel';
 import { TAX_GROUPS_KEY, VENUE_ADMIN_KEY, bpToPercent, fetchTaxGroups, fetchVenueAdmin, type TaxGroupRow, type VenueAdminRow } from './venueQueries';
 import { DevicesPanel } from './DevicesPanel';
 import { StationsPanel } from './StationsPanel';
@@ -89,7 +90,16 @@ export function VenueDetailsTab() {
       <AsyncStateWrapper status={asyncStatus(venueQ, () => false)} error={venueQ.error} onRetry={() => void venueQ.refetch()} skeleton={<Skeleton lines={6} />}>
         {venueQ.data &&
           (canEdit ? (
-            <VenueForm saved={venueQ.data} afterRules={<DepositSettingsPanel canEdit />} />
+            <VenueForm
+              saved={venueQ.data}
+              afterRules={
+                <>
+                  <DepositSettingsPanel canEdit />
+                  {/* Open matches (operator.md §5.16): own draft, own Save. */}
+                  <MatchSettingsPanel canEdit />
+                </>
+              }
+            />
           ) : (
             <>
               <Panel title={tr('ws.owner.settings.details.venueTitle')}>
@@ -124,6 +134,7 @@ export function VenueDetailsTab() {
                 />
               </Panel>
               <DepositSettingsPanel canEdit={false} />
+              <MatchSettingsPanel canEdit={false} />
               <Panel title={tr('ws.owner.settings.details.offlineTitle')}>
                 <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.owner.settings.details.offlineLead')}</p>
                 <Facts

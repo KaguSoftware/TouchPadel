@@ -57,6 +57,14 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): T | null =>
 const modeOf = (v: unknown): DepositMode =>
   v === 'optional' || v === 'required' ? v : 'off';
 
+/**
+ * What a `booking_payments` row pays for (open matches, money.md §5.5): a
+ * court deposit, or open-match tickets (docs/design/open-matches/guest.md
+ * §4.10.4). A row from before 0259, or any value this build does not know, is
+ * a deposit.
+ */
+export type PaymentPurpose = 'deposit' | 'ticket';
+
 // ── app.deposit_quote ───────────────────────────────────────────────────────
 
 export interface ActiveAttempt {
@@ -189,6 +197,15 @@ export interface DepositStatus {
   holdLive: boolean;
   reservation: PaymentReservation | null;
   serverNow: string | null;
+  /**
+   * Absent means `deposit`: `parseDepositStatus` always sets it, and a status
+   * built anywhere else (a test's fixture, a pre-0259 shape) is one.
+   */
+  purpose?: PaymentPurpose;
+  /** A ticket purchase's count (1..3); null on a deposit. */
+  ticketCount?: number | null;
+  /** A ticket purchase's price per ticket; null on a deposit. */
+  unitPriceIqd?: number | null;
 }
 
 /** Parse deposit-status's 200 (the `deposit_status` jsonb). Throws without a ref. */
@@ -227,7 +244,15 @@ export function parseDepositStatus(json: unknown): DepositStatus {
         }
       : null,
     serverNow: str(o.server_now),
+    purpose: o.purpose === 'ticket' ? 'ticket' : 'deposit',
+    ticketCount: int(o.ticket_count),
+    unitPriceIqd: int(o.unit_price_iqd),
   };
+}
+
+/** A ticket purchase, not a deposit (§4.10.4): no hold, no reservation, no desk. */
+export function isTicketPayment(s: Pick<DepositStatus, 'purpose'> | null | undefined): boolean {
+  return s?.purpose === 'ticket';
 }
 
 /**
@@ -247,19 +272,24 @@ export function holdIdOf(s: DepositStatus, fallback: string | null): string | nu
 // ── Edge refusals ───────────────────────────────────────────────────────────
 
 /**
- * A refused deposit-begin / deposit-status call. The message IS the body's
- * code, as a PostgREST refusal's is, so `mapErrorToKey`, the telemetry and the
- * query client's retry policy all read it the same way.
+ * A refused deposit-begin / deposit-status / ticket-begin call. The message IS
+ * the body's code, as a PostgREST refusal's is, so `mapErrorToKey`, the
+ * telemetry and the query client's retry policy all read it the same way.
+ * `detail` is the body's `detail` when the SQL refusal carried one
+ * (`TICKET_COUNT_INVALID` `wallet_limit`, guest.md §4.10.2); `rpcErrorDetail`
+ * (features/booking/errors.ts) reads it.
  */
 export class DepositEdgeError extends Error {
   readonly code: string | null;
   readonly status: number | null;
+  readonly detail: string | null;
 
-  constructor(code: string | null, status: number | null) {
+  constructor(code: string | null, status: number | null, detail: string | null = null) {
     super(code ?? 'edge function failed');
     this.name = 'DepositEdgeError';
     this.code = code;
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -270,6 +300,43 @@ export function bodyErrorCode(body: unknown): string | null {
     if (typeof code === 'string' && code.trim()) return code.trim();
   }
   return null;
+}
+
+/** The `detail` of an edge function's refusal body (`{error, detail}`), or null. */
+export function bodyErrorDetail(body: unknown): string | null {
+  if (body && typeof body === 'object' && 'detail' in body) {
+    const detail = (body as { detail: unknown }).detail;
+    if (typeof detail === 'string' && detail.trim()) return detail.trim();
+  }
+  return null;
+}
+
+/**
+ * Where a refused `ticket-begin` sends the guest (guest.md §4.10.1):
+ *  phone            /complete-profile?returnTo=back
+ *  terms            /accept-terms, or `matches.errors.updateApp` on a build whose
+ *                   terms are already accepted (the screen reads the consent)
+ *  walletLimit      `matches.errors.walletLimit` (TICKET_COUNT_INVALID `wallet_limit`)
+ *  tooManyAttempts  `matches.tickets.tooManyAttempts` (the deposit's own line
+ *                   names a slot, which a ticket has not)
+ *  inline           the refusal's own copy, through `mapErrorToKey`
+ */
+export type TicketBeginRefusal = 'phone' | 'terms' | 'walletLimit' | 'tooManyAttempts' | 'inline';
+
+export function ticketBeginRefusalOf(err: unknown): TicketBeginRefusal {
+  if (!(err instanceof DepositEdgeError)) return 'inline';
+  switch (err.code) {
+    case 'PHONE_REQUIRED':
+      return 'phone';
+    case 'TERMS_REQUIRED':
+      return 'terms';
+    case 'TOO_MANY_ATTEMPTS':
+      return 'tooManyAttempts';
+    case 'TICKET_COUNT_INVALID':
+      return err.detail === 'wallet_limit' ? 'walletLimit' : 'inline';
+    default:
+      return 'inline';
+  }
 }
 
 /** How a status fetch failed, as far as the screen is concerned. */
@@ -310,6 +377,8 @@ export type PayScreen =
   | { kind: 'confirmed' }
   /** succeeded on a booking that has since been played or closed. */
   | { kind: 'paid' }
+  /** succeeded on a ticket purchase: `count` tickets are in the wallet (§4.10.4). */
+  | { kind: 'ticketsBought'; count: number }
   | {
       kind: 'failed';
       reason: FailureCode | null;
@@ -353,14 +422,13 @@ export function screenFor({ status, failure, nowMs }: ScreenInput): PayScreen {
 
   const s = status.status;
   if (s === null) return { kind: 'stillChecking' };
+  // A ticket has no reservation, so the deposit switch below would read its
+  // success as "still checking" for ever: it is decided first (§4.10.4).
+  if (status.purpose === 'ticket') return ticketScreenFor(status, s, nowMs);
   switch (s) {
     case 'created':
-    case 'pending': {
-      const deadline = status.deadlineAt ? Date.parse(status.deadlineAt) : NaN;
-      return Number.isFinite(deadline) && nowMs > deadline
-        ? { kind: 'stillChecking' }
-        : { kind: 'checking' };
-    }
+    case 'pending':
+      return openScreen(status, nowMs);
     case 'succeeded': {
       const r = status.reservation;
       if (r?.kind === 'booking' && r.status && LIVE_BOOKING.has(r.status)) return { kind: 'confirmed' };
@@ -397,6 +465,49 @@ export function screenFor({ status, failure, nowMs }: ScreenInput): PayScreen {
       return { kind: 'refundFailed' };
     default: {
       // A status added to PAYMENT_STATUSES without a screen fails to compile here.
+      const unreachable: never = s;
+      return unreachable;
+    }
+  }
+}
+
+/** The window still open reads checking; past it and still unsettled, still checking. */
+function openScreen(status: DepositStatus, nowMs: number): PayScreen {
+  const deadline = status.deadlineAt ? Date.parse(status.deadlineAt) : NaN;
+  return Number.isFinite(deadline) && nowMs > deadline ? { kind: 'stillChecking' } : { kind: 'checking' };
+}
+
+/**
+ * The ticket half of `screenFor` (guest.md §4.10.4). No hold is ever live, so
+ * a failure can only be tried again (while attempts are left) or left, never
+ * paid at the desk; and a refund is never `slotLost`: `amount_mismatch` is in
+ * SLOT_LOST_REASONS, and it is the one refund a fresh purchase can show.
+ */
+function ticketScreenFor(status: DepositStatus, s: PaymentStatus, nowMs: number): PayScreen {
+  switch (s) {
+    case 'created':
+    case 'pending':
+      return openScreen(status, nowMs);
+    case 'succeeded':
+      return { kind: 'ticketsBought', count: Math.max(0, status.ticketCount ?? 0) };
+    case 'failed':
+      return {
+        kind: 'failed',
+        reason: status.failureCode,
+        holdLive: false,
+        canRetry: status.attemptsLeft > 0,
+        canPayAtDesk: false,
+        outOfAttempts: status.attemptsLeft <= 0,
+      };
+    case 'expired':
+      return { kind: 'expired' };
+    case 'refund_pending':
+      return { kind: 'refundPending' };
+    case 'refunded':
+      return { kind: 'refunded' };
+    case 'refund_failed':
+      return { kind: 'refundFailed' };
+    default: {
       const unreachable: never = s;
       return unreachable;
     }

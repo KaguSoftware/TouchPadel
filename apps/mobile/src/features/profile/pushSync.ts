@@ -13,6 +13,7 @@
  */
 
 import { isStaffPushRoute, staffPushHref, type StaffHref } from '../staff/pushRoutes';
+import { isGuestPushRoute } from '../matches/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
 
 /** What a registration attempt concluded. See PushRegistrationResult. */
@@ -93,11 +94,17 @@ export function shouldRouteTap(args: { id: string | null; handled: ReadonlySet<s
   return !args.handled.has(args.id);
 }
 
-/** What a tapped notification's data may carry: a booking kind's reservation, or a staff kind's route. */
+/**
+ * What a tapped notification's data may carry: a booking kind's reservation,
+ * or a staff or guest kind's route.
+ */
 export interface PushTapData {
   kind?: unknown;
   reservation_id?: unknown;
-  /** Staff kinds only (send-push, build-contracts-2026-09-23 §2.21). */
+  /**
+   * Staff kinds (send-push, build-contracts-2026-09-23 §2.21) and the guest
+   * open-match kinds (`match`, `tickets`; docs/design/open-matches/guest.md §4.21).
+   */
   route?: unknown;
   id?: unknown;
 }
@@ -105,11 +112,22 @@ export interface PushTapData {
 export type TapDestination =
   | { kind: 'reservation'; id: string }
   | { kind: 'staff'; href: StaffHref }
+  | { kind: 'match'; id: string }
+  | { kind: 'tickets' }
   | null;
 
-/** A staff kind: its data names a route (the booking kinds never do). */
+/** A guest open-match kind: its route is one of features/matches/pushRoutes.ts's. */
+export function isGuestTap(data: PushTapData | undefined): boolean {
+  return isGuestPushRoute(data?.route);
+}
+
+/**
+ * A staff kind: its data names a route (the booking kinds never do) that is
+ * not a guest route. Without the second half a guest push would wait on the
+ * staff status and, on a guest's phone, open nothing.
+ */
 export function isStaffTap(data: PushTapData | undefined): boolean {
-  return data?.route !== undefined && data?.route !== null;
+  return data?.route !== undefined && data?.route !== null && !isGuestTap(data);
 }
 
 /**
@@ -125,6 +143,9 @@ export function isStaffTap(data: PushTapData | undefined): boolean {
  * this build does not know, opens nothing. A booking kind opens its booking as
  * it always has. Called with the data alone, it answers the booking half, the
  * reservation id, as it always did.
+ *
+ * A guest open-match kind is answered first, whatever the status: `match`
+ * with an id opens that match, `tickets` the wallet (guest.md §4.21).
  */
 export function tapDestination(data: PushTapData | undefined): string | null;
 export function tapDestination(data: PushTapData | undefined, status: StaffStatusKind): TapDestination;
@@ -135,6 +156,13 @@ export function tapDestination(
   const id = data?.reservation_id;
   const reservationId = typeof id === 'string' && id ? id : null;
   if (status === undefined) return reservationId;
+  // A guest open-match kind opens whatever the staff status: its match (the
+  // tabs, i.e. nothing, when a `match` push names none) or the wallet.
+  if (isGuestTap(data)) {
+    if (data?.route === 'tickets') return { kind: 'tickets' };
+    const target = typeof data?.id === 'string' && data.id ? data.id : null;
+    return target ? { kind: 'match', id: target } : null;
+  }
   if (isStaffTap(data)) {
     const route = data?.route;
     if (status !== 'staff' || !isStaffPushRoute(route)) return null;

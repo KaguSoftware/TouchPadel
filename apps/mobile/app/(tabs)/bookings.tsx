@@ -4,6 +4,7 @@ import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import {
+  countPhrase,
   formatDate,
   formatIQD,
   formatTime,
@@ -17,16 +18,22 @@ import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks'
 import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import {
   cancelActorLabel,
-  cancelledBookings,
-  playedGames,
   secondsUntil,
-  splitBookings,
   startProximity,
-  visiblePast,
   type BookingRow,
   type StartProximity,
 } from '../../src/features/booking/logic';
 import { useHistoryClearedAt } from '../../src/features/booking/history';
+import { matchLineOf, matchPillStatus, matchShareOf } from '../../src/features/booking/matchRows';
+import { useMyMatches, useMyTickets } from '../../src/features/matches/hooks';
+import {
+  SEATS_TOTAL,
+  mergeReservationLists,
+  type MyMatchRow,
+  type ReservationItem,
+} from '../../src/features/matches/logic';
+import type { GuestState } from '../../src/features/matches/state';
+import { MatchRow } from '../../src/components/match';
 import { onlinePaymentOf, openPaymentRef, refundNoteKey } from '../../src/features/deposit/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
@@ -53,8 +60,10 @@ import {
   CalendarIcon,
   CheckIcon,
   ChevronIcon,
+  ClockIcon,
   CloseIcon,
   PadelBallIcon,
+  ReceiptIcon,
   StopwatchIcon,
 } from '../../src/components/icons';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
@@ -119,6 +128,16 @@ const PAST_TABS = new Set<Tab>(['played', 'cancelled']);
  * and the 9 px between cards, which is a texture nobody asked a booking list
  * for. On the card it lands where the eye is already going, and the list below
  * is left alone to be a list.
+ *
+ * OPEN MATCHES (docs/design/open-matches/guest.md §4.16) join the same lists,
+ * merged by `mergeReservationLists` (features/matches/logic.ts): a match still
+ * filling (asked, in, waiting for a court, left late before the start) has its
+ * own section right after HELD, with the ticket wallet's line under its
+ * heading; a booked or checked-in match is an Upcoming row (and may be the
+ * hero); a played one is Played, a cancelled or bumped one Cancelled. A match
+ * booking has no `guest_id`, so it never comes back from `my_reservations` too.
+ * The match rows ride on their own query: a failed read there never turns the
+ * bookings into an error screen.
  */
 
 export default function BookingsScreen() {
@@ -128,7 +147,16 @@ export default function BookingsScreen() {
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const bookings = useMyBookings();
-  const pull = usePullRefresh(bookings.refetch);
+  // `upcoming` is every match not ended, plus the last 24 hours' (my_matches):
+  // the rest of the past is the history screen's.
+  const matches = useMyMatches('upcoming');
+  const { refetch: refetchBookings } = bookings;
+  const { refetch: refetchMatches } = matches;
+  const refetchAll = useCallback(
+    () => Promise.all([refetchBookings(), refetchMatches()]),
+    [refetchBookings, refetchMatches],
+  );
+  const pull = usePullRefresh(refetchAll);
   const [tab, setTab] = useState<Tab>('upcoming');
   // Every open branch's courts: a guest's bookings can be at any branch.
   const courts = useAllCourts();
@@ -160,18 +188,24 @@ export default function BookingsScreen() {
     router.navigate('/(tabs)');
   }, [router]);
 
-  const { holds, upcoming, past } = useMemo(
-    () => splitBookings(bookings.data ?? [], now),
-    [bookings.data, now],
+  // Bookings and matches in one split. Everything below counts the VISIBLE
+  // past, so a cleared history takes the "N played" chip and the empty state
+  // with it rather than leaving numbers that describe a list nobody can see.
+  // Each backward tab's list AND its count come from one filter apiece — see
+  // playedGames / cancelledBookings, which the merge applies to the bookings.
+  const {
+    holds,
+    openMatches,
+    upcoming,
+    past: history,
+    played,
+    cancelled,
+  } = useMemo(
+    () => mergeReservationLists(bookings.data ?? [], matches.data ?? [], now, cleared.data ?? null),
+    [bookings.data, matches.data, now, cleared.data],
   );
-  // Everything below counts the VISIBLE past, so a cleared history takes the
-  // "N played" chip and the empty state with it rather than leaving numbers
-  // that describe a list nobody can see.
-  const history = useMemo(() => visiblePast(past, cleared.data ?? null), [past, cleared.data]);
-  // Each backward tab's list AND its count, from one filter apiece — see
-  // playedGames / cancelledBookings.
-  const played = useMemo(() => playedGames(history), [history]);
-  const cancelled = useMemo(() => cancelledBookings(history), [history]);
+  // The wallet line under OPEN MATCHES: read only while that section shows.
+  const wallet = useMyTickets(openMatches.length > 0);
 
   // A hold's countdown has to move every second, but re-splitting the whole
   // list that often is waste — so the seconds tick is its own state and runs
@@ -306,11 +340,81 @@ export default function BookingsScreen() {
     </View>
   );
 
+  const openMatch = (matchId: string) => router.push({ pathname: '/match/[id]', params: { id: matchId } });
+  const matchLine = (row: MyMatchRow) => matchLineOf(row, { t, locale, timezone: tz });
+  // A match row's heading: its court once it has one, and always the words
+  // "Open match", which is the badge §4.16 asks the row to carry.
+  const matchTitle = (row: MyMatchRow) => {
+    const court = row.courtId ? courtNames.get(row.courtId) : undefined;
+    return court ? `${court} · ${t('matches.common.title')}` : t('matches.common.title');
+  };
+
+  // OPEN MATCHES: every match still filling, right after HELD and above both
+  // tabs for the same reason — each is waiting on something, a seat or a court.
+  const openSection = openMatches.length > 0 && (
+    <View>
+      <ListHeading
+        icon={ClockIcon}
+        label={t('matches.reservations.openMatches')}
+        count={openMatches.length}
+        style={{ marginTop: 6 }}
+      />
+      {wallet.data ? (
+        <Pressable
+          testID="bookings.tickets"
+          accessibilityRole="link"
+          onPress={() => router.push('/tickets')}
+          style={({ pressed }) => ({
+            marginTop: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: space.s,
+            backgroundColor: pressed ? colors.sub : colors.card,
+            borderWidth: 1,
+            borderColor: colors.line,
+            borderRadius: radius.cell,
+            paddingStart: space.sm,
+            paddingEnd: space.sm,
+            paddingTop: 10,
+            paddingBottom: 10,
+          })}
+        >
+          <ReceiptIcon size={14} color={colors.gstrong} />
+          <Text style={{ flex: 1, fontFamily: fonts.body700, fontSize: 12.5, color: colors.mut2 }}>
+            {t('matches.tickets.walletLine', {
+              ready: countPhrase('matches.count.ticketsReady', wallet.data.available, locale),
+            })}
+          </Text>
+          <ChevronIcon size={15} color={colors.fnt2} />
+        </Pressable>
+      ) : null}
+      <View style={{ gap: 8, marginTop: 8 }}>
+        {openMatches.map(({ row }) => {
+          const start = new Date(row.startAt);
+          return (
+            <MatchRow
+              key={row.matchId}
+              testID={`bookings.match.${row.matchId}`}
+              time={formatTime(start, locale, tz)}
+              day={`${formatWeekdayShort(start, locale, tz)} · ${formatDate(start, locale, tz)}`}
+              category={row.category}
+              seatsTaken={row.seatsTaken}
+              seatsLeft={countPhrase('matches.count.seatsLeft', Math.max(0, SEATS_TOTAL - row.seatsTaken), locale)}
+              line={matchLine(row)}
+              onPress={() => openMatch(row.matchId)}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+
   // A held slot counts: showing "No bookings yet" over a live hold is exactly
   // the blind spot the held section exists to close. Computed up here because
   // the tabs below need it — an account with nothing in it gets the empty
-  // state, not two chips both reading zero.
-  const noBookings = holds.length === 0 && upcoming.length === 0 && history.length === 0;
+  // state, not two chips both reading zero. A match still filling counts too.
+  const noBookings =
+    holds.length === 0 && openMatches.length === 0 && upcoming.length === 0 && history.length === 0;
 
   // The two tabs. BOTH render whenever there is anything to show, including at
   // zero: a guest with no played games still has to be able to tap "0 played"
@@ -360,6 +464,7 @@ export default function BookingsScreen() {
 
       {tabs}
       {heldSection}
+      {openSection}
     </View>
   );
 
@@ -453,6 +558,53 @@ export default function BookingsScreen() {
         (new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000,
       ),
     });
+
+  // The hero when the next game is a booked open match: the same card,
+  // labelled as a match, opening the match (§4.16).
+  const renderMatchHero = (row: MyMatchRow, state: GuestState) => {
+    const start = new Date(row.startAt);
+    // startProximity reads the start alone.
+    const proximity = startProximity({ start_at: row.startAt } as BookingRow, now, tz);
+    const share = matchShareOf(row);
+    return (
+      <NextUpCard
+        testID="bookings.next-up"
+        label={`${t('booking.nextUp')} · ${t('matches.common.title')}`}
+        courtName={row.courtId ? (courtNames.get(row.courtId) ?? '') : t('matches.common.title')}
+        status={matchPillStatus(state)}
+        when={`${formatWeekdayShort(start, locale)} · ${formatDate(start, locale)}`}
+        timeRange={formatTimeRange(start, new Date(row.endAt), locale)}
+        price={
+          share !== null
+            ? t('matches.common.shareAtDesk', { share: formatIQD(share, locale) })
+            : t('booking.durationMinutes', { minutes: row.durationMin })
+        }
+        proximity={proximityLabel(proximity)}
+        imminent={proximity.unit !== 'hours' && proximity.unit !== 'days'}
+        ctaLabel={t('matches.reservations.viewMatch')}
+        onPress={() => openMatch(row.matchId)}
+        note={matchLine(row)}
+      />
+    );
+  };
+
+  // A booked or checked-in match among the upcoming bookings.
+  const renderUpcomingMatch = (row: MyMatchRow, state: GuestState) => {
+    const start = new Date(row.startAt);
+    return (
+      <UpcomingBookingRow
+        testID={`bookings.match.${row.matchId}`}
+        date={start}
+        courtName={matchTitle(row)}
+        weekday={formatWeekdayShort(start, locale)}
+        timeRange={formatTimeRange(start, new Date(row.endAt), locale)}
+        price={null}
+        status={matchPillStatus(state)}
+        onPress={() => openMatch(row.matchId)}
+        note={matchLine(row)}
+      />
+    );
+  };
 
   // The hero: the very next game, out of the list and onto the brand's navy.
   const renderHero = (item: BookingRow) => {
@@ -576,6 +728,25 @@ export default function BookingsScreen() {
     );
   };
 
+  const renderPastMatch = (row: MyMatchRow, state: GuestState, index: number, total: number) => {
+    const start = new Date(row.startAt);
+    return (
+      <PastBookingRow
+        testID={`bookings.match.${row.matchId}`}
+        courtName={matchTitle(row)}
+        when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
+        price={null}
+        status={matchPillStatus(state)}
+        // "Played · ticket back in your wallet", "Cancelled · a group booked
+        // the last court · tickets back": what the pill cannot say.
+        note={matchLine(row)}
+        first={index === 0}
+        last={index === total - 1}
+        onPress={() => openMatch(row.matchId)}
+      />
+    );
+  };
+
   const renderPast = (item: BookingRow, index: number, total: number) => {
     const start = new Date(item.start_at);
     // WHO cancelled it (0088). Every row under the Cancelled tab wears the
@@ -602,6 +773,18 @@ export default function BookingsScreen() {
     );
   };
 
+  const renderItem = (item: ReservationItem, index: number, key: string, total: number) => {
+    if (key === 'upcoming') {
+      if (item.kind === 'match') {
+        return index === 0 ? renderMatchHero(item.row, item.state) : renderUpcomingMatch(item.row, item.state);
+      }
+      return index === 0 ? renderHero(item.row) : renderUpcoming(item.row);
+    }
+    return item.kind === 'match'
+      ? renderPastMatch(item.row, item.state, index, total)
+      : renderPast(item.row, index, total);
+  };
+
   return (
     <Screen>
       {noBookings ? (
@@ -622,7 +805,7 @@ export default function BookingsScreen() {
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => (item.kind === 'booking' ? item.row.id : `match-${item.row.matchId}`)}
           ListHeaderComponent={header}
           stickySectionHeadersEnabled={false}
           showsVerticalScrollIndicator={false}
@@ -697,13 +880,7 @@ export default function BookingsScreen() {
               </Pressable>
             ) : null
           }
-          renderItem={({ item, index, section }) =>
-            section.key === 'upcoming'
-              ? index === 0
-                ? renderHero(item)
-                : renderUpcoming(item)
-              : renderPast(item, index, section.data.length)
-          }
+          renderItem={({ item, index, section }) => renderItem(item, index, section.key, section.data.length)}
         />
       )}
     </Screen>

@@ -26,9 +26,21 @@
  * A court row opens its bookings (report_drill `court:<id>`); the old rows
  * looked clickable and did nothing, because the drill read `court_id` from a
  * payload that sends `courtId`.
+ *
+ * Open matches (docs/design/open-matches/operator.md §5.19): when
+ * report_courts carries its `matches` block (0265), an "Open matches" view
+ * joins the list: a band from that block (bookings, booked, paid at the desk,
+ * written off, no-show seats, called off, tickets lost here) and, from
+ * app.report_matches for the same period with its own category and joining
+ * filters, how the matches and their seats went and a By day table. The court
+ * filter hides there, and "Compare with" is disabled (report_compare knows
+ * three reports, not this one).
  */
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
+import { Field, Select } from '../../components/ui';
 import { StatusBadge, type ComparisonMode } from '../../components/kit';
 import {
   AsyncStateWrapper,
@@ -63,19 +75,38 @@ import {
   type Tr,
 } from './ReportParts';
 import { CourtFilter } from './ReportFilterBar';
-import { courtsIsEmpty, readCourts, type CourtRow } from './reportPayloads';
+import {
+  courtsIsEmpty,
+  matchesReportIsEmpty,
+  readCourts,
+  readMatchesReport,
+  type CourtMatches,
+  type CourtRow,
+  type MatchDayRow,
+  type MatchTotalKey,
+  type MatchesReport,
+} from './reportPayloads';
 
-type View = 'byCourt' | 'cancellations' | 'peak' | 'byHour' | 'byDay';
-const VIEWS: readonly View[] = ['byCourt', 'cancellations', 'peak', 'byHour', 'byDay'];
+type View = 'byCourt' | 'cancellations' | 'peak' | 'byHour' | 'byDay' | 'matches';
+const COURT_VIEWS: readonly View[] = ['byCourt', 'cancellations', 'peak', 'byHour', 'byDay'];
+/** The Open matches view is offered only when the server sends report_courts' `matches` block. */
+export function courtsViews(hasMatches: boolean): readonly View[] {
+  return hasMatches ? [...COURT_VIEWS, 'matches'] : COURT_VIEWS;
+}
 type Locale = ReturnType<typeof useLocale>['locale'];
 type DayRow = { date: string; bookings: number | null; revenueIqd: number | null };
+/** report_matches' own filters (money.md §7.6); '' is every value. */
+type MatchCategory = '' | 'open' | 'women' | 'men';
+type MatchJoin = '' | 'open' | 'approve';
 
 export function CourtsReportScreen() {
   const { tr, locale } = useLocale();
   const { period, setPeriod, today, ready } = useReportPeriod();
   const [courtId, setCourtId] = useState('');
-  const [view, setView] = useState<View>('byCourt');
+  const [picked, setView] = useState<View>('byCourt');
   const [drill, setDrill] = useState<DrillRequest | null>(null);
+  const [matchCategory, setMatchCategory] = useState<MatchCategory>('');
+  const [matchJoin, setMatchJoin] = useState<MatchJoin>('');
 
   const args = { p_from: period.from, p_to: period.to, p_filters: { courtId: courtId || null } };
   const [compare, setCompare] = useState<ComparisonMode>('none');
@@ -86,6 +117,21 @@ export function CourtsReportScreen() {
   // every court at zero.
   const status = asyncStatus(q, (d) => courtsIsEmpty(d.current));
   const t = data?.totals ?? null;
+  const views = courtsViews(Boolean(data?.matches));
+  // A server that stops sending the block (a branch switch) falls back to the first view.
+  const view: View = views.includes(picked) ? picked : 'byCourt';
+  const onMatches = view === 'matches';
+  const matchArgs = {
+    p_from: period.from,
+    p_to: period.to,
+    p_filters: { ...(matchCategory ? { category: matchCategory } : {}), ...(matchJoin ? { joinPolicy: matchJoin } : {}) },
+  };
+  const matchesQ = useQuery({
+    queryKey: ['reports', 'report_matches', matchArgs],
+    queryFn: async () => readMatchesReport(await appRpc('report_matches', matchArgs)),
+    enabled: ready && onMatches,
+    refetchInterval: 120_000,
+  });
   // Tournament hours: shown only for a period that had some.
   const hasEvents = (t?.eventMinutes ?? 0) > 0 || (data?.rows.some((r) => (r.eventMinutes ?? 0) > 0) ?? false);
 
@@ -162,6 +208,8 @@ export function CourtsReportScreen() {
     setDrill({ what: tr('ws.reports.courts.columns.bookings'), figures: [{ key: 'bookings', label: tr('ws.reports.courts.columns.bookings') }], scope: courtScope, from: r.date, to: r.date });
   }
 
+  const matchDayColumns = matchDayColumnsOf(tr, locale);
+
   const notes: Record<View, Parameters<Tr>[0][]> = {
     // The event column says what it is where it appears, like the two derived figures.
     byCourt: ['ws.reports.courts.notes.occupancy', 'ws.reports.courts.notes.perOpenHour', ...(hasEvents ? (['ws.events.courts.eventHoursTip'] as const) : [])],
@@ -169,12 +217,14 @@ export function CourtsReportScreen() {
     peak: ['ws.reports.courts.notes.peak'],
     byHour: [],
     byDay: [],
+    matches: ['ws.matches.reports.compareOff'],
   };
 
   function exportCsv() {
     if (!data) return;
-    const parts = { view, court: courtId || undefined };
+    const parts = { view, court: onMatches ? undefined : courtId || undefined };
     const base = tr('ws.reports.export.courts');
+    if (view === 'matches') return exportTable(base, locale, period, parts, tableCsv(matchDayColumns, matchesQ.data?.byDay ?? []));
     if (view === 'byDay') return exportTable(base, locale, period, parts, tableCsv(dayColumns, data.trend));
     if (view === 'byHour') {
       return exportTable(base, locale, period, parts, {
@@ -214,10 +264,18 @@ export function CourtsReportScreen() {
       exportDisabled={status !== 'ready'}
       comparedWith={q.data?.period ?? null}
       filters={
-        <>
-          <CourtFilter value={courtId} onChange={setCourtId} />
-          <CompareFilter value={compare} onChange={setCompare} />
-        </>
+        onMatches ? (
+          <>
+            <MatchFilters category={matchCategory} onCategory={setMatchCategory} join={matchJoin} onJoin={setMatchJoin} />
+            {/* report_compare knows three reports; the note under the view says so. */}
+            <CompareFilter value={compare} onChange={setCompare} disabled />
+          </>
+        ) : (
+          <>
+            <CourtFilter value={courtId} onChange={setCourtId} />
+            <CompareFilter value={compare} onChange={setCompare} />
+          </>
+        )
       }
     >
       <AsyncStateWrapper
@@ -250,16 +308,198 @@ export function CourtsReportScreen() {
             <ViewSwitch<View>
               value={view}
               onChange={setView}
-              options={VIEWS.map((v) => ({ value: v, label: tr(`ws.reports.courts.views.${v}`) }))}
+              options={views.map((v) => ({ value: v, label: tr(`ws.reports.courts.views.${v}`) }))}
               lead={tr(`ws.reports.courts.lead.${view}`)}
             />
-            <CourtsView view={view} data={data} columns={columns} dayColumns={dayColumns} onCourt={openCourt} onDay={openDay} tr={tr} locale={locale} />
+            {onMatches && data.matches ? (
+              <MatchesView
+                band={data.matches}
+                report={matchesQ.data ?? null}
+                status={asyncStatus(matchesQ, matchesReportIsEmpty)}
+                error={matchesQ.error}
+                onRetry={() => void matchesQ.refetch()}
+                dayColumns={matchDayColumns}
+              />
+            ) : (
+              <CourtsView view={view === 'matches' ? 'byCourt' : view} data={data} columns={columns} dayColumns={dayColumns} onCourt={openCourt} onDay={openDay} tr={tr} locale={locale} />
+            )}
             <ColumnNotes notes={notes[view].map((k) => tr(k))} />
           </>
         )}
       </AsyncStateWrapper>
       {drill && <DrillDialog request={drill} onClose={() => setDrill(null)} />}
     </ReportFrame>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Open matches (operator.md §5.19)
+// ---------------------------------------------------------------------------
+
+/** report_matches' own filters: the category and the joining rule (the court filter does not apply). */
+function MatchFilters({ category, onCategory, join, onJoin }: { category: MatchCategory; onCategory: (c: MatchCategory) => void; join: MatchJoin; onJoin: (j: MatchJoin) => void }) {
+  const { tr } = useLocale();
+  const selectStyle = { inlineSize: 'auto', minInlineSize: '11rem', maxInlineSize: '18rem' } as const;
+  return (
+    <>
+      <Field label={tr('ws.matches.reports.filters.category')} style={{ marginBlockEnd: 0 }}>
+        <Select
+          value={category}
+          style={selectStyle}
+          onChange={(v) => onCategory(v as MatchCategory)}
+          options={[
+            { value: '', label: tr('ws.matches.reports.filters.allCategories') },
+            { value: 'open', label: tr('ws.matches.common.category.open') },
+            { value: 'women', label: tr('ws.matches.common.category.women') },
+            { value: 'men', label: tr('ws.matches.common.category.men') },
+          ]}
+        />
+      </Field>
+      <Field label={tr('ws.matches.reports.filters.join')} style={{ marginBlockEnd: 0 }}>
+        <Select
+          value={join}
+          style={selectStyle}
+          onChange={(v) => onJoin(v as MatchJoin)}
+          options={[
+            { value: '', label: tr('ws.matches.reports.filters.anyJoin') },
+            { value: 'open', label: tr('ws.matches.common.join.open') },
+            { value: 'approve', label: tr('ws.matches.common.join.approve') },
+          ]}
+        />
+      </Field>
+    </>
+  );
+}
+
+function matchDayColumnsOf(tr: Tr, locale: Locale): ReportColumn<MatchDayRow>[] {
+  const n = (key: Exclude<keyof MatchDayRow, 'date'>, header: string, fmt: (v: number | null) => string): ReportColumn<MatchDayRow> => ({
+    key,
+    header,
+    numeric: true,
+    render: (r) => fmt(r[key]),
+    sort: (r) => r[key],
+    csv: (r) => r[key],
+  });
+  return [
+    { key: 'date', header: tr('ws.matches.reports.byDay.day'), render: (r) => <bdi>{formatDay(r.date, locale)}</bdi>, sort: (r) => r.date, csv: (r) => r.date },
+    n('started', tr('ws.matches.reports.byDay.started'), (v) => count(v, locale)),
+    n('booked', tr('ws.matches.reports.byDay.booked'), (v) => count(v, locale)),
+    n('bookedIqd', tr('ws.matches.reports.byDay.bookedIqd'), (v) => money(v, locale)),
+    n('writtenOffIqd', tr('ws.matches.reports.byDay.writtenOffIqd'), (v) => money(v, locale)),
+    n('noShowSeats', tr('ws.matches.reports.byDay.noShowSeats'), (v) => count(v, locale)),
+  ];
+}
+
+const MATCH_COUNT_ROWS: readonly { key: MatchTotalKey; label: Parameters<Tr>[0]; pct?: boolean; hint?: Parameters<Tr>[0] }[] = [
+  { key: 'started', label: 'ws.matches.reports.counts.started' },
+  { key: 'booked', label: 'ws.matches.reports.counts.booked' },
+  { key: 'played', label: 'ws.matches.reports.counts.played' },
+  { key: 'bumped', label: 'ws.matches.reports.counts.bumped' },
+  { key: 'expired', label: 'ws.matches.reports.counts.expired' },
+  { key: 'cancelled', label: 'ws.matches.reports.counts.cancelled' },
+  { key: 'calledOffShort', label: 'ws.matches.reports.counts.calledOffShort' },
+  { key: 'allNoShow', label: 'ws.matches.reports.counts.allNoShow' },
+  { key: 'fillRatePct', label: 'ws.matches.reports.counts.fillRate', pct: true, hint: 'ws.matches.reports.counts.fillRateHint' },
+];
+const SEAT_COUNT_ROWS: readonly { key: MatchTotalKey; label: Parameters<Tr>[0] }[] = [
+  { key: 'seatsFilled', label: 'ws.matches.reports.seats.filled' },
+  { key: 'accountSeats', label: 'ws.matches.reports.seats.account' },
+  { key: 'friendSeats', label: 'ws.matches.reports.seats.friend' },
+  { key: 'deskSeats', label: 'ws.matches.reports.seats.desk' },
+  { key: 'attendedSeats', label: 'ws.matches.reports.seats.attended' },
+  { key: 'noShowSeats', label: 'ws.matches.reports.seats.noShow' },
+  { key: 'leftLateSeats', label: 'ws.matches.reports.seats.leftLate' },
+  { key: 'refilledSeats', label: 'ws.matches.reports.seats.refilled' },
+];
+
+/** The Open matches view: the report_courts band, then report_matches' counts and its By day table. */
+function MatchesView({
+  band: m,
+  report,
+  status,
+  error,
+  onRetry,
+  dayColumns,
+}: {
+  band: CourtMatches;
+  report: MatchesReport | null;
+  status: ReturnType<typeof asyncStatus>;
+  error: unknown;
+  onRetry: () => void;
+  dayColumns: ReportColumn<MatchDayRow>[];
+}) {
+  const { tr, locale } = useLocale();
+  const K = 'ws.matches.reports';
+  return (
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }} data-testid="courts-matches">
+      <FigureBand label={tr('ws.reports.courts.views.matches')}>
+        <HeadlineFigure label={tr(`${K}.band.bookings`)} value={count(m.bookings, locale)} />
+        <HeadlineFigure label={tr(`${K}.band.bookedIqd`)} value={money(m.bookedIqd, locale)} />
+        <HeadlineFigure label={tr(`${K}.band.deskPaidIqd`)} value={money(m.deskPaidIqd, locale)} />
+        <HeadlineFigure label={tr(`${K}.band.writtenOffIqd`)} value={money(m.writtenOffIqd, locale)} tone={m.writtenOffIqd ? 'warn' : 'neutral'} />
+        <HeadlineFigure label={tr(`${K}.band.noShowSeats`)} value={count(m.noShowSeats, locale)} tone={m.noShowSeats ? 'danger' : 'neutral'} />
+        <HeadlineFigure label={tr(`${K}.band.calledOffShort`)} value={count(m.calledOffShort, locale)} />
+        <HeadlineFigure label={tr(`${K}.band.ticketForfeitsIqd`)} value={money(m.ticketForfeitsIqd, locale)} />
+      </FigureBand>
+      <AsyncStateWrapper
+        status={status}
+        error={error}
+        onRetry={onRetry}
+        compact
+        skeleton={<ReportSkeleton columns={[tr(`${K}.byDay.day`), tr(`${K}.byDay.started`), tr(`${K}.byDay.booked`)]} />}
+        emptyContent={<EmptyState compact kind="nothingToDo" icon="users" title={tr(`${K}.empty`)} />}
+      >
+        {report && (
+          <>
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(18rem, 1fr))', alignItems: 'start' }}>
+              <CountList
+                title={tr(`${K}.counts.title`)}
+                rows={MATCH_COUNT_ROWS.map((r) => ({
+                  label: tr(r.label),
+                  hint: r.hint ? tr(r.hint) : undefined,
+                  value: r.pct ? percent(report.totals[r.key], locale, tr) : count(report.totals[r.key], locale),
+                }))}
+              />
+              <CountList title={tr(`${K}.seats.title`)} rows={SEAT_COUNT_ROWS.map((r) => ({ label: tr(r.label), value: count(report.totals[r.key], locale) }))} />
+            </div>
+            {report.byDay.length > 0 && (
+              <ReportTable<MatchDayRow> label={tr(`${K}.byDay.title`)} columns={dayColumns} rows={report.byDay} rowKey={(r) => r.date} />
+            )}
+            {Boolean(report.totals.sandboxExcluded) && <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr(`${K}.sandboxExcluded`)}</p>}
+          </>
+        )}
+      </AsyncStateWrapper>
+    </div>
+  );
+}
+
+/** Label and figure rows under a small heading: the counts that read better as a list than a band. */
+function CountList({ title, rows }: { title: string; rows: readonly { label: string; value: string; hint?: string }[] }) {
+  return (
+    <section aria-label={title}>
+      <h3 style={{ margin: 0, marginBlockEnd: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{title}</h3>
+      <dl style={{ margin: 0, display: 'grid' }}>
+        {rows.map((r, i) => (
+          <div
+            key={r.label}
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-3)',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              paddingBlock: 'var(--tp-sp-1)',
+              borderBlockStart: i > 0 ? '1px solid var(--tp-border)' : undefined,
+            }}
+          >
+            <div style={{ display: 'grid', minInlineSize: 0 }}>
+              <dt style={{ fontSize: 'var(--tp-fs-sm)' }}>{r.label}</dt>
+              {r.hint && <dd style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{r.hint}</dd>}
+            </div>
+            <dd style={{ margin: 0, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -273,7 +513,7 @@ function CourtsView({
   tr,
   locale,
 }: {
-  view: View;
+  view: Exclude<View, 'matches'>;
   data: ReturnType<typeof readCourts>;
   columns: Record<'byCourt' | 'cancellations' | 'peak', ReportColumn<CourtRow>[]>;
   dayColumns: ReportColumn<DayRow>[];

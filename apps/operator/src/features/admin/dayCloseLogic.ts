@@ -340,6 +340,23 @@ export interface UnpaidPlayedBooking {
   /** What is still owed on the court — the server's figure, shown as is. */
   remaining_iqd: number;
   live_tab_id: string | null;
+  /**
+   * Open matches (0265, money.md §7.5): set on a match booking. The row then
+   * lists the seats still owing; a booking whose only gap is written-off
+   * shares no longer appears (court_fee_remaining nets them).
+   */
+  match_id?: string | null;
+  owed_by_seats_iqd?: number | null;
+  /** A price change after booking that no player owes (DF-4). */
+  delta_owed_iqd?: number | null;
+  seats_owing?: UnpaidSeat[] | null;
+}
+
+/** A seat still owing on a played match booking; `label` is the staff label booking_bill gives it. */
+export interface UnpaidSeat {
+  seat_no: number;
+  label: string | null;
+  owed_iqd: number;
 }
 
 /**
@@ -354,6 +371,162 @@ export function unpaidPlayedRows(payload: unknown): UnpaidPlayedBooking[] {
     (r): r is UnpaidPlayedBooking =>
       r != null && typeof r === 'object' && typeof (r as { reservation_id?: unknown }).reservation_id === 'string',
   );
+}
+
+/** A played-not-paid row that is an open match's booking (0265). */
+export function isMatchUnpaid(r: Pick<UnpaidPlayedBooking, 'match_id'>): boolean {
+  return typeof r.match_id === 'string' && r.match_id !== '';
+}
+
+/**
+ * The name after "Open match · " on a match row: the label app.desk_match_states
+ * gives the booking (the organiser, else the first desk seat's typed name),
+ * else null and the row reads "Open match" (operator.md §5.18, the §5.8
+ * bookingLabel rule). Never the booking's guest_name: every match booking
+ * carries the DB literal there ('Open match', 0260 match_try_book), and
+ * unpaid_played_bookings sends no label of its own.
+ */
+export function unpaidMatchLabel(state: { label: string | null } | null | undefined): string | null {
+  const label = state?.label?.trim();
+  return label ? label : null;
+}
+
+/** A match row's owing seats in seat order; a malformed seat is dropped rather than shown as 0. */
+export function unpaidSeats(r: Pick<UnpaidPlayedBooking, 'seats_owing'>): UnpaidSeat[] {
+  return (Array.isArray(r.seats_owing) ? r.seats_owing : [])
+    .filter((x): x is UnpaidSeat => x != null && Number.isFinite(x.seat_no) && Number.isFinite(x.owed_iqd))
+    .sort((a, b) => a.seat_no - b.seat_no);
+}
+
+// ---------------------------------------------------------------------------
+// Money outside the drawer (app.day_close_online, 0265; open matches
+// operator.md §5.18, money.md §7.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * The day's online money and open-match figures. Information only: close_day
+ * never reads them and none of it is in the cash count. Every figure is the
+ * server's; a missing one is null, printed "—".
+ */
+export interface DayCloseOnline {
+  business_date: string | null;
+  deposits: Record<'received_iqd' | 'received_count' | 'refunded_iqd' | 'refunded_count' | 'forfeited_iqd' | 'forfeited_count' | 'refunds_waiting_iqd' | 'refunds_waiting_count', number | null>;
+  tickets_here: Record<'forfeited_iqd' | 'forfeited_count' | 'restored_count' | 'cashouts_iqd' | 'cashouts_count', number | null>;
+  tickets_chain: Record<
+    'sold_iqd' | 'sold_tickets' | 'purchases' | 'refunded_iqd' | 'refunded_tickets' | 'refunds_waiting_iqd' | 'refunds_waiting_count' | 'liability_iqd' | 'liability_tickets',
+    number | null
+  >;
+  matches: Record<'bookings' | 'price_iqd' | 'desk_paid_iqd' | 'written_off_iqd' | 'owed_iqd' | 'called_off' | 'no_show_seats', number | null>;
+  sandbox_excluded: Record<'deposits' | 'tickets', number | null>;
+}
+
+type RawObj = Record<string, unknown>;
+const objOf = (v: unknown): RawObj => (v && typeof v === 'object' && !Array.isArray(v) ? (v as RawObj) : {});
+const numOf = (v: unknown): number | null => {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
+  return null;
+};
+function pickNums<K extends string>(raw: unknown, keys: readonly K[]): Record<K, number | null> {
+  const o = objOf(raw);
+  return Object.fromEntries(keys.map((k) => [k, numOf(o[k])])) as Record<K, number | null>;
+}
+
+/** The payload read defensively; null when it is not an object at all. */
+export function readDayCloseOnline(raw: unknown): DayCloseOnline | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as RawObj;
+  return {
+    business_date: typeof r.business_date === 'string' ? r.business_date : null,
+    deposits: pickNums(r.deposits, ['received_iqd', 'received_count', 'refunded_iqd', 'refunded_count', 'forfeited_iqd', 'forfeited_count', 'refunds_waiting_iqd', 'refunds_waiting_count']),
+    tickets_here: pickNums(r.tickets_here, ['forfeited_iqd', 'forfeited_count', 'restored_count', 'cashouts_iqd', 'cashouts_count']),
+    tickets_chain: pickNums(r.tickets_chain, [
+      'sold_iqd',
+      'sold_tickets',
+      'purchases',
+      'refunded_iqd',
+      'refunded_tickets',
+      'refunds_waiting_iqd',
+      'refunds_waiting_count',
+      'liability_iqd',
+      'liability_tickets',
+    ]),
+    matches: pickNums(r.matches, ['bookings', 'price_iqd', 'desk_paid_iqd', 'written_off_iqd', 'owed_iqd', 'called_off', 'no_show_seats']),
+    sandbox_excluded: pickNums(r.sandbox_excluded, ['deposits', 'tickets']),
+  };
+}
+
+export type OnlineGroupId = 'deposits' | 'ticketsHere' | 'ticketsChain' | 'matches' | 'sandbox';
+
+/** One label-and-figure row: a count, an amount, or both, as the table in §5.18 lays them out. */
+export interface OnlineRow {
+  /** The row's word under `ws.matches.dayClose.<group>.<id>`. */
+  id: string;
+  count: number | null;
+  amount: number | null;
+  /** Rows that are only a count (bookings, called off) or only money (court price). */
+  shows: 'both' | 'count' | 'amount';
+}
+
+export interface OnlineGroup {
+  id: OnlineGroupId;
+  rows: OnlineRow[];
+}
+
+const both = (id: string, count: number | null, amount: number | null): OnlineRow => ({ id, count, amount, shows: 'both' });
+const countOnly = (id: string, count: number | null): OnlineRow => ({ id, count, amount: null, shows: 'count' });
+const amountOnly = (id: string, amount: number | null): OnlineRow => ({ id, count: null, amount, shows: 'amount' });
+
+/**
+ * The card's groups in the order of §5.18, each with its rows. A group with
+ * no non-zero figure is left out (a branch that never took an online deposit
+ * is not shown four zeros), and the test-payments group only ever shows when
+ * something was left out.
+ */
+export function onlineMoneyOf(d: DayCloseOnline): OnlineGroup[] {
+  const groups: OnlineGroup[] = [
+    {
+      id: 'deposits',
+      rows: [
+        both('received', d.deposits.received_count, d.deposits.received_iqd),
+        both('refunded', d.deposits.refunded_count, d.deposits.refunded_iqd),
+        both('forfeited', d.deposits.forfeited_count, d.deposits.forfeited_iqd),
+        both('waiting', d.deposits.refunds_waiting_count, d.deposits.refunds_waiting_iqd),
+      ],
+    },
+    {
+      id: 'ticketsHere',
+      rows: [both('forfeited', d.tickets_here.forfeited_count, d.tickets_here.forfeited_iqd), both('cashouts', d.tickets_here.cashouts_count, d.tickets_here.cashouts_iqd)],
+    },
+    {
+      id: 'ticketsChain',
+      rows: [
+        both('sold', d.tickets_chain.sold_tickets, d.tickets_chain.sold_iqd),
+        both('refunded', d.tickets_chain.refunded_tickets, d.tickets_chain.refunded_iqd),
+        both('waiting', d.tickets_chain.refunds_waiting_count, d.tickets_chain.refunds_waiting_iqd),
+        both('liability', d.tickets_chain.liability_tickets, d.tickets_chain.liability_iqd),
+      ],
+    },
+    {
+      id: 'matches',
+      rows: [
+        countOnly('bookings', d.matches.bookings),
+        amountOnly('price', d.matches.price_iqd),
+        amountOnly('deskPaid', d.matches.desk_paid_iqd),
+        amountOnly('writtenOff', d.matches.written_off_iqd),
+        amountOnly('owed', d.matches.owed_iqd),
+        countOnly('calledOff', d.matches.called_off),
+        countOnly('noShowSeats', d.matches.no_show_seats),
+      ],
+    },
+    { id: 'sandbox', rows: [countOnly('deposits', d.sandbox_excluded.deposits), countOnly('tickets', d.sandbox_excluded.tickets)] },
+  ];
+  return groups.filter((g) => g.rows.some((r) => Boolean(r.count) || Boolean(r.amount)));
+}
+
+/** Every figure zero or missing: the card is not drawn. */
+export function onlineIsEmpty(d: DayCloseOnline | null | undefined): boolean {
+  return !d || onlineMoneyOf(d).length === 0;
 }
 
 /**

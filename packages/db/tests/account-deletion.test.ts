@@ -325,6 +325,9 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
       expect(row.after.reservations_anonymised).toBe(1);
       expect(row.after.customer_notes_deleted).toBe(1);
       expect(row.after.apple_revoke_pending).toBe(false);
+      // 0264: the open-match counts are there even for a guest who never played
+      // (matches-account-deletion.test.ts proves them non-zero).
+      expect(row.after).toMatchObject({ match_seats_scrubbed: 0, match_requests_scrubbed: 0, match_blocks_deleted: 0 });
 
       const serialised = JSON.stringify(row);
       expect(serialised).not.toContain(MARK);

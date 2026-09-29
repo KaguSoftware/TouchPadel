@@ -51,6 +51,7 @@ import { MonthHeatCalendar } from '../../desk/calendar/MonthHeatCalendar';
 import { ZoomStage, type ZoomLevel } from '../../desk/calendar/ZoomStage';
 import { selectAllPages, useMonthCounts } from '../../desk/calendar/useMonthCounts';
 import { fetchTabCounts } from '../../desk/calendar/monthFetchers';
+import { reservationNameOf } from '../../matches/matchLogic';
 import { OPEN_TABS_QUERY, tabAnchorLabel, tabDetailQuery, tabHasWebOrder, type TabListRow } from '../../till/tillData';
 import { computeTabTotals, type TaxContext } from '../../till/tabTotals';
 import { useTaxContext } from '../../till/useTaxContext';
@@ -65,7 +66,7 @@ interface DayTabRow extends TabListRow {
 
 const DAY_TAB_COLUMNS = `id, status, label, opened_at, settled_at, total_iqd,
   table:cafe_tables(table_number),
-  reservation:reservations!tabs_reservation_id_fkey(guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
+  reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar)),
   orders!orders_tab_id_fkey(source, status, order_items(id, line_total_iqd, voided, menu_item:menu_items(category_id))),
   tab_adjustments(kind, amount_iqd, order_item_id),
   payments(amount_iqd),
@@ -138,10 +139,10 @@ export function TillsObserveScreen() {
     if (isToday) for (const t of openTabsQ.data ?? []) if (!byId.has(t.id)) byId.set(t.id, t);
     return [...byId.values()].map((t) => ({
       id: t.id,
-      label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')),
+      label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation'), tr('ws.matches.common.openMatch')),
       table: t.table?.table_number ?? null,
       court: t.reservation?.court ? pickName(locale, t.reservation.court) : null,
-      guest: t.reservation?.guest_name ?? t.label,
+      guest: reservationNameOf(t.reservation, tr) ?? t.label,
       status: t.status,
       openedAt: t.opened_at,
       settledAt: 'settled_at' in t ? t.settled_at : null,

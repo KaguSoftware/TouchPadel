@@ -66,6 +66,22 @@ export function psqlSession(sql: string): Promise<string> {
   });
 }
 
+/**
+ * Resolves once the psqlSession whose SQL starts `set application_name = '<app>';`
+ * is inside its pg_sleep, so whatever it took before the sleep is held. A fixed
+ * delay loses that race on a loaded machine: `docker exec` alone can take longer.
+ */
+export async function waitForSleeper(app: string, ms = 20_000): Promise<void> {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    const n = psql(`select count(*) from pg_stat_activity
+                     where application_name = '${app}' and state = 'active' and query like '%pg_sleep%'`);
+    if (n === '1') return;
+    await new Promise((res) => setTimeout(res, 50));
+  }
+  throw new Error(`waitForSleeper: ${app} never reached its pg_sleep`);
+}
+
 /** The SQL that runs one statement as a staff member inside a committed session. */
 export const asStaff = (staffId: string, sql: string) =>
   `select set_config('request.jwt.claims', '${JSON.stringify({ sub: staffId, role: 'authenticated' })}', true);

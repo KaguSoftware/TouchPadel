@@ -37,15 +37,21 @@ behalf (Supabase, Expo/FCM, the WhatsApp/SMS code provider) is not "sharing". Ev
 Shared: No, Processed ephemerally: No, Required** (except email), purpose **App functionality** (plus **Account
 management** where noted). Nothing is used for advertising, analytics or fraud-prevention purposes in Play's sense.
 
+"Nothing is shared" still holds with open matches. Other players in a match see a player's first name and surname
+initial only after that player's own action (starting, joining or asking to join a match), which Play treats as a
+user-initiated transfer, not sharing. Qi Card takes the online payments as a service provider. **UNVERIFIED**
+against Play's current wording (open matches, `docs/design/open-matches/guest.md` §4.26).
+
 | Play category → type | Collected | Optional? | Purposes | What it is |
 |---|---|---|---|---|
 | Personal info → **Name** | Yes | Required | App functionality, Account management | First name and surname on the profile; the name on a booking |
 | Personal info → **Email address** | Yes | **Optional** | App functionality, Account management | Only for email sign-up or Sign in with Google/Apple |
 | Personal info → **Phone number** | Yes | Required | App functionality, Account management | Sign-in, the one-time verification code, the desk calling about a booking |
 | Personal info → **User IDs** | Yes | Required | App functionality, Account management | The account id |
-| Financial info → **Purchase history** | Yes | Required | App functionality | Court bookings and their prices (paid at the venue; no card data is ever collected) |
+| Personal info → **Other info** | Yes | **Optional** | App functionality | Gender (woman or man), asked once, only when a player first plays open matches; it decides whether women-only or men-only matches are offered |
+| Financial info → **Purchase history** | Yes | Required | App functionality | Court bookings and their prices; court deposits and open-match tickets paid online by Qi Card on Qi's own page (no card data is ever collected) |
 | Financial info → **Other financial info** | Yes | Optional | App functionality | **Staff accounts only**: a wage advance a staff member asks for, and pay deductions (amount, date and reason) a head or manager records against a staff member, which that person reads in the staff area. **UNVERIFIED** classification, Majed's call (wave5-addendum-2026-09-25 §7.7) |
-| App activity → **Other actions** | Yes | Required | App functionality | Bookings made and cancelled |
+| App activity → **Other actions** | Yes | Required | App functionality | Bookings made and cancelled; open matches started, joined and left, requests to join, preset messages, reports and blocks |
 | Device or other IDs → **Device or other IDs** | Yes | Optional | App functionality | The push-notification token, only if notifications are allowed |
 | Photos and videos → **Photos** | Yes | Optional | App functionality | **Staff accounts only**: a work photo a staff member takes or chooses in the staff area (a proposed dish, a receipt, a finished task, an incident report), re-encoded on the phone without location metadata. A guest account cannot upload a photo |
 | App activity → **Other user-generated content** | Yes | Optional | App functionality | **Staff accounts only**: the text a staff member types into a task, a proposal, a staff request, a note on a new menu item, a marketing draft or an incident report |
@@ -58,7 +64,8 @@ sensitive info. Photos only as above: from staff accounts, never from a guest.
 > Only what the **Android app** collects belongs on this form. The website's café table sessions, the order notes
 > guests type there, PostHog page-view analytics, and the notes and labels the front desk writes in the operator app
 > are all outside it. The Privacy Policy discloses each of them. The guest side of the app has no free-text field
-> that reaches the server. The staff area does, and it can attach work photos, so Photos and Other user-generated
+> that reaches the server: other players see only a first name and surname initial, and preset messages that are
+> not free text. The staff area does, and it can attach work photos, so Photos and Other user-generated
 > content are declared, for staff accounts only, matching the App Store label (`docs/store/app-store-submission.md`
 > §2). Staff accounts are created by the owner; there is no staff sign-up in the app.
 >
@@ -74,14 +81,15 @@ sensitive info. Photos only as above: from staff accounts, never from a guest.
 |---|---|
 | Account deletion URL | `https://www.touch-padel.com/en/delete-account` |
 | Can users request that some or all of their data is deleted without deleting their account? | Yes: by emailing the privacy contact or asking at the front desk (Privacy Policy → Your rights) |
-| What is deleted | Login, name, phone, email, linked Google/Apple sign-in, push token, staff notes and labels about the guest, queued notifications. Immediately |
-| What is kept, and why | Bookings and café orders stay **anonymised** (no name, phone or notes) because the venue must keep its accounts, and the record of which Terms version was accepted stays on the anonymised row. Stated on the deletion page and in the Privacy Policy |
+| What is deleted | Login, first name, surname, gender, phone, email, linked Google/Apple sign-in, push token, the players the guest blocked, staff notes and labels about the guest, queued notifications. Immediately. The guest leaves their open matches, and unused open-match tickets are refunded to the card they were paid with (DF-20) |
+| What is kept, and why | Bookings, café orders and open matches played stay **anonymised** (no name, phone or notes) because the venue must keep its accounts, and the record of which Terms version was accepted stays on the anonymised row. Ticket purchases and refunds stay in the accounts without a name; reports between players are kept 12 months, then deleted. Stated on the deletion page and in the Privacy Policy |
 | Staff accounts | Not deleted through this page. The owner switches a leaver's account off (sessions ended, push token cleared); the account and its work records stay, as the staff privacy notice (`docs/legal/staff-privacy-notice.md`) tells every employee |
 
 ## Before submitting
 
 - [ ] `LEGAL_STRICT=1 pnpm check:legal` passes: the legal pages name the company, not `[FILL: …]`.
 - [ ] Migration 0153 is on the hosted project (the app's consent gate calls `app.accept_terms`).
+- [ ] The 1.0 terms version (`CURRENT_TERMS_VERSION`, open matches and Qi Card) is the one the web pages print.
 - [ ] The web deletion page works against hosted: sign in with the review account and stop at the confirmation word.
       Deleting the review account for real means recreating it with `scripts/create-review-account.mjs`.
 - [ ] The staff review account exists (`scripts/create-staff-review-account.mjs`) and its login is in the review

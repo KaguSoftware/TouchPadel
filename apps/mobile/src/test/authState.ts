@@ -39,6 +39,16 @@ export const TEST_SESSION = {
   },
 } as unknown as Session;
 
-export function setTestSession(mode: 'in' | 'out'): void {
-  authState.session = mode === 'in' ? TEST_SESSION : null;
+/**
+ * The same account with the profile fixture's number confirmed by a code: the
+ * booking gate's `complete` (`bookingGateState`). TEST_SESSION's empty phone
+ * is `unverified` against any profile that has one.
+ */
+export const TEST_VERIFIED_SESSION = {
+  ...TEST_SESSION,
+  user: { ...TEST_SESSION.user, phone: '9647700000000', phone_confirmed_at: '2026-01-01T00:00:00.000Z' },
+} as unknown as Session;
+
+export function setTestSession(mode: 'in' | 'out' | 'verified'): void {
+  authState.session = mode === 'in' ? TEST_SESSION : mode === 'verified' ? TEST_VERIFIED_SESSION : null;
 }

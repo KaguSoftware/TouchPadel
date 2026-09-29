@@ -26,7 +26,7 @@ import { RequireSession } from '../src/features/auth/RequireSession';
 import { updateOwnProfile } from '../src/features/profile/api';
 import { profileKeys } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { clearPendingSlot } from '../src/features/booking/pendingSlot';
+import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useBack, useBackGuard } from '../src/navigation/back';
 import { space, useTheme } from '../src/theme';
@@ -58,8 +58,9 @@ type Mode = 'signup' | 'reset' | 'link';
  *           code lands here, so this write is what completes it.
  *           With `returnTo` it serves a booking (owner, 2026-09-27: no
  *           reservation without a verified phone; app/phone-sign-in.tsx):
- *           `continue` holds the pending slot through the post-auth
- *           continuation, `back` pops to Review. phone-sign-in REPLACED itself
+ *           `continue` holds the pending slot (or opens the pending open
+ *           match's screen) through the post-auth continuation, `back` pops
+ *           to Review or the match screen. phone-sign-in REPLACED itself
  *           with this screen there, so "Use a different number" swaps it back.
  *
  * signup / reset carry no RequireNoSession on purpose: the session lands
@@ -96,12 +97,13 @@ function VerifyOtpForm({
   const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_S);
   const submitted = useRef(false);
 
-  // A booking's pending slot rides on this screen (continue mode): leaving
-  // without a code drops it. The two ways forward lift the guard themselves.
+  // A booking's pending slot, or an open match's pending intent, rides on this
+  // screen (continue mode): leaving without a code drops it. The two ways
+  // forward lift the guard themselves.
   const leave = useBackGuard({
     when: returnTo === 'continue',
     onBlocked: (go) => {
-      clearPendingSlot();
+      clearPendingIntents();
       go();
     },
   });
@@ -141,7 +143,8 @@ function VerifyOtpForm({
         toast(t(from === 'edit' ? 'profile.phoneUpdated' : 'auth.phoneVerified'), 'info');
         if (returnTo === 'continue') {
           // The continuation re-reads the account, finds the number verified,
-          // and holds the slot (or explains that it went).
+          // and holds the slot (or explains that it went), or opens the
+          // pending open match's screen.
           leave(continueAfterAuth);
           return;
         }

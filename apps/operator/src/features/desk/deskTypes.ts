@@ -46,9 +46,21 @@ export interface CustomerFlag {
 export interface CustomerCounts {
   bookings: number;
   cancellations: number;
+  /** Since 0262 this includes the customer's open-match seat no-shows (DF-12, DF-15). */
   noShows: number;
   cafeOrders?: number;
+  /** Open matches (0262 customer_counts); absent from an older server. */
+  matchesPlayed?: number;
+  /** The part of `noShows` that was an open-match seat. */
+  matchNoShows?: number;
+  /** Open-match seats left after booking that nobody took over. */
+  lateLeaves?: number;
 }
+
+/** profiles.gender (0256): what open matches of a category the player may join (OM-39). */
+export type CustomerGender = 'female' | 'male';
+/** Who declared it: the guest in the app, or the desk (staff_set_customer_gender). */
+export type CustomerGenderSource = 'guest' | 'staff';
 
 export interface CustomerSearchRow {
   id: string;
@@ -58,6 +70,8 @@ export interface CustomerSearchRow {
   preferred_lang: 'en' | 'ar' | string | null;
   flags: CustomerFlag[];
   counts: CustomerCounts;
+  /** 0262; absent from an older server. */
+  gender?: CustomerGender | string | null;
 }
 
 /** `customer_notes` as customer_record returns them (0065): author + editor resolved to staff display names. */
@@ -94,6 +108,9 @@ export interface CustomerRecord {
     email: string | null;
     preferred_lang: 'en' | 'ar' | string | null;
     created_at?: string | null;
+    /** 0262 (OM-39); both absent from an older server. */
+    gender?: CustomerGender | string | null;
+    gender_set_by?: CustomerGenderSource | string | null;
   };
   flags: CustomerFlag[];
   counts: CustomerCounts;
@@ -103,6 +120,25 @@ export interface CustomerRecord {
   notes: CustomerNote[];
   /** Empty in 0065; the series lane fills it. */
   series: { id: string; pattern: string; starts_on: string; ends_on: string; court_id: string; occurrences?: number; cancelled_at?: string | null }[];
+  /** 0262: the customer's last 20 open matches, at every branch; absent from an older server. */
+  matches?: CustomerMatchRow[];
+}
+
+/** One `customer_record.matches[]` row (open matches db.md §4.7.13). */
+export interface CustomerMatchRow {
+  match_id: string;
+  reservation_id: string | null;
+  venue_id: string | null;
+  /** matches.status */
+  status: string;
+  start_at: string;
+  end_at: string | null;
+  /** `open`, `women`, `men` */
+  category: string;
+  /** Their seat's match_seats.status */
+  seat_status: string | null;
+  /** Their seat's match_seats.kind */
+  kind: string | null;
 }
 
 // ---------------------------------------------------------------------------

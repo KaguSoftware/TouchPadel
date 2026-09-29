@@ -46,10 +46,11 @@ The pages already say the following. If any is wrong, write the correct rule in 
 | # | What the pages currently say | Where | Your answer (leave blank if correct) |
 |---|---|---|---|
 | 7 | Free cancellation in the app until **4 hours** before the slot; after that only the front desk can change or cancel. *(The number comes live from the venue settings in the operator app, so changing it there changes the pages too.)* | Terms → Bookings, Support | |
-| 8 | Repeated no-shows **may limit or suspend** booking from that account. There is **no fee** for a no-show or a late cancellation. | Terms → Bookings | |
+| 8 | Repeated no-shows **may limit or suspend** booking from that account. A booking has **no no-show or late-cancellation fee** (a court deposit is the one exception, see #11a). In an **open match** it is different: a player who does not come, or who leaves a booked match (or is removed from it by the venue) when nobody takes their seat before it starts, **loses their paid ticket**. | Terms → Bookings, Open matches | |
 | 9 | If the venue cancels (maintenance, power cut, event), the customer is offered **another time or a free cancellation**. Nothing more. | Terms → Bookings | |
 | 10 | Minimum age to **create an account: 13**; under 18 needs a parent's or guardian's agreement. | Terms → Your account, Privacy → Children | |
-| 11 | Payment is **at the venue only**; there is no online payment. *(If Qi Card deposits go live, the Terms need a refund section first. Tell Parsa before launch.)* | Terms → Bookings, Café | |
+| 11 | Payment is **at the venue** by default, and café orders are always paid there. Two things are paid **online by Qi Card**: a **court deposit**, when a booking asks for one, and **open-match tickets**. Tickets never expire; unused ones are refunded **only on request at the front desk**, by a manager, to the card paid with, as one refund per purchase. | Terms → Bookings, Open matches, Café; Support | |
+| 11a | **Not in the pages yet: when a court deposit comes back.** The system refunds it when the booking is cancelled (by the guest or the venue) and **keeps it after a no-show** (a setting the owner can switch to refund instead). Is that the rule? Terms → Bookings must say it before the 1.0 terms go out. | Terms → Bookings (to be added) | |
 | 12 | The venue is **not responsible for lost or stolen belongings** unless the venue caused the loss. | Terms → Venue rules | |
 | 13 | The venue's liability for a booking or order is **capped at the amount paid**, except for injury caused by negligence, fraud, or anything the law does not allow to be limited. | Terms → Our responsibility | |
 | 14 | **Who answers privacy and deletion emails**, and how quickly (the pages promise **within 30 days**). | Privacy → Your rights, Delete account | Name / role: |
@@ -82,9 +83,13 @@ not legal advice**. Have a lawyer in Iraq look at these points in particular:
 - [ ] **Minors.** Is agreement "by a parent or guardian" for 13–17 year-olds workable as written?
 - [ ] **Posted venue rules.** The Terms refer to "the posted venue rules". Make sure there is a physical rules sign at
       the courts (shoes, glass walls, children, conduct).
-- [ ] **The AI assistant.** The owner's assistant sends booking and sales records (names included, phone numbers and
-      emails masked) to an AI provider in the United States. Confirm this is acceptable, or ask Parsa to mask names
-      too.
+- [ ] **Open-match tickets and deposits** (Terms → Bookings, Open matches). A ticket is paid in advance, never
+      expires, is refunded only on request at the front desk, and is lost after a no-show or a late leave nobody
+      refills; a court deposit is kept after a no-show (#8, #11, #11a). Is keeping a paid ticket or deposit like this
+      lawful for consumers, and does it need different wording?
+- [ ] **The AI assistant.** The owner's assistant sends booking and sales records (names included, and for open
+      matches the gender a player gave; phone numbers and emails masked) to an AI provider in the United States.
+      Confirm this is acceptable, or ask Parsa to mask names too.
 
 ---
 

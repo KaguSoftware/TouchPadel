@@ -1,9 +1,9 @@
 # apps/mobile — rules for every change
 
 The guest app: Expo SDK 57 with expo-router screens under `app/` and feature code under
-`src/features/{auth,availability,booking,boot,courtTransition,profile,staff}`. Written 2026-09-20 (Phase
-2, Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification.
-Database-side rules are in `packages/db/CLAUDE.md`.
+`src/features/{auth,availability,booking,boot,courtTransition,deposit,matches,profile,staff}`.
+Written 2026-09-20 (Phase 2, Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20
+code verification. Database-side rules are in `packages/db/CLAUDE.md`.
 
 The same app is the staff phone for a signed-in staff account (`app/staff*.tsx`,
 `src/features/staff`): `StaffStatusProvider` decides guest or staff, `GuestTabsGate` keeps a staff
@@ -31,6 +31,12 @@ keys, the status table, the no-station-RPC rule) are
 - Server codes map through `CODE_TO_KEY` and `mapErrorToKey`
   (`src/features/booking/errors.ts:12,83`); a new code gets an entry there and both catalogs.
   `isDegradedRefusal` (`:73`) is the only place that recognises a degraded-mode refusal.
+- The booking gate (`bookingGateState` + `bookingGateHref`, `src/features/auth/social.ts`) stands
+  before every intent that ends in a court booking: a slot's hold and an open match's start or join
+  (owner, 2026-09-27 and 2026-09-29; `intentBooksCourt` in `src/features/matches/pendingJoin.ts`).
+  No phone → `/complete-profile`, a phone nobody verified → `/phone-sign-in`: continue mode from
+  the Book tab and the post-auth continuation (the intent stays pending), back mode from Review and
+  the match screens' Start / Join. The list and one's own match are browsing and pass.
 - `isTransportError` (`src/lib/network.ts:66`) decides what `src/lib/queryClient.ts` retries; a
   P0001 business error is never retried and never shown as "offline".
 - Auth links: only the code-exchange path in `src/features/auth/deepLink.ts`. The raw-tokens branch
@@ -40,8 +46,14 @@ keys, the status table, the no-station-RPC rule) are
 ## Queries
 
 - Query keys are families exported next to their hooks: `availabilityKeys`, `bookingKeys`,
-  `profileKeys` (`src/features/*/hooks.ts`) and `historyKeys` (`src/features/booking/history.ts`).
-  Extend a family; never inline a key array in a component.
+  `profileKeys` (`src/features/*/hooks.ts`), `historyKeys` (`src/features/booking/history.ts`) and
+  `matchKeys` (`src/features/matches/keys.ts`, re-exported by its `hooks.ts`). Extend a family;
+  never inline a key array in a component.
+- Open matches (`docs/design/open-matches/guest.md` §4.23): everything under `['match']` is live
+  state and is never persisted (`src/lib/queryClient.ts` leaves it out of the dehydrate filter).
+  `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
+  `src/lib/idempotency.ts`, kept across the refusals the guest fixes and the ticket continuation
+  that replays the start. Every other match write is state-idempotent and takes none.
 - Retry, online-pause, focus refetch and persistence are set once in `src/lib/queryClient.ts`; a
   screen does not override them.
 
@@ -64,7 +76,11 @@ keys, the status table, the no-station-RPC rule) are
   barrel.
 - Strings live in `packages/i18n/src/catalogs/en.ts` + `ar.ts` under the shared namespaces (`auth`,
   `booking`, `profile`, `cafe`, `errors`, `degraded`, …); `packages/i18n/src/__tests__/t.test.ts:35`
-  asserts key parity.
+  asserts key parity. Open-match strings are `matches.*` (`catalogs/matches.en.ts` + `ar.ts`, which
+  spread one fragment pair per area: `matches.core`, `screens`, `book`, `wallet`, `web`); a noun
+  that agrees with a number ("2 tickets") goes through `countPhrase` (`packages/i18n/src/plural.ts`,
+  the six Arabic forms), and a third-person line in a women's match takes its `…F` twin
+  (`byCategory`).
 
 ## Config and builds
 
@@ -92,7 +108,8 @@ keys, the status table, the no-station-RPC rule) are
 - `testID` convention: `<route>.<element>`, kebab-case, dots between segments
   (`sign-in.submit`, `bookings.filter.upcoming`); a list row appends its entity id
   (`bookings.upcoming.<reservationId>`). Route = the file path minus `app/`, `(tabs)` and `.tsx`,
-  with `(tabs)/index` → `book`, `booking/[id]` → `booking-detail`, `(tabs)/_layout` → `tabs`.
+  with `(tabs)/index` → `book`, `booking/[id]` → `booking-detail`, `(tabs)/_layout` → `tabs`,
+  `match/[id]` → `match-detail`, `m/[token]` → `match-link`.
   A shared component NEVER mints an id: it takes `testID?: string` and forwards it EXPLICITLY
   (`testID={testID}` — a `{...spread}` does not count, because the lint rule reads the JSX).
 - `testIdRules` from `@touch/config/eslint` fails `lint` on any interactive element without one

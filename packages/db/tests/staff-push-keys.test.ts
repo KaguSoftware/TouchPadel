@@ -245,9 +245,11 @@ describe.skipIf(!docker)('staff_push_keys (rolled-back transactions)', () => {
     const m = def.match(/c_title_keys\s+constant text\[\] := array\[([^\]]*)\]/);
     expect(m).not.toBeNull();
     const keys = [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]);
-    expect(keys).toHaveLength(37);
+    expect(keys).toHaveLength(38);
     expect(keys.slice(15, 26)).toEqual(KEYS.map(([k]) => k));
-    expect(keys.slice(26)).toEqual(WAVE5_KEYS.map(([k]) => k));
+    expect(keys.slice(26, 37)).toEqual(WAVE5_KEYS.map(([k]) => k));
+    // Open matches' match_report_new follows wave 5 (0261, R43).
+    expect(keys.slice(37)).toEqual(['match_report_new']);
   });
 
   it('is no client role’s to call: the driver, marketing and the rest are refused', () => {
@@ -268,7 +270,7 @@ describe.skipIf(!docker)('staff_push_keys (rolled-back transactions)', () => {
 describe('staff-push.json and app.notify_staff (wave 5 keys)', () => {
   it('lists the eleven after the role spec keys, adding no kind and no route', () => {
     expect(staffPush.title_keys.indexOf('marketing_request_answered')).toBe(25);
-    expect(staffPush.title_keys.slice(26)).toEqual(WAVE5_KEYS.map(([k]) => k));
+    expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS.map(([k]) => k));
     expect(staffPush.routes).toHaveLength(7);
   });
 });

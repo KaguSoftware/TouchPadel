@@ -16,7 +16,10 @@
  * no reservation RPC accepts a guest id after creation, so "Attach" hands the
  * chosen customer back to the caller in the URL (`?customer=<id>`) and the
  * caller decides what it can do with it. The booking screen currently states
- * that attaching is not available; the till lane owns the tab side.
+ * that attaching is not available; the till lane owns the tab side. An open
+ * match (`?attach=match&match=<id>`, open matches operator.md §5.3) takes the
+ * customer back to `/desk/matches/$id?customer=<id>`, where Add player opens
+ * with them picked.
  */
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -40,19 +43,43 @@ import {
 } from './customerDirectoryLogic';
 
 export interface CustomerSearchParams {
-  attach?: 'booking' | 'tab';
+  attach?: 'booking' | 'tab' | 'match';
   reservation?: string;
   tab?: string;
+  /** The open match a picked customer goes back to (`attach=match`). */
+  match?: string;
 }
 
-/** Route-level search validation (routes/desk/_children.ts). */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Route-level search validation (routes/desk/_children.ts keeps its own copy,
+ * so the route module does not pull this screen in). Attach to a match needs
+ * the match's id; without a valid one the screen is plain search.
+ */
 export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSearchParams {
-  const attach = raw.attach === 'booking' || raw.attach === 'tab' ? raw.attach : undefined;
+  const match = typeof raw.match === 'string' && UUID.test(raw.match) ? raw.match.toLowerCase() : undefined;
+  const attach = raw.attach === 'booking' || raw.attach === 'tab' ? raw.attach : raw.attach === 'match' && match ? ('match' as const) : undefined;
   return {
     ...(attach ? { attach } : {}),
     ...(typeof raw.reservation === 'string' ? { reservation: raw.reservation } : {}),
     ...(typeof raw.tab === 'string' ? { tab: raw.tab } : {}),
+    ...(attach === 'match' ? { match } : {}),
   };
+}
+
+/** The attach button's words for the caller's attach mode. */
+function attachLabelKey(attach: NonNullable<CustomerSearchParams['attach']>) {
+  if (attach === 'booking') return 'ws.courtDesk.customers.attachBooking' as const;
+  if (attach === 'match') return 'ws.matches.customers.attachMatch' as const;
+  return 'ws.courtDesk.customers.attachTab' as const;
+}
+
+/** The attach-mode banner's words. */
+function attachingKey(attach: NonNullable<CustomerSearchParams['attach']>) {
+  if (attach === 'booking') return 'ws.courtDesk.customers.attachingBooking' as const;
+  if (attach === 'match') return 'ws.matches.customers.attachingMatch' as const;
+  return 'ws.courtDesk.customers.attachingTab' as const;
 }
 
 /** What `customer_search` returns at most when the book is too big to list; the screen states when it is hit. */
@@ -120,11 +147,21 @@ export function CustomerSearchScreen() {
       void navigate({ to: '/desk/bookings/$id', params: { id: params.reservation }, search: { customer: c.id } as never });
     } else if (params.attach === 'tab') {
       void navigate({ to: '/till', search: { tab: params.tab, customer: c.id } as never });
+    } else if (params.attach === 'match' && params.match) {
+      void navigate({ to: '/desk/matches/$id', params: { id: params.match }, search: { customer: c.id } as never });
     }
   }
 
   const createLink = (
-    <Link to="/desk/customers/new" className="tp-btn" data-kind="primary" data-size="lg" style={{ textDecoration: 'none' }}>
+    <Link
+      to="/desk/customers/new"
+      // A customer created while attaching to a match goes straight back to it.
+      search={(params.attach === 'match' && params.match ? { attach: 'match', match: params.match } : {}) as never}
+      className="tp-btn"
+      data-kind="primary"
+      data-size="lg"
+      style={{ textDecoration: 'none' }}
+    >
       <Icon name="userPlus" size={20} /> {tr('ws.courtDesk.customers.create')}
     </Link>
   );
@@ -157,7 +194,7 @@ export function CustomerSearchScreen() {
         <MessagePresenter
           tone="info"
           icon="userPlus"
-          message={params.attach === 'booking' ? tr('ws.courtDesk.customers.attachingBooking') : tr('ws.courtDesk.customers.attachingTab')}
+          message={tr(attachingKey(params.attach))}
           style={{ marginBlockEnd: '0.75rem' }}
         />
       )}
@@ -242,7 +279,7 @@ export function CustomerSearchScreen() {
               <CustomerResultRow
                 key={c.id}
                 customer={c}
-                attachLabel={params.attach ? (params.attach === 'booking' ? tr('ws.courtDesk.customers.attachBooking') : tr('ws.courtDesk.customers.attachTab')) : null}
+                attachLabel={params.attach ? tr(attachLabelKey(params.attach)) : null}
                 onAttach={() => attach(c)}
                 onBook={canBook && !params.attach ? () => void navigate({ to: '/desk', search: { customer: c.id } as never }) : undefined}
                 onSelect={() => void navigate({ to: '/desk/customers/$id', params: { id: c.id } })}

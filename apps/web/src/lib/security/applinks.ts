@@ -10,10 +10,12 @@
 /**
  * Apple `appID` is TEAMID.BUNDLEID.
  *
- * The team id is unknown: there is no Apple Developer team yet
- * (docs/design/social-signin-2026-09-01.md). `APPLE_TEAM_ID` must be set when
- * one exists. The placeholder cannot accidentally match a real team — Apple
- * team ids are exactly 10 alphanumeric characters.
+ * The team is `BR42V976FS` (`appleTeamId` in apps/mobile/eas.json). It comes from
+ * the Vercel env var `APPLE_TEAM_ID`, which the owner sets; both /.well-known/
+ * routes are `force-static`, so the value is read at build time and a change
+ * needs a redeploy. Unset, the placeholder cannot accidentally match a real
+ * team — Apple team ids are exactly 10 alphanumeric characters — and iOS simply
+ * never opens the app on a link.
  */
 const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID ?? 'TEAMID-UNSET';
 const IOS_BUNDLE_ID = 'com.kagu.touchpadel';
@@ -38,11 +40,16 @@ export const ANDROID_SHA256_FINGERPRINTS = (process.env.ANDROID_SHA256_FINGERPRI
   .filter((f) => /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(f));
 
 /**
- * The paths the mobile app may claim.
+ * The paths the mobile app may claim: the auth links, and the open-match invite
+ * `/m/<token>` a player shares (docs/design/open-matches/guest.md §4.19, OM-32),
+ * each bare and under both locales, because the proxy's locale hop is a web
+ * thing and a link can arrive in any of the three spellings. Where the app does
+ * not claim an invite (no app, or Android before the Play fingerprints above are
+ * published), `/{locale}/m/<token>` renders the web invite page instead.
  *
  * Deliberately NOT `/*`. The table-session route `/t/*` must stay in the
  * browser: it is the guest cafe surface, it has no mobile equivalent, and
  * handing those URLs to the app would send the table token through an
  * additional hop for no benefit.
  */
-export const LINK_PATHS = ['/auth/*', '/en/auth/*', '/ar/auth/*'];
+export const LINK_PATHS = ['/auth/*', '/en/auth/*', '/ar/auth/*', '/m/*', '/en/m/*', '/ar/m/*'];

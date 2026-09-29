@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   SocialAuthError,
   appleDisplayName,
+  bookingGateHref,
   bookingGateState,
   buildProfilePatch,
   firstGoogleAttempt,
@@ -215,6 +216,24 @@ describe('bookingGateState', () => {
     expect(
       bookingGateState({ status: 'success', data: { phone: '+9647701234567' } }, { phone: '', phone_confirmed_at: null }),
     ).toBe('unverified');
+  });
+});
+
+describe('bookingGateHref', () => {
+  it('puts complete-profile, then phone verification, before the intent, in continue mode', () => {
+    expect(bookingGateHref('incomplete', '')).toEqual({
+      pathname: '/complete-profile',
+      params: { returnTo: 'continue' },
+    });
+    expect(bookingGateHref('unverified', '+9647701234567')).toEqual({
+      pathname: '/phone-sign-in',
+      params: { returnTo: 'continue', phone: '+9647701234567' },
+    });
+  });
+
+  it('lets a complete or unread gate through', () => {
+    expect(bookingGateHref('complete', '+9647701234567')).toBeNull();
+    expect(bookingGateHref('unknown', '')).toBeNull();
   });
 });
 

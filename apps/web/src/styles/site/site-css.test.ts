@@ -4,6 +4,7 @@ import { PHOTO_GRADE_ID } from '@/lib/site/photoGrade';
 import { siteCssModules } from './index';
 import { siteLostCss, siteLostFrameCss } from './lost.css';
 import { sitePayReturnCss } from './payReturn.css';
+import { siteMatchInviteCss } from './matchInvite.css';
 
 /**
  * Style guard for the site family, run over every site module AND over the court's
@@ -22,6 +23,8 @@ const ALL: [string, string][] = [
   ['lost-frame', siteLostFrameCss],
   // The payment return page's whole sheet, which also ships without it (pay/return/page.tsx).
   ['pay-return', sitePayReturnCss],
+  // The open-match invite page's whole sheet, which also ships without it (m/[token]/page.tsx).
+  ['match-invite', siteMatchInviteCss],
 ];
 
 describe('site css guard', () => {

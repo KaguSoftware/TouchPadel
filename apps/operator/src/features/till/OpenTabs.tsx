@@ -73,6 +73,7 @@ import { MergeTabsDialog } from './ManagerActions';
 import { computeTabTotals } from './tabTotals';
 import { useTaxContext } from './useTaxContext';
 import { formatElapsed } from './elapsed';
+import { reservationNameOf } from '../matches/matchLogic';
 import { OPEN_TABS_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
 import { muted } from './tillStyles';
 
@@ -576,11 +577,11 @@ export function OpenTabsScreen() {
     () =>
       (tabsQ.data ?? []).map((t) => ({
         id: t.id,
-        label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')),
+        label: tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation'), tr('ws.matches.common.openMatch')),
         table: t.table?.table_number ?? null,
         court: t.reservation?.court ? pickName(locale, t.reservation.court) : null,
         courtId: t.reservation?.court?.id ?? null,
-        guest: t.reservation?.guest_name ?? t.label,
+        guest: reservationNameOf(t.reservation, tr) ?? t.label,
         status: t.status,
         openedAt: t.opened_at,
         total: t.total_iqd ?? computeTabTotals(t, taxCtx).total,
@@ -680,7 +681,7 @@ export function OpenTabsScreen() {
       {mergeSurvivor && (
         <MergeTabsDialog
           survivorTabId={mergeSurvivor.id}
-          survivorLabel={tabAnchorLabel(mergeSurvivor, tr('op.till.table'), tr('op.till.forReservation'))}
+          survivorLabel={tabAnchorLabel(mergeSurvivor, tr('op.till.table'), tr('op.till.forReservation'), tr('ws.matches.common.openMatch'))}
           onDone={() => {
             setMergeSurvivor(null);
             void queryClient.invalidateQueries({ queryKey: ['tabs'] });

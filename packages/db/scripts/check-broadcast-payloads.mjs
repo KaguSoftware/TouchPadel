@@ -54,6 +54,11 @@ const FORBIDDEN = [
   /cost/i, /discount/i, /refund/i, /payment/i, /paid/i,
   /guest_name/i, /guest_phone/i, /customer/i, /\bphone\b/i, /email/i,
   /full_name/i, /profile_id/i, /guest_id/i,
+  // Open matches (0256 onwards, docs/design/open-matches/db.md D31): the name
+  // parts and gender a player gives, a match's invite token, and the ids that
+  // point at the organiser, a reporter, a reported player or a block.
+  /given_name/i, /family_name/i, /\bgender\b/i, /share_token/i, /organiser_id/i,
+  /reporter_id/i, /reported_id/i, /blocker_id/i, /blocked_id/i,
 ];
 
 /** Split on top-level commas, respecting nesting and quotes. */

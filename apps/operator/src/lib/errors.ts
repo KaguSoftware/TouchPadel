@@ -15,6 +15,9 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   // Renderer-minted: leaving a locked station with your own manager PIN
   // (Quit / Exit forced full screen, __root.tsx proveLeavePin).
   'PIN_OWN',
+  // Renderer-minted: PostgREST PGRST202, an RPC this build calls that the
+  // server does not have yet (appRpc.ts toAppRpcError; open matches §5.5).
+  'RPC_MISSING',
   // 0115: a money RPC reached without a fresh verify_manager_pin grant. appRpc
   // verifies first, so a user sees this only after a very slow round trip.
   'PIN_GRANT_REQUIRED',
@@ -185,6 +188,37 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'STATION_HAS_HISTORY',
   'BRANCH_HAS_BOOKINGS',
   'VENUE_CLOSED',
+  // Open matches (docs/design/open-matches/operator.md §5.20), each code with
+  // the migration that first raises it (R11, R28); the copy is in
+  // opErrors.matches.*.ts. 0259: the record's Tickets panel and cash-out.
+  'TICKET_IN_USE',
+  'NO_UNUSED_TICKETS',
+  'CUSTOMER_NOT_FOUND',
+  // 0262: the desk's open-match RPCs, seat money and the DF-16 wall.
+  'MATCHES_OFF',
+  'MATCH_NOT_FOUND',
+  'MATCH_NOT_FILLING',
+  'MATCH_NOT_BOOKED',
+  'MATCH_NOT_STARTED',
+  'MATCH_FULL',
+  'MATCH_TOO_LATE',
+  'MATCH_SLOT_FULL',
+  'MATCH_GENDER_MISMATCH',
+  'MATCH_SEAT_LIMIT',
+  'MATCH_BANNED',
+  'MATCH_MARK_SEATS',
+  'MATCH_ALREADY_IN',
+  'MATCH_BOOKING_NO_CAFE',
+  'SEAT_NOT_FOUND',
+  'SEAT_NOT_STARTED',
+  'SEAT_MARK_LOCKED',
+  'SEAT_OWED_CHANGED',
+  'NOTHING_OWED',
+  'PAYMENT_NOT_ON_MATCH',
+  'AMOUNT_OVER_SEAT',
+  'PAYMENT_OVER_ALLOCATED',
+  'REPORT_NOT_FOUND',
+  'REPORT_CLOSED',
   // Desk payment (0106).
   'BOOKING_TAB_OPEN',
   'BOOKING_TAB_DONOR',

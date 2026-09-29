@@ -1,0 +1,31 @@
+{
+  "_readme": "The guest push catalogue for open matches (build contracts §1.9, R3; docs/design/open-matches/guest.md §4.7). ONE list for three copies: send-push (a guest kind reads its copy by title_key from send-push/guestStrings.ts, and a row whose kind is not its title key's kind, or whose route is not listed here, is terminal), app.match_notify (c_keys, 0261; packages/db/tests/guest-push.test.ts compares), and apps/mobile/src/features/matches/pushRoutes.ts (routes). title_keys maps each key to the one kind it is queued under. Params are closed to the three names below: no name and no amount ever reaches a lock screen. Deno cannot import a workspace package, so this JSON is the shared artefact, as staff-push.json is. Add a key here, in guestStrings.ts (EN and AR) and in app.match_notify in the same change, and deploy send-push before a migration can queue it.",
+  "kinds": ["match_update", "match_reminder", "match_message"],
+  "title_keys": {
+    "request_new": "match_update",
+    "request_expired": "match_update",
+    "player_joined": "match_update",
+    "player_left": "match_update",
+    "request_approved": "match_update",
+    "request_declined": "match_update",
+    "match_booked": "match_update",
+    "match_waiting_court": "match_update",
+    "deadline_warning": "match_update",
+    "match_cancelled": "match_update",
+    "match_bumped": "match_update",
+    "match_expired": "match_update",
+    "match_moved": "match_update",
+    "reminder_3h": "match_reminder",
+    "organiser_handover": "match_update",
+    "seat_removed": "match_update",
+    "seat_refilled": "match_update",
+    "ticket_forfeited": "match_update",
+    "tickets_refunded": "match_update",
+    "msg_on_my_way": "match_message",
+    "msg_running_late": "match_message",
+    "msg_cant_make_it": "match_message",
+    "msg_bring_balls": "match_message"
+  },
+  "routes": ["match", "tickets"],
+  "params": ["seats_taken", "seats_total", "minutes"]
+}

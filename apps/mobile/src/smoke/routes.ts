@@ -16,8 +16,9 @@
  * else. The suites import the components themselves.
  *
  * The route name is the file path minus `app/`, `(tabs)`, and `.tsx`, with
- * three spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
- * `booking-detail`, `(tabs)/_layout` → `tabs`.
+ * five spellings fixed: `(tabs)/index` → `book`, `booking/[id]` →
+ * `booking-detail`, `(tabs)/_layout` → `tabs`, `match/[id]` → `match-detail`,
+ * `m/[token]` → `match-link`.
  */
 export interface SmokeRoute {
   /** Path under `app/`, '/'-separated — what the coverage test matches on. */
@@ -131,6 +132,19 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   { file: 'staff-deductions.tsx', route: 'staff-deductions', primary: 'staff-deductions.propose' },
   { file: 'staff-incidents.tsx', route: 'staff-incidents', primary: 'staff-incidents.submit' },
   { file: 'staff-content.tsx', route: 'staff-content', primary: 'staff-content.submit' },
+  // ── open matches ──────────────────────────────────────────────────────────
+  // docs/design/open-matches/guest.md §4.27, cased by matches.smoke.test.tsx
+  // in EN and AR. Two spellings are fixed like booking/[id]: `match/[id]` →
+  // `match-detail` and `m/[token]` → `match-link`.
+  { file: 'matches.tsx', route: 'matches', primary: 'matches.start-one' },
+  { file: 'match/[id].tsx', route: 'match-detail', primary: 'match-detail.join' },
+  { file: 'match-new.tsx', route: 'match-new', primary: 'match-new.start' },
+  { file: 'm/[token].tsx', route: 'match-link', primary: 'match-link.sign-in' },
+  { file: 'match-report.tsx', route: 'match-report', primary: 'match-report.submit' },
+  { file: 'blocked-players.tsx', route: 'blocked-players', primary: 'blocked-players.list' },
+  // The wallet starts a ticket purchase: cased with the payment screens in
+  // deposit.smoke.test.tsx.
+  { file: 'tickets.tsx', route: 'tickets', primary: 'tickets.buy' },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so

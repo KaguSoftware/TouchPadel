@@ -502,6 +502,9 @@ const FEATURE_ROUTE = {
   till: '/till', desk: '/desk', kds: '/kds', stock: '/stock', admin: '/admin', analytics: '/analytics', ops: '/ops',
   panel: '/panel', reports: '/reports', setup: '/setup', financial: '/financial', observation: '/observation',
   marketing: '/marketing', floor: '/ops', breaks: null, tasks: '/tasks',
+  // Open matches live inside the desk (/desk/matches/$id inherits /desk); the panels on
+  // other pages sit in their host feature folders (open-matches operator.md §5.24).
+  matches: '/desk',
 };
 
 function operatorRpcCallers() {
@@ -551,7 +554,9 @@ const LABEL_ROUTE_HINTS = {
   hero: '/admin/hero', marketing: '/marketing', observation: '/observation', requests: '/observation/requests', financial: '/financial',
   setup: '/setup', hours: '/admin/hours', addons: '/admin/addons', suggested: '/admin/suggested', categories: '/admin/categories',
 };
-const CATALOG_FILE_ROUTE = { cashier: '/till', courtDesk: '/desk', prep: '/kds', manager: '/ops', owner: '/panel', reports: '/reports', analytics: '/analytics', team: '/tasks', shell: null, kit: null };
+const CATALOG_FILE_ROUTE = { cashier: '/till', courtDesk: '/desk', prep: '/kds', manager: '/ops', owner: '/panel', reports: '/reports', analytics: '/analytics', team: '/tasks', matches: '/desk', shell: null, kit: null };
+// Lane fragments spread into another ws catalog (ws/index.ts mounts only the assembly): file → mount.
+const CATALOG_FILE_MOUNT = { matchesPlayers: 'matches', matchesDesk: 'matches', matchesAdmin: 'matches' };
 
 function labelChunks(lang) {
   const chunks = [];
@@ -595,8 +600,9 @@ function labelChunks(lang) {
   for (const f of readdirSync(wsDir).sort()) {
     const m = new RegExp(`^([a-zA-Z]+)\\.${lang}\\.ts$`).exec(f);
     if (!m) continue;
-    const pairs = parseCatalog(readFileSync(path.join(wsDir, f), 'utf8')).map(([p, t]) => [`ws.${m[1]}.${p}`, t]);
-    emit(rel(path.join(wsDir, f)), `ws.${m[1]}`, pairs, CATALOG_FILE_ROUTE[m[1]] ?? null);
+    const mount = CATALOG_FILE_MOUNT[m[1]] ?? m[1];
+    const pairs = parseCatalog(readFileSync(path.join(wsDir, f), 'utf8')).map(([p, t]) => [`ws.${mount}.${p}`, t]);
+    emit(rel(path.join(wsDir, f)), `ws.${mount}`, pairs, CATALOG_FILE_ROUTE[mount] ?? null);
   }
   return chunks;
 }

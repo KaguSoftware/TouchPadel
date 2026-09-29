@@ -1,17 +1,22 @@
 /**
- * The deposit edge functions' shared glue: load a payment row, pick its
+ * The payment edge functions' shared glue: load a payment row, pick its
  * gateway, ask the gateway what happened and hand the answer to
- * app.deposit_apply (0242), the only writer of a payment's outcome.
+ * app.deposit_apply (0242, 0259), the only writer of a payment's outcome.
+ * A row is a court deposit (purpose 'deposit') or a purchase of open-match
+ * tickets (purpose 'ticket', 0259: no hold, no booking, no branch).
  *
  * Never decides anything itself. A gateway that does not answer leaves the
  * row as it was (the no-false-negative rule, plan §3.2): the next poll, the
  * webhook or the reconciler asks again.
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { isRetryablePgError } from './http.ts';
 import {
   FAKE_PAYMENT_PREFIX,
   PaymentProviderError,
   fakePageUrl,
+  finishPaymentUrl,
+  notificationUrl,
   paymentsFromEnv,
   type EnvGetter,
   type FakeStore,
@@ -31,12 +36,16 @@ export interface PaymentRow {
   last_checked_at: string | null;
   locale: 'en' | 'ar';
   created_at: string;
-  hold_id: string;
-  reservation_id: string;
+  /** NULL for a ticket purchase (0258, R7): it holds no slot. */
+  hold_id: string | null;
+  reservation_id: string | null;
+  purpose: 'deposit' | 'ticket';
+  /** 1..3 for a ticket purchase; NULL for a deposit. */
+  ticket_count: number | null;
 }
 
 const ROW_COLUMNS =
-  'id, request_id, provider, sandbox, provider_payment_id, status, amount_iqd, deadline_at, last_checked_at, locale, created_at, hold_id, reservation_id';
+  'id, request_id, provider, sandbox, provider_payment_id, status, amount_iqd, deadline_at, last_checked_at, locale, created_at, hold_id, reservation_id, purpose, ticket_count';
 
 export const OPEN = new Set(['created', 'pending']);
 export const PAID = new Set(['succeeded', 'refund_pending', 'refund_failed', 'refunded']);
@@ -183,4 +192,85 @@ export function describe(error: unknown): string {
   if (error instanceof PaymentProviderError) return `${error.provider} ${error.kind}: ${error.message}`;
   if (error && typeof error === 'object' && 'message' in error) return String((error as { message: unknown }).message);
   return String(error);
+}
+
+/** What a begin function hands the gateway: the attempt app.*_prepare returned. */
+export interface GatewayRow {
+  request_id: string;
+  provider: string;
+  sandbox: boolean;
+  amount_iqd: number;
+  locale: 'en' | 'ar';
+  guest_phone: string | null;
+}
+
+export type GatewayOutcome = { formUrl: string } | { error: 'PROVIDER_UNAVAILABLE' | 'RETRY_LATER' | 'INTERNAL' };
+
+/**
+ * The gateway half of a begin (deposit-begin, ticket-begin): create the
+ * payment with OUR request_id; if that call died after the gateway made it,
+ * the gateway answers "already used" and we look it up instead of creating a
+ * second one. app.deposit_mark_created stores the gateway's id and page URL,
+ * and a recovered payment that already has an outcome is applied now rather
+ * than on the next poll. Nothing here marks a payment paid or failed.
+ */
+export async function createAtGateway(
+  service: SupabaseClient,
+  env: EnvGetter,
+  row: GatewayRow,
+  uid: string,
+  additionalInfo: Record<string, string>,
+): Promise<GatewayOutcome> {
+  const provider = providerFor(env, service, row);
+  let created: GatewayPayment;
+  try {
+    created = await provider.create({
+      requestId: row.request_id,
+      amountIqd: Number(row.amount_iqd),
+      locale: row.locale,
+      finishPaymentUrl: finishPaymentUrl(env, row.locale, row.request_id),
+      notificationUrl: notificationUrl(env),
+      customer: { phone: row.guest_phone, accountId: uid },
+      additionalInfo,
+    });
+  } catch (error) {
+    if (error instanceof PaymentProviderError && error.kind === 'already_used') {
+      // Made on an earlier tap whose answer we never received: look it up.
+      try {
+        created = await provider.statusByRequest(row.request_id);
+      } catch (again) {
+        console.error(`[payments] recover ${row.request_id}: ${describe(again)}`);
+        return { error: 'PROVIDER_UNAVAILABLE' };
+      }
+    } else {
+      console.error(`[payments] create ${row.request_id}: ${describe(error)}`);
+      return { error: 'PROVIDER_UNAVAILABLE' };
+    }
+  }
+
+  const mark = await service.schema('app').rpc('deposit_mark_created', {
+    p_request_id: row.request_id,
+    p_provider_payment_id: created.paymentId,
+    p_form_url: created.formUrl,
+    p_provider_status: created.status,
+    p_raw: created.raw,
+  });
+  if (mark.error) {
+    console.error(`[payments] deposit_mark_created ${row.request_id}: ${mark.error.message}`);
+    return { error: isRetryablePgError(mark.error) ? 'RETRY_LATER' : 'INTERNAL' };
+  }
+
+  // A recovered payment may already have an outcome (the guest paid on the
+  // earlier tap's page): record it now rather than on the next poll.
+  if (created.status && created.status !== 'CREATED') {
+    try {
+      await applyGateway(service, row.request_id, created, 'poll');
+    } catch (error) {
+      console.warn(`[payments] apply ${row.request_id}: ${describe(error)}`);
+    }
+  }
+
+  const markedUrl = (mark.data as { form_url?: string | null } | null)?.form_url ?? created.formUrl;
+  if (!markedUrl) return { error: 'PROVIDER_UNAVAILABLE' };
+  return { formUrl: markedUrl };
 }
