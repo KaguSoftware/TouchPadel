@@ -13,6 +13,12 @@ import { ThemeToggle } from './ThemeToggle';
 const MENU_ID = 'tp-site-menu';
 
 /**
+ * Pages whose bar stays solid from the top instead of fading its ground in on scroll:
+ * the legal documents, where the fade over plain text read as the bar flickering.
+ */
+const SOLID_HEADER_PATHS = ['/privacy', '/terms', '/support', '/delete-account'];
+
+/**
  * The site header: the vector lockup (home), then The club · Lessons · Café menu · Visit,
  * the theme, the green "Book a court" (WhatsApp, pre-filled, with the chat glyph and a
  * screen-reader cue that it opens WhatsApp; "Plan your visit" when the venue has no
@@ -47,6 +53,7 @@ export function SiteHeader({
   const tr = makeT(locale);
   const other = otherLocale(locale);
   const onHome = path === '';
+  const solid = path !== null && SOLID_HEADER_PATHS.includes(path);
   const section = (id: string) => (onHome ? `#${id}` : `/${locale}#${id}`);
   const links = [
     { href: section('club'), label: tr('site.nav.club') },
@@ -55,7 +62,7 @@ export function SiteHeader({
     { href: section('visit'), label: tr('site.nav.visit') },
   ];
   return (
-    <header className="tp-site-header" data-menu="closed">
+    <header className="tp-site-header" data-menu="closed" data-solid={solid ? 'true' : undefined}>
       <div className="tp-site-header__inner">
         <a className="tp-site-header__brand" href={`/${locale}`} aria-label={tr('site.brandHome')}>
           <BrandLockup />

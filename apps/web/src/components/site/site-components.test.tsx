@@ -53,6 +53,18 @@ describe('SiteShell', () => {
     expect(document.querySelector('.tp-site')?.getAttribute('data-page')).toBe('page');
   });
 
+  it.each([
+    ['/privacy', 'true'],
+    ['/terms', 'true'],
+    ['/support', 'true'],
+    ['/delete-account', 'true'],
+    ['', null],
+    [null, null],
+  ])('keeps the header solid from the top on the legal pages (%s)', (path, solid) => {
+    renderShell({ path });
+    expect(screen.getByRole('banner').getAttribute('data-solid')).toBe(solid);
+  });
+
   it('has Book a court in the bar and the sheet; the menu opens and closes from the keyboard', async () => {
     renderShell();
     const banner = screen.getByRole('banner');
