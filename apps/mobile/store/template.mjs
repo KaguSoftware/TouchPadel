@@ -84,9 +84,10 @@ function geometry(size) {
  */
 export function posterHtml({ size, locale, dir, t, frame, capture }) {
   const g = geometry(size);
+  const platform = size.platform ?? 'ios';
   const inner = capture
     ? `<img class="capture" src="${capture}" alt=""/>`
-    : `<div class="scr-scaler" dir="${dir}">${SCREENS[frame.screen](t, LOGO)}</div>`;
+    : `<div class="scr-scaler" dir="${dir}">${SCREENS[frame.screen](t, LOGO, platform)}</div>`;
 
   const headline = frame.headline.map((line) => `<div class="hl-line">${line}</div>`).join('');
 

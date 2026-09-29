@@ -11,18 +11,31 @@ import { TabBookIcon, TabBookingsIcon, TabProfileIcon } from '../components/icon
 /**
  * Bar height, measured from what it holds: the 21 pt icon, a 2 pt gap, the
  * 9.5 pt display label (~13 pt line box), a 2 pt gap and the 3 pt active dot —
- * 41 pt — plus the bar's own 4 pt `paddingTop` and the item's 2 pt.
+ * 41 pt — plus the button's 6 pt `paddingTop` (TAB_BUTTON).
  *
  * It was 62 back when the bar added `insets.bottom` on top and the surplus was
  * swallowed by the system nav bar's strip. 49 (`TABBAR_HEIGHT_UIKIT`) was then
  * tried and was too tight: Android clipped the labels mid-glyph and dropped the
  * active dot entirely.
  *
- * Must stay equal to ANDROID_TAB_BAR_HEIGHT in components/useTabBarHeight.ts —
+ * TAB_BAR_BASE + TAB_BAR_BOTTOM_GAP must stay equal to ANDROID_TAB_BAR_HEIGHT
+ * in components/useTabBarHeight.ts —
  * that is the fallback for this same bar, and a drift pads scroll content to a
  * height the bar does not have.
  */
 const TAB_BAR_BASE = 56;
+
+/**
+ * Clear space under the labels, so they do not sit on the very edge of the
+ * glass. Edge-to-edge with the inset zeroed, a 56 pt bar put the labels on the
+ * last pixels of the screen, where rounded display corners cut into the outer
+ * tabs' text (owner, 2026-09-29, Android: "too attached to the end of the app").
+ * Added to the bar's height, so the content box keeps its 56.
+ */
+const TAB_BAR_BOTTOM_GAP = 14;
+
+/** Keeps the outer tabs' labels in from the rounded screen corners. */
+const TAB_ITEM_SIDE_GAP = 8;
 
 /**
  * expo-router's BottomTabItem defaults to `android_ripple: { borderless: true }`,
@@ -31,9 +44,22 @@ const TAB_BAR_BASE = 56;
  * system nav bar below. `borderless: false` makes Android clip the ripple to
  * the pressable's own rect instead, keeping the original gray highlight but
  * confined to the (now correctly sized) tab item.
+ *
+ * The item is a plain rectangle (no pill radius) and spans the bar's whole
+ * height and its third of the width, so a press greys the ENTIRE button (owner,
+ * 2026-09-29). That is why neither the bar nor `tabBarItemStyle` carries any
+ * padding: BottomTabItem puts `tabBarItemStyle` on a WRAPPER View around the
+ * button and hands the button only its `flex`, so padding there sat outside
+ * the Pressable and the ripple stopped at the icon and label. Every gap lives
+ * here, on the Pressable itself, where the ripple reaches it.
  */
 const RIPPLE = (color: string) => ({ color, borderless: false });
-const TAB_BUTTON = { borderRadius: radius.pill, overflow: 'hidden' } as const;
+const TAB_BUTTON = {
+  overflow: 'hidden',
+  paddingTop: 6,
+  paddingBottom: TAB_BAR_BOTTOM_GAP,
+  paddingHorizontal: TAB_ITEM_SIDE_GAP,
+} as const;
 
 /**
  * Display-face label + the 14×3 green active dot, per the design.
@@ -203,8 +229,10 @@ function AndroidTabs() {
            * off natively in app.config.ts, so there is nothing left to cover and
            * the padding would only make the bar too tall.
            */
-          height: TAB_BAR_BASE,
-          paddingTop: 4,
+          height: TAB_BAR_BASE + TAB_BAR_BOTTOM_GAP,
+          // No padding here — it lives on the button (TAB_BUTTON) so the ripple covers it.
+          paddingTop: 0,
+          paddingBottom: 0,
         },
         tabBarBackground:
           Platform.OS === 'ios'
@@ -232,7 +260,7 @@ function AndroidTabs() {
          * so the ripple still cannot reach past it and the content centres in
          * it instead of hanging from the top.
          */
-        tabBarItemStyle: { paddingTop: 2, flex: 1 },
+        tabBarItemStyle: { flex: 1 },
         tabBarHideOnKeyboard: true,
         sceneStyle: { backgroundColor: colors.bg },
       }}

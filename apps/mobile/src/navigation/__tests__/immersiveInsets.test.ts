@@ -53,9 +53,11 @@ describe('immersive bottom inset', () => {
     const bar = stripComments(read('src/navigation/TabsLayout.android.tsx'));
     const hook = stripComments(read('src/components/useTabBarHeight.ts'));
     const base = bar.match(/const TAB_BAR_BASE = (\d+)/)?.[1];
+    const gap = bar.match(/const TAB_BAR_BOTTOM_GAP = (\d+)/)?.[1];
     const fallback = hook.match(/const ANDROID_TAB_BAR_HEIGHT = (\d+)/)?.[1];
     expect(base).toBeDefined();
-    expect(fallback).toBe(base);
+    expect(gap).toBeDefined();
+    expect(Number(fallback)).toBe(Number(base) + Number(gap));
   });
 
   /**
@@ -87,12 +89,14 @@ describe('immersive bottom inset', () => {
 
   /**
    * The bar is its own content on the screen edge — the revealed nav bar floats
-   * OVER it. Nothing stretches it, so no `paddingBottom` and no added inset.
+   * OVER it. Nothing stretches it, so no inset-driven `paddingBottom`; the
+   * fixed TAB_BAR_BOTTOM_GAP lives on the button so the ripple covers it.
    */
   it('keeps the bar at its content height so the nav bar can overlay it', () => {
     const bar = stripComments(read('src/navigation/TabsLayout.android.tsx'));
-    expect(bar).toMatch(/height: TAB_BAR_BASE,/);
-    expect(bar).not.toMatch(/paddingBottom:/);
+    expect(bar).toMatch(/height: TAB_BAR_BASE \+ TAB_BAR_BOTTOM_GAP,/);
+    expect(bar).not.toMatch(/paddingBottom: (?!0,|TAB_BAR_BOTTOM_GAP,)/);
+    expect(bar).not.toMatch(/insets\.bottom/);
     expect(bar).not.toMatch(/hiddenInset/);
   });
 

@@ -18,7 +18,7 @@ describe('net tape projection (the on-net button follows it)', () => {
     // look-at is 0.8 m past the net, so the net sits below centre
     expect(n.centreY).toBeGreaterThan(H / 2);
     expect(n.centreY).toBeLessThan(H * 0.62);
-    // 10.3 m of net in a ~25.5 m tall, ~16.8 m wide field of view
+    // 9.66 m of net in a ~25.5 m tall, ~16.8 m wide field of view
     expect(n.width).toBeGreaterThan(W * 0.55);
     expect(n.width).toBeLessThan(W * 0.7);
   });

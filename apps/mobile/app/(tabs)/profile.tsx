@@ -17,7 +17,7 @@ import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui';
+import { Button, Card, ErrorText, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
 import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon, TrashIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
@@ -80,7 +80,7 @@ export default function ProfileScreen() {
   };
 
   const header = (
-    <View style={{ paddingTop: space.l }}>
+    <View style={{ paddingTop: TAB_TITLE_TOP }}>
       <Title>{t('profile.title')}</Title>
     </View>
   );

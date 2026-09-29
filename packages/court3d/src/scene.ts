@@ -102,6 +102,8 @@ const NAVY = 0x172c4f;
 const LIME = 0xa5d06f;
 const BLUE = 0x3360ab;
 const TURF = 0x2d5495;
+/** The glass's window squares: the sage they read as through the glass in the pitched view. */
+const PANE = 0x92a087;
 /**
  * The ghost trail: 36 fading spheres over the ball's last 0.367 s of flight.
  *
@@ -221,8 +223,11 @@ export function buildCourtScene(
     return m;
   };
 
-  // ground + turf (base top sits 6 cm below the turf; lines use polygonOffset — no z-fighting)
-  add(new THREE.BoxGeometry(11.4, 0.3, 21.4), Mat(NAVY), 0, -0.21, 0);
+  // ground + turf (base top sits 6 cm below the turf; lines use polygonOffset — no z-fighting).
+  // The base is only as wide as the cage (the side posts stand at x = ±5): at 11.4 m
+  // its 0.7 m side margins showed through the side fences in the pitched view as a
+  // dark band over the walls (owner, 2026-09-29).
+  add(new THREE.BoxGeometry(10.2, 0.3, 21.4), Mat(NAVY), 0, -0.21, 0);
   const turf = add(new THREE.PlaneGeometry(10, 20), Mat(TURF), 0, 0, 0);
   turf.rotation.x = -Math.PI / 2;
   turf.receiveShadow = shadows;
@@ -251,7 +256,7 @@ export function buildCourtScene(
   line(LW, 3, 0, -8.5);
   line(LW, 3, 0, 8.5);
 
-  // net
+  // net: posts stand just inside the court, touching the sidelines' inner edge (x = ±4.83 m)
   const netMat = new THREE.MeshBasicMaterial({
     color: NAVY,
     wireframe: true,
@@ -259,15 +264,15 @@ export function buildCourtScene(
     opacity: 0.55,
   });
   disposables.push(netMat);
-  add(new THREE.PlaneGeometry(10.3, 0.86, 62, 6), netMat, 0, 0.45, 0);
-  add(new THREE.BoxGeometry(10.3, 0.07, 0.035), Mat(0xffffff, { roughness: 0.5 }), 0, 0.9, 0);
+  add(new THREE.PlaneGeometry(9.66, 0.86, 58, 6), netMat, 0, 0.45, 0);
+  add(new THREE.BoxGeometry(9.66, 0.07, 0.035), Mat(0xffffff, { roughness: 0.5 }), 0, 0.9, 0);
   add(new THREE.BoxGeometry(0.06, 0.9, 0.04), Mat(0xffffff), 0, 0.45, 0);
   const postMat = Mat(NAVY, { roughness: 0.4 });
-  for (const x of [-5.3, 5.3])
+  for (const x of [-4.83, 4.83])
     add(new THREE.CylinderGeometry(0.07, 0.07, 1.05, 14), postMat, x, 0.52, 0);
 
-  // cage: lime glass panels with white "window" squares (brand sticker) + dark mesh fence.
-  // The near side (z > 0) gets its own materials so it can fade as the camera pitches.
+  // cage: lime glass panels with sage "window" squares (brand sticker) + dark mesh fence.
+  // The bottom end wall (z = +10) gets its own materials so it can fade as the camera pitches.
   const glassFar = new THREE.MeshStandardMaterial({
     color: LIME,
     transparent: true,
@@ -276,22 +281,27 @@ export function buildCourtScene(
     side: THREE.DoubleSide,
     depthWrite: false,
   });
+  // The window squares: one flat, unlit, fully opaque colour, drawn AFTER the glass
+  // (renderOrder) so the glass never lays over them. They used to be 75 % white
+  // over 55 % glass, and three re-sorts those two as the camera moves, so a pane
+  // read white from one angle and sage from another, even side by side in the
+  // pitched view (owner, 2026-09-29). `transparent` is what puts them in the
+  // pass after the glass; the far ones stay at opacity 1, the near ones fade out
+  // with the pitch so only the upper side of the cage carries them (nearCage.pane).
   const paneFar = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+    color: PANE,
     transparent: true,
-    opacity: 0.75,
+    opacity: 1,
     side: THREE.DoubleSide,
-    depthWrite: false,
   });
-  const fenceFar = new THREE.MeshBasicMaterial({
+  const paneNear = paneFar.clone();
+  const fenceFar = new THREE.LineBasicMaterial({
     color: NAVY,
-    wireframe: true,
     transparent: true,
-    opacity: 0.42,
+    opacity: SPEC.nearCage.fence[0],
   });
   const frameFar = Mat(NAVY, { roughness: 0.4, transparent: true });
   const glassNear = glassFar.clone();
-  const paneNear = paneFar.clone();
   const fenceNear = fenceFar.clone();
   const frameNear = frameFar.clone();
   disposables.push(glassFar, paneFar, fenceFar, glassNear, paneNear, fenceNear, frameNear);
@@ -305,17 +315,42 @@ export function buildCourtScene(
     z: number,
     ry: number,
     mat: THREE.Material,
-    mesh = false,
   ) => {
-    const m = add(
-      new THREE.PlaneGeometry(w, h, mesh ? Math.round(w * 4) : 1, mesh ? Math.round(h * 4) : 1),
-      mat,
-      x,
-      y,
-      z,
-    );
+    const m = add(new THREE.PlaneGeometry(w, h), mat, x, y, z);
     m.rotation.y = ry;
     return m;
+  };
+  // Mesh fence: a square grid of lines, 15 cm cells. NOT a wireframe plane: that
+  // draws every cell's diagonal too, and with the camera pitched along the side
+  // walls the lines packed into what read as a solid navy sheet over the cage
+  // (owner, 2026-09-29).
+  const FENCE_CELL = 0.15;
+  const fencePanel = (
+    w: number,
+    h: number,
+    x: number,
+    y: number,
+    z: number,
+    ry: number,
+    mat: THREE.LineBasicMaterial,
+  ) => {
+    const pts: number[] = [];
+    const nx = Math.round(w / FENCE_CELL);
+    const ny = Math.round(h / FENCE_CELL);
+    for (let i = 0; i <= nx; i++) {
+      const u = -w / 2 + (i * w) / nx;
+      pts.push(u, -h / 2, 0, u, h / 2, 0);
+    }
+    for (let j = 0; j <= ny; j++) {
+      const v = -h / 2 + (j * h) / ny;
+      pts.push(-w / 2, v, 0, w / 2, v, 0);
+    }
+    const g = geo(new THREE.BufferGeometry());
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const m = new THREE.LineSegments(g, mat);
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    scene.add(m);
   };
   // white window squares inset in each 2 m glass bay
   const windows = (
@@ -332,7 +367,7 @@ export function buildCourtScene(
     const dz = -Math.sin(ry);
     for (let i = 0; i < n; i++) {
       const o = (i - (n - 1) / 2) * 2;
-      panel(1.4, h - 0.8, x + dx * o, y, z + dz * o, ry, mat);
+      panel(1.4, h - 0.8, x + dx * o, y, z + dz * o, ry, mat).renderOrder = 1;
     }
   };
   for (const s of [-1, 1] as const) {
@@ -341,32 +376,37 @@ export function buildCourtScene(
     const pane = near ? paneNear : paneFar;
     const fence = near ? fenceNear : fenceFar;
     const frame = near ? frameNear : frameFar;
-    const post = (x: number, z: number, h: number) => {
-      add(new THREE.BoxGeometry(0.1, h, 0.1), frame, x, h / 2, z);
+    const post = (x: number, z: number, h: number, mat = frame) => {
+      add(new THREE.BoxGeometry(0.1, h, 0.1), mat, x, h / 2, z);
       add(new THREE.BoxGeometry(0.18, 0.08, 0.18), capMat, x, h + 0.04, z);
     };
-    const rail = (len: number, x: number, y: number, z: number, ry: number) => {
-      const m = add(new THREE.BoxGeometry(len, 0.08, 0.08), frame, x, y, z);
+    const rail = (len: number, x: number, y: number, z: number, ry: number, mat = frame) => {
+      const m = add(new THREE.BoxGeometry(len, 0.08, 0.08), mat, x, y, z);
       m.rotation.y = ry;
     };
     panel(10, 3, 0, 1.5, s * 10, 0, glass);
     windows(10, 3, 0, 1.5, s * 10 - s * 0.01, 0, pane);
-    panel(10, 1, 0, 3.5, s * 10, 0, fence, true);
+    fencePanel(10, 1, 0, 3.5, s * 10, 0, fence);
     rail(10.1, 0, 4, s * 10, 0);
     rail(10.1, 0, 3, s * 10, 0);
     for (const x of [-2.5, 0, 2.5]) post(x, s * 10, 4);
+    // Each side wall: a 4 m glass section at the end, then 6 m of mesh to the net.
+    // The bottom glass sections fade with the bottom end wall (glass, the fence
+    // strip above, rails, corner post); the mesh sections never fade, near half
+    // included. Faded, the near mesh left the wall by the net as a bare dark patch
+    // (owner, 2026-09-29).
     for (const sx of [-1, 1] as const) {
       const x = sx * 5;
       panel(4, 3, x, 1.5, s * 8, Math.PI / 2, glass);
       windows(4, 3, x - sx * 0.01, 1.5, s * 8, Math.PI / 2, pane);
-      panel(4, 1, x, 3.5, s * 8, Math.PI / 2, fence, true);
-      panel(6, 3, x, 1.5, s * 3, Math.PI / 2, fence, true);
+      fencePanel(4, 1, x, 3.5, s * 8, Math.PI / 2, fence);
+      fencePanel(6, 3, x, 1.5, s * 3, Math.PI / 2, fenceFar);
       rail(4.1, x, 4, s * 8, Math.PI / 2);
       rail(4.1, x, 3, s * 8, Math.PI / 2);
-      rail(6.1, x, 3, s * 3, Math.PI / 2);
+      rail(6.1, x, 3, s * 3, Math.PI / 2, frameFar);
       post(x, s * 10, 4);
-      post(x, s * 6, 4);
-      post(x, s * 2, 3);
+      post(x, s * 6, 4, frameFar);
+      post(x, s * 2, 3, frameFar);
     }
   }
 
@@ -477,6 +517,7 @@ export function buildCourtScene(
       glassNear.opacity = cage.glass;
       frameNear.opacity = cage.frame;
       paneNear.opacity = cage.pane;
+      paneNear.visible = cage.pane > 0.01;
 
       const state = rallyAt(t, camK);
       const lay = layAngle(camK);

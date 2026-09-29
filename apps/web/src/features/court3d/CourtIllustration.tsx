@@ -112,17 +112,17 @@ export function CourtIllustration({ className }: { className?: string }) {
         />
         <path className="tp-court-illustration__line" d="M40 108h240M40 288h240" strokeWidth={1.4} opacity={0.7} />
         <path className="tp-court-illustration__line" d="M160 22v86M160 288v86" strokeWidth={1.4} opacity={0.7} />
-        {/* net: green tape, dashed white mesh, two posts */}
-        <path className="tp-court-illustration__tape" d="M20 198h280" strokeWidth={2.6} opacity={0.95} />
+        {/* net: green tape, dashed white mesh, two posts just inside the sidelines */}
+        <path className="tp-court-illustration__tape" d="M44 198h232" strokeWidth={2.6} opacity={0.95} />
         <path
           className="tp-court-illustration__line"
-          d="M20 198h280"
+          d="M44 198h232"
           strokeWidth={1}
           strokeDasharray="3 4"
           opacity={0.8}
         />
-        <circle className="tp-court-illustration__post" cx={20} cy={198} r={2.8} />
-        <circle className="tp-court-illustration__post" cx={300} cy={198} r={2.8} />
+        <circle className="tp-court-illustration__post" cx={44} cy={198} r={2.8} />
+        <circle className="tp-court-illustration__post" cx={276} cy={198} r={2.8} />
         {/* rackets: an outer group sways (CSS), the inner one places + poses */}
         {RACKETS.map((r) => (
           <g key={r.cls} className={`tp-court-illustration__racket tp-court-illustration__${r.cls}`}>

@@ -23,7 +23,7 @@
  *   - "now" is Tuesday 22 September 2026, 9:41 AM Baghdad time;
  *   - the venue is Touch's own (packages/db/client-data/courts.sql): TWO
  *     courts, "Court 1" / "Court 2" ("الملعب الاول" / "الملعب الثاني"), 60 min
- *     the only bookable duration, open 09:00–02:00 every day (seed.sql);
+ *     the only bookable duration, open 07:00–02:00 every day (matches the live app);
  *   - cancellation window 4 h (venue_settings.cancellation_window_hours, pack
  *     policy.cancelNote); hold TTL 300 s (venue_settings.hold_ttl_seconds);
  *   - PRICES: Touch has sent no rate rules yet (both intake packs, NO_RATE), so
@@ -80,7 +80,7 @@ const tEn = {
 
   // Book tab — app/(tabs)/index.tsx
   appName: 'Touch Padel',
-  openNow: `Open now · ${iso('09:00–02:00')}`,
+  openNow: `Open now · ${iso('07:00–02:00')}`,
   bookTitle: 'Book a court',
   checkAvailability: 'Check availability',
   reserveFooter: 'Reserve in the app · pay at the desk on arrival',
@@ -205,7 +205,7 @@ const tAr = {
   tabProfile: 'حسابي',
 
   appName: 'تتش بادل',
-  openNow: `مفتوح الآن · ${iso('09:00–02:00')}`,
+  openNow: `مفتوح الآن · ${iso('07:00–02:00')}`,
   bookTitle: 'احجز ملعبًا',
   checkAvailability: 'عرض الأوقات المتاحة',
   reserveFooter: 'احجز من التطبيق · وادفع عند الاستقبال لدى وصولك',
@@ -335,12 +335,6 @@ const framesEn = [
     headline: ['Book a court', 'from your phone.'],
   },
   {
-    slug: '2-availability',
-    screen: 'availability',
-    eyebrow: 'Every slot, every day',
-    headline: ["See what's free", 'before you drive.'],
-  },
-  {
     slug: '3-review',
     screen: 'review',
     eyebrow: 'Nobody can take it',
@@ -372,12 +366,6 @@ const framesAr = [
     screen: 'book',
     eyebrow: 'الأوقات المتاحة مباشرة',
     headline: ['احجز ملعبك', 'من هاتفك.'],
-  },
-  {
-    slug: '2-availability',
-    screen: 'availability',
-    eyebrow: 'كل وقت، كل يوم',
-    headline: ['اعرف المتاح', 'قبل أن تتحرك.'],
   },
   {
     slug: '3-review',
@@ -422,5 +410,5 @@ export const LOCALES = {
 export const SIZES = {
   'iphone-6.9': { width: 1290, height: 2796, deviceWidth: 900 },
   'iphone-6.5': { width: 1242, height: 2688, deviceWidth: 866 },
-  'play-phone': { width: 1080, height: 1920, deviceWidth: 700 },
+  'play-phone': { width: 1080, height: 1920, deviceWidth: 700, platform: 'android' },
 };
