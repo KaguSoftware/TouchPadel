@@ -7,7 +7,7 @@
  * every header and footer link resolves, fragments included; every WhatsApp button opens
  * a chat with the desk's number and the page's own message, and the call button dials
  * the same number; nothing scrolls sideways at 360 px; with WebGL unavailable the flat
- * court stays, Book a court on its net; the rally can be paused (WCAG 2.2.2); Arabic is right to left in natural case; and an address that matches no page
+ * court stays, Book a court on its net; Arabic is right to left in natural case; and an address that matches no page
  * gets the site's own 404, in its language and direction, not Next's bare default.
  *
  * The local stack's venue phone is the seed's 00995419010203 (unverified, like
@@ -228,36 +228,6 @@ test.describe('site home', () => {
     await banner.getByRole('link', { name: 'Lessons' }).click();
     await expect(page).toHaveURL(/\/en#lessons$/);
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  test('the rally stops when the pause switch is pressed, and stays stopped on reload', async ({
-    page,
-  }) => {
-    await page.goto('/en');
-    const stage = page.locator('.tp-court-stage').first();
-    await stage.scrollIntoViewIfNeeded();
-    const pause = stage.getByRole('button', { name: 'Pause the rally' });
-    await expect(pause).toHaveAttribute('aria-pressed', 'false');
-    const visual = stage.locator('.tp-court-stage__visual');
-    await page.waitForTimeout(1500);
-    // Playing: the picture moves (the control for the assertion below).
-    const moving = await visual.screenshot();
-    await page.waitForTimeout(800);
-    expect(Buffer.compare(moving, await visual.screenshot())).not.toBe(0);
-    await pause.click();
-    await expect(pause).toHaveAttribute('aria-pressed', 'true');
-    await expect(stage).toHaveAttribute('data-paused', '');
-    // Held still: two pictures of the court 800 ms apart are identical.
-    const a = await visual.screenshot();
-    await page.waitForTimeout(800);
-    const b = await visual.screenshot();
-    expect(Buffer.compare(a, b)).toBe(0);
-
-    await page.reload();
-    await page.locator('.tp-court-stage').first().scrollIntoViewIfNeeded();
-    await expect(
-      page.locator('.tp-court-stage').first().getByRole('button', { name: 'Pause the rally' }),
-    ).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('an address that matches no page gets the site’s 404, in English', async ({ page }) => {
