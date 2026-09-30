@@ -1,9 +1,16 @@
 /**
  * Management panel figure model (spec 06.39). Maps the `panel_headline`
- * result onto the thirteen figures the panel knows, with their display kind,
- * the report each opens, and whether a rise is bad (refunds, waste, no-shows).
+ * result onto the figures the panel knows, with their display kind, the
+ * report each opens, and whether a rise is bad (refunds, waste, no-shows).
  * Pure: no formatting, no arithmetic — the server's `changeAbs` / `changePct`
  * are rendered as given.
+ *
+ * Open matches (docs/design/open-matches/operator.md §5.19; panel_headline's
+ * seven keys since 0265): the `online` group. They live in their own list,
+ * ONLINE_FIGURE_KEYS, beside the thirteen of FIGURE_KEYS rather than in it:
+ * report_drill has no transactions for them, so the export's drill set
+ * (exportAll.ts DRILLABLE_FIGURES, drawn from FIGURE_KEYS) must not grow, and
+ * a row of the group opens its report instead of a drill window.
  */
 import type { CsvCell } from '../analytics/exportTables';
 
@@ -22,7 +29,15 @@ export const FIGURE_KEYS = [
   'waste',
   'noShows',
 ] as const;
-export type FigureKey = (typeof FIGURE_KEYS)[number];
+
+/** panel_headline's online and open-match figures (0265), in panel order. Never drilled; each opens its report. */
+export const ONLINE_FIGURE_KEYS = ['onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits', 'ticketLiability', 'matchWrittenOff'] as const;
+export type OnlineFigureKey = (typeof ONLINE_FIGURE_KEYS)[number];
+
+export type FigureKey = (typeof FIGURE_KEYS)[number] | OnlineFigureKey;
+
+/** Every figure the panel knows, in panel order: the thirteen, then the online group. */
+export const ALL_FIGURE_KEYS: readonly FigureKey[] = [...FIGURE_KEYS, ...ONLINE_FIGURE_KEYS];
 
 /**
  * `losses` is money given away or thrown out: discounts, refunds, waste. They
@@ -30,7 +45,7 @@ export type FigureKey = (typeof FIGURE_KEYS)[number];
  * padel column's height and left a hole beside it — and a refund or a
  * discount is not only a cafe matter to an owner reading the list.
  */
-export type FigureGroup = 'headline' | 'padel' | 'cafe' | 'losses';
+export type FigureGroup = 'headline' | 'padel' | 'cafe' | 'losses' | 'online';
 export type ReportPath = '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff';
 
 export interface FigureMeta {
@@ -40,6 +55,8 @@ export interface FigureMeta {
   invert?: boolean;
   report: ReportPath;
   group: FigureGroup;
+  /** Counted across every branch whatever the scope (ticket money is chain-wide): the row says "All branches". */
+  chainWide?: boolean;
 }
 
 export const FIGURES: Record<FigureKey, FigureMeta> = {
@@ -57,11 +74,24 @@ export const FIGURES: Record<FigureKey, FigureMeta> = {
   discounts: { key: 'discounts', kind: 'money', invert: true, report: '/reports/revenue', group: 'losses' },
   refunds: { key: 'refunds', kind: 'money', invert: true, report: '/reports/revenue', group: 'losses' },
   waste: { key: 'waste', kind: 'money', invert: true, report: '/reports/stock', group: 'losses' },
+  // Open matches (0265): deposits open the revenue report, tickets and match shares the courts report.
+  onlineDeposits: { key: 'onlineDeposits', kind: 'money', report: '/reports/revenue', group: 'online' },
+  depositForfeits: { key: 'depositForfeits', kind: 'money', report: '/reports/revenue', group: 'online' },
+  ticketSales: { key: 'ticketSales', kind: 'money', report: '/reports/courts', group: 'online', chainWide: true },
+  ticketRefunds: { key: 'ticketRefunds', kind: 'money', invert: true, report: '/reports/courts', group: 'online', chainWide: true },
+  ticketForfeits: { key: 'ticketForfeits', kind: 'money', report: '/reports/courts', group: 'online' },
+  ticketLiability: { key: 'ticketLiability', kind: 'money', report: '/reports/courts', group: 'online', chainWide: true },
+  matchWrittenOff: { key: 'matchWrittenOff', kind: 'money', invert: true, report: '/reports/courts', group: 'online' },
 };
 
 /** Figures per group in display order. */
 export function figuresIn(group: FigureGroup): FigureMeta[] {
-  return FIGURE_KEYS.map((k) => FIGURES[k]).filter((f) => f.group === group);
+  return ALL_FIGURE_KEYS.map((k) => FIGURES[k]).filter((f) => f.group === group);
+}
+
+/** The online group is drawn only when the server sent at least one of its figures (0265 and later). */
+export function hasOnlineFigures(figures: ReadonlyMap<FigureKey, HeadlineFigureRow>): boolean {
+  return ONLINE_FIGURE_KEYS.some((k) => figures.has(k));
 }
 
 export interface HeadlineFigureRow {
@@ -80,7 +110,7 @@ export interface PanelHeadline {
   comparison?: { from: string; to: string } | null;
 }
 
-const KEY_SET: ReadonlySet<string> = new Set(FIGURE_KEYS);
+const KEY_SET: ReadonlySet<string> = new Set(ALL_FIGURE_KEYS);
 export function isFigureKey(key: string): key is FigureKey {
   return KEY_SET.has(key);
 }
@@ -115,7 +145,7 @@ export function figuresToCsvRows(
   kindOf: (kind: FigureMeta['kind']) => string = (k) => k,
 ): CsvCell[][] {
   const rows: CsvCell[][] = [];
-  for (const key of FIGURE_KEYS) {
+  for (const key of ALL_FIGURE_KEYS) {
     const f = figures.get(key);
     if (!f) continue;
     const meta = FIGURES[key];

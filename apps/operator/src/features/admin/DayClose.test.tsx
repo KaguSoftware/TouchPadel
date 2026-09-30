@@ -70,6 +70,11 @@ let checklists: unknown;
 /** app.till_shift_list (wave 5): none unless a test sets it. */
 let shifts: unknown = { from: null, to: null, shifts: [], outside: [], cross_day: [] };
 const calls: { fn: string; args: Record<string, unknown> }[] = [];
+/** app.unpaid_played_bookings and app.day_close_online (open matches, 0265): nothing unless a test sets them. */
+let unpaid: unknown[] = [];
+let online: unknown = {};
+/** app.desk_match_states for the unpaid match rows: no state (the label falls back) unless a test sets one. */
+let matchStates: unknown = {};
 
 function mount() {
   rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
@@ -78,7 +83,12 @@ function mount() {
       if (checklists instanceof Error) throw checklists;
       return checklists;
     }
-    if (fn === 'unpaid_played_bookings') return [];
+    if (fn === 'unpaid_played_bookings') return unpaid;
+    if (fn === 'desk_match_states') return matchStates;
+    if (fn === 'day_close_online') {
+      if (online instanceof Error) throw online;
+      return online;
+    }
     if (fn === 'till_shift_list') {
       if (shifts instanceof Error) throw shifts;
       return shifts;
@@ -110,6 +120,9 @@ beforeEach(() => {
   rpc.mockReset();
   calls.length = 0;
   shifts = { from: null, to: null, shifts: [], outside: [], cross_day: [] };
+  unpaid = [];
+  online = {};
+  matchStates = {};
 });
 
 describe('Day close ▸ Checklists not finished', () => {
@@ -216,6 +229,103 @@ describe('Day close ▸ Till shifts', () => {
     mount();
     expect(await screen.findByText('No shifts')).toBeTruthy();
     expect(screen.queryByTestId('day-close-shifts')).toBeNull();
+    await countTheCash();
+  });
+});
+
+// Open matches (operator.md §5.18): "Money outside the drawer" is information
+// only, hidden when every figure is zero; a played-not-paid match booking
+// lists the seats still owing.
+describe('Day close ▸ Money outside the drawer', () => {
+  it('shows the day’s online money and open-match figures, and the close stays open', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    online = {
+      day_session_id: 'ds1',
+      business_date: '2026-09-24',
+      deposits: { received_iqd: 45000, received_count: 3, refunded_iqd: 0, refunded_count: 0, forfeited_iqd: 0, forfeited_count: 0, refunds_waiting_iqd: 0, refunds_waiting_count: 0 },
+      tickets_here: { forfeited_iqd: 10000, forfeited_count: 1, restored_count: 0, cashouts_iqd: 0, cashouts_count: 0 },
+      tickets_chain: { sold_iqd: 0, sold_tickets: 0, purchases: 0, refunded_iqd: 0, refunded_tickets: 0, refunds_waiting_iqd: 0, refunds_waiting_count: 0, liability_iqd: 0, liability_tickets: 0 },
+      matches: { bookings: 2, price_iqd: 120000, desk_paid_iqd: 90000, written_off_iqd: 30000, owed_iqd: 0, called_off: 0, no_show_seats: 1 },
+      sandbox_excluded: { deposits: 0, tickets: 0 },
+    };
+    mount();
+    const card = await screen.findByTestId('day-close-online');
+    expect(within(card).getByText('Money outside the drawer')).toBeTruthy();
+    expect(within(card).getByText('Online deposits, this branch')).toBeTruthy();
+    expect(within(card).getByText('45,000 IQD')).toBeTruthy();
+    expect(within(card).getByText('Lost at this branch (revenue)')).toBeTruthy();
+    expect(within(card).getByText('Open-match bookings today')).toBeTruthy();
+    expect(within(card).getByText('30,000 IQD')).toBeTruthy();
+    // Nothing chain-wide moved and no test payment was left out: those groups are not drawn.
+    expect(within(card).queryByText('Match tickets, all branches')).toBeNull();
+    expect(within(card).queryByText('Test payments left out')).toBeNull();
+    expect(calls.find((c) => c.fn === 'day_close_online')?.args).toEqual({ p_day_session_id: 'ds1' });
+    await countTheCash();
+  });
+
+  it('is not drawn when every figure is zero, nor on a server without the read', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    online = { deposits: { received_iqd: 0 }, matches: { bookings: 0 } };
+    mount();
+    await countTheCash();
+    await waitFor(() => expect(calls.some((c) => c.fn === 'day_close_online')).toBe(true));
+    expect(screen.queryByTestId('day-close-online')).toBeNull();
+  });
+
+  it('a match booking played and not paid reads Open match and lists its owing seats', async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    unpaid = [
+      {
+        reservation_id: 'r1',
+        guest_name: 'Open match',
+        status: 'completed',
+        start_at: '2026-09-24T17:00:00Z',
+        end_at: '2026-09-24T18:30:00Z',
+        court_name_en: 'Court 1',
+        court_name_ar: 'ملعب 1',
+        price_iqd: 40000,
+        remaining_iqd: 20000,
+        live_tab_id: null,
+        match_id: 'm1',
+        owed_by_seats_iqd: 20000,
+        delta_owed_iqd: 0,
+        seats_owing: [
+          { seat_no: 4, label: 'Omar Khalid', owed_iqd: 10000 },
+          { seat_no: 2, label: 'Ali Hasan', owed_iqd: 10000 },
+        ],
+      },
+    ];
+    mount();
+    expect(await screen.findByText('Open match')).toBeTruthy();
+    const seats = await screen.findAllByText(/^Seat \d · .+ · 10,000 IQD$/);
+    expect(seats.map((el) => el.textContent?.replace(/[\u2066-\u2069]/g, ''))).toEqual(['Seat 2 · Ali Hasan · 10,000 IQD', 'Seat 4 · Omar Khalid · 10,000 IQD']);
+    await countTheCash();
+  });
+
+  it("a match row names the match by its desk state's label: Open match · {organiser}", async () => {
+    checklists = { business_date: '2026-09-24', lists: [] };
+    unpaid = [
+      {
+        reservation_id: 'r1',
+        guest_name: 'Open match',
+        status: 'completed',
+        start_at: '2026-09-24T17:00:00Z',
+        end_at: '2026-09-24T18:30:00Z',
+        court_name_en: 'Court 1',
+        court_name_ar: 'ملعب 1',
+        price_iqd: 40000,
+        remaining_iqd: 10000,
+        live_tab_id: null,
+        match_id: 'm1',
+        owed_by_seats_iqd: 10000,
+        delta_owed_iqd: 0,
+        seats_owing: [{ seat_no: 2, label: 'Ali Hasan', owed_iqd: 10000 }],
+      },
+    ];
+    matchStates = { r1: { match_id: 'm1', status: 'played', category: 'open', label: 'Sara Karim', open_seats: 0 } };
+    mount();
+    expect(await screen.findByText((text) => text.replace(/[⁦-⁩]/g, '') === 'Open match · Sara Karim')).toBeTruthy();
+    expect(calls.find((c) => c.fn === 'desk_match_states')?.args).toEqual({ p_reservation_ids: ['r1'] });
     await countTheCash();
   });
 });

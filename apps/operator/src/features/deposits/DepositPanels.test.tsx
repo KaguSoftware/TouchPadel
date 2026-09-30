@@ -44,6 +44,8 @@ vi.mock('../../lib/appRpc', () => ({
   }),
 }));
 vi.mock('../../lib/idem', () => ({ deviceId: () => 'DESK-1' }));
+const navigate = vi.fn();
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 vi.mock('../../lib/queries', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, fetchVenueSettings: async () => ({ timezone: 'Asia/Baghdad' }) };
@@ -149,13 +151,20 @@ describe('DepositAttentionPanel', () => {
     expect(calls('deposit_refund_retry')[0]![1]).toEqual({ p_payment_id: 'pay-1' });
   });
 
+  it('R23: a slow refund offers no Settle and no Retry, and says it waits on Qi', async () => {
+    attention = [row({ status: 'refund_pending' })];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    expect(await screen.findByText('Refund not confirmed')).toBeTruthy();
+    expect(screen.getByText("Qi hasn't answered yet. It is retried on its own and moves here as failed if it keeps failing.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Settled another way' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+
   it('settled another way: needs a note and a PIN, and sends both with this station', async () => {
     const user = userEvent.setup();
-    attention = [row({ status: 'refund_pending', sandbox: true })];
+    attention = [row({ status: 'refund_failed', sandbox: true })];
     mount(<DepositAttentionPanel hideWhenEmpty />);
     expect(await screen.findByText('Test')).toBeTruthy();
-    // A pending refund cannot be retried (PAYMENT_STATE); it can only be settled.
-    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Settled another way' }));
     const dialog = within(await screen.findByRole('dialog'));
     const confirm = dialog.getByRole('button', { name: 'Mark as settled' });
@@ -166,6 +175,31 @@ describe('DepositAttentionPanel', () => {
     await user.click(confirm);
     await waitFor(() => expect(calls('deposit_refund_manual')).toHaveLength(1));
     expect(calls('deposit_refund_manual')[0]![1]).toEqual({ p_payment_id: 'pay-1', p_pin: '4821', p_note: 'Cash at the desk', p_device_id: 'DESK-1' });
+  });
+
+  it('a ticket refund: tickets and name, any branch can settle it, and it opens the customer', async () => {
+    const user = userEvent.setup();
+    attention = [
+      row({
+        purpose: 'ticket',
+        reservation_id: null,
+        court_name_en: null,
+        court_name_ar: null,
+        start_at: null,
+        ticket_count: 2,
+        customer_id: 'cust-1',
+        refund_reason: 'ticket_cashout',
+      }),
+    ];
+    mount(<DepositAttentionPanel hideWhenEmpty />);
+    expect(await screen.findByText(/^Ticket refund · .*2.* tickets · .*Sara/)).toBeTruthy();
+    expect(screen.getByText('Any branch can settle this')).toBeTruthy();
+    expect(screen.getByText(/Why: tickets cashed out/)).toBeTruthy();
+    // A failed ticket refund is retried or settled like a deposit's.
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Settled another way' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Open customer' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/desk/customers/$id', params: { id: 'cust-1' } });
   });
 
   it('a paid deposit on a booking that is no longer on is refunded after a confirm', async () => {

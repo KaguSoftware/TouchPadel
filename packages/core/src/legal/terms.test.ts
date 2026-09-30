@@ -18,6 +18,12 @@ describe('terms version', () => {
     expect(sql.split(`'${TERMS_VERSION_PATTERN.source}'`).length - 1).toBe(2);
   });
 
+  it('is at least the open-matches text (2026-09-29), so every guest accepts it again', () => {
+    // Before this, 2026-09-23 said "there is no online payment" and knew no open matches.
+    expect(CURRENT_TERMS_VERSION >= '2026-09-29').toBe(true);
+    expect(needsTermsAcceptance({ terms_version: '2026-09-23' })).toBe(true);
+  });
+
   it('needsTermsAcceptance', () => {
     expect(needsTermsAcceptance(null)).toBe(false);
     expect(needsTermsAcceptance(undefined)).toBe(false);

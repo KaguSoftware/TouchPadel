@@ -38,6 +38,54 @@ export interface BookingBill {
    */
   online_paid_iqd?: number;
   online_payments?: OnlinePayment[];
+  /**
+   * Open matches (0262, open-matches money.md §6.7): the part of the court fee
+   * written off with players' shares (a no-show, a walk-out), already netted
+   * out of `court_remaining_iqd`. Optional, like the online keys: a server
+   * before 0262 reads as none.
+   */
+  court_written_off_iqd?: number;
+  /** A match booking's money (null for every other booking). */
+  match?: BookingBillMatch | null;
+  /** A match booking's seats; empty for every other booking. */
+  seats?: BookingBillSeat[];
+}
+
+/**
+ * app.booking_bill.match: the match_money top level (money.md §6.2). Every
+ * figure is the server's; the desk only chooses which of them to say.
+ */
+export interface BookingBillMatch {
+  id: string;
+  status: string;
+  /** `not_live` | `booked` | `started`. */
+  phase: string;
+  price_iqd: number;
+  booking_price_iqd: number;
+  /** A move or extend re-priced the booking (DF-4): the difference is booking-level. */
+  price_delta_iqd: number;
+  unassigned_iqd: number;
+  delta_owed_iqd: number;
+  /** What the players owe between them. */
+  owed_iqd: number;
+  written_off_iqd: number;
+  open_iqd: number;
+  over_iqd: number;
+}
+
+/** One seat on a match booking's bill (money.md §6.7). No phones: cashiers read this. */
+export interface BookingBillSeat {
+  seat_id: string | null;
+  seat_no: number;
+  kind: string;
+  status: string | null;
+  carrying: boolean;
+  /** Staff-facing name; the holder's for a friend seat; null for a vacant number. */
+  label: string | null;
+  ticket: string | null;
+  write_off_reason: string | null;
+  share_iqd: number | null;
+  owed_iqd: number | null;
 }
 
 /** One online deposit on the booking (app.booking_bill.online_payments). Not a till payment. */
@@ -87,6 +135,8 @@ export interface SettledTab {
     change_iqd: number | null;
     created_at: string;
     recorded_by_name: string | null;
+    /** The seats this payment was assigned to on a match booking (0262); absent otherwise. */
+    seats?: { seat_no: number; amount_iqd: number }[];
   }[];
 }
 
@@ -101,6 +151,13 @@ export interface BillStateRow {
   court_paid_iqd: number;
   court_remaining_iqd: number;
   court_refund_due_iqd: number;
+  /** Open matches (0262): the match on this booking, and its seats' money (money.md §6.7). */
+  match_id?: string | null;
+  court_written_off_iqd?: number;
+  /** Carriers still owing a share. */
+  seats_owing?: number;
+  seats_paid?: number;
+  seats_owed_iqd?: number;
 }
 
 /**
@@ -177,9 +234,55 @@ export function onlineRefundState(p: Pick<OnlinePayment, 'status' | 'amount_iqd'
   }
 }
 
-/** Whether a cafe bill can be pulled onto this booking now. */
+/**
+ * Whether a cafe bill can be pulled onto this booking now. Never onto an open
+ * match's booking (DF-16): its players order on their own bills, and the
+ * server refuses the lines anyway (MATCH_BOOKING_NO_CAFE, R20).
+ */
 export function canAddCafeBill(bill: BookingBill): boolean {
-  return bill.live && bill.day_open && panelStateOf(bill) !== 'refundDue';
+  return bill.live && bill.day_open && !isMatchBill(bill) && panelStateOf(bill) !== 'refundDue';
+}
+
+/** A match booking's bill: the server says so with `match` (0262). */
+export function isMatchBill(bill: Pick<BookingBill, 'match'>): boolean {
+  return bill.match != null;
+}
+
+// ---------------------------------------------------------------------------
+// A match booking's bill (open-matches operator.md §5.14)
+// ---------------------------------------------------------------------------
+
+/**
+ * The line a match booking's bill adds while its players owe: the shares are
+ * taken under Players, and money taken on this bill stays unassigned until the
+ * desk assigns it. null when there is no match or nothing is owed.
+ */
+export function matchBillSentence(bill: Pick<BookingBill, 'match'>): { key: 'ws.matches.bill.playersOwe'; amount: number } | null {
+  const owed = bill.match?.owed_iqd ?? 0;
+  return owed > 0 ? { key: 'ws.matches.bill.playersOwe', amount: owed } : null;
+}
+
+export type MatchBillRowKey = 'ws.matches.bill.writtenOff' | 'ws.matches.bill.priceChanged' | 'ws.matches.bill.unassigned';
+
+/**
+ * The receipt rows a match booking adds, each with the server's figure: the
+ * court fee written off with players' shares, a price change after booking
+ * (DF-4, signed), and money on the booking not yet assigned to players.
+ */
+export function matchBillRows(bill: Pick<BookingBill, 'match' | 'court_written_off_iqd'>): { key: MatchBillRowKey; amount: number }[] {
+  const rows: { key: MatchBillRowKey; amount: number }[] = [];
+  const writtenOff = bill.court_written_off_iqd ?? 0;
+  if (writtenOff > 0) rows.push({ key: 'ws.matches.bill.writtenOff', amount: writtenOff });
+  const m = bill.match;
+  if (!m) return rows;
+  if (m.price_delta_iqd !== 0) rows.push({ key: 'ws.matches.bill.priceChanged', amount: m.price_delta_iqd });
+  if (m.unassigned_iqd > 0) rows.push({ key: 'ws.matches.bill.unassigned', amount: m.unassigned_iqd });
+  return rows;
+}
+
+/** The seat numbers a payment was assigned to, in order, once each; empty when it has none. */
+export function paymentSeatNumbers(payment: Pick<SettledTab['payments'][number], 'seats'>): number[] {
+  return [...new Set((payment.seats ?? []).map((s) => s.seat_no))].sort((a, b) => a - b);
 }
 
 /**

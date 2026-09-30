@@ -70,7 +70,8 @@ export interface RenderRouteOptions {
   params?: Record<string, string>;
   /** `usePathname()` / `useSegments()`. */
   pathname?: string;
-  session?: 'in' | 'out';
+  /** `verified`: signed in, with the profile fixture's phone confirmed by a code. */
+  session?: 'in' | 'out' | 'verified';
   /** Seeded into the fresh QueryClient: `[queryKey, data]` pairs, after the staff seeds. */
   queryData?: [readonly unknown[], unknown][];
   /**
@@ -107,6 +108,11 @@ export interface SmokeResult extends RenderResult {
    * on every Arabic case.
    */
   direction: () => string | undefined;
+  /**
+   * The render's own QueryClient, for a case that needs the server to answer
+   * differently after the first render (a poll that changed the data).
+   */
+  client: QueryClient;
 }
 
 export function renderRoute(
@@ -129,7 +135,9 @@ export function renderRoute(
       // retries a broken fixture spends the whole timeout looking like a
       // loading state.
       queries: { retry: false, gcTime: Infinity, staleTime: Infinity },
-      mutations: { retry: false },
+      // `gcTime: Infinity` as for queries: a mutation a case ran would
+      // otherwise arm a five-minute GC timer on unmount and hold Jest open.
+      mutations: { retry: false, gcTime: Infinity },
     },
   });
   for (const [key, data] of [...(staff ? staffSeeds(staff) : []), ...queryData]) client.setQueryData(key, data);
@@ -156,6 +164,7 @@ export function renderRoute(
 
   return {
     ...result,
+    client,
     direction: () => {
       const root = result.getByTestId('app.direction-root');
       const flat = StyleSheet.flatten(root.props.style) as { direction?: string } | undefined;

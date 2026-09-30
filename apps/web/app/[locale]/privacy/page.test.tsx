@@ -104,7 +104,7 @@ describe.each(LOCALES)('privacy page (%s)', (locale: Locale) => {
     await renderServerPage(PrivacyPage, locale);
 
     const share = document.querySelector('section#share')?.textContent ?? '';
-    for (const name of ['Supabase', 'Telegram', 'OTPIQ', 'Groq', 'Vercel', 'PostHog', 'Kagu Software']) {
+    for (const name of ['Supabase', 'Qi Card', 'Telegram', 'OTPIQ', 'Groq', 'Vercel', 'PostHog', 'Kagu Software']) {
       expect(share).toContain(name);
     }
     for (const id of ['transfers', 'cookies', 'security']) {
@@ -113,6 +113,24 @@ describe.each(LOCALES)('privacy page (%s)', (locale: Locale) => {
     expect(
       screen.getByRole('link', { name: t(locale, 'legal.privacy.rights.deleteLink') }).getAttribute('href'),
     ).toBe(`/${locale}/delete-account`);
+  });
+
+  /**
+   * Open matches (guest.md §4.25): what is collected (the gender asked once included), what
+   * other players see of you (OM-41: "First L.", and the organiser's two counts), what the
+   * assistant may read (R14), and what stays after deletion (reports 12 months, R36).
+   */
+  it('discloses open matches: what is kept, what other players see, and what outlives an account', async () => {
+    await renderServerPage(PrivacyPage, locale);
+
+    const text = (id: string) => document.querySelector(`section#${id}`)?.textContent ?? '';
+    expect(text('collect')).toContain(t(locale, 'legal.privacy.collect.matches'));
+    expect(text('use')).toContain(t(locale, 'legal.privacy.use.matches'));
+    expect(text('share')).toContain(t(locale, 'legal.privacy.share.players'));
+    expect(text('share')).toContain(t(locale, 'legal.privacy.share.qi'));
+    expect(text('retention')).toContain(t(locale, 'legal.privacy.retention.matches'));
+    // No page says there is no online payment any more.
+    expect(text('collect')).not.toContain(locale === 'en' ? 'There is no online payment' : 'لا يوجد دفع إلكتروني');
   });
 
   it('offers the other language and the sibling legal page', async () => {

@@ -58,6 +58,8 @@ describe.each(LOCALES)('delete-account page (%s)', (locale: Locale) => {
     expect(screen.getByText(t(locale, 'legal.deleteAccount.inApp.body'))).toBeTruthy();
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.deleted'))).toBeTruthy();
     expect(screen.getByText(t(locale, 'legal.deleteAccount.what.kept'))).toBeTruthy();
+    // DF-20: unused open-match tickets go back to the card.
+    expect(screen.getByText(t(locale, 'legal.deleteAccount.what.tickets'))).toBeTruthy();
     expect(
       screen.getByRole('link', { name: t(locale, 'legal.deleteAccount.what.more') }).getAttribute('href'),
     ).toBe(`/${locale}/privacy#retention`);

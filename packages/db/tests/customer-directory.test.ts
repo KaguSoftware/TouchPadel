@@ -97,7 +97,10 @@ describe.skipIf(!up)('0148 customer_directory', () => {
     const hit = (search.data as DirectoryRow[])[0]!;
     const d = (await appRpc(desk, 'customer_directory', {})).data as Directory;
     const row = d.rows.find((x) => x.id === liveId)!;
-    expect(row.counts).toEqual(hit.counts);
+    // 0262: search rows carry customer_counts' open-match figures too; the
+    // directory keeps the three the list shows, and they agree.
+    const { bookings, cancellations, noShows } = hit.counts;
+    expect(row.counts).toEqual({ bookings, cancellations, noShows });
     expect(row.flags).toEqual(hit.flags);
     expect(row.phone).toBe(hit.phone);
   });

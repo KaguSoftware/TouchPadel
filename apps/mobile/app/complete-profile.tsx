@@ -4,10 +4,10 @@ import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
-import { needsProfileCompletion, prefillDisplayName } from '../src/features/auth/social';
+import { needsProfileCompletion } from '../src/features/auth/social';
 import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { clearPendingSlot } from '../src/features/booking/pendingSlot';
+import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { space } from '../src/theme';
 import {
@@ -26,6 +26,7 @@ import { PhoneField } from '../src/components/phone';
 import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
 import { useToast } from '../src/components/overlays';
 import { ErrorState, SkeletonList } from '../src/components/states';
+import { NAME_PART_MAX, nameFieldsOf, namePatch } from '../src/features/profile/names';
 
 type ReturnTo = 'continue' | 'back';
 
@@ -55,7 +56,8 @@ export default function CompleteProfileScreen() {
   const update = useUpdateProfile();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   // Country + national digits in the form, E.164 on save — see components/phone.
   const [iso, setIso] = useState(DEFAULT_ISO);
   const [national, setNational] = useState('');
@@ -80,9 +82,15 @@ export default function CompleteProfileScreen() {
     // The name keeps following the row until the guest types: the Apple
     // first-authorization name patch can land AFTER the first read (the (auth)
     // layout routes here from that read; useSocialSignIn patches the name a
-    // moment later and updates this cache entry). Hide the trigger's
-    // email-local-part fallback so the field shows its placeholder, not 'k3x9q2'.
-    if (!nameTouched.current) setName(prefillDisplayName(profile.data.full_name, email));
+    // moment later and updates this cache entry). The parts are the server's
+    // split of it (0256), with `full_name` as the fallback for a row cached
+    // before them; the trigger's email-local-part fallback is hidden, so the
+    // field shows its placeholder, not 'k3x9q2'.
+    if (!nameTouched.current) {
+      const names = nameFieldsOf(profile.data, email);
+      setFirstName(names.first);
+      setLastName(names.last);
+    }
   }, [profile.data, initialised, email, locale]);
 
   const back = useBack();
@@ -103,7 +111,7 @@ export default function CompleteProfileScreen() {
     when: returnTo === 'continue',
     onBlocked: (leave) =>
       leave(() => {
-        clearPendingSlot();
+        clearPendingIntents();
         router.replace('/(tabs)');
       }),
   });
@@ -149,7 +157,7 @@ export default function CompleteProfileScreen() {
     setError(null);
     setNameError(null);
     setPhoneError(null);
-    if (!name.trim()) return setNameError(t('auth.nameRequired'));
+    if (!firstName.trim()) return setNameError(t('auth.firstNameRequired'));
     const badPhone = validatePhone(iso, national);
     if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
     if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
@@ -159,7 +167,7 @@ export default function CompleteProfileScreen() {
     // pulls the guest off Review). The save path navigates itself below.
     skipped.current = true;
     update.mutate(
-      { full_name: name.trim(), phone: composePhone(iso, national) },
+      { ...namePatch(firstName, lastName), phone: composePhone(iso, national) },
       {
         onSuccess: async () => {
           // ALWAYS, even when unchanged: a new OAuth row has preferred_lang 'en'
@@ -194,19 +202,35 @@ export default function CompleteProfileScreen() {
           <Title plain>{t('auth.completeProfileTitle')}</Title>
           <Hint style={{ marginTop: 8 }}>{t('auth.completeProfileBody')}</Hint>
           <Field
-            testID="complete-profile.name"
-            label={t('profile.name')}
-            value={name}
+            testID="complete-profile.first-name"
+            label={t('auth.firstNameLabel')}
+            value={firstName}
             onChangeText={(v) => {
               nameTouched.current = true;
-              setName(v);
+              setFirstName(v);
             }}
             autoCapitalize="words"
-            autoComplete="name"
-            textContentType="name"
+            autoComplete="given-name"
+            textContentType="givenName"
+            maxLength={NAME_PART_MAX}
             dense
             error={nameError}
           />
+          <Field
+            testID="complete-profile.last-name"
+            label={t('auth.lastNameLabel')}
+            value={lastName}
+            onChangeText={(v) => {
+              nameTouched.current = true;
+              setLastName(v);
+            }}
+            autoCapitalize="words"
+            autoComplete="family-name"
+            textContentType="familyName"
+            maxLength={NAME_PART_MAX}
+            dense
+          />
+          <Hint>{t('profile.nameShownHint')}</Hint>
           <PhoneField
             testID="complete-profile.phone"
             label={t('auth.phoneLabel')}

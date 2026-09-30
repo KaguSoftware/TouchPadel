@@ -16,11 +16,13 @@ import {
   branchFixture,
   courtFixture,
   depositQuoteFixture,
+  myMatchesFixture,
   venueSettingsFixture,
 } from '../test/fixtures';
 import { bookingKeys } from '../features/booking/hooks';
 import { depositKeys } from '../features/deposit/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
+import { matchKeys } from '../features/matches/keys';
 import BookingDetailScreen from '../../app/booking/[id]';
 import BookingHistoryScreen from '../../app/booking-history';
 import ReviewScreen from '../../app/review';
@@ -73,10 +75,13 @@ const CASES: SmokeCase[] = [
     labelKey: 'booking.clearHistory',
     // The Clear button is the list's FOOTER: it renders only when there is
     // history to clear, so the fixture is a booking that has already happened.
+    // No open matches (guest.md §4.27): both match scopes answer empty.
     options: {
       session: 'in',
       queryData: [
         ...VENUE,
+        [matchKeys.mine('upcoming'), myMatchesFixture()],
+        [matchKeys.mine('past'), myMatchesFixture()],
         [
           bookingKeys.mine,
           [

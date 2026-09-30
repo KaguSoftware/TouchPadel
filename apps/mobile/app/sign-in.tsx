@@ -7,7 +7,7 @@ import { resendSignUpCode, signIn, signInWithPhone } from '../src/features/auth/
 import { linkErrorParam } from '../src/features/auth/deepLink';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { clearPendingSlot, getPendingSlot } from '../src/features/booking/pendingSlot';
+import { clearPendingIntents, hasPendingIntent } from '../src/features/booking/pendingIntent';
 import { readOwnStaffRow } from '../src/features/staff/api';
 import { writeStaffHint } from '../src/features/staff/hint';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
@@ -151,10 +151,12 @@ function SignInScreen() {
         staleTime: 0,
       });
       const staffRow = await staffRead;
-      switch (postSignInStep(profile, getPendingSlot() !== null, staffRow)) {
+      // A slot or an open-match intent (guest.md §4.18): either keeps RequireNoSession
+      // from redirecting, so an incomplete profile is sent on from here.
+      switch (postSignInStep(profile, hasPendingIntent(), staffRow)) {
         case 'staff':
-          // A staff account books nothing: the slot a guest tapped is dropped.
-          clearPendingSlot();
+          // A staff account books nothing: the slot or match a guest tapped is dropped.
+          clearPendingIntents();
           if (user) await writeStaffHint(user.id);
           toast(t('auth.welcomeBack'), 'info');
           router.replace('/staff');

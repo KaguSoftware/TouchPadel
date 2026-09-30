@@ -23,6 +23,14 @@
  * carrying the total the clerk was shown: if the bill moved in between (an item
  * added at the till, the booking extended) the server refuses with
  * TOTAL_CHANGED and the panel shows the new figure instead of taking the old.
+ *
+ * An open match's booking (docs/design/open-matches/operator.md §5.14) keeps
+ * this panel as its booking-level truth: players' shares are taken under
+ * Players, and money taken here (the offline path, a DF-4 price rise) stays
+ * unassigned until the desk assigns it there. So the panel adds the sentence
+ * of what the players owe, rows for a write-off, a price change and money
+ * not yet assigned, the seats each payment went to, and no "Add cafe bill"
+ * (DF-16). Cash and Card stay.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,6 +38,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { formatDateTime, formatIQD, formatNumber, formatTime, VENUE_TZ, type MessageKey } from '@touch/i18n';
 import { mutate } from '../../../lib/mutate';
 import { AppRpcError } from '../../../lib/appRpc';
+import { QK } from '../../../lib/queryKeys';
 import { resultErrorCode } from '../../../lib/queueResults';
 import { usePendingResults } from '../../../lib/pendingResults';
 import { canAccess, permissionsFor, useAuth } from '../../../lib/auth';
@@ -43,10 +52,14 @@ import {
   canAddCafeBill,
   canTakePayment,
   closeBillPlan,
+  isMatchBill,
+  matchBillRows,
+  matchBillSentence,
   onlinePaymentsTaken,
   onlineRefundState,
   panelStateOf,
   paymentMethodKey,
+  paymentSeatNumbers,
   type BookingBill,
   type OnlineRefundState,
 } from './deskPaymentLogic';
@@ -54,7 +67,16 @@ import { useBookingBill } from './useBookingBill';
 
 type Method = 'cash' | 'card';
 
-export function CourtBillPanel({ reservationId, tz = VENUE_TZ }: { reservationId: string; tz?: string }) {
+export function CourtBillPanel({
+  reservationId,
+  tz = VENUE_TZ,
+  match = false,
+}: {
+  reservationId: string;
+  tz?: string;
+  /** The booking screen knows the booking is an open match's (before the bill says so, 0262). */
+  match?: boolean;
+}) {
   const billQ = useBookingBill(reservationId);
   const { tr } = useLocale();
   const title = tr('ws.courtDesk.payment.title');
@@ -77,10 +99,21 @@ export function CourtBillPanel({ reservationId, tz = VENUE_TZ }: { reservationId
     );
   }
   if (billQ.data.reservation.kind !== 'booking') return null;
-  return <CourtBillView bill={billQ.data} tz={tz} onRefetch={() => billQ.refetch()} />;
+  return <CourtBillView bill={billQ.data} tz={tz} match={match} onRefetch={() => billQ.refetch()} />;
 }
 
-export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: string; onRefetch: () => Promise<unknown> }) {
+export function CourtBillView({
+  bill,
+  tz,
+  match = false,
+  onRefetch,
+}: {
+  bill: BookingBill;
+  tz: string;
+  /** An open match's booking, known from the booking screen; the bill's own `match` also says so. */
+  match?: boolean;
+  onRefetch: () => Promise<unknown>;
+}) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const navigate = useNavigate();
@@ -124,6 +157,8 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
     void queryClient.invalidateQueries({ queryKey: ['bookingBill'] });
     void queryClient.invalidateQueries({ queryKey: ['bookingBillStates'] });
     void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+    // A match's unassigned money and its seats' owed move with this bill.
+    void queryClient.invalidateQueries({ queryKey: QK.deskMatches.all });
   }
 
   /** The booking's open bill, opening one when there is none yet. */
@@ -242,6 +277,13 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
   const online = onlinePaymentsTaken(bill);
   const onlinePaid = bill.online_paid_iqd ?? 0;
   // Earliest first: the deposit is usually paid days before the desk sees the guest.
+  const matchBooking = match || isMatchBill(bill);
+  const playersOwe = matchBillSentence(bill);
+  const matchRows = matchBillRows(bill);
+  const seatsOf = (p: BookingBill['settled_tabs'][number]['payments'][number]) => {
+    const nos = paymentSeatNumbers(p);
+    return nos.length > 0 ? tr('ws.matches.bill.seats', { list: nos.map((n) => formatNumber(n, locale)).join(tr('ws.matches.bill.listSeparator')) }) : null;
+  };
   const history = [
     ...online.map((p) => ({ kind: 'online' as const, at: p.succeeded_at ?? '', p })),
     ...payments.map((p) => ({ kind: 'desk' as const, at: p.created_at, p })),
@@ -273,6 +315,7 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
           </div>
         )}
         <MessagePresenter tone={sentenceTone} icon={sentenceIcon} message={sentence} />
+        {playersOwe && <MessagePresenter tone="info" icon="users" message={tr(playersOwe.key, { amount: amount(playersOwe.amount) })} />}
         {dayBlocked && (canTakePayment(state) || state === 'closeBill') && <MessagePresenter tone="refused" icon="lock" message={tr('ws.courtDesk.payment.dayClosed')} />}
         {notice && <MessagePresenter tone="refused" message={notice} />}
         <ErrorText error={paying || confirmClose ? null : error} />
@@ -281,6 +324,14 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
           <dl style={{ margin: 0 }} data-testid="paid-online">
             {/* The server leaves test payments out of this figure; they show, marked, in the list below. */}
             <BillRow label={tr('ws.courtDesk.payment.paidOnline')} amount={onlinePaid} />
+          </dl>
+        )}
+
+        {matchRows.length > 0 && (
+          <dl style={{ margin: 0, display: 'grid', gap: 'var(--tp-sp-1)' }} data-testid="match-bill-rows">
+            {matchRows.map((row) => (
+              <BillRow key={row.key} label={tr(row.key)} amount={row.amount} />
+            ))}
           </dl>
         )}
 
@@ -321,7 +372,8 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
                 {tr('ws.courtDesk.payment.closeBillAction')}
               </Button>
             )}
-            {canAddCafeBill(bill) && (
+            {/* DF-16: cafe orders never go on an open match's booking. */}
+            {canAddCafeBill(bill) && !matchBooking && (
               <Button icon="plus" disabled={busy} onClick={() => setAddingCafe(true)}>
                 {tr('ws.courtDesk.payment.addCafeBill')}
               </Button>
@@ -341,13 +393,16 @@ export function CourtBillView({ bill, tz, onRefetch }: { bill: BookingBill; tz: 
               {history.map((h) =>
                 h.kind === 'desk' ? (
                   <li key={h.p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--tp-sp-3)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
-                    <bdi style={{ color: 'var(--tp-muted-fg)' }}>
-                      {tr('ws.courtDesk.payment.historyRow', {
-                        time: formatTime(new Date(h.p.created_at), locale, tz),
-                        method: tr(`ws.courtDesk.payment.${paymentMethodKey(h.p.method)}`),
-                        name: h.p.recorded_by_name ?? tr('ws.courtDesk.payment.someone'),
-                      })}
-                    </bdi>
+                    <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', minInlineSize: 0 }}>
+                      <bdi style={{ color: 'var(--tp-muted-fg)' }}>
+                        {tr('ws.courtDesk.payment.historyRow', {
+                          time: formatTime(new Date(h.p.created_at), locale, tz),
+                          method: tr(`ws.courtDesk.payment.${paymentMethodKey(h.p.method)}`),
+                          name: h.p.recorded_by_name ?? tr('ws.courtDesk.payment.someone'),
+                        })}
+                      </bdi>
+                      {seatsOf(h.p) && <bdi style={{ fontWeight: 600 }}>{seatsOf(h.p)}</bdi>}
+                    </span>
                     <Money amount={h.p.amount_iqd} />
                   </li>
                 ) : (

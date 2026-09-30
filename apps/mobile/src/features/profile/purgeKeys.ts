@@ -54,7 +54,10 @@ export function secureKeysToPurge(supabaseUrl: string | undefined): string[] {
  * of key: the device's pointer to an online deposit still in flight, named by
  * the uuid and holding the payment's ref. The money trail lives on the server
  * (guest_id is nulled there, the payment row kept); nothing on this phone may
- * keep pointing at it after the account is gone.
+ * keep pointing at it after the account is gone. An open-match ticket purchase
+ * uses the same pointer, and the action it continues (join, ask or start,
+ * docs/design/open-matches/guest.md §4.10.3) rides inside it as `after`, so
+ * open matches add no key of their own here (§4.23).
  *
  * Returns nothing for a missing id rather than building
  * `tp.historyClearedAt.undefined`, which would delete a key belonging to

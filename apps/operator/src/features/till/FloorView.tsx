@@ -34,6 +34,7 @@ import {
   type SpotStatus,
 } from './floorPlan';
 import { muted, touchTarget } from './tillStyles';
+import { reservationNameOf } from '../matches/matchLogic';
 
 export type FloorMode = 'cafe' | 'courts';
 
@@ -65,7 +66,7 @@ export function useCourtBookings() {
         supabase.from('courts').select('id, name_en, name_ar, sort_order').eq('is_active', true).order('sort_order'),
         supabase
           .from('reservations')
-          .select('id, court_id, start_at, end_at, status, guest_name, tabs!tabs_reservation_id_fkey(id, status)')
+          .select('id, court_id, start_at, end_at, status, guest_id, guest_name, tabs!tabs_reservation_id_fkey(id, status)')
           .in('status', ['confirmed', 'arrived'])
           .gte('start_at', night.start)
           .lt('start_at', night.end)
@@ -407,7 +408,7 @@ function CourtCard({ board, onBooking }: { board: CourtBoard; onBooking: (b: Boa
   const featured = board.featured;
   const rest = board.bookings.filter((b) => b !== featured);
   const hours = (b: BoardBooking) => `${formatTime(new Date(b.booking.start_at), locale)}–${formatTime(new Date(b.booking.end_at), locale)}`;
-  const guest = (b: BoardBooking) => b.booking.guest_name ?? tr('op.till.forReservation');
+  const guest = (b: BoardBooking) => reservationNameOf(b.booking, tr) ?? tr('op.till.forReservation');
   const courtFill = featured?.liveTab ? 'var(--tp-success)' : 'var(--tp-accent)';
   const courtInk = featured?.liveTab ? 'var(--tp-accent-2-contrast)' : 'var(--tp-accent-contrast)';
 

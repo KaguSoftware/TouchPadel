@@ -72,6 +72,56 @@ describe.each(LOCALES)('terms page (%s)', (locale: Locale) => {
     expect(document.querySelector('section#bookings')).not.toBeNull();
   });
 
+  it('sets out open matches: tickets, money back, conduct and deleting an account', async () => {
+    await renderServerPage(TermsPage, locale);
+
+    const section = document.querySelector('section#open-matches');
+    expect(section?.querySelector('h2')?.textContent).toBe(t(locale, 'legal.terms.openMatches.title'));
+    const text = section?.textContent ?? '';
+    for (const key of [
+      'legal.terms.openMatches.start',
+      'legal.terms.openMatches.tickets',
+      'legal.terms.openMatches.refund',
+      'legal.terms.openMatches.share',
+      'legal.terms.openMatches.gender',
+      'legal.terms.openMatches.conduct',
+      'legal.terms.openMatches.delete',
+    ] as const) {
+      expect(text).toContain(t(locale, key));
+    }
+    // The conduct clause sits with the app rules too, where a guest who never plays reads it.
+    expect(document.querySelector('section#app')?.textContent).toContain(t(locale, 'legal.terms.app.use'));
+  });
+
+  /**
+   * Every way a paid ticket is lost is in the terms (db.md §4.7.6): not coming, a late leave
+   * nobody refills, and a removal by the venue after the court is booked, which 0262's
+   * desk_remove_seat turns into a late leave the start forfeits. A removal the desk made by
+   * mistake (staff_error, duplicate) releases the ticket, so the terms say that too.
+   */
+  it('says a ticket is lost to a no-show, a late leave, or a venue removal after booking', async () => {
+    await renderServerPage(TermsPage, locale);
+
+    const LOST = {
+      en: {
+        tickets: ['do not come', 'leave a booked match'],
+        conduct: ['removes you from a match after the court is booked', 'removed you by mistake'],
+      },
+      ar: {
+        tickets: ['عدم الحضور', 'مغادرة مباراة محجوزة'],
+        conduct: ['أخرجك النادي من مباراة بعد حجز الملعب', 'إخراجك خطأً منّا'],
+      },
+    }[locale];
+    const section = document.querySelector('section#open-matches')?.textContent ?? '';
+    for (const phrase of LOST.tickets) {
+      expect(t(locale, 'legal.terms.openMatches.tickets')).toContain(phrase);
+    }
+    for (const phrase of LOST.conduct) {
+      expect(t(locale, 'legal.terms.openMatches.conduct')).toContain(phrase);
+    }
+    expect(section).toContain(t(locale, 'legal.terms.openMatches.conduct'));
+  });
+
   it('quotes the venue’s live cancellation window, not a typed number', async () => {
     serverData.venue = { ...VENUE_FIXTURE, cancellation_window_hours: 6 };
     await renderServerPage(TermsPage, locale);

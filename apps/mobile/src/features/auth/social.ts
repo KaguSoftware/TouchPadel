@@ -219,6 +219,25 @@ export function bookingGateState(
   return hasVerifiedPhone(user, query.data.phone) ? 'complete' : 'unverified';
 }
 
+/** Where the booking gate stops an intent: a root-stack route in continue mode. */
+export type BookingGateHref =
+  | { pathname: '/complete-profile'; params: { returnTo: 'continue' } }
+  | { pathname: '/phone-sign-in'; params: { returnTo: 'continue'; phone: string } };
+
+/**
+ * The step the booking gate puts before an intent that ends in a court
+ * booking: a slot's hold, or an open match's start or join (owner,
+ * 2026-09-27; open matches 2026-09-29). Both run in continue mode, so the
+ * intent stays pending and the post-auth continuation takes it up once the
+ * step is done; `phone` prefills the verification. null: nothing stops it
+ * (`unknown` proceeds too — the next screen re-checks).
+ */
+export function bookingGateHref(gate: BookingGate, phone: string): BookingGateHref | null {
+  if (gate === 'incomplete') return { pathname: '/complete-profile', params: { returnTo: 'continue' } };
+  if (gate === 'unverified') return { pathname: '/phone-sign-in', params: { returnTo: 'continue', phone } };
+  return null;
+}
+
 export type PostSignInStep = 'staff' | 'complete-profile' | 'await-gate' | 'continue';
 
 /**

@@ -9,7 +9,7 @@
  */
 import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { formatIQD, formatNumber, formatPercent } from '@touch/i18n';
+import { formatIQD, formatNumber, formatPercent, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import type { StaffRole } from '../lib/auth';
 import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinner, card, inputStyle, type ReasonCode } from './ui';
@@ -514,21 +514,45 @@ export function TabStatusIndicator({ status, size }: { status: TabStatus | strin
 
 // deposit_exempt (0241): this guest books in the app without paying an online
 // deposit first, even when the branch asks for one (app.deposit_mode_for).
-export type CustomerFlagType = 'vip' | 'birthday' | 'payment_note' | 'special_request' | 'deposit_exempt';
+// match_ban (0253, open matches R35): banned from open matches at every branch,
+// set only by app.set_match_ban. Its label is the ban CODE, never words.
+export type CustomerFlagType = 'vip' | 'birthday' | 'payment_note' | 'special_request' | 'deposit_exempt' | 'match_ban';
 const FLAG_META: Record<CustomerFlagType, { tone: Tone; icon: IconName }> = {
   vip: { tone: 'accent', icon: 'star' },
   birthday: { tone: 'success', icon: 'cake' },
   payment_note: { tone: 'warn', icon: 'banknote' },
   special_request: { tone: 'info', icon: 'note' },
   deposit_exempt: { tone: 'neutral', icon: 'card' },
+  match_ban: { tone: 'danger', icon: 'ban' },
 };
+/** The ban codes a match_ban label can carry (R35), each worded in ws.kit.flags.matchBanReason. */
+const MATCH_BAN_REASONS = ['conduct', 'no_shows', 'reported', 'other'] as const;
+type MatchBanReason = (typeof MATCH_BAN_REASONS)[number];
+
+/**
+ * A flag's label as staff read it. A match_ban label is a code (app.set_match_ban
+ * stores only the code, R42), so it is translated; an unknown code prints as
+ * stored. Every other flag's label is the desk's own words.
+ */
+export function customerFlagLabel(
+  flag: { type: CustomerFlagType | string; label?: string | null },
+  tr: (key: MessageKey) => string,
+): string | null {
+  if (!flag.label) return null;
+  if (flag.type === 'match_ban' && (MATCH_BAN_REASONS as readonly string[]).includes(flag.label)) {
+    return tr(`ws.kit.flags.matchBanReason.${flag.label as MatchBanReason}`);
+  }
+  return flag.label;
+}
+
 /** Surfaces wherever a customer appears (spec 06.9). */
 export function CustomerFlagBadge({ flag, size = 'sm' }: { flag: { type: CustomerFlagType | string; label?: string | null }; size?: 'sm' | 'md' }) {
   const { tr } = useLocale();
   const known = flag.type in FLAG_META;
   const meta = known ? FLAG_META[flag.type as CustomerFlagType] : { tone: 'neutral' as Tone, icon: 'tag' as IconName };
   const base = known ? tr(`ws.kit.flags.${flag.type as CustomerFlagType}`) : flag.type;
-  const label = flag.label ? `${base} · ${flag.label}` : base;
+  const detail = customerFlagLabel(flag, tr);
+  const label = detail ? `${base} · ${detail}` : base;
   return <StatusBadge tone={meta.tone} icon={meta.icon} label={label} size={size} title={label} />;
 }
 
@@ -1655,6 +1679,7 @@ export function PinPromptOverlay({
 export function ReasonCodePrompt({
   action,
   reasonCodes = REASON_CODES,
+  noteMode = 'other',
   busy,
   error,
   onSubmit,
@@ -1663,6 +1688,13 @@ export function ReasonCodePrompt({
 }: {
   action: string;
   reasonCodes?: readonly ReasonCode[];
+  /**
+   * 'other' (the default): only "Other" asks for words, and needs them.
+   * 'optional': a note field under every code, still required for "Other"
+   * (a match ban, operator.md §5.15.2). Either way the caller sends
+   * `<code>` or `<code>: <note>`.
+   */
+  noteMode?: 'other' | 'optional';
   busy?: boolean;
   error?: unknown;
   onSubmit: (code: ReasonCode, note: string) => void;
@@ -1677,6 +1709,7 @@ export function ReasonCodePrompt({
   // Only "Other" asks for words, and then it needs them: a bare "other" in the
   // audit log says nothing. Every caller stores the text as `other: <text>`.
   const needsText = code === 'other';
+  const showsNote = needsText || noteMode === 'optional';
   const missingText = needsText && note.trim() === '';
   return (
     <Modal
@@ -1698,7 +1731,7 @@ export function ReasonCodePrompt({
             busy={busy}
             disabled={missingText}
             disabledReason={tr('ws.kit.reason.otherRequired')}
-            onClick={() => onSubmit(code, needsText ? note.trim() : '')}
+            onClick={() => onSubmit(code, showsNote ? note.trim() : '')}
           >
             {tr('ws.kit.reason.confirm')}
           </Button>
@@ -1718,15 +1751,15 @@ export function ReasonCodePrompt({
           </label>
         ))}
       </div>
-      {needsText && (
-        <Field label={tr('ws.kit.reason.otherLabel')}>
+      {showsNote && (
+        <Field label={needsText ? tr('ws.kit.reason.otherLabel') : tr('ws.kit.reason.noteLabel')}>
           <input
             style={inputStyle}
-            autoFocus
+            autoFocus={needsText}
             value={note}
             disabled={busy}
             maxLength={200}
-            placeholder={tr('ws.kit.reason.otherPlaceholder')}
+            placeholder={needsText ? tr('ws.kit.reason.otherPlaceholder') : tr('ws.kit.reason.notePlaceholder')}
             onChange={(e) => setNote(e.target.value)}
           />
         </Field>

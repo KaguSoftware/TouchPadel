@@ -23,6 +23,7 @@
     "refund",
     "void_after_send",
     "write_off_expired",
-    "deposit_refund_manual"
+    "deposit_refund_manual",
+    "match_seat_write_off"
   ]
 }

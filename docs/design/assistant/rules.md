@@ -36,7 +36,7 @@ Every order line's price is copied from the menu tables at the moment the order 
 
 ## A discount, void, refund or price override needs a manager PIN and a reason
 
-The money-adjustment RPCs (`apply_discount`, `override_price`, `void_after_send`, `refund`) take a PIN and a reason code, verify the PIN with `app.verify_manager_pin` (manager or owner PINs only, migration 0015), and record who applied and who authorised in the row and in the audit log. An invalid PIN is returned rather than raised so the five-failure lockout can engage (migration 0011); since 0105 every role may hold a PIN, but a cashier's PIN still cannot approve money.
+The money-adjustment RPCs (`apply_discount`, `override_price`, `void_after_send`, `refund`) take a PIN and a reason code, verify the PIN with `app.verify_manager_pin` (manager or owner PINs only, migration 0015), and record who applied and who authorised in the row and in the audit log; so does a seat write-off on an open match (`match_seat_write_off`, migration 0262). An invalid PIN is returned rather than raised so the five-failure lockout can engage (migration 0011); since 0105 every role may hold a PIN, but a cashier's PIN still cannot approve money.
 
 ## The business day starts at 04:00, not midnight
 
@@ -73,6 +73,18 @@ Since migration 0106 a booking can have only one open or awaiting-payment tab (B
 ## The desk takes court payment into its own cash box
 
 Court-desk staff may open, settle, merge and cancel tabs and record drawer openings (migration 0106) but cannot read `payments`, `refunds` or `tab_adjustments`; the desk gets its money figures from `app.booking_bill` and `app.booking_bill_states`, so no screen does money arithmetic. Refunds stay with managers and owners behind a PIN.
+
+## A filling open match holds no court
+
+An open match holds no reservation while it fills: a firm booking (any live row but a hold) of the last court free for its time cancels it and every ticket goes back. At four players the court is booked in the same transaction, or the match waits while a paying guest's hold is on the last court and keeps that court (desk bookings there are refused SLOT_TAKEN). Sources: open-matches contracts §0, R22; migration 0263.
+
+## Open-match tickets are a bond, not a prepayment
+
+Tickets are bought online at a chain-wide price and are not court money. A player who comes gets the ticket back and pays a full share at the desk; a no-show or an unreplaced late leaver loses it, and a lost ticket is revenue of that branch. Unused tickets are owed to players (liability) and are cashed out only by a manager or the owner, for the whole purchase once nothing of it is in play (OM-45, OM-48, R13).
+
+## Open-match seats are marked and paid per player
+
+A match booking is never marked no-show as a whole (MATCH_MARK_SEATS); unmarked seats count as arrived at completion or three hours after the end. A no-show's share is written off and `court_fee_remaining` nets it; a walk-out's share is written off only with a manager PIN; a match called off short cancels the booking and nobody pays (OM-47, R1, R12, R37).
 
 ## Breaks are counted per business day; cover is recorded, not signed in
 

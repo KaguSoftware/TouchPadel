@@ -253,8 +253,10 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(d.comparison).toBeNull();
 
     const byKey = Object.fromEntries(d.figures.map((f) => [f.key, f]));
+    // 0265 (money.md §7.3): the seven online-money and open-match keys.
     expect(Object.keys(byKey).sort()).toEqual(
-      ['avgOrderValue', 'bookings', 'cafeNet', 'cafeRevenue', 'card', 'cash', 'discounts', 'noShows', 'orders', 'padelRevenue', 'refunds', 'revenue', 'waste'].sort(),
+      ['avgOrderValue', 'bookings', 'cafeNet', 'cafeRevenue', 'card', 'cash', 'discounts', 'noShows', 'orders', 'padelRevenue', 'refunds', 'revenue', 'waste',
+       'onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits', 'ticketLiability', 'matchWrittenOff'].sort(),
     );
     for (const f of d.figures) {
       expect(Number.isInteger(f.value), f.key).toBe(true);

@@ -150,6 +150,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       peak: 'أوقات الذروة',
       byHour: 'حسب وقت البدء',
       byDay: 'حسب اليوم',
+      // DRAFT-AR (open matches, operator.md §5.19, R38).
+      matches: 'المباريات المفتوحة',
     },
     lead: {
       byCourt: 'حجوزات كل ملعب وإيراده. رتّب عمودًا لتجد أقوى ملعب أو أضعفه.',
@@ -157,6 +159,8 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
       peak: 'الحجوزات بأعلى سعر للملعب، مقابل الأوقات الأرخص.',
       byHour: 'الحجوزات المتمّة حسب ساعة بدئها.',
       byDay: 'الحجوزات المتمّة وإيراد الملاعب لكل يوم. الأيام التي بلا حجوزات لا تظهر.',
+      // DRAFT-AR
+      matches: 'المباريات المفتوحة في هذه الفترة: ما حُجز منها، وما استُلم في الاستقبال، وحال المقاعد.',
     },
     columns: {
       court: 'الملعب',

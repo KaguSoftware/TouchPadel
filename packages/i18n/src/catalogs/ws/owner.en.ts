@@ -11,6 +11,8 @@ export const ownerEn = {
     taken: 'Taken in payments',
     takenHint: 'Cash and card received, less refunds. It differs from what was earned when a booking is paid on another day or not paid yet.',
     losses: 'Discounts, refunds and waste',
+    // Open matches (operator.md §5.19): the `online` figure group.
+    online: 'Online money and open matches',
     otherReports: 'Other reports',
     headline: 'Headline',
     padel: 'Padel',
@@ -39,6 +41,14 @@ export const ownerEn = {
       refunds: 'Refunds',
       waste: 'Waste',
       noShows: 'No-shows',
+      // Open matches (operator.md §5.19): the `online` group.
+      onlineDeposits: 'Online deposits',
+      depositForfeits: 'Deposits kept for no-shows',
+      ticketSales: 'Match ticket sales',
+      ticketRefunds: 'Match ticket refunds',
+      ticketForfeits: 'Lost match tickets',
+      ticketLiability: 'Unused tickets owed to players',
+      matchWrittenOff: 'Written-off match shares',
     },
     // Three tables, so three files in a zip. Every column is one fact in words.
     csv: {

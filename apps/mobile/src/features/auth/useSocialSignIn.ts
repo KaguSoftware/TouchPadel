@@ -17,7 +17,7 @@ import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { fetchOwnProfile, updateOwnProfile } from '../profile/api';
 import { profileKeys } from '../profile/hooks';
-import { getPendingSlot } from '../booking/pendingSlot';
+import { hasPendingIntent } from '../booking/pendingIntent';
 import { readOwnStaffRow } from '../staff/api';
 import { claimSocialRefusal, holdStaffStatus } from '../staff/StaffStatusProvider';
 import { useToast } from '../../components/overlays';
@@ -154,7 +154,12 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
             await updateOwnProfile(supabase, user.id, patch);
             await setUserMetadata(supabase, patch);
             if (profile) {
-              profile = { ...profile, ...patch };
+              // The server splits the new full_name into given_name and
+              // family_name (0256, guest.md §4.9); the cached parts are still
+              // the split of the trigger's fallback ('k3x9q2'). Dropped here,
+              // so complete-profile prefills its two fields from the patched
+              // full_name until the refetch brings the server's parts.
+              profile = { ...profile, ...patch, given_name: null, family_name: null };
               queryClient.setQueryData(profileKeys.own, profile);
             }
           } catch (error) {
@@ -164,7 +169,7 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
         // D3: phone required before the flow continues. The decision (and why
         // the no-slot case navigates nowhere) is postSignInStep's, shared with
         // the email sign-in so the two paths cannot drift.
-        const step = postSignInStep(profile, getPendingSlot() !== null);
+        const step = postSignInStep(profile, hasPendingIntent());
         addBreadcrumb('auth.social.success', { provider, incomplete: step !== 'continue' });
         if (step === 'complete-profile') {
           router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });

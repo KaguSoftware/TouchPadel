@@ -3,9 +3,11 @@ import { wsAr } from './ws';
 import { staffAr } from './staff';
 import { workAr } from './work.ar';
 import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
+import { opErrorsMatchesAr } from './opErrors.matches.ar';
 import { legalAr } from './legal.ar';
 import { siteAr } from './site.ar';
 import { branchesAr } from './branches.ar';
+import { matchesAr } from './matches.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -704,13 +706,21 @@ export const ar: Messages = {
     // SEC-16 — حذف الحساب من داخل التطبيق.
     deleteAccount: 'حذف الحساب',
     deleteHeading: 'لا يمكن التراجع عن هذا.',
+    // DF-20: الجملة الأخيرة. DRAFT-AR
     deleteBody:
-      'سيُحذف حسابك واسمك ورقم هاتفك فوراً، وسيتم تسجيل خروجك من كل الأجهزة. أما الحجوزات التي قمت بها فتبقى في سجلات النادي بدون أي اسم مرتبط بها، لأن النادي ملزم بالاحتفاظ بحساباته.',
+      'سيُحذف حسابك واسمك ورقم هاتفك فوراً، وسيتم تسجيل خروجك من كل الأجهزة. أما الحجوزات التي قمت بها فتبقى في سجلات النادي بدون أي اسم مرتبط بها، لأن النادي ملزم بالاحتفاظ بحساباته. وتُلغى مقاعدك في المباريات المفتوحة، ويُردّ ثمن تذاكرك غير المستخدمة إلى البطاقة التي دُفع بها.',
     deleteTypePrompt: 'اكتب {word} أدناه للتأكيد.',
     deleteConfirmWord: 'حذف',
     deleteAppleNote:
       'سجّلت الدخول باستخدام Apple، لذلك ستطلب منك Apple التأكيد. وسيؤدي ذلك أيضًا إلى إلغاء وصول تتش بادل إلى معرّف Apple الخاص بك.',
     deleteAppleCancelled: 'لم يُحذف حسابك. أكّد عبر Apple للمتابعة.',
+    // المباريات المفتوحة (guest.md §4.9, §4.16). DRAFT-AR
+    nameShownHint: 'يرى اللاعبون الآخرون في المباراة المفتوحة اسمك الأول والحرف الأول من اسم عائلتك.',
+    // يختار جنس القارئ نفسه السطر، لذا يجوز التذكير والتأنيث هنا.
+    genderFemale: 'مباريات النساء ومباريات الرجال: أنتِ مسجّلة امرأة، ويمكن لموظفي الاستقبال تعديل ذلك.',
+    genderMale: 'مباريات النساء ومباريات الرجال: أنتَ مسجّل رجلًا، ويمكن لموظفي الاستقبال تعديل ذلك.',
+    tickets: 'تذاكر المباريات المفتوحة',
+    blockedPlayers: 'اللاعبون المحظورون',
   },
   settings: {
     title: 'الإعدادات',
@@ -912,6 +922,7 @@ export const ar: Messages = {
   legal: legalAr,
   site: siteAr,
   branches: branchesAr,
+  matches: matchesAr,
   seo: {
     siteTitle: 'تتش بادل',
     menuTitle: 'منيو تتش كافيه',
@@ -926,6 +937,8 @@ export const ar: Messages = {
     notFound: 'لم نتمكن من العثور على ما تبحث عنه.',
     forbidden: 'لا تملك صلاحية تنفيذ هذا الإجراء.',
     tooManyRequests: 'محاولات كثيرة جدًا. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.',
+    // REQUEST_NOT_FOUND on the phone (R6, guest.md §4.22). DRAFT-AR
+    requestGone: 'لم يعد هذا الطلب موجودًا. يُرجى التحديث.',
     sessionTableExpired: 'انتهت صلاحية جلسة هذه الطاولة. يُرجى مسح رمز QR مرة أخرى.',
     offline: 'أنت غير متصل بالإنترنت. بعض الأشياء لن تعمل حتى تعود للاتصال.',
     crashTitle: 'واجهت هذه الشاشة مشكلة',
@@ -1072,6 +1085,12 @@ export const ar: Messages = {
       spill: 'انسكاب / هدر',
       comp: 'مجاني (ضيافة)',
       other: 'أخرى',
+      // Open matches (operator.md §5.21). DRAFT-AR: on the client's review list.
+      conduct: 'سوء السلوك',
+      court_needed: 'الملعب مطلوب',
+      walked_out: 'مغادرة دون دفع',
+      no_shows: 'تكرار الغياب',
+      reported: 'بلاغات من لاعبين',
     },
     desk: {
       newBooking: 'حجز جديد',
@@ -1717,6 +1736,8 @@ export const ar: Messages = {
       PIN_INVALID: 'الرمز السري غير صحيح.',
       PIN_LOCKED: 'محاولات خاطئة كثيرة — تم القفل لعدة دقائق.',
       PIN_OWN: 'هذا رمزك السري. يجب أن يُدخل مدير آخر رمزه.',
+      // Open matches §5.20. DRAFT-AR.
+      RPC_MISSING: 'يتطلب هذا تحديثًا للخادم لم يصل بعد.',
       PIN_GRANT_REQUIRED: 'انتهت صلاحية تفويض المدير — أدخل الرمز السري مرة أخرى.',
       FORBIDDEN: 'لا تملك صلاحية لهذا الإجراء.',
       AUTH_REQUIRED: 'يجب تسجيل الدخول.',
@@ -1905,6 +1926,7 @@ export const ar: Messages = {
       ITEM_NOT_ON_TAB: 'هذا السطر ليس على هذا الحساب.',
       IDEMPOTENCY_CONFLICT: 'حُفظ هذا بالفعل من جلسة أخرى. حدّث لرؤية آخر حالة.',
       ...opErrorsProtocolsAr,
+      ...opErrorsMatchesAr,
     },
   },
   work: workAr,

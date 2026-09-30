@@ -74,6 +74,18 @@ describe('depositBegin', () => {
     expect(err.code).toBe('PROVIDER_UNAVAILABLE');
     expect(err.status).toBe(503);
     expect(err.message).toBe('PROVIDER_UNAVAILABLE');
+    expect(err.detail).toBeNull();
+  });
+
+  it('carries the refusal detail when the body has one (money.md §5.3)', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: null,
+      error: httpError(400, { error: 'TICKET_COUNT_INVALID', detail: 'wallet_limit' }),
+    });
+    const err = await depositBegin(edgeClient(invoke), { holdId: 'h', locale: 'en' }).catch((e) => e);
+    expect(err).toBeInstanceOf(DepositEdgeError);
+    expect(err.code).toBe('TICKET_COUNT_INVALID');
+    expect(err.detail).toBe('wallet_limit');
   });
 
   it('reads a refusal with no JSON body as a code-less refusal', async () => {

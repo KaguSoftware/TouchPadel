@@ -73,6 +73,15 @@ export const kitEn = {
     payment_note: 'Payment note',
     special_request: 'Special request',
     deposit_exempt: 'No deposit needed',
+    // Open matches (operator.md §5.15): set by app.set_match_ban, never by the
+    // flags editor. Its label is a ban code, read through matchBanReason.
+    match_ban: 'Banned from open matches',
+    matchBanReason: {
+      conduct: 'Conduct',
+      no_shows: 'Repeated no-shows',
+      reported: 'Reported by players',
+      other: 'Other',
+    },
   },
   pin: {
     title: 'Manager authorisation',
@@ -86,6 +95,9 @@ export const kitEn = {
     otherLabel: 'What is the reason?',
     otherPlaceholder: 'Write the reason',
     otherRequired: 'Write the reason to continue',
+    // noteMode="optional" (open matches, operator.md §5.15.2): a note under every code.
+    noteLabel: 'Note (optional)',
+    notePlaceholder: 'Add a note',
     confirm: 'Continue',
     cancel: 'Cancel',
   },

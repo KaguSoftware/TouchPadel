@@ -19,7 +19,15 @@ import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
-import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon, TrashIcon } from '../../src/components/icons';
+import {
+  CloseIcon,
+  LockIcon,
+  PencilIcon,
+  PhoneIcon,
+  ReceiptIcon,
+  SlidersIcon,
+  TrashIcon,
+} from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
@@ -309,6 +317,20 @@ export default function ProfileScreen() {
               icon={<SlidersIcon size={15} color={colors.gstrong} />}
               label={t('settings.title')}
               onPress={() => router.push('/settings')}
+            />
+            {/* Open matches (docs/design/open-matches/guest.md §4.16): the
+              ticket wallet, and the players this guest blocked. */}
+            <MenuRow
+              testID="profile.tickets"
+              icon={<ReceiptIcon size={15} color={colors.gstrong} />}
+              label={t('profile.tickets')}
+              onPress={() => router.push('/tickets')}
+            />
+            <MenuRow
+              testID="profile.blocked-players"
+              icon={<CloseIcon size={15} color={colors.gstrong} />}
+              label={t('profile.blockedPlayers')}
+              onPress={() => router.push('/blocked-players')}
             />
             <MenuRow
               testID="profile.call-venue"

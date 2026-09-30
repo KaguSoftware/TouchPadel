@@ -5,7 +5,8 @@ verified by `pnpm --filter @touch/mobile store:copy-check`). If those docs chang
 copy below.
 
 **Before pasting this, have ready:** the review account's phone and password (from
-`node scripts/create-review-account.mjs`), a processed build ≥ 9 (or accept that task 6.4 will be BLOCKED), and
+`node scripts/create-review-account.mjs --sandbox`; the partner account and its sandbox match are set up as
+`docs/store/app-store-submission.md` §5 says), a processed build ≥ 9 (or accept that task 6.4 will be BLOCKED), and
 the screenshot PNGs rendered in `apps/mobile/store/out/iphone-6.9/`.
 
 Copy everything below the line into Claude in Chrome.
@@ -112,9 +113,12 @@ In the language picker choose **Add Language → Arabic**, then with Arabic sele
 - **Age Rating → Edit:** answer **None** or **No** to every question: all violence questions, profanity or crude
   humour, mature/suggestive themes, horror/fear, medical or treatment information, health or wellness topics,
   alcohol/tobacco/drug use, sexual content or nudity, simulated gambling, real gambling, contests, loot boxes,
-  **unrestricted web access: No**, **user-generated content: No**, **messaging and chat: No**,
-  **advertising: No**, parental controls: No, age assurance: No. Not "Made for Kids". The result must be **4+**.
-  If it comes out higher, stop and report which answer caused it.
+  **unrestricted web access: No**, **user-generated content: Yes** (players in open matches see each other's
+  first name and surname initial and fixed preset status messages; there is no free text; report, block and a
+  venue ban are built in), **messaging and chat: No** (fixed preset statuses only; no direct messages),
+  **advertising: No**, parental controls: No, age assurance: No. Not "Made for Kids". **Record the rating Apple
+  computes** in the report as `AGE_RATING`; user-generated content can move it off 4+. Never change a true answer
+  to lower it.
 - **Regulated Medical Device** declaration (EU/EEA, UK, US): the app is **not** a regulated medical device.
 - **App Store Regulations & Permits → Digital Services Act (trader status):** if it already shows a status,
   leave it. If it asks for one, **stop and ask me.** It publishes a name, address, phone and email on EU
@@ -141,13 +145,17 @@ Left sidebar: **App Privacy**.
    - Contact Info → **Name**, **Email Address**, **Phone Number**
    - Identifiers → **User ID**
    - Other Data → **Other Data Types**
-4. For **each** of those five, answer:
+   - Purchases → **Purchase History** (court deposits and open-match tickets paid by Qi Card; no card data)
+   - User Content → **Photos or Videos**, **Other User Content** (staff accounts only: work photos and the text
+     staff type in the staff area)
+   - Financial Info → **Other Financial Info** (staff accounts only: wage advances and pay deductions)
+4. For **each** of those nine, answer:
    - Purposes: **App Functionality** only.
    - Linked to the user's identity: **Yes**.
    - Used for tracking: **No**.
-5. Every other data type stays unticked. In particular NOT: Location, Contacts, Photos, Health, Financial Info,
-   Payment Info, Purchases, Browsing/Search History, Sensitive Info, Usage Data, Diagnostics, Device ID,
-   Advertising Data.
+5. Every other data type stays unticked. In particular NOT: Location, Contacts, Health, Payment Info, Credit Info,
+   Emails or Text Messages, Audio Data, Gameplay Content, Customer Support, Browsing/Search History, Sensitive
+   Info, Usage Data, Diagnostics, Device ID, Advertising Data.
 6. Save, then **Publish** the privacy answers. Publishing privacy answers is allowed; it is not submitting the app.
 7. In the report, list the final label as App Store Connect shows it ("Data Linked to You: …", "Data Used to
    Track You: none").
@@ -312,18 +320,21 @@ In the **Build** section click **Add Build** (or the + next to it) and select th
   shows. If empty, ask me.
 - **Notes:**
   ```
-Touch Padel is the booking app for a single padel venue in Iraq. Guests check court availability and reserve a court; that is the entire app. Availability can be browsed without an account; reserving needs one.
+Touch Padel is the booking app for a single padel venue in Iraq. Guests check court availability and reserve a court, or play open matches with other players. Availability can be browsed without an account; reserving needs one.
 
 SIGN IN
 Use the account in Sign-in Information. On the sign-in screen choose country Iraq (+964), enter the phone number without the +964 prefix, then the password. No verification code is needed to sign in. Sign in with Apple and Google are also offered; Sign in with Apple is provided as required by guideline 4.8. New accounts confirm their phone number once with a WhatsApp code, which is why a ready account is provided.
 
 The account already has an upcoming booking under My Reservations. You are welcome to reserve and cancel another slot: bookings from this account are marked as test bookings for the venue's front desk.
 
-NO PAYMENT IN THE APP
-The app takes no money and asks for no card details. A guest reserves a court and pays at the venue's front desk on arrival, for a real-world service used in person (3.1.3(e)). There are no in-app purchases and no digital goods.
+PAYMENTS
+Courts are paid at the venue's front desk. The only online payments, a court deposit when a booking asks for one and open-match tickets, are made on Qi Card's own page for a service used in person at the venue (3.1.3(e)). A ticket is only redeemable for a seat in a match at the venue, is refundable at the desk, and never buys digital content. No in-app purchases; the app never sees card details.
+
+OPEN MATCHES
+Players start a match at a free time or join one; four players book the court together and each pays their share at the desk (Book > a free time > Start an open match; Book > Open matches). To try it: Profile > Tickets, buy two tickets with Qi's sandbox card, then join Review Partner's match under Book > Open matches (2/4). At 3/4 no court is booked. In the match, send a preset status (no free text), and report or block a player from their seat's menu. Leave, and the ticket returns to your wallet. The review account is a sandbox profile: it pays on Qi's sandbox (no real money) and sees only sandbox matches, which never book a real court.
 
 ACCOUNT DELETION
-Profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms.
+Profile > Delete account, in the app. It deletes the login, the guest's name and phone number immediately and signs them out. For Sign in with Apple accounts the app re-authorises with Apple and the Apple token is revoked. Past bookings remain in the venue's records with no name attached; the deletion screen says so before the user confirms. Open matches are left and unused tickets refunded to the card.
 
 PRIVACY
 Settings > About > Privacy policy (also linked on the sign-up screen) opens the same policy as the listing. The app contains no analytics, advertising or tracking.

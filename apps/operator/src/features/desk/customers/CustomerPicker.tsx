@@ -12,13 +12,24 @@ import { Button, ErrorText, Field, Spinner, card } from '../../../components/ui'
 import { CustomerFlagBadge, SearchField } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import { useDebounced } from '../useDebounced';
-import type { CustomerSearchRow } from '../deskTypes';
+import type { CustomerGender, CustomerSearchRow } from '../deskTypes';
 
 export interface PickedCustomer {
   id: string;
   name: string;
   phone: string | null;
   flags: CustomerSearchRow['flags'];
+  /**
+   * The declared gender (open matches, OM-39), read by the Start and Add
+   * player dialogs against a women's or men's match. null: not declared;
+   * absent: not known (a server before 0262, or a caller that did not read it).
+   */
+  gender?: CustomerGender | null;
+}
+
+/** A gender as the customer reads carry it, narrowed to what a match compares; anything else is "not declared". */
+export function customerGenderOf(v: unknown): CustomerGender | null {
+  return v === 'female' || v === 'male' ? v : null;
 }
 
 export const CUSTOMER_SEARCH_MIN = 2;
@@ -123,7 +134,7 @@ export function CustomerPicker({
               className="tp-row"
               data-clickable="true"
               disabled={disabled}
-              onClick={() => onChange({ id: c.id, name: c.full_name, phone: c.phone, flags: c.flags ?? [] })}
+              onClick={() => onChange({ id: c.id, name: c.full_name, phone: c.phone, flags: c.flags ?? [], gender: customerGenderOf(c.gender) })}
               style={{
                 display: 'flex',
                 alignItems: 'center',

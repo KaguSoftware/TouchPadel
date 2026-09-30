@@ -129,7 +129,9 @@ const CODE_TO_KEY = {
   BAD_CHANNEL: 'op.errors.BAD_CHANNEL',
   REQUEST_ALREADY_PENDING: 'op.errors.REQUEST_ALREADY_PENDING',
   REQUEST_NOT_PENDING: 'op.errors.REQUEST_NOT_PENDING',
-  REQUEST_NOT_FOUND: 'op.errors.REQUEST_NOT_FOUND',
+  // R6 (open matches): a staff request and a match request both raise it, so
+  // the phone reads one neutral line for either.
+  REQUEST_NOT_FOUND: 'errors.requestGone',
   BAD_KIND: 'op.errors.BAD_KIND',
   REF_NOT_FOUND: 'op.errors.REF_NOT_FOUND',
   NAME_REQUIRED: 'op.errors.NAME_REQUIRED',
@@ -160,6 +162,10 @@ const CODE_TO_KEY = {
   TOO_MANY_ATTEMPTS: 'deposit.errors.tooManyAttempts',
   PAYMENT_NOT_FOUND: 'deposit.errors.paymentNotFound',
   PROVIDER_UNAVAILABLE: 'deposit.errors.providerUnavailable',
+  // R6: the payment edge functions answer a retryable database error with
+  // RETRY_LATER (edge only, never raised by SQL); the guest reads it as the
+  // provider being briefly unavailable.
+  RETRY_LATER: 'deposit.errors.providerUnavailable',
   // Place an order (0251): place_floor_order and the till's own line checks it
   // runs. A tab the till closed, merged or never had reads as "pick another",
   // and no open day as "once the till opens the day": what the waiter can do.
@@ -174,6 +180,53 @@ const CODE_TO_KEY = {
   MODIFIER_SELECTION: 'op.errors.MODIFIER_SELECTION',
   MODIFIER_INVALID: 'op.errors.MODIFIER_INVALID',
   TAB_KIND_MISMATCH: 'op.errors.TAB_KIND_MISMATCH',
+  // R6: send_test_push's limit (0070) and any other rate-limited call; the
+  // Settings screen keeps its own wording for the test push.
+  RATE_LIMITED: 'errors.tooManyRequests',
+  // Open matches (docs/design/open-matches/guest.md §4.22): each commit adds
+  // the codes its SQL raises. 0256: app.set_my_gender.
+  GENDER_ALREADY_SET: 'matches.errors.genderAlreadySet',
+  // 0259: buying tickets (edge ticket-begin -> app.ticket_payment_prepare). The
+  // detail wallet_limit of TICKET_COUNT_INVALID has its own line
+  // (matches.errors.walletLimit), which the tickets screen picks from the detail.
+  TICKET_COUNT_INVALID: 'matches.errors.ticketCountInvalid',
+  MATCHES_OFF: 'matches.errors.off',
+  TERMS_REQUIRED: 'matches.errors.termsRequired',
+  MATCH_BANNED: 'matches.errors.banned',
+  // 0260: the match core. GENDER_REQUIRED is app.match_guest's (the phone
+  // asks inline, DF-10); MATCH_NOT_FOUND app.match_lock's; NEED_TICKETS
+  // app.ticket_pick's, whose detail {needed, available, buy} has its own line
+  // (matches.errors.needTicketsCount) for the screen that reads the detail.
+  GENDER_REQUIRED: 'matches.errors.genderRequired',
+  MATCH_NOT_FOUND: 'matches.errors.notFound',
+  NEED_TICKETS: 'matches.errors.needTickets',
+  // 0261: the guest's open-match calls (start, join, request, decide, leave,
+  // remove, cancel, message, report, block). MATCH_TOO_LATE's detail (the
+  // minutes of notice) has its own line (matches.errors.tooLateAt) for the
+  // screen that reads it; MATCH_FULL never shadows MATCH_SLOT_FULL (exact
+  // codes match first).
+  MATCH_CLOSED: 'matches.errors.closed',
+  MATCH_FULL: 'matches.errors.full',
+  MATCH_SLOT_FULL: 'matches.errors.slotFull',
+  MATCH_TOO_LATE: 'matches.errors.tooLate',
+  MATCH_LIMIT_REACHED: 'matches.errors.limitReached',
+  MATCH_SEAT_LIMIT: 'matches.errors.seatLimit',
+  MATCH_APPROVAL_REQUIRED: 'matches.errors.approvalRequired',
+  MATCH_NOT_APPROVAL: 'matches.errors.notApproval',
+  MATCH_ALREADY_IN: 'matches.errors.alreadyIn',
+  MATCH_GENDER_MISMATCH: 'matches.errors.genderMismatch',
+  MATCH_UNAVAILABLE: 'matches.errors.unavailable',
+  MATCH_TIME_CLASH: 'matches.errors.timeClash',
+  MATCH_BOOKED: 'matches.errors.booked',
+  NOT_ORGANISER: 'matches.errors.notOrganiser',
+  REQUEST_CLOSED: 'matches.errors.requestClosed',
+  REQUESTER_INELIGIBLE: 'matches.errors.requesterIneligible',
+  REQUEST_LIMIT: 'matches.errors.requestLimit',
+  SEAT_NOT_FOUND: 'matches.errors.seatNotFound',
+  SEAT_HOLDER_REQUIRED: 'matches.errors.seatHolderRequired',
+  SEAT_STARTED: 'matches.errors.seatStarted',
+  REPORT_TARGET_INVALID: 'matches.errors.reportTargetInvalid',
+  BLOCK_TARGET_INVALID: 'matches.errors.blockTargetInvalid',
 } as const satisfies Record<string, MessageKey>;
 
 export type RpcErrorCode = keyof typeof CODE_TO_KEY;
@@ -195,6 +248,19 @@ export function rpcErrorCode(message: string | null | undefined): RpcErrorCode |
   for (const code of CODES_BY_LENGTH) if (trimmed === code) return code;
   // Then embedded ("... raised SLOT_TAKEN ..."), longest code wins.
   for (const code of CODES_BY_LENGTH) if (trimmed.includes(code)) return code;
+  return null;
+}
+
+/**
+ * A refusal's detail (build contracts §1.11, guest.md §4.22): PostgREST's
+ * `details` string (`raise … using detail`), or an edge refusal's `detail`
+ * (`{error, detail}`, `DepositEdgeError.detail`). Null when there is none.
+ */
+export function rpcErrorDetail(err: unknown): string | null {
+  if (!err || typeof err !== 'object') return null;
+  const o = err as { details?: unknown; detail?: unknown };
+  if (typeof o.details === 'string' && o.details.trim()) return o.details.trim();
+  if (typeof o.detail === 'string' && o.detail.trim()) return o.detail.trim();
   return null;
 }
 

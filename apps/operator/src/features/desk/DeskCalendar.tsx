@@ -20,7 +20,14 @@
  *    The keyboard legend that sat beside it moved into the buttons' tooltips.
  *  - **Book for a customer.** `?customer=<id>` (from the customer record and
  *    search) keeps a strip on screen naming who is being booked; the slot the
- *    clerk picks opens the booking already linked to them.
+ *    clerk picks opens the booking already linked to them. With `&kind=match`
+ *    (the record's "Start an open match") the slot opens the Start dialog
+ *    with them as the organiser instead.
+ *  - **Open matches** (docs/design/open-matches/operator.md §5.8). A filling
+ *    match holds no court, so no column can show it: a strip above the grid
+ *    lists the night's filling and waiting matches. A match's booking reads
+ *    its organiser's name (bookingLabel) with a seat chip after it, in the
+ *    block's own ink: a match is never a colour.
  *
  * Keyboard: ← → move the date (by a month in month view), D / M switch views.
  * Pointer: a live booking carries a grip and is dragged to move it. The block
@@ -36,7 +43,10 @@
  *
  * e2e selectors kept: heading 'Desk calendar', buttons '‹' '›' 'Today', the
  * 'Month' / 'Day' view buttons, slots titled 'Free', label 'Date', block
- * buttons named by guest name, closed-day text, time labels.
+ * buttons named by guest name, closed-day text, time labels. Walk-in blocks
+ * are unchanged; a match block's accessible name holds its organiser's name
+ * once app.desk_match_states has answered ("Open match" until then), then
+ * the chip's "Open match · 3 of 4 players".
  */
 import {
   useEffect,
@@ -81,14 +91,19 @@ import { ZoomStage } from './calendar/ZoomStage';
 import { useMonthCounts } from './calendar/useMonthCounts';
 import { fetchBookingCounts } from './calendar/monthFetchers';
 import { shiftMonth } from './calendar/monthLogic';
-import { CreateReservationDialog } from './CreateReservationDialog';
+import { CreateReservationDialog, type StartMatchCarry } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
+import { bookingLabel } from '../matches/matchLogic';
+import { SeatChip } from '../matches/SeatChip';
+import { OpenMatchesStrip } from '../matches/OpenMatchesStrip';
+import { StartMatchDialog } from '../matches/StartMatchDialog';
+import { matchBookingIds, useMatchCaps, useMatchRead, useMatchStates, useOpenMatches } from '../matches/useMatches';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
 import { DateField } from '../../components/inputs';
-import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, guestNameOf, isVisible, packLanes } from './deskLogic';
+import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, isVisible, packLanes } from './deskLogic';
 import { dropRefusal, dropStartMin, grabRowOffset, type DropRefusal } from './dragLogic';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
-import type { PickedCustomer } from './customers/CustomerPicker';
+import { customerGenderOf, type PickedCustomer } from './customers/CustomerPicker';
 
 type View = 'day' | 'month';
 
@@ -116,10 +131,12 @@ const ROW_PITCH = 'calc(2.4rem + var(--tp-sp-0))';
  */
 const LANE_GAP = '3px';
 
-/** `/desk?date=YYYY-MM-DD&customer=<id>` — validated at the route (routes/desk/_children.ts). */
+/** `/desk?date=YYYY-MM-DD&customer=<id>&kind=match` — validated at the route (routes/desk/_children.ts). */
 export interface DeskCalendarSearch {
   date?: string;
   customer?: string;
+  /** With `customer`: a free slot starts an open match for them (the record's "Start an open match"). */
+  kind?: 'match';
 }
 
 /*
@@ -216,6 +233,7 @@ export function DeskCalendar() {
   const [date, setDate] = useState<string>(() => search.date ?? todayInTz(VENUE_TZ));
   const [view, setView] = useState<View>('day');
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
+  const [startMatch, setStartMatch] = useState<StartMatchCarry | null>(null);
   const [selected, setSelected] = useState<ReservationRow | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
@@ -237,6 +255,20 @@ export function DeskCalendar() {
     dayStart,
     closed,
   } = night;
+
+  // Open matches over the same night (§5.8): the strip, the bump warning,
+  // and the organiser's name and seat chip on a match's booking. A server
+  // without matches answers null, and none of it shows.
+  const caps = useMatchCaps();
+  const openQ = useOpenMatches(night.dayStart, night.dayEnd, settingsQ.isSuccess);
+  const openStatus = useMatchRead(openQ);
+  const openMatches = openStatus.kind === 'ready' ? openStatus.data : null;
+  const matchIds = useMemo(() => matchBookingIds(night.reservations), [night.reservations]);
+  const matchStates = useMatchStates(matchIds).data ?? null;
+  const stateOf = (r: ReservationRow) => matchStates?.[r.id] ?? null;
+  const labelOf = (r: ReservationRow) => bookingLabel(r, stateOf(r), tr) ?? tr('op.desk.walkIn');
+  // The record's "Start an open match": a free slot opens the Start dialog.
+  const matchMode = search.kind === 'match' && Boolean(search.customer) && caps.runMatches;
 
   const month = useMonthCounts({
     queryKey: 'reservationsMonth',
@@ -285,6 +317,9 @@ export function DeskCalendar() {
           name: bookForQ.data.customer.full_name,
           phone: bookForQ.data.customer.phone,
           flags: bookForQ.data.flags,
+          // The declared gender (0262), so the Start dialog mirrors a category that
+          // does not fit; a record without the key leaves it unknown.
+          ...('gender' in bookForQ.data.customer ? { gender: customerGenderOf(bookForQ.data.customer.gender) } : {}),
         }
       : null;
   const stopBookingFor = () => void navigate({ to: '/desk', search: { date } as never });
@@ -802,7 +837,11 @@ export function DeskCalendar() {
           >
             {bookFor ? (
               <>
-                <bdi>{tr('ws.courtDesk.calendar.bookingFor', { name: bookFor.name })}</bdi>
+                <bdi>
+                  {matchMode
+                    ? tr('ws.matches.calendar.startingFor', { name: bookFor.name })
+                    : tr('ws.courtDesk.calendar.bookingFor', { name: bookFor.name })}
+                </bdi>
                 {bookFor.flags.map((f, i) => (
                   <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
                 ))}
@@ -816,7 +855,9 @@ export function DeskCalendar() {
           <span style={{ fontSize: 'var(--tp-fs-sm)' }}>
             {view === 'month'
               ? tr('ws.courtDesk.calendar.bookingForMonth')
-              : tr('ws.courtDesk.calendar.bookingForHint')}
+              : matchMode
+                ? null
+                : tr('ws.courtDesk.calendar.bookingForHint')}
           </span>
           <Button
             size="sm"
@@ -830,6 +871,8 @@ export function DeskCalendar() {
         </div>
       )}
 
+      {view === 'day' && <OpenMatchesStrip status={openStatus} onRetry={() => void openQ.refetch()} tz={tz} />}
+
       {moveConflict && (
         <ConflictNotice
           body={tr('ws.courtDesk.calendar.moveConflict')}
@@ -837,7 +880,7 @@ export function DeskCalendar() {
           style={{ marginBlockEnd: '0.75rem' }}
         >
           <p style={{ fontSize: 'var(--tp-fs-sm)' }}>
-            <bdi>{guestNameOf(moveConflict.reservation) ?? tr('op.desk.walkIn')}</bdi> ·{' '}
+            <bdi>{labelOf(moveConflict.reservation)}</bdi> ·{' '}
             {tr('ws.courtDesk.calendar.moveTo', {
               court: courtName(moveConflict.courtId),
               time: formatTime(moveConflict.startAt, locale, tz),
@@ -1087,7 +1130,8 @@ export function DeskCalendar() {
                               disabled={past && !drag}
                               onClick={() => {
                                 if (suppressClick.current) return;
-                                setCreateAt({ courtId: c.id, startAt });
+                                if (matchMode) setStartMatch({ courtId: c.id, startAt, customer: bookFor, guestName: '', guestPhone: '' });
+                                else setCreateAt({ courtId: c.id, startAt });
                               }}
                               title={
                                 past ? tr('ws.courtDesk.calendar.pastSlot') : tr('op.desk.free')
@@ -1121,7 +1165,8 @@ export function DeskCalendar() {
                               ? (r.notes ?? tr('op.desk.maintenance'))
                               : r.kind === 'hold'
                                 ? tr('op.desk.hold')
-                                : (guestNameOf(r) ?? tr('op.desk.walkIn'));
+                                : labelOf(r);
+                          const matchState = r.kind === 'booking' ? stateOf(r) : null;
                           return (
                             <button
                               key={r.id}
@@ -1206,6 +1251,7 @@ export function DeskCalendar() {
                                 >
                                   <bdi>{name}</bdi>
                                 </strong>
+                                {matchState && <SeatChip state={matchState} started={Date.parse(r.start_at) <= now} />}
                               </span>
                               {/* Time and status on their own lines: sharing one
                                row, the badge was squeezed off the end of a card
@@ -1312,6 +1358,15 @@ export function DeskCalendar() {
           tz={tz}
           night={{ date, rows, reservations }}
           customer={bookFor}
+          openMatches={openMatches?.matches ?? null}
+          onStartMatch={
+            caps.runMatches && openMatches?.matches_enabled
+              ? (carry) => {
+                  setCreateAt(null);
+                  setStartMatch(carry);
+                }
+              : undefined
+          }
           onClose={() => setCreateAt(null)}
           onCreated={(queued) => {
             setCreateAt(null);
@@ -1330,9 +1385,25 @@ export function DeskCalendar() {
           }}
         />
       )}
+      {startMatch && (
+        <StartMatchDialog
+          courtId={startMatch.courtId}
+          startAt={startMatch.startAt}
+          courts={courts}
+          tz={tz}
+          night={{ date, rows, reservations }}
+          customer={startMatch.customer}
+          guestName={startMatch.guestName}
+          guestPhone={startMatch.guestPhone}
+          openMatches={openMatches}
+          openMatchesAt={openQ.dataUpdatedAt}
+          onClose={() => setStartMatch(null)}
+        />
+      )}
       {selected && (
         <ReservationActionsDialog
           reservation={selected}
+          match={stateOf(selected)}
           courts={courts}
           date={date}
           tz={tz}
@@ -1356,7 +1427,7 @@ export function DeskCalendar() {
         >
           <p style={{ marginBlockEnd: '0.75rem' }}>
             <strong>
-              <bdi>{guestNameOf(pendingMove.reservation) ?? tr('op.desk.walkIn')}</bdi>
+              <bdi>{labelOf(pendingMove.reservation)}</bdi>
             </strong>
             <br />
             {tr('ws.courtDesk.calendar.moveTo', {

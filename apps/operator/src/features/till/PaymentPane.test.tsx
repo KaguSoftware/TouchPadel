@@ -69,3 +69,22 @@ describe('PaymentPane — cash', () => {
   });
 
 });
+
+// Open matches (operator.md §5.13.4–§5.13.5): a seat's share comes through this pane.
+describe('PaymentPane — a seat share', () => {
+  it('says whose share it is and offers a part payment by default', () => {
+    renderCash({ subtitle: "Sara's share" });
+    expect(screen.getByText("Sara's share")).toBeTruthy();
+    expect(screen.getByText('Part payment')).toBeTruthy();
+  });
+
+  it('allowPartial={false}: the whole due only, on cash and card', () => {
+    renderCash({ allowPartial: false });
+    expect(screen.queryByText('Part payment')).toBeNull();
+  });
+
+  it('a refusal the caller words itself shows those words', () => {
+    renderCash({ error: new Error('SEAT_OWED_CHANGED'), errorMessage: 'What this player owes changed to 5,000 IQD. Check before taking it.' });
+    expect(screen.getByRole('alert').textContent).toBe('What this player owes changed to 5,000 IQD. Check before taking it.');
+  });
+});

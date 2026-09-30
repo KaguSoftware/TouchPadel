@@ -5,6 +5,7 @@ import { formatTime, isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
 import { useOwnProfile } from '../src/features/profile/hooks';
+import { greetingNameOf } from '../src/features/profile/names';
 import { usePendingSlot } from '../src/features/booking/pendingSlot';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { brand, radius, useTheme } from '../src/theme';
@@ -32,7 +33,8 @@ export default function VerifyResultScreen() {
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
   const pending = usePendingSlot();
 
-  const name = profile.data?.full_name?.split(/\s+/)[0] ?? '';
+  // The first name (0256), else the first word of full_name (guest.md §4.9).
+  const name = greetingNameOf(profile.data);
   const pendingLabel = pending
     ? `${pickLocale({ en: pending.courtNameEn, ar: pending.courtNameAr }, locale)} · ${formatTime(
         new Date(pending.startAt),

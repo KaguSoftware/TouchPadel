@@ -23,6 +23,7 @@ import {
   toBookingStatus,
 } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
+import { MATCH_REASON_CODES, REASON_CODES } from '../../components/ui';
 
 function row(over: Partial<ReservationRow> & { id: string }): ReservationRow {
   return {
@@ -213,6 +214,27 @@ describe('allowedMarks / isOverrideRefusal', () => {
     expect(isOverrideRefusal('RESERVATION_NOT_STARTED')).toBe(true);
     expect(isOverrideRefusal('SLOT_TAKEN')).toBe(false);
     expect(isOverrideRefusal(undefined)).toBe(false);
+  });
+  it('reads a whole-booking no-show on a match booking as a rule, not a failure (open matches §5.14)', () => {
+    expect(isOverrideRefusal('MATCH_MARK_SEATS')).toBe(true);
+  });
+  it('keeps the default reason list without the open-match codes', () => {
+    // Every prompt that passes no list (ManagerActions) offers REASON_CODES:
+    // the match codes are offered only where a match asks for them.
+    expect([...REASON_CODES]).toEqual([
+      'customer_request',
+      'wrong_item',
+      'changed_mind',
+      'quality',
+      'spill',
+      'staff_error',
+      'duplicate',
+      'comp',
+      'weather',
+      'expired',
+      'other',
+    ]);
+    for (const code of MATCH_REASON_CODES) expect((REASON_CODES as readonly string[]).includes(code)).toBe(false);
   });
 });
 

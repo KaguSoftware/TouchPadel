@@ -122,6 +122,26 @@ export const QK = {
     all: ['tillShift'] as const satisfies QueryKey,
     station: (station: string) => ['tillShift', station] as const satisfies QueryKey,
   },
+
+  // Open matches (docs/design/open-matches/operator.md §5.4). One family so one
+  // root refreshes every match read: the reservation and bill writes in
+  // queueResults.ts name the root, and so does the 'courts' broadcast.
+  /** Every open-match read at the desk (features/matches/useMatches.ts). */
+  deskMatches: {
+    all: ['deskMatches'] as const satisfies QueryKey,
+    /** app.desk_open_matches over one trading night's window. */
+    open: (fromIso: string, toIso: string) => ['deskMatches', 'open', fromIso, toIso] as const satisfies QueryKey,
+    /** app.desk_match_states, reservation ids sorted. */
+    states: (sortedIds: readonly string[]) => ['deskMatches', 'states', sortedIds] as const satisfies QueryKey,
+    /** app.desk_match_detail for one match. */
+    one: (matchId: string) => ['deskMatches', 'one', matchId] as const satisfies QueryKey,
+    /** app.guest_tickets for one customer: the record's Tickets panel. */
+    tickets: (customerId: string) => ['deskMatches', 'tickets', customerId] as const satisfies QueryKey,
+    /** app.match_reports_open for the branch in scope: the Ops reports queue. */
+    reports: (branchId: string | null) => ['deskMatches', 'reports', branchId ?? ''] as const satisfies QueryKey,
+    /** app.match_settings for the branch in scope: Venue details. */
+    settings: (branchId: string | null) => ['deskMatches', 'settings', branchId ?? ''] as const satisfies QueryKey,
+  },
 } as const;
 
 /**

@@ -142,6 +142,11 @@ describe('isResumeSafePath', () => {
       '/pay/return',
       '/staff',
       '/staff-run',
+      // Open matches: mid-purchase, a form, or a link continuing into a join.
+      '/tickets',
+      '/match-new',
+      '/match-report',
+      '/m/abcdefghijklmnopqrstuv',
     ]) {
       expect(isResumeSafePath(p)).toBe(false);
     }
@@ -166,5 +171,55 @@ describe('the return link while signed out', () => {
     rememberReturnRef('r-9');
     expect(takeReturnRef()).toBe('r-9');
     expect(takeReturnRef()).toBeNull();
+  });
+});
+
+describe('a ticket purchase (docs/design/open-matches/guest.md §4.10.2)', () => {
+  const AFTER = {
+    kind: 'join' as const,
+    savedAt: '2026-09-27T12:00:00Z',
+    matchId: 'm-1',
+    token: null,
+    friends: [{ gender: null }],
+  };
+  const T: PendingPayment = {
+    ref: 'r-9',
+    reservationId: '',
+    deadlineAt: '2026-09-27T12:15:00Z',
+    purpose: 'ticket',
+    after: AFTER,
+  };
+
+  it('round-trips purpose and the continuation', async () => {
+    const store = memoryStore();
+    await writePendingPayment(store, UID, T);
+    expect(await readPendingPayment(store, UID)).toEqual(T);
+  });
+
+  it('keeps reading a pointer written before open matches as a deposit', () => {
+    const old = JSON.stringify({ ref: 'r-1', reservationId: 'hold-1', deadlineAt: '2026-09-27T12:15:00Z' });
+    expect(parsePendingPayment(old)).toEqual(P);
+    expect(parsePendingPayment(old)?.purpose).toBeUndefined();
+    // A deposit's pointer is still written in the old shape.
+    expect(JSON.parse(serializePendingPayment(P))).toEqual({
+      ref: 'r-1',
+      reservationId: 'hold-1',
+      deadlineAt: '2026-09-27T12:15:00Z',
+    });
+  });
+
+  it('drops a malformed continuation and keeps the pointer', () => {
+    const raw = JSON.stringify({ ...T, after: { kind: 'join', savedAt: 'yesterday', matchId: 'm-1' } });
+    expect(parsePendingPayment(raw)).toEqual({
+      ref: 'r-9',
+      reservationId: '',
+      deadlineAt: '2026-09-27T12:15:00Z',
+      purpose: 'ticket',
+    });
+  });
+
+  it('keeps a ticket purchase that was bought for nothing in particular', () => {
+    const bare: PendingPayment = { ref: 'r-9', reservationId: '', deadlineAt: T.deadlineAt, purpose: 'ticket' };
+    expect(parsePendingPayment(serializePendingPayment(bare))).toEqual(bare);
   });
 });

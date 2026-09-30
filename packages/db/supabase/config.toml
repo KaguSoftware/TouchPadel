@@ -227,6 +227,8 @@ verify_jwt = false                          # Qi Card carries no Supabase JWT; i
 verify_jwt = true                           # cron/pg_net posts with the service-role JWT; service role only
 [functions.payments-fake]
 verify_jwt = false                          # the local stand-in payment page, opened in a browser; answers 404 anywhere but the local stack
+[functions.ticket-begin]
+verify_jwt = true                           # the guest's own session JWT; ticket_payment_prepare re-checks the caller's profile
 
 # Edge runtime policy for `supabase functions serve` ONLY (hosted always keeps
 # workers alive). The default `oneshot` spins a fresh worker per request, so an

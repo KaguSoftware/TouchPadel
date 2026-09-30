@@ -21,6 +21,10 @@
  *
  * F4/F5 only open this pane; money is confirmed by click or Enter inside it.
  *
+ * An open match's Players panel takes a seat's share through the same pane
+ * (docs/design/open-matches/operator.md §5.13.4): `subtitle` says whose share
+ * it is, and several shares in one payment pass `allowPartial={false}`.
+ *
  * THE SHIFT GATE (wave5-addendum §2.9, §5.1, §8 Q30). Inside the shell, a
  * cashier or the desk with no shift of their own open at this station meets
  * the start panel here first ("Start your shift to take payment"), and the
@@ -32,7 +36,7 @@
  * OfflineTabPanel takes its own and is never gated. Outside the shell (these
  * screen tests) there is no shift context and nothing is gated.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { formatIQD, isolate } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
@@ -70,6 +74,9 @@ export function PaymentPane({
   due,
   busy,
   error,
+  errorMessage,
+  subtitle,
+  allowPartial = true,
   onCancel,
   onSettle,
 }: {
@@ -79,12 +86,25 @@ export function PaymentPane({
   /** Basket lines not yet sent to this tab — they are not in `due`. */
   busy: boolean;
   error: unknown;
+  /**
+   * The words for `error` when the caller knows more than the code's generic
+   * line (an open-match refusal read from its detail, ErrorText `message`).
+   */
+  errorMessage?: string | null;
+  /** Under the title: whose money this is ("Sara's share", open matches §5.13.4). */
+  subtitle?: ReactNode;
+  /**
+   * False takes the part-payment switch away: the whole due or nothing. Several
+   * open-match shares in one payment are taken whole (§5.13.5).
+   */
+  allowPartial?: boolean;
   onCancel: () => void;
   /** amountIqd null = the full amount due; tenderedIqd is cash only. */
   onSettle: (method: PaymentMethod, amountIqd: number | null, tenderedIqd: number | null) => void;
 }) {
   const { tr, locale } = useLocale();
-  const [partial, setPartial] = useState(false);
+  const [partialChosen, setPartial] = useState(false);
+  const partial = allowPartial && partialChosen;
   const [amount, setAmount] = useState(due);
   const [tendered, setTendered] = useState(0);
 
@@ -138,7 +158,7 @@ export function PaymentPane({
           <Money amount={due} strong />
         )}
       </div>
-      <Switch checked={partial} onChange={(v) => setPartial(v)} label={tr('ws.cashier.payment.partial')} disabled={busy} />
+      {allowPartial && <Switch checked={partial} onChange={(v) => setPartial(v)} label={tr('ws.cashier.payment.partial')} disabled={busy} />}
       {partial && (
         <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
           {tr('ws.cashier.payment.partialOf', { amount: formatIQD(due, locale) })}
@@ -151,6 +171,7 @@ export function PaymentPane({
     return (
       <Modal
         title={tr('op.till.payCard')}
+        subtitle={subtitle}
         dismissible={!busy}
         onClose={onCancel}
         size="sm"
@@ -176,7 +197,7 @@ export function PaymentPane({
         <DrawerBanner banner={banner} />
         {amountBlock}
         <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.cashier.payment.cardNote')}</p>
-        <ErrorText error={error} />
+        <ErrorText error={error} message={errorMessage} />
       </Modal>
     );
   }
@@ -188,6 +209,7 @@ export function PaymentPane({
   return (
     <Modal
       title={tr('op.till.payCash')}
+      subtitle={subtitle}
       dismissible={!busy}
       onClose={onCancel}
       footer={
@@ -244,7 +266,7 @@ export function PaymentPane({
         </div>
         <AmountPad value={tendered} onChange={setTendered} disabled={busy} onConfirm={confirmCash} />
       </div>
-      <ErrorText error={error} />
+      <ErrorText error={error} message={errorMessage} />
     </Modal>
   );
 }
