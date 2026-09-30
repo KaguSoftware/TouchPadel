@@ -94,7 +94,7 @@ function InviteBody({ locale, invite }: { locale: Locale; invite: MatchInvite })
     <>
       <h1 className="tp-minv__title">{tr('matches.web.when', when)}</h1>
       <ul className="tp-minv__facts">
-        <li>{locale === 'ar' ? card.venue.name_ar : card.venue.name_en}</li>
+        <li>{(locale === 'ar' && card.venue.name_ar) || card.venue.name_en}</li>
         <li>{tr(`matches.web.category.${card.category}`)}</li>
       </ul>
       <p className="tp-minv__status">

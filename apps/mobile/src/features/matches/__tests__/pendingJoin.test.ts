@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearPendingJoin,
   getPendingJoin,
+  PENDING_JOIN_TTL_MS,
   intentBooksCourt,
   pendingJoinHref,
   setPendingJoin,
@@ -21,6 +22,20 @@ afterEach(() => {
 });
 
 describe('pendingJoin', () => {
+  it('forgets an intent older than its TTL, so a backed-out sign-in cannot steer a later one', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
+      setPendingJoin({ kind: 'link', token: 't' });
+      vi.setSystemTime(new Date('2026-10-01T12:00:00Z').getTime() + PENDING_JOIN_TTL_MS - 1);
+      expect(getPendingJoin()).toEqual({ kind: 'link', token: 't' });
+      vi.setSystemTime(new Date('2026-10-01T12:00:00Z').getTime() + PENDING_JOIN_TTL_MS + 1);
+      expect(getPendingJoin()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('holds one intent and tells its subscribers', () => {
     const listener = vi.fn();
     const off = subscribePendingJoin(listener);

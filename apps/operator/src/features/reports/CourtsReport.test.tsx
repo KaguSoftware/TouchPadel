@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -80,7 +80,15 @@ const READY = {
   comparison: null,
 };
 
+// Pin the clock (Date only, so async waits still run). "This month" and "Last 30 days" are the
+// same window on the 30th of a 30-day month, and the presets then read differently.
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 8, 15, 12, 0, 0));
   rpc.mockReset();
   navigate.mockReset();
   vi.mocked(fetchActiveCourts).mockResolvedValue([{ id: 'c1', name_en: 'Court 1', name_ar: 'ملعب ١', duration_options: [60], sort_order: 1 }]);

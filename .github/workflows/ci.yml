@@ -269,6 +269,9 @@ jobs:
     # once packages/db exists with migrations under packages/db/supabase/migrations/.
     # Until then it fails, and that is correct — the pipeline promise is real, not decorative.
     continue-on-error: false
+    # A green run takes about 7 minutes. Without this the default of 360 applies,
+    # and a stuck lock wait held this job for six hours (2026-09-29).
+    timeout-minutes: 45
     # S10: the test-OTP code is not in the repository. The CLI substitutes
     # env(SUPABASE_AUTH_SMS_TEST_OTP_CODE) in config.toml at `supabase start`,
     # so it has to be in the environment of every step of this job — `supabase
@@ -369,7 +372,8 @@ jobs:
       # Runs the @touch/db test suite — includes the RLS matrix and the reservation
       # concurrency suite, which only make sense with the stack up (hence this job).
       - name: DB tests (RLS + concurrency)
-        run: pnpm --filter @touch/db test
+        # Verbose so a hang names the file that is running, not just the last one done.
+        run: pnpm --filter @touch/db test -- --reporter=verbose
 
       # Types drift guard: regenerate types from the live schema and fail if the committed
       # src/types.gen.ts is stale. NOTE: until the first real generation is committed this

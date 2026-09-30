@@ -148,7 +148,11 @@ function MatchDetailScreen() {
   const toast = useToast();
   const { session } = useAuth();
   const params = useLocalSearchParams<{ id?: string; t?: string }>();
-  const id = typeof params.id === 'string' && params.id ? params.id : null;
+  // A malformed id (a hand-typed link) is not-found here, not a PostgREST 22P02 retry loop.
+  const id =
+    typeof params.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.id)
+      ? params.id
+      : null;
   const token = isMatchToken(params.t) ? params.t : null;
 
   const match = useMatch(id, token);

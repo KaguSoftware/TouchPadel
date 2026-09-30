@@ -658,11 +658,15 @@ describe.skipIf(!docker)('match_sweep: a busy branch is skipped unless it is the
     const busy = crypto.randomUUID();
     const court = crypto.randomUUID();
     // Another session holds the busy branch's mutex for eight seconds (the setup below must not outlast it).
+    // One statement, so the lock is released SERVER-side when it ends. Separate statements
+    // (begin; lock; sleep; rollback) need the client to send the rollback, and the scenario
+    // below blocks Node's event loop (execFileSync) so that write never left: the holder sat
+    // "idle in transaction" and the scenario waited on it until CI's 6 h limit (2026-09-29).
     const holder = psqlSession(`set application_name = 'm263-sweep-busy';
-begin;
-select pg_advisory_xact_lock(hashtextextended('app.matches:venue:${busy}', 0));
-select pg_sleep(8);
-rollback;`);
+do $hold$ begin
+  perform pg_advisory_xact_lock(hashtextextended('app.matches:venue:${busy}', 0));
+  perform pg_sleep(8);
+end $hold$;`);
     await waitForSleeper('m263-sweep-busy');
     const r = scenario('m262k', [
       SETUP,

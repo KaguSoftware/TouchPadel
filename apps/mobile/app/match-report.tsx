@@ -56,7 +56,9 @@ function MatchReportScreen() {
     !seatId && typeof params.requestId === 'string' && params.requestId ? params.requestId : null;
   // Display only: the server finds the player from the seat or the request.
   const name =
-    typeof params.name === 'string' && params.name ? params.name : t('matches.common.player');
+    typeof params.name === 'string' && params.name.trim()
+      ? params.name.trim().slice(0, 40) // a link can carry any text: bounded, never trusted
+      : t('matches.common.player');
   const category: MatchCategory = (MATCH_CATEGORIES as readonly string[]).includes(
     params.category ?? '',
   )

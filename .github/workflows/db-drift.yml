@@ -127,6 +127,8 @@ jobs:
           # treat only actual SQL as drift.
           if grep -qE '^\s*(create|alter|drop|comment)\b' -i /tmp/drift.sql; then
             echo "::error title=Schema drift detected::The hosted schema differs from the migration head."
+            # In the step log too, not only the job summary, so `gh run view --log` shows it.
+            cat /tmp/drift.sql
             {
               echo "### ❌ Schema drift"
               echo

@@ -110,6 +110,17 @@ jobs:
             curl -s -o /dev/null --max-time 2 "http://127.0.0.1:54321/functions/v1/replay" && break
             sleep 2
           done
+          # Kong answers before `functions serve` has finished restarting the gateway
+          # (2026-09-30: guest sign-in got "fetch failed" on the first row). Require the
+          # replay function to answer 401 on several consecutive polls, and auth to be up.
+          ok=0
+          for _ in $(seq 1 60); do
+            fn=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -X POST "http://127.0.0.1:54321/functions/v1/replay" || true)
+            au=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:54321/auth/v1/health" || true)
+            if [ "$fn" = "401" ] && [ "$au" != "000" ] && [ "$au" != "502" ] && [ "$au" != "503" ]; then ok=$((ok+1)); else ok=0; fi
+            [ "$ok" -ge 3 ] && break
+            sleep 2
+          done
           cat /tmp/functions.log
 
       # A p95 means nothing without the machine it was taken on. GitHub's hosted

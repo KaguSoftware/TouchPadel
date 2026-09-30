@@ -58,9 +58,14 @@ export function setTicketContinuation(c: TicketContinuation): void {
   current = { ref: null, continuation: c };
 }
 
-/** The continuation not yet tied to a purchase (what the purchase hook writes into the pointer). */
+/**
+ * The continuation not yet tied to a purchase (what the purchase hook writes into the pointer).
+ * One already bound to a ref belongs to THAT purchase: handing it to the next buy (a Profile
+ * top-up, another account in the same app life) would join the buyer into a match they never
+ * picked (GD-2).
+ */
 export function getTicketContinuation(): TicketContinuation | null {
-  return current?.continuation ?? null;
+  return current && current.ref === null ? current.continuation : null;
 }
 
 /** Tie the in-memory continuation to the purchase `ticket-begin` answered with. */
