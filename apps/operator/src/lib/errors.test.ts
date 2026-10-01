@@ -60,6 +60,59 @@ describe('error -> i18n mapping', () => {
     expect(t('en', 'op.errors.PRICE_VIA_PROTOCOL')).toContain('size and add-on names');
   });
 
+  it('maps the open-match codes of 0259 (tickets, cash-out) in both catalogs (operator.md §5.20)', () => {
+    const expected = {
+      NO_UNUSED_TICKETS: 'No unused tickets are left on that purchase.',
+      TICKET_IN_USE: 'A ticket from this purchase is still in use. Cash out once it comes back.',
+      CUSTOMER_NOT_FOUND: "That customer can't be found.",
+    } as const;
+    for (const [code, en] of Object.entries(expected)) {
+      expect(MAPPED_CODES.has(code), code).toBe(true);
+      const key = errorCodeToMessageKey(code);
+      expect(key).toBe(`op.errors.${code}`);
+      expect(t('en', key)).toBe(en);
+      expect(t('ar', key)).not.toBe(key);
+      expect(t('ar', key)).not.toBe(en);
+    }
+  });
+
+  it('maps the open-match codes of 0262 (the desk, seat money, the café wall) in both catalogs (operator.md §5.20)', () => {
+    const expected = {
+      MATCHES_OFF: 'Open matches are switched off at this branch.',
+      MATCH_NOT_FOUND: "That open match isn't at this branch any more.",
+      MATCH_NOT_FILLING: "This match isn't filling any more. A booked match is changed from its booking.",
+      MATCH_NOT_BOOKED: 'This match has no court booked.',
+      MATCH_NOT_STARTED: "The game hasn't started yet.",
+      MATCH_FULL: 'No seat is free in this match.',
+      MATCH_TOO_LATE: 'Too close to the start for an open match. Book the court instead.',
+      MATCH_SLOT_FULL: 'Enough open matches are already filling at that time. Add the players to one of them.',
+      MATCH_GENDER_MISMATCH: "This player doesn't fit this match's category.",
+      MATCH_SEAT_LIMIT: 'One player can hold at most three seats.',
+      MATCH_BANNED: 'This customer is banned from open matches.',
+      MATCH_MARK_SEATS: 'Open matches are marked player by player, under Players.',
+      MATCH_ALREADY_IN: 'This customer is already in this match.',
+      MATCH_BOOKING_NO_CAFE: "Café orders don't go on an open match's booking. Open a separate café bill.",
+      SEAT_NOT_FOUND: 'That seat changed. The list has been refreshed.',
+      SEAT_NOT_STARTED: 'A no-show can be marked once the game starts.',
+      SEAT_MARK_LOCKED: "This mark can't be changed any more.",
+      SEAT_OWED_CHANGED: 'What this player owes just changed. Check the new amount.',
+      NOTHING_OWED: 'Nothing is owed for this seat.',
+      PAYMENT_NOT_ON_MATCH: "That payment isn't on this match's booking.",
+      AMOUNT_OVER_SEAT: "That's more than is left of this player's share.",
+      PAYMENT_OVER_ALLOCATED: "That's more than the payment has left to assign.",
+      REPORT_NOT_FOUND: "That report isn't there any more.",
+      REPORT_CLOSED: 'Someone already dealt with this report.',
+    } as const;
+    for (const [code, en] of Object.entries(expected)) {
+      expect(MAPPED_CODES.has(code), code).toBe(true);
+      const key = errorCodeToMessageKey(code);
+      expect(key).toBe(`op.errors.${code}`);
+      expect(t('en', key)).toBe(en);
+      expect(t('ar', key)).not.toBe(key);
+      expect(t('ar', key)).not.toBe(en);
+    }
+  });
+
   it('parses PostgREST errors: message IS the raise-exception code', () => {
     const err = toAppRpcError({
       message: 'SLOT_TAKEN',

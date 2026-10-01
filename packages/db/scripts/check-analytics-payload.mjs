@@ -53,6 +53,11 @@ const FORBIDDEN = [
   // incident_reports (wave5-addendum §2.6): a tripwire only. Who was
   // involved in an incident may name a guest.
   /people_involved/i,
+  // Open matches (0256 onwards, docs/design/open-matches/db.md D31): the name
+  // parts and gender a player gives, a match's invite token, and the ids that
+  // point at the organiser, a reporter, a reported player or a block.
+  /given_name/i, /family_name/i, /\bgender\b/i, /share_token/i, /organiser_id/i,
+  /reporter_id/i, /reported_id/i, /blocker_id/i, /blocked_id/i,
 ];
 
 /**

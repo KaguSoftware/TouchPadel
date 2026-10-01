@@ -5,6 +5,7 @@
  *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
  */
 import 'dotenv/config';
+import { execFileSync } from 'node:child_process';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -64,17 +65,30 @@ export function serviceClient(): SupabaseClient {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, clientOptions);
 }
 
-/** True when the local stack answers; suites skip themselves otherwise. */
+/**
+ * True when the local stack answers; suites skip themselves otherwise.
+ *
+ * TP_REQUIRE_STACK=1 (the CI db job) turns "skip" into a failure: one slow
+ * health probe under load used to skip a whole file and leave the job green
+ * (2026-10-01 review). Three tries, then a throw that names the reason.
+ */
 export async function stackAvailable(): Promise<boolean> {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
-      headers: { apikey: ANON_KEY },
-      signal: AbortSignal.timeout(3_000),
-    });
-    return res.ok;
-  } catch {
-    return false;
+  const required = process.env.TP_REQUIRE_STACK === '1';
+  let last = '';
+  for (let attempt = 0; attempt < (required ? 3 : 1); attempt++) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+        headers: { apikey: ANON_KEY },
+        signal: AbortSignal.timeout(required ? 10_000 : 3_000),
+      });
+      if (res.ok) return true;
+      last = `HTTP ${res.status}`;
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
   }
+  if (required) throw new Error(`TP_REQUIRE_STACK=1 but ${SUPABASE_URL}/auth/v1/health did not answer (${last})`);
+  return false;
 }
 
 export async function signedInClient(email: string, password: string = DEV_PASSWORD) {
@@ -161,6 +175,7 @@ export async function shapedGuest(
  */
 const PIN_GATED_RPCS = new Set([
   'apply_discount', 'override_price', 'refund', 'void_after_send', 'write_off_expired', 'deposit_refund_manual',
+  'match_seat_write_off',
 ]);
 
 /**
@@ -1386,4 +1401,302 @@ export async function deactivateVenueBProbeData(svc: SupabaseClient): Promise<vo
     { staff_id: SEED_STAFF_IDS.cashier_b, venue_id: VENUE_A_ID, role: 'cashier' },
   ]);
   if (svErr) throw new Error(`deactivateVenueBProbeData staff_venues insert failed: ${svErr.message}`);
+}
+
+// ── open matches: the ticket ledger (docs/design/open-matches/money.md §9) ────
+
+type Row = Record<string, unknown>;
+
+/** Which ticket events can leave a ticket in each status (T6). */
+const LATEST_EVENT_FOR: Record<string, string[]> = {
+  available: ['bought', 'released', 'restored'],
+  reserved: ['reserved'],
+  in_use: ['locked', 'restored'],
+  forfeited: ['forfeited'],
+  cashed_out: ['cashed_out'],
+};
+
+/**
+ * Open matches (docs/design/open-matches/db.md §7): `count` paid tickets for a
+ * guest, bought the way the phone buys them (ticket-begin's prepare, then a
+ * SUCCESS from the fake bank through deposit_apply), so assertTicketLedger
+ * can read a real purchase. The guest must already have accepted the terms.
+ * Returns the purchase's booking_payments id.
+ */
+export async function grantTestTickets(svc: SupabaseClient, guestId: string, count: number): Promise<string> {
+  const prep = await appRpc(svc, 'ticket_payment_prepare', {
+    p_guest_id: guestId, p_count: count, p_locale: 'en', p_provider: 'fake',
+  });
+  if (prep.error) throw new Error(`grantTestTickets prepare: ${prep.error.message}`);
+  const row = prep.data as { request_id: string; amount_iqd: number };
+  const paid = await appRpc(svc, 'deposit_apply', {
+    p_request_id: row.request_id, p_provider_payment_id: null, p_provider_status: 'SUCCESS', p_amount: row.amount_iqd,
+    p_currency: 'IQD', p_canceled: false, p_source: 'webhook', p_signature_ok: true, p_raw: { status: 'SUCCESS' },
+  });
+  if (paid.error) throw new Error(`grantTestTickets apply: ${paid.error.message}`);
+  const { data, error } = await svc.from('booking_payments').select('id').eq('request_id', row.request_id).single();
+  if (error) throw new Error(`grantTestTickets read: ${error.message}`);
+  return (data as { id: string }).id;
+}
+
+/**
+ * Open matches: a guest starts a match through the RPCs the phone calls
+ * (match_quote for the price, then match_start with that quote and a fresh
+ * key). Defaults: 90 minutes, an open public instant match, no friends.
+ */
+export async function createTestMatch(
+  client: SupabaseClient,
+  o: { venueId?: string; courtId: string; startAt: Date; durationMin?: number; category?: string;
+       visibility?: string; joinPolicy?: string; friends?: Array<{ gender: string | null }>; key?: string },
+): Promise<{ match_id: string; duplicate: boolean; share_token: string; [k: string]: unknown }> {
+  const venue = o.venueId ?? VENUE_A_ID;
+  const dur = o.durationMin ?? 90;
+  const quote = await appRpc(client, 'match_quote', {
+    p_venue_id: venue, p_court_id: o.courtId, p_start_at: o.startAt.toISOString(), p_duration_min: dur,
+  });
+  if (quote.error) throw new Error(`createTestMatch quote: ${quote.error.message}`);
+  const price = (quote.data as { price_iqd: number | null }).price_iqd;
+  const started = await appRpc(client, 'match_start', {
+    p_venue_id: venue, p_court_id: o.courtId, p_start_at: o.startAt.toISOString(), p_duration_min: dur,
+    p_category: o.category ?? 'open', p_visibility: o.visibility ?? 'public', p_join_policy: o.joinPolicy ?? 'open',
+    p_friends: o.friends ?? [], p_quoted_price_iqd: price, p_idempotency_key: o.key ?? testIdemKey('match.start'),
+  });
+  if (started.error) throw new Error(`createTestMatch start: ${started.error.message} ${started.error.details ?? ''}`);
+  return started.data as { match_id: string; duplicate: boolean; share_token: string };
+}
+
+/**
+ * The ticket-ledger invariants T1–T12 (money.md §9) for one guest, read with
+ * the service role. Returns the list of broken rules (empty = the ledger
+ * holds); `expect(await assertTicketLedger(svc, id)).toEqual([])` in a suite.
+ * T10 (no refund while blocked) is a property of the path, proved by the
+ * refusal cases; here it shows as T3 (no ticket of a refunded purchase is
+ * live).
+ */
+export async function assertTicketLedger(svc: SupabaseClient, guestId: string): Promise<string[]> {
+  const broken: string[] = [];
+  const read = async (table: string, col: string, ids: string[] | string) => {
+    const q = svc.from(table).select('*');
+    const { data, error } = Array.isArray(ids) ? await q.in(col, ids) : await q.eq(col, ids);
+    if (error) throw new Error(`assertTicketLedger ${table}: ${error.message}`);
+    return (data ?? []) as Row[];
+  };
+  const purchases = (await read('booking_payments', 'guest_id', guestId)).filter((p) => p.purpose === 'ticket');
+  const tickets = await read('match_tickets', 'guest_id', guestId);
+  const events = await read('match_ticket_events', 'guest_id', guestId);
+  const [profile] = await read('profiles', 'id', guestId);
+  const byPurchase = new Map<string, Row[]>();
+  for (const t of tickets) {
+    const k = String(t.purchase_payment_id);
+    byPurchase.set(k, [...(byPurchase.get(k) ?? []), t]);
+  }
+  const PAID = ['succeeded', 'refund_pending', 'refund_failed', 'refunded'];
+  const LIVE = ['available', 'reserved', 'in_use'];
+
+  for (const p of purchases) {
+    const mine = byPurchase.get(String(p.id)) ?? [];
+    const count = Number(p.ticket_count);
+    // T1: a paid purchase not refunded as someone else's money has exactly its tickets.
+    const shouldHave = PAID.includes(String(p.status)) && p.refund_reason !== 'amount_mismatch';
+    if (mine.length !== (shouldHave ? count : 0)) {
+      broken.push(`T1 ${p.id}: ${mine.length} tickets, expected ${shouldHave ? count : 0} (${p.status}/${p.refund_reason})`);
+    }
+    // T2
+    if (Number(p.amount_iqd) !== count * Number(p.quoted_price_iqd)) broken.push(`T2 ${p.id}: amount != count x unit`);
+    for (const t of mine) {
+      if (Number(t.price_iqd) !== Number(p.quoted_price_iqd)) broken.push(`T2 ${t.id}: price != purchase unit price`);
+      if (t.sandbox !== p.sandbox) broken.push(`T2 ${t.id}: sandbox != purchase sandbox`);
+    }
+    // T3 (and T10): a cashed-out purchase is refunded once, for exactly its cashed-out tickets, none live.
+    const out = mine.filter((t) => t.status === 'cashed_out');
+    if (out.length > 0) {
+      if (!['refund_pending', 'refund_failed', 'refunded'].includes(String(p.status))
+          || !['ticket_cashout', 'account_deleted'].includes(String(p.refund_reason))) {
+        broken.push(`T3 ${p.id}: cashed-out tickets on a ${p.status}/${p.refund_reason} purchase`);
+      }
+      const sum = out.reduce((s, t) => s + Number(t.price_iqd), 0);
+      if (Number(p.refund_amount_iqd) !== sum) broken.push(`T3 ${p.id}: refund ${p.refund_amount_iqd} != ${sum}`);
+      if (mine.some((t) => LIVE.includes(String(t.status)))) broken.push(`T3 ${p.id}: a live ticket on a cashed-out purchase`);
+    }
+    // T4: a refund only after success.
+    if (['refund_pending', 'refund_failed', 'refunded'].includes(String(p.status)) && !p.succeeded_at) {
+      broken.push(`T4 ${p.id}: refunded before it succeeded`);
+    }
+    // T7: every ticket sold is live, forfeited or cashed out, in count and in dinars.
+    if (mine.length > 0) {
+      const sold = mine.reduce((s, t) => s + Number(t.price_iqd), 0);
+      if (sold !== Number(p.amount_iqd)) broken.push(`T7 ${p.id}: tickets ${sold} != paid ${p.amount_iqd}`);
+    }
+  }
+
+  const seatIds = tickets.filter((t) => t.status === 'in_use').map((t) => String(t.seat_id));
+  const requestIds = tickets.filter((t) => t.status === 'reserved').map((t) => String(t.request_id));
+  const seats = seatIds.length ? await read('match_seats', 'id', seatIds) : [];
+  const requests = requestIds.length ? await read('match_requests', 'id', requestIds) : [];
+  const matchIds = [...seats.map((s) => String(s.match_id)), ...requests.map((q) => String(q.match_id))];
+  const matches = matchIds.length ? await read('matches', 'id', matchIds) : [];
+  const matchOf = (id: unknown) => matches.find((m) => m.id === id);
+
+  for (const t of tickets) {
+    // T5 + T8 + T9
+    if (t.status === 'in_use') {
+      const s = seats.find((x) => x.id === t.seat_id);
+      if (!s || !['in', 'left_late'].includes(String(s.status)) || s.guest_id !== t.guest_id) {
+        broken.push(`T5 ${t.id}: in_use on a seat that is not its holder's live seat`);
+      }
+      const m = s && matchOf(s.match_id);
+      if (m && m.sandbox !== t.sandbox) broken.push(`T8 ${t.id}: sandbox != match sandbox`);
+      if (m && ['played', 'no_show', 'cancelled', 'bumped', 'expired'].includes(String(m.status))) {
+        broken.push(`T9 ${t.id}: in_use on a terminal match`);
+      }
+    }
+    if (t.status === 'reserved') {
+      const q = requests.find((x) => x.id === t.request_id);
+      if (!q || q.status !== 'pending' || q.guest_id !== t.guest_id) broken.push(`T5 ${t.id}: reserved outside its pending request`);
+      const m = q && matchOf(q.match_id);
+      if (m && m.sandbox !== t.sandbox) broken.push(`T8 ${t.id}: sandbox != match sandbox`);
+    }
+    // T6: the latest event says what the status says.
+    const last = events
+      .filter((e) => e.ticket_id === t.id)
+      .sort((a, b) => String(a.at).localeCompare(String(b.at)) || Number(a.id) - Number(b.id))
+      .at(-1);
+    if (!last || !(LATEST_EVENT_FOR[String(t.status)] ?? []).includes(String(last.type))) {
+      broken.push(`T6 ${t.id}: status ${t.status}, latest event ${last?.type ?? 'none'}`);
+    }
+    // T11: a deleted holder's ticket is never forfeited after the deletion.
+    if (t.status === 'forfeited' && profile?.deleted_at && String(t.forfeited_at) > String(profile.deleted_at)) {
+      broken.push(`T11 ${t.id}: forfeited after the holder was deleted`);
+    }
+    // T12
+    if (t.cashout_payment_id !== null && t.cashout_payment_id !== t.purchase_payment_id) {
+      broken.push(`T12 ${t.id}: cashout_payment_id != purchase_payment_id`);
+    }
+  }
+  return broken;
+}
+
+/**
+ * Open matches (money.md §9): the court-money invariants of one match as SQL,
+ * pg_temp.money_of(match id) -> the broken rules as a jsonb array ([] when
+ * they hold). matches-money.test.ts loads it into its rolled-back scenarios;
+ * assertMatchMoney runs it against committed rows.
+ */
+export const MATCH_MONEY_CHECK = String.raw`
+-- The money invariants of money.md §9 read inside one transaction, for one
+-- match: the broken ones, [] when they hold. M1 shares; M3 the booking
+-- identity (live, nothing over-paid); M4 each seat number; M5 every capped
+-- tab settled at its cap and billing its court line only; M6 links within
+-- the payment, the tab and the share; M7 a booking that is not live owes and
+-- writes off nothing; M11 no café row on the booking's tabs. (M12 is the
+-- marking refusal, matches-money.test.ts scenario 6; a link onto a seat
+-- already no_show is allowed, §6.5.)
+create function pg_temp.money_of(p_match_id uuid) returns jsonb language plpgsql as $f$
+declare
+  v_m    matches%rowtype;
+  v_r    reservations%rowtype;
+  v_mm   jsonb;
+  v_e    jsonb;
+  v_o    bigint;
+  v_b    text[] := '{}';
+  v_live boolean := false;
+  v_paid bigint;
+  v_wo   bigint;
+  v_rem  bigint;
+  v_tab  record;
+begin
+  select * into v_m from matches where id = p_match_id;
+  v_mm := app.match_money(v_m.id, null);
+  select * into v_r from reservations where id = v_m.reservation_id;
+  v_live := found and v_r.kind = 'booking' and v_r.status in ('confirmed', 'arrived', 'completed');
+  v_paid := app.court_fee_paid(v_m.reservation_id);
+  v_wo := app.court_fee_written_off(v_m.reservation_id);
+  v_rem := app.court_fee_remaining(v_m.reservation_id);
+  if (select sum(x) from unnest(v_m.shares_iqd) x) <> v_m.price_iqd
+     or (select max(x) - min(x) from unnest(v_m.shares_iqd) x) > 1 then
+    v_b := v_b || 'M1 shares'::text;
+  end if;
+  if v_live and (v_mm->>'over_iqd')::bigint = 0 then
+    if v_paid + v_wo + v_rem <> v_r.price_iqd then
+      v_b := v_b || format('M3 paid %s + written off %s + remaining %s <> %s', v_paid, v_wo, v_rem, v_r.price_iqd);
+    end if;
+    if v_rem <> (v_mm->>'owed_iqd')::bigint + (v_mm->>'open_iqd')::bigint + (v_mm->>'delta_owed_iqd')::bigint then
+      v_b := v_b || format('M3 remaining %s <> owed + open + delta', v_rem);
+    end if;
+  end if;
+  if v_live then
+    for v_e, v_o in select x.e, x.o from jsonb_array_elements(v_mm->'seats') with ordinality as x(e, o) loop
+      if v_o <= 4 and (v_e->>'paid_desk_iqd')::bigint + (v_e->>'credit_iqd')::bigint + (v_e->>'owed_iqd')::bigint
+                      + (v_e->>'written_off_iqd')::bigint + (v_e->>'open_iqd')::bigint
+                      <> (v_e->>'share_iqd')::bigint then
+        v_b := v_b || format('M4 seat %s', v_e->>'seat_no');
+      end if;
+    end loop;
+  end if;
+  for v_tab in
+    select tb.* from tabs tb where tb.reservation_id = v_m.reservation_id and tb.court_cap_iqd is not null
+  loop
+    if v_tab.status <> 'settled' or v_tab.court_iqd <> v_tab.court_cap_iqd or v_tab.total_iqd <> v_tab.court_iqd then
+      v_b := v_b || format('M5 tab %s %s court %s cap %s', v_tab.id, v_tab.status, v_tab.court_iqd, v_tab.court_cap_iqd);
+    end if;
+  end loop;
+  if exists (select 1 from payment_match_seats l
+               join payments p on p.id = l.payment_id
+               join match_seats ms on ms.id = l.match_seat_id
+              where ms.match_id = v_m.id
+              group by p.id, p.amount_iqd
+             having sum(l.amount_iqd) > p.amount_iqd
+                      - coalesce((select sum(rf.amount_iqd) from refunds rf where rf.payment_id = p.id), 0)) then
+    v_b := v_b || 'M6 payment'::text;
+  end if;
+  if exists (select 1 from payment_match_seats l
+               join payments p on p.id = l.payment_id
+               join tabs tb on tb.id = p.tab_id
+               join match_seats ms on ms.id = l.match_seat_id
+              where ms.match_id = v_m.id
+              group by tb.id, tb.court_iqd
+             having sum(l.amount_iqd) > tb.court_iqd) then
+    v_b := v_b || 'M6 tab'::text;
+  end if;
+  if exists (select 1 from payment_match_seats l
+               join match_seats ms on ms.id = l.match_seat_id
+              where ms.match_id = v_m.id
+              group by ms.id, ms.seat_no
+             having sum(l.amount_iqd) > v_m.shares_iqd[ms.seat_no]) then
+    v_b := v_b || 'M6 seat'::text;
+  end if;
+  if not v_live and (v_wo <> 0 or v_rem <> 0 or (v_mm->>'owed_iqd')::bigint <> 0
+                     or (v_mm->>'written_off_iqd')::bigint <> 0 or (v_mm->>'open_iqd')::bigint <> 0) then
+    v_b := v_b || 'M7 not live'::text;
+  end if;
+  if exists (select 1 from tabs tb
+              where tb.reservation_id = v_m.reservation_id
+                and (exists (select 1 from orders od where od.tab_id = tb.id)
+                     or exists (select 1 from tab_adjustments ta where ta.tab_id = tb.id))) then
+    v_b := v_b || 'M11 cafe'::text;
+  end if;
+  return to_jsonb(v_b);
+end $f$;
+`;
+
+/**
+ * Open matches (money.md §9): the court-money invariants of one match (M1,
+ * M3–M7, M11), read through the stack's container (the engine is revoked from
+ * every API role). Returns the broken rules; empty = they hold. M12 is the
+ * marking refusal (mark_match_seats SEAT_MARK_LOCKED paid), not a state: a
+ * link onto a no-show is allowed (money.md §6.5).
+ */
+export function assertMatchMoney(matchId: string): string[] {
+  const out = execFileSync(
+    'docker',
+    ['exec', '-i', process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel', 'psql', '-U', 'postgres',
+     '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt'],
+    {
+      input: `begin;\nset local lock_timeout = '30s';\n${MATCH_MONEY_CHECK}\nselect pg_temp.money_of('${matchId}');\nrollback;\n`,
+      encoding: 'utf8',
+      timeout: 90_000, // a sync exec blocks vitest's timers, so bound it here
+      killSignal: 'SIGKILL',
+    },
+  ).trim();
+  return JSON.parse(out.split('\n').at(-1)!) as string[];
 }

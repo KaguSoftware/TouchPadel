@@ -116,6 +116,9 @@ const EN = {
   content_changes: { title: 'Changes asked', body: (v) => v.title },
   content_declined: { title: 'Content declined', body: (v) => v.title },
   waiter_call_new: { title: 'Guest call', body: (v) => (v.title ? `Table ${v.title}` : '') },
+  // Open matches (0261, R5/R43; docs/design/open-matches/guest.md §4.7.5): a player
+  // reported another. No params, so nothing personal reaches a lock screen.
+  match_report_new: { title: 'Player report', body: () => 'A report about a player is waiting for review.' },
 } satisfies Record<string, StaffCopy>;
 
 export type StaffTitleKey = keyof typeof EN;
@@ -181,6 +184,8 @@ const AR: Record<StaffTitleKey, StaffCopy> = {
   content_changes: { title: 'طُلبت تعديلات', body: (v) => v.title },
   content_declined: { title: 'رُفض المحتوى', body: (v) => v.title },
   waiter_call_new: { title: 'نداء ضيف', body: (v) => (v.title ? `طاولة ${v.title}` : '') },
+  // DRAFT-AR (guest.md §4.7.5): on the client's review list.
+  match_report_new: { title: 'بلاغ عن لاعب', body: () => 'بلاغ عن لاعب بانتظار المراجعة.' },
 };
 
 export const STAFF_STRINGS: Record<Lang, Record<StaffTitleKey, StaffCopy>> = { en: EN, ar: AR };

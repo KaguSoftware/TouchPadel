@@ -10,7 +10,9 @@ import { formatTime, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { mirror } from '../src/i18n/direction';
-import { clearPendingSlot, usePendingSlot } from '../src/features/booking/pendingSlot';
+import { usePendingSlot } from '../src/features/booking/pendingSlot';
+import { clearPendingIntents } from '../src/features/booking/pendingIntent';
+import { usePendingJoin } from '../src/features/matches/pendingJoin';
 import { brand, radius, useTheme } from '../src/theme';
 import { Button } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
@@ -22,7 +24,8 @@ const LOGO_W = Math.round(LOGO_H * (900 / 332));
 /**
  * Welcome (design 2026-08-31): blue gradient brand moment. Reached when a
  * signed-out guest needs an account — usually having tapped a free slot, which
- * shows the held-for-you banner. "Keep browsing" clears the intent and returns.
+ * shows the held-for-you banner, or an open match, which shows its own. "Keep
+ * browsing" clears the intent and returns.
  */
 function WelcomeScreen() {
   const { t, locale, dir } = useLocale();
@@ -31,6 +34,11 @@ function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { fonts } = useTheme();
   const pending = usePendingSlot();
+  // An open match the guest was about to see (a link, a slot's match, a new
+  // match or the list; guest.md §4.18). Signing in never joins by itself, so
+  // the banner names the match, not a seat. A held slot wins: it is the one
+  // with a clock on it.
+  const pendingJoin = usePendingJoin();
 
   const pendingLabel = pending
     ? `${pickLocale({ en: pending.courtNameEn, ar: pending.courtNameAr }, locale)} · ${formatTime(
@@ -38,6 +46,11 @@ function WelcomeScreen() {
         locale,
       )}`
     : '';
+  const banner = pending
+    ? t('auth.pendingSlotBanner', { label: isolate(pendingLabel) })
+    : pendingJoin
+      ? t('matches.link.pendingBanner')
+      : null;
 
   return (
     // The design's 168deg three-stop ramp; art bleeds under the status bar.
@@ -94,7 +107,7 @@ function WelcomeScreen() {
           <Path d="M2 8C32 1.5 74 1.5 108 5.5" stroke={brand.green} strokeWidth={4} strokeLinecap="round" />
         </Svg>
 
-        {pending ? (
+        {banner ? (
           <View
             style={{
               marginTop: 14,
@@ -111,7 +124,7 @@ function WelcomeScreen() {
             <Text
               style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: brand.white }}
             >
-              {t('auth.pendingSlotBanner', { label: isolate(pendingLabel) })}
+              {banner}
             </Text>
           </View>
         ) : null}
@@ -139,7 +152,7 @@ function WelcomeScreen() {
           testID="welcome.keep-browsing"
           label={t('auth.keepBrowsing')}
           onPress={() => {
-            clearPendingSlot();
+            clearPendingIntents();
             // Reached by redirect from a gated deep link too — no history there.
             back();
           }}

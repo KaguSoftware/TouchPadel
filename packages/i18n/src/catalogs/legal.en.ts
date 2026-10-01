@@ -15,9 +15,17 @@
  * Values still reading `[FILL: …]` are for the partner to complete — see
  * docs/legal/LEGAL-DETAILS-TO-FILL.md and scripts/check-legal-placeholders.mjs.
  * The venue phone and hours come from venue_settings_public, never from here.
+ *
+ * 29 September 2026 (docs/design/open-matches/guest.md §4.25, DF-17, DF-20, OM-41, R14, R36):
+ * online payment by Qi Card for court deposits and open-match tickets, open matches and their
+ * tickets, what other players see ("First L.", preset messages, the organiser's games and
+ * no-show counts), the gender asked once for women-only and men-only matches, reports and
+ * blocks, the conduct clause, and what deleting an account does to matches and tickets. One
+ * terms-version bump covers the deposit wording and open matches. The Arabic was written in
+ * the same change and is for the client's lawyer (DRAFT-AR); the Arabic version governs.
  */
 export const legalEn = {
-  lastUpdated: 'Last updated: 23 September 2026',
+  lastUpdated: 'Last updated: 29 September 2026',
   version: 'Version {version}',
   entity: {
     company: '[FILL: company legal name]',
@@ -64,11 +72,14 @@ export const legalEn = {
       bookingsLead: 'Your bookings.',
       bookings:
         'The court, date, time, duration and price, the booking reference, its status (upcoming, played, cancelled or no-show), who made or cancelled it, and any note you or the front desk add to it.',
+      matchesLead: 'Open matches.',
+      matches:
+        'The matches you start, join or ask to join; your seats and whether you came; the open-match tickets you buy, use, lose or get refunded; the preset messages you send; the reports you make and the players you block; and, once, whether you are a woman or a man, which decides whether women-only or men-only matches are offered to you. The front desk can correct it.',
       cafeLead: 'Café orders from your table.',
       cafe:
         'When you scan a table’s QR code, your browser gets an anonymous session with no name or phone number. We record the table, what you order, any note you add to an item, and when. If you are signed in to an account, your orders can be linked to it.',
       pushLead: 'Notification token.',
-      push: 'If you allow notifications, your device gives the app a push token. We store it to send you booking confirmations, reminders, cancellations and no-show notices.',
+      push: 'If you allow notifications, your device gives the app a push token. We store it to send you booking confirmations, reminders, cancellations and no-show notices, open-match updates and reminders, and other players’ preset messages.',
       providersLead: 'Sign in with Apple or Google (optional).',
       providers:
         'If you choose one of these, we receive your name, your email address and an account ID from that provider. Apple may give us a private relay address instead of your real email. We never receive your Apple or Google password.',
@@ -81,7 +92,7 @@ export const legalEn = {
       technical:
         'Our systems record sign-ins, errors and every change staff make to bookings, orders and payments, with the time and the account or device that made it.',
       notCollected:
-        'The app does not collect your location or contacts, and a guest account cannot upload photos: only venue staff accounts can attach work photos, in the app’s staff area. The app has no advertising, no tracking and no third-party analytics or crash reporting. There is no online payment, so we never collect card details.',
+        'The app does not collect your location or contacts, and a guest account cannot upload photos: only venue staff accounts can attach work photos, in the app’s staff area. The app has no advertising, no tracking and no third-party analytics or crash reporting. Online payments (court deposits and open-match tickets) are made on Qi Card’s own payment page; we never see or store your card details.',
       website:
         'This website: the café menu pages can use privacy-friendly analytics (PostHog, hosted in the EU) to count page views. It sets no cookies, keeps only an anonymous identifier in your browser’s storage, never identifies you and does not record your screen. The legal pages do not load it, and the app does not use it.',
     },
@@ -92,10 +103,12 @@ export const legalEn = {
         'creating and running your account and confirming your phone number or email — to perform our agreement with you (the Terms of Service);',
       bookings:
         'taking, showing, changing and cancelling your bookings and café orders, and letting the front desk know who booked and contact you about it — to perform our agreement with you;',
+      matches:
+        'running open matches: showing a match to the players who can join it, seating players, holding and returning tickets, and telling players about their match — to perform our agreement with you;',
       notify:
         'sending booking confirmations, reminders and changes as notifications — with your consent, which you can withdraw at any time in your device settings;',
       rules:
-        'applying the venue’s rules, such as the cancellation window and limits after repeated no-shows, and preventing fraud and abuse — our legitimate interest in keeping courts available and fair;',
+        'applying the venue’s rules, such as the cancellation window and limits after repeated no-shows, handling reports and blocks between players, limiting access to open matches, and preventing fraud and abuse — our legitimate interest in keeping courts available and fair;',
       security:
         'keeping the service secure, fixing problems and keeping audit records — our legitimate interest in a safe, reliable service;',
       legal:
@@ -106,15 +119,18 @@ export const legalEn = {
       title: 'Who can see it',
       staff:
         'Venue staff. Front-desk staff and managers can see your bookings, your name, your phone number and your email address if we have one, and the notes kept about you. Café staff see table orders. Staff access is limited by role and every change is recorded.',
+      players:
+        'Other players. When you are in an open match or ask to join one, the players who can see that match see your first name, the first letter of your surname and your preset messages. When you ask to join, the organiser also sees how many games you have played at Touch and how many you missed. Players never see your phone number, email address or full surname. A public match’s time, branch, category and free seats are shown to other guests; a match link shows the same, with no names, to anyone who has it.',
       processorsLead: 'Service providers that run parts of the service for us, only on our instructions and only with what they need:',
       supabase: 'Supabase — database, sign-in and server hosting (Frankfurt, Germany);',
       push: 'Expo, Apple Push Notification service and Firebase Cloud Messaging — delivering notifications to your device;',
       signIn: 'Apple and Google — only if you choose to sign in with them;',
+      qi: 'Qi Card — taking online payments and refunds for court deposits and open-match tickets;',
       whatsapp:
         'OTPIQ and Meta (WhatsApp), with Twilio as a possible backup — delivering verification codes by WhatsApp or SMS;',
       telegram:
         'Telegram — café orders (the table, the items and any notes, never your name or phone number) are sent to the venue staff’s private Telegram group so the kitchen and waiters can prepare them;',
-      ai: 'an AI service provider (currently Groq; the venue may switch to Anthropic) — the venue owner can ask an assistant questions about bookings and sales. The records needed for an answer are sent to the provider; phone numbers and email addresses are replaced with placeholders first, but names can be included;',
+      ai: 'an AI service provider (currently Groq; the venue may switch to Anthropic) — the venue owner can ask an assistant questions about bookings and sales. The records needed for an answer are sent to the provider; phone numbers and email addresses are replaced with placeholders first, but names can be included. When the owner asks about open matches, players’ names and the gender a player gave can be included;',
       vercel: 'Vercel — hosting this website;',
       posthog: 'PostHog (EU) — website page-view analytics, as described above;',
       kagu: 'Kagu Software — building, maintaining and supporting the app, the website and the staff systems.',
@@ -131,9 +147,11 @@ export const legalEn = {
       title: 'How long we keep it',
       active: 'We keep your account information for as long as you have an account.',
       deleted:
-        'When you delete your account, your login, name, phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you and any notifications waiting to be sent are deleted too.',
+        'When you delete your account, your login, your first name, surname and gender, your phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you, the list of players you blocked and any notifications waiting to be sent are deleted too.',
       bookings:
         'Bookings and café orders you have already made stay in the venue’s records with no name, phone number or notes attached, because the venue has to keep its own accounts. They can no longer be linked to you. The record that you accepted our terms stays with them, without your name.',
+      matches:
+        'Open matches you took part in stay in the venue’s records without your name, as bookings do. Tickets, their purchases and refunds stay in the venue’s accounts without your name; tickets you had not used are refunded to the card you paid with. Reports between players are kept for 12 months and then deleted.',
       cafe: 'Anonymous café table sessions end when they expire; the orders stay in the venue’s sales records without a name.',
       logs: 'Café order messages in the staff Telegram group are deleted after 30 days, and records of staff actions in Telegram after 90 days. Audit and security records, and records of verification messages, are kept for as long as they are needed for security, dispute resolution and accounting.',
       apple:
@@ -176,9 +194,9 @@ export const legalEn = {
   terms: {
     title: 'Terms of Service',
     metaDescription:
-      'The agreement for using the Touch Padel app and website, booking courts and ordering at the venue: bookings, cancellations, venue rules, safety and liability.',
+      'The agreement for using the Touch Padel app and website, booking courts, playing open matches and ordering at the venue: bookings, open matches and tickets, cancellations, venue rules, safety and liability.',
     intro:
-      'These terms are the agreement between you and {company} for using the Touch Padel app and this website, booking courts, and ordering at the {tradingName} venue. By creating an account, or by booking or ordering, you agree to them. Please read them.',
+      'These terms are the agreement between you and {company} for using the Touch Padel app and this website, booking courts, playing open matches, and ordering at the {tradingName} venue. By creating an account, or by booking, joining a match or ordering, you agree to them. Please read them.',
     who: {
       title: 'Who we are',
       body: '{tradingName} is operated by {company}, commercial registration number {registration}, of {address}. You can reach us at {email} or at the front desk.',
@@ -186,7 +204,8 @@ export const legalEn = {
     accounts: {
       title: 'Your account',
       age: 'You must be at least 13 to create an account. If you are under 18, you confirm that a parent or guardian has agreed to these terms for you.',
-      accurate: 'Give your real name and a phone number that is yours, and keep them up to date. One account per person.',
+      accurate:
+        'Give your real name and a phone number that is yours, and keep them up to date. One account per person. In open matches, other players see your first name and the first letter of your surname.',
       secure:
         'Keep your password to yourself. Bookings made from your account are your responsibility unless you tell us it has been misused.',
       desk: 'If the front desk created an account for you, these terms apply from the first time you sign in and accept them.',
@@ -196,7 +215,7 @@ export const legalEn = {
       confirm:
         'A booking is made when the app or the front desk shows it as confirmed. A time you hold but do not confirm in time is released for others.',
       price:
-        'Prices are shown in Iraqi dinars (IQD) before you confirm. Unless the app says otherwise, you pay at the venue — there is no online payment.',
+        'Prices are shown in Iraqi dinars (IQD) before you confirm. Unless the app says otherwise, you pay at the venue. Some bookings ask for a deposit paid online by Qi Card, and open-match tickets are bought online by Qi Card.',
       cancel:
         'You can cancel for free in the app until {cancelHours} before your slot. Less than {cancelHours} before, only the front desk can change or cancel it.',
       noShow:
@@ -204,6 +223,31 @@ export const legalEn = {
       time: 'Please arrive on time. A slot ends at its scheduled time even if play starts late.',
       venueCancel:
         'We may have to cancel or move a booking — for example for maintenance, safety, a power cut or an event. We will tell you as early as we can and offer you another time or cancel it at no charge.',
+    },
+    openMatches: {
+      title: 'Open matches',
+      startLead: 'Starting and joining.',
+      start:
+        'You can start an open match at a free time, or join one. The court is booked for the match when the fourth player is in. Until then no court is held for it, and if a group books the last free court at that time, the match is cancelled.',
+      ticketsLead: 'Tickets.',
+      tickets:
+        'Every seat in a match needs an open-match ticket, bought online by Qi Card. Seats you take for friends use your tickets. A ticket can be used again and never expires. It is held while you are in a match or waiting for an organiser’s answer, and comes back after you play or when a match is cancelled. It is lost if you do not come, or if you leave a booked match and nobody takes your seat before it starts.',
+      refundLead: 'Money back.',
+      refund:
+        'Only tickets you have not used can be refunded, on request at the front desk. A manager refunds them to the card you paid with, once none of that purchase’s tickets is in a match, as one refund per purchase.',
+      shareLead: 'Your share.',
+      share:
+        'Every player who comes pays their share of the court at the front desk. A ticket is not a share of the court.',
+      venueLead: 'The venue.',
+      venue: 'We may cancel or move a match. When we cancel one, its tickets come back.',
+      genderLead: 'Women-only and men-only matches.',
+      gender:
+        'Tell us honestly whether you are a woman or a man, and declare the friends you bring honestly. The front desk may check.',
+      conductLead: 'Conduct.',
+      conduct:
+        'The organiser may remove a player before the court is booked. The venue may remove a player from a match, or stop an account from using open matches. If the venue removes you from a match after the court is booked, for example for conduct or because you asked, your ticket is lost unless another player takes your seat before it starts. If we removed you by mistake, your ticket comes back.',
+      deleteLead: 'Deleting your account.',
+      delete: 'If you delete your account, you leave your matches, and your unused tickets are refunded to the card you paid with.',
     },
     cafe: {
       title: 'Café orders',
@@ -227,14 +271,14 @@ export const legalEn = {
     },
     app: {
       title: 'Using the app and website',
-      use: 'Use the app only for your own bookings and orders. Do not make bookings you do not intend to keep, interfere with the service, try to reach other people’s information, or copy or scrape it.',
+      use: 'Use the app only for your own bookings and orders. Do not make bookings you do not intend to keep, interfere with the service, try to reach other people’s information, or copy or scrape it. Be respectful to other players. Don’t use a name that is offensive or pretends to be someone else, and don’t misuse reports. We may remove you from a match, or stop your account from using open matches, for this.',
       availability:
         'We work to keep the app available and correct, but it may sometimes be unavailable or wrong. If the app and the front desk disagree about a booking, we will settle it with you fairly using the venue’s records.',
       ip: 'The app, the website, and the Touch Padel name and logos belong to us or our licensors. You may use them only to use the service.',
     },
     messages: {
       title: 'Messages from us',
-      body: 'We send verification codes and, if you allow notifications, messages about your bookings. Any promotional messages are sent only as the law allows, and you can turn notifications off at any time.',
+      body: 'We send verification codes and, if you allow notifications, messages about your bookings, updates about your open matches and other players’ preset messages. Any promotional messages are sent only as the law allows, and you can turn notifications off at any time.',
     },
     liability: {
       title: 'Our responsibility to you',
@@ -246,7 +290,7 @@ export const legalEn = {
     },
     ending: {
       title: 'Suspending or closing an account',
-      body: 'You can delete your account at any time, in the app or on our website. We may suspend or close an account that breaks these terms, is used for fraud, or repeatedly does not show up for bookings. We will tell you why unless the law or safety prevents it.',
+      body: 'You can delete your account at any time, in the app or on our website. We may suspend or close an account, or stop it from using open matches, if it breaks these terms, is used for fraud, or repeatedly does not show up for bookings. We will tell you why unless the law or safety prevents it.',
     },
     changes: {
       title: 'Changes to these terms',
@@ -274,7 +318,7 @@ export const legalEn = {
       title: 'Booking and paying',
       choose: 'On the Book tab, choose a court, a date and a free time, then confirm.',
       find: 'Your booking appears under My Reservations with its booking reference.',
-      pay: 'There is no online payment. You pay at the front desk when you arrive.',
+      pay: 'You pay at the front desk when you arrive. Only a court deposit, when a booking asks for one, and open-match tickets are paid online, by Qi Card.',
       notify: 'If you allow notifications, you get a confirmation when you book and a reminder before your slot.',
     },
     cancel: {
@@ -324,8 +368,9 @@ export const legalEn = {
     what: {
       title: 'What is deleted and what is kept',
       deleted:
-        'Deleted immediately: your login, name, phone number, email address, linked Apple or Google sign-in, notification token, the staff notes about you and any notifications waiting to be sent. You are signed out on every device.',
-      kept: 'Kept, without your name: bookings and café orders you have already made, because the venue has to keep its own accounts. They can no longer be linked to you.',
+        'Deleted immediately: your login, your first name, surname and gender, phone number, email address, linked Apple or Google sign-in, notification token, the players you blocked, the staff notes about you and any notifications waiting to be sent. You are signed out on every device.',
+      kept: 'Kept, without your name: bookings and café orders you have already made, open matches you played in, and reports between players (for 12 months), because the venue has to keep its own accounts. They can no longer be linked to you.',
+      tickets: 'Open-match tickets you have not used are refunded to the card you paid with.',
       more: 'Read the full retention details in the Privacy Policy',
     },
     web: {

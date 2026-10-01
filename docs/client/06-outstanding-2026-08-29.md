@@ -114,7 +114,7 @@ One question still unanswered.
 | Item / البند | Due | Status |
 |---|---|---|
 | **Domain name** / اسم النطاق | Week 1 | You asked us to help. `touchpadel.com` is on the aftermarket at roughly $65,000; `touchpadel.iq` is restricted; `touchpadel.com.iq` is available at about $330/yr; a short `.com` variant is about $15/yr. **This is a brand decision only Mustafa can make.** Until a domain exists we cannot print the table QR cards — the system refuses to print a temporary address onto physical cards. |
-| **PITR (database recovery)** / الاستعادة الزمنية | Week 1 | Still unanswered. Point-in-time recovery is a **paid Supabase add-on** on top of the ~$25/mo plan (roughly $100/mo), billed to Touch. The alternative is daily backups only, included. We need your written choice. |
+| **PITR (database recovery)** / الاستعادة إلى نقطة زمنية | Week 1 | Still unanswered. Point-in-time recovery is a **paid Supabase add-on** on top of the ~$25/mo plan (roughly $100/mo), billed to Touch. The alternative is daily backups only, included. We need your written choice. |
 | **Named approver** / الجهة المعتمدة | Week 1 | Two questions still open. We have Mustafa Awad, Owner. Please confirm the weekly slot he is available for sign-off. |
 | **Brand font licences** / تراخيص الخطوط | Week 1 | Still unanswered. We need the **licensed font files** for Next Art (Latin) and Frutiger LT Arabic — not screenshots. Until they arrive the apps ship with free stand-ins, swapped later in one line. |
 | **Branding assets** / مواد العلامة التجارية | Week 1 | You noted logo, colours and photos were "sent already via WhatsApp". **We do not have them in the build.** Please re-send them to the project email so they are on the record. |

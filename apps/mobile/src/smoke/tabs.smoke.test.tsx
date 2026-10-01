@@ -34,11 +34,14 @@ import {
   bookingFixture,
   branchFixture,
   courtFixture,
+  myMatchesFixture,
+  myTicketsFixture,
   profileFixture,
 } from '../test/fixtures';
 import { bookingKeys } from '../features/booking/hooks';
 import { availabilityKeys } from '../features/availability/hooks';
 import { profileKeys } from '../features/profile/hooks';
+import { matchKeys } from '../features/matches/keys';
 import TabsLayout from '../../app/(tabs)/_layout';
 import { isGuestPreview, setGuestPreview } from '../features/staff/guestPreview';
 // The `.android` file BY NAME, past the preset's platform resolution: this is
@@ -84,8 +87,12 @@ const CASES: SmokeCase[] = [
     labelParams: { count: 1 },
     options: {
       session: 'in',
+      // No open matches and an empty wallet (guest.md §4.27): the tab is
+      // today's list; reservations.smoke.test.tsx draws it with match rows.
       queryData: [
         [bookingKeys.mine, [bookingFixture()]],
+        [matchKeys.mine('upcoming'), myMatchesFixture()],
+        [matchKeys.tickets, myTicketsFixture()],
         [availabilityKeys.branches, [branchFixture()]],
         [availabilityKeys.allCourts, [courtFixture()]],
       ],

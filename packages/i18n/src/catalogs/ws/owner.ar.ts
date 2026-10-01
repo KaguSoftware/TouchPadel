@@ -13,6 +13,8 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     taken: 'المبالغ المقبوضة',
     takenHint: 'ما قُبض نقدًا وبالبطاقة بعد خصم المبالغ المستردة. يختلف عن المكتسب عندما يُدفع الحجز في يوم آخر أو يبقى غير مدفوع.',
     losses: 'الخصومات والمبالغ المستردة والهدر',
+    // DRAFT-AR (open matches, operator.md §5.19, R38).
+    online: 'الأموال الإلكترونية والمباريات المفتوحة',
     otherReports: 'تقارير أخرى',
     headline: 'الأرقام الرئيسية',
     padel: 'البادل',
@@ -41,6 +43,14 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       refunds: 'المبالغ المستردة',
       waste: 'الهدر',
       noShows: 'عدم الحضور',
+      // DRAFT-AR (open matches, operator.md §5.19, R38).
+      onlineDeposits: 'العربون الإلكتروني',
+      depositForfeits: 'العربون المحتجز لعدم الحضور',
+      ticketSales: 'مبيعات تذاكر المباريات',
+      ticketRefunds: 'المردود من تذاكر المباريات',
+      ticketForfeits: 'تذاكر المباريات المفقودة',
+      ticketLiability: 'تذاكر غير مستخدمة مستحقة للاعبين',
+      matchWrittenOff: 'حصص المباريات المشطوبة',
     },
     csv: {
       tabs: { window: 'الفترة', figures: 'الأرقام', transactions: 'المعاملات' },

@@ -1,0 +1,29 @@
+{
+  "_comment": "The verify_jwt value every edge function must be deployed with. scripts/check-verify-jwt.mjs holds supabase/config.toml to this file (pnpm security) and, after a deploy, the hosted project too (deploy.yml). false means the caller carries no Supabase JWT and the function authenticates the request itself; flipping one is a security decision, made here and in config.toml in the same commit.",
+  "functions": {
+    "analytics-insights": true,
+    "analytics-posthog": true,
+    "apple-revoke": true,
+    "assistant-chat": true,
+    "assistant-component": true,
+    "assistant-index": true,
+    "assistant-job": true,
+    "deposit-begin": true,
+    "deposit-reconcile": true,
+    "deposit-status": true,
+    "deposit-webhook": false,
+    "desk-customer-create": true,
+    "payments-fake": false,
+    "protocol-action": true,
+    "receipt-scan": true,
+    "release-review": true,
+    "replay": true,
+    "send-push": true,
+    "send-sms-otp": false,
+    "staff-admin": true,
+    "telegram-callback": false,
+    "telegram-diagnose": true,
+    "telegram-send": true,
+    "ticket-begin": true
+  }
+}

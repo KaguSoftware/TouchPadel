@@ -43,11 +43,14 @@
  * closeBlock. The CSV gains a row per shift.
  */
 import { DayCloseShop } from '../shop/DayCloseShop';
+import { DayCloseOnline } from './DayCloseOnline';
+import { reservationNameOf } from '../matches/matchLogic';
+import { useMatchStates } from '../matches/useMatches';
 import { HoldReviewsPanel } from '../holds/HoldStandingPanels';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatDate, formatIQD, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
+import { formatDate, formatIQD, formatNumber, formatTime, isolate, type MessageKey } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
@@ -89,7 +92,10 @@ import {
   tillShiftCsvRows,
   tillShiftRows,
   unfinishedChecklists,
+  isMatchUnpaid,
+  unpaidMatchLabel,
   unpaidPlayedRows,
+  unpaidSeats,
   varianceMagnitude,
   varianceSign,
   type CloseResult,
@@ -107,7 +113,8 @@ interface OpenTabRow {
   /** Set when the tab is a booking's bill — the court desk can take it from the booking. */
   reservation_id: string | null;
   table: { table_number: string } | null;
-  reservation: { guest_name: string | null } | null;
+  /** `guest_id` so a match booking's literal name reads "Open match" in the screen's language. */
+  reservation: { guest_id?: string | null; guest_name: string | null } | null;
 }
 
 interface LastCloseRow {
@@ -170,7 +177,7 @@ export function DayClose() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, status, label, reservation_id, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_name)')
+        .select('id, status, label, reservation_id, table:cafe_tables(table_number), reservation:reservations!tabs_reservation_id_fkey(guest_id, guest_name)')
         .eq('day_session_id', day?.id ?? '')
         .in('status', ['open', 'awaiting_payment']);
       if (err) throw err;
@@ -724,6 +731,8 @@ export function DayClose() {
           )}
           {/* Touch Shop's own money and drawer (0246). */}
           {!closeResult && <DayCloseShop />}
+          {/* Online deposits, match tickets and open-match bookings (0265): information only. */}
+          {!closeResult && <DayCloseOnline daySessionId={day?.id ?? null} />}
           {/* Guests the hold ladder suspended here (0252); never blocks the close. */}
           {!closeResult && <HoldReviewsPanel />}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
@@ -785,7 +794,7 @@ export const DayCloseScreen = DayClose;
 
 function tabName(t: OpenTabRow, tr: Tr): string {
   if (t.table) return tr('ws.manager.dayClose.tabTable', { number: t.table.table_number });
-  return t.reservation?.guest_name ?? t.label ?? tr('ws.manager.dayClose.tabUnnamed');
+  return reservationNameOf(t.reservation, tr) ?? t.label ?? tr('ws.manager.dayClose.tabUnnamed');
 }
 
 /** One write this station has not synced: what it was, where it is, and — if it never will — the way out. */
@@ -842,6 +851,10 @@ function UnpaidPlayed({
   onOpenBooking: (reservationId: string) => void;
 }) {
   const { tr, locale } = useLocale();
+  // A match row is named by its desk state's label (operator.md §5.18): the
+  // booking itself carries only the literal 'Open match'.
+  const matchIds = useMemo(() => rows.filter(isMatchUnpaid).map((r) => r.reservation_id), [rows]);
+  const statesQ = useMatchStates(matchIds);
   if (rows.length === 0 && error == null) return null;
   return (
     <Panel
@@ -862,6 +875,15 @@ function UnpaidPlayed({
             {rows.map((r) => {
               const court =
                 r.court_name_en && r.court_name_ar ? pickName(locale, { name_en: r.court_name_en, name_ar: r.court_name_ar }) : (r.court_name_en ?? r.court_name_ar ?? '');
+              // Open matches (operator.md §5.18): "Open match · {label}" and the seats still owing.
+              const isMatch = isMatchUnpaid(r);
+              const matchLabel = isMatch ? unpaidMatchLabel(statesQ.data?.[r.reservation_id]) : null;
+              const title = isMatch
+                ? matchLabel
+                  ? tr('ws.matches.dayClose.unpaidMatch', { label: isolate(matchLabel) })
+                  : tr('ws.matches.common.openMatch')
+                : (r.guest_name ?? tr('ws.manager.dayClose.unpaid.noName'));
+              const seats = isMatch ? unpaidSeats(r) : [];
               return (
                 <li
                   key={r.reservation_id}
@@ -878,11 +900,24 @@ function UnpaidPlayed({
                   }}
                 >
                   <span style={{ display: 'grid', flex: '1 1 12rem', minInlineSize: 0 }}>
-                    <bdi style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{r.guest_name ?? tr('ws.manager.dayClose.unpaid.noName')}</bdi>
+                    <bdi style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{title}</bdi>
                     <bdi style={{ color: 'var(--tp-muted-fg)' }}>
                       {formatTime(new Date(r.start_at), locale)}
                       {court ? ` · ${court}` : ''}
                     </bdi>
+                    {seats.length > 0 && (
+                      <ul style={{ listStyle: 'none', margin: 0, padding: 0, color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
+                        {seats.map((seat) => (
+                          <li key={seat.seat_no}>
+                            {tr('ws.matches.dayClose.seatOwing', {
+                              seat: formatNumber(seat.seat_no, locale),
+                              name: isolate(seat.label?.trim() || tr('ws.matches.common.deskPlayer', { seat: formatNumber(seat.seat_no, locale) })),
+                              amount: formatIQD(seat.owed_iqd, locale),
+                            })}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </span>
                   <span style={{ display: 'grid', justifyItems: 'end' }}>
                     <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.dayClose.unpaid.owed')}</span>

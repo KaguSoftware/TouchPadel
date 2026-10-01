@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,14 +9,13 @@ import { RequireSession } from '../src/features/auth/RequireSession';
 import { useMyBookings } from '../src/features/booking/hooks';
 import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { useClearHistory, useHistoryClearedAt } from '../src/features/booking/history';
-import {
-  cancelActorLabel,
-  splitBookings,
-  visiblePast,
-  type BookingRow,
-} from '../src/features/booking/logic';
+import { cancelActorLabel, type BookingRow } from '../src/features/booking/logic';
+import { matchLineOf, matchPillStatus } from '../src/features/booking/matchRows';
+import { useMyMatches } from '../src/features/matches/hooks';
+import { mergeReservationLists, type ReservationItem } from '../src/features/matches/logic';
+import { DEFAULT_TZ } from '../src/features/availability/assemble';
 import { mapErrorToKey } from '../src/features/booking/errors';
-import { useAllCourts } from '../src/features/availability/hooks';
+import { useAllCourts, useVenueSettings } from '../src/features/availability/hooks';
 import { formatPrice } from '../src/lib/price';
 import { space, useTheme } from '../src/theme';
 import { Button, Hint, Screen } from '../src/components/ui';
@@ -41,6 +40,11 @@ import { ConfirmAlert, useToast } from '../src/components/overlays';
  * the account, and the confirmation says so before anything happens — as the
  * platform's own alert (UIAlertController / Material dialog), so a destructive
  * action wears the chrome the OS uses for one.
+ *
+ * Open matches that are over sit in the same list (docs/design/open-matches/
+ * guest.md §4.16), merged by start, and "Clear history" hides them by the same
+ * cut. `my_matches('upcoming')` still holds the last 24 hours' endings, so both
+ * scopes are read; the merge lists a match once.
  */
 function BookingHistoryScreen() {
   const { t, locale } = useLocale();
@@ -48,7 +52,18 @@ function BookingHistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bookings = useMyBookings();
-  const pull = usePullRefresh(bookings.refetch);
+  const recentMatches = useMyMatches('upcoming');
+  const pastMatches = useMyMatches('past');
+  const { refetch: refetchBookings } = bookings;
+  const { refetch: refetchRecent } = recentMatches;
+  const { refetch: refetchPast } = pastMatches;
+  const refetchAll = useCallback(
+    () => Promise.all([refetchBookings(), refetchRecent(), refetchPast()]),
+    [refetchBookings, refetchRecent, refetchPast],
+  );
+  const pull = usePullRefresh(refetchAll);
+  const settings = useVenueSettings();
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   // Every open branch's courts: past bookings can be at any branch.
   const courts = useAllCourts();
   const cleared = useHistoryClearedAt();
@@ -58,10 +73,16 @@ function BookingHistoryScreen() {
 
   // The boundary is only ever read here, so unlike the tab this needs no minute
   // tick: a game that ends while the panel is open belongs to the tab's Past.
-  const history = useMemo(() => {
-    const { past } = splitBookings(bookings.data ?? [], new Date());
-    return visiblePast(past, cleared.data ?? null);
-  }, [bookings.data, cleared.data]);
+  const history = useMemo(
+    () =>
+      mergeReservationLists(
+        bookings.data ?? [],
+        [...(recentMatches.data ?? []), ...(pastMatches.data ?? [])],
+        new Date(),
+        cleared.data ?? null,
+      ).past,
+    [bookings.data, recentMatches.data, pastMatches.data, cleared.data],
+  );
 
   const courtNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -110,7 +131,26 @@ function BookingHistoryScreen() {
     );
   }
 
-  const renderRow = (item: BookingRow, index: number) => {
+  const renderRow = (entry: ReservationItem, index: number) => {
+    if (entry.kind === 'match') {
+      const row = entry.row;
+      const start = new Date(row.startAt);
+      const court = row.courtId ? courtNames.get(row.courtId) : undefined;
+      return (
+        <PastBookingRow
+          testID={`booking-history.match.${row.matchId}`}
+          courtName={court ? `${court} · ${t('matches.common.title')}` : t('matches.common.title')}
+          when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
+          price={null}
+          status={matchPillStatus(entry.state)}
+          note={matchLineOf(row, { t, locale, timezone: tz })}
+          first={index === 0}
+          last={index === history.length - 1}
+          onPress={() => router.push({ pathname: '/match/[id]', params: { id: row.matchId } })}
+        />
+      );
+    }
+    const item: BookingRow = entry.row;
     const start = new Date(item.start_at);
     // The same caption the tab's rows carry (0088): this list mixes every
     // ending, so a cancellation here has to say whose it was for exactly the
@@ -136,7 +176,7 @@ function BookingHistoryScreen() {
       {header}
       <FlatList
         data={history}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => (item.kind === 'booking' ? item.row.id : `match-${item.row.matchId}`)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 32 + insets.bottom, flexGrow: 1 }}
         refreshControl={

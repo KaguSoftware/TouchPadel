@@ -3,15 +3,20 @@
  * through the staff-gated `desk-customer-create` edge function (build plan
  * §0: the guest can later claim it). Duplicate phone / email and an invalid
  * phone come back as codes and land on the field. States: ready · busy · error.
+ *
+ * `?attach=match&match=<id>` (open matches operator.md §5.3): the desk was
+ * adding a player to an open match and the player had no record yet, so the
+ * new customer goes straight back to `/desk/matches/$id?customer=<new id>`,
+ * where Add player opens with them picked. Otherwise to the new record.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { callEdge, EdgeError, type EdgeFunctionName } from '../../../lib/edge';
 import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
-import { PageHeader, Panel } from '../../../components/kit';
+import { MessagePresenter, PageHeader, Panel } from '../../../components/kit';
 
 type Lang = 'en' | 'ar';
 type FieldError = 'DUPLICATE_PHONE' | 'DUPLICATE_EMAIL' | 'INVALID_PHONE';
@@ -47,6 +52,9 @@ export function fieldErrorOf(e: unknown): FieldError | null {
 export function CustomerCreateScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
+  // Validated at the route (customerCreateRoute): `match` is set only with attach=match.
+  const search = useSearch({ strict: false }) as { attach?: 'match'; match?: string };
+  const forMatch = search.attach === 'match' && search.match ? search.match : null;
   const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -74,7 +82,8 @@ export function CustomerCreateScreen() {
       toast.ok(tr('ws.courtDesk.createCustomer.created'));
       // The Customers list is kept in memory; the new record belongs in it now.
       void queryClient.invalidateQueries({ queryKey: ['customerDirectory'] });
-      void navigate({ to: '/desk/customers/$id', params: { id: res.id } });
+      if (forMatch) void navigate({ to: '/desk/matches/$id', params: { id: forMatch }, search: { customer: res.id } as never });
+      else void navigate({ to: '/desk/customers/$id', params: { id: res.id } });
     } catch (e) {
       const fe = fieldErrorOf(e);
       if (fe) setFieldError(fe);
@@ -94,6 +103,7 @@ export function CustomerCreateScreen() {
      */
     <div>
       <PageHeader title={tr('ws.courtDesk.createCustomer.title')} subtitle={tr('ws.courtDesk.createCustomer.lead')} />
+      {forMatch && <MessagePresenter tone="info" icon="userPlus" message={tr('ws.matches.customers.creatingForMatch')} style={{ marginBlockEnd: '0.75rem' }} />}
       <Panel bodyClassName="tp-cq">
         <form
           onSubmit={(e) => {

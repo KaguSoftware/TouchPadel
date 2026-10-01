@@ -220,6 +220,17 @@ const testIdElements = [
   'Chip',
   'ReasonForm',
   'PickList',
+  // Open matches (docs/design/open-matches/guest.md §4.27): each takes a
+  // required testID and forwards `${testID}.<child>` explicitly. MatchPoster
+  // and the money card render no Pressable; nativeChoice renders nothing.
+  'SeatGrid',
+  'RequestRow',
+  'QuickMessageBar',
+  'GenderAsk',
+  'MatchRow',
+  'MatchEntryRow',
+  'MatchRulesCard',
+  'MatchRestrictedCard',
 ].join('|');
 
 const TEST_ID_MESSAGE =

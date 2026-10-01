@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -80,7 +80,15 @@ const READY = {
   comparison: null,
 };
 
+// Pin the clock (Date only, so async waits still run). "This month" and "Last 30 days" are the
+// same window on the 30th of a 30-day month, and the presets then read differently.
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 8, 15, 12, 0, 0));
   rpc.mockReset();
   navigate.mockReset();
   vi.mocked(fetchActiveCourts).mockResolvedValue([{ id: 'c1', name_en: 'Court 1', name_ar: 'ملعب ١', duration_options: [60], sort_order: 1 }]);
@@ -217,5 +225,57 @@ describe('CourtsReportScreen', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Court' }));
     await user.click(await screen.findByRole('option', { name: 'Court 1' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_courts', expect.objectContaining({ p_filters: { courtId: 'c1' } })));
+  });
+
+  // Open matches (operator.md §5.19): the view exists only when report_courts carries its block.
+  it('offers no Open matches view to a server without the matches block', async () => {
+    rpc.mockResolvedValue(READY);
+    renderReport();
+    await screen.findByRole('table', { name: 'By court' });
+    expect(screen.queryByRole('button', { name: 'Open matches' })).toBeNull();
+  });
+
+  it('the Open matches view: the band, the counts from report_matches, its own filters, and compare disabled', async () => {
+    const user = userEvent.setup();
+    const matchesBlock = { bookings: 3, bookedIqd: 120000, deskPaidIqd: 90000, writtenOffIqd: 30000, noShowSeats: 1, calledOffShort: 1, ticketForfeitsIqd: 10000 };
+    const report = {
+      period: { from: '2026-09-01', to: '2026-09-28' },
+      totals: { started: 5, booked: 3, played: 2, bumped: 1, expired: 1, cancelled: 0, calledOffShort: 1, allNoShow: 0, fillRatePct: 62.5, seatsFilled: 14, accountSeats: 8, friendSeats: 2, deskSeats: 4, attendedSeats: 10, noShowSeats: 1, leftLateSeats: 1, refilledSeats: 0, bookedIqd: 120000, deskPaidIqd: 90000, writtenOffIqd: 30000, ticketForfeitsIqd: 10000, sandboxExcluded: 0 },
+      byDay: [{ date: '2026-09-05', started: 2, booked: 1, bookedIqd: 40000, writtenOffIqd: 10000, noShowSeats: 1 }],
+    };
+    rpc.mockImplementation(async (fn) => (fn === 'report_courts' ? { ...READY, matches: matchesBlock } : fn === 'report_matches' ? report : {}));
+    renderReport();
+    await screen.findByRole('table', { name: 'By court' });
+    await user.click(screen.getByRole('button', { name: 'Open matches' }));
+    const view = await screen.findByTestId('courts-matches');
+    const band = within(view).getByRole('region', { name: 'Open matches' });
+    expect(within(band).getByText('Paid at the desk')).toBeTruthy();
+    expect(within(band).getByText('90,000 IQD')).toBeTruthy();
+    expect(within(band).getByText('Lost tickets at this branch')).toBeTruthy();
+    expect(await within(view).findByText('Cancelled by a booking')).toBeTruthy();
+    expect(within(view).getByText('62.5%')).toBeTruthy();
+    expect(within(screen.getByRole('table', { name: 'By day' })).getByText('40,000 IQD')).toBeTruthy();
+    expect(screen.getByText("Comparison isn't available for open matches yet.")).toBeTruthy();
+    // The court filter hides; comparison is disabled.
+    expect(screen.queryByRole('combobox', { name: 'Court' })).toBeNull();
+    expect((screen.getByRole('combobox', { name: 'Compare with' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('report_matches', { p_from: expect.any(String), p_to: expect.any(String), p_filters: {} });
+    // Its own category filter goes to report_matches.
+    await user.click(screen.getByRole('combobox', { name: 'Category' }));
+    await user.click(await screen.findByRole('option', { name: 'Women' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_matches', expect.objectContaining({ p_filters: { category: 'women' } })));
+  });
+
+  it('an Open matches period with no match says so', async () => {
+    const user = userEvent.setup();
+    rpc.mockImplementation(async (fn) =>
+      fn === 'report_courts'
+        ? { ...READY, matches: { bookings: 0, bookedIqd: 0, deskPaidIqd: 0, writtenOffIqd: 0, noShowSeats: 0, calledOffShort: 0, ticketForfeitsIqd: 0 } }
+        : { totals: { started: 0 }, byDay: [] },
+    );
+    renderReport();
+    await screen.findByRole('table', { name: 'By court' });
+    await user.click(screen.getByRole('button', { name: 'Open matches' }));
+    expect(await screen.findByText('No open matches in this period.')).toBeTruthy();
   });
 });

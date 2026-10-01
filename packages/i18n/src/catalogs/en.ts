@@ -8,9 +8,11 @@ import { wsEn } from './ws';
 import { staffEn } from './staff';
 import { workEn } from './work.en';
 import { opErrorsProtocolsEn } from './opErrors.protocols.en';
+import { opErrorsMatchesEn } from './opErrors.matches.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
+import { matchesEn } from './matches.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -785,8 +787,10 @@ export const en = {
     // anonymises the bookings rather than removing them, because the venue's
     // books have to keep adding up — a guest who is told "everything is
     // deleted" and later sees the court still reserved has been misled.
+    // DF-20 (open matches): the last sentence; app.delete_my_account leaves the
+    // guest's matches and refunds their unused tickets.
     deleteBody:
-      'Your account, your name and your phone number are deleted immediately, and you are signed out everywhere. Bookings you have already made stay in the venue\u2019s records with no name attached to them, because the venue has to keep its own accounts.',
+      'Your account, your name and your phone number are deleted immediately, and you are signed out everywhere. Bookings you have already made stay in the venue\u2019s records with no name attached to them, because the venue has to keep its own accounts. You also leave your open matches, and your unused tickets are refunded to the card you paid with.',
     deleteTypePrompt: 'Type {word} below to confirm.',
     // The word the guest types. LOCALISED, and deliberately not the RPC's
     // p_confirm token — see features/profile/deletion.ts.
@@ -797,6 +801,18 @@ export const en = {
       'You signed in with Apple, so Apple will ask you to confirm. This also removes Touch Padel’s access to your Apple ID.',
     // The guest dismissed that Apple sheet. Nothing was deleted.
     deleteAppleCancelled: 'Your account was not deleted. Confirm with Apple to continue.',
+    // Open matches (docs/design/open-matches/guest.md §4.9, §4.16). Under the
+    // surname on Edit profile and Complete profile.
+    nameShownHint:
+      'Other players in an open match see your first name and the first letter of your surname.',
+    // Read-only, once the gender is set (OM-28). The reader's own gender picks
+    // the line, so the Arabic may be gendered here.
+    genderFemale:
+      "Women-only and men-only matches: you're listed as a woman. The front desk can change this.",
+    genderMale:
+      "Women-only and men-only matches: you're listed as a man. The front desk can change this.",
+    tickets: 'Open-match tickets',
+    blockedPlayers: 'Blocked players',
   },
   settings: {
     title: 'Settings',
@@ -1001,6 +1017,8 @@ export const en = {
   site: siteEn,
   // Multi-venue slice 4: the guest-facing branch words (branches.en.ts).
   branches: branchesEn,
+  // Open matches (docs/design/open-matches/guest.md §4.24): the guest app's words (matches.en.ts).
+  matches: matchesEn,
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
     // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).
@@ -1017,6 +1035,8 @@ export const en = {
     notFound: 'We could not find what you were looking for.',
     forbidden: 'You do not have permission to do that.',
     tooManyRequests: 'Too many attempts. Please wait a moment and try again.',
+    // REQUEST_NOT_FOUND on the phone, for a staff request and a match request alike (R6).
+    requestGone: 'That request no longer exists. Please refresh.',
     sessionTableExpired: 'This table session has expired. Please scan the QR code again.',
     offline: 'You are offline. Some things will not work until you reconnect.',
     crashTitle: 'This screen ran into a problem',
@@ -1183,6 +1203,13 @@ export const en = {
       spill: 'Spill / waste',
       comp: 'Complimentary',
       other: 'Other',
+      // Open matches (docs/design/open-matches/operator.md §5.21): desk remove
+      // and cancel reasons, seat write-off and ban codes (MATCH_REASON_CODES).
+      conduct: 'Conduct',
+      court_needed: 'Court needed',
+      walked_out: 'Left without paying',
+      no_shows: 'Repeated no-shows',
+      reported: 'Reported by players',
     },
     desk: {
       newBooking: 'New booking',
@@ -1841,6 +1868,8 @@ export const en = {
       PIN_INVALID: 'Incorrect PIN.',
       PIN_LOCKED: 'Too many wrong PINs — locked for a few minutes.',
       PIN_OWN: 'That is your own PIN. Another manager has to enter theirs.',
+      // Renderer-minted from PostgREST PGRST202 (lib/appRpc.ts, open matches §5.20).
+      RPC_MISSING: "This needs a server update that isn't there yet.",
       PIN_GRANT_REQUIRED: 'Manager authorisation expired — enter the PIN again.',
       FORBIDDEN: 'You do not have permission for that.',
       AUTH_REQUIRED: 'You must be signed in.',
@@ -2034,6 +2063,8 @@ export const en = {
       // Protocols and the staff phone (build-contracts-2026-09-23 §3), one file pair:
       // opErrors.protocols.*.ts.
       ...opErrorsProtocolsEn,
+      // Open matches (docs/design/open-matches/operator.md §5.20): opErrors.matches.*.ts.
+      ...opErrorsMatchesEn,
     },
   },
   // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps

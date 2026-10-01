@@ -90,6 +90,7 @@ import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
 import { ShiftProvider } from '../features/tillShift/ShiftProvider';
+import { StationReachProvider } from '../lib/stationReach';
 import { ShiftRailControl } from '../features/tillShift/ShiftRailControl';
 import { useTillShift } from '../features/tillShift/shiftContext';
 import { LockLeaveGuard } from '../features/tillShift/LockLeaveGuard';
@@ -429,6 +430,10 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           the rail row, the payment pane's gate and the leaving guard. Offline
           (the beat itself failed) the gate fails open. */}
       <ShiftProvider offline={venue?.error != null}>
+      {/* Open matches (operator.md §5.5): every match write is online only,
+          so its controls read whether the station reaches the server, from
+          the same beat. Fails open before the first beat, as the gate does. */}
+      <StationReachProvider venue={venue}>
       {/* The owner assistant's drawer (docs/design/assistant §5.1) is one
           sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
           and it is mounted once, beside the break overlay. */}
@@ -479,6 +484,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         </div>
       </div>
       </AssistantDrawerProvider>
+      </StationReachProvider>
       </ShiftProvider>
       </BreakProvider>
     </WorkspaceContext.Provider>

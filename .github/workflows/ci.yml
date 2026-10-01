@@ -85,51 +85,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # A NEXT_PUBLIC_/EXPO_PUBLIC_ name is an instruction to inline the value
-      # into shipped client JavaScript. Anything behind such a name that reads
-      # like a secret is one.
-      - name: Public env-var naming
-        run: pnpm security:env-names
-
-      # .gitignore protects tomorrow; this checks yesterday.
-      - name: No secret-bearing file in git history
-        run: pnpm security:history
-
-      # Fails on any un-waived high/critical advisory, and on any waiver that
-      # has passed its expiry date. Waivers live in .security/audit-waivers.json.
-      - name: Dependency audit
-        run: pnpm security:audit
-
-      # No real-format Iraqi phone number, and no personal data in a committed
-      # intake pack. Fixtures load into whatever database is to hand — and there
-      # is only one Supabase project (D1), the venue's live one.
-      - name: Committed-data hygiene
-        run: pnpm security:data
-
-      # The headers, the nonce CSP, the table-token cookie exchange and the PWA
-      # rule. Every one of them is a few lines that a later change could remove
-      # with no test going red — apps/web renders perfectly well with no CSP.
-      - name: Web hardening lock
-        run: pnpm security:web
-
-      # SEC-36, the quiet-error rule. A guest must never see a stack trace, a
-      # raw Postgres error or a constraint name. The mappers are correct today;
-      # this exists because `catch (e) { setError(e.message) }` is one line, in
-      # one new screen, that reads as diligence in review and turns no test red.
-      - name: Quiet-error rule (guest surfaces)
-        run: pnpm security:quiet-errors
-
-      # Electron: sandbox / contextIsolation / nodeIntegration and the navigation
-      # guards. A pure regression lock — it passes today and exists so a
-      # debugging session cannot quietly undo the hardening on the venue PC.
-      - name: Electron hardening lock
-        run: pnpm --filter @touch/operator-shell check:electron
-
-      # Every client-callable RPC must be classified as guarded or public-by-design,
-      # and authorization coverage may not regress. A guest holds `authenticated`
-      # exactly as staff do, so an unclassified RPC is an unguarded one.
-      - name: RPC registry + authz coverage
-        run: pnpm --filter @touch/db check:rpc-registry
+      # Every gate in root `pnpm security`, as ONE step. Until 2026-10-01 this job
+      # listed the gates one by one and had drifted: check:error-codes,
+      # check:assistant-coverage, check:config-env and security:config-push were
+      # in package.json and in nobody's CI, so they ran only when someone
+      # remembered. A gate added to package.json now runs here with no YAML
+      # change. What the chain covers (package.json `security`):
+      #   security:env-names     NEXT_PUBLIC_/EXPO_PUBLIC_ names that read like secrets
+      #   security:history       secret-bearing files anywhere in git history
+      #   security:audit         un-waived high/critical advisories (.security/audit-waivers.json)
+      #   security:data          real-format phone numbers / personal data in committed fixtures
+      #   security:web           CSP nonce, headers, table-token cookie exchange, PWA rule
+      #   security:quiet-errors  SEC-36: no raw error text on guest surfaces
+      #   security:config-push   nobody pushes config.toml to the hosted project
+      #   check:electron         sandbox / contextIsolation / navigation guards
+      #   check:rpc-registry     every client-callable RPC classified; coverage floor
+      #   check:assistant-coverage, check:error-codes, check:config-env, check:verify-jwt
+      - name: pnpm security (every gate)
+        run: pnpm security
 
       # SEC-28 (broadcast payloads) and SEC-29 (analytics payload) read the live
       # catalog over docker exec, so they run in the db job below, after
@@ -269,6 +242,9 @@ jobs:
     # once packages/db exists with migrations under packages/db/supabase/migrations/.
     # Until then it fails, and that is correct — the pipeline promise is real, not decorative.
     continue-on-error: false
+    # A green run takes about 7 minutes. Without this the default of 360 applies,
+    # and a stuck lock wait held this job for six hours (2026-09-29).
+    timeout-minutes: 45
     # S10: the test-OTP code is not in the repository. The CLI substitutes
     # env(SUPABASE_AUTH_SMS_TEST_OTP_CODE) in config.toml at `supabase start`,
     # so it has to be in the environment of every step of this job — `supabase
@@ -278,6 +254,9 @@ jobs:
     # code committed to the repository again, under a different filename.
     env:
       SUPABASE_AUTH_SMS_TEST_OTP_CODE: ${{ vars.SUPABASE_AUTH_SMS_TEST_OTP_CODE }}
+      # tests/helpers.ts stackAvailable() throws instead of returning false, so
+      # a stack that does not answer fails the file instead of skipping it.
+      TP_REQUIRE_STACK: '1'
     steps:
       - uses: actions/checkout@v4
 
@@ -317,6 +296,30 @@ jobs:
       - name: Apply migrations from a clean slate
         working-directory: packages/db
         run: supabase db reset
+
+      # The served-function suites (ticket-begin, protocol-action, receipt-scan,
+      # apple-revoke, send-push, …) probe the runtime and skip without it, and
+      # until 2026-10-01 this job never started it: they skipped on every run.
+      # check-no-skips below now fails the job on that. Started BEFORE the
+      # tests: `functions serve` restarts the gateway, and a restart in the
+      # middle of the suite drops connections ("fetch failed: other side
+      # closed"). Same readiness rule as bench.yml: replay answers 401 and auth
+      # is up on three consecutive polls.
+      - name: Serve edge functions
+        working-directory: packages/db
+        run: |
+          echo "RECEIPT_READER=fake" >> supabase/functions/.env
+          nohup supabase functions serve > /tmp/functions.log 2>&1 &
+          ok=0
+          for _ in $(seq 1 90); do
+            fn=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -X POST "http://127.0.0.1:54321/functions/v1/replay" || true)
+            au=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:54321/auth/v1/health" || true)
+            if [ "$fn" = "401" ] && [ "$au" = "200" ]; then ok=$((ok+1)); else ok=0; fi
+            [ "$ok" -ge 3 ] && break
+            sleep 2
+          done
+          cat /tmp/functions.log
+          if [ "$ok" -lt 3 ]; then echo "::error::the edge runtime never became ready"; exit 1; fi
 
       # The authz sweep's ownership stage cannot be static: it has to hold a real
       # slot as one account and prove a second account can neither confirm, cancel
@@ -369,7 +372,19 @@ jobs:
       # Runs the @touch/db test suite — includes the RLS matrix and the reservation
       # concurrency suite, which only make sense with the stack up (hence this job).
       - name: DB tests (RLS + concurrency)
-        run: pnpm --filter @touch/db test
+        # Verbose so a hang names the file that is running, not just the last one done.
+        # The JSON report feeds the skip check below.
+        run: pnpm --filter @touch/db test -- --reporter=verbose --reporter=json --outputFile.json=vitest-report.json
+
+      # With the stack up and the functions served, a skipped test is a probe
+      # that failed, not a laptop without Docker. Only the by-design skips in
+      # packages/db/fixtures/test-skip-allowlist.json pass.
+      - name: No silently skipped tests
+        if: success() || failure()
+        working-directory: packages/db
+        run: |
+          if [ ! -f vitest-report.json ]; then echo "::error::no vitest report was written"; exit 1; fi
+          node scripts/check-no-skips.mjs vitest-report.json
 
       # Types drift guard: regenerate types from the live schema and fail if the committed
       # src/types.gen.ts is stale. NOTE: until the first real generation is committed this

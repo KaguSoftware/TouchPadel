@@ -633,7 +633,7 @@ tap handling do not change. Every key opens Today (route `staff`), with `id` nul
 | `deduction_declined` | `staff_decided` | the proposer | – | Deduction declined / Your proposal was declined. | رُفض الخصم / رُفض اقتراحك. |
 | `deduction_recorded` | `staff_info` | the person (**PROPOSAL**, OPEN §8 Q6) | – | Pay deduction / A deduction was added to your record. | خصم من الراتب / أُضيف خصم إلى سجلّك. |
 | `incident_reported` | `staff_task` | MGMT at the venue (`'{manager,owner}'`) | `name` (the reporter), `step` (the kind's `{en, ar}` label) | Incident report / {name}: {step} | بلاغ عن حادثة / {name}: {step} |
-| `incident_reviewed` | `staff_info` | the reporter | `step` | Incident reviewed / {step} | رُوجع البلاغ / {step} |
+| `incident_reviewed` | `staff_info` | the reporter | `step` | Incident reviewed / {step} | تمت مراجعة البلاغ / {step} |
 | `content_submitted` | `staff_decide` | the owners at the venue (`'{owner}'`); dedupe `content:<id>` | `name`, `title` | Content for approval / {name}: {title} | محتوى بانتظار الموافقة / {name}: {title} |
 | `content_approved` | `staff_decided` | the version's submitter and the author (deduplicated) | `title` | Content approved / {title} | تمت الموافقة على المحتوى / {title} |
 | `content_changes` | `staff_decided` | the same | `title` | Changes asked / {title} | طُلبت تعديلات / {title} |
@@ -1749,9 +1749,9 @@ drafted, rebase onto that body.
 | `TILL_SHIFT_ALREADY_OPEN` | `open_till_shift` | `MAPPED_CODES` only | You already have a till shift open. End it before you start another. | لديك وردية صندوق مفتوحة بالفعل. أنهِها قبل أن تبدأ وردية أخرى. |
 | `TILL_SHIFT_STATION_BUSY` | `open_till_shift` | operator only | Someone else's shift is still open on this till. It has to be counted and closed first. | لا تزال وردية شخص آخر مفتوحة على هذا الصندوق. يجب عدّها وإغلاقها أولًا. |
 | `TILL_SHIFT_NOT_FOUND` | close, close for | operator only | That till shift could not be found. | تعذّر العثور على وردية الصندوق هذه. |
-| `TILL_SHIFT_CLOSED` | close, close for | operator only | This shift is already closed. Refresh to see the latest. | هذه الوردية مغلقة بالفعل. حدّث الصفحة لرؤية آخر المستجدات. |
+| `TILL_SHIFT_CLOSED` | close, close for | operator only | This shift is already closed. Refresh to see the latest. | هذه الوردية مغلقة بالفعل. حدّث الصفحة لرؤية أحدث حالة. |
 | `TILL_SHIFT_NOT_YOURS` | close | operator only | This is someone else's shift. Closing it needs a manager's PIN. | هذه وردية شخص آخر. إغلاقها يحتاج إلى الرقم السري للمدير. |
-| `TILL_SHIFT_WRONG_STATION` | open, close, close for | operator only | Start and end a till shift at the till itself, signed in there. | ابدأ وردية الصندوق وأنهِها من الصندوق نفسه بعد تسجيل الدخول عليه. |
+| `TILL_SHIFT_WRONG_STATION` | open, close, close for | operator only | Start and end a till shift at the till itself, signed in there. | ابدأ وردية الصندوق وأنهِها من الصندوق نفسه بعد تسجيل الدخول إليه. |
 | `TILL_SHIFT_UNSYNCED` | open, close, close for (V13) | operator only | This till still has sales waiting to send. Try again once they are sent. | لا تزال في هذا الصندوق مبيعات بانتظار الإرسال. حاول مرة أخرى بعد إرسالها. |
 
 - **The phone maps** `COUNT_IN_PROGRESS` (raised by `submit_stock_count`) to a **new phone key**,

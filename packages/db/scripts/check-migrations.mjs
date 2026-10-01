@@ -228,6 +228,34 @@ function versionOrderFindings() {
     });
   }
 
+  // A migration already on the merge base is on (or bound for) the hosted
+  // ledger, and `db push` never re-runs a version it has recorded. Editing the
+  // file changes the repository and nothing else: on 2026-09-21 0109 and 0111
+  // were edited in place a day after they ran on hosted, the hosted bodies
+  // stayed old, and the nightly drift job was red for a week before anyone
+  // read why. Ledger fact, not a risk call — no waiver.
+  const edited = git(['diff', '--name-only', '--diff-filter=M', range, '--', MIG_DIR])
+    .split('\n')
+    .filter((f) => f.endsWith('.sql') && baseFiles.includes(f));
+  for (const file of edited) {
+    out.push({
+      file,
+      line: 1,
+      hard: true,
+      rule: {
+        id: 'migration-edited',
+        what: 'a migration that is already on main was edited',
+        why:
+          'The hosted ledger has recorded this version, so `supabase db push` will never run\n' +
+          '        the new text: the repository and the client\'s database silently disagree from\n' +
+          '        here on (the 0109/0111 drift).\n' +
+          '        FIX: put the file back as it is on main and write the change as a NEW migration\n' +
+          '        that re-issues the object from its latest body.',
+      },
+      snippet: path.basename(file),
+    });
+  }
+
   // Ordinal rules — ADDED files only. The historical doubles are applied and
   // immutable, so judging the whole directory would be red forever; judging
   // the new file against everything else catches exactly the next double.

@@ -239,7 +239,9 @@ describe.skipIf(!up)('0065 customers', () => {
     expect(row.email).toBe(latinEmail);
     expect(row.preferred_lang).toBe('en');
     expect(row.flags).toEqual([]);
-    expect(row.counts).toEqual({ bookings: 0, cancellations: 0, noShows: 0 });
+    // 0262: customer_counts also carries the open-match figures (DF-12, DF-15).
+    expect(row.counts).toEqual({ bookings: 0, cancellations: 0, noShows: 0, matchesPlayed: 0, matchNoShows: 0,
+                                 lateLeaves: 0 });
   });
 
   it('treats LIKE metacharacters in the query as literal characters', async () => {
@@ -304,7 +306,8 @@ describe.skipIf(!up)('0065 customers', () => {
     const rec = res.data as CustomerRecord;
 
     expect(Object.keys(rec).sort()).toEqual(
-      ['cafeOrders', 'counts', 'customer', 'flags', 'history', 'notes', 'series', 'upcoming'].sort(),
+      // 0262: matches[] (the customer's last open matches).
+      ['cafeOrders', 'counts', 'customer', 'flags', 'history', 'matches', 'notes', 'series', 'upcoming'].sort(),
     );
     expect(rec.customer).toMatchObject({
       id: arabId,
@@ -313,7 +316,8 @@ describe.skipIf(!up)('0065 customers', () => {
       preferred_lang: 'en',
     });
     expect(typeof rec.customer.created_at).toBe('string');
-    expect(rec.counts).toEqual({ bookings: 2, cancellations: 1, noShows: 1 });
+    expect(rec.counts).toEqual({ bookings: 2, cancellations: 1, noShows: 1, matchesPlayed: 0, matchNoShows: 0,
+                                 lateLeaves: 0 });
 
     expect(rec.upcoming.map((r) => r.id)).toEqual([upcoming]);
     expect(rec.upcoming[0]!).toMatchObject({

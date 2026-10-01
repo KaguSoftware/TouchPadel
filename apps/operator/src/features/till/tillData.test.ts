@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingTakesNewTab, canReadBookings, mergeDonorLabel, tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
+import { bookingTakesNewTab, canReadBookings, mergeDonorLabel, tabAnchorLabel, tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
 
 /** A tab as the board sees it: opened, never touched. */
 const bare: TabListRow = {
@@ -107,6 +107,28 @@ describe('bookingTakesNewTab — the till picker hides only bookings with a live
   it('hides a booking that already has an open or settling tab', () => {
     expect(bookingTakesNewTab({ tabs: [{ status: 'open' }] })).toBe(false);
     expect(bookingTakesNewTab({ tabs: [{ status: 'settled' }, { status: 'awaiting_payment' }] })).toBe(false);
+  });
+});
+
+describe('tabAnchorLabel: an open match booking (open matches operator.md §5.27)', () => {
+  const tab = (reservation: { guest_id?: string | null; guest_name: string | null }) => ({ table: null, reservation, label: null });
+
+  it("reads a match booking's literal as the screen's word, given one", () => {
+    const match = tab({ guest_id: null, guest_name: 'Open match' });
+    expect(tabAnchorLabel(match, 'طاولة', 'حجز', 'مباراة مفتوحة')).toBe('مباراة مفتوحة');
+    // Without the word (a caller not yet passing it) the name is as stored.
+    expect(tabAnchorLabel(match, 'Table', 'Reservation')).toBe('Open match');
+  });
+
+  it('keeps a real guest named so, and a row cached before guest_id joined the select', () => {
+    expect(tabAnchorLabel(tab({ guest_id: 'g1', guest_name: 'Open match' }), 'Table', 'Reservation', 'OPEN')).toBe('Open match');
+    expect(tabAnchorLabel(tab({ guest_name: 'Open match' }), 'Table', 'Reservation', 'OPEN')).toBe('Open match');
+    expect(tabAnchorLabel(tab({ guest_id: null, guest_name: 'Sara' }), 'Table', 'Reservation', 'OPEN')).toBe('Sara');
+  });
+
+  it('mergeDonorLabel passes the word through', () => {
+    const match = tab({ guest_id: null, guest_name: 'Open match' });
+    expect(mergeDonorLabel(match, { table: 'Table', reservation: 'Reservation', openMatch: 'مباراة مفتوحة' }, 'Court 1', null)).toBe('مباراة مفتوحة · Court 1');
   });
 });
 

@@ -150,8 +150,11 @@ export const reportsEn = {
       peak: 'Peak times',
       byHour: 'By start time',
       byDay: 'By day',
+      // Open matches (operator.md §5.19), offered when report_courts carries its `matches` block.
+      matches: 'Open matches',
     },
     lead: {
+      matches: 'Open matches in this period: what they booked, what the desk took, and how the seats went.',
       byCourt: 'Each court’s bookings and earnings. Sort a column to find the strongest or weakest court.',
       cancellations: 'How often each court’s bookings were cancelled or not turned up to.',
       peak: 'Bookings at each court’s top price, against cheaper times.',

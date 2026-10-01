@@ -18,16 +18,27 @@
  * (CourtBillPanel, 0106) — the desk takes the money without the till.
  * "Charge on till" stays only for roles that can open the till, as a way to
  * add items; the court desk never sees a button that leads to a refusal.
+ *
+ * An open match's booking (docs/design/open-matches/operator.md §5.14) leads
+ * with its Players panel, full width: seats are marked, paid and written off
+ * player by player there. So the booking-level No-show is hidden (the server
+ * refuses it anyway, MATCH_MARK_SEATS, shown as a rule), and so is "Charge on
+ * till" (DF-16: cafe lines never go on a match booking). The Customer row
+ * names the organiser; there is no one Contact (phones are per seat). A
+ * cancel, move or extend says what it does to the match first.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { DateField } from '../../components/inputs';
-import { formatDate, formatIQD, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
+import { formatDate, formatIQD, formatTimeRange, formatWeekdayShort, isolate, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { QK, fetchActiveCourts, fetchVenueSettings } from '../../lib/queries';
+import { isMatchLiteral } from '../matches/matchLogic';
+import { MatchPlayersPanel } from '../matches/MatchPlayersPanel';
+import { useMatchStates } from '../matches/useMatches';
 import { errorToMessageKey } from '../../lib/errors';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -53,6 +64,8 @@ import { CourtBillPanel } from './payment/CourtBillPanel';
 import type { BookingBill } from './payment/deskPaymentLogic';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
+/** A stable empty list: no match states are asked for an ordinary booking. */
+const NO_IDS: readonly string[] = [];
 
 type ActionKind = 'move' | 'shorten' | 'extend' | 'cancel' | 'arrived' | 'completed' | 'noShow';
 
@@ -91,10 +104,17 @@ export function BookingDetailScreen() {
   });
   const r = reservationQ.data ?? null;
 
+  // An open match's booking: its state names the match and its organiser.
+  const literalMatch = r !== null && r.kind === 'booking' && isMatchLiteral(r);
+  const matchState = useMatchStates(literalMatch ? [id] : NO_IDS).data?.[id] ?? null;
+  const isMatch = literalMatch || matchState !== null;
+  // The record whose flags show on the Customer row: the guest, or a match's organiser.
+  const customerId = r?.guest_id ?? matchState?.organiser_customer_id ?? null;
+
   const customerQ = useQuery({
-    queryKey: ['customer', r?.guest_id ?? ''],
-    enabled: Boolean(r?.guest_id),
-    queryFn: () => appRpc<CustomerRecord>('customer_record', { p_customer_id: r!.guest_id }),
+    queryKey: ['customer', customerId ?? ''],
+    enabled: Boolean(customerId),
+    queryFn: () => appRpc<CustomerRecord>('customer_record', { p_customer_id: customerId }),
     retry: false,
   });
 
@@ -114,6 +134,8 @@ export function BookingDetailScreen() {
     // Moving, extending or ending a booking can change what it owes (0106).
     void queryClient.invalidateQueries({ queryKey: ['bookingBill'] });
     void queryClient.invalidateQueries({ queryKey: ['bookingBillStates'] });
+    // A cancel, move or extend of a match's booking changes the match.
+    void queryClient.invalidateQueries({ queryKey: QK.deskMatches.all });
   }
 
   /** `reason` is absent for arrived / completed: the server records its own default. */
@@ -211,8 +233,19 @@ export function BookingDetailScreen() {
     r && moveStart && moveStart.getTime() < Date.now() && moveStart.getTime() !== new Date(r.start_at).getTime(),
   );
   const customer = customerQ.data;
-  const guestName = r ? (r.guest_name ?? customer?.customer.full_name ?? null) : null;
-  const title = !r ? tr('ws.courtDesk.detail.title') : r.kind === 'booking' ? (guestName ?? tr('ws.courtDesk.detail.walkIn')) : tr(`ws.courtDesk.detail.kindLabel.${r.kind}`);
+  const guestName = !r
+    ? null
+    : isMatch
+      ? matchState?.label ?? null
+      : (r.guest_name ?? customer?.customer.full_name ?? null);
+  const matchTitle = matchState?.label ? tr('ws.matches.booking.title', { label: isolate(matchState.label) }) : tr('ws.matches.common.openMatch');
+  const title = !r
+    ? tr('ws.courtDesk.detail.title')
+    : r.kind !== 'booking'
+      ? tr(`ws.courtDesk.detail.kindLabel.${r.kind}`)
+      : isMatch
+        ? matchTitle
+        : (guestName ?? tr('ws.courtDesk.detail.walkIn'));
   const night = r ? tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours) : null;
   const canCharge = canAccess(staff?.role, '/till');
   const start = r ? new Date(r.start_at) : null;
@@ -230,7 +263,7 @@ export function BookingDetailScreen() {
   return (
     <div>
       <PageHeader
-        eyebrow={r && r.kind === 'booking' ? tr('ws.courtDesk.detail.eyebrow') : undefined}
+        eyebrow={r && r.kind === 'booking' ? (isMatch ? tr('ws.matches.common.openMatch') : tr('ws.courtDesk.detail.eyebrow')) : undefined}
         title={title}
         subtitle={
           r && start ? (
@@ -249,7 +282,8 @@ export function BookingDetailScreen() {
             <Button icon="calendar" onClick={() => void navigate({ to: '/desk', search: (night ? { date: night } : {}) as never })}>
               {tr('ws.courtDesk.detail.seeOnCalendar')}
             </Button>
-            {r && r.kind === 'booking' && canCharge && (
+            {/* DF-16: no cafe lines on an open match's booking. */}
+            {r && r.kind === 'booking' && canCharge && !isMatch && (
               <Button icon="receipt" title={tr('ws.courtDesk.detail.chargeCafeLead')} onClick={() => void navigate({ to: '/till', search: { reservation: r.id } as never })}>
                 {tr('ws.courtDesk.detail.chargeCafe')}
               </Button>
@@ -280,6 +314,12 @@ export function BookingDetailScreen() {
       >
         {r && start && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1rem', alignItems: 'start' }}>
+            {matchState && (
+              // First and full width: the match's seats are what the desk works on.
+              <div style={{ gridColumn: '1 / -1', minInlineSize: 0 }}>
+                <MatchPlayersPanel matchId={matchState.match_id} />
+              </div>
+            )}
             <Panel title={tr('ws.courtDesk.detail.details')}>
               <DescriptionList
                 columns={2}
@@ -290,19 +330,20 @@ export function BookingDetailScreen() {
                           label: tr('ws.courtDesk.detail.customer'),
                           value: (
                             <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                              <bdi>{guestName ?? tr('ws.courtDesk.detail.walkIn')}</bdi>
+                              <bdi>{guestName ?? (isMatch ? tr('ws.matches.common.openMatch') : tr('ws.courtDesk.detail.walkIn'))}</bdi>
                               {customer?.flags.map((f, i) => (
                                 <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
                               ))}
-                              {r.guest_id && (
-                                <Link to="/desk/customers/$id" params={{ id: r.guest_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
+                              {customerId && (
+                                <Link to="/desk/customers/$id" params={{ id: customerId }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
                                   {tr('ws.courtDesk.detail.openCustomer')}
                                 </Link>
                               )}
                             </span>
                           ),
                         },
-                        { label: tr('ws.courtDesk.detail.contact'), value: r.guest_phone ? <bdi dir="ltr">{r.guest_phone}</bdi> : '—' },
+                        // A match has no one contact: each seat carries its own phone.
+                        ...(isMatch ? [] : [{ label: tr('ws.courtDesk.detail.contact'), value: r.guest_phone ? <bdi dir="ltr">{r.guest_phone}</bdi> : '—' }]),
                         { label: tr('ws.courtDesk.detail.price'), value: <Money amount={r.price_iqd} />, numeric: true },
                       ]
                     : []),
@@ -331,7 +372,7 @@ export function BookingDetailScreen() {
               )}
             </Panel>
 
-            {r.kind === 'booking' && <CourtBillPanel reservationId={r.id} tz={tz} />}
+            {r.kind === 'booking' && <CourtBillPanel reservationId={r.id} tz={tz} match={isMatch} />}
 
             <Panel title={tr('ws.courtDesk.detail.actions')}>
               {done && <MessagePresenter tone="success" message={tr('ws.courtDesk.detail.done')} style={{ marginBlockEnd: '0.75rem' }} />}
@@ -402,7 +443,7 @@ export function BookingDetailScreen() {
                       </Button>
                     </div>
                   )}
-                  {marks.includes('no_show') && (
+                  {marks.includes('no_show') && !isMatch && (
                     // One click, like arrived and completed above: the guest did
                     // not turn up, and there is nothing to explain. The server
                     // asks for no reason either -- mark_reservation coalesces a
@@ -439,7 +480,13 @@ export function BookingDetailScreen() {
             setPending(null);
             setError(null);
           }}
-        />
+        >
+          {isMatch && (pending === 'cancel' || pending === 'move' || pending === 'shorten' || pending === 'extend') ? (
+            <p style={{ marginBlockEnd: '0.75rem', fontSize: 'var(--tp-fs-sm)', fontWeight: pending === 'cancel' ? 600 : undefined }}>
+              {pending === 'cancel' ? tr('ws.matches.booking.cancelLine') : tr('ws.matches.booking.sharesLine')}
+            </p>
+          ) : undefined}
+        </ReasonCodePrompt>
       )}
     </div>
   );

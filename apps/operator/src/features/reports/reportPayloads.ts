@@ -149,6 +149,22 @@ export interface CourtTotals {
   offPeakBookings: number | null;
 }
 
+/**
+ * report_courts' `matches` block (0265, open matches money.md §7.4): the
+ * period's open-match bookings at this branch. Match bookings also stay in the
+ * per-court rows as ordinary bookings. No names, labels or customer ids.
+ */
+export interface CourtMatches {
+  bookings: number | null;
+  bookedIqd: number | null;
+  deskPaidIqd: number | null;
+  writtenOffIqd: number | null;
+  noShowSeats: number | null;
+  calledOffShort: number | null;
+  /** Tickets lost at this branch (forfeit revenue). */
+  ticketForfeitsIqd: number | null;
+}
+
 export interface CourtsReport {
   rows: CourtRow[];
   totals: CourtTotals | null;
@@ -156,6 +172,8 @@ export interface CourtsReport {
   byHour: { hour: number; bookings: number | null }[];
   /** Only the business days that had a kept booking. */
   trend: { date: string; bookings: number | null; revenueIqd: number | null }[];
+  /** null from a server before 0265: the report offers no Open matches view. */
+  matches: CourtMatches | null;
 }
 
 export function readCourts(payload: unknown): CourtsReport {
@@ -201,14 +219,103 @@ export function readCourts(payload: unknown): CourtsReport {
   const trend = list(p.trend)
     .map((d) => ({ date: str(d.date) ?? '', bookings: num(d.bookings), revenueIqd: num(d.revenueIqd) }))
     .filter((d) => d.date !== '');
-  return { rows, totals, byHour, trend };
+  const m = obj(p.matches);
+  const matches: CourtMatches | null = m
+    ? {
+        bookings: num(m.bookings),
+        bookedIqd: num(m.bookedIqd),
+        deskPaidIqd: num(m.deskPaidIqd),
+        writtenOffIqd: num(m.writtenOffIqd),
+        noShowSeats: num(m.noShowSeats),
+        calledOffShort: num(m.calledOffShort),
+        ticketForfeitsIqd: num(m.ticketForfeitsIqd),
+      }
+    : null;
+  return { rows, totals, byHour, trend, matches };
 }
 
-/** No courts, or nothing booked, cancelled, missed or held for a tournament on any of them. */
+/**
+ * No courts, or nothing booked, cancelled, missed or held for a tournament on
+ * any of them, and no open-match figure either (a period whose only news is a
+ * lost ticket still has its Open matches view).
+ */
 export function courtsIsEmpty(r: CourtsReport): boolean {
   if (r.rows.length === 0) return true;
   const t = r.totals;
-  return t !== null && !t.bookings && !t.cancellations && !t.noShows && !t.eventMinutes;
+  return t !== null && !t.bookings && !t.cancellations && !t.noShows && !t.eventMinutes && courtMatchesIsEmpty(r.matches);
+}
+
+// ---------------------------------------------------------------------------
+// Open matches (report_matches, 0265; open matches money.md §7.6)
+// ---------------------------------------------------------------------------
+
+export const MATCH_TOTAL_KEYS = [
+  'started',
+  'booked',
+  'played',
+  'bumped',
+  'expired',
+  'cancelled',
+  'calledOffShort',
+  'allNoShow',
+  'fillRatePct',
+  'seatsFilled',
+  'accountSeats',
+  'friendSeats',
+  'deskSeats',
+  'attendedSeats',
+  'noShowSeats',
+  'leftLateSeats',
+  'refilledSeats',
+  'bookedIqd',
+  'deskPaidIqd',
+  'writtenOffIqd',
+  'ticketForfeitsIqd',
+  'sandboxExcluded',
+] as const;
+export type MatchTotalKey = (typeof MATCH_TOTAL_KEYS)[number];
+
+export interface MatchDayRow {
+  date: string;
+  started: number | null;
+  booked: number | null;
+  bookedIqd: number | null;
+  writtenOffIqd: number | null;
+  noShowSeats: number | null;
+}
+
+export interface MatchesReport {
+  totals: Record<MatchTotalKey, number | null>;
+  /** Only the days that had a match. */
+  byDay: MatchDayRow[];
+}
+
+/** report_matches read by its keys; a figure the payload does not carry is null. */
+export function readMatchesReport(payload: unknown): MatchesReport {
+  const p = obj(payload) ?? {};
+  const t = obj(p.totals) ?? {};
+  const totals = Object.fromEntries(MATCH_TOTAL_KEYS.map((k) => [k, num(t[k])])) as Record<MatchTotalKey, number | null>;
+  const byDay = list(p.byDay)
+    .map((d) => ({
+      date: str(d.date) ?? '',
+      started: num(d.started),
+      booked: num(d.booked),
+      bookedIqd: num(d.bookedIqd),
+      writtenOffIqd: num(d.writtenOffIqd),
+      noShowSeats: num(d.noShowSeats),
+    }))
+    .filter((d) => d.date !== '');
+  return { totals, byDay };
+}
+
+/** No match started in the period: the view says so instead of a table of zeros. */
+export function matchesReportIsEmpty(r: MatchesReport): boolean {
+  return !r.totals.started && r.byDay.length === 0;
+}
+
+/** The band from report_courts' block is empty too when nothing was booked, paid, written off or lost. */
+export function courtMatchesIsEmpty(m: CourtMatches | null): boolean {
+  return !m || (!m.bookings && !m.bookedIqd && !m.deskPaidIqd && !m.writtenOffIqd && !m.noShowSeats && !m.calledOffShort && !m.ticketForfeitsIqd);
 }
 
 // ---------------------------------------------------------------------------

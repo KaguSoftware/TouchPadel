@@ -172,7 +172,9 @@ describe.skipIf(!up)('0110 assistant search and index queue', () => {
   it('claim leases for 60 s, fail releases the lease and keeps the row', async () => {
     const { data: q } = await svc
       .from('assistant_index_queue')
-      .insert({ kind: 'note', ref: 'search-test-manual', op: 'upsert' })
+      // The oldest row, so the claim (oldest first, p_limit) reaches it whatever
+      // backlog earlier runs on this stack left due.
+      .insert({ kind: 'note', ref: 'search-test-manual', op: 'upsert', enqueued_at: '2000-01-01T00:00:00Z' })
       .select('id')
       .single();
     const qid = (q as { id: number }).id;

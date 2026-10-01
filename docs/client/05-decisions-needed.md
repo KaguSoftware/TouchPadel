@@ -4,7 +4,7 @@ Each of these needs a **written confirmation** (a WhatsApp/email reply quoting t
 enough). We build against these from day one; changing them later is a change request under
 SOW section 10.
 
-كل بند أدناه يحتاج إلى **تأكيد كتابي**. نبني على هذه القرارات من اليوم الأول، وأي تغيير لاحق عليها يُعدّ طلب تغيير بموجب البند 10 من العقد.
+كل بند أدناه يحتاج إلى **تأكيد كتابي**. نبني على هذه القرارات من اليوم الأول، وأي تغيير يطرأ عليها لاحقًا يُعدّ طلب تغيير بموجب البند 10 من العقد.
 
 ## 1. Currency: IQD only / العملة: الدينار العراقي فقط
 
@@ -12,7 +12,7 @@ The system trades in a **single currency, Iraqi dinar (IQD)**, whole dinars, no 
 The SOW is explicit: dual currency (e.g. USD alongside IQD) is **not** in this scope and would
 be quoted as an addition. Please confirm: *"IQD single currency, confirmed."*
 
-يعمل النظام بعملة واحدة هي الدينار العراقي. العملة المزدوجة غير مشمولة في العقد وتُسعَّر كإضافة. يُرجى التأكيد كتابيًا.
+يعمل النظام بعملة واحدة هي الدينار العراقي. العملة المزدوجة غير مشمولة في نطاق العمل وتُسعَّر كإضافة. يُرجى التأكيد كتابيًا.
 
 ## 2. Tax / الضريبة
 
@@ -52,4 +52,4 @@ Needed by **end of Week 3** (SOW): each staff member's name and intended role (t
 manager, admin). Accounts and training PINs are created from this list. Confirm who delivers
 it and by which date.
 
-مطلوبة بنهاية الأسبوع الثالث: اسم كل موظف ودوره المقصود. تُنشأ من هذه القائمة الحسابات والأرقام السرية الخاصة بالتدريب. يُرجى تأكيد من سيسلّمها وبأي تاريخ.
+مطلوبة بنهاية الأسبوع الثالث: اسم كل موظف ودوره المقصود (كاشير أو مطبخ أو مدير أو إدارة). تُنشأ من هذه القائمة الحسابات والأرقام السرية التدريبية. يُرجى تأكيد من سيسلّمها وبأي تاريخ.

@@ -12,6 +12,17 @@ import type { Locale } from '@touch/i18n';
  */
 const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://www.touch-padel.com').replace(/\/+$/, '');
 
+/**
+ * The public site's origin, no trailing slash. Also the base of an open
+ * match's share link (`${siteUrl()}/m/<token>`, docs/design/open-matches/guest.md
+ * §4.14): its host must be the one every build claims through
+ * EXPO_PUBLIC_LINK_DOMAIN (eas.json), which features/matches' links test pins,
+ * so a shared link always opens the app that can read it.
+ */
+export function siteUrl(): string {
+  return SITE_URL;
+}
+
 export type LegalPage = 'privacy' | 'terms' | 'support' | 'delete-account';
 
 export function legalUrl(page: LegalPage, locale: Locale): string {

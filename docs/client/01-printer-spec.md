@@ -3,7 +3,7 @@
 Buy any printer that meets ALL of the following. Two example models that do are listed below —
 either is fine, as is any equivalent.
 
-اشتروا أي طابعة تستوفي جميع المواصفات التالية. والنموذجان الواردان أدناه مثالان مناسبان.
+اشتروا أي طابعة تستوفي جميع المواصفات التالية. والنموذجان الواردان أدناه مثالان مناسبان، وكذلك أي طراز مماثل.
 
 ## Required specification
 

@@ -9,6 +9,9 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { clearAllCaches } from '../../lib/queryClient';
+import { clearAllMatchIntentKeys } from '../../lib/idempotency';
+import { clearPendingJoin } from '../matches/pendingJoin';
+import { clearTicketContinuation } from '../matches/continuation';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { clearStaffHint } from '../staff/hint';
 import { googleSignOut } from './providers/google';
@@ -78,6 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // The staff device hint names the account that just left; the next
         // sign-in on this phone may be a guest's (build-contracts §6.5).
         void clearStaffHint();
+        // An open match's start keys belong to the account that left (§4.23).
+        clearAllMatchIntentKeys();
+        // ...and so do the open-match intents they left in memory: a pending invite or a
+        // ticket continuation would otherwise steer the next account on this phone.
+        clearPendingJoin();
+        clearTicketContinuation();
       }
     });
     return () => {

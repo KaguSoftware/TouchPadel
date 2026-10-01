@@ -13,6 +13,12 @@ import {
   varianceSign,
   unpaidPlayedRows,
   unfinishedChecklists,
+  isMatchUnpaid,
+  onlineIsEmpty,
+  onlineMoneyOf,
+  readDayCloseOnline,
+  unpaidMatchLabel,
+  unpaidSeats,
   type CsvLabels,
   type DayAdjustmentRow,
   type ShiftCsvLabels,
@@ -348,5 +354,108 @@ describe('till shifts at day close', () => {
     expect(adjustments!.rows).toEqual([]);
     // Without them, the export is what it was.
     expect(dayCloseCsv(labels2, null, null, [], (n) => n.join(', '), words)[0]!.rows).toEqual([]);
+  });
+});
+
+// Open matches (operator.md §5.18): the online card and the match rows of "Played, not paid".
+describe('readDayCloseOnline / onlineMoneyOf / onlineIsEmpty', () => {
+  const payload = {
+    day_session_id: 'ds1',
+    business_date: '2026-09-28',
+    deposits: { received_iqd: 45000, received_count: 3, refunded_iqd: 15000, refunded_count: 1, forfeited_iqd: 0, forfeited_count: 0, refunds_waiting_iqd: 0, refunds_waiting_count: 0 },
+    tickets_here: { forfeited_iqd: 10000, forfeited_count: 1, restored_count: 0, cashouts_iqd: 0, cashouts_count: 0 },
+    tickets_chain: { sold_iqd: '80000', sold_tickets: 8, purchases: 3, refunded_iqd: 0, refunded_tickets: 0, refunds_waiting_iqd: 0, refunds_waiting_count: 0, liability_iqd: 60000, liability_tickets: 6 },
+    matches: { bookings: 2, price_iqd: 120000, desk_paid_iqd: 90000, written_off_iqd: 30000, owed_iqd: 0, called_off: 0, no_show_seats: 1 },
+    sandbox_excluded: { deposits: 0, tickets: 0 },
+  };
+
+  it('reads every figure as a number, a string number included, and a missing one as null', () => {
+    const d = readDayCloseOnline(payload)!;
+    expect(d.business_date).toBe('2026-09-28');
+    expect(d.tickets_chain.sold_iqd).toBe(80000);
+    expect(readDayCloseOnline({ deposits: {} })!.deposits.received_iqd).toBeNull();
+    expect(readDayCloseOnline(null)).toBeNull();
+    expect(readDayCloseOnline([])).toBeNull();
+  });
+
+  it('keeps the groups that have something, in the order of the card, and leaves test payments out when none were', () => {
+    const groups = onlineMoneyOf(readDayCloseOnline(payload)!);
+    expect(groups.map((g) => g.id)).toEqual(['deposits', 'ticketsHere', 'ticketsChain', 'matches']);
+    expect(groups[0]!.rows.map((r) => [r.id, r.count, r.amount])).toEqual([
+      ['received', 3, 45000],
+      ['refunded', 1, 15000],
+      ['forfeited', 0, 0],
+      ['waiting', 0, 0],
+    ]);
+    const matches = groups.find((g) => g.id === 'matches')!;
+    expect(matches.rows.map((r) => [r.id, r.shows])).toEqual([
+      ['bookings', 'count'],
+      ['price', 'amount'],
+      ['deskPaid', 'amount'],
+      ['writtenOff', 'amount'],
+      ['owed', 'amount'],
+      ['calledOff', 'count'],
+      ['noShowSeats', 'count'],
+    ]);
+  });
+
+  it('shows test payments only when some were left out', () => {
+    const groups = onlineMoneyOf(readDayCloseOnline({ ...payload, sandbox_excluded: { deposits: 2, tickets: 0 } })!);
+    expect(groups.at(-1)).toEqual({
+      id: 'sandbox',
+      rows: [
+        { id: 'deposits', count: 2, amount: null, shows: 'count' },
+        { id: 'tickets', count: 0, amount: null, shows: 'count' },
+      ],
+    });
+  });
+
+  it('is empty when every figure is zero or missing', () => {
+    expect(onlineIsEmpty(readDayCloseOnline({ deposits: { received_iqd: 0 }, matches: {} }))).toBe(true);
+    expect(onlineIsEmpty(null)).toBe(true);
+    expect(onlineIsEmpty(readDayCloseOnline(payload))).toBe(false);
+  });
+});
+
+describe('played, not paid: open-match rows', () => {
+  const row = {
+    reservation_id: 'r1',
+    guest_name: 'Open match',
+    status: 'completed',
+    start_at: '2026-09-28T17:00:00Z',
+    end_at: '2026-09-28T18:30:00Z',
+    court_name_en: 'Court 1',
+    court_name_ar: 'ملعب 1',
+    price_iqd: 40000,
+    remaining_iqd: 20000,
+    live_tab_id: null,
+    match_id: 'm1',
+    owed_by_seats_iqd: 20000,
+    delta_owed_iqd: 0,
+    seats_owing: [
+      { seat_no: 4, label: 'Omar Khalid', owed_iqd: 10000 },
+      { seat_no: 2, label: 'Ali Hasan', owed_iqd: 10000 },
+    ],
+  };
+
+  it('tells a match booking from an ordinary one', () => {
+    expect(isMatchUnpaid(row)).toBe(true);
+    expect(isMatchUnpaid({ match_id: null })).toBe(false);
+    expect(isMatchUnpaid({})).toBe(false);
+    // An older server's rows parse as before.
+    expect(unpaidPlayedRows([{ ...row, match_id: undefined }])).toHaveLength(1);
+  });
+
+  it("names the match from its desk state's label, never from the booking's literal name", () => {
+    expect(unpaidMatchLabel({ label: 'Sara Karim' })).toBe('Sara Karim');
+    expect(unpaidMatchLabel({ label: '  ' })).toBeNull();
+    expect(unpaidMatchLabel({ label: null })).toBeNull();
+    expect(unpaidMatchLabel(undefined)).toBeNull();
+  });
+
+  it('lists the owing seats in seat order and drops a malformed one', () => {
+    expect(unpaidSeats(row).map((x) => x.seat_no)).toEqual([2, 4]);
+    expect(unpaidSeats({ seats_owing: [{ seat_no: 1, label: null, owed_iqd: Number.NaN }] })).toEqual([]);
+    expect(unpaidSeats({})).toEqual([]);
   });
 });

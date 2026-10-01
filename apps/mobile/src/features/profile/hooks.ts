@@ -1,4 +1,3 @@
-import type { Locale } from '@touch/i18n';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { fetchOwnProfile, updateOwnProfile } from './api';
@@ -23,7 +22,7 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ['update-profile'],
-    mutationFn: async (fields: { full_name?: string; phone?: string | null; preferred_lang?: Locale }) => {
+    mutationFn: async (fields: Parameters<typeof updateOwnProfile>[2]) => {
       const { data } = await supabase.auth.getUser();
       const uid = data.user?.id;
       if (!uid) throw new Error('NO_SESSION');

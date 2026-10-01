@@ -56,6 +56,7 @@ import type { TillSearch } from './tillSearch';
 import { ScannedSlipsPanel } from './slips/ScannedSlipsPanel';
 import { SLIPS_KEY } from './slips/SlipReview';
 import { BASKET_BLOCK_SIZE, muted } from './tillStyles';
+import { reservationNameOf } from '../matches/matchLogic';
 
 export function TillScreen() {
   const { tr, locale } = useLocale();
@@ -256,7 +257,7 @@ export function TillScreen() {
       description: tr('ws.cashier.charge.option', {
         time: formatTime(new Date(b.booking.start_at), locale),
         court: pickName(locale, court),
-        guest: b.booking.guest_name ?? '—',
+        guest: reservationNameOf(b.booking, tr) ?? '—',
       }),
     });
   }

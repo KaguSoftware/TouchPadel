@@ -282,6 +282,9 @@ describe('per-branch reads (multi-venue slice 4)', () => {
     protected_horizon_hours: null,
     table_token_ttl_minutes: null,
     timezone: null,
+    // 0257 (open matches): the view's two appended columns.
+    matches_enabled: false as boolean | null,
+    match_fill_deadline_minutes: 120 as number | null,
   });
 
   it('orders the open branches oldest first, whatever order the view returns', async () => {

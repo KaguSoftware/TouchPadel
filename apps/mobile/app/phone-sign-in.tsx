@@ -11,7 +11,7 @@ import {
   type LinkReturnTo,
 } from '../src/features/auth/phoneOtp';
 import { RequireSession } from '../src/features/auth/RequireSession';
-import { clearPendingSlot } from '../src/features/booking/pendingSlot';
+import { clearPendingIntents } from '../src/features/booking/pendingIntent';
 import { DEFAULT_ISO, parsePhone } from '../src/features/profile/phone';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useBackGuard } from '../src/navigation/back';
@@ -34,8 +34,11 @@ import { Button, ErrorText, FormScreen, Hint, Screen, Title } from '../src/compo
  *   continue  A booking with a slot pending (owner, 2026-09-27: no reservation
  *             without a verified phone): the slot tap or the post-auth
  *             continuation sends an unverified guest here, and verify-otp
- *             holds the slot once the code lands.
- *   back      Review's "Verify phone number": verify-otp pops back to Review.
+ *             holds the slot once the code lands. An open match's start or
+ *             join rides the same way (owner, 2026-09-29), and verify-otp
+ *             opens its screen.
+ *   back      Review's "Verify phone number", or Start / Join on a match
+ *             screen: verify-otp pops back to it.
  *
  * The booking modes ignore the flag — the requirement cannot be switched off
  * with the screen that meets it — and prefill `phone`, the profile's number.
@@ -54,13 +57,14 @@ function PhoneLinkForm({ returnTo, initialPhone }: { returnTo: LinkReturnTo; ini
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Continue mode carries a pending slot: leaving without a code drops it, so
-  // a later sign-in does not hold a slot the guest walked away from. The step
-  // forward to the code is a replace (see onSubmit) and lifts the guard first.
+  // Continue mode carries a pending slot or open-match intent: leaving without
+  // a code drops it, so a later sign-in does not hold a slot (or open a match)
+  // the guest walked away from. The step forward to the code is a replace (see
+  // onSubmit) and lifts the guard first.
   const leave = useBackGuard({
     when: returnTo === 'continue',
     onBlocked: (go) => {
-      clearPendingSlot();
+      clearPendingIntents();
       go();
     },
   });

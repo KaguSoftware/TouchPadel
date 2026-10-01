@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { t } from '@touch/i18n';
 import type { DepositAttentionRow } from './depositApi';
-import { attentionActions, attentionAmount, attentionKindOf, attentionSince, knownRefundReason, showAttentionPanel, sortAttention } from './depositAttentionLogic';
+import {
+  attentionActions,
+  attentionAmount,
+  attentionHintKey,
+  attentionKindOf,
+  attentionSince,
+  isTicketRow,
+  knownRefundReason,
+  refundReasonKey,
+  showAttentionPanel,
+  sortAttention,
+} from './depositAttentionLogic';
 
 function row(over: Partial<DepositAttentionRow> = {}): DepositAttentionRow {
   return {
@@ -30,10 +42,17 @@ describe('attentionKindOf / attentionActions', () => {
     expect(attentionActions(row())).toEqual({ retry: true, settle: true, refund: false });
   });
 
-  it('a slow refund cannot be retried (the server says PAYMENT_STATE), only settled', () => {
+  it('R23: a slow refund offers nothing (a Qi refund may be on its way); it says it is waiting on Qi', () => {
     const r = row({ status: 'refund_pending' });
     expect(attentionKindOf(r)).toBe('refundSlow');
-    expect(attentionActions(r)).toEqual({ retry: false, settle: true, refund: false });
+    expect(attentionActions(r)).toEqual({ retry: false, settle: false, refund: false });
+    expect(t('en', attentionHintKey('refundSlow'))).toBe("Qi hasn't answered yet. It is retried on its own and moves here as failed if it keeps failing.");
+    expect(attentionHintKey('refundFailed')).toBe('ws.manager.onlineRefunds.kind.refundFailed.hint');
+  });
+
+  it('R23 holds for ticket rows too: settle only a failed refund', () => {
+    expect(attentionActions(row({ purpose: 'ticket', status: 'refund_pending' })).settle).toBe(false);
+    expect(attentionActions(row({ purpose: 'ticket', status: 'refund_failed' })).settle).toBe(true);
   });
 
   it('a paid deposit on a booking that is no longer on is refunded to the guest', () => {
@@ -62,6 +81,21 @@ describe('knownRefundReason', () => {
     expect(knownRefundReason('no_show')).toBe('no_show');
     expect(knownRefundReason('something_new')).toBeNull();
     expect(knownRefundReason(null)).toBeNull();
+  });
+
+  it('words the two ticket reasons with open matches and the rest with online refunds', () => {
+    expect(knownRefundReason('ticket_cashout')).toBe('ticket_cashout');
+    expect(t('en', refundReasonKey('ticket_cashout'))).toBe('tickets cashed out');
+    expect(t('en', refundReasonKey('account_deleted'))).toBe('account deleted');
+    expect(refundReasonKey('guest_cancel')).toBe('ws.manager.onlineRefunds.reasons.guest_cancel');
+  });
+});
+
+describe('isTicketRow', () => {
+  it('reads the purpose; a row from an older server is a deposit', () => {
+    expect(isTicketRow(row({ purpose: 'ticket', reservation_id: null }))).toBe(true);
+    expect(isTicketRow(row({ purpose: 'deposit' }))).toBe(false);
+    expect(isTicketRow(row())).toBe(false);
   });
 });
 

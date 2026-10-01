@@ -61,6 +61,7 @@ import { readPurchases } from '../stock/driverPurchasesLogic';
 import { useShiftDifferences } from '../tillShift/useShiftDifferences';
 import { usePeopleRecordCounts } from '../deductions/peopleRecordCounts';
 import { DepositAttentionPanel } from '../deposits/DepositAttentionPanel';
+import { MatchReportsPanel } from './MatchReportsPanel';
 import {
   DAY_CLOSE_TONE,
   STOCK_HREF,
@@ -182,6 +183,8 @@ function Dashboard({ data, queued, go }: { data: OpsOverview; queued: number; go
       <NeedsYouNow data={data} go={go} />
       {/* Online deposit refunds a person must see to; only when one waits. */}
       <DepositAttentionPanel hideWhenEmpty />
+      {/* Open matches' player reports (manager, owner); only when one waits. */}
+      <MatchReportsPanel hideWhenEmpty />
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))', alignItems: 'stretch' }}>
         <CourtsCard data={data} go={go} />

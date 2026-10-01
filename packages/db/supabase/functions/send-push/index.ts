@@ -16,18 +16,24 @@
  *      lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears
  *      the profile's token so future bookings stop enqueueing.
  *
- * Two families of kind. The booking kinds (and `test`) take their copy from
+ * Three families of kind. The booking kinds (and `test`) take their copy from
  * STRINGS below, with the court and time. The staff kinds, queued only by
  * app.notify_staff, name their copy by payload.title_key and read it from
  * staffStrings.ts (build-contracts-2026-09-23 §2.21); _shared/staff-push.json
- * is the one list of their kinds, title keys and routes. This function must be
- * deployed before the migration that lets the outbox hold a staff kind: a kind
- * or title key it does not know is terminal.
+ * is the one list of their kinds, title keys and routes. The guest kinds of
+ * open matches (match_update, match_reminder, match_message), queued only by
+ * app.match_notify (0261), do the same with guestStrings.ts and
+ * _shared/guest-push.json (docs/design/open-matches/guest.md §4.7), with the
+ * match's time and branch read from the match row. This function must be
+ * deployed before the migration that lets the outbox hold a staff or guest
+ * kind: a kind or title key it does not know is terminal.
  */
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { json } from '../_shared/http.ts';
 import staffPush from '../_shared/staff-push.json' with { type: 'json' };
+import guestPush from '../_shared/guest-push.json' with { type: 'json' };
 import { staffMessage } from './staffStrings.ts';
+import { guestMessage, guestTime, guestWhen } from './guestStrings.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_BATCH_SIZE = 100;
@@ -54,6 +60,12 @@ type Lang = 'en' | 'ar';
 
 const STAFF_KINDS: ReadonlySet<string> = new Set(staffPush.kinds);
 const STAFF_ROUTES: ReadonlySet<string> = new Set(staffPush.routes);
+const GUEST_KINDS: ReadonlySet<string> = new Set(guestPush.kinds);
+const GUEST_ROUTES: ReadonlySet<string> = new Set(guestPush.routes);
+const GUEST_KEY_KINDS: Readonly<Record<string, string>> = guestPush.title_keys;
+/** A guest row's match id is looked up only when it is a uuid (a bad one would fail the batch read). */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DEFAULT_TZ = 'Asia/Baghdad';
 
 // Booking notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
 // edge functions bundle standalone, so the few push strings are duplicated
@@ -143,10 +155,13 @@ interface OutboxRow {
     | 'staff_decide'
     | 'staff_decided'
     | 'staff_info'
-    | 'deposit_refunded';
+    | 'deposit_refunded'
+    | 'match_update'
+    | 'match_reminder'
+    | 'match_message';
   /**
    * Reservation snapshot for the booking kinds; `{ source }` only for `test`;
-   * `{ route, id, title_key, params, dedupe? }` for the staff kinds.
+   * `{ route, id, title_key, params, dedupe? }` for the staff and guest kinds.
    */
   payload: {
     reservation_id?: string;
@@ -190,6 +205,46 @@ Deno.serve(async (req) => {
   const profiles = new Map(profilesRes.data.map((p) => [p.id, p]));
   const courts = new Map(courtsRes.data.map((c) => [c.id, c]));
 
+  // Guest rows (open matches) also need the match (time, branch, category), the
+  // branches, and the reader's gender for the one reader-gendered Arabic line.
+  // Read only when a guest row was claimed: no guest row can be queued before
+  // app.match_notify (0261), and this function ships before 0256 adds
+  // profiles.gender and 0258 creates matches, so the booking and staff kinds
+  // never depend on either.
+  type MatchRow = { id: string; start_at: string; venue_id: string; category: string };
+  type VenueRow = { id: string; name_en: string; name_ar: string; timezone: string; is_active: boolean };
+  const guestRows = rows.filter((r) => GUEST_KINDS.has(r.kind));
+  const matches = new Map<string, MatchRow>();
+  const venues = new Map<string, VenueRow>();
+  const genders = new Map<string, string | null>();
+  let activeVenues = 0;
+  if (guestRows.length > 0) {
+    const matchIds = [
+      ...new Set(
+        guestRows
+          .map((r) => (r.payload.route === 'match' ? r.payload.id : null))
+          .filter((id): id is string => typeof id === 'string' && UUID.test(id)),
+      ),
+    ];
+    const guestIds = [...new Set(guestRows.map((r) => r.profile_id))];
+    const [matchesRes, venuesRes, gendersRes] = await Promise.all([
+      matchIds.length > 0
+        ? db.from('matches').select('id, start_at, venue_id, category').in('id', matchIds)
+        : Promise.resolve({ data: [] as MatchRow[], error: null }),
+      db.from('venues').select('id, name_en, name_ar, timezone, is_active'),
+      db.from('profiles').select('id, gender').in('id', guestIds),
+    ]);
+    if (matchesRes.error) return json({ error: matchesRes.error.message }, 500);
+    if (venuesRes.error) return json({ error: venuesRes.error.message }, 500);
+    if (gendersRes.error) return json({ error: gendersRes.error.message }, 500);
+    for (const m of (matchesRes.data ?? []) as MatchRow[]) matches.set(m.id, m);
+    for (const v of (venuesRes.data ?? []) as VenueRow[]) venues.set(v.id, v);
+    for (const g of (gendersRes.data ?? []) as Array<{ id: string; gender: string | null }>) {
+      genders.set(g.id, g.gender);
+    }
+    activeVenues = [...venues.values()].filter((v) => v.is_active).length;
+  }
+
   type Prepared = { row: OutboxRow; message: Record<string, unknown> };
   const prepared: Prepared[] = [];
   let sent = 0;
@@ -228,6 +283,57 @@ Deno.serve(async (req) => {
         data: m.data,
       };
       if (m.body) message.body = m.body;
+      prepared.push({ row, message });
+      continue;
+    }
+    if (GUEST_KINDS.has(row.kind)) {
+      // A 'match' route names its match; one that no longer exists is terminal.
+      const matchId = row.payload.route === 'match' && typeof row.payload.id === 'string'
+        ? row.payload.id
+        : null;
+      const match = matchId ? matches.get(matchId) : undefined;
+      if (matchId && !match) {
+        failed++;
+        await db
+          .from('notification_outbox')
+          .update({ last_error: 'MATCH_GONE', attempts: RETRY_CAP })
+          .eq('id', row.id);
+        continue;
+      }
+      const venue = match ? venues.get(match.venue_id) : undefined;
+      const tz = venue?.timezone || DEFAULT_TZ;
+      const g = guestMessage(
+        lang,
+        row.kind,
+        row.payload,
+        {
+          keyKinds: GUEST_KEY_KINDS,
+          category: match?.category ?? null,
+          readerGender: genders.get(row.profile_id) ?? null,
+          when: match ? guestWhen(match.start_at, lang, tz) : '',
+          time: match ? guestTime(match.start_at, lang, tz) : '',
+          branch: venue && activeVenues > 1 ? (lang === 'ar' ? venue.name_ar : venue.name_en) : '',
+        },
+        GUEST_ROUTES,
+      );
+      if (g.ok === false) {
+        // A title key, kind pairing or route this build does not know: terminal.
+        failed++;
+        await db
+          .from('notification_outbox')
+          .update({ last_error: g.error, attempts: RETRY_CAP })
+          .eq('id', row.id);
+        continue;
+      }
+      const message: Record<string, unknown> = {
+        to: token,
+        title: g.title,
+        sound: 'default',
+        priority: 'high', // as the booking kinds below
+        channelId: ANDROID_CHANNEL_ID,
+        data: g.data,
+      };
+      if (g.body) message.body = g.body;
       prepared.push({ row, message });
       continue;
     }

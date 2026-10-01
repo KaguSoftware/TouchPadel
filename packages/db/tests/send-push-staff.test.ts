@@ -12,7 +12,11 @@
  * commit ahead of staff_push_keys, which lists them in the JSON and in
  * app.notify_staff: from there the copy and the list are equal again. Wave
  * 5's eleven (wave5-addendum-2026-09-25 §2.3) shipped their copy the same
- * way, one commit ahead of staff_push_keys_wave5.
+ * way, one commit ahead of staff_push_keys_wave5. Open matches' one key,
+ * match_report_new, ships in the same commit as the notify_staff re-issue
+ * that lists it (0261, docs/design/open-matches/guest.md §4.7.5, R43): the
+ * stack test compares the JSON with that re-issue, so an earlier copy-only
+ * commit would turn CI red until the migration landed.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +47,7 @@ const ROLE_SPEC_KEYS = [
   'marketing_request_new',
   'marketing_request_answered',
 ];
-/** Wave 5's eleven title keys (wave5-addendum §2.3), last in the JSON, in this order. */
+/** Wave 5's eleven title keys (wave5-addendum §2.3), after the role spec's in the JSON, in this order. */
 const WAVE5_KEYS = [
   'deduction_proposed',
   'deduction_approved',
@@ -57,6 +61,8 @@ const WAVE5_KEYS = [
   'content_declined',
   'waiter_call_new',
 ];
+/** Open matches' staff key (0261, R5/R43), last in the JSON. */
+const MATCH_KEYS = ['match_report_new'];
 const FSI = '\u2068';
 const PDI = '\u2069';
 const iso = (s: string) => `${FSI}${s}${PDI}`;
@@ -76,12 +82,13 @@ function msg(lang: Lang, key: string, params: Record<string, unknown> = {}) {
 }
 
 describe('staff-push.json', () => {
-  it('lists the four staff kinds, thirty-seven title keys and seven routes, each once', () => {
+  it('lists the four staff kinds, thirty-eight title keys and seven routes, each once', () => {
     expect(staffPush.kinds).toEqual(['staff_task', 'staff_decide', 'staff_decided', 'staff_info']);
-    expect(staffPush.title_keys).toHaveLength(37);
+    expect(staffPush.title_keys).toHaveLength(38);
     expect(new Set(staffPush.title_keys).size).toBe(staffPush.title_keys.length);
     expect(staffPush.title_keys.slice(15, 26)).toEqual(ROLE_SPEC_KEYS);
-    expect(staffPush.title_keys.slice(26)).toEqual(WAVE5_KEYS);
+    expect(staffPush.title_keys.slice(26, 37)).toEqual(WAVE5_KEYS);
+    expect(staffPush.title_keys.slice(37)).toEqual(MATCH_KEYS);
     expect(staffPush.routes).toEqual([
       'staff',
       'staff-step',
@@ -220,6 +227,8 @@ describe('staffMessage — the EN copy of §2.21', () => {
     ['content_changes', { title: 'Friday reel' }, 'Changes asked', iso('Friday reel')],
     ['content_declined', { title: 'Friday reel' }, 'Content declined', iso('Friday reel')],
     ['waiter_call_new', { title: 'T12' }, 'Guest call', `Table ${iso('T12')}`],
+    // Open matches (guest.md §4.7.5): no params; names nobody.
+    ['match_report_new', {}, 'Player report', 'A report about a player is waiting for review.'],
   ];
 
   it.each(cases)('%s', (key, params, title, body) => {

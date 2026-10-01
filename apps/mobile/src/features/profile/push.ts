@@ -38,7 +38,9 @@ import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { updatePushToken } from './api';
 import type { StaffHref } from '../staff/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
+import { isGuestPushKind } from '../matches/pushRoutes';
 import {
+  isGuestTap,
   isStaffTap,
   shouldPersistToken,
   shouldRouteTap,
@@ -293,6 +295,11 @@ export async function getPushPermissionState(): Promise<PushPermissionState> {
  *    `route`. It opens only once `staffStatus` says the phone is signed in as
  *    staff: that promise waits for the session and the staff row, because a
  *    tap that launched the app arrives before either is known.
+ *  - open-match taps (docs/design/open-matches/guest.md §4.21): a guest kind's
+ *    route (`match`, `tickets`) opens its match or the wallet, whatever the
+ *    staff status, and is asked BEFORE the staff check. A guest push that
+ *    lands in the foreground calls `onMatchNotice`, which refreshes an open
+ *    match or list the moment it arrives. Foreground display is unchanged.
  *
  * Never throws — Expo Go, simulators and a missing module all leave the app
  * exactly as it was.
@@ -302,6 +309,12 @@ export function installNotificationHandler(opts: {
   onOpenStaff?: (href: StaffHref) => void;
   /** The staff status once settled (StaffStatusProvider's settledStaffStatus). */
   staffStatus?: () => Promise<StaffStatusKind>;
+  /** A `match` push tapped: open that match. */
+  onOpenMatch?: (matchId: string) => void;
+  /** A `tickets` push tapped (a refund): open the wallet. */
+  onOpenTickets?: () => void;
+  /** A guest open-match push arrived while the app was in the foreground. */
+  onMatchNotice?: () => void;
 }): () => void {
   let cancelled = false;
   let remove: (() => void) | null = null;
@@ -335,6 +348,20 @@ export function installNotificationHandler(opts: {
         if (!shouldRouteTap({ id, handled })) return;
         if (id) handled.add(id);
         const data = response.notification.request.content.data as PushTapData | undefined;
+        if (isGuestTap(data)) {
+          // Never waits on the staff status: a guest route is never a staff one.
+          const dest = tapDestination(data, 'guest');
+          if (dest?.kind === 'match' && opts.onOpenMatch) {
+            addBreadcrumb('push.open', { kind: data?.kind, route: 'match' });
+            opts.onOpenMatch(dest.id);
+          } else if (dest?.kind === 'tickets' && opts.onOpenTickets) {
+            addBreadcrumb('push.open', { kind: data?.kind, route: 'tickets' });
+            opts.onOpenTickets();
+          } else {
+            addBreadcrumb('push.open.noRoute', { kind: data?.kind });
+          }
+          return;
+        }
         if (isStaffTap(data)) {
           const settled = opts.staffStatus?.() ?? Promise.resolve<StaffStatusKind>('guest');
           void settled.then((status) => {
@@ -362,7 +389,16 @@ export function installNotificationHandler(opts: {
       };
 
       const sub = Notifications.addNotificationResponseReceivedListener(open);
-      remove = () => sub.remove();
+      // A guest open-match push in the foreground: the screens under it
+      // refresh at once instead of waiting for their next poll.
+      const received = Notifications.addNotificationReceivedListener((notification) => {
+        const data = notification.request.content.data as PushTapData | undefined;
+        if (isGuestPushKind(data?.kind)) opts.onMatchNotice?.();
+      });
+      remove = () => {
+        sub.remove();
+        received.remove();
+      };
       // Launched by tapping a notification while the app was closed.
       const last = await Notifications.getLastNotificationResponseAsync();
       if (!cancelled && last) open(last);

@@ -29,11 +29,23 @@ export const OTHER_VENUE = '00000000-0000-4000-8000-00000000c5c5';
 
 export const TAX = 'b0000000-0000-4000-8000-000000000001';
 
+/** Hard ceiling for one synchronous psql call (above vitest's 60 s testTimeout). */
+export const EXEC_TIMEOUT_MS = 90_000;
+
 export function psql(sql: string): string {
   return execFileSync(
     'docker',
     ['exec', '-i', CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt'],
-    { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 },
+    {
+      input: sql,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+      // execFileSync blocks the event loop, so vitest's own testTimeout can never fire
+      // on a stuck query; a wedged lock wait here once held CI for six hours.
+      timeout: EXEC_TIMEOUT_MS,
+      killSignal: 'SIGKILL',
+    },
   ).trim();
 }
 
@@ -54,7 +66,7 @@ export function psqlSession(sql: string): Promise<string> {
     const child = spawn(
       'docker',
       ['exec', '-i', CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-qAt'],
-      { stdio: ['pipe', 'pipe', 'pipe'] },
+      { stdio: ['pipe', 'pipe', 'pipe'], timeout: 5 * EXEC_TIMEOUT_MS, killSignal: 'SIGKILL' },
     );
     let out = '';
     let err = '';
@@ -64,6 +76,22 @@ export function psqlSession(sql: string): Promise<string> {
     child.on('close', (code) => (code === 0 ? resolve(out.trim()) : reject(new Error(err.trim() || `psql exited ${code}`))));
     child.stdin.end(sql);
   });
+}
+
+/**
+ * Resolves once the psqlSession whose SQL starts `set application_name = '<app>';`
+ * is inside its pg_sleep, so whatever it took before the sleep is held. A fixed
+ * delay loses that race on a loaded machine: `docker exec` alone can take longer.
+ */
+export async function waitForSleeper(app: string, ms = 20_000): Promise<void> {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    const n = psql(`select count(*) from pg_stat_activity
+                     where application_name = '${app}' and state = 'active' and query like '%pg_sleep%'`);
+    if (n === '1') return;
+    await new Promise((res) => setTimeout(res, 50));
+  }
+  throw new Error(`waitForSleeper: ${app} never reached its pg_sleep`);
 }
 
 /** The SQL that runs one statement as a staff member inside a committed session. */

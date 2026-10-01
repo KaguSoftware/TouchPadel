@@ -18,6 +18,7 @@ import { captureException } from '../../lib/telemetry';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useAuth } from '../auth/context';
 import { bookingKeys } from '../booking/hooks';
+import { matchKeys } from '../matches/keys';
 import { depositBegin, depositQuote, depositStatus } from './api';
 import { openPaymentPage } from './browser';
 import { depositKeys } from './keys';
@@ -160,7 +161,9 @@ export function useStartPayment() {
 /**
  * Once a payment settles, everything that shows a booking or a slot is stale:
  * the hold became a booking (or went back on the grid), and My reservations
- * gains its paid-online line. Same prefixes the booking mutations invalidate.
+ * gains its paid-online line. Same prefixes the booking mutations invalidate,
+ * plus the open-match family: a ticket purchase changes the wallet, and every
+ * match screen's "Buy and join" reads it (guest.md §4.10.4).
  */
 export function useRefreshAfterPayment(): () => void {
   const queryClient = useQueryClient();
@@ -168,6 +171,7 @@ export function useRefreshAfterPayment(): () => void {
     void queryClient.invalidateQueries({ queryKey: ['availability'] });
     void queryClient.invalidateQueries({ queryKey: bookingKeys.mine });
     void queryClient.invalidateQueries({ queryKey: ['reservation'] });
+    void queryClient.invalidateQueries({ queryKey: matchKeys.all });
   }, [queryClient]);
 }
 

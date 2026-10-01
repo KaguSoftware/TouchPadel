@@ -18,19 +18,33 @@ import { useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle, Select } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
 import { bookingTakesNewTab, canReadBookings, type TabListRow } from './tillData';
+import { isMatchLiteral } from '../matches/matchLogic';
 import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
 export interface OpenReservationRow {
   id: string;
   start_at: string;
+  /** Read so an open match's booking (no account, the literal name) can be left out. */
+  guest_id: string | null;
   guest_name: string | null;
   court: { name_en: string; name_ar: string } | null;
   tabs: { id: string; status: string }[];
 }
 
 /**
- * Today's confirmed/arrived bookings without a live tab. RLS: since 0106 a
- * cashier reads tonight's bookings too (reservations_cashier_read).
+ * A booking the till may put a bill on: no live tab yet, and not an open
+ * match's booking. Cafe lines never go on a match booking (DF-16): its players
+ * order on their own bills. The server refuses them anyway
+ * (MATCH_BOOKING_NO_CAFE, R20); this keeps the picker from offering one.
+ */
+export function tillMayBill(r: Pick<OpenReservationRow, 'guest_id' | 'guest_name' | 'tabs'>): boolean {
+  return bookingTakesNewTab(r) && !isMatchLiteral(r);
+}
+
+/**
+ * Today's confirmed/arrived bookings without a live tab, open matches' left
+ * out (tillMayBill). RLS: since 0106 a cashier reads tonight's bookings too
+ * (reservations_cashier_read).
  */
 export function useTodaysOpenReservations(enabled = true) {
   const queryClient = useQueryClient();
@@ -41,13 +55,13 @@ export function useTodaysOpenReservations(enabled = true) {
       const night = await tonightScope(() => queryClient.ensureQueryData({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings }));
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_at, end_at, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar), tabs!tabs_reservation_id_fkey(id, status)')
+        .select('id, start_at, end_at, guest_id, guest_name, court:courts!reservations_court_id_fkey(name_en, name_ar), tabs!tabs_reservation_id_fkey(id, status)')
         .in('status', ['confirmed', 'arrived'])
         .gte('start_at', night.start)
         .lt('start_at', night.end)
         .order('start_at');
       if (error) throw error;
-      return (data as unknown as OpenReservationRow[]).filter((r) => night.isTonight(r.start_at) && bookingTakesNewTab(r));
+      return (data as unknown as OpenReservationRow[]).filter((r) => night.isTonight(r.start_at) && tillMayBill(r));
     },
   });
 }

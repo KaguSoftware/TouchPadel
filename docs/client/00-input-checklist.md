@@ -3,7 +3,7 @@
 The build is four weeks. Every item below is client-side, and the contract (Scope of Work,
 section 11) is explicit: **a week's delay here is a week off the end.**
 
-مدة البناء أربعة أسابيع فقط. كل بند أدناه مطلوب من جهتكم، وتأخير أي بند أسبوعًا يعني أسبوعًا أقل في نهاية المدة.
+مدة البناء أربعة أسابيع فقط. كل بند أدناه مطلوب من جهتكم، وتأخير أي بند أسبوعًا يعني اقتطاع أسبوع من نهاية المدة.
 
 > **Status 2026-08-30** (after intake pack 2, 16/21): answered — items 1, 2 (Mustafa), 3-partial
 > (courts + hours + cancellation ✓, **rates still missing**), 4 ✓, 5 (sent via WhatsApp — not yet
@@ -45,7 +45,7 @@ section 11) is explicit: **a week's delay here is a week off the end.**
 | **Printer purchase confirmation** — model per `01-printer-spec.md` / تأكيد شراء الطابعة | Week 1 (order), Week 3 (installed) | Receipt and kitchen printing cannot be tested on real hardware otherwise |
 | **Till machine static IP / DHCP reservation** on the venue network / عنوان IP ثابت لجهاز الصندوق | Week 3 | The kitchen screen finds the till over the local network by address; if the address changes, kitchen tickets stop |
 | **Supabase region**: create the project in **Frankfurt (eu-central-1)** / منطقة Supabase: فرانكفورت | Week 1 (with item 8) | Closest well-supported region to Iraq; changing region later means a migration |
-| **PITR sign-off** (see below) / الموافقة على كلفة الاستعادة الزمنية | Week 1 | Cost decision — needs your written OK |
+| **PITR sign-off** (see below) / الموافقة على كلفة الاستعادة إلى نقطة زمنية | Week 1 | Cost decision — needs your written OK |
 
 ## Point-in-time recovery (PITR) — cost note
 

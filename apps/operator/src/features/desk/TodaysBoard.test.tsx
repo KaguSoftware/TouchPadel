@@ -5,6 +5,8 @@ import { LocaleProvider } from '../../lib/i18n';
 import { TodaysBoardView, type TodaysBoardViewProps } from './TodaysBoard';
 import type { ReservationRow } from './deskTypes';
 import { statesById, type BillStateRow } from './payment/deskPaymentLogic';
+import type { MatchReadStatus } from '../matches/matchLogic';
+import type { MatchState, OpenMatch, OpenMatches } from '../matches/matchPayloads';
 
 function billState(over: Partial<BillStateRow> & { reservation_id: string }): BillStateRow {
   return { state: 'none', live_tab_id: null, due_iqd: 30000, court_paid_iqd: 0, court_remaining_iqd: 30000, court_refund_due_iqd: 0, ...over };
@@ -186,5 +188,193 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     renderView({ reservations: [row({ id: 'r1' })] });
     const table = screen.getByRole('table', { name: 'All bookings today' });
     expect(within(table).getByText('—')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Open matches (docs/design/open-matches/operator.md §5.9)
+// ---------------------------------------------------------------------------
+
+function openMatch(over: Partial<OpenMatch> & { match_id: string }): OpenMatch {
+  return {
+    venue_id: 'v1',
+    status: 'filling',
+    start_at: '2026-09-03T18:00:00.000Z',
+    end_at: '2026-09-03T19:30:00.000Z',
+    duration_min: 90,
+    category: 'open',
+    join_policy: 'open',
+    visibility: 'public',
+    seats_taken: 3,
+    seats_left: 1,
+    requests_pending: 0,
+    fill_deadline_at: '2026-09-03T16:00:00.000Z',
+    organised_by: 'desk',
+    organiser: { customer_id: 'g1', full_name: 'Layla Hassan', phone: null },
+    price_iqd: 40000,
+    shares_iqd: [10000, 10000, 10000, 10000],
+    courts_free_firm: 2,
+    courts_total: 3,
+    ...over,
+  };
+}
+
+function openRead(matches: OpenMatch[], over: Partial<OpenMatches> = {}): MatchReadStatus<OpenMatches> {
+  return {
+    kind: 'ready',
+    data: { matches_enabled: true, fill_deadline_minutes: 120, earliest_start_minutes: 180, ticket_price_iqd: 10000, server_now: '2026-09-03T14:30:00.000Z', matches, ...over },
+    stale: false,
+    updatedAt: 1,
+  };
+}
+
+function matchState(over: Partial<MatchState> & { reservation_id: string }): MatchState {
+  return {
+    match_id: 'm-booked',
+    status: 'booked',
+    category: 'open',
+    label: 'Omar Saleh',
+    organiser_customer_id: 'g9',
+    seats_in: 4,
+    seats_attended: 0,
+    seats_no_show: 0,
+    seats_unmarked: 4,
+    seats_left_late: 0,
+    open_seats: 0,
+    ...over,
+  };
+}
+
+const matchCallbacks = () => ({ onAddPlayer: vi.fn(), onOpenMatch: vi.fn(), onStartMatch: vi.fn(), onRetryOpenMatches: vi.fn() });
+
+describe('TodaysBoardView — open matches needing players (§5.9)', () => {
+  it('lists the night’s matches by start with players, requests, deadline and tags; Add player, Open and Start call back', async () => {
+    const user = userEvent.setup();
+    const cb = matchCallbacks();
+    renderView({
+      status: 'empty',
+      runMatches: true,
+      reachable: true,
+      ...cb,
+      openMatches: openRead([
+        openMatch({ match_id: 'women', category: 'women', requests_pending: 1, join_policy: 'approve', visibility: 'link', courts_free_firm: 1, fill_deadline_at: '2026-09-03T14:50:00.000Z' }),
+        openMatch({ match_id: 'waiting', status: 'awaiting_court', start_at: '2026-09-03T17:00:00.000Z', end_at: '2026-09-03T18:30:00.000Z', seats_taken: 4, seats_left: 0, organiser: null }),
+      ]),
+    });
+    const group = within(screen.getByRole('list', { name: 'Open matches needing players' }));
+    const rows = group.getAllByRole('listitem');
+    // By start: the waiting match (20:00 in Baghdad) comes first.
+    expect(within(rows[0]!).getByText('Open match')).toBeTruthy();
+    expect(within(rows[0]!).getByText('Waiting for a court')).toBeTruthy();
+    // Waiting for a court: no Add player, only Open.
+    expect(within(rows[0]!).queryByRole('button', { name: /^Add player/ })).toBeNull();
+    const women = within(rows[1]!);
+    expect(women.getByText('Layla Hassan')).toBeTruthy();
+    expect(women.getByText('Women')).toBeTruthy();
+    expect(women.getByText('Players 3 of 4')).toBeTruthy();
+    expect(women.getByText('Requests 1')).toBeTruthy();
+    // Twenty minutes to the deadline by the server's clock.
+    expect(women.getByText('Closes 5:50 PM')).toBeTruthy();
+    expect(women.getByText('Ask to join')).toBeTruthy();
+    expect(women.getByText('Link only')).toBeTruthy();
+    expect(women.getByText('Last court free')).toBeTruthy();
+    await user.click(women.getByRole('button', { name: /^Add player/ }));
+    expect(cb.onAddPlayer).toHaveBeenCalledWith('women');
+    await user.click(women.getByRole('button', { name: /^Open / }));
+    expect(cb.onOpenMatch).toHaveBeenCalledWith('women');
+    await user.click(screen.getByRole('button', { name: 'Start an open match' }));
+    expect(cb.onStartMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('matches off with some still listed: the rows carry on, the line says so, and nothing new starts (R10)', () => {
+    renderView({ status: 'empty', runMatches: true, reachable: true, ...matchCallbacks(), openMatches: openRead([openMatch({ match_id: 'm1' })], { matches_enabled: false }) });
+    expect(screen.getByText('Open matches are switched off here. Matches already started carry on.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Start an open match' })).toBeNull();
+    // The desk can still add seats to a match that carries on.
+    expect(screen.getByRole('button', { name: /^Add player/ })).toBeTruthy();
+  });
+
+  it('matches on, none tonight: says so and offers Start', () => {
+    renderView({ status: 'empty', runMatches: true, reachable: true, ...matchCallbacks(), openMatches: openRead([]) });
+    expect(screen.getByText('No open matches tonight')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start an open match' })).toBeTruthy();
+  });
+
+  it('matches off and none listed: the group is hidden', () => {
+    renderView({ status: 'empty', runMatches: true, ...matchCallbacks(), openMatches: openRead([], { matches_enabled: false }) });
+    expect(screen.queryByText('Open matches needing players')).toBeNull();
+  });
+
+  it('a failed first read says it cannot show them, with Retry', async () => {
+    const user = userEvent.setup();
+    const cb = matchCallbacks();
+    renderView({ status: 'empty', runMatches: true, ...cb, openMatches: { kind: 'failed', error: new Error('offline') } });
+    expect(screen.getByText("Open matches can't be shown without a connection")).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(cb.onRetryOpenMatches).toHaveBeenCalledTimes(1);
+  });
+
+  it('a server without matches (RPC_MISSING): no group', () => {
+    renderView({ status: 'empty', runMatches: true, ...matchCallbacks(), openMatches: { kind: 'absent' } });
+    expect(screen.queryByText('Open matches needing players')).toBeNull();
+  });
+
+  it('offline: Start and Add player stay on screen, disabled, with the reason (DF-11)', () => {
+    renderView({ status: 'empty', runMatches: true, reachable: false, ...matchCallbacks(), openMatches: openRead([openMatch({ match_id: 'm1' })]) });
+    const start = screen.getByRole('button', { name: 'Start an open match' }) as HTMLButtonElement;
+    expect(start.disabled).toBe(true);
+    expect(start.title).toBe('Needs a connection: open matches work online only');
+    expect((screen.getByRole('button', { name: /^Add player/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a role that cannot run matches sees the rows but neither Start nor Add player', () => {
+    renderView({ status: 'empty', runMatches: false, reachable: true, ...matchCallbacks(), openMatches: openRead([openMatch({ match_id: 'm1' })]) });
+    expect(screen.getByText('Layla Hassan')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Start an open match' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Add player/ })).toBeNull();
+  });
+});
+
+describe('TodaysBoardView — a match booking (§5.9)', () => {
+  const matchRow = row({ id: 'mr', guest_id: null, guest_name: 'Open match', guest_phone: null, start_at: '2026-09-03T15:00:00.000Z', end_at: '2026-09-03T16:30:00.000Z' });
+
+  it('reads its organiser with the seat chip, and offers Players where others offer Mark arrived', async () => {
+    const user = userEvent.setup();
+    const props = renderView({
+      reservations: [matchRow, row({ id: 'walk', court_id: 'c2', guest_name: 'Nadia' })],
+      matchStates: { mr: matchState({ reservation_id: 'mr', open_seats: 1 }) },
+    });
+    const table = within(screen.getByRole('table', { name: 'All bookings today' }));
+    expect(table.getByText('Omar Saleh')).toBeTruthy();
+    expect(table.getByRole('img', { name: 'Open match · 3 of 4 players' })).toBeTruthy();
+    await user.click(table.getByRole('button', { name: 'Players Omar Saleh' }));
+    expect(props.onSelectReservation).toHaveBeenCalledWith('mr');
+    // The walk-in keeps Mark arrived; the match has none.
+    expect(table.getAllByRole('button', { name: 'Mark arrived' })).toHaveLength(1);
+    const arrivals = within(screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!);
+    expect(arrivals.getByRole('button', { name: 'Players Omar Saleh' })).toBeTruthy();
+    expect(props.onMarkArrived).not.toHaveBeenCalled();
+  });
+
+  it('without a state yet, reads "Open match" in the screen’s words and offers no Mark arrived', () => {
+    renderView({ reservations: [matchRow] });
+    const table = within(screen.getByRole('table', { name: 'All bookings today' }));
+    expect(table.getByText('Open match')).toBeTruthy();
+    expect(table.queryByRole('button', { name: 'Mark arrived' })).toBeNull();
+    expect(table.getByRole('button', { name: 'Players Open match' })).toBeTruthy();
+  });
+
+  it('once marking starts the chip counts who came; a played match still owing says how many players owe', () => {
+    renderView({
+      nowIso: '2026-09-03T17:00:00.000Z',
+      horizonIso: '2026-09-03T18:00:00.000Z',
+      reservations: [{ ...matchRow, status: 'arrived' }],
+      matchStates: { mr: matchState({ reservation_id: 'mr', seats_attended: 3, seats_no_show: 1, seats_unmarked: 0 }) },
+      billStates: statesById([billState({ reservation_id: 'mr', match_id: 'm-booked', seats_owing: 2, seats_paid: 1 })]),
+    });
+    const toSettle = within(screen.getByRole('heading', { name: 'Played, not paid' }).closest('section')!);
+    expect(toSettle.getByText('Omar Saleh')).toBeTruthy();
+    expect(toSettle.getByText('Players owing: 2')).toBeTruthy();
+    expect(screen.getAllByText('Here 3 · Missing 1').length).toBeGreaterThan(0);
   });
 });

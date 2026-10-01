@@ -2,7 +2,7 @@
 #
 # WHY THIS EXISTS
 #
-# This has already gone wrong once. `db-migrate.yml` skipped silently from day 1
+# This has already gone wrong once. The old db-migrate.yml skipped silently from day 1
 # for want of secrets, and the hosted database drifted EIGHT migrations behind
 # before anyone noticed (HANDOFF.md:544-545). Nothing was broken in a way anyone
 # could see — CI was green, the repo was at head, and every claim made about the
@@ -31,14 +31,16 @@ concurrency:
 # hosted project with its own secrets and writes nothing to the repository.
 permissions:
   contents: read
+  actions: read # the deploy-jam check reads this repository's workflow runs
 
 jobs:
   drift:
     name: hosted project vs migration head
     runs-on: ubuntu-latest
-    # Read-only against the hosted project, but it is still the client's live
-    # database — the same environment gate as the push job.
-    environment: staging
+    # No `environment:` on purpose (2026-10-01). The job only reads, its secrets
+    # are repository-level, and the `staging` environment is where deploys wait
+    # for a reviewer: under that gate this nightly check would itself sit
+    # waiting for an approval every night and never report anything.
     timeout-minutes: 15
 
     env:
@@ -104,7 +106,7 @@ jobs:
               echo '```'
               echo
               echo "Every green gate in CI describes a database the venue does not use."
-              echo "Run **DB Migrate (staging)** — outside service hours."
+              echo "Run **Deploy (hosted)** (deploy.yml) — outside service hours."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
@@ -124,9 +126,16 @@ jobs:
             exit 1
           }
           # `db diff` prints an informational line when there is nothing to do;
-          # treat only actual SQL as drift.
+          # treat only actual SQL as drift — after dropping the objects the
+          # Supabase platform creates itself (scripts/drift-filter.mjs keeps the
+          # list and the reasons; one of them kept this job red every night
+          # until 2026-10-01).
+          node scripts/drift-filter.mjs < /tmp/drift.sql > /tmp/drift.filtered.sql
+          mv /tmp/drift.filtered.sql /tmp/drift.sql
           if grep -qE '^\s*(create|alter|drop|comment)\b' -i /tmp/drift.sql; then
             echo "::error title=Schema drift detected::The hosted schema differs from the migration head."
+            # In the step log too, not only the job summary, so `gh run view --log` shows it.
+            cat /tmp/drift.sql
             {
               echo "### ❌ Schema drift"
               echo
@@ -141,3 +150,30 @@ jobs:
             exit 1
           fi
           echo "### ✅ No drift — hosted schema matches the migration head" >> "$GITHUB_STEP_SUMMARY"
+
+      # deploy.yml waits behind the `staging` environment gate. A run nobody
+      # approves holds the deploy concurrency group, and every later deploy
+      # waits behind it; that hid an 18-day stall in 2026-08/09 because nothing
+      # went red. A deploy waiting more than 12 hours is red here.
+      - name: No deploy stuck at the approval gate
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          stuck=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?status=waiting&per_page=20" \
+            --jq ".workflow_runs[] | select(.created_at < \"${cutoff}\") | \"\(.id) \(.created_at) \(.head_sha[0:8])\"")
+          if [ -n "${stuck}" ]; then
+            echo "::error title=Deploy stuck at the approval gate::${stuck}"
+            {
+              echo "### ❌ A deploy has waited for approval for more than 12 hours"
+              echo
+              echo '```'
+              echo "${stuck}"
+              echo '```'
+              echo "Approve it, or cancel it so the newest run (which plans from the current tree) can go."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "No deploy run has waited at the gate for more than 12 hours."

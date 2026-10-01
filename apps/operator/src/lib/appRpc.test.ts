@@ -77,3 +77,27 @@ describe('appRpc: manager-PIN pre-verification', () => {
     expect(rpc).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('toAppRpcError: a function the server does not have (operator.md §5.5)', () => {
+  it('mints RPC_MISSING from PostgREST PGRST202, whatever the message says', async () => {
+    const { toAppRpcError, isRpcMissing } = await import('./appRpc');
+    const err = toAppRpcError({
+      code: 'PGRST202',
+      message: 'Could not find the function app.desk_open_matches(p_from, p_to) in the schema cache',
+      hint: 'Perhaps you meant to call the function app.desk_match_states',
+      details: 'Searched for the function app.desk_open_matches with parameters p_from, p_to',
+    });
+    expect(err.code).toBe('RPC_MISSING');
+    expect(err.hint).toContain('Perhaps');
+    expect(isRpcMissing(err)).toBe(true);
+    // A raised code is still the code; a network failure is not a missing RPC.
+    expect(toAppRpcError({ code: 'P0001', message: 'MATCH_NOT_FOUND' }).code).toBe('MATCH_NOT_FOUND');
+    expect(isRpcMissing(toAppRpcError({ code: 'P0001', message: 'MATCH_NOT_FOUND' }))).toBe(false);
+    expect(isRpcMissing(new TypeError('Failed to fetch'))).toBe(false);
+  });
+
+  it('surfaces RPC_MISSING from a call the way every other refusal is thrown', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+    await expect(appRpc('match_settings', {})).rejects.toMatchObject({ code: 'RPC_MISSING' });
+  });
+});

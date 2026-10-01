@@ -139,8 +139,10 @@ Workflows live in `.github/workflows/`:
   an Electron ABI smoke on Windows, an Expo bundle check, a clean local Supabase run with
   migration, RLS, lock-order and concurrency tests, and the Playwright suite.
 - `db-drift.yml` diffs the hosted project against the migration head nightly (02:00 Baghdad).
-- `db-migrate.yml` pushes migrations to staging on `workflow_dispatch` or when a main push touches
-  `packages/db/supabase/migrations/**`, behind the `staging` GitHub Environment.
+- `deploy.yml` deploys to the hosted project (the client's production database) only after a CI
+  run on `main` concludes green, and deploys exactly the commit CI tested: `send-push`, then the
+  pending migrations, then every other edge function, then a check of each function's
+  `verify_jwt`. It runs behind the `staging` GitHub Environment and can also be dispatched by hand.
 - `operator-release.yml` builds and signs the Electron installer on `operator-v*` tags and publishes
   it to the public `KaguSoftware/touchpadel-releases` repo.
 

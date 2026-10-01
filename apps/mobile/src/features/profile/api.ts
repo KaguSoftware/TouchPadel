@@ -16,7 +16,19 @@ export interface ProfileRow {
   full_name: string;
   phone: string | null;
   preferred_lang: string;
+  /**
+   * The name in two parts (0256; docs/design/open-matches/guest.md §4.9). The
+   * server keeps `full_name` equal to them. Optional because the own profile
+   * is persisted: a row cached by an older build has neither, and reads as
+   * unknown until the refetch.
+   */
+  given_name?: string | null;
+  family_name?: string | null;
+  /** Asked once, at the first open match (OM-28); only the desk changes it. */
+  gender?: 'female' | 'male' | null;
 }
+
+const PROFILE_COLUMNS = 'id, full_name, phone, preferred_lang, given_name, family_name, gender';
 
 export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null> {
   const { data: userData } = await client.auth.getUser();
@@ -24,11 +36,16 @@ export async function fetchOwnProfile(client: Client): Promise<ProfileRow | null
   if (!uid) return null;
   const { data, error } = await client
     .from('profiles')
-    .select('id, full_name, phone, preferred_lang')
+    .select(PROFILE_COLUMNS)
     .eq('id', uid)
     .maybeSingle();
   if (error) throw error;
-  return data as ProfileRow | null;
+  if (!data) return null;
+  return {
+    ...data,
+    // The column is a CHECKed text; anything else reads as not set.
+    gender: data.gender === 'female' || data.gender === 'male' ? data.gender : null,
+  };
 }
 
 export async function updatePreferredLang(client: Client, uid: string, lang: Locale) {
@@ -71,11 +88,23 @@ export async function sendTestPush(client: Client): Promise<{ queued: boolean; i
   return data as { queued: boolean; id: number };
 }
 
-/** Own contact details (design 2026-08-31: Edit profile). RLS: own row only. */
+/**
+ * Own contact details (design 2026-08-31: Edit profile). RLS: own row only.
+ * A name goes as `given_name` and `family_name` (0256 grants the two columns):
+ * the server rebuilds `full_name` from them, so a screen never sends both.
+ * `full_name` alone is still accepted and split by the server (the Apple name
+ * patch, useSocialSignIn.ts).
+ */
 export async function updateOwnProfile(
   client: Client,
   uid: string,
-  fields: { full_name?: string; phone?: string | null; preferred_lang?: Locale },
+  fields: {
+    full_name?: string;
+    given_name?: string;
+    family_name?: string | null;
+    phone?: string | null;
+    preferred_lang?: Locale;
+  },
 ) {
   const { error } = await client.from('profiles').update(fields).eq('id', uid);
   if (error) throw error;

@@ -9,8 +9,16 @@
  *
  * The format is enforced by the profiles_terms_version_format CHECK; the test
  * beside this file keeps the two in step.
+ *
+ * 2026-09-29: online payment by Qi Card (court deposits and open-match
+ * tickets), open matches, what other players see, the gender asked once, and
+ * the conduct clause (docs/design/open-matches/guest.md §4.25, DF-17). It ships
+ * in the 1.0 commit with the legal catalogs; if that commit lands on a later
+ * day, move this and `legal.lastUpdated` to that day. Open matches then take
+ * the same value as `platform_settings.match_terms_version`, by a migration,
+ * only once a build carrying it is on phones.
  */
-export const CURRENT_TERMS_VERSION = '2026-09-23';
+export const CURRENT_TERMS_VERSION = '2026-09-29';
 
 /** The pattern 0153 accepts — `YYYY-MM-DD`, optionally `.N`. */
 export const TERMS_VERSION_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,3})?$/;

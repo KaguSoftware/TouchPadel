@@ -218,9 +218,22 @@ metadata rejection on apps like this one:
 - **No prices in the description.** Court rates are venue config, they change,
   and a listing change needs a review. The app shows live prices; the listing
   says "with its price".
-- **No "payment", "pay online", "checkout"** as a capability. The app takes no
-  money. Saying it does invites both a rejection and an IAP interrogation.
+- **Online payment is Qi Card, for court deposits and open-match tickets, for a
+  service used at the venue.** Say exactly that, or nothing. Never "in-app
+  purchase", "top-up", "credit" or "checkout": a listing that sounds like
+  digital goods invites both a rejection and an IAP interrogation.
 - **No other venues, no city-wide claims.** One venue. Saying otherwise makes it
   a marketplace, which is a different review conversation entirely.
-- **No unreleased features** — no leagues, no ranking, no matchmaking, no cafe
-  ordering, however certain they feel for phase 2.
+- **No unreleased features** — no leagues, no ranking, no **level-based**
+  matchmaking (OM-16), no cafe ordering, however certain they feel for phase 2.
+- **Open matches appear only in the listing of a binary that has them** (1.0
+  and later). The line, once they ship, EN and AR (**DRAFT-AR**; store
+  marketing copy, where the imperative is the listing's register):
+
+  ```
+  Open matches: start a game at any free time, or join one. Four players book the court together, and each pays their share at the desk.
+  ```
+
+  ```
+  المباريات المفتوحة: ابدأ مباراة في أي وقت متاح أو انضم إلى واحدة. يحجز أربعة لاعبين الملعب معًا، ويدفع كلٌّ حصته عند الاستقبال.
+  ```
