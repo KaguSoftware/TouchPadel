@@ -114,25 +114,24 @@ export function pinFormatOk(pin: string): boolean {
 }
 
 /**
- * The refusals this screen can explain in its own words. lib/errors.ts maps
- * neither (PIN_WEAK and PIN_FORMAT arrived with 0078; EMAIL_IN_USE and
- * ROLE_RETIRED are the staff-admin edge function's body codes), so without
- * this they read as "Something went wrong" and the owner retries the same PIN.
- * This build never offers prep, so ROLE_RETIRED only arrives if something
- * else sends it.
+ * The refusals this screen explains in its own words, by the code an RPC
+ * (PIN_WEAK, PIN_FORMAT and LAST_OWNER from set_staff_pin / set_staff_role;
+ * ROLE_RETIRED from set_staff_role, 0157) or the staff-admin edge function
+ * (EMAIL_IN_USE, ROLE_RETIRED on create) refused with. AppRpcError and
+ * EdgeError both carry the server's code as `code`. This build never offers
+ * prep, so ROLE_RETIRED only arrives if something else sends it.
  */
 export type StaffRefusal = 'pinWeak' | 'pinFormat' | 'emailInUse' | 'roleRetired' | 'lastOwner' | null;
 
+const STAFF_REFUSALS: ReadonlyMap<string, NonNullable<StaffRefusal>> = new Map([
+  ['PIN_WEAK', 'pinWeak'],
+  ['PIN_FORMAT', 'pinFormat'],
+  ['LAST_OWNER', 'lastOwner'],
+  ['ROLE_RETIRED', 'roleRetired'],
+  ['EMAIL_IN_USE', 'emailInUse'],
+] as const);
+
 export function staffRefusal(error: unknown): StaffRefusal {
-  if (error instanceof AppRpcError) {
-    if (error.code === 'PIN_WEAK') return 'pinWeak';
-    if (error.code === 'PIN_FORMAT') return 'pinFormat';
-    if (error.code === 'LAST_OWNER') return 'lastOwner';
-    // 0157: set_staff_role refuses a move onto prep, the same word the edge
-    // function uses on create.
-    if (error.code === 'ROLE_RETIRED') return 'roleRetired';
-  }
-  if (error instanceof EdgeError && error.detail === 'EMAIL_IN_USE') return 'emailInUse';
-  if (error instanceof EdgeError && error.detail === 'ROLE_RETIRED') return 'roleRetired';
-  return null;
+  if (!(error instanceof AppRpcError) && !(error instanceof EdgeError)) return null;
+  return STAFF_REFUSALS.get(error.code) ?? null;
 }

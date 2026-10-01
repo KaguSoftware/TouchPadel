@@ -1,355 +1,39 @@
 /**
- * Server error code -> i18n message key. Codes come from the migration SQL
- * (`raise exception 'CODE'`); anything unmapped falls back to errors.generic.
+ * Server error code -> i18n message key, for the staff app. The codes and
+ * their lines are the one error catalogue (`ERROR_CODE_KEYS` in
+ * packages/i18n/src/errors.ts), shared with the phone and the web, and the
+ * matching rule is its `errorMessageKey`; this file only says what the staff
+ * app adds: a fetch TypeError is the network line. The operator reads every
+ * code in the catalogue's own words (no overrides).
+ *
+ * A new code goes into the catalogue with its line in both catalogs;
+ * `check-error-codes` (root `pnpm security`) fails on a raised code it lacks.
  */
-import type { MessageKey } from '@touch/i18n';
-import { AppRpcError } from './appRpc';
-import { EdgeError } from './edge';
+import {
+  ERROR_CODE_KEYS,
+  errorMessageKey,
+  type ErrorKeyOptions,
+  type MessageKey,
+} from '@touch/i18n';
 
-/** Codes with a dedicated op.errors.* message (kept in BOTH catalogs). */
-export const MAPPED_CODES: ReadonlySet<string> = new Set([
-  'SLOT_TAKEN',
-  'DEGRADED_LOCKOUT',
-  'PIN_INVALID',
-  'PIN_LOCKED',
-  // Renderer-minted: leaving a locked station with your own manager PIN
-  // (Quit / Exit forced full screen, __root.tsx proveLeavePin).
-  'PIN_OWN',
-  // Renderer-minted: PostgREST PGRST202, an RPC this build calls that the
-  // server does not have yet (appRpc.ts toAppRpcError; open matches §5.5).
-  'RPC_MISSING',
-  // 0115: a money RPC reached without a fresh verify_manager_pin grant. appRpc
-  // verifies first, so a user sees this only after a very slow round trip.
-  'PIN_GRANT_REQUIRED',
-  // 0120: refunds and the other queued money corrections (item 9 / C3).
-  'REFUND_EXCEEDS_PAYMENT',
-  'PAYMENT_NOT_FOUND',
-  'ITEM_NOT_ON_TAB',
-  'IDEMPOTENCY_CONFLICT',
-  'FORBIDDEN',
-  'AUTH_REQUIRED',
-  'ALREADY_NOTIFIED',
-  'NO_OPEN_DAY',
-  'PREVIOUS_DAY_OPEN',
-  'DAY_OPEN_TABS',
-  'DAY_UNSYNCED',
-  'TAB_NOT_OPEN',
-  'TAB_NOT_FOUND',
-  'TAB_MERGED',
-  'TAB_NOT_EMPTY',
-  'TAB_DAY_MISMATCH',
-  'TENDER_SHORT',
-  'ALREADY_PAID',
-  // Renderer-minted: touch:resolve-queue-row refused (day-close dismiss).
-  'QUEUE_ROW_NOT_RESOLVABLE',
-  'INVALID_AMOUNT',
-  'ITEM_UNAVAILABLE',
-  'EMPTY_ORDER',
-  'MODIFIER_SELECTION',
-  'INVALID_TRANSITION',
-  'HOLD_EXPIRED',
-  'NO_RATE',
-  'CLOSED_DATE',
-  'OUTSIDE_HOURS',
-  'INVALID_TIME_RANGE',
-  'GUEST_REQUIRED',
-  'INVALID_RANGE',
-  'CANCELLATION_WINDOW',
-  // 0150: a move whose START would land before now. The desk no longer offers
-  // one, so this is the wall behind the wall (and the offline replay's answer).
-  'RESERVATION_IN_PAST',
-  'RESERVATION_NOT_FOUND',
-  'REASON_REQUIRED',
-  'INVALID_VALUE',
-  'INVALID_PRICES',
-  'INVALID_DAYS',
-  'INVALID_HOURS',
-  'INVALID_FLOAT',
-  'INVALID_COUNT',
-  'INVALID_PRICE',
-  'INVALID_QTY',
-  'CAFE_CLOSED',
-  'TICKET_NOT_FOUND',
-  'ITEM_NOT_FOUND',
-  'ITEM_VOIDED',
-  'INVALID_DURATION',
-  'SLOT_IN_PAST',
-  'COURT_NOT_FOUND',
-  'TABLE_NOT_FOUND',
-  'TAB_ANCHOR_REQUIRED',
-  'NOT_MOVABLE',
-  'NOT_EXTENDABLE',
-  'NOT_CANCELLABLE',
-  'INVALID_SPLIT_COUNT',
-  // Cafe rebuild (migrations 0027-0034).
-  'INVALID_HIGHLIGHT',
-  'HOOK_TOO_LONG',
-  'HOOK_PAIR_MISMATCH',
-  'PHOTO_BLUR_TOO_LONG',
-  'INVALID_SOLD_OUT',
-  'INVALID_PHOTO_PATH',
-  'INVALID_COST',
-  'CATEGORY_NOT_FOUND',
-  'VARIANT_NOT_FOUND',
-  'MODIFIER_INVALID',
-  'MODIFIER_NOT_FOUND',
-  'GROUP_NOT_FOUND',
-  'REVEAL_SELF',
-  'REVEAL_DEPTH',
-  'SELF_SUGGESTION',
-  'UNKNOWN_SETTING',
-  'INVALID_SETTING_VALUE',
-  'INVALID_PCT',
-  'TABLE_NUMBER_TAKEN',
-  'INVALID_TABLE_NUMBER',
-  'INVALID_COOLDOWN',
-  'BELL_DISABLED',
-  'CALL_COOLDOWN',
-  'CALL_NOT_FOUND',
-  'TOKEN_INVALID',
-  'TELEGRAM_NOT_CONFIGURED',
-  'OUTBOX_NOT_FOUND',
-  'INVALID_KIND',
-  'REF_NOT_FOUND',
-  'REF_REQUIRED',
-  'ACTOR_REQUIRED',
-  'INVALID_ACTION',
-  'VOID_REQUIRES_REFUND',
-  'INVALID_ARGUMENT',
-  'REJECTION_NOT_FOUND',
-  // Courts admin (0062) + delete (0074).
-  'INVALID_DURATIONS',
-  'COURT_HAS_FUTURE_RESERVATIONS',
-  'INVALID_ACTIVE_WINDOW',
-  // CourtsAdmin intercepts this via courtUsageFromError to show the counts and
-  // offer Deactivate, so this string is the net under that path, not the path.
-  'COURT_IN_USE',
-  'NAME_REQUIRED',
-  // Stock admin (0063) + counts (0019).
-  'UNIT_LOCKED',
-  'KIND_LOCKED',
-  'INVALID_YIELD',
-  'INVALID_WASTE_ALLOWANCE',
-  'INVALID_PACK',
-  'INGREDIENT_NOT_FOUND',
-  'INVALID_TARGET',
-  'RECIPE_CYCLE',
-  'COUNT_IN_PROGRESS',
-  'COUNT_NOT_FOUND',
-  'COUNT_FINALIZED',
-  'COUNT_LINE_NOT_FOUND',
-  'BATCH_NOT_FOUND',
-  'NOT_EXPIRED',
-  // Staff requests (0072).
-  'REQUEST_NOT_PENDING',
-  'CANNOT_DECIDE_OWN',
-  'REQUEST_ALREADY_PENDING',
-  'BAD_KIND',
-  'BAD_STATUS',
-  // Marketing (0073).
-  'BAD_TRANSITION',
-  'CAMPAIGN_LOCKED',
-  'BAD_CHANNEL',
-  'BAD_RULE',
-  'BODY_REQUIRED',
-  'START_REQUIRED',
-  'REQUEST_NOT_FOUND',
-  'CAMPAIGN_NOT_FOUND',
-  'AUDIENCE_NOT_FOUND',
-  // Staff breaks (0105).
-  'BREAK_ALREADY_OPEN',
-  'BREAK_ALLOWANCE_USED',
-  'BREAK_NOT_OPEN',
-  'COVER_NOT_ALLOWED',
-  'INVALID_STATION',
-  'NO_PIN_SET',
-  // 0125/0130 (multi-venue slice 1) — the venue could not be resolved for this
-  // write, and a station beat in that could not be filed to any venue. Both are
-  // unreachable on a one-venue project; the mapping lands with the migration so
-  // the first two-venue day is not the day the operator shows errors.generic.
-  'VENUE_REQUIRED',
-  'STATION_UNKNOWN',
-  // Multi-venue slices 2–3 (0212, 0217): a row of another branch, and a
-  // chain-wide promotion that names one branch's courts, categories or items.
-  'VENUE_MISMATCH',
-  'PROMOTION_SCOPE_BRANCH',
-  // 0218: the owner's branch assignment for a staff member.
-  'STAFF_VENUE_REQUIRED',
-  'STAFF_NOT_FOUND',
-  'VENUE_NOT_FOUND',
-  // 0222–0223: stations and "Open a new branch".
-  'STATION_OTHER_BRANCH',
-  'SLUG_TAKEN',
-  'BRANCH_NOT_READY',
-  'LAST_OPEN_BRANCH',
-  'BRANCH_DAY_OPEN',
-  // 0229, 0233 (multi-venue audit): stations on purpose, and the branch lifecycle.
-  'STATION_RETIRED',
-  'STATION_HAS_HISTORY',
-  'BRANCH_HAS_BOOKINGS',
-  'VENUE_CLOSED',
-  // Open matches (docs/design/open-matches/operator.md §5.20), each code with
-  // the migration that first raises it (R11, R28); the copy is in
-  // opErrors.matches.*.ts. 0259: the record's Tickets panel and cash-out.
-  'TICKET_IN_USE',
-  'NO_UNUSED_TICKETS',
-  'CUSTOMER_NOT_FOUND',
-  // 0262: the desk's open-match RPCs, seat money and the DF-16 wall.
-  'MATCHES_OFF',
-  'MATCH_NOT_FOUND',
-  'MATCH_NOT_FILLING',
-  'MATCH_NOT_BOOKED',
-  'MATCH_NOT_STARTED',
-  'MATCH_FULL',
-  'MATCH_TOO_LATE',
-  'MATCH_SLOT_FULL',
-  'MATCH_GENDER_MISMATCH',
-  'MATCH_SEAT_LIMIT',
-  'MATCH_BANNED',
-  'MATCH_MARK_SEATS',
-  'MATCH_ALREADY_IN',
-  'MATCH_BOOKING_NO_CAFE',
-  'SEAT_NOT_FOUND',
-  'SEAT_NOT_STARTED',
-  'SEAT_MARK_LOCKED',
-  'SEAT_OWED_CHANGED',
-  'NOTHING_OWED',
-  'PAYMENT_NOT_ON_MATCH',
-  'AMOUNT_OVER_SEAT',
-  'PAYMENT_OVER_ALLOCATED',
-  'REPORT_NOT_FOUND',
-  'REPORT_CLOSED',
-  // Desk payment (0106).
-  'BOOKING_TAB_OPEN',
-  'BOOKING_TAB_DONOR',
-  'RESERVATION_NOT_LIVE',
-  'TOTAL_CHANGED',
-  'NOT_ZERO',
-  'REFUND_DUE',
-  'TAB_EMPTY',
-  // Touch Shop (0145/0146).
-  'CATEGORY_NOT_EMPTY',
-  'NOT_SHOP_CATEGORY',
-  'BARCODE_TAKEN',
-  'SKU_TAKEN',
-  'SUPPLIER_EXISTS',
-  'SUPPLIER_NOT_FOUND',
-  'LABEL_REQUIRED',
-  'MIXED_BASKET',
-  'SHOP_ITEM_NOT_ORDERABLE',
-  // 0244/0246: Touch Shop is its own desk (tab kind decides who works it).
-  'TAB_KIND_FORBIDDEN',
-  'TAB_KIND_MISMATCH',
-  'SHOP_TAB_NO_ANCHOR',
-  'DAY_NOT_FOUND',
-  // Protocols and the staff phone (build-contracts-2026-09-23).
-  // Strings in catalogs/opErrors.protocols.*.ts; the phone maps the same codes
-  // (CODE_TO_KEY in apps/mobile) except the four menu and price writer codes.
-  'PROTOCOL_NOT_FOUND',
-  'PROTOCOL_NOT_READY',
-  'PROTOCOL_CLOSED',
-  'STEP_NOT_OPEN',
-  'STEP_CLOSED',
-  'STEP_NOT_OPTIONAL',
-  'NOT_STEP_ACTOR',
-  'NOT_DECIDER',
-  'SUBMISSION_DECIDED',
-  'SEND_BACK_TARGET_INVALID',
-  'RECORD_INVALID',
-  'TEXT_BOTH_LANGUAGES_REQUIRED',
-  'TEXT_REQUIRED',
-  'TEXT_TOO_LONG',
-  'TEMPLATE_CHANGED',
-  'PROTOCOL_ORDER_INVALID',
-  'PROTOCOL_STEP_FIXED',
-  'LIST_TOO_LONG',
-  'INVALID_ROLE',
-  'PHOTO_PATH_INVALID',
-  'UPLOAD_LIMIT',
-  'PRICE_TARGET_CHANGED',
-  'RELEASE_NOT_READY',
-  'NOTE_WINDOW_CLOSED',
-  'SPONSOR_DETAILS_REQUIRED',
-  'CANDIDATE_NOT_FOUND',
-  'HIRE_ROLE_MISMATCH',
-  'CHECKLIST_NOT_FOUND',
-  'SHOPPING_ITEM_NOT_OPEN',
-  'PURCHASE_NOT_FOUND',
-  'PURCHASE_ALREADY_RECEIVED',
-  // 0237: Goods in's scanned receipts.
-  'RECEIPT_NOT_FOUND',
-  'RECEIPT_ALREADY_DONE',
-  'RECEIPT_BUSY',
-  // 0239: the till's scanned orders.
-  'SLIP_NOT_FOUND',
-  'SLIP_ALREADY_DONE',
-  'SLIP_BUSY',
-  // 0240: the scan hardening, and the till's and Goods in's own refusals the scan screens reach.
-  'SCAN_REREAD_LIMIT',
-  'SCAN_USER_DAILY_LIMIT',
-  'READING_SUPERSEDED',
-  'TAB_AMBIGUOUS',
-  'DAY_CLOSED',
-  'EMPTY_DELIVERY',
-  'INVALID_LINE',
-  'SHOPPING_LABEL_REQUIRED',
-  'CAMPAIGN_DRAFT_LOCKED',
-  'BLOCK_RANGE_INVALID',
-  // The menu and price writers' refusals: upsert_menu_item, upsert_variant,
-  // upsert_modifier, the promotion and rate writers, set_cafe_setting.
-  'ITEM_IN_RELEASE',
-  'PRICE_VIA_PROTOCOL',
-  'ITEM_VIA_RELEASE',
-  'LAUNCH_VIA_PROTOCOL',
-  // Existing codes keyed for the first time. The Staff page keeps its own
-  // words for ROLE_RETIRED and EMAIL_IN_USE (staffModel.ts staffRefusal).
-  'NOT_PREPARED',
-  'NO_RECIPE',
-  'ROLE_RETIRED',
-  'PROMOTION_NOT_FOUND',
-  'INVALID_WEEKDAYS',
-  'CODE_TAKEN',
-  'EMAIL_IN_USE',
-  // Role spec (lane J): decide_recipe_change's approve, both maps.
-  'RECIPE_CHANGED',
-  // Wave 5 (wave5-addendum-2026-09-25 §3). Strings in catalogs/opErrors.protocols.*.ts.
-  // The stores (both maps): transfer_stock, and receive_delivery_internal, which
-  // Goods in, the driver receipt and log_stock reach.
-  'TRANSFER_SHORT',
-  'STORE_BEING_COUNTED',
-  // Till shifts (operator only: the phone never calls a till-shift RPC, M7).
-  'TILL_SHIFT_ALREADY_OPEN',
-  'TILL_SHIFT_STATION_BUSY',
-  'TILL_SHIFT_NOT_FOUND',
-  'TILL_SHIFT_CLOSED',
-  'TILL_SHIFT_NOT_YOURS',
-  'TILL_SHIFT_WRONG_STATION',
-  'TILL_SHIFT_UNSYNCED',
-  // Online deposits (build-contracts-2026-09-27 §2.5). PAYMENT_NOT_FOUND is
-  // mapped above with the till refunds and says the same thing here.
-  'PAYMENT_STATE',
-  'REFUND_TOO_LARGE',
-  // The hold ladder (0252): a standing decided or gone while the list was open.
-  'HOLD_STANDING_NOT_FOUND',
-  // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
-  'EDGE_NOT_CONFIGURED',
-  'EDGE_FORBIDDEN',
-  'EDGE_AUTH_REQUIRED',
-  'EDGE_UPSTREAM',
-  'EDGE_RATE_LIMITED',
-  'EDGE_UNKNOWN',
-]);
+/** Every code the catalogue words (kept for call sites that test membership). */
+export const MAPPED_CODES: ReadonlySet<string> = new Set(Object.keys(ERROR_CODE_KEYS));
 
-/** Map a raw server code to a message key. */
+const OPERATOR: ErrorKeyOptions = {
+  // A fetch that never got an answer (offline, DNS, CORS) rejects with a TypeError.
+  isTransport: (error) => error instanceof TypeError,
+};
+
+/** Map a raw server code (a queued write's refusal, a reported code) to a message key. */
 export function errorCodeToMessageKey(code: string): MessageKey {
-  if (MAPPED_CODES.has(code)) return `op.errors.${code}` as MessageKey;
-  return 'errors.generic';
+  return errorMessageKey({ code }, OPERATOR);
 }
 
-/** Map any thrown value (AppRpcError, EdgeError, network failure, …) to a message key. */
+/**
+ * Map any thrown value to a message key: an AppRpcError by its code (or its
+ * SQLSTATE), an EdgeError by its code (the server's, or EDGE_<class>), a
+ * fetch failure as the network line.
+ */
 export function errorToMessageKey(error: unknown): MessageKey {
-  if (error instanceof AppRpcError) return errorCodeToMessageKey(error.code);
-  if (error instanceof EdgeError) return errorCodeToMessageKey(`EDGE_${error.code}`);
-  if (error instanceof TypeError) return 'errors.network'; // fetch failure
-  return 'errors.generic';
+  return errorMessageKey(error, OPERATOR);
 }

@@ -22,3 +22,13 @@ export { pluralForm, countPhrase, PLURAL_FORMS } from './plural';
 export type { PluralForm, CountKey } from './plural';
 export { isRtl, dir, oppositeDir, logicalSign } from './rtl';
 export type { Direction } from './rtl';
+export {
+  ERROR_CODE_KEYS,
+  SQLSTATE_KEYS,
+  GENERIC_BY_DECISION,
+  isErrorCode,
+  errorCode,
+  sqlStateMessageKey,
+  errorMessageKey,
+} from './errors';
+export type { ErrorCode, ErrorOverrides, ErrorKeyOptions } from './errors';

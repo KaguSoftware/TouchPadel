@@ -176,9 +176,9 @@ export function applyEvent(turn: LiveTurn, name: string, data: unknown): LiveTur
 export function errorCodeOf(err: unknown): AssistantErrorCode {
   if (err instanceof EdgeError) {
     // The JSON refusal's own code (LLM_MONTHLY_CAP …) beats the HTTP class.
-    const detail = asAssistantErrorCode(err.detail);
-    if (detail !== 'UNKNOWN') return detail;
-    return asAssistantErrorCode(err.code);
+    const fromBody = asAssistantErrorCode(err.serverCode);
+    if (fromBody !== 'UNKNOWN') return fromBody;
+    return asAssistantErrorCode(err.kind);
   }
   return 'UNKNOWN';
 }

@@ -1,38 +1,35 @@
 /**
- * RPC error -> i18n message-key mapping. PURE (no RN / supabase imports) so it
- * is unit-tested under plain node.
+ * RPC error -> i18n message-key mapping for the phone. PURE (no RN / supabase
+ * imports) so it is unit-tested under plain node.
  *
- * The app.* RPCs raise `raise exception 'CODE'` (errcode P0001); PostgREST
- * surfaces CODE as the error message. Source of truth for codes: migrations
- * 0008 (reservations), 0021 (degraded re-issue of confirm_booking).
+ * The codes, their lines and the matching rule are the one error catalogue
+ * (`ERROR_CODE_KEYS` and `errorMessageKey` in packages/i18n/src/errors.ts),
+ * shared with the operator and the web: exact code, then a code word inside a
+ * longer message (GoTrue and edge wrappers), then the SQLSTATE of a native
+ * Postgres error, then the network line for a transport failure, else the
+ * generic line. This file keeps only what the phone says differently.
+ *
+ * A new code goes into the catalogue with its line in both catalogs;
+ * `check-error-codes` (root `pnpm security`) fails on a raised code it lacks.
  */
-import type { MessageKey } from '@touch/i18n';
-import { errorMessageOf, isTransportError } from '../../lib/network';
+import {
+  errorCode,
+  errorMessageKey,
+  type ErrorCode,
+  type ErrorOverrides,
+  type MessageKey,
+} from '@touch/i18n';
+import { isTransportError } from '../../lib/network';
 
-const CODE_TO_KEY = {
+/** The phone's own words where the catalogue's (the staff line) would be wrong for a guest or a staff-phone screen. */
+const MOBILE_OVERRIDES = {
+  // The guest's booking lines (booking.*, degraded.*).
   SLOT_TAKEN: 'booking.slotTaken',
-  // 0026 wired app.assert_bookable into hold_slot ahead of every other gate, but
-  // neither client ever mapped its two codes — both rendered 'Something went
-  // wrong', which is the opposite of what SOW L319 (opening hours / closed days)
-  // asks the guest to be told.
+  // 0026 wired app.assert_bookable into hold_slot ahead of every other gate:
+  // what SOW L319 (opening hours / closed days) asks the guest to be told.
   CLOSED_DATE: 'booking.closedDate',
   OUTSIDE_HOURS: 'booking.outsideHours',
   HOLD_EXPIRED: 'booking.holdExpired',
-  HOLD_NOT_FOUND: 'errors.notFound',
-  // 0048/C1 + 0058. These three were raised by app.hold_slot from the day it
-  // was hardened and mapped by nobody, so the phone showed "Something went
-  // wrong" for three refusals the guest can actually act on — the hold cap in
-  // particular, which is what a guest hits after backing out of Review a few
-  // times. NOT_A_HOLD comes from app.release_hold.
-  HOLD_QUOTA_EXCEEDED: 'booking.holdQuota',
-  BEYOND_HORIZON: 'booking.beyondHorizon',
-  ACCOUNT_REQUIRED: 'booking.accountRequired',
-  NOT_A_HOLD: 'booking.notAHold',
-  // 0252, the hold ladder: a guest whose holds keep lapsing waits, then is
-  // suspended. The owner chose no message of its own for either (2026-09-27),
-  // so both read as the generic line.
-  HOLD_COOLDOWN: 'errors.generic',
-  BOOKING_SUSPENDED: 'errors.generic',
   RESERVATION_NOT_FOUND: 'errors.notFound',
   COURT_NOT_FOUND: 'errors.notFound',
   DEGRADED_LOCKOUT: 'degraded.bookingRefusedShort',
@@ -41,130 +38,23 @@ const CODE_TO_KEY = {
   INVALID_DURATION: 'errors.validation',
   INVALID_RANGE: 'errors.validation',
   GUEST_REQUIRED: 'errors.validation',
-  // 0059: confirm_booking refuses a guest whose profile has no phone (spec 05.3).
-  // Review routes this code to the complete-profile screen; the text is the backstop.
-  PHONE_REQUIRED: 'auth.profileIncompleteNotice',
   SLOT_IN_PAST: 'booking.slotInPast',
   NO_RATE: 'booking.noRate',
-  // 0117 (C5): the hold carries the quoted price; a rule edited underneath it
-  // refuses the confirm instead of charging an amount the guest never saw.
-  PRICE_CHANGED: 'booking.priceChanged',
   AUTH_REQUIRED: 'auth.sessionExpired',
   FORBIDDEN: 'errors.forbidden',
   PIN_INVALID: 'auth.pinInvalid',
   PIN_LOCKED: 'errors.tooManyRequests',
-  // Protocols and the staff phone (build-contracts-2026-09-23 §3). The staff
-  // pages read the operator's op.errors.* strings, so a message is written once
-  // for both apps (catalogs/opErrors.protocols.*.ts). The four menu and price
-  // writer codes are not here: the phone never calls those writers.
-  PROTOCOL_NOT_FOUND: 'op.errors.PROTOCOL_NOT_FOUND',
-  PROTOCOL_NOT_READY: 'op.errors.PROTOCOL_NOT_READY',
-  PROTOCOL_CLOSED: 'op.errors.PROTOCOL_CLOSED',
-  STEP_NOT_OPEN: 'op.errors.STEP_NOT_OPEN',
-  STEP_CLOSED: 'op.errors.STEP_CLOSED',
-  STEP_NOT_OPTIONAL: 'op.errors.STEP_NOT_OPTIONAL',
-  NOT_STEP_ACTOR: 'op.errors.NOT_STEP_ACTOR',
-  NOT_DECIDER: 'op.errors.NOT_DECIDER',
-  SUBMISSION_DECIDED: 'op.errors.SUBMISSION_DECIDED',
-  SEND_BACK_TARGET_INVALID: 'op.errors.SEND_BACK_TARGET_INVALID',
-  RECORD_INVALID: 'op.errors.RECORD_INVALID',
-  TEXT_BOTH_LANGUAGES_REQUIRED: 'op.errors.TEXT_BOTH_LANGUAGES_REQUIRED',
-  TEXT_REQUIRED: 'op.errors.TEXT_REQUIRED',
-  TEXT_TOO_LONG: 'op.errors.TEXT_TOO_LONG',
-  TEMPLATE_CHANGED: 'op.errors.TEMPLATE_CHANGED',
-  PROTOCOL_ORDER_INVALID: 'op.errors.PROTOCOL_ORDER_INVALID',
-  PROTOCOL_STEP_FIXED: 'op.errors.PROTOCOL_STEP_FIXED',
-  LIST_TOO_LONG: 'op.errors.LIST_TOO_LONG',
-  INVALID_ROLE: 'op.errors.INVALID_ROLE',
-  PHOTO_PATH_INVALID: 'op.errors.PHOTO_PATH_INVALID',
-  UPLOAD_LIMIT: 'op.errors.UPLOAD_LIMIT',
-  PRICE_TARGET_CHANGED: 'op.errors.PRICE_TARGET_CHANGED',
-  RELEASE_NOT_READY: 'op.errors.RELEASE_NOT_READY',
-  NOTE_WINDOW_CLOSED: 'op.errors.NOTE_WINDOW_CLOSED',
-  SPONSOR_DETAILS_REQUIRED: 'op.errors.SPONSOR_DETAILS_REQUIRED',
-  CANDIDATE_NOT_FOUND: 'op.errors.CANDIDATE_NOT_FOUND',
-  HIRE_ROLE_MISMATCH: 'op.errors.HIRE_ROLE_MISMATCH',
-  CHECKLIST_NOT_FOUND: 'op.errors.CHECKLIST_NOT_FOUND',
-  SHOPPING_ITEM_NOT_OPEN: 'op.errors.SHOPPING_ITEM_NOT_OPEN',
-  PURCHASE_NOT_FOUND: 'op.errors.PURCHASE_NOT_FOUND',
-  // Phase 2 Milestone 4b: scanned receipts and order slips.
-  RECEIPT_NOT_FOUND: 'op.errors.RECEIPT_NOT_FOUND',
-  RECEIPT_ALREADY_DONE: 'op.errors.RECEIPT_ALREADY_DONE',
-  RECEIPT_BUSY: 'op.errors.RECEIPT_BUSY',
-  SLIP_NOT_FOUND: 'op.errors.SLIP_NOT_FOUND',
-  SLIP_ALREADY_DONE: 'op.errors.SLIP_ALREADY_DONE',
-  SLIP_BUSY: 'op.errors.SLIP_BUSY',
-  PURCHASE_ALREADY_RECEIVED: 'op.errors.PURCHASE_ALREADY_RECEIVED',
-  SHOPPING_LABEL_REQUIRED: 'op.errors.SHOPPING_LABEL_REQUIRED',
-  CAMPAIGN_DRAFT_LOCKED: 'op.errors.CAMPAIGN_DRAFT_LOCKED',
-  BLOCK_RANGE_INVALID: 'op.errors.BLOCK_RANGE_INVALID',
-  // Existing codes keyed for the first time.
-  NOT_PREPARED: 'op.errors.NOT_PREPARED',
-  NO_RECIPE: 'op.errors.NO_RECIPE',
-  ROLE_RETIRED: 'op.errors.ROLE_RETIRED',
-  PROMOTION_NOT_FOUND: 'op.errors.PROMOTION_NOT_FOUND',
-  INVALID_WEEKDAYS: 'op.errors.INVALID_WEEKDAYS',
-  CODE_TAKEN: 'op.errors.CODE_TAKEN',
-  // staff-admin's body code, for the add-staff form.
-  EMAIL_IN_USE: 'op.errors.EMAIL_IN_USE',
-  // Existing codes the staff pages can meet, on their existing operator
-  // strings. hold_slot and confirm_booking also raise INVALID_ARGUMENT and
-  // IDEMPOTENCY_CONFLICT, so a guest now reads these two instead of
-  // errors.generic; IDEMPOTENCY_CONFLICT was reworded to name no screen.
-  INVALID_TRANSITION: 'op.errors.INVALID_TRANSITION',
-  REASON_REQUIRED: 'op.errors.REASON_REQUIRED',
-  CANNOT_DECIDE_OWN: 'op.errors.CANNOT_DECIDE_OWN',
-  IDEMPOTENCY_CONFLICT: 'op.errors.IDEMPOTENCY_CONFLICT',
-  VENUE_REQUIRED: 'op.errors.VENUE_REQUIRED',
-  VENUE_MISMATCH: 'op.errors.VENUE_MISMATCH',
-  INVALID_QTY: 'op.errors.INVALID_QTY',
-  INVALID_PRICE: 'op.errors.INVALID_PRICE',
-  INVALID_AMOUNT: 'op.errors.INVALID_AMOUNT',
-  INVALID_ARGUMENT: 'op.errors.INVALID_ARGUMENT',
-  INVALID_VALUE: 'op.errors.INVALID_VALUE',
-  INGREDIENT_NOT_FOUND: 'op.errors.INGREDIENT_NOT_FOUND',
-  VARIANT_NOT_FOUND: 'op.errors.VARIANT_NOT_FOUND',
-  CATEGORY_NOT_FOUND: 'op.errors.CATEGORY_NOT_FOUND',
-  CAMPAIGN_NOT_FOUND: 'op.errors.CAMPAIGN_NOT_FOUND',
-  BAD_CHANNEL: 'op.errors.BAD_CHANNEL',
-  REQUEST_ALREADY_PENDING: 'op.errors.REQUEST_ALREADY_PENDING',
-  REQUEST_NOT_PENDING: 'op.errors.REQUEST_NOT_PENDING',
+  ITEM_NOT_FOUND: 'errors.notFound',
   // R6 (open matches): a staff request and a match request both raise it, so
   // the phone reads one neutral line for either.
   REQUEST_NOT_FOUND: 'errors.requestGone',
-  BAD_KIND: 'op.errors.BAD_KIND',
-  REF_NOT_FOUND: 'op.errors.REF_NOT_FOUND',
-  NAME_REQUIRED: 'op.errors.NAME_REQUIRED',
-  ITEM_NOT_FOUND: 'errors.notFound',
-  // Role spec (lane J, recipe_change_requests): the owner's approve on the
-  // phone, and set_recipe's cycle check it runs.
-  RECIPE_CHANGED: 'op.errors.RECIPE_CHANGED',
-  RECIPE_CYCLE: 'op.errors.RECIPE_CYCLE',
-  // Wave 5 (wave5-addendum-2026-09-25 §3, §5.3). Moving stock (transfer_stock) and
-  // adding to it (log_stock). The till-shift codes stay operator only (M7).
-  TRANSFER_SHORT: 'op.errors.TRANSFER_SHORT',
-  STORE_BEING_COUNTED: 'op.errors.STORE_BEING_COUNTED',
   // submit_stock_count. op.errors.COUNT_IN_PROGRESS says "finalize it first",
   // which only a manager on the operator can do, so the phone says its own (V11).
   COUNT_IN_PROGRESS: 'staff.stores.countWaiting',
-  // ack_waiter_call and resolve_waiter_call (0194, §2.1.8): the waiter answers
-  // guests' calls on the phone, and a call at another venue or one that is gone
-  // is CALL_NOT_FOUND. The operator already maps it.
-  CALL_NOT_FOUND: 'op.errors.CALL_NOT_FOUND',
-  // The online deposit (build-contracts-2026-09-27 §2.5). The first four are
-  // raised by SQL; PROVIDER_UNAVAILABLE only ever comes from the deposit-begin
-  // edge function's body, and reaches here as a DepositEdgeError whose message
-  // is the code. Review and the payment screen act on several of these
-  // (DEPOSIT_REQUIRED refreshes the quote, DEPOSITS_OFF falls back to Confirm);
-  // the text is what the guest reads either way.
-  DEPOSITS_OFF: 'deposit.errors.depositsOff',
-  DEPOSIT_REQUIRED: 'deposit.errors.depositRequired',
-  TOO_MANY_ATTEMPTS: 'deposit.errors.tooManyAttempts',
+  // The online deposit (build-contracts-2026-09-27 §2.5): the guest's payment.
   PAYMENT_NOT_FOUND: 'deposit.errors.paymentNotFound',
-  PROVIDER_UNAVAILABLE: 'deposit.errors.providerUnavailable',
   // R6: the payment edge functions answer a retryable database error with
-  // RETRY_LATER (edge only, never raised by SQL); the guest reads it as the
-  // provider being briefly unavailable.
+  // RETRY_LATER; the guest reads it as the provider being briefly unavailable.
   RETRY_LATER: 'deposit.errors.providerUnavailable',
   // Place an order (0251): place_floor_order and the till's own line checks it
   // runs. A tab the till closed, merged or never had reads as "pick another",
@@ -174,81 +64,29 @@ const CODE_TO_KEY = {
   TAB_NOT_OPEN: 'staff.floor.menu.tabGone',
   TAB_NOT_FOUND: 'staff.floor.menu.tabGone',
   TAB_MERGED: 'staff.floor.menu.tabGone',
-  TABLE_NOT_FOUND: 'op.errors.TABLE_NOT_FOUND',
   EMPTY_ORDER: 'staff.floor.review.issues.empty',
-  ITEM_UNAVAILABLE: 'op.errors.ITEM_UNAVAILABLE',
-  MODIFIER_SELECTION: 'op.errors.MODIFIER_SELECTION',
-  MODIFIER_INVALID: 'op.errors.MODIFIER_INVALID',
-  TAB_KIND_MISMATCH: 'op.errors.TAB_KIND_MISMATCH',
-  // R6: send_test_push's limit (0070) and any other rate-limited call; the
-  // Settings screen keeps its own wording for the test push.
-  RATE_LIMITED: 'errors.tooManyRequests',
-  // Open matches (docs/design/open-matches/guest.md §4.22): each commit adds
-  // the codes its SQL raises. 0256: app.set_my_gender.
-  GENDER_ALREADY_SET: 'matches.errors.genderAlreadySet',
-  // 0259: buying tickets (edge ticket-begin -> app.ticket_payment_prepare). The
-  // detail wallet_limit of TICKET_COUNT_INVALID has its own line
-  // (matches.errors.walletLimit), which the tickets screen picks from the detail.
-  TICKET_COUNT_INVALID: 'matches.errors.ticketCountInvalid',
+  // Open matches (docs/design/open-matches/guest.md §4.22): the guest's lines
+  // for the codes the desk also meets (the desk reads op.errors.*). Exact codes
+  // match first, so MATCH_FULL never shadows MATCH_SLOT_FULL.
   MATCHES_OFF: 'matches.errors.off',
-  TERMS_REQUIRED: 'matches.errors.termsRequired',
   MATCH_BANNED: 'matches.errors.banned',
-  // 0260: the match core. GENDER_REQUIRED is app.match_guest's (the phone
-  // asks inline, DF-10); MATCH_NOT_FOUND app.match_lock's; NEED_TICKETS
-  // app.ticket_pick's, whose detail {needed, available, buy} has its own line
-  // (matches.errors.needTicketsCount) for the screen that reads the detail.
-  GENDER_REQUIRED: 'matches.errors.genderRequired',
   MATCH_NOT_FOUND: 'matches.errors.notFound',
-  NEED_TICKETS: 'matches.errors.needTickets',
-  // 0261: the guest's open-match calls (start, join, request, decide, leave,
-  // remove, cancel, message, report, block). MATCH_TOO_LATE's detail (the
-  // minutes of notice) has its own line (matches.errors.tooLateAt) for the
-  // screen that reads it; MATCH_FULL never shadows MATCH_SLOT_FULL (exact
-  // codes match first).
-  MATCH_CLOSED: 'matches.errors.closed',
   MATCH_FULL: 'matches.errors.full',
   MATCH_SLOT_FULL: 'matches.errors.slotFull',
+  // The detail (minutes of notice) has its own line, matches.errors.tooLateAt,
+  // for the screen that reads it.
   MATCH_TOO_LATE: 'matches.errors.tooLate',
-  MATCH_LIMIT_REACHED: 'matches.errors.limitReached',
   MATCH_SEAT_LIMIT: 'matches.errors.seatLimit',
-  MATCH_APPROVAL_REQUIRED: 'matches.errors.approvalRequired',
-  MATCH_NOT_APPROVAL: 'matches.errors.notApproval',
   MATCH_ALREADY_IN: 'matches.errors.alreadyIn',
   MATCH_GENDER_MISMATCH: 'matches.errors.genderMismatch',
-  MATCH_UNAVAILABLE: 'matches.errors.unavailable',
-  MATCH_TIME_CLASH: 'matches.errors.timeClash',
-  MATCH_BOOKED: 'matches.errors.booked',
-  NOT_ORGANISER: 'matches.errors.notOrganiser',
-  REQUEST_CLOSED: 'matches.errors.requestClosed',
-  REQUESTER_INELIGIBLE: 'matches.errors.requesterIneligible',
-  REQUEST_LIMIT: 'matches.errors.requestLimit',
   SEAT_NOT_FOUND: 'matches.errors.seatNotFound',
-  SEAT_HOLDER_REQUIRED: 'matches.errors.seatHolderRequired',
-  SEAT_STARTED: 'matches.errors.seatStarted',
-  REPORT_TARGET_INVALID: 'matches.errors.reportTargetInvalid',
-  BLOCK_TARGET_INVALID: 'matches.errors.blockTargetInvalid',
-} as const satisfies Record<string, MessageKey>;
+} as const satisfies ErrorOverrides;
 
-export type RpcErrorCode = keyof typeof CODE_TO_KEY;
+export type RpcErrorCode = ErrorCode;
 
-/**
- * Codes longest-first, so a code that is a substring of another can never win
- * by accident. Previously this iterated in object-literal order, which meant
- * the mapping silently depended on how the keys happened to be typed.
- */
-const CODES_BY_LENGTH = (Object.keys(CODE_TO_KEY) as RpcErrorCode[]).sort(
-  (a, b) => b.length - a.length,
-);
-
-/** Extract a known RPC error code from a raw error message, or null. */
+/** Extract a known error code from a raw error message (exact, then a code word inside it), or null. */
 export function rpcErrorCode(message: string | null | undefined): RpcErrorCode | null {
-  if (!message) return null;
-  const trimmed = message.trim();
-  // Exact match first — the common case, and immune to substring collisions.
-  for (const code of CODES_BY_LENGTH) if (trimmed === code) return code;
-  // Then embedded ("... raised SLOT_TAKEN ..."), longest code wins.
-  for (const code of CODES_BY_LENGTH) if (trimmed.includes(code)) return code;
-  return null;
+  return errorCode(message);
 }
 
 /**
@@ -270,18 +108,16 @@ export function isDegradedRefusal(message: string | null | undefined): boolean {
 }
 
 /**
- * Map any thrown error (RPC failure, network failure) to an i18n key.
- * Degraded refusals map to the SHORT variant; screens that know the venue
+ * Map any thrown error (RPC failure, edge refusal, network failure) to an i18n
+ * key. Degraded refusals map to the SHORT variant; screens that know the venue
  * phone should detect isDegradedRefusal() and render degraded.bookingRefused
  * with {phone} instead.
+ *
+ * errors.network is reserved for genuine transport failures (lib/network.ts):
+ * the old test, /network|fetch|timeout|abort/i over the whole message, also
+ * matched a statement timeout or a PostgREST hint that mentioned fetch, so real
+ * backend errors on the phone read as "no internet".
  */
 export function mapErrorToKey(err: unknown): MessageKey {
-  const code = rpcErrorCode(errorMessageOf(err));
-  if (code) return CODE_TO_KEY[code];
-  // errors.network is reserved for genuine transport failures (lib/network.ts).
-  // The old test, /network|fetch|timeout|abort/i over the whole message, also
-  // matched a statement timeout or a PostgREST hint that mentioned fetch — so
-  // real backend errors on the phone read as "no internet".
-  if (isTransportError(err)) return 'errors.network';
-  return 'errors.generic';
+  return errorMessageKey(err, { overrides: MOBILE_OVERRIDES, isTransport: isTransportError });
 }

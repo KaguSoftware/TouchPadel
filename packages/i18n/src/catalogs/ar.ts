@@ -4,6 +4,7 @@ import { staffAr } from './staff';
 import { workAr } from './work.ar';
 import { opErrorsProtocolsAr } from './opErrors.protocols.ar';
 import { opErrorsMatchesAr } from './opErrors.matches.ar';
+import { opErrorsCodesAr } from './opErrors.codes.ar';
 import { legalAr } from './legal.ar';
 import { siteAr } from './site.ar';
 import { branchesAr } from './branches.ar';
@@ -950,6 +951,10 @@ export const ar: Messages = {
     callFailed: 'لا يمكن لهذا الجهاز إجراء مكالمات. الرقم: {phone}.',
     pageMissingTitle: 'هذه الصفحة غير موجودة',
     pageMissingBody: 'قد يكون الرابط قديمًا أو فيه خطأ في الكتابة.',
+    duplicate: 'هذا موجود بالفعل. راجع التفاصيل وحاول مجددًا.',
+    invalidValue: 'إحدى القيم غير مسموح بها. راجع التفاصيل وحاول مجددًا.',
+    invalidInput: 'أُرسل شيء بصيغة غير صحيحة. حدّث ثم حاول مجددًا.',
+    busy: 'النظام مشغول الآن. حاول مجددًا بعد قليل.',
   },
   degraded: {
     bookingRefused:
@@ -1927,6 +1932,7 @@ export const ar: Messages = {
       IDEMPOTENCY_CONFLICT: 'حُفظ هذا بالفعل من جلسة أخرى. حدّث الصفحة لرؤية آخر حالة.',
       ...opErrorsProtocolsAr,
       ...opErrorsMatchesAr,
+      ...opErrorsCodesAr,
     },
   },
   work: workAr,

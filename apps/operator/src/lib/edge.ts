@@ -3,9 +3,12 @@
  * the caller's JWT; PostHog/Groq keys never reach the renderer.
  *
  * - 30 s in-memory cache of SUCCESSFUL responses keyed by `cacheKey ?? fn + body`.
- * - Status → code map; one automatic retry on 5xx (never on 503 NOT_CONFIGURED).
- * - Throws `EdgeError`; lib/errors.ts maps it to `op.errors.EDGE_<code>`.
+ * - Status → HTTP class map; one automatic retry on 5xx (never on 503 NOT_CONFIGURED).
+ * - Throws `EdgeError`, whose `code` is the server's own code when the error
+ *   catalogue knows it and `EDGE_<class>` otherwise; lib/errors.ts maps it like
+ *   an RPC's code.
  */
+import { isErrorCode } from '@touch/i18n';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 import { parseSseChunk, parseSseData } from '../features/assistant/sse';
 
@@ -24,21 +27,34 @@ export type EdgeFunctionName =
   // Goods in's scanned receipts (0237): reads one with the connected model.
   | 'receipt-scan';
 
+/** The HTTP class of a failed edge call (statusToEdgeCode). */
 export type EdgeErrorCode =
   'NOT_CONFIGURED' | 'FORBIDDEN' | 'AUTH_REQUIRED' | 'UPSTREAM' | 'RATE_LIMITED' | 'UNKNOWN';
 
 export class EdgeError extends Error {
   readonly status: number;
-  readonly code: EdgeErrorCode;
-  /** Server-supplied detail (never shown raw to staff; for logs/debug). */
-  readonly detail?: string;
+  /** The HTTP class, whatever the body said: what a screen tests (`kind === 'NOT_CONFIGURED'`). */
+  readonly kind: EdgeErrorCode;
+  /**
+   * The code the JSON body named (`code`, or an upper-snake `error`), known to
+   * the catalogue or not; null when the body had none. Never shown raw.
+   */
+  readonly serverCode: string | null;
+  /**
+   * The refusal as the error catalogue (@touch/i18n ERROR_CODE_KEYS) knows it:
+   * the server's code when the catalogue has it (a SQL refusal the function
+   * passed through, or its own, such as EMAIL_IN_USE or DUPLICATE_PHONE), else
+   * `EDGE_<kind>`. Read like AppRpcError.code.
+   */
+  readonly code: string;
 
-  constructor(status: number, code: EdgeErrorCode, message: string, detail?: string) {
+  constructor(status: number, kind: EdgeErrorCode, message: string, serverCode?: string | null) {
     super(message);
     this.name = 'EdgeError';
     this.status = status;
-    this.code = code;
-    this.detail = detail;
+    this.kind = kind;
+    this.serverCode = serverCode ?? null;
+    this.code = serverCode && isErrorCode(serverCode) ? serverCode : `EDGE_${kind}`;
   }
 }
 

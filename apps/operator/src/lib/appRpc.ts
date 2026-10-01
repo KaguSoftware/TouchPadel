@@ -17,13 +17,20 @@ export class AppRpcError extends Error {
   readonly code: string;
   readonly hint?: string;
   readonly details?: string;
+  /**
+   * PostgREST's `code`: the SQLSTATE ('P0001' for a raised code, '23505' for a
+   * unique violation, …). A native Postgres error maps by it (SQLSTATE_KEYS in
+   * @touch/i18n) when `code` is UNKNOWN.
+   */
+  readonly sqlState?: string;
 
-  constructor(code: string, message: string, hint?: string, details?: string) {
+  constructor(code: string, message: string, hint?: string, details?: string, sqlState?: string) {
     super(message);
     this.name = 'AppRpcError';
     this.code = code;
     this.hint = hint;
     this.details = details;
+    this.sqlState = sqlState;
   }
 }
 
@@ -47,11 +54,12 @@ const PGRST_FUNCTION_MISSING = 'PGRST202';
 
 export function toAppRpcError(error: PgError): AppRpcError {
   const message = error.message ?? 'unknown error';
+  const sqlState = error.code ?? undefined;
   if (error.code === PGRST_FUNCTION_MISSING) {
-    return new AppRpcError('RPC_MISSING', message, error.hint ?? undefined, error.details ?? undefined);
+    return new AppRpcError('RPC_MISSING', message, error.hint ?? undefined, error.details ?? undefined, sqlState);
   }
   const code = CODE_RE.test(message) ? message : 'UNKNOWN';
-  return new AppRpcError(code, message, error.hint ?? undefined, error.details ?? undefined);
+  return new AppRpcError(code, message, error.hint ?? undefined, error.details ?? undefined, sqlState);
 }
 
 /** True when the server has no such RPC (PGRST202): the feature is not there yet, not offline. */
