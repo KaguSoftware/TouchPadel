@@ -9,8 +9,8 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { cameraPose } from './rally';
 import { SPEC } from './spec';
 
-/** The net tape: 0.9 m high, posts at x = ±5.15 m. */
-export const NET = { y: 0.9, halfSpan: 5.15 } as const;
+/** The net tape: 0.9 m high, posts just inside the sidelines at x = ±4.83 m. */
+export const NET = { y: 0.9, halfSpan: 4.83 } as const;
 
 export function makeCamera(aspect: number): PerspectiveCamera {
   return new PerspectiveCamera(SPEC.camera.fov, aspect, 5, 200);

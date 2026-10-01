@@ -51,11 +51,11 @@ import {
   DEDUCTION_TONE,
   canWithdraw,
   deductionArgs,
-  decidedByManagerOnly,
   deductionsAccess,
   emptyDeductionDraft,
   initialView,
   monthOf,
+  recordedAtOnce,
   shiftMonth,
   stepMonth,
   validateDeduction,
@@ -67,13 +67,17 @@ import {
 } from '../src/features/staff/deductions/logic';
 
 /**
- * Pay deductions (wave5-addendum-2026-09-25 §2.5, §5.3; migration 0197).
+ * Pay deductions (wave5-addendum-2026-09-25 §2.5, §5.3; migrations 0197, 0272).
  *
  *   head_barista, head_chef   propose one for a member of their own team,
- *                             follow their proposals, withdraw a waiting one
- *   manager, owner            the same for anyone at the venue but themselves
- *                             and the owners, and a line with how many wait:
- *                             deciding is on the operator only (§8 Q8)
+ *                             follow their proposals, withdraw a waiting one;
+ *                             the owner decides it
+ *   manager                   the same for anyone at the venue but themselves
+ *                             and the owners
+ *   owner                     the same, but the owner's entry is recorded
+ *                             approved at once and comes off the person's next
+ *                             unpaid wage; and a line with how many wait for
+ *                             the owner: deciding is on the operator only (§8 Q8)
  *   everyone                  "Your deductions": their own approved and cancelled
  *                             deductions by the month they count in, with no
  *                             proposer, note or cancel reason (§2.5.2)
@@ -107,8 +111,8 @@ function DeductionsScreen() {
   const venue = venueId ?? '';
   // The venue's business day, which propose_deduction checks the date against.
   const today = venueBusinessToday();
-  // An owner's proposal goes to a manager: nobody decides their own (0197).
-  const managerDecides = decidedByManagerOnly(role);
+  // The owner alone decides, so the owner's own entry is approved at once (0272).
+  const atOnce = recordedAtOnce(role);
 
   const [view, setView] = useState<DeductionsView>(() => initialView(role, params.view));
   const [formOpen, setFormOpen] = useState(false);
@@ -127,7 +131,7 @@ function DeductionsScreen() {
   const waiting = useQuery({
     queryKey: staffKeys.deductionsWaiting(venue),
     queryFn: () => fetchDeductionsWaiting(venue),
-    enabled: venue !== '' && access.mgmt,
+    enabled: venue !== '' && access.decides,
   });
 
   // `month` null is the venue's current month, the RPC's own default. That
@@ -150,7 +154,7 @@ function DeductionsScreen() {
 
   const pull = usePullRefresh(() =>
     Promise.all([
-      access.mgmt ? waiting.refetch() : null,
+      access.decides ? waiting.refetch() : null,
       view === 'propose' ? proposals.refetch() : mine.refetch(),
     ]),
   );
@@ -189,7 +193,7 @@ function DeductionsScreen() {
     onSuccess: (_data, { intent }) => {
       clearStaffIntentKey(intent);
       toast(
-        t(managerDecides ? 'staff.deductions.propose.sentOwner' : 'staff.deductions.propose.sent'),
+        t(atOnce ? 'staff.deductions.propose.recorded' : 'staff.deductions.propose.sent'),
         'success',
       );
       closeForm();
@@ -295,9 +299,9 @@ function DeductionsScreen() {
     <>
       <Lead>
         {t(
-          managerDecides
+          atOnce
             ? 'staff.deductions.propose.leadOwner'
-            : access.mgmt
+            : access.proposesForAnyone
               ? 'staff.deductions.propose.leadMgmt'
               : 'staff.deductions.propose.lead',
         )}
@@ -362,18 +366,19 @@ function DeductionsScreen() {
             maxLength={DEDUCTION_CAPS.reason}
             error={fieldError('reason')}
           />
-          {/* What happens next, said before the send: who decides, and that
-              the person never learns who proposed it (§2.5.2). */}
+          {/* What happens next, said before the send: the owner decides (or,
+              for the owner, it is recorded at once), and the person never
+              learns who proposed it (§2.5.2). */}
           <Text style={{ ...body, marginTop: space.xs }}>
             {chosen
               ? t(
-                  managerDecides
+                  atOnce
                     ? 'staff.deductions.propose.consequenceOwner'
                     : 'staff.deductions.propose.consequence',
                   { name: isolate(chosen.label) },
                 )
               : t(
-                  managerDecides
+                  atOnce
                     ? 'staff.deductions.propose.consequenceAnyoneOwner'
                     : 'staff.deductions.propose.consequenceAnyone',
                 )}
@@ -382,7 +387,9 @@ function DeductionsScreen() {
           <View style={{ flexDirection: 'row', gap: space.s }}>
             <Button
               testID="staff-deductions.submit"
-              label={t('staff.deductions.propose.submit')}
+              label={t(
+                atOnce ? 'staff.deductions.propose.submitOwner' : 'staff.deductions.propose.submit',
+              )}
               variant="primary"
               size="compact"
               busy={propose.isPending}
@@ -641,7 +648,7 @@ function DeductionsScreen() {
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} />}
       >
         {venue === '' ? <Hint>{t('staff.shell.venue.none')}</Hint> : null}
-        {access.mgmt && waitingCount > 0 ? (
+        {access.decides && waitingCount > 0 ? (
           <View
             style={{
               padding: space.sm,

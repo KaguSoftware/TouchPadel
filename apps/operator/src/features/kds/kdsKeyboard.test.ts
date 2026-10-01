@@ -49,6 +49,18 @@ describe('commandForKey', () => {
     expect(commandForKey(key('Escape'), 'ltr')).toEqual({ type: 'clear' });
   });
 
+  it('? opens the guide, typed on an English or an Arabic layout', () => {
+    expect(commandForKey(key('?', 'Slash'), 'ltr')).toEqual({ type: 'guide' });
+    expect(commandForKey(key('\u061F', 'Slash'), 'rtl')).toEqual({ type: 'guide' });
+    expect(commandForKey(key('/', 'Slash'), 'ltr')).toBeNull();
+  });
+
+  it('the guide command leaves the selection and fires no action', () => {
+    const sel = { ticketId: 'a', itemIndex: 1 };
+    expect(reduceSelection(sel, { type: 'guide' }, tickets)).toBe(sel);
+    expect(actionForCommand(sel, { type: 'guide' }, tickets)).toBeNull();
+  });
+
   it('ignores chords and unrelated keys', () => {
     expect(commandForKey({ ...key('s', 'KeyS'), ctrlKey: true }, 'ltr')).toBeNull();
     expect(commandForKey(key('x', 'KeyX'), 'ltr')).toBeNull();

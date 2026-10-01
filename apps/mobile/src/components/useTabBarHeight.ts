@@ -7,12 +7,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const IOS_TAB_BAR_HEIGHT = 49;
 
 /**
- * Must stay equal to TAB_BAR_BASE in navigation/TabsLayout.android.tsx — this
- * is the fallback for the same bar, so a mismatch pads scroll content to a
- * height the bar does not have. Both are 56, sized to the bar's own content now
- * that the hidden nav bar contributes no inset.
+ * Must stay equal to TAB_BAR_BASE + TAB_BAR_BOTTOM_GAP in
+ * navigation/TabsLayout.android.tsx — this is the fallback for the same bar, so
+ * a mismatch pads scroll content to a height the bar does not have: 56 of
+ * content plus the 14 pt gap that keeps the labels off the screen edge.
  */
-const ANDROID_TAB_BAR_HEIGHT = 56;
+const ANDROID_TAB_BAR_HEIGHT = 70;
 
 /**
  * Height of whichever tab bar is mounted, so screens can pad their scroll

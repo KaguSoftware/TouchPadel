@@ -10,6 +10,7 @@
  *   Space       toggle the selected item's ready mark
  *   S / R / C   start / ready / complete the selected ticket
  *   Esc         clear the selection
+ *   ?           open the workspace guide (the Arabic layout types ؟ on the same key)
  *
  * Letters and digits match on `code` (physical key) first so an Arabic layout
  * — where the S key types س — still starts the ticket as the legend says.
@@ -24,7 +25,8 @@ export type KeyCommand =
   | { type: 'moveItem'; delta: 1 | -1 }
   | { type: 'toggleItem' }
   | { type: 'status'; status: TicketAction }
-  | { type: 'clear' };
+  | { type: 'clear' }
+  | { type: 'guide' };
 
 export interface KeyLike {
   key: string;
@@ -60,6 +62,7 @@ export function commandForKey(e: KeyLike, dir: Direction): KeyCommand | null {
   if (e.key === 'ArrowUp') return { type: 'moveItem', delta: -1 };
   if (e.key === ' ' || e.code === 'Space') return { type: 'toggleItem' };
   if (e.key === 'Escape') return { type: 'clear' };
+  if (e.key === '?' || e.key === '\u061F') return { type: 'guide' };
 
   const letter = e.code === 'KeyS' || e.code === 'KeyR' || e.code === 'KeyC' ? e.code.slice(3) : e.key;
   switch (letter.toLowerCase()) {
@@ -138,6 +141,7 @@ export function reduceSelection(
     case 'clear':
       return state.ticketId === null ? state : noSelection;
     case 'status':
+    case 'guide':
       return state;
   }
 }

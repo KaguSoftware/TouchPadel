@@ -5,9 +5,11 @@
  * them afterwards, with every record it made:
  *
  *  (a) the head barista proposes two pay deductions for the barista; the
- *      manager declines one with a reason on /deductions, the owner approves
- *      the other, which lands in this month under the barista, and the barista
- *      reads only the approved one, with no proposer's name (§2.5.2);
+ *      manager's /deductions shows both as waiting for the owner, with no
+ *      Approve or Decline (0272: the owner alone decides); the owner declines
+ *      one with a reason and approves the other, which lands in this month
+ *      under the barista, and the barista reads only the approved one, with
+ *      no proposer's name (§2.5.2);
  *  (b) the court desk reports an incident on /incidents; the manager reviews
  *      it with a note, which the desk reads back (§2.6);
  *  (c) @ar marketing sends a post; the owner asks for changes in Arabic, with
@@ -88,7 +90,7 @@ test.describe('operator people records', () => {
     }
   });
 
-  test('the manager declines a head’s deduction with a reason, and the owner approves one into the month', async ({ browser }) => {
+  test('the manager sees a head’s deductions wait for the owner, who declines one with a reason and approves one into the month', async ({ browser }) => {
     const head = await signedInClient(staff.head_barista!.email);
     let declineId = '';
     let approveId = '';
@@ -109,21 +111,29 @@ test.describe('operator people records', () => {
       await head.auth.signOut();
     }
 
+    // The manager no longer decides (0272): both wait for the owner, with no Approve or Decline.
     const manager = await signIn(browser, SEED_STAFF.manager);
     await manager.goto(`${OPERATOR_URL}/deductions`);
     await expect(manager.getByRole('heading', { level: 1, name: 'Pay deductions' })).toBeVisible();
-    await manager.getByTestId(`deductions.decline.${declineId}`).click();
-    const decline = manager.getByRole('dialog', { name: 'Decline this deduction?' });
+    for (const id of [declineId, approveId]) {
+      await expect(manager.getByTestId(`deductions.awaiting.${id}`)).toHaveText('Waiting for the owner');
+      await expect(manager.getByTestId(`deductions.approve.${id}`)).toHaveCount(0);
+      await expect(manager.getByTestId(`deductions.decline.${id}`)).toHaveCount(0);
+      await expect(manager.getByTestId(`deductions.withdraw.${id}`)).toHaveCount(0);
+    }
+    await expect(manager.locator('[data-testid^="deductions.approve."], [data-testid^="deductions.decline."]')).toHaveCount(0);
+    await manager.context().close();
+
+    const owner = await signIn(browser, SEED_STAFF.owner);
+    await owner.goto(`${OPERATOR_URL}/deductions`);
+    await owner.getByTestId(`deductions.decline.${declineId}`).click();
+    const decline = owner.getByRole('dialog', { name: 'Decline this deduction?' });
     // No reason, no decline: the form says so before the server would.
     await decline.getByTestId('deductions.decide.confirm').click();
     await expect(decline.getByText('A reason is required.')).toBeVisible();
     await decline.locator('textarea').fill('Not on shift that day');
     await decline.getByTestId('deductions.decide.confirm').click();
-    await expect(manager.getByTestId(`deductions.decline.${declineId}`)).toHaveCount(0);
-    await manager.context().close();
-
-    const owner = await signIn(browser, SEED_STAFF.owner);
-    await owner.goto(`${OPERATOR_URL}/deductions`);
+    await expect(owner.getByTestId(`deductions.decline.${declineId}`)).toHaveCount(0);
     await owner.getByTestId(`deductions.approve.${approveId}`).click();
     await owner.getByRole('dialog', { name: 'Approve this deduction?' }).getByTestId('deductions.decide.confirm').click();
     await expect(owner.getByTestId(`deductions.approve.${approveId}`)).toHaveCount(0);

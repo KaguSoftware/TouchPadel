@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -9,8 +9,6 @@ import {
   StyleSheet,
   View,
   type LayoutRectangle,
-  type PressableProps,
-  type ViewStyle,
 } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useFocusEffect } from 'expo-router';
@@ -42,65 +40,27 @@ import { BookingSheet } from '../../src/components/BookingSheet';
 
 const android = Platform.OS === 'android';
 /**
- * Android's navigation icon is the platform's own control, so it keeps the
- * platform's own measurements: Material's minimum touch target is 48 dp, and the
- * borderless ripple is drawn to the edge of that box. iOS took a different road
- * — there the whole capsule is the button (below) — but on Android a tappable
- * heading is not the idiom, so the icon button stays exactly what it was.
+ * The back button: its own round plate beside the PICK A TIME pill
+ * (iOS 2026-09-27, Android 2026-09-29), no longer riding inside the pill. 44 is
+ * the HIG minimum target, and a touch shorter than the pill so the row's height
+ * (and the heading's line) is still set by the words. Android reaches
+ * Material's 48 dp target through `BACK_HIT_SLOP_ANDROID` on every side.
  */
-const BACK_BTN_ANDROID = 48;
+const BACK_BTN = 44;
+const BACK_HIT_SLOP_ANDROID = 2;
+/** The air between the back button and the PICK A TIME pill. */
+const BACK_GAP = 8;
 /**
- * iOS's back button: its own round glass control beside the PICK A TIME pill
- * (2026-09-27), no longer the chevron riding inside the pill. 44 pt is the HIG
- * minimum target, and a touch shorter than the pill so the row's height (and
- * the heading's line) is still set by the words.
+ * The pill holds only the words, so the padding is simply even round them.
+ * PAD_Y 9 makes the Latin pill 45 pt, just taller than the 44 pt back button,
+ * so the pill still sets the row. The header bleeds back up by the same amount
+ * (its negative marginTop), so the words do not move and the cross-fade still
+ * lands.
  */
-const BACK_BTN_IOS = 44;
-/** The air between iOS's back button and the PICK A TIME pill. */
-const BACK_GAP_IOS = 8;
+const PICK_PILL_PAD_X = 16;
+const PICK_PILL_PAD_Y = 9;
 /**
- * The slot the Android icon button occupies in the row — unchanged from before
- * any of this. Its 48 dp touch target bleeds out past this box on all four
- * sides, so the capsule's height and the heading's position are set by the 34,
- * not by the target.
- */
-const BACK_BTN_SLOT_ANDROID = 34;
-/**
- * The 48 dp Android target is bigger than the slot the capsule lays out for the
- * glyph, so it is bled back out on all four sides — the button keeps its centre,
- * the capsule keeps its height, and the heading does not move.
- */
-const ANDROID_BTN_BLEED = (BACK_BTN_ANDROID - BACK_BTN_SLOT_ANDROID) / 2;
-/**
- * PICK A TIME's capsule — now the back button itself, chevron and words in one
- * control, so the padding is simply the air inside a button.
- *
- * The numbers fork by platform because the capsule's leading end holds a
- * different thing on each. ANDROID KEEPS ITS ORIGINAL VALUES (6 / 8 / 6): the
- * icon button is still there, and its own 48 dp box holds the arrow off the
- * capsule's curve exactly as it always did.
- *
- * iOS is retuned for a bare glyph. PAD_X goes 6 → 12: the chevron used to arrive
- * inside a bordered circle whose box did that job, and without it the glyph
- * would sit almost on the edge — a stadium's curve is widest at the middle of
- * its end cap, which is exactly where a centred chevron lands. TEXT_PAD goes
- * 8 → 6 to match: the two ends were lopsided only because the circle padded the
- * leading end for free, and with both ends paid for in real padding they balance
- * at a smaller number.
- */
-// iOS 12 → 16, on BOTH ends now: the pill holds only the words (the chevron is
-// its own button beside it), so the padding is simply even (2026-09-27).
-const PICK_PILL_PAD_X = android ? 6 : 16;
-// iOS 10 → 9: the squiggle moved out from under the words to below the pill,
-// so the plate no longer has to grow round it and the words sit in its middle
-// (2026-09-27). 9 makes the Latin pill 45 pt, just taller than the 44 pt back
-// button, so the pill still sets the row. The capsule bleeds back up by the
-// same amount (its negative marginTop), so the words do not move and the
-// cross-fade still lands.
-const PICK_PILL_PAD_Y = android ? 6 : 9;
-const PICK_PILL_TEXT_PAD = android ? 8 : 6;
-/**
- * Extra air above the title row, on iOS only.
+ * Extra air above the title row.
  *
  * The capsule pulls itself back up by its own PAD_Y so it grows around the
  * line rather than pushing it down, which leaves its plate's top edge close to
@@ -114,19 +74,11 @@ const PICK_PILL_TEXT_PAD = android ? 8 : 6;
  * overlap on the same slice (SPEC.back.fade), so a capsule whose text sat lower
  * than the heading it replaces would visibly drift against it mid-transition.
  *
- * Android is untouched: its capsule is a flat tint with no rim, and its spacing
- * was never the problem.
+ * Android takes more of it: its status-bar inset stops right at the icons,
+ * with none of the spare room iOS's inset has under the Dynamic Island, so the
+ * title and the open-now pill sat against the status bar (owner, 2026-09-29).
  */
-const PICK_PILL_TOP_AIR = android ? 0 : 10;
-/**
- * The gap between the chevron and the words. On Android it is still PAD_X's old
- * value, which is what the row used before — nothing changed there. On iOS it
- * gets its own number: PAD_X used to double as this gap only because the
- * chevron's circle already supplied most of the air, and a bare glyph has to
- * stand the distance on its own — too tight and the chevron crowds the P, too
- * wide and the control reads as two things sharing a plate.
- */
-const PICK_PILL_GAP = android ? 6 : 8;
+const PICK_PILL_TOP_AIR = android ? 14 : 10;
 /**
  * How far the capsule's backdrop sits BELOW the box that measures the text.
  *
@@ -164,19 +116,11 @@ const PICK_PILL_SINK_LATIN = 1;
  */
 const PICK_PILL_PARK_X = 420;
 /**
- * Everything the capsule puts BEFORE the words. The title slides over by exactly
- * this much, and the capsule opens exactly this far before the heading's own
- * margin — so the words land back on the margin they share with BOOK A COURT
- * while the capsule grows leftwards around them.
- *
- * Android is the original expression, unchanged: the icon button's 34 pt slot
- * plus the padding either side of it (46). iOS is the round back button, the
- * gap after it and the pill's own leading padding. Derived from the parts on
- * both sides so it stays true if the padding is retuned.
+ * Everything the header puts BEFORE the words: the round back button, the gap
+ * after it and the pill's own leading padding. The title slides over by exactly
+ * this much, so the words land back on the margin they share with BOOK A COURT.
  */
-const BACK_SHIFT = android
-  ? BACK_BTN_SLOT_ANDROID + PICK_PILL_PAD_X * 2
-  : BACK_BTN_IOS + BACK_GAP_IOS + PICK_PILL_PAD_X;
+const BACK_SHIFT = BACK_BTN + BACK_GAP + PICK_PILL_PAD_X;
 /**
  * The sheet card's glass fill, verbatim (BookingSheet's `glass`): iOS has a real
  * blur under it so the fill is only a veil, Android has none and carries the
@@ -244,6 +188,17 @@ const stageBounds = { position: 'absolute', start: 0, end: 0 } as const;
  */
 const COURT_TOP_BAND = courtTopFraction();
 const COURT_GAP = 8;
+/**
+ * The court scales with its box's HEIGHT (vertical fov), and Android's box runs
+ * taller than iOS's on the same width: the nav bar and status bar are hidden,
+ * so nothing is reserved above or below. Android's box is capped at this
+ * height : width so the court spans the same share of the screen as on iOS.
+ * Measured on device, not derived (owner, 2026-09-29): the iPhone 17 Pro's
+ * court spans ~74 % of the width, the Android one spanned ~91 % uncapped at
+ * ~1.75, so 1.75 × 74 / 91 ≈ 1.42 — which read too small on device, so it was
+ * raised to 1.55. Lower shrinks the court, higher grows it.
+ */
+const ANDROID_COURT_BOX_RATIO = 1.55;
 
 /**
  * The "Open now · 09:00–02:00" pill. Owns the minute clock so the rest of the
@@ -454,56 +409,25 @@ function NetCta({
  * not clearing to nothing.
  */
 /**
- * The PICK A TIME capsule's outer element.
+ * One of the header's two plates — the back button's circle or the PICK A TIME
+ * pill — filling its parent, which clips it to a pill shape.
  *
- * On iOS it is a Pressable: the whole capsule — chevron and words — is the back
- * button (owner, 2026-09-19), which is both a far bigger target and the reading
- * the glass already suggested.
+ * iOS: PARKED, NOT FADED (see `header.capsulePark`): it stays at full opacity
+ * and is slid out of its clip at rest, because a UIVisualEffectView or
+ * GlassView under an alpha < 1 ancestor draws nothing and may not come back.
  *
- * On Android it is a plain View. Material's back affordance is the navigation
- * ICON, not a tappable title, so there the capsule stays inert and the icon
- * button inside it keeps the press, the ripple and the 48 dp target exactly as
- * it had them. Taking a `style` callback either way keeps the one JSX block
- * below from having to fork.
- */
-function CapsuleControl({
-  style,
-  children,
-  testID,
-  ...props
-}: Omit<PressableProps, 'style'> & { style: (state: { pressed: boolean }) => ViewStyle }) {
-  // The id is forwarded to BOTH branches and stated EXPLICITLY rather than
-  // left to `{...props}` (which carries it — `testID` is a PressableProps):
-  // the lint rule reads the JSX, and the Android branch is a plain View that
-  // the spread never reaches at all.
-  if (android)
-    return (
-      <View testID={testID} style={style({ pressed: false })}>
-        {children as ReactNode}
-      </View>
-    );
-  return (
-    <Pressable {...props} testID={testID} style={style}>
-      {children as ReactNode}
-    </Pressable>
-  );
-}
-
-/**
- * One of iOS's two glass plates in the header — the back button's circle or
- * the PICK A TIME pill — filling its parent, which clips it to a pill shape.
- *
- * PARKED, NOT FADED (see `header.capsulePark`): it stays at full opacity and is
- * slid out of its clip at rest, because a UIVisualEffectView or GlassView under
- * an alpha < 1 ancestor draws nothing and may not come back.
+ * Android: a flat tint with no blur to protect, so it simply fades (`fade`,
+ * `header.capsuleFade`) and the park stays at 0.
  */
 function ParkedGlass({
   park,
+  fade,
   dark,
   tint,
   interactive = false,
 }: {
   park: Animated.AnimatedInterpolation<number>;
+  fade?: Animated.AnimatedInterpolation<number>;
   dark: boolean;
   tint: string;
   interactive?: boolean;
@@ -513,7 +437,9 @@ function ParkedGlass({
       pointerEvents="none"
       style={[StyleSheet.absoluteFill, { borderRadius: radius.pill, overflow: 'hidden' }]}
     >
-      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX: park }] }]}>
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { transform: [{ translateX: park }], opacity: fade }]}
+      >
         {liquidGlass ? (
           <GlassView
             pointerEvents="none"
@@ -524,11 +450,13 @@ function ParkedGlass({
           />
         ) : (
           <>
-            <BlurView
-              intensity={40}
-              tint={dark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
+            {android ? null : (
+              <BlurView
+                intensity={40}
+                tint={dark ? 'dark' : 'light'}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
             <View style={[StyleSheet.absoluteFill, { backgroundColor: tint }]} />
           </>
         )}
@@ -538,20 +466,21 @@ function ParkedGlass({
 }
 
 /**
- * iOS's PICK A TIME header (2026-09-27): a round glass back button with the
- * chevron, then a glass pill holding only the words, with the squiggle hung
- * under the pill. The chevron used to ride inside the pill, which made the whole
+ * The PICK A TIME header (iOS 2026-09-27, Android 2026-09-29): a round back
+ * button with the chevron (Material's arrow on Android), then a pill holding
+ * only the words, with the squiggle hung under the pill. The chevron used to ride inside the pill, which made the whole
  * pill the button; with the squiggle inside too, the words sat high in the
  * glass. Now the pill's padding is even round the words alone.
  *
  * Nothing above either glass plate animates its alpha: the chevron, the words
  * and the squiggle each carry the fade (and the busy dim) themselves.
  */
-function IosPickTimeHeader({
+function PickTimeHeader({
   title,
   backLabel,
   fade,
   park,
+  plateFade,
   dark,
   tint,
   sink,
@@ -563,6 +492,8 @@ function IosPickTimeHeader({
   backLabel: string;
   fade: Animated.AnimatedInterpolation<number>;
   park: Animated.AnimatedInterpolation<number>;
+  /** The plates' own fade — Android only; iOS's glass must stay at alpha 1. */
+  plateFade?: Animated.AnimatedInterpolation<number>;
   dark: boolean;
   tint: string;
   /** PICK_PILL_SINK_LATIN in Latin, 0 in Arabic: the plate sits this much lower than the words' box. */
@@ -580,7 +511,7 @@ function IosPickTimeHeader({
         flexDirection: 'row',
         alignItems: 'center',
         alignSelf: 'flex-start',
-        gap: BACK_GAP_IOS,
+        gap: BACK_GAP,
         // The pill is the row's tallest item, so this puts the words back on
         // the line BOOK A COURT stands on, and the cross-fade still lands.
         marginTop: -(PICK_PILL_PAD_Y - sink),
@@ -593,31 +524,43 @@ function IosPickTimeHeader({
         accessibilityState={{ disabled, busy }}
         disabled={disabled}
         onPress={onBack}
+        hitSlop={android ? BACK_HIT_SLOP_ANDROID : undefined}
+        android_ripple={{
+          color: withAlpha(colors.ink, 0.12),
+          borderless: true,
+          radius: BACK_BTN / 2,
+        }}
         style={({ pressed }) => ({
           // NO OPACITY: the glass inside would go flat. The press tint is for
-          // the pre-26 stand-in only; Liquid Glass answers the touch itself.
-          width: BACK_BTN_IOS,
-          height: BACK_BTN_IOS,
+          // iOS's pre-26 stand-in only; Liquid Glass answers the touch itself,
+          // and Android answers with the ripple.
+          width: BACK_BTN,
+          height: BACK_BTN,
           borderRadius: radius.pill,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: pressed && !liquidGlass ? withAlpha(colors.sub, 0.18) : 'transparent',
+          backgroundColor:
+            pressed && !android && !liquidGlass ? withAlpha(colors.sub, 0.18) : 'transparent',
         })}
       >
-        <ParkedGlass park={park} dark={dark} tint={tint} interactive />
-        {/* The system's `chevron.backward`, mirrored here rather than by the
-            symbol: `.backward` resolves against UIKit's RTL flag, which this
-            app pins LTR (app.config.ts), so it would point the wrong way in
-            Arabic. */}
+        <ParkedGlass park={park} fade={plateFade} dark={dark} tint={tint} interactive />
+        {/* iOS: the system's `chevron.backward`, mirrored here rather than by
+            the symbol: `.backward` resolves against UIKit's RTL flag, which
+            this app pins LTR (app.config.ts), so it would point the wrong way
+            in Arabic. Android: Material's arrow, which flips itself. */}
         <Animated.View style={{ opacity: contentFade }}>
-          <SymbolView
-            name="chevron.backward"
-            size={17}
-            weight="semibold"
-            tintColor={colors.ink}
-            style={mirror(dir)}
-            fallback={<BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />}
-          />
+          {android ? (
+            <BackArrowIcon size={24} color={colors.ink} strokeWidth={2} />
+          ) : (
+            <SymbolView
+              name="chevron.backward"
+              size={17}
+              weight="semibold"
+              tintColor={colors.ink}
+              style={mirror(dir)}
+              fallback={<BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />}
+            />
+          )}
         </Animated.View>
       </Pressable>
       <View
@@ -633,7 +576,7 @@ function IosPickTimeHeader({
           borderRadius: radius.pill,
         }}
       >
-        <ParkedGlass park={park} dark={dark} tint={tint} />
+        <ParkedGlass park={park} fade={plateFade} dark={dark} tint={tint} />
         <Animated.View style={{ opacity: contentFade, marginBottom: -space.s }}>
           <Title squiggle={false}>{title}</Title>
         </Animated.View>
@@ -927,10 +870,18 @@ export default function BookHomeScreen() {
   // Box height S, blank band f·H at its top: start it m above the stage so
   // f·(S + m) − m = COURT_GAP, i.e. m = (f·S − gap) / (1 − f).
   const stageBox = stageHeight - tabBarHeight;
-  const courtTop =
-    stageBox > 0
-      ? -Math.max(0, Math.round((COURT_TOP_BAND * stageBox - COURT_GAP) / (1 - COURT_TOP_BAND)))
+  // Android only: the box stops at the ratio that matches iOS, and the spare
+  // height is split above and below so the court sits centred between the
+  // title and the footer, where it sits on iOS (owner, 2026-09-29).
+  const courtBox =
+    android && stageRect && stageRect.width > 0
+      ? Math.min(stageBox, Math.round(stageRect.width * ANDROID_COURT_BOX_RATIO))
+      : stageBox;
+  const courtBand =
+    courtBox > 0
+      ? Math.max(0, Math.round((COURT_TOP_BAND * courtBox - COURT_GAP) / (1 - COURT_TOP_BAND)))
       : 0;
+  const courtTop = Math.round((stageBox - courtBox) / 2) - courtBand;
   const fallbackCourtHeight = Math.max(0, layerHeight - CTA_H - space.xxl - FOOTER_SPACE);
   // Where the court's surface sits inside the pattern, for the copy it draws
   // behind the scene. Not memoised on purpose: Court3D reads the four numbers,
@@ -1016,7 +967,11 @@ export default function BookHomeScreen() {
                 importantForAccessibility={isOpen ? 'no-hide-descendants' : 'auto'}
                 style={{ opacity: header.out }}
               >
-                <Title squiggle={false}>{t('booking.title')}</Title>
+                {/* One line always (owner, 2026-09-29): it shrinks on narrow
+                    phones and in longer languages, and never grows past 26. */}
+                <Title squiggle={false} fit>
+                  {t('booking.title')}
+                </Title>
               </Animated.View>
               {/* Absolute so the outgoing heading alone sets the row's height —
                   the two strings are different lengths and, in Arabic, different
@@ -1051,304 +1006,23 @@ export default function BookHomeScreen() {
                     over the page — by the time the sheet is open the court has
                     risen behind these words. Frosted like the sheet card: iOS
                     blurs the court behind it, Android has no blur to sit on and
-                    carries the contrast on the tint alone.
-
-                    The back button rides INSIDE the capsule, sharing its blur
-                    and border, so the two read as one control rather than a
-                    button parked beside a plate. That is also why this layer is
-                    not `pointerEvents="none"` as the bare pill was — the button
-                    inside it has to stay pressable. */}
-                {/* THE WHOLE CAPSULE IS THE BACK BUTTON — chevron and words
-                    together, one control on one glass surface (owner,
-                    2026-09-19). It used to be a small round button parked beside
-                    a heading that happened to share its plate; now the plate IS
-                    the button, which is both a far bigger target and the reading
-                    the glass already suggested.
-
-                    That also retires the nested-glass problem: there is one
-                    material here, not a `clear` control sitting on a `regular`
-                    plate, so nothing can read as double-frosted.
-
-                    `accessibilityRole` and the label live here, on the thing
-                    that is actually pressable; the chevron below is now only a
-                    glyph and is hidden from assistive tech. */}
-                {/* NO OPACITY ON THIS ONE EITHER. It briefly carried
-                    `header.fade` while the backdrop was hoisted outside it, and
-                    moving the backdrop back in (to give the plate a real box to
-                    size itself against) put the glass under a fading ancestor
-                    again — which is precisely the thing a UIVisualEffectView
-                    refuses to render under, and the capsule went flat on device
-                    a second time.
-
-                    So the fade sits on the CONTENT instead: the glyph and the
-                    words each carry it, the backdrop carries none of it and
-                    hides by parking out of its clip. Nothing above the glass
-                    animates its alpha. */}
-                {android ? (
-                  <View>
-                    <CapsuleControl
-                      testID="book.court-title"
-                      // iOS ONLY. On Android these all land on a plain View (see
-                      // CapsuleControl): the capsule is inert there and the icon
-                      // button below takes the press, because a tappable heading
-                      // is an iOS idiom and Material's is the navigation icon.
-                      accessibilityRole={android ? undefined : 'button'}
-                      accessibilityLabel={android ? undefined : t('booking.backToCourt')}
-                      accessibilityState={
-                        android ? undefined : { disabled: !isOpen || sheetBusy, busy: sheetBusy }
-                      }
-                      disabled={android ? undefined : !isOpen || sheetBusy}
-                      onPress={android ? undefined : close}
-                      style={({ pressed }: { pressed: boolean }) => ({
-                        // NO OPACITY HERE EITHER — not even the busy dim. It is
-                        // 1 almost always, but it drops to 0.55 while a hold
-                        // settles, and the glass below would go flat for exactly
-                        // that moment. The dim rides the content with the fade.
-                        flexDirection: 'row',
-                        // Centred on the plate, so the glyph sits in the middle of
-                        // the glass rather than on the heading's line (owner,
-                        // 2026-09-19). The column beside it is the words plus the
-                        // mark under them, and the capsule's whole point is that it
-                        // is ONE shape — an icon aligned to the text's line reads
-                        // as pinned to the top of that shape, which is what the
-                        // top-alignment here used to do.
-                        alignItems: 'center',
-                        alignSelf: 'flex-start',
-                        paddingStart: PICK_PILL_PAD_X,
-                        paddingEnd: PICK_PILL_PAD_X + PICK_PILL_TEXT_PAD,
-                        paddingTop: PICK_PILL_PAD_Y,
-                        paddingBottom: PICK_PILL_PAD_Y,
-                        gap: PICK_PILL_GAP,
-                        // Bled back out so the capsule grows around the line rather
-                        // than pushing it down.
-                        marginTop: -PICK_PILL_PAD_Y,
-                        borderRadius: radius.pill,
-                        // The press response, iOS only. Liquid Glass answers to
-                        // the touch itself (the backdrop's `isInteractive`), so
-                        // this tint is just for the pre-26 stand-in. Android never
-                        // presses here at all.
-                        backgroundColor:
-                          pressed && !android && !liquidGlass
-                            ? withAlpha(colors.sub, 0.18)
-                            : 'transparent',
-                      })}
-                    >
-                      {/* The capsule's backdrop — Liquid Glass on iOS 26, blur and
-                        tint everywhere else — on its own absolute layer so
-                        the sink can drop it off the line box's centre
-                        without moving the words. Inset by +SINK at the top and
-                        -SINK at the foot, so it shifts down while keeping its
-                        height. Clipping lives HERE rather than on the row:
-                        `overflow: hidden` up there would crop this very offset,
-                        and a blurred view escaping a rounded parent squares off at
-                        the corners. */}
-                      <View
-                        pointerEvents="none"
-                        style={{
-                          // Stretched to all four edges of the capsule itself — it
-                          // is the pressable's own first child now, so it fills a
-                          // box that the padding and the words have really sized.
-                          //
-                          // It used to hang off the absolute WRAPPER outside, which
-                          // shrink-wrapped and so had no height to give: the plate
-                          // collapsed to a band and the words stood out the top of
-                          // it (owner, 2026-09-19). Nothing here measures anything
-                          // any more.
-                          //
-                          // The sink shifts the whole plate down off the line box's
-                          // centre — both edges by the same amount, so it moves
-                          // without shrinking. (`start`/`end` rather than
-                          // left/right: the row is mirrored wholesale in Arabic.)
-                          position: 'absolute',
-                          start: 0,
-                          end: 0,
-                          top: pillSink,
-                          bottom: -pillSink,
-                          borderRadius: radius.pill,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {/* iOS: PARKED, NOT FADED — see `header.capsulePark`. At
-                          full opacity always, slid out of the clip at rest and
-                          back in as the sheet opens, so UIKit never sees the blur
-                          under a fading ancestor.
-
-                          It parks SIDEWAYS, along the leading edge. It used to go
-                          down, which read as the pill collapsing into the header
-                          (owner, 2026-09-19); the capsule already travels
-                          horizontally on this transition — the whole title row
-                          rides `header.shift` — so leaving the same way is the
-                          move the eye is expecting.
-
-                          Android: unchanged from before any of this — no park, and
-                          the flat tint simply fades in on the same slice. Native-
-                          driven either way, like every other node that reads p. */}
-                        <Animated.View
-                          pointerEvents="none"
-                          style={[
-                            StyleSheet.absoluteFill,
-                            {
-                              transform: [{ translateX: header.capsulePark }],
-                              opacity: header.capsuleFade,
-                            },
-                          ]}
-                        >
-                          {liquidGlass ? (
-                            /* iOS 26: the system material itself, in place of the
-                             blur-plus-tint stand-in below. No fill over it — the
-                             whole point of the hand-built version's tint was to
-                             approximate a frosting the platform can now draw, and
-                             stacking the veil on top would only cloud the real
-                             one. It needs no open/closed switch of its own: the
-                             park above keeps it out of sight at rest and out of
-                             any fading ancestor, which is the same condition the
-                             GlassView docs give for the effect rendering at all. */
-                            <GlassView
-                              pointerEvents="none"
-                              // The capsule IS the back button now, so its material is
-                              // the button's material: `isInteractive` gives it
-                              // UIKit's own press response, the flex and highlight a
-                              // system glass control has under the finger. That is why
-                              // the pressable above paints no tint of its own on
-                              // iOS 26 — the glass answers the touch itself.
-                              isInteractive
-                              colorScheme={dark ? 'dark' : 'light'}
-                              glassEffectStyle="regular"
-                              style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
-                            />
-                          ) : (
-                            <>
-                              {Platform.OS === 'ios' ? (
-                                <BlurView
-                                  intensity={40}
-                                  tint={dark ? 'dark' : 'light'}
-                                  style={StyleSheet.absoluteFill}
-                                />
-                              ) : null}
-                              <View
-                                style={[
-                                  StyleSheet.absoluteFill,
-                                  {
-                                    // The sheet card's own glass, to the value: it is
-                                    // the box the time grid sits on, and this capsule
-                                    // is the same material arriving a moment earlier.
-                                    // `bg` and not `card` — the card's frosting tints
-                                    // the page colour. Borderless, unlike the card:
-                                    // the card's white edge separates it from the page
-                                    // it floats over, and this one has no such job
-                                    // over the court.
-                                    backgroundColor: glass,
-                                    borderRadius: radius.pill,
-                                  },
-                                ]}
-                              />
-                            </>
-                          )}
-                        </Animated.View>
-                      </View>
-                      {/* The back affordance: a real icon button — Material's
-                        arrow on a borderless 48 dp ripple, carrying the press,
-                        the label and the disabled state, because on Android the
-                        navigation icon is the back affordance and the heading
-                        beside it is not tappable. The 48 dp target is bled back
-                        out on all four sides so it keeps its centre without
-                        growing the capsule or shoving the heading along.
-
-                        The slot below is where the absolute button sits. It
-                        holds the row's width open — the button itself is out of
-                        the flow, so without this the heading would slide under
-                        the arrow — while contributing no height of its own,
-                        which is the whole point: the words alone set how deep
-                        the plate is. */}
-                      <Animated.View
-                        style={{
-                          // Android's capsule never had a blur to protect, but
-                          // the fade moved off the shared wrapper for iOS's sake,
-                          // so this slot takes its own copy — same value, same
-                          // slice, identical result.
-                          opacity: sheetBusy ? 0.55 : header.fade,
-                          width: BACK_BTN_SLOT_ANDROID,
-                          // Square, and the row centres it: the slot takes the
-                          // arrow's own size and the plate's middle is wherever
-                          // the row puts it. It was a heading-line-tall box only
-                          // to fake that while the row was top-aligned.
-                          height: BACK_BTN_SLOT_ANDROID,
-                          justifyContent: 'center',
-                          marginTop: pillSink * 2,
-                        }}
-                      >
-                        <Pressable
-                          testID="book.back-to-court"
-                          accessibilityRole="button"
-                          accessibilityLabel={t('booking.backToCourt')}
-                          accessibilityState={{ disabled: !isOpen || sheetBusy, busy: sheetBusy }}
-                          disabled={!isOpen || sheetBusy}
-                          onPress={close}
-                          android_ripple={{ color: withAlpha(colors.ink, 0.12), borderless: true }}
-                          style={{
-                            width: BACK_BTN_ANDROID,
-                            // OUT OF THE FLOW, so the 48 dp target cannot set
-                            // the row's height — the words do. Left in the flow
-                            // its box still contributed 34 pt against the
-                            // title's ~27, and that surplus landed as slack the
-                            // text did not share, which is what made the plate
-                            // deeper below the words than above them.
-                            //
-                            // It overhangs its 34 pt slot by ANDROID_BTN_BLEED
-                            // on every side, evenly. The bleed is stated as
-                            // insets rather than left to the parent's
-                            // justifyContent, which does not place an absolute
-                            // child. The old uneven pair (-1 top, -7 bottom,
-                            // because the button also carried the sink) is
-                            // exactly what tipped the row's centre off the
-                            // text's.
-                            position: 'absolute',
-                            start: -ANDROID_BTN_BLEED,
-                            top: -ANDROID_BTN_BLEED,
-                            bottom: -ANDROID_BTN_BLEED,
-                            borderRadius: radius.pill,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            // No dim here: the slot above already carries it,
-                            // and two nested 0.55s compound to 0.30.
-                          }}
-                        >
-                          <BackArrowIcon size={24} color={colors.ink} strokeWidth={2} />
-                        </Pressable>
-                      </Animated.View>
-                      {/* The words AND the mark, both inside the plate (owner,
-                        2026-09-19). Title's own squiggle row is declined and the
-                        mark drawn here instead, so the column can cancel Title's
-                        bottom margin — which exists to space a heading from the
-                        content under it — without also losing the mark.
-
-                        The plate therefore grows round both, and the capsule is
-                        a taller lozenge than the one that held a single line.
-                        That is the shape the owner asked for. */}
-                      <Animated.View style={{ opacity: sheetBusy ? 0.55 : header.fade }}>
-                        <View style={{ marginBottom: -space.s }}>
-                          <Title squiggle={false}>{t('booking.pickTime')}</Title>
-                        </View>
-                        <View style={{ alignItems: 'flex-start' }}>
-                          <TitleSquiggle />
-                        </View>
-                      </Animated.View>
-                    </CapsuleControl>
-                  </View>
-                ) : (
-                  <IosPickTimeHeader
-                    title={t('booking.pickTime')}
-                    backLabel={t('booking.backToCourt')}
-                    fade={header.fade}
-                    park={header.capsulePark}
-                    dark={dark}
-                    tint={glass}
-                    sink={pillSink}
-                    disabled={!isOpen || sheetBusy}
-                    busy={sheetBusy}
-                    onBack={close}
-                  />
-                )}
+                    carries the contrast on the tint alone. Not
+                    `pointerEvents="none"`: the back button inside it has to stay
+                    pressable. NO OPACITY on anything above the glass — the fade
+                    rides the content inside (see PickTimeHeader). */}
+                <PickTimeHeader
+                  title={t('booking.pickTime')}
+                  backLabel={t('booking.backToCourt')}
+                  fade={header.fade}
+                  park={header.capsulePark}
+                  plateFade={header.capsuleFade}
+                  dark={dark}
+                  tint={glass}
+                  sink={pillSink}
+                  disabled={!isOpen || sheetBusy}
+                  busy={sheetBusy}
+                  onBack={close}
+                />
               </Animated.View>
             </View>
             {/* BOOK A COURT's mark. It used to be ONE mark shared by both
@@ -1447,7 +1121,12 @@ export default function BookHomeScreen() {
         ) : (
           <Court3D
             patternBox={courtPatternBox}
-            style={[stageBounds, { top: courtTop, bottom: tabBarHeight }]}
+            style={[
+              stageBounds,
+              courtBox < stageBox
+                ? { top: courtTop, height: courtBox + courtBand }
+                : { top: courtTop, bottom: tabBarHeight },
+            ]}
             layerStyle={courtLayer}
             progress={progress}
             direction={direction}
@@ -1566,7 +1245,7 @@ export default function BookHomeScreen() {
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
-            { top: courtTop, backgroundColor: colors.page, opacity: veil },
+            { top: Math.min(0, courtTop), backgroundColor: colors.page, opacity: veil },
           ]}
         />
       </View>

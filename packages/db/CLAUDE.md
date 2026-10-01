@@ -17,14 +17,16 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0252`
-  (`20260929000252_hold_strikes.sql`; 0252 the hold ladder (lapsed holds → waits, suspension, day-close review), written as 0249 on the kemal branch and renumbered at the merge because 0249–0251 were already on hosted; 0249–0251 staff page scopes, batch sizes, floor orders; 0248 the owner's offline-mode switch, off by default; 0247 degraded mode only while a day is open; 0243–0246 Touch Shop as its own desk; 0241–0242 online
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0272`
+  (`20261001000272_deductions_owner_decides.sql`; 0270–0272 wages: staff_wages, wage_payments,
+  staff_attendance, their RPCs, and owner-only deduction approval; 0266–0269 hosted drift, deposit
+  match, hold sweep split, principal lock caps; 0253–0265 open matches; 0252 the hold ladder (lapsed holds → waits, suspension, day-close review), written as 0249 on the kemal branch and renumbered at the merge because 0249–0251 were already on hosted; 0249–0251 staff page scopes, batch sizes, floor orders; 0248 the owner's offline-mode switch, off by default; 0247 degraded mode only while a day is open; 0243–0246 Touch Shop as its own desk; 0241–0242 online
   deposits; 0240 the scanned-paper audit fixes; 0236–0239 scanned paper, Milestone 4b; 0228–0235 the multi-venue audit fixes; multi-venue slice 1 = 0122–0139, assistant 0140–0142,
   Touch Shop 0143–0146, then 0147 drop-reservation-players, 0148 customer-directory,
   0149 assistant-cap, 0150 move-not-into-past, 0151 out-of-stock-alert, 0152 my-reservations,
   0153 terms-consent, 0154 analytics-returning-guest, 0155–0157 six new staff roles, 0158–0206
   protocols and the staff phone (change-order line 10), 0207–0227 multi-venue slices 2–4); the next is
-  `0253`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
+  `0273`. **Check the directory, not this line** — it said 0146 while 0147–0149 were already on
   disk, and later 0150 while 0154 was, and a reused ordinal fails `check-migrations.mjs` after the
   file is written.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
@@ -58,6 +60,10 @@ is a line in that file.
   body scrubs the open-match rows and calls `ticket_refund_deleted` before the audit row, with no
   match lock, R25). 0265 (open-match reports) holds `reports_figures` and `report_courts` (0219 is
   no longer the latest), `panel_headline` (0096) and `unpaid_played_bookings` (0231).
+  0270 (wages tables) holds `cafe_setting_specs` (0105 is no longer the latest). 0272 holds
+  `propose_deduction`, `decide_deduction`, `cancel_deduction`, `deductions_page` and
+  `deductions_month` (0197 is no longer the latest; decide is the owner's alone and takes
+  `app.lock_wage` before the row lock).
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
   GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows

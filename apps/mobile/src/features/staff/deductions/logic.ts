@@ -1,8 +1,9 @@
 /**
  * Pay deductions as rules (wave5-addendum-2026-09-25 §2.5, §5.3): who
- * proposes, the proposal as a draft with its checks and RPC arguments, and the
- * month the "Yours" view steps through. The server keeps the caps and the
- * guards (0197); these catch a bad field before the round trip.
+ * proposes, who decides (the owner alone since 0272), the proposal as a draft
+ * with its checks and RPC arguments, and the month the "Yours" view steps
+ * through. The server keeps the caps and the guards (0197, 0272); these catch
+ * a bad field before the round trip.
  *
  * PURE (vitest): no react-native, no client.
  */
@@ -31,8 +32,13 @@ export type DeductionsView = 'propose' | 'mine';
 export interface DeductionsAccess {
   /** Proposes, and reads their own proposals. */
   proposes: boolean;
-  /** Management: told how many wait for a decision on the operator. */
-  mgmt: boolean;
+  /** Management: proposes for anyone at the venue, not only a team (deduction_targets). */
+  proposesForAnyone: boolean;
+  /**
+   * The owner, who alone decides a deduction since 0272: told how many wait
+   * for a decision on the operator. The phone itself decides nothing.
+   */
+  decides: boolean;
   /**
    * Can have deductions of their own. Nobody can propose one against an
    * owner (deduction_targets leaves owners out), so an owner has no "Yours".
@@ -43,9 +49,20 @@ export interface DeductionsAccess {
 export function deductionsAccess(role: StaffRole): DeductionsAccess {
   return {
     proposes: DEDUCT_ROLES.includes(role),
-    mgmt: MGMT.includes(role),
+    proposesForAnyone: MGMT.includes(role),
+    decides: role === 'owner',
     hasOwn: role !== 'owner',
   };
+}
+
+/**
+ * Whether the viewer's entry needs nobody else (0272): the owner alone
+ * decides, so the owner's own deduction is recorded approved at once and
+ * comes off the person's next unpaid wage. Everyone else's waits for the
+ * owner.
+ */
+export function recordedAtOnce(role: StaffRole): boolean {
+  return role === 'owner';
 }
 
 /**
@@ -54,15 +71,6 @@ export function deductionsAccess(role: StaffRole): DeductionsAccess {
  * proposing, and anyone who cannot propose only ever sees their own. An
  * owner has no own deductions, so always proposes.
  */
-/**
- * Who decides the viewer's proposal: never its proposer (CANNOT_DECIDE_OWN,
- * 0197), so an owner's goes to a manager, and everyone else's to a manager or
- * the owner.
- */
-export function decidedByManagerOnly(role: StaffRole): boolean {
-  return role === 'owner';
-}
-
 export function initialView(role: StaffRole, param: string | undefined): DeductionsView {
   const access = deductionsAccess(role);
   if (!access.proposes) return 'mine';
@@ -195,10 +203,10 @@ export const DEDUCTION_TONE: Record<DeductionStatus, DeductionTone> = {
 
 /**
  * How many waiting deductions the viewer can decide. `deductions_page`'s
- * `waiting_count` counts the viewer's own proposals too, which they cannot
- * decide (CANNOT_DECIDE_OWN), so the waiting rows the page marks
- * `can_decide: false` come off. Read from the first page (50 rows); an own
- * proposal past it is still counted, which only ever overstates.
+ * `waiting_count` counts every waiting row, the viewer's own proposals too,
+ * which they cannot decide (CANNOT_DECIDE_OWN), so the waiting rows the page
+ * marks `can_decide: false` come off. Read from the first page (50 rows); a
+ * row past it is still counted, which only ever overstates.
  */
 export function decidableWaiting(
   page:

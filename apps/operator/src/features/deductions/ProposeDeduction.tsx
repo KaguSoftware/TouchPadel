@@ -1,7 +1,10 @@
 /**
- * "Propose a deduction" on /deductions (wave5-addendum-2026-09-25 §2.5.3):
- * the manager's and the owner's own proposal, which another manager or the
- * owner decides. The heads propose on their phones.
+ * "Propose a deduction" on /deductions (wave5-addendum-2026-09-25 §2.5.3,
+ * 0272), also opened prefilled from a row of the owner's Wages page. A
+ * manager's proposal waits for the owner, who alone decides; the owner's own
+ * entry needs nobody else, so it is recorded approved at once and comes off
+ * the person's next unpaid wage, and the form says so and reads "Deduct from
+ * wage". The heads propose on their phones.
  *
  * It opens inline under the page header, so the lists it adds to stay in
  * view. The people offered are app.deduction_targets' (every active non-owner
@@ -16,7 +19,7 @@
  * the day before.
  */
 import { useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatNumber } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
@@ -28,14 +31,14 @@ import { MoneyInput, DateField } from '../../components/inputs';
 import { Panel } from '../../components/kit';
 import { CardTitle } from '../ops/OpsVisuals';
 import { refusalCode, refusalHint } from '../protocols/errors';
-import { DK } from './api';
+import { DK, refreshAfterWrite } from './api';
 import {
   AMOUNT_MAX,
   AMOUNT_MIN,
   DATE_WINDOW_DAYS,
   REASON_MAX,
   dateWindow,
-  onlyManagerDecides,
+  ownerRecordsAtOnce,
   proposeRefusalField,
   readDeductionTargets,
   validateProposal,
@@ -46,13 +49,25 @@ import {
 
 const EMPTY: ProposeDraft = { staffId: '', amount: null, date: '', reason: '' };
 
-export function ProposeDeduction({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+export function ProposeDeduction({
+  onClose,
+  onSent,
+  initialStaffId,
+}: {
+  onClose: () => void;
+  onSent: () => void;
+  /** The person to propose for, chosen already (the owner's Wages row). */
+  initialStaffId?: string;
+}) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const { staff } = useAuth();
+  const qc = useQueryClient();
+  // The owner's entry is approved as it is made (0272); anyone else's waits for the owner.
+  const atOnce = ownerRecordsAtOnce(staff?.role);
   const today = useBusinessToday();
   const bounds = dateWindow(today);
-  const [draft, setDraft] = useState<ProposeDraft>({ ...EMPTY, date: today });
+  const [draft, setDraft] = useState<ProposeDraft>({ ...EMPTY, staffId: initialStaffId ?? '', date: today });
   const [tried, setTried] = useState(false);
   /** One key per proposal as sent: kept for a retry of it, renewed by an edit or a success. */
   const key = useRef<{ sig: string; key: string } | null>(null);
@@ -69,7 +84,9 @@ export function ProposeDeduction({ onClose, onSent }: { onClose: () => void; onS
     },
     onSuccess: () => {
       key.current = null;
-      toast.ok(tr('ws.deductions.propose.sent'));
+      toast.ok(tr(atOnce ? 'ws.deductions.propose.recorded' : 'ws.deductions.propose.sent'));
+      // An owner's entry already comes off a wage: the Wages reads refetch too.
+      if (atOnce) refreshAfterWrite(qc);
       onSent();
     },
   });
@@ -90,8 +107,8 @@ export function ProposeDeduction({ onClose, onSent }: { onClose: () => void; onS
   };
 
   return (
-    <Panel title={<CardTitle icon="banknote">{tr('ws.deductions.propose.title')}</CardTitle>} data-testid="deductions.propose-form" style={{ marginBlockEnd: 'var(--tp-sp-4)', maxInlineSize: '44rem' }}>
-      <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-3)', maxInlineSize: '62ch' }}>{tr(onlyManagerDecides(staff?.role) ? 'ws.deductions.propose.leadOwner' : 'ws.deductions.propose.lead')}</p>
+    <Panel title={<CardTitle icon="banknote">{tr(atOnce ? 'ws.deductions.propose.titleOwner' : 'ws.deductions.propose.title')}</CardTitle>} data-testid="deductions.propose-form" style={{ marginBlockEnd: 'var(--tp-sp-4)', maxInlineSize: '44rem' }}>
+      <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-3)', maxInlineSize: '62ch' }}>{tr(atOnce ? 'ws.deductions.propose.leadOwner' : 'ws.deductions.propose.lead')}</p>
       <form
         noValidate
         onSubmit={(e) => {
@@ -158,7 +175,7 @@ export function ProposeDeduction({ onClose, onSent }: { onClose: () => void; onS
             {tr('common.cancel')}
           </Button>
           <Button kind="primary" type="submit" icon="check" busy={send.isPending} data-testid="deductions.propose.submit">
-            {tr('ws.deductions.propose.submit')}
+            {tr(atOnce ? 'ws.deductions.propose.submitOwner' : 'ws.deductions.propose.submit')}
           </Button>
         </div>
       </form>

@@ -108,7 +108,7 @@ describe('navigation sets', () => {
     expect(WORKSPACES.prep.groups).toHaveLength(0);
   });
 
-  it('badges the Protocols and Suggestions rows, the wave-5 Deductions, Incidents and Marketing rows, Stock count, and no other', () => {
+  it('badges the Protocols and Suggestions rows, the wave-5 Deductions, Incidents and Marketing rows, Stock count, Wages, and no other', () => {
     const badged = Object.values(WORKSPACES)
       .flatMap((ws) => workspaceItems(ws))
       .filter((i) => i.badge)
@@ -122,6 +122,8 @@ describe('navigation sets', () => {
         '/marketing contentWaiting',
         // The phone counts waiting, on the owner's Stock section (2026-09-27).
         '/stock/counts stockCountsWaiting',
+        // The owner's pay-day reminder (0271).
+        '/wages wagesDue',
       ]),
     );
   });
@@ -183,6 +185,9 @@ describe('workspaceForRoute', () => {
     expect(workspaceForRoute('/analytics')).toBe('owner');
     expect(workspaceForRoute('/analytics/courts')).toBe('owner');
     expect(workspaceForRoute('/ops')).toBe('manager');
+    expect(workspaceForRoute('/wages')).toBe('owner');
+    // A manager records attendance; the owner opens it from Wages.
+    expect(workspaceForRoute('/attendance')).toBeNull();
     // Eight roles open My tasks in their own workspace (§5.1), so it pins none.
     expect(workspaceForRoute('/tasks')).toBeNull();
     expect(workspaceForRoute('/desk')).toBeNull();
@@ -215,6 +220,8 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/reports/revenue')?.key).toBe('financial');
     expect(sectionForPath(owner, '/admin/day-close')?.key).toBe('financial');
     expect(sectionForPath(owner, '/till/drawer')?.key).toBe('financial');
+    expect(sectionForPath(owner, '/wages')?.key).toBe('financial');
+    expect(sectionForPath(owner, '/attendance')?.key).toBe('financial');
 
     expect(sectionForPath(owner, '/observation')?.key).toBe('observation');
     expect(sectionForPath(owner, '/observation/requests')?.key).toBe('observation');
@@ -348,7 +355,7 @@ describe('the manager rail', () => {
   it('groups its rows as Today, Run the day, Records and Setup', () => {
     expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
       [null, ['today']],
-      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions', 'deductions', 'incidents']],
+      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose', 'protocols', 'suggestions', 'deductions', 'attendance', 'incidents']],
       ['groupRecords', ['reports', 'audit']],
       ['groupSetup', ['menu', 'rates', 'promotions']],
     ]);

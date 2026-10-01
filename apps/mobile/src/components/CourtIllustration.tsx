@@ -194,17 +194,17 @@ function CourtIllustrationImpl({ maxHeight }: { maxHeight?: number }) {
             />
             <Path d="M40 108h240M40 288h240" stroke={colors.crtLine} strokeWidth={1.4} opacity={0.7} />
             <Path d="M160 22v86M160 288v86" stroke={colors.crtLine} strokeWidth={1.4} opacity={0.7} />
-            {/* net */}
-            <Path d="M20 198h280" stroke={brand.green} strokeWidth={2.6} opacity={0.95} />
+            {/* net: posts just inside the sidelines */}
+            <Path d="M44 198h232" stroke={brand.green} strokeWidth={2.6} opacity={0.95} />
             <Path
-              d="M20 198h280"
+              d="M44 198h232"
               stroke={colors.crtLine}
               strokeWidth={1}
               strokeDasharray="3 4"
               opacity={0.8}
             />
-            <Circle cx={20} cy={198} r={2.8} fill={colors.crtLine} />
-            <Circle cx={300} cy={198} r={2.8} fill={colors.crtLine} />
+            <Circle cx={44} cy={198} r={2.8} fill={colors.crtLine} />
+            <Circle cx={276} cy={198} r={2.8} fill={colors.crtLine} />
           </Svg>
 
           {/* rackets */}

@@ -16,6 +16,7 @@ import { TEST_VENUE_ID, renderRoute } from '../test/smoke';
 import { TEST_SESSION } from '../test/authState';
 import { staffKeys } from '../features/staff/keys';
 import StaffToday from '../../app/staff';
+import StaffGroup from '../../app/staff-group';
 import StaffRequest from '../../app/staff-request';
 import TabsLayout from '../../app/(tabs)/_layout';
 
@@ -23,9 +24,18 @@ runSmokeCases('staff', [
   {
     route: 'staff',
     Component: StaffToday,
-    // The requests row is on Today for every role, as "Vacation and requests" (#62).
-    labelKey: 'staff.checklists.vacation.row',
+    // The pages sit in the group sheets, so the primary is the account's
+    // Settings button, which every role sees.
+    labelKey: 'settings.title',
     options: { staff: { role: 'head_chef' } },
+  },
+  {
+    // A group's sheet: the requests row is in every role's team group, as
+    // "Vacation & requests" (#62).
+    route: 'staff-group',
+    Component: StaffGroup,
+    labelKey: 'staff.checklists.vacation.row',
+    options: { staff: { role: 'head_chef' }, params: { group: 'team' } },
   },
   {
     route: 'staff-request',
@@ -33,7 +43,9 @@ runSmokeCases('staff', [
     labelKey: 'staff.shell.requests.submit',
     options: {
       staff: { role: 'barista' },
-      queryData: [[staffKeys.requests(TEST_SESSION.user.id), { requests: [], total: 0, pending: 0 }]],
+      queryData: [
+        [staffKeys.requests(TEST_SESSION.user.id), { requests: [], total: 0, pending: 0 }],
+      ],
     },
   },
 ]);
@@ -43,10 +55,11 @@ const UID = TEST_SESSION.user.id;
 const VENUE_B = 'f1f70000-0000-4000-8000-00000000be01';
 
 /** The own-row read answering something other than an active known role. */
-const rowSeed = (row: Record<string, unknown>) => [
-  staffKeys.status(UID),
-  { row: { id: UID, display_name: 'Test Staff', ...row }, venueIds: [] },
-] as [readonly unknown[], unknown];
+const rowSeed = (row: Record<string, unknown>) =>
+  [
+    staffKeys.status(UID),
+    { row: { id: UID, display_name: 'Test Staff', ...row }, venueIds: [] },
+  ] as [readonly unknown[], unknown];
 
 describe.each(LOCALES)('the staff area’s stops in %s', (locale) => {
   const t = makeT(locale);
@@ -88,7 +101,10 @@ describe.each(LOCALES)('the staff area’s stops in %s', (locale) => {
     } finally {
       one.unmount();
     }
-    const two = renderRoute(StaffToday, { locale, staff: { role: 'owner', venues: [TEST_VENUE_ID, VENUE_B] } });
+    const two = renderRoute(StaffToday, {
+      locale,
+      staff: { role: 'owner', venues: [TEST_VENUE_ID, VENUE_B] },
+    });
     try {
       expect(two.getByTestId(`staff.venue.${TEST_VENUE_ID}`)).toBeTruthy();
       expect(two.getByTestId(`staff.venue.${VENUE_B}`)).toBeTruthy();

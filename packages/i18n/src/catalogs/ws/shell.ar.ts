@@ -173,6 +173,9 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     // Wave 5, people records (wave5-addendum-2026-09-25 §5.2).
     deductions: 'الخصومات من الراتب',
     incidents: 'الحوادث',
+    // Wages (0270–0272).
+    wages: 'الرواتب',
+    attendance: 'التأخير والانصراف المبكر',
     badge: 'بانتظارك: {count}',
     groupOperations: 'العمليات',
     groupRun: 'إدارة اليوم',
@@ -183,9 +186,6 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     more: 'خيارات',
     moreMenu: 'إعدادات المحطة',
     switchWorkspace: 'تبديل مساحة العمل',
-    leaveTitle: '{destination}؟',
-    leaveBody: 'ستغادر هذه الشاشة. لن يضيع شيء هنا، ويمكنك العودة بالطريقة نفسها.',
-    leaveConfirm: 'انتقال',
     language: 'English',
     languageAlt: 'العربية',
     blueMode: 'الوضع الأزرق',

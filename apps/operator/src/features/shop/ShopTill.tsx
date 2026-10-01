@@ -33,6 +33,7 @@ import { BillView } from '../till/BillView';
 import { computeTabTotals } from '../till/tabTotals';
 import { useTaxContext } from '../till/useTaxContext';
 import { BarcodeWedge } from '../till/barcodeWedge';
+import { isModalOpen } from '../../lib/overlay';
 import {
   addToBasket,
   basketCount,
@@ -124,7 +125,9 @@ export function ShopTill() {
   lockedRef.current = paying !== null || paid !== null || busy;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (lockedRef.current) return;
+      // A dialog on top (the guide, a PIN prompt) owns the keyboard: a scan
+      // there must not drop an item into the basket behind it.
+      if (lockedRef.current || isModalOpen()) return;
       const action = wedge.current.feed(e.key, e.timeStamp, 'filter');
       if (action.kind !== 'scan') return;
       e.preventDefault();

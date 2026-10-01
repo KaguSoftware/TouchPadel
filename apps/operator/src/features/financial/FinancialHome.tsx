@@ -23,11 +23,12 @@
  *     Shown once deposits are on, or whenever a row waits.
  *  4. **The screens**, one card each, as before.
  */
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatDate, formatIQD, formatTime, type Locale } from '@touch/i18n';
+import { formatDate, formatIQD, formatNumber, formatTime, type Locale } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
+import { can, useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { useLocale } from '../../lib/i18n';
 import { QK, fetchOpenDay } from '../../lib/queries';
@@ -40,10 +41,13 @@ import { varianceMagnitude, varianceSign } from '../admin/dayCloseLogic';
 import { figuresIn, mapFigures, type FigureKey, type PanelHeadline } from '../panel/figures';
 import { DepositAttentionPanel } from '../deposits/DepositAttentionPanel';
 import { FigureGroup } from '../reports/FigureGroup';
+import { fetchWagesDue } from '../wages/api';
+import { wagesDueCount } from '../wages/wagesLogic';
 
 type CardKey =
   | 'reports' | 'cashDrawer'
-  | 'dayClose' | 'rates' | 'menuPrices';
+  | 'dayClose' | 'rates' | 'menuPrices'
+  | 'wages';
 
 /** How many closed days the cash card lists. A week is what an owner scans. */
 export const RECENT_CLOSES = 7;
@@ -58,13 +62,27 @@ export interface ClosedDay {
 }
 
 export function FinancialHomeScreen() {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
+  const { staff } = useAuth();
+  // The Wages card's live line: the rail badge's own read (QK.wagesDue), so the two agree.
+  const wagesOn = can(staff?.role, 'manageWages');
+  const wagesQ = useQuery({ queryKey: QK.wagesDue, queryFn: fetchWagesDue, enabled: wagesOn, refetchInterval: 60_000 });
+  function status(key: string): ReactNode {
+    if ((key as CardKey) !== 'wages' || !wagesOn || !wagesQ.isSuccess) return null;
+    return (
+      <>
+        <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.wages.financial.dueNow')}</span>
+        <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNumber(wagesDueCount(wagesQ.data), locale)}</strong>
+      </>
+    );
+  }
   return (
     <SectionHome
       sectionKey="financial"
       fullWidth
       title={tr('ws.owner.financialHome.title')}
       card={(key) => tr(`ws.owner.financialHome.cards.${key as CardKey}`)}
+      status={status}
       screensTitle={tr('ws.owner.financialHome.screens')}
       toned
     >

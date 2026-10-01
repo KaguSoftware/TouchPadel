@@ -98,7 +98,10 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
   (`REPORT_RPC` in `lib/venueScope.ts`); badges, lists and writes on those pages stay on the rail's
   branch.
 - Edge functions get the branch in the BODY (`venue_scope`, `venue_id`), never as a browser header:
-  the functions do no CORS of their own. `assistant-chat` forwards it server to server.
+  `handle()` (`_shared/http.ts` `CORS_HEADERS`) allows only authorization, x-client-info, apikey
+  and content-type. A new header means adding it there first, or the hosted preflight fails and
+  the page shows "No connection" (the local stack's Kong would hide it). `assistant-chat`
+  forwards the branch server to server.
 - Branch strings live in `ws.branches.*` (EN + AR).
 
 ## i18n and styling

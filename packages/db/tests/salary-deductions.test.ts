@@ -1,18 +1,19 @@
 /**
  * salary_deductions (wave5-addendum-2026-09-25 §2.5, §2.0, §6.1; contracts
- * §8.2): a head proposes a pay deduction for a member of their team, a
- * manager or the owner decides it, and it never reaches the owner assistant.
+ * §8.2; 0272): a head proposes a pay deduction for a member of their team,
+ * the owner decides it, and it never reaches the owner assistant.
  *
  *   * proposing: Bareq (head barista) for a barista and for Hussein (the
  *     assistant barista, M9), Rusul (head chef) for a chef, a manager for the
  *     cashier and the waiter; a head for another team, another head, himself
- *     or an owner is FORBIDDEN:staff_id; MGMT hear deduction_proposed with the
- *     proposer's name only (no amount, no reason, no target), and the person
- *     does not;
- *   * deciding: an approval tells the proposer and the person, a decline
- *     tells the proposer and needs a note; nobody decides their own proposal
- *     or one against themselves; decided stays decided; only the owner
- *     cancels, only an approval, with a reason;
+ *     or an owner is FORBIDDEN:staff_id; the owner hears deduction_proposed
+ *     with the proposer's name only (no amount, no reason, no target), and
+ *     neither the managers nor the person do; the owner's own entry is
+ *     approved at once and tells the person (0272);
+ *   * deciding: only the owner (0272), a manager is FORBIDDEN; an approval
+ *     tells the proposer and the person, a decline tells the proposer and
+ *     needs a note; nobody decides their own proposal; decided stays decided;
+ *     only the owner cancels, only an approval, with a reason;
  *   * reads: the person sees approved and cancelled rows with no proposer,
  *     decision note or cancel reason; the proposer their own proposals; the
  *     month view totals approved rows only; another venue's row is
@@ -216,7 +217,9 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
                    from notification_outbox o
                   where o.created_at = now() and o.payload->>'title_key' = 'deduction_proposed'`),
       Q('who', `select jsonb_build_object('hb', {{hb}}, 'bar', {{bar}}, 'ab', {{ab}}, 'manager', {{manager}},
-                                          'owner', {{owner}}, 'mgr2', {{mgr2}})`),
+                                          'owner', {{owner}}, 'mgr2', {{mgr2}}, 'month', {{month}})`),
+      Q('recorded', `select coalesce(jsonb_agg(o.profile_id), '[]'::jsonb) from notification_outbox o
+                      where o.created_at = now() and o.payload->>'title_key' = 'deduction_recorded'`),
       Q('row', `select jsonb_build_object('status', status, 'staff_id', staff_id, 'proposed_by', proposed_by,
                                           'amount_iqd', amount_iqd, 'pay_month', pay_month, 'reason', reason)
                   from salary_deductions where id = {{bar_id}}::uuid`),
@@ -236,9 +239,11 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
     expect(ids('t_mgr')).not.toContain(who.owner);
     expect(ok<{ staff: Target[] }>(r, 't_owner').staff.map((s) => s.role)).not.toContain('owner');
 
-    for (const l of ['p_bar', 'p_ab', 'p_hc_chef', 'p_cashier', 'p_waiter', 'p_mgr2']) {
+    for (const l of ['p_bar', 'p_ab', 'p_hc_chef', 'p_cashier', 'p_waiter']) {
       expect(ok<{ status: string }>(r, l), l).toMatchObject({ status: 'waiting' });
     }
+    // 0272: the owner decides, so the owner's own entry is approved as it is made.
+    expect(ok(r, 'p_mgr2')).toMatchObject({ status: 'approved', pay_month: who.month });
     for (const l of ['p_chef', 'p_hb2', 'p_self', 'p_owner', 'p_hc_bar', 'p_owner_self']) {
       expect(refused(r, l), l).toBe('FORBIDDEN:staff_id');
     }
@@ -247,19 +252,18 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
 
     const push = ok<Array<{ to: string; kind: string; payload: Record<string, unknown> }>>(r, 'push');
     const to = push.map((p) => p.to);
-    // Bareq's two proposals reach each manager and owner once (dedupe per
-    // proposer); the manager's reach the other MGMT, never the person.
-    expect(to).toEqual(expect.arrayContaining([who.manager, who.owner, who.mgr2]));
-    for (const id of [who.bar, who.ab, who.hb]) expect(to).not.toContain(id);
+    // 0272: every proposal reaches the owner, once per proposer (dedupe), and
+    // never a manager or the person.
+    expect(to).toContain(who.owner);
+    for (const id of [who.bar, who.ab, who.hb, who.manager, who.mgr2]) expect(to).not.toContain(id);
     const fromHb = push.filter((p) => p.payload.dedupe === `deduction:${who.hb}`);
-    expect(fromHb.filter((p) => p.to === who.manager)).toHaveLength(1);
+    expect(fromHb.filter((p) => p.to === who.owner)).toHaveLength(1);
     expect(fromHb[0]!.kind).toBe('staff_decide');
     expect(fromHb[0]!.payload).toEqual({ route: 'staff', id: null, title_key: 'deduction_proposed',
                                          params: { name: 'SD hb' }, dedupe: `deduction:${who.hb}` });
-    // The owner's proposal against mgr2 tells the other MGMT, never mgr2.
-    const fromOwner = push.filter((p) => p.payload.dedupe === `deduction:${who.owner}`);
-    expect(fromOwner.map((p) => p.to)).toContain(who.manager);
-    expect(fromOwner.map((p) => p.to)).not.toContain(who.mgr2);
+    // The owner's own entry asks nobody: it tells mgr2 it was recorded.
+    expect(push.filter((p) => p.payload.dedupe === `deduction:${who.owner}`)).toEqual([]);
+    expect(ok<string[]>(r, 'recorded')).toEqual([who.mgr2]);
     const all = JSON.stringify(push);
     expect(all).not.toMatch(/amount|25000|15000|7000|Late three|SD bar|SD ab|SD w\b|SD mgr2/);
   });
@@ -278,21 +282,25 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
       propose('hb', 'f', 'bar', 3000), RES('f', 'f', 'id'),
       KEEP('far', `insert into salary_deductions (venue_id, staff_id, amount_iqd, deduction_date, reason, proposed_by)
                    values ('${OTHER_VENUE}', {{bar}}::uuid, 1000, current_date, 'far', {{hb}}::uuid) returning id::text`),
-      decide('manager', 'approve_a', 'a', 'true'),
+      // A waiting row the owner proposed before 0272: nobody decides it now.
+      KEEP('legacy', `insert into salary_deductions (venue_id, staff_id, amount_iqd, deduction_date, reason, proposed_by)
+                      values ({{venue}}::uuid, {{w}}::uuid, 1000, current_date, 'legacy', {{owner}}::uuid) returning id::text`),
+      decide('manager', 'mgr_decides', 'a', 'true'),
+      decide('owner', 'approve_a', 'a', 'true'),
       Q('decided_push', `select coalesce(jsonb_agg(jsonb_build_object('to', o.profile_id, 'kind', o.kind, 'payload', o.payload)
                                                   order by o.payload->>'title_key'), '[]'::jsonb)
                            from notification_outbox o
-                          where o.created_at = now()
+                          where o.created_at = now() and o.profile_id <> {{mgr2}}::uuid
                             and o.payload->>'title_key' in ('deduction_approved', 'deduction_recorded')`),
-      decide('manager', 'decline_bare', 'e', 'false'),
-      decide('manager', 'decline_e', 'e', 'false', `'Not his fault'`),
+      decide('owner', 'decline_bare', 'e', 'false'),
+      decide('owner', 'decline_e', 'e', 'false', `'Not his fault'`),
       Q('declined_push', `select coalesce(jsonb_agg(o.profile_id), '[]'::jsonb) from notification_outbox o
                            where o.created_at = now() and o.payload->>'title_key' = 'deduction_declined'`),
-      decide('manager', 'own', 'c', 'true'),
-      decide('mgr2', 'against_self', 'd', 'true'),
-      decide('manager', 'again', 'a', 'false', `'x'`),
-      decide('manager', 'long_note', 'f', 'true', `repeat('n', 1001)`),
-      decide('manager', 'approve_f', 'f', 'true', `'  Agreed.  '`),
+      decide('owner', 'own', 'legacy', 'true'),
+      decide('mgr2', 'mgr2_decides', 'c', 'true'),
+      decide('owner', 'again', 'a', 'false', `'x'`),
+      decide('owner', 'long_note', 'f', 'true', `repeat('n', 1001)`),
+      decide('owner', 'approve_f', 'f', 'true', `'  Agreed.  '`),
       T('wd_after', 'hb', `select app.withdraw_deduction({{a}}::uuid)`),
       T('wd_other', 'hc', `select app.withdraw_deduction({{b}}::uuid)`),
       T('wd_b', 'hb', `select app.withdraw_deduction({{b}}::uuid)`),
@@ -307,10 +315,10 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
                          where o.created_at = now() and o.payload->>'title_key' like 'deduction%'
                            and o.payload->>'title_key' not in ('deduction_proposed', 'deduction_approved',
                                                               'deduction_recorded', 'deduction_declined')`),
-      T('far_decide', 'manager', `select app.decide_deduction({{far}}::uuid, true)`),
+      T('far_decide', 'owner', `select app.decide_deduction({{far}}::uuid, true)`),
       T('far_withdraw', 'hb', `select app.withdraw_deduction({{far}}::uuid)`),
       T('far_cancel', 'owner', `select app.cancel_deduction({{far}}::uuid, 'x')`),
-      T('missing', 'manager', `select app.decide_deduction(gen_random_uuid(), true)`),
+      T('missing', 'owner', `select app.decide_deduction(gen_random_uuid(), true)`),
       Q('months', `select jsonb_object_agg(id, jsonb_build_object('status', status, 'pay_month', pay_month))
                      from salary_deductions where id in ({{a}}::uuid, {{e}}::uuid, {{f}}::uuid)`),
       T('mine_bar', 'bar', `select app.my_deductions({{venue}})`),
@@ -318,6 +326,7 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
       T('props_hb', 'hb', `select app.my_deduction_proposals({{venue}})`),
       T('props_hc', 'hc', `select app.my_deduction_proposals({{venue}})`),
       T('page_all', 'manager', `select app.deductions_page({{venue}}, 'all', 200)`),
+      T('page_owner', 'owner', `select app.deductions_page({{venue}}, 'all', 200)`),
       T('page_waiting', 'owner', `select app.deductions_page({{venue}})`),
       T('page_bad', 'manager', `select app.deductions_page({{venue}}, 'mine')`),
       T('month', 'manager', `select app.deductions_month({{venue}})`),
@@ -325,6 +334,7 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
                                           'b', {{b}}, 'c', {{c}}, 'd', {{d}}, 'e', {{e}}, 'f', {{f}}, 'month', {{month}})`),
     ]);
     const who = ok<Record<string, string>>(r, 'who');
+    expect(refused(r, 'mgr_decides')).toBe('FORBIDDEN');
     expect(ok<{ status: string; pay_month: string }>(r, 'approve_a')).toMatchObject({ status: 'approved', pay_month: who.month });
     const decided = ok<Array<{ to: string; kind: string; payload: Record<string, unknown> }>>(r, 'decided_push');
     expect(decided).toEqual([
@@ -335,7 +345,7 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
     expect(ok<{ status: string; pay_month: null }>(r, 'decline_e')).toMatchObject({ status: 'declined', pay_month: null });
     expect(ok<string[]>(r, 'declined_push')).toEqual([who.hb]);
     expect(refused(r, 'own')).toBe('CANNOT_DECIDE_OWN');
-    expect(refused(r, 'against_self')).toBe('CANNOT_DECIDE_OWN');
+    expect(refused(r, 'mgr2_decides')).toBe('FORBIDDEN');
     expect(refused(r, 'again')).toBe('SUBMISSION_DECIDED');
     expect(refused(r, 'long_note')).toBe('TEXT_TOO_LONG:note');
     expect(ok<{ status: string }>(r, 'approve_f').status).toBe('approved');
@@ -383,14 +393,22 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
     const page = ok<Page>(r, 'page_all');
     const mineOnPage = page.deductions.filter((d) => [who.a, who.b, who.c, who.d, who.e, who.f].includes(d.id as string));
     expect(mineOnPage).toHaveLength(6);
+    // A manager decides nothing (0272): a waiting row is theirs to withdraw
+    // only when they proposed it.
     const firstDecided = page.deductions.findIndex((d) => d.status !== 'waiting');
     expect(page.deductions.slice(firstDecided).some((d) => d.status === 'waiting')).toBe(false);
     expect(page.deductions.find((d) => d.id === who.a)).toMatchObject({
       status: 'cancelled', cancel_reason: 'Approved by mistake', cancelled_by_name: 'Dev Owner', can_cancel: false,
-      proposed_by_name: 'SD hb', proposed_by_role: 'head_barista', decided_by_name: 'Dev Manager' });
-    expect(page.deductions.find((d) => d.id === who.c)).toMatchObject({ status: 'waiting', can_decide: false });
-    expect(page.deductions.find((d) => d.id === who.d)).toMatchObject({ status: 'waiting', can_decide: true });
-    expect(page.deductions.find((d) => d.id === who.f)).toMatchObject({ can_cancel: false, can_decide: false });
+      proposed_by_name: 'SD hb', proposed_by_role: 'head_barista', decided_by_name: 'Dev Owner' });
+    expect(page.deductions.find((d) => d.id === who.c)).toMatchObject({ status: 'waiting', can_decide: false, can_withdraw: true });
+    expect(page.deductions.find((d) => d.id === who.d)).toMatchObject({
+      status: 'approved', proposed_by_name: 'Dev Owner', decided_by_name: 'Dev Owner', can_decide: false, can_cancel: false });
+    expect(page.deductions.find((d) => d.id === who.f)).toMatchObject({ can_cancel: false, can_decide: false, can_withdraw: false });
+    // The owner decides the manager's proposal and may take back an approval.
+    const ownerPage = ok<Page>(r, 'page_owner');
+    expect(ownerPage.deductions.find((d) => d.id === who.c)).toMatchObject({ can_decide: true, can_withdraw: false });
+    expect(ownerPage.deductions.find((d) => d.id === who.f)).toMatchObject({ status: 'approved', can_cancel: true });
+    expect(ownerPage.deductions.find((d) => d.id === who.d)).toMatchObject({ status: 'approved', can_cancel: true });
     const waiting = ok<Page>(r, 'page_waiting');
     expect(waiting.deductions.every((d) => d.status === 'waiting')).toBe(true);
     expect(waiting.waiting_count).toBe(waiting.total);
@@ -455,7 +473,7 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
       // Dated the last day of last month, approved today.
       T('late', 'hb', `select app.propose_deduction({{bar}}::uuid, 12000, {{month}}::date - 1, 'Broke the grinder')`),
       RES('late', 'late', 'id'),
-      decide('manager', 'approve', 'late', 'true'),
+      decide('owner', 'approve', 'late', 'true'),
       T('this_month', 'manager', `select app.deductions_month({{venue}})`),
       T('last_month', 'manager', `select app.deductions_month({{venue}}, {{last_month}}::date)`),
       T('mine_now', 'bar', `select app.my_deductions({{venue}})`),
@@ -564,8 +582,8 @@ describe.skipIf(!docker)('salary_deductions (rolled-back transactions)', () => {
       propose('hb', 'a', 'bar', 25000), RES('a', 'a', 'id'),
       propose('hb', 'b', 'bar', 15000), RES('b', 'b', 'id'),
       propose('hb', 'c', 'bar', 5000), RES('c', 'c', 'id'),
-      decide('manager', 'approve', 'a', 'true', `'Agreed'`),
-      decide('manager', 'decline', 'b', 'false', `'Not his fault'`),
+      decide('owner', 'approve', 'a', 'true', `'Agreed'`),
+      decide('owner', 'decline', 'b', 'false', `'Not his fault'`),
       T('withdraw', 'hb', `select app.withdraw_deduction({{c}}::uuid)`),
       T('cancel', 'owner', `select app.cancel_deduction({{a}}::uuid, 'Approved by mistake')`),
       Q('columns', `select to_jsonb(count(*)) from app.assistant_readable_columns where table_name = 'salary_deductions'`),

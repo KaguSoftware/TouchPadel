@@ -17,6 +17,8 @@ vi.mock('../../lib/settings', () => ({
 // panel's tests are about the panel's figures. It is covered in
 // ../floor/LiveFloor.test.tsx.
 vi.mock('../floor/LiveFloor', () => ({ LiveFloor: () => <div data-testid="live-floor" /> }));
+// The wages card reads its own RPC; this test answers every appRpc call with one value.
+vi.mock('../wages/WagesDueCard', () => ({ WagesDueCard: () => null }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(),

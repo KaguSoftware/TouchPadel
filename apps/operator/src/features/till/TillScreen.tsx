@@ -59,6 +59,7 @@ import type { TillSearch } from './tillSearch';
 import { ScannedSlipsPanel } from './slips/ScannedSlipsPanel';
 import { SLIPS_KEY } from './slips/SlipReview';
 import { BASKET_BLOCK_SIZE, muted } from './tillStyles';
+import { isModalOpen } from '../../lib/overlay';
 import { reservationNameOf } from '../matches/matchLogic';
 
 export function TillScreen() {
@@ -385,7 +386,7 @@ export function TillScreen() {
       const target = e.target as HTMLElement | null;
       const inField = Boolean(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT'));
       const inFilter = target === filterRef.current;
-      const overlayOpen = Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
+      const overlayOpen = isModalOpen();
       const modifier = e.ctrlKey || e.metaKey || e.altKey;
 
 

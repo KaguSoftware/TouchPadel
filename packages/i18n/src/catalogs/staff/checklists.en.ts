@@ -34,7 +34,7 @@ export const staffChecklistsEn = {
   noGuestData: 'Do not write guests’ names or phone numbers.',
   // The Today row that opens the existing requests page (#62).
   vacation: {
-    row: 'Vacation and requests',
+    row: 'Vacation & requests',
   },
 
   production: {

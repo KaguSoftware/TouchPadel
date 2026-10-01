@@ -100,4 +100,9 @@ export const opErrorsCodesEn = {
   LLM_DAILY_QUOTA: 'Today’s AI limit is reached. Try again tomorrow.',
   LLM_MONTHLY_CAP:
     'This month’s AI spending cap is reached. The owner can raise it in Venue settings.',
+  // Wages (0271–0272).
+  WAGE_NOT_SET: 'This person has no salary for that month. Set their salary first.',
+  WAGE_ALREADY_PAID:
+    'That month’s wage is already marked paid, so it can no longer change. Undo the payment first if it was a mistake.',
+  WAGE_CHANGED: 'This wage changed while you were looking at it. Check the new figures and confirm again.',
 };

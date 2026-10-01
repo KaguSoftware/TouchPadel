@@ -629,6 +629,7 @@ export const ownerEn = {
       dayClose: 'Expected against counted, and the variance on each closed day.',
       rates: 'What an hour on a court costs, by day and time. Changes apply to future bookings only.',
       menuPrices: 'Cafe prices. A change here moves tomorrow’s cafe revenue, not today’s.',
+      wages: 'Each person’s salary and pay day, what comes off it, and marking it paid. Approve deductions here.',
     },
     headline: {
       title: 'This month so far',

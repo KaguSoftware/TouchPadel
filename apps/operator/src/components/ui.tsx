@@ -432,8 +432,16 @@ export function Modal({
   canClose,
   requireChoice,
   closeButton = true,
+  tone,
 }: {
   title: string;
+  /**
+   * 'board' draws the dialog in the kitchen board's dark palette
+   * ([data-tone='board'] in GlobalStyles points the surface, text, border and
+   * accent tokens at the --tp-kds-* ones), so a dialog over the wall screen
+   * does not flash a white panel across the kitchen.
+   */
+  tone?: 'board';
   /**
    * False drops the X beside the title. For a yes/no alert, whose footer
    * already holds the way out: an X there was a third answer to a two-answer
@@ -628,6 +636,7 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      data-tone={tone}
       className="tp-fade"
       style={{
         position: 'fixed',
@@ -1032,6 +1041,8 @@ export interface TabItem<T extends string> {
   label: string;
   disabled?: boolean;
   count?: number;
+  /** Shown in the count pill in place of `count`, for a figure that is not one number ("3/5"). */
+  countLabel?: string;
 }
 
 /** In-section tab strip (`role="tablist"`); arrow keys move, dir-aware. */
@@ -1118,7 +1129,7 @@ export function Tabs<T extends string>({
             }}
           >
             {item.label}
-            {item.count !== undefined && (
+            {(item.countLabel !== undefined || item.count !== undefined) && (
               <span
                 style={{
                   fontSize: 'var(--tp-fs-xs)',
@@ -1129,7 +1140,7 @@ export function Tabs<T extends string>({
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
-                {item.count}
+                {item.countLabel ?? item.count}
               </span>
             )}
           </button>

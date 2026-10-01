@@ -50,6 +50,10 @@ const FORBIDDEN = [
   // salary_deductions (wave5-addendum §2.5): a tripwire only. A deduction is
   // money about a named person and never reaches an LLM.
   /deduction/i,
+  // wages and attendance (0270-0271): a tripwire only. A salary, a payment or
+  // a late arrival is money or conduct about a named person. Not /attendance/:
+  // open matches mark a seat's attendance (0262), which is not a person's pay.
+  /salary/i, /wage/i, /late_minutes/i, /early_leave/i,
   // incident_reports (wave5-addendum §2.6): a tripwire only. Who was
   // involved in an incident may name a guest.
   /people_involved/i,

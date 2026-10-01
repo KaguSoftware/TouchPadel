@@ -10,11 +10,13 @@ export const staffShellEn = {
     greeting: 'Hello, {name}',
     // "Head chef · Touch Padel"
     roleAtVenue: '{role} · {venue}',
-    // Today's pages, in three short lists (app/staff.tsx ROW_GROUPS).
+    // Today's pages, in short lists (app/staff.tsx ROW_GROUPS).
     groups: {
-      protocols: 'Protocols and ideas',
+      protocols: 'Protocols & ideas',
+      supplies: 'Stock & supplies',
+      recipes: 'Recipes & teaching',
       daily: 'Daily work',
-      team: 'Requests and suggestions',
+      team: 'Requests',
     },
   },
   venue: {
@@ -29,6 +31,8 @@ export const staffShellEn = {
     openSettings: 'Open settings',
   },
   account: {
+    // The account's alerts button on Today.
+    alerts: 'Work alerts',
     title: 'Account',
     alertsOn: 'Work alerts are on on this phone.',
     alertsOff: 'Work alerts are off on this phone.',
@@ -38,6 +42,8 @@ export const staffShellEn = {
     signOutConfirm: 'You will need your email and password to sign back in.',
   },
   guestView: {
+    // Its button on Today; `row` is the longer name.
+    tile: 'Guest view',
     row: 'Show guest view',
     back: 'Back to staff view',
     note: 'This is the app as guests see it. Anything you book or order here is real.',

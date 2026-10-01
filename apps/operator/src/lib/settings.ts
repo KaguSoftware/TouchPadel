@@ -39,6 +39,12 @@ export interface CafeSettings {
   till_idle_lock_seconds: number;
   /** 0105: minutes of break per person per business day, across all their breaks (0 = no breaks). */
   break_allowance_minutes: number;
+  /** 0270: minutes late plus minutes left early a work day may reach before it costs attendance_penalty_iqd (manager or owner). */
+  attendance_grace_minutes: number;
+  /** 0270: what a work day over attendance_grace_minutes costs, in IQD, taken off that person's wage (0 = off; manager or owner). */
+  attendance_penalty_iqd: number;
+  /** 0270: how many days before a pay day the owner's Wages badge and panel card start to remind (owner only). */
+  wage_reminder_days: number;
 }
 export type CafeSettingKey = keyof CafeSettings;
 
@@ -65,6 +71,9 @@ export const CAFE_SETTING_DEFAULTS: Readonly<CafeSettings> = {
   analytics_engagement_floor: null,
   till_idle_lock_seconds: 300,
   break_allowance_minutes: 60,
+  attendance_grace_minutes: 0,
+  attendance_penalty_iqd: 0,
+  wage_reminder_days: 3,
 };
 
 export const CAFE_SETTING_KEYS = Object.keys(CAFE_SETTING_DEFAULTS) as readonly CafeSettingKey[];
@@ -78,6 +87,7 @@ export const OWNER_ONLY_SETTING_KEYS: readonly CafeSettingKey[] = [
   'analytics_business_day_start_hour',
   'analytics_excluded_item_ids',
   'analytics_engagement_floor',
+  'wage_reminder_days',
 ];
 
 /** Keys guests can read through `cafe_settings_public` (the rest never leave staff). */

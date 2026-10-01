@@ -362,6 +362,19 @@ describe('plain language', () => {
     expect(knownFamilyKey('incident')).toBe('incident');
   });
 
+  it('names every action wages, attendance and the owner’s own deduction write (0270-0272)', () => {
+    const written = [
+      'staff.deduction.record', 'staff.wage.set', 'staff.wage.paid', 'staff.wage.undo',
+      'staff.attendance.record', 'staff.attendance.clear',
+    ];
+    for (const a of written) expect(knownActionKey(a), a).not.toBeNull();
+    expect(knownActionKey('staff.deduction.record')).toBe('staffDeductionRecord');
+    expect(knownActionKey('staff.wage.paid')).toBe('staffWagePaid');
+    expect(knownActionKey('staff.attendance.clear')).toBe('staffAttendanceClear');
+    // The list stays in code order, the convention a new action keeps.
+    expect([...ACTION_KEYS]).toEqual([...ACTION_KEYS].sort());
+  });
+
   it('names the till-shift actions, in the drawer area (wave5-addendum-2026-09-25 §2.9.4)', () => {
     expect(knownActionKey('drawer.shift_open')).toBe('drawerShiftOpen');
     expect(knownActionKey('drawer.shift_close')).toBe('drawerShiftClose');

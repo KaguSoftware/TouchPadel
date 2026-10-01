@@ -1151,6 +1151,21 @@ export function DegradedBanner({
 
 // ── Day chip (availability date strip) ──────────────────────────────────────
 
+/**
+ * Android's line box for a Lama Sans label, pinned to what iOS draws on its own.
+ *
+ * iOS sizes a Lama Sans line from the hhea metrics: 760 + 250 + 200 line gap =
+ * 1.21 em. Android with `includeFontPadding` on pads to the font's bounding
+ * box instead, and Lama Sans's Arabic glyphs make that box tall — the chips
+ * and the court lanes came out visibly stretched (owner, 2026-09-29). iOS is
+ * left to itself.
+ */
+function iosLine(fontSize: number) {
+  return Platform.OS === 'android'
+    ? { lineHeight: Math.round(fontSize * 1.21 * 10) / 10, includeFontPadding: false }
+    : null;
+}
+
 export function DayChip({
   dow,
   dayNum,
@@ -1203,6 +1218,7 @@ export function DayChip({
         style={{
           fontFamily: compact ? fonts.body800 : fonts.body700,
           fontSize: 10,
+          ...iosLine(10),
           letterSpacing: tracking(compact ? 0.45 : 0.6),
           textTransform: 'uppercase',
           opacity: compact ? 0.85 : 0.75,
@@ -1215,6 +1231,7 @@ export function DayChip({
         style={{
           fontFamily: compact ? fonts.display900 : fonts.display800,
           fontSize: 16,
+          ...iosLine(16),
           color: selected ? brand.white : closed ? colors.fnt2 : colors.ink,
         }}
       >
@@ -1225,6 +1242,7 @@ export function DayChip({
           style={{
             fontFamily: fonts.body700,
             fontSize: 8.5,
+            ...iosLine(8.5),
             textTransform: 'uppercase',
             letterSpacing: tracking(0.34),
             opacity: 0.7,
@@ -1362,6 +1380,7 @@ export const SlotCell = memo(function SlotCell({
         style={{
           fontFamily: fonts.display900,
           fontSize: compact ? 18 : 17,
+          ...iosLine(compact ? 18 : 17),
           color: visual.text,
         }}
       >
@@ -1376,6 +1395,7 @@ export const SlotCell = memo(function SlotCell({
         style={{
           fontFamily: fonts.body800,
           fontSize: compact ? 12.5 : 12,
+          ...iosLine(compact ? 12.5 : 12),
           color: visual.subText,
         }}
       >
@@ -1387,6 +1407,7 @@ export const SlotCell = memo(function SlotCell({
           style={{
             fontFamily: compact ? fonts.body800 : fonts.body700,
             fontSize: 9.5,
+            ...iosLine(9.5),
             letterSpacing: tracking(0.3),
             color: cell.freeCount > 1 ? colors.fnt : colors.ambstrong,
           }}
@@ -1470,7 +1491,12 @@ export function CourtFreePill({ free, fontSize }: { free: number; fontSize: numb
       />
       <Text
         numberOfLines={1}
-        style={{ fontFamily: fonts.body800, fontSize, color: open ? colors.gtext : colors.ambtext }}
+        style={{
+          fontFamily: fonts.body800,
+          fontSize,
+          ...iosLine(fontSize),
+          color: open ? colors.gtext : colors.ambtext,
+        }}
       >
         {open ? t('booking.laneFree', { count: free }) : t('booking.laneFull')}
       </Text>
@@ -1623,6 +1649,7 @@ export function CourtLaneRow({
             style={{
               fontFamily: fonts.display900,
               fontSize: 12.5,
+              ...iosLine(12.5),
               letterSpacing: tracking(0.4),
               textTransform: 'uppercase',
               color: colors.ink,
@@ -1632,7 +1659,7 @@ export function CourtLaneRow({
           </Text>
           <Text
             numberOfLines={1}
-            style={{ fontFamily: fonts.body700, fontSize: 9.5, color: colors.fnt }}
+            style={{ fontFamily: fonts.body700, fontSize: 9.5, ...iosLine(9.5), color: colors.fnt }}
           >
             {t(indoor ? 'courts.indoor' : 'courts.outdoor')}
           </Text>

@@ -8,7 +8,7 @@
  */
 export const deductionsEn = {
   title: 'Pay deductions',
-  lead: 'Heads propose a deduction from their phone. Approve or decline it here; the Month tab shows what comes off each person’s pay.',
+  lead: 'Heads and managers propose deductions; only the owner approves or declines them, here or under Wages. An approved deduction comes off the person’s next unpaid wage, and the Month tab shows what comes off each person’s pay.',
   tabsLabel: 'Show deductions',
   tab: {
     waiting: 'Waiting',
@@ -34,21 +34,25 @@ export const deductionsEn = {
   reasonLine: 'Reason: {reason}',
   approve: 'Approve',
   decline: 'Decline',
-  yours: 'You proposed this. Another manager or the owner decides it.',
-  // The owner's own proposal: nobody decides their own, so a manager does (0197).
-  yoursOwner: 'You proposed this. A manager decides it.',
+  // A proposal the viewer sent (can_withdraw): only the owner decides it (0272).
+  yours: 'You proposed this. The owner decides it.',
+  // Anyone else's waiting proposal, read by a manager, who no longer decides (0272).
+  waitingForOwner: 'Waiting for the owner',
   empty: {
-    waiting: 'Nothing to decide',
-    waitingBody: 'When a head proposes a deduction on their phone, it waits here for you.',
+    waiting: 'Nothing waiting',
+    waitingBody: 'When a head or a manager proposes a deduction, it waits here for the owner to decide.',
     all: 'No deductions yet',
-    allBody: 'Heads propose deductions from their phones. You can propose one here too.',
+    allBody: 'Heads propose deductions from their phones. You can add one here too.',
   },
   propose: {
     open: 'Propose a deduction',
+    // The owner's own entry needs nobody else: it is recorded approved at once (0272).
+    openOwner: 'Deduct from a wage',
     title: 'Propose a deduction',
-    lead: 'Another manager or the owner decides it. The person is told only once it is approved, and never who proposed it.',
+    titleOwner: 'Deduct from a wage',
+    lead: 'The owner approves it under Wages, and it then comes off the person’s next unpaid wage. The person is told only once it is approved, and never who proposed it.',
     leadOwner:
-      'A manager decides it. The person is told only once it is approved, and never who proposed it.',
+      'Recorded at once: it comes off their next unpaid wage. The person is told, and never who entered it.',
     person: 'Person',
     choosePerson: 'Choose a person',
     nobody: 'There is nobody you can propose a deduction for.',
@@ -60,7 +64,9 @@ export const deductionsEn = {
     reason: 'Reason',
     reasonHint: 'The person reads this once the deduction is approved.',
     submit: 'Send for approval',
-    sent: 'Sent for approval.',
+    submitOwner: 'Deduct from wage',
+    sent: 'Sent to the owner for approval.',
+    recorded: 'Deduction recorded.',
     issue: {
       required: 'Fill this in.',
       amountRange: 'Enter an amount from {min} to {max}.',
@@ -71,7 +77,7 @@ export const deductionsEn = {
   decide: {
     approveTitle: 'Approve this deduction?',
     declineTitle: 'Decline this deduction?',
-    approveBody: '{amount} off {name}’s pay. It counts in this month’s pay, and {name} is told.',
+    approveBody: '{amount} off {name}’s pay. It comes off their next unpaid wage, and {name} is told.',
     declineBody: '{amount} off {name}’s pay. {name} never sees a declined deduction.',
     note: 'Note',
     reason: 'Reason',
@@ -98,6 +104,8 @@ export const deductionsEn = {
     confirm: 'Cancel deduction',
     keep: 'Keep it',
     done: 'Deduction cancelled.',
+    // A month whose wage the owner marked paid is frozen (WAGE_ALREADY_PAID, 0272).
+    paidLocked: 'This month’s wage is paid, so its deductions can no longer be cancelled.',
   },
   month: {
     thisMonth: 'This month',
@@ -105,21 +113,23 @@ export const deductionsEn = {
     approvedTotal: 'Approved ({count})',
     // A person with no approved deduction this month (only cancelled ones).
     nothingApproved: 'Nothing approved',
-    waitingLabel: 'Waiting for a decision ({count})',
+    waitingLabel: 'Waiting for the owner ({count})',
     empty: 'No deductions in {month}',
-    emptyBody: 'A deduction counts in the month it is approved in.',
+    emptyBody: 'A deduction counts in the person’s first unpaid month from the day it is approved.',
     leftStaff: 'Left the team',
+    // The owner marked this person's wage for the month paid (wages, 0271).
+    wagePaid: 'Wage paid',
     personCount: '{count} approved',
     personWaiting: '{count} waiting',
     earlier: 'Happened in {month}',
     proposedBy: 'Proposed by {name}',
     approvedBy: 'Approved by {name}, {time}',
   },
-  // Observe home and /ops: what waits on the manager or owner.
-  card: 'Heads’ proposals to take money off someone’s pay: decide them, and see each month’s total per person.',
+  // Observe home and /ops: what waits on the owner, who alone decides (0272).
+  card: 'Proposals to take money off someone’s pay: the owner decides each one, and each month’s total per person is here.',
   waiting: {
     title: 'Deductions to decide',
-    hint: 'A head proposed taking money off someone’s pay.',
+    hint: 'A head or a manager proposed taking money off someone’s pay.',
     action: 'Decide deductions',
   },
   // /tasks: a head's read-only copy of their proposals (on the phone).

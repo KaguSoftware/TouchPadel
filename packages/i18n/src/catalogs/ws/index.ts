@@ -66,6 +66,12 @@ import { shopAr } from './shop.ar';
 // matchesAdmin.*.
 import { matchesEn } from './matches.en';
 import { matchesAr } from './matches.ar';
+// The workspace guides (court desk, till, kitchen, Touch Shop).
+import { guideEn } from './guide.en';
+import { guideAr } from './guide.ar';
+// Wages and attendance (0270–0272): the owner's Wages page, the manager's Late and early page.
+import { wagesEn } from './wages.en';
+import { wagesAr } from './wages.ar';
 
 export const wsEn = {
   shell: shellEn,
@@ -94,6 +100,8 @@ export const wsEn = {
   slips: slipsEn,
   shop: shopEn,
   matches: matchesEn,
+  guide: guideEn,
+  wages: wagesEn,
 } as const;
 
 export const wsAr = {
@@ -123,4 +131,6 @@ export const wsAr = {
   slips: slipsAr,
   shop: shopAr,
   matches: matchesAr,
+  guide: guideAr,
+  wages: wagesAr,
 } as const;

@@ -69,6 +69,7 @@ export const brand = {
   navyTrack: '#234276',
   white: '#FFFFFF',
   leaf: '#A5D06F',
+  racketEdge: '#77A937',
 };
 
 export const space = { xs: 4, s: 8, sm: 12, m: 14, l: 16, xl: 20, xxl: 26 };

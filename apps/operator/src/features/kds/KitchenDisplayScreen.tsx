@@ -14,7 +14,7 @@ import { useAudioArming } from '../../lib/audio';
 import type { BroadcastStatus } from '../../lib/realtime';
 import { Button, ErrorText } from '../../components/ui';
 import type { AsyncStatus } from '../../components/kit';
-import { Icon } from '../../components/icons';
+import { Icon, type IconName } from '../../components/icons';
 import { BrandLockup } from '../../components/brand';
 import { TicketList, KdsKbd, kdsCard, kdsGrid, KDS_BAND_BLOCK } from './TicketList';
 import { useKdsKeyboard } from './useKdsKeyboard';
@@ -52,6 +52,11 @@ export interface KitchenDisplayScreenProps {
    * does; absent for prep and management, whose board stays as it was.
    */
   tasks?: { count: number; onOpen: () => void };
+  /**
+   * Open the workspace guide: the pill at the end of the key legend and the
+   * `?` key. KdsBoard passes the shell's guide; absent, neither shows.
+   */
+  onGuide?: () => void;
 }
 
 export function KitchenDisplayScreen({
@@ -69,6 +74,7 @@ export function KitchenDisplayScreen({
   onItemReady,
   onExit,
   tasks,
+  onGuide,
 }: KitchenDisplayScreenProps) {
   const { tr, locale, dir } = useLocale();
 
@@ -95,6 +101,7 @@ export function KitchenDisplayScreen({
     enabled: status === 'ready',
     onStatus,
     onToggleItem,
+    onGuide,
   });
 
   const open = openCount(tickets);
@@ -275,7 +282,7 @@ export function KitchenDisplayScreen({
         )}
       </div>
 
-      <KeyLegend dir={dir} />
+      <KeyLegend dir={dir} onGuide={onGuide} />
     </section>
   );
 }
@@ -351,18 +358,35 @@ export function KdsConnectionPill({ status }: { status: BroadcastStatus }) {
 }
 
 /**
- * The way back to the rest of the app, at the header's end edge. A plain
+ * The board's one pill button: the way out, My tasks and the guide. A plain
  * button rather than the shared <Button>: those carry the light desk palette,
- * and this one has to sit on the dark board beside the connection pill, which
- * is the box it copies.
+ * and these sit on the dark board beside the connection pill, which is the box
+ * they copy. One style, so the three never drift apart.
  */
-function KdsExitButton({ onExit }: { onExit: () => void }) {
-  const { tr } = useLocale();
+function KdsPillButton({
+  onClick,
+  icon,
+  children,
+  highlight,
+  style,
+  ...rest
+}: {
+  onClick: () => void;
+  icon: IconName;
+  children: ReactNode;
+  /** Ring the pill in the fresh-ticket colour (My tasks while anything waits). */
+  highlight?: boolean;
+  style?: CSSProperties;
+  'data-testid': string;
+  'data-count'?: number;
+  'aria-haspopup'?: 'dialog';
+  'aria-keyshortcuts'?: string;
+}) {
   return (
     <button
       type="button"
-      onClick={onExit}
-      data-testid="kds-exit"
+      onClick={onClick}
+      {...rest}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -371,18 +395,29 @@ function KdsExitButton({ onExit }: { onExit: () => void }) {
         fontSize: 'var(--tp-fs-kds-sm)',
         fontWeight: 700,
         color: 'var(--tp-kds-fg)',
-        border: '1px solid var(--tp-kds-border)',
+        border: `1px solid ${highlight ? 'var(--tp-kds-fresh)' : 'var(--tp-kds-border)'}`,
         background: 'var(--tp-kds-card)',
         borderRadius: 'var(--tp-radius-pill)',
         paddingInline: 'var(--tp-sp-4)',
         minBlockSize: 'var(--tp-row-h)',
         whiteSpace: 'nowrap',
         cursor: 'pointer',
+        ...style,
       }}
     >
-      <Icon name="logOut" size={20} />
-      {tr('ws.prep.exit')}
+      <Icon name={icon} size={20} />
+      {children}
     </button>
+  );
+}
+
+/** The way back to the rest of the app, at the header's end edge. */
+function KdsExitButton({ onExit }: { onExit: () => void }) {
+  const { tr } = useLocale();
+  return (
+    <KdsPillButton onClick={onExit} icon="logOut" data-testid="kds-exit">
+      {tr('ws.prep.exit')}
+    </KdsPillButton>
   );
 }
 
@@ -394,31 +429,9 @@ function KdsExitButton({ onExit }: { onExit: () => void }) {
 function KdsTasksButton({ count, onOpen }: { count: number; onOpen: () => void }) {
   const { tr, locale } = useLocale();
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      data-testid="kds-tasks"
-      data-count={count}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 'var(--tp-sp-2)',
-        fontFamily: 'inherit',
-        fontSize: 'var(--tp-fs-kds-sm)',
-        fontWeight: 700,
-        color: 'var(--tp-kds-fg)',
-        border: `1px solid ${count > 0 ? 'var(--tp-kds-fresh)' : 'var(--tp-kds-border)'}`,
-        background: 'var(--tp-kds-card)',
-        borderRadius: 'var(--tp-radius-pill)',
-        paddingInline: 'var(--tp-sp-4)',
-        minBlockSize: 'var(--tp-row-h)',
-        whiteSpace: 'nowrap',
-        cursor: 'pointer',
-      }}
-    >
-      <Icon name="checkCircle" size={20} />
+    <KdsPillButton onClick={onOpen} icon="checkCircle" highlight={count > 0} data-testid="kds-tasks" data-count={count}>
       <bdi>{count > 0 ? tr('ws.team.tasks.kds.buttonCount', { count: formatNumber(count, locale) }) : tr('ws.team.tasks.kds.button')}</bdi>
-    </button>
+    </KdsPillButton>
   );
 }
 
@@ -577,7 +590,7 @@ function KdsErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => voi
 // Key legend — always visible at the bottom edge.
 // ---------------------------------------------------------------------------
 
-function KeyLegend({ dir }: { dir: 'ltr' | 'rtl' }) {
+function KeyLegend({ dir, onGuide }: { dir: 'ltr' | 'rtl'; onGuide?: () => void }) {
   const { tr } = useLocale();
   const prev = dir === 'rtl' ? '→' : '←';
   const next = dir === 'rtl' ? '←' : '→';
@@ -637,6 +650,24 @@ function KeyLegend({ dir }: { dir: 'ltr' | 'rtl' }) {
       )}
       {entry(<KdsKbd>Space</KdsKbd>, tr('ws.prep.keys.toggle'))}
       {entry(<KdsKbd>Esc</KdsKbd>, tr('ws.prep.keys.clear'))}
+      {/* The guide, pushed to the legend's inline end: the instructions bar
+          is where someone looking for help already reads. Its key chip is on
+          the pill itself, so the legend does not grow a sixth entry. */}
+      {onGuide && (
+        <KdsPillButton
+          onClick={onGuide}
+          icon="bookOpen"
+          data-testid="kds-guide"
+          aria-haspopup="dialog"
+          aria-keyshortcuts="?"
+          style={{ marginInlineStart: 'auto' }}
+        >
+          {tr('ws.guide.chrome.open')}
+          <span dir="ltr">
+            <KdsKbd>?</KdsKbd>
+          </span>
+        </KdsPillButton>
+      )}
     </footer>
   );
 }

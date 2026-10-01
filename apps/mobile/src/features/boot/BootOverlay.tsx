@@ -49,6 +49,7 @@ import { useReduceMotion } from '../../lib/useReduceMotion';
 import { brand } from '../../theme/tokens';
 import { LogoBall, LogoWordmark } from '../../components/LogoMark';
 import { logoFrame } from '../courtTransition/logoPaths';
+import { useWelcomeDecided } from '../auth/welcomeSeen';
 import { claimBootOverlay } from './launchOnce';
 import { hideNativeSplash } from './splash';
 
@@ -58,6 +59,8 @@ const REDUCED_HOLD_MS = 600;
 const FADE_MS = 260;
 /** If the splash never reports itself hidden, hold no longer than this. */
 const WATCHDOG_MS = 1500;
+/** If auth never answers, the cover stops waiting for the first-launch decision. */
+const DECISION_WATCHDOG_MS = 4000;
 
 /**
  * The lockup's width, in points — and it MUST equal the native splash's
@@ -113,6 +116,15 @@ export function BootOverlay() {
   // shortens nothing: one second means one second of THIS screen.
   const [revealed, setRevealed] = useState(false);
   const reduceMotion = useReduceMotion();
+  // First launch: the cover holds until the app has routed to Welcome (or
+  // decided not to), so no other screen shows through on the way.
+  const decidedByApp = useWelcomeDecided();
+  const [decidedByTimer, setDecidedByTimer] = useState(false);
+  const decided = decidedByApp || decidedByTimer;
+  useEffect(() => {
+    const t = setTimeout(() => setDecidedByTimer(true), DECISION_WATCHDOG_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   // Lazy state, not refs: these are read while rendering (they ARE the style),
   // and one Animated.Value per mount is exactly what a lazy initialiser gives.
@@ -146,7 +158,7 @@ export function BootOverlay() {
 
   // The hold, then the fade — and the lift, in step with it.
   useEffect(() => {
-    if (!revealed || done) return;
+    if (!revealed || !decided || done) return;
     const hold = setTimeout(
       () => {
         if (reduceMotion) {
@@ -179,7 +191,7 @@ export function BootOverlay() {
     // `reduceMotion` can land mid-hold (the OS answers asynchronously); when it
     // does the hold restarts under the shorter timing, which is the right way
     // round — a guest who asked for less motion gets less of this screen.
-  }, [revealed, done, reduceMotion, fade, lift]);
+  }, [revealed, decided, done, reduceMotion, fade, lift]);
 
   // The serve. Starts on `revealed`, not on mount: until the native splash is
   // down the guest is looking at the OS's copy of this frame, and motion under

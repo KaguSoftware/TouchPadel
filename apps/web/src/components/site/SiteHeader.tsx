@@ -5,12 +5,18 @@ import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { BrandLockup } from './brand/BrandLockup';
 import { WhatsAppButton } from './ContactButton';
 import { LanguageLink } from './LanguageLink';
-import { ArrowIcon, GlobeIcon } from './icons';
+import { GlobeIcon } from './icons';
 import { HeaderScrollState } from './Reveal';
 import { SiteMenuToggle } from './SiteMenuToggle';
 import { ThemeToggle } from './ThemeToggle';
 
 const MENU_ID = 'tp-site-menu';
+
+/**
+ * Pages whose bar stays solid from the top instead of fading its ground in on scroll:
+ * the legal documents, where the fade over plain text read as the bar flickering.
+ */
+const SOLID_HEADER_PATHS = ['/privacy', '/terms', '/support', '/delete-account'];
 
 /**
  * The site header: the vector lockup (home), then The club · Lessons · Café menu · Visit,
@@ -47,33 +53,15 @@ export function SiteHeader({
   const tr = makeT(locale);
   const other = otherLocale(locale);
   const onHome = path === '';
-  const section = (id: string) => (onHome ? `#${id}` : `/${locale}#${id}`);
-  const links = [
-    { href: section('club'), label: tr('site.nav.club') },
-    { href: section('lessons'), label: tr('site.nav.lessons') },
-    { href: `/${locale}/menu`, label: tr('site.nav.menu') },
-    { href: section('visit'), label: tr('site.nav.visit') },
-  ];
+  const solid = path !== null && SOLID_HEADER_PATHS.includes(path);
   return (
-    <header className="tp-site-header" data-menu="closed">
+    <header className="tp-site-header" data-menu="closed" data-solid={solid ? 'true' : undefined}>
       <div className="tp-site-header__inner">
         <a className="tp-site-header__brand" href={`/${locale}`} aria-label={tr('site.brandHome')}>
           <BrandLockup />
         </a>
         <SiteMenuToggle controls={MENU_ID} label={tr('site.nav.toggle')} />
         <div className="tp-site-menu" id={MENU_ID}>
-          <nav className="tp-site-nav" aria-label={tr('site.nav.label')}>
-            <ul className="tp-site-nav__list">
-              {links.map((link) => (
-                <li key={link.href}>
-                  <a className="tp-site-nav__link" href={link.href}>
-                    <span>{link.label}</span>
-                    <ArrowIcon className="tp-site-nav__arrow" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
           <WhatsAppButton
             locale={locale}
             phone={phone}

@@ -5,10 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 import type { StaffRole } from '../../lib/auth';
 
-// /deductions (wave5-addendum-2026-09-25 §2.5, §5.2): the manager and the owner
-// decide what heads propose, see each month per person, and the owner alone
-// takes an approval back. Nobody decides their own proposal: it offers
-// Withdraw instead.
+// /deductions (wave5-addendum-2026-09-25 §2.5, §5.2; 0272): the owner alone
+// decides what heads and managers propose, and takes an approval back until
+// the month's wage is paid; a manager sees what waits for the owner. A
+// proposal the viewer sent offers Withdraw, and only that one.
 
 let role: StaffRole = 'manager';
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
@@ -39,6 +39,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   cancelled_at: null,
   cancel_reason: null,
   can_decide: true,
+  can_withdraw: false,
   can_cancel: false,
   ...over,
 });
@@ -57,6 +58,7 @@ const month = {
       approved_count: 1,
       waiting_iqd: 25000,
       waiting_count: 1,
+      wage_paid: false,
       deductions: [
         { id: 'd9', amount_iqd: 50000, deduction_date: '2026-08-30', dated_earlier: true, reason: 'Broken grinder', status: 'approved', proposed_by_name: 'Bareq', decided_by_name: 'Omar', decided_at: '2026-09-02T10:00:00Z' },
       ],
@@ -71,7 +73,7 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
     switch (fn) {
       case 'deductions_page':
         return args.p_filter === 'waiting'
-          ? { deductions: waiting, waiting_count: waiting.filter((r) => r.can_decide).length, total: waiting.length }
+          ? { deductions: waiting, waiting_count: waiting.length, total: waiting.length }
           : { deductions: [row({ id: 'd7', status: 'declined', can_decide: false, decided_by_name: 'Majed', decided_at: '2026-09-21T10:00:00Z', decision_note: 'Not on shift that day' })], waiting_count: 1, total: 1 };
       case 'deductions_month':
         return month;
@@ -84,7 +86,7 @@ vi.mock('../../lib/appRpc', async (importOriginal) => ({
       case 'cancel_deduction':
         return { status: 'cancelled', cancelled_at: '2026-09-26T10:00:00Z' };
       case 'propose_deduction':
-        return { id: 'dnew', status: 'waiting' };
+        return role === 'owner' ? { id: 'dnew', status: 'approved', pay_month: '2026-09-01' } : { id: 'dnew', status: 'waiting' };
       default:
         throw new Error(`unexpected ${fn}`);
     }
@@ -120,9 +122,9 @@ beforeEach(() => {
 });
 
 describe('DeductionsPageScreen', () => {
-  it('lists what waits on the manager and approves it with an optional note', async () => {
+  it('lists what waits on the owner and approves it with an optional note', async () => {
     const user = userEvent.setup();
-    renderPage('manager');
+    renderPage('owner');
     expect(await screen.findByText('Late three times this week')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Waiting (1)' })).toBeTruthy();
     expect(screen.getByText('Head barista')).toBeTruthy();
@@ -134,7 +136,7 @@ describe('DeductionsPageScreen', () => {
 
   it('asks for a reason before it declines, and sends the reason the proposer reads', async () => {
     const user = userEvent.setup();
-    renderPage('manager');
+    renderPage('owner');
     await user.click(await screen.findByTestId('deductions.decline.d1'));
     const dialog = screen.getByRole('dialog', { name: 'Decline this deduction?' });
     await user.click(within(dialog).getByTestId('deductions.decide.confirm'));
@@ -145,12 +147,26 @@ describe('DeductionsPageScreen', () => {
     expect(calls.find((c) => c.fn === 'decide_deduction')?.args).toEqual({ p_id: 'd1', p_approve: false, p_note: 'Not on shift that day' });
   });
 
-  it('offers Withdraw, never Approve, on the viewer’s own proposal', async () => {
-    const user = userEvent.setup();
-    waiting = [row({ id: 'd2', can_decide: false, proposed_by_name: 'Omar', proposed_by_role: 'manager' })];
+  it('shows a manager a head’s proposal as waiting for the owner, with no Approve, Decline or Withdraw', async () => {
+    waiting = [row({ can_decide: false })];
     renderPage('manager');
-    expect(await screen.findByText('You proposed this. Another manager or the owner decides it.')).toBeTruthy();
+    expect(await screen.findByText('Late three times this week')).toBeTruthy();
+    expect(screen.getByTestId('deductions.awaiting.d1').textContent).toBe('Waiting for the owner');
+    expect(screen.queryByTestId('deductions.approve.d1')).toBeNull();
+    expect(screen.queryByTestId('deductions.decline.d1')).toBeNull();
+    expect(screen.queryByTestId('deductions.withdraw.d1')).toBeNull();
+    // Nothing is the manager's to decide, so the tab carries no count.
+    expect(screen.getByRole('button', { name: 'Waiting' })).toBeTruthy();
+  });
+
+  it('offers Withdraw, never Approve, only on a proposal the viewer sent (can_withdraw)', async () => {
+    const user = userEvent.setup();
+    waiting = [row({ id: 'd2', can_decide: false, can_withdraw: true, proposed_by_name: 'Omar', proposed_by_role: 'manager' }), row({ id: 'd3', can_decide: false })];
+    renderPage('manager');
+    expect(await screen.findByText('You proposed this. The owner decides it.')).toBeTruthy();
     expect(screen.queryByTestId('deductions.approve.d2')).toBeNull();
+    expect(screen.queryByTestId('deductions.withdraw.d3')).toBeNull();
+    expect(screen.getByTestId('deductions.awaiting.d3')).toBeTruthy();
     await user.click(screen.getByTestId('deductions.withdraw.d2'));
     await user.click(screen.getByRole('button', { name: 'Withdraw proposal' }));
     expect(calls.find((c) => c.fn === 'withdraw_deduction')?.args).toEqual({ p_id: 'd2' });
@@ -158,8 +174,8 @@ describe('DeductionsPageScreen', () => {
 
   it('says so when nothing waits', async () => {
     waiting = [];
-    renderPage('manager');
-    expect(await screen.findByText('Nothing to decide')).toBeTruthy();
+    renderPage('owner');
+    expect(await screen.findByText('Nothing waiting')).toBeTruthy();
   });
 
   it('shows the All tab with each deduction’s status and the decider’s note', async () => {
@@ -191,6 +207,22 @@ describe('DeductionsPageScreen', () => {
     expect(calls.find((c) => c.fn === 'cancel_deduction')?.args).toEqual({ p_id: 'd9', p_reason: 'Approved by mistake' });
   });
 
+  it('marks a paid month’s person “Wage paid” and offers the owner no Cancel there (WAGE_ALREADY_PAID)', async () => {
+    const user = userEvent.setup();
+    month.people[0]!.wage_paid = true;
+    try {
+      renderPage('owner');
+      await user.click(await screen.findByRole('button', { name: 'Month' }));
+      const person = await screen.findByTestId('deductions.person.s-hussein');
+      expect(within(person).getByText('Wage paid')).toBeTruthy();
+      await user.click(person);
+      expect(screen.getByText('This month’s wage is paid, so its deductions can no longer be cancelled.')).toBeTruthy();
+      expect(within(screen.getByTestId('deductions.item.d9')).queryByTestId('deductions.cancel.d9')).toBeNull();
+    } finally {
+      month.people[0]!.wage_paid = false;
+    }
+  });
+
   it('gives the manager no Cancel on the month (the owner’s alone)', async () => {
     const user = userEvent.setup();
     renderPage('manager');
@@ -220,8 +252,26 @@ describe('DeductionsPageScreen', () => {
     expect(String(sent?.p_date)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it('records the owner’s own entry at once, and says it comes off the next unpaid wage', async () => {
+    const user = userEvent.setup();
+    renderPage('owner');
+    await user.click(await screen.findByTestId('deductions.propose'));
+    const form = screen.getByTestId('deductions.propose-form');
+    expect(within(form).getByText(/Recorded at once: it comes off their next unpaid wage/)).toBeTruthy();
+    expect(within(form).getByTestId('deductions.propose.submit').textContent).toContain('Deduct from wage');
+  });
+
+  it('tells a manager the owner approves the proposal under Wages', async () => {
+    const user = userEvent.setup();
+    renderPage('manager');
+    await user.click(await screen.findByTestId('deductions.propose'));
+    const form = screen.getByTestId('deductions.propose-form');
+    expect(within(form).getByText(/The owner approves it under Wages/)).toBeTruthy();
+    expect(within(form).getByTestId('deductions.propose.submit').textContent).toContain('Send for approval');
+  });
+
   it('reads in Arabic', async () => {
-    renderPage('manager', 'ar');
+    renderPage('owner', 'ar');
     expect(screen.getByRole('heading', { level: 1, name: 'الخصومات من الراتب' })).toBeTruthy();
     expect(await screen.findByRole('button', { name: 'موافقة' })).toBeTruthy();
     expect(screen.getByText('رئيس الباريستا')).toBeTruthy();

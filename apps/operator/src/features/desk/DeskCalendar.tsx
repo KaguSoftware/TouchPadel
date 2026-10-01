@@ -103,6 +103,7 @@ import { DateField } from '../../components/inputs';
 import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, isVisible, packLanes } from './deskLogic';
 import { dropRefusal, dropStartMin, grabRowOffset, type DropRefusal } from './dragLogic';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
+import { isModalOpen } from '../../lib/overlay';
 import { customerGenderOf, type PickedCustomer } from './customers/CustomerPicker';
 
 type View = 'day' | 'month';
@@ -347,6 +348,10 @@ export function DeskCalendar() {
     if (dialogOpen) return;
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // `dialogOpen` covers this screen's own dialogs; a shell dialog (the
+      // workspace guide) is not one of them, and the arrows must not move the
+      // date behind it.
+      if (isModalOpen()) return;
       const t = e.target as HTMLElement | null;
       if (
         t &&

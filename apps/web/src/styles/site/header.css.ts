@@ -32,7 +32,9 @@ export const siteHeaderCss = `
   box-shadow: inset 0 -1px 0 var(--tp-site-header-border);
   transition: opacity var(--tp-site-dur-base) var(--tp-site-ease-out);
 }
-.tp-site-header[data-scrolled='false']:not([data-menu='open'])::before { opacity: 0; }
+.tp-site-header[data-scrolled='false']:not([data-menu='open']):not([data-solid='true'])::before {
+  opacity: 0;
+}
 .tp-site-header__inner {
   display: flex;
   align-items: center;

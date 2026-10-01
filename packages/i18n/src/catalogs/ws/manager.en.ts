@@ -925,6 +925,13 @@ export const managerEn = {
       staffDeductionApprove: 'Pay deduction approved',
       staffDeductionDecline: 'Pay deduction declined',
       staffDeductionCancel: 'Pay deduction cancelled',
+      staffDeductionRecord: 'Pay deduction recorded by the owner',
+      // Wages and attendance (0270-0271): a status only, never a figure or a name.
+      staffWageSet: 'Wage set',
+      staffWagePaid: 'Wage marked paid',
+      staffWageUndo: 'Wage payment undone',
+      staffAttendanceRecord: 'Late or early day recorded',
+      staffAttendanceClear: 'Late or early day cleared',
       incidentReport: 'Incident reported',
       incidentReview: 'Incident report reviewed',
       incidentRedact: 'Incident report redacted',

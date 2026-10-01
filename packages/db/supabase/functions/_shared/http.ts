@@ -187,10 +187,35 @@ export function pgErrorBody(err: PgError, where: string): { status: number; body
 }
 
 /**
- * The wrapper every Deno.serve handler goes through: anything thrown becomes a
- * JSON 500 `{ error: 'INTERNAL' }`, or the function's own `onError` answer for
- * the callers that must always see 200 (Telegram, GoTrue's hook, pg_net), and
- * the real message goes to the log, never to the caller.
+ * CORS for browser callers (the operator renderer, a browser tab, Expo web).
+ * The local stack's Kong answers the preflight itself; the hosted gateway hands
+ * it to the function, so without this every hosted call from a page died in the
+ * browser as a fetch TypeError ("No connection"). `*` is safe: callers
+ * authenticate with a bearer token, never a cookie. The allowed headers are
+ * what the clients send: lib/edge.ts (authorization, apikey, content-type) and
+ * supabase-js `functions.invoke` (x-client-info).
+ */
+export const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
+
+function withCors(res: Response): Response {
+  // A fetch()ed response has immutable headers, so copy rather than set.
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
+/**
+ * The wrapper every Deno.serve handler goes through: a CORS preflight is
+ * answered 204 before the handler runs, every answer carries CORS_HEADERS, and
+ * anything thrown becomes a JSON 500 `{ error: 'INTERNAL' }`, or the function's
+ * own `onError` answer for the callers that must always see 200 (Telegram,
+ * GoTrue's hook, pg_net), and the real message goes to the log, never to the
+ * caller.
  */
 export function handle(
   name: string,
@@ -198,11 +223,12 @@ export function handle(
   onError?: (req: Request) => Response,
 ): (req: Request) => Promise<Response> {
   return async (req: Request) => {
+    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
     try {
-      return await fn(req);
+      return withCors(await fn(req));
     } catch (err) {
       logError(name, err);
-      return onError ? onError(req) : errorResponse('INTERNAL', 500);
+      return withCors(onError ? onError(req) : errorResponse('INTERNAL', 500));
     }
   };
 }

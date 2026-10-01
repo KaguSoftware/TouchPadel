@@ -6,8 +6,8 @@ import {
   decisionIssue,
   deductionTone,
   deductionsWaitingCount,
-  onlyManagerDecides,
   isStaleRefusal,
+  ownerRecordsAtOnce,
   proposeRefusalField,
   readDeductionTargets,
   readDeductionsMonth,
@@ -41,6 +41,7 @@ const pageRow = (over: Record<string, unknown> = {}) => ({
   cancelled_at: null,
   cancel_reason: null,
   can_decide: true,
+  can_withdraw: false,
   can_cancel: false,
   ...over,
 });
@@ -61,9 +62,13 @@ describe('app.deductions_page', () => {
       status: 'waiting',
       proposedByRole: 'head_barista',
       canDecide: true,
+      canWithdraw: false,
       canCancel: false,
     });
     expect(deductionsWaitingCount(payload)).toBe(3);
+    expect(readDeductionsPage({ deductions: [pageRow({ can_withdraw: true })] }).rows[0]!.canWithdraw).toBe(true);
+    // Anything but a literal true reads as "no".
+    expect(readDeductionsPage({ deductions: [pageRow({ can_withdraw: 'yes' })] }).rows[0]!.canWithdraw).toBe(false);
   });
 
   it('reads nothing from a missing or broken payload, and an unknown role or status safely', () => {
@@ -76,33 +81,36 @@ describe('app.deductions_page', () => {
     expect(deductionsWaitingCount({ waiting_count: -1 })).toBe(0);
   });
 
-  it('says a manager decides the owner’s own proposal, and another manager or the owner anyone else’s', () => {
-    expect(onlyManagerDecides('owner')).toBe(true);
-    expect(onlyManagerDecides('manager')).toBe(false);
-    expect(onlyManagerDecides('head_chef')).toBe(false);
-    expect(onlyManagerDecides(null)).toBe(false);
+  it('records the owner’s own entry at once, and sends everyone else’s to the owner (0272)', () => {
+    expect(ownerRecordsAtOnce('owner')).toBe(true);
+    expect(ownerRecordsAtOnce('manager')).toBe(false);
+    expect(ownerRecordsAtOnce('head_chef')).toBe(false);
+    expect(ownerRecordsAtOnce(null)).toBe(false);
+    expect(ownerRecordsAtOnce(undefined)).toBe(false);
   });
 
-  it('leaves the viewer’s own waiting proposals out of the count to decide', () => {
-    // A manager proposed one of the three: he can decide two.
-    const payload = {
-      deductions: [pageRow({ id: 'a' }), pageRow({ id: 'b' }), pageRow({ id: 'own', can_decide: false })],
-      waiting_count: 3,
-      total: 3,
+  it('counts only the waiting rows the viewer can decide', () => {
+    // The owner proposed nothing here: all three are his to decide.
+    expect(deductionsWaitingCount({ deductions: [pageRow({ id: 'a' }), pageRow({ id: 'b' }), pageRow({ id: 'c' })], waiting_count: 3, total: 3 })).toBe(3);
+    // A manager decides none since 0272: his own proposal and a head's both wait for the owner.
+    const manager = {
+      deductions: [pageRow({ id: 'own', can_decide: false, can_withdraw: true }), pageRow({ id: 'head', can_decide: false })],
+      waiting_count: 2,
+      total: 2,
     };
-    expect(deductionsWaitingCount(payload)).toBe(2);
-    // Only his own waits: nothing to decide, and never below zero.
-    expect(deductionsWaitingCount({ deductions: [pageRow({ can_decide: false })], waiting_count: 1 })).toBe(0);
+    expect(deductionsWaitingCount(manager)).toBe(0);
+    // Never below zero.
     expect(deductionsWaitingCount({ deductions: [pageRow({ can_decide: false })], waiting_count: 0 })).toBe(0);
   });
 
-  it('offers Approve and Decline when the viewer may decide, Withdraw on their own proposal, nothing once settled', () => {
-    expect(waitingAction({ status: 'waiting', canDecide: true })).toBe('decide');
-    // The page leaves out rows about the viewer (F6), so a waiting row they
-    // cannot decide is one they proposed.
-    expect(waitingAction({ status: 'waiting', canDecide: false })).toBe('withdraw');
+  it('offers Approve and Decline to the decider, Withdraw to the proposer, a waiting line to anyone else, nothing once settled', () => {
+    expect(waitingAction({ status: 'waiting', canDecide: true, canWithdraw: false })).toBe('decide');
+    expect(waitingAction({ status: 'waiting', canDecide: false, canWithdraw: true })).toBe('withdraw');
+    // A manager reading a head's proposal can neither decide nor withdraw it:
+    // "cannot decide" no longer means "my own proposal" (0272).
+    expect(waitingAction({ status: 'waiting', canDecide: false, canWithdraw: false })).toBe('awaitingOwner');
     for (const s of ['approved', 'declined', 'withdrawn', 'cancelled'] as const) {
-      expect(waitingAction({ status: s, canDecide: true }), s).toBeNull();
+      expect(waitingAction({ status: s, canDecide: true, canWithdraw: true }), s).toBeNull();
     }
   });
 
@@ -129,6 +137,7 @@ describe('app.deductions_month', () => {
         approved_count: 1,
         waiting_iqd: 10000,
         waiting_count: 1,
+        wage_paid: true,
         deductions: [
           { id: 'd1', amount_iqd: 50000, deduction_date: '2026-08-30', dated_earlier: true, reason: 'Broken grinder', status: 'approved', proposed_by_name: 'Bareq', decided_by_name: 'Omar', decided_at: '2026-09-02T10:00:00Z' },
           { id: 'd2', amount_iqd: 20000, deduction_date: '2026-09-05', dated_earlier: false, reason: 'Late', status: 'cancelled', proposed_by_name: 'Bareq', decided_by_name: 'Omar', decided_at: '2026-09-06T10:00:00Z' },
@@ -142,9 +151,10 @@ describe('app.deductions_month', () => {
     const m = readDeductionsMonth(month);
     expect(m.month).toBe('2026-09-01');
     expect(m.totals).toEqual({ approvedIqd: 75000, approvedCount: 2, waitingIqd: 10000, waitingCount: 1, people: 2 });
-    expect(m.people.map((p) => [p.displayName, p.isActive, p.approvedIqd])).toEqual([
-      ['Yusuf', true, 50000],
-      ['Ali', false, 25000],
+    expect(m.people.map((p) => [p.displayName, p.isActive, p.approvedIqd, p.wagePaid])).toEqual([
+      ['Yusuf', true, 50000, true],
+      // No wage_paid (or anything but true) is an unpaid month.
+      ['Ali', false, 25000, false],
     ]);
     // The cancelled row is listed but the person's approved figure is the server's (it left the total).
     expect(m.people[0]!.deductions.map((d) => [d.id, d.status, d.datedEarlier])).toEqual([

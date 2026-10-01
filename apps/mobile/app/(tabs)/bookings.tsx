@@ -47,7 +47,7 @@ import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
-import { Screen, Title } from '../../src/components/ui';
+import { Screen, TAB_TITLE_TOP, Title } from '../../src/components/ui';
 import {
   FilterChip,
   HeldSlotCard,
@@ -459,7 +459,7 @@ export default function BookingsScreen() {
   // and the refetch, and the detail screen has its own Call the venue.
 
   const header = (
-    <View style={{ paddingTop: space.l }}>
+    <View style={{ paddingTop: TAB_TITLE_TOP }}>
       <Title>{t('booking.myBookings')}</Title>
 
       {tabs}
@@ -494,7 +494,7 @@ export default function BookingsScreen() {
             title={t('booking.noBookingsTitle')}
             message={t('auth.signedOutPitch')}
             actionLabel={t('auth.signIn')}
-            onAction={() => router.push('/welcome')}
+            onAction={() => router.push('/sign-in')}
           />
         </View>
       </Screen>

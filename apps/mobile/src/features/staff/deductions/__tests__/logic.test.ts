@@ -7,12 +7,12 @@ import {
   addDays,
   canWithdraw,
   decidableWaiting,
-  decidedByManagerOnly,
   deductionArgs,
   deductionsAccess,
   emptyDeductionDraft,
   initialView,
   monthOf,
+  recordedAtOnce,
   shiftMonth,
   stepMonth,
   validateDeduction,
@@ -30,7 +30,11 @@ describe('who proposes', () => {
     expect([...DEDUCT_ROLES].sort()).toEqual(['head_barista', 'head_chef', 'manager', 'owner']);
     for (const role of STAFF_ROLES) {
       expect(deductionsAccess(role).proposes, role).toBe(DEDUCT_ROLES.includes(role));
-      expect(deductionsAccess(role).mgmt, role).toBe(role === 'manager' || role === 'owner');
+      expect(deductionsAccess(role).proposesForAnyone, role).toBe(
+        role === 'manager' || role === 'owner',
+      );
+      // The owner alone decides since 0272, so only the owner is told what waits.
+      expect(deductionsAccess(role).decides, role).toBe(role === 'owner');
       // Nobody proposes against an owner (deduction_targets), so an owner has no record of their own.
       expect(deductionsAccess(role).hasOwn, role).toBe(role !== 'owner');
     }
@@ -188,9 +192,10 @@ describe('management’s count, the business day and who decides', () => {
     expect(venueBusinessToday(new Date('2026-09-27T02:00:00Z'))).toBe('2026-09-27');
   });
 
-  it('says a manager decides an owner’s proposal, and a manager or the owner anyone else’s', () => {
-    expect(decidedByManagerOnly('owner')).toBe(true);
-    expect(decidedByManagerOnly('manager')).toBe(false);
-    expect(decidedByManagerOnly('head_chef')).toBe(false);
+  it('records the owner’s own entry at once, and sends everyone else’s to the owner (0272)', () => {
+    expect(recordedAtOnce('owner')).toBe(true);
+    expect(recordedAtOnce('manager')).toBe(false);
+    expect(recordedAtOnce('head_chef')).toBe(false);
+    expect(recordedAtOnce('head_barista')).toBe(false);
   });
 });

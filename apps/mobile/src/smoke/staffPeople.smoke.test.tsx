@@ -281,7 +281,7 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
     }
   });
 
-  it('tells management how many wait, sends them to the operator, and lets them withdraw their own', () => {
+  it('tells the manager nothing waits on them (the owner decides, 0272), and lets them withdraw their own', () => {
     const screen = renderRoute(StaffDeductions, {
       locale,
       staff: { role: 'manager' },
@@ -304,7 +304,9 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ],
     });
     try {
-      expect(screen.getByText(t('staff.deductions.waiting', { count: 2 }))).toBeTruthy();
+      // Only the owner decides, so a manager is told of nothing waiting.
+      expect(screen.queryByText(t('staff.deductions.waiting', { count: 2 }))).toBeNull();
+      expect(screen.getByText(t('staff.deductions.propose.leadMgmt'))).toBeTruthy();
       expect(screen.getByTestId('staff-deductions.view.mine')).toBeTruthy();
       expect(screen.getByTestId(`staff-deductions.withdraw.${ID(13)}`)).toBeTruthy();
       expect(screen.queryByTestId(`staff-deductions.withdraw.${ID(14)}`)).toBeNull();
@@ -316,6 +318,30 @@ describe.each(LOCALES)('pay deductions by role in %s', (locale) => {
       ).toBeTruthy();
       // Nothing on the phone decides a deduction (§8 Q8).
       expect(screen.queryByText(t('work.content.decision.approve'))).toBeNull();
+    } finally {
+      screen.unmount();
+    }
+  });
+
+  it('tells the owner how many wait on the operator, and records the owner’s own entry at once', () => {
+    const screen = renderRoute(StaffDeductions, {
+      locale,
+      staff: { role: 'owner' },
+      queryData: [
+        [staffKeys.deductionsWaiting(V), { waiting_count: 2 }],
+        [staffKeys.myDeductionProposals(V), { proposals: [] }],
+        [
+          staffKeys.deductionTargets(V),
+          { staff: [{ id: ID(40), display_name: 'Yusuf', role: 'barista' }] },
+        ],
+      ],
+    });
+    try {
+      expect(screen.getByText(t('staff.deductions.waiting', { count: 2 }))).toBeTruthy();
+      expect(screen.getByText(t('staff.deductions.propose.leadOwner'))).toBeTruthy();
+      fireEvent.press(screen.getByTestId('staff-deductions.propose'));
+      expect(screen.getByText(t('staff.deductions.propose.consequenceAnyoneOwner'))).toBeTruthy();
+      expect(screen.getByText(t('staff.deductions.propose.submitOwner'))).toBeTruthy();
     } finally {
       screen.unmount();
     }

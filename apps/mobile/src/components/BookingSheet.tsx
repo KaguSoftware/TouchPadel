@@ -171,6 +171,13 @@ export function BookingSheet({
   // A date that is NOT cached shows the skeleton first, so its list mounts
   // fresh at 0 anyway and the ref below is simply null that time round.
   const gridRef = useRef<ScrollView>(null);
+  /**
+   * The two court cards' real height. GRID_H is sized to iOS's text metrics;
+   * Android's line boxes come out a few points taller, and at a fixed 240 the
+   * second card's foot ran past the sheet's edge (owner, 2026-09-29). The block
+   * takes whichever is taller, so iOS keeps its 240 exactly.
+   */
+  const [gridContentH, setGridContentH] = useState(0);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
   }, [a.gridKey]);
@@ -327,7 +334,10 @@ export function BookingSheet({
         scrollEnabled={a.matchEntry !== null}
         bounces={false}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD }}
+        onContentSizeChange={(_w, h) => setGridContentH((prev) => (prev === h ? prev : h))}
+        // The foot's air is part of the measured content, so the block grows by
+        // it and the last card never sits on the sheet's edge.
+        contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: PAD }}
       >
         {/* One lane per court, name above, its times running sideways under it (owner, 2026-09-26).
             Keyed by POSITION, as the rows were: a day change reuses the lane
@@ -532,7 +542,11 @@ export function BookingSheet({
                           selected={d === a.date}
                           closed={a.isClosedDate(d)}
                           closedLabel={t('booking.closedChip')}
-                          onPress={() => a.selectDate(d)}
+                          // A selection tick on a real change, as the duration picker ticks.
+                          onPress={() => {
+                            if (d !== a.date) void Haptics.selectionAsync().catch(() => {});
+                            a.selectDate(d);
+                          }}
                         />
                       </Animated.View>
                     );
@@ -639,7 +653,7 @@ export function BookingSheet({
                   gives way on a short stage */}
               <View
                 style={{
-                  height: a.matchEntry ? GRID_H + ENTRY_H : GRID_H,
+                  height: Math.max(a.matchEntry ? GRID_H + ENTRY_H : GRID_H, gridContentH),
                   minHeight: 96,
                   flexShrink: 1,
                   marginTop: 6,
