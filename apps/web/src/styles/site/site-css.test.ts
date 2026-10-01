@@ -5,6 +5,7 @@ import { siteCssModules } from './index';
 import { siteLostCss, siteLostFrameCss } from './lost.css';
 import { sitePayReturnCss } from './payReturn.css';
 import { siteMatchInviteCss } from './matchInvite.css';
+import { siteCoachLinkCss } from './coachLink.css';
 
 /**
  * Style guard for the site family, run over every site module AND over the court's
@@ -25,6 +26,8 @@ const ALL: [string, string][] = [
   ['pay-return', sitePayReturnCss],
   // The open-match invite page's whole sheet, which also ships without it (m/[token]/page.tsx).
   ['match-invite', siteMatchInviteCss],
+  // The coach link page's whole sheet, which also ships without it (c/[id]/page.tsx).
+  ['coach-link', siteCoachLinkCss],
 ];
 
 describe('site css guard', () => {
@@ -46,6 +49,14 @@ describe('site css guard', () => {
       if (moves) expect(css).toMatch(/prefers-reduced-motion:\s*reduce/);
     });
   }
+
+  it('the coaching page and the landing strip ride the site sheet; the coach link page its own', () => {
+    // docs/design/coaching/guest.md §4.14.2-§4.14.3.
+    expect(siteCssModules.coaching).toContain('.tp-coach-card');
+    expect(siteCssModules.coaching).toContain('.tp-lessons__coaches');
+    expect(siteCoachLinkCss).toContain('.tp-clink__open');
+    expect(siteCoachLinkCss).not.toMatch(/\.tp-front|\.tp-site-header/);
+  });
 
   it('the poster words leave room for WCAG text spacing (1.4.12)', () => {
     // SMASH is 3.57 em; +0.12 em a letter is 4.17 em, which 23.5 cqi still fits.

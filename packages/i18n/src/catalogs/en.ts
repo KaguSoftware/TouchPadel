@@ -14,6 +14,7 @@ import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
 import { matchesEn } from './matches.en';
+import { coachingEn } from './coaching.en';
 
 export const en = {
   // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
@@ -1020,6 +1021,8 @@ export const en = {
   branches: branchesEn,
   // Open matches (docs/design/open-matches/guest.md §4.24): the guest app's words (matches.en.ts).
   matches: matchesEn,
+  // Coaching (docs/design/coaching/guest.md §4.15): the phone's and the website's words (coaching.en.ts).
+  coaching: coachingEn,
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since
     // 2026-09-23; the café menu moved to /{locale}/menu and sets its own title).

@@ -913,6 +913,14 @@ export type Database = {
         }
         Returns: Json
       }
+      // PROVISIONAL coaching RPC types — replaced by the regenerated file at integration
+      // (docs/design/coaching/build-contracts-2026-10-01.md §1.6, R17: p_venue_id may be NULL).
+      coach_profile: {
+        Args: { p_coach_id: string; p_venue_id?: string | null }
+        Returns: Json
+      }
+      coaching_public: { Args: { p_venue_id?: string | null }; Returns: Json }
+      // END PROVISIONAL coaching RPC types
       compute_tab_totals: {
         Args: { p_tab_id: string }
         Returns: {

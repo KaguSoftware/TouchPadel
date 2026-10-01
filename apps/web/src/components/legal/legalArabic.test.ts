@@ -48,3 +48,21 @@ describe('open-match legal Arabic', () => {
     for (const verb of READER_VERBS) expect(text).not.toContain(verb);
   });
 });
+
+/**
+ * The coaching deletion sentences (docs/design/coaching/guest.md §4.16, R50, R63): the same rule,
+ * and the lesson is «حصة» (C-30), never «درس».
+ */
+const COACHING_COPY: Record<string, string> = {
+  'privacy.retention.deleted': privacy.retention.deleted,
+  'deleteAccount.what.lessons': deleteAccount.what.lessons,
+  'deleteAccount.what.coaching': deleteAccount.what.coaching,
+};
+
+describe('coaching legal Arabic', () => {
+  it.each(Object.entries(COACHING_COPY))('%s: «حصة», never «درس»; no gendered verb', (_, text) => {
+    expect(text).toContain('حصص');
+    expect(text).not.toMatch(/درس|دروس/);
+    for (const verb of READER_VERBS) expect(text).not.toContain(verb);
+  });
+});
