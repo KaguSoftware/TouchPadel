@@ -232,7 +232,7 @@ test.describe('operator till shifts', () => {
     await expect(end).not.toContainText('المتوقّع');
     await end.getByLabel('النقد في الدرج').fill(String(shift!.opening_float_iqd));
     await end.getByRole('button', { name: 'التالي' }).click();
-    await end.getByLabel('رمز المدير').fill(MANAGER_PIN);
+    await end.getByLabel('الرقم السري للمدير').fill(MANAGER_PIN);
     await end.getByRole('button', { name: 'إنهاء ورديتي' }).click();
     await expect(page.getByRole('dialog', { name: 'أُغلقت الوردية' }).getByText('الدرج مطابق')).toBeVisible();
     await page.context().close();

@@ -225,7 +225,7 @@ test.describe('guest cafe journey (AR) @ar', () => {
       .getByRole('group', { name: /اختر مشروبك/ })
       .getByRole('radio', { name: /كولا/ })
       .click();
-    await burger.getByRole('button', { name: /أضف إلى الطلب/ }).click();
+    await burger.getByRole('button', { name: /إضافة إلى الطلب/ }).click();
     await expect(page.getByText('أُضيف إلى سلّتك.')).toBeVisible();
 
     await page.getByRole('button', { name: /السلّة · 1/ }).click();
@@ -241,7 +241,7 @@ test.describe('guest cafe journey (AR) @ar', () => {
     // basket copy; this brings Arabic in line rather than testing a placement
     // the product no longer has.
     await expect(basket).toContainText('الطلب من هنا لا يعني الدفع');
-    await basket.getByRole('button', { name: 'أرسل إلى النادل' }).click();
+    await basket.getByRole('button', { name: 'إرسال إلى النادل' }).click();
     await expect(page.getByText('أُرسل طلبك، وهو الآن لدى النادل.')).toBeVisible({ timeout: 30_000 });
 
     // Arabic live status over the same broadcast channel.
