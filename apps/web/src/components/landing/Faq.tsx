@@ -3,6 +3,7 @@ import { WhatsAppButton } from '@/components/site/ContactButton';
 import { CourtPattern } from '@/components/site/brand/CourtPattern';
 import { TitleSquiggle } from '@/components/site/brand/TitleSquiggle';
 import { PlusIcon } from '@/components/site/icons';
+import { FaqMotion } from './FaqMotion';
 
 /**
  * The ask card's window onto the court-line pattern, in panel units: four bands, each
@@ -21,12 +22,14 @@ const ASK_CROP = [100, 0, 124, 200] as const;
  * in, pay at the desk, rackets and balls to rent, lockers, lessons, cancelling through the
  * desk, and the live hours ("past midnight" only when the live window says so).
  * They share one `name`, so the browser keeps at most one open: opening another closes
- * the last (an exclusive accordion, still no script).
+ * the last (an exclusive accordion, still no script). FaqMotion then animates the
+ * height on open and close where script runs and motion is welcome.
  *
  * After the questions, a poster-black "still wondering?" card, court lines behind it,
  * hands over to the desk on WhatsApp (or "Plan your visit" when there is no usable phone,
  * like every contact button). It comes last in the source, so a phone and the tab order
- * both read it after the questions; on a wide screen the grid sets it under the title.
+ * both read it after the questions; on a wide screen the grid sets it under the title,
+ * at a fixed size, so opening a question never resizes it.
  */
 export function Faq({
   locale,
@@ -82,6 +85,7 @@ export function Faq({
               <p className="tp-faq__a">{item.a}</p>
             </details>
           ))}
+          <FaqMotion />
         </div>
         <div className="tp-faq__ask tp-on-dark" data-reveal="">
           <CourtPattern band={3} crop={ASK_CROP} className="tp-faq__pattern" />

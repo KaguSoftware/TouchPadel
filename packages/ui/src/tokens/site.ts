@@ -89,6 +89,9 @@ export const siteLightVars = {
   // apps/mobile palettes + brand constants.
   '--tp-site-warn-fg': '#8A6116', // app ambstrong: the closed dot of the open-now pill
   '--tp-site-navy-card': '#1E3966', // app brand.navyCard, L26 (both modes)
+  // The coffee in the café step's table drawing (both modes: a drawing, not a ground).
+  '--tp-site-coffee': '#6B4226',
+  '--tp-site-crema': '#C99E70',
   // Amber for a status mark that sits on a dark ground in EITHER mode (the open-now
   // pill over the hero photo): the night value of --tp-site-warn-fg.
   '--tp-site-warn-fg-on-dark': '#E3AF4F',
