@@ -880,7 +880,21 @@ export const REASON_CODES = [
  * where a match asks for them.
  */
 export const MATCH_REASON_CODES = ['conduct', 'court_needed', 'walked_out', 'no_shows', 'reported'] as const;
-export type ReasonCode = (typeof REASON_CODES)[number] | (typeof MATCH_REASON_CODES)[number];
+/**
+ * The coaching codes (docs/design/coaching/operator.md §5.10.8, §5.10.10),
+ * worded in op.reasons and, like the match codes, kept out of REASON_CODES:
+ * the six desk cancel codes of a lesson, a sign-up or a course (§1.3; the
+ * reason form `<code>` or `<code>: <note>`), and the two reasons a refund of
+ * desk lesson money carries (R36: a refund up to what is due, or a goodwill
+ * refund beyond it).
+ */
+export const COACHING_REASON_CODES = ['customer_request', 'coach_unavailable', 'court_needed', 'staff_error', 'duplicate', 'other'] as const;
+export const LESSON_REFUND_REASON_CODES = ['lesson_refund', 'lesson_goodwill'] as const;
+export type ReasonCode =
+  | (typeof REASON_CODES)[number]
+  | (typeof MATCH_REASON_CODES)[number]
+  | (typeof COACHING_REASON_CODES)[number]
+  | (typeof LESSON_REFUND_REASON_CODES)[number];
 
 /**
  * PIN + reason modal shared by discount / void / refund flows.

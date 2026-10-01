@@ -10,6 +10,7 @@ import { CreateReservationDialog, toastBumpedMatches } from './CreateReservation
 import { ReservationActionsDialog } from './ReservationActionsDialog';
 import type { ReservationRow } from './deskTypes';
 import type { MatchState, OpenMatch, OpenMatches } from '../matches/matchPayloads';
+import type { DeskLesson } from '../coaching/lessonPayloads';
 
 // The two desk dialogs over a real query client. The writes are mocked at
 // mutate(), the price quote at appRpc('price_slot'), and the router and toast
@@ -404,5 +405,140 @@ describe('ReservationActionsDialog — an open match’s booking', () => {
     expect(screen.queryByRole('button', { name: 'Mark no-show' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Cancel booking' }));
     expect(screen.getByText('Cancels the open match for all its players. Their tickets go back.')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lessons (docs/design/coaching/operator.md §5.8, §5.9)
+// ---------------------------------------------------------------------------
+
+/** The text without its bidi isolates (lessonLabel isolates names). */
+const plain = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '');
+
+describe('CreateReservationDialog — the Lesson kind (§5.9)', () => {
+  const night = { date: DATE, rows: [19 * 60, 19 * 60 + 30, 20 * 60, 20 * 60 + 30, 21 * 60], reservations: [booking({ id: 'held' })] };
+
+  // The caller passes the kind whenever its role runs lessons and desk_lessons
+  // answered, coaching on or off (the desk stages, R51): the dialog reads no switch.
+  it('hands the court, start and typed guest to New lesson, and queues no booking', async () => {
+    const user = userEvent.setup();
+    const onStartLesson = vi.fn();
+    wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onStartLesson={onStartLesson} onClose={vi.fn()} onCreated={vi.fn()} />);
+    await user.type(screen.getByLabelText(/Guest name/), 'Walk In');
+    await user.click(screen.getByRole('button', { name: 'Lesson' }));
+    expect(onStartLesson).toHaveBeenCalledWith({ courtId: 'c2', startAt: at(20 * 60), customer: null, guestName: 'Walk In', guestPhone: '' });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('hands over a picked customer the same way', async () => {
+    const user = userEvent.setup();
+    const onStartLesson = vi.fn();
+    const layla = { id: 'g1', name: 'Layla Hassan', phone: '07701234567', flags: [] };
+    wrap(<CreateReservationDialog courtId="c1" startAt={at(19 * 60)} courts={courts} tz={TZ} night={night} customer={layla} onStartLesson={onStartLesson} onClose={vi.fn()} onCreated={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Lesson' }));
+    expect(onStartLesson).toHaveBeenCalledWith(expect.objectContaining({ courtId: 'c1', customer: layla, guestName: 'Layla Hassan' }));
+  });
+
+  it('has no Lesson kind when the caller does not offer it (no runLessons, or no desk_lessons on this server)', () => {
+    wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Lesson' })).toBeNull();
+  });
+
+  it('offline: the Lesson kind is disabled, and says why (CD-6)', () => {
+    reachable = false;
+    wrap(<CreateReservationDialog courtId="c2" startAt={at(20 * 60)} courts={courts} tz={TZ} night={night} onStartLesson={vi.fn()} onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect((screen.getByRole('button', { name: 'Lesson' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Needs a connection: lessons work online only')).toBeTruthy();
+  });
+});
+
+function deskLesson(over: Partial<DeskLesson> = {}): DeskLesson {
+  return {
+    lesson_id: 'l1',
+    reservation_id: 'lr',
+    court_id: 'c1',
+    court_name_en: 'Court 1',
+    court_name_ar: 'ملعب 1',
+    kind: 'group',
+    status: 'scheduled',
+    start_at: at(20 * 60).toISOString(),
+    end_at: at(21 * 60 + 30).toISOString(),
+    hold_expires_at: null,
+    booked_by_kind: 'staff',
+    coach_id: 'sara',
+    coach_name_en: 'Coach Sara',
+    coach_name_ar: 'المدرّبة سارة',
+    lesson_type_id: 'g90',
+    type_name_en: 'Group 90 min',
+    type_name_ar: 'جماعية 90 دقيقة',
+    course: null,
+    label: null,
+    party_size: null,
+    places_taken: 4,
+    max_places: 6,
+    min_places: 3,
+    cutoff_at: at(18 * 60).toISOString(),
+    enrolments: 4,
+    owing: 2,
+    owing_iqd: 30000,
+    paid_online: 0,
+    ...over,
+  };
+}
+
+describe('ReservationActionsDialog — a lesson (§5.8)', () => {
+  const rows = [19 * 60, 20 * 60, 21 * 60];
+  const lessonRow = booking({ id: 'lr', kind: 'lesson', guest_name: 'Lesson', price_iqd: null, end_at: at(21 * 60 + 30).toISOString() });
+  /** Every control the booking branch offers; none of them may show for a lesson (R7, R35). */
+  const BOOKING_ACTIONS = ['Mark arrived', 'Mark complete', 'Mark no-show', 'Move', 'Cancel booking', 'Shorten −30 min', 'Extend +30 min', 'Take payment', 'Open booking'];
+  const footerButtons = () => screen.getAllByRole('button').map((b) => b.textContent?.trim()).filter(Boolean);
+
+  it('shows the lesson’s summary and offers only Open lesson', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    wrap(<ReservationActionsDialog reservation={lessonRow} lesson={deskLesson()} lessonNowMs={Date.parse(at(19 * 60).toISOString())} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={onClose} onChanged={vi.fn()} />);
+    expect(screen.getByRole('dialog', { name: (n) => plain(n) === 'Coach Sara · Group 90 min' })).toBeTruthy();
+    expect(screen.getByText('Group session')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Group session · 4 of 6 places' })).toBeTruthy();
+    expect(screen.getByText('Places 4 of 6')).toBeTruthy();
+    expect(screen.getByText('To pay 2 · 30,000 IQD')).toBeTruthy();
+    // Four taken of a minimum of three: no cut-off line.
+    expect(screen.queryByText(/or it is cancelled/)).toBeNull();
+    for (const name of BOOKING_ACTIONS) expect(screen.queryByRole('button', { name })).toBeNull();
+    expect(footerButtons()).toEqual(expect.arrayContaining(['Close', 'Open lesson']));
+    await user.click(screen.getByRole('button', { name: 'Open lesson' }));
+    expect(onClose).toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/desk/lessons/$id', params: { id: 'l1' } });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('a held lesson’s hold row is that lesson, awaiting the guest’s payment, with only Open lesson', async () => {
+    const user = userEvent.setup();
+    const hold = booking({ id: 'lr', kind: 'hold', status: 'pending', guest_name: null, price_iqd: null, hold_expires_at: at(19 * 60 + 10).toISOString() });
+    const held = deskLesson({ kind: 'private', status: 'held', label: 'Ali Hasan', party_size: 2, places_taken: 1, max_places: 4, owing: 0, owing_iqd: 0, enrolments: 1, hold_expires_at: at(19 * 60 + 10).toISOString() });
+    wrap(<ReservationActionsDialog reservation={hold} lesson={held} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
+    expect(screen.getByRole('dialog', { name: (n) => plain(n) === 'Coach Sara · Ali Hasan' })).toBeTruthy();
+    expect(screen.getByText('Awaiting payment')).toBeTruthy();
+    expect(screen.getByText(/Awaiting the guest's online payment until 7:10 PM/)).toBeTruthy();
+    for (const name of BOOKING_ACTIONS) expect(screen.queryByRole('button', { name })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Open lesson' }));
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/desk/lessons/$id', params: { id: 'l1' } });
+  });
+
+  it('a lesson row whose lesson is not known reads "Lesson", and Open lesson goes by the booking route, which forwards', async () => {
+    const user = userEvent.setup();
+    wrap(<ReservationActionsDialog reservation={lessonRow} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
+    expect(screen.getByRole('dialog', { name: /Lesson/ })).toBeTruthy();
+    expect(screen.getByText('This court is held for a lesson. Lessons are changed from their own screen.')).toBeTruthy();
+    for (const name of BOOKING_ACTIONS) expect(screen.queryByRole('button', { name })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Open lesson' }));
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/desk/bookings/$id', params: { id: 'lr' } });
+  });
+
+  it('a plain hold with no lesson behind it keeps the booking branch', () => {
+    const hold = booking({ id: 'h1', kind: 'hold', status: 'pending', guest_name: null });
+    wrap(<ReservationActionsDialog reservation={hold} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={vi.fn()} onChanged={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Open lesson' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Cancel booking' })).toBeTruthy();
   });
 });

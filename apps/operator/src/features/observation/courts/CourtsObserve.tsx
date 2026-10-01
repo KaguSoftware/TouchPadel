@@ -16,6 +16,11 @@
  * busiest day of that month; pressing a day zooms back into it. Pressing a
  * booking opens the read-only panel, whose one button moves the station into
  * the court desk on that booking.
+ *
+ * A lesson (docs/design/coaching/operator.md §5.8) is in play like a booking,
+ * draws in the lesson family named from desk_lessons ("Lesson" until it has
+ * answered), and its panel says its places and what is still to pay and opens
+ * the lesson's own screen.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -27,9 +32,15 @@ import { Button } from '../../../components/ui';
 import { AsyncStateWrapper, DescriptionList, EmptyState, HeadlineFigure, Money, PageHeader, Panel, StatusBadge, TabStatusIndicator, asyncStatus, type Tone } from '../../../components/kit';
 import { ChevronForward, Icon } from '../../../components/icons';
 import { useTradingNight, todayInTz, tonightInTz } from '../../desk/useTradingNight';
-import { ReservationBadge, TONE_EDGE, TONE_FG, TONE_SOFT, reservationTone } from '../../desk/deskStatus';
+import { BLOCK_EDGE, BLOCK_FG, BLOCK_SOFT, ReservationBadge, TONE_EDGE, TONE_SOFT, reservationBlockTone } from '../../desk/deskStatus';
 import { courtAvailability } from '../../desk/deskLogic';
 import { reservationNameOf } from '../../matches/matchLogic';
+import { LESSON_BADGE_STYLE, LessonBadge } from '../../coaching/LessonBadge';
+import { LessonPayCell } from '../../coaching/LessonPayCell';
+import { LessonPlacesChip } from '../../coaching/LessonPlacesChip';
+import { isLessonRow, lessonLabel, lessonOfRow, lessonPlacesChip, lessonsByReservation, nowOf } from '../../coaching/lessonLogic';
+import type { DeskLesson } from '../../coaching/lessonPayloads';
+import { useDeskLessons, useLessonRead } from '../../coaching/useCoaching';
 import type { ReservationRow } from '../../desk/deskTypes';
 import type { CourtRow } from '../../../lib/queries';
 import { MonthHeatCalendar } from '../../desk/calendar/MonthHeatCalendar';
@@ -82,6 +93,14 @@ export function CourtsObserveScreen() {
     fetchCounts: fetchBookingCounts,
   });
 
+  // The night's lessons (coaching operator.md §5.8): a lesson's court row is
+  // named and drawn as its lesson, counted as in play, and opens its lesson.
+  const lessonsQ = useDeskLessons(night.dayStart, night.dayEnd, settingsQ.isSuccess);
+  const lessonsStatus = useLessonRead(lessonsQ);
+  const deskLessons = lessonsStatus.kind === 'ready' ? lessonsStatus.data : null;
+  const lessonsBy = useMemo(() => lessonsByReservation(deskLessons), [deskLessons]);
+  const lessonNow = nowOf(deskLessons?.server_now, Math.max(0, now - lessonsQ.dataUpdatedAt), now);
+
   const opened = night.reservations.find((r) => r.id === openId) ?? null;
   const updatedAt = night.reservationsQ.dataUpdatedAt ? new Date(night.reservationsQ.dataUpdatedAt) : null;
 
@@ -129,11 +148,21 @@ export function CourtsObserveScreen() {
             />
           </AsyncStateWrapper>
         ) : (
-          <DayView date={date} today={today} now={now} night={night} onOpen={setOpenId} />
+          <DayView date={date} today={today} now={now} night={night} lessonsBy={lessonsBy} onOpen={setOpenId} />
         )}
       </ZoomStage>
 
-      {opened && <BookingPanel reservation={opened} courts={night.courts} tz={tz} onClose={() => setOpenId(null)} />}
+      {opened && (
+        <BookingPanel
+          reservation={opened}
+          lesson={lessonOfRow(opened, lessonsBy)}
+          isLesson={isLessonRow(opened, lessonsBy)}
+          lessonNow={lessonNow}
+          courts={night.courts}
+          tz={tz}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -148,12 +177,15 @@ function DayView({
   today,
   now,
   night,
+  lessonsBy,
   onOpen,
 }: {
   date: string;
   today: string;
   now: number;
   night: ReturnType<typeof useTradingNight>;
+  /** desk_lessons rows by the court row they hold. */
+  lessonsBy: ReadonlyMap<string, DeskLesson>;
   onOpen: (id: string) => void;
 }) {
   const { tr, locale } = useLocale();
@@ -213,13 +245,14 @@ function DayView({
           <EmptyState icon="ban" title={tr('ws.owner.observe.courts.schedule.closed')} />
         ) : (
           <>
-            {isToday && <CourtsNow courts={courts} reservations={reservations} now={now} tz={tz} onOpen={onOpen} />}
+            {isToday && <CourtsNow courts={courts} reservations={reservations} now={now} tz={tz} lessonsBy={lessonsBy} onOpen={onOpen} />}
             <Panel title={tr('ws.owner.observe.courts.schedule.title')} padded={false}>
               <ScheduleLegend />
               <ScheduleBoard
                 date={date}
                 tz={tz}
                 courts={courts}
+                lessonsBy={lessonsBy}
                 reservations={ownNight.filter(isOnSchedule)}
                 openMin={openMin}
                 closeMin={closeMin}
@@ -284,12 +317,14 @@ function CourtsNow({
   reservations,
   now,
   tz,
+  lessonsBy,
   onOpen,
 }: {
   courts: readonly CourtRow[];
   reservations: readonly ReservationRow[];
   now: number;
   tz: string;
+  lessonsBy: ReadonlyMap<string, DeskLesson>;
   onOpen: (id: string) => void;
 }) {
   const { tr, locale } = useLocale();
@@ -298,7 +333,8 @@ function CourtsNow({
     reservations,
     new Date(now).toISOString(),
   );
-  const inPlay = states.filter((s) => s.state === 'busy' && s.kind === 'booking').length;
+  // A lesson is in play too (coaching operator.md §5.8).
+  const inPlay = states.filter((s) => s.state === 'busy' && (s.kind === 'booking' || s.kind === 'lesson')).length;
   // A court that is free with nothing more booked tonight has nothing to say
   // beyond its name, and on a quiet night that was every card on the board —
   // a wall of identical "Free · nothing more tonight" tiles pushing the
@@ -325,19 +361,33 @@ function CourtsNow({
             let line: string;
             let who: string | null = null;
             let targetId: string | null = null;
+            let inLesson = false;
             if (s.state === 'busy') {
               const r = reservations.find((x) => x.id === s.reservationId);
+              inLesson = r !== undefined && isLessonRow(r, lessonsBy);
               tone = s.kind === 'booking' ? 'success' : s.kind === 'hold' ? 'info' : 'neutral';
-              label = tr(s.kind === 'booking' ? 'ws.owner.observe.courts.now.inPlay' : s.kind === 'hold' ? 'ws.owner.observe.courts.now.held' : 'ws.owner.observe.courts.now.blocked');
+              label = inLesson
+                ? tr('ws.coaching.common.inALesson')
+                : tr(s.kind === 'booking' ? 'ws.owner.observe.courts.now.inPlay' : s.kind === 'hold' ? 'ws.owner.observe.courts.now.held' : 'ws.owner.observe.courts.now.blocked');
               line = tr('ws.owner.observe.courts.now.until', { time: formatTime(new Date(s.untilAt), locale, tz) });
-              who = s.kind === 'booking' ? (reservationNameOf(r, tr) ?? tr('op.desk.walkIn')) : (r?.notes ?? null);
+              who = inLesson && r
+                ? lessonLabel(lessonOfRow(r, lessonsBy), locale, tr)
+                : s.kind === 'booking'
+                  ? (reservationNameOf(r, tr) ?? tr('op.desk.walkIn'))
+                  : (r?.notes ?? null);
               targetId = s.reservationId;
             } else {
               const next = s.nextStartAt ? reservations.find((x) => x.start_at === s.nextStartAt && x.court_id === s.courtId) : null;
               tone = 'neutral';
               label = tr('ws.owner.observe.courts.now.free');
               line = s.nextStartAt ? tr('ws.owner.observe.courts.now.next', { time: formatTime(new Date(s.nextStartAt), locale, tz) }) : tr('ws.owner.observe.courts.now.nextNone');
-              who = next ? (next.kind === 'booking' ? (reservationNameOf(next, tr) ?? tr('op.desk.walkIn')) : null) : null;
+              who = next
+                ? isLessonRow(next, lessonsBy)
+                  ? lessonLabel(lessonOfRow(next, lessonsBy), locale, tr)
+                  : next.kind === 'booking'
+                    ? (reservationNameOf(next, tr) ?? tr('op.desk.walkIn'))
+                    : null
+                : null;
               targetId = next?.id ?? null;
             }
             const body = (
@@ -346,7 +396,12 @@ function CourtsNow({
                   <Icon name="court" size={15} style={{ color: 'var(--tp-muted-fg)', flexShrink: 0 }} />
                   <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pickName(locale, court)}</strong>
                   <span style={{ marginInlineStart: 'auto', flexShrink: 0 }}>
-                    <StatusBadge tone={tone} size="sm" label={label} />
+                    {inLesson ? (
+                      // The lesson badge's look (LessonBadge) with "In a lesson".
+                      <StatusBadge size="sm" icon="whistle" label={label} style={LESSON_BADGE_STYLE} />
+                    ) : (
+                      <StatusBadge tone={tone} size="sm" label={label} />
+                    )}
                   </span>
                 </span>
                 <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
@@ -369,8 +424,8 @@ function CourtsNow({
               color: 'inherit',
               padding: 'var(--tp-sp-3)',
               borderRadius: 'var(--tp-radius-ctl)',
-              border: `1px solid ${s.state === 'busy' ? TONE_EDGE[tone] : 'var(--tp-border)'}`,
-              background: s.state === 'busy' ? TONE_SOFT[tone] : 'var(--tp-bg)',
+              border: `1px solid ${s.state === 'busy' ? (inLesson ? BLOCK_EDGE.lesson : TONE_EDGE[tone]) : 'var(--tp-border)'}`,
+              background: s.state === 'busy' ? (inLesson ? BLOCK_SOFT.lesson : TONE_SOFT[tone]) : 'var(--tp-bg)',
             };
             return targetId ? (
               <button key={s.courtId} type="button" className="tp-tile" onClick={() => onOpen(targetId)} style={{ ...style, cursor: 'pointer' }}>
@@ -429,6 +484,11 @@ function ScheduleLegend() {
           {tr(`ws.owner.observe.courts.schedule.legend.${l.key}`)}
         </li>
       ))}
+      {/* A lesson's own family (coaching operator.md §5.8). */}
+      <li style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+        <span aria-hidden style={{ inlineSize: '0.9rem', blockSize: '0.65rem', borderRadius: '3px', background: BLOCK_SOFT.lesson, border: `1px solid ${BLOCK_EDGE.lesson}` }} />
+        {tr('ws.coaching.common.lesson')}
+      </li>
     </ul>
   );
 }
@@ -446,11 +506,13 @@ function ScheduleBoard({
   closeMin,
   dayStartMs,
   nowMs,
+  lessonsBy,
   onOpen,
 }: {
   date: string;
   tz: string;
   courts: readonly CourtRow[];
+  lessonsBy: ReadonlyMap<string, DeskLesson>;
   reservations: readonly ReservationRow[];
   openMin: number;
   closeMin: number;
@@ -526,9 +588,16 @@ function ScheduleBoard({
               .map((r) => {
                 const p = schedulePlacement(r, dayStartMs, openMin, spanMin);
                 if (!p) return null;
-                const tone = r.status === 'no_show' ? 'danger' : reservationTone(r);
-                const name =
-                  r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (reservationNameOf(r, tr) ?? tr('op.desk.walkIn'));
+                // A lesson's court row, or a held lesson's hold row, draws as that lesson (§5.8).
+                const isLesson = isLessonRow(r, lessonsBy);
+                const tone = r.status === 'no_show' ? 'danger' : reservationBlockTone(r, isLesson);
+                const name = isLesson
+                  ? lessonLabel(lessonOfRow(r, lessonsBy), locale, tr)
+                  : r.kind === 'maintenance'
+                    ? (r.notes ?? tr('op.desk.maintenance'))
+                    : r.kind === 'hold'
+                      ? tr('op.desk.hold')
+                      : (reservationNameOf(r, tr) ?? tr('op.desk.walkIn'));
                 // Rows are short, so a block shows only what its height holds: one line, name over time, or the badge row too.
                 const blockRem = p.height * heightRem;
                 const lines = blockRem >= 4 ? 3 : blockRem >= 2 ? 2 : 1;
@@ -544,9 +613,9 @@ function ScheduleBoard({
                       insetBlockStart: `calc(${p.top * 100}% + 2px)`,
                       blockSize: `calc(${p.height * 100}% - 4px)`,
                       insetInline: '4px',
-                      background: TONE_SOFT[tone],
-                      color: TONE_FG[tone],
-                      border: `1px ${r.kind === 'maintenance' || r.status === 'no_show' ? 'dashed' : 'solid'} ${TONE_EDGE[tone]}`,
+                      background: BLOCK_SOFT[tone],
+                      color: BLOCK_FG[tone],
+                      border: `1px ${r.kind === 'maintenance' || r.status === 'no_show' ? 'dashed' : 'solid'} ${BLOCK_EDGE[tone]}`,
                       borderRadius: 'var(--tp-radius-ctl)',
                       paddingBlock: lines === 1 ? 0 : '0.125rem',
                       paddingInline: '0.375rem',
@@ -601,7 +670,26 @@ interface LinkedTab {
   total_iqd: number | null;
 }
 
-function BookingPanel({ reservation: r, courts, tz, onClose }: { reservation: ReservationRow; courts: readonly CourtRow[]; tz: string; onClose: () => void }) {
+function BookingPanel({
+  reservation: r,
+  lesson,
+  isLesson,
+  lessonNow,
+  courts,
+  tz,
+  onClose,
+}: {
+  reservation: ReservationRow;
+  /** The desk_lessons row this reservation holds, when known (coaching §5.8). */
+  lesson: DeskLesson | null;
+  /** A lesson's court row, or a held lesson's hold row. */
+  isLesson: boolean;
+  /** The lessons payload's clock. */
+  lessonNow: number;
+  courts: readonly CourtRow[];
+  tz: string;
+  onClose: () => void;
+}) {
   const { tr, locale } = useLocale();
   const tabsQ = useQuery({
     queryKey: ['observeBookingTabs', r.id],
@@ -613,23 +701,42 @@ function BookingPanel({ reservation: r, courts, tz, onClose }: { reservation: Re
     },
   });
   const minutes = Math.round((new Date(r.end_at).getTime() - new Date(r.start_at).getTime()) / 60_000);
-  const eyebrow = tr(r.kind === 'maintenance' ? 'ws.owner.observe.courts.peek.maintenance' : r.kind === 'hold' ? 'ws.owner.observe.courts.peek.hold' : 'ws.owner.observe.courts.peek.booking');
-  const title = r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (reservationNameOf(r, tr) ?? tr('op.desk.walkIn'));
+  const eyebrow = isLesson
+    ? tr('ws.coaching.common.lesson')
+    : tr(r.kind === 'maintenance' ? 'ws.owner.observe.courts.peek.maintenance' : r.kind === 'hold' ? 'ws.owner.observe.courts.peek.hold' : 'ws.owner.observe.courts.peek.booking');
+  const title = isLesson
+    ? lessonLabel(lesson, locale, tr)
+    : r.kind === 'maintenance'
+      ? (r.notes ?? tr('op.desk.maintenance'))
+      : r.kind === 'hold'
+        ? tr('op.desk.hold')
+        : (reservationNameOf(r, tr) ?? tr('op.desk.walkIn'));
+  const chip = lesson ? lessonPlacesChip(lesson) : null;
 
   return (
     <DetailPanel
       eyebrow={eyebrow}
       title={<bdi>{title}</bdi>}
       status={
-        <span>
-          <ReservationBadge reservation={r} />
-        </span>
+        isLesson ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-lesson)' }}>
+            <LessonBadge kind={lesson?.kind ?? null} held={r.kind === 'hold' || lesson?.status === 'held'} size="md" />
+            {lesson && <LessonPlacesChip lesson={lesson} />}
+          </span>
+        ) : (
+          <span>
+            <ReservationBadge reservation={r} />
+          </span>
+        )
       }
       onClose={onClose}
       target={
-        r.kind === 'booking'
-          ? { workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: r.id } }
-          : { workspace: 'courtDesk', to: '/desk' }
+        // A lesson opens on its own screen; without its row the booking route forwards to it.
+        isLesson && lesson
+          ? { workspace: 'courtDesk', to: '/desk/lessons/$id', params: { id: lesson.lesson_id } }
+          : r.kind === 'booking' || isLesson
+            ? { workspace: 'courtDesk', to: '/desk/bookings/$id', params: { id: r.id } }
+            : { workspace: 'courtDesk', to: '/desk' }
       }
     >
       <DescriptionList
@@ -647,6 +754,19 @@ function BookingPanel({ reservation: r, courts, tz, onClose }: { reservation: Re
             : []),
         ]}
       />
+      {isLesson && lesson && (
+        // Its places and what is still to pay: desk_lessons' figures (§5.8).
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-3)' }}>
+          {chip?.kind === 'places' && (
+            <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontVariantNumeric: 'tabular-nums' }}>
+              {tr('ws.coaching.common.places', { taken: formatNumber(chip.taken, locale), total: formatNumber(chip.total, locale) })}
+            </p>
+          )}
+          <span>
+            <LessonPayCell lesson={lesson} nowMs={lessonNow} />
+          </span>
+        </div>
+      )}
       {r.notes && r.kind === 'booking' && (
         <PanelSection title={tr('ws.owner.observe.courts.peek.notes')}>
           <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.notes}</p>

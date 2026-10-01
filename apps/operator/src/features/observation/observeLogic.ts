@@ -30,6 +30,11 @@ export interface CourtDaySummary {
   cancelled: number;
   /** Maintenance blocks and private holds on the grid. */
   blocks: number;
+  /**
+   * Lessons on the grid (coaching operator.md §5.8): a lesson's court row,
+   * counted apart from the blocks. Its money is the lesson's, not the row's.
+   */
+  lessons: number;
   /** Sum of `price_iqd` over `booked`. A booking with no price adds nothing. */
   bookedIqd: number;
   /** Minutes of court time under `booked`. */
@@ -37,8 +42,12 @@ export interface CourtDaySummary {
 }
 
 export function courtDaySummary(rows: readonly ReservationRow[], nowMs: number): CourtDaySummary {
-  const s: CourtDaySummary = { booked: 0, arrived: 0, upcoming: 0, noShows: 0, cancelled: 0, blocks: 0, bookedIqd: 0, bookedMinutes: 0 };
+  const s: CourtDaySummary = { booked: 0, arrived: 0, upcoming: 0, noShows: 0, cancelled: 0, blocks: 0, lessons: 0, bookedIqd: 0, bookedMinutes: 0 };
   for (const r of rows) {
+    if (r.kind === 'lesson') {
+      if (r.status !== 'cancelled' && r.status !== 'expired') s.lessons += 1;
+      continue;
+    }
     if (r.kind !== 'booking') {
       if (r.status !== 'cancelled' && r.status !== 'expired') s.blocks += 1;
       continue;

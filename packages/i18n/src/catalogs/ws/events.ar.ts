@@ -31,6 +31,7 @@ export const eventsAr: DeepMessages<typeof eventsEn> = {
       booking: 'حجز',
       hold: 'حجز مؤقت',
       maintenance: 'إيقاف',
+      lesson: 'حصة',
     },
     openBooking: 'فتح الحجز',
     checkAgain: 'إعادة التحقق',

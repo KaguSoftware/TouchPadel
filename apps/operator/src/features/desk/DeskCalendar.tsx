@@ -28,6 +28,13 @@
  *    lists the night's filling and waiting matches. A match's booking reads
  *    its organiser's name (bookingLabel) with a seat chip after it, in the
  *    block's own ink: a match is never a colour.
+ *  - **Lessons** (docs/design/coaching/operator.md §5.8, §5.9). A lesson's
+ *    court row (and a held lesson's hold row) draws in the lesson family,
+ *    named "{coach} · …" from desk_lessons, with its places chip, its badge,
+ *    what is still to pay once it has started and the C-24 flag. It never
+ *    drags (R7): its court moves on its own screen. The booking dialog's
+ *    Lesson kind and `&kind=lesson` (the record's "Book a lesson") open New
+ *    lesson.
  *
  * Keyboard: ← → move the date (by a month in month view), D / M switch views.
  * Pointer: a live booking carries a grip and is dragged to move it. The block
@@ -46,7 +53,8 @@
  * buttons named by guest name, closed-day text, time labels. Walk-in blocks
  * are unchanged; a match block's accessible name holds its organiser's name
  * once app.desk_match_states has answered ("Open match" until then), then
- * the chip's "Open match · 3 of 4 players".
+ * the chip's "Open match · 3 of 4 players". A lesson block's name holds the
+ * coach's display name once app.desk_lessons has answered ("Lesson" until then).
  */
 import {
   useEffect,
@@ -84,20 +92,25 @@ import {
   asyncStatus,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { ReservationBadge, TONE_EDGE, TONE_FG, TONE_SOFT, reservationTone } from './deskStatus';
+import { BLOCK_EDGE, BLOCK_FG, BLOCK_SOFT, ReservationBadge, reservationBlockTone } from './deskStatus';
 import { shiftIsoDate } from './weekLogic';
 import { MonthHeatCalendar } from './calendar/MonthHeatCalendar';
 import { ZoomStage } from './calendar/ZoomStage';
 import { useMonthCounts } from './calendar/useMonthCounts';
 import { fetchBookingCounts } from './calendar/monthFetchers';
 import { shiftMonth } from './calendar/monthLogic';
-import { CreateReservationDialog, type StartMatchCarry } from './CreateReservationDialog';
+import { CreateReservationDialog, type StartLessonCarry, type StartMatchCarry } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
 import { bookingLabel } from '../matches/matchLogic';
 import { SeatChip } from '../matches/SeatChip';
 import { OpenMatchesStrip } from '../matches/OpenMatchesStrip';
 import { StartMatchDialog } from '../matches/StartMatchDialog';
 import { matchBookingIds, useMatchCaps, useMatchRead, useMatchStates, useOpenMatches } from '../matches/useMatches';
+import { LessonBadge } from '../coaching/LessonBadge';
+import { LessonPlacesChip } from '../coaching/LessonPlacesChip';
+import { StartLessonDialog } from '../coaching/StartLessonDialog';
+import { isLessonRow, lessonLabel, lessonOfRow, lessonPayState, lessonsByReservation, nowOf } from '../coaching/lessonLogic';
+import { useCoachingCaps, useDeskLessons, useLessonRead } from '../coaching/useCoaching';
 import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
 import { DateField } from '../../components/inputs';
 import { BLOCKING_STATUSES, canMoveReservation, gridPlacement, isVisible, packLanes } from './deskLogic';
@@ -131,12 +144,16 @@ const ROW_PITCH = 'calc(2.4rem + var(--tp-sp-0))';
  */
 const LANE_GAP = '3px';
 
-/** `/desk?date=YYYY-MM-DD&customer=<id>&kind=match` — validated at the route (routes/desk/_children.ts). */
+/** `/desk?date=YYYY-MM-DD&customer=<id>&kind=match|lesson` — validated at the route (routes/desk/_children.ts). */
 export interface DeskCalendarSearch {
   date?: string;
   customer?: string;
-  /** With `customer`: a free slot starts an open match for them (the record's "Start an open match"). */
-  kind?: 'match';
+  /**
+   * With `customer`: a free slot starts an open match for them (`match`, the
+   * record's "Start an open match") or opens New lesson for them (`lesson`,
+   * the record's "Book a lesson", coaching operator.md §5.9).
+   */
+  kind?: 'match' | 'lesson';
 }
 
 /*
@@ -234,6 +251,7 @@ export function DeskCalendar() {
   const [view, setView] = useState<View>('day');
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
   const [startMatch, setStartMatch] = useState<StartMatchCarry | null>(null);
+  const [startLesson, setStartLesson] = useState<StartLessonCarry | null>(null);
   const [selected, setSelected] = useState<ReservationRow | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
@@ -270,6 +288,18 @@ export function DeskCalendar() {
   // The record's "Start an open match": a free slot opens the Start dialog.
   const matchMode = search.kind === 'match' && Boolean(search.customer) && caps.runMatches;
 
+  // Lessons over the same night (coaching operator.md §5.8): the tiles' coach,
+  // places and pay, the day's count, and the catalogue New lesson offers. A
+  // server without coaching answers null: no lesson UI, and no lesson rows exist.
+  const coachingCaps = useCoachingCaps();
+  const lessonsQ = useDeskLessons(night.dayStart, night.dayEnd, settingsQ.isSuccess);
+  const lessonsStatus = useLessonRead(lessonsQ);
+  const deskLessons = lessonsStatus.kind === 'ready' ? lessonsStatus.data : null;
+  const lessonsBy = useMemo(() => lessonsByReservation(deskLessons), [deskLessons]);
+  // The record's "Book a lesson": a free slot opens New lesson for them.
+  const lessonMode =
+    search.kind === 'lesson' && Boolean(search.customer) && coachingCaps.runLessons && lessonsStatus.kind !== 'absent';
+
   const month = useMonthCounts({
     queryKey: 'reservationsMonth',
     date,
@@ -290,6 +320,8 @@ export function DeskCalendar() {
     () => night.reservations.filter((r) => isVisible(r, now)),
     [night.reservations, now],
   );
+  // The lessons payload's clock (§5.1): its server_now, moved on by the time since it was read.
+  const lessonNow = nowOf(deskLessons?.server_now, Math.max(0, now - lessonsQ.dataUpdatedAt), now);
 
   const hours = settingsQ.data?.opening_hours;
   const tonight = settingsQ.data ? tonightInTz(tz, hours) : todayInTz(tz);
@@ -337,7 +369,7 @@ export function DeskCalendar() {
     );
   }
 
-  const dialogOpen = createAt !== null || selected !== null || pendingMove !== null;
+  const dialogOpen = createAt !== null || selected !== null || pendingMove !== null || startLesson !== null;
   const shiftDate = (d: string, dirn: 1 | -1) =>
     view === 'month' ? shiftMonth(d, dirn) : shiftIsoDate(d, dirn);
 
@@ -666,6 +698,8 @@ export function DeskCalendar() {
 
   const dayNoon = new Date(`${date}T12:00:00Z`);
   const dayCount = reservations.filter((r) => r.kind === 'booking').length;
+  // The night's lessons, from the envelope (held, booked or done): said apart from the bookings.
+  const lessonCount = deskLessons?.lessons.length ?? 0;
 
   // The booking in the hand, and how long it is: the preview is drawn from
   // these, so what the desk sees before releasing is the whole destination
@@ -781,6 +815,18 @@ export function DeskCalendar() {
                 <strong style={{ color: 'var(--tp-fg)' }}>{formatNumber(dayCount, locale)}</strong>
               </span>
             )}
+            {view === 'day' && dayStatus === 'ready' && lessonCount > 0 && (
+              <span
+                style={{
+                  fontWeight: 400,
+                  color: 'var(--tp-muted-fg)',
+                  fontSize: 'var(--tp-fs-sm)',
+                }}
+              >
+                {tr('ws.coaching.common.lessons')}{' '}
+                <strong style={{ color: 'var(--tp-fg)' }}>{formatNumber(lessonCount, locale)}</strong>
+              </span>
+            )}
           </span>
           <span
             style={{ marginInlineStart: 'auto', display: 'inline-flex', gap: 'var(--tp-sp-1)' }}
@@ -839,7 +885,9 @@ export function DeskCalendar() {
                 <bdi>
                   {matchMode
                     ? tr('ws.matches.calendar.startingFor', { name: bookFor.name })
-                    : tr('ws.courtDesk.calendar.bookingFor', { name: bookFor.name })}
+                    : lessonMode
+                      ? tr('ws.coaching.calendar.bookingFor', { name: bookFor.name })
+                      : tr('ws.courtDesk.calendar.bookingFor', { name: bookFor.name })}
                 </bdi>
                 {bookFor.flags.map((f, i) => (
                   <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
@@ -854,7 +902,7 @@ export function DeskCalendar() {
           <span style={{ fontSize: 'var(--tp-fs-sm)' }}>
             {view === 'month'
               ? tr('ws.courtDesk.calendar.bookingForMonth')
-              : matchMode
+              : matchMode || lessonMode
                 ? null
                 : tr('ws.courtDesk.calendar.bookingForHint')}
           </span>
@@ -1130,6 +1178,7 @@ export function DeskCalendar() {
                               onClick={() => {
                                 if (suppressClick.current) return;
                                 if (matchMode) setStartMatch({ courtId: c.id, startAt, customer: bookFor, guestName: '', guestPhone: '' });
+                                else if (lessonMode) setStartLesson({ courtId: c.id, startAt, customer: bookFor, guestName: '', guestPhone: '' });
                                 else setCreateAt({ courtId: c.id, startAt });
                               }}
                               title={
@@ -1156,16 +1205,23 @@ export function DeskCalendar() {
                           // Share the column's width between the lanes of one
                           // overlapping cluster; a lone booking keeps all of it.
                           const laneWidth = 100 / laneCount;
-                          const tone = reservationTone(r);
+                          // A lesson's court row, or a held lesson's hold row,
+                          // draws as that lesson (coaching operator.md §5.8).
+                          const isLesson = isLessonRow(r, lessonsBy);
+                          const lesson = lessonOfRow(r, lessonsBy);
+                          const tone = reservationBlockTone(r, isLesson);
                           const dragging = drag?.id === r.id;
+                          // Never true for a lesson: its court moves only from its own screen (R7).
                           const draggable = canMoveReservation(r, now);
-                          const name =
-                            r.kind === 'maintenance'
+                          const name = isLesson
+                            ? lessonLabel(lesson, locale, tr)
+                            : r.kind === 'maintenance'
                               ? (r.notes ?? tr('op.desk.maintenance'))
                               : r.kind === 'hold'
                                 ? tr('op.desk.hold')
                                 : labelOf(r);
                           const matchState = r.kind === 'booking' ? stateOf(r) : null;
+                          const pay = lesson ? lessonPayState(lesson, lessonNow) : null;
                           return (
                             <button
                               key={r.id}
@@ -1174,7 +1230,9 @@ export function DeskCalendar() {
                               title={
                                 draggable
                                   ? tr('ws.courtDesk.calendar.dragHint')
-                                  : tr('ws.courtDesk.calendar.openDetail')
+                                  : isLesson
+                                    ? tr('ws.coaching.common.openLesson')
+                                    : tr('ws.courtDesk.calendar.openDetail')
                               }
                               onPointerDown={(e) => onBlockPointerDown(e, r)}
                               onClick={() => {
@@ -1203,9 +1261,9 @@ export function DeskCalendar() {
                                     ? `${laneWidth}%`
                                     : `calc(${laneWidth}% - ${LANE_GAP})`,
                                 justifySelf: 'start',
-                                background: TONE_SOFT[tone],
-                                color: TONE_FG[tone],
-                                border: `1px ${r.kind === 'maintenance' ? 'dashed' : 'solid'} ${TONE_EDGE[tone]}`,
+                                background: BLOCK_SOFT[tone],
+                                color: BLOCK_FG[tone],
+                                border: `1px ${r.kind === 'maintenance' ? 'dashed' : 'solid'} ${BLOCK_EDGE[tone]}`,
                                 borderRadius: 'var(--tp-radius-ctl)',
                                 textAlign: 'start',
                                 paddingBlock: '0.25rem',
@@ -1251,6 +1309,7 @@ export function DeskCalendar() {
                                   <bdi>{name}</bdi>
                                 </strong>
                                 {matchState && <SeatChip state={matchState} started={Date.parse(r.start_at) <= now} />}
+                                {lesson && <LessonPlacesChip lesson={lesson} />}
                               </span>
                               {/* Time and status on their own lines: sharing one
                                row, the badge was squeezed off the end of a card
@@ -1270,11 +1329,24 @@ export function DeskCalendar() {
                               <span
                                 style={{
                                   display: 'flex',
+                                  flexWrap: isLesson ? 'wrap' : undefined,
+                                  gap: isLesson ? '0.15rem' : undefined,
                                   marginInlineStart: '-0.45rem',
                                   minInlineSize: 0,
                                 }}
                               >
-                                <ReservationBadge reservation={r} size="sm" />
+                                {isLesson ? (
+                                  <>
+                                    <LessonBadge kind={lesson?.kind ?? null} held={r.kind === 'hold' || lesson?.status === 'held'} />
+                                    {/* After the start, what is still owed; from the booking, the C-24 flag. */}
+                                    {pay && pay.pay === 'owing' && pay.warn && (
+                                      <StatusBadge size="sm" tone="warn" label={tr('ws.coaching.common.pay.toPay', { count: formatNumber(pay.owing, locale) })} />
+                                    )}
+                                    {pay?.coachUnpaid && <StatusBadge size="sm" tone="warn" label={tr('ws.coaching.common.pay.coachBookedUnpaid')} />}
+                                  </>
+                                ) : (
+                                  <ReservationBadge reservation={r} size="sm" />
+                                )}
                               </span>
                             </button>
                           );
@@ -1366,6 +1438,15 @@ export function DeskCalendar() {
                 }
               : undefined
           }
+          // Coaching on or off, once the night's desk_lessons answered (the desk stages, R51).
+          onStartLesson={
+            coachingCaps.runLessons && deskLessons
+              ? (carry) => {
+                  setCreateAt(null);
+                  setStartLesson(carry);
+                }
+              : undefined
+          }
           onClose={() => setCreateAt(null)}
           onCreated={(queued) => {
             setCreateAt(null);
@@ -1399,10 +1480,26 @@ export function DeskCalendar() {
           onClose={() => setStartMatch(null)}
         />
       )}
+      {startLesson && (
+        <StartLessonDialog
+          courtId={startLesson.courtId}
+          startAt={startLesson.startAt}
+          courts={courts}
+          tz={tz}
+          customer={startLesson.customer}
+          guestName={startLesson.guestName}
+          guestPhone={startLesson.guestPhone}
+          lessons={lessonsStatus.kind === 'loading' ? undefined : deskLessons}
+          lessonsAt={lessonsQ.dataUpdatedAt}
+          onClose={() => setStartLesson(null)}
+        />
+      )}
       {selected && (
         <ReservationActionsDialog
           reservation={selected}
           match={stateOf(selected)}
+          lesson={lessonOfRow(selected, lessonsBy)}
+          lessonNowMs={lessonNow}
           courts={courts}
           date={date}
           tz={tz}

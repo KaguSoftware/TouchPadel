@@ -19,7 +19,9 @@
  * that attaching is not available; the till lane owns the tab side. An open
  * match (`?attach=match&match=<id>`, open matches operator.md §5.3) takes the
  * customer back to `/desk/matches/$id?customer=<id>`, where Add player opens
- * with them picked.
+ * with them picked; a lesson (`?attach=lesson&lesson=<id>`, coaching
+ * operator.md §5.3.2) back to `/desk/lessons/$id?customer=<id>`, where Add
+ * student opens with them picked.
  */
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -43,28 +45,39 @@ import {
 } from './customerDirectoryLogic';
 
 export interface CustomerSearchParams {
-  attach?: 'booking' | 'tab' | 'match';
+  attach?: 'booking' | 'tab' | 'match' | 'lesson';
   reservation?: string;
   tab?: string;
   /** The open match a picked customer goes back to (`attach=match`). */
   match?: string;
+  /** The lesson a picked customer goes back to (`attach=lesson`, coaching operator.md §5.3.2). */
+  lesson?: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Route-level search validation (routes/desk/_children.ts keeps its own copy,
- * so the route module does not pull this screen in). Attach to a match needs
- * the match's id; without a valid one the screen is plain search.
+ * so the route module does not pull this screen in). Attach to a match or a
+ * lesson needs its id; without a valid one the screen is plain search.
  */
 export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSearchParams {
   const match = typeof raw.match === 'string' && UUID.test(raw.match) ? raw.match.toLowerCase() : undefined;
-  const attach = raw.attach === 'booking' || raw.attach === 'tab' ? raw.attach : raw.attach === 'match' && match ? ('match' as const) : undefined;
+  const lesson = typeof raw.lesson === 'string' && UUID.test(raw.lesson) ? raw.lesson.toLowerCase() : undefined;
+  const attach =
+    raw.attach === 'booking' || raw.attach === 'tab'
+      ? raw.attach
+      : raw.attach === 'match' && match
+        ? ('match' as const)
+        : raw.attach === 'lesson' && lesson
+          ? ('lesson' as const)
+          : undefined;
   return {
     ...(attach ? { attach } : {}),
     ...(typeof raw.reservation === 'string' ? { reservation: raw.reservation } : {}),
     ...(typeof raw.tab === 'string' ? { tab: raw.tab } : {}),
     ...(attach === 'match' ? { match } : {}),
+    ...(attach === 'lesson' ? { lesson } : {}),
   };
 }
 
@@ -72,6 +85,7 @@ export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSe
 function attachLabelKey(attach: NonNullable<CustomerSearchParams['attach']>) {
   if (attach === 'booking') return 'ws.courtDesk.customers.attachBooking' as const;
   if (attach === 'match') return 'ws.matches.customers.attachMatch' as const;
+  if (attach === 'lesson') return 'ws.coaching.create.attachLesson' as const;
   return 'ws.courtDesk.customers.attachTab' as const;
 }
 
@@ -79,6 +93,7 @@ function attachLabelKey(attach: NonNullable<CustomerSearchParams['attach']>) {
 function attachingKey(attach: NonNullable<CustomerSearchParams['attach']>) {
   if (attach === 'booking') return 'ws.courtDesk.customers.attachingBooking' as const;
   if (attach === 'match') return 'ws.matches.customers.attachingMatch' as const;
+  if (attach === 'lesson') return 'ws.coaching.create.attachingLesson' as const;
   return 'ws.courtDesk.customers.attachingTab' as const;
 }
 
@@ -148,14 +163,23 @@ export function CustomerSearchScreen() {
       void navigate({ to: '/till', search: { tab: params.tab, customer: c.id } as never });
     } else if (params.attach === 'match' && params.match) {
       void navigate({ to: '/desk/matches/$id', params: { id: params.match }, search: { customer: c.id } as never });
+    } else if (params.attach === 'lesson' && params.lesson) {
+      // The lesson screen opens Add student with them picked (coaching operator.md §5.3.2).
+      void navigate({ to: '/desk/lessons/$id', params: { id: params.lesson }, search: { customer: c.id } as never });
     }
   }
 
   const createLink = (
     <Link
       to="/desk/customers/new"
-      // A customer created while attaching to a match goes straight back to it.
-      search={(params.attach === 'match' && params.match ? { attach: 'match', match: params.match } : {}) as never}
+      // A customer created while attaching to a match or a lesson goes straight back to it.
+      search={
+        (params.attach === 'match' && params.match
+          ? { attach: 'match', match: params.match }
+          : params.attach === 'lesson' && params.lesson
+            ? { attach: 'lesson', lesson: params.lesson }
+            : {}) as never
+      }
       className="tp-btn"
       data-kind="primary"
       data-size="lg"

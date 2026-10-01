@@ -1096,6 +1096,10 @@ export const ar: Messages = {
       walked_out: 'مغادرة دون دفع',
       no_shows: 'تكرار الغياب',
       reported: 'بلاغات من لاعبين',
+      // Coaching (operator.md §5.10.8, §5.10.10). DRAFT-AR: on the client's review list.
+      coach_unavailable: 'المدرّب غير متاح',
+      lesson_refund: 'رد مبلغ حصة',
+      lesson_goodwill: 'رد بحسن نية',
     },
     desk: {
       newBooking: 'حجز جديد',

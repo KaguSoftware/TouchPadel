@@ -22,6 +22,7 @@ import { AppRpcError } from '../../lib/appRpc';
 import { errorToMessageKey } from '../../lib/errors';
 import type { CourtRow } from '../../lib/queries';
 import { resolveGuestSiteUrl } from '../admin/qr/qrCardGeometry';
+import { isLessonLiteral } from '../coaching/lessonLogic';
 import { BLOCKING_STATUSES, guestNameOf } from '../desk/deskLogic';
 import type { ReservationRow } from '../desk/deskTypes';
 import type { MatchDetail, MatchInfo, MatchSeat, MatchState, OpenMatch, OpenMatches } from './matchPayloads';
@@ -69,13 +70,21 @@ export function bookingLabel(
  * literal): "Open match" in the screen's language for a match booking, else
  * its guest name (null when it has none). The row needs `guest_id` for the
  * literal to be recognised; a row without it reads its name as stored.
+ *
+ * A lesson's court row (coaching operator.md §5.8: kind 'lesson', or no
+ * account and the literal 'Lesson' on a row that is not a booking) reads
+ * "Lesson" in the screen's language the same way.
  */
 export function reservationNameOf(
-  r: (Pick<ReservationRow, 'guest_name'> & { guest_id?: string | null; guest?: { full_name: string | null } | null }) | null | undefined,
+  r:
+    | (Pick<ReservationRow, 'guest_name'> & { guest_id?: string | null; guest?: { full_name: string | null } | null; kind?: string })
+    | null
+    | undefined,
   tr: Tr,
 ): string | null {
   if (!r) return null;
   if (r.guest_id === null && r.guest_name === MATCH_RESERVATION_NAME) return tr('ws.matches.common.openMatch');
+  if (isLessonLiteral(r)) return tr('ws.coaching.common.lesson');
   return r.guest_name ?? r.guest?.full_name ?? null;
 }
 

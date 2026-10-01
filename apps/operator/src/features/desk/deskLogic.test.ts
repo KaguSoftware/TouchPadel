@@ -162,7 +162,23 @@ describe('nightSummary', () => {
         ],
         now,
       ),
-    ).toEqual({ bookings: 4, arrived: 2, toCome: 1 });
+    ).toEqual({ bookings: 4, arrived: 2, toCome: 1, lessons: 0 });
+  });
+
+  it('counts a lesson’s court rows apart: never a booking, an arrival or one still to come (coaching §5.8)', () => {
+    const now = '2026-09-03T15:30:00.000Z';
+    expect(
+      nightSummary(
+        [
+          row({ id: 'b', start_at: '2026-09-03T18:00:00.000Z' }),
+          row({ id: 'l1', kind: 'lesson', guest_name: 'Lesson', start_at: '2026-09-03T18:00:00.000Z' }),
+          row({ id: 'l2', kind: 'lesson', guest_name: 'Lesson', status: 'completed' }),
+          row({ id: 'l3', kind: 'lesson', guest_name: 'Lesson', status: 'cancelled' }),
+          row({ id: 'h', kind: 'hold', status: 'pending' }),
+        ],
+        now,
+      ),
+    ).toEqual({ bookings: 1, arrived: 0, toCome: 1, lessons: 2 });
   });
 });
 
@@ -497,6 +513,12 @@ describe('canMoveReservation', () => {
     expect(canMoveReservation(row({ id: 'm', kind: 'maintenance', status: 'confirmed' }), before)).toBe(
       false,
     );
+  });
+
+  it('never drags a lesson: its court moves only through Move court on its own screen (coaching §5.8, R7)', () => {
+    for (const status of ['confirmed', 'pending', 'arrived']) {
+      expect(canMoveReservation(row({ id: `l-${status}`, kind: 'lesson', guest_name: 'Lesson', status }), before)).toBe(false);
+    }
   });
 
   it('turns exactly at the start instant', () => {

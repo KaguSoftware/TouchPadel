@@ -66,7 +66,7 @@ export function useCourtBookings() {
         supabase.from('courts').select('id, name_en, name_ar, sort_order').eq('is_active', true).order('sort_order'),
         supabase
           .from('reservations')
-          .select('id, court_id, start_at, end_at, status, guest_id, guest_name, tabs!tabs_reservation_id_fkey(id, status)')
+          .select('id, court_id, kind, start_at, end_at, status, guest_id, guest_name, tabs!tabs_reservation_id_fkey(id, status)')
           .in('status', ['confirmed', 'arrived'])
           .gte('start_at', night.start)
           .lt('start_at', night.end)
@@ -74,7 +74,9 @@ export function useCourtBookings() {
       ]);
       if (courts.error) throw courts.error;
       if (bookings.error) throw bookings.error;
-      const rows = bookings.data as unknown as CourtBookingRow[];
+      // A lesson is paid on its own screen, never on a court bill (open_tab
+      // refuses LESSON_VIA_COACHING, coaching operator.md §5.8): no tab is offered on one.
+      const rows = (bookings.data as unknown as (CourtBookingRow & { kind?: string })[]).filter((b) => b.kind !== 'lesson');
       return { courts: courts.data as CourtRow[], bookings: rows.filter((b) => night.isTonight(b.start_at)) };
     },
   });
