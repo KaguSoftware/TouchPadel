@@ -1,0 +1,342 @@
+name: Deploy (hosted)
+
+# Migrations and edge functions to the hosted Supabase project — which is the
+# CLIENT'S PRODUCTION DATABASE. The GitHub environment is still called
+# `staging` for historical reasons; there is no other project (staging
+# deferred by Parsa, 2026-10-01).
+#
+# WHY THIS REPLACED db-migrate.yml + functions-deploy.yml (2026-10-01)
+#
+# Both used to fire on `push: main`, in parallel with CI and blind to it. On
+# 2026-09-29 the open-matches push went red in CI while DB Migrate went green:
+# the migrations reached production with a failing suite. This workflow starts
+# only from a CI run on main that CONCLUDED SUCCESS, and deploys exactly the
+# commit that run tested (`workflow_run.head_sha`), not whatever main has moved
+# on to since.
+#
+# ORDER, in one job (one approval, not three):
+#   1. send-push alone — a new notification_outbox kind must have its copy
+#      deployed before the migration that can enqueue it (an unknown kind is
+#      terminal in send-push; packages/db/CLAUDE.md "New push kind").
+#   2. the ledger snapshot, then `supabase db push`.
+#   3. every other function — they call RPCs the migration just added.
+#   4. the deployed verify_jwt values checked against fixtures/verify-jwt.json.
+#
+# WHAT TO DEPLOY is worked out against the hosted project, not against one
+# push: migrations from the hosted ledger (`migration list`: pending is
+# pending, however many CI runs were cancelled or skipped in between);
+# functions from the diff since the last SUCCESSFUL run of this workflow. A
+# commit that changes neither ends in the plan job and asks nobody to approve
+# anything.
+#
+# THE APPROVAL GATE. The `staging` environment should carry required
+# reviewers. An approval nobody gives holds this concurrency group and makes
+# later runs wait (they never deploy older code: each run plans from the
+# hosted state). The nightly db-drift job fails when a run here has been
+# waiting for more than 12 hours, so a jam is red the next morning instead of
+# silent for weeks (the 2026-08-27 → 09-14 stall). To clear one: cancel the
+# stale waiting run; the newest run then plans from the current tree.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      include_all:
+        # `supabase db push` refuses a local migration that sorts BEFORE a
+        # version already on the remote ledger, and with it every later one.
+        # That is the right default: a stranded file must be noticed, not
+        # applied late in an order nobody reviewed. This switch is the
+        # deliberate, reviewed exception (used once, 2026-09-12, for
+        # 20260906000071_booking_integrity); check-migrations.mjs fails a pull
+        # request that would create the situation again.
+        description: 'Also apply migrations that sort before the newest remote version (--include-all)'
+        type: boolean
+        required: false
+        default: false
+      skip_ci_check:
+        # A manual run deploys the commit it was started on. By default that
+        # commit must have a green CI run; this is the emergency override, and
+        # the reviewer at the gate sees it in the plan summary.
+        description: 'Deploy even though this commit has no successful CI run (emergency only)'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: deploy-hosted
+  cancel-in-progress: false # never cancel a running migration push
+
+# Read-only GITHUB_TOKEN (audit S9). `actions: read` lets the plan job find the
+# last successful run of this workflow and, on a manual run, the CI run of the
+# commit. Nothing here writes to the repository.
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  plan:
+    name: Plan (what this commit changes on the hosted project)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      configured: ${{ steps.preflight.outputs.configured }}
+      functions: ${{ steps.functions.outputs.changed }}
+      migrations: ${{ steps.migrations.outputs.pending != '0' && steps.migrations.outputs.pending != '' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Commit under deployment
+        id: sha
+        run: |
+          sha="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "### Deploying \`${sha:0:8}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
+          fetch-depth: 0
+
+      - name: A manual run deploys only a commit CI passed
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+          SKIP: ${{ inputs.skip_ci_check }}
+        run: |
+          set -euo pipefail
+          green=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&status=success&per_page=1" --jq '.total_count')
+          if [ "${green}" != "0" ]; then
+            echo "CI is green on ${SHA:0:8}."
+          elif [ "${SKIP}" = "true" ]; then
+            echo "::warning title=CI check skipped::${SHA:0:8} has no successful CI run; deploying on the emergency override."
+            echo "**⚠️ Emergency override: this commit has no green CI run.**" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error title=No green CI::${SHA:0:8} has no successful CI run. Wait for CI, or re-run with skip_ci_check in an emergency."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: supabase/setup-cli@v1
+        with:
+          # Keep equal to ci.yml, bench.yml and db-drift.yml (audit S9 pin).
+          version: 2.116.0
+
+      # An unconfigured repo skips with a visible notice instead of failing every
+      # commit red — a permanently failing required check trains everyone to
+      # ignore it.
+      - name: Preflight — are the deploy secrets configured?
+        id: preflight
+        env:
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || missing="${missing} SUPABASE_ACCESS_TOKEN"
+          [ -n "${PROJECT_REF:-}" ]           || missing="${missing} PROJECT_REF"
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ]  || missing="${missing} SUPABASE_DB_PASSWORD"
+          if [ -n "${missing}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::Missing repository secrets:${missing}"
+            exit 0
+          fi
+          # The ref is the bare project id — not a URL, not the db host.
+          if ! printf '%s' "${PROJECT_REF}" | grep -Eq '^[a-z0-9]{15,40}$'; then
+            echo "::error title=Bad PROJECT_REF::Expected a bare Supabase project ref (lowercase id, no scheme/dots/slashes)."
+            exit 1
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      # Base = the commit the last successful run of this workflow deployed;
+      # falls back to the old functions-deploy.yml, then to the parent commit.
+      # An unknown or unrelated base deploys every function (always safe:
+      # `functions deploy` skips unchanged bundles).
+      - name: Did the edge functions change since the last deploy?
+        id: functions
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          last() {
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/$1/runs?branch=main&status=success&per_page=1" \
+              --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || true
+          }
+          base="$(last deploy.yml)"
+          [ -n "${base}" ] || base="$(last functions-deploy.yml)"
+          [ -n "${base}" ] || base="$(git rev-parse "${SHA}^" 2>/dev/null || true)"
+          changed=true
+          if [ -n "${base}" ] && git merge-base --is-ancestor "${base}" "${SHA}" 2>/dev/null; then
+            if git diff --quiet "${base}" "${SHA}" -- packages/db/supabase/functions packages/db/supabase/config.toml; then
+              changed=false
+            fi
+            echo "functions base: ${base:0:8}"
+          else
+            echo "functions base unknown or not an ancestor (${base:-none}); deploying every function."
+          fi
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+          echo "- Edge functions changed since the last deploy: **${changed}**" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Link to the hosted project
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: supabase link --project-ref "${{ secrets.PROJECT_REF }}"
+
+      - name: Pending migrations on the hosted ledger
+        id: migrations
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: |
+          set -euo pipefail
+          supabase migration list --linked | tee /tmp/migrations.txt
+          node scripts/pending-migrations.mjs < /tmp/migrations.txt >> "$GITHUB_OUTPUT"
+          pending=$(node scripts/pending-migrations.mjs < /tmp/migrations.txt 2>/dev/null | sed -n 's/^pending=//p')
+          echo "- Migrations pending on the hosted project: **${pending}**" >> "$GITHUB_STEP_SUMMARY"
+
+      # For the reviewer at the gate: the schema delta, BEFORE they approve.
+      # `|| true` on purpose — an unreadable diff is information, not a reason
+      # to block the push.
+      - name: Schema diff for the reviewer
+        if: steps.preflight.outputs.configured == 'true' && steps.migrations.outputs.pending != '0'
+        working-directory: packages/db
+        run: |
+          {
+            echo
+            echo "### Schema diff — hosted project vs this commit"
+            echo '```sql'
+            supabase db diff --linked 2>&1 || echo "(diff unavailable — see the step log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy (send-push → migrations → functions)
+    needs: plan
+    if: >-
+      needs.plan.outputs.configured == 'true' &&
+      (needs.plan.outputs.functions == 'true' || needs.plan.outputs.migrations == 'true')
+    runs-on: ubuntu-latest
+    # The push takes a lock on the venue's live database; fifteen minutes is far
+    # longer than any healthy push and far shorter than a service. The real
+    # control is `lock_timeout = '3s'` at the top of every migration
+    # (check:migrations).
+    timeout-minutes: 20
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.PROJECT_REF }}
+      FUNCTIONS: ${{ needs.plan.outputs.functions }}
+      MIGRATIONS: ${{ needs.plan.outputs.migrations }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+
+      - name: Link to the hosted project
+        working-directory: packages/db
+        run: supabase link --project-ref "${PROJECT_REF}"
+
+      - name: 1. send-push first
+        if: env.FUNCTIONS == 'true'
+        working-directory: packages/db
+        run: supabase functions deploy send-push
+
+      # Security Layer 1, Block 3 (SEC-02): a data-only dump of the APPEND-ONLY
+      # ledgers (audit_log, payments, refunds, stock_movements, sync_replays),
+      # taken BEFORE the push and kept as an artifact for a week. There is no
+      # staging copy and no PITR — this dump is the only "before" that exists.
+      # The exclusion list is read from the live catalog on every run, so a new
+      # public table is excluded by default instead of leaking by default.
+      - name: 2a. Ledger snapshot before the push
+        if: env.MIGRATIONS == 'true'
+        working-directory: packages/db
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          ledgers="audit_log payments refunds stock_movements sync_replays"
+          quoted=$(printf "'%s'," $ledgers); quoted=${quoted%,}
+          others="from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' and table_name not in ($quoted)"
+          if ! listing=$(supabase db query --linked "select 'x:' || table_name as t $others union all select 'n:' || count(*) $others"); then
+            echo "::error title=Ledger snapshot skipped::could not list the public tables; nothing was dumped"
+            exit 1
+          fi
+          mapfile -t exclude < <(grep -oE '\bx:[a-z0-9_]+' <<<"$listing" | cut -c3- | sort -u)
+          expected=$(grep -oE '\bn:[0-9]+' <<<"$listing" | head -1 | cut -c3- || true)
+          if [ -z "$expected" ] || [ "$expected" -lt 1 ] || [ "${#exclude[@]}" -ne "$expected" ]; then
+            echo "::error title=Ledger snapshot skipped::parsed ${#exclude[@]} tables to exclude but the catalog says '${expected:-?}'; nothing was dumped"
+            exit 1
+          fi
+          echo "dumping: $ledgers (excluding ${#exclude[@]} other public tables)"
+          supabase db dump --linked --data-only --schema public \
+            -x "$(printf 'public.%s,' "${exclude[@]}" | sed 's/,$//')" \
+            -f ledger-snapshot.sql 2>&1 | tail -5
+          ls -lh ledger-snapshot.sql
+
+      - name: 2b. Upload ledger snapshot
+        if: env.MIGRATIONS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-ledgers-${{ needs.plan.outputs.sha }}
+          path: packages/db/ledger-snapshot.sql
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: 2c. Push migrations
+        if: env.MIGRATIONS == 'true'
+        working-directory: packages/db
+        run: supabase db push --yes ${{ inputs.include_all == true && '--include-all' || '' }}
+
+      - name: 2d. Nothing left pending
+        if: env.MIGRATIONS == 'true'
+        working-directory: packages/db
+        run: |
+          set -euo pipefail
+          supabase migration list --linked > /tmp/after.txt
+          pending=$(node scripts/pending-migrations.mjs < /tmp/after.txt | sed -n 's/^pending=//p')
+          if [ "${pending}" != "0" ]; then
+            echo "::error title=Migrations still pending::${pending} migration(s) not applied after db push"
+            exit 1
+          fi
+
+      - name: 3. Every other function
+        if: env.FUNCTIONS == 'true'
+        working-directory: packages/db
+        run: supabase functions deploy
+
+      # The old check grepped `functions list` for 'true' — a table with no
+      # verify_jwt column, so it could never fire. This one asks the Management
+      # API and holds every function to fixtures/verify-jwt.json.
+      - name: 4. Deployed verify_jwt matches the fixture
+        if: env.FUNCTIONS == 'true'
+        working-directory: packages/db
+        run: node scripts/check-verify-jwt.mjs --deployed
+
+      - name: Record what is now deployed
+        if: always() && env.FUNCTIONS == 'true'
+        working-directory: packages/db
+        run: |
+          {
+            echo "### Edge functions on the hosted project after this run"
+            echo
+            echo '```'
+            supabase functions list 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

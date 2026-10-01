@@ -116,6 +116,8 @@ export function Thread({
     queryKey: QK.start(scopes.join(','), chosenModel ?? ''),
     queryFn: ({ signal }) => startSize(scopes, chosenModel, undefined, signal),
     staleTime: 5 * 60_000,
+    // A size estimate, nothing more: callEdge retries a 5xx once itself, and the
+    // box simply shows no estimate when it fails.
     retry: false,
   });
   const start = startQ.isError ? null : startQ.data?.start;

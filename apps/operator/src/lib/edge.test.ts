@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_REQUEST_TIMEOUT_MS, RequestTimeoutError } from '@touch/core';
 import { supabase } from './supabase';
 import {
   EDGE_CACHE_TTL_MS,
   EdgeError,
   callEdge,
+  edgeTimeoutMs,
   invalidateEdgeCache,
   stableStringify,
   statusToEdgeCode,
@@ -54,6 +56,52 @@ describe('stableStringify', () => {
     expect(stableStringify({ b: 1, a: [1, { d: 2, c: 3 }], u: undefined })).toBe(
       stableStringify({ a: [1, { c: 3, d: 2 }], b: 1 }),
     );
+  });
+});
+
+describe('callEdge deadlines', () => {
+  /** A fetch that only ever ends by its signal aborting. */
+  function hangingFetch() {
+    return vi.fn((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('Aborted'), { name: 'AbortError' })));
+      }),
+    );
+  }
+
+  it('a function that never answers throws RequestTimeoutError after its deadline', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', hangingFetch());
+    const caught = callEdge('staff-admin', { action: 'list' }, { ttlMs: 0 }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
+    const err = await caught;
+    expect(err).toBeInstanceOf(RequestTimeoutError);
+    expect((err as Error).message).toContain('staff-admin');
+  });
+
+  it('the slow functions get longer, and a caller may set its own', async () => {
+    expect(edgeTimeoutMs('staff-admin')).toBe(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(edgeTimeoutMs('analytics-insights')).toBeGreaterThan(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(edgeTimeoutMs('analytics-posthog')).toBeGreaterThan(DEFAULT_REQUEST_TIMEOUT_MS);
+
+    vi.useFakeTimers();
+    const fetchMock = hangingFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const caught = callEdge('analytics-insights', { a: 1 }, { ttlMs: 0, timeoutMs: 1_000 }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await caught).toBeInstanceOf(RequestTimeoutError);
+  });
+
+  it('a caller abort (the Stop button) is not a timeout', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', hangingFetch());
+    const stop = new AbortController();
+    const caught = callEdge('staff-admin', {}, { ttlMs: 0, signal: stop.signal }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(0);
+    stop.abort();
+    const err = await caught;
+    expect(err).not.toBeInstanceOf(RequestTimeoutError);
+    expect((err as Error).name).toBe('AbortError');
   });
 });
 
@@ -119,7 +167,7 @@ describe('callEdge', () => {
     vi.stubGlobal('fetch', failing);
     const err = await callEdge('analytics-posthog', { x: 2 }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(EdgeError);
-    expect((err as EdgeError).code).toBe('UPSTREAM');
+    expect((err as EdgeError).kind).toBe('UPSTREAM');
     expect((err as EdgeError).status).toBe(500);
     expect(failing).toHaveBeenCalledTimes(2);
   });
@@ -128,7 +176,7 @@ describe('callEdge', () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(json(502, {})));
     vi.stubGlobal('fetch', fetchMock);
     const err = await callEdge('staff-admin', { action: 'create' }, { ttlMs: 0 }).catch((e: unknown) => e);
-    expect((err as EdgeError).code).toBe('UPSTREAM');
+    expect((err as EdgeError).kind).toBe('UPSTREAM');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -150,7 +198,7 @@ describe('callEdge', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const err = await callEdge('analytics-posthog', { y: 1 }).catch((e: unknown) => e);
-    expect((err as EdgeError).code).toBe('NOT_CONFIGURED');
+    expect((err as EdgeError).kind).toBe('NOT_CONFIGURED');
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     expect(await callEdge('analytics-posthog', { y: 1 })).toEqual({ configured: true });
@@ -167,8 +215,30 @@ describe('callEdge', () => {
       const fetchMock = vi.fn().mockResolvedValue(json(status, {}));
       vi.stubGlobal('fetch', fetchMock);
       const err = await callEdge('analytics-insights', { status }).catch((e: unknown) => e);
-      expect((err as EdgeError).code).toBe(code);
+      expect((err as EdgeError).kind).toBe(code);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('keeps the server’s own code as the error’s code, the HTTP class as the fallback', async () => {
+    for (const [status, body, kind, code, serverCode] of [
+      // desk-customer-create and staff-admin answer {error: 'CODE', message}.
+      [409, { error: 'DUPLICATE_PHONE', message: 'a customer with this phone already exists' }, 'UNKNOWN', 'DUPLICATE_PHONE', 'DUPLICATE_PHONE'],
+      [409, { error: 'EMAIL_IN_USE', message: 'already registered' }, 'UNKNOWN', 'EMAIL_IN_USE', 'EMAIL_IN_USE'],
+      [400, { error: 'INVALID_PHONE', message: 'phone must carry 7-15 digits' }, 'UNKNOWN', 'INVALID_PHONE', 'INVALID_PHONE'],
+      // A SQL refusal the function passed through (mapPgError).
+      [400, { error: 'RELEASE_NOT_READY', message: 'RELEASE_NOT_READY' }, 'UNKNOWN', 'RELEASE_NOT_READY', 'RELEASE_NOT_READY'],
+      // A code the catalogue does not word, and a prose `error`: the class.
+      [500, { error: 'INTERNAL', message: 'boom' }, 'UPSTREAM', 'EDGE_UPSTREAM', 'INTERNAL'],
+      [400, { error: 'something broke' }, 'UNKNOWN', 'EDGE_UNKNOWN', null],
+    ] as const) {
+      invalidateEdgeCache();
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(status, body)));
+      const err = await callEdge('desk-customer-create', { status }, { ttlMs: 0 }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(EdgeError);
+      expect((err as EdgeError).kind, String(code)).toBe(kind);
+      expect((err as EdgeError).code, String(code)).toBe(code);
+      expect((err as EdgeError).serverCode, String(code)).toBe(serverCode);
     }
   });
 
@@ -177,7 +247,7 @@ describe('callEdge', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     const err = await callEdge('analytics-insights', {}).catch((e: unknown) => e);
-    expect((err as EdgeError).code).toBe('AUTH_REQUIRED');
+    expect((err as EdgeError).kind).toBe('AUTH_REQUIRED');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -228,26 +298,31 @@ describe('streamEdge', () => {
   });
 
   it('maps a pre-stream JSON refusal through statusToEdgeCode', async () => {
-    for (const [status, body, code] of [
-      [401, {}, 'AUTH_REQUIRED'],
-      [403, { code: 'FORBIDDEN', message: 'owner only' }, 'FORBIDDEN'],
-      [429, { code: 'LLM_MONTHLY_CAP' }, 'RATE_LIMITED'],
-      [503, { code: 'NOT_CONFIGURED' }, 'NOT_CONFIGURED'],
-      [502, {}, 'UPSTREAM'],
+    for (const [status, body, kind, code] of [
+      [401, {}, 'AUTH_REQUIRED', 'EDGE_AUTH_REQUIRED'],
+      [403, { code: 'FORBIDDEN', message: 'owner only' }, 'FORBIDDEN', 'FORBIDDEN'],
+      [429, { code: 'LLM_MONTHLY_CAP' }, 'RATE_LIMITED', 'LLM_MONTHLY_CAP'],
+      [503, { code: 'NOT_CONFIGURED' }, 'NOT_CONFIGURED', 'EDGE_NOT_CONFIGURED'],
+      [502, {}, 'UPSTREAM', 'EDGE_UPSTREAM'],
     ] as const) {
       const fetchMock = vi.fn().mockResolvedValue(json(status, body));
       vi.stubGlobal('fetch', fetchMock);
       const onEvent = vi.fn();
       const err = await streamEdge('assistant-chat', {}, { onEvent }).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(EdgeError);
+      expect((err as EdgeError).kind).toBe(kind);
       expect((err as EdgeError).code).toBe(code);
       expect((err as EdgeError).status).toBe(status);
       expect(onEvent).not.toHaveBeenCalled();
       // Never retried: one billed request per press.
       expect(fetchMock).toHaveBeenCalledTimes(1);
     }
+    // A body with no code: no server code, and the class is the code.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(502, {})));
     const refused = await streamEdge('assistant-chat', {}, { onEvent: vi.fn() }).catch((e: unknown) => e);
-    expect((refused as EdgeError).detail).toBeUndefined();
+    expect(refused).toBeInstanceOf(EdgeError);
+    expect((refused as EdgeError).serverCode).toBeNull();
+    expect((refused as EdgeError).code).toBe('EDGE_UPSTREAM');
   });
 
   it('never caches: two identical calls are two fetches', async () => {
@@ -267,7 +342,7 @@ describe('streamEdge', () => {
 
     stubSession(null);
     const err = await streamEdge('assistant-chat', {}, { onEvent: vi.fn() }).catch((e: unknown) => e);
-    expect((err as EdgeError).code).toBe('AUTH_REQUIRED');
+    expect((err as EdgeError).kind).toBe('AUTH_REQUIRED');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -8,6 +8,7 @@
  * status() reads that decision back, so the webhook path, the poll path and
  * the reconciler all see the same pretend bank the way they would see Qi.
  */
+import { constantTimeEqual } from '../http.ts';
 import {
   PaymentProviderError,
   type CreatePaymentArgs,
@@ -133,9 +134,5 @@ export function signFakeNotification(secret: string, body: string): Promise<stri
 
 export async function verifyFakeSignature(secret: string, body: string, signature: string): Promise<boolean> {
   if (!secret || !signature) return false;
-  const expected = await signFakeNotification(secret, body);
-  if (expected.length !== signature.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-  return diff === 0;
+  return constantTimeEqual(await signFakeNotification(secret, body), signature);
 }

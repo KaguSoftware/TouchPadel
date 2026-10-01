@@ -118,7 +118,7 @@ describe('cafe fallback over the operator payload', () => {
 
   it('writes Arabic with Latin digits and the same names', () => {
     const out = templatedInsights({ scope: 'cafe', lang: 'ar', data });
-    expect(out[0]!.text).toMatch(/^Water كان الأكثر مبيعاً: 140 وحدة بإيراد 140,000 د\.ع/);
+    expect(out[0]!.text).toMatch(/^كان Water الصنف الأكثر مبيعًا: الكمية 140، والإيراد 140,000 د\.ع/);
     expect(out.every((i) => !/[٠-٩]/.test(i.text))).toBe(true);
   });
 });

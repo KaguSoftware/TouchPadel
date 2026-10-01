@@ -2,7 +2,17 @@
  * Diff a bench run against the committed baseline.
  *
  *     node --experimental-strip-types bench/compare.ts [--results=<dir>] [--baseline=<file>]
+ *     node --experimental-strip-types bench/compare.ts --against=<dir> [--results=<dir>]
  *     node --experimental-strip-types bench/compare.ts --update-baseline [--force]
+ *
+ * --against=<dir> (what the nightly runs since 2026-10-01) diffs this run with
+ * a results.json taken MINUTES EARLIER ON THE SAME RUNNER from the reference
+ * commit (baseline.json meta.sha); the committed numbers are not read. Until
+ * then the nightly compared against p95s taken on whatever runner GitHub
+ * handed out on 2026-09-23 and went red on every scheduled run from 09-22 on
+ * (+40-120 % on every row, unrelated paths included): a gate that cannot tell
+ * a slower machine from slower SQL. A row the reference commit does not have
+ * (a new benchmark) is reported, not failed, in this mode.
  *
  * Exit 0 clean, 1 regression or invariant failure, 2 harness error
  * (bench/stats.ts EXIT_*). The nightly workflow reads nothing but the code.
@@ -28,6 +38,7 @@ import type { Baseline, BaselineRow, BenchResults } from './types.ts';
 interface Args {
   results: string;
   baseline: string;
+  against: string | undefined;
   update: boolean;
   force: boolean;
 }
@@ -40,6 +51,7 @@ function parseArgs(argv: readonly string[]): Args {
   return {
     results: get('results') ?? 'bench/results',
     baseline: get('baseline') ?? 'bench/baseline.json',
+    against: get('against'),
     update: argv.includes('--update-baseline'),
     force: argv.includes('--force'),
   };
@@ -94,6 +106,7 @@ function updateBaseline(args: Args): number {
 }
 
 function compare(args: Args): number {
+  if (args.against) return diff(toBaseline(readResults(args.against)), readResults(args.results), true);
   const baselinePath = resolve(args.baseline);
   if (!existsSync(baselinePath)) {
     console.error(
@@ -104,7 +117,11 @@ function compare(args: Args): number {
     return EXIT_HARNESS;
   }
   const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as Baseline;
-  const results = readResults(args.results);
+  return diff(baseline, readResults(args.results), false);
+}
+
+/** sameRunner: `baseline` was measured minutes ago on this machine (--against). */
+function diff(baseline: Baseline, results: BenchResults, sameRunner: boolean): number {
   const measured = new Map(results.rows.map((r) => [r.id, r]));
 
   const failures: string[] = [];
@@ -121,9 +138,9 @@ function compare(args: Args): number {
   // deliberately, so that "I added a benchmark" and "the baseline is stale" are
   // never the same silence.
   for (const id of measured.keys()) {
-    if (!(id in baseline.rows)) {
-      failures.push(`${id}: measured but NOT in the baseline — run mode: baseline to adopt it`);
-    }
+    if (id in baseline.rows) continue;
+    if (sameRunner) console.log(`[bench:compare] ${id}: new row; the reference commit has no such benchmark`);
+    else failures.push(`${id}: measured but NOT in the baseline — run mode: baseline to adopt it`);
   }
 
   for (const [id, base] of Object.entries(baseline.rows)) {
@@ -169,7 +186,7 @@ function compare(args: Args): number {
 
   console.log(lines.sort().join('\n'));
   console.log(
-    `\n[bench:compare] baseline from ${baseline.meta.runner} @ ${baseline.meta.sha.slice(0, 8)}; ` +
+    `\n[bench:compare] ${sameRunner ? 'reference run' : 'baseline'} from ${baseline.meta.runner} @ ${baseline.meta.sha.slice(0, 8)}; ` +
       `run from ${results.meta.runner} @ ${results.meta.sha.slice(0, 8)} (repeat ${results.meta.repeat})`,
   );
   if (failures.length === 0) {

@@ -63,7 +63,7 @@ describe('reads', () => {
     expect(client.app.rpc).toHaveBeenLastCalledWith('match_invite', { p_token: 't' });
   });
 
-  it('throws the refusal as it came, so CODE_TO_KEY and the details read it', async () => {
+  it('throws the refusal as it came, so the error catalogue and the details read it', async () => {
     const err = { message: 'MATCH_NOT_FOUND', details: null };
     const client = rpcClient({ data: null, error: err });
     await expect(fetchMatchDetail(client as never, { matchId: 'm' })).rejects.toBe(err);

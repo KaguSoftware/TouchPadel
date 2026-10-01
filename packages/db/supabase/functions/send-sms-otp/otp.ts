@@ -62,7 +62,7 @@ export function parseHookPayload(json: unknown): ParseOutcome {
 export const TEMPLATE_MAX_UNITS = 70;
 
 export function renderTemplate(code: string): string {
-  return `Touch Padel: ${code}\nرمز الدخول: ${code}`;
+  return `Touch Padel: ${code}\nرمز التحقق: ${code}`;
 }
 
 /** UTF-16 code units — what the GSM/UCS-2 segment counter sees. */

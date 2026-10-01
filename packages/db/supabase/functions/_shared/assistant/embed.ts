@@ -19,12 +19,19 @@
 
 export type EmbedLang = 'en' | 'ar';
 export type EnvGetter = (name: string) => string | undefined;
-export type FetchLike = (input: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<{
+export type FetchLike = (input: string, init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }) => Promise<{
   ok: boolean;
   status: number;
   json(): Promise<unknown>;
   text(): Promise<string>;
 }>;
+
+/**
+ * Deadline on one vendor call, reply included: the indexer runs under a cron
+ * claim and the chat under its 50 s wall clock, and neither may hang on a
+ * stalled vendor. A timeout is an EmbedError('UPSTREAM') like any transport failure.
+ */
+export const EMBED_TIMEOUT_MS = 20_000;
 
 export const EMBEDDING_PROVIDERS = ['none', 'voyage', 'openai', 'local'] as const;
 export type EmbeddingProvider = (typeof EMBEDDING_PROVIDERS)[number];
@@ -116,8 +123,10 @@ export async function embed(
 
 async function post(fetchImpl: FetchLike, provider: string, url: string, key: string, body: string): Promise<unknown> {
   let res: Awaited<ReturnType<FetchLike>>;
+  // One signal for the request and the reply body: the timeout covers both.
+  const signal = AbortSignal.timeout(EMBED_TIMEOUT_MS);
   try {
-    res = await fetchImpl(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body });
+    res = await fetchImpl(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body, signal });
   } catch (e) {
     throw new EmbedError('UPSTREAM', provider, e instanceof Error ? e.message : String(e));
   }
@@ -125,7 +134,11 @@ async function post(fetchImpl: FetchLike, provider: string, url: string, key: st
     const text = await res.text().catch(() => '');
     throw new EmbedError('UPSTREAM', provider, `${res.status} ${text.slice(0, 200)}`, res.status);
   }
-  return res.json();
+  try {
+    return await res.json();
+  } catch (e) {
+    throw new EmbedError('UPSTREAM', provider, e instanceof Error ? e.message : String(e));
+  }
 }
 
 /** Both vendors answer `{ data: [{ index, embedding: number[] }, …] }`; order by index to be safe. */

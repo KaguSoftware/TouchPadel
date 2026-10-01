@@ -47,7 +47,6 @@ export function DepositSettingsPanel({ canEdit }: { canEdit: boolean }) {
     queryKey: depositSettingsKey(branch),
     queryFn: () => fetchDepositSettings(branch),
     staleTime: 60_000,
-    retry: false,
   });
 
   return (

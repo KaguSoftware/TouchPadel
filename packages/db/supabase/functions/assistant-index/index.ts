@@ -21,7 +21,14 @@
  */
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { json } from '../_shared/http.ts';
+import { handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
+
+/**
+ * scripts/assistant-index-map.mjs posts up to 50 chunks with their 1024-dim
+ * vectors (about 1 MB), and a prune carries every kept ref; 8 MB is generous
+ * and still bounded.
+ */
+const MAX_BODY = 8 * 1024 * KB;
 import { clean, CleanError, sourceForChunk, type Cleaned } from '../_shared/assistant/clean.ts';
 import { EMBED_BATCH, EMBEDDING_DIMS, embed, embeddingProvider, EmbedError } from '../_shared/assistant/embed.ts';
 import { newHandleTable } from '../_shared/assistant/handles.ts';
@@ -271,7 +278,7 @@ async function prune(db: ReturnType<typeof createServiceClient>, kinds: string[]
 }
 
 // ---------------------------------------------------------------------------
-Deno.serve(async (req) => {
+Deno.serve(handle('assistant-index', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   const started = Date.now();
   const db = createServiceClient();
@@ -284,12 +291,10 @@ Deno.serve(async (req) => {
     kinds?: string[];
     keep?: string[];
   }
-  let body: Body = {};
-  try {
-    body = (await req.json()) as Body;
-  } catch {
-    body = {};
-  }
+  // A cron drain posts no body (or an unreadable one): that is a plain drain. An oversized one is refused.
+  const read = await readJsonBody<Body>(req, { maxBytes: MAX_BODY, allowEmpty: true });
+  if (!read.ok && read.reason === 'too_large') return read.response;
+  const body: Body = read.ok ? read.value : {};
   const mode = body.mode === 'map' ? 'map' : body.mode === 'prune' ? 'prune' : 'drain';
 
   if (!isServiceRoleRequest(req)) {
@@ -321,8 +326,8 @@ Deno.serve(async (req) => {
           : await drain(db);
     return json({ ...result, provider: embeddingProvider(env), ms: Date.now() - started });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error('[assistant-index] failed', msg);
-    return json({ ok: false, error: msg, processed: 0, failed: 0, ms: Date.now() - started });
+    // Logged in full; the caller (cron, the owner's map load) gets the code.
+    logError('assistant-index', e, `${mode} failed`);
+    return json({ ok: false, error: e instanceof EmbedError ? e.code : 'INTERNAL', processed: 0, failed: 0, ms: Date.now() - started });
   }
-});
+}));

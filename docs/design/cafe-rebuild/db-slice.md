@@ -350,7 +350,7 @@ RPCs (owner): `app.save_analytics_insights(p_range_from date, p_range_to date, p
 ## Wave 4 — Edge functions + docs
 
 ### `packages/db/supabase/functions/_shared/telegram.ts`
-`esc(s)` (`& < >` only — all Telegram HTML needs), `fmtIqd(n)` (Latin digits, thousands separator), `fmtTime(iso)` (`Asia/Baghdad`, `HH:mm`), `renderOrder(payload, lang)`, `renderCall(payload, lang)`, `renderTest(payload)`, `orderKeyboard(orderId, stage)`, `callKeyboard(callId, stage)`, `statusFooter(action, actorLabel, at)`, `tg(method, body)` (fetch `https://api.telegram.org/bot${TOKEN}/${method}`, returns `{ok, result, error_code, description, retry_after}`), `truncateItems(lines, budget)` (keeps the message < 4000 chars, appends `… و N أصناف أخرى / +N more`).
+`esc(s)` (`& < >` only — all Telegram HTML needs), `fmtIqd(n)` (Latin digits, thousands separator), `fmtTime(iso)` (`Asia/Baghdad`, `HH:mm`), `renderOrder(payload, lang)`, `renderCall(payload, lang)`, `renderTest(payload)`, `orderKeyboard(orderId, stage)`, `callKeyboard(callId, stage)`, `statusFooter(action, actorLabel, at)`, `tg(method, body)` (fetch `https://api.telegram.org/bot${TOKEN}/${method}`, returns `{ok, result, error_code, description, retry_after}`), `truncateItems(lines, budget)` (keeps the message < 4000 chars, appends `… وأصناف أخرى: N / +N more`).
 
 **Templates (verbatim; `{ }` = substitutions, all user text passed through `esc`)**
 
@@ -364,31 +364,31 @@ Order (`kind = order_new`):
    📝 «{notes}»                       ← only when the line has notes
 ────────────
 💰 <b>المجموع: {total} د.ع</b> · Total {total} IQD
-💵 الدفع عند الكاشير · Pay at the desk
+💵 الدفع عند الصندوق · Pay at the desk
 ```
 Example: `2× كابتشينو / Cappuccino · كبير · حليب شوفان`. With `telegram_lang='en'` the variant/modifier fragment uses `_en` names; item lines are always bilingual.
 Keyboard (one row): `✅ شوهد` → `o:seen:{order_id}`, `🍽 تم التقديم` → `o:served:{order_id}`, `❌ إلغاء` → `o:void:{order_id}` (max 45 bytes, under the 64-byte cap).
 
 Waiter call (`kind = waiter_call`):
 ```
-🙋 <b>نداء نادل · Waiter call</b>
+🙋 <b>نداء النادل · Waiter call</b>
 🪑 <b>طاولة {table}</b> · Table {table}
 {reason_line}
 🕒 {HH:mm}
 ```
-`reason_line`: order → `🍽 يريد الطلب · Wants to order`; bill → `💳 الحساب · The bill`; water → `💧 ماء · Water`; assistance → `🙋 مساعدة · Assistance`.
-Keyboard: `✅ أنا قادم` → `w:ack:{call_id}`, `✔️ تم` → `w:done:{call_id}`.
+`reason_line`: order → `🍽 يريد أن يطلب · Wants to order`; bill → `💳 الحساب · The bill`; water → `💧 ماء · Water`; assistance → `🙋 مساعدة · Assistance`.
+Keyboard: `✅ في الطريق` → `w:ack:{call_id}`, `✔️ تم` → `w:done:{call_id}`.
 
 Test (`kind = test`):
 ```
 🔔 <b>رسالة تجريبية · Test message</b>
-تم ربط تتش كافيه بهذه المجموعة بنجاح ✅
+تتش كافيه مرتبط بهذه المجموعة ✅
 Touch Cafe is connected to this group.
-🕒 {HH:mm} · بواسطة {sent_by}
+🕒 {HH:mm} · المرسل: {sent_by}
 ```
 
-Status footer appended by `editMessageText` after a tap (original HTML + `\n\n` + footer; keyboard reduced per `keyboard`): `✅ شوهد · Seen — {actor} · {HH:mm}`, `🍽 تم التقديم · Served — …`, `❌ أُلغي · Cancelled — …`, `✅ قادم · On the way — …`, `✔️ تم · Done — …`. Keyboards: `order_seen` → `[🍽 تم التقديم] [❌ إلغاء]`; `order_final` / `call_final` → none; `call_acked` → `[✔️ تم]`.
-`answerCallbackQuery` toasts: applied `تم ✅`; duplicate `سبق تسجيله`; invalid `غير ممكن الآن`; not_found `غير موجود`; refused (paid tab) `الطلب مدفوع — الإلغاء من الكاشير`.
+Status footer appended by `editMessageText` after a tap (original HTML + `\n\n` + footer; keyboard reduced per `keyboard`): `✅ شوهد · Seen — {actor} · {HH:mm}`, `🍽 تم التقديم · Served — …`, `❌ أُلغي · Cancelled — …`, `✅ في الطريق · On the way — …`, `✔️ تم · Done — …`. Keyboards: `order_seen` → `[🍽 تم التقديم] [❌ إلغاء]`; `order_final` / `call_final` → none; `call_acked` → `[✔️ تم]`.
+`answerCallbackQuery` toasts: applied `تم ✅`; duplicate `سبق تسجيله`; invalid `غير ممكن الآن`; not_found `غير موجود`; refused (paid tab) `الطلب مدفوع. الإلغاء من الصندوق.`.
 
 ### `functions/telegram-send/index.ts`
 POST only; `isServiceRoleRequest` else 403; if `TELEGRAM_BOT_TOKEN` unset → claim rows and mark `skipped` (`NOT_CONFIGURED`), return `{configured:false}`; `claim_due_telegram(50)`; per row render by `kind`, `sendMessage {chat_id, text, parse_mode:'HTML', reply_markup, disable_web_page_preview:true}`; result handling per the 0032 stamping rules (429 → `scheduled_for = now + retry_after`); returns `{claimed, sent, failed, skipped}`. Sequential sends (Telegram group limit ~20 msg/min; bursts are small).

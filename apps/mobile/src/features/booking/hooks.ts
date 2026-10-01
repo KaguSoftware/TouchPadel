@@ -4,7 +4,7 @@ import { isTransportError } from '../../lib/network';
 import { clearIdemKey, idemKeyFor } from '../../lib/idempotency';
 import { useAuth } from '../auth/context';
 import {
-  cancelReservation,
+  cancelReservationSettled,
   confirmBooking,
   fetchMyReservations,
   fetchReservationById,
@@ -104,11 +104,18 @@ export function useReleaseHold() {
   });
 }
 
+/**
+ * app.cancel_reservation. Never retried automatically (it carries no key: the
+ * app default), and a NOT_CANCELLABLE answer is checked against the booking
+ * itself: when the guest's earlier attempt cancelled it and only the answer
+ * was lost, a second tap used to read "cannot cancel" for a booking that was
+ * cancelled. Now it reads as the success it was (cancelReservationSettled).
+ */
 export function useCancelReservation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ['cancel-reservation'],
-    mutationFn: (reservationId: string) => cancelReservation(supabase, reservationId),
+    mutationFn: (reservationId: string) => cancelReservationSettled(supabase, reservationId),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['availability'] });
       void queryClient.invalidateQueries({ queryKey: bookingKeys.mine });

@@ -187,23 +187,23 @@ cubic-bezier(.2,.8,.2,1)`, `--tp-dur-fast 150ms`, `--tp-dur-base 250ms`, `--tp-d
 ## 4. i18n
 
 `packages/i18n/src/catalogs/{en,ar}.ts`. Drop the `landing` namespace (`landing.days.*` →
-`cafe.days.*`); `seo.siteTitle` → "Touch Cafe — Menu" / "تتش كافيه — القائمة". New `cafe.*` keys
-(EN / AR): `hero.line1` "COFFEE CRAFTED" / "قهوة مصنوعة"; `hero.line2` "WITH PASSION" / "بشغف";
-`hero.itemsCount` "{count} items" / "{count} صنفًا"; `hero.openToday` "Open today {from}–{to}" / "مفتوح
-اليوم {from}–{to}"; `hero.closedToday`; `hero.featured` "Featured" / "مميز"; `hero.discountBadge`;
+`cafe.days.*`); `seo.siteTitle` → "Touch Cafe — Menu" / "تتش كافيه · المنيو". New `cafe.*` keys
+(EN / AR): `hero.line1` "COFFEE CRAFTED" / "قهوة نحضّرها"; `hero.line2` "WITH PASSION" / "بشغف";
+`hero.itemsCount` "{count} items" / "عدد الأصناف: {count}"; `hero.openToday` "Open today {from}–{to}" / "مفتوح
+اليوم من {from} إلى {to}"; `hero.closedToday`; `hero.featured` "Featured" / "مميّز"; `hero.discountBadge`;
 `ticker.fallback1..3` ("Specialty coffee" / "قهوة مختصة", "Fresh pastries" / "معجنات طازجة", "Order from
-your table" / "اطلب من طاولتك"); `soldOut` "Sold out" / "نفد"; `soldOutCta` "Sold out today" / "نفد
+your table" / "اطلب من طاولتك"); `soldOut` "Sold out" / "نفدت الكمية"; `soldOutCta` "Sold out today" / "نفدت كمية
 اليوم"; `unavailableShort`; `revealsHint` "More choices" / "خيارات إضافية"; `chooseOne`;
-`sendToWaiter` "Send to waiter" / "أرسل إلى النادل"; `sendingToWaiter`; `sentToWaiter` "Sent — a waiter
-has your order." / "تم الإرسال — النادل استلم طلبك."; `orderNote` "Note for the waiter" / "ملاحظة
-للنادل"; `orderNotePlaceholder`; `featuredDiscount` "Featured offer −{pct}%" / "عرض مميز −{pct}%";
+`sendToWaiter` "Send to waiter" / "إرسال إلى النادل"; `sendingToWaiter`; `sentToWaiter` "Sent — a waiter
+has your order." / "أُرسل طلبك، وهو الآن لدى النادل."; `orderNote` "Note for the waiter" / "ملاحظة
+للنادل"; `orderNotePlaceholder`; `featuredDiscount` "Featured offer −{pct}%" / "عرض مميّز −{pct}%";
 `browseMenu`; `basketEmptyTitle`; `qrRequired.title` "Scan the QR on your table" / "امسح رمز QR على
 طاولتك"; `qrRequired.bodyOrder`; `qrRequired.bodyWaiter`; `qrRequired.keepBasket`;
-`bellTutorial.eyebrow` "Need something?" / "تحتاج شيئًا؟"; `bellTutorial.title` "Tap the bell to call a
+`bellTutorial.eyebrow` "Need something?" / "هل تحتاج شيئًا؟"; `bellTutorial.title` "Tap the bell to call a
 waiter" / "اضغط الجرس لاستدعاء النادل"; `bellTutorial.dismiss`; `bellDisabled` "Please see a member of
-staff at the counter." / "يرجى مراجعة الموظفين عند الكاونتر."; `waiterSending`; `waiterOnTheWay` "On
-the way" / "في الطريق"; `waiterDone` "Done" / "تم"; `waiterFailed`; `waiterCooldown` "Available again in
-{time}" / "متاح مجددًا بعد {time}"; `offline`; `orders.liveOne`, `orders.liveMany`, `orders.earlier`,
+staff at the counter." / "يُرجى مراجعة أحد الموظفين عند الكاونتر."; `waiterSending`; `waiterOnTheWay` "On
+the way" / "في الطريق إليك"; `waiterDone` "Done" / "تمّ"; `waiterFailed`; `waiterCooldown` "Available again in
+{time}" / "متاح مرة أخرى بعد {time}"; `offline`; `orders.liveOne`, `orders.liveMany`, `orders.earlier`,
 `orders.cancelledHint`, `orders.emptyTitle`; `menuUnavailable.title/body`; `tableChipBinding`;
 `footer.hours/phone/developedBy/closed`; `days.*`; `lightbox.close`; `expandPhoto`; `scrollTop`;
 `notesCounter`; `priceChanged`; `removedUnavailable`; `localeSwitch`. Bidi: `isolate()` for Latin

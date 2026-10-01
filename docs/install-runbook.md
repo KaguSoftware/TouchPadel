@@ -11,6 +11,9 @@ station roles — the role is chosen on the machine's first launch and lives in
   `https://touch-padel-web.vercel.app/download`, later `https://touch-padel.com/download`).
   The Windows button is a stable link that always serves the newest release:
   `https://github.com/KaguSoftware/touchpadel-releases/releases/latest/download/Touch-Padel-Operator-Setup.exe`
+- **Which Windows:** Windows 10 or 11, 64-bit or 32-bit. The one installer
+  carries both builds and installs the right one by itself (the 32-bit build
+  also covers Windows 10 on ARM). If it will not start at all, see §2.
 - **Installing:** the installer is the assisted kind (`oneClick: false`), not
   one click: a welcome page, then **Choose Installation Options**. Run it from
   the Windows account the station logs in with and pick **Only for me**, never
@@ -33,13 +36,25 @@ station roles — the role is chosen on the machine's first launch and lives in
   `apps/operator-shell/release/`. Note `apps/operator/.env` on a dev machine
   points the guest site at localhost; do not hand a local build to the venue.
 
-## 2. SmartScreen (until the build is signed)
+## 2. SmartScreen (until the build is signed), and an installer that won't start
 
 Windows signing is wired but conditional on a certificate the owner has not
 sourced yet (`docs/client/operator-download-2026-09-05.md` §4). Until then, on
 first launch Windows shows "Windows protected your PC" — click **More info →
 Run anyway**. Once a signing route is configured the warning stops on the next
 release; then flip `SHOW_SMARTSCREEN_NOTE` on the download page to `false`.
+
+If the installer will not start, the message says which of these it is:
+
+- **"This app can't run on your PC"**: a 32-bit Windows given an installer
+  older than the one with the 32-bit build (operator-v0.2.21). Download it
+  again from the stable link in §1.
+- **"Windows protected your PC"**: SmartScreen, above.
+- **"…only runs verified apps from the Store"**: Windows is in **S mode**, which
+  runs nothing from outside the Microsoft Store, whatever the build. Switch out
+  of it (free, one-way): Settings → Update & Security → Activation → **Switch
+  to Windows 10 Home/Pro** → Go to the Store → Get (Windows 11: Settings →
+  System → Activation).
 
 ## 3. Station identity (per machine, once)
 

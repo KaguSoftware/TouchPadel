@@ -48,7 +48,7 @@ export function edgeErrorCode(body: unknown): string | null {
  */
 export function mapStaffError(err: unknown): MessageKey {
   if (err instanceof StaffEdgeError) {
-    if (err.code === 'BAD_REQUEST') return 'errors.validation';
+    // BAD_REQUEST is in the error catalogue (errors.validation), like the SQL codes.
     const code = rpcErrorCode(err.code);
     // The function answered, so this is never a connection problem.
     return code ? mapErrorToKey(new Error(code)) : 'errors.generic';

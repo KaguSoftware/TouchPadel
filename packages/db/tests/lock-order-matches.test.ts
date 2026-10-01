@@ -72,7 +72,7 @@ const BASE = [
 describe('the walker over synthetic catalogs (pure)', () => {
   it('declares the order of db.md §2.1', () => {
     expect(ORDER).toEqual(DECLARED);
-    expect(SERVICE_WALK).toEqual(['match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out']);
+    expect(SERVICE_WALK).toEqual(['match_sweep', 'deposit_apply', 'ticket_settle_success', 'ticket_refund_deleted', 'tickets_cash_out', 'expire_stale_holds']);
   });
 
   it('match_lock (R15): courts -> the booking row -> hold expiry -> the mutex', () => {
@@ -169,7 +169,11 @@ describe('the walker over synthetic catalogs (pure)', () => {
     // The expiry after the mutex+tickets re-takes reservations: an inversion.
     expect(bad.violations.join('\n')).toMatch(/deposit_settle_success: takes match_tickets before reservations/);
     expect(good.violations).toEqual([]);
-    expect(good.rows).toEqual([{ fn: 'deposit_settle_success', seq: ['court_advisory', 'reservations', 'match_venue_advisory', 'match_tickets'] }]);
+    // 0268: expire_stale_holds is on the service-role walk (the cron) now that no client may call it.
+    expect(good.rows).toEqual([
+      { fn: 'deposit_settle_success', seq: ['court_advisory', 'reservations', 'match_venue_advisory', 'match_tickets'] },
+      { fn: 'expire_stale_holds', seq: ['reservations', 'match_venue_advisory', 'match_tickets'] },
+    ]);
   });
 
   it('still catches an inversion across the new ranks', () => {

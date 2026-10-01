@@ -32,10 +32,43 @@ on:
 
 permissions:
   contents: read
+  actions: read # the gate reads the CI runs of the tagged commit
 
 jobs:
-  prepare:
+  # An operator tag publishes an AUTO-UPDATING installer to every till. Until
+  # 2026-10-01 a tag on any commit built and published, red CI or not. The tagged
+  # commit must now have a green CI run (waiting for one still in progress).
+  gate:
+    name: CI is green on the tagged commit
     runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ github.sha }}
+    steps:
+      - name: Wait for a successful CI run on this commit
+        run: |
+          set -euo pipefail
+          api="repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&per_page=20"
+          for _ in $(seq 1 90); do
+            green=$(gh api "${api}&status=success" --jq '.total_count')
+            [ "${green}" != "0" ] && { echo "CI is green on ${SHA:0:8}."; exit 0; }
+            open=$(gh api "${api}" --jq '[.workflow_runs[] | select(.status != "completed")] | length')
+            if [ "${open}" = "0" ]; then
+              echo "::error title=No green CI::${SHA:0:8} has no successful CI run and none in progress. Tag a commit CI passed."
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "::error title=CI still running::gave up waiting for CI on ${SHA:0:8}"
+          exit 1
+
+  prepare:
+    needs: gate
+    runs-on: ubuntu-latest
+    # Add required reviewers to the `release` environment to make every
+    # published till build wait for a person.
+    environment: release
     outputs:
       version: ${{ steps.ver.outputs.version }}
       mac_enabled: ${{ steps.creds.outputs.mac_enabled }}
@@ -170,7 +203,7 @@ jobs:
           # Route b — a PFX. An empty value is "unsigned" to electron-builder.
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: pnpm exec electron-builder --win nsis --config electron-builder.config.cjs --publish always
+        run: pnpm exec electron-builder --win --config electron-builder.config.cjs --publish always
 
       # A debugging copy. The public release is the real output.
       - uses: actions/upload-artifact@v4

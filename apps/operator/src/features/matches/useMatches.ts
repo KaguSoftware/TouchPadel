@@ -15,7 +15,7 @@
  */
 import { useCallback, useMemo, useRef } from 'react';
 import { keepPreviousData, useQuery, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
-import { AppRpcError, appRpc, isRpcMissing } from '../../lib/appRpc';
+import { appRpc, isRpcMissing } from '../../lib/appRpc';
 import { can, useAuth } from '../../lib/auth';
 import { QK, invalidateReservations } from '../../lib/queryKeys';
 import { useBroadcast } from '../../lib/realtime';
@@ -47,16 +47,9 @@ async function matchRead<T>(call: () => Promise<unknown>, parse: (raw: unknown) 
   }
 }
 
-/**
- * Retry a failure that carries no server code once (a network failure, which
- * PostgREST's client reports as UNKNOWN "TypeError: Failed to fetch"); never
- * a refusal the server raised (MATCH_NOT_FOUND, FORBIDDEN): asking again gets
- * the same answer.
- */
-export function retryNetworkOnce(failureCount: number, error: Error): boolean {
-  if (failureCount >= 1) return false;
-  return !(error instanceof AppRpcError) || error.code === 'UNKNOWN';
-}
+// Retries: the app default (lib/queryPolicy.ts) retries a network failure once
+// and never a refusal the server raised (MATCH_NOT_FOUND, FORBIDDEN), which is
+// what this module's own `retryNetworkOnce` used to do for each read.
 
 // ---------------------------------------------------------------------------
 // Reads (§5.4 table)
@@ -80,7 +73,6 @@ export function useOpenMatches(
     queryFn: () => matchRead(() => appRpc('desk_open_matches', { p_from: fromIso, p_to: toIso }), readOpenMatches),
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,
-    retry: retryNetworkOnce,
   });
 }
 
@@ -105,6 +97,7 @@ export function useMatchStates(reservationIds: readonly string[]): UseQueryResul
     queryFn: () => matchRead(() => appRpc('desk_match_states', { p_reservation_ids: ids }), readMatchStates),
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,
+    // The 60 s poll is the retry, and the last chips stay up meanwhile (above).
     retry: false,
   });
 }
@@ -122,7 +115,6 @@ export function useMatchDetail(matchId: string | null | undefined): UseQueryResu
     queryFn: () => matchRead(() => appRpc('desk_match_detail', { p_match_id: matchId }), readMatchDetail),
     refetchInterval: 20_000,
     placeholderData: keepPreviousData,
-    retry: retryNetworkOnce,
   });
 }
 
@@ -135,7 +127,6 @@ export function useGuestTickets(customerId: string | null | undefined, enabled =
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
-    retry: retryNetworkOnce,
   });
 }
 
@@ -146,7 +137,6 @@ export function useMatchReports(branchId: string | null, enabled = true): UseQue
     enabled,
     queryFn: () => matchRead(() => appRpc('match_reports_open', { p_venue_id: branchId }), readMatchReports),
     refetchInterval: 60_000,
-    retry: retryNetworkOnce,
   });
 }
 
@@ -158,7 +148,6 @@ export function useMatchSettings(branchId: string | null, enabled = true): UseQu
     queryFn: () => matchRead(() => appRpc('match_settings', { p_venue_id: branchId }), readMatchSettings),
     staleTime: 0,
     refetchOnMount: 'always',
-    retry: retryNetworkOnce,
   });
 }
 

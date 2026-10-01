@@ -1,6 +1,8 @@
 import { AppState, type AppStateStatus } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
+import { timeoutFetch } from '@touch/core';
+import { requestTimeoutMs } from './requestTimeout';
 import { chunkedSecureStore } from './secureStorage';
 import { addBreadcrumb, captureException } from './telemetry';
 
@@ -36,6 +38,10 @@ export const supabase = createClient<Database>(
       detectSessionInUrl: false, // native: tokens arrive via deep link, not a URL bar
       flowType: 'pkce',
     },
+    // Every request has a deadline (requestTimeoutMs): nothing timed out before,
+    // so a request the network swallowed — a captive portal, a socket that died
+    // while the phone slept — held its spinner, or a booking step, forever.
+    global: { fetch: timeoutFetch((input, init) => fetch(input, init), requestTimeoutMs) },
   },
 );
 

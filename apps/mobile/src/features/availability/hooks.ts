@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { InteractionManager } from 'react-native';
+import { AppState, InteractionManager, type AppStateStatus } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
+import { createCourtsChannels } from './courtsChannel';
 import { addBreadcrumb, captureMessage } from '../../lib/telemetry';
 import { useAuth } from '../auth/context';
 import {
@@ -28,7 +28,7 @@ import { courtsTopic, pickGuestVenueId, showsBranchPicker, type Branch } from '.
 import { useStoredGuestVenue, writeGuestVenue } from './guestVenue';
 import { availabilityKeys } from './keys';
 import { matchKeys } from '../matches/keys';
-import type { CourtSlots } from '@touch/core';
+import type { CourtSlots, RealtimeClientLike } from '@touch/core';
 
 export { availabilityKeys };
 
@@ -429,75 +429,46 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
   }, [pending, settingsData, courtsData, rulesData, pricesData, availabilityData]);
 }
 
-/** One live per-branch 'courts:<venue>' channel, shared by every mounted consumer (see useCourtsBroadcast). */
-interface SharedChannel {
-  token: string;
-  topic: string;
-  channel: RealtimeChannel;
-  consumers: number;
-  removed: boolean;
-}
-const sharedCourts = new Map<string, SharedChannel>();
-/**
- * Topics whose channel is still leaving. realtime-js keys channels by topic and
- * `channel(topic)` hands back one still LEAVING after `removeChannel`, on which
- * `subscribe()` does nothing, so a quick A -> B -> A branch switch used to land
- * on a dead channel and fall back to the 60 s poll. A new channel on a topic
- * waits for the old one's removal (the operator's lib/realtime.ts rule).
- */
-const leavingCourts = new Map<string, Promise<unknown>>();
-
-function dropSharedCourts(s: SharedChannel): void {
-  if (s.removed) return;
-  s.removed = true;
-  const done = supabase.removeChannel(s.channel).catch(() => undefined);
-  leavingCourts.set(s.topic, done);
-  void done.then(() => {
-    if (leavingCourts.get(s.topic) === done) leavingCourts.delete(s.topic);
+/** "The app came back to the foreground": AppState going to 'active' from anything else. */
+function onAppForeground(cb: () => void): () => void {
+  let last: AppStateStatus = AppState.currentState;
+  const sub = AppState.addEventListener('change', (next) => {
+    if (next === 'active' && last !== 'active') cb();
+    last = next;
   });
-  if (sharedCourts.get(s.topic) === s) sharedCourts.delete(s.topic);
+  return () => sub.remove();
 }
 
-/** The shared channel for a topic, created (and subscribed) when there is none. */
-function subscribeCourts(topic: string, token: string, onSlot: () => void): SharedChannel {
-  let mine = sharedCourts.get(topic);
-  if (!mine) {
-    supabase.realtime.setAuth(token);
-    const channel = supabase
-      .channel(topic, { config: { private: true } })
-      .on('broadcast', { event: 'slot_changed' }, onSlot)
-      .subscribe((status) => {
-        // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
-        // quietly stale with no signal to the user or to telemetry.
-        if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
-          captureMessage('realtime.courts.' + status, 'warning');
-      });
-    mine = { token, topic, channel, consumers: 0, removed: false };
-    sharedCourts.set(topic, mine);
-  }
-  return mine;
-}
+/** The shared, self-recovering 'courts:<venue>' channels (courtsChannel.ts). */
+const courtsChannels = createCourtsChannels({
+  client: supabase as unknown as RealtimeClientLike,
+  setAuth: (token) => supabase.realtime.setAuth(token),
+  onForeground: onAppForeground,
+  onStatus: (topic, status) => {
+    if (status === 'live') addBreadcrumb('realtime.courts.subscribed', { topic });
+    else if (status === 'disconnected') captureMessage('realtime.courts.disconnected', 'warning', { topic });
+  },
+});
 
 /**
  * Live grid refresh: the branch's 'courts:<venue_id>' broadcast-from-database
  * topic (0224; the building-wide 'courts' topic of 0022 is being retired).
- * Private channel — realtime auth is set on sign-in (AuthProvider) and
- * refreshed here before subscribing. Payload is slot-taken/freed only; we just
- * invalidate. Re-subscribes when the session appears or changes, and when the
- * branch does. `venueId` null (no branch known yet) subscribes to nothing.
+ * Private channel — realtime auth is set on sign-in (AuthProvider) and kept
+ * current here. Payload is slot-taken/freed only; we just invalidate. Joins
+ * when there is a session and a branch (`venueId` null subscribes to nothing),
+ * and moves when the branch does.
  *
- * REFERENCE-COUNTED, one channel per topic per token: supabase-js hands back
- * the SAME channel object for a topic that already exists and `removeChannel`
- * leaves it for everyone, so two mounted consumers (the Book tab's booking
- * sheet under a pushed Availability or Review screen, the Bookings tab under
- * either) used to share one subscription that whichever unmounted first
- * silently killed for the survivor — which then only saw the 60 s poll.
+ * Shared, reference counted and self-recovering (courtsChannel.ts): a channel
+ * that drops comes back and re-reads; returning to the app re-reads; and a
+ * token refresh updates the token in place instead of rebuilding the channel,
+ * which used to lose any slot event sent in the gap.
  */
 export function useCourtsBroadcast(venueId: string | null): void {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const token = session?.access_token ?? null;
+  const tokenRef = useRef(token);
+  const signedIn = token !== null;
   const invalidate = useRef(() => {
     void queryClient.invalidateQueries({ queryKey: ['availability'] });
     void queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
@@ -508,35 +479,21 @@ export function useCourtsBroadcast(venueId: string | null): void {
     void queryClient.invalidateQueries({ queryKey: matchKeys.all });
   });
 
+  // A rotated token reaches the joined channel in place: no teardown. (Runs
+  // before the join below, so the first join already has the token.)
   useEffect(() => {
-    if (!token || !venueId) return;
-    const topic = courtsTopic(venueId);
-    let cancelled = false;
-    let held: SharedChannel | null = null;
-    const join = (): void => {
-      if (cancelled) return;
-      // A rotated token retires the old channel NOW, so the channel below is a
-      // fresh one instead of the stale instance.
-      const existing = sharedCourts.get(topic);
-      if (existing && existing.token !== token) dropSharedCourts(existing);
-      if (!sharedCourts.get(topic)) {
-        const leaving = leavingCourts.get(topic);
-        if (leaving) {
-          void leaving.then(join);
-          return;
-        }
-      }
-      held = subscribeCourts(topic, token, () => invalidate.current());
-      held.consumers += 1;
-    };
-    join();
-    return () => {
-      cancelled = true;
-      if (!held) return;
-      held.consumers -= 1;
-      if (held.consumers === 0) dropSharedCourts(held);
-    };
-  }, [token, venueId]);
+    tokenRef.current = token;
+    if (token) courtsChannels.setToken(token);
+  }, [token]);
+
+  useEffect(() => {
+    const current = tokenRef.current;
+    if (!signedIn || !current || !venueId) return;
+    return courtsChannels.join(courtsTopic(venueId), current, {
+      onSlot: () => invalidate.current(),
+      onRecover: () => invalidate.current(),
+    });
+  }, [signedIn, venueId]);
 }
 
 /**

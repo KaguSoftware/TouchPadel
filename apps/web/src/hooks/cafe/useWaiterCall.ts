@@ -47,6 +47,8 @@ export interface UseWaiterCall {
   raise(reason: WaiterReason): Promise<RaiseResult>;
   /** apply a `waiter_call_status` broadcast */
   applyStatus(payload: WaiterCallStatusPayload): void;
+  /** re-read the open call's status (a broadcast may have been missed) */
+  refresh(): Promise<void>;
   /** clear a failed phase (sheet reopened / retried) */
   reset(): void;
 }
@@ -127,6 +129,26 @@ export function useWaiterCall(
 
   const reset = useCallback(() => setFailed(false), []);
 
+  // ------------------------------------------------ re-read after a gap
+  // The session channel recovered, or the tab is visible again: a status
+  // broadcast may have been missed, so re-read the open call (the same read as
+  // the safety poll above).
+  const callRef = useRef(call);
+  useEffect(() => {
+    callRef.current = call;
+  }, [call]);
+  const refresh = useCallback(async () => {
+    const open = callRef.current;
+    if (!supabase || !open || !isCallOpen(open)) return;
+    const { data } = await supabase.from('waiter_calls').select('id, status').eq('id', open.callId).maybeSingle();
+    if (!data) return;
+    setCall((prev) =>
+      prev && prev.callId === data.id && prev.status !== data.status
+        ? { callId: data.id, status: data.status as WaiterCallStatus }
+        : prev,
+    );
+  }, [supabase]);
+
   const raise = useCallback(
     async (reason: WaiterReason): Promise<RaiseResult> => {
       if (!supabase || !session) {
@@ -166,6 +188,7 @@ export function useWaiterCall(
     cooldownLeftMs: cooldownMs,
     raise,
     applyStatus,
+    refresh,
     reset,
   };
 }

@@ -58,8 +58,9 @@ const config = {
   // it did the job.
   npmRebuild: false,
   // …and once more per packaged arch, right before the files are collected:
-  // the mac build ships arm64 AND x64 from one arm64 runner, and each dmg must
-  // carry its own better-sqlite3 slice. See scripts/before-pack.cjs.
+  // the mac build ships arm64 AND x64 from one arm64 runner, the Windows build
+  // x64 AND ia32 from one x64 runner, and each must carry its own better-sqlite3
+  // slice. See scripts/before-pack.cjs.
   beforePack: 'scripts/before-pack.cjs',
 
   // The public download host and the electron-updater feed. Publishing needs
@@ -80,8 +81,17 @@ const config = {
     releaseType: 'release',
   },
 
+  // Windows. One installer carrying x64 AND ia32: the NSIS script installs the
+  // x64 app on a 64-bit Windows and the ia32 one otherwise. ia32 is for 32-bit
+  // Windows 10, where an x64-only setup exe stops at "This app can't run on your
+  // PC", and for Windows 10 on ARM, which emulates x86 but not x64. One combined
+  // installer rather than one per arch: there is a single latest.yml feed, so a
+  // 32-bit station on a per-arch installer would be fed the x64 one by its
+  // updater, and the download link stays the same. Costs ~2x the download;
+  // updates stay differential via the blockmap. scripts/before-pack.cjs swaps in
+  // the ia32 better-sqlite3 before that arch's files are collected.
   win: {
-    target: ['nsis'],
+    target: [{ target: 'nsis', arch: ['x64', 'ia32'] }],
     ...(azureSigning
       ? {
           azureSignOptions: {

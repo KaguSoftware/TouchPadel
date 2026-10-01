@@ -13,7 +13,6 @@ export function useBookingBill(reservationId: string | undefined): UseQueryResul
     queryKey: ['bookingBill', reservationId ?? ''],
     enabled: Boolean(reservationId),
     queryFn: () => appRpc<BookingBill>('booking_bill', { p_reservation_id: reservationId }),
-    retry: false,
     refetchInterval: 30_000,
   });
 }
@@ -28,7 +27,6 @@ export function useBookingBillStates(reservationIds: readonly string[]): UseQuer
     queryKey: ['bookingBillStates', ids],
     enabled: ids.length > 0,
     queryFn: () => appRpc<BillStateRow[]>('booking_bill_states', { p_reservation_ids: ids }),
-    retry: false,
     refetchInterval: 60_000,
   });
 }

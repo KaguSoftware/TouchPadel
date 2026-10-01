@@ -33,20 +33,14 @@ interface CreateBody {
 const DESK_CUSTOMER_CREATE = 'desk-customer-create' as EdgeFunctionName;
 
 /**
- * The function answers `{ error: 'DUPLICATE_PHONE', message }` with 409 / 400.
- * lib/edge.ts lifts only a `code` field into EdgeError.detail, so the exact
- * code is not available here yet (proposed: read `error` too). Until then:
- * the code when present, else the HTTP status plus the message's subject.
+ * The function answers `{ error: 'DUPLICATE_PHONE' | 'DUPLICATE_EMAIL' |
+ * 'INVALID_PHONE', message }` with 409 / 400, and lib/edge.ts keeps that code
+ * as EdgeError.code: those three land on their field, anything else is said
+ * under the form.
  */
 export function fieldErrorOf(e: unknown): FieldError | null {
   if (!(e instanceof EdgeError)) return null;
-  for (const candidate of [e.detail, e.message]) {
-    if (candidate && (FIELD_ERRORS as readonly string[]).includes(candidate)) return candidate as FieldError;
-  }
-  const msg = e.message.toLowerCase();
-  if (e.status === 409) return msg.includes('email') && !msg.includes('phone') ? 'DUPLICATE_EMAIL' : 'DUPLICATE_PHONE';
-  if (e.status === 400 && msg.includes('phone')) return 'INVALID_PHONE';
-  return null;
+  return (FIELD_ERRORS as readonly string[]).includes(e.code) ? (e.code as FieldError) : null;
 }
 
 export function CustomerCreateScreen() {

@@ -1,27 +1,59 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestError, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import type { MessageKey } from '@touch/i18n';
+import { errorMessageKey, type ErrorOverrides, type MessageKey } from '@touch/i18n';
+import { DEFAULT_REQUEST_TIMEOUT_MS, RequestTimeoutError, normalizeTimeout, startDeadline } from '@touch/core';
+
+export interface AppRpcOptions {
+  /** Override the deadline (ms); null for none. Default 15 s. */
+  timeoutMs?: number | null;
+}
 
 /**
  * All business writes go through SECURITY DEFINER RPCs in schema `app`
  * (exposed via the API config — mirrors packages/db/tests/helpers.ts appRpc).
+ *
+ * Every call has a deadline (15 s unless the call site says otherwise). It
+ * had none: a guest whose order went out on a dying connection watched the
+ * Send button spin forever. A miss answers like any other failure, `{ error }`
+ * — its message 'TimeoutError: Request timed out after … ms' maps to
+ * errors.generic — so every caller's existing error path handles it.
  */
-export function appRpc<Fn extends keyof Database['app']['Functions'] & string>(
+export async function appRpc<Fn extends keyof Database['app']['Functions'] & string>(
   client: SupabaseClient<Database>,
   fn: Fn,
   args?: Database['app']['Functions'][Fn]['Args'],
+  opts: AppRpcOptions = {},
 ) {
-  return client.schema('app').rpc(fn, args as never);
+  const call = client.schema('app').rpc(fn, args as never);
+  const ms = normalizeTimeout(opts.timeoutMs, DEFAULT_REQUEST_TIMEOUT_MS);
+  // A test double hands back a bare promise; only the real builder is abortable.
+  if (ms === null || typeof (call as { abortSignal?: unknown }).abortSignal !== 'function') return await call;
+  const deadline = startDeadline(ms);
+  try {
+    const answer = await call.abortSignal(deadline.signal);
+    if (!answer.error || !deadline.timedOut()) return answer;
+    const timeout = new RequestTimeoutError(ms, fn);
+    // postgrest-js reports the abort as `AbortError: …`; say what it was.
+    return {
+      ...answer,
+      error: new PostgrestError({ message: `${timeout.name}: ${timeout.message}`, details: '', hint: '', code: '' }),
+    } as typeof answer;
+  } finally {
+    deadline.clear();
+  }
 }
 
 /**
  * RPC failures raise `raise exception '<CODE>'` (errcode P0001) — the code IS
- * the PostgrestError message. Source of truth: migration SQL (0008/0013–0016/0021).
+ * the PostgrestError message. The codes, their lines and the matching rule are
+ * the one error catalogue (`ERROR_CODE_KEYS` / `errorMessageKey` in
+ * packages/i18n/src/errors.ts), shared with the operator and the phone; this
+ * map holds only the guest site's own words, consulted first. A new code goes
+ * into the catalogue with its line in both catalogs.
  */
-const RPC_ERROR_KEYS: Record<string, MessageKey> = {
+const WEB_OVERRIDES = {
   TOKEN_INVALID: 'cafe.invalidQr',
   AUTH_REQUIRED: 'cafe.invalidQr', // anonymous sign-in failed / raced — rescan restarts the boot
-  SESSION_EXPIRED: 'errors.sessionTableExpired',
   DEGRADED_LOCKOUT: 'degraded.orderingRefused',
   CAFE_CLOSED: 'cafe.cafeClosed',
   EMPTY_ORDER: 'cafe.basketEmpty',
@@ -49,12 +81,21 @@ const RPC_ERROR_KEYS: Record<string, MessageKey> = {
   // 0125: the server could not tell which branch; not actionable for a guest.
   // Guest writes resolve the branch from the session, so this is defensive.
   VENUE_REQUIRED: 'errors.generic',
-};
+  // Internal checks of the writers create_guest_order and raise_waiter_call
+  // call (the notification kind, a promotion's percentage, the referenced row):
+  // nothing a guest did or can fix, so not the staff line either.
+  INVALID_KIND: 'errors.generic',
+  INVALID_PCT: 'errors.generic',
+  REF_NOT_FOUND: 'errors.generic',
+} as const satisfies ErrorOverrides;
 
-/** Map a Postgrest/RPC error to a translatable message key (never throws). */
+/**
+ * Map a Postgrest/RPC error to a translatable message key (never throws): the
+ * guest site's word for the code, else the catalogue's, else the SQLSTATE's
+ * (a unique violation, a timeout), else errors.generic.
+ */
 export function rpcErrorKey(error: { message?: string } | null | undefined): MessageKey {
-  const code = error?.message?.trim();
-  return (code && RPC_ERROR_KEYS[code]) || 'errors.generic';
+  return errorMessageKey(error, { overrides: WEB_OVERRIDES });
 }
 
 /** True when the error is the given raise code. */

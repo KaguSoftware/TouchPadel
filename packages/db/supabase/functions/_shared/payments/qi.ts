@@ -22,6 +22,7 @@
  *   - a cancelled payment keeps status CREATED and says canceled: true;
  *   - amounts come back as 20000.000 (a JSON number: 20000).
  */
+import { fetchWithTimeout, isAbortError } from '../http.ts';
 import { redactGatewayMessage } from './redact.ts';
 import {
   PaymentProviderError,
@@ -111,25 +112,19 @@ export function qiProvider(cfg: QiConfig): PaymentProvider {
       headers['X-Signature'] = await signQiRequest(cfg.signingKeyPem, requestSignedString([cfg.terminalId, ...signParts]));
     }
 
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    // The deadline covers the reply body too (../http.ts fetchWithTimeout).
+    const transport = (error: unknown) =>
+      new PaymentProviderError(label, 'transport', `${method} ${path}: ${isAbortError(error) ? `timeout after ${timeoutMs} ms` : String(error)}`);
     let res: Response;
+    let text: string;
     try {
-      res = await fetch(`${base}${path}`, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        signal: ctrl.signal,
-      });
+      res = await fetchWithTimeout(`${base}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined }, timeoutMs);
+      text = await res.text();
     } catch (error) {
-      const why = error instanceof Error && error.name === 'AbortError' ? `timeout after ${timeoutMs} ms` : String(error);
-      throw new PaymentProviderError(label, 'transport', `${method} ${path}: ${why}`);
-    } finally {
-      clearTimeout(timer);
+      throw transport(error);
     }
 
     let parsed: unknown = null;
-    const text = await res.text();
     try {
       parsed = text ? JSON.parse(text) : null;
     } catch {

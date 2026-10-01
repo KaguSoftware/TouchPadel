@@ -9,6 +9,7 @@ import { staffEn } from './staff';
 import { workEn } from './work.en';
 import { opErrorsProtocolsEn } from './opErrors.protocols.en';
 import { opErrorsMatchesEn } from './opErrors.matches.en';
+import { opErrorsCodesEn } from './opErrors.codes.en';
 import { legalEn } from './legal.en';
 import { siteEn } from './site.en';
 import { branchesEn } from './branches.en';
@@ -1053,6 +1054,12 @@ export const en = {
     // app/+not-found.tsx: any link into the app that names no screen.
     pageMissingTitle: "That page isn't here",
     pageMissingBody: 'The link may be old or mistyped.',
+    // Native Postgres errors (SQLSTATE_KEYS in packages/i18n/src/errors.ts): a
+    // constraint or the database refusing, not a business code.
+    duplicate: 'That already exists. Check the details and try again.',
+    invalidValue: 'One of the values is not allowed. Check the details and try again.',
+    invalidInput: 'Something was sent in the wrong format. Refresh and try again.',
+    busy: 'The system is busy right now. Try again in a moment.',
   },
   degraded: {
     // Contractual degraded-mode UX (SOW "Degraded mode" acceptance):
@@ -2069,6 +2076,9 @@ export const en = {
       ...opErrorsProtocolsEn,
       // Open matches (docs/design/open-matches/operator.md §5.20): opErrors.matches.*.ts.
       ...opErrorsMatchesEn,
+      // Every code a migration raised that no app had worded (packages/i18n/src/errors.ts,
+      // 2026-10-01): opErrors.codes.*.ts.
+      ...opErrorsCodesEn,
     },
   },
   // Protocols and the staff phone (build-contracts-2026-09-23 §4): the words both apps

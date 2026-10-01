@@ -80,11 +80,15 @@ is a line in that file.
   joins `app.notify_staff`'s `c_title_keys` (latest `0261`, which appended `match_report_new`) in
   the same commit, and a guest title key `app.match_notify`'s `c_keys` (`0261`); the stack tests
   (`staff-push.test.ts`, `guest-push.test.ts`) compare each with its JSON.
-- Deploy `send-push` first (`.github/workflows/functions-deploy.yml`, on push to `main` or
-  `workflow_dispatch`), then land the migration: an unknown kind is terminal there
+- `send-push` deploys before the migration: `.github/workflows/deploy.yml` (started by a green CI
+  run on `main`, or `workflow_dispatch`) deploys `send-push`, then pushes the migrations, then
+  deploys every other function. An unknown kind is terminal in send-push
   (`send-push/index.ts:173`).
-- Migrations reach hosted (`.github/workflows/db-migrate.yml`) before any client build that calls
-  them. Never accept `migration repair --status reverted`.
+- Migrations reach hosted (`deploy.yml`) before any client build that calls them. Never accept
+  `migration repair --status reverted`.
+- Every edge function's `verify_jwt` is fixed in `fixtures/verify-jwt.json`; `check:verify-jwt`
+  holds `config.toml` to it (in `pnpm security`) and `deploy.yml` holds the hosted project to it.
+  A new function needs its entry and its `[functions.<name>]` block in the same commit.
 
 ## Tables
 
@@ -241,6 +245,14 @@ is a line in that file.
   `createServiceClient` (`_shared/supabase.ts:16`). Deno cannot import `packages/core`: shared data
   is JSON under `_shared/` or a byte-identical copy checked by a test
   (`tests/assistant-catalog.test.ts:56` for `assistant/tools.ts`).
+- Every handler goes through `_shared/http.ts` (2026-10-01): `Deno.serve(handle(name, …))`,
+  `readJsonBody` with a byte cap, `fetchWithTimeout` for every outbound call, `errorResponse` /
+  `pgErrorBody` / `logError` so a caller never sees raw database, vendor or exception text (keep
+  the `error` code and status), `isUuid`, `constantTimeEqual`; the caller-JWT client is
+  `callerClient` (`_shared/supabase.ts`). A write whose failure means a duplicate side effect
+  (an outbox `sent` stamp) logs loudly with the row id. CI type-checks every entry
+  (`ci.yml` job `edge-functions`); locally, from this package:
+  `DENO_NO_PACKAGE_JSON=1 npx --yes deno@2.5.6 check --no-config --node-modules-dir=none supabase/functions/*/index.ts`.
 - LLM code uses `npm:@anthropic-ai/sdk`, model `claude-opus-5` unless Parsa names another, meters
   spend through `app.llm_record_usage` (0079, 0111), puts no guest identity in a prompt (SEC-29) and
   never computes a number the page did not already have.

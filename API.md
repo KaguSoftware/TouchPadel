@@ -76,7 +76,7 @@ card in the venue.
 ## 1–2. Telegram — order & waiter notifications
 
 New guest orders and waiter calls post to one staff group with inline buttons
-(`✅ شوهد / 🍽 تم التقديم / ❌ إلغاء`, `✅ أنا قادم / ✔️ تم`). Button taps write straight back to the
+(`✅ شوهد / 🍽 تم التقديم / ❌ إلغاء`, `✅ في الطريق / ✔️ تم`). Button taps write straight back to the
 KDS ticket status.
 
 **What we need**

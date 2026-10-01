@@ -3,6 +3,7 @@ import { t } from '@touch/i18n';
 import type { VenueBranch, VenueOpeningHours } from '@/lib/menu';
 import { weekHours, type DayKey } from '@/lib/cafe/hours';
 import { branchAddress, branchName } from './contact';
+import { siteOgImage } from './ogImage';
 
 /**
  * Structured data for the landing page: a schema.org `SportsActivityLocation`.
@@ -126,7 +127,7 @@ export function buildLandingJsonLd({
     description: t(locale, 'site.seo.description'),
     url: `${origin}/${locale}`,
     logo: `${origin}/brand/site/icon-512.png`,
-    image: `${origin}/brand/site/og-touch-padel-${locale}.png`,
+    image: siteOgImage(locale, origin),
     inLanguage: locale,
     address: postalAddress(locale, venue),
     ...hasMap(venue),

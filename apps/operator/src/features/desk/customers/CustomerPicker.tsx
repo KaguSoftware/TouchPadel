@@ -43,7 +43,6 @@ export function useCustomerSearch(query: string, limit = 8) {
     enabled,
     queryFn: () => appRpc<CustomerSearchRow[]>('customer_search', { p_query: q, p_limit: limit }),
     staleTime: 10_000,
-    retry: false,
   });
   return { ...result, debouncedQuery: q, enabled };
 }

@@ -29,7 +29,7 @@
  * kind: a kind or title key it does not know is terminal.
  */
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
-import { json } from '../_shared/http.ts';
+import { errorMessage, fetchWithTimeout, handle, isUuid, json, logError } from '../_shared/http.ts';
 import staffPush from '../_shared/staff-push.json' with { type: 'json' };
 import guestPush from '../_shared/guest-push.json' with { type: 'json' };
 import { staffMessage } from './staffStrings.ts';
@@ -63,8 +63,6 @@ const STAFF_ROUTES: ReadonlySet<string> = new Set(staffPush.routes);
 const GUEST_KINDS: ReadonlySet<string> = new Set(guestPush.kinds);
 const GUEST_ROUTES: ReadonlySet<string> = new Set(guestPush.routes);
 const GUEST_KEY_KINDS: Readonly<Record<string, string>> = guestPush.title_keys;
-/** A guest row's match id is looked up only when it is a uuid (a bad one would fail the batch read). */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_TZ = 'Asia/Baghdad';
 
 // Booking notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
@@ -105,28 +103,28 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
   },
   ar: {
     booking_confirmed: {
-      title: 'تم تأكيد الحجز',
-      body: (court, when) => `تم حجزك في ${court} الساعة ${when}. نراك هناك!`,
+      title: 'أُكّد الحجز',
+      body: (court, when) => `حجزك في ${court}، ${when}. نراك هناك.`,
     },
     booking_reminder: {
-      title: 'مباراتك بعد ٣ ساعات',
-      body: (court, when) => `${court} الساعة ${when}.`,
+      title: 'مباراتك بعد 3 ساعات',
+      body: (court, when) => `${court}، ${when}.`,
     },
     booking_cancelled: {
-      title: 'تم إلغاء الحجز',
-      body: (court, when) => `تم إلغاء حجزك في ${court} الساعة ${when}.`,
+      title: 'أُلغي الحجز',
+      body: (court, when) => `أُلغي حجزك في ${court}، ${when}.`,
     },
     booking_no_show: {
-      title: 'تم إغلاق الحجز',
-      body: (court, when) => `تم إغلاق حجزك في ${court} الساعة ${when} لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
+      title: 'أُغلق الحجز',
+      body: (court, when) => `أُغلق حجزك في ${court}، ${when}، لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
     },
     test: {
       title: 'إشعار تجريبي',
       body: () => 'الإشعارات تعمل على هذا الهاتف.',
     },
     deposit_refunded: {
-      title: 'تمت إعادة العربون',
-      body: (court, when) => `العربون الذي دفعته لحجز ${court} الساعة ${when} في طريقه إلى بطاقتك.`,
+      title: 'استُرد العربون',
+      body: (court, when) => `عربون حجز ${court}، ${when} في طريقه للعودة إلى بطاقتك.`,
     },
   },
 };
@@ -178,17 +176,27 @@ interface OutboxRow {
   attempts: number;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('send-push', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   // Cron calls with the service-role key; nothing else may trigger sends.
   if (!isServiceRoleRequest(req)) return json({ error: 'forbidden' }, 403);
 
   const db = createServiceClient();
+  /** A failed read: the caller (pg_net) gets the code, the log gets the text. */
+  const readFailed = (what: string, error: unknown) => {
+    logError('send-push', error, `${what} read failed`);
+    return json({ error: 'INTERNAL' }, 500);
+  };
+  /** Stamp one outbox row; a failed stamp is logged with the row id (the row is then retried after its lease). */
+  const stamp = async (id: number, patch: Record<string, unknown>) => {
+    const { error } = await db.from('notification_outbox').update(patch).eq('id', id);
+    if (error) logError('send-push', error, `outbox ${id} stamp ${JSON.stringify(Object.keys(patch))} failed`);
+  };
 
   const { data: claimed, error: claimErr } = await db
     .schema('app')
     .rpc('claim_due_notifications', { p_limit: CLAIM_LIMIT });
-  if (claimErr) return json({ error: claimErr.message }, 500);
+  if (claimErr) return readFailed('claim_due_notifications', claimErr);
 
   const rows = (claimed ?? []) as OutboxRow[];
   if (rows.length === 0) return json({ claimed: 0, sent: 0, failed: 0 });
@@ -200,8 +208,8 @@ Deno.serve(async (req) => {
     db.from('profiles').select('id, expo_push_token, preferred_lang').in('id', profileIds),
     db.from('courts').select('id, name_en, name_ar').in('id', courtIds),
   ]);
-  if (profilesRes.error) return json({ error: profilesRes.error.message }, 500);
-  if (courtsRes.error) return json({ error: courtsRes.error.message }, 500);
+  if (profilesRes.error) return readFailed('profiles', profilesRes.error);
+  if (courtsRes.error) return readFailed('courts', courtsRes.error);
   const profiles = new Map(profilesRes.data.map((p) => [p.id, p]));
   const courts = new Map(courtsRes.data.map((c) => [c.id, c]));
 
@@ -223,7 +231,8 @@ Deno.serve(async (req) => {
       ...new Set(
         guestRows
           .map((r) => (r.payload.route === 'match' ? r.payload.id : null))
-          .filter((id): id is string => typeof id === 'string' && UUID.test(id)),
+          // Only a uuid is looked up: a malformed id would fail the whole batch read.
+          .filter((id): id is string => isUuid(id)),
       ),
     ];
     const guestIds = [...new Set(guestRows.map((r) => r.profile_id))];
@@ -234,9 +243,9 @@ Deno.serve(async (req) => {
       db.from('venues').select('id, name_en, name_ar, timezone, is_active'),
       db.from('profiles').select('id, gender').in('id', guestIds),
     ]);
-    if (matchesRes.error) return json({ error: matchesRes.error.message }, 500);
-    if (venuesRes.error) return json({ error: venuesRes.error.message }, 500);
-    if (gendersRes.error) return json({ error: gendersRes.error.message }, 500);
+    if (matchesRes.error) return readFailed('matches', matchesRes.error);
+    if (venuesRes.error) return readFailed('venues', venuesRes.error);
+    if (gendersRes.error) return readFailed('profiles.gender', gendersRes.error);
     for (const m of (matchesRes.data ?? []) as MatchRow[]) matches.set(m.id, m);
     for (const v of (venuesRes.data ?? []) as VenueRow[]) venues.set(v.id, v);
     for (const g of (gendersRes.data ?? []) as Array<{ id: string; gender: string | null }>) {
@@ -256,10 +265,7 @@ Deno.serve(async (req) => {
     if (!token) {
       // Terminal: no destination. Cap attempts so the row stops being claimed.
       failed++;
-      await db
-        .from('notification_outbox')
-        .update({ last_error: 'NO_PUSH_TOKEN', attempts: RETRY_CAP })
-        .eq('id', row.id);
+      await stamp(row.id, { last_error: 'NO_PUSH_TOKEN', attempts: RETRY_CAP });
       continue;
     }
     const lang: Lang = profile.preferred_lang === 'ar' ? 'ar' : 'en';
@@ -268,10 +274,7 @@ Deno.serve(async (req) => {
       if (m.ok === false) {
         // A title key this build does not know: terminal, never retried.
         failed++;
-        await db
-          .from('notification_outbox')
-          .update({ last_error: m.error, attempts: RETRY_CAP })
-          .eq('id', row.id);
+        await stamp(row.id, { last_error: m.error, attempts: RETRY_CAP });
         continue;
       }
       const message: Record<string, unknown> = {
@@ -294,10 +297,7 @@ Deno.serve(async (req) => {
       const match = matchId ? matches.get(matchId) : undefined;
       if (matchId && !match) {
         failed++;
-        await db
-          .from('notification_outbox')
-          .update({ last_error: 'MATCH_GONE', attempts: RETRY_CAP })
-          .eq('id', row.id);
+        await stamp(row.id, { last_error: 'MATCH_GONE', attempts: RETRY_CAP });
         continue;
       }
       const venue = match ? venues.get(match.venue_id) : undefined;
@@ -319,10 +319,7 @@ Deno.serve(async (req) => {
       if (g.ok === false) {
         // A title key, kind pairing or route this build does not know: terminal.
         failed++;
-        await db
-          .from('notification_outbox')
-          .update({ last_error: g.error, attempts: RETRY_CAP })
-          .eq('id', row.id);
+        await stamp(row.id, { last_error: g.error, attempts: RETRY_CAP });
         continue;
       }
       const message: Record<string, unknown> = {
@@ -341,10 +338,7 @@ Deno.serve(async (req) => {
     if (!s) {
       // A kind this build does not know: terminal, never retried.
       failed++;
-      await db
-        .from('notification_outbox')
-        .update({ last_error: `UNKNOWN_KIND:${row.kind}`, attempts: RETRY_CAP })
-        .eq('id', row.id);
+      await stamp(row.id, { last_error: `UNKNOWN_KIND:${row.kind}`, attempts: RETRY_CAP });
       continue;
     }
     // `test` carries no reservation: no court, no time, nothing to deep-link.
@@ -376,47 +370,55 @@ Deno.serve(async (req) => {
     const chunk = prepared.slice(i, i + EXPO_BATCH_SIZE);
     let tickets: Array<{ status: string; message?: string; details?: { error?: string } }>;
     try {
-      const res = await fetch(EXPO_PUSH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(chunk.map((p) => p.message)),
-        signal: AbortSignal.timeout(EXPO_TIMEOUT_MS),
-      });
+      const res = await fetchWithTimeout(
+        EXPO_PUSH_URL,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(chunk.map((p) => p.message)),
+        },
+        EXPO_TIMEOUT_MS,
+      );
       if (!res.ok) throw new Error(`expo push HTTP ${res.status}`);
       tickets = (await res.json()).data ?? [];
     } catch (e) {
       // Whole-batch transport failure (timeout included): rows stay unsent
       // (attempts already bumped by the claim) and are retried by the sweep
       // once their 60 s lease runs out, up to the cap.
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = errorMessage(e);
       failed += chunk.length;
-      await db
-        .from('notification_outbox')
-        .update({ last_error: msg })
-        .in('id', chunk.map((p) => p.row.id));
+      const ids = chunk.map((p) => p.row.id);
+      const { error } = await db.from('notification_outbox').update({ last_error: msg }).in('id', ids);
+      if (error) logError('send-push', error, `transport-failure stamp failed for outbox ${ids.join(',')}`);
       continue;
     }
 
     for (let j = 0; j < chunk.length; j++) {
-      const { row } = chunk[j];
+      const { row } = chunk[j]!;
       const ticket = tickets[j];
       if (ticket?.status === 'ok') {
         sent++;
-        await db
+        const { error } = await db
           .from('notification_outbox')
           .update({ sent_at: new Date().toISOString(), last_error: null })
           .eq('id', row.id);
+        if (error) {
+          // Expo accepted it, but the row still reads unsent: the next sweep after
+          // its lease sends it AGAIN. Loud, with the id, so it can be stamped by hand.
+          logError('send-push', error, `DUPLICATE RISK: outbox ${row.id} was accepted by Expo but its sent_at stamp failed`);
+        }
       } else {
         failed++;
         const detail = ticket?.details?.error ?? ticket?.message ?? 'unknown expo ticket error';
-        await db.from('notification_outbox').update({ last_error: detail }).eq('id', row.id);
+        await stamp(row.id, { last_error: detail });
         if (ticket?.details?.error === 'DeviceNotRegistered') {
           // Dead token: stop enqueueing for this profile until the app re-registers.
-          await db.from('profiles').update({ expo_push_token: null }).eq('id', row.profile_id);
+          const { error } = await db.from('profiles').update({ expo_push_token: null }).eq('id', row.profile_id);
+          if (error) logError('send-push', error, `dead token not cleared for profile ${row.profile_id} (outbox ${row.id})`);
         }
       }
     }
   }
 
   return json({ claimed: rows.length, sent, failed });
-});
+}));

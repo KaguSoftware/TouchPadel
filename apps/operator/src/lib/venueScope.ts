@@ -18,6 +18,8 @@
  * custom fetch reads the current values on every request. `VenueProvider`
  * (lib/venue.tsx) keeps them up to date.
  */
+import { DEFAULT_REQUEST_TIMEOUT_MS, LONG_REQUEST_TIMEOUT_MS, timeoutFetch } from '@touch/core';
+
 let stationId: string | null = null;
 let branchId: string | null = null;
 /** A report page's wider scope: every branch, or one closed branch (owner). */
@@ -76,11 +78,29 @@ export function scopeHeaders(url = ''): Record<string, string> {
   return h;
 }
 
-/** fetch for createClient's `global.fetch`: adds the scope headers to every call. */
-export const venueFetch: typeof fetch = (input, init) => {
+/** Adds the scope headers to one call. */
+const scopedFetch: typeof fetch = (input, init) => {
   const extra = scopeHeaders(urlOf(input));
   if (Object.keys(extra).length === 0) return fetch(input, init);
   const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
   for (const [k, v] of Object.entries(extra)) headers.set(k, v);
   return fetch(input, { ...init, headers });
 };
+
+/**
+ * The deadline a Supabase request gets when its caller set none (appRpc sets
+ * its own, so this covers the table reads, auth and storage). Uploads and
+ * downloads have none: a photo or a receipt on a slow link takes as long as
+ * it takes. The report RPCs read for longer, like appRpc's.
+ */
+export function requestTimeoutMs(url: string): number | null {
+  if (url.includes('/storage/v1/')) return null;
+  return REPORT_RPC.test(url) ? LONG_REQUEST_TIMEOUT_MS : DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
+/**
+ * fetch for createClient's `global.fetch`: adds the scope headers to every
+ * call, and a deadline to every call that carries no signal of its own — a
+ * read the network swallowed used to hold its screen's spinner forever.
+ */
+export const venueFetch: typeof fetch = timeoutFetch(scopedFetch, requestTimeoutMs);

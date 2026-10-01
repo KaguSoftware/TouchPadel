@@ -2,7 +2,7 @@ import type { DeepMessages } from './ws/types';
 import type { branchesEn } from './branches.en';
 
 /**
- * `branches.*` بالعربية — فروع تتش كما يراها الضيف (منتقي الفرع في التطبيق وعلى
+ * `branches.*` بالعربية: فروع تتش بادل كما يراها الضيف (منتقي الفرع في التطبيق وعلى
  * الموقع، وأسطر الفروع في موقع النادي). Mirrors branches.en.ts key-for-key.
  * Arabic reviewed 2026-09-27 (the website pass); the `mobile` lines are the app's.
  */
@@ -23,7 +23,7 @@ export const branchesAr: DeepMessages<typeof branchesEn> = {
   },
   web: {
     menuPickerTitle: 'في أي فرع أنت؟',
-    menuPickerHint: 'امسح الرمز الذي على طاولتك لتطلب منها مباشرة.',
+    menuPickerHint: 'امسح الرمز الموجود على طاولتك لتطلب مباشرة من مكانك.',
     visitTitle: 'فروعنا',
     openNow: 'مفتوح اليوم',
   },

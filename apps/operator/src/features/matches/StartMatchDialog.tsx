@@ -158,7 +158,6 @@ export function StartMatchDialog({
     enabled: courtId !== '',
     queryFn: () => appRpc<{ rule_id: string; price_iqd: number }[]>('price_slot', { p_court_id: courtId, p_start_at: startIso, p_duration_min: duration }),
     staleTime: 60_000,
-    retry: false,
   });
   const unpriced = priceQ.isSuccess && (priceQ.data?.length ?? 0) === 0;
   const previewPrice = priceQ.data?.[0]?.price_iqd ?? null;

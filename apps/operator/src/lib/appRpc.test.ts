@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  LONG_REQUEST_TIMEOUT_MS,
+  RequestTimeoutError,
+  isRetryableError,
+} from '@touch/core';
 
 /**
  * 0115 (S3): the wrapper proves a manager PIN to verify_manager_pin BEFORE a
@@ -11,7 +17,7 @@ vi.mock('./supabase', () => ({
   supabase: { schema: () => ({ rpc }) },
 }));
 
-const { appRpc, AppRpcError } = await import('./appRpc');
+const { appRpc, AppRpcError, rpcTimeoutMs } = await import('./appRpc');
 
 beforeEach(() => {
   rpc.mockReset();
@@ -75,6 +81,75 @@ describe('appRpc: manager-PIN pre-verification', () => {
     await expect(appRpc('override_price', { p_order_item_id: 'oi', p_new_unit_price_iqd: 1, p_pin: '380517', p_reason_code: 'x' }))
       .rejects.toBeInstanceOf(AppRpcError);
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('appRpc: every call has a deadline', () => {
+  /** The real builder's shape: awaitable, and `.abortSignal()` returns the awaitable. */
+  function hangingBuilder() {
+    let signal: AbortSignal | undefined;
+    const answer = new Promise<{ data: null; error: { message: string; code: string }; status: number }>((resolve) => {
+      queueMicrotask(() =>
+        signal?.addEventListener('abort', () =>
+          // What postgrest-js answers for an aborted fetch: an error object, not a throw.
+          resolve({ data: null, error: { message: 'AbortError: signal is aborted without reason', code: '' }, status: 0 }),
+        ),
+      );
+    });
+    return {
+      then: answer.then.bind(answer),
+      abortSignal(s: AbortSignal) {
+        signal = s;
+        return answer;
+      },
+      signal: () => signal,
+    };
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('a call that never answers throws a retryable RequestTimeoutError after 15 s', async () => {
+    vi.useFakeTimers();
+    const builder = hangingBuilder();
+    rpc.mockReturnValueOnce(builder);
+    const caught = appRpc('customer_record', { p_customer_id: 'c1' }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
+    const err = await caught;
+    expect(err).toBeInstanceOf(RequestTimeoutError);
+    expect((err as Error).message).toContain('customer_record');
+    expect(isRetryableError(err)).toBe(true);
+    // A TypeError: lib/errors.ts shows it as a connection problem.
+    expect(err).toBeInstanceOf(TypeError);
+  });
+
+  it('report and analytics RPCs get the long deadline; a call site may set its own or none', async () => {
+    expect(rpcTimeoutMs('report_drill')).toBe(LONG_REQUEST_TIMEOUT_MS);
+    expect(rpcTimeoutMs('analytics_daily_sales')).toBe(LONG_REQUEST_TIMEOUT_MS);
+    expect(rpcTimeoutMs('customer_record')).toBe(DEFAULT_REQUEST_TIMEOUT_MS);
+
+    vi.useFakeTimers();
+    const slow = hangingBuilder();
+    rpc.mockReturnValueOnce(slow);
+    const caught = appRpc('report_drill', {}).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(slow.signal()?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(LONG_REQUEST_TIMEOUT_MS - DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(await caught).toBeInstanceOf(RequestTimeoutError);
+
+    rpc.mockResolvedValueOnce({ data: 1, error: null });
+    await expect(appRpc('customer_record', {}, { timeoutMs: null })).resolves.toBe(1);
+  });
+
+  it('a refusal is still the refusal, with its SQLSTATE kept for the retry policy', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { message: 'FORBIDDEN', code: 'P0001' }, status: 400 });
+    const err = (await appRpc('customer_record', {}).catch((e: unknown) => e)) as InstanceType<typeof AppRpcError>;
+    expect(err).toBeInstanceOf(AppRpcError);
+    expect(err.code).toBe('FORBIDDEN');
+    expect(err.pgCode).toBe('P0001');
+    expect(err.status).toBe(400);
+    expect(isRetryableError(err)).toBe(false);
   });
 });
 

@@ -12,8 +12,8 @@ import {
   invalidateTicketCashOut,
   matchBookingIds,
   mintMatchKey,
-  retryNetworkOnce,
 } from './useMatches';
+import { queryRetry } from '../../lib/queryPolicy';
 
 // operator.md §5.4: what each match write refreshes.
 function keysAfter(write: (qc: QueryClient) => void): string[] {
@@ -80,11 +80,11 @@ describe('mintMatchKey and matchBookingIds', () => {
   });
 });
 
-describe('retryNetworkOnce', () => {
-  it('retries a failure with no server code once, never a refusal', () => {
-    expect(retryNetworkOnce(0, new AppRpcError('UNKNOWN', 'TypeError: Failed to fetch'))).toBe(true);
-    expect(retryNetworkOnce(0, new TypeError('Failed to fetch'))).toBe(true);
-    expect(retryNetworkOnce(1, new TypeError('Failed to fetch'))).toBe(false);
-    expect(retryNetworkOnce(0, new AppRpcError('MATCH_NOT_FOUND', 'MATCH_NOT_FOUND'))).toBe(false);
+describe('match reads retry by the app default (lib/queryPolicy.ts)', () => {
+  it('retries a network failure once, never a refusal — what retryNetworkOnce did', () => {
+    expect(queryRetry(0, new AppRpcError('UNKNOWN', 'TypeError: Failed to fetch'))).toBe(true);
+    expect(queryRetry(0, new TypeError('Failed to fetch'))).toBe(true);
+    expect(queryRetry(1, new TypeError('Failed to fetch'))).toBe(false);
+    expect(queryRetry(0, new AppRpcError('MATCH_NOT_FOUND', 'MATCH_NOT_FOUND', undefined, undefined, 'P0001', 400))).toBe(false);
   });
 });

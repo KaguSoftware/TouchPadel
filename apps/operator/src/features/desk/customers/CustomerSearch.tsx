@@ -92,7 +92,6 @@ export function useCustomerDirectory() {
     staleTime: CUSTOMER_DIRECTORY_STALE_MS,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    retry: false,
   });
 }
 

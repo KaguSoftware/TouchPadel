@@ -74,7 +74,6 @@ export function AddCafeBillDialog({
       if (e) throw e;
       return (data ?? []) as unknown as OpenCafeTab[];
     },
-    retry: false,
   });
 
   const nameOf = (t: OpenCafeTab) => (t.table ? tr('ws.courtDesk.cafeBill.table', { number: t.table.table_number }) : (t.label ?? '—'));

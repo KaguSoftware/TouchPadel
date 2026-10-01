@@ -50,7 +50,10 @@ import { OfflineTabPanel } from './OfflineTabPanel';
 import { KeymapHelp } from './KeymapHelp';
 import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey, type TillAction } from './keymap';
-import { localIsoDate, deriveTileState, tileInteractive } from './tileState';
+import { deriveTileState, tileInteractive } from './tileState';
+import { useTillClock } from './useTillClock';
+import { useCafeSettings } from '../../lib/settings';
+import { normalizeBusinessDayStart } from '@touch/core';
 import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, tabAnchorLabel, type BasketLine, type ItemRow } from './tillData';
 import type { TillSearch } from './tillSearch';
 import { ScannedSlipsPanel } from './slips/ScannedSlipsPanel';
@@ -82,7 +85,11 @@ export function TillScreen() {
   const [floorMode, setFloorMode] = useState<FloorMode>('cafe');
   const [spotTarget, setSpotTarget] = useState<SpotTarget | null>(null);
   const filterRef = useRef<HTMLInputElement>(null);
-  const today = useMemo(() => localIsoDate(), []);
+  // The clock and the venue's business date, both moving on by themselves: a
+  // till left running past midnight used to keep the date it mounted on, so
+  // the tiles' "unavailable today" read yesterday's pauses (useTillClock.ts).
+  const { settings: cafeSettings } = useCafeSettings();
+  const { now, today } = useTillClock(normalizeBusinessDayStart(cafeSettings.analytics_business_day_start_hour));
 
   // Tabs opened while disconnected — durable in the queue, shown on the plan.
   const offlineTabs = useSyncExternalStore(subscribeOfflineTabs, listOfflineTabs);
@@ -103,12 +110,8 @@ export function TillScreen() {
   const courtsQ = useCourtBookings();
   const callsQ = useQuery({ ...WAITER_CALLS_QUERY });
 
-  // Bookings start and end while the plan is on screen; the court boards read the clock.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // Bookings start and end while the plan is on screen; the court boards read
+  // the clock (`now`, from useTillClock above).
 
   useBroadcast({ topic: 'menu', isPrivate: false, events: ['menu_changed'], invalidateKeys: [['menu']] });
   // Scanned order slips (0238) ride the same topic; each new slip chimes once,
