@@ -424,9 +424,11 @@ export function startArgs(
     ...base,
     p_start_at: draft.startAt,
     p_party_size: draft.partySize,
-    // A picked customer, or the student typed at the desk (C-21: kept as typed).
-    ...(draft.customerId
-      ? { p_customer_id: draft.customerId }
-      : { p_name: draft.guestName.trim(), ...(phone ? { p_phone: phone } : {}) }),
+    // A picked customer, or the student typed at the desk (C-21: kept as typed). All three are
+    // sent, the unused ones null: the function has no defaults, and PostgREST finds it by the
+    // names of the arguments it is given.
+    p_customer_id: draft.customerId ?? null,
+    p_name: draft.customerId ? null : draft.guestName.trim(),
+    p_phone: draft.customerId ? null : phone || null,
   };
 }

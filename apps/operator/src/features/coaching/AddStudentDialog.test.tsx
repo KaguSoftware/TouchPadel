@@ -188,7 +188,8 @@ describe('AddStudentDialog', () => {
       p_name: 'Bravo',
       p_phone: null,
     });
-    expect(args).not.toHaveProperty('p_course_id');
+    // The other target is sent as null (app.desk_add_student has no defaults).
+    expect(args).toHaveProperty('p_course_id', null);
     expect(String(args.p_idempotency_key)).toMatch(/^lesson\.add:/);
     expect(plain(toast.ok.mock.calls[0]![0] as string)).toBe('Bravo is in.');
     expect(onAdded).toHaveBeenCalled();
@@ -219,7 +220,7 @@ describe('AddStudentDialog', () => {
     await waitFor(() => expect(calls.find((c) => c.fn === 'desk_add_student')).toBeTruthy());
     const args = calls.find((c) => c.fn === 'desk_add_student')!.args;
     expect(args).toMatchObject({ p_course_id: 'co1', p_name: 'Delta', p_phone: '0770 123 4567' });
-    expect(args).not.toHaveProperty('p_lesson_id');
+    expect(args).toHaveProperty('p_lesson_id', null);
   });
 
   it('a handed-back customer is picked and sent by id, never by a typed name', async () => {

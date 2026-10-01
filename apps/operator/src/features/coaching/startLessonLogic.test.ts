@@ -328,23 +328,28 @@ describe('startDraftErrors (what blocks Create)', () => {
 });
 
 describe('startArgs (§1.7, §5.7)', () => {
-  it('private, a typed student: name and phone, the party, the key; no customer', () => {
+  it('private, a typed student: name and phone, the party, the key; the customer null', () => {
     expect(startArgs('private', draft({ partySize: 3 }), 'lesson.book:k1', TZ)).toEqual({
       p_coach_id: 'sara',
       p_lesson_type_id: 'p60',
       p_idempotency_key: 'lesson.book:k1',
       p_start_at: at('2026-10-19', 18),
       p_party_size: 3,
+      p_customer_id: null,
       p_name: 'Ali Hasan',
       p_phone: '0770 123 4567',
     });
   });
 
-  it('private, a picked customer: the customer only; a typed name with no phone sends no phone', () => {
+  it('private, a picked customer: name and phone null; a typed name with no phone sends a null phone', () => {
+    // Every argument is sent (no defaults): PostgREST finds the function by the names it is given.
     const picked = startArgs('private', draft({ customerId: 'cust-1' }), 'k', TZ);
     expect(picked.p_customer_id).toBe('cust-1');
-    expect(picked).not.toHaveProperty('p_name');
-    expect(startArgs('private', draft({ guestPhone: ' ' }), 'k', TZ)).not.toHaveProperty('p_phone');
+    expect(picked.p_name).toBeNull();
+    expect(picked.p_phone).toBeNull();
+    const noPhone = startArgs('private', draft({ guestPhone: ' ' }), 'k', TZ);
+    expect(noPhone).toHaveProperty('p_phone', null);
+    expect(noPhone).toHaveProperty('p_customer_id', null);
   });
 
   it('group: coach, type, start and key only', () => {

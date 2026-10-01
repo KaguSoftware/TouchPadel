@@ -588,8 +588,10 @@ describe('Add student (§5.10.7)', () => {
   });
 
   it('a group session adds to the lesson; a course session signs up for the course', () => {
-    expect(addStudentTarget(lesson())).toEqual({ p_lesson_id: 'l1' });
+    // Both keys always (app.desk_add_student has no defaults), the other one null.
+    expect(addStudentTarget(lesson())).toEqual({ p_lesson_id: 'l1', p_course_id: null });
     expect(addStudentTarget(lesson({ kind: 'course', course: course() }))).toEqual({
+      p_lesson_id: null,
       p_course_id: 'co1',
     });
   });
