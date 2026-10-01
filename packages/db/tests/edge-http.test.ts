@@ -13,6 +13,7 @@ import {
   isAbortError,
   isLocalRuntime,
   isUuid,
+  json,
   pgErrorBody,
   readJsonBody,
   readTextCapped,
@@ -122,9 +123,52 @@ describe('what a caller may see of an error', () => {
     spy.mockRestore();
   });
 
-  it('handle() passes a normal answer through untouched', async () => {
+  it('handle() passes a normal answer through, status and body unchanged', async () => {
     const res = await handle('test', () => new Response('ok', { status: 201 }))(post(null));
     expect(res.status).toBe(201);
+    expect(await res.text()).toBe('ok');
+  });
+
+  // The hosted gateway hands the preflight to the function (the local Kong
+  // answers it itself): a 405 there showed the operator "No connection".
+  it('handle() answers a CORS preflight 204 without running the handler', async () => {
+    const fn = vi.fn(() => new Response('should not run', { status: 405 }));
+    const res = await handle('test', fn)(new Request('http://edge.test/fn', { method: 'OPTIONS' }));
+    expect(res.status).toBe(204);
+    expect(fn).not.toHaveBeenCalled();
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(res.headers.get('Access-Control-Allow-Headers')).toContain('authorization');
+    expect(res.headers.get('Access-Control-Allow-Headers')).toContain('apikey');
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+  });
+
+  it('handle() puts the CORS headers on answers, refusals and the 500, keeping their own', async () => {
+    const ok = await handle('test', () => json({ ok: true }, 200, { 'X-Own': '1' }))(post('{}'));
+    expect(ok.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(ok.headers.get('Content-Type')).toBe('application/json');
+    expect(ok.headers.get('X-Own')).toBe('1');
+
+    const refused = await handle('test', () => errorResponse('FORBIDDEN', 403))(post('{}'));
+    expect(refused.status).toBe(403);
+    expect(refused.headers.get('Access-Control-Allow-Origin')).toBe('*');
+
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const thrown = await handle('test', () => {
+      throw new Error('boom');
+    })(post('{}'));
+    expect(thrown.status).toBe(500);
+    expect(thrown.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    spy.mockRestore();
+  });
+
+  it('handle() can add CORS to a response whose headers are immutable (a proxied fetch)', async () => {
+    const frozen = Response.error();
+    expect(() => frozen.headers.set('x', '1')).toThrow();
+    const upstream = new Response('streamed', { status: 200 });
+    Object.defineProperty(upstream, 'headers', { value: frozen.headers });
+    const res = await handle('test', () => upstream)(post('{}'));
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(await res.text()).toBe('streamed');
   });
 });
 

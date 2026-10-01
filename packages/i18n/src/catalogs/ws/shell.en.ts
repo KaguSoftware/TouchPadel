@@ -231,12 +231,6 @@ export const shellEn = {
     more: 'Options',
     moreMenu: 'Station controls',
     switchWorkspace: 'Switch workspace',
-    // Both ways out of where you are — another workspace, or a section's own
-    // workspace — ask first (owner call, 2026-09-18). {destination} is the
-    // row's own label, so the dialog repeats the words that were pressed.
-    leaveTitle: '{destination}?',
-    leaveBody: 'You are about to leave this screen. Nothing here is lost; you can come back the same way.',
-    leaveConfirm: 'Yes, go',
     language: 'العربية',
     languageAlt: 'English',
     // The appearance switch. Like `language`, each label names the appearance

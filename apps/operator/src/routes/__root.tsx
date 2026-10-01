@@ -775,18 +775,9 @@ function WorkspaceNav({
   const canSwitch = available.length > 1 && (staff?.role === 'manager' || staff?.role === 'owner');
   const navigate = useNavigate();
   const confirm = useConfirm();
-  // Leaving a section for its workspace is a move the person may not have
-  // meant, so it asks first. Switch workspace does not: it only opens the
-  // picker, and the picker asks when a different workspace is chosen.
-  const leaveTo = async (to: string, destination: string) => {
-    const ok = await confirm({
-      title: tr('ws.shell.nav.leaveTitle', { destination }),
-      body: tr('ws.shell.nav.leaveBody'),
-      confirmLabel: tr('ws.shell.nav.leaveConfirm'),
-      kind: 'primary',
-    });
-    if (ok) void navigate({ to });
-  };
+  // Moving between a section and its own workspace goes without asking (owner
+  // call, 2026-10-01): it stays inside one workspace. The only move that asks
+  // is to a DIFFERENT workspace, and the picker asks that one.
   // Sign out asks first, through the same dialog the leave paths use. It is
   // one press on the rail foot and it ends the shift, so a stray touch while
   // reaching for the identity block should not drop the till to a sign-in.
@@ -908,7 +899,7 @@ function WorkspaceNav({
               className="tp-rail-back"
               style={{ marginBlockStart: 'var(--tp-sp-2-5)', font: 'inherit', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, cursor: 'pointer', textAlign: 'start' }}
               aria-label={tr('ws.shell.nav.backTo', { workspace: tr(`ws.shell.workspace.${workspaceKey}`) })}
-              onClick={() => void leaveTo(workspace.home, tr(`ws.shell.workspace.${workspaceKey}`))}
+              onClick={() => void navigate({ to: workspace.home })}
             >
               <ChevronBack size={14} />
               <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
