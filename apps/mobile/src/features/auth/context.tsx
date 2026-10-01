@@ -9,8 +9,9 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { clearAllCaches } from '../../lib/queryClient';
-import { clearAllMatchIntentKeys } from '../../lib/idempotency';
+import { clearAllLessonIntentKeys, clearAllMatchIntentKeys } from '../../lib/idempotency';
 import { clearPendingJoin } from '../matches/pendingJoin';
+import { clearPendingLesson } from '../coaching/pendingLesson';
 import { clearTicketContinuation } from '../matches/continuation';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
 import { clearStaffHint } from '../staff/hint';
@@ -87,6 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ticket continuation would otherwise steer the next account on this phone.
         clearPendingJoin();
         clearTicketContinuation();
+        // Coaching (guest.md §4.7.4, §4.9.5): the lesson booking keys and a
+        // signed-out lesson intent belong to the account that left too.
+        clearAllLessonIntentKeys();
+        clearPendingLesson();
       }
     });
     return () => {

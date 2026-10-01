@@ -47,8 +47,13 @@ keys, the status table, the no-station-RPC rule) are
 
 - Query keys are families exported next to their hooks: `availabilityKeys`, `bookingKeys`,
   `profileKeys` (`src/features/*/hooks.ts`), `historyKeys` (`src/features/booking/history.ts`) and
-  `matchKeys` (`src/features/matches/keys.ts`, re-exported by its `hooks.ts`). Extend a family;
-  never inline a key array in a component.
+  `matchKeys` (`src/features/matches/keys.ts`, re-exported by its `hooks.ts`), and coaching's
+  `coachingKeys` (`src/features/coaching/keys.ts`, the guest's lessons). Extend a family; never
+  inline a key array in a component.
+- Coaching (`docs/design/coaching/guest.md` §4.7): everything under `['coaching']` stays off
+  disk and every lesson write runs now or fails now (CD-6, `src/lib/queryClient.ts`). The
+  bookings and joins take `lessonIntentKey(intent, kind)` (`src/lib/idempotency.ts`), kept across
+  PHONE_REQUIRED, TERMS_REQUIRED and PRICE_CHANGED; cancels and the link confirm take none.
 - Open matches (`docs/design/open-matches/guest.md` §4.23): everything under `['match']` is live
   state and is never persisted (`src/lib/queryClient.ts` leaves it out of the dehydrate filter).
   `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
@@ -109,7 +114,8 @@ keys, the status table, the no-station-RPC rule) are
   (`sign-in.submit`, `bookings.filter.upcoming`); a list row appends its entity id
   (`bookings.upcoming.<reservationId>`). Route = the file path minus `app/`, `(tabs)` and `.tsx`,
   with `(tabs)/index` → `book`, `booking/[id]` → `booking-detail`, `(tabs)/_layout` → `tabs`,
-  `match/[id]` → `match-detail`, `m/[token]` → `match-link`.
+  `match/[id]` → `match-detail`, `m/[token]` → `match-link`, `coach/[id]` → `coach-detail`,
+  `class/[id]` → `class-detail`, `lesson/[id]` → `lesson-detail`.
   A shared component NEVER mints an id: it takes `testID?: string` and forwards it EXPLICITLY
   (`testID={testID}` — a `{...spread}` does not count, because the lint rule reads the JSX).
 - `testIdRules` from `@touch/config/eslint` fails `lint` on any interactive element without one

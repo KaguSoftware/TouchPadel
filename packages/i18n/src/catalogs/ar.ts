@@ -9,6 +9,7 @@ import { legalAr } from './legal.ar';
 import { siteAr } from './site.ar';
 import { branchesAr } from './branches.ar';
 import { matchesAr } from './matches.ar';
+import { coachingAr } from './coaching.ar';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -722,6 +723,10 @@ export const ar: Messages = {
     genderMale: 'مباريات النساء ومباريات الرجال: أنتَ مسجّل رجلًا، ويمكن لموظفي الاستقبال تعديل ذلك.',
     tickets: 'تذاكر المباريات المفتوحة',
     blockedPlayers: 'اللاعبون المحظورون',
+    // DRAFT-AR (coaching guest.md §4.15).
+    myLessons: 'حصصي',
+    coachMode: 'وضع المدرّب',
+    coachStatements: 'كشوف حساب المدرّب',
   },
   settings: {
     title: 'الإعدادات',
@@ -924,6 +929,7 @@ export const ar: Messages = {
   site: siteAr,
   branches: branchesAr,
   matches: matchesAr,
+  coaching: coachingAr,
   seo: {
     siteTitle: 'تتش بادل',
     menuTitle: 'منيو تتش كافيه',

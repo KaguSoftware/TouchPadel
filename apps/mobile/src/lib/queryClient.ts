@@ -211,6 +211,22 @@ queryClient.setQueryDefaults(['match', 'slots'], {
 });
 
 /**
+ * Coaching, the guest's side (docs/design/coaching/guest.md §4.7.3), keyed
+ * under `coachingKeys` (features/coaching/keys.ts). As for open matches: every
+ * lesson write runs now or fails now (CD-6, nothing is queued); one retry is
+ * safe because the bookings and joins are keyed and every other write is
+ * state-idempotent. A coach's grid fails fast on a server without
+ * `coach_slots`, like the match chips.
+ */
+queryClient.setMutationDefaults(['coaching', 'mutation'], {
+  networkMode: 'always',
+  retry: retryKeyedWriteOnce,
+});
+queryClient.setQueryDefaults(['coaching', 'slots'], {
+  retry: (failureCount, error) => failureCount < 1 && isTransportError(error),
+});
+
+/**
  * Disk cache so a cold start paints real data immediately instead of spinners.
  *
  * `buster` is the app version: a build that changes query shapes must not read
@@ -231,7 +247,9 @@ export const persister = createAsyncStoragePersister({
  * start is exactly the "paid" (or "failed") the server never said. And the
  * `match` family (open matches, the ticket wallet): a match read carries other
  * players' names, and a wallet read back from disk would be shown before it
- * is re-checked (guest.md §4.23).
+ * is re-checked (guest.md §4.23). And the `coaching` family (lessons): a
+ * lesson read carries money, and a held enrolment read back from disk would
+ * be shown before it is re-checked (coaching guest.md §4.7.3).
  */
 export const persistOptions = {
   persister,
@@ -243,7 +261,8 @@ export const persistOptions = {
       query.queryKey[0] !== 'reservation' &&
       query.queryKey[0] !== 'staff' &&
       query.queryKey[0] !== 'deposit' &&
-      query.queryKey[0] !== 'match',
+      query.queryKey[0] !== 'match' &&
+      query.queryKey[0] !== 'coaching',
   },
 } as const;
 

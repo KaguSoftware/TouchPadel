@@ -14,6 +14,7 @@
 
 import { isStaffPushRoute, staffPushHref, type StaffHref } from '../staff/pushRoutes';
 import { isGuestPushRoute } from '../matches/pushRoutes';
+import { isLessonPushRoute } from '../coaching/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
 
 /** What a registration attempt concluded. See PushRegistrationResult. */
@@ -114,11 +115,19 @@ export type TapDestination =
   | { kind: 'staff'; href: StaffHref }
   | { kind: 'match'; id: string }
   | { kind: 'tickets' }
+  /** Coaching (coaching guest.md §4.11): an enrolment, a coach's roster, the statements. */
+  | { kind: 'lesson'; id: string }
+  | { kind: 'coachLesson'; id: string }
+  | { kind: 'coachStatements' }
   | null;
 
-/** A guest open-match kind: its route is one of features/matches/pushRoutes.ts's. */
+/**
+ * A guest kind: its route is one of features/matches/pushRoutes.ts's (open
+ * matches) or features/coaching/pushRoutes.ts's (coaching, which a coach's
+ * own pushes ride too: a coach is a guest).
+ */
 export function isGuestTap(data: PushTapData | undefined): boolean {
-  return isGuestPushRoute(data?.route);
+  return isGuestPushRoute(data?.route) || isLessonPushRoute(data?.route);
 }
 
 /**
@@ -145,7 +154,12 @@ export function isStaffTap(data: PushTapData | undefined): boolean {
  * reservation id, as it always did.
  *
  * A guest open-match kind is answered first, whatever the status: `match`
- * with an id opens that match, `tickets` the wallet (guest.md §4.21).
+ * with an id opens that match, `tickets` the wallet (guest.md §4.21). So is a
+ * coaching kind (coaching guest.md §4.11): `lesson` with an id opens that
+ * enrolment, `coach_lesson` with an id the coach's roster, `coach_statements`
+ * the statements, whatever the staff status: a guest who coaches and a staff
+ * member who coaches (C-27) both open them. A coaching route that needs an id
+ * and came without one opens nothing, and never a match screen.
  */
 export function tapDestination(data: PushTapData | undefined): string | null;
 export function tapDestination(data: PushTapData | undefined, status: StaffStatusKind): TapDestination;
@@ -159,9 +173,21 @@ export function tapDestination(
   // A guest open-match kind opens whatever the staff status: its match (the
   // tabs, i.e. nothing, when a `match` push names none) or the wallet.
   if (isGuestTap(data)) {
-    if (data?.route === 'tickets') return { kind: 'tickets' };
     const target = typeof data?.id === 'string' && data.id ? data.id : null;
-    return target ? { kind: 'match', id: target } : null;
+    switch (data?.route) {
+      case 'tickets':
+        return { kind: 'tickets' };
+      case 'match':
+        return target ? { kind: 'match', id: target } : null;
+      case 'lesson':
+        return target ? { kind: 'lesson', id: target } : null;
+      case 'coach_lesson':
+        return target ? { kind: 'coachLesson', id: target } : null;
+      case 'coach_statements':
+        return { kind: 'coachStatements' };
+      default:
+        return null;
+    }
   }
   if (isStaffTap(data)) {
     const route = data?.route;

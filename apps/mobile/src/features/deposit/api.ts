@@ -31,7 +31,11 @@ export async function depositQuote(client: Client, holdId: string): Promise<Depo
   return parseDepositQuote(data);
 }
 
-export type DepositEdgeFunction = 'deposit-begin' | 'deposit-status' | 'ticket-begin';
+export type DepositEdgeFunction =
+  | 'deposit-begin'
+  | 'deposit-status'
+  | 'ticket-begin'
+  | 'lesson-begin';
 
 /**
  * Call a deposit edge function as the signed-in guest.
@@ -41,7 +45,9 @@ export type DepositEdgeFunction = 'deposit-begin' | 'deposit-status' | 'ticket-b
  * like an RPC refusal and the query client never retries a decision. The
  * open-match `ticket-begin` (features/matches/api.ts `ticketBegin`) is called
  * through here too, so its `detail` (`TICKET_COUNT_INVALID` `wallet_limit`)
- * rides on the same error. A request that never came back
+ * rides on the same error, and so is coaching's `lesson-begin`
+ * (features/coaching/api.ts `lessonBegin`, coaching guest.md §4.9.3), whose
+ * `LESSON_NOT_PAYABLE` detail does too. A request that never came back
  * rethrows the fetch's own error, so lib/network.ts classifies it as a
  * connection problem (the same split staff/api.ts callStaffEdge makes).
  */

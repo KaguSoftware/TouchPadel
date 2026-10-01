@@ -12,14 +12,17 @@ import { passwordProofOf } from '../../src/features/profile/changePasswordFlow';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
-import { useVenueSettings } from '../../src/features/availability/hooks';
+import { useBranches, useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
+import { anyCoaching, profileCoachRow } from '../../src/features/coaching/logic';
+import { useCoachStatus } from '../../src/features/coach/useCoachStatus';
 import {
+  CalendarIcon,
   CloseIcon,
   LockIcon,
   PencilIcon,
@@ -46,6 +49,12 @@ export default function ProfileScreen() {
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();
+  // Coaching (docs/design/coaching/guest.md §4.8.1): "My lessons" while some
+  // branch has coaching on, and coach mode for a coach whatever the switches
+  // say (`coach_me` is read on this screen's mount, R45).
+  const branches = useBranches();
+  const coaching = anyCoaching(branches.data);
+  const coachRow = profileCoachRow(useCoachStatus({ read: !!session }).coach);
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -284,6 +293,16 @@ export default function ProfileScreen() {
               overflow: 'hidden',
             }}
           >
+            {coachRow ? (
+              <MenuRow
+                testID="profile.coach-mode"
+                icon={<CalendarIcon size={15} color={colors.gstrong} />}
+                label={t(
+                  coachRow.kind === 'statements' ? 'profile.coachStatements' : 'profile.coachMode',
+                )}
+                onPress={() => router.push(coachRow.pathname)}
+              />
+            ) : null}
             <MenuRow
               testID="profile.edit-profile"
               icon={<PencilIcon size={15} color={colors.gstrong} />}
@@ -318,6 +337,14 @@ export default function ProfileScreen() {
               label={t('settings.title')}
               onPress={() => router.push('/settings')}
             />
+            {coaching ? (
+              <MenuRow
+                testID="profile.my-lessons"
+                icon={<CalendarIcon size={15} color={colors.gstrong} />}
+                label={t('profile.myLessons')}
+                onPress={() => router.push('/my-lessons')}
+              />
+            ) : null}
             {/* Open matches (docs/design/open-matches/guest.md §4.16): the
               ticket wallet, and the players this guest blocked. */}
             <MenuRow

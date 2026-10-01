@@ -39,6 +39,7 @@ import { updatePushToken } from './api';
 import type { StaffHref } from '../staff/pushRoutes';
 import type { StaffStatusKind } from '../staff/status';
 import { isGuestPushKind } from '../matches/pushRoutes';
+import { isLessonPushKind } from '../coaching/pushRoutes';
 import {
   isGuestTap,
   isStaffTap,
@@ -315,6 +316,14 @@ export function installNotificationHandler(opts: {
   onOpenTickets?: () => void;
   /** A guest open-match push arrived while the app was in the foreground. */
   onMatchNotice?: () => void;
+  /** A `lesson` push tapped (coaching guest.md §4.11): open that enrolment. */
+  onOpenLesson?: (enrolmentId: string) => void;
+  /** A `coach_lesson` push tapped: open the coach's roster for that lesson. */
+  onOpenCoachLesson?: (lessonId: string) => void;
+  /** A `coach_statements` push tapped: open the coach's statements. */
+  onOpenCoachStatements?: () => void;
+  /** A coaching push arrived while the app was in the foreground. */
+  onLessonNotice?: () => void;
 }): () => void {
   let cancelled = false;
   let remove: (() => void) | null = null;
@@ -357,6 +366,15 @@ export function installNotificationHandler(opts: {
           } else if (dest?.kind === 'tickets' && opts.onOpenTickets) {
             addBreadcrumb('push.open', { kind: data?.kind, route: 'tickets' });
             opts.onOpenTickets();
+          } else if (dest?.kind === 'lesson' && opts.onOpenLesson) {
+            addBreadcrumb('push.open', { kind: data?.kind, route: 'lesson' });
+            opts.onOpenLesson(dest.id);
+          } else if (dest?.kind === 'coachLesson' && opts.onOpenCoachLesson) {
+            addBreadcrumb('push.open', { kind: data?.kind, route: 'coach_lesson' });
+            opts.onOpenCoachLesson(dest.id);
+          } else if (dest?.kind === 'coachStatements' && opts.onOpenCoachStatements) {
+            addBreadcrumb('push.open', { kind: data?.kind, route: 'coach_statements' });
+            opts.onOpenCoachStatements();
           } else {
             addBreadcrumb('push.open.noRoute', { kind: data?.kind });
           }
@@ -393,7 +411,9 @@ export function installNotificationHandler(opts: {
       // refresh at once instead of waiting for their next poll.
       const received = Notifications.addNotificationReceivedListener((notification) => {
         const data = notification.request.content.data as PushTapData | undefined;
-        if (isGuestPushKind(data?.kind)) opts.onMatchNotice?.();
+        // A coaching push refreshes the lessons, never the matches (coaching guest.md §4.11).
+        if (isLessonPushKind(data?.kind)) opts.onLessonNotice?.();
+        else if (isGuestPushKind(data?.kind)) opts.onMatchNotice?.();
       });
       remove = () => {
         sub.remove();

@@ -35,6 +35,8 @@ import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { usePendingPaymentResume } from '../src/features/deposit/hooks';
 import { matchKeys } from '../src/features/matches/keys';
+import { coachingKeys } from '../src/features/coaching/keys';
+import { lessonPushHref } from '../src/features/coaching/pushRoutes';
 import {
   forgetWrittenPushToken,
   installNotificationHandler,
@@ -290,6 +292,17 @@ function RootStack() {
           <Stack.Screen name="match-report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="blocked-players" />
           <Stack.Screen name="tickets" />
+          {/* Coaching, the guest's side (docs/design/coaching/guest.md §4.8).
+          Flat root-stack pushes with the native back item; the browsing
+          screens are public, the review, the lesson and My lessons carry
+          their own session guard. */}
+          <Stack.Screen name="coaches" />
+          <Stack.Screen name="coach/[id]" />
+          <Stack.Screen name="classes" />
+          <Stack.Screen name="class/[id]" />
+          <Stack.Screen name="lesson-review" />
+          <Stack.Screen name="lesson/[id]" />
+          <Stack.Screen name="my-lessons" />
           {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
           <Stack.Screen
             name="staff-order-item"
@@ -372,7 +385,10 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
   // once the phone is known to be signed in as staff (build-contracts §6.8).
   // An open-match tap opens its match or the wallet whatever the staff status,
   // and a match push landing in the foreground refreshes every match read at
-  // once (docs/design/open-matches/guest.md §4.21).
+  // once (docs/design/open-matches/guest.md §4.21). A coaching tap opens the
+  // lesson (its confirm card first, for an unconfirmed link) or coach mode's
+  // roster or statements, whatever the staff status, and a coaching push in
+  // the foreground refreshes every lesson read (coaching guest.md §4.11).
   useEffect(
     () =>
       installNotificationHandler({
@@ -382,6 +398,15 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
         onOpenMatch: (id) => router.push({ pathname: '/match/[id]', params: { id } }),
         onOpenTickets: () => router.push('/tickets'),
         onMatchNotice: () => void queryClient.invalidateQueries({ queryKey: matchKeys.all }),
+        onOpenLesson: (id) => router.push({ pathname: '/lesson/[id]', params: { id } }),
+        onOpenCoachLesson: (id) => router.push(lessonPushHref('coach_lesson', id)),
+        onOpenCoachStatements: () => router.push(lessonPushHref('coach_statements', null)),
+        onLessonNotice: () => {
+          void queryClient.invalidateQueries({ queryKey: coachingKeys.all });
+          // Coach mode's family (`coachKeys`, features/coach): a coach's push
+          // refreshes the roster and the schedule too.
+          void queryClient.invalidateQueries({ queryKey: ['coach'] });
+        },
       }),
     [],
   );

@@ -38,10 +38,20 @@ import { onlinePaymentOf, openPaymentRef, refundNoteKey } from '../../src/featur
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
   useAllCourts,
+  useBranches,
   useCourtsBroadcast,
   useGuestVenue,
   useVenueSettings,
 } from '../../src/features/availability/hooks';
+import { useMyLessons } from '../../src/features/coaching/hooks';
+import {
+  anyCoaching,
+  displayCoachName,
+  holdLive,
+  lessonTitle,
+} from '../../src/features/coaching/logic';
+import { lessonStateOf, moneyLineOf, stateLine } from '../../src/features/coaching/state';
+import { LessonRow } from '../../src/components/coaching';
 import { DEFAULT_TZ } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
@@ -150,6 +160,11 @@ export default function BookingsScreen() {
   // `upcoming` is every match not ended, plus the last 24 hours' (my_matches):
   // the rest of the past is the history screen's.
   const matches = useMyMatches('upcoming');
+  // LESSONS (docs/design/coaching/guest.md §4.8.1): its own read, only while
+  // some branch has coaching on, so a failed read never turns the bookings
+  // into an error (the match rows' rule).
+  const branches = useBranches();
+  const lessons = useMyLessons('upcoming', { enabled: anyCoaching(branches.data) });
   const { refetch: refetchBookings } = bookings;
   const { refetch: refetchMatches } = matches;
   const refetchAll = useCallback(
@@ -458,6 +473,71 @@ export default function BookingsScreen() {
   // changed while offline still arrives here through the realtime channel
   // and the refetch, and the detail screen has its own Call the venue.
 
+  // LESSONS: the upcoming ones, a held one first with "Finish payment" (its
+  // attempt's ref), a link to confirm with "Confirm it's you" (C-21); the
+  // past and cancelled ones live on My lessons, not in Played and Cancelled.
+  const lessonRows = [...(lessons.data ?? [])].sort(
+    (a, b) => Number(b.status === 'held') - Number(a.status === 'held'),
+  );
+  const lessonsSection = tab === 'upcoming' && lessonRows.length > 0 && (
+    <View>
+      <ListHeading
+        icon={CalendarIcon}
+        label={t('coaching.guest.bookings.section')}
+        count={lessonRows.length}
+        style={{ marginTop: 6 }}
+      />
+      <View style={{ gap: 8, marginTop: 8 }}>
+        {lessonRows.map((row) => {
+          const venueTz = branches.data?.find((b) => b.venue_id === row.venueId)?.timezone ?? tz;
+          const state = lessonStateOf(row, now);
+          const pendingRef = holdLive(row, now.getTime())
+            ? (row.pendingPayment?.requestId ?? null)
+            : null;
+          return (
+            <LessonRow
+              key={row.enrolmentId}
+              testID={`bookings.lesson.${row.enrolmentId}`}
+              title={lessonTitle(row, locale)}
+              coachName={displayCoachName(row.coach, locale)}
+              photoPath={row.coach?.photoPath ?? null}
+              when={`${formatWeekdayShort(new Date(row.startAt), locale, venueTz)} · ${formatDate(new Date(row.startAt), locale, venueTz)} · ${formatTime(new Date(row.startAt), locale, venueTz)}`}
+              state={stateLine(state, { t, locale, tz: venueTz, now })}
+              money={moneyLineOf(row, state, { t, locale })}
+              action={
+                row.confirmNeeded
+                  ? t('coaching.guest.bookings.confirm')
+                  : pendingRef
+                    ? t('coaching.guest.bookings.finish')
+                    : null
+              }
+              onPress={() =>
+                pendingRef
+                  ? finishPayment(pendingRef)
+                  : router.push({ pathname: '/lesson/[id]', params: { id: row.enrolmentId } })
+              }
+            />
+          );
+        })}
+      </View>
+      <Pressable
+        testID="bookings.lessons.all"
+        accessibilityRole="link"
+        onPress={() => router.push('/my-lessons')}
+        style={({ pressed }) => ({
+          marginTop: 8,
+          paddingTop: 6,
+          paddingBottom: 6,
+          opacity: pressed ? 0.6 : 1,
+        })}
+      >
+        <Text style={{ fontFamily: fonts.body800, fontSize: 12.5, color: colors.blue }}>
+          {t('coaching.guest.bookings.all')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+
   const header = (
     <View style={{ paddingTop: space.l }}>
       <Title>{t('booking.myBookings')}</Title>
@@ -465,6 +545,7 @@ export default function BookingsScreen() {
       {tabs}
       {heldSection}
       {openSection}
+      {lessonsSection}
     </View>
   );
 
