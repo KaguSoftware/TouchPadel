@@ -37,7 +37,8 @@
  * `whatsapp-sms` row in app.sms_sends reads `whatsapp` even when the guest got
  * an SMS. Read a per-message truth in the OTPIQ dashboard, not in our log.
  */
-import { SmsProviderError, type SmsChannel, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
+import { fetchWithTimeout } from '../http.ts';
+import { SMS_TIMEOUT_MS, SmsProviderError, type SmsChannel, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
 
 export const OTPIQ_SEND_URL = 'https://api.otpiq.com/api/sms';
 
@@ -53,11 +54,15 @@ export function otpiqProvider(env: { apiKey: string; provider?: string; senderId
         provider: routing,
       };
       if (env.senderId) body.senderId = env.senderId;
-      const res = await fetch(OTPIQ_SEND_URL, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${env.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const res = await fetchWithTimeout(
+        OTPIQ_SEND_URL,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${env.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        SMS_TIMEOUT_MS,
+      );
       const data = (await res.json().catch(() => ({}))) as {
         smsId?: string;
         cost?: number;

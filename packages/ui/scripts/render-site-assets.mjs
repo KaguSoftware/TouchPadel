@@ -114,7 +114,8 @@ function posterPage({ locale, fonts }) {
   h1 .one{font-weight:400}
   h1 .two{color:${C.green}}
   [dir='ltr'] h1{font-size:112px;line-height:.92;letter-spacing:-.02em;text-transform:uppercase}
-  [dir='rtl'] h1{font-size:128px;line-height:1.3}
+  [dir='rtl'] h1{font-size:104px;line-height:1.3}
+  [dir='rtl'] h1 span{white-space:nowrap}
 </style></head><body>
 <div class="block" aria-hidden="true">${pattern}</div>
 <div class="lockup">${lockup}</div>

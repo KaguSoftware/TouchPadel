@@ -46,23 +46,31 @@
  * Secrets: SEND_SMS_HOOK_SECRET, SMS_PROVIDER (log | twilio | otpiq | whatsapp) and the
  * chosen vendor's keys — see supabase/functions/.env.example.
  */
-import { json } from '../_shared/http.ts';
-import { sendSms, SmsProviderError } from '../_shared/sms/index.ts';
+import { handle, json, KB, logError, readTextCapped } from '../_shared/http.ts';
+import { sendSms, SmsProviderError, type SmsSent } from '../_shared/sms/index.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { hookError, parseHookPayload, renderTemplate, statusForRefusal } from './otp.ts';
 import { headersOf, verifyStandardWebhook } from './verify.ts';
 
 const env = (name: string) => Deno.env.get(name);
 
+/** GoTrue's hook payload is a few hundred bytes; anything past 64 KB is not GoTrue. */
+const MAX_BODY = 64 * KB;
+
 /** A refusal GoTrue relays to the app: always HTTP 200, the real status in the body (see header). */
 function refuse(httpCode: number, message: string): Response {
   return json(hookError(httpCode, message), 200);
 }
 
-Deno.serve(async (req) => {
+Deno.serve(handle('send-sms-otp', async (req) => {
   if (req.method !== 'POST') return json(hookError(405, 'METHOD_NOT_ALLOWED'), 405);
 
-  const raw = await req.text();
+  // Capped before anything else: the caller is unauthenticated until the HMAC checks out.
+  const raw = await readTextCapped(req, MAX_BODY);
+  if (raw === null) {
+    console.warn('[send-sms-otp] refused: body over the cap');
+    return refuse(400, 'BAD_REQUEST');
+  }
   const verified = await verifyStandardWebhook({
     secret: Deno.env.get('SEND_SMS_HOOK_SECRET'),
     headers: headersOf(req.headers),
@@ -113,34 +121,36 @@ Deno.serve(async (req) => {
     if (v === 'en' || v === 'ar') lang = v;
   }
 
+  /**
+   * Stamp the send log row the gate opened. Never throws, and a failed stamp
+   * never changes what GoTrue is told: the text has (or has not) gone out
+   * either way. It is logged with the send id, because an unstamped row still
+   * reads 'queued' in app.sms_sends (no provider, no cost) and the send log
+   * no longer tells what happened.
+   */
+  const stamp = async (args: Record<string, unknown>) => {
+    try {
+      const { error } = await service.schema('app').rpc('sms_send_result', { p_send_id: decision.send_id, ...args });
+      if (error) logError('send-sms-otp', error, `sms_send_result(${String(args.p_status)}) not stamped for send ${decision.send_id}`);
+    } catch (e) {
+      logError('send-sms-otp', e, `sms_send_result(${String(args.p_status)}) not stamped for send ${decision.send_id}`);
+    }
+  };
+
+  let result: SmsSent;
   try {
-    const result = await sendSms(
+    result = await sendSms(
       { to: payload.phoneE164, body: renderTemplate(payload.otp), code: payload.otp, lang },
       env,
     );
-    await service.schema('app').rpc('sms_send_result', {
-      p_send_id: decision.send_id,
-      p_status: 'sent',
-      p_provider: result.provider,
-      p_channel: result.channel ?? null,
-      p_provider_msg_id: result.id ?? null,
-      p_error: null,
-      p_cost_iqd: result.costIqd ?? null,
-    });
-    if (typeof result.remainingCredit === 'number') {
-      console.log(`[send-sms-otp] ${result.provider} remaining credit ${result.remainingCredit}`);
-    }
-    return json({}, 200);
   } catch (error) {
-    // sendSms only ever rejects with SmsProviderError; the fallback covers a
-    // throw from the stamp RPC client itself.
+    // sendSms only ever rejects with SmsProviderError; the fallback is belt and braces.
     const failure =
       error instanceof SmsProviderError
         ? error
         : new SmsProviderError('unknown', error instanceof Error ? error.message : String(error));
     console.error(`[send-sms-otp] ${failure.provider} send failed: ${failure.message}`);
-    await service.schema('app').rpc('sms_send_result', {
-      p_send_id: decision.send_id,
+    await stamp({
       p_status: 'failed',
       p_provider: failure.provider,
       p_channel: null,
@@ -150,4 +160,17 @@ Deno.serve(async (req) => {
     });
     return refuse(500, 'SMS_SEND_FAILED');
   }
-});
+
+  await stamp({
+    p_status: 'sent',
+    p_provider: result.provider,
+    p_channel: result.channel ?? null,
+    p_provider_msg_id: result.id ?? null,
+    p_error: null,
+    p_cost_iqd: result.costIqd ?? null,
+  });
+  if (typeof result.remainingCredit === 'number') {
+    console.log(`[send-sms-otp] ${result.provider} remaining credit ${result.remainingCredit}`);
+  }
+  return json({}, 200);
+}, () => refuse(500, 'SMS_SEND_FAILED')));

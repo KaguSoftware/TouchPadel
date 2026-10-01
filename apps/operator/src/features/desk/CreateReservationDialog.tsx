@@ -192,7 +192,6 @@ export function CreateReservationDialog({
     enabled: kind === 'booking' && courtId !== '',
     queryFn: () => appRpc<{ rule_id: string; price_iqd: number }[]>('price_slot', { p_court_id: courtId, p_start_at: startIso, p_duration_min: duration }),
     staleTime: 60_000,
-    retry: false,
   });
   // Zero rows is an answer: no rate rule sells this length at this time, and
   // the server will refuse the booking. An error is not an answer — never block on it.

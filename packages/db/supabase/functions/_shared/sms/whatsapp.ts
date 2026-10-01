@@ -39,7 +39,8 @@
  * the template's language code in WhatsApp Manager, e.g. "en_US"),
  * WHATSAPP_DEFAULT_LANG (default "ar"), WHATSAPP_GRAPH_VERSION (default "v26.0").
  */
-import { SmsProviderError, type SmsLang, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
+import { fetchWithTimeout } from '../http.ts';
+import { SMS_TIMEOUT_MS, SmsProviderError, type SmsLang, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
 
 export const WHATSAPP_GRAPH_BASE = 'https://graph.facebook.com';
 export const WHATSAPP_DEFAULT_GRAPH_VERSION = 'v26.0';
@@ -76,11 +77,15 @@ export function whatsappProvider(env: WhatsappEnv): SmsProvider {
           ],
         },
       };
-      const res = await fetch(`${WHATSAPP_GRAPH_BASE}/${version}/${encodeURIComponent(env.phoneNumberId)}/messages`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${env.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const res = await fetchWithTimeout(
+        `${WHATSAPP_GRAPH_BASE}/${version}/${encodeURIComponent(env.phoneNumberId)}/messages`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${env.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        SMS_TIMEOUT_MS,
+      );
       const data = (await res.json().catch(() => ({}))) as {
         messages?: Array<{ id?: string }>;
         error?: { message?: string; code?: number; error_subcode?: number; error_data?: { details?: string } };

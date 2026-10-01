@@ -16,7 +16,7 @@ import { DepositEdgeError } from '../../deposit/logic';
 
 /**
  * Open-match refusals (docs/design/open-matches/guest.md §4.22, §4.13): the
- * detail-aware lines, the code-only fallback through CODE_TO_KEY, and where a
+ * detail-aware lines, the code-only fallback through the error catalogue, and where a
  * refusal sends the guest (and whether the start's key survives it, §4.23).
  */
 const tEn = makeT('en');
@@ -105,7 +105,7 @@ describe('matchErrorText', () => {
     expect(matchErrorText(pg('DEGRADED_LOCKOUT'), tEn, { locale: 'en' })).toBe(tEn('degraded.bookingRefusedShort'));
   });
 
-  it('falls back to CODE_TO_KEY for every other code', () => {
+  it('falls back to the error catalogue for every other code', () => {
     expect(matchErrorText(pg('MATCH_TIME_CLASH'), tEn, { locale: 'en' })).toBe(tEn('matches.errors.timeClash'));
     expect(matchErrorText(pg('MATCH_FULL'), tEn, { locale: 'en' })).toBe(tEn('matches.errors.full'));
     expect(matchErrorText(pg('MATCH_SLOT_FULL'), tEn, { locale: 'en' })).toBe(tEn('matches.errors.slotFull'));

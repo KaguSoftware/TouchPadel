@@ -10,7 +10,7 @@
  * webhook or the reconciler asks again.
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { isRetryablePgError } from './http.ts';
+import { isRetryablePgError, isUuid } from './http.ts';
 import {
   FAKE_PAYMENT_PREFIX,
   PaymentProviderError,
@@ -50,8 +50,8 @@ const ROW_COLUMNS =
 export const OPEN = new Set(['created', 'pending']);
 export const PAID = new Set(['succeeded', 'refund_pending', 'refund_failed', 'refunded']);
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
+/** The one uuid check (./http.ts), re-exported for the payment functions. */
+export { isUuid };
 
 export async function loadPayment(
   service: SupabaseClient,

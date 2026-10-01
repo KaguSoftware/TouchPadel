@@ -115,7 +115,6 @@ export function BookingDetailScreen() {
     queryKey: ['customer', customerId ?? ''],
     enabled: Boolean(customerId),
     queryFn: () => appRpc<CustomerRecord>('customer_record', { p_customer_id: customerId }),
-    retry: false,
   });
 
   const [pending, setPending] = useState<ActionKind | null>(null);

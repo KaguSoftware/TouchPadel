@@ -7,7 +7,7 @@ const callEdge = vi.fn();
 vi.mock('./edge', async (orig) => ({ ...(await orig<EdgeModule>()), callEdge }));
 
 const { EdgeError } = await import('./edge');
-const { AppRpcError } = await import('./appRpc');
+const { errorToMessageKey } = await import('./errors');
 const { readingState, requestReading, scanErrorKey, serverOffset, READ_DEADLINE_MS } = await import('./scanReading');
 
 const T0 = Date.parse('2026-09-27T10:00:00Z');
@@ -73,10 +73,12 @@ describe('requestReading', () => {
     expect(await requestReading({ receipt_id: 'r1' })).toBeNull();
     callEdge.mockRejectedValueOnce(new EdgeError(429, 'RATE_LIMITED', 'x', 'SCAN_REREAD_LIMIT'));
     const refused = await requestReading({ receipt_id: 'r1' });
-    expect(refused).toBeInstanceOf(AppRpcError);
-    expect((refused as InstanceType<typeof AppRpcError>).code).toBe('SCAN_REREAD_LIMIT');
+    expect(refused).toBeInstanceOf(EdgeError);
+    expect((refused as InstanceType<typeof EdgeError>).code).toBe('SCAN_REREAD_LIMIT');
+    // The screen says it through the one mapper, by the server's code.
+    expect(errorToMessageKey(refused)).toBe('op.errors.SCAN_REREAD_LIMIT');
     callEdge.mockRejectedValueOnce(new EdgeError(409, 'UNKNOWN', 'x', 'RECEIPT_BUSY'));
-    expect(((await requestReading({ receipt_id: 'r1' })) as InstanceType<typeof AppRpcError>).code).toBe('RECEIPT_BUSY');
+    expect(errorToMessageKey(await requestReading({ receipt_id: 'r1' }))).toBe('op.errors.RECEIPT_BUSY');
   });
 
   it('a network failure or the station giving up is said as a network failure', async () => {

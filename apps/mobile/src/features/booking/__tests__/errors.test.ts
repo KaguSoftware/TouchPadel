@@ -1,7 +1,9 @@
 /**
- * The open-matches codes in CODE_TO_KEY (docs/design/open-matches/guest.md
- * §4.22). Each commit whose SQL raises a code adds its case here (build
- * contracts R11, R28); the booking and deposit codes are in logic.test.ts.
+ * The phone's error mapping: the one error catalogue (packages/i18n/src/
+ * errors.ts) plus the phone's overrides. The open-matches codes
+ * (docs/design/open-matches/guest.md §4.22) gain a case here with each commit
+ * whose SQL raises one (build contracts R11, R28); the booking and deposit
+ * codes are in logic.test.ts.
  */
 import { describe, expect, it } from 'vitest';
 import { t } from '@touch/i18n';
@@ -130,5 +132,33 @@ describe('open-matches error codes', () => {
   it('R6: RATE_LIMITED and the edge-only RETRY_LATER have their own lines', () => {
     expect(mapErrorToKey(new Error('RATE_LIMITED'))).toBe('errors.tooManyRequests');
     expect(mapErrorToKey({ message: 'RETRY_LATER' })).toBe('deposit.errors.providerUnavailable');
+  });
+});
+
+describe('the shared catalogue on the phone', () => {
+  it('keeps the guest’s own words where the desk reads the staff line', () => {
+    expect(mapErrorToKey(pg('SLOT_TAKEN'))).toBe('booking.slotTaken');
+    expect(mapErrorToKey(pg('MATCH_FULL'))).toBe('matches.errors.full');
+    expect(mapErrorToKey(pg('PAYMENT_NOT_FOUND'))).toBe('deposit.errors.paymentNotFound');
+    expect(mapErrorToKey(pg('TAB_MERGED'))).toBe('staff.floor.menu.tabGone');
+    // The owner's decision for the hold ladder still reads as the generic line.
+    expect(mapErrorToKey(pg('HOLD_COOLDOWN'))).toBe('errors.generic');
+  });
+
+  it('a code the phone never mapped now has its line instead of "Something went wrong"', () => {
+    expect(mapErrorToKey(pg('CONFIRMATION_REQUIRED'))).toBe('op.errors.CONFIRMATION_REQUIRED');
+    expect(mapErrorToKey(pg('ALREADY_DELETED'))).toBe('legal.deleteAccount.form.errors.already');
+    expect(mapErrorToKey(pg('SERIES_NOT_FOUND'))).toBe('op.errors.SERIES_NOT_FOUND');
+    expect(mapErrorToKey(pg('VERSION_INVALID'))).toBe('op.errors.VERSION_INVALID');
+    expect(t('ar', 'op.errors.CONFIRMATION_REQUIRED')).toMatch(/[؀-ۿ]/);
+    expect(rpcErrorCode('TICKET_CLOSED')).toBe('TICKET_CLOSED');
+  });
+
+  it('reads a native Postgres error by its SQLSTATE, never as "offline"', () => {
+    expect(mapErrorToKey({ message: 'duplicate key value violates unique constraint "x"', code: '23505' })).toBe(
+      'errors.duplicate',
+    );
+    expect(mapErrorToKey({ message: 'canceling statement due to statement timeout', code: '57014' })).toBe('errors.busy');
+    expect(mapErrorToKey(new TypeError('Network request failed'))).toBe('errors.network');
   });
 });

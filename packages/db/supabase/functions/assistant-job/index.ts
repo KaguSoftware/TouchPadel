@@ -21,10 +21,11 @@
  * `llm_begin_request` (the cap), one model call, `llm_record_usage`; the job
  * pauses in `over_estimate` when spend passes the accepted estimate × 1.25.
  */
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { callerClient, createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { json, mapPgError } from '../_shared/http.ts';
+import { handle, json, KB, logError, mapPgError, pgErrorBody, readJsonBody } from '../_shared/http.ts';
+import { insertAtNextSeq } from '../_shared/assistant/seq.ts';
 import { clean, CleanError, sourceForTool, type Cleaned } from '../_shared/assistant/clean.ts';
 import { isOverEstimate, LIVE_MAX_CHUNKS, type JobEstimate, type JobPlan } from '../_shared/assistant/estimate.ts';
 import { gateAnswer, numbersIn, type GateResult } from '../_shared/assistant/gate.ts';
@@ -89,12 +90,30 @@ function errorText(e: unknown): string {
   return String(e);
 }
 
-function ownerClient(req: Request): SupabaseClient {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: req.headers.get('Authorization')! } },
-  });
+/**
+ * What a failed job shows the owner, by code (the HTTP answer and the stored
+ * job error both carry the code; the vendor's or the database's own text goes
+ * to the log only).
+ */
+const JOB_ERROR_TEXT: Record<string, string> = {
+  LLM_DAILY_QUOTA: 'the daily assistant quota is used up',
+  LLM_MONTHLY_CAP: 'the monthly assistant budget is used up',
+  RATE_LIMITED: 'the model is rate-limited right now; try again in a minute',
+  NOT_CONFIGURED: 'the model is not configured',
+  TIMEOUT: 'the model call timed out',
+  UPSTREAM: 'the job failed',
+};
+const jobErrorText = (code: string) => JOB_ERROR_TEXT[code] ?? JOB_ERROR_TEXT.UPSTREAM!;
+
+/** The job's code from a thrown value: our LLM_* refusals, the provider's codes, else UPSTREAM. */
+function jobErrorCode(e: unknown, text: string): string {
+  if (text.includes('LLM_DAILY_QUOTA')) return 'LLM_DAILY_QUOTA';
+  if (text.includes('LLM_MONTHLY_CAP')) return 'LLM_MONTHLY_CAP';
+  return e instanceof ProviderError ? e.code : 'UPSTREAM';
 }
+
+/** accept / cancel / tick: a job id and a mode. */
+const MAX_BODY = 4 * KB;
 
 /** The chunk list from the plan and the accepted estimate (per_tool carries chunk_rows and rows). */
 function chunksOf(job: JobRow): Chunk[] | string {
@@ -161,9 +180,17 @@ class Book {
     readonly provider: Provider,
   ) {}
 
+  /**
+   * app.assistant_job_transition (0112). Its patch allowlist is mode,
+   * chunks_total, chunks_done, tokens, result, error, batch_id, estimate,
+   * message_id; any other key raises INVALID_ARGUMENT and the job never moves.
+   * started_at and finished_at are NOT patch keys: the SQL stamps them itself
+   * on the first 'running' and on a terminal state. tests/assistant-jobs.test.ts
+   * holds every patch below to the allowlist parsed from the migration.
+   */
   async transition(id: string, status: Status, patch: Record<string, unknown> = {}): Promise<void> {
     const { error } = await this.service.schema('app').rpc('assistant_job_transition', { p_id: id, p_status: status, p_patch: patch });
-    if (error) throw new Error(`assistant_job_transition(${status}): ${error.message}`);
+    if (error) throw new Error(`assistant_job_transition(${status}): ${error.message}${error.details ? ` (${error.details})` : ''}`);
   }
 
   async patch(id: string, patch: Record<string, unknown>): Promise<void> {
@@ -239,20 +266,36 @@ class Book {
     const answer = textOf(turn.content) || (turn.stop_reason === 'refusal' ? 'The model declined to write this answer.' : '');
     const gate: GateResult = gateAnswer(answer, numbersIn(JSON.stringify(objects)), numbersIn(job.plan.question));
 
-    // The answer as an ordinary assistant message
-    const { data: last } = await this.service.from('assistant_messages').select('seq').eq('conversation_id', job.conversation_id).order('seq', { ascending: false }).limit(1).maybeSingle();
-    const seq = ((last as { seq?: number } | null)?.seq ?? 0) + 1;
+    // The answer as an ordinary assistant message, at the conversation's next
+    // seq: the owner may be chatting meanwhile, so a taken number is re-read
+    // and retried (assistant/seq.ts).
     const message_id = crypto.randomUUID();
     const tokens = { ...spend, model: this.provider.model };
-    const ins = await this.service.from('assistant_messages').insert({
-      id: message_id,
-      conversation_id: job.conversation_id,
-      seq,
-      role: 'assistant',
-      content: [{ type: 'text', text: answer }],
-      sources: [{ job_id: job.id, chunks: objects.length, rows: job.estimate.rows }],
-      gate,
-      tokens,
+    const ins = await insertAtNextSeq({
+      maxSeq: async () => {
+        const { data, error } = await this.service
+          .from('assistant_messages')
+          .select('seq')
+          .eq('conversation_id', job.conversation_id)
+          .order('seq', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        return (data as { seq?: number } | null)?.seq ?? 0;
+      },
+      insert: async (seq) =>
+        (
+          await this.service.from('assistant_messages').insert({
+            id: message_id,
+            conversation_id: job.conversation_id,
+            seq,
+            role: 'assistant',
+            content: [{ type: 'text', text: answer }],
+            sources: [{ job_id: job.id, chunks: objects.length, rows: job.estimate.rows }],
+            gate,
+            tokens,
+          })
+        ).error,
     });
     if (ins.error) throw new Error(`answer not stored: ${ins.error.message}`);
     if (calls.length) {
@@ -273,20 +316,22 @@ class Book {
     }
     const convPatch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (handles) convPatch.handles = toJson(handles);
-    await this.service.from('assistant_conversations').update(convPatch).eq('id', job.conversation_id);
+    const conv = await this.service.from('assistant_conversations').update(convPatch).eq('id', job.conversation_id);
+    if (conv.error) logError('assistant-job', conv.error, `conversation ${job.conversation_id} not updated after job ${job.id}`);
 
+    // finished_at is stamped by the SQL on the terminal state (0112), never patched.
     await this.transition(job.id, 'done', {
       chunks_done: objects.length,
       tokens: spend,
       result: { message_id, answer, gate, objects: objects.length },
-      finished_at: new Date().toISOString(),
     });
     return { message_id };
   }
 
+  /** `error` is what the owner reads on the job (JobProgress.tsx): a code and our sentence, never raw text. */
   async fail(job: JobRow, error: string, spend: Spend): Promise<void> {
     try {
-      await this.transition(job.id, 'failed', { error: error.slice(0, 1000), tokens: spend, finished_at: new Date().toISOString() });
+      await this.transition(job.id, 'failed', { error: error.slice(0, 1000), tokens: spend });
     } catch (e) {
       console.error('[assistant-job] fail transition', errorText(e));
     }
@@ -331,9 +376,10 @@ async function runLive(book: Book, asOwner: SupabaseClient, job: JobRow, chunks:
     return json({ job_id: job.id, status: 'done', message_id, chunks_done: objects.length, tokens: spend });
   } catch (e) {
     const msg = errorText(e);
-    await book.fail(job, msg, spend);
-    const code = msg.includes('LLM_DAILY_QUOTA') ? 'LLM_DAILY_QUOTA' : msg.includes('LLM_MONTHLY_CAP') ? 'LLM_MONTHLY_CAP' : e instanceof ProviderError ? e.code : 'UPSTREAM';
-    return json({ job_id: job.id, status: 'failed', error: code, message: msg, chunks_done: objects.length }, code.startsWith('LLM_') ? 429 : 502);
+    const code = jobErrorCode(e, msg);
+    logError('assistant-job', msg, `live job ${job.id} failed (${code})`);
+    await book.fail(job, `${code}: ${jobErrorText(code)}`, spend);
+    return json({ job_id: job.id, status: 'failed', error: code, message: jobErrorText(code), chunks_done: objects.length }, code.startsWith('LLM_') ? 429 : 502);
   }
 }
 
@@ -358,12 +404,17 @@ async function submitBatch(book: Book, asOwner: SupabaseClient, job: JobRow, chu
     }
     const batch_id = await book.provider.batchCreate(requests);
     await book.patch(job.id, { batch_id, chunks_total: chunks.length });
-    await book.service.from('assistant_conversations').update({ handles: toJson(handles), updated_at: new Date().toISOString() }).eq('id', job.conversation_id);
+    const conv = await book.service.from('assistant_conversations').update({ handles: toJson(handles), updated_at: new Date().toISOString() }).eq('id', job.conversation_id);
+    if (conv.error) logError('assistant-job', conv.error, `conversation ${job.conversation_id} handles not saved for job ${job.id}`);
     return json({ job_id: job.id, status: 'running', mode: 'batch', batch_id, chunks_total: chunks.length });
   } catch (e) {
     const msg = errorText(e);
-    await book.fail(job, msg, spend);
-    return json({ job_id: job.id, status: 'failed', error: e instanceof ProviderError ? e.code : 'UPSTREAM', message: msg }, 502);
+    // The batch path has always answered 502 with the provider's code (an LLM_* cap included).
+    const code = e instanceof ProviderError ? e.code : 'UPSTREAM';
+    logError('assistant-job', msg, `batch job ${job.id} not submitted (${code})`);
+    const stored = jobErrorCode(e, msg);
+    await book.fail(job, `${stored}: ${jobErrorText(stored)}`, spend);
+    return json({ job_id: job.id, status: 'failed', error: code, message: jobErrorText(code) }, 502);
   }
 }
 
@@ -376,7 +427,10 @@ function jobProviderCapable(_service: unknown, conv: unknown, fallback: Provider
 
 async function tick(book: Book, signal: AbortSignal) {
   const { data, error } = await book.service.from('assistant_jobs').select('*').eq('status', 'running').eq('mode', 'batch').not('batch_id', 'is', null);
-  if (error) return json({ ok: false, error: error.message });
+  if (error) {
+    logError('assistant-job', error, 'tick: running jobs read failed');
+    return json({ ok: false, error: 'INTERNAL' });
+  }
   const jobs = (data ?? []) as JobRow[];
   const report: Record<string, unknown>[] = [];
   for (const job of jobs) {
@@ -417,25 +471,27 @@ async function tick(book: Book, signal: AbortSignal) {
       report.push({ job_id: job.id, status: 'done', message_id });
     } catch (e) {
       const msg = errorText(e);
-      await jb.fail(job, msg, spend);
-      report.push({ job_id: job.id, status: 'failed', error: msg });
+      const code = jobErrorCode(e, msg);
+      logError('assistant-job', msg, `tick: job ${job.id} failed (${code})`);
+      await jb.fail(job, `${code}: ${jobErrorText(code)}`, spend);
+      report.push({ job_id: job.id, status: 'failed', error: code });
     }
   }
   return json({ ok: true, jobs: report });
 }
 
 // ---------------------------------------------------------------------------
-Deno.serve(async (req) => {
+Deno.serve(handle('assistant-job', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   const started = Date.now();
   const service = createServiceClient();
 
-  let body: { action?: string; job_id?: string; mode?: string } = {};
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400);
-  }
+  const read = await readJsonBody<{ action?: string; job_id?: string; mode?: string }>(req, {
+    maxBytes: MAX_BODY,
+    badJson: () => json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const body = read.value;
   const action = body.action;
   if (action !== 'accept' && action !== 'tick' && action !== 'cancel') return json({ error: 'INVALID_REQUEST', message: 'action must be accept, tick or cancel' }, 400);
 
@@ -455,18 +511,25 @@ Deno.serve(async (req) => {
     if (!body.job_id) return json({ error: 'INVALID_REQUEST', message: 'job_id is required' }, 400);
 
     const { data: jobData, error: jobErr } = await service.from('assistant_jobs').select('*').eq('id', body.job_id).maybeSingle();
-    if (jobErr) return json({ error: 'INTERNAL', message: jobErr.message }, 500);
+    if (jobErr) {
+      logError('assistant-job', jobErr, 'job read failed');
+      return json({ error: 'INTERNAL' }, 500);
+    }
     if (!jobData) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'job not found' }, 404);
     const job = jobData as JobRow;
-    const { data: conv } = await service.from('assistant_conversations').select('owner_id, handles, model').eq('id', job.conversation_id).maybeSingle();
+    const { data: conv, error: convErr } = await service.from('assistant_conversations').select('owner_id, handles, model').eq('id', job.conversation_id).maybeSingle();
+    if (convErr) {
+      logError('assistant-job', convErr, 'conversation read failed');
+      return json({ error: 'INTERNAL' }, 500);
+    }
     if (!conv || (conv as { owner_id: string }).owner_id !== auth.userId) return json({ error: 'FORBIDDEN', message: 'not your job' }, 403);
-    const asOwner = ownerClient(req);
+    const asOwner = callerClient(req);
 
     if (action === 'cancel') {
       const { error } = await asOwner.schema('app').rpc('assistant_job_cancel', { p_id: job.id });
       if (error) {
-        const m = mapPgError(error);
-        return json({ error: m.code, message: m.message }, m.status);
+        const refused = pgErrorBody(error, 'assistant-job');
+        return json(refused.body, refused.status);
       }
       if (job.batch_id && provider) {
         try {
@@ -499,7 +562,9 @@ Deno.serve(async (req) => {
     const jobProvider = providerFromEnv((n) => Deno.env.get(n), jobModel) ?? provider;
     const book = new Book(service, jobProvider);
     await book.transition(job.id, 'accepted', { mode, tokens: { ...(job.tokens ?? {}), model: jobProvider.model } });
-    await book.transition(job.id, 'running', { started_at: new Date().toISOString(), chunks_total: chunks.length });
+    // started_at is stamped by the SQL on the first 'running' (0112), never patched:
+    // passing it raised INVALID_ARGUMENT and left the job stuck in 'accepted'.
+    await book.transition(job.id, 'running', { chunks_total: chunks.length });
     job.mode = mode;
     job.chunks_total = chunks.length;
     const handles = newHandleTable((conv as { handles: unknown }).handles);
@@ -507,10 +572,10 @@ Deno.serve(async (req) => {
 
     return mode === 'live' ? await runLive(book, asOwner, job, chunks, handles, tz, abort.signal, started) : await submitBatch(book, asOwner, job, chunks, handles, tz);
   } catch (e) {
-    const msg = errorText(e);
-    console.error('[assistant-job] failed', action, msg);
-    return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: msg }, 502);
+    // Logged in full; the owner gets the code and our sentence.
+    console.error('[assistant-job] failed', action, errorText(e));
+    return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: jobErrorText('UPSTREAM') }, 502);
   } finally {
     clearTimeout(wall);
   }
-});
+}));

@@ -16,11 +16,15 @@
  * only remaining cause is stock. Inactive items are filtered out of the grid
  * before this runs, so `is_active` never reaches here as a cause.
  *
- * `unavailable_on` is compared with the station's local calendar date. The
- * server uses the venue business date, which can differ in the hour after
- * midnight; the effect is only which LABEL a disabled tile shows, never
- * whether it is disabled — that is always the view's verdict.
+ * `unavailable_on` is compared with the venue's business date (`tillToday`),
+ * the date the server stamps it with (`app.business_date(now())`, 0041). It
+ * used to be the station's calendar date taken once at mount, which on a till
+ * left running overnight went stale at midnight. The effect is only which
+ * LABEL a disabled tile shows, never whether it is disabled — that is always
+ * the view's verdict.
  */
+import { businessTodayISO } from '@touch/core';
+import { VENUE_TZ } from '@touch/i18n';
 
 export type TileState = 'ready' | 'noTab' | 'unavailable' | 'blockedByStock';
 
@@ -33,6 +37,15 @@ export interface TileInput {
   hasActiveTab: boolean;
   /** ISO date for "today" on this station; injected so the derivation is pure. */
   today: string;
+}
+
+/**
+ * "Today" for the till's tiles: the venue's business date at `nowMs` — venue
+ * time less the business-day start hour, as `app.business_date(now())`
+ * computes it (lib/settings.ts useBusinessDay says the same).
+ */
+export function tillToday(nowMs: number, startHour: number, tz: string = VENUE_TZ): string {
+  return businessTodayISO(new Date(nowMs), startHour, tz);
 }
 
 /** Local calendar date as YYYY-MM-DD (display helper — no time arithmetic). */

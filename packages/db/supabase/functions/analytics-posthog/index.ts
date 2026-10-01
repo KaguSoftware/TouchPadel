@@ -30,7 +30,7 @@
  * locale / has_table / table_number.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
-import { json } from '../_shared/http.ts';
+import { fetchWithTimeout, handle, json, KB, logError, readJsonBody } from '../_shared/http.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
 
 // ---------------------------------------------------------------------------
@@ -415,13 +415,31 @@ class UpstreamError extends Error {
   }
 }
 
+/**
+ * One HogQL query, reply included. PostHog answers in well under a second
+ * normally; a stalled one must not hold the dashboard (or the assistant's 50 s
+ * wall clock) open. A timeout is retried like any network failure.
+ */
+const HOGQL_TIMEOUT_MS = 15_000;
+
 async function hogqlOnce(query: string): Promise<unknown[][]> {
-  const res = await fetch(`${HOST}/api/projects/${PROJECT_ID}/query/`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
-  });
-  const text = await res.text();
+  let res: Response;
+  let text: string;
+  try {
+    res = await fetchWithTimeout(
+      `${HOST}/api/projects/${PROJECT_ID}/query/`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
+      },
+      HOGQL_TIMEOUT_MS,
+    );
+    text = await res.text();
+  } catch (err) {
+    // Network failure or timeout: transient, so the caller's retry applies.
+    throw new UpstreamError(0, `posthog transport: ${err instanceof Error ? err.message : String(err)}`);
+  }
   if (res.status >= 500) throw new UpstreamError(res.status, `posthog ${res.status}: ${text.slice(0, 200)}`);
   if (!res.ok) {
     // 4xx will not fix itself (bad query / auth / 429) — surface, don't retry.
@@ -557,26 +575,29 @@ async function runQuery(q: QuerySpec, h: number): Promise<QueryResult> {
     });
     return { columns: t.columns, rows };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[analytics-posthog] ${q.name} failed:`, message);
-    return { columns: [], rows: [], error: message };
+    // PostHog's text stays in the log; the caller (the dashboard, the
+    // assistant's posthog tool) only tests that `error` is set.
+    logError('analytics-posthog', err, `${q.name} failed`);
+    return { columns: [], rows: [], error: 'QUERY_FAILED' };
   }
 }
 
-Deno.serve(async (req) => {
+/** A handful of named queries with dates and small params. */
+const MAX_BODY = 32 * KB;
+
+Deno.serve(handle('analytics-posthog', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
   const service = createServiceClient();
   const auth = await requireStaffRole(req, service, ['owner']);
   if (auth instanceof Response) return auth;
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400);
-  }
-  const parsed = parseBody(body);
+  const read = await readJsonBody(req, {
+    maxBytes: MAX_BODY,
+    badJson: () => json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const parsed = parseBody(read.value);
   if (typeof parsed === 'string') return json({ error: 'INVALID_REQUEST', message: parsed }, 400);
 
   if (!configured()) return json({ configured: false, floor: null, results: {} });
@@ -587,4 +608,4 @@ Deno.serve(async (req) => {
   for (const q of parsed.queries) results[q.name] = await runQuery(q, parsed.h);
 
   return json({ configured: true, floor: FLOOR, results });
-});
+}));

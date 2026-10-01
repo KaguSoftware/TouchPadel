@@ -41,7 +41,6 @@ export function SeriesDetailScreen() {
   const seriesQ = useQuery({
     queryKey: ['series', id],
     queryFn: () => appRpc<SeriesDetail | null>('series_detail', { p_series_id: id }),
-    retry: false,
     refetchInterval: 60_000,
   });
   const detail = seriesQ.data ?? null;
@@ -55,7 +54,6 @@ export function SeriesDetailScreen() {
     queryKey: ['customer', guestId ?? ''],
     enabled: Boolean(guestId) && !detail?.series.guest_name,
     queryFn: () => appRpc<CustomerRecord | null>('customer_record', { p_customer_id: guestId }),
-    retry: false,
   });
   const occurrences = detail?.occurrences ?? [];
   const summary = summarizeOccurrences(occurrences);

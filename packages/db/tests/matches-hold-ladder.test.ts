@@ -8,8 +8,9 @@
  * holds the way expire_stale_holds does with arguments: it never settles a
  * strike. Neither does the lazy expiry of hold_slot or staff_create_reservation.
  * A lapse is settled later, dated by the hold, by whichever comes first: the
- * guest's own next hold_slot, or tp_hold_sweep (expire_stale_holds() with no
- * arguments). This suite proves it.
+ * guest's own next hold_slot, or the cron pair tp_hold_sweep (expire_stale_holds()
+ * with no arguments) + tp_hold_strikes (hold_strikes_settle, its own transaction
+ * since 0268). This suite proves it.
  *
  * One rolled-back scenario at a branch made inside it (two courts), the ladder
  * line moved an hour back:
@@ -128,6 +129,7 @@ describe.skipIf(!docker)('the hold ladder and open matches (rolled back)', () =>
       RES('ph2h', 'ph_hold2', 'reservation_id'),
       X(`select pg_temp.lapse('ph2h')`),
       Q('ph_sweep', `select to_jsonb(app.expire_stale_holds())`),
+      Q('ph_settle', `select to_jsonb(app.hold_strikes_settle(null))`),
       K('ph_key', `select app.hold_standing_key({{ph}})`),
       Q('ph_standing', `select jsonb_build_object('phone_key', left(s.key, 2), 'strikes', s.strikes,
                                                   'waiting', s.blocked_until > now())
@@ -193,8 +195,9 @@ describe.skipIf(!docker)('the hold ladder and open matches (rolled back)', () =>
       Q('lazy', `select to_jsonb(app.expire_stale_holds({{c1}}, tstzrange(${at(10)}, ${at(10)} + interval '90 minutes', '[)')))`),
       Q('strike_ctl_before', `select pg_temp.strike('hch')`),
 
-      // 7. tp_hold_sweep's call.
+      // 7. tp_hold_sweep's call, then tp_hold_strikes' (0268: its own transaction).
       Q('hold_sweep', `select to_jsonb(app.expire_stale_holds())`),
+      Q('hold_strikes', `select to_jsonb(app.hold_strikes_settle(null))`),
       Q('strikes_after_hold_sweep', STRIKES('ha', 'hch', 'hdh', 'hwh')),
       Q('standings', STANDINGS('hl', 'hc', 'hb', 'hr', 'hd', 'hw')),
       E('hl_next', 'hl', HOLD('c1', at(11))),

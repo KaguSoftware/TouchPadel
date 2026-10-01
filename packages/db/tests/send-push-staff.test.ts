@@ -264,7 +264,7 @@ describe('staffMessage — params', () => {
 
   it('isolates typed text inside an Arabic sentence', () => {
     expect(msg('ar', 'run_live', { title: 'Matcha latte' }).body).toBe(
-      `${iso('Matcha latte')} متوفر الآن في القائمة.`,
+      `${iso('Matcha latte')} أصبح الآن في المنيو.`,
     );
     expect(msg('ar', 'shopping_to_approve', { name: 'Tiba' }).body).toBe(
       `أضاف ${iso('Tiba')} أغراضًا بانتظار موافقتك.`,

@@ -14,12 +14,14 @@ import {
   paymentRecordPayloadSchema,
   paymentRefundPayloadSchema,
   reservationCreatePayloadSchema,
+  reservationUpdatePayloadSchema,
   stockWastePayloadSchema,
   tabCancelPayloadSchema,
   tabOpenPayloadSchema,
   tabSettlePayloadSchema,
   tabSettleZeroPayloadSchema,
   ticketStatusPayloadSchema,
+  waiterCallActionPayloadSchema,
   type MutationEnvelope,
 } from './mutations';
 
@@ -145,17 +147,19 @@ describe('mutationEnvelopeSchema', () => {
     expect(!unknown.success && unknown.error.issues.some((i) => i.path.length === 1 && i.path[0] === 'mutationType')).toBe(true);
   });
 
-  it('still-TODO types accept any payload for now', () => {
-    const result = mutationEnvelopeSchema.safeParse({
-      localId: makeClientRef(STATION),
-      idempotencyKey: makeIdempotencyKey(STATION, 'reservation.update'),
-      mutationType: 'reservation.update',
-      payload: { anything: 'goes — TODO schema' },
-      createdAt: new Date().toISOString(),
-      staffId: UUID_STAFF,
-      deviceId: STATION,
-    });
-    expect(result.success).toBe(true);
+  it('no type accepts any payload any more: reservation.update and waiter_call.action are checked', () => {
+    for (const type of ['reservation.update', 'waiter_call.action'] as const) {
+      const result = mutationEnvelopeSchema.safeParse({
+        localId: makeClientRef(STATION),
+        idempotencyKey: makeIdempotencyKey(STATION, type),
+        mutationType: type,
+        payload: { anything: 'goes' },
+        createdAt: new Date().toISOString(),
+        staffId: UUID_STAFF,
+        deviceId: STATION,
+      });
+      expect(result.success, type).toBe(false);
+    }
   });
 
   it('drill-critical types now refuse junk payloads', () => {
@@ -400,7 +404,7 @@ describe('adjustment.apply payload', () => {
     kind: 'discount_percent' as const,
     tabId: UUID_A,
     value: 2500,
-    pin: '1234',
+    pin: '380517',
     reasonCode: 'staff_meal',
   });
 
@@ -411,7 +415,7 @@ describe('adjustment.apply payload', () => {
         kind: 'price_override',
         orderItemId: UUID_B,
         newUnitPriceIqd: 5000,
-        pin: '1234',
+        pin: '380517',
         reasonCode: 'damaged_item',
       }).success,
     ).toBe(true);
@@ -421,9 +425,21 @@ describe('adjustment.apply payload', () => {
     expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), value: 10_001 }).success).toBe(
       false,
     );
-    expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), pin: '12a4' }).success).toBe(
+    expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), pin: '38a517' }).success).toBe(
       false,
     );
+  });
+
+  it('takes the server PIN rule, 6-12 digits (0078), on both shapes', () => {
+    const override = { kind: 'price_override' as const, orderItemId: UUID_B, newUnitPriceIqd: 5000, reasonCode: 'x' };
+    for (const pin of ['1234', '12345', '1234567890123']) {
+      expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), pin }).success, pin).toBe(false);
+      expect(adjustmentApplyPayloadSchema.safeParse({ ...override, pin }).success, pin).toBe(false);
+    }
+    for (const pin of ['380517', '123456789012']) {
+      expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), pin }).success, pin).toBe(true);
+      expect(adjustmentApplyPayloadSchema.safeParse({ ...override, pin }).success, pin).toBe(true);
+    }
   });
 
   it('a price override must not carry a tabId — the item names the tab', () => {
@@ -432,7 +448,7 @@ describe('adjustment.apply payload', () => {
         kind: 'price_override',
         orderItemId: UUID_B,
         newUnitPriceIqd: 5000,
-        pin: '1234',
+        pin: '380517',
         reasonCode: 'damaged_item',
         tabId: UUID_A,
       }).success,
@@ -508,20 +524,26 @@ describe('item 9 / C3 payloads (0120)', () => {
     expect(tabSettleZeroPayloadSchema.safeParse({ tabId: 'not-a-uuid', reasonCode: 'x' }).success).toBe(false);
   });
 
-  it('payment.refund: a positive integer amount, a 4-12 digit pin, optional non-empty items, no prices', () => {
-    const base = { paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'wrong_item' };
+  it('payment.refund: a positive integer amount, a 6-12 digit pin, optional non-empty items, no prices', () => {
+    const base = { paymentId: UUID_A, amountIqd: 5000, pin: '380517', reasonCode: 'wrong_item' };
     expect(paymentRefundPayloadSchema.safeParse(base).success).toBe(true);
     expect(paymentRefundPayloadSchema.safeParse({ ...base, items: [{ orderItemId: UUID_B, qty: 1 }] }).success).toBe(true);
     expect(paymentRefundPayloadSchema.safeParse({ ...base, items: [] }).success).toBe(false);
     expect(paymentRefundPayloadSchema.safeParse({ ...base, amountIqd: 1.5 }).success).toBe(false);
     expect(paymentRefundPayloadSchema.safeParse({ ...base, amountIqd: 0 }).success).toBe(false);
-    expect(paymentRefundPayloadSchema.safeParse({ ...base, pin: '12a4' }).success).toBe(false);
+    expect(paymentRefundPayloadSchema.safeParse({ ...base, pin: '38a517' }).success).toBe(false);
     expect(paymentRefundPayloadSchema.safeParse({ ...base, unitPriceIqd: 1 }).success).toBe(false);
   });
 
   it('order_item.void: the line, the pin and the reason', () => {
     expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, pin: '123456', reasonCode: 'dropped' }).success).toBe(true);
     expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, reasonCode: 'dropped' }).success).toBe(false);
+  });
+
+  it('refund and void refuse a PIN shorter than the server allows (6-12 digits, 0078)', () => {
+    expect(paymentRefundPayloadSchema.safeParse({ paymentId: UUID_A, amountIqd: 1, pin: '1234', reasonCode: 'x' }).success).toBe(false);
+    expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, pin: '12345', reasonCode: 'x' }).success).toBe(false);
+    expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, pin: '1234567890123', reasonCode: 'x' }).success).toBe(false);
   });
 
   it('stock.waste: a positive numeric quantity, the two waste movements only, spill by default', () => {
@@ -544,8 +566,8 @@ describe('item 9 / C3 payloads (0120)', () => {
     const cases = [
       ['tab.cancel', { tabId: UUID_A, reasonCode: 'duplicate' }],
       ['tab.settle_zero', { tabId: UUID_A, reasonCode: 'nothing_owed' }],
-      ['payment.refund', { paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'goodwill' }],
-      ['order_item.void', { orderItemId: UUID_B, pin: '1234', reasonCode: 'dropped' }],
+      ['payment.refund', { paymentId: UUID_A, amountIqd: 5000, pin: '380517', reasonCode: 'goodwill' }],
+      ['order_item.void', { orderItemId: UUID_B, pin: '380517', reasonCode: 'dropped' }],
     ] as const;
     for (const [type, payload] of cases) {
       const env = {
@@ -559,6 +581,65 @@ describe('item 9 / C3 payloads (0120)', () => {
       };
       expect(mutationEnvelopeSchema.safeParse(env).success, type).toBe(true);
       expect(mutationEnvelopeSchema.safeParse({ ...env, payload: { anything: 'goes' } }).success, type).toBe(false);
+    }
+  });
+});
+
+describe('reservation.update and waiter_call.action payloads (what replay reads)', () => {
+  const START = '2026-10-01T18:00:00.000Z';
+  const END = '2026-10-01T19:30:00.000Z';
+
+  it('accepts each desk action exactly as the call sites send it', () => {
+    const ok = [
+      { action: 'move', reservationId: UUID_A, courtId: UUID_B, startAt: START, endAt: END, reason: 'weather: court 2 wet' },
+      { action: 'extend', reservationId: UUID_A, newEndAt: END, reason: 'customer_request' },
+      { action: 'cancel', reservationId: UUID_A, reason: 'customer_request' },
+      { action: 'mark', reservationId: UUID_A, status: 'arrived' },
+      { action: 'mark', reservationId: UUID_A, status: 'no_show', reason: 'no_show' },
+      { action: 'mark', reservationId: UUID_A, status: 'completed', reason: undefined },
+      { action: 'cancel', reservationId: UUID_A, reason: null },
+    ];
+    for (const p of ok) expect(reservationUpdatePayloadSchema.safeParse(p).success, JSON.stringify(p)).toBe(true);
+  });
+
+  it('refuses what replay would 400 on or misroute', () => {
+    const bad = [
+      { action: 'upgrade', reservationId: UUID_A },
+      { action: 'move', reservationId: 'r1', courtId: UUID_B },
+      { action: 'extend', reservationId: UUID_A },
+      { action: 'extend', reservationId: UUID_A, newEndAt: 'tomorrow' },
+      { action: 'mark', reservationId: UUID_A, status: 'cancelled' },
+      { action: 'cancel', reservationId: UUID_A, priceIqd: 0 },
+      { action: 'cancel', reservationId: UUID_A, reason: 'x'.repeat(301) },
+    ];
+    for (const p of bad) expect(reservationUpdatePayloadSchema.safeParse(p).success, JSON.stringify(p)).toBe(false);
+  });
+
+  it('waiter_call.action: a call id and ack or resolve, nothing else', () => {
+    expect(waiterCallActionPayloadSchema.safeParse({ callId: UUID_A, action: 'ack' }).success).toBe(true);
+    expect(waiterCallActionPayloadSchema.safeParse({ callId: UUID_A, action: 'resolve' }).success).toBe(true);
+    // Replay sends anything but 'resolve' to ack: a typo would acknowledge a call meant to close.
+    expect(waiterCallActionPayloadSchema.safeParse({ callId: UUID_A, action: 'close' }).success).toBe(false);
+    expect(waiterCallActionPayloadSchema.safeParse({ callId: 'c1', action: 'ack' }).success).toBe(false);
+    expect(waiterCallActionPayloadSchema.safeParse({ callId: UUID_A, action: 'ack', tabId: UUID_B }).success).toBe(false);
+  });
+
+  it('an envelope of each is minted and accepted with a matching key', () => {
+    const cases = [
+      ['reservation.update', { action: 'cancel', reservationId: UUID_A, reason: 'customer_request' }],
+      ['waiter_call.action', { callId: UUID_A, action: 'resolve' }],
+    ] as const;
+    for (const [type, payload] of cases) {
+      const env = {
+        localId: makeClientRef(STATION),
+        idempotencyKey: makeIdempotencyKey(STATION, type),
+        mutationType: type,
+        payload,
+        createdAt: new Date().toISOString(),
+        staffId: UUID_STAFF,
+        deviceId: STATION,
+      };
+      expect(mutationEnvelopeSchema.safeParse(env).success, type).toBe(true);
     }
   });
 });

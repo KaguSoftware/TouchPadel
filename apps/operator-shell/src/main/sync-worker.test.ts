@@ -172,7 +172,7 @@ describe('startSyncWorker', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.state).toBe('pending');
     expect(rows[0]!.attempts).toBe(1);
-    expect(rows[0]!.lastError).toBe('server 503');
+    expect(rows[0]!.lastError).toBe('server 503: RETRY_LATER');
     expect(results).toEqual([]);
     expect(peekNext()?.idempotencyKey).toBe(m.idempotencyKey);
   });
@@ -296,6 +296,149 @@ describe('startSyncWorker', () => {
     expect(row?.state).toBe('pending');
     expect(row?.lastError).toMatch(/401/);
     expect(results).toEqual([]);
+  });
+
+  it('a 401 pauses replay until a DIFFERENT token is pushed — no resend of the refused one', async () => {
+    const m = envelope();
+    enqueue(m);
+    const { fetchImpl, calls } = makeFetch([{ status: 401, body: { error: 'staff session required' } }]);
+    // A fast timer this time: the old worker reset its backoff on a 401 and the
+    // 3 s tick resent the same rejected token forever.
+    const w = startSyncWorker({ onResult: (r) => results.push(r), onActivity: () => {}, fetchImpl, tickMs: 5 });
+    worker = w;
+    await w.idle();
+    expect(calls).toHaveLength(1);
+    await new Promise((r) => setTimeout(r, 60));
+    w.kick(); // a new sale enqueued meanwhile kicks the worker
+    enqueue(envelope());
+    w.kick();
+    await w.idle();
+    expect(calls).toHaveLength(1);
+    expect(peekNext()?.state).toBe('pending');
+    expect(results).toEqual([]);
+
+    // The renderer re-pushing the SAME session (a SIGNED_IN echo) changes nothing.
+    setAuthState({ ...AUTH });
+    await w.idle();
+    expect(calls).toHaveLength(1);
+
+    // TOKEN_REFRESHED: a new token un-pauses and is the one sent.
+    setAuthState({ ...AUTH, accessToken: 'jwt-fresh' });
+    await w.idle();
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect((calls[1]!.init.headers as Record<string, string>).authorization).toBe('Bearer jwt-fresh');
+  });
+
+  it('501 RPC_NOT_DEPLOYED and 503 DEGRADED_LOCKOUT wait with backoff — never a conflict or a failure', async () => {
+    for (const [status, code] of [
+      [501, 'RPC_NOT_DEPLOYED'],
+      [503, 'DEGRADED_LOCKOUT'],
+    ] as const) {
+      openQueue().exec('DELETE FROM mutation_queue;');
+      results.length = 0;
+      const m = envelope();
+      enqueue(m);
+      const { fetchImpl, calls } = makeFetch([
+        { status, body: { result: 'retry', code, message: code } },
+        { status: 200, body: { result: 'applied' } },
+      ]);
+      const w = start(fetchImpl);
+      w.kick();
+      await w.idle();
+      const row = peekNext();
+      expect(row?.state, code).toBe('pending');
+      expect(row?.lastError, code).toBe(`server ${status}: ${code}`);
+      expect(queueStatus().conflicts, code).toBe(0);
+      expect(queueStatus().failed, code).toBe(0);
+      expect(results, code).toEqual([]);
+      // The backoff holds the timer path; the next attempt (here a kick) applies it.
+      w.kick();
+      await w.idle();
+      expect(calls, code).toHaveLength(2);
+      expect(queueStatus().blocking, code).toBe(0);
+      w.stop();
+      worker = null;
+    }
+  });
+
+  it('a 400 cascade (its tab.open never applied) is a failure that does not wedge the queue', async () => {
+    const order = envelope({ payload: { tabIdemKey: 'TILL1:tab.open:01J0000000000000000000000X', items: [] } });
+    const next = envelope();
+    enqueue(order);
+    enqueue(next);
+    const { fetchImpl } = makeFetch([
+      { status: 400, body: { error: "no tab for tabIdemKey 'TILL1:tab.open:01J0000000000000000000000X' — its tab.open never applied" } },
+      { status: 200, body: { result: 'applied' } },
+    ]);
+    const w = start(fetchImpl);
+    w.kick();
+    await w.idle();
+    expect(results.map((r) => r.state)).toEqual(['failed', 'acked']);
+    expect(listBlockingRows()[0]!.lastError).toMatch(/^400: no tab for tabIdemKey/);
+  });
+
+  it('cuts a POST that never answers at the deadline, and the queue moves on', async () => {
+    const stuck = envelope();
+    enqueue(stuck);
+    let call = 0;
+    const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+      call += 1;
+      // The first request is swallowed by the network (and ignores its signal);
+      // the second, after the backoff, gets through.
+      if (call === 1) return new Promise<Response>(() => {});
+      expect(init?.signal).toBeDefined();
+      return new Response(JSON.stringify({ result: 'applied' }), { status: 200 });
+    }) as typeof fetch;
+    const w = startSyncWorker({
+      onResult: (r) => results.push(r),
+      onActivity: () => {},
+      fetchImpl,
+      tickMs: 3_600_000,
+      requestTimeoutMs: 30,
+    });
+    worker = w;
+    await w.idle();
+    const row = peekNext();
+    expect(row?.state).toBe('pending');
+    expect(row?.lastError).toMatch(/timeout after 30 ms/);
+    expect(results).toEqual([]);
+    w.kick();
+    await w.idle();
+    expect(queueStatus().blocking).toBe(0);
+  });
+
+  it('cuts an answer whose body never finishes, too', async () => {
+    enqueue(envelope());
+    const fetchImpl = (async () =>
+      new Response(new ReadableStream({ start() {} }), { status: 200 })) as unknown as typeof fetch;
+    const w = startSyncWorker({
+      onResult: (r) => results.push(r),
+      onActivity: () => {},
+      fetchImpl,
+      tickMs: 3_600_000,
+      requestTimeoutMs: 30,
+    });
+    worker = w;
+    await w.idle();
+    expect(peekNext()?.state).toBe('pending');
+    expect(peekNext()?.lastError).toMatch(/timeout/);
+    expect(results).toEqual([]); // not acked on a body nobody read
+  });
+
+  it('stop() cuts the POST in flight and leaves its row pending', async () => {
+    enqueue(envelope());
+    let seen: AbortSignal | undefined;
+    const fetchImpl = ((_url: string | URL | Request, init?: RequestInit) => {
+      seen = init?.signal ?? undefined;
+      return new Promise<Response>(() => {});
+    }) as typeof fetch;
+    const w = startSyncWorker({ onResult: (r) => results.push(r), onActivity: () => {}, fetchImpl, tickMs: 3_600_000 });
+    worker = w;
+    await new Promise((r) => setTimeout(r, 0));
+    w.stop();
+    await w.idle();
+    expect(seen?.aborted).toBe(true);
+    expect(peekNext()?.state).toBe('pending');
   });
 
   it('acked rows clear degraded-by-worker on the next success', async () => {

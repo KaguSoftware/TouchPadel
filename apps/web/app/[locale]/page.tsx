@@ -7,6 +7,7 @@ import { SITE_THEME_COLOR } from '@/lib/site/themeColor';
 import { crossesMidnight, everyDayWindow, formatWindow } from '@/lib/site/hours';
 import { cafePhoneMenu } from '@/lib/site/landing';
 import { siteOrigin } from '@/lib/site/origin';
+import { siteOgImage } from '@/lib/site/ogImage';
 import { buildLandingJsonLd, jsonLdString } from '@/lib/site/jsonLd';
 import { getStoreLinks } from '@/lib/site/stores';
 import { SiteShell } from '@/components/site/SiteShell';
@@ -57,7 +58,7 @@ export async function generateMetadata({
   const tr = makeT(locale);
   const title = tr('site.seo.title');
   const description = tr('site.seo.description');
-  const og = `/brand/site/og-touch-padel-${locale}.png`;
+  const og = siteOgImage(locale);
   return {
     title: { absolute: title },
     description,

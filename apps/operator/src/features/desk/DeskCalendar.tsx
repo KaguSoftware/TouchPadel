@@ -308,7 +308,6 @@ export function DeskCalendar() {
     enabled: Boolean(search.customer),
     queryFn: () =>
       appRpc<CustomerRecord | null>('customer_record', { p_customer_id: search.customer }),
-    retry: false,
   });
   const bookFor: PickedCustomer | null =
     search.customer && bookForQ.data

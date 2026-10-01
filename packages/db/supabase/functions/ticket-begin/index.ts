@@ -24,23 +24,22 @@
  * payment paid or failed.
  */
 import { checkNow, createAtGateway, describe, loadPayment } from '../_shared/deposits.ts';
-import { json } from '../_shared/http.ts';
+import { handle, json, KB, readJsonBody } from '../_shared/http.ts';
 import { configuredProviderName } from '../_shared/payments/index.ts';
 import { createServiceClient, getCallerUserId } from '../_shared/supabase.ts';
 import { beginTickets, parseTicketBegin, type PreparedTicket } from './logic.ts';
 
 const env = (name: string) => Deno.env.get(name);
 
-Deno.serve(async (req) => {
+Deno.serve(handle('ticket-begin', async (req) => {
   if (req.method !== 'POST') return json({ error: 'BAD_REQUEST', message: 'POST only' }, 405);
 
-  let raw: unknown;
-  try {
-    raw = await req.json();
-  } catch {
-    return json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400);
-  }
-  const parsed = parseTicketBegin(raw);
+  const read = await readJsonBody(req, {
+    maxBytes: 4 * KB,
+    badJson: () => json({ error: 'BAD_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!read.ok) return read.response;
+  const parsed = parseTicketBegin(read.value);
   if (!parsed.ok) return json({ error: 'BAD_REQUEST', message: parsed.message }, 400);
   const { count, locale } = parsed.value;
 
@@ -81,4 +80,4 @@ Deno.serve(async (req) => {
     now: () => Date.now(),
   });
   return json(answer.body, answer.status);
-});
+}));

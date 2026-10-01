@@ -42,7 +42,6 @@ export function HoldReviewsPanel() {
     queryKey: holdReviewsKey(branch),
     queryFn: () => fetchHoldReviews(branch),
     refetchInterval: 60_000,
-    retry: false,
   });
   const rows = q.data ?? [];
   if (rows.length === 0 && !q.error) return null;
@@ -77,7 +76,6 @@ export function CustomerHoldStanding({ customerId }: { customerId: string }) {
   const q = useQuery({
     queryKey: guestHoldStandingKey(customerId),
     queryFn: () => fetchGuestHoldStanding(customerId),
-    retry: false,
   });
   if (!showHoldStanding(q.data)) return null;
   return (

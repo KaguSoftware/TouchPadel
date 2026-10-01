@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { QueryCache, QueryClient, MutationCache, focusManager, onlineManager } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { isRetryableError } from '@touch/core';
 import { errorMessageOf, isTransportError } from './network';
 import { addBreadcrumb, captureException, captureMessage } from './telemetry';
 
@@ -62,16 +63,26 @@ function isAppRefusal(error: unknown): boolean {
 
 /**
  * A Supabase RPC business error is a decision, not a blip — retrying it just
- * burns time before showing the user the same message. Retry transport
- * failures (lib/network.ts) and server faults only.
+ * burns time before showing the user the same message. The one predicate every
+ * client uses (`isRetryableError`, @touch/core net/retry.ts) retries transport
+ * failures, timeouts (every request has a deadline, lib/supabase.ts), server
+ * faults (5xx, 429) and the transient SQLSTATEs (deadlock, statement timeout);
+ * never a raised app code, a 4xx or any other SQLSTATE.
+ *
+ * It used to retry anything that did not LOOK like an app code, so a
+ * permission error or a missing function was asked three more times.
  */
-function isRetriable(error: unknown): boolean {
-  if (isTransportError(error)) return true;
-  const message = errorMessageOf(error) ?? '';
-  // PostgREST/PostgREST-adjacent server faults are worth one more go.
-  if (/\b(5\d\d)\b/.test(message)) return true;
-  // Anything that reads like a raised app code (SLOT_TAKEN, FORBIDDEN, …) is final.
-  return !isAppRefusal(error);
+export function isRetriable(error: unknown): boolean {
+  return isRetryableError(error);
+}
+
+/**
+ * Retry for a write that is safe to send twice: one more go, for a failure
+ * the server never judged. Only for writes that carry an idempotency key or
+ * whose RPC answers a repeat with its first answer — see `mutations` below.
+ */
+export function retryKeyedWriteOnce(failureCount: number, error: unknown): boolean {
+  return failureCount < 1 && isRetriable(error);
 }
 
 /**
@@ -106,10 +117,15 @@ export const queryClient = new QueryClient({
       networkMode: 'offlineFirst',
     },
     mutations: {
-      // A write that never left the device is safe to retry; one that may have
-      // committed is not. Idempotency keys make hold_slot safe either way
-      // (see src/lib/idempotency.ts), so one retry is the right budget.
-      retry: (failureCount, error) => failureCount < 1 && isRetriable(error),
+      // Never automatic by default. A write whose answer was lost may well have
+      // committed, and sending it again is only safe when the server can tell
+      // the repeat from a new write: an idempotency key (hold_slot, match_start,
+      // the staff writes), or an RPC that answers a repeat with its first answer
+      // (confirm_booking, the deposit and match families). Those opt in with
+      // `retryKeyedWriteOnce` (per hook, or per family below). cancel_reservation
+      // has neither: its automatic retry got NOT_CANCELLABLE for a booking the
+      // first attempt had cancelled, and the guest read "cannot cancel".
+      retry: false,
       networkMode: 'offlineFirst',
     },
   },
@@ -121,6 +137,17 @@ export const queryClient = new QueryClient({
       reportFailure(error, { scope: 'mutation', mutationKey: mutation.options.mutationKey }),
   }),
 });
+
+/**
+ * The guest's booking writes that are safe to send twice (features/booking/
+ * hooks.ts keys): hold_slot carries a per-intent idempotency key
+ * (src/lib/idempotency.ts), and confirm_booking answers a repeat on a booking
+ * it already confirmed with `{ duplicate: true }` and the same reservation —
+ * the hold id is its key. Both may pause offline and go on reconnect, as
+ * before. cancel_reservation is NOT here: see the mutation default above.
+ */
+queryClient.setMutationDefaults(['hold-slot'], { retry: retryKeyedWriteOnce });
+queryClient.setMutationDefaults(['confirm-booking'], { retry: retryKeyedWriteOnce });
 
 /**
  * Staff writes run now or fail now (build-contracts-2026-09-23 §6.4).
@@ -136,7 +163,7 @@ export const queryClient = new QueryClient({
  */
 queryClient.setMutationDefaults(['staff', 'mutation'], {
   networkMode: 'always',
-  retry: (failureCount, error) => failureCount < 1 && isRetriable(error),
+  retry: retryKeyedWriteOnce,
 });
 
 /**
@@ -155,7 +182,7 @@ queryClient.setMutationDefaults(['staff', 'mutation'], {
  */
 queryClient.setMutationDefaults(['deposit', 'mutation'], {
   networkMode: 'always',
-  retry: (failureCount, error) => failureCount < 1 && isRetriable(error),
+  retry: retryKeyedWriteOnce,
 });
 queryClient.setQueryDefaults(['deposit', 'quote'], {
   retry: (failureCount, error) => failureCount < 1 && isTransportError(error),
@@ -177,7 +204,7 @@ queryClient.setQueryDefaults(['deposit', 'quote'], {
  */
 queryClient.setMutationDefaults(['match', 'mutation'], {
   networkMode: 'always',
-  retry: (failureCount, error) => failureCount < 1 && isRetriable(error),
+  retry: retryKeyedWriteOnce,
 });
 queryClient.setQueryDefaults(['match', 'slots'], {
   retry: (failureCount, error) => failureCount < 1 && isTransportError(error),

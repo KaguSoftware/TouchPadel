@@ -222,7 +222,7 @@ describe('ItemForm: an item in release', () => {
   it('reads in Arabic', () => {
     renderForm(itemRow(IN_RELEASE), 'cafe', 'ar');
     expect(screen.getByText('قيد الإطلاق: ⁨Pistachio latte⁩')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'افتح الإطلاق' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'فتح الإطلاق' })).toBeTruthy();
   });
 });
 

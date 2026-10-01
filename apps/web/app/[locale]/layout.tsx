@@ -9,6 +9,7 @@ import { siteNightVars } from '@touch/ui/tokens/site';
 import { dirAttr, t } from '@touch/i18n';
 import { asLocale, LOCALES } from '@/lib/locales';
 import { siteOrigin } from '@/lib/site/origin';
+import { siteOgImage } from '@/lib/site/ogImage';
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -70,7 +71,7 @@ export async function generateMetadata({
   // Iraq"); the document title default is the bare name.
   const title = t(locale, 'site.seo.title');
   const description = t(locale, 'site.seo.description');
-  const ogImage = `/brand/site/og-touch-padel-${locale}.png`;
+  const ogImage = siteOgImage(locale);
   return {
     // The one origin (src/lib/site/origin.ts): robots, the sitemap and the
     // JSON-LD read the same value, empty and unset env handled the same way.

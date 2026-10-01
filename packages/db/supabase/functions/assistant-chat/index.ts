@@ -51,10 +51,11 @@
  * NOT replayed on later turns (the sources panel has them; plan §11.4 forgets
  * old tool results anyway), so a stored turn is always API-valid.
  */
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { createServiceClient } from '../_shared/supabase.ts';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { callerClient, createServiceClient } from '../_shared/supabase.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
-import { json, mapPgError } from '../_shared/http.ts';
+import { fetchWithTimeout, handle, isUuid, json, KB, logError, mapPgError, readJsonBody } from '../_shared/http.ts';
+import { insertAtNextSeq } from '../_shared/assistant/seq.ts';
 import {
   clean,
   CleanError,
@@ -117,8 +118,29 @@ const TAIL_MESSAGES = 30;
 const SEARCH_LIMIT = 12;
 const DEFAULT_TZ = 'Asia/Baghdad';
 const SURFACE = 'assistant';
+/**
+ * The message is at most 8000 characters (parseBody): 32 KB even if every one
+ * were a 4-byte character, plus scopes, range and ids. 64 KB, then 413.
+ */
+const MAX_BODY = 64 * KB;
+/** One posthog tool call through analytics-posthog (which itself retries PostHog). */
+const POSTHOG_TIMEOUT_MS = 25_000;
 
 type Lang = 'en' | 'ar';
+
+/**
+ * The sentence a failed turn shows and stores, by code. The vendor's or the
+ * runtime's own text goes to the log only (it can carry request ids, model
+ * internals or a database message); a code without a sentence here gets the
+ * UPSTREAM one.
+ */
+const TURN_ERROR_TEXT: Record<string, string> = {
+  UPSTREAM: 'the model call failed',
+  RATE_LIMITED: 'the model is rate-limited right now; try again in a minute',
+  NOT_CONFIGURED: 'the model is not configured',
+  TIMEOUT: `the turn did not finish inside ${WALL_MS / 1000} s`,
+};
+const turnErrorText = (code: string) => TURN_ERROR_TEXT[code] ?? TURN_ERROR_TEXT.UPSTREAM!;
 
 interface Req {
   conversation_id: string | null;
@@ -153,7 +175,6 @@ interface CallRow {
   cost_micros: number;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** "… context is off for this chat" in either language — the sentence the prompt reserves for a real scope refusal. */
 const FALSE_REFUSAL_RE = /context is off for this chat|is off for this chat|مغلق لهذ|مغلقة لهذ|السياق.{0,20}(مغلق|معطل|غير مفعل)/i;
 
@@ -161,7 +182,7 @@ function parseBody(body: unknown): Req | string {
   if (!body || typeof body !== 'object') return 'body must be an object';
   const b = body as Record<string, unknown>;
   const conversation_id = b.conversation_id === null || b.conversation_id === undefined ? null : String(b.conversation_id);
-  if (conversation_id && !UUID_RE.test(conversation_id)) return 'conversation_id must be a uuid';
+  if (conversation_id && !isUuid(conversation_id)) return 'conversation_id must be a uuid';
   const text = typeof b.text === 'string' ? b.text.trim() : '';
   const dry_run = b.dry_run === true;
   if (!dry_run && !text) return 'text is required';
@@ -181,7 +202,7 @@ function parseBody(body: unknown): Req | string {
 /** A body's `venue_scope`: a uuid, null when absent, false when malformed. */
 function venueScopeOf(b: Record<string, unknown>): string | null | false {
   if (b.venue_scope === undefined || b.venue_scope === null) return null;
-  return typeof b.venue_scope === 'string' && UUID_RE.test(b.venue_scope) ? b.venue_scope : false;
+  return isUuid(b.venue_scope) ? b.venue_scope : false;
 }
 
 /**
@@ -192,14 +213,27 @@ function venueScopeOf(b: Record<string, unknown>): string | null | false {
  * no browser CORS rule is involved.
  */
 function ownerClient(req: Request, venueScope: string | null = null): SupabaseClient {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: {
-      headers: {
-        Authorization: req.headers.get('Authorization')!,
-        ...(venueScope ? { 'x-venue-scope': venueScope } : {}),
-      },
-    },
+  return callerClient(req, venueScope ? { 'x-venue-scope': venueScope } : {});
+}
+
+/** The highest seq of a conversation, 0 when it has none (assistant/seq.ts ports). */
+async function maxSeq(service: SupabaseClient, conversationId: string): Promise<number> {
+  const { data, error } = await service
+    .from('assistant_messages')
+    .select('seq')
+    .eq('conversation_id', conversationId)
+    .order('seq', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { seq?: number } | null)?.seq ?? 0;
+}
+
+/** Insert one assistant_messages row at the conversation's next seq, race-free (assistant/seq.ts). */
+function insertMessage(service: SupabaseClient, conversationId: string, row: Record<string, unknown>) {
+  return insertAtNextSeq({
+    maxSeq: () => maxSeq(service, conversationId),
+    insert: async (seq) => (await service.from('assistant_messages').insert({ ...row, conversation_id: conversationId, seq })).error,
   });
 }
 
@@ -336,16 +370,27 @@ async function runPosthog(ctx: DispatchCtx, spec: ToolSpec, input: Record<string
     queries: [{ name: template, from: input.from, to: input.to, params }],
     business_day_start_hour: await businessDayStartHour(ctx.asOwner, ctx.venueScope ?? null),
   };
-  const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/${POSTHOG_FN}`, {
-    method: 'POST',
-    headers: { Authorization: ctx.authorization, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '', 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = (await res.text()).slice(0, 200);
-    return { cleaned: cleanedNotice(`${POSTHOG_FN} answered ${res.status}: ${text}`), isError: true, row_count: null };
+  let res: Response;
+  let answer: PosthogAnswer;
+  try {
+    res = await fetchWithTimeout(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/${POSTHOG_FN}`,
+      {
+        method: 'POST',
+        headers: { Authorization: ctx.authorization, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      POSTHOG_TIMEOUT_MS,
+    );
+    if (!res.ok) {
+      const text = (await res.text()).slice(0, 200);
+      return { cleaned: cleanedNotice(`${POSTHOG_FN} answered ${res.status}: ${text}`), isError: true, row_count: null };
+    }
+    answer = (await res.json()) as PosthogAnswer;
+  } catch (e) {
+    logError('assistant-chat', e, `${POSTHOG_FN} call failed`);
+    return { cleaned: cleanedNotice(`${POSTHOG_FN} could not be reached`), isError: true, row_count: null };
   }
-  const answer = (await res.json()) as PosthogAnswer;
   if (answer.configured === false) return { cleaned: cleanedNotice('PostHog is not configured for this venue'), isError: true, row_count: null };
   const result = answer.results?.[template];
   if (!result) return { cleaned: cleanedNotice(`${POSTHOG_FN} returned nothing for ${template}`), isError: true, row_count: null };
@@ -630,9 +675,12 @@ function storedText(content: unknown): string {
   return blocks.filter((b) => b.type === 'text' && typeof b.text === 'string').map((b) => b.text as string).join('\n');
 }
 
+/** The re-check's own time box ran out: its message is ours, safe to show. */
+class RecheckDeadline extends Error {}
+
 function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`not finished inside the ${RECHECK_WALL_MS / 1000} s time box`)), Math.max(0, ms));
+    const t = setTimeout(() => reject(new RecheckDeadline(`not finished inside the ${RECHECK_WALL_MS / 1000} s time box`)), Math.max(0, ms));
     p.then(
       (v) => {
         clearTimeout(t);
@@ -649,13 +697,20 @@ function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
 async function handleRecheck(req: Request, service: SupabaseClient, ownerId: string, recheck: unknown, venueScope: string | null = null): Promise<Response> {
   const started = Date.now();
   const messageId = recheck && typeof recheck === 'object' ? String((recheck as { message_id?: unknown }).message_id ?? '') : '';
-  if (!UUID_RE.test(messageId)) return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'recheck.message_id must be a uuid' }, 400);
+  if (!isUuid(messageId)) return json({ error: 'INVALID_REQUEST', code: 'INVALID_REQUEST', message: 'recheck.message_id must be a uuid' }, 400);
 
   const { data: msg, error } = await service.from('assistant_messages').select('id, conversation_id, role, content, sources, gate').eq('id', messageId).maybeSingle();
-  if (error) return json({ error: 'INTERNAL', message: error.message }, 500);
+  if (error) {
+    logError('assistant-chat', error, 'recheck message read failed');
+    return json({ error: 'INTERNAL' }, 500);
+  }
   const row = msg as { id: string; conversation_id: string; role: string; content: unknown; sources: unknown; gate: { numbers?: unknown } | null } | null;
   if (!row || row.role !== 'assistant') return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'assistant message not found' }, 404);
-  const { data: conv } = await service.from('assistant_conversations').select('id, owner_id, scopes, handles').eq('id', row.conversation_id).maybeSingle();
+  const { data: conv, error: convErr } = await service.from('assistant_conversations').select('id, owner_id, scopes, handles').eq('id', row.conversation_id).maybeSingle();
+  if (convErr) {
+    logError('assistant-chat', convErr, 'recheck conversation read failed');
+    return json({ error: 'INTERNAL' }, 500);
+  }
   const c = conv as { owner_id: string; scopes: unknown; handles: unknown } | null;
   if (!c) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'conversation not found' }, 404);
   if (c.owner_id !== ownerId) return json({ error: 'FORBIDDEN', code: 'FORBIDDEN', message: 'not your conversation' }, 403);
@@ -697,7 +752,12 @@ async function handleRecheck(req: Request, service: SupabaseClient, ownerId: str
       if (r.isError) out.error = r.cleaned.text.slice(0, 300);
       else live.push(...r.cleaned.numbers);
     } catch (e) {
-      out.error = errorText(e).slice(0, 300);
+      // Ours (a clean refusal, the time box) is shown; anything else is logged.
+      if (e instanceof CleanError || e instanceof RecheckDeadline) out.error = errorText(e).slice(0, 300);
+      else {
+        logError('assistant-chat', e, `recheck ${spec.name} failed`);
+        out.error = 'the tool failed';
+      }
     }
     out.ms = Date.now() - t0;
     tools.push(out);
@@ -710,19 +770,19 @@ async function handleRecheck(req: Request, service: SupabaseClient, ownerId: str
 }
 
 // ---------------------------------------------------------------------------
-Deno.serve(async (req) => {
+Deno.serve(handle('assistant-chat', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
   const service = createServiceClient();
   const auth = await requireStaffRole(req, service, ['owner']);
   if (auth instanceof Response) return auth;
 
-  let raw: unknown;
-  try {
-    raw = await req.json();
-  } catch {
-    return json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400);
-  }
+  const body = await readJsonBody(req, {
+    maxBytes: MAX_BODY,
+    badJson: () => json({ error: 'INVALID_REQUEST', message: 'invalid JSON body' }, 400),
+  });
+  if (!body.ok) return body.response;
+  const raw: unknown = body.value;
   // Re-check: tools only, no model, no quota, no writes (header).
   if (raw && typeof raw === 'object' && 'recheck' in raw) {
     const scope = venueScopeOf(raw as Record<string, unknown>);
@@ -754,10 +814,33 @@ Deno.serve(async (req) => {
   if (parsed.model && !venueModel.priced.includes(parsed.model)) {
     return json({ error: 'ASSISTANT_MODEL_NOT_PRICED', code: 'ASSISTANT_MODEL_NOT_PRICED', message: `${parsed.model} is not in platform_settings.llm_pricing` }, 400);
   }
-  // The vendor follows the model (provider.ts vendorFor); no key for it → 503 before any write.
-  const provisionalModel = parsed.model ?? venueModel.default_model;
-  if (!providerFromEnv(env, provisionalModel)) {
-    return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: notConfiguredMessage(env, provisionalModel) }, 503);
+  // The conversation, read and checked FIRST: the caller must own it before
+  // anything is spent or written (W2 #13: the paid quota used to be debited
+  // before this check, so another owner's conversation id cost a request).
+  type Conv = { id: string; scopes: string[]; range: unknown; handles: unknown; tokens: Record<string, number> | null; title: string | null; model: string | null };
+  let existing: Conv | null = null;
+  if (parsed.conversation_id) {
+    const { data, error } = await service
+      .from('assistant_conversations')
+      .select('id, owner_id, scopes, range, handles, tokens, title, archived_at, model')
+      .eq('id', parsed.conversation_id)
+      .maybeSingle();
+    if (error) {
+      logError('assistant-chat', error, 'conversation read failed');
+      return json({ error: 'INTERNAL' }, 500);
+    }
+    if (!data) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'conversation not found' }, 404);
+    if ((data as { owner_id: string }).owner_id !== auth.userId) return json({ error: 'FORBIDDEN', message: 'not your conversation' }, 403);
+    existing = data as Conv;
+  }
+
+  // 0114: the request's model, else this chat's, else the venue default, else
+  // ANTHROPIC_MODEL. The vendor follows the model (provider.ts vendorFor); no
+  // key for it → 503 before the quota and before any write.
+  const chatModel = parsed.model ?? existing?.model ?? venueModel.default_model;
+  const provider = providerFromEnv(env, chatModel);
+  if (!provider) {
+    return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: notConfiguredMessage(env, chatModel) }, 503);
   }
 
   // The quota gate (SEC-29): our own ceiling, so 429 not 502.
@@ -768,28 +851,22 @@ Deno.serve(async (req) => {
       const which = code.includes('LLM_MONTHLY_CAP') ? 'LLM_MONTHLY_CAP' : 'LLM_DAILY_QUOTA';
       return json({ error: which, code: which, message: budget.error.details ?? code, hint: budget.error.hint ?? null }, 429);
     }
-    console.error('[assistant-chat] budget gate failed', code);
-    return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: code }, 502);
+    logError('assistant-chat', budget.error, 'budget gate failed');
+    return json({ error: 'UPSTREAM', code: 'UPSTREAM' }, 502);
   }
 
-  // Load or create the conversation (service; owner_id is the caller)
-  let conv: { id: string; scopes: string[]; range: unknown; handles: unknown; tokens: Record<string, number> | null; title: string | null; model: string | null };
-  if (parsed.conversation_id) {
-    const { data, error } = await service
-      .from('assistant_conversations')
-      .select('id, owner_id, scopes, range, handles, tokens, title, archived_at, model')
-      .eq('id', parsed.conversation_id)
-      .maybeSingle();
-    if (error) return json({ error: 'INTERNAL', message: error.message }, 500);
-    if (!data) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'conversation not found' }, 404);
-    if ((data as { owner_id: string }).owner_id !== auth.userId) return json({ error: 'FORBIDDEN', message: 'not your conversation' }, 403);
-    conv = data as typeof conv;
+  // Apply the request's settings to the chat, or create it (service; owner_id is the caller).
+  let conv: Conv;
+  if (existing) {
+    conv = existing;
     if (parsed.scopes || parsed.range || parsed.model) {
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
       if (parsed.scopes) patch.scopes = parsed.scopes;
       if (parsed.range) patch.range = parsed.range;
       if (parsed.model) patch.model = parsed.model;
-      await service.from('assistant_conversations').update(patch).eq('id', conv.id);
+      const upd = await service.from('assistant_conversations').update(patch).eq('id', conv.id);
+      // This turn still runs with the new settings; the next one would not see them.
+      if (upd.error) logError('assistant-chat', upd.error, `conversation ${conv.id} settings not saved`);
       if (parsed.scopes) conv.scopes = parsed.scopes;
       if (parsed.range) conv.range = parsed.range;
       if (parsed.model) conv.model = parsed.model;
@@ -800,37 +877,32 @@ Deno.serve(async (req) => {
       .insert({ owner_id: auth.userId, title: titleFrom(parsed.text), scopes: parsed.scopes ?? normaliseScopes(null), range: parsed.range, model: parsed.model, handles: {}, tokens: {} })
       .select('id, scopes, range, handles, tokens, title, model')
       .single();
-    if (error || !data) return json({ error: 'INTERNAL', message: error?.message ?? 'insert failed' }, 500);
-    conv = data as typeof conv;
+    if (error || !data) {
+      logError('assistant-chat', error ?? 'no row', 'conversation insert failed');
+      return json({ error: 'INTERNAL' }, 500);
+    }
+    conv = data as Conv;
   }
   const scopes = normaliseScopes(conv.scopes);
   const range: DateRange = isRange(conv.range) ? conv.range : defaultRange(today);
   const handles = newHandleTable(conv.handles);
-  // 0114: this chat's model, else the venue default, else ANTHROPIC_MODEL. An
-  // existing chat may name a model whose vendor lost its key: refuse before the
-  // user message is written.
-  const provider = providerFromEnv(env, conv.model ?? venueModel.default_model);
-  if (!provider) {
-    return json({ error: 'NOT_CONFIGURED', code: 'NOT_CONFIGURED', message: notConfiguredMessage(env, conv.model ?? venueModel.default_model) }, 503);
-  }
 
-  // The user message (seq = max + 1)
-  const { data: last } = await service.from('assistant_messages').select('seq').eq('conversation_id', conv.id).order('seq', { ascending: false }).limit(1).maybeSingle();
-  const userSeq = ((last as { seq?: number } | null)?.seq ?? 0) + 1;
+  // The user message, at the next seq: a concurrent send into the same chat
+  // takes the number first, this one re-reads and retries (assistant/seq.ts).
   const userMessageId = crypto.randomUUID();
   const assistantMessageId = crypto.randomUUID();
-  {
-    const { error } = await service.from('assistant_messages').insert({
-      id: userMessageId,
-      conversation_id: conv.id,
-      seq: userSeq,
-      role: 'user',
-      content: [{ type: 'text', text: parsed.text }],
-      sources: [],
-      tokens: {},
-    });
-    if (error) return json({ error: 'INTERNAL', message: error.message }, 500);
+  const userInsert = await insertMessage(service, conv.id, {
+    id: userMessageId,
+    role: 'user',
+    content: [{ type: 'text', text: parsed.text }],
+    sources: [],
+    tokens: {},
+  });
+  if (userInsert.error) {
+    logError('assistant-chat', userInsert.error, `user message not stored in ${conv.id}`);
+    return json({ error: 'INTERNAL' }, 500);
   }
+  const userSeq = userInsert.seq;
 
   // The tail (last 30 stored messages, excluding the one just inserted)
   const { data: tailRows } = await service
@@ -1053,17 +1125,17 @@ Deno.serve(async (req) => {
     const numbers = [...new Set(allowed)].sort((a, b) => a - b);
     const storedGate = gate ? { ...gate, numbers } : null;
 
-    const msg = await service.from('assistant_messages').insert({
+    // At the next seq, not userSeq + 1: a concurrent send into this chat may
+    // have taken that number meanwhile (assistant/seq.ts re-reads and retries).
+    const msg = await insertMessage(service, conv.id, {
       id: assistantMessageId,
-      conversation_id: conv.id,
-      seq: userSeq + 1,
       role: 'assistant',
       content: stored,
       sources,
       gate: storedGate,
       tokens,
     });
-    if (msg.error) console.error('[assistant-chat] message not stored', msg.error.message);
+    if (msg.error) logError('assistant-chat', msg.error, `assistant message ${assistantMessageId} not stored in ${conv.id}`);
     else if (calls.length) {
       const rows = calls.map((c) => ({
         message_id: assistantMessageId,
@@ -1118,7 +1190,9 @@ Deno.serve(async (req) => {
         emit('error', { code: 'UPSTREAM', message: 'the job estimate could not be stored' });
       } else {
         const job_id = (ins.data as { id: string }).id;
-        await service.from('assistant_jobs').update({ estimate: { ...estimate, job_id } }).eq('id', job_id);
+        const est = await service.from('assistant_jobs').update({ estimate: { ...estimate, job_id } }).eq('id', job_id);
+        // The job row stands; only its estimate lacks the self-reference.
+        if (est.error) logError('assistant-chat', est.error, `job ${job_id} estimate not stamped`);
         emit('job_estimate', { ...estimate, job_id });
       }
     }
@@ -1131,10 +1205,11 @@ Deno.serve(async (req) => {
     try {
       await run();
     } catch (e) {
-      if (e instanceof ProviderError) errorOut = { code: e.code, message: e.message };
-      else if (abort.signal.aborted) errorOut = { code: 'TIMEOUT', message: `the turn did not finish inside ${WALL_MS / 1000} s` };
-      else errorOut = { code: 'UPSTREAM', message: errorText(e) };
-      console.error('[assistant-chat] turn failed', errorOut.code, errorOut.message);
+      // The owner sees (and the stored turn keeps) a fixed sentence per code;
+      // the vendor's or the runtime's own text goes to the log only.
+      const code = e instanceof ProviderError ? e.code : abort.signal.aborted ? 'TIMEOUT' : 'UPSTREAM';
+      errorOut = { code, message: turnErrorText(code) };
+      console.error('[assistant-chat] turn failed', code, errorText(e));
     }
     try {
       await persist();
@@ -1155,4 +1230,4 @@ Deno.serve(async (req) => {
   })();
 
   return new Response(stream, { status: 200, headers: { ...SSE_HEADERS } });
-});
+}));

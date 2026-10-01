@@ -86,7 +86,7 @@ describe('release-review: the input and the template', () => {
     expect(unknown.en).toContain('cost is not known yet');
     const thin = templateWriteUp({ ...INPUT, numbers: { ...INPUT.numbers, units: 3 } }, true);
     expect(thin.en).toMatch(/not enough data yet/);
-    expect(thin.ar).toMatch(/غير كافية/);
+    expect(thin.ar).toMatch(/لا تكفي هذه البيانات/);
   });
 
   it('sends the model the input and nothing else, and asks for {en, ar}', () => {

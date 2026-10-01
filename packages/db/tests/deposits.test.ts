@@ -147,6 +147,34 @@ describe.skipIf(!up)('0242 online deposits', () => {
     await appRpc(owner, 'set_deposit_settings', { p_patch: rules, p_venue_id: VENUE_A_ID });
   });
 
+  // ── 0267: the signed payment id is the row's own ─────────────────────────
+
+  it('0267: an answer naming a different payment id than the row holds applies nothing', async () => {
+    await setRules({ deposit_mode: 'optional' });
+    const guest = await guestClient(svc, 'dep-0267');
+    const id = await hold(guest);
+    const row = await begin(guest, id);
+    const before = await payment(row.id);
+    expect(before.provider_payment_id).toBeTruthy();
+
+    // A genuine SUCCESS for ANOTHER payment, replayed with this row's requestId.
+    const res = await apply(row.request_id, 'SUCCESS', row.amount_iqd, {
+      p_provider_payment_id: `pay-other-${crypto.randomUUID()}`,
+    });
+    expect(res.ok, res.errorMessage).toBe(true);
+    expect(res.data).toMatchObject({ matched: false, mismatch: true });
+    const after = await payment(row.id);
+    expect(after.status).toBe(before.status);
+    expect((await reservation(id)).kind).toBe('hold');
+
+    // The row's own id still settles it.
+    const own = await apply(row.request_id, 'SUCCESS', row.amount_iqd, {
+      p_provider_payment_id: before.provider_payment_id,
+    });
+    expect(own.ok, own.errorMessage).toBe(true);
+    expect(own.data).toMatchObject({ matched: true, status: 'succeeded' });
+  });
+
   // ── settings ───────────────────────────────────────────────────────────────
 
   it('ships off: the quote says off and nothing can begin', async () => {

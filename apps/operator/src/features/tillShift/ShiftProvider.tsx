@@ -44,7 +44,6 @@ export function ShiftProvider({ offline, children }: { offline: boolean; childre
     staleTime: 10_000,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
-    retry: 1,
   });
   const lastStatus = q.data ?? null;
   const status = !enabled || offline || q.isError ? null : lastStatus;

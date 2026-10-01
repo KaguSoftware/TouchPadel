@@ -213,7 +213,8 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
       appRpc(desk, 'confirm_booking', { p_hold_id: holdId, p_guest_name: 'Race Guest' }).then(
         outcome,
       ),
-      appRpc(desk, 'expire_stale_holds', {}).then(outcome),
+      // 0268: the sweep is the cron's; the service role stands in for it.
+      appRpc(svc, 'expire_stale_holds', {}).then(outcome),
     ]);
     expect(sweepRes.ok).toBe(true);
 

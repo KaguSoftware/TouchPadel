@@ -206,7 +206,9 @@ describe.skipIf(!up)('0071 booking integrity (SEC-07 / 09 / 10 / 11)', () => {
         .update({ hold_expires_at: new Date(Date.now() - 60_000).toISOString() })
         .eq('id', holdId);
 
-      const swept = await appRpc(owner, 'expire_stale_holds', {
+      // 0268: the reaper is the cron's (and hold_slot's, as definer) — no client
+      // role may run it, so the service role stands in for the cron here.
+      const swept = await appRpc(svc, 'expire_stale_holds', {
         p_court_id: courtId,
         p_period: null,
       }).then(outcome);

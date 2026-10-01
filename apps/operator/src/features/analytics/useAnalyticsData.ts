@@ -248,6 +248,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     queryKey: [ANALYTICS_KEY, 'posthog', from, to, prevFrom, prevTo, startHour],
     enabled: ready,
     staleTime: 30_000,
+    // callEdge already retries a 5xx once, and each attempt may take a minute
+    // (EDGE_TIMEOUT_MS): a query-level retry would only double the wait.
     retry: false,
     queryFn: async () => {
       const now = await posthogQueries(currentWindowQueries(range), startHour);
@@ -297,7 +299,7 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   let engagement: EngagementStatus = 'loading';
   if (posthog.isError) {
     engagement =
-      posthog.error instanceof EdgeError && posthog.error.code === 'NOT_CONFIGURED' ? 'unconfigured' : 'error';
+      posthog.error instanceof EdgeError && posthog.error.kind === 'NOT_CONFIGURED' ? 'unconfigured' : 'error';
   } else if (posthog.data) {
     engagement = posthog.data.configured ? 'ready' : 'unconfigured';
   }

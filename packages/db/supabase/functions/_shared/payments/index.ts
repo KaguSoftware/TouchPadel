@@ -22,6 +22,7 @@
  * read through webhookKeyFromEnv. Without a key a webhook is only a hint to
  * go and ask Qi (deposit-webhook explains why that is still safe).
  */
+import { isLocalRuntime } from '../http.ts';
 import { fakeProvider, type FakeStore } from './fake.ts';
 import { QI_SANDBOX_BASE_URL, qiProvider } from './qi.ts';
 import { PaymentProviderError, type PaymentProvider } from './types.ts';
@@ -39,11 +40,8 @@ export type EnvGetter = (name: string) => string | undefined;
 export const PAYMENT_PROVIDERS = ['qi', 'fake'] as const;
 export type PaymentProviderName = (typeof PAYMENT_PROVIDERS)[number];
 
-/** Same signal as _shared/sms: the platform URL points at the local gateway. */
-export function isLocalRuntime(get: EnvGetter): boolean {
-  const url = (get('SUPABASE_URL') ?? '').trim();
-  return /^http:\/\/(kong|localhost|127\.0\.0\.1|host\.docker\.internal)(:\d+)?(\/|$)/.test(url);
-}
+/** The platform URL points at the local gateway (one copy for every function: ../http.ts). */
+export { isLocalRuntime };
 
 /** The provider name new payments are recorded with, or null when none is usable. */
 export function configuredProviderName(get: EnvGetter): PaymentProviderName | null {

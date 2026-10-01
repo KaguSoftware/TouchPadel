@@ -13,7 +13,6 @@
  *     returned so the screen can say it.
  */
 import type { MessageKey } from '@touch/i18n';
-import { AppRpcError } from './appRpc';
 import { callEdge, EdgeError } from './edge';
 
 /** The server's own deadline (*_begin_reading, app.scan_sweep_stale): a reading older than this is abandoned. */
@@ -94,7 +93,8 @@ const REFUSALS: ReadonlySet<string> = new Set([
 /**
  * Ask receipt-scan to read one paper. Its outcome is stored on the paper
  * (status, error_code), so a reading that failed is not thrown; what the paper
- * cannot record comes back as an error to show, and anything else as null.
+ * cannot record comes back as the EdgeError to show (its `code` is the
+ * refusal, which errorToMessageKey maps), and anything else as null.
  */
 export async function requestReading(
   body: { receipt_id: string } | { slip_id: string },
@@ -104,9 +104,7 @@ export async function requestReading(
     await callEdge('receipt-scan', body, { ttlMs: 0, signal });
     return null;
   } catch (e) {
-    if (e instanceof EdgeError) {
-      return e.detail && REFUSALS.has(e.detail) ? new AppRpcError(e.detail, e.message) : null;
-    }
+    if (e instanceof EdgeError) return REFUSALS.has(e.code) ? e : null;
     // The station gave up waiting, or the network failed: the paper may still
     // be read. Said as a network failure (errors.network), whatever threw.
     return e instanceof TypeError ? e : new TypeError(e instanceof Error ? e.message : String(e));

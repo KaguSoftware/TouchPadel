@@ -22,6 +22,9 @@ describe('protocol refusals', () => {
     expect(refusalCode(e)).toBe('RECORD_INVALID');
     expect(refusalHint(e)).toBe('category_id');
     expect(refusalCode(new EdgeError(400, 'UNKNOWN', 'x', 'RECORD_INVALID'))).toBe('RECORD_INVALID');
+    // The body's code even when the catalogue does not word it; the HTTP class without one.
+    expect(refusalCode(new EdgeError(502, 'UPSTREAM', 'x', 'UPSTREAM'))).toBe('UPSTREAM');
+    expect(refusalCode(new EdgeError(500, 'UPSTREAM', 'x'))).toBe('EDGE_UPSTREAM');
     expect(refusalCode(new Error('x'))).toBeNull();
   });
 });

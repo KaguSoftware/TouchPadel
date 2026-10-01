@@ -151,6 +151,36 @@ jobs:
       - name: Built-artifact secret scan (web)
         run: node scripts/security/check-artifact-secrets.mjs --only=web
 
+  # ---------------------------------------------------------------------------
+  # Edge functions, type-checked by Deno itself. packages/db's tsc covers tests/
+  # and the pure modules they import, never a function's index.ts (Deno.*,
+  # npm: specifiers), so a function could deploy with a type error nothing in
+  # this pipeline had seen (2026-10-01). Deploy waits for CI, so this gates
+  # every functions deploy.
+  #   DENO_NO_PACKAGE_JSON + --no-config  Deno ignores the pnpm workspace's
+  #                                       package.json and node_modules
+  #   --node-modules-dir=none             npm: specifiers resolve from Deno's own
+  #                                       cache, as the edge runtime does
+  # Every function passes today; a function that cannot is excluded here BY
+  # NAME, with the reason, never by loosening the check.
+  # ---------------------------------------------------------------------------
+  edge-functions:
+    name: edge functions (deno check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.5.6
+          cache: true
+
+      - name: deno check every function entry
+        working-directory: packages/db/supabase/functions
+        env:
+          DENO_NO_PACKAGE_JSON: '1'
+        run: deno check --no-config --node-modules-dir=none */index.ts
+
   operator-shell-windows:
     # The venue machines are Windows and better-sqlite3 is a native module —
     # ubuntu green says nothing about the Electron ABI actually compiling and
@@ -180,6 +210,16 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: pnpm --filter @touch/operator-shell dist:dir
+
+      # The installer also carries an ia32 app (32-bit Windows 10, Windows 10 on
+      # ARM). This packages it from the bundles the step above built, so a
+      # missing ia32 prebuild or a broken before-pack swap fails here, not on a
+      # release tag. native-abi.mjs header-checks the binary (PE machine 0x014c).
+      - name: Package smoke, 32-bit (ia32 prebuild + before-pack swap)
+        working-directory: apps/operator-shell
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm exec electron-builder --dir --ia32 --config electron-builder.config.cjs --publish never
 
       # win-unpacked carries app.asar plus the whole minified renderer — i.e.
       # exactly the bytes that land on the venue PC, a machine nobody administers.

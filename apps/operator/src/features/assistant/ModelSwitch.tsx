@@ -38,9 +38,9 @@ export function modelLabel(tr: Tr, id: string): string {
   return k ? `${tr(`ws.owner.assistant.model.labels.${k}`)} · ${tr(`ws.owner.assistant.model.hints.${k}`)}` : id;
 }
 
-/** True when the server refused the model because the pricing table has no rates for it. */
+/** True when the server refused the model because the pricing table has no rates for it (RPC or edge, both carry it as `code`). */
 export function isNotPriced(err: unknown): boolean {
-  return (err instanceof AppRpcError && err.code === 'ASSISTANT_MODEL_NOT_PRICED') || (err instanceof EdgeError && err.detail === 'ASSISTANT_MODEL_NOT_PRICED');
+  return (err instanceof AppRpcError || err instanceof EdgeError) && err.code === 'ASSISTANT_MODEL_NOT_PRICED';
 }
 
 /** The refusal in one sentence; any other error through the shared mapper. */

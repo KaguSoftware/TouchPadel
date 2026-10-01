@@ -140,7 +140,7 @@ describe('MenuEditor: adding an item', () => {
   it('reads in Arabic', () => {
     localStorage.setItem('touch-operator-locale', 'ar');
     renderPage();
-    expect(screen.getByRole('button', { name: 'اقترح صنفًا جديدًا' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'اقتراح صنف جديد' })).toBeTruthy();
   });
 });
 

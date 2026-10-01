@@ -97,7 +97,6 @@ export function AddSeatDialog({ matchId, customerId, onClose, onAdded }: AddSeat
     queryKey: ['customer', customerId ?? ''],
     enabled: Boolean(customerId),
     queryFn: () => appRpc<CustomerRecord>('customer_record', { p_customer_id: customerId }),
-    retry: false,
   });
   const handed = handedQ.data ?? null;
   useEffect(() => {
