@@ -46,11 +46,6 @@ export function markTokenRejected(accessToken: string): void {
   rejectedToken = accessToken;
 }
 
-/** True while replay waits for a fresh token (a 401 refused the current one). */
-export function isReplayAuthRejected(): boolean {
-  return current !== null && rejectedToken !== null && current.accessToken === rejectedToken;
-}
-
 /** The sync worker subscribes so a fresh token immediately un-pauses replay. */
 export function onAuthStateChange(fn: () => void): () => void {
   listeners.add(fn);
