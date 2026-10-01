@@ -11,6 +11,12 @@ session out of the tabs, and a guest renders exactly as before. The binding shap
 keys, the status table, the no-station-RPC rule) are
 `docs/design/protocols/build-contracts-2026-09-23.md` §6 and §7.
 
+Coach mode (`app/coach-mode*.tsx`, `src/features/coach`; `docs/design/coaching/guest.md` §4.13): a
+coach is a GUEST. `CoachStatusProvider` (inside `StaffStatusProvider`) reads `coach_me` while a
+reader is mounted and never changes what the staff status answers; `RequireCoach` gates every
+coach-mode screen (a retired coach reaches the statements only). Guests open it from Profile, staff
+who coach from the "Coach mode" row of the staff hub (C-27).
+
 ## Commits
 
 - No AI co-author trailer of any kind (`Co-Authored-By: Claude …`, Copilot, …). If a harness appends
@@ -54,6 +60,10 @@ keys, the status table, the no-station-RPC rule) are
   `match_start` is the only match write with a key: `matchIntentKey(matchStartIntent(…))` from
   `src/lib/idempotency.ts`, kept across the refusals the guest fixes and the ticket continuation
   that replays the start. Every other match write is state-idempotent and takes none.
+- Coach mode: `coachKeys` (`src/features/coach/keys.ts`, `['coach', …]`) is never persisted (a
+  roster carries students' phones, a statement the coach's pay), and every coach write runs now or
+  fails now (CD-6). Bookings, creations and adds carry `lessonIntentKey(intent, kind)` from
+  `src/lib/idempotency.ts`, kept only across a transport failure.
 - Retry, online-pause, focus refetch and persistence are set once in `src/lib/queryClient.ts`; a
   screen does not override them.
 
@@ -93,6 +103,9 @@ keys, the status table, the no-station-RPC rule) are
 - Migrations reach hosted before a build that calls them. `eas` and `expo` run from `apps/mobile`,
   never the repo root. Production `eas build` and any store submit are Parsa's to run; prepare the
   command and hand it over.
+- Native modules reach phones only in a new dev client and store build. The date-time picker
+  (`@react-native-community/datetimepicker`, wrapped once in `src/components/DateTimeField.tsx`)
+  is one: coach mode's pickers need the coaching build (coaching R19).
 
 ## Tests
 
@@ -124,4 +137,5 @@ keys, the status table, the no-station-RPC rule) are
   `src/smoke/*.smoke.test.tsx` to check each table route is named by exactly one suite. A case
   names its `route`; the primary id comes from the table.
 - Run `pnpm --filter @touch/mobile typecheck`, `lint`, `test` and `test:smoke`;
-  `pnpm --filter @touch/mobile doctor` after any dependency change. Report the exact result.
+  `pnpm --filter @touch/mobile run doctor` after any dependency change (`run`: pnpm 9 has a
+  `doctor` command of its own). Report the exact result.

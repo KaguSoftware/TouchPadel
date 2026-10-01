@@ -23,6 +23,7 @@ import {
   GlobeIcon,
   ImageIcon,
   LockIcon,
+  PadelBallIcon,
   PencilIcon,
   PhoneIcon,
   PlusSquareIcon,
@@ -47,6 +48,7 @@ import {
 import { RequireStaff, useStaffSignOut } from '../src/features/staff/RequireStaff';
 import { setGuestPreview } from '../src/features/staff/guestPreview';
 import { useStaffStatus } from '../src/features/staff/StaffStatusProvider';
+import { coachModeEntry, useCoachStatus } from '../src/features/coach/useCoachStatus';
 import { staffKeys } from '../src/features/staff/keys';
 import { todayRows, type StaffRowDef } from '../src/features/staff/rows';
 import { showsVenuePicker } from '../src/features/staff/venue';
@@ -264,6 +266,9 @@ function TodayScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { status, venueId, venues, setVenueId } = useStaffStatus();
+  // C-27, R45: the hub reads coach_me on mount, like Profile, whatever the
+  // staff status and the coaching switches say.
+  const coachEntry = coachModeEntry(useCoachStatus({ read: true }).status);
   const alerts = useWorkAlerts();
   const toast = useToast();
   const out = useStaffSignOut();
@@ -439,6 +444,17 @@ function TodayScreen() {
               <Text style={bodyText}>{t('staff.shell.account.onePhone')}</Text>
               <Text style={bodyText}>{t('staff.shell.account.passwordNote')}</Text>
             </View>
+            {/* Staff who coach reach coach mode here (coaching C-27, R45): the
+                tabs, and Profile with them, are out of reach for a staff
+                session. A retired coach keeps the statements (C-25). */}
+            {coachEntry ? (
+              <MenuRow
+                testID="staff.coach-mode"
+                icon={<PadelBallIcon size={17} />}
+                label={t(coachEntry === '/coach-mode' ? 'staff.shell.coachMode' : 'staff.shell.coachStatements')}
+                onPress={() => router.push(coachEntry)}
+              />
+            ) : null}
             {/* The guest app as a guest sees it (guestPreview.ts); a pill over the
                 tabs comes back here. The toast says it is live, not a demo. */}
             <MenuRow

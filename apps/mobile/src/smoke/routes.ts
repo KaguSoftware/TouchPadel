@@ -145,6 +145,21 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // The wallet starts a ticket purchase: cased with the payment screens in
   // deposit.smoke.test.tsx.
   { file: 'tickets.tsx', route: 'tickets', primary: 'tickets.buy' },
+  // ── coach mode ────────────────────────────────────────────────────────────
+  // docs/design/coaching/guest.md §4.17, cased by coachMode.smoke.test.tsx in
+  // EN and AR with the `coach` render option (a signed-in account that
+  // coaches). A list primary carries no text of its own, so those cases name
+  // a `nearbyKey`.
+  { file: 'coach-mode.tsx', route: 'coach-mode', primary: 'coach-mode.schedule' },
+  { file: 'coach-mode-hours.tsx', route: 'coach-mode-hours', primary: 'coach-mode-hours.save' },
+  { file: 'coach-mode-lesson.tsx', route: 'coach-mode-lesson', primary: 'coach-mode-lesson.roster' },
+  { file: 'coach-mode-new.tsx', route: 'coach-mode-new', primary: 'coach-mode-new.create' },
+  { file: 'coach-mode-book.tsx', route: 'coach-mode-book', primary: 'coach-mode-book.book' },
+  {
+    file: 'coach-mode-statements.tsx',
+    route: 'coach-mode-statements',
+    primary: 'coach-mode-statements.month',
+  },
   // ── root ──────────────────────────────────────────────────────────────────
   // No primary action of its own: the root layout is providers and chrome.
   // `app.direction-root` is the node every screen's mirroring is read from, so
