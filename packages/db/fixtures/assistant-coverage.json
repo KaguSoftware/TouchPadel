@@ -1174,6 +1174,7 @@
     "/admin/audit": "map:page",
     "/admin/branches": "map:page",
     "/admin/categories": "map:page",
+    "/admin/coaches": "map:page",
     "/admin/courts": "map:page",
     "/admin/day-close": "map:page",
     "/admin/hero": "map:page",
