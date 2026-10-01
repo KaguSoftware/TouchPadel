@@ -9,7 +9,7 @@
  */
 import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import type { PriceChangeKind, StaffRole } from '@touch/core';
+import { isLessonChange, type PriceChangeKind, type StaffRole } from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import { staffKeys } from '../keys';
 import { staffPhotoUrl } from '../photo';
@@ -28,7 +28,17 @@ import {
   fetchTournamentFeasibility,
   ingredientList,
 } from './api';
-import { bilingual, isMgmt, numbersRenames, proposeRecord, readTournamentContext, runChange } from './logic';
+import {
+  bilingual,
+  isMgmt,
+  lessonTargetCoaches,
+  lessonTargetTypes,
+  numbersLesson,
+  numbersRenames,
+  proposeRecord,
+  readTournamentContext,
+  runChange,
+} from './logic';
 import type { RunDetail, StepDetail } from './types';
 
 const BAR_KITCHEN: readonly StaffRole[] = ['head_barista', 'barista', 'head_chef', 'chef'];
@@ -83,18 +93,21 @@ export function useStepReads(
     queryFn: () => fetchPriceNumbers(runId),
     enabled: !!runId && kind === 'price_promo' && (key === 'numbers' || key === 'apply') && mgmt,
   });
-  // A proposal sent back: its targets, so the form reads as it did at the start.
+  // A proposal sent back: its targets, so the form reads as it did at the
+  // start. A lesson run's (coaching 0282): management reads them on every
+  // step, so the record, decide and numbers steps name the lesson type and
+  // the coach (the owner decides from the phone; the targets are MGMT-only).
+  const lessonRun = kind === 'price_promo' && isLessonChange(change);
   const targets = useQuery({
     queryKey: staffKeys.priceTargets(venue, change ?? ''),
     queryFn: () => fetchPriceTargets(venue, change as string),
     enabled:
       !!venue &&
-      is('price_promo', 'propose') &&
-      acting &&
       change !== null &&
       change !== 'promotion' &&
-      (mgmt || role === 'marketing') &&
-      (change !== 'shop_launch' || mgmt),
+      (lessonRun
+        ? mgmt
+        : is('price_promo', 'propose') && acting && (mgmt || role === 'marketing') && (change !== 'shop_launch' || mgmt)),
   });
   const tournament = useQuery({
     queryKey: staffKeys.context(`tournament:${key ?? ''}`, stepId),
@@ -150,6 +163,15 @@ export function useStepReads(
     for (const a of targets.data?.addons ?? []) put(a.modifier_id, a.name_en, a.name_ar);
     for (const p of targets.data?.promotions ?? []) put(p.promotion_id, p.name_en, p.name_ar);
     for (const r of targets.data?.rules ?? []) put(r.rule_id, r.name, r.name);
+    // Coaching (0282): a lesson run's type and coach, by name. The numbers
+    // name the type too, when the targets list no longer holds it (a launched draft).
+    for (const t of lessonTargetTypes(targets.data)) put(t.lesson_type_id, t.name_en, t.name_ar);
+    for (const c of lessonTargetCoaches(targets.data)) {
+      put(c.coach_id, c.display_name_en, c.display_name_ar);
+      for (const t of c.lesson_types) if (!out[t.lesson_type_id]) put(t.lesson_type_id, t.name_en, t.name_ar);
+    }
+    const lesson = numbersLesson(numbers.data);
+    if (lesson && !out[lesson.lesson_type_id]) put(lesson.lesson_type_id, lesson.name_en, lesson.name_ar);
     for (const c of candidates.data?.candidates ?? []) put(c.id, c.candidate_name, c.candidate_name);
     for (const d of campaigns.data ?? []) put(d.id, d.name_en, d.name_ar);
     return out;

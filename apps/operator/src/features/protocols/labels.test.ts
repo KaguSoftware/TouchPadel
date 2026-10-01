@@ -13,8 +13,9 @@ import { fieldLabelKey, optionLabelKey } from './labels';
 
 // Every step form on the operator is walked from the shared field lists, so a
 // field or a choice with no words would render as its raw name. This walks
-// every form of every kind — each tournament type, each of the eight price or
-// promo change kinds — and wants a label in both catalogs for each.
+// every form of every kind — each tournament type, each of the eleven price or
+// promo change kinds (the last three coaching's lesson kinds, 0282) — and
+// wants a label in both catalogs for each.
 
 function lookup(locale: 'en' | 'ar', key: string): unknown {
   let node: unknown = catalogs[locale];
@@ -86,6 +87,14 @@ describe('step form words', () => {
     expect(optionLabelKey(['change'], 'rate')).toBe('work.protocol.change.rate');
     expect(optionLabelKey(['lines', 0, 'unit'], 'ml')).toBe('ws.protocols.options.unit.ml');
     expect(optionLabelKey(['capacity', 'unit'], 'pairs')).toBe('ws.protocols.options.capacity_unit.pairs');
+  });
+
+  it('labels a lesson change’s fields in the glossary’s words (coaching 0282)', () => {
+    expect(fieldLabelKey(['lesson_type_id'])).toBe('ws.protocols.fields.lesson_type_id');
+    expect(fieldLabelKey(['coach_id'])).toBe('ws.protocols.fields.coach_id');
+    expect(lookup('ar', 'ws.protocols.fields.lesson_type_id')).toBe('نوع الحصة');
+    expect(lookup('ar', 'ws.protocols.fields.court_share_iqd')).toBe('أجرة الملعب لكل حصة');
+    expect(optionLabelKey(['change'], 'coach_price')).toBe('work.protocol.change.coach_price');
   });
 });
 

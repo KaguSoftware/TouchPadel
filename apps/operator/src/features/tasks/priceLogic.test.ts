@@ -42,6 +42,27 @@ describe('price targets', () => {
     expect(needsTargets('promotion')).toBe(false);
     expect(needsTargets('price')).toBe(true);
     expect(needsTargets('featured_discount')).toBe(true);
+    // Coaching (0282): every lesson change names a type.
+    for (const change of ['lesson_price', 'lesson_launch', 'coach_price'] as const) expect(needsTargets(change)).toBe(true);
+  });
+
+  it('reads a lesson change’s types and coaches, a coach price offering the picked coach’s types only (0282)', () => {
+    const lessons = readTargets({
+      lesson_types: [{ lesson_type_id: 'lt-1', name_en: 'Beginners', name_ar: 'مبتدئون', kind: 'group' }, { name_en: 'no id' }],
+      coaches: [
+        { coach_id: 'c-1', display_name_en: 'Sara', display_name_ar: 'سارة', lesson_types: [{ lesson_type_id: 'lt-2', name_en: 'One to one', name_ar: 'فردي' }] },
+        { display_name_en: 'no id' },
+      ],
+    });
+    expect(lessons.lessonTypes).toEqual([{ lesson_type_id: 'lt-1', name_en: 'Beginners', name_ar: 'مبتدئون' }]);
+    expect(lessons.coaches.map((c) => c.coach_id)).toEqual(['c-1']);
+    const sources = targetSources(lessons, {}, 'ar');
+    expect(sources.lesson_type_id).toEqual([{ value: 'lt-1', label: 'مبتدئون' }]);
+    expect(sources.coach_id).toEqual([{ value: 'c-1', label: 'سارة' }]);
+    expect(targetSources(lessons, { coach_id: 'c-1' }, 'en').lesson_type_id).toEqual([{ value: 'lt-2', label: 'One to one' }]);
+    // Every other change reads none.
+    expect(targets.lessonTypes).toEqual([]);
+    expect(targets.coaches).toEqual([]);
   });
 
   it('brings an item in at today’s prices, one row a size', () => {

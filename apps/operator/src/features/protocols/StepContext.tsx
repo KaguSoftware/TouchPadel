@@ -17,6 +17,7 @@ import { StatusBadge } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { useStepRead } from './api';
 import {
+  lessonNumbersLines,
   readCost,
   readFeasibility,
   readNumbers,
@@ -324,7 +325,17 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
             })}
           </p>
         )}
-        <p style={{ ...muted, margin: 0 }}>{tr('ws.protocols.context.numbers.basis')}</p>
+        {/* Coaching (0282): a lesson change's figures and sales; no coach pay (C-28). */}
+        {n.lesson && (
+          <div data-testid="numbers-lesson" style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            {lessonNumbersLines(n.lesson, tr, locale).map((line) => (
+              <p key={line} style={{ margin: 0 }}>
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
+        <p style={{ ...muted, margin: 0 }}>{tr(n.lesson ? 'ws.protocols.context.numbers.lessonBasis' : 'ws.protocols.context.numbers.basis')}</p>
       </ContextBlock>,
     );
   }

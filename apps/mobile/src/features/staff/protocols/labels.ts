@@ -116,6 +116,11 @@ const BY_NAME = {
   recommendation: 'staff.protocols.field.recommendation',
   rule_prices: 'staff.protocols.field.finalRulePrices',
   promotion_value: 'staff.protocols.field.promotionValue',
+  // Lesson price changes (coaching 0282): started on the operator, read and
+  // decided here. `price_iqd` is the shared "Price (IQD)" above.
+  lesson_type_id: 'staff.protocols.field.lessonTypeId',
+  coach_id: 'staff.protocols.field.coachId',
+  court_share_iqd: 'staff.protocols.field.courtShareIqd',
 } as const satisfies Record<string, MessageKey>;
 
 /** Where one name means two things, the whole template path decides. */
@@ -208,6 +213,9 @@ const OPTIONS = {
     promotion_enable: 'work.protocol.change.promotion_enable',
     rate: 'work.protocol.change.rate',
     featured_discount: 'work.protocol.change.featured_discount',
+    lesson_price: 'work.protocol.change.lesson_price',
+    lesson_launch: 'work.protocol.change.lesson_launch',
+    coach_price: 'work.protocol.change.coach_price',
   },
 } as const satisfies Record<string, Record<string, MessageKey>>;
 

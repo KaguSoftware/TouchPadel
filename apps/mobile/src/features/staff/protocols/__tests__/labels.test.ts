@@ -73,6 +73,18 @@ describe('protocol form labels', () => {
     expect(missing).toEqual([]);
   });
 
+  it('labels a lesson price change in the glossary’s words (coaching 0282)', () => {
+    expect(every.has('lesson_type_id') && every.has('coach_id') && every.has('court_share_iqd')).toBe(true);
+    expect(fieldLabelKey('lesson_type_id')).toBe('staff.protocols.field.lessonTypeId');
+    expect(fieldLabelKey('coach_id')).toBe('staff.protocols.field.coachId');
+    expect(fieldLabelKey('court_share_iqd')).toBe('staff.protocols.field.courtShareIqd');
+    expect(lookup('ar', 'staff.protocols.field.lessonTypeId')).toBe('نوع الحصة');
+    expect(lookup('ar', 'staff.protocols.field.courtShareIqd')).toBe('أجرة الملعب لكل حصة (د.ع)');
+    for (const change of ['lesson_price', 'lesson_launch', 'coach_price']) {
+      expect(optionLabelKey('change', change)).toBe(`work.protocol.change.${change}`);
+    }
+  });
+
   it('names the seven weekdays from Sunday, as 0067 and 0071 count them', () => {
     expect(WEEKDAY_KEYS).toHaveLength(7);
     expect(lookup('en', WEEKDAY_KEYS[0])).toBe('Sun');
