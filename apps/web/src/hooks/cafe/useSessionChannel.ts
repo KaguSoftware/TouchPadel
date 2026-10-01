@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createResilientChannel, type RealtimeClientLike } from '@touch/core';
 import type { BrowserSupabase } from '@/lib/supabase/client';
 import type { GuestOrderStatus } from './orders';
 import type { WaiterCallStatus } from './waiter';
@@ -15,6 +16,14 @@ import type { WaiterCallStatus } from './waiter';
  *
  * `realtime.setAuth()` MUST run before subscribing: a private topic is
  * authorised from the socket's access token, which is not attached until then.
+ * It runs before every (re)join.
+ *
+ * Self-recovering (@touch/core createResilientChannel, the operator hub's
+ * model). The channel had no recovery at all: a guest whose phone slept, or
+ * whose socket dropped, kept a stale order status until the next page load.
+ * Now a dropped channel is rebuilt after a short jittered delay, and the
+ * owner re-reads (`onRecover`) whenever events may have been missed: the
+ * channel came back, the tab became visible again, or the network returned.
  */
 export interface OrderStatusPayload {
   order_id: string;
@@ -33,6 +42,8 @@ export interface WaiterCallStatusPayload {
 export interface SessionChannelHandlers {
   onOrderStatus?(payload: OrderStatusPayload): void;
   onWaiterCallStatus?(payload: WaiterCallStatusPayload): void;
+  /** Events may have been missed (reconnected, tab visible again, back online): re-read. */
+  onRecover?(): void;
 }
 
 export function useSessionChannel(
@@ -44,36 +55,47 @@ export function useSessionChannel(
   // Handlers change on every CafeApp render; keep them in a ref so the channel
   // is subscribed exactly once per session (StrictMode-safe).
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
 
   useEffect(() => {
     if (!supabase || !sessionId) {
       setConnected(false);
       return;
     }
-    let cancelled = false;
-    void supabase.realtime.setAuth();
-    const channel = supabase
-      .channel(`session:${sessionId}`, { config: { private: true } })
-      .on('broadcast', { event: 'order_status' }, (msg) => {
-        const p = msg.payload as Partial<OrderStatusPayload>;
-        if (p?.order_id && p.status) {
-          handlersRef.current.onOrderStatus?.({ order_id: p.order_id, status: p.status });
+    const channel = createResilientChannel(supabase as unknown as RealtimeClientLike, {
+      topic: `session:${sessionId}`,
+      isPrivate: true,
+      events: ['order_status', 'waiter_call_status'],
+      onMessage: (event, payload) => {
+        if (event === 'order_status') {
+          const p = payload as Partial<OrderStatusPayload> | undefined;
+          if (p?.order_id && p.status) {
+            handlersRef.current.onOrderStatus?.({ order_id: p.order_id, status: p.status });
+          }
+        } else if (event === 'waiter_call_status') {
+          const p = payload as Partial<WaiterCallStatusPayload> | undefined;
+          if (p?.call_id && p.status) {
+            handlersRef.current.onWaiterCallStatus?.(p as WaiterCallStatusPayload);
+          }
         }
-      })
-      .on('broadcast', { event: 'waiter_call_status' }, (msg) => {
-        const p = msg.payload as Partial<WaiterCallStatusPayload>;
-        if (p?.call_id && p.status) {
-          handlersRef.current.onWaiterCallStatus?.(p as WaiterCallStatusPayload);
-        }
-      })
-      .subscribe((status) => {
-        if (!cancelled) setConnected(status === 'SUBSCRIBED');
-      });
+      },
+      onRecover: () => handlersRef.current.onRecover?.(),
+      onStatus: (status) => setConnected(status === 'live'),
+      beforeSubscribe: () => supabase.realtime.setAuth(),
+    });
+    const resume = () => channel.resume();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') resume();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', resume);
     return () => {
-      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', resume);
       setConnected(false);
-      void supabase.removeChannel(channel);
+      void channel.close();
     };
   }, [supabase, sessionId]);
 

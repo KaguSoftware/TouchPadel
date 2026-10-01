@@ -2,6 +2,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { supabaseEnv } from './env';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
+import { DEFAULT_REQUEST_TIMEOUT_MS, timeoutFetch } from '@touch/core';
 
 // Browser-side Supabase client (anonymous cafe sessions use the standard sb-* cookie
 // via @supabase/ssr — design-arch.md §4).
@@ -10,7 +11,19 @@ import type { Database } from '@touch/db';
 // with a different arity, which otherwise poisons every downstream query type.
 export function createBrowserSupabase(): SupabaseClient<Database> {
   const { url, anonKey } = supabaseEnv();
-  return createBrowserClient<Database>(url, anonKey) as unknown as SupabaseClient<Database>;
+  return createBrowserClient<Database>(url, anonKey, {
+    global: { fetch: timeoutFetch((input, init) => fetch(input, init), browserRequestTimeoutMs) },
+  }) as unknown as SupabaseClient<Database>;
+}
+
+/**
+ * The deadline a browser request gets when its caller set none (appRpc sets
+ * its own): 15 s for the menu, order and session reads and for auth; none for
+ * storage. A guest's phone that slept on the café Wi-Fi used to leave a read
+ * hanging with no end; now it fails, and the screen's own error path runs.
+ */
+export function browserRequestTimeoutMs(url: string): number | null {
+  return url.includes('/storage/v1/') ? null : DEFAULT_REQUEST_TIMEOUT_MS;
 }
 
 /**

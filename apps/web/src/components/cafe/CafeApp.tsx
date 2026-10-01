@@ -42,6 +42,9 @@ import { CafeOverlays } from './CafeOverlays';
 import { hasSeenBellTutorial } from './BellTutorial/BellTutorial';
 import { useCafeActions } from './useCafeActions';
 
+/** How often order status is re-read while the session channel is down (it is live otherwise). */
+const ORDERS_FALLBACK_POLL_MS = 30_000;
+
 /**
  * Guest app orchestrator. It owns OVERLAY STATE ONLY — data lives in the
  * `hooks/cafe` hooks, actions live in `useCafeActions`, pixels live in the
@@ -101,10 +104,27 @@ export function CafeApp({
   const orders = useOrders(supabase, table.session?.sessionId ?? null);
   const waiter = useWaiterCall(supabase, table.session);
 
-  useSessionChannel(supabase, table.session?.sessionId ?? null, {
+  const { connected: sessionLive } = useSessionChannel(supabase, table.session?.sessionId ?? null, {
     onOrderStatus: (p) => orders.applyStatus(p.order_id, p.status),
     onWaiterCallStatus: waiter.applyStatus,
+    // The channel came back, the tab is visible again, or the network
+    // returned: any status broadcast meanwhile is lost, so re-read both.
+    onRecover: () => {
+      void orders.reload();
+      void waiter.refresh();
+    },
   });
+
+  // While the channel is down and an order is still in progress, the live
+  // status has no carrier: read it on a slow clock until the channel is back.
+  const reloadOrders = orders.reload;
+  const ordersInFlight = orders.live.length > 0;
+  const sessionBound = table.session !== null;
+  useEffect(() => {
+    if (sessionLive || !sessionBound || !ordersInFlight) return;
+    const id = setInterval(() => void reloadOrders(), ORDERS_FALLBACK_POLL_MS);
+    return () => clearInterval(id);
+  }, [sessionLive, sessionBound, ordersInFlight, reloadOrders]);
 
   // ------------------------------------------------------------ overlay state
   const [sheetItem, setSheetItem] = useState<MenuItem | null>(null);
