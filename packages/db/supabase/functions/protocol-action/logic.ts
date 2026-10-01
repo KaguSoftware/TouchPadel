@@ -27,13 +27,11 @@
  * {error: '<CODE>', message, hint} with its status, and a malformed body is
  * {error: 'BAD_REQUEST'} (the phone reads it as errors.validation).
  */
-import { mapPgError, type PgError } from '../_shared/http.ts';
+import { isUuid, mapPgError, type PgError } from '../_shared/http.ts';
 
 /** A staff-media path (0159, the eleven folders of order_slip_tables 0238). */
 export const STAFF_MEDIA_PATH_RE =
   /^[0-9a-f-]{36}\/(proposals|tests|steps|marketing|campaigns|receipts|checklists|teachings|requests|incidents|slips)\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PhotoExt = 'jpg' | 'png' | 'webp';
 
@@ -58,7 +56,7 @@ export function parseRequest(body: unknown): Parsed {
   const b = body as Record<string, unknown>;
   if (b.action === 'tick') return { ok: true, value: { action: 'tick' } };
   if (b.action !== 'launch') return { ok: false, message: "action must be 'launch' or 'tick'" };
-  if (typeof b.run_step_id !== 'string' || !UUID_RE.test(b.run_step_id)) return { ok: false, message: 'run_step_id must be a uuid' };
+  if (!isUuid(b.run_step_id)) return { ok: false, message: 'run_step_id must be a uuid' };
   if (b.when !== 'now' && b.when !== 'date') return { ok: false, message: "when must be 'now' or 'date'" };
   if (typeof b.photo_path !== 'string' || !STAFF_MEDIA_PATH_RE.test(b.photo_path)) {
     return { ok: false, message: 'photo_path must be a staff-media photo path' };
