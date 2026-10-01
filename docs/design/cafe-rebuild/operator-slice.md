@@ -386,7 +386,7 @@ Module title: `analytics: { title: 'Analytics' / 'التحليلات' }` beside 
 
 | Group | Keys (EN) — AR must be written natively | 
 |---|---|
-| `op.adminNav` | menu · categories · addons · suggested · hero · qr · telegram · settings · staff · rates · hours · dayClose · groupMenu "Menu" · groupGuest "Guest app" · groupOps "Operations" · groupSystem "System" (AR: القائمة · الفئات · الإضافات · المقترحات · واجهة البداية · رموز QR للطاولات · تيليغرام · الإعدادات · الموظفون · الأسعار · ساعات العمل · إغلاق اليوم) |
+| `op.adminNav` | menu · categories · addons · suggested · hero · qr · telegram · settings · staff · rates · hours · dayClose · groupMenu "Menu" · groupGuest "Guest app" · groupOps "Operations" · groupSystem "System" (AR: المنيو · الفئات · الإضافات · المقترحات · واجهة البداية · رموز QR للطاولات · تيليغرام · الإعدادات · الموظفون · الأسعار · ساعات العمل · إغلاق اليوم) |
 | `op.common` (+) | unsavedPrompt · search · remove · replace · upload · uploading · dragHere · moveUp · moveDown · connecting · live · disconnected · retry · notConfigured · copy · print · back · yes · no |
 | `op.toast` | saved (تم الحفظ) · removed · uploadFailed · tooLarge {mb} · invalidImage · rotated · enqueued · offline |
 | `op.confirm` | title · rotateTokens · rotateTokensBody · deleteOption · removePhoto · clearReveals |
@@ -395,7 +395,7 @@ Module title: `analytics: { title: 'Analytics' / 'التحليلات' }` beside 
 | `op.addons` | groups · subGroups · subGroupsHint · newGroup · newSubGroup · linkedItems · options · newOption · reveals · revealsHint · noSubGroups · minMax · required · delta · active |
 | `op.suggested` | title · pickItem · suggestions · add · max {count} · none · selfHint |
 | `op.hero` | title · mode · modeNone/Media/Featured (+ …Hint ×3) · media · mediaHint {mb} · video · featuredItem · label · badge · discount · ticker · tickerHint · addPhrase · preview · previewTable |
-| `op.qr` | title · subtitle {count} · print · printHint · bell · bellOn · bellOff · rotate · rotateAll · version {v} · scanLine "Scan to see the menu & order" (AR from qr-artwork: امسح الرمز لعرض القائمة والطلب) · tableWord "TABLE" / "طاولة" · noSiteUrl · brandLine "Scan · Order · Relax" |
+| `op.qr` | title · subtitle {count} · print · printHint · bell · bellOn · bellOff · rotate · rotateAll · version {v} · scanLine "Scan to see the menu & order" (AR from qr-artwork: امسح الرمز لعرض المنيو والطلب) · tableWord "TABLE" / "طاولة" · noSiteUrl · brandLine "Scan · Order · Relax" |
 | `op.telegram` | title · chatId · chatIdHint · howToFind · steps.1…5 · lang · langAr/En/Both · sendTest · testSent · testFailed · outbox · status.queued/sent/failed · attempts {n} · retry · lastError · webhook · webhookHint · botConfigured · botMissing |
 | `op.settings` | title · businessDay · businessDayHint · calendarDay · hour {hour} · cooldown · cooldownHint · excludedItems · excludedHint · coversMult · coversMultHint · engagementFloor |
 | `op.kds` (+) | startShift · startShiftHint · staleBanner {count} · stale · newTicket · unseen {count} · connection |

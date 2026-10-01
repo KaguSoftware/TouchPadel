@@ -628,17 +628,17 @@ tap handling do not change. Every key opens Today (route `staff`), with `id` nul
 
 | title_key | kind | To | params | EN title / body | AR title / body (draft for review) |
 |---|---|---|---|---|---|
-| `deduction_proposed` | `staff_decide` | `app.staff_ids_with_roles(venue,'{manager,owner}')` minus the person (`notify_staff` already skips the caller, 0169:86); dedupe `deduction:<proposer>` | `name` (the proposer) | Pay deduction / {name} proposed a deduction. | خصم من الراتب / اقترح {name} خصماً. |
+| `deduction_proposed` | `staff_decide` | `app.staff_ids_with_roles(venue,'{manager,owner}')` minus the person (`notify_staff` already skips the caller, 0169:86); dedupe `deduction:<proposer>` | `name` (the proposer) | Pay deduction / {name} proposed a deduction. | خصم من الراتب / اقترح {name} خصمًا. |
 | `deduction_approved` | `staff_decided` | the proposer | – | Deduction approved / Your proposal was approved. | تمت الموافقة على الخصم / تمت الموافقة على اقتراحك. |
 | `deduction_declined` | `staff_decided` | the proposer | – | Deduction declined / Your proposal was declined. | رُفض الخصم / رُفض اقتراحك. |
 | `deduction_recorded` | `staff_info` | the person (**PROPOSAL**, OPEN §8 Q6) | – | Pay deduction / A deduction was added to your record. | خصم من الراتب / أُضيف خصم إلى سجلّك. |
-| `incident_reported` | `staff_task` | MGMT at the venue (`'{manager,owner}'`) | `name` (the reporter), `step` (the kind's `{en, ar}` label) | Incident report / {name}: {step} | بلاغ حادثة / {name}: {step} |
-| `incident_reviewed` | `staff_info` | the reporter | `step` | Incident reviewed / {step} | تمت مراجعة البلاغ / {step} |
+| `incident_reported` | `staff_task` | MGMT at the venue (`'{manager,owner}'`) | `name` (the reporter), `step` (the kind's `{en, ar}` label) | Incident report / {name}: {step} | بلاغ عن حادثة / {name}: {step} |
+| `incident_reviewed` | `staff_info` | the reporter | `step` | Incident reviewed / {step} | رُوجع البلاغ / {step} |
 | `content_submitted` | `staff_decide` | the owners at the venue (`'{owner}'`); dedupe `content:<id>` | `name`, `title` | Content for approval / {name}: {title} | محتوى بانتظار الموافقة / {name}: {title} |
 | `content_approved` | `staff_decided` | the version's submitter and the author (deduplicated) | `title` | Content approved / {title} | تمت الموافقة على المحتوى / {title} |
 | `content_changes` | `staff_decided` | the same | `title` | Changes asked / {title} | طُلبت تعديلات / {title} |
 | `content_declined` | `staff_decided` | the same | `title` | Content declined / {title} | رُفض المحتوى / {title} |
-| `waiter_call_new` | `staff_task` | the venue's active waiters (`app.staff_ids_with_roles(venue,'{waiter}')`), from an `after insert` definer trigger on `waiter_calls`; dedupe `waiter_call:<id>` | `table` (the table's label) | Guest call / Table {table} | نداء زبون / طاولة {table} |
+| `waiter_call_new` | `staff_task` | the venue's active waiters (`app.staff_ids_with_roles(venue,'{waiter}')`), from an `after insert` definer trigger on `waiter_calls`; dedupe `waiter_call:<id>` | `table` (the table's label) | Guest call / Table {table} | نداء ضيف / طاولة {table} |
 
 - **P's `send-push` commit** (no migration) is wave 5's first commit (§1.4 #1).
   - `send-push/staffStrings.ts` gains the eleven keys in EN and AR (a `{table}` param if the
@@ -1744,15 +1744,15 @@ drafted, rebase onto that body.
 
 | Code | Raised by | Maps | EN | AR (draft for review) |
 |---|---|---|---|---|
-| `TRANSFER_SHORT` | `transfer_stock` (hint = ingredient_id, detail = the quantity the source shows) | `MAPPED_CODES` + `CODE_TO_KEY` | That store shows less than you are moving. Move what it shows, or ask a manager to count it. | المخزن يُظهر كمية أقل مما تنقله. انقل الكمية الظاهرة أو اطلب من المدير جرده. |
+| `TRANSFER_SHORT` | `transfer_stock` (hint = ingredient_id, detail = the quantity the source shows) | `MAPPED_CODES` + `CODE_TO_KEY` | That store shows less than you are moving. Move what it shows, or ask a manager to count it. | يُظهر هذا المخزن كمية أقل مما تنقله. انقل الكمية الظاهرة أو اطلب من المدير جرده. |
 | `STORE_BEING_COUNTED` | `transfer_stock`, and `receive_delivery_internal`, which reaches `log_stock`, `receive_delivery` and `receive_purchase` (hint = the store; M5, V19) | both | That store is being counted right now. Try again when the count is finished. | يجري جرد هذا المخزن الآن. حاول مرة أخرى بعد انتهاء الجرد. |
 | `TILL_SHIFT_ALREADY_OPEN` | `open_till_shift` | `MAPPED_CODES` only | You already have a till shift open. End it before you start another. | لديك وردية صندوق مفتوحة بالفعل. أنهِها قبل أن تبدأ وردية أخرى. |
-| `TILL_SHIFT_STATION_BUSY` | `open_till_shift` | operator only | Someone else's shift is still open on this till. It has to be counted and closed first. | لا تزال وردية شخص آخر مفتوحة على هذا الصندوق. يجب عدّها وإغلاقها أولاً. |
+| `TILL_SHIFT_STATION_BUSY` | `open_till_shift` | operator only | Someone else's shift is still open on this till. It has to be counted and closed first. | لا تزال وردية شخص آخر مفتوحة على هذا الصندوق. يجب عدّها وإغلاقها أولًا. |
 | `TILL_SHIFT_NOT_FOUND` | close, close for | operator only | That till shift could not be found. | تعذّر العثور على وردية الصندوق هذه. |
 | `TILL_SHIFT_CLOSED` | close, close for | operator only | This shift is already closed. Refresh to see the latest. | هذه الوردية مغلقة بالفعل. حدّث الصفحة لرؤية آخر المستجدات. |
-| `TILL_SHIFT_NOT_YOURS` | close | operator only | This is someone else's shift. Closing it needs a manager's PIN. | هذه وردية شخص آخر. إغلاقها يحتاج رمز المدير. |
-| `TILL_SHIFT_WRONG_STATION` | open, close, close for | operator only | Start and end a till shift at the till itself, signed in there. | ابدأ وردية الصندوق وأنهِها من الصندوق نفسه وأنت مسجّل الدخول عليه. |
-| `TILL_SHIFT_UNSYNCED` | open, close, close for (V13) | operator only | This till still has sales waiting to send. Try again once they are sent. | لا تزال لدى هذا الصندوق مبيعات بانتظار الإرسال. حاول مرة أخرى بعد إرسالها. |
+| `TILL_SHIFT_NOT_YOURS` | close | operator only | This is someone else's shift. Closing it needs a manager's PIN. | هذه وردية شخص آخر. إغلاقها يحتاج إلى الرقم السري للمدير. |
+| `TILL_SHIFT_WRONG_STATION` | open, close, close for | operator only | Start and end a till shift at the till itself, signed in there. | ابدأ وردية الصندوق وأنهِها من الصندوق نفسه بعد تسجيل الدخول عليه. |
+| `TILL_SHIFT_UNSYNCED` | open, close, close for (V13) | operator only | This till still has sales waiting to send. Try again once they are sent. | لا تزال في هذا الصندوق مبيعات بانتظار الإرسال. حاول مرة أخرى بعد إرسالها. |
 
 - **The phone maps** `COUNT_IN_PROGRESS` (raised by `submit_stock_count`) to a **new phone key**,
   `staff.stores.countWaiting` (V11). The operator's `op.errors.COUNT_IN_PROGRESS` says "finalize it
@@ -1763,7 +1763,7 @@ drafted, rebase onto that body.
 - **Reworded:** `op.errors.CANNOT_DECIDE_OWN` (`en.ts:1771`, `ar.ts:1669`), in W0 (V11). Today's
   "You cannot decide your own request." does not fit a deduction against oneself or a review of
   one's own incident report. New EN: "You cannot decide something you sent or that is about you."
-  AR (draft): "لا يمكنك البتّ في أمر أرسلته أنت أو يخصّك." It still fits every existing raiser, each of
+  AR (draft): "لا يمكنك اتخاذ قرار بشأن أمر أرسلته أو يخصّك." It still fits every existing raiser, each of
   which refuses the sender (the staff requests 0072 and 0160:337-338, the protocol engine
   0164:1118-1119, recipe changes 0183, shopping approval 0185:373-374), and both apps already map
   it.
@@ -1844,10 +1844,10 @@ Every AR fragment is typed `DeepMessages<typeof <en>>`, so a missing key fails t
 |---|---|---|
 | `op.roles.assistant_barista` | Assistant barista | مساعد باريستا |
 | `op.roles.waiter` | Waiter | نادل |
-| `ws.owner.staff.roleAccess.assistant_barista` | The kitchen screen, and My tasks from its header: their checklists, the bar team's teachings, recipe ingredients and their phone pages. | شاشة المطبخ، وصفحة «مهامي» من أعلاها: قوائم التحقق الخاصة به، وتعليمات فريق البار، ومكوّنات الوصفات، وصفحات هاتفه. |
-| `ws.owner.staff.roleAccess.waiter` (R, #4) | A task list (My tasks): their checklists, cleaning photos included, and their phone pages. No till, desk or kitchen. | قائمة مهام («مهامي»): قوائم التحقق الخاصة به ومنها صور التنظيف، وصفحات هاتفه. بلا صندوق ولا مكتب ولا مطبخ. |
-| `ws.owner.staff.roleAccess.waiter` (S, #24, V8) | A task list (My tasks): their checklists, cleaning photos included, and their phone pages, where they move stock between the cafe and the bakery. No till, desk or kitchen. | قائمة مهام («مهامي»): قوائم التحقق الخاصة به ومنها صور التنظيف، وصفحات هاتفه، ومنها ينقل المخزون بين المقهى والمخبز. بلا صندوق ولا مكتب ولا مطبخ. |
-| `op.errors.CANNOT_DECIDE_OWN` (reword, W0) | You cannot decide something you sent or that is about you. | لا يمكنك البتّ في أمر أرسلته أنت أو يخصّك. |
+| `ws.owner.staff.roleAccess.assistant_barista` | The kitchen screen, and My tasks from its header: their checklists, the bar team's teachings, recipe ingredients and their phone pages. | شاشة المطبخ، وصفحة «مهامي» من أعلاها: قوائم التحقق المخصّصة له، وتعليمات فريق البار، ومكوّنات الوصفات، وصفحات هاتفه. |
+| `ws.owner.staff.roleAccess.waiter` (R, #4) | A task list (My tasks): their checklists, cleaning photos included, and their phone pages. No till, desk or kitchen. | قائمة مهام («مهامي»): قوائم التحقق المخصّصة له، بما فيها صور التنظيف، وصفحات هاتفه. بلا صندوق ولا مكتب ولا مطبخ. |
+| `ws.owner.staff.roleAccess.waiter` (S, #24, V8) | A task list (My tasks): their checklists, cleaning photos included, and their phone pages, where they move stock between the cafe and the bakery. No till, desk or kitchen. | قائمة مهام («مهامي»): قوائم التحقق المخصّصة له، بما فيها صور التنظيف، وصفحات هاتفه التي ينقل منها المخزون بين الكافيه والمخبز. بلا صندوق ولا مكتب ولا مطبخ. |
+| `op.errors.CANNOT_DECIDE_OWN` (reword, W0) | You cannot decide something you sent or that is about you. | لا يمكنك اتخاذ قرار بشأن أمر أرسلته أو يخصّك. |
 | `staff.stores.countWaiting` (W0) | This store already has a count open or waiting for a manager. Try again once a manager has finished it. | لهذا المخزن جرد مفتوح أو بانتظار المدير. حاول مرة أخرى بعد أن ينهيه المدير. |
 | `op.errors.PRICE_VIA_PROTOCOL` (reword) | Prices, size and add-on names, promotions, court rates and the featured-item discount change through a price or promotion change in Protocols. | تتغيّر الأسعار وأسماء الأحجام والإضافات والعروض وأسعار الملاعب وخصم الصنف المميز عبر تغيير سعر أو عرض في البروتوكولات. |
 | `ws.release.menu.sizes.onSale` (reword) | This item is on sale, so its sizes' prices and names change through Change the price, with the owner's OK. | – (N writes the AR) |
@@ -1858,10 +1858,10 @@ Every AR fragment is typed `DeepMessages<typeof <en>>`, so a missing key fails t
 | `ws.protocols.priceForm.renamedFrom`; `staff.protocols.renamedFrom` | {from} → {to} | – |
 | `op.stock.movement.transfer` | Moved between stores | نقل بين المخزنين |
 | `op.stockNav.moves` | Move stock | نقل المخزون |
-| `work.store.cafe` / `.bakery` | Cafe store / Bakery store | مخزن المقهى / مخزن المخبز |
+| `work.store.cafe` / `.bakery` | Cafe store / Bakery store | مخزن الكافيه / مخزن المخبز |
 | `work.deduction.status.{waiting,approved,declined,withdrawn,cancelled}` | Waiting / Approved / Declined / Withdrawn / Cancelled | بانتظار القرار / موافق عليه / مرفوض / مسحوب / ملغى |
 | `work.incident.kind.{accident,injury,fight,damage,other}` | Accident / Injury / Fight / Damage / Other | حادث / إصابة / شجار / ضرر / أخرى |
-| `work.incident.place.{court,cafe,shop,outside,other}` | Court / Cafe / Shop / Outside / Other | ملعب / المقهى / المتجر / خارج المكان / مكان آخر |
+| `work.incident.place.{court,cafe,shop,outside,other}` | Court / Cafe / Shop / Outside / Other | الملعب / الكافيه / المتجر / خارج المكان / مكان آخر |
 | `work.incident.status.{open,reviewed}` | Open / Reviewed | مفتوح / تمت المراجعة |
 | `work.content.status.{waiting,changes,approved,declined,withdrawn}` | Waiting / Changes asked / Approved / Declined / Withdrawn | بانتظار الموافقة / طُلبت تعديلات / موافق عليه / مرفوض / مسحوب |
 | `work.content.decision.{approve,changes,decline}` | Approve / Ask for changes / Decline | موافقة / طلب تعديلات / رفض |

@@ -1,33 +1,33 @@
-# Receipt Printer Specification / مواصفات طابعة الفواتير
+# Receipt Printer Specification / مواصفات طابعة الإيصالات
 
 Buy any printer that meets ALL of the following. Two example models that do are listed below —
 either is fine, as is any equivalent.
 
-اشتروا أي طابعة تحقق جميع المواصفات التالية. النموذجان أدناه مثالان مناسبان.
+اشتروا أي طابعة تستوفي جميع المواصفات التالية. والنموذجان الواردان أدناه مثالان مناسبان.
 
 ## Required specification
 
 | Requirement / المتطلب | Value |
 |---|---|
-| Paper / الورق | 80mm thermal roll (حراري 80 ملم) |
+| Paper / الورق | 80mm thermal roll (رول حراري 80 ملم) |
 | Resolution / الدقة | 203 dpi |
 | Protocol / البروتوكول | **ESC/POS**, with **`GS v 0` raster graphics** support (needed for Arabic text — we print Arabic as rendered images, so raster support is not optional) |
-| Connections / التوصيل | **USB + Ethernet** (both ports on the same unit) |
-| Cutter / القاطع | Auto-cutter |
+| Connections / المنافذ | **USB + Ethernet** (both ports on the same unit) |
+| Cutter / قاطع الورق | Auto-cutter |
 
 Example models (this class, not a mandate): **Epson TM-T20III (Ethernet variant)**,
 **Xprinter XP-80C**. If buying locally, show the seller this table.
 
 Do **not** buy: 58mm printers, Bluetooth-only printers, or label printers.
 
-لا تشتروا: طابعات 58 ملم، أو طابعات بلوتوث فقط، أو طابعات الملصقات.
+لا تشتروا طابعات 58 ملم، ولا طابعات بلوتوث فقط، ولا طابعات الملصقات.
 
 ## Power — UPS (required, per the contract)
 
 The Scope of Work makes this Touch's responsibility: a **UPS (uninterruptible power supply)**
 covering, at minimum:
 
-- the till machine (جهاز الكاشير)
+- the till machine (جهاز الصندوق)
 - this printer (الطابعة)
 - the router (الراوتر)
 - the network switch (السويتش)
@@ -36,7 +36,7 @@ Most interruptions in Iraq are power, not internet. The till is built to keep tr
 an outage — but only if it and its printer stay powered. A UPS costs little against the trading
 it protects.
 
-## Venue network / شبكة المحل
+## Venue network / شبكة المكان
 
 - The till machine must have a **fixed address on the local network**: either a **DHCP
   reservation** in the router (preferred — ask whoever manages the router) or a manually set

@@ -2,7 +2,7 @@
  * Presentation pieces every stock screen shares.
  *
  * Quantities always carry their unit, in the reader's language ("2,000 g",
- * "٢ قطعة" style with Latin digits): a bare "2000" beside an ingredient is not
+ * "2 قطعة" style with Latin digits): a bare "2000" beside an ingredient is not
  * a figure anyone can act on, and the old screens printed raw codes ("(pc)")
  * in Arabic too.
  *

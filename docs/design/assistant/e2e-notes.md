@@ -26,7 +26,7 @@ Result 2026-09-20: 8 passed (13.7 s).
 | 4 | chromium-en | a question with no key shows the not-configured sentence, no usage footer, no Stop |
 | 5 | chromium-en | /assistant lists no chats for a fresh owner; /assistant/usage shows cap, pricing and default model |
 | 6 | chromium-en | cashier: no rail button, no shortcut, /assistant is refused |
-| 7 | chromium-ar | rail button opens the drawer with المقهى + how-to pre-checked and the pack size |
+| 7 | chromium-ar | rail button opens the drawer with الكافيه + how-to pre-checked and the pack size |
 | 8 | chromium-ar | a question with no key shows the Arabic not-configured sentence |
 
 No `test.fixme` — nothing in the app blocked a case.

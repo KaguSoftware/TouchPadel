@@ -93,28 +93,28 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
   },
   ar: {
     booking_confirmed: {
-      title: 'تم تأكيد الحجز',
-      body: (court, when) => `تم حجزك في ${court} الساعة ${when}. نراك هناك!`,
+      title: 'أُكّد الحجز',
+      body: (court, when) => `حجزك في ${court}، ${when}. نراك هناك.`,
     },
     booking_reminder: {
-      title: 'مباراتك بعد ٣ ساعات',
-      body: (court, when) => `${court} الساعة ${when}.`,
+      title: 'مباراتك بعد 3 ساعات',
+      body: (court, when) => `${court}، ${when}.`,
     },
     booking_cancelled: {
-      title: 'تم إلغاء الحجز',
-      body: (court, when) => `تم إلغاء حجزك في ${court} الساعة ${when}.`,
+      title: 'أُلغي الحجز',
+      body: (court, when) => `أُلغي حجزك في ${court}، ${when}.`,
     },
     booking_no_show: {
-      title: 'تم إغلاق الحجز',
-      body: (court, when) => `تم إغلاق حجزك في ${court} الساعة ${when} لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
+      title: 'أُغلق الحجز',
+      body: (court, when) => `أُغلق حجزك في ${court}، ${when}، لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
     },
     test: {
       title: 'إشعار تجريبي',
       body: () => 'الإشعارات تعمل على هذا الهاتف.',
     },
     deposit_refunded: {
-      title: 'تمت إعادة العربون',
-      body: (court, when) => `العربون الذي دفعته لحجز ${court} الساعة ${when} في طريقه إلى بطاقتك.`,
+      title: 'استُرد العربون',
+      body: (court, when) => `عربون حجز ${court}، ${when} في طريقه للعودة إلى بطاقتك.`,
     },
   },
 };

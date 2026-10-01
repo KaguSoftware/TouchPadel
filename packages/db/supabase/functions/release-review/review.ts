@@ -120,15 +120,15 @@ export function templateWriteUp(input: ReviewInput, thin: boolean): WriteUp {
         `${nameEn(input)} sold ${fmt(n.units)} in its first 30 days. ` +
         `That is not enough data yet for a review: it needs at least ${MIN_ITEM_UNITS} sold.`,
       ar:
-        `باع ${nameAr(input)} ${fmt(n.units)} في أول 30 يوماً. ` +
-        `هذه بيانات غير كافية بعد للمراجعة: تحتاج إلى ${MIN_ITEM_UNITS} على الأقل.`,
+        `الكمية المباعة من ${nameAr(input)} في أول 30 يومًا: ${fmt(n.units)}. ` +
+        `لا تكفي هذه البيانات للمراجعة بعد، والحد الأدنى المطلوب: ${MIN_ITEM_UNITS}.`,
     };
   }
   const en: string[] = [
     `${nameEn(input)} sold ${fmt(n.units)} in its first 30 days (${n.from} to ${n.to}), on ${fmt(n.days_sold)} days, for ${fmt(n.revenue_iqd)} IQD.`,
   ];
   const ar: string[] = [
-    `باع ${nameAr(input)} ${fmt(n.units)} في أول 30 يوماً (${n.from} إلى ${n.to})، في ${fmt(n.days_sold)} يوماً، بإيراد ${fmt(n.revenue_iqd)} د.ع.`,
+    `مبيعات ${nameAr(input)} في أول 30 يومًا (${n.from} إلى ${n.to}): الكمية ${fmt(n.units)}، وأيام البيع ${fmt(n.days_sold)}، والإيراد ${fmt(n.revenue_iqd)} د.ع.`,
   ];
   if (n.margin_iqd !== null) {
     const pct = n.margin_pct !== null ? ` (${n.margin_pct}%)` : '';
@@ -140,17 +140,17 @@ export function templateWriteUp(input: ReviewInput, thin: boolean): WriteUp {
   }
   if (n.category_share_pct !== null) {
     en.push(`That is ${n.category_share_pct}% of the units sold in its category.`);
-    ar.push(`وهذا ${n.category_share_pct}% من الوحدات المباعة في فئته.`);
+    ar.push(`حصته ${n.category_share_pct}% من الوحدات المباعة في فئته.`);
   }
   const pair = n.bought_with[0];
   if (pair && pair.count > 0) {
     en.push(`It was bought most often with ${pair.name_en || pair.name_ar} (${fmt(pair.count)} orders).`);
-    ar.push(`وأكثر ما طُلب معه ${pair.name_ar || pair.name_en} (${fmt(pair.count)} طلبات).`);
+    ar.push(`أكثر صنف طُلب معه هو ${pair.name_ar || pair.name_en} (عدد الطلبات: ${fmt(pair.count)}).`);
   }
   const notes = input.notes.length + input.marketing_take.length;
   if (notes > 0) {
     en.push(`Staff and marketing left ${fmt(notes)} notes on it; read them on the run.`);
-    ar.push(`ترك الموظفون والتسويق ${fmt(notes)} ملاحظات عليه؛ اقرأها في صفحة البروتوكول.`);
+    ar.push(`عدد ملاحظات الموظفين والتسويق عليه: ${fmt(notes)}. اقرأها في صفحة البروتوكول.`);
   }
   return { en: en.join(' '), ar: ar.join(' ') };
 }

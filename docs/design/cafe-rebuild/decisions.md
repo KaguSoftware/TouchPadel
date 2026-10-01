@@ -48,7 +48,7 @@ branding, plus "send basket to waiters via Telegram" ordering (no payment).
     placeholders/env vars; everything must no-op gracefully when unset; the plan must include a
     written setup checklist for the owner.
 12. **Priority**: cafe slice first, now — roadmap item 4 waits.
-13. **Waiter-call Telegram messages**: WITH inline buttons ✅ أنا قادم (acknowledge) · ✔️ تم
+13. **Waiter-call Telegram messages**: WITH inline buttons ✅ في الطريق (acknowledge) · ✔️ تم
     (resolve) writing back to `waiter_calls` (who + when), buttons removed after tap.
 14. **Orders board**: NO new screen — enhance existing KDS (new-ticket sound, 90 s stale pulse +
     repeating alarm, "start shift" audio arming, unread count in title) and the till WaiterCallsPanel

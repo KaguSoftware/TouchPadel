@@ -162,7 +162,7 @@ export function QrCard({
         direction="rtl"
         lang="ar"
       >
-        امسح الرمز لعرض القائمة والطلب
+        امسح الرمز لعرض المنيو والطلب
       </text>
       <text x="210" y="574" textAnchor="middle" fill={FAINT} fontFamily={SANS} fontSize="10">
         {host}
