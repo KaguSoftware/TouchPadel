@@ -1022,7 +1022,8 @@ export const en = {
   branches: branchesEn,
   // Open matches (docs/design/open-matches/guest.md §4.24): the guest app's words (matches.en.ts).
   matches: matchesEn,
-  // Coaching (docs/design/coaching/guest.md §4.15): the phone's and the website's words (coaching.en.ts).
+  // Coaching (docs/design/coaching/guest.md §4.15): lessons, coach mode and the website's
+  // coaching pages (coaching.en.ts).
   coaching: coachingEn,
   seo: {
     // Site-wide defaults (the landing page at /{locale} is Touch Padel's front door since

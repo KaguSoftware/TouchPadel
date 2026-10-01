@@ -231,6 +231,16 @@ const testIdElements = [
   'MatchEntryRow',
   'MatchRulesCard',
   'MatchRestrictedCard',
+  // Coach mode (docs/design/coaching/guest.md §4.13, §4.17): each takes a
+  // required testID and forwards `${testID}.<child>` explicitly
+  // (apps/mobile src/components/{coachMode,DateTimeField}.tsx).
+  'DateTimeField',
+  'CoachBanners',
+  'CoachLessonRow',
+  'RosterRow',
+  'ReasonCard',
+  'HoursDayEditor',
+  'TimeOffRow',
 ].join('|');
 
 const TEST_ID_MESSAGE =

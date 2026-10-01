@@ -30,6 +30,7 @@ import { useNavigationTheme } from '../src/navigation/theme';
 import { useNativeBarDirection } from '../src/navigation/headerDirection';
 import { AuthProvider, useAuth } from '../src/features/auth/context';
 import { StaffStatusProvider, settledStaffStatus } from '../src/features/staff/StaffStatusProvider';
+import { CoachStatusProvider } from '../src/features/coach/CoachStatusProvider';
 import { useTermsGate } from '../src/features/profile/useTermsGate';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -290,6 +291,15 @@ function RootStack() {
           <Stack.Screen name="match-report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="blocked-players" />
           <Stack.Screen name="tickets" />
+          {/* Coach mode (docs/design/coaching/guest.md §4.13): root-stack pushes
+          from Profile or, for staff who coach, the staff hub (C-27), each with
+          the native back item and its own RequireCoach. */}
+          <Stack.Screen name="coach-mode" />
+          <Stack.Screen name="coach-mode-hours" />
+          <Stack.Screen name="coach-mode-lesson" />
+          <Stack.Screen name="coach-mode-new" />
+          <Stack.Screen name="coach-mode-book" />
+          <Stack.Screen name="coach-mode-statements" />
           {/* Place an order (0251): an item's size and options, as the platform's sheet over the table's menu. */}
           <Stack.Screen
             name="staff-order-item"
@@ -415,9 +425,16 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
                         Inside ToastProvider: it says why a Google or Apple
                         session on a staff account was signed out (§6.6). */}
                     <StaffStatusProvider>
-                      <ThemedChrome />
-                      <RootStack />
-                      <ConnectivityBanner />
+                      {/* Coach or not, beside guest or staff (coaching guest.md
+                          §4.13.1): a coach is a guest, so this never changes
+                          what StaffStatusProvider answers. It reads coach_me
+                          only while a reader (Profile, the staff hub, a
+                          coach-mode screen) is mounted. */}
+                      <CoachStatusProvider>
+                        <ThemedChrome />
+                        <RootStack />
+                        <ConnectivityBanner />
+                      </CoachStatusProvider>
                     </StaffStatusProvider>
                   </ToastProvider>
                 </AuthProvider>

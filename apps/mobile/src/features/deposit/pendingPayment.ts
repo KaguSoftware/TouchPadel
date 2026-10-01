@@ -173,6 +173,10 @@ export function isResumeSafePath(pathname: string | null | undefined): boolean {
   if (pathname === '/staff' || pathname.startsWith('/staff-') || pathname.startsWith('/staff/')) {
     return false;
   }
+  // Coach mode (docs/design/coaching/guest.md §4.17): a working area with
+  // forms in progress (hours, a new session, a booking for a student), never
+  // somewhere a guest payment should take over the screen.
+  if (pathname === '/coach-mode' || pathname.startsWith('/coach-mode-')) return false;
   return true;
 }
 
