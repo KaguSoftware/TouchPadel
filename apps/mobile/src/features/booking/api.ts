@@ -5,6 +5,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
+import { errorMessageOf } from '../../lib/network';
 import { parseHoldResult, type BookingRow, type HoldResult } from './logic';
 
 type Client = SupabaseClient<Database>;
@@ -57,6 +58,37 @@ export async function cancelReservation(client: Client, reservationId: string) {
   });
   if (error) throw error;
   return data as { reservation_id?: string; status?: string; cancelled_by?: string };
+}
+
+export type CancelResult = { reservation_id?: string; status?: string; cancelled_by?: string | null; alreadyCancelled?: boolean };
+
+/**
+ * cancel_reservation, where a NOT_CANCELLABLE answer is checked against the
+ * booking before it is believed.
+ *
+ * The RPC answers a second cancel of the same booking with NOT_CANCELLABLE.
+ * So when a cancel commits and its answer is lost (the phone dropped off the
+ * network a moment too soon), the next attempt — the guest's second tap, or
+ * the automatic retry this used to get — was refused, and the guest read
+ * "this booking can't be cancelled" about a booking that WAS cancelled. On
+ * NOT_CANCELLABLE the booking is re-read: if it is cancelled, that is the
+ * success the guest asked for (`alreadyCancelled`); anything else, the refusal
+ * stands. A failure of the re-read itself also leaves the refusal standing.
+ */
+export async function cancelReservationSettled(client: Client, reservationId: string): Promise<CancelResult> {
+  try {
+    return await cancelReservation(client, reservationId);
+  } catch (error) {
+    if (errorMessageOf(error)?.trim() !== 'NOT_CANCELLABLE') throw error;
+    let row: BookingRow | null = null;
+    try {
+      row = await fetchReservationById(client, reservationId);
+    } catch {
+      throw error;
+    }
+    if (row?.status !== 'cancelled') throw error;
+    return { reservation_id: row.id, status: row.status, cancelled_by: row.cancelled_by ?? null, alreadyCancelled: true };
+  }
 }
 
 /**
