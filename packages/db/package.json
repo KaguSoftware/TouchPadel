@@ -39,7 +39,7 @@
     "check:broadcast": "node scripts/check-broadcast-payloads.mjs",
     "check:analytics": "node scripts/check-analytics-payload.mjs",
     "check:assistant-coverage": "node --experimental-strip-types scripts/check-assistant-coverage.mjs",
-    "check:error-codes": "node scripts/check-error-codes.mjs",
+    "check:error-codes": "node --experimental-strip-types scripts/check-error-codes.mjs",
     "check:config-env": "node scripts/check-config-env.mjs",
     "check:verify-jwt": "node scripts/check-verify-jwt.mjs",
     "assistant:map": "node --experimental-strip-types scripts/build-assistant-map.mjs",
