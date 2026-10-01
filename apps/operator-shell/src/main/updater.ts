@@ -525,15 +525,21 @@ export function windowsStartInstallBlocker(installLocation: (hive: 'HKLM' | 'HKC
  * True: the value is there. False: exit 1, which is "not there" and also
  * every refusal (a policy that disables registry tools). Null: anything else
  * (a timeout, no reg.exe).
+ *
+ * The view follows the installer: it writes the 64-bit view when it installs
+ * the x64 app (multiUser.nsh, SetRegView 64 under RunningX64), and the ia32 app
+ * only lands on a 32-bit Windows, which has one view and no 64-bit one to ask.
  */
 export function readInstallLocation(
   hive: 'HKLM' | 'HKCU',
   run: typeof execFileSync = execFileSync,
   env: NodeJS.ProcessEnv = process.env,
+  arch: string = process.arch,
 ): boolean | null {
   const reg = path.win32.join(env.SystemRoot || env.windir || 'C:\\Windows', 'System32', 'reg.exe');
+  const view = arch === 'ia32' ? [] : ['/reg:64'];
   try {
-    run(reg, ['query', `${hive}\\Software\\${NSIS_APP_GUID}`, '/v', 'InstallLocation', '/reg:64'], {
+    run(reg, ['query', `${hive}\\Software\\${NSIS_APP_GUID}`, '/v', 'InstallLocation', ...view], {
       stdio: 'ignore',
       windowsHide: true,
       timeout: REG_QUERY_TIMEOUT_MS,

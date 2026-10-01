@@ -211,6 +211,16 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: pnpm --filter @touch/operator-shell dist:dir
 
+      # The installer also carries an ia32 app (32-bit Windows 10, Windows 10 on
+      # ARM). This packages it from the bundles the step above built, so a
+      # missing ia32 prebuild or a broken before-pack swap fails here, not on a
+      # release tag. native-abi.mjs header-checks the binary (PE machine 0x014c).
+      - name: Package smoke, 32-bit (ia32 prebuild + before-pack swap)
+        working-directory: apps/operator-shell
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm exec electron-builder --dir --ia32 --config electron-builder.config.cjs --publish never
+
       # win-unpacked carries app.asar plus the whole minified renderer — i.e.
       # exactly the bytes that land on the venue PC, a machine nobody administers.
       - name: Built-artifact secret scan (desktop)

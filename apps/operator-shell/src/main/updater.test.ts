@@ -978,17 +978,27 @@ describe('readInstallLocation', () => {
 
   it("asks reg.exe by its full path for the installer's InstallLocation, in the 64-bit view", () => {
     run.mockReturnValue(Buffer.from(''));
-    expect(readInstallLocation('HKLM', run as never, env)).toBe(true);
+    expect(readInstallLocation('HKLM', run as never, env, 'x64')).toBe(true);
     expect(run).toHaveBeenCalledWith(
       'C:\\Windows\\System32\\reg.exe',
       ['query', `HKLM\\Software\\${NSIS_APP_GUID}`, '/v', 'InstallLocation', '/reg:64'],
       { stdio: 'ignore', windowsHide: true, timeout: REG_QUERY_TIMEOUT_MS },
     );
-    readInstallLocation('HKCU', run as never, {});
+    readInstallLocation('HKCU', run as never, {}, 'x64');
     expect(run).toHaveBeenLastCalledWith(
       'C:\\Windows\\System32\\reg.exe',
       ['query', `HKCU\\Software\\${NSIS_APP_GUID}`, '/v', 'InstallLocation', '/reg:64'],
       expect.anything(),
+    );
+  });
+
+  it('asks the one registry view there is on the ia32 build (32-bit Windows)', () => {
+    run.mockReturnValue(Buffer.from(''));
+    expect(readInstallLocation('HKLM', run as never, env, 'ia32')).toBe(true);
+    expect(run).toHaveBeenLastCalledWith(
+      'C:\\Windows\\System32\\reg.exe',
+      ['query', `HKLM\\Software\\${NSIS_APP_GUID}`, '/v', 'InstallLocation'],
+      { stdio: 'ignore', windowsHide: true, timeout: REG_QUERY_TIMEOUT_MS },
     );
   });
 

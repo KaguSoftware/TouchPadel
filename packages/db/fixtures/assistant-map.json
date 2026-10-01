@@ -1,5 +1,5 @@
 {
-  "generated_from": "91c8b72388e20337fbe5501bd46fc1a3b666ff72",
+  "generated_from": "41a8d36da9c349b85ccf92d1a5ec2aabf3c886db",
   "chunks": [
     {
       "kind": "page",
@@ -33115,55 +33115,7 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#2",
-      "lang": "en",
-      "title": "docs/install-runbook.md › 1. Get the installer",
-      "body": "## 1. Get the installer\n\n- **Staff download page:** `https://<guest-site>/download` (e.g.\n  `https://touch-padel-web.vercel.app/download`, later `https://touch-padel.com/download`).\n  The Windows button is a stable link that always serves the newest release:\n  `https://github.com/KaguSoftware/touchpadel-releases/releases/latest/download/Touch-Padel-Operator-Setup.exe`\n- **Installing:** the installer is the assisted kind (`oneClick: false`), not\n  one click: a welcome page, then **Choose Installation Options**. Run it from\n  the Windows account the station logs in with and pick **Only for me**, never\n  **Anyone who uses this computer (all users)**: an all-users install cannot\n  update itself at start (§6). Keep the default folder; the last page starts\n  the app.\n- **All versions:** `https://github.com/KaguSoftware/touchpadel-releases/releases`\n  (public repo; also the auto-update feed). To roll back, install an older\n  `Touch-Padel-Operator-Setup.exe` from there. It replaces the installed\n  version in place; §6 says what the station does after a rollback.\n- **Cutting a release** = pushing a tag on this repo: `git tag operator-vX.Y.Z && git push origin operator-vX.Y.Z`.\n  The `operator-release` workflow stamps X.Y.Z into the installer, the sidebar\n  version line and `device_heartbeats.app_version`, and publishes to the public\n  repo. Owner-side prerequisites (secrets, the public repo, signing) are in\n  `docs/client/operator-download-2026-09-05.md`.\n- **Local build** (no publishing): `pnpm --filter @touch/operator-shell dist`\n  with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GUEST_SITE_URL` set\n  in the operator build's environment first — a build without them **crashes at\n  startup by design** rather than silently pointing at localhost. Output:\n  `apps/operator-shell/release/`. Note `apps/operator/.env` on a dev machine\n  points the guest site at localhost; do not hand a local build to the venue.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#3",
-      "lang": "en",
-      "title": "docs/install-runbook.md › 2. SmartScreen (until the build is signed)",
-      "body": "## 2. SmartScreen (until the build is signed)\n\nWindows signing is wired but conditional on a certificate the owner has not\nsourced yet (`docs/client/operator-download-2026-09-05.md` §4). Until then, on\nfirst launch Windows shows \"Windows protected your PC\" — click **More info →\nRun anyway**. Once a signing route is configured the warning stops on the next\nrelease; then flip `SHOW_SMARTSCREEN_NOTE` on the download page to `false`.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#4",
-      "lang": "en",
-      "title": "docs/install-runbook.md › 3. Station identity (per machine, once)",
-      "body": "## 3. Station identity (per machine, once)\n\nThe installer launches the app when it finishes. With no `station.json` yet,\nthe app opens the **station setup screen** instead of sign-in:\n\n1. **Till** → keep or edit the station id (`TILL-01`) → **Finish setup**. The\n   app restarts as a kiosk. It has minted its own pairing code.\n2. **Desk** → station id (`DESK-01`) → **Finish setup**.\n3. **Kitchen screen** → station id (`KDS-01`) → type the **pairing code** shown\n   on the till (sidebar → **Pair a kitchen screen**, manager PIN) → **Finish\n   setup**. The kitchen screen finds the till on the LAN by itself; if it\n   cannot, **Advanced: till address** takes the till's LAN IP, and \"Save\n   anyway\" keeps it even while the till is off.\n\nThe first launch is a normal, closable window; kiosk mode starts on the\nrestart after setup. Windows Firewall asks once, on the till, to allow the app\non private networks (the LAN server on port 47810) — allow it.\n\nScripted alternative (unchanged): launch once from a shortcut with flags, which\nwrites `station.json` and skips the screen:\n\n```text\n# till\n\"Touch Padel Operator.exe\" --station-id=TILL-01 --station-mode=till --lan-psk=<CODE>\n# desk\n\"Touch Padel Operator.exe\" --station-id=DESK-01 --station-mode=desk\n# kitchen screen\n\"Touch Padel Operator.exe\" --station-id=KDS-01 --station-mode=kds --till-host=<TILL-LAN-IP> --lan-psk=<SAME-CODE>\n```\n\nUse a 10-character pairing code (Crockford base32, e.g. `ABCDEFGHJK`) as the\n`--lan-psk` if you want the till's \"Pair a kitchen screen\" card to work; any\nother value works for the LAN but the card will say the key is custom.\n\nManual alternative: copy `station.json.example` (shipped beside the app in\n`resources/`) to `%APPDATA%/touch-padel-operator/station.json` and edit it.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#5",
-      "lang": "en",
-      "title": "docs/install-runbook.md › 3. Station identity (per machine, once)",
-      "body": "The till binds its LAN server to the first private IPv4 automatically; pin it\nwith `--lan-bind=<ip>` / `\"lan_bind\"` if the machine has several NICs. Give the\ntill a **static LAN IP** (router reservation) so the KDS's `till_host` never\nmoves. To re-do setup on a machine, delete `station.json` and relaunch.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#6",
-      "lang": "en",
-      "title": "docs/install-runbook.md › 4. Kiosk behaviour",
-      "body": "## 4. Kiosk behaviour\n\n- Every configured station is a kiosk, in every mode (till, desk and kitchen\n  screen) and on every platform (owner call, 2026-09-23): no frame, it cannot\n  be minimised, and the window cannot be closed.\n- There are two ways out: **Quit to desktop** (in the sidebar, and in the top\n  corner of the sign-in screen) and **Exit forced full screen**. Both take a\n  manager's PIN, and it cannot be the PIN of the person signed in. On the\n  sign-in screen any manager's PIN works.\n- If an update is waiting, Quit to desktop installs it and the app opens again\n  by itself (§6).\n- Launch-on-boot registers itself on every packaged start\n  (`app.setLoginItemSettings`); no Task Scheduler entry needed.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#7",
-      "lang": "en",
-      "title": "docs/install-runbook.md › 5. Day-one checklist (per station)",
-      "body": "## 5. Day-one checklist (per station)\n\n1. Launch and sign in **while online** — the sync worker and the offline\n   caches are fed by a signed-in session. The till and the desk sign in with\n   the station's staff account. The kitchen board is signed in by whoever runs\n   it, with their own account: every bar and kitchen worker has one (head\n   barista, barista, head chef, chef), created on the Staff page, and a prep\n   account is moved to barista or chef first (Setup ▸ Worth checking lists\n   them). Personal work (tasks, checklists, the shopping list, requests) is on\n   the staff area of the phone app, not on the station\n   (`docs/design/protocols/plan-2026-09-23.md` §9).\n2. Till: confirm the banner is absent (venue not degraded) and open the day.\n3. KDS: confirm a test ticket appears; unplug the WAN briefly and confirm the\n   board switches to LAN tickets.\n4. Record the machine's station id and the sidebar's version line in the venue\n   sheet.",
-      "route": null
-    },
-    {
-      "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#8",
+      "ref": "doc:docs/install-runbook.md#10",
       "lang": "en",
       "title": "docs/install-runbook.md › 6. Updating",
       "body": "## 6. Updating\n\nEvery packaged station checks the public releases repo when the app starts\n(again 30 s later if that check could not reach it) and then every 6 hours,\nand downloads a newer installer silently. Nothing installs by itself while the\napp is open. A downloaded update goes in one of three ways:\n\n- **Update ready.** The sidebar shows an **Update ready** row; the kitchen\n  screen, which has no sidebar, shows a pill in the corner. Tapping it closes\n  the app, installs the update and opens the app again on the new version.\n- **Quit to desktop.** While an update is ready, the Quit dialog says so:\n  quitting installs it, and then the app opens again by itself. On a locked\n  station (every configured one) Quit needs the PIN of a manager other than\n  the person signed in.\n- **The next start.** When the app starts and finds an update an earlier\n  session downloaded, it installs it before the window opens. Nothing shows\n  on screen for a few seconds (up to 15 s while it checks the feed), then the\n  installer runs silently and opens the app on the new version, usually about\n  a minute later. Do not switch the machine off or click the shortcut during\n  that minute. With no network at start, the window opens after the 15 s and\n  the update waits for later.\n\nA Windows shutdown or restart does not install anything on the way down. The\napp starts again at login, and that start installs it. So restarting a till is\nenough to update it.\n\nA start installs an update only when all of these hold:",
@@ -33171,10 +33123,74 @@
     },
     {
       "kind": "doc",
-      "ref": "doc:docs/install-runbook.md#9",
+      "ref": "doc:docs/install-runbook.md#11",
       "lang": "en",
       "title": "docs/install-runbook.md › 6. Updating",
       "body": "- **The app was installed Only for me.** An install for all users makes the\n  installer ask Windows for administrator approval, and at a start nobody is\n  there to give it. Such a machine never installs at start: use Update ready\n  or Quit to desktop with someone there to approve the prompt (the app reopens\n  only if they do), or reinstall it Only for me. Uninstall the all-users copy\n  first (Settings > Apps); `queue.db` and `station.json` are kept.\n- **No earlier start tried that version.** A start gets one try per version.\n  If the station comes back still on the old version (the installer failed),\n  later starts leave that version alone and **Update ready** stays in the\n  sidebar for someone to tap. The next release gets its own try.\n  `updater.log`, beside `station.json`, records what happened.\n- **The version is above every version this station has run.** See rolling\n  back below.\n\n**Rolling back.** Run an older `Touch-Padel-Operator-Setup.exe` from the\nreleases page (§1) over the installed app. The station then stays on that\nversion across restarts, because a start never installs a version the station\nhas already run. The feed still offers the newer release, though: **Update\nready** comes back, and tapping it or quitting to the desktop installs that\nrelease again. To stop a bad release everywhere, publish a fixed one with a\nhigher version number, or take the bad release down in the releases repo.\nNever reuse a version number: a station that has run it will not take it at a\nstart.\n\n`queue.db` and `station.json` live in `%APPDATA%` and survive every update and\nevery rollback. Re-running any installer by hand (newer or older) still works\nand replaces in place. There are no scheduled update windows: an update\nmid-ticket is the operator's call, and a start is the only moment one installs\non its own.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#2",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 1. Get the installer",
+      "body": "## 1. Get the installer",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#3",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 1. Get the installer",
+      "body": "- **Staff download page:** `https://<guest-site>/download` (e.g.\n  `https://touch-padel-web.vercel.app/download`, later `https://touch-padel.com/download`).\n  The Windows button is a stable link that always serves the newest release:\n  `https://github.com/KaguSoftware/touchpadel-releases/releases/latest/download/Touch-Padel-Operator-Setup.exe`\n- **Which Windows:** Windows 10 or 11, 64-bit or 32-bit. The one installer\n  carries both builds and installs the right one by itself (the 32-bit build\n  also covers Windows 10 on ARM). If it will not start at all, see §2.\n- **Installing:** the installer is the assisted kind (`oneClick: false`), not\n  one click: a welcome page, then **Choose Installation Options**. Run it from\n  the Windows account the station logs in with and pick **Only for me**, never\n  **Anyone who uses this computer (all users)**: an all-users install cannot\n  update itself at start (§6). Keep the default folder; the last page starts\n  the app.\n- **All versions:** `https://github.com/KaguSoftware/touchpadel-releases/releases`\n  (public repo; also the auto-update feed). To roll back, install an older\n  `Touch-Padel-Operator-Setup.exe` from there. It replaces the installed\n  version in place; §6 says what the station does after a rollback.\n- **Cutting a release** = pushing a tag on this repo: `git tag operator-vX.Y.Z && git push origin operator-vX.Y.Z`.\n  The `operator-release` workflow stamps X.Y.Z into the installer, the sidebar\n  version line and `device_heartbeats.app_version`, and publishes to the public\n  repo. Owner-side prerequisites (secrets, the public repo, signing) are in\n  `docs/client/operator-download-2026-09-05.md`.\n- **Local build** (no publishing): `pnpm --filter @touch/operator-shell dist`\n  with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GUEST_SITE_URL` set\n  in the operator build's environment first — a build without them **crashes at\n  startup by design** rather than silently pointing at localhost. Output:\n  `apps/operator-sh",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#4",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 1. Get the installer",
+      "body": "ell/release/`. Note `apps/operator/.env` on a dev machine\n  points the guest site at localhost; do not hand a local build to the venue.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#5",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 2. SmartScreen (until the build is signed), and an installer that won't start",
+      "body": "## 2. SmartScreen (until the build is signed), and an installer that won't start\n\nWindows signing is wired but conditional on a certificate the owner has not\nsourced yet (`docs/client/operator-download-2026-09-05.md` §4). Until then, on\nfirst launch Windows shows \"Windows protected your PC\" — click **More info →\nRun anyway**. Once a signing route is configured the warning stops on the next\nrelease; then flip `SHOW_SMARTSCREEN_NOTE` on the download page to `false`.\n\nIf the installer will not start, the message says which of these it is:\n\n- **\"This app can't run on your PC\"**: a 32-bit Windows given an installer\n  older than the one with the 32-bit build (operator-v0.2.21). Download it\n  again from the stable link in §1.\n- **\"Windows protected your PC\"**: SmartScreen, above.\n- **\"…only runs verified apps from the Store\"**: Windows is in **S mode**, which\n  runs nothing from outside the Microsoft Store, whatever the build. Switch out\n  of it (free, one-way): Settings → Update & Security → Activation → **Switch\n  to Windows 10 Home/Pro** → Go to the Store → Get (Windows 11: Settings →\n  System → Activation).",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#6",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 3. Station identity (per machine, once)",
+      "body": "## 3. Station identity (per machine, once)\n\nThe installer launches the app when it finishes. With no `station.json` yet,\nthe app opens the **station setup screen** instead of sign-in:\n\n1. **Till** → keep or edit the station id (`TILL-01`) → **Finish setup**. The\n   app restarts as a kiosk. It has minted its own pairing code.\n2. **Desk** → station id (`DESK-01`) → **Finish setup**.\n3. **Kitchen screen** → station id (`KDS-01`) → type the **pairing code** shown\n   on the till (sidebar → **Pair a kitchen screen**, manager PIN) → **Finish\n   setup**. The kitchen screen finds the till on the LAN by itself; if it\n   cannot, **Advanced: till address** takes the till's LAN IP, and \"Save\n   anyway\" keeps it even while the till is off.\n\nThe first launch is a normal, closable window; kiosk mode starts on the\nrestart after setup. Windows Firewall asks once, on the till, to allow the app\non private networks (the LAN server on port 47810) — allow it.\n\nScripted alternative (unchanged): launch once from a shortcut with flags, which\nwrites `station.json` and skips the screen:\n\n```text\n# till\n\"Touch Padel Operator.exe\" --station-id=TILL-01 --station-mode=till --lan-psk=<CODE>\n# desk\n\"Touch Padel Operator.exe\" --station-id=DESK-01 --station-mode=desk\n# kitchen screen\n\"Touch Padel Operator.exe\" --station-id=KDS-01 --station-mode=kds --till-host=<TILL-LAN-IP> --lan-psk=<SAME-CODE>\n```\n\nUse a 10-character pairing code (Crockford base32, e.g. `ABCDEFGHJK`) as the\n`--lan-psk` if you want the till's \"Pair a kitchen screen\" card to work; any\nother value works for the LAN but the card will say the key is custom.\n\nManual alternative: copy `station.json.example` (shipped beside the app in\n`resources/`) to `%APPDATA%/touch-padel-operator/station.json` and edit it.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#7",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 3. Station identity (per machine, once)",
+      "body": "The till binds its LAN server to the first private IPv4 automatically; pin it\nwith `--lan-bind=<ip>` / `\"lan_bind\"` if the machine has several NICs. Give the\ntill a **static LAN IP** (router reservation) so the KDS's `till_host` never\nmoves. To re-do setup on a machine, delete `station.json` and relaunch.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#8",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 4. Kiosk behaviour",
+      "body": "## 4. Kiosk behaviour\n\n- Every configured station is a kiosk, in every mode (till, desk and kitchen\n  screen) and on every platform (owner call, 2026-09-23): no frame, it cannot\n  be minimised, and the window cannot be closed.\n- There are two ways out: **Quit to desktop** (in the sidebar, and in the top\n  corner of the sign-in screen) and **Exit forced full screen**. Both take a\n  manager's PIN, and it cannot be the PIN of the person signed in. On the\n  sign-in screen any manager's PIN works.\n- If an update is waiting, Quit to desktop installs it and the app opens again\n  by itself (§6).\n- Launch-on-boot registers itself on every packaged start\n  (`app.setLoginItemSettings`); no Task Scheduler entry needed.",
+      "route": null
+    },
+    {
+      "kind": "doc",
+      "ref": "doc:docs/install-runbook.md#9",
+      "lang": "en",
+      "title": "docs/install-runbook.md › 5. Day-one checklist (per station)",
+      "body": "## 5. Day-one checklist (per station)\n\n1. Launch and sign in **while online** — the sync worker and the offline\n   caches are fed by a signed-in session. The till and the desk sign in with\n   the station's staff account. The kitchen board is signed in by whoever runs\n   it, with their own account: every bar and kitchen worker has one (head\n   barista, barista, head chef, chef), created on the Staff page, and a prep\n   account is moved to barista or chef first (Setup ▸ Worth checking lists\n   them). Personal work (tasks, checklists, the shopping list, requests) is on\n   the staff area of the phone app, not on the station\n   (`docs/design/protocols/plan-2026-09-23.md` §9).\n2. Till: confirm the banner is absent (venue not degraded) and open the day.\n3. KDS: confirm a test ticket appears; unplug the WAN briefly and confirm the\n   board switches to LAN tickets.\n4. Record the machine's station id and the sidebar's version line in the venue\n   sheet.",
       "route": null
     },
     {
