@@ -148,7 +148,6 @@ export function RecurringSeriesCreateScreen() {
     enabled: problem === null && settledKey === key,
     queryFn: () => appRpc<SeriesPreview>('preview_series', JSON.parse(settledKey) as Record<string, unknown>),
     staleTime: 30_000,
-    retry: false,
   });
   const previewCurrent = problem === null && settledKey === key && previewQ.data !== undefined && !previewQ.isError;
   const occurrences = previewCurrent ? (previewQ.data?.occurrences ?? []) : [];

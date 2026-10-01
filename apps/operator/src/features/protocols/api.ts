@@ -91,7 +91,6 @@ export function useStepRead<T>(stepKey: string, runId: string, fn: () => Promise
     enabled: enabled && runId !== '',
     queryFn: fn,
     refetchInterval: PROTOCOL_REFETCH_MS,
-    retry: false,
   });
 }
 
@@ -175,7 +174,6 @@ export function useCampaigns(enabled = true) {
   return useQuery({
     queryKey: PK.options('campaigns'),
     enabled,
-    retry: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('marketing_campaigns')

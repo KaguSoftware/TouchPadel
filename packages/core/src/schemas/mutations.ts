@@ -103,6 +103,14 @@ const uuid = z.string().uuid();
 const isoDateTime = z.string().datetime({ offset: true });
 /** Integer IQD amount — money is never fractional. */
 const intIqd = z.number().int().nonnegative();
+/**
+ * A manager PIN riding a queued payload. 6–12 digits, the server's own rule
+ * (app.set_staff_pin since 0078, SEC-13): the queue used to accept 4–12, so a
+ * 4- or 5-digit PIN was durably queued and only refused at replay, after the
+ * till had already shown the sale as done.
+ */
+export const MANAGER_PIN_RE = /^\d{6,12}$/;
+const managerPinSchema = z.string().regex(MANAGER_PIN_RE, 'pin must be 6-12 digits');
 
 export const orderCreatePayloadSchema = z
   .object({
@@ -408,7 +416,7 @@ export const adjustmentApplyPayloadSchema = z
         kind: z.literal('price_override'),
         orderItemId: uuid,
         newUnitPriceIqd: intIqd,
-        pin: z.string().regex(/^\d{4,12}$/, 'pin must be 4-12 digits'),
+        pin: managerPinSchema,
         reasonCode: z.string().min(1).max(64),
       })
       .strict(),
@@ -417,7 +425,7 @@ export const adjustmentApplyPayloadSchema = z
         kind: z.enum(['discount_percent', 'discount_amount']),
         tabId: uuid,
         value: z.number().int().positive(),
-        pin: z.string().regex(/^\d{4,12}$/, 'pin must be 4-12 digits'),
+        pin: managerPinSchema,
         reasonCode: z.string().min(1).max(64),
         orderItemId: uuid.optional(),
       })
@@ -443,7 +451,7 @@ export type AdjustmentApplyPayload = z.infer<typeof adjustmentApplyPayloadSchema
 // caps the note at 200 characters).
 // ---------------------------------------------------------------------------
 
-const pinSchema = z.string().regex(/^\d{4,12}$/, 'pin must be 4-12 digits');
+const pinSchema = managerPinSchema;
 const reasonCodeSchema = z.string().trim().min(1).max(300);
 
 /** tab.cancel — app.cancel_tab: an OPEN tab with nothing on it goes, with a reason. */
@@ -498,9 +506,72 @@ export const stockWastePayloadSchema = z
   .strict();
 export type StockWastePayload = z.infer<typeof stockWastePayloadSchema>;
 
-// TODO(core): tighten the remaining payloads as their call sites move onto the queue:
-// reservation.update and waiter_call.action currently accept z.unknown().
-const todoPayload = z.unknown();
+/**
+ * The desk's override reason: a reason code, or "code: note" (the prompt caps
+ * the note at 200 characters). Optional: marking a booking arrived or
+ * completed sends none and the server records its own default. Replay passes
+ * `reason ?? null`, so null is accepted too.
+ */
+const reservationReasonSchema = z.string().max(300).nullish();
+
+/**
+ * reservation.update — `action` picks the desk edit, mirroring what
+ * functions/replay/index.ts reads for each (and DIRECT_RPC in the operator's
+ * lib/mutate.ts):
+ *   move    app.move_reservation(p_reservation_id, p_court_id, p_start_at, p_end_at, p_reason)
+ *   extend  app.extend_reservation(p_reservation_id, p_new_end_at, p_reason)
+ *   cancel  app.cancel_reservation(p_reservation_id, p_reason)
+ *   mark    app.mark_reservation(p_reservation_id, p_status, p_reason)
+ * Replay refuses any other action with a 400, so the queue refuses it first.
+ */
+export const reservationUpdatePayloadSchema = z.discriminatedUnion('action', [
+  z
+    .object({
+      action: z.literal('move'),
+      reservationId: uuid,
+      courtId: uuid.nullish(),
+      startAt: isoDateTime.nullish(),
+      endAt: isoDateTime.nullish(),
+      reason: reservationReasonSchema,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('extend'),
+      reservationId: uuid,
+      newEndAt: isoDateTime,
+      reason: reservationReasonSchema,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('cancel'),
+      reservationId: uuid,
+      reason: reservationReasonSchema,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('mark'),
+      reservationId: uuid,
+      // The transitions app.mark_reservation accepts (0262): confirmed -> arrived
+      // / no_show, confirmed or arrived -> completed.
+      status: z.enum(['arrived', 'no_show', 'completed']),
+      reason: reservationReasonSchema,
+    })
+    .strict(),
+]);
+export type ReservationUpdatePayload = z.infer<typeof reservationUpdatePayloadSchema>;
+
+/**
+ * waiter_call.action — app.ack_waiter_call / app.resolve_waiter_call(p_call_id).
+ * Replay sends anything but 'resolve' to ack, so a typo used to acknowledge a
+ * call someone meant to close; the queue now refuses it.
+ */
+export const waiterCallActionPayloadSchema = z
+  .object({ callId: uuid, action: z.enum(['ack', 'resolve']) })
+  .strict();
+export type WaiterCallActionPayload = z.infer<typeof waiterCallActionPayloadSchema>;
 
 // ---------------------------------------------------------------------------
 // Envelope
@@ -562,10 +633,18 @@ const envelopeVariants = z.discriminatedUnion('mutationType', [
     })
     .strict(),
   z
-    .object({ ...baseFields, mutationType: z.literal('reservation.update'), payload: todoPayload })
+    .object({
+      ...baseFields,
+      mutationType: z.literal('reservation.update'),
+      payload: reservationUpdatePayloadSchema,
+    })
     .strict(),
   z
-    .object({ ...baseFields, mutationType: z.literal('waiter_call.action'), payload: todoPayload })
+    .object({
+      ...baseFields,
+      mutationType: z.literal('waiter_call.action'),
+      payload: waiterCallActionPayloadSchema,
+    })
     .strict(),
   z
     .object({

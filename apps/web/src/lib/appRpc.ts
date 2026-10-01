@@ -1,17 +1,46 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestError, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 import { errorMessageKey, type ErrorOverrides, type MessageKey } from '@touch/i18n';
+import { DEFAULT_REQUEST_TIMEOUT_MS, RequestTimeoutError, normalizeTimeout, startDeadline } from '@touch/core';
+
+export interface AppRpcOptions {
+  /** Override the deadline (ms); null for none. Default 15 s. */
+  timeoutMs?: number | null;
+}
 
 /**
  * All business writes go through SECURITY DEFINER RPCs in schema `app`
  * (exposed via the API config — mirrors packages/db/tests/helpers.ts appRpc).
+ *
+ * Every call has a deadline (15 s unless the call site says otherwise). It
+ * had none: a guest whose order went out on a dying connection watched the
+ * Send button spin forever. A miss answers like any other failure, `{ error }`
+ * — its message 'TimeoutError: Request timed out after … ms' maps to
+ * errors.generic — so every caller's existing error path handles it.
  */
-export function appRpc<Fn extends keyof Database['app']['Functions'] & string>(
+export async function appRpc<Fn extends keyof Database['app']['Functions'] & string>(
   client: SupabaseClient<Database>,
   fn: Fn,
   args?: Database['app']['Functions'][Fn]['Args'],
+  opts: AppRpcOptions = {},
 ) {
-  return client.schema('app').rpc(fn, args as never);
+  const call = client.schema('app').rpc(fn, args as never);
+  const ms = normalizeTimeout(opts.timeoutMs, DEFAULT_REQUEST_TIMEOUT_MS);
+  // A test double hands back a bare promise; only the real builder is abortable.
+  if (ms === null || typeof (call as { abortSignal?: unknown }).abortSignal !== 'function') return await call;
+  const deadline = startDeadline(ms);
+  try {
+    const answer = await call.abortSignal(deadline.signal);
+    if (!answer.error || !deadline.timedOut()) return answer;
+    const timeout = new RequestTimeoutError(ms, fn);
+    // postgrest-js reports the abort as `AbortError: …`; say what it was.
+    return {
+      ...answer,
+      error: new PostgrestError({ message: `${timeout.name}: ${timeout.message}`, details: '', hint: '', code: '' }),
+    } as typeof answer;
+  } finally {
+    deadline.clear();
+  }
 }
 
 /**

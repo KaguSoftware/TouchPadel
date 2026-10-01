@@ -20,3 +20,6 @@ export * from './legal/terms';
 export * from './staff/roles';
 export * from './staff/requests';
 export * from './protocols';
+export * from './net/retry';
+export * from './net/timeout';
+export * from './net/resilientChannel';

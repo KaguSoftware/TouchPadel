@@ -14,15 +14,36 @@ import type { AuthState } from '../ipc-channels';
  * so main needs no VITE_* baked in at all.
  */
 let current: AuthState | null = null;
+/**
+ * The access token the replay endpoint answered 401 to. The sync worker used
+ * to reset its backoff on a 401 and keep the token, so its 3 s timer resent
+ * the same refused token forever. Now the token is marked here and replay
+ * pauses until the renderer pushes a DIFFERENT one (TOKEN_REFRESHED, a new
+ * sign-in); the same token pushed again stays refused.
+ */
+let rejectedToken: string | null = null;
 const listeners = new Set<() => void>();
 
 export function setAuthState(next: AuthState | null): void {
   current = next;
+  if (!next || next.accessToken !== rejectedToken) rejectedToken = null;
   for (const fn of listeners) fn();
 }
 
+/** The signed-in staff session (who is at the station), refused for replay or not. */
 export function getAuthState(): AuthState | null {
   return current;
+}
+
+/** The session replay may send: none while its token is the one replay refused. */
+export function getReplayAuth(): AuthState | null {
+  if (current && rejectedToken !== null && current.accessToken === rejectedToken) return null;
+  return current;
+}
+
+/** Replay answered 401 to this token: never send it again. */
+export function markTokenRejected(accessToken: string): void {
+  rejectedToken = accessToken;
 }
 
 /** The sync worker subscribes so a fresh token immediately un-pauses replay. */

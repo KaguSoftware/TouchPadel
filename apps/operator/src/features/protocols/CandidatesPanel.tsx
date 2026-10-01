@@ -51,7 +51,6 @@ export function useCandidates(runId: string, enabled: boolean) {
   return useQuery({
     queryKey: PK.context('interviews', runId),
     enabled,
-    retry: false,
     queryFn: async () => readCandidates(await appRpc<unknown>('hiring_candidates', { p_run_id: runId })),
   });
 }

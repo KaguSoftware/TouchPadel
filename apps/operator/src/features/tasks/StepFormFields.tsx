@@ -116,7 +116,6 @@ export function StepFormFields(props: StepFormFieldsProps) {
     queryKey: TK.options('campaignDrafts'),
     queryFn: () => appRpc<unknown>('my_campaign_drafts', {}),
     enabled: wantCampaigns,
-    retry: false,
   });
   const testQ = useQuery({
     queryKey: TK.context('release_test_context', props.runId ?? ''),

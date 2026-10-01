@@ -248,6 +248,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     queryKey: [ANALYTICS_KEY, 'posthog', from, to, prevFrom, prevTo, startHour],
     enabled: ready,
     staleTime: 30_000,
+    // callEdge already retries a 5xx once, and each attempt may take a minute
+    // (EDGE_TIMEOUT_MS): a query-level retry would only double the wait.
     retry: false,
     queryFn: async () => {
       const now = await posthogQueries(currentWindowQueries(range), startHour);

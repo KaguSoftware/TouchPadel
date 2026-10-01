@@ -27,7 +27,6 @@ export function useSignedPhoto(path: string | null) {
     // A minute short of the URL's life, so a cached link is never a dead one.
     staleTime: (SIGNED_SECONDS - 60) * 1000,
     gcTime: (SIGNED_SECONDS - 60) * 1000,
-    retry: false,
     queryFn: async () => {
       const { data, error } = await supabase.storage.from(STAFF_MEDIA_BUCKET).createSignedUrl(path ?? '', SIGNED_SECONDS);
       if (error) throw error;

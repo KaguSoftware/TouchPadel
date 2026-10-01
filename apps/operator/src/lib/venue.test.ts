@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { branchTopic, pickBranch } from './venue';
-import { scopeHeaders, setBranchScope, setReportAllBranches, setStationHeader } from './venueScope';
+import { DEFAULT_REQUEST_TIMEOUT_MS, LONG_REQUEST_TIMEOUT_MS } from '@touch/core';
+import { requestTimeoutMs, scopeHeaders, setBranchScope, setReportAllBranches, setStationHeader } from './venueScope';
 
 const A = 'c0000000-0000-4000-8000-000000000001';
 const B = 'ee570000-0000-4000-8000-00000000be00';
@@ -58,5 +59,16 @@ describe('scopeHeaders', () => {
     // ...and nothing else does: badges, heartbeats and table reads stay on the rail's branch.
     expect(scopeHeaders(rpc('heartbeat'))['x-venue-scope']).toBe(A);
     expect(scopeHeaders('http://127.0.0.1:54321/rest/v1/courts?select=id')['x-venue-scope']).toBe(A);
+  });
+});
+
+describe('requestTimeoutMs (venueFetch deadlines)', () => {
+  const base = 'http://127.0.0.1:54321';
+  it('15 s for a read, 60 s for a report RPC, none for storage', () => {
+    expect(requestTimeoutMs(`${base}/rest/v1/courts?select=id`)).toBe(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(requestTimeoutMs(`${base}/auth/v1/token?grant_type=refresh_token`)).toBe(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(requestTimeoutMs(`${base}/rest/v1/rpc/report_drill`)).toBe(LONG_REQUEST_TIMEOUT_MS);
+    expect(requestTimeoutMs(`${base}/rest/v1/rpc/analytics_hourly`)).toBe(LONG_REQUEST_TIMEOUT_MS);
+    expect(requestTimeoutMs(`${base}/storage/v1/object/staff-media/a.jpg`)).toBeNull();
   });
 });

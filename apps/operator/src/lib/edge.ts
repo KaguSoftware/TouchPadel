@@ -4,11 +4,19 @@
  *
  * - 30 s in-memory cache of SUCCESSFUL responses keyed by `cacheKey ?? fn + body`.
  * - Status → HTTP class map; one automatic retry on 5xx (never on 503 NOT_CONFIGURED).
+ * - A deadline per attempt (EDGE_TIMEOUT_MS, else 15 s): RequestTimeoutError.
  * - Throws `EdgeError`, whose `code` is the server's own code when the error
  *   catalogue knows it and `EDGE_<class>` otherwise; lib/errors.ts maps it like
  *   an RPC's code.
  */
 import { isErrorCode } from '@touch/i18n';
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  LONG_REQUEST_TIMEOUT_MS,
+  RequestTimeoutError,
+  normalizeTimeout,
+  startDeadline,
+} from '@touch/core';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 import { parseSseChunk, parseSseData } from '../features/assistant/sse';
 
@@ -145,6 +153,63 @@ export interface CallEdgeOptions {
    */
   retry?: boolean;
   signal?: AbortSignal;
+  /**
+   * Deadline for one attempt, in ms; null for none. Default: EDGE_TIMEOUT_MS
+   * for the function, else 15 s. A miss throws RequestTimeoutError (a
+   * retryable TypeError: lib/errors.ts shows it as a connection problem).
+   */
+  timeoutMs?: number | null;
+}
+
+/**
+ * The functions that are slow by nature: model calls, PostHog queries, the
+ * Telegram round trip, the receipt reader (whose caller also brings its own
+ * signal, scanReading.ts). Every other function gets the 15 s default.
+ * streamEdge has no deadline at all: the owner's Stop button is the deadline.
+ */
+export const EDGE_TIMEOUT_MS: Partial<Record<EdgeFunctionName, number | null>> = {
+  'analytics-posthog': LONG_REQUEST_TIMEOUT_MS,
+  'analytics-insights': 90_000,
+  'assistant-chat': LONG_REQUEST_TIMEOUT_MS,
+  'assistant-component': 90_000,
+  'assistant-job': 30_000,
+  'assistant-index': 120_000,
+  'telegram-diagnose': 30_000,
+  'receipt-scan': 90_000,
+};
+
+/** The deadline a call to `fn` gets when its caller names none. */
+export function edgeTimeoutMs(fn: EdgeFunctionName): number | null {
+  const own = EDGE_TIMEOUT_MS[fn];
+  return own === undefined ? DEFAULT_REQUEST_TIMEOUT_MS : own;
+}
+
+/**
+ * One request under its deadline, the body read included (a function that
+ * sends its headers and then stalls is cut at the same deadline). The caller's
+ * own signal still aborts it, and that is not called a timeout.
+ */
+async function attempt(
+  fn: EdgeFunctionName,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number | null,
+  parent: AbortSignal | undefined,
+): Promise<{ res: Response; payload: unknown }> {
+  if (timeoutMs === null) {
+    const res = await fetch(url, init);
+    return { res, payload: await parseBody(res) };
+  }
+  const deadline = startDeadline(timeoutMs, parent);
+  try {
+    const res = await fetch(url, { ...init, signal: deadline.signal });
+    return { res, payload: await parseBody(res) };
+  } catch (error) {
+    if (deadline.timedOut()) throw new RequestTimeoutError(timeoutMs, fn);
+    throw error;
+  } finally {
+    deadline.clear();
+  }
 }
 
 export function edgeCacheKey(fn: EdgeFunctionName, body: unknown): string {
@@ -178,11 +243,11 @@ export async function callEdge<Req, Res>(
     body: JSON.stringify(body ?? {}),
     signal: opts.signal,
   };
+  const timeoutMs = normalizeTimeout(opts.timeoutMs, edgeTimeoutMs(fn));
 
   let retried = !(opts.retry ?? ttl > 0);
   for (;;) {
-    const res = await fetch(url, init);
-    const payload = await parseBody(res);
+    const { res, payload } = await attempt(fn, url, init, timeoutMs, opts.signal);
     if (res.ok) {
       if (ttl > 0) cache.set(key, { expires: Date.now() + ttl, value: payload });
       return payload as Res;

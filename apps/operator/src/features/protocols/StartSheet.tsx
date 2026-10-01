@@ -116,7 +116,6 @@ export function StartSheet({
   const ideas = useQuery({
     queryKey: PK.options(`ideas:${ideaId ?? ''}`),
     enabled: kind === 'product_release' && Boolean(ideaId),
-    retry: false,
     queryFn: async () => readIdeas(await appRpc<unknown>('release_ideas_to_review', { p_venue_id: null })),
   });
   const idea = ideaId ? ideas.data?.find((i) => i.id === ideaId) ?? null : null;
