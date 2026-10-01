@@ -65,17 +65,30 @@ export function serviceClient(): SupabaseClient {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, clientOptions);
 }
 
-/** True when the local stack answers; suites skip themselves otherwise. */
+/**
+ * True when the local stack answers; suites skip themselves otherwise.
+ *
+ * TP_REQUIRE_STACK=1 (the CI db job) turns "skip" into a failure: one slow
+ * health probe under load used to skip a whole file and leave the job green
+ * (2026-10-01 review). Three tries, then a throw that names the reason.
+ */
 export async function stackAvailable(): Promise<boolean> {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
-      headers: { apikey: ANON_KEY },
-      signal: AbortSignal.timeout(3_000),
-    });
-    return res.ok;
-  } catch {
-    return false;
+  const required = process.env.TP_REQUIRE_STACK === '1';
+  let last = '';
+  for (let attempt = 0; attempt < (required ? 3 : 1); attempt++) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+        headers: { apikey: ANON_KEY },
+        signal: AbortSignal.timeout(required ? 10_000 : 3_000),
+      });
+      if (res.ok) return true;
+      last = `HTTP ${res.status}`;
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
   }
+  if (required) throw new Error(`TP_REQUIRE_STACK=1 but ${SUPABASE_URL}/auth/v1/health did not answer (${last})`);
+  return false;
 }
 
 export async function signedInClient(email: string, password: string = DEV_PASSWORD) {

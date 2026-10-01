@@ -10,6 +10,15 @@ in Erbil will never agree — it is that a change which makes `hold_slot` 30 %
 slower shows up as a diff the morning after, instead of as a complaint from the
 venue in March.
 
+**Since 2026-10-01 the nightly is an A/B on one machine.** It measures the
+reference commit (`baseline.json` `meta.sha`) and HEAD back to back on the same
+runner and runs `bench:compare -- --against=<reference results>`; the committed
+p95s are no longer compared. Two GitHub runners differ by more than the 10 %
+rule, so the old comparison was red on every scheduled run from 09-22 onwards.
+To move the reference forward (an accepted slowdown, or a speed-up worth
+locking in), run the workflow in `baseline` mode and commit the `baseline.json`
+it uploads.
+
 ## Running it
 
 ```sh

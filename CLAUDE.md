@@ -28,7 +28,9 @@ Per-package rules (read the one for the package you are editing): `packages/db/C
   2. **Straight after pushing**, find the runs the push started (`gh run list --branch main
      --limit 5`) and follow each to the end (`gh run watch <id> --exit-status`):
      - `ci.yml`;
-     - `db-migrate.yml` and `functions-deploy.yml` when `packages/db` changed;
+     - `deploy.yml`, which starts when that CI run concludes green (it deploys migrations and
+       edge functions only when the hosted project needs them; otherwise it ends after its plan
+       job);
      - the Vercel build.
      The push is not done, and not reported as done, until every one of them is green.
   3. **If a run goes red**, fixing it comes before any other work. Read the failing log (`gh run
