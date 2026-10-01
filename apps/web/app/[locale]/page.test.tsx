@@ -319,7 +319,9 @@ describe('home page metadata', () => {
       languages: { en: '/en', ar: '/ar', 'x-default': '/ar' },
     });
     const og = meta.openGraph as { images: { url: string }[] };
-    expect(og.images[0]!.url).toBe('/brand/site/og-touch-padel-ar.png');
+    expect(og.images[0]!.url).toBe(
+      'https://www.touch-padel.com/brand/site/og-touch-padel-ar.png?v=2',
+    );
   });
 
   it('404s a foreign locale', async () => {
