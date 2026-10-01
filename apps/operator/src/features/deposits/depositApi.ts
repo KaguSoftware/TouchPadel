@@ -64,7 +64,7 @@ export type RefundReason =
   // Open matches (operator.md §5.17): a ticket purchase's refunds.
   | 'ticket_cashout'
   | 'account_deleted'
-  // Coaching (0272; coaching operator.md §5.17): a lesson's online money going back.
+  // Coaching (0275; coaching operator.md §5.17): a lesson's online money going back.
   | 'coach_cancel'
   | 'under_filled';
 
@@ -88,20 +88,20 @@ export const REFUND_REASONS: readonly RefundReason[] = [
  * One row of app.deposit_attention. Since 0258 it also lists open-match
  * ticket purchases whose cash-out or account-deletion refund failed, at every
  * branch (chain money, money.md §5.10): `purpose = 'ticket'`, no reservation.
- * Since 0281 it lists lesson payments too (`purpose = 'lesson'`, coaching
+ * Since 0284 it lists lesson payments too (`purpose = 'lesson'`, coaching
  * operator.md §5.17), with the lesson and the sign-up they paid for.
  */
 export interface DepositAttentionRow {
   id: string;
   request_id: string;
   reservation_id: string | null;
-  /** `deposit`, `ticket` (0258) or `lesson` (0281); absent from an older server, which lists deposits only. */
+  /** `deposit`, `ticket` (0258) or `lesson` (0284); absent from an older server, which lists deposits only. */
   purpose?: 'deposit' | 'ticket' | 'lesson' | string | null;
   /** A ticket purchase's number of tickets. */
   ticket_count?: number | null;
   /** The payer (booking_payments.guest_id), for Open customer. */
   customer_id?: string | null;
-  /** A lesson payment's lesson (Open lesson) and sign-up (0281). */
+  /** A lesson payment's lesson (Open lesson) and sign-up (0284). */
   lesson_id?: string | null;
   enrolment_id?: string | null;
   guest_name: string | null;

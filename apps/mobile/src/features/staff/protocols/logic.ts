@@ -206,7 +206,7 @@ export function targetKindOf(change: PriceChangeKind): TargetKind {
       return 'addons';
     case 'promotion':
       return 'none';
-    // Lesson prices (coaching 0282) are started on the operator, where the
+    // Lesson prices (coaching 0285) are started on the operator, where the
     // lesson types are; the phone reads and decides them, and offers no start.
     case 'lesson_price':
     case 'lesson_launch':
@@ -220,7 +220,7 @@ export function phoneStartChanges(changes: readonly PriceChangeKind[]): PriceCha
   return changes.filter((c) => !isLessonChange(c));
 }
 
-// ── Lesson price changes: the X28 reads (coaching 0282) ─────────────────────
+// ── Lesson price changes: the X28 reads (coaching 0285) ─────────────────────
 
 type Row = Record<string, unknown>;
 
@@ -597,7 +597,7 @@ export function priceProposeResubmit(
  * (`price_promo_numbers`: the proposal's, or the last numbers sent), so a
  * "go" with no change is one tap.
  *
- * A lesson change (coaching 0282) takes its figures from `numbers.lesson`,
+ * A lesson change (coaching 0285) takes its figures from `numbers.lesson`,
  * and only those its proposal carries: the server refuses any other by name.
  * Given the proposal (`proposal`), that is what it says. Without it, a launch
  * carries both, a lesson price the figures it moves (a proposed figure is

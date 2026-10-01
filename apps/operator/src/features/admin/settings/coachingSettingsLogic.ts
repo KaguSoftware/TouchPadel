@@ -1,14 +1,14 @@
 /**
  * The owner's lesson rules for one branch, as typed and as stored
  * (docs/design/coaching/operator.md §5.12; app.coaching_settings /
- * app.set_coaching_settings, 0274; X20, R50, R56, R67).
+ * app.set_coaching_settings, 0277; X20, R50, R56, R67).
  *
  * The form keeps numbers as strings until they are checked, sends only the
  * keys that changed, and places a server refusal on its field:
  * INVALID_ARGUMENT names the settings key in its detail, ONLINE_PAYMENT_OFF
  * (detail `provider` or `terms`) lands on the payment mode. The coach's share
  * is typed as a percent with up to two decimals and stored as basis points
- * (CD-5). The bounds mirror 0274's so a typo is caught before the round trip;
+ * (CD-5). The bounds mirror 0277's so a typo is caught before the round trip;
  * the server is still the wall.
  */
 import type { CoachingSettings, LessonPaymentMode } from '../../coaching/lessonPayloads';
@@ -27,7 +27,7 @@ export interface CoachingSettingsDraft {
 export type CoachingSettingsField = keyof CoachingSettingsDraft;
 export type CoachingSettingsFieldError = 'wholeNumber' | 'range' | 'percent' | 'refused';
 
-/** 0274's bound on `coach_max_open_private` (R56). */
+/** 0277's bound on `coach_max_open_private` (R56). */
 export const COACH_MAX_OPEN_PRIVATE = { min: 1, max: 100 } as const;
 
 /** `coach_share_bp` is 0..10000 basis points (CD-5). */

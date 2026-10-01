@@ -1,6 +1,6 @@
 /**
  * Coaching on the operator (docs/design/coaching/operator.md §5.22, R58),
- * against the local stack once migrations 0270–0286 are in it. Lesson times are
+ * against the local stack once migrations 0273–0289 are in it. Lesson times are
  * tomorrow on the branch's clock unless a journey backdates one (a lesson cannot
  * be booked in the past), so CI's clock never lands a start inside a cut-off by
  * accident. Desk-typed names carry no digits (deskLogic sanitizeName). Labels

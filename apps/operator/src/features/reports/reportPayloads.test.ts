@@ -65,7 +65,7 @@ describe('readRevenue', () => {
         taxIqd: 0,
         orders: 0,
         bookings: 1,
-        // A server before 0285 sends no lesson figures: null, never 0.
+        // A server before 0288 sends no lesson figures: null, never 0.
         lessonIqd: null,
         owedToCoachesIqd: null,
       },
@@ -142,7 +142,7 @@ describe('readCourts', () => {
     expect(courtMatchesIsEmpty(null)).toBe(true);
   });
   // Coaching (coaching operator.md §5.18.2, X25, R72).
-  it("reads the lessons block by COACHING_SHAPES.report_courts' keys, null from a server before 0285", () => {
+  it("reads the lessons block by COACHING_SHAPES.report_courts' keys, null from a server before 0288", () => {
     expect([...COURT_LESSON_KEYS]).toEqual([...COACHING_SHAPES.report_courts.nested!.lessons!]);
     expect(readCourts(payload).lessons).toBeNull();
     const block = { lessons: 6, private: 3, group: 2, courseSessions: 1, lessonMinutes: '420', enrolments: 11, attended: 9, noShows: 1, cancelled: 1, underFilled: 0, collectedIqd: 330000, courtShareIqd: 60000, owedToCoachesIqd: 162000 };

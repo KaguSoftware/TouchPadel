@@ -66,7 +66,7 @@ export const workEn = {
     // Shown in place of the '[deleted after 90 days]' marker the hiring purge
     // writes over decision notes, skip notes and stop reasons.
     noteDeleted: 'Note deleted after 90 days',
-    // The eleven price or promo change kinds (record `change`); the last three are lessons (0282).
+    // The eleven price or promo change kinds (record `change`); the last three are lessons (0285).
     change: {
       price: 'Change item prices',
       shop_launch: 'Put a shop product on sale',

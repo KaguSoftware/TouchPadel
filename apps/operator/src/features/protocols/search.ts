@@ -26,7 +26,7 @@ export type TournamentVariant = (typeof TOURNAMENT_VARIANTS)[number];
 
 /**
  * The eleven price or promo change kinds (§2.8), in `@touch/core/protocols`'
- * order; the last three are the lesson kinds (coaching 0282). `shop_launch`
+ * order; the last three are the lesson kinds (coaching 0285). `shop_launch`
  * and the lesson kinds are never offered on /tasks.
  */
 export const PRICE_CHANGE_KINDS = [

@@ -69,7 +69,7 @@ export const workAr: DeepMessages<typeof workEn> = {
       promotion_enable: 'تشغيل عرض',
       rate: 'تغيير سعر ملعب أو إضافته',
       featured_discount: 'تغيير خصم الصنف المميز',
-      // DRAFT-AR (coaching 0282).
+      // DRAFT-AR (coaching 0285).
       lesson_price: 'تغيير سعر حصة',
       lesson_launch: 'طرح نوع حصة للبيع',
       coach_price: 'تغيير سعر حصة لمدرّب',

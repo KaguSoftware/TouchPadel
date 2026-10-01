@@ -1,6 +1,6 @@
 /**
  * Coaching on the website (docs/design/coaching/guest.md §4.14, §4.17; R58, U7), against the
- * local stack once the coaching migrations (0270-0286) are in it:
+ * local stack once the coaching migrations (0273-0289) are in it:
  *
  *  1. `/en/coaching` lists a public coach with the lesson type they teach and NO price while the
  *     branch's `lesson_prices_public` switch is off, though `coaching_public` sends it (C-11).
@@ -44,7 +44,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
   });
 }
 
-/** The coaching switches of the fixture branch (0274's `venue_settings` columns). */
+/** The coaching switches of the fixture branch (0277's `venue_settings` columns). */
 async function setCoachingSwitches(
   svc: SupabaseClient,
   patch: { coaching_enabled?: boolean; lesson_prices_public?: boolean },

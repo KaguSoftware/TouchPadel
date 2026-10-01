@@ -46,7 +46,7 @@ export type Tr = (key: MessageKey, params?: TParams) => string;
 
 /**
  * `reservations.guest_name` of a lesson's court row: the DB literal written by
- * the lesson creators (0280, build contracts §1.2). Must equal it byte for byte.
+ * the lesson creators (0283, build contracts §1.2). Must equal it byte for byte.
  */
 export const LESSON_RESERVATION_NAME = 'Lesson';
 

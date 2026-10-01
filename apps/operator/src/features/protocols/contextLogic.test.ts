@@ -60,7 +60,7 @@ describe('context reads', () => {
   });
 });
 
-// Coaching (0282, operator.md §5.14.2): a lesson change's numbers.
+// Coaching (0285, operator.md §5.14.2): a lesson change's numbers.
 const LESSON = {
   lesson_type_id: 'lt-1',
   coach_id: null,

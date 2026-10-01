@@ -325,7 +325,7 @@ export function StepContextPanel({ ctx }: { ctx: StepContexts }) {
             })}
           </p>
         )}
-        {/* Coaching (0282): a lesson change's figures and sales; no coach pay (C-28). */}
+        {/* Coaching (0285): a lesson change's figures and sales; no coach pay (C-28). */}
         {n.lesson && (
           <div data-testid="numbers-lesson" style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
             {lessonNumbersLines(n.lesson, tr, locale).map((line) => (

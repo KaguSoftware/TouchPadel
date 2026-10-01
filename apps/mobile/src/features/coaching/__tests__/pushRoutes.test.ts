@@ -13,7 +13,7 @@ import { isGuestTap, isStaffTap, tapDestination } from '../../profile/pushSync';
 /**
  * Coaching push taps (docs/design/coaching/guest.md §4.11). The one catalogue
  * is packages/db/supabase/functions/_shared/guest-push.json; its coaching
- * entries arrived with the 0271 commit (G1). The lists are held to guest.md
+ * entries arrived with the 0274 commit (G1). The lists are held to guest.md
  * §4.6.1 and to the JSON's coaching entries, in its order.
  */
 const JSON_PATH = join(

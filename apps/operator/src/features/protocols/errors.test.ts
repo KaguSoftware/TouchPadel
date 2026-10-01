@@ -9,7 +9,7 @@ describe('protocol refusals', () => {
     expect(protocolErrorKey(new AppRpcError('SOMETHING_NEW', 'SOMETHING_NEW'))).toBe('errors.generic');
   });
 
-  it('says a lesson price change gone stale in its own words (coaching 0282, operator.md §5.19)', () => {
+  it('says a lesson price change gone stale in its own words (coaching 0285, operator.md §5.19)', () => {
     expect(protocolErrorKey(new AppRpcError('PRICE_TARGET_CHANGED', 'x', 'lesson_type'))).toBe('ws.coaching.errors.priceTargetChanged.lesson_type');
     expect(protocolErrorKey(new AppRpcError('PRICE_TARGET_CHANGED', 'x', undefined, 'coach_price'))).toBe('ws.coaching.errors.priceTargetChanged.coach_price');
     // Any other hint (a menu item, a rate) keeps the shared line.

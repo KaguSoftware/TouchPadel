@@ -38,7 +38,7 @@ export interface TargetAddon {
 }
 
 /**
- * A lesson type a lesson price change names (coaching 0282, X28), under the
+ * A lesson type a lesson price change names (coaching 0285, X28), under the
  * key names of COACHING_SHAPES.price_promo_targets_lesson_types (R81). Only
  * what /tasks reads back: the id and the names.
  */
@@ -64,7 +64,7 @@ export interface Targets {
   featuredItemId: string | null;
   featuredPct: number | null;
   /**
-   * Coaching (0282): a lesson change's types and coaches. Marketing never
+   * Coaching (0285): a lesson change's types and coaches. Marketing never
    * starts one (`priceChangeKinds`), but a record of one reads by name here.
    */
   lessonTypes: TargetLessonType[];
@@ -158,7 +158,7 @@ export function targetSources(targets: Targets, draft: Draft, locale: 'en' | 'ar
       })),
     promotion_id: targets.promotions.map((x) => ({ value: x.promotion_id, label: bilingual(locale, x.name_en, x.name_ar) })),
     rule_id: targets.rules.map((x) => ({ value: x.rule_id, label: x.name ?? '—' })),
-    // Lessons (coaching 0282): a coach price lists the picked coach's types only.
+    // Lessons (coaching 0285): a coach price lists the picked coach's types only.
     lesson_type_id: (coach ? coach.lesson_types : targets.lessonTypes).map((t) => ({ value: t.lesson_type_id, label: bilingual(locale, t.name_en, t.name_ar) })),
     coach_id: targets.coaches.map((c) => ({ value: c.coach_id, label: bilingual(locale, c.display_name_en, c.display_name_ar) })),
   };

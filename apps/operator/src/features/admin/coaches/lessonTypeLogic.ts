@@ -1,6 +1,6 @@
 /**
  * A lesson type as the Lesson types tab edits it (docs/design/coaching/
- * operator.md §5.13.2; app.upsert_lesson_type, 0279; C-5, C-17, R26, R46).
+ * operator.md §5.13.2; app.upsert_lesson_type, 0282; C-5, C-17, R26, R46).
  * Pure; no React.
  *
  * - `lessonTypeDraftErrors` mirrors the §1.2 CHECKs on `lesson_types` and

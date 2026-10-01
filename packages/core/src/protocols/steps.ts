@@ -53,7 +53,7 @@ export const RECORD_CAPS = {
   /** A scheduled launch is at most this many days ahead. */
   launchDaysAhead: 90,
   /**
-   * A lesson price or court share (price_promo_lessons, 0282). A price is at least 1, and a
+   * A lesson price or court share (price_promo_lessons, 0285). A price is at least 1, and a
    * course's at least one dinar a session, which only the server can check.
    */
   lessonFigureMax: 100_000_000,
@@ -82,7 +82,7 @@ export function startableKinds(role: StaffRole | null | undefined): ProtocolKind
 
 /**
  * A lesson price change: `lesson_price`, `lesson_launch` or `coach_price`
- * (coaching C-17, 0282). Here rather than in types.ts, which holds types and
+ * (coaching C-17, 0285). Here rather than in types.ts, which holds types and
  * value lists only; both apps import the barrel.
  */
 export function isLessonChange(kind: unknown): kind is LessonChangeKind {
@@ -300,7 +300,7 @@ const NOTES = f.long('notes');
 
 /**
  * A lesson price, 1..lessonFigureMax, and a court share per session,
- * 0..lessonFigureMax (0282). The walker marks a price of 0 by itself, so
+ * 0..lessonFigureMax (0285). The walker marks a price of 0 by itself, so
  * validate.ts needs no extra rule for `price_iqd > 0`.
  */
 const LESSON_PRICE = (required: boolean): FieldDef => ({
@@ -568,7 +568,7 @@ const PROPOSE_BY_CHANGE: Record<PriceChangeKind, readonly FieldDef[]> = {
   promotion_enable: [f.uuid('promotion_id')],
   rate: [f.uuid('rule_id', false), { name: 'rule', type: 'object', required: true, fields: RATE_RULE_FIELDS }],
   featured_discount: [f.uuid('menu_item_id'), f.int('discount_pct', true, 0, 99)],
-  // Lessons (0282): the type, and the coach of a coach price. `before` is the
+  // Lessons (0285): the type, and the coach of a coach price. `before` is the
   // server's to write (R46). lesson_price needs one figure (validate.ts); a
   // coach price left empty removes the coach's own.
   lesson_price: [f.uuid('lesson_type_id'), LESSON_PRICE(false), COURT_SHARE(false)],

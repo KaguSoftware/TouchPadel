@@ -5,7 +5,7 @@
  * `send-push` puts `{kind, route, title_key, id?}` in a guest notification's
  * data, as for open matches; the one catalogue is
  * packages/db/supabase/functions/_shared/guest-push.json. The coaching family
- * was appended to it by the 0271 commit (guest.md G1). This module owns the
+ * was appended to it by the 0274 commit (guest.md G1). This module owns the
  * coaching routes and kinds (`features/matches/pushRoutes.ts`'s guest lists
  * spread them after the open-match ones) and where each coaching route OPENS
  * (G4: the lesson; G5: coach mode); `__tests__/pushRoutes.test.ts` holds its

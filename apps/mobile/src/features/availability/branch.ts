@@ -35,7 +35,7 @@ export interface Branch {
   map_url: string | null;
   phone: string | null;
   timezone: string | null;
-  /** Coaching is on at this branch (0274; coaching guest.md §4.7.5). False for a row from before it. */
+  /** Coaching is on at this branch (0277; coaching guest.md §4.7.5). False for a row from before it. */
   coaching_enabled: boolean;
 }
 

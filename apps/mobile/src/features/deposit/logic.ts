@@ -60,7 +60,7 @@ const modeOf = (v: unknown): DepositMode =>
 /**
  * What a `booking_payments` row pays for (open matches, money.md §5.5): a
  * court deposit, open-match tickets (docs/design/open-matches/guest.md
- * §4.10.4), or a lesson (coaching, 0272; docs/design/coaching/guest.md
+ * §4.10.4), or a lesson (coaching, 0275; docs/design/coaching/guest.md
  * §4.9.3). A row from before 0259, or any value this build does not know, is
  * a deposit.
  */

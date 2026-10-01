@@ -33,7 +33,7 @@ export interface ReservationRow {
   /** Added by migration 0066; absent on older rows/servers. */
   series_id?: string | null;
   /**
-   * A lesson's court row (0275): present only where a screen selects `*`
+   * A lesson's court row (0278): present only where a screen selects `*`
    * (BookingDetail); never in RESERVATION_COLUMNS, which a server without
    * coaching could not answer (coaching operator.md §5.1).
    */

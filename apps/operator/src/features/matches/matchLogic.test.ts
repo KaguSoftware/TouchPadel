@@ -696,7 +696,7 @@ describe('matchesBumpedBy and awaitingCourtOverlap (§5.10; OM-13, R22)', () => 
     expect(matchesBumpedBy([openMatch({ courts_free_firm: 2 })], [holdOnC1], courts, draft())).toEqual([]);
   });
 
-  it('counts a live lesson as firm, as 0277 does (coaching §5.8): its court is not the free one', () => {
+  it('counts a live lesson as firm, as 0280 does (coaching §5.8): its court is not the free one', () => {
     const lessonOnC1 = { ...firmOnC1, kind: 'lesson' as const, guest_name: 'Lesson' };
     expect(matchesBumpedBy([openMatch()], [lessonOnC1], courts, draft()).map((m) => m.match_id)).toEqual(['m1']);
     expect(matchesBumpedBy([openMatch()], [lessonOnC1], courts, draft({ courtId: 'c1' }))).toEqual([]);

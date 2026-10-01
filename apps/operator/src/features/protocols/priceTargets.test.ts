@@ -52,7 +52,7 @@ describe('price_promo_targets', () => {
   });
 });
 
-// ── Coaching (0282, operator.md §5.14.2): the three lesson change kinds ─────
+// ── Coaching (0285, operator.md §5.14.2): the three lesson change kinds ─────
 
 const LT_GROUP = '0f000000-0000-4000-8000-000000000001';
 const LT_PRIVATE = '0f000000-0000-4000-8000-000000000002';

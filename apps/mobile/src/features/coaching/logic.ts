@@ -929,7 +929,7 @@ export function parseLessonBegin(json: unknown): LessonBegin {
 
 // ── Gating (guest.md §4.7.5) ────────────────────────────────────────────────
 
-/** The three branch knobs the phone reads from `venue_settings_public` (0274). */
+/** The three branch knobs the phone reads from `venue_settings_public` (0277). */
 export interface CoachingBranchSettings {
   coaching_enabled?: boolean | null;
   lesson_payment_mode?: string | null;

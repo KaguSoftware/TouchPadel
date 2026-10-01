@@ -1490,7 +1490,7 @@ const shapes = {
     },
   },
 
-  // ---- The lesson price change (price_promo_lessons, 0282; R81: added by the sub-step that
+  // ---- The lesson price change (price_promo_lessons, 0285; R81: added by the sub-step that
   // builds these reads). X28: DB's shapes, which the operator's /protocols and the staff phone
   // parse. Management-only `map:action` reads, never an assistant tool; the numbers carry no
   // coach pay (C-28).

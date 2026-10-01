@@ -116,7 +116,7 @@ const BY_NAME = {
   recommendation: 'staff.protocols.field.recommendation',
   rule_prices: 'staff.protocols.field.finalRulePrices',
   promotion_value: 'staff.protocols.field.promotionValue',
-  // Lesson price changes (coaching 0282): started on the operator, read and
+  // Lesson price changes (coaching 0285): started on the operator, read and
   // decided here. `price_iqd` is the shared "Price (IQD)" above.
   lesson_type_id: 'staff.protocols.field.lessonTypeId',
   coach_id: 'staff.protocols.field.coachId',

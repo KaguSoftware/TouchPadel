@@ -85,7 +85,7 @@ export interface VenueSettingsPublic {
   matches_enabled?: boolean | null;
   /** Minutes before the start a filling match must be full (0257; 120 by default). */
   match_fill_deadline_minutes?: number | null;
-  /** Coaching at this branch (0274, coaching guest.md §4.7.5). Optional: a row
+  /** Coaching at this branch (0277, coaching guest.md §4.7.5). Optional: a row
    *  cached before the column existed reads as switched off. */
   coaching_enabled?: boolean | null;
   /** `desk`, `online_optional` or `online_required` (CD-1). */

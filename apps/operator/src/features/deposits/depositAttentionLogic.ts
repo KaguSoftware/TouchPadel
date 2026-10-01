@@ -64,7 +64,7 @@ export function isTicketRow(row: Pick<DepositAttentionRow, 'purpose'>): boolean 
   return row.purpose === 'ticket';
 }
 
-/** A lesson payment's refund (0281; coaching operator.md §5.17), not a booking deposit. */
+/** A lesson payment's refund (0284; coaching operator.md §5.17), not a booking deposit. */
 export function isLessonPaymentRow(row: Pick<DepositAttentionRow, 'purpose'>): boolean {
   return row.purpose === 'lesson';
 }

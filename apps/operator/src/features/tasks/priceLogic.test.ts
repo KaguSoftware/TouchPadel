@@ -42,11 +42,11 @@ describe('price targets', () => {
     expect(needsTargets('promotion')).toBe(false);
     expect(needsTargets('price')).toBe(true);
     expect(needsTargets('featured_discount')).toBe(true);
-    // Coaching (0282): every lesson change names a type.
+    // Coaching (0285): every lesson change names a type.
     for (const change of ['lesson_price', 'lesson_launch', 'coach_price'] as const) expect(needsTargets(change)).toBe(true);
   });
 
-  it('reads a lesson change’s types and coaches, a coach price offering the picked coach’s types only (0282)', () => {
+  it('reads a lesson change’s types and coaches, a coach price offering the picked coach’s types only (0285)', () => {
     const lessons = readTargets({
       lesson_types: [{ lesson_type_id: 'lt-1', name_en: 'Beginners', name_ar: 'مبتدئون', kind: 'group' }, { name_en: 'no id' }],
       coaches: [

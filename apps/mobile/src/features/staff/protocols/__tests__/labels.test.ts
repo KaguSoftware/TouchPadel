@@ -73,7 +73,7 @@ describe('protocol form labels', () => {
     expect(missing).toEqual([]);
   });
 
-  it('labels a lesson price change in the glossary’s words (coaching 0282)', () => {
+  it('labels a lesson price change in the glossary’s words (coaching 0285)', () => {
     expect(every.has('lesson_type_id') && every.has('coach_id') && every.has('court_share_iqd')).toBe(true);
     expect(fieldLabelKey('lesson_type_id')).toBe('staff.protocols.field.lessonTypeId');
     expect(fieldLabelKey('coach_id')).toBe('staff.protocols.field.coachId');

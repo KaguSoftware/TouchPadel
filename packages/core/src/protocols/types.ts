@@ -32,7 +32,7 @@ export type DecisionChoice = Exclude<Decision, 'auto'>;
 /**
  * The eleven kinds of a price or promotion change (the `propose` record's `change`). The order is
  * pinned by both apps and their tests, so new kinds are appended: the last three are coaching's
- * (price_promo_lessons, 0282; coaching build contracts C-17): a lesson type's price or court
+ * (price_promo_lessons, 0285; coaching build contracts C-17): a lesson type's price or court
  * share, a draft lesson type put on sale, and one coach's own price for a type.
  */
 export const PRICE_CHANGE_KINDS = [
@@ -355,7 +355,7 @@ export interface PriceNumbersRecord {
   discount_pct?: number | null;
   promotion_value?: number | null;
   /**
-   * A lesson change's final figures (0282): only those its proposal carries. No coach-pay figure
+   * A lesson change's final figures (0285): only those its proposal carries. No coach-pay figure
    * travels here (coaching C-28).
    */
   price_iqd?: number | null;

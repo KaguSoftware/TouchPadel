@@ -12,7 +12,7 @@
  *    and marketing may see (app.tournament_context);
  *  - price/promo `numbers` and `apply`: cost, margin and the last 30 days'
  *    sales of what the change touches (app.price_promo_numbers, MGMT only);
- *    for a lesson change (coaching 0282, X28) its `lesson` block: the type's
+ *    for a lesson change (coaching 0285, X28) its `lesson` block: the type's
  *    figures before and after, and the places sold in 30 days with their
  *    value. No coach pay (C-28).
  */
@@ -169,7 +169,7 @@ export interface PriceNumbers {
   promotion: { current_value: number | null; new_value: number | null; discount_cost_30d_iqd: number; units_30d: number; revenue_30d_iqd: number } | null;
   rate: { durations: { duration_min: number; current_price_iqd: number | null; new_price_iqd: number | null }[]; bookings_30d: number; revenue_30d_iqd: number } | null;
   featured: { current_pct: number | null; new_pct: number | null; units_30d: number; discount_cost_30d_iqd: number } | null;
-  /** Coaching (0282): a lesson change's block; null for every other change. */
+  /** Coaching (0285): a lesson change's block; null for every other change. */
   lesson: NumbersLesson | null;
 }
 
@@ -335,7 +335,7 @@ export function numbersPrefill(proposal: Obj | null): Obj {
   if (isObj(proposal.rule) && isObj(proposal.rule.prices)) out.rule_prices = proposal.rule.prices;
   if (typeof proposal.discount_pct === 'number') out.discount_pct = proposal.discount_pct;
   if (isObj(proposal.promotion) && typeof proposal.promotion.value === 'number') out.promotion_value = proposal.promotion.value;
-  // A lesson change (0282): only the figures the proposal carries.
+  // A lesson change (0285): only the figures the proposal carries.
   if (isLessonChange(proposal.change)) {
     if (typeof proposal.price_iqd === 'number') out.price_iqd = proposal.price_iqd;
     if (typeof proposal.court_share_iqd === 'number') out.court_share_iqd = proposal.court_share_iqd;
@@ -368,7 +368,7 @@ export const NUMBERS_FIGURES = [
   'rule_prices',
   'discount_pct',
   'promotion_value',
-  // A lesson change's (0282).
+  // A lesson change's (0285).
   'price_iqd',
   'court_share_iqd',
 ] as const;

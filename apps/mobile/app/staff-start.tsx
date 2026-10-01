@@ -491,7 +491,7 @@ function StartScreen() {
   const role = status.kind === 'staff' ? status.staff.role : null;
   const kinds = startableKinds(role);
   // Lesson prices are started on the operator, where the lesson types are
-  // (coaching 0282): neither the list nor a link starts one here.
+  // (coaching 0285): neither the list nor a link starts one here.
   const changes = phoneStartChanges(priceChangeKinds(role));
   const paramKind = kinds.find((k) => k === params.kind) ?? null;
   const [kind, setKind] = useState<ProtocolKind | null>(paramKind ?? (kinds.length === 1 ? kinds[0]! : null));

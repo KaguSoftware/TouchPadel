@@ -151,7 +151,7 @@ export function RecordForm({
       : shown;
   const set = (path: Path, next: unknown) => onChange(setAt(value, path, next) as Obj);
   const launch = env.kind === 'product_release' && env.stepKey === 'launch';
-  // A lesson proposal (coaching 0282): today's figures under the new ones.
+  // A lesson proposal (coaching 0285): today's figures under the new ones.
   const lessonAnchor =
     env.kind === 'price_promo' && env.stepKey === 'propose' && isLessonChange(env.change) ? (env.change === 'coach_price' ? 'price_iqd' : 'court_share_iqd') : null;
   // Nothing typed here (the interviews send the candidates list): no empty block.
@@ -697,7 +697,7 @@ function TargetSelect({ path, value, env, disabled, onRecord, label, error }: Co
   const change = env.change;
   const v = typeof value[top] === 'string' ? (value[top] as string) : '';
   let options: { value: string; label: string }[] = [];
-  // A coach price lists only the picked coach's types (coaching 0282).
+  // A coach price lists only the picked coach's types (coaching 0285).
   const coach = change === 'coach_price' ? (targets?.coaches ?? []).find((c) => c.coach_id === value.coach_id) : undefined;
   if (top === 'lesson_type_id' && change === 'coach_price' && !coach) {
     return (

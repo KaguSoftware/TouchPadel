@@ -336,7 +336,7 @@ function refine(kind: ProtocolKind, stepKey: string, record: Obj, opts: StepForm
     if (change === 'addon_price' && count(record.addons) + count(record.renames) === 0) {
       issues.add('addons', 'RECORD_INVALID');
     }
-    // A lesson price change names a figure (0282: the server's hint for the
+    // A lesson price change names a figure (0285: the server's hint for the
     // same case); that each is a change from the stored one is the server's to
     // say. A price of 0 is the walker's (`exclusiveMin`).
     if (change === 'lesson_price' && isBlank(record.price_iqd) && isBlank(record.court_share_iqd)) {

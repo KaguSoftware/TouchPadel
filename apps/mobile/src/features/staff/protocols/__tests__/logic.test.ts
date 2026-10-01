@@ -297,13 +297,13 @@ describe('a price or promotion change', () => {
     expect(targetKindOf('rate')).toBe('rule');
     expect(targetKindOf('addon_price')).toBe('addons');
     expect(targetKindOf('promotion')).toBe('none');
-    // Lesson prices (coaching 0282) are started on the operator: no list here.
+    // Lesson prices (coaching 0285) are started on the operator: no list here.
     expect(targetKindOf('lesson_price')).toBe('none');
     expect(targetKindOf('lesson_launch')).toBe('none');
     expect(targetKindOf('coach_price')).toBe('none');
   });
 
-  it('never offers a lesson price start on the phone, to the owner either (coaching 0282)', () => {
+  it('never offers a lesson price start on the phone, to the owner either (coaching 0285)', () => {
     expect(phoneStartChanges(priceChangeKinds('owner'))).toEqual([
       'price',
       'shop_launch',
@@ -400,7 +400,7 @@ describe('a price or promotion change', () => {
   });
 });
 
-// Coaching (0282, operator.md §5.14.3): a lesson run read and decided on the phone.
+// Coaching (0285, operator.md §5.14.3): a lesson run read and decided on the phone.
 describe('a lesson price change', () => {
   const LESSON: NumbersLesson = {
     lesson_type_id: A,

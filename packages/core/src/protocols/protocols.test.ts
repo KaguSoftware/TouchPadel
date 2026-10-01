@@ -162,7 +162,7 @@ describe('who starts what', () => {
     expect(priceChangeKinds(undefined)).toEqual([]);
   });
 
-  it('names the three lesson kinds last (price_promo_lessons, 0282)', () => {
+  it('names the three lesson kinds last (price_promo_lessons, 0285)', () => {
     expect(LESSON_CHANGE_KINDS).toEqual(['lesson_price', 'lesson_launch', 'coach_price']);
     expect(PRICE_CHANGE_KINDS.slice(-3)).toEqual([...LESSON_CHANGE_KINDS]);
     expect(PRICE_CHANGE_KINDS.filter(isLessonChange)).toEqual([...LESSON_CHANGE_KINDS]);
@@ -465,7 +465,7 @@ describe('validateStep: price or promotion change', () => {
     ]);
   });
 
-  it('takes a lesson price change with a figure, in the server’s bounds (0282)', () => {
+  it('takes a lesson price change with a figure, in the server’s bounds (0285)', () => {
     expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: 30000 })).toEqual([]);
     expect(propose({ change: 'lesson_price', lesson_type_id: U1, court_share_iqd: 0 })).toEqual([]);
     expect(propose({ change: 'lesson_price', lesson_type_id: U1, price_iqd: 30000, court_share_iqd: 5000 })).toEqual([]);
@@ -484,7 +484,7 @@ describe('validateStep: price or promotion change', () => {
     expect(propose({ change: 'lesson_price', price_iqd: 30000 })).toEqual(['lesson_type_id:RECORD_INVALID']);
   });
 
-  it('puts a lesson type on sale only with both figures (0282)', () => {
+  it('puts a lesson type on sale only with both figures (0285)', () => {
     expect(propose({ change: 'lesson_launch', lesson_type_id: U1, price_iqd: 30000, court_share_iqd: 5000 })).toEqual([]);
     expect(propose({ change: 'lesson_launch', lesson_type_id: U1, price_iqd: 30000, court_share_iqd: 0 })).toEqual([]);
     expect(propose({ change: 'lesson_launch', lesson_type_id: U1, price_iqd: 30000 })).toEqual([
@@ -495,7 +495,7 @@ describe('validateStep: price or promotion change', () => {
     ]);
   });
 
-  it('removes a coach’s own price when it is left empty, and needs the coach and the type (0282)', () => {
+  it('removes a coach’s own price when it is left empty, and needs the coach and the type (0285)', () => {
     expect(propose({ change: 'coach_price', coach_id: U2, lesson_type_id: U1, price_iqd: null })).toEqual([]);
     expect(propose({ change: 'coach_price', coach_id: U2, lesson_type_id: U1 })).toEqual([]);
     expect(propose({ change: 'coach_price', coach_id: U2, lesson_type_id: U1, price_iqd: 35000 })).toEqual([]);
@@ -506,7 +506,7 @@ describe('validateStep: price or promotion change', () => {
     expect(propose({ change: 'coach_price', coach_id: U2, price_iqd: 35000 })).toEqual(['lesson_type_id:RECORD_INVALID']);
   });
 
-  it('takes only a lesson change’s own figures at numbers, and no coach pay (0282, C-28)', () => {
+  it('takes only a lesson change’s own figures at numbers, and no coach pay (0285, C-28)', () => {
     const numbers = (change: (typeof PRICE_CHANGE_KINDS)[number]) =>
       stepForm('price_promo', 'numbers', { change })!.fields.map((f) => f.name);
     expect(numbers('lesson_price')).toEqual(['recommendation', 'price_iqd', 'court_share_iqd', 'note']);

@@ -222,7 +222,7 @@ export const protocolsEn = {
     noCampaign: 'No campaign',
     noLaunchPhotos: 'No photo was sent with the test or marketing’s step. Send one there first.',
     useLaunchPhoto: 'Use photo {n}',
-    // Coaching (0282): a lesson price change's targets and today's figures.
+    // Coaching (0285): a lesson price change's targets and today's figures.
     // A lesson type reads "Beginners · Group 90 min · Draft".
     lessonType: '{name} · {kind} {length}',
     draft: 'Draft',
@@ -377,7 +377,7 @@ export const protocolsEn = {
     rule_is_active: 'Switched on',
     discount_pct: 'Discount (%)',
     recommendation: 'Recommendation',
-    // Lesson price changes (coaching 0282)
+    // Lesson price changes (coaching 0285)
     lesson_type_id: 'Lesson type',
     coach_id: 'Coach',
     court_share_iqd: 'Court share per session',
@@ -459,7 +459,7 @@ export const protocolsEn = {
       rate: '{count} bookings in the last 30 days, {revenue}.',
       featured: 'Discount {now}% → {next}%. The featured item sold {units} in 30 days; the discount gave away {cost}.',
       basis: 'Cost is the recipe cost at the latest delivery. Sales are the last 30 days’ settled bills.',
-      // Coaching (0282): a lesson price change's figures. No coach pay (C-28).
+      // Coaching (0285): a lesson price change's figures. No coach pay (C-28).
       lessonPrice: 'Price {now} → {next}',
       lessonCourtShare: 'Court share per session {now} → {next}',
       lessonSold: '{name}: places sold in the last 30 days {places} · their value {amount}',

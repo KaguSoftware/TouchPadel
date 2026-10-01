@@ -6,7 +6,7 @@
  * day's open-match bookings (price, paid at the desk, written off, still owed,
  * called off, no-show seats).
  *
- * Coaching (0285; docs/design/coaching/operator.md §5.18.1): a "Lessons today"
+ * Coaching (0288; docs/design/coaching/operator.md §5.18.1): a "Lessons today"
  * group (online and desk lesson money, refunds, what was kept, lessons held
  * and not paid, refunds due at the desk, and what is owed to the coaches for
  * the day's lessons), hidden when every figure is zero and absent on a server

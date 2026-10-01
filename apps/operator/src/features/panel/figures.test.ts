@@ -113,7 +113,7 @@ describe('the online group', () => {
   });
 });
 
-// Coaching (coaching operator.md §5.18.4, C-18): panel_headline's two lesson keys (0285).
+// Coaching (coaching operator.md §5.18.4, C-18): panel_headline's two lesson keys (0288).
 describe('the lessons group', () => {
   it('holds lessonRevenue and owedToCoaches, after the online group, in the lessons group', () => {
     expect(LESSON_FIGURE_KEYS).toEqual(['lessonRevenue', 'owedToCoaches']);

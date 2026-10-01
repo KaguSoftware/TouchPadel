@@ -148,7 +148,7 @@ function RevenueReport() {
 
   const periodLabel = (r: RevenueRow) =>
     group === 'month' ? formatMonthYear(new Date(`${r.period}T12:00:00Z`), locale, 'UTC') : formatDay(r.period, locale);
-  // Lessons (0285): a column only when the server sends the figure.
+  // Lessons (0288): a column only when the server sends the figure.
   const lessons = data ? revenueHasLessons(data) : false;
   const columns = columnsFor(view, group, periodLabel, tr, locale, lessons);
 

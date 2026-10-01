@@ -105,7 +105,7 @@ export function venueSettingsFixture(over: Record<string, unknown> = {}) {
     // before; a case that wants chips turns it on.
     matches_enabled: false,
     match_fill_deadline_minutes: 120,
-    // Coaching off by default (0274): the Book tab, Bookings and Profile render
+    // Coaching off by default (0277): the Book tab, Bookings and Profile render
     // exactly as before; a case that wants lessons turns it on.
     coaching_enabled: false,
     lesson_payment_mode: 'desk',
@@ -131,7 +131,7 @@ export function branchFixture(over: Record<string, unknown> = {}) {
     map_url: null,
     phone: '009647700000000',
     timezone: 'Asia/Baghdad',
-    // Coaching off by default (0274), so every existing case renders as before.
+    // Coaching off by default (0277), so every existing case renders as before.
     coaching_enabled: false,
     ...over,
   };

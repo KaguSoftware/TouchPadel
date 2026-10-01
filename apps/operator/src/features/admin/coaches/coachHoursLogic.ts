@@ -1,7 +1,7 @@
 /**
  * A coach's weekly hours and time off at this branch, as the Hours tab edits
  * them (docs/design/coaching/operator.md §5.13.3; app.set_coach_hours,
- * app.add_coach_time_off, 0279; CD-10, R73). Pure; no React.
+ * app.add_coach_time_off, 0282; CD-10, R73). Pure; no React.
  *
  * - A window lies inside one local day: a start and an end on the half hour,
  *   00:00..24:00, the start before the end (CD-10). "24:00" is a real end,

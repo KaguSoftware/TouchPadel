@@ -46,7 +46,7 @@ export function RecordView({
   const categories = useCafeCategories(typeof record.category_id === 'string');
   const ingredients = useIngredients(wantsIngredients);
   // A lesson change names its type and coach from the targets list, as an
-  // item is named (coaching 0282). A launched draft has left the drafts list,
+  // item is named (coaching 0285). A launched draft has left the drafts list,
   // so a launch also reads the launched types.
   const lessonChange = isLessonChange(change) ? change : null;
   const lessonTargets = useTargets(lessonChange);

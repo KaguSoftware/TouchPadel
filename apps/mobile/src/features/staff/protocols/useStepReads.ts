@@ -94,7 +94,7 @@ export function useStepReads(
     enabled: !!runId && kind === 'price_promo' && (key === 'numbers' || key === 'apply') && mgmt,
   });
   // A proposal sent back: its targets, so the form reads as it did at the
-  // start. A lesson run's (coaching 0282): management reads them on every
+  // start. A lesson run's (coaching 0285): management reads them on every
   // step, so the record, decide and numbers steps name the lesson type and
   // the coach (the owner decides from the phone; the targets are MGMT-only).
   const lessonRun = kind === 'price_promo' && isLessonChange(change);
@@ -163,7 +163,7 @@ export function useStepReads(
     for (const a of targets.data?.addons ?? []) put(a.modifier_id, a.name_en, a.name_ar);
     for (const p of targets.data?.promotions ?? []) put(p.promotion_id, p.name_en, p.name_ar);
     for (const r of targets.data?.rules ?? []) put(r.rule_id, r.name, r.name);
-    // Coaching (0282): a lesson run's type and coach, by name. The numbers
+    // Coaching (0285): a lesson run's type and coach, by name. The numbers
     // name the type too, when the targets list no longer holds it (a launched draft).
     for (const t of lessonTargetTypes(targets.data)) put(t.lesson_type_id, t.name_en, t.name_ar);
     for (const c of lessonTargetCoaches(targets.data)) {

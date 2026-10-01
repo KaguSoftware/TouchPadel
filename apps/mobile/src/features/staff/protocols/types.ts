@@ -187,7 +187,7 @@ export interface TargetRule {
 
 /**
  * One lesson type of `price_promo_targets('lesson_price' | 'lesson_launch')`
- * (coaching 0282, X28): the keys of COACHING_SHAPES.price_promo_targets_lesson_types.
+ * (coaching 0285, X28): the keys of COACHING_SHAPES.price_promo_targets_lesson_types.
  */
 export interface TargetLessonType {
   lesson_type_id: string;
@@ -230,14 +230,14 @@ export interface PriceTargets {
   featured_item_id?: string | null;
   featured_discount_pct?: number | null;
   hero_mode?: string | null;
-  /** Coaching (0282): `lesson_price` and `lesson_launch`. */
+  /** Coaching (0285): `lesson_price` and `lesson_launch`. */
   lesson_types?: TargetLessonType[];
-  /** Coaching (0282): `coach_price`. */
+  /** Coaching (0285): `coach_price`. */
   coaches?: TargetCoach[];
 }
 
 /**
- * `price_promo_numbers.lesson` (coaching 0282, X28; COACHING_SHAPES.price_promo_numbers_lesson).
+ * `price_promo_numbers.lesson` (coaching 0285, X28; COACHING_SHAPES.price_promo_numbers_lesson).
  * No coach pay (C-28).
  */
 export interface NumbersLesson {
@@ -304,7 +304,7 @@ export interface PriceNumbers {
     units_30d: number;
     discount_cost_30d_iqd: number;
   } | null;
-  /** Coaching (0282): a lesson change's block; null (or absent, an older server) otherwise. */
+  /** Coaching (0285): a lesson change's block; null (or absent, an older server) otherwise. */
   lesson?: NumbersLesson | null;
 }
 

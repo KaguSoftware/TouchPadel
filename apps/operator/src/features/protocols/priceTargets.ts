@@ -8,7 +8,7 @@
  * List prices, rules and discounts only: the targets carry no cost and no
  * sales (those are the numbers step's, price_promo_numbers, MGMT only).
  *
- * Coaching (0282, operator.md §5.14.2): `lesson_price` and `lesson_launch`
+ * Coaching (0285, operator.md §5.14.2): `lesson_price` and `lesson_launch`
  * name a lesson type (`lessonTypes`), `coach_price` a coach and one of the
  * types they teach (`coaches`, each with its types nested). Those rows carry
  * exactly the keys of their COACHING_SHAPES entries (R81, X28), under the
@@ -115,7 +115,7 @@ export interface Targets {
   rules: TargetRule[];
   featured: { item_id: string | null; pct: number; hero_mode: string | null } | null;
   /**
-   * Coaching (0282): the lesson types of a `lesson_price` / `lesson_launch`
+   * Coaching (0285): the lesson types of a `lesson_price` / `lesson_launch`
    * change, and the coaches of a `coach_price` one. `readTargets` always sets
    * both; they are optional so an empty list built by hand stays a `Targets`.
    */
@@ -309,7 +309,7 @@ export interface TargetLink {
 /**
  * A lesson type's figures as the proposal opens with them. `lesson_price`
  * also keeps them as `before`, so the send drops a figure left as it is: the
- * server refuses a "change" to the stored figure (0282), and the client copy
+ * server refuses a "change" to the stored figure (0285), and the client copy
  * of `before` is never sent (`finalizeRecord`; the server writes its own).
  */
 function lessonFigures(change: 'lesson_price' | 'lesson_launch', t: TargetLessonType): Obj {
@@ -360,7 +360,7 @@ export function priceProposalPrefill(change: PriceChangeKind, targets: Targets, 
       const on = f?.item_id && targets.items.some((i) => i.menu_item_id === f.item_id) ? f.item_id : '';
       return { change, menu_item_id: on ?? '', discount_pct: f ? f.pct : null };
     }
-    // Coaching (0282): the type's price and court share now (a draft's, for a
+    // Coaching (0285): the type's price and court share now (a draft's, for a
     // launch); a coach's own price, else the type's.
     case 'lesson_price':
     case 'lesson_launch': {
@@ -433,7 +433,7 @@ export function targetItemName(targets: Targets, id: unknown, locale: Locale): s
   return item ? pickText(locale, item.name_en, item.name_ar) : '';
 }
 
-// ── Lesson targets in words (coaching 0282) ─────────────────────────────────
+// ── Lesson targets in words (coaching 0285) ─────────────────────────────────
 
 function kindWord(kind: string): LessonKindWord | null {
   return kind === 'private' || kind === 'group' || kind === 'course' ? kind : null;

@@ -72,11 +72,11 @@ export interface RevenueFigures {
   orders: number | null;
   bookings: number | null;
   /**
-   * Coaching (0285; coaching operator.md §5.18.3, X26, C-18): lesson money,
-   * inside `totalIqd` and outside `padelIqd`. Null from a server before 0285.
+   * Coaching (0288; coaching operator.md §5.18.3, X26, C-18): lesson money,
+   * inside `totalIqd` and outside `padelIqd`. Null from a server before 0288.
    */
   lessonIqd: number | null;
-  /** The coaches' share of lesson money, accrued (paid outside the till). Null before 0285. */
+  /** The coaches' share of lesson money, accrued (paid outside the till). Null before 0288. */
   owedToCoachesIqd: number | null;
 }
 
@@ -110,7 +110,7 @@ function revenueFigures(r: Raw): RevenueFigures {
   };
 }
 
-/** The server sends the lesson figures (0285 and later): the Lessons column and figure have something to show. */
+/** The server sends the lesson figures (0288 and later): the Lessons column and figure have something to show. */
 export function revenueHasLessons(r: RevenueReport): boolean {
   return (r.totals?.lessonIqd ?? null) !== null || r.rows.some((row) => row.lessonIqd !== null);
 }
@@ -148,7 +148,7 @@ export interface CourtRow {
   noShowRatePct: number | null;
   peakBookings: number | null;
   offPeakBookings: number | null;
-  /** Coaching (0285, X25): the court's lessons and the minutes they held it; null before 0285. */
+  /** Coaching (0288, X25): the court's lessons and the minutes they held it; null before 0288. */
   lessons: number | null;
   lessonMinutes: number | null;
 }
@@ -169,7 +169,7 @@ export interface CourtTotals {
 }
 
 /**
- * report_courts' `lessons` block (0285; coaching operator.md §5.18.2, X25,
+ * report_courts' `lessons` block (0288; coaching operator.md §5.18.2, X25,
  * R72): the period's lessons at this branch. Occupancy counts lesson minutes
  * as booked (Money CM-14). No names.
  */
@@ -216,7 +216,7 @@ export interface CourtsReport {
   trend: { date: string; bookings: number | null; revenueIqd: number | null }[];
   /** null from a server before 0265: the report offers no Open matches view. */
   matches: CourtMatches | null;
-  /** null from a server before 0285: the report offers no Lessons view. */
+  /** null from a server before 0288: the report offers no Lessons view. */
   lessons: CourtLessons | null;
 }
 

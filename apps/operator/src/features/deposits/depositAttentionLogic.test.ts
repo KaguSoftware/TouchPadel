@@ -127,7 +127,7 @@ describe('showAttentionPanel', () => {
   });
 });
 
-// Coaching (coaching operator.md §5.17): a lesson payment's refund (0272, 0281).
+// Coaching (coaching operator.md §5.17): a lesson payment's refund (0275, 0284).
 describe('lesson rows', () => {
   it('a lesson row is told apart from deposits and tickets', () => {
     expect(isLessonPaymentRow(row({ purpose: 'lesson' }))).toBe(true);

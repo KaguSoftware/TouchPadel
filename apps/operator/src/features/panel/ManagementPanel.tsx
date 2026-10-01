@@ -38,7 +38,7 @@
  *
  * Coaching (docs/design/coaching/operator.md §5.18.4, C-18): a "Lessons" panel
  * holds panel_headline's two lesson keys (lesson revenue, owed to coaches),
- * left out when the server sent neither (before 0285). Like the online group,
+ * left out when the server sent neither (before 0288). Like the online group,
  * a row opens its report (revenue; Coach pay) and is never drilled.
  */
 import { useMemo, useState, type CSSProperties } from 'react';

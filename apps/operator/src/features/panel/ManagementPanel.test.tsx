@@ -149,7 +149,7 @@ describe('ManagementPanelScreen — Online money and open matches', () => {
   });
 });
 
-// Coaching (coaching operator.md §5.18.4, C-18): panel_headline's lesson keys (0285).
+// Coaching (coaching operator.md §5.18.4, C-18): panel_headline's lesson keys (0288).
 describe('ManagementPanelScreen — Lessons', () => {
   it('draws its own panel; a row opens its report, never a drill', async () => {
     rpc.mockResolvedValue({
@@ -172,7 +172,7 @@ describe('ManagementPanelScreen — Lessons', () => {
     expect(rpc.mock.calls.some(([fn]) => fn === 'report_drill')).toBe(false);
   });
 
-  it('is left out when neither key came back (a server before 0285)', async () => {
+  it('is left out when neither key came back (a server before 0288)', async () => {
     rpc.mockResolvedValue({ figures: [{ key: 'revenue', value: 15000 }] });
     renderPanel();
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();

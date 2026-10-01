@@ -376,7 +376,7 @@ export const legalEn = {
         'Deleted immediately: your login, your first name, surname and gender, phone number, email address, linked Apple or Google sign-in, notification token, the players you blocked, the staff notes about you and any notifications waiting to be sent. You are signed out on every device.',
       kept: 'Kept, without your name: bookings and café orders you have already made, open matches you played in, and reports between players (for 12 months), because the venue has to keep its own accounts. They can no longer be linked to you.',
       tickets: 'Open-match tickets you have not used are refunded to the card you paid with.',
-      // Coaching (docs/design/coaching/guest.md §4.16, R50, R63; app.delete_my_account, 0286).
+      // Coaching (docs/design/coaching/guest.md §4.16, R50, R63; app.delete_my_account, 0289).
       lessons:
         'Your booked lessons are cancelled, and anything you paid online for them is refunded to the card you paid with.',
       coaching:

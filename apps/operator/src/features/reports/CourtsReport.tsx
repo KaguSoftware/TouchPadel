@@ -37,7 +37,7 @@
  * three reports, not this one).
  *
  * Lessons (docs/design/coaching/operator.md §5.18.2): when report_courts
- * carries its `lessons` block (0285), a "Lessons" view joins the list: a band
+ * carries its `lessons` block (0288), a "Lessons" view joins the list: a band
  * from that block (lessons, the court hours they took, collected, court share,
  * owed to coaches) and, from app.report_lessons for the same period, the
  * counts, the money and three tables (By coach, By lesson type, By day), each

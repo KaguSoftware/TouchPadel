@@ -420,8 +420,8 @@ export interface DayCloseOnline {
   matches: Record<'bookings' | 'price_iqd' | 'desk_paid_iqd' | 'written_off_iqd' | 'owed_iqd' | 'called_off' | 'no_show_seats', number | null>;
   sandbox_excluded: Record<'deposits' | 'tickets', number | null>;
   /**
-   * Coaching (0285; coaching operator.md §5.18.1, X27: Money's keys plus
-   * `kept_*`): the day's lesson money. Null from a server before 0285, which
+   * Coaching (0288; coaching operator.md §5.18.1, X27: Money's keys plus
+   * `kept_*`): the day's lesson money. Null from a server before 0288, which
    * sends no block: the card then has no lessons group.
    */
   lessons: Record<LessonDayKey, number | null> | null;
@@ -556,7 +556,7 @@ export function onlineMoneyOf(d: DayCloseOnline): OnlineGroup[] {
         countOnly('noShowSeats', d.matches.no_show_seats),
       ],
     },
-    // Coaching (0285; coaching operator.md §5.18.1): information only, never in the cash count.
+    // Coaching (0288; coaching operator.md §5.18.1): information only, never in the cash count.
     ...(d.lessons ? [{ id: 'lessons' as const, rows: lessonRows(d.lessons) }] : []),
     { id: 'sandbox', rows: [countOnly('deposits', d.sandbox_excluded.deposits), countOnly('tickets', d.sandbox_excluded.tickets)] },
   ];

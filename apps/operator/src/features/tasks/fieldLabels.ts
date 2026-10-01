@@ -116,7 +116,7 @@ export const FIELD_LABELS = {
   discount_pct: `${F}.discount_pct`,
   reservation_ids: `${F}.reservation_ids`,
   moved_note: `${F}.moved_note`,
-  // Lesson price changes (coaching 0282): never started here, but marketing
+  // Lesson price changes (coaching 0285): never started here, but marketing
   // works the announce step of any run, so their records read in words. The
   // words are /protocols' own.
   lesson_type_id: 'ws.protocols.fields.lesson_type_id',

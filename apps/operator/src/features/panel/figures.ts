@@ -13,7 +13,7 @@
  * a row of the group opens its report instead of a drill window.
  *
  * Coaching (docs/design/coaching/operator.md §5.18.4; panel_headline's two
- * lesson keys since 0285, C-18): the `lessons` group, LESSON_FIGURE_KEYS,
+ * lesson keys since 0288, C-18): the `lessons` group, LESSON_FIGURE_KEYS,
  * likewise outside FIGURE_KEYS and never drilled. Lesson revenue opens the
  * revenue report, what is owed to coaches opens Coach pay.
  */
@@ -39,7 +39,7 @@ export const FIGURE_KEYS = [
 export const ONLINE_FIGURE_KEYS = ['onlineDeposits', 'depositForfeits', 'ticketSales', 'ticketRefunds', 'ticketForfeits', 'ticketLiability', 'matchWrittenOff'] as const;
 export type OnlineFigureKey = (typeof ONLINE_FIGURE_KEYS)[number];
 
-/** panel_headline's lesson figures (0285, C-18), in panel order. Never drilled; each opens its report. */
+/** panel_headline's lesson figures (0288, C-18), in panel order. Never drilled; each opens its report. */
 export const LESSON_FIGURE_KEYS = ['lessonRevenue', 'owedToCoaches'] as const;
 export type LessonFigureKey = (typeof LESSON_FIGURE_KEYS)[number];
 
@@ -97,7 +97,7 @@ export const FIGURES: Record<FigureKey, FigureMeta> = {
   ticketForfeits: { key: 'ticketForfeits', kind: 'money', report: '/reports/courts', group: 'online' },
   ticketLiability: { key: 'ticketLiability', kind: 'money', report: '/reports/courts', group: 'online', chainWide: true },
   matchWrittenOff: { key: 'matchWrittenOff', kind: 'money', invert: true, report: '/reports/courts', group: 'online' },
-  // Coaching (0285): lesson money opens the revenue report, the coaches' share Coach pay.
+  // Coaching (0288): lesson money opens the revenue report, the coaches' share Coach pay.
   lessonRevenue: { key: 'lessonRevenue', kind: 'money', report: '/reports/revenue', group: 'lessons' },
   owedToCoaches: { key: 'owedToCoaches', kind: 'money', report: '/reports/coaches', group: 'lessons' },
 };
@@ -112,7 +112,7 @@ export function hasOnlineFigures(figures: ReadonlyMap<FigureKey, HeadlineFigureR
   return ONLINE_FIGURE_KEYS.some((k) => figures.has(k));
 }
 
-/** The lessons group is drawn only when the server sent at least one of its figures (0285 and later). */
+/** The lessons group is drawn only when the server sent at least one of its figures (0288 and later). */
 export function hasLessonFigures(figures: ReadonlyMap<FigureKey, HeadlineFigureRow>): boolean {
   return LESSON_FIGURE_KEYS.some((k) => figures.has(k));
 }

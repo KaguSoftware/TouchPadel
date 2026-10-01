@@ -328,7 +328,7 @@ function refresh(qc: Qc, keys: readonly (readonly unknown[])[]): void {
 /**
  * After book, create group, create course, add student, a cancel, reschedule
  * or move court: every coaching read, the reservation lists, an open booking,
- * and the match reads (a lesson is firm and can bump a filling match, 0277).
+ * and the match reads (a lesson is firm and can bump a filling match, 0280).
  */
 export function invalidateLessonBooking(qc: QueryClient): void {
   refresh(qc, [QK.coaching.all, QK.reservation.all, QK.deskMatches.all]);
