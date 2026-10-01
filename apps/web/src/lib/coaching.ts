@@ -426,22 +426,22 @@ export function coachPhotoUrl(path: string | null | undefined): string | null {
 /** "60 min · up to 4 people", "90 min · 8 places", "8 sessions · 60 min each". */
 export function lessonTypeLine(type: PublicLessonType, locale: Locale): string {
   const tr = makeT(locale);
-  const duration = countPhrase('coaching.web.count.minutes', type.duration_min, locale);
+  const duration = countPhrase('coaching.common.count.minutes', type.duration_min, locale);
   if (type.kind === 'private') {
     return tr('coaching.web.privateLine', {
       duration,
-      people: countPhrase('coaching.web.count.people', type.max_places, locale),
+      people: countPhrase('coaching.common.count.people', type.max_places, locale),
     });
   }
   if (type.kind === 'group') {
     return tr('coaching.web.groupLine', {
       duration,
-      places: countPhrase('coaching.web.count.places', type.max_places, locale),
+      places: countPhrase('coaching.common.count.places', type.max_places, locale),
     });
   }
   return tr('coaching.web.courseLine', {
     duration,
-    sessions: countPhrase('coaching.web.count.sessions', type.sessions_count ?? 0, locale),
+    sessions: countPhrase('coaching.common.count.sessions', type.sessions_count ?? 0, locale),
   });
 }
 
@@ -480,12 +480,12 @@ export function sessionWhen(
   if (count !== null && left !== null && left < count) {
     return tr('coaching.web.courseNext', {
       date: parts.date,
-      sessionsLeft: countPhrase('coaching.web.count.sessionsLeft', left, locale),
+      sessionsLeft: countPhrase('coaching.common.count.sessionsLeft', left, locale),
     });
   }
   return tr('coaching.web.courseStarts', {
     date: parts.date,
-    sessions: countPhrase('coaching.web.count.sessions', count ?? left ?? 0, locale),
+    sessions: countPhrase('coaching.common.count.sessions', count ?? left ?? 0, locale),
   });
 }
 

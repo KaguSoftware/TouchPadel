@@ -161,6 +161,15 @@ export const coachingCommonEn = {
         many: '{count} more today',
         other: '{count} more today',
       },
+      // A lesson's length (the website's lesson cards; one form reads for every count).
+      minutes: {
+        zero: '{count} min',
+        one: '{count} min',
+        two: '{count} min',
+        few: '{count} min',
+        many: '{count} min',
+        other: '{count} min',
+      },
     },
     errors: {
       off: "Lessons aren't bookable in the app at this branch right now.",

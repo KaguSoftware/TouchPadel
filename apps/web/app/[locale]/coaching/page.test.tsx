@@ -143,7 +143,7 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
     const [group, course] = sessions as [HTMLAnchorElement, HTMLAnchorElement];
     expect(group.getAttribute('href')).toBe(`/${locale}/c/${COACH_ALI}`);
     expect(group.querySelector('.tp-coach-session__places')?.textContent).toBe(
-      countPhrase('coaching.web.count.placesLeft', 3, locale),
+      countPhrase('coaching.common.count.placesLeft', 3, locale),
     );
     expect(plain(group.querySelector('.tp-coach-session__who')?.textContent)).toBe(
       tr('coaching.web.withCoach', { coach: locale === 'ar' ? 'علي التجربة' : 'Ali Fixture' }),
@@ -153,7 +153,7 @@ describe.each(LOCALES)('coaching page (%s)', (locale: Locale) => {
       locale === 'ar' ? 'مبتدئو أكتوبر' : 'October beginners',
     );
     expect(course.querySelector('.tp-coach-session__places')?.textContent).toBe(
-      countPhrase('coaching.web.count.placesLeft', 2, locale),
+      countPhrase('coaching.common.count.placesLeft', 2, locale),
     );
     // A coach the server did not send has no session here.
     expect(document.querySelector(`a[href$="/c/${COACH_HIDDEN}"]`)).toBeNull();

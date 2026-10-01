@@ -237,29 +237,29 @@ describe('words', () => {
 
   it('names each kind of lesson by its shape, in both languages', () => {
     for (const locale of ['en', 'ar'] as const) {
-      const minutes = (n: number) => countPhrase('coaching.web.count.minutes', n, locale);
+      const minutes = (n: number) => countPhrase('coaching.common.count.minutes', n, locale);
       expect(lessonTypeLine(type(TYPE_PRIVATE), locale)).toBe(
         t(locale, 'coaching.web.privateLine', {
           duration: minutes(60),
-          people: countPhrase('coaching.web.count.people', 4, locale),
+          people: countPhrase('coaching.common.count.people', 4, locale),
         }),
       );
       expect(lessonTypeLine(type(TYPE_GROUP), locale)).toBe(
         t(locale, 'coaching.web.groupLine', {
           duration: minutes(90),
-          places: countPhrase('coaching.web.count.places', 8, locale),
+          places: countPhrase('coaching.common.count.places', 8, locale),
         }),
       );
       expect(lessonTypeLine(type(TYPE_COURSE), locale)).toBe(
         t(locale, 'coaching.web.courseLine', {
           duration: minutes(60),
-          sessions: countPhrase('coaching.web.count.sessions', 8, locale),
+          sessions: countPhrase('coaching.common.count.sessions', 8, locale),
         }),
       );
     }
     // Arabic picks its plural by the count, Latin digits isolated.
-    expect(countPhrase('coaching.web.count.minutes', 210, 'ar')).toContain('دقائق');
-    expect(countPhrase('coaching.web.count.minutes', 60, 'ar')).toContain('دقيقة');
+    expect(countPhrase('coaching.common.count.minutes', 210, 'ar')).toContain('دقائق');
+    expect(countPhrase('coaching.common.count.minutes', 60, 'ar')).toContain('دقيقة');
   });
 
   it('prices a lesson, a place and a course; nothing when hidden', () => {
@@ -278,13 +278,13 @@ describe('words', () => {
     // 16:30 UTC is 19:30 in Baghdad.
     expect(sessionWhen(group!, 'Asia/Baghdad', 'en')).toMatch(/7:30\s?PM/);
     expect(sessionWhen(course!, 'Asia/Baghdad', 'en')).toContain(
-      countPhrase('coaching.web.count.sessions', 8, 'en'),
+      countPhrase('coaching.common.count.sessions', 8, 'en'),
     );
     expect(sessionWhen(course!, 'Asia/Baghdad', 'en')!.startsWith('Starts')).toBe(true);
     // A course under way shows its next session and what is left, and no price (C-15).
     const running = { ...course!, sessions_left: 5 };
     expect(sessionWhen(running, 'Asia/Baghdad', 'en')).toContain(
-      countPhrase('coaching.web.count.sessionsLeft', 5, 'en'),
+      countPhrase('coaching.common.count.sessionsLeft', 5, 'en'),
     );
     expect(sessionPrice(running, type(TYPE_COURSE), 'en')).toBeNull();
     expect(sessionPrice(course!, type(TYPE_COURSE), 'en')).toContain(

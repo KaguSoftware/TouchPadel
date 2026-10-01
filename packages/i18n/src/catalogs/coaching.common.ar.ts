@@ -159,6 +159,14 @@ export const coachingCommonAr: DeepMessages<typeof coachingCommonEn> = {
         many: '{count} آخر اليوم',
         other: '{count} آخر اليوم',
       },
+      minutes: {
+        zero: '{count} دقيقة',
+        one: '{count} دقيقة',
+        two: '{count} دقيقة',
+        few: '{count} دقائق',
+        many: '{count} دقيقة',
+        other: '{count} دقيقة',
+      },
     },
     errors: {
       off: 'حجز الحصص غير متاح في التطبيق في هذا الفرع حاليًا.',

@@ -173,7 +173,7 @@ function Session({
           {tr('coaching.web.withCoach', { coach: isolate(coachName(coach, locale)) })}
         </span>
         <span className="tp-coach-session__places tp-num">
-          {countPhrase('coaching.web.count.placesLeft', session.places_left, locale)}
+          {countPhrase('coaching.common.count.placesLeft', session.places_left, locale)}
         </span>
         {price ? <span className="tp-coach-session__price tp-num">{price}</span> : null}
       </a>
