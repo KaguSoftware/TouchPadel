@@ -200,6 +200,65 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // PROVISIONAL coaching RPC types — replaced by the regenerated file at integration
+      // (docs/design/coaching/build-contracts-2026-10-01.md §1.6, R17, R44; the guest calls only).
+      coaching_public: { Args: { p_venue_id?: string }; Returns: Json }
+      coach_profile: {
+        Args: { p_coach_id: string; p_venue_id?: string }
+        Returns: Json
+      }
+      coach_slots: {
+        Args: {
+          p_coach_id: string
+          p_from: string
+          p_lesson_type_id: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      lesson_offer: {
+        Args: { p_course_id?: string; p_lesson_id?: string }
+        Returns: Json
+      }
+      lesson_book_private: {
+        Args: {
+          p_coach_id: string
+          p_expected_price_iqd: number
+          p_friend_names: string[]
+          p_idempotency_key: string
+          p_lesson_type_id: string
+          p_party_size: number
+          p_payment_mode: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      lesson_join: {
+        Args: {
+          p_expected_price_iqd: number
+          p_idempotency_key: string
+          p_lesson_id: string
+          p_payment_mode: string
+        }
+        Returns: Json
+      }
+      course_join: {
+        Args: {
+          p_course_id: string
+          p_expected_price_iqd: number
+          p_idempotency_key: string
+          p_payment_mode: string
+        }
+        Returns: Json
+      }
+      lesson_cancel_mine: { Args: { p_enrolment_id: string }; Returns: Json }
+      my_lessons: { Args: { p_scope?: string }; Returns: Json }
+      my_lesson: { Args: { p_enrolment_id: string }; Returns: Json }
+      lesson_link_confirm: {
+        Args: { p_enrolment_id: string; p_yes: boolean }
+        Returns: Json
+      }
+      // END PROVISIONAL coaching RPC types
       accept_terms: { Args: { p_version?: string }; Returns: Json }
       ack_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       acknowledge_alert: { Args: { p_alert_id: string }; Returns: undefined }
