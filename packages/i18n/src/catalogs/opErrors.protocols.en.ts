@@ -32,7 +32,7 @@ export const opErrorsProtocolsEn = {
   PHOTO_PATH_INVALID: 'A photo did not upload properly. Take or choose it again.',
   UPLOAD_LIMIT: 'Too many photos in a short time. Try again in a few minutes.',
   PRICE_TARGET_CHANGED:
-    'This change no longer matches what was approved: an item, size, add-on, promotion, court rate or the featured discount changed since. Start a new change.',
+    'This change no longer matches what was approved: an item, size, add-on, promotion, court rate, the featured discount, a lesson type or a coach’s lesson price changed since. Start a new change.',
   RELEASE_NOT_READY: 'Not ready to launch: check names, prices, photo, recipe and category.',
   NOTE_WINDOW_CLOSED: 'Notes on this item closed 30 days after its launch.',
   SPONSOR_DETAILS_REQUIRED: 'Add the sponsor or client details before starting this tournament.',
@@ -51,9 +51,10 @@ export const opErrorsProtocolsEn = {
   // Wave 5 reword (addendum §2.2.2, §4.2): a launched size's or paid add-on's
   // name now changes through a price change too.
   PRICE_VIA_PROTOCOL:
-    'Prices, size and add-on names, promotions, court rates and the featured-item discount change through a price or promotion change in Protocols.',
+    'Prices, size and add-on names, promotions, court rates, the featured-item discount, and lesson prices and court shares change through a price or promotion change in Protocols.',
   ITEM_VIA_RELEASE: 'New menu items start as “Propose a new item”, and the owner launches them.',
-  LAUNCH_VIA_PROTOCOL: 'Save it hidden. It goes on sale when the owner approves its price in a price change.',
+  LAUNCH_VIA_PROTOCOL:
+    'Save it hidden, or keep the lesson type a draft. It goes on sale when the owner approves its price in a price change.',
   // Existing codes that had no op.errors string until now (both maps).
   NOT_PREPARED: 'Only prepared items can be made here.',
   NO_RECIPE: 'This item has no recipe yet. Ask a manager to add one.',

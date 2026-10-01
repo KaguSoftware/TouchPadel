@@ -793,10 +793,18 @@ export async function buildMap({ catalog, sha } = {}) {
     chunks.push({ kind: 'rpc', ref: `rpc:${t.name}`, lang: 'en', title: `tool ${t.name}`, body, route: t.route });
   }
 
-  // ── action: client-callable functions that are not tools
+  // ── action: client-callable functions that are not tools. A function the
+  // coverage fixture marks `excluded` gets no chunk: the coach statements and
+  // the person-money reports never reach the assistant, not even described
+  // (C-28, R42).
   const callers = operatorRpcCallers();
+  const excludedFns = new Set(
+    Object.entries(coverage?.functions ?? {})
+      .filter(([, v]) => String(v).startsWith('excluded'))
+      .map(([k]) => k),
+  );
   for (const f of [...fns.values()].sort((a, b) => a.name.localeCompare(b.name))) {
-    if (!f.clientCallable || toolByRpc.has(f.name)) continue;
+    if (!f.clientCallable || toolByRpc.has(f.name) || excludedFns.has(f.name)) continue;
     const files = [...(callers.get(f.name) ?? [])].sort();
     const routesCalling = [...new Set(files.map(routeOfFile).filter(Boolean))].sort();
     const body = [

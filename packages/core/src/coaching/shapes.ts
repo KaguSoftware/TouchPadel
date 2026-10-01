@@ -200,6 +200,30 @@ const COACHING_SETTINGS = [
   'online_payments_available',
 ] as const;
 
+/** `set_coach_hours` and `set_my_coach_hours` (db.md §4.6.5; the read's names, guest.md §4.3). */
+const HOURS_WRITTEN = {
+  keys: ['coach_id', 'venue_id', 'windows', 'hours'],
+  nested: {
+    'windows[]': ['id', 'weekday', 'start_time', 'end_time', 'set_by', 'updated_at'],
+    'hours[]': ['id', 'weekday', 'start_time', 'end_time', 'set_by', 'updated_at'],
+  },
+} as const;
+
+/** `add_coach_time_off` and `add_my_time_off`. */
+const TIME_OFF_ADDED = ['id', 'starts_at', 'ends_at', 'reason', 'set_by'] as const;
+
+/** `cancel_coach_time_off` and `cancel_my_time_off`. */
+const TIME_OFF_CANCELLED = ['id', 'cancelled_at', 'duplicate'] as const;
+
+/** `coach_mark_attendance` and `desk_mark_attendance` (CD-11): `attendance` null after a clear. */
+const ATTENDANCE_MARKED = [
+  'duplicate',
+  'lesson_id',
+  'enrolment_id',
+  'attendance',
+  'status',
+] as const;
+
 // ---------------------------------------------------------------------------------------------
 
 const shapes = {
@@ -405,6 +429,13 @@ const shapes = {
       'refund_iqd',
       'kept_iqd',
     ],
+  },
+
+  /** C-21, R44: "Is this you?" on a coach- or desk-typed place that matched the caller. */
+  lesson_link_confirm: {
+    rpc: 'lesson_link_confirm',
+    x: null,
+    keys: ['enrolment_id', 'linked', 'duplicate'],
   },
 
   my_lessons: {
@@ -659,6 +690,39 @@ const shapes = {
 
   coach_reschedule_session: { rpc: 'coach_reschedule_session', x: null, keys: RESCHEDULED },
 
+  /** C-22, R61: the coach accepts going public. */
+  coach_accept_public: {
+    rpc: 'coach_accept_public',
+    x: null,
+    keys: ['ok', 'duplicate', 'public_accepted_at'],
+  },
+
+  set_my_coach_hours: { rpc: 'set_my_coach_hours', x: null, ...HOURS_WRITTEN },
+
+  add_my_time_off: { rpc: 'add_my_time_off', x: null, keys: TIME_OFF_ADDED },
+
+  cancel_my_time_off: { rpc: 'cancel_my_time_off', x: null, keys: TIME_OFF_CANCELLED },
+
+  coach_mark_attendance: { rpc: 'coach_mark_attendance', x: null, keys: ATTENDANCE_MARKED },
+
+  coach_remove_student: {
+    rpc: 'coach_remove_student',
+    x: null,
+    keys: ['ok', 'duplicate', 'enrolment_id', 'status'],
+  },
+
+  coach_cancel_lesson: {
+    rpc: 'coach_cancel_lesson',
+    x: null,
+    keys: ['ok', 'duplicate', 'lesson_id', 'status'],
+  },
+
+  coach_cancel_course: {
+    rpc: 'coach_cancel_course',
+    x: null,
+    keys: ['ok', 'duplicate', 'course_id', 'status', 'sessions_cancelled'],
+  },
+
   // ---- Staff: settings, coaches, desk.
 
   coaching_settings: { rpc: 'coaching_settings', x: 'X20', keys: COACHING_SETTINGS },
@@ -730,6 +794,81 @@ const shapes = {
       'lesson_types[].pending_run': ['run_id', 'change'],
     },
   },
+
+  // ---- Staff: coaches and lesson types (coaching_admin; R81: added by the sub-step that builds them).
+
+  coach_promote: {
+    rpc: 'coach_promote',
+    x: null,
+    keys: ['coach_id', 'status', 'venue_ids', 'revived', 'duplicate'],
+  },
+
+  coach_update: {
+    rpc: 'coach_update',
+    x: null,
+    keys: [
+      'coach_id',
+      'status',
+      'display_name_en',
+      'display_name_ar',
+      'bio_en',
+      'bio_ar',
+      'photo_path',
+      'sort_order',
+      'public_accepted_at',
+      'updated_at',
+    ],
+  },
+
+  set_coach_branches: {
+    rpc: 'set_coach_branches',
+    x: null,
+    keys: ['coach_id', 'venue_ids', 'dropped'],
+  },
+
+  set_coach_lesson_types: {
+    rpc: 'set_coach_lesson_types',
+    x: null,
+    keys: ['coach_id', 'venue_id', 'lesson_type_ids', 'prices_removed'],
+    nested: { 'prices_removed[]': ['lesson_type_id', 'price_iqd'] },
+  },
+
+  upsert_lesson_type: {
+    rpc: 'upsert_lesson_type',
+    x: null,
+    keys: [
+      'lesson_type_id',
+      'id',
+      'venue_id',
+      'kind',
+      'name_en',
+      'name_ar',
+      'description_en',
+      'description_ar',
+      'duration_min',
+      'price_iqd',
+      'court_share_iqd',
+      'max_places',
+      'min_places',
+      'cutoff_hours',
+      'sessions_count',
+      'is_active',
+      'launched_at',
+      'sort_order',
+    ],
+  },
+
+  set_coach_price: {
+    rpc: 'set_coach_price',
+    x: null,
+    keys: ['coach_id', 'lesson_type_id', 'price_iqd'],
+  },
+
+  set_coach_hours: { rpc: 'set_coach_hours', x: null, ...HOURS_WRITTEN },
+
+  add_coach_time_off: { rpc: 'add_coach_time_off', x: null, keys: TIME_OFF_ADDED },
+
+  cancel_coach_time_off: { rpc: 'cancel_coach_time_off', x: null, keys: TIME_OFF_CANCELLED },
 
   set_coach_status: {
     rpc: 'set_coach_status',
@@ -984,6 +1123,14 @@ const shapes = {
 
   desk_reschedule_session: { rpc: 'desk_reschedule_session', x: 'X29', keys: RESCHEDULED },
 
+  desk_mark_attendance: { rpc: 'desk_mark_attendance', x: 'X29', keys: ATTENDANCE_MARKED },
+
+  desk_move_lesson_court: {
+    rpc: 'desk_move_lesson_court',
+    x: 'X29',
+    keys: ['duplicate', 'lesson_id', 'court_id', 'court_name_en', 'court_name_ar'],
+  },
+
   // ---- Money (money.md): the engine, desk and online money, statements, reports.
 
   /** Internal (service role): the money engine every lesson figure reads (money.md §5.3). */
@@ -1014,6 +1161,7 @@ const shapes = {
       'refund_due_online_iqd',
       'refund_due_desk_iqd',
       'refund_blocked_iqd',
+      'refunded_outside_iqd',
       'sandbox',
       'if_cancelled',
       'sessions',
@@ -1075,6 +1223,13 @@ const shapes = {
         'created_at',
       ],
     },
+  },
+
+  /** R75: online lesson money recorded as handed back outside the till (manager PIN). */
+  lesson_blocked_refund_record: {
+    rpc: 'lesson_blocked_refund_record',
+    x: null,
+    keys: ['enrolment_id', 'amount_iqd', 'refunded_outside_iqd', 'online_blocked_iqd'],
   },
 
   /** `deposit_status` for a `purpose 'lesson'` row (money.md §6.6; the `lesson` block is X14's union). */
@@ -1208,6 +1363,13 @@ const shapes = {
     rpc: 'coach_statement_mark_paid',
     x: null,
     keys: ['duplicate', 'statement_id', 'status', 'paid_at', 'total_iqd'],
+  },
+
+  /** R59, R70: a void (a manager PIN from approved). */
+  coach_statement_void: {
+    rpc: 'coach_statement_void',
+    x: null,
+    keys: ['duplicate', 'statement_id', 'status', 'voided_at'],
   },
 
   report_lessons: {

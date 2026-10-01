@@ -17,6 +17,11 @@
  * The printed sequences of the coaching RPCs (db.md §2.5's stack list:
  * lesson_book_private, the cancels, lesson_sweep, deposit_apply's lesson arm)
  * join this file in the commits that create them (coaching_admin onward).
+ * lesson_online_payment (0281, R33, R34, R64): deposit_apply's lesson arm takes
+ * the coach, the branch's courts and the hold row before the payment row, and
+ * expires stale holds skip-locked after the deposit arm's settle call (whose
+ * expiry is the body's one waiting reservations lock); R33 read literally (a
+ * waiting match_expire_holds in the lesson arm) is the inversion shown here.
  */
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
@@ -234,6 +239,67 @@ describe('the walker over synthetic coaching catalogs (pure)', () => {
     expect(out.walked).toEqual(['lesson_sweep']);
     expect(out.rows).toEqual([{ fn: 'lesson_sweep', seq: ['coach_advisory'] }]);
   });
+
+  it("0281 deposit_apply's lesson arm: coach -> courts -> rows -> payment row; the stale holds skip-locked after the deposit settle (R33, R34, R64)", () => {
+    // 0258's deposit_settle_success: its one waiting hold expiry above its first write (R15).
+    const deposit_settle_success = `begin
+      perform app.expire_stale_holds(c, x);
+      update reservations set kind = 'booking', status = 'confirmed' where id = h;
+    end`;
+    // 0281: no lock of its own; the hold becomes the lesson's row in place, or a re-picked row.
+    const lesson_settle_success = `begin
+      update reservations set kind = 'lesson', status = 'confirmed' where id = h;
+      insert into reservations (id, kind, lesson_id) values (r, 'lesson', l);
+    end`;
+    const deposit_apply = `begin
+      if v.purpose = 'lesson' then perform app.lock_coach(k); end if;
+      if v.purpose = 'deposit' then perform app.lock_court(c);
+      elsif v.hold_id is not null then a := app.lesson_lock_branch_courts(b); end if;
+      if v.purpose = 'deposit' then perform 1 from reservations where id in (r, h) order by id for update;
+      elsif v.hold_id is not null then perform 1 from reservations where id = h for update; end if;
+      select * into v from booking_payments where id = p for update;
+      if v.purpose = 'deposit' then n := app.deposit_settle_success(p);
+      elsif v.purpose = 'lesson' then
+        update reservations set status = 'expired'
+         where id in (select x.id from reservations x where x.kind = 'hold' order by x.id for update of x skip locked);
+        n := app.lesson_settle_success(p, a);
+      end if;
+    end`;
+    const fns = (apply: string) => [
+      ...BASE,
+      { name: 'expire_stale_holds', src: match_expire_holds },
+      { name: 'deposit_settle_success', src: deposit_settle_success },
+      { name: 'lesson_settle_success', src: lesson_settle_success },
+      { name: 'deposit_apply', src: apply },
+    ];
+    // deposit_apply and lesson_settle_success are on the service-role walk.
+    const out = analyse({ fns: fns(deposit_apply), triggers: TRIGGER, callable: [] });
+    expect(out.violations).toEqual([]);
+    expect(out.rows.find((r) => r.fn === 'deposit_apply')?.seq).toEqual(LEVEL_B.split(' -> '));
+    expect(out.rows.find((r) => r.fn === 'lesson_settle_success')?.seq).toEqual([
+      'match_venue_advisory',
+      'match_tickets',
+    ]);
+
+    // R33 read literally: a waiting match_expire_holds in the lesson arm before the payment row.
+    // With deposit_settle_success's own waiting expiry later in the text, the body reads
+    // match_tickets -> reservations, whichever expiry comes first.
+    const literal = deposit_apply
+      .replace(
+        'perform 1 from reservations where id = h for update; end if;',
+        'perform 1 from reservations where id = h for update; perform app.match_expire_holds(b, x); end if;',
+      )
+      .replace(
+        /update reservations set status = 'expired'\s+where id in \(select x\.id from reservations x where x\.kind = 'hold' order by x\.id for update of x skip locked\);\s+/,
+        '',
+      );
+    expect(literal).toContain('app.match_expire_holds(b, x)');
+    expect(literal).not.toContain('skip locked');
+    const bad = analyse({ fns: fns(literal), triggers: TRIGGER, callable: [] });
+    expect(bad.violations.join('\n')).toMatch(
+      /deposit_apply: takes match_tickets before reservations/,
+    );
+  });
 });
 
 // ── the gate over the local stack ────────────────────────────────────────────
@@ -276,5 +342,90 @@ describe.skipIf(!docker)('check:locks over the local stack (coaching_tables)', (
     const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
     expect(rowOf(walkedRows, 'lock_coach')).toBeUndefined();
     expect(rowOf(walkedRows, 'try_lock_coach')).toBeUndefined();
+  });
+
+  it('0278: the desk lesson payment and the lesson refund take the coach mutex before the till', () => {
+    const gate = runGate([]);
+    expect(gate.code, gate.out).toBe(0);
+    const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
+    expect(rowOf(walkedRows, 'lesson_settle')).toBe('coach_advisory -> tabs');
+    expect(rowOf(walkedRows, 'refund')?.startsWith('coach_advisory -> tabs -> payments')).toBe(
+      true,
+    );
+    expect(rowOf(walkedRows, 'lesson_blocked_refund_record')).toBe('coach_advisory');
+    expect(rowOf(walkedRows, 'lesson_refunds_due')).toBeUndefined();
+  });
+
+  it('0279, 0280: bookings take the coach, every court, then the rows; cancels the coach and status writes only (db.md §2.5)', () => {
+    const gate = runGate([]);
+    expect(gate.code, gate.out).toBe(0);
+    const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
+    for (const fn of [
+      'lesson_book_private',
+      'coach_book_private',
+      'desk_book_lesson',
+      'coach_create_group',
+      'desk_create_group',
+      'coach_create_course',
+      'desk_create_course',
+      'coach_reschedule_session',
+      'desk_reschedule_session',
+      'desk_move_lesson_court',
+    ]) {
+      expect(rowOf(walkedRows, fn), fn).toBe(LEVEL_B);
+    }
+    for (const fn of [
+      'lesson_join',
+      'course_join',
+      'coach_add_student',
+      'desk_add_student',
+      'set_coach_hours',
+    ]) {
+      expect(rowOf(walkedRows, fn), fn).toBe('coach_advisory');
+    }
+    for (const fn of [
+      'lesson_cancel_mine',
+      'coach_remove_student',
+      'coach_cancel_lesson',
+      'coach_cancel_course',
+      'desk_cancel_enrolment',
+      'desk_cancel_lesson',
+      'desk_cancel_course',
+      'set_coach_status',
+      'lesson_sweep',
+    ]) {
+      expect(rowOf(walkedRows, fn), fn).toBe(
+        'coach_advisory -> match_venue_advisory -> match_tickets',
+      );
+    }
+  });
+
+  it("0281: deposit_apply's lesson arm, the success and the prepare print in order (R33, money.md §9)", () => {
+    const gate = runGate(['lesson_hold_expire']);
+    expect(gate.code, gate.out).toBe(0);
+    const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
+    expect(rowOf(walkedRows, 'deposit_apply')).toBe(LEVEL_B);
+    expect(rowOf(walkedRows, 'lesson_settle_success')).toBe(
+      'match_venue_advisory -> match_tickets',
+    );
+    expect(rowOf(walkedRows, 'lesson_payment_prepare')).toBe(LEVEL_B);
+    // Internal, not walked: status writes and the skip-locked hold release only.
+    const internal = gate.out.slice(gate.out.indexOf('internal sequences'));
+    expect(rowOf(internal, 'lesson_hold_expire')).toBe('match_venue_advisory -> match_tickets');
+  });
+
+  it('0284: the statement writes and the monthly draft take the coach mutex only', () => {
+    const gate = runGate([]);
+    expect(gate.code, gate.out).toBe(0);
+    const walkedRows = gate.out.slice(0, gate.out.indexOf('internal sequences'));
+    for (const fn of [
+      'coach_statement_refresh',
+      'coach_statement_approve',
+      'coach_statement_void',
+      'coach_statement_mark_paid',
+      'coach_statements_draft',
+    ]) {
+      expect(rowOf(walkedRows, fn), fn).toBe('coach_advisory');
+    }
   });
 });

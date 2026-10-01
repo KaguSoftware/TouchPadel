@@ -1970,7 +1970,7 @@ export const en = {
       BRANCH_DAY_OPEN: 'Close this branch’s day before closing the branch.',
       STATION_RETIRED: 'This station was retired. Register it again in Settings → Venue details → Stations.',
       STATION_HAS_HISTORY: 'This station name has till shifts at another branch. Pick another name.',
-      BRANCH_HAS_BOOKINGS: 'This branch still has bookings, holds or series to come. Cancel or move them first.',
+      BRANCH_HAS_BOOKINGS: 'This branch still has bookings, lessons, holds or series to come. Cancel or move them first.',
       VENUE_CLOSED: 'This branch is closed.',
       NO_PIN_SET: 'This account has no PIN yet. Ask the owner to set one.',
       BOOKING_TAB_OPEN: 'This booking already has an open bill. Add to that bill instead.',

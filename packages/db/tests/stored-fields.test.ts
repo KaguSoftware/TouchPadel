@@ -682,6 +682,69 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     ]);
     if (blocks.error) throw new Error(`match_blocks: ${blocks.error.message}`);
 
+    // 0286 (coaching; db.md §4.10, R43, R49, R63, R83): the guest is a coach
+    // (bios, a photo, a time-off reason), a student a coach typed and the
+    // guest confirmed (C-21), a guest who booked a private lesson with a
+    // friend, and a typed student whose phone matched the guest but was never
+    // confirmed (unlinked silently, as "Not me"). The lessons were cancelled
+    // weeks ago, so no sweep, statement or report reads them; every row is
+    // removed at the end.
+    const ins = async (table: string, row: Record<string, unknown>) => {
+      const { data, error } = await svc.from(table).insert(row).select('id').single();
+      if (error) throw new Error(`${table}: ${error.message}`);
+      return (data as { id: string }).id;
+    };
+    const teacher = await ins('coaches', {
+      profile_id: otherId, display_name_en: 'SEC20 Teacher', display_name_ar: 'مدرّب SEC20',
+    });
+    const photoFolder = `coaches/${crypto.randomUUID()}`;
+    const coachId = await ins('coaches', {
+      profile_id: uid,
+      display_name_en: 'SEC20 Coach',
+      display_name_ar: 'مدرّب SEC20 الثاني',
+      bio_en: 'sec20 bio',
+      bio_ar: 'نبذة sec20',
+      photo_path: `${photoFolder}/a.jpg`,
+      public_accepted_at: new Date().toISOString(),
+    });
+    const timeOffId = await ins('coach_time_off', {
+      coach_id: coachId,
+      period: `[${new Date(Date.now() + 400 * 86_400_000).toISOString()},${new Date(Date.now() + 401 * 86_400_000).toISOString()})`,
+      reason: 'sec20 holiday',
+      set_by: 'coach',
+    });
+    const typeId = await ins('lesson_types', {
+      venue_id: VENUE_A_ID, kind: 'private', name_en: 'SEC20 private', name_ar: 'حصة SEC20', duration_min: 60,
+      price_iqd: 40_000, court_share_iqd: 10_000, max_places: 4, min_places: 1, cutoff_hours: 0,
+    });
+    const weeksAgo = Date.now() - 45 * 86_400_000;
+    const cancelledLesson = (i: number) =>
+      ins('lessons', {
+        venue_id: VENUE_A_ID, coach_id: teacher, lesson_type_id: typeId, kind: 'private',
+        start_at: new Date(weeksAgo + i * 3 * 3_600_000).toISOString(),
+        end_at: new Date(weeksAgo + i * 3 * 3_600_000 + 3_600_000).toISOString(),
+        price_iqd: 40_000, court_share_iqd: 10_000, coach_share_bp: 6000, max_places: 4, min_places: 1,
+        status: 'cancelled', cancel_reason: 'staff_cancel', cancelled_at: new Date().toISOString(),
+        booked_by_kind: 'staff', created_by_staff_id: SEED_STAFF_IDS.court_desk,
+      });
+    const lessonIds = [await cancelledLesson(0), await cancelledLesson(1), await cancelledLesson(2)];
+    const ended = { status: 'cancelled', cancel_kind: 'staff', cancelled_at: new Date().toISOString() };
+    const confirmedId = await ins('lesson_enrolments', {
+      venue_id: VENUE_A_ID, lesson_id: lessonIds[0], guest_id: uid, guest_name: 'SEC20 Student',
+      guest_phone: '07700020021', booked_by_kind: 'coach', booked_by_profile_id: otherId,
+      link_confirmed_at: new Date().toISOString(), price_iqd: 40_000, payment_mode: 'desk', ...ended,
+    });
+    const ownId = await ins('lesson_enrolments', {
+      venue_id: VENUE_A_ID, lesson_id: lessonIds[1], guest_id: uid, party_size: 2, friend_names: ['SEC20 Friend'],
+      booked_by_kind: 'guest', booked_by_profile_id: uid, link_confirmed_at: new Date().toISOString(),
+      price_iqd: 40_000, payment_mode: 'desk', ...ended,
+    });
+    const pendingId = await ins('lesson_enrolments', {
+      venue_id: VENUE_A_ID, lesson_id: lessonIds[2], guest_id: uid, guest_name: 'SEC20 Pending',
+      guest_phone: '07700020022', booked_by_kind: 'coach', booked_by_profile_id: otherId,
+      price_iqd: 40_000, payment_mode: 'desk', ...ended,
+    });
+
     const del = await appRpc(guest, 'delete_my_account', { p_confirm: 'DELETE' });
     expect(del.error).toBeNull();
 
@@ -694,6 +757,8 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       ['reservations', 'id', reservationId],
       ['match_seats', 'id', (seat as { id: string }).id],
       ['match_requests', 'id', (request as { id: string }).id],
+      ['coaches', 'profile_id', uid],
+      ['lesson_enrolments', 'id', confirmedId],
     ] as const) {
       const erasable = Object.entries(GUEST_DATA[table] ?? {}).filter(
         ([, f]) => f.category && (f.onDelete === 'scrub' || f.onDelete === 'anonymise'),
@@ -729,7 +794,49 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       if ((data ?? []).length > 0) leaks.push(`${table} still has ${(data ?? []).length} row(s)`);
     }
 
+    // 'empty' (0286): the row survives, the column is '' or {}.
+    for (const [table, id, cols] of [
+      ['coaches', coachId, ['bio_en', 'bio_ar']],
+      ['lesson_enrolments', ownId, ['friend_names']],
+      ['coach_time_off', timeOffId, ['reason']],
+    ] as const) {
+      const { data, error } = await svc.from(table).select(cols.join(',')).eq('id', id).single();
+      if (error) throw new Error(`${table}: ${error.message}`);
+      for (const col of cols) {
+        const value = (data as unknown as Record<string, unknown>)[col];
+        if (value !== '' && !(Array.isArray(value) && value.length === 0)) {
+          leaks.push(`${table}.${col} should be empty, holds ${JSON.stringify(value)}`);
+        }
+      }
+    }
+
     expect(leaks).toEqual([]);
+
+    // The deleted coach is retired, keeps the display names for the statements
+    // (C-29, R63), and its photo folder is queued for removal (R43).
+    const { data: coachRow } = await svc
+      .from('coaches')
+      .select('status, display_name_en, retired_at')
+      .eq('id', coachId)
+      .single();
+    expect(coachRow).toMatchObject({ status: 'retired', display_name_en: 'SEC20 Coach' });
+    const { data: purges } = await svc.from('coach_photo_purges').select('folder').eq('coach_id', coachId);
+    expect((purges ?? []).map((p) => (p as { folder: string }).folder)).toEqual([photoFolder]);
+    // A pending link is dropped silently, as "Not me" (C-21, R83): the coach's
+    // typed student stays exactly as typed.
+    const { data: pending } = await svc
+      .from('lesson_enrolments')
+      .select('guest_id, guest_name, guest_phone')
+      .eq('id', pendingId)
+      .single();
+    expect(pending).toEqual({ guest_id: null, guest_name: 'SEC20 Pending', guest_phone: '07700020022' });
+
+    await svc.from('lesson_enrolments').delete().in('id', [confirmedId, ownId, pendingId]);
+    await svc.from('lessons').delete().in('id', lessonIds);
+    await svc.from('lesson_types').delete().eq('id', typeId);
+    await svc.from('coach_time_off').delete().eq('id', timeOffId);
+    await svc.from('coach_photo_purges').delete().eq('coach_id', coachId);
+    await svc.from('coaches').delete().in('id', [coachId, teacher]);
 
     // The two gender stamps are declared n (they identify nobody alone), but
     // they go with gender: the tombstone has no trace of it.
